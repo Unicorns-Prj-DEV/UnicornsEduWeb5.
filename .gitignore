@@ -27,3 +27,5 @@ out
 
 # pnpm
 .pnpm-store
+archived
+generated
