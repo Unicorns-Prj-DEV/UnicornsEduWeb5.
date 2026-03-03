@@ -1,0 +1,133 @@
+// ============================================
+// LESSON PLANS
+// ============================================
+model LessonPlan {
+  id              String         @id
+  assistantId     String?        @map("assistant_id")
+  type            LessonPlanType?
+  resourceLink    String?        @map("resource_link")
+  tag             String?
+  level           String?
+  lessonName      String?        @map("lesson_name")
+  cost            Int            @default(0)
+  date            DateTime?      @db.Date
+  status          String         @default("pending")
+  contestUploaded String?        @map("contest_uploaded")
+  link            String?
+  completedBy     String?        @map("completed_by")
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+
+  assistant Assistant? @relation(fields: [assistantId], references: [id], onDelete: SetNull)
+
+  @@index([assistantId])
+  @@index([type])
+  @@map("lesson_plans")
+}
+
+// ============================================
+// LESSON RESOURCES
+// ============================================
+model LessonResource {
+  id           String   @id
+  resourceLink String   @map("resource_link")
+  title        String?
+  description  String?
+  tags         Json     @default("[]")
+  createdBy    String?  @map("created_by")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([createdAt])
+  @@map("lesson_resources")
+}
+
+// ============================================
+// LESSON TASKS
+// ============================================
+model LessonTask {
+  id          String           @id
+  assistantId String?          @map("assistant_id")
+  title       String
+  description String?
+  status      LessonTaskStatus @default(pending)
+  priority    LessonTaskPriority @default(medium)
+  dueDate     DateTime?       @map("due_date") @db.Date
+  createdBy   String?          @map("created_by")
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  assistant Assistant? @relation(fields: [assistantId], references: [id], onDelete: SetNull)
+
+  @@index([assistantId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("lesson_tasks")
+}
+
+// ============================================
+// LESSON OUTPUTS
+// ============================================
+model LessonOutput {
+  id              String   @id
+  tag             String?
+  level           String?
+  lessonName      String   @map("lesson_name")
+  originalTitle   String?  @map("original_title")
+  cost            Int      @default(0)
+  date            DateTime @db.Date
+  status          String   @default("pending")
+  contestUploaded String?  @map("contest_uploaded")
+  link            String?
+  completedBy     String?  @map("completed_by")
+  assistantId     String?  @map("assistant_id")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  assistant  Assistant?       @relation(fields: [assistantId], references: [id], onDelete: SetNull)
+  topicLinks LessonTopicLink[]
+
+  @@index([date])
+  @@index([status])
+  @@index([tag])
+  @@map("lesson_outputs")
+}
+
+// ============================================
+// LESSON TOPICS
+// ============================================
+model LessonTopic {
+  id        String   @id
+  name      String
+  isDefault Boolean  @default(false) @map("is_default")
+  level     Int?
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  lessonLinks LessonTopicLink[]
+
+  @@index([isDefault])
+  @@index([level])
+  @@map("lesson_topics")
+}
+
+// ============================================
+// LESSON TOPIC LINKS
+// ============================================
+model LessonTopicLink {
+  id             String   @id
+  topicId        String   @map("topic_id")
+  lessonOutputId String   @map("lesson_output_id")
+  orderIndex     Int      @default(0) @map("order_index")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  topic        LessonTopic  @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  lessonOutput LessonOutput @relation(fields: [lessonOutputId], references: [id], onDelete: Cascade)
+
+  @@unique([topicId, lessonOutputId])
+  @@index([topicId])
+  @@index([lessonOutputId])
+  @@index([topicId, orderIndex])
+  @@map("lesson_topic_links")
+}

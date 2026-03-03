@@ -1,0 +1,86 @@
+// ============================================
+// ENUMS (từ CHECK constraints trong schema.sql)
+// ============================================
+enum UserRole {
+  admin
+  teacher
+  student
+  assistant
+  visitor
+}
+
+enum UserStatus {
+  active
+  inactive
+  pending
+}
+
+enum AssistantType {
+  technical
+  lesson_plan
+}
+
+enum ClassStatus {
+  running
+  paused
+  ended
+}
+
+enum SessionPaymentStatus {
+  paid
+  unpaid
+  deposit
+}
+
+enum StudentStatus {
+  active
+  inactive
+}
+
+enum Gender {
+  male
+  female
+}
+
+enum PaymentStatus {
+  paid
+  pending
+  cancelled
+}
+
+enum WalletTransactionType {
+  topup
+  loan
+  advance
+  repayment
+}
+
+enum DashboardCacheType {
+  dashboard
+  quickview
+}
+
+enum HomePostCategory {
+  intro
+  news
+  docs
+  policy
+}
+
+enum LessonPlanType {
+  resource
+  completed_task
+}
+
+enum LessonTaskStatus {
+  pending
+  in_progress
+  completed
+  cancelled
+}
+
+enum LessonTaskPriority {
+  low
+  medium
+  high
+}

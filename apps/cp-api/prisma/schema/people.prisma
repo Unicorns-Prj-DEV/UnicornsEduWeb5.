@@ -1,0 +1,79 @@
+// ============================================
+// TEACHERS
+// ============================================
+model Teacher {
+  id              String    @id
+  fullName        String    @map("full_name")
+  email           String?
+  phone           String?
+  birthDate       DateTime? @map("birth_date") @db.Date
+  university      String?
+  highSchool      String?   @map("high_school")
+  province        String?
+  specialization  String?
+  bankAccount     String?   @map("bank_account")
+  bankQrLink      String?   @map("bank_qr_link")
+  photoUrl        String?   @map("photo_url")
+  roles           Json      @default("[]")
+  status          String    @default("active")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  classes   ClassTeacher[]
+  sessions  Session[]
+  payrolls  Payroll[]
+  bonuses   Bonus[]
+
+  @@map("teachers")
+}
+
+// ============================================
+// STUDENTS
+// ============================================
+model Student {
+  id             String   @id
+  fullName       String   @map("full_name")
+  email          String?
+  school         String?
+  province       String?
+  birthYear      Int?     @map("birth_year")
+  parentName     String?  @map("parent_name")
+  parentPhone    String?  @map("parent_phone")
+  status         StudentStatus @default(active)
+  gender         Gender  @default(male)
+  goal           String?
+  lastAttendance DateTime? @map("last_attendance") @db.Timestamptz
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  classes           StudentClass[]
+  attendanceRecords Attendance[]
+  payments          Payment[]
+  walletTransactions WalletTransaction[]
+
+  @@map("students")
+}
+
+// ============================================
+// ASSISTANTS
+// ============================================
+model Assistant {
+  id            String        @id
+  fullName      String        @map("full_name")
+  email         String?
+  phone         String?
+  assistantType AssistantType @map("assistant_type")
+  status        String        @default("active")
+  userId        String?       @map("user_id")
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  payments     AssistantPayment[]
+  tasks        AssistantTask[]
+  lessonPlans  LessonPlan[]
+  lessonTasks  LessonTask[]
+  lessonOutputs LessonOutput[]
+
+  @@index([assistantType])
+  @@map("assistants")
+}

@@ -1,0 +1,113 @@
+// ============================================
+// CLASSES
+// ============================================
+model Class {
+  id                    String   @id
+  name                  String
+  type                  String
+  status                ClassStatus @default(running)
+  maxStudents           Int      @default(15) @map("max_students")
+  tuitionPerSession     Int      @default(0) @map("tuition_per_session")
+  schedule              Json     @default("[]")
+  customTeacherAllowances Json   @default("{}") @map("custom_teacher_allowances")
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  teachers       ClassTeacher[]
+  students       StudentClass[]
+  sessions       Session[]
+  payments       Payment[]
+  revenues       Revenue[]
+
+  @@map("classes")
+}
+
+// ============================================
+// CLASS_TEACHERS
+// ============================================
+model ClassTeacher {
+  id              String   @id
+  classId         String   @map("class_id")
+  teacherId       String   @map("teacher_id")
+  customAllowance Int?     @map("custom_allowance")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, teacherId])
+  @@index([classId])
+  @@index([teacherId])
+  @@map("class_teachers")
+}
+
+// ============================================
+// STUDENT_CLASSES
+// ============================================
+model StudentClass {
+  id        String   @id
+  studentId String   @map("student_id")
+  classId   String   @map("class_id")
+  startDate DateTime @map("start_date") @db.Date
+  status    String   @default("active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, classId])
+  @@index([studentId])
+  @@index([classId])
+  @@map("student_classes")
+}
+
+// ============================================
+// SESSIONS
+// ============================================
+model Session {
+  id                 String             @id
+  classId            String             @map("class_id")
+  teacherId          String?            @map("teacher_id")
+  date               DateTime           @db.Date
+  startTime          DateTime?          @map("start_time") @db.Time
+  endTime            DateTime?          @map("end_time") @db.Time
+  duration           Decimal            @default(2.0) @db.Decimal(4, 2)
+  coefficient        Decimal            @default(1.0) @db.Decimal(3, 1)
+  notes              String?
+  paymentStatus      SessionPaymentStatus @default(unpaid) @map("payment_status")
+  allowanceAmount    Int?               @map("allowance_amount")
+  subsidyOriginal    Int?               @map("subsidy_original")
+  subsidyModifiedBy  String?            @map("subsidy_modified_by")
+  subsidyModifiedAt  DateTime?         @map("subsidy_modified_at") @db.Timestamptz
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  class      Class       @relation(fields: [classId], references: [id], onDelete: Cascade)
+  teacher    Teacher?    @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  attendance Attendance[]
+
+  @@index([classId])
+  @@index([teacherId])
+  @@index([date])
+  @@map("sessions")
+}
+
+// ============================================
+// ATTENDANCE
+// ============================================
+model Attendance {
+  id        String   @id
+  sessionId String   @map("session_id")
+  studentId String   @map("student_id")
+  present   Boolean  @default(true)
+  remark    String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, studentId])
+  @@index([sessionId])
+  @@index([studentId])
+  @@map("attendance")
+}

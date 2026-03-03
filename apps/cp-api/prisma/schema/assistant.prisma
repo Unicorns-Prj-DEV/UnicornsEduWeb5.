@@ -1,0 +1,41 @@
+// ============================================
+// ASSISTANT PAYMENTS
+// ============================================
+model AssistantPayment {
+  id          String   @id
+  assistantId String   @map("assistant_id")
+  amount      Int      @default(0)
+  status      String   @default("pending")
+  date        DateTime @db.Date
+  note        String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  assistant Assistant @relation(fields: [assistantId], references: [id], onDelete: Cascade)
+
+  @@index([assistantId])
+  @@index([date])
+  @@map("assistant_payments")
+}
+
+// ============================================
+// ASSISTANT TASKS
+// ============================================
+model AssistantTask {
+  id          String    @id
+  assistantId String    @map("assistant_id")
+  contest     String?
+  problemName String?   @map("problem_name")
+  date        DateTime? @db.Date
+  status      String    @default("pending")
+  link        String?
+  note        String?
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  assistant Assistant @relation(fields: [assistantId], references: [id], onDelete: Cascade)
+
+  @@index([assistantId])
+  @@index([date])
+  @@map("assistant_tasks")
+}

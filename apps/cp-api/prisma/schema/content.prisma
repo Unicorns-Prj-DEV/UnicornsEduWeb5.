@@ -1,0 +1,48 @@
+// ============================================
+// HOME POSTS
+// ============================================
+model HomePost {
+  id          String          @id
+  category    HomePostCategory
+  title       String
+  content     String
+  attachments Json            @default("[]")
+  tags        Json            @default("[]")
+  badge       String?
+  authorId    String?         @map("author_id")
+  authorName  String?         @map("author_name")
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([category])
+  @@map("home_posts")
+}
+
+// ============================================
+// CATEGORIES
+// ============================================
+model Category {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("categories")
+}
+
+// ============================================
+// DOCUMENTS
+// ============================================
+model Document {
+  id          String   @id
+  title       String
+  description String?
+  fileUrl     String   @map("file_url")
+  tags        Json     @default("[]")
+  uploadedBy  String?  @map("uploaded_by")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([uploadedBy])
+  @@index([createdAt])
+  @@map("documents")
+}

@@ -1,0 +1,480 @@
+// Unicorns Edu - Database Schema
+// Import vào dbdiagram.io để tạo sơ đồ
+// https://dbdiagram.io
+
+Project UnicornsEdu {
+  database_type: 'PostgreSQL'
+  Note: 'Unicorns Edu - Cơ sở dữ liệu giáo dục'
+}
+
+// ============================================
+// USERS & AUTH
+// ============================================
+Table users {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  email varchar [not null, unique]
+  phone varchar
+  password_hash varchar
+  name varchar
+  role varchar [not null, note: 'admin, teacher, student, assistant, visitor']
+  province varchar
+  status varchar [default: 'active', note: 'active, inactive, pending']
+  link_id varchar [note: 'Links to teacher/student/assistant ID']
+  account_handle varchar [unique]
+  assistant_type varchar [note: 'technical, lesson_plan']
+  email_verified boolean [default: false]
+  phone_verified boolean [default: false]
+  refresh_token varchar
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    email
+    phone
+    account_handle
+    link_id
+    role
+    status
+  }
+}
+
+// ============================================
+// PEOPLE
+// ============================================
+Table teachers {
+  id varchar [pk]
+  full_name varchar [not null]
+  email varchar
+  phone varchar
+  birth_date date
+  university varchar
+  high_school varchar
+  province varchar
+  specialization varchar
+  bank_account varchar
+  bank_qr_link varchar
+  photo_url varchar
+  roles json [default: '[]']
+  status varchar [default: 'active']
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+}
+
+Table students {
+  id varchar [pk]
+  full_name varchar [not null]
+  email varchar
+  school varchar
+  province varchar
+  birth_year int
+  parent_name varchar
+  parent_phone varchar
+  status varchar [default: 'active']
+  gender varchar [default: 'male']
+  goal varchar
+  last_attendance timestamptz
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+}
+
+Table assistants {
+  id varchar [pk]
+  full_name varchar [not null]
+  email varchar
+  phone varchar
+  assistant_type varchar [not null]
+  status varchar [default: 'active']
+  user_id varchar
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    assistant_type
+  }
+}
+
+// ============================================
+// LEARNING - Classes & Sessions
+// ============================================
+Table classes {
+  id varchar [pk]
+  name varchar [not null]
+  type varchar [not null]
+  status varchar [default: 'running']
+  max_students int [default: 15]
+  tuition_per_session int [default: 0]
+  schedule json [default: '[]']
+  custom_teacher_allowances json [default: '{}']
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+}
+
+Table class_teachers {
+  id varchar [pk]
+  class_id varchar [not null, ref: > classes.id]
+  teacher_id varchar [not null, ref: > teachers.id]
+  custom_allowance int
+  created_at timestamptz [default: `now()`]
+
+  indexes {
+    (class_id, teacher_id) [unique]
+    class_id
+    teacher_id
+  }
+}
+
+Table student_classes {
+  id varchar [pk]
+  student_id varchar [not null, ref: > students.id]
+  class_id varchar [not null, ref: > classes.id]
+  start_date date [not null]
+  status varchar [default: 'active']
+  created_at timestamptz [default: `now()`]
+
+  indexes {
+    (student_id, class_id) [unique]
+    student_id
+    class_id
+  }
+}
+
+Table sessions {
+  id varchar [pk]
+  class_id varchar [not null, ref: > classes.id]
+  teacher_id varchar [ref: > teachers.id]
+  date date [not null]
+  start_time time
+  end_time time
+  duration decimal(4,2) [default: 2.0]
+  coefficient decimal(3,1) [default: 1.0]
+  notes varchar
+  payment_status varchar [default: 'unpaid']
+  allowance_amount int
+  subsidy_original int
+  subsidy_modified_by varchar
+  subsidy_modified_at timestamptz
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    class_id
+    teacher_id
+    date
+  }
+}
+
+Table attendance {
+  id varchar [pk]
+  session_id varchar [not null, ref: > sessions.id]
+  student_id varchar [not null, ref: > students.id]
+  present boolean [default: true]
+  remark varchar
+  created_at timestamptz [default: `now()`]
+
+  indexes {
+    (session_id, student_id) [unique]
+    session_id
+    student_id
+  }
+}
+
+// ============================================
+// FINANCE
+// ============================================
+Table payments {
+  id varchar [pk]
+  student_id varchar [not null, ref: > students.id]
+  class_id varchar [ref: > classes.id]
+  amount int [not null]
+  status varchar [default: 'pending']
+  date date [not null]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    student_id
+    class_id
+  }
+}
+
+Table payroll {
+  id varchar [pk]
+  teacher_id varchar [not null, ref: > teachers.id]
+  month varchar [not null]
+  total_hours decimal(6,2) [default: 0]
+  total_sessions int [default: 0]
+  base_rate int [default: 0]
+  bonus int [default: 0]
+  total_pay int [default: 0]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    (teacher_id, month) [unique]
+    teacher_id
+    month
+  }
+}
+
+Table revenue {
+  id varchar [pk]
+  class_id varchar [not null, ref: > classes.id]
+  month varchar [not null]
+  enrolled_count int [default: 0]
+  tuition_per_student int [default: 0]
+  total_revenue int [default: 0]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    (class_id, month) [unique]
+  }
+}
+
+Table wallet_transactions {
+  id varchar [pk]
+  student_id varchar [not null, ref: > students.id]
+  type varchar [not null, note: 'topup, loan, advance, repayment']
+  amount int [default: 0]
+  note varchar
+  date date [default: `now()`]
+  created_at timestamptz [default: `now()`]
+
+  indexes {
+    student_id
+  }
+}
+
+Table dashboard_cache {
+  cache_key varchar [pk]
+  cache_type varchar [not null]
+  data json [not null]
+  expires_at timestamptz [not null]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    cache_type
+    expires_at
+  }
+}
+
+Table costs {
+  id varchar [pk]
+  month varchar [not null]
+  category varchar [not null]
+  amount int [not null]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+}
+
+Table bonuses {
+  id varchar [pk]
+  staff_id varchar [not null, ref: > teachers.id]
+  work_type varchar [not null]
+  amount int [default: 0]
+  status varchar [default: 'unpaid']
+  note varchar
+  month varchar [not null]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    staff_id
+    month
+    status
+  }
+}
+
+// ============================================
+// CONTENT
+// ============================================
+Table home_posts {
+  id varchar [pk]
+  category varchar [not null]
+  title varchar [not null]
+  content varchar [not null]
+  attachments json [default: '[]']
+  tags json [default: '[]']
+  badge varchar
+  author_id varchar
+  author_name varchar
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    category
+  }
+}
+
+Table categories {
+  id serial [pk]
+  name varchar [not null, unique]
+  created_at timestamptz [default: `now()`]
+}
+
+Table documents {
+  id varchar [pk]
+  title varchar [not null]
+  description varchar
+  file_url varchar [not null]
+  tags json [default: '[]']
+  uploaded_by varchar
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    uploaded_by
+    created_at
+  }
+}
+
+// ============================================
+// ASSISTANT
+// ============================================
+Table assistant_payments {
+  id varchar [pk]
+  assistant_id varchar [not null, ref: > assistants.id]
+  amount int [default: 0]
+  status varchar [default: 'pending']
+  date date [not null]
+  note varchar
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    assistant_id
+    date
+  }
+}
+
+Table assistant_tasks {
+  id varchar [pk]
+  assistant_id varchar [not null, ref: > assistants.id]
+  contest varchar
+  problem_name varchar
+  date date
+  status varchar [default: 'pending']
+  link varchar
+  note varchar
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    assistant_id
+    date
+  }
+}
+
+// ============================================
+// LESSON
+// ============================================
+Table lesson_plans {
+  id varchar [pk]
+  assistant_id varchar [ref: > assistants.id]
+  type varchar
+  resource_link varchar
+  tag varchar
+  level varchar
+  lesson_name varchar
+  cost int [default: 0]
+  date date
+  status varchar [default: 'pending']
+  contest_uploaded varchar
+  link varchar
+  completed_by varchar
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    assistant_id
+    type
+  }
+}
+
+Table lesson_resources {
+  id varchar [pk]
+  resource_link varchar [not null]
+  title varchar
+  description varchar
+  tags json [default: '[]']
+  created_by varchar
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    created_at
+  }
+}
+
+Table lesson_tasks {
+  id varchar [pk]
+  assistant_id varchar [ref: > assistants.id]
+  title varchar [not null]
+  description varchar
+  status varchar [default: 'pending']
+  priority varchar [default: 'medium']
+  due_date date
+  created_by varchar
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    assistant_id
+    status
+    due_date
+  }
+}
+
+Table lesson_outputs {
+  id varchar [pk]
+  tag varchar
+  level varchar
+  lesson_name varchar [not null]
+  original_title varchar
+  cost int [default: 0]
+  date date [not null]
+  status varchar [default: 'pending']
+  contest_uploaded varchar
+  link varchar
+  completed_by varchar
+  assistant_id varchar [ref: > assistants.id]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    date
+    status
+    tag
+  }
+}
+
+Table lesson_topics {
+  id varchar [pk]
+  name varchar [not null]
+  is_default boolean [default: false]
+  level int
+  created_by varchar
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    is_default
+    level
+  }
+}
+
+Table lesson_topic_links {
+  id varchar [pk]
+  topic_id varchar [not null, ref: > lesson_topics.id]
+  lesson_output_id varchar [not null, ref: > lesson_outputs.id]
+  order_index int [default: 0]
+  created_at timestamptz [default: `now()`]
+
+  indexes {
+    (topic_id, lesson_output_id) [unique]
+    topic_id
+    lesson_output_id
+    (topic_id, order_index)
+  }
+}

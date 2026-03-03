@@ -1,0 +1,132 @@
+// ============================================
+// PAYMENTS
+// ============================================
+model Payment {
+  id        String        @id
+  studentId String        @map("student_id")
+  classId   String?       @map("class_id")
+  amount    Int
+  status    PaymentStatus @default(pending)
+  date      DateTime      @db.Date
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class   Class?  @relation(fields: [classId], references: [id], onDelete: SetNull)
+
+  @@index([studentId])
+  @@index([classId])
+  @@map("payments")
+}
+
+// ============================================
+// PAYROLL
+// ============================================
+model Payroll {
+  id            String   @id
+  teacherId     String   @map("teacher_id")
+  month         String
+  totalHours    Decimal  @default(0) @map("total_hours") @db.Decimal(6, 2)
+  totalSessions Int      @default(0) @map("total_sessions")
+  baseRate      Int      @default(0) @map("base_rate")
+  bonus         Int      @default(0)
+  totalPay      Int      @default(0) @map("total_pay")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, month])
+  @@index([teacherId])
+  @@index([month])
+  @@map("payroll")
+}
+
+// ============================================
+// REVENUE
+// ============================================
+model Revenue {
+  id               String   @id
+  classId          String   @map("class_id")
+  month            String
+  enrolledCount    Int      @default(0) @map("enrolled_count")
+  tuitionPerStudent Int     @default(0) @map("tuition_per_student")
+  totalRevenue     Int      @default(0) @map("total_revenue")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, month])
+  @@map("revenue")
+}
+
+// ============================================
+// WALLET TRANSACTIONS
+// ============================================
+model WalletTransaction {
+  id        String                @id
+  studentId String                @map("student_id")
+  type      WalletTransactionType
+  amount    Int                   @default(0)
+  note      String?
+  date      DateTime              @default(now()) @db.Date
+  createdAt DateTime             @default(now()) @map("created_at") @db.Timestamptz
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@map("wallet_transactions")
+}
+
+// ============================================
+// DASHBOARD CACHE
+// ============================================
+model DashboardCache {
+  cacheKey   String            @id @map("cache_key")
+  cacheType  DashboardCacheType @map("cache_type")
+  data       Json
+  expiresAt  DateTime          @map("expires_at") @db.Timestamptz
+  createdAt  DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([cacheType])
+  @@index([expiresAt])
+  @@map("dashboard_cache")
+}
+
+// ============================================
+// COSTS
+// ============================================
+model Cost {
+  id        String   @id
+  month     String
+  category  String
+  amount    Int
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("costs")
+}
+
+// ============================================
+// BONUSES
+// ============================================
+model Bonus {
+  id        String   @id
+  staffId   String   @map("staff_id")
+  workType  String   @map("work_type")
+  amount    Int      @default(0)
+  status    String   @default("unpaid")
+  note      String?
+  month     String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  staff Teacher @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([staffId])
+  @@index([month])
+  @@index([status])
+  @@map("bonuses")
+}

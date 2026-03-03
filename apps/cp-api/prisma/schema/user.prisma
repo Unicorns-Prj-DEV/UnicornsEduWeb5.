@@ -1,0 +1,29 @@
+// ============================================
+// USERS
+// ============================================
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  phone             String?
+  passwordHash      String?   @map("password_hash")
+  name              String?
+  role              UserRole
+  province          String?
+  status            UserStatus @default(active)
+  linkId            String?   @map("link_id")
+  accountHandle     String?   @unique @map("account_handle")
+  assistantType     AssistantType? @map("assistant_type")
+  emailVerified     Boolean   @default(false) @map("email_verified")
+  phoneVerified     Boolean   @default(false) @map("phone_verified")
+  refreshToken      String?   @map("refresh_token")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([email])
+  @@index([phone])
+  @@index([accountHandle])
+  @@index([linkId])
+  @@index([role])
+  @@index([status])
+  @@map("users")
+}
