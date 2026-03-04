@@ -1,0 +1,44 @@
+# Landing – `/landing-page`
+
+## Route and role
+
+- **Path:** `/landing-page` (or `/` if this is the public home).
+- **Role:** Public (no auth required); may show different CTA for logged-in users.
+- **Workplan owner:** Minh (Frontend – UX + Landing).
+
+## Features
+
+- **Content blocks:** Data from `home_posts` and `categories`; categories: intro, news, docs, policy (per Workplan).
+- **Sections:** Hero/intro, news, documents, policy; structure and copy per product.
+- **Dynamic content:** Fetched from API (or mock Tuần 1–6); no hardcoded long copy where content is CMS-like.
+- **Loading and empty states:** Skeleton or placeholder when loading; clear empty state when no posts.
+- **Themes:** Full support for light, dark, pink (`data-theme`); all tokens from UI-Schema so theme switch works without component change.
+- **Optional:** Animations (e.g. subtle motion) per brand; keep performance and accessibility (prefer-reduced-motion).
+
+## UI-Schema tokens and components
+
+- **Page background:** `bg-primary`.
+- **Sections / cards:** `bg-surface` or `bg-elevated`, `text-primary` / `text-secondary`; `border-default` where needed.
+- **Headings:** `text-primary`; subtext `text-secondary` or `text-muted`.
+- **Links and CTAs:** Primary button = `primary` + `text-inverse`; secondary = `secondary` + `border-default`; link = `primary` or `text-primary` with hover.
+- **Tags / categories:** `bg-secondary`, `text-secondary`, `border-subtle`; hover `bg-tertiary`.
+- **Modals (if any):** Surface `bg-elevated`; overlay per UI-Schema (light/pink vs dark); `border-default`.
+- **Focus:** All interactive elements use `border-focus` for focus ring.
+
+## Data and API
+
+- **Backend domain:** `home_posts`, `categories` (Workplan route-to-domain map).
+- **Mock (Tuần 1–6):** Mock contract pack for landing (intro, news, docs, policy); empty and loading scenarios.
+- **De-mock (Tuần 7):** Replace with real content API; ensure payload matches contract.
+- **API (real):** Content API for posts and categories.
+
+## DoD and week
+
+- **Tuần 6:** Landing page shows dynamic content correctly; dashboard (if linked) load acceptable; migration rehearsal done; all three themes render correctly.
+- **Tuần 7:** Landing on real API; no runtime mock in production path.
+
+## Accessibility
+
+- Heading hierarchy (h1 → h2 → h3); link and button labels clear.
+- Contrast AA; focus visible; prefer-reduced-motion respected for any motion.
+- Status/info not by color only.
