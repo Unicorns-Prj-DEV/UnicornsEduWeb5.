@@ -25,6 +25,24 @@ UnicornsEduWeb5./
 └── pnpm-lock.yaml        # Lockfile
 ```
 
+## Tech stack Frontend (`apps/web`)
+
+Dùng làm context khi implement hoặc review code frontend; giúp model chọn đúng thư viện và pattern.
+
+| Hạng mục | Công nghệ / Phiên bản | Ghi chú |
+|----------|------------------------|---------|
+| **Framework** | Next.js 16.x | App Router (thư mục `app/`). |
+| **UI** | React 19.x | react, react-dom 19.2.x. |
+| **Styling** | Tailwind CSS v4 | `@tailwindcss/postcss` trong `postcss.config.mjs`; trong `globals.css` dùng `@import "tailwindcss"`. |
+| **Theme / Design tokens** | CSS variables | Trong `app/globals.css`: tokens theo `docs/UI-Schema.md` (--ue-bg-primary, --ue-text-primary, --ue-primary, …); chuyển theme bằng `[data-theme]` trên `<html>` (light / dark / pink). |
+| **Fonts** | next/font/google | Geist (sans), Geist_Mono (mono); khai báo trong `app/layout.tsx`, dùng biến CSS `--font-geist-sans`, `--font-geist-mono`. |
+| **Data fetching / API** | TanStack React Query v5, Axios | React Query cho server state; Axios instance trong `lib/client.ts` (baseURL từ env, withCredentials, xử lý refresh token). |
+| **Validation / Transform** | class-validator, class-transformer | Dùng cho DTO/forms khi cần validate hoặc transform dữ liệu từ API. |
+| **TypeScript** | TS 5.x | Path alias `@/*` → `./*` (tsconfig.json). Target ES2017, moduleResolution bundler, strict. |
+| **API base URL** | Biến môi trường | `NEXT_PUBLIC_BACKEND_URL` (mặc định `http://localhost:3001`); dùng trong `lib/client.ts`. |
+
+**Cấu trúc thư mục frontend:** `apps/web/app/` (routes, layout, page), `apps/web/lib/` (API client, utils). Component và style theo cấu trúc Next.js App Router; tokens và theme đã định nghĩa sẵn trong `globals.css`.
+
 ## Yêu cầu hệ thống
 
 - **Node.js** >= 20
@@ -32,16 +50,29 @@ UnicornsEduWeb5./
 
 ## Cài đặt
 
+**Cách 1 — Cài từ root (cả monorepo):**
+
 ```bash
-# Clone repo
 git clone <repo-url>
 cd UnicornsEduWeb5.
-
-# Cài đặt tất cả dependencies
 pnpm install
 ```
 
-> Nếu gặp cảnh báo về build scripts bị bỏ qua, chạy `pnpm approve-builds` để cho phép.
+**Cách 2 — Cài trong từng app (chỉ app cần dùng):**
+
+```bash
+# Frontend
+cd apps/web
+pnpm i
+
+# Backend (ví dụ api)
+cd apps/api
+pnpm i
+```
+
+Khi dùng cách 2, pnpm workspace vẫn resolve dependencies theo `pnpm-workspace.yaml`; chạy `pnpm i` trong thư mục app sẽ cài đúng dependencies của app đó (và hoist về root nếu cấu hình workspace cho phép). Các lệnh như `pnpm dev`, `pnpm build` chạy ngay trong thư mục app đó.
+
+> Nếu gặp cảnh báo về build scripts bị bỏ qua, chạy `pnpm approve-builds` (từ root) để cho phép.
 
 ## Các lệnh thường dùng
 
@@ -124,6 +155,8 @@ pnpm exec turbo run build --graph
 
 ## Làm việc với Next.js (`apps/web`)
 
+Tech stack chi tiết xem mục **Tech stack Frontend** ở trên.
+
 ```bash
 # Chạy dev server (mặc định port 3000)
 pnpm dev --filter=web
@@ -186,8 +219,9 @@ pnpm add @unicorns/shared --filter=web --workspace
 
 ## Quy tắc làm việc
 
-1. **Luôn chạy lệnh từ thư mục root** — Không `cd` vào từng app rồi chạy `pnpm install`.
-2. **Dùng `--filter`** — Khi chỉ cần làm việc với một app cụ thể.
-3. **Không commit `node_modules`** — Đã có trong `.gitignore`.
-4. **Không chỉnh sửa `pnpm-lock.yaml` bằng tay** — File này được tự động tạo bởi pnpm.
-5. **Kiểm tra types trước khi commit** — Chạy `pnpm check-types` để đảm bảo không có lỗi TypeScript.
+1. **Cài đặt:** Có thể chạy `pnpm i` từ root (cả monorepo) hoặc `cd` vào từng app rồi chạy `pnpm i` trong app đó.
+2. **Chạy / build:** Từ root dùng `pnpm dev --filter=web` (hoặc filter khác); hoặc `cd apps/web` rồi chạy `pnpm dev` / `pnpm build` trực tiếp trong app.
+3. **Dùng `--filter`** — Khi ở root, dùng `--filter=<app>` để chỉ chạy task cho một app.
+4. **Không commit `node_modules`** — Đã có trong `.gitignore`.
+5. **Không chỉnh sửa `pnpm-lock.yaml` bằng tay** — File này được tự động tạo bởi pnpm.
+6. **Kiểm tra types trước khi commit** — Từ root: `pnpm check-types`; trong từng app có thể chạy `pnpm exec tsc --noEmit` (nếu app có cấu hình TypeScript).
