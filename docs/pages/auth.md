@@ -37,3 +37,12 @@
 - Labels and errors associated with inputs; focus order and visible focus (`border-focus`).
 - Error state not conveyed by color only (icon + text).
 - Minimum contrast per UI-Schema (e.g. AA).
+
+## Archived context (for implementation)
+
+See [ARCHIVED-UI-CONTEXT.md](ARCHIVED-UI-CONTEXT.md) for full mapping.
+
+- **Login:** `archived/.../pages/Home.tsx` (route `/login` → Home with `initialAuthMode="login"`) and `components/AuthModal.tsx` — email + password, rememberMe; authService.login; role-based redirect (admin → dashboard, teacher → home, student → dashboard, etc.); login lock after failed attempts (loginLock in localStorage).
+- **Register:** `pages/Register.tsx` — fullName, email, phone, password, role (student/teacher), classId/specialization; authService.register; setAuth then redirect by role; link to /login.
+- **Session:** `store/authStore.ts` — token key `unicorns.token`, user `unicorns.currentUser`; optional refreshToken; rememberMe → localStorage vs sessionStorage; sessionExpiresAt; initFromStorage on load; logout clears both storages.
+- **Guards:** `components/ProtectedRoute.tsx` — redirect to `/login` if !isAuthenticated; wrap all authenticated routes.

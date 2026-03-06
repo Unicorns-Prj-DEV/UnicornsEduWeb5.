@@ -40,3 +40,15 @@
 
 - Attendance and status not by color only; focus visible on interactive elements.
 - Contrast AA for text and controls.
+
+## Archived context (for implementation)
+
+See [ARCHIVED-UI-CONTEXT.md](ARCHIVED-UI-CONTEXT.md) for full mapping.
+
+- **Teacher home:** `archived/.../Layout.tsx` — teacher sees “Trang chủ” (path `/home`) instead of Dashboard; top nav only.
+- **Classes (assigned):** Filter classes by current teacher via `class_teachers`; list/detail pattern from `pages/Classes.tsx` and `pages/ClassDetail.tsx`.
+- **Sessions + attendance:** ClassDetail: month picker, create/edit/delete session; saveAttendanceForSession, fetchAttendanceBySession; AttendanceStatus present/excused/absent; useAttendance, useSessionFinancials.
+- **Lesson notes:** Persisted in session or lesson context; add/edit in ClassDetail or equivalent mentor view.
+- **Lesson plans:** `pages/LessonPlans.tsx`; lessonPlansService; visible if teacher has staff role `lesson_plan`.
+- **Payroll/bonus (read-only):** Use payroll/bonuses endpoints; table/card pattern from archived if available.
+- **Layout:** Non-admin top nav (tabs + theme + user card + logout); no sidebar.

@@ -42,3 +42,12 @@
 - Heading hierarchy (h1 → h2 → h3); link and button labels clear.
 - Contrast AA; focus visible; prefer-reduced-motion respected for any motion.
 - Status/info not by color only.
+
+## Archived context (for implementation)
+
+See [ARCHIVED-UI-CONTEXT.md](ARCHIVED-UI-CONTEXT.md) for full mapping.
+
+- **Landing structure:** `archived/.../pages/Home.tsx` — sections: intro, news (Khóa học), docs (Cuộc thi), policy (Liên hệ); HOME_MENU, HOME_TEAMS, HOME_FEATURES, HOME_WORKFLOW_STEPS; dynamic content via fetchHomePostByCategory, upsertHomePost (homeService).
+- **Content blocks:** Data from home_posts and categories; skeleton/empty states when loading or no posts.
+- **Optional auth:** AuthModal can open from CTA (e.g. “Đăng nhập” / “Đăng ký”); Home accepts `initialAuthMode` for deep link to login.
+- **Themes:** useTheme (light/dark/sakura); all tokens so theme switch works; support data-theme.

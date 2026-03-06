@@ -38,3 +38,12 @@
 
 - Amounts and critical labels have sufficient contrast; errors use icon + text.
 - Focus order and visible focus on actions and forms.
+
+## Archived context (for implementation)
+
+See [ARCHIVED-UI-CONTEXT.md](ARCHIVED-UI-CONTEXT.md) for full mapping.
+
+- **Thu học phí / payments:** `archived/.../pages/Payments.tsx` — filters (status, classId, studentId), fetchPayments, fetchPaymentsStatistics; create/update payment modal: studentId, classId, amount (CurrencyInput), date, status, note; paymentsService (createPayment, updatePayment, deletePayment). In 5.0 restrict to assistant role and ensure transaction boundary for finance mutations.
+- **Status flow:** paid/pending (and deposit if in domain); badges and validation; clear success/error feedback (toast).
+- **Task list:** If assistant_tasks exist in backend, add view/update UI; pattern similar to list + row actions.
+- **Layout:** Assistant uses same top-nav pattern as other non-admin roles; guard blocks admin/mentor-only routes.

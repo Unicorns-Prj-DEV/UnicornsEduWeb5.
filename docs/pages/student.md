@@ -39,3 +39,13 @@
 
 - Tables/lists with clear structure; status and links not by color only.
 - Focus and contrast AA per UI-Schema.
+
+## Archived context (for implementation)
+
+See [ARCHIVED-UI-CONTEXT.md](ARCHIVED-UI-CONTEXT.md) for full mapping.
+
+- **Own profile / read-only scope:** `archived/.../pages/StudentDetail.tsx` — when viewer is student and `user.linkId === id`: profile view/edit, no admin actions (canManageStudentRecord false, canTopUp false); accountIconMode `'self'` for login info.
+- **Timetable / schedule:** `pages/Schedule.tsx` — weekly calendar, fetchSessions by date range; in 5.0 scope to current student’s classes/sessions only.
+- **Payment history (read-only):** Reuse list/table pattern from `pages/Payments.tsx` but no create/update/delete; fetchPayments or equivalent filtered by current student.
+- **Documents:** If present in archived (documentsService), reuse for “tài liệu” under student scope.
+- **Layout:** Student uses top nav (no sidebar); same Layout pattern as teacher in archived.
