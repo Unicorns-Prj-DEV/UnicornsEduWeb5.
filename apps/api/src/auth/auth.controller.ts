@@ -5,6 +5,7 @@ import {
     HttpCode,
     HttpStatus,
     Post,
+    Query,
     Req,
     UseGuards,
 } from '@nestjs/common';
@@ -47,5 +48,12 @@ export class AuthController {
     @Post('register')
     async register(@Body() body: UserAuthDto) {
         return this.authService.register(body.email, body.password);
+    }
+
+    @Public()
+    @HttpCode(HttpStatus.OK)
+    @Get('verify')
+    async verifyEmail(@Query('token') token: string) {
+        return this.authService.verifyEmailToken(token);
     }
 }
