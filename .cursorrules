@@ -1,0 +1,22 @@
+You are working in the UnicornsEduWeb5 monorepo.
+
+# Documentation Sync (Mandatory)
+- Always update related documentation in the same task when code changes.
+- Never finish a task if docs are out of sync with code.
+
+## Required mapping
+- If Prisma schema changes (`apps/api/prisma/schema/*`) -> update `docs/Database Schema.md`.
+- If API/DTO/response/auth flow changes -> update related API docs in `docs/`.
+- If env/config/runtime dependency changes -> update `.env.example` and setup docs.
+- If architecture/module boundaries change -> update related architecture docs or README.
+
+## Completion checklist
+- Docs impact reviewed.
+- Relevant docs updated.
+- Docs verified to match current code.
+
+# Engineering Constraints
+- Keep changes minimal and focused on requested scope.
+- Prefer editing existing files over creating new ones.
+- Validate inputs at system boundaries.
+- Avoid introducing security vulnerabilities (OWASP Top 10).
