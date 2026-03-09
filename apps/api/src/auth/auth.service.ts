@@ -45,13 +45,14 @@ export class AuthService {
             expiresIn: this.accessTokenExpiresIn,
             secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
         };
-        this.emailVerifySecret = this.configService.getOrThrow<string>(
-            'JWT_EMAIL_VERIFY_SECRET',
-        );
+        this.emailVerifySecret =
+            this.configService.get<string>('JWT_EMAIL_VERIFY_SECRET') ??
+            'email-verify-secret-dev';
         this.emailVerifyTokenOptions = {
-            expiresIn: this.configService.getOrThrow<string>(
-                'JWT_EMAIL_VERIFY_EXPIRES_IN',
-            ) as JwtSignOptions['expiresIn'],
+            expiresIn:
+                (this.configService.get<string>(
+                    'JWT_EMAIL_VERIFY_EXPIRES_IN',
+                ) as JwtSignOptions['expiresIn']) ?? '24h',
             secret: this.emailVerifySecret,
         };
     }

@@ -4,26 +4,34 @@ import nodemailer, { type Transporter } from 'nodemailer';
 
 @Injectable()
 export class MailService {
-    private readonly transporter: Transporter;
+    private readonly transporter: Transporter | null;
     private readonly mailFrom: string;
     private readonly backendUrl: string;
 
     constructor(private readonly configService: ConfigService) {
-        const smtpSecure = this.configService.getOrThrow<string>('SMTP_SECURE') === 'true';
-        this.transporter = nodemailer.createTransport({
-            host: this.configService.getOrThrow<string>('SMTP_HOST'),
-            port: Number(this.configService.getOrThrow<string>('SMTP_PORT')),
-            secure: smtpSecure,
-            auth: {
-                user: this.configService.getOrThrow<string>('SMTP_USER'),
-                pass: this.configService.getOrThrow<string>('SMTP_PASS'),
-            },
-        });
-        this.mailFrom = this.configService.getOrThrow<string>('MAIL_FROM');
-        this.backendUrl = this.configService.getOrThrow<string>('BACKEND_URL');
+        const host = this.configService.get<string>('SMTP_HOST');
+        if (host) {
+            const smtpSecure = this.configService.get<string>('SMTP_SECURE') === 'true';
+            this.transporter = nodemailer.createTransport({
+                host,
+                port: Number(this.configService.get<string>('SMTP_PORT') ?? 587),
+                secure: smtpSecure,
+                auth: {
+                    user: this.configService.get<string>('SMTP_USER'),
+                    pass: this.configService.get<string>('SMTP_PASS'),
+                },
+            });
+        } else {
+            this.transporter = null;
+        }
+        this.mailFrom = this.configService.get<string>('MAIL_FROM') ?? 'no-reply@localhost';
+        this.backendUrl = this.configService.get<string>('BACKEND_URL') ?? 'http://localhost:3001';
     }
 
     async sendVerificationEmail(email: string, token: string): Promise<void> {
+        if (!this.transporter) {
+            return; // Mail not configured (e.g. dev without SMTP)
+        }
         const verificationLink = `${this.backendUrl}/auth/verify?token=${encodeURIComponent(token)}`;
 
         await this.transporter.sendMail({

@@ -171,3 +171,58 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 - Luôn ưu tiên Prisma schema tại: `apps/api/prisma/schema/*.prisma`.
 - Nếu tài liệu này lệch schema, coi schema là chuẩn và cập nhật lại tài liệu.
+
+---
+
+## 8) Tạo lại DB từ schema
+
+Kết nối DB qua `DATABASE_URL` trong `apps/api/.env` (đọc từ `prisma.config.ts`). Các lệnh chạy tại thư mục **`apps/api`**:
+
+| Việc | Lệnh |
+|------|------|
+| Generate Prisma Client | `npm run db:generate` hoặc `npx prisma generate --schema=./prisma/schema/` |
+| Áp dụng migration có sẵn (tạo/ cập nhật bảng) | `npx prisma migrate deploy --schema=./prisma/schema/` |
+| Tạo migration mới + áp dụng (khi đổi schema) | `npm run db:migrate` hoặc `npx prisma migrate dev --schema=./prisma/schema/` |
+
+**Tạo lại toàn bộ bảng trên DB (PostgreSQL/Supabase):**
+
+```bash
+cd apps/api
+npx prisma migrate deploy --schema=./prisma/schema/
+```
+
+Migration SQL nằm tại: `apps/api/prisma/schema/migrations/`. File `migration_lock.toml` khóa provider `postgresql`.
+
+---
+
+## 9) Seed & migration script
+
+Script **`apps/api/scripts/seed.ts`** dùng để:
+
+- Đọc CSV từ đường dẫn cấu hình trong `mocktest/demo.env` (biến `SEED_CSV_STUDENTS`, `SEED_CSV_CLASSES`, `SEED_CSV_STAFF`).
+- Kết nối DB qua `DATABASE_URL` (đọc từ root `.env` hoặc `apps/api/.env`).
+- **Mapping:** Tự map header CSV legacy sang schema hiện tại (xem `scripts/csv-loader.ts`, `LEGACY_HEADER_MAP`).
+- **User:** Chỉ lưu `password_hash` (bcrypt), không lưu mật khẩu plain-text.
+- **Student / last_attendance:** Giá trị “last attendance” từ CSV được chuyển thành FK vào bảng `sessions` thông qua bảng `attendance` (session + student).
+- **Tài chính:** `tuition_per_session` → `classes.student_tuition_per_session`; `custom_allowance` → `class_teachers.custom_allowance`; `base_rate` → `bonuses` (workType `"base"`).
+- **Anonymization:** PII (tên, email, SĐT, địa chỉ) được thay bằng dữ liệu ngẫu nhiên (Faker).
+- **Preview:** Trước khi ghi DB, script tạo file `Data_Migration_Preview.docx` (hoặc đường dẫn trong `SEED_PREVIEW_PATH`) chứa 50 dòng đầu của bảng Student và Class (sau mapping/anonymization).
+- **Seeding:** Sau migration từ CSV, script sinh thêm dữ liệu ngẫu nhiên cho các bảng đến khoảng `SEED_TARGET_ROWS` (mặc định 1000) dòng, đảm bảo FK.
+
+**Chạy seed (từ repo root hoặc từ `apps/api`):**
+
+```bash
+cd apps/api
+npm run db:generate   # nếu chưa generate Prisma Client
+npm run seed
+```
+
+**Cài dependency cho script (nếu thiếu):**
+
+```bash
+cd apps/api
+pnpm add csv-parse docx @faker-js/faker
+# hoặc: npm install csv-parse docx @faker-js/faker --save
+```
+
+**Env:** `DATABASE_URL` bắt buộc (root `.env` hoặc `apps/api/.env`). Các biến trong `mocktest/demo.env`: `SEED_CSV_*`, `SEED_PREVIEW_PATH`, `SEED_TARGET_ROWS`. Để bỏ qua migration từ CSV, để trống các `SEED_CSV_*`.
