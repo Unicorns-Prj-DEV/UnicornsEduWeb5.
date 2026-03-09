@@ -2,6 +2,8 @@
 
 Page-level specs for `apps/web`, aligned with [Workplan](../Workplan.md) and [UI-Schema](../UI-Schema.md).
 
+**Cấu trúc frontend hiện tại:** App Router trong `apps/web/app/`. Đã có: `app/admin/` (dashboard, classes, students, costs, categories, coding, lessons), `app/student/`, `app/staff/`. Các route theo kế hoạch: `/assistant`, `/mentor`, `/landing-page` (và auth) — xem từng file plan bên dưới.
+
 **Archived UI context:** [ARCHIVED-UI-CONTEXT.md](ARCHIVED-UI-CONTEXT.md) maps the archived app (`archived/UniEdu-Web-3.9/frontend/`) to 5.0 routes and lists concrete files, services, and patterns to reuse for better model results when implementing each page.
 
 ## Route index

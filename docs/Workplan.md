@@ -2,10 +2,10 @@
 
 ## 1) Bối cảnh và mục tiêu
 
-Unicorns Edu 5.0 đang chuyển từ PoC sang production trên monorepo Turborepo (`apps/web`, `apps/cp-api`) với nền tảng Prisma + PostgreSQL đã có schema rõ ràng theo domain. Mục tiêu của kế hoạch này là hoàn thiện bản chạy production trong 8 tuần, ưu tiên độ đúng của dữ liệu tài chính/phân quyền và tốc độ triển khai giao diện theo route.
+Unicorns Edu 5.0 đang chuyển từ PoC sang production trên monorepo Turborepo (`apps/web`, `apps/api`) với nền tảng Prisma + PostgreSQL đã có schema rõ ràng theo domain. Mục tiêu của kế hoạch này là hoàn thiện bản chạy production trong 8 tuần, ưu tiên độ đúng của dữ liệu tài chính/phân quyền và tốc độ triển khai giao diện theo route.
 
 Mục tiêu cụ thể:
-- Hoàn thiện backend cốt lõi tại `apps/cp-api` cho Auth, Learning, Finance, Lesson, Assistant, Content.
+- Hoàn thiện backend cốt lõi tại `apps/api` cho Auth, Learning, Finance, Lesson, Assistant, Content.
 - Hoàn thiện frontend tại `apps/web` cho các route `/admin`, `/assistant`, `/mentor`, `/student`, `/landing-page`.
 - Thiết lập nhịp delivery có đo lường được (DoD/KPI theo tuần), đủ điều kiện launch tuần 8.
 
@@ -88,7 +88,7 @@ Scope:
 - Xây dựng Auth + Role guard nền tảng.
 
 Deliverables:
-- `apps/cp-api`: cấu trúc module cơ bản, kết nối Prisma, migration baseline.
+- `apps/api`: cấu trúc module cơ bản, kết nối Prisma, migration baseline.
 - API Auth: login/logout/me, guard theo `UserRole` (`admin`, `teacher`, `student`, `assistant`, `visitor`).
 - `apps/web`: khung app, layout chung, trang login/logout, xử lý session cơ bản.
 - Draft giao diện landing page (wireframe + content blocks).

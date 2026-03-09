@@ -12,7 +12,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 | Database | PostgreSQL |
 | Entry schema | `apps/api/prisma/schema/schema.prisma` |
 | Mô hình dữ liệu | `apps/api/prisma/schema/{user,people,learning,finance,content,lesson,enums}.prisma` |
-| Prisma Client output | `apps/generated/` |
+| Prisma Client output | `apps/api/generated/` |
 
 > `datasource db` dùng `provider = "postgresql"`.
 

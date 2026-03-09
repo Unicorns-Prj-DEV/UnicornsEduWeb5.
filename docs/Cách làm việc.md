@@ -7,22 +7,37 @@ Dự án sử dụng **Turborepo** để quản lý monorepo, kết hợp **pnpm
 | Ứng dụng | Đường dẫn | Framework | Mô tả |
 |-----------|-----------|-----------|-------|
 | `web` | `apps/web` | Next.js | Giao diện người dùng (Frontend) |
-| `math-api` | `apps/math-api` | NestJS | API toán học (Backend) |
-| `cp-api` | `apps/cp-api` | NestJS | API lập trình thi đấu (Backend) |
+| `api` | `apps/api` | NestJS | Backend API (Auth, Learning, Finance, Lesson, …) |
 
-## Cấu trúc thư mục
+## Cấu trúc thư mục (thực tế)
 
 ```
 UnicornsEduWeb5./
 ├── apps/
-│   ├── web/              # Next.js frontend
-│   ├── math-api/         # NestJS backend
-│   └── cp-api/           # NestJS backend
-├── packages/             # Shared libraries / configs
-├── package.json          # Root package.json (scripts + turbo)
-├── pnpm-workspace.yaml   # Khai báo workspaces
-├── turbo.json            # Cấu hình pipeline của Turborepo
-└── pnpm-lock.yaml        # Lockfile
+│   ├── web/                    # Next.js frontend
+│   │   ├── app/                # App Router (routes, layout, pages)
+│   │   │   ├── admin/          # /admin (dashboard, classes, students, …)
+│   │   │   ├── student/        # /student
+│   │   │   ├── staff/          # /staff
+│   │   │   ├── api/            # Route handlers API (vd. healthcheck)
+│   │   │   ├── layout.tsx
+│   │   │   └── page.tsx
+│   │   └── lib/                # API client, utils
+│   └── api/                    # NestJS backend
+│       ├── src/                # modules, controllers, services
+│       │   ├── auth/
+│       │   ├── prisma/
+│       │   └── …
+│       ├── prisma/schema/      # Prisma schema
+│       ├── generated/          # Prisma Client output
+│       └── dtos/
+├── packages/                   # Shared libs (hiện chỉ .gitkeep)
+├── docs/                       # Tài liệu dự án
+├── archived/                   # Bản lưu (vd. UniEdu-Web-3.9)
+├── package.json
+├── pnpm-workspace.yaml
+├── turbo.json
+└── pnpm-lock.yaml
 ```
 
 ## Tech stack Frontend (`apps/web`)
@@ -101,11 +116,8 @@ pnpm clean
 # Chỉ chạy frontend (Next.js)
 pnpm dev --filter=web
 
-# Chỉ chạy math-api (NestJS)
-pnpm dev --filter=math-api
-
-# Chỉ chạy cp-api (NestJS)
-pnpm dev --filter=cp-api
+# Chỉ chạy api (NestJS)
+pnpm dev --filter=api
 
 # Build chỉ một app
 pnpm build --filter=web
@@ -117,8 +129,8 @@ pnpm build --filter=web
 # Thêm dependency vào web
 pnpm add <package> --filter=web
 
-# Thêm devDependency vào math-api
-pnpm add -D <package> --filter=math-api
+# Thêm devDependency vào api
+pnpm add -D <package> --filter=api
 
 # Thêm dependency vào root (ít khi dùng)
 pnpm add -D <package> -w
@@ -168,25 +180,26 @@ pnpm build --filter=web
 pnpm exec turbo run start --filter=web
 ```
 
-Cấu trúc Next.js chuẩn: pages/app router, components, styles nằm trong `apps/web/src/`.
+Cấu trúc Next.js: App Router trong `apps/web/app/` (layout, page, route segments); components và styles trong `app/` hoặc thư mục con; shared logic trong `apps/web/lib/`.
 
-## Làm việc với NestJS (`apps/math-api`, `apps/cp-api`)
+## Làm việc với NestJS (`apps/api`)
 
 ```bash
-# Chạy dev server với hot-reload
-pnpm dev --filter=math-api
+# Từ root
+pnpm dev --filter=api
+pnpm build --filter=api
+pnpm exec turbo run test --filter=api
+pnpm exec turbo run test:e2e --filter=api
 
-# Build
-pnpm build --filter=math-api
-
-# Chạy tests
-pnpm exec turbo run test --filter=math-api
-
-# Chạy e2e tests
-pnpm exec turbo run test:e2e --filter=math-api
+# Hoặc trong thư mục app
+cd apps/api
+pnpm dev
+pnpm build
+pnpm test
+pnpm run test:e2e
 ```
 
-Các NestJS app sử dụng cấu trúc chuẩn: modules, controllers, services, guards, pipes nằm trong `apps/<app-name>/src/`.
+Cấu trúc NestJS: modules, controllers, services, guards, pipes trong `apps/api/src/`; Prisma schema trong `apps/api/prisma/schema/`; Prisma Client generate ra `apps/api/generated/`.
 
 ## Thêm shared package mới
 
