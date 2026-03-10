@@ -22,7 +22,7 @@ Page-level specs for `apps/web`, aligned with [Workplan](../Workplan.md) and [UI
 - **Tuần 3:** `/mentor` (lớp, session, điểm danh, lesson notes, payroll/bonus view).
 - **Tuần 4:** `/assistant` (thu phí, status, tasks).
 - **Tuần 5:** `/student` (lịch học, tài liệu, payment read-only, profile).
-- **Tuần 6:** `/landing-page` polish, migration rehearsal.
+- **Tuần 6:** `/landing-page` polish (UI hierarchy + micro-animation + reduced-motion), migration rehearsal.
 - **Tuần 7:** De-mock all routes; integration and UAT.
 - **Tuần 8:** Launch checklist; no new page scope.
 

@@ -394,7 +394,20 @@ export default {
 - Dark mode avoids pure black (`#000000`) and pure white (`#FFFFFF`) on large surfaces to reduce eye strain.
 - Status communication must not rely on color only; always pair with icon/label.
 
-### 3.7 Migration Guide from Archived Version
+### 3.7 Motion and Reduced-Motion Guidelines
+
+- Motion should be **subtle and functional** (feedback + hierarchy), not decorative overload.
+- Prefer lightweight CSS utilities for landing/public pages:
+  - `motion-fade-up`: soft reveal on first paint/section content.
+  - `motion-hover-lift`: tiny hover elevation for cards/interactive surfaces.
+- Recommended duration range: **180ms–520ms** with ease/ease-out curves.
+- Motion must not shift layout significantly; avoid large translate distances.
+- Always implement `@media (prefers-reduced-motion: reduce)`:
+  - Disable non-essential animation.
+  - Reduce transition/animation duration to near-zero.
+  - Keep interaction usable without motion cues.
+
+### 3.8 Migration Guide from Archived Version
 
 #### What changes
 

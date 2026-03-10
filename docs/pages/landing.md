@@ -9,11 +9,12 @@
 ## Features
 
 - **Content blocks:** Data from `home_posts` and `categories`; categories: intro, news, docs, policy (per Workplan).
-- **Sections:** Hero/intro, news, documents, policy; structure and copy per product.
+- **Sections:** Hero, intro/teams, feature capabilities, workflow, news (khóa học), documents (cuộc thi), policy/contact; structure and copy per product.
 - **Dynamic content:** Fetched from API (or mock Tuần 1–6); no hardcoded long copy where content is CMS-like.
 - **Loading and empty states:** Skeleton or placeholder when loading; clear empty state when no posts.
 - **Themes:** Full support for light, dark, pink (`data-theme`); all tokens from UI-Schema so theme switch works without component change.
-- **Optional:** Animations (e.g. subtle motion) per brand; keep performance and accessibility (prefer-reduced-motion).
+- **Micro-animation:** Subtle motion for nav items, CTA buttons, KPI/feature/team cards via CSS utility classes (`motion-fade-up`, `motion-hover-lift`) to improve perceived responsiveness.
+- **Reduced motion:** Must respect `prefers-reduced-motion`; disable non-essential animations/transitions in reduced mode.
 
 ## UI-Schema tokens and components
 
