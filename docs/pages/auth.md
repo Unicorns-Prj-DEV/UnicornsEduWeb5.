@@ -23,13 +23,18 @@
 
 ## API endpoints đang dùng
 
-- `POST /auth/login` `{ email, password }`
-- `POST /auth/register` `{ email, password }`
-- `GET /auth/profile`
-- `POST /auth/forgot-password` `{ email }`
-- `POST /auth/reset-password` `{ token, password }`
-- `GET /auth/verify?token=...`
-- `POST /auth/refresh` (cookie `refresh_token`)
+- **API (real only):** login, logout, me (profile + role), register, verify email, forgot password, reset password.
+- **Backend Auth endpoints hiện có:**
+  - `POST /auth/login` body: `{ email, password, rememberMe? }`
+    - refresh token policy: mặc định 7 ngày, nếu `rememberMe=true` thì 30 ngày.
+  - `POST /auth/register` body: `{ email, password }`
+  - `POST /auth/refresh` dùng `refresh_token` cookie
+  - `GET /auth/profile`
+  - `GET /auth/verify?token=...`
+  - `POST /auth/forgot-password` body: `{ email }`
+  - `POST /auth/reset-password` body: `{ token, password }`
+- **Contract:** Auth DTO và role enum aligned với backend.
+- **Mock:** Not used for auth; mock layer chỉ dùng cho nội dung sau đăng nhập.
 
 ## Tài liệu chi tiết theo trang
 

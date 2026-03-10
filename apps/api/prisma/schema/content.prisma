@@ -1,26 +1,19 @@
-// ============================================
-// CLASS SURVEYS
-// ============================================
 model ClassSurvey {
-  id         String    @id
-  classId    String?   @map("class_id")
-  testNumber Int       @map("test_number")
-  teacherId  String?   @map("teacher_id")
-  reportDate DateTime  @map("report_date") @db.Date
+  id         String     @id
+  classId    String?    @map("class_id")
+  testNumber Int        @map("test_number")
+  teacherId  String?    @map("teacher_id")
+  reportDate DateTime   @map("report_date") @db.Date
   content    String
-  createdAt  DateTime? @map("created_at") @db.Timestamp
-
-  class   Class?     @relation(fields: [classId], references: [id], onDelete: SetNull)
-  teacher StaffInfo? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  createdAt  DateTime?  @map("created_at") @db.Timestamp(6)
+  class      Class?     @relation(fields: [classId], references: [id])
+  teacher    StaffInfo? @relation(fields: [teacherId], references: [id])
 
   @@index([classId])
   @@index([teacherId])
   @@map("class_surveys")
 }
 
-// ============================================
-// ACTION HISTORY
-// ============================================
 model ActionHistory {
   id            String   @id
   userId        String?  @map("user_id")
@@ -31,18 +24,14 @@ model ActionHistory {
   beforeValue   Json?    @map("before_value")
   afterValue    Json?    @map("after_value")
   changedFields Json?    @map("changed_fields")
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamp
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamp(6)
   description   String?
-
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user          User?    @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@map("action_history")
 }
 
-// ============================================
-// DOCUMENTS
-// ============================================
 model Document {
   id          String  @id
   title       String

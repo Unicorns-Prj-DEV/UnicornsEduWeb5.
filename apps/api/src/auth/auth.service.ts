@@ -5,13 +5,16 @@ import {
     InternalServerErrorException,
     UnauthorizedException,
 } from '@nestjs/common';
-import { JwtService, JwtSignOptions } from '@nestjs/jwt';
+import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'node:crypto';
 import { UserRole } from 'generated/enums';
+import { CreateUserDto } from '../dtos/user.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
+
+type JwtSignOptions = Parameters<JwtService['signAsync']>[1];
 
 export interface TokenPair {
     accessToken: string;
@@ -25,16 +28,16 @@ interface EmailVerifyPayload {
 
 @Injectable()
 export class AuthService {
-    private readonly refreshTokenOptions: JwtSignOptions;
-    private readonly accessTokenOptions: JwtSignOptions;
-    private readonly emailVerifyTokenOptions: JwtSignOptions;
-    private readonly forgotPasswordTokenOptions: JwtSignOptions;
-    private readonly emailVerifySecret: string;
-    private readonly forgotPasswordSecret: string;
-    private readonly accessTokenExpiresIn = 60 * 15;
-    private readonly refreshTokenExpiresIn = 60 * 60 * 24 * 30;
-    private readonly forgotPasswordTokenExpiresIn = 60 * 60 * 24;
-    private readonly verifyTokenExpiresIn = 60 * 60 * 24;
+    readonly accessTokenOptions: JwtSignOptions;
+    readonly emailVerifyTokenOptions: JwtSignOptions;
+    readonly forgotPasswordTokenOptions: JwtSignOptions;
+    readonly emailVerifySecret: string;
+    readonly forgotPasswordSecret: string;
+    readonly accessTokenExpiresIn = 60 * 15;
+    readonly refreshTokenDefaultExpiresIn = 60 * 60 * 24;
+    readonly refreshTokenRememberExpiresIn = 60 * 60 * 24 * 30;
+    readonly forgotPasswordTokenExpiresIn = 60 * 60 * 24;
+    readonly verifyTokenExpiresIn = 60 * 60 * 24;
 
     constructor(
         private readonly prisma: PrismaService,
@@ -42,10 +45,6 @@ export class AuthService {
         private readonly jwtService: JwtService,
         private readonly mailService: MailService,
     ) {
-        this.refreshTokenOptions = {
-            expiresIn: this.refreshTokenExpiresIn,
-            secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
-        };
         this.accessTokenOptions = {
             expiresIn: this.accessTokenExpiresIn,
             secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
@@ -66,7 +65,11 @@ export class AuthService {
         );
     }
 
-    async login(email: string, password: string): Promise<TokenPair> {
+    async login(
+        email: string,
+        password: string,
+        rememberMe = false,
+    ): Promise<TokenPair> {
         const user = await this.prisma.user.findUnique({
             where: { email },
         });
@@ -84,13 +87,20 @@ export class AuthService {
             throw new UnauthorizedException('Please verify your email before login');
         }
 
-        return this.generateTokenPairAndSave(user.id, user.email, user.roleType);
+        return this.generateTokenPairAndSave(
+            user.id,
+            user.email,
+            user.roleType,
+            rememberMe,
+        );
     }
 
     async refreshTokens(
         userId: string,
         usedRefreshToken: string,
+        rememberMe = false,
     ): Promise<TokenPair> {
+        console.log(userId)
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
             select: { id: true, email: true, roleType: true, refreshToken: true },
@@ -104,66 +114,56 @@ export class AuthService {
             throw new UnauthorizedException('Invalid or already used refresh token');
         }
 
-        return this.generateTokenPairAndSave(user.id, user.email, user.roleType);
-    }
-
-    /** Find user by email or create one for Google OAuth (emailVerified=true, random password). */
-    async findOrCreateGoogleUser(
-        email: string,
-        name?: string,
-    ): Promise<{ id: string; email: string; roleType: string }> {
-        const existing = await this.prisma.user.findUnique({
-            where: { email },
-            select: { id: true, email: true, roleType: true },
-        });
-        if (existing) return existing;
-
-        const passwordHash = await bcrypt.hash(
-            crypto.randomBytes(32).toString('hex'),
-            10,
+        return this.generateTokenPairAndSave(
+            user.id,
+            user.email,
+            user.roleType,
+            rememberMe,
         );
-        const user = await this.prisma.user.create({
-            data: {
-                email,
-                passwordHash,
-                name: name ?? null,
-                roleType: UserRole.guest,
-                emailVerified: true,
-            },
-            select: { id: true, email: true, roleType: true },
-        });
-        return user;
     }
 
-    async register(
-        email: string,
-        password: string,
-    ): Promise<{ message: string }> {
+    async register(data: CreateUserDto): Promise<{ message: string }> {
         const existingUser = await this.prisma.user.findUnique({
-            where: { email },
+            where: { email: data.email },
         });
 
-        if (existingUser) {
+        if (existingUser && existingUser.emailVerified) {
             throw new BadRequestException('User already exists');
         }
 
-        await this.prisma.user.create({
-            data: {
-                email,
-                passwordHash: await bcrypt.hash(password, 10),
+        await this.prisma.user.upsert({
+            where: { email: data.email },
+            create: {
+                email: data.email,
+                phone: data.phone,
+                passwordHash: await bcrypt.hash(data.password, 10),
+                name: data.name,
                 roleType: UserRole.guest,
+                province: data.province,
+                accountHandle: data.accountHandle,
+            },
+            update: {
+                email: data.email,
+                phone: data.phone,
+                passwordHash: await bcrypt.hash(data.password, 10),
+                name: data.name,
+                roleType: UserRole.guest,
+                province: data.province,
+                accountHandle: data.accountHandle,
             },
         });
 
         const verificationToken = await this.generateEmailVerificationToken(
-            email,
+            data.email,
             'email-verify',
         );
 
         try {
-            await this.mailService.sendVerificationEmail(email, verificationToken);
-        } catch (err) {
-            if (err instanceof HttpException) throw err;
+            await this.mailService.sendVerificationEmail(
+                data.email,
+                verificationToken,
+            );
+        } catch {
             throw new InternalServerErrorException(
                 'Không gửi được email xác thực. Vui lòng thử lại hoặc liên hệ quản trị viên.',
             );
@@ -247,11 +247,19 @@ export class AuthService {
         userId: string,
         email: string,
         role: string,
+        rememberMe = false,
     ): Promise<TokenPair> {
-        const payload = { sub: userId, email, role };
+        const payload = { sub: userId, email, role, rememberMe };
+        const refreshTokenOptions: JwtSignOptions = {
+            expiresIn: rememberMe
+                ? this.refreshTokenRememberExpiresIn
+                : this.refreshTokenDefaultExpiresIn,
+            secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
+        };
+
         const [accessToken, refreshToken] = await Promise.all([
             this.jwtService.signAsync(payload, this.accessTokenOptions),
-            this.jwtService.signAsync(payload, this.refreshTokenOptions),
+            this.jwtService.signAsync(payload, refreshTokenOptions),
         ]);
         const refreshTokenHash = this.hashToken(refreshToken);
         await this.prisma.user.update({

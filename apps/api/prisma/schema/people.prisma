@@ -1,58 +1,54 @@
-// ============================================
-// STAFF INFO
-// ============================================
 model StaffInfo {
-  id             String      @id
-  fullName       String      @map("full_name")
-  birthDate      DateTime?   @map("birth_date") @db.Date
-  university     String?
-  highSchool     String?     @map("high_school")
-  specialization String?
-  bankAccount    String?     @map("bank_account")
-  bankQrLink     String?     @map("bank_qr_link")
-  roles          Json        @default("[]")
-  status         StaffStatus @default(active)
-  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz
-
-  users                User[]
-  classTeachers        ClassTeacher[]
-  sessions             Session[]
-  bonuses              Bonus[]
-  lessonOutputs        LessonOutput[]
-  customerCareServices CustomerCareService[]
-  walletTransactions   WalletTransactionsHistory[] @relation("CustomerCareStaff")
-  monthlyStats         StaffMonthlyStat[]
-  classSurveys         ClassSurvey[]
-  staffLessonTasks     StaffLessonTask[] 
+  id                               String                      @id @default(uuid())
+  fullName                         String                      @map("full_name")
+  birthDate                        DateTime?                   @map("birth_date") @db.Date
+  university                       String?
+  highSchool                       String?                     @map("high_school")
+  specialization                   String?
+  bankAccount                      String?                     @map("bank_account")
+  bankQrLink                       String?                     @map("bank_qr_link")
+  roles                            StaffRole[]                 @default([])
+  status                           StaffStatus                 @default(active)
+  createdAt                        DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                        DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  userId                           String?                     @unique @map("user_id")
+  bonuses                          Bonus[]
+  classSurveys                     ClassSurvey[]
+  classTeachers                    ClassTeacher[]
+  customerCareServices             CustomerCareService[]
+  lessonOutputs                    LessonOutput[]
+  sessions                         Session[]
+  user                             User?                       @relation(fields: [userId], references: [id])
+  staffLessonTasks                 StaffLessonTask[]
+  monthlyStats                     StaffMonthlyStat[]
+  users_users_staff_idTostaff_info User[]                      @relation("users_staff_idTostaff_info")
+  walletTransactions               WalletTransactionsHistory[] @relation("CustomerCareStaff")
 
   @@map("staff_info")
 }
 
-// ============================================
-// STUDENT INFO
-// ============================================
 model StudentInfo {
-  id          String        @id
-  fullName    String        @map("full_name")
-  email       String?
-  school      String?
-  province    String?
-  birthYear   Int?          @map("birth_year")
-  parentName  String?       @map("parent_name")
-  parentPhone String?       @map("parent_phone")
-  status      StudentStatus @default(active)
-  gender      Gender        @default(male)
-  goal        String?
-  dropOutDate DateTime?     @map("drop_out_date") @db.Date
-  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz
-
-  users                User[]
-  studentClasses       StudentClass[]
-  attendanceRecords    Attendance[]
-  walletTransactions   WalletTransactionsHistory[]
-  customerCareServices CustomerCareService[]
+  id                                   String                      @id @default(uuid())
+  fullName                             String                      @map("full_name")
+  email                                String?
+  school                               String?
+  province                             String?
+  birthYear                            Int?                        @map("birth_year")
+  parentName                           String?                     @map("parent_name")
+  parentPhone                          String?                     @map("parent_phone")
+  status                               StudentStatus               @default(active)
+  gender                               Gender                      @default(male)
+  goal                                 String?
+  dropOutDate                          DateTime?                   @map("drop_out_date") @db.Date
+  createdAt                            DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                            DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  userId                               String?                     @unique @map("user_id")
+  attendanceRecords                    Attendance[]
+  customerCareServices                 CustomerCareService[]
+  studentClasses                       StudentClass[]
+  user                                 User?                       @relation(fields: [userId], references: [id])
+  users_users_student_idTostudent_info User[]                      @relation("users_student_idTostudent_info")
+  walletTransactions                   WalletTransactionsHistory[]
 
   @@map("student_info")
 }

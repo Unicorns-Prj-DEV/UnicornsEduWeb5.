@@ -30,7 +30,14 @@
 - **Backend domain:** `users`, `classes`, `sessions`, `attendance`, `revenue`, `dashboard_cache` (Workplan route-to-domain map).
 - **Mock (Tuần 2–6):** Mock contract pack for admin: class list (empty + many students), permission denied, validation errors.
 - **De-mock (Tuần 7):** Replace mock with real API per endpoint; checklist per screen/endpoint.
-- **API (real):** `classes`, `sessions`, `attendance`, `class_teachers`, `student_classes`, dashboard/revenue endpoints.
+- **API (real):** `users`, `classes`, `sessions`, `attendance`, `class_teachers`, `student_classes`, dashboard/revenue endpoints.
+- **Users CRUD endpoints (dùng qua FE api hooks ở `apps/web/lib/apis/staff.api.ts` và `apps/web/lib/apis/student.api.ts`):**
+  - `GET /users`
+  - `GET /users/:id`
+  - `POST /users`
+  - `PATCH /users`
+  - `DELETE /users/:id`
+  - Các endpoint này đi qua global JWT guard (không `@Public`) và chỉ cho role `admin`.
 
 ## DoD and week
 

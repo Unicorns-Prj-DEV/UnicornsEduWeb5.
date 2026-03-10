@@ -1,6 +1,17 @@
 # Project Rules
 
+## Cài đặt dependencies (Package installation)
+
+- **Luôn cài đặt thư viện vào `node_modules` của từng app**, không dùng `.pnpm-store` trong project.
+- Khi thêm package mới, chạy `pnpm add <package>` **từ thư mục của app**:
+  - API: `cd apps/api && pnpm add <package>`
+  - Web: `cd apps/web && pnpm add <package>`
+- Để tránh tạo `.pnpm-store` trong project, chạy một lần trên máy:  
+  `pnpm config set store-dir ~/.local/share/pnpm/store` (hoặc bỏ qua nếu đã dùng store global).
+
 ## Documentation Sync (Bắt buộc)
+
+Trước khi bắt đầu bất kỳ task nào, **luôn đọc `docs/`** (tương ứng `../../docs/` từ `apps/api`) để nắm context tài liệu hiện tại.
 
 Khi thay đổi code, **luôn cập nhật tài liệu liên quan trong cùng phiên làm việc**.
 
@@ -24,3 +35,18 @@ Khi thay đổi code, **luôn cập nhật tài liệu liên quan trong cùng ph
 
 - Luôn viết báo cáo khi hoàn tất yêu cầu (nêu rõ thay đổi, phạm vi ảnh hưởng, kết quả verify).
 - Frontend phải dùng Sonner để thông báo cho người dùng (toast success/error) thay vì render thông báo inline nếu không có yêu cầu đặc biệt.
+---
+
+## Best practices & stack conventions
+
+- Trước khi implement, **luôn kiểm tra và áp dụng best practice** tương ứng (framework, bảo mật, hiệu năng) theo tài liệu chính thống hoặc `docs/`.
+
+### Frontend (`apps/web`)
+
+- **TanStack Query (React Query):** Dùng cho mọi server state: fetch dữ liệu, cache, mutation. Ưu tiên `useQuery` / `useMutation` với Axios client trong `lib/client.ts`. Không fetch trong `useEffect` thuần khi dữ liệu là server state.
+- **Validation/Transform:** Chọn giải pháp phù hợp theo từng module (không bắt buộc `class-validator` / `class-transformer`).
+
+### Backend (`apps/api`) & DTO
+
+- **Swagger (OpenAPI):** Mọi controller phải có Swagger decorators: `@ApiTags()`, `@ApiOperation()`, `@ApiResponse()`, `@ApiBody()`, `@ApiParam()`, `@ApiCookieAuth()` khi cần.
+- **DTO:** Dùng interface cho request/response types.

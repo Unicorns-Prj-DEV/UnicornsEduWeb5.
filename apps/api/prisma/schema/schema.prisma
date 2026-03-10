@@ -1,7 +1,3 @@
-// Unicorns Edu - Prisma Schema (Main)
-// Khớp y hệt archived/UniEdu-Web-3.9/supabase/schema.sql
-// PostgreSQL
-
 generator client {
   provider     = "prisma-client"
   output       = "../../generated/"

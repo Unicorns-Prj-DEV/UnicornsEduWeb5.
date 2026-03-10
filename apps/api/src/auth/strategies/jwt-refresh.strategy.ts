@@ -10,17 +10,22 @@ export interface JwtRefreshPayload {
   sub: string;
   email: string;
   role: string;
+  rememberMe?: boolean;
   exp: number;
   iat: number;
 }
 
 export interface RefreshValidateResult {
   user: { id: string; email: string; role: string };
+  rememberMe: boolean;
   refreshTokenExpiresAt: Date;
 }
 
 @Injectable()
-export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
+export class JwtRefreshStrategy extends PassportStrategy(
+  Strategy,
+  'jwt-refresh',
+) {
   constructor(private readonly configService: ConfigService) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
@@ -32,9 +37,13 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
     });
   }
 
-  async validate(req: Request, payload: JwtRefreshPayload): Promise<RefreshValidateResult> {
+  async validate(
+    req: Request,
+    payload: JwtRefreshPayload,
+  ): Promise<RefreshValidateResult> {
     return {
       user: { id: payload.sub, email: payload.email, role: payload.role },
+      rememberMe: payload.rememberMe ?? false,
       refreshTokenExpiresAt: new Date(payload.exp * 1000),
     };
   }

@@ -1,10 +1,10 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import { RefreshUserDto } from 'src/dtos/user.dto';
 
 /** User object attached by JwtStrategy (after validate). */
 export interface JwtPayload {
-  id: string;
-  email: string;
-  role: string;
+  user: RefreshUserDto;
+  rememberMe?: boolean;
 }
 
 /**

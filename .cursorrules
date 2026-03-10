@@ -1,6 +1,12 @@
 You are working in the UnicornsEduWeb5 monorepo.
 
+# Package Installation
+- Install libraries into each app's node_modules; do NOT use `.pnpm-store` in the project.
+- When adding packages, run `pnpm add <package>` from the app directory: `cd apps/api && pnpm add ...` or `cd apps/web && pnpm add ...`.
+- To avoid project-level .pnpm-store, use global store: `pnpm config set store-dir ~/.local/share/pnpm/store` (once per machine).
+
 # Documentation Sync (Mandatory)
+- Always read `docs/` first before starting any task (from `apps/api` context: `../../docs/`).
 - Always update related documentation in the same task when code changes.
 - Never finish a task if docs are out of sync with code.
 
@@ -24,3 +30,12 @@ You are working in the UnicornsEduWeb5 monorepo.
 - Prefer editing existing files over creating new ones.
 - Validate inputs at system boundaries.
 - Avoid introducing security vulnerabilities (OWASP Top 10).
+- Before implementing, check and apply relevant best practices (framework, security, performance).
+
+# Frontend (apps/web)
+- Use **TanStack Query** (React Query) for all server state: data fetching, caching, mutations. Prefer `useQuery` / `useMutation` with the shared Axios client in `lib/client.ts`. Do not fetch in raw `useEffect` when the data is server state.
+- Validate request/response DTOs with a solution appropriate to each module (not mandatory to use **class-validator**/**class-transformer**).
+
+# Backend (apps/api) & DTOs
+- **Swagger:** Add Swagger decorators to every controller: `@ApiTags()`, `@ApiOperation()`, `@ApiResponse()`, `@ApiBody()`, `@ApiParam()`, `@ApiCookieAuth()` when needed.
+- **DTOs:** Use interfaces for request/response types.

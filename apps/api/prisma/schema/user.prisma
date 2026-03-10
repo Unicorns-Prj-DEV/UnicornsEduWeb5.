@@ -1,29 +1,26 @@
-// ============================================
-// USERS & AUTH
-// ============================================
 model User {
-  id            String     @id @default(uuid())
-  email         String     @unique
-  phone         String?
-  passwordHash  String     @map("password_hash")
-  name          String?
-  roleType      UserRole   @map("role_type")
-  province      String?
-  status        UserStatus @default(active)
-  linkId        String?    @map("link_id")
-  accountHandle String?    @unique @map("account_handle")
-  emailVerified Boolean    @default(false) @map("email_verified")
-  phoneVerified Boolean    @default(false) @map("phone_verified")
-  refreshToken  String?    @map("refresh_token")
-  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt     DateTime   @updatedAt @map("updated_at") @db.Timestamptz
-
-  studentId String? @map("student_id")
-  staffId   String? @map("staff_id")
-
-  student       StudentInfo?    @relation(fields: [studentId], references: [id], onDelete: SetNull)
-  staff         StaffInfo?      @relation(fields: [staffId], references: [id], onDelete: SetNull)
-  actionHistory ActionHistory[]
+  id                                          String          @id @default(uuid())
+  email                                       String          @unique
+  phone                                       String?
+  passwordHash                                String          @map("password_hash")
+  name                                        String?
+  roleType                                    UserRole        @map("role_type")
+  province                                    String?
+  status                                      UserStatus      @default(active)
+  linkId                                      String?         @map("link_id")
+  accountHandle                               String?         @unique @map("account_handle")
+  emailVerified                               Boolean         @default(false) @map("email_verified")
+  phoneVerified                               Boolean         @default(false) @map("phone_verified")
+  refreshToken                                String?         @map("refresh_token")
+  createdAt                                   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                                   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  student_id                                  String?
+  staff_id                                    String?
+  actionHistories                             ActionHistory[]
+  staffInfo                                   StaffInfo?
+  studentInfo                                 StudentInfo?
+  staff_info_users_staff_idTostaff_info       StaffInfo?      @relation("users_staff_idTostaff_info", fields: [staff_id], references: [id])
+  student_info_users_student_idTostudent_info StudentInfo?    @relation("users_student_idTostudent_info", fields: [student_id], references: [id])
 
   @@index([email])
   @@index([phone])
@@ -31,5 +28,7 @@ model User {
   @@index([linkId])
   @@index([roleType])
   @@index([status])
+  @@index([staff_id])
+  @@index([student_id])
   @@map("users")
 }

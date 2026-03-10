@@ -52,7 +52,7 @@ Dùng làm context khi implement hoặc review code frontend; giúp model chọn
 | **Theme / Design tokens** | CSS variables | Trong `app/globals.css`: tokens theo `docs/UI-Schema.md` (--ue-bg-primary, --ue-text-primary, --ue-primary, …); chuyển theme bằng `[data-theme]` trên `<html>` (light / dark / pink). |
 | **Fonts** | next/font/google | Geist (sans), Geist_Mono (mono); khai báo trong `app/layout.tsx`, dùng biến CSS `--font-geist-sans`, `--font-geist-mono`. |
 | **Data fetching / API** | TanStack React Query v5, Axios | React Query cho server state; Axios instance trong `lib/client.ts` (baseURL từ env, withCredentials, xử lý refresh token). |
-| **Validation / Transform** | class-validator, class-transformer | Dùng cho DTO/forms khi cần validate hoặc transform dữ liệu từ API. |
+| **Validation / Transform** | Tùy chọn theo module | Không bắt buộc class-validator/class-transformer; chọn giải pháp phù hợp yêu cầu từng phần. |
 | **TypeScript** | TS 5.x | Path alias `@/*` → `./*` (tsconfig.json). Target ES2017, moduleResolution bundler, strict. |
 | **API base URL** | Biến môi trường | `NEXT_PUBLIC_BACKEND_URL` (mặc định `http://localhost:3001`); dùng trong `lib/client.ts`. |
 
@@ -199,7 +199,7 @@ pnpm test
 pnpm run test:e2e
 ```
 
-Cấu trúc NestJS: modules, controllers, services, guards, pipes trong `apps/api/src/`; Prisma schema trong `apps/api/prisma/schema/`; Prisma Client generate ra `apps/api/generated/`.
+Cấu trúc NestJS: modules, controllers, services, guards, pipes trong `apps/api/src/`; Prisma schema trong `apps/api/prisma/schema/`; Prisma Client generate ra `apps/api/generated/`. **Swagger UI:** khi chạy API, mở `http://localhost:<PORT>/api` để xem và gọi thử API (DocumentBuilder + SwaggerModule trong `main.ts`). Mọi controller phải có Swagger decorators (`@ApiTags`, `@ApiOperation`, `@ApiResponse`, …); DTO dùng interface.
 
 ## Thêm shared package mới
 

@@ -87,7 +87,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - Index: `email`, `phone`, `account_handle`, `link_id`, `role_type`, `status`
 
 ### 4.2 `staff_info`
-- Thông tin nhân sự: hồ sơ cá nhân, ngân hàng, `roles` (JSON), `status`
+- Thông tin nhân sự: hồ sơ cá nhân, ngân hàng, `roles` (JSON array), `status`
 - Được tham chiếu bởi: `users`, `class_teachers`, `sessions`, `bonuses`, `lesson_outputs`, `customer_care_service`, `wallet_transactions_history` (customer care), `staff_monthly_stats`, `class_surveys`, `staff_lesson_task`
 
 ### 4.3 `student_info`
