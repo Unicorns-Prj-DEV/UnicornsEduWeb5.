@@ -1,5 +1,6 @@
 import {
     BadRequestException,
+    HttpException,
     Injectable,
     InternalServerErrorException,
     UnauthorizedException,
@@ -106,6 +107,34 @@ export class AuthService {
         return this.generateTokenPairAndSave(user.id, user.email, user.roleType);
     }
 
+    /** Find user by email or create one for Google OAuth (emailVerified=true, random password). */
+    async findOrCreateGoogleUser(
+        email: string,
+        name?: string,
+    ): Promise<{ id: string; email: string; roleType: string }> {
+        const existing = await this.prisma.user.findUnique({
+            where: { email },
+            select: { id: true, email: true, roleType: true },
+        });
+        if (existing) return existing;
+
+        const passwordHash = await bcrypt.hash(
+            crypto.randomBytes(32).toString('hex'),
+            10,
+        );
+        const user = await this.prisma.user.create({
+            data: {
+                email,
+                passwordHash,
+                name: name ?? null,
+                roleType: UserRole.guest,
+                emailVerified: true,
+            },
+            select: { id: true, email: true, roleType: true },
+        });
+        return user;
+    }
+
     async register(
         email: string,
         password: string,
@@ -133,9 +162,10 @@ export class AuthService {
 
         try {
             await this.mailService.sendVerificationEmail(email, verificationToken);
-        } catch {
+        } catch (err) {
+            if (err instanceof HttpException) throw err;
             throw new InternalServerErrorException(
-                'Unable to send verification email',
+                'Không gửi được email xác thực. Vui lòng thử lại hoặc liên hệ quản trị viên.',
             );
         }
 
@@ -213,7 +243,7 @@ export class AuthService {
         return { message: 'Password reset email sent successfully' };
     }
 
-    private async generateTokenPairAndSave(
+    async generateTokenPairAndSave(
         userId: string,
         email: string,
         role: string,

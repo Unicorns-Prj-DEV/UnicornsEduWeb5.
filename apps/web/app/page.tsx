@@ -168,7 +168,7 @@ export default function LandingPage() {
               Đăng nhập
             </Link>
             <Link
-              href="/login?mode=register"
+              href="/register"
               className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition hover:bg-[var(--ue-primary-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--ue-border-focus)]"
             >
               Đăng ký

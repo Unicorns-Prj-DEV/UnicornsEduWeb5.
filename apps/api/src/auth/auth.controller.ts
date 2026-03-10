@@ -11,9 +11,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import { Public } from './decorators/public.decorator';
+import { AuthGuard } from '@nestjs/passport';
 import {
   CurrentUser,
   type JwtPayload,
@@ -24,10 +26,51 @@ import type {
   UserAuthDto,
 } from '../../dtos/user.dto';
 import type { RefreshValidateResult } from './strategies/jwt-refresh.strategy';
+import type { GoogleUserPayload } from './strategies/google.strategy';
+
+const ROLE_REDIRECT: Record<string, string> = {
+  admin: '/admin',
+  staff: '/mentor',
+  student: '/student',
+  guest: '/',
+};
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) { }
+
+  @Public()
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  async googleAuth() {
+    // Guard redirects to Google
+  }
+
+  @Public()
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  async googleAuthCallback(
+    @Req() req: Request & { user: GoogleUserPayload },
+    @Res() res: Response,
+  ) {
+    const user = req.user;
+    if (!user?.id || !user?.email) {
+      const frontendUrl = this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
+      return res.redirect(`${frontendUrl}/login?error=google_no_user`);
+    }
+    const tokens = await this.authService.generateTokenPairAndSave(
+      user.id,
+      user.email,
+      user.roleType,
+    );
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
+    const redirectPath = ROLE_REDIRECT[user.roleType] ?? '/';
+    const hash = `access_token=${encodeURIComponent(tokens.accessToken)}&refresh_token=${encodeURIComponent(tokens.refreshToken)}`;
+    return res.redirect(`${frontendUrl}/auth/google/callback#${hash}`);
+  }
 
   @Public()
   @HttpCode(HttpStatus.OK)

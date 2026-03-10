@@ -1,9 +1,22 @@
 import { ForgotPasswordDto, LoginDto, RegisterDto, ResetPasswordDto } from '@/dtos/Auth.dto';
 import { api } from '../client';
 
-export async function logIn(LoginDto: LoginDto) {
-    const response = await api.post('/auth/login', LoginDto);
-    return response.data;
+export async function logIn(dto: LoginDto) {
+    console.log("[Auth API] POST /auth/login", { email: dto.email });
+    try {
+        const response = await api.post('/auth/login', dto);
+        console.log("[Auth API] login success", { hasTokens: !!(response.data?.accessToken) });
+        return response.data;
+    } catch (err: unknown) {
+        const ax = err as { code?: string; message?: string; response?: { status: number; data?: unknown } };
+        console.error("[Auth API] login failed", {
+            code: ax.code,
+            message: ax.message,
+            status: ax.response?.status,
+            data: ax.response?.data,
+        });
+        throw err;
+    }
 }
 
 export async function register(RegisterDto: RegisterDto) {

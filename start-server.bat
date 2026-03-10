@@ -37,7 +37,8 @@ if not exist "apps\web" (
 echo Dang kiem tra dependencies...
 echo.
 
-if not exist "apps\api\node_modules" (
+set "API_NODE=apps\api\node_modules"
+if not exist "%API_NODE%" (
     echo WARNING: API chua co node_modules. Dang cai dat...
     cd apps\api
     call npm install
@@ -46,14 +47,11 @@ if not exist "apps\api\node_modules" (
     echo.
 )
 
-if not exist "apps\web\node_modules" if not exist "apps\web\node_modules\next" (
-    set "WEB_NEED_INSTALL=1"
-)
-if exist "apps\web\node_modules" if not exist "apps\web\node_modules\next" (
-    set "WEB_NEED_INSTALL=1"
-)
+set "WEB_NODE=apps\web\node_modules"
+set "WEB_NEXT=apps\web\node_modules\next"
+if not exist "%WEB_NEXT%" set "WEB_NEED_INSTALL=1"
 if defined WEB_NEED_INSTALL (
-    echo WARNING: Web chua co day du node_modules (hoac thieu next). Dang cai dat...
+    echo WARNING: Web chua co day du node_modules hoac thieu next. Dang cai dat...
     echo   Neu bi loi TAR hoac timeout, chay thu cong: cd apps\web ^&^& npm install
     cd apps\web
     call npm install
@@ -69,7 +67,8 @@ if defined WEB_NEED_INSTALL (
     echo.
 )
 
-if not exist "apps\api\.env" (
+set "API_ENV=apps\api\.env"
+if not exist "%API_ENV%" (
     echo WARNING: Chua co file apps\api\.env
     echo   Tao file .env voi DATABASE_URL va cac bien can thiet
     echo.
@@ -80,13 +79,13 @@ echo    DANG KHOI DONG SERVERS...
 echo ========================================
 echo.
 
-echo Khoi dong API (NestJS - port 3001 hoac PORT trong .env)...
-start "UniEdu API" cmd /k "cd apps\api && npm run dev"
+echo Khoi dong API (NestJS - port 3001, tu dong tai khi sua code)...
+start "UniEdu API" cmd /k "set CHOKIDAR_USEPOLLING=true && cd /d apps\api && npm run dev"
 
 timeout /t 3 /nobreak >nul
 
-echo Khoi dong Web (Next.js - port 3000)...
-start "UniEdu Web" cmd /k "cd apps\web && npm run dev"
+echo Khoi dong Web (Next.js - port 3000, tu dong tai khi sua code)...
+start "UniEdu Web" cmd /k "set CHOKIDAR_USEPOLLING=true && cd /d apps\web && npm run dev"
 
 timeout /t 3 /nobreak >nul
 

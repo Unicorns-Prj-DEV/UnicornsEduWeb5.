@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import nodemailer, { type Transporter } from 'nodemailer';
 
@@ -29,9 +29,12 @@ export class MailService {
 
     async sendVerificationEmail(email: string, token: string): Promise<void> {
         if (!this.transporter) {
-            return; // Mail not configured (e.g. dev without SMTP)
+            throw new ServiceUnavailableException(
+                'Chưa cấu hình gửi email (SMTP). Vui lòng cấu hình SMTP trong .env hoặc liên hệ quản trị viên.',
+            );
         }
-        const verificationLink = `${this.configService.get<string>('BACKEND_URL')}/auth/verify?token=${encodeURIComponent(token)}`;
+        const frontendUrl = this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
+        const verificationLink = `${frontendUrl}/verify-email?token=${encodeURIComponent(token)}`;
 
         await this.transporter.sendMail({
             from: this.mailFrom,
@@ -44,9 +47,12 @@ export class MailService {
 
     async sendForgotPasswordEmail(email: string, token: string): Promise<void> {
         if (!this.transporter) {
-            return; // Mail not configured (e.g. dev without SMTP)
+            throw new ServiceUnavailableException(
+                'Chưa cấu hình gửi email (SMTP). Vui lòng cấu hình SMTP trong .env hoặc liên hệ quản trị viên.',
+            );
         }
-        const forgotPasswordLink = `${this.configService.get<string>('FRONTEND_URL')}/reset-password?token=${encodeURIComponent(token)}`;
+        const frontendUrl = this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
+        const forgotPasswordLink = `${frontendUrl}/reset-password?token=${encodeURIComponent(token)}`;
 
         await this.transporter.sendMail({
             from: this.mailFrom,

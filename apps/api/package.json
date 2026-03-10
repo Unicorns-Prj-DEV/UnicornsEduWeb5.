@@ -22,7 +22,10 @@
     "check-types": "tsc --noEmit",
     "db:generate": "prisma generate --schema=./prisma/schema/",
     "db:migrate": "prisma migrate dev --schema=./prisma/schema/",
-    "seed": "ts-node -r tsconfig-paths/register scripts/seed.ts"
+    "seed": "ts-node -r tsconfig-paths/register scripts/seed.ts",
+    "seed:admin": "ts-node -r tsconfig-paths/register scripts/seed-admin.ts",
+    "db:delete-admins-except-official": "prisma db execute --file scripts/delete-admins-except-official.sql",
+    "db:fix-users-columns": "prisma db execute --file scripts/fix-users-add-student-staff-id.sql"
   },
   "dependencies": {
     "@faker-js/faker": "^9.2.0",
@@ -45,6 +48,7 @@
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^8.0.1",
     "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
