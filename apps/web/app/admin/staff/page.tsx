@@ -1,22 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as staffApi from "@/lib/apis/staff.api";
+import { StaffListTableSkeleton } from "@/components/admin/staff";
 
-type StaffStatus = "active" | "inactive";
-
-interface StaffListItem {
-  id: string;
-  fullName: string;
-  status: StaffStatus;
-  user?: { province?: string | null } | null;
-  classTeachers?: Array<{ class: { id: string; name: string } }>;
-  monthlyStats?: Array<{ totalUnpaidAll?: number | null }>;
-}
+type StaffStatus = staffApi.StaffStatus;
+type StaffListItem = staffApi.StaffListItem;
 
 const PAGE_SIZE = 20;
+const STAFF_LIST_QUERY_KEY = ["staff", "list"] as const;
 
 const STATUS_OPTIONS: { value: "" | StaffStatus; label: string }[] = [
   { value: "", label: "Tất cả trạng thái" },
@@ -33,63 +28,37 @@ function formatCurrency(value: number | null | undefined): string {
   }).format(value);
 }
 
-function TableSkeleton({ rows = 5 }: { rows?: number }) {
-  return (
-    <div className="overflow-x-auto overscroll-contain" aria-hidden>
-      <table className="w-full min-w-[520px] border-collapse text-left text-sm">
-        <thead>
-          <tr className="border-b border-border-default bg-bg-secondary">
-            <th className="w-8 px-2 py-3" />
-            <th className="px-4 py-3 font-medium text-text-primary">Tên</th>
-            <th className="px-4 py-3 font-medium text-text-primary">Tỉnh</th>
-            <th className="px-4 py-3 font-medium text-text-primary">Lớp</th>
-            <th className="px-4 py-3 font-medium text-text-primary">Chưa thanh toán</th>
-            <th className="w-20 px-4 py-3" />
-          </tr>
-        </thead>
-        <tbody>
-          {Array.from({ length: rows }).map((_, i) => (
-            <tr key={i} className="border-b border-border-default bg-bg-surface">
-              {Array.from({ length: 6 }).map((_, j) => (
-                <td key={j} className="px-4 py-3">
-                  <span className="inline-block h-5 w-full max-w-[6rem] animate-pulse rounded bg-bg-tertiary" />
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 export default function AdminStaffPage() {
   const router = useRouter();
-  const [list, setList] = useState<StaffListItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"" | StaffStatus>("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const fetchStaff = () => {
-    setLoading(true);
-    setError(null);
-    staffApi
-      .getStaff()
-      .then((data) => setList(Array.isArray(data) ? data : []))
-      .catch((err) => {
-        const msg =
-          err?.response?.data?.message ?? err?.message ?? "Không tải được danh sách nhân sự.";
-        setError(msg);
-      })
-      .finally(() => setLoading(false));
-  };
+  const {
+    data: list = [],
+    isLoading,
+    isError,
+    error,
+  } = useQuery<StaffListItem[]>({
+    queryKey: STAFF_LIST_QUERY_KEY,
+    queryFn: staffApi.getStaff,
+  });
 
-  useEffect(() => {
-    fetchStaff();
-  }, []);
+  const deleteMutation = useMutation({
+    mutationFn: ({ id }: { id: string }) => staffApi.deleteStaffById(id),
+    onSuccess: () => {
+      toast.success("Đã xóa nhân sự.");
+      queryClient.invalidateQueries({ queryKey: STAFF_LIST_QUERY_KEY });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (err as Error)?.message ??
+        "Không thể xóa.";
+      toast.error(msg);
+    },
+  });
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -101,33 +70,22 @@ export default function AdminStaffPage() {
   }, [list, search, statusFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginatedRows = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return filtered.slice(start, start + PAGE_SIZE);
-  }, [filtered, currentPage]);
+  const safeCurrentPage = Math.min(currentPage, totalPages);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search, statusFilter]);
+  const paginatedRows = useMemo(() => {
+    const start = (safeCurrentPage - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, safeCurrentPage]);
 
   const statusDotColor = (status: StaffStatus) =>
     status === "active" ? "bg-warning" : "bg-text-muted";
 
   const handleDelete = async (id: string, name: string) => {
     if (!window.confirm(`Bạn có chắc muốn xóa nhân sự "${name}"?`)) return;
-    setDeletingId(id);
     try {
-      await staffApi.deleteStaffById(id);
-      toast.success("Đã xóa nhân sự.");
-      fetchStaff();
-    } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        (err as Error)?.message ??
-        "Không thể xóa.";
-      toast.error(msg);
-    } finally {
-      setDeletingId(null);
+      await deleteMutation.mutateAsync({ id });
+    } catch {
+      // Đã xử lý toast trong onError
     }
   };
 
@@ -153,7 +111,10 @@ export default function AdminStaffPage() {
             <input
               type="search"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
               placeholder="Theo tên…"
               className="min-w-0 flex-1 rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
               aria-label="Tìm theo tên"
@@ -163,7 +124,10 @@ export default function AdminStaffPage() {
             <span className="shrink-0 text-sm font-medium text-text-secondary sm:w-24">Trạng thái</span>
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter((e.target.value || "") as "" | StaffStatus)}
+              onChange={(e) => {
+                setStatusFilter((e.target.value || "") as "" | StaffStatus);
+                setCurrentPage(1);
+              }}
               className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
               aria-label="Lọc theo trạng thái"
             >
@@ -177,11 +141,15 @@ export default function AdminStaffPage() {
         </div>
 
         <div className="min-w-0 flex-1 overflow-auto">
-          {loading ? (
-            <TableSkeleton rows={5} />
-          ) : error ? (
+          {isLoading ? (
+            <StaffListTableSkeleton rows={5} />
+          ) : isError ? (
             <div className="py-16 text-center text-error" role="alert" aria-live="assertive">
-              <p className="text-sm">{error}</p>
+              <p className="text-sm">
+                {(error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+                  (error as Error)?.message ??
+                  "Không tải được danh sách nhân sự."}
+              </p>
             </div>
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-text-muted" aria-live="polite">
@@ -191,7 +159,7 @@ export default function AdminStaffPage() {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto overscroll-contain">
+              <div className="overflow-x-auto">
                 <table className="w-full min-w-[520px] border-collapse text-left text-sm">
                   <caption className="sr-only">Danh sách nhân sự (staff_info)</caption>
                   <thead>
@@ -208,65 +176,66 @@ export default function AdminStaffPage() {
                   </thead>
                   <tbody>
                     {paginatedRows.map((row) => {
-                    const unpaid = row.monthlyStats?.[0]?.totalUnpaidAll;
-                    const classes = row.classTeachers?.map((ct) => ct.class.name).filter(Boolean).join(", ") || "—";
-                    const province = row.user?.province?.trim() || "—";
-                    return (
-                      <tr
-                        key={row.id}
-                        role="button"
-                        tabIndex={0}
-                        className="group cursor-pointer border-b border-border-default bg-bg-surface transition-colors hover:bg-bg-secondary focus-within:bg-bg-secondary"
-                        onClick={() => router.push(`/admin/staff/${row.id}`)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            router.push(`/admin/staff/${row.id}`);
-                          }
-                        }}
-                        aria-label={`Xem chi tiết ${row.fullName?.trim() || "nhân sự"}`}
-                      >
-                        <td className="px-2 py-3 align-middle">
-                          <span
-                            className={`inline-block size-2 shrink-0 rounded-full ${statusDotColor(row.status)}`}
-                            title={row.status === "active" ? "Hoạt động" : "Ngừng"}
-                            aria-hidden
-                          />
-                        </td>
-                        <td className="min-w-0 px-4 py-3 text-text-primary">
-                          <span className="truncate">{row.fullName?.trim() || "—"}</span>
-                        </td>
-                        <td className="min-w-0 px-4 py-3 text-text-secondary">
-                          <span className="truncate">{province}</span>
-                        </td>
-                        <td className="min-w-0 px-4 py-3 text-text-secondary">
-                          <span className="truncate">{classes}</span>
-                        </td>
-                        <td className="px-4 py-3 tabular-nums text-text-primary">
-                          {formatCurrency(unpaid ?? undefined)}
-                        </td>
-                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-end opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
-                            <button
-                              type="button"
-                              className="rounded p-1.5 text-text-muted transition hover:bg-error/15 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:opacity-50"
-                              aria-label={`Xóa ${row.fullName}`}
-                              title="Xóa"
-                              disabled={!!deletingId}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDelete(row.id, row.fullName?.trim() || "");
-                              }}
-                            >
-                              <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                      const unpaid = row.monthlyStats?.[0]?.totalUnpaidAll;
+                      const classes =
+                        row.classTeachers?.map((ct) => ct.class.name).filter(Boolean).join(", ") || "—";
+                      const province = row.user?.province?.trim() || "—";
+                      return (
+                        <tr
+                          key={row.id}
+                          role="button"
+                          tabIndex={0}
+                          className="group cursor-pointer border-b border-border-default bg-bg-surface transition-colors hover:bg-bg-secondary focus-within:bg-bg-secondary"
+                          onClick={() => router.push(`/admin/staff/${row.id}`)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              router.push(`/admin/staff/${row.id}`);
+                            }
+                          }}
+                          aria-label={`Xem chi tiết ${row.fullName?.trim() || "nhân sự"}`}
+                        >
+                          <td className="px-2 py-3 align-middle">
+                            <span
+                              className={`inline-block size-2 shrink-0 rounded-full ${statusDotColor(row.status)}`}
+                              title={row.status === "active" ? "Hoạt động" : "Ngừng"}
+                              aria-hidden
+                            />
+                          </td>
+                          <td className="min-w-0 px-4 py-3 text-text-primary">
+                            <span className="truncate">{row.fullName?.trim() || "—"}</span>
+                          </td>
+                          <td className="min-w-0 px-4 py-3 text-text-secondary">
+                            <span className="truncate">{province}</span>
+                          </td>
+                          <td className="min-w-0 px-4 py-3 text-text-secondary">
+                            <span className="truncate">{classes}</span>
+                          </td>
+                          <td className="px-4 py-3 tabular-nums text-text-primary">
+                            {formatCurrency(unpaid ?? undefined)}
+                          </td>
+                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-end opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+                              <button
+                                type="button"
+                                className="rounded p-1.5 text-text-muted transition hover:bg-error/15 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:opacity-50"
+                                aria-label={`Xóa ${row.fullName}`}
+                                title="Xóa"
+                                disabled={deleteMutation.isPending}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(row.id, row.fullName?.trim() || "");
+                                }}
+                              >
+                                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -277,25 +246,26 @@ export default function AdminStaffPage() {
                   aria-label="Phân trang"
                 >
                   <p className="text-sm text-text-muted" aria-live="polite">
-                    Hiển thị {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} trong {filtered.length} nhân sự
+                    Hiển thị {(safeCurrentPage - 1) * PAGE_SIZE + 1}–
+                    {Math.min(safeCurrentPage * PAGE_SIZE, filtered.length)} trong {filtered.length} nhân sự
                   </p>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-                      disabled={currentPage <= 1}
+                      disabled={safeCurrentPage <= 1}
                       aria-label="Trang trước"
                       onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     >
                       Trước
                     </button>
                     <span className="tabular-nums text-sm text-text-secondary">
-                      Trang {currentPage} / {totalPages}
+                      Trang {safeCurrentPage} / {totalPages}
                     </span>
                     <button
                       type="button"
                       className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-                      disabled={currentPage >= totalPages}
+                      disabled={safeCurrentPage >= totalPages}
                       aria-label="Trang sau"
                       onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                     >

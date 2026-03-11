@@ -24,6 +24,7 @@
 - **Inputs:** `bg-surface`, `text-primary`, `border-default`; focus `border-focus`.
 - **Badges (status):** Status tint (success/warning/error/info) with 12–16% alpha; text and border per UI-Schema.
 - **Alerts:** Status tint background; icon + label for accessibility.
+- **Reusable components (staff admin):** Tách các phần UI dùng lại vào `apps/web/components/admin/staff` (ví dụ: `StaffListTableSkeleton`, `StaffCard`, `StaffDetailRow`) để giữ page gọn và dễ bảo trì.
 
 ## Data and API
 
@@ -38,6 +39,11 @@
   - `PATCH /users`
   - `DELETE /users/:id`
   - Các endpoint này đi qua global JWT guard (không `@Public`) và chỉ cho role `admin`.
+- **Staff endpoints & frontend data fetching:**
+  - `GET /staff` hiện trả mảng staff trực tiếp (không đổi pagination trong đợt này).
+  - FE `/admin/staff` dùng TanStack Query `useQuery` để fetch danh sách.
+  - Xóa staff dùng TanStack Query `useMutation`; khi thành công sẽ invalidate query danh sách và hiển thị Sonner toast.
+  - FE `/admin/staff/:id` dùng TanStack Query `useQuery` với `enabled: !!id` cho trang chi tiết.
 
 ## DoD and week
 

@@ -43,7 +43,9 @@ Khi thay đổi code, **luôn cập nhật tài liệu liên quan trong cùng ph
 
 ### Frontend (`apps/web`)
 
+- **TanStack Query (React Query) – Bắt buộc:** Luôn luôn dùng TanStack Query cho mọi giao tiếp với Backend (query/mutation/invalidate). Không gọi API backend trực tiếp bằng `useEffect`/`useState` thuần.
 - **TanStack Query (React Query):** Dùng cho mọi server state: fetch dữ liệu, cache, mutation. Ưu tiên `useQuery` / `useMutation` với Axios client trong `lib/client.ts`. Không fetch trong `useEffect` thuần khi dữ liệu là server state.
+- **Reusable components (React best practices) – Bắt buộc:** Luôn tách UI thành các reusable components khi có phần lặp lại hoặc logic dùng lại, ưu tiên component nhỏ, rõ trách nhiệm, dễ test và dễ bảo trì.
 - **Validation/Transform:** Chọn giải pháp phù hợp theo từng module (không bắt buộc `class-validator` / `class-transformer`).
 
 ### Backend (`apps/api`) & DTO

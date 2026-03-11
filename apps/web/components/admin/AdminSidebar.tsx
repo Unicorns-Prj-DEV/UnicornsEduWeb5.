@@ -157,7 +157,7 @@ export default function AdminSidebar() {
         width: collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED,
         transition: prefersReducedMotion ? "none" : "width 0.28s ease-out",
       }}
-      className="flex shrink-0 flex-col overflow-hidden border-r border-border-default bg-bg-secondary text-text-secondary"
+      className="h-screen sticky top-0 flex shrink-0 flex-col overflow-hidden border-r border-border-default bg-bg-secondary text-text-secondary"
       aria-label="Menu admin"
     >
       <div className="flex h-14 shrink-0 items-center justify-between border-b border-border-default px-3">
@@ -194,11 +194,10 @@ export default function AdminSidebar() {
               <li key={item.href} className="sidebar-item">
                 <Link
                   href={item.href}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${
-                    isActive
-                      ? "bg-primary text-text-inverse"
-                      : "hover:bg-bg-tertiary hover:text-text-primary"
-                  }`}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${isActive
+                    ? "bg-primary text-text-inverse"
+                    : "hover:bg-bg-tertiary hover:text-text-primary"
+                    }`}
                   aria-label={collapsed ? item.label : undefined}
                   title={collapsed ? item.label : undefined}
                 >
@@ -217,11 +216,10 @@ export default function AdminSidebar() {
       <div className="shrink-0 border-t border-border-default p-2">
         <Link
           href="/"
-          className={`sidebar-item flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${
-            pathname === "/"
-              ? "bg-primary text-text-inverse"
-              : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
-          }`}
+          className={`sidebar-item flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${pathname === "/"
+            ? "bg-primary text-text-inverse"
+            : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
+            }`}
           aria-label={collapsed ? "Trang chủ" : undefined}
           title={collapsed ? "Trang chủ" : undefined}
         >

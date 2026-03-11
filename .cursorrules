@@ -33,7 +33,9 @@ You are working in the UnicornsEduWeb5 monorepo.
 - Before implementing, check and apply relevant best practices (framework, security, performance).
 
 # Frontend (apps/web)
+- **Mandatory:** Always use **TanStack Query** for all backend communication (queries, mutations, cache invalidation). Do not call backend APIs with raw `useEffect`/`useState` patterns.
 - Use **TanStack Query** (React Query) for all server state: data fetching, caching, mutations. Prefer `useQuery` / `useMutation` with the shared Axios client in `lib/client.ts`. Do not fetch in raw `useEffect` when the data is server state.
+- **Mandatory:** Always extract and reuse UI into reusable React components when markup/logic repeats. Follow React best practices: small focused components, clear responsibilities, and composability.
 - Validate request/response DTOs with a solution appropriate to each module (not mandatory to use **class-validator**/**class-transformer**).
 
 # Backend (apps/api) & DTOs

@@ -39,7 +39,6 @@ export class MailService {
     console.log(frontendUrl);
     const verificationLink = `${frontendUrl}/verify-email?token=${encodeURIComponent(token)}`;
 
-
     await this.transporter.sendMail({
       from: this.mailFrom,
       to: email,

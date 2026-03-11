@@ -28,4 +28,4 @@ import { MailModule } from '../mail/mail.module';
   providers: [AuthService, JwtStrategy, JwtRefreshStrategy],
   exports: [AuthService],
 })
-export class AuthModule { }
+export class AuthModule {}

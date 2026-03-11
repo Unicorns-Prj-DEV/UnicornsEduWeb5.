@@ -49,14 +49,47 @@ export async function deleteUser(id: string) {
     return response.data;
 }
 
+export type StaffStatus = "active" | "inactive";
+
+export interface StaffListItem {
+    id: string;
+    fullName: string;
+    status: StaffStatus;
+    user?: { province?: string | null } | null;
+    classTeachers?: Array<{ class: { id: string; name: string } }>;
+    monthlyStats?: Array<{ totalUnpaidAll?: number | null }>;
+}
+
+export interface StaffDetail {
+    id: string;
+    fullName: string;
+    birthDate?: string | null;
+    university?: string | null;
+    highSchool?: string | null;
+    specialization?: string | null;
+    bankAccount?: string | null;
+    bankQrLink?: string | null;
+    roles: string[];
+    status: StaffStatus;
+    createdAt?: string;
+    updatedAt?: string;
+    user?: {
+        id: string;
+        email: string;
+        province?: string | null;
+    } | null;
+    classTeachers?: Array<{ class: { id: string; name: string } }>;
+    monthlyStats?: Array<{ month: string; totalUnpaidAll?: number | null }>;
+}
+
 /** StaffInfo list (bảng staff_info): GET /staff */
-export async function getStaff() {
+export async function getStaff(): Promise<StaffListItem[]> {
     const response = await api.get("/staff");
-    return response.data;
+    return Array.isArray(response.data) ? response.data : [];
 }
 
 /** Chi tiết một nhân sự: GET /staff/:id */
-export async function getStaffById(id: string) {
+export async function getStaffById(id: string): Promise<StaffDetail> {
     const response = await api.get(`/staff/${id}`);
     return response.data;
 }

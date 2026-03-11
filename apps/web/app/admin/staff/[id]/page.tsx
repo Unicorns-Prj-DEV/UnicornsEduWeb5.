@@ -2,32 +2,12 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import * as staffApi from "@/lib/apis/staff.api";
+import { StaffCard, StaffDetailRow } from "@/components/admin/staff";
 
-type StaffStatus = "active" | "inactive";
-
-interface StaffDetail {
-  id: string;
-  fullName: string;
-  birthDate?: string | null;
-  university?: string | null;
-  highSchool?: string | null;
-  specialization?: string | null;
-  bankAccount?: string | null;
-  bankQrLink?: string | null;
-  roles: string[];
-  status: StaffStatus;
-  createdAt?: string;
-  updatedAt?: string;
-  user?: {
-    id: string;
-    email: string;
-    province?: string | null;
-  } | null;
-  classTeachers?: Array<{ class: { id: string; name: string } }>;
-  monthlyStats?: Array<{ month: string; totalUnpaidAll?: number | null }>;
-}
+type StaffStatus = staffApi.StaffStatus;
+type StaffDetail = staffApi.StaffDetail;
 
 function formatDate(iso?: string | null): string {
   if (!iso) return "—";
@@ -40,15 +20,6 @@ function formatDate(iso?: string | null): string {
   } catch {
     return "—";
   }
-}
-
-function formatCurrency(value: number | null | undefined): string {
-  if (value == null || Number.isNaN(value)) return "—";
-  return new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0,
-  }).format(value);
 }
 
 const STATUS_LABELS: Record<StaffStatus, string> = {
@@ -68,77 +39,22 @@ const ROLE_LABELS: Record<string, string> = {
   customer_care_head: "Trưởng CSKH",
 };
 
-function Card({
-  title,
-  children,
-  className = "",
-}: {
-  title: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <section
-      className={`rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm transition-colors hover:border-border-default sm:p-5 ${className}`}
-      aria-labelledby={`card-${title.replace(/\s+/g, "-")}`}
-    >
-      <h2
-        id={`card-${title.replace(/\s+/g, "-")}`}
-        className="mb-4 text-sm font-semibold uppercase tracking-wide text-text-muted"
-      >
-        {title}
-      </h2>
-      <div className="text-sm text-text-primary">{children}</div>
-    </section>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-0.5 py-2 first:pt-0 last:pb-0 sm:flex-row sm:gap-4">
-      <dt className="shrink-0 font-medium text-text-secondary sm:w-36">{label}</dt>
-      <dd className="min-w-0 text-text-primary">{value ?? "—"}</dd>
-    </div>
-  );
-}
-
 export default function AdminStaffDetailPage() {
   const params = useParams();
   const id = typeof params?.id === "string" ? params.id : "";
-  const [staff, setStaff] = useState<StaffDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!id) {
-      setLoading(false);
-      setError("Thiếu mã nhân sự.");
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    staffApi
-      .getStaffById(id)
-      .then((data) => {
-        if (!cancelled) setStaff(data as StaffDetail);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          const msg =
-            err?.response?.data?.message ?? err?.message ?? "Không tải được thông tin nhân sự.";
-          setError(msg);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [id]);
+  const {
+    data: staff,
+    isLoading,
+    isError,
+    error,
+  } = useQuery<StaffDetail>({
+    queryKey: ["staff", "detail", id],
+    queryFn: () => staffApi.getStaffById(id),
+    enabled: !!id,
+  });
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 sm:p-6">
         <div className="mb-4 h-8 w-48 animate-pulse rounded bg-bg-tertiary" />
@@ -153,7 +69,13 @@ export default function AdminStaffDetailPage() {
     );
   }
 
-  if (error || !staff) {
+  if (!id || isError || !staff) {
+    const message = !id
+      ? "Thiếu mã nhân sự."
+      : (error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (error as Error)?.message ??
+        "Không tìm thấy nhân sự.";
+
     return (
       <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 sm:p-6">
         <Link
@@ -166,7 +88,7 @@ export default function AdminStaffDetailPage() {
           Quay lại danh sách nhân sự
         </Link>
         <div className="rounded-lg border border-error/30 bg-error/10 px-4 py-6 text-error" role="alert">
-          <p>{error ?? "Không tìm thấy nhân sự."}</p>
+          <p>{message}</p>
         </div>
       </div>
     );
@@ -190,128 +112,112 @@ export default function AdminStaffDetailPage() {
       <header className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <span
-            className={`inline-block size-3 shrink-0 rounded-full ${
-              staff.status === "active" ? "bg-warning" : "bg-text-muted"
-            }`}
+            className={`inline-block size-3 shrink-0 rounded-full ${staff.status === "active" ? "bg-warning" : "bg-text-muted"}`}
             title={STATUS_LABELS[staff.status]}
             aria-hidden
           />
-          <h1 className="text-xl font-semibold text-text-primary">
-            {staff.fullName?.trim() || "Nhân sự"}
-          </h1>
+          <h1 className="text-xl font-semibold text-text-primary">{staff.fullName?.trim() || "Nhân sự"}</h1>
         </div>
       </header>
 
       <div className="flex flex-col gap-4">
-        <Card title="Thông tin cơ bản">
+        <StaffCard title="Thông tin cơ bản">
           <dl className="divide-y divide-border-subtle">
-            <DetailRow label="Ngày sinh" value={formatDate(staff.birthDate)} />
-            <DetailRow label="Tỉnh / Thành phố" value={province} />
-            <DetailRow label="Trường đại học" value={staff.university?.trim()} />
-            <DetailRow label="Mô tả chuyên môn" value={staff.specialization?.trim()} />
+            <StaffDetailRow label="Ngày sinh" value={formatDate(staff.birthDate)} />
+            <StaffDetailRow label="Tỉnh / Thành phố" value={province} />
+            <StaffDetailRow label="Trường đại học" value={staff.university?.trim()} />
+            <StaffDetailRow label="Mô tả chuyên môn" value={staff.specialization?.trim()} />
           </dl>
-        </Card>
+        </StaffCard>
 
         <section
           className="rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5"
-        aria-labelledby="income-stats-title"
-      >
-        <h2
-          id="income-stats-title"
-          className="mb-4 text-sm font-semibold uppercase tracking-wide text-text-muted"
+          aria-labelledby="income-stats-title"
         >
-          Thống kê thu nhập
-        </h2>
-        <div className="overflow-x-auto overscroll-contain">
-          <table className="w-full min-w-[400px] border-collapse text-left text-sm">
-            <caption className="sr-only">Bảng thống kê thu nhập nhân sự</caption>
-            <thead>
-              <tr className="border-b border-border-default bg-bg-secondary">
-                <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
-                  Tổng tháng
-                </th>
-                <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
-                  Chưa nhận
-                </th>
-                <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
-                  Đã nhận
-                </th>
-                <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
-                  Tổng năm
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b border-border-default bg-bg-surface transition-colors hover:bg-bg-secondary">
-                <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
-                <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
-                <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
-                <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
-              </tr>
-              <tr className="border-b border-border-default bg-bg-tertiary">
-                <td
-                  colSpan={4}
-                  className="py-2 pr-4 pl-4 text-xs font-medium uppercase tracking-wide text-text-muted"
-                >
-                  Trước khấu trừ
-                </td>
-              </tr>
-              <tr className="border-b border-border-default bg-bg-tertiary">
-                <th scope="col" className="py-2 pr-4 text-left text-xs font-medium text-text-muted">
-                  Tổng tháng (cũ)
-                </th>
-                <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-text-muted">
-                  Chưa nhận (cũ)
-                </th>
-                <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-text-muted">
-                  Đã nhận (cũ)
-                </th>
-                <th scope="col" className="px-4 py-2" />
-              </tr>
-              <tr className="border-b border-border-default bg-bg-surface transition-colors hover:bg-bg-secondary">
-                <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
-                <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
-                <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
-                <td className="px-4 py-3 text-text-muted">—</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-3 text-xs text-text-muted" aria-live="polite">
-          Đang phát triển. Chưa có công thức tính toán; giá trị hiển thị là 0.
-        </p>
+          <h2
+            id="income-stats-title"
+            className="mb-4 text-sm font-semibold uppercase tracking-wide text-text-muted"
+          >
+            Thống kê thu nhập
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[400px] border-collapse text-left text-sm">
+              <caption className="sr-only">Bảng thống kê thu nhập nhân sự</caption>
+              <thead>
+                <tr className="border-b border-border-default bg-bg-secondary">
+                  <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
+                    Tổng tháng
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
+                    Chưa nhận
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
+                    Đã nhận
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
+                    Tổng năm
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-border-default bg-bg-surface transition-colors hover:bg-bg-secondary">
+                  <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
+                  <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
+                  <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
+                  <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
+                </tr>
+                <tr className="border-b border-border-default bg-bg-tertiary">
+                  <td
+                    colSpan={4}
+                    className="py-2 pr-4 pl-4 text-xs font-medium uppercase tracking-wide text-text-muted"
+                  >
+                    Trước khấu trừ
+                  </td>
+                </tr>
+                <tr className="border-b border-border-default bg-bg-tertiary">
+                  <th scope="col" className="py-2 pr-4 text-left text-xs font-medium text-text-muted">
+                    Tổng tháng (cũ)
+                  </th>
+                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-text-muted">
+                    Chưa nhận (cũ)
+                  </th>
+                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-text-muted">
+                    Đã nhận (cũ)
+                  </th>
+                  <th scope="col" className="px-4 py-2" />
+                </tr>
+                <tr className="border-b border-border-default bg-bg-surface transition-colors hover:bg-bg-secondary">
+                  <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
+                  <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
+                  <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
+                  <td className="px-4 py-3 text-text-muted">—</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-3 text-xs text-text-muted" aria-live="polite">
+            Đang phát triển. Chưa có công thức tính toán; giá trị hiển thị là 0.
+          </p>
         </section>
 
-        <Card title="Lớp phụ trách">
+        <StaffCard title="Lớp phụ trách">
           {classes.length === 0 ? (
             <p className="text-text-muted">Chưa gán lớp nào.</p>
           ) : (
-            <div className="overflow-x-auto overscroll-contain">
+            <div className="overflow-x-auto">
               <table className="w-full min-w-[480px] border-collapse text-left text-sm">
                 <thead>
                   <tr className="border-b border-border-default bg-bg-secondary">
-                    <th
-                      scope="col"
-                      className="px-4 py-3 font-medium text-text-primary"
-                    >
+                    <th scope="col" className="px-4 py-3 font-medium text-text-primary">
                       Lớp
                     </th>
-                    <th
-                      scope="col"
-                      className="px-4 py-3 font-medium text-text-primary tabular-nums"
-                    >
+                    <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
                       Tổng nhận
                     </th>
-                    <th
-                      scope="col"
-                      className="px-4 py-3 font-medium text-text-primary tabular-nums"
-                    >
+                    <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
                       Chưa nhận
                     </th>
-                    <th
-                      scope="col"
-                      className="px-4 py-3 font-medium text-text-primary tabular-nums"
-                    >
+                    <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
                       Đã nhận
                     </th>
                   </tr>
@@ -323,15 +229,9 @@ export default function AdminStaffDetailPage() {
                       className="border-b border-border-default bg-bg-surface transition-colors hover:bg-bg-secondary"
                     >
                       <td className="px-4 py-3 text-text-primary">{name}</td>
-                      <td className="px-4 py-3 tabular-nums text-text-primary">
-                        0
-                      </td>
-                      <td className="px-4 py-3 tabular-nums text-text-primary">
-                        0
-                      </td>
-                      <td className="px-4 py-3 tabular-nums text-text-primary">
-                        0
-                      </td>
+                      <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
+                      <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
+                      <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
                     </tr>
                   ))}
                 </tbody>
@@ -341,9 +241,9 @@ export default function AdminStaffDetailPage() {
           <p className="mt-3 text-xs text-text-muted">
             Đang phát triển. Các công thức về tổng nhận / chưa nhận / đã nhận sẽ được bổ sung sau; hiện tại hiển thị 0.
           </p>
-        </Card>
+        </StaffCard>
 
-        <Card title="Công việc khác">
+        <StaffCard title="Công việc khác">
           {(() => {
             const otherRoles = (staff.roles ?? []).filter((r) => r !== "teacher");
             if (otherRoles.length === 0) {
@@ -351,7 +251,7 @@ export default function AdminStaffDetailPage() {
             }
             return (
               <>
-                <div className="overflow-x-auto overscroll-contain">
+                <div className="overflow-x-auto">
                   <table className="w-full min-w-[480px] border-collapse text-left text-sm">
                     <caption className="sr-only">Bảng công việc khác theo role</caption>
                     <thead>
@@ -376,9 +276,7 @@ export default function AdminStaffDetailPage() {
                           key={role}
                           className="border-b border-border-default bg-bg-surface transition-colors hover:bg-bg-secondary"
                         >
-                          <td className="px-4 py-3 text-text-primary">
-                            {ROLE_LABELS[role] ?? role}
-                          </td>
+                          <td className="px-4 py-3 text-text-primary">{ROLE_LABELS[role] ?? role}</td>
                           <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
                           <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
                           <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
@@ -393,7 +291,7 @@ export default function AdminStaffDetailPage() {
               </>
             );
           })()}
-        </Card>
+        </StaffCard>
       </div>
     </div>
   );
