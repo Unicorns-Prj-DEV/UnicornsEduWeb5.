@@ -10,12 +10,14 @@ import * as authApi from "@/lib/apis/auth.api";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const [fullName, setFullName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const registerMutation = useMutation({
-    mutationFn: (body: { email: string; password: string }) => authApi.register(body),
+    mutationFn: (body: { fullName: string; phoneNumber: string; email: string; password: string }) => authApi.register(body),
     onSuccess: () => {
       toast.success("Đăng ký thành công. Vui lòng kiểm tra email để xác thực tài khoản trước khi đăng nhập.");
       setTimeout(() => router.push("/auth/login"), 3000);
@@ -28,6 +30,14 @@ export default function RegisterPage() {
 
   const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!fullName.trim()) {
+      toast.error("Vui lòng nhập họ và tên.");
+      return;
+    }
+    if (!phoneNumber.trim()) {
+      toast.error("Vui lòng nhập số điện thoại.");
+      return;
+    }
     if (password !== confirmPassword) {
       toast.error("Mật khẩu xác nhận không khớp.");
       return;
@@ -37,7 +47,7 @@ export default function RegisterPage() {
       return;
     }
 
-    registerMutation.mutate({ email, password });
+    registerMutation.mutate({ fullName: fullName.trim(), phoneNumber: phoneNumber.trim(), email, password });
   };
 
   return (
@@ -52,6 +62,39 @@ export default function RegisterPage() {
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="flex flex-col gap-2 md:flex-row">
+              <div>
+                <label htmlFor="reg-full-name" className="block text-sm font-medium text-text-primary mb-1">
+                  Full Name
+                </label>
+                <input
+                  id="reg-full-name"
+                  type="text"
+                  autoComplete="name"
+                  required
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus:ring-2 focus:ring-border-focus/30 transition-colors"
+                  placeholder="Nguyễn Văn A"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="reg-phone" className="block text-sm font-medium text-text-primary mb-1">
+                  Phone Number
+                </label>
+                <input
+                  id="reg-phone"
+                  type="tel"
+                  autoComplete="tel"
+                  required
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus:ring-2 focus:ring-border-focus/30 transition-colors"
+                  placeholder="0901234567"
+                />
+              </div>
+            </div>
             <div>
               <label htmlFor="reg-email" className="block text-sm font-medium text-text-primary mb-1">
                 Email

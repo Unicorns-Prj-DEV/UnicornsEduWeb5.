@@ -19,8 +19,13 @@ export async function logIn(dto: LoginDto) {
     }
 }
 
-export async function register(RegisterDto: RegisterDto) {
-    const response = await api.post('/auth/register', RegisterDto);
+export async function register(registerDto: RegisterDto) {
+    const response = await api.post('/auth/register', {
+        email: registerDto.email,
+        password: registerDto.password,
+        name: registerDto.fullName,
+        phone: registerDto.phoneNumber,
+    });
     return response.data;
 }
 

@@ -6,7 +6,7 @@ Tạo tài khoản mới bằng email/password, hiển thị toàn bộ feedback
 
 ## Hành vi chính
 
-- Form gồm: email, password, confirmPassword.
+- Form gồm: fullName, phoneNumber, email, password, confirmPassword.
 - Validation client-side:
   - Password và confirmPassword phải khớp.
   - Password tối thiểu 6 ký tự.
@@ -21,5 +21,5 @@ Tạo tài khoản mới bằng email/password, hiển thị toàn bộ feedback
 
 ## Ghi chú
 
-- Không thay đổi auth API contract.
+- Giữ nguyên endpoint `POST /auth/register`; frontend map `fullName`/`phoneNumber` sang payload backend `name`/`phone`.
 - Không thay đổi redirect timing/route.

@@ -12,8 +12,8 @@ export interface LoginDto {
 }
 
 export interface RegisterDto extends LoginDto {
-    phoneNumber?: string;
-    name?: string;
+    fullName: string;
+    phoneNumber: string;
 }
 
 export interface ForgotPasswordDto {
