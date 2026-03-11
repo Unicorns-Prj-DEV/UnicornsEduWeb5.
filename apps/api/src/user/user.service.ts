@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { UserRole } from 'generated/enums';
+import { PaginationQueryDto } from 'src/dtos/pagination.dto';
 import { CreateUserDto, UpdateUserDto } from 'src/dtos/user.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -37,8 +38,23 @@ export class UserService {
     );
   }
 
-  async getUsers() {
-    const users = await this.prisma.user.findMany();
+  async getUsers(query: PaginationQueryDto) {
+    const parsedPage = Number(query.page);
+    const parsedLimit = Number(query.limit);
+    const page =
+      Number.isInteger(parsedPage) && parsedPage >= 1 ? parsedPage : 1;
+    const limit =
+      Number.isInteger(parsedLimit) && parsedLimit >= 1
+        ? Math.min(parsedLimit, 100)
+        : 20;
+    const skip = (page - 1) * limit;
+
+    const users = await this.prisma.user.findMany({
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+    });
+
     return users.map((user) => this.sanitizeUser(user));
   }
 

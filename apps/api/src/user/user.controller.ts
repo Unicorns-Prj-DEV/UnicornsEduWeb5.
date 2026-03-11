@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
   CurrentUser,
@@ -16,9 +17,11 @@ import {
   ApiCookieAuth,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { PaginationQueryDto } from 'src/dtos/pagination.dto';
 import { CreateUserDto, UpdateUserDto } from 'src/dtos/user.dto';
 import { assertAdminUser } from 'src/app.service';
 import { UserService } from './user.service';
@@ -39,11 +42,28 @@ export class UserController {
     description: 'Get all users. Admin only.',
   })
   @ApiResponse({ status: 200, description: 'List of users.' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (default: 20, max: 100)',
+    example: 20,
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   @ApiResponse({ status: 403, description: 'Forbidden. Admin only.' })
-  async getUsers(@CurrentUser() user: JwtPayload) {
+  async getUsers(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: PaginationQueryDto,
+  ) {
     this.assertAdmin(user);
-    return this.userService.getUsers();
+    return this.userService.getUsers(query);
   }
 
   @Get(':id')

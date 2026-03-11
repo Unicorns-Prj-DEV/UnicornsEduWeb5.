@@ -1,8 +1,17 @@
-import { Body, Controller, Delete, Get, Param, Patch } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Query,
+} from '@nestjs/common';
 import {
   ApiBody,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -11,6 +20,7 @@ import {
   type JwtPayload,
 } from 'src/auth/decorators/current-user.decorator';
 import { assertAdminUser } from 'src/app.service';
+import { PaginationQueryDto } from 'src/dtos/pagination.dto';
 import { UpdateStudentDto } from 'src/dtos/student.dto';
 import { StudentService } from './student.service';
 
@@ -26,9 +36,26 @@ export class StudentController {
   @Get()
   @ApiOperation({ summary: 'List students', description: 'Get all students.' })
   @ApiResponse({ status: 200, description: 'List of students.' })
-  async getStudents(@CurrentUser() user: JwtPayload) {
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (default: 20, max: 100)',
+    example: 20,
+  })
+  async getStudents(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: PaginationQueryDto,
+  ) {
     this.assertAdmin(user);
-    return this.studentService.getStudents();
+    return this.studentService.getStudents(query);
   }
 
   @Patch('update-student')

@@ -6,14 +6,17 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBody,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { PaginationQueryDto } from 'src/dtos/pagination.dto';
 import { CreateStaffDto, UpdateStaffDto } from 'src/dtos/staff.dto';
 import { StaffService } from './staff.service';
 
@@ -28,8 +31,22 @@ export class StaffController {
     description: 'Get all staff records.',
   })
   @ApiResponse({ status: 200, description: 'List of staff.' })
-  async getStaff() {
-    return this.staffService.getStaff();
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (default: 20, max: 100)',
+    example: 20,
+  })
+  async getStaff(@Query() query: PaginationQueryDto) {
+    return this.staffService.getStaff(query);
   }
 
   @Post()
