@@ -2,7 +2,7 @@ import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
 if (typeof window !== "undefined") {
-  console.log("[Auth API] baseURL:", API_URL);
+    console.log("[Auth API] baseURL:", API_URL);
 }
 
 const api: AxiosInstance = axios.create({
@@ -29,11 +29,10 @@ const processQueue = (error: Error | null) => {
 };
 
 const isPublicRoute = (pathname: string): boolean => {
-    return pathname === '/login' ||
-        pathname === '/register' ||
-        pathname === '/forgot-password' ||
-        pathname === '/reset-password' ||
-        pathname === '/verify-email';
+    return !(pathname.startsWith("/admin") ||
+        pathname.startsWith("/staff") ||
+        pathname.startsWith("/student")
+    );
 };
 
 const shouldAttemptRefresh = (config?: AxiosRequestConfig): boolean => {
@@ -68,7 +67,7 @@ api.interceptors.response.use(
             | undefined;
 
         if (
-            (status === 401 || status === 500) &&
+            (status === 401) &&
             originalRequest &&
             !originalRequest._retry &&
             shouldAttemptRefresh(originalRequest)

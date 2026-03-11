@@ -7,11 +7,12 @@ import type { SyntheticEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as authApi from "@/lib/apis/auth.api";
-import type { LoginDto } from "@/dtos/Auth.dto";
+import { Role, type LoginDto } from "@/dtos/Auth.dto";
+import { useAuth } from "@/context/AuthContext";
 
 const ROLE_REDIRECT: Record<string, string> = {
   admin: "/admin",
-  staff: "/mentor",
+  staff: "/staff",
   student: "/student",
   guest: "/",
 };
@@ -21,6 +22,14 @@ function LoginPageContent() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
+  const { user, setUser } = useAuth();
+
+  useEffect(() => {
+    if (user.roleType !== Role.guest) {
+      router.push(ROLE_REDIRECT[user.roleType] ?? "/");
+    }
+  }, [user]);
 
   useEffect(() => {
     const err = searchParams.get("error");
@@ -29,20 +38,18 @@ function LoginPageContent() {
 
   const loginMutation = useMutation({
     mutationFn: async (body: LoginDto) => {
-      const data = (await authApi.logIn(body)) as { accessToken?: string; refreshToken?: string };
-
-      if (data?.accessToken && data?.refreshToken) {
-        document.cookie = `access_token=${data.accessToken}; path=/; max-age=900; SameSite=Lax`;
-        document.cookie = `refresh_token=${data.refreshToken}; path=/; max-age=2592000; SameSite=Lax`;
-      }
-
-      const profile = (await authApi.getProfile()) as { role?: string };
-      return profile?.role ?? "guest";
+      const loginResponse = await authApi.logIn(body);
+      return loginResponse;
     },
-    onSuccess: (role) => {
+    onSuccess: (loginResponse) => {
       toast.success("Đăng nhập thành công.");
-      router.push(ROLE_REDIRECT[role] ?? "/");
-      router.refresh();
+      console.log(loginResponse);
+      setUser({
+        id: loginResponse.id,
+        email: loginResponse.email,
+        roleType: loginResponse.roleType,
+      });
+      router.push(ROLE_REDIRECT[loginResponse.roleType] ?? "/");
     },
     onError: (err: unknown) => {
       toast.error("Đăng nhập thất bại.");
@@ -51,7 +58,7 @@ function LoginPageContent() {
 
   const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
-    loginMutation.mutate({ email, password });
+    loginMutation.mutate({ email, password, rememberMe });
   };
 
   return (
@@ -98,7 +105,19 @@ function LoginPageContent() {
               />
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex justify-between">
+              <span className="flex items-center justify-center">
+                <input
+                  id="remember-me"
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 rounded-sm border border-border-default bg-bg-surface accent-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                />
+                <label htmlFor="remember-me" className="select-none text-sm text-text-primary ml-2">
+                  Remember me for a month
+                </label>
+              </span>
               <Link
                 href="/auth/forgot-password"
                 className="text-sm text-primary hover:text-primary-hover focus:outline-none focus:ring-2 focus:ring-border-focus rounded"

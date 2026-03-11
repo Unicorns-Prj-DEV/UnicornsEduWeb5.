@@ -31,15 +31,8 @@ async function bootstrap() {
       in: 'cookie',
     })
     .build();
-  const document = SwaggerModule.createDocument(
-    app as Parameters<typeof SwaggerModule.createDocument>[0],
-    config,
-  );
-  SwaggerModule.setup(
-    'api',
-    app as Parameters<typeof SwaggerModule.setup>[1],
-    document,
-  );
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api', app, document);
 
   await app.listen(process.env.PORT ?? 4000);
 }

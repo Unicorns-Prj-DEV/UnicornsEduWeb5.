@@ -12,7 +12,10 @@ export interface JwtPayload {
  * Use with @UseGuards(JwtAuthGuard) or global JWT guard.
  */
 export const CurrentUser = createParamDecorator(
-  (data: keyof JwtPayload | undefined, ctx: ExecutionContext): JwtPayload | unknown => {
+  (
+    data: keyof JwtPayload | undefined,
+    ctx: ExecutionContext,
+  ): JwtPayload | unknown => {
     const request = ctx.switchToHttp().getRequest();
     const user = request.user as JwtPayload;
     return data ? user?.[data] : user;

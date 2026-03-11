@@ -40,7 +40,7 @@ export async function verifyEmail(token: string) {
 }
 
 export async function getProfile() {
-    const response = await api.get('/auth/me');
+    const response = await api.get('/auth/profile');
     return response.data;
 }
 

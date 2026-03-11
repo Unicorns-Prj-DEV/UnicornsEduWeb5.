@@ -8,6 +8,7 @@ import {
   Query,
   Req,
   Res,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
@@ -35,6 +36,8 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { UserRole } from 'generated/enums';
+import { JwtService } from '@nestjs/jwt';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -42,6 +45,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
+    private readonly jwtService: JwtService,
   ) { }
 
   @Public()
@@ -49,29 +53,6 @@ export class AuthController {
   @UseGuards(AuthGuard('google'))
   async googleAuth() {
     // Guard redirects to Google
-  }
-
-  @Public()
-  @Get('google/callback')
-  @UseGuards(AuthGuard('google'))
-  async googleAuthCallback(
-    @Req() req: Request & { user: GoogleUserPayload },
-    @Res() res: Response,
-  ) {
-    const user = req.user;
-    if (!user?.id || !user?.email) {
-      const frontendUrl = this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
-      return res.redirect(`${frontendUrl}/login?error=google_no_user`);
-    }
-    const tokens = await this.authService.generateTokenPairAndSave(
-      user.id,
-      user.email,
-      user.roleType,
-    );
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
-    const redirectPath = ROLE_REDIRECT[user.roleType] ?? '/';
-    const hash = `access_token=${encodeURIComponent(tokens.accessToken)}&refresh_token=${encodeURIComponent(tokens.refreshToken)}`;
-    return res.redirect(`${frontendUrl}/auth/google/callback#${hash}`);
   }
 
   @Public()
@@ -91,21 +72,33 @@ export class AuthController {
     description: 'Returns accessToken and refreshToken.',
   })
   @ApiResponse({ status: 401, description: 'Invalid credentials.' })
-  async login(@Body() body: UserAuthDto, @Res({ passthrough: true }) res: Response) {
-    const { accessToken, refreshToken } = await this.authService.login(body.email, body.password, body.rememberMe);
+  async login(
+    @Body() body: UserAuthDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const response = await this.authService.login(
+      body.email,
+      body.password,
+      body.rememberMe,
+    );
 
-    res.cookie('access_token', accessToken, {
+    res.cookie('access_token', response.tokenPair.accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: this.authService.accessTokenExpiresIn * 1000,
     });
-    res.cookie('refresh_token', refreshToken, {
+    res.cookie('refresh_token', response.tokenPair.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: this.authService.refreshTokenDefaultExpiresIn * 1000,
     });
 
-    return { message: 'Login successful' };
+    return {
+      message: 'Login successful',
+      id: body.email,
+      email: response.email,
+      roleType: response.roleType,
+    };
   }
 
   @Public()
@@ -126,28 +119,37 @@ export class AuthController {
     status: 401,
     description: 'Invalid or expired refresh token.',
   })
-  async refresh(@CurrentUser() user: JwtPayload, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    console.log(user)
+  async refresh(
+    @CurrentUser() user: JwtPayload,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    console.log(user);
 
     const oldRefreshToken = req.cookies?.refresh_token ?? '';
-    const { accessToken, refreshToken } = await this.authService.refreshTokens(user.user.id, oldRefreshToken);
+    const { accessToken, refreshToken } = await this.authService.refreshTokens(
+      user.user.id,
+      oldRefreshToken,
+    );
 
     res.cookie('access_token', accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: false,
+      sameSite: 'lax',
       maxAge: this.authService.accessTokenExpiresIn * 1000,
     });
     res.cookie('refresh_token', refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: false,
+      sameSite: 'lax',
       maxAge: this.authService.refreshTokenDefaultExpiresIn * 1000,
     });
 
     return { message: 'Refresh successful' };
   }
 
+  @Public()
   @Get('profile')
-  @ApiCookieAuth('access_token')
   @ApiOperation({
     summary: 'Get profile',
     description:
@@ -157,9 +159,19 @@ export class AuthController {
     status: 200,
     description: 'Current user profile (id, email, role, etc.).',
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized.' })
-  getProfile(@CurrentUser() user: JwtPayload) {
-    return user;
+  getProfile(@Req() req: Request) {
+
+    const accessToken = req.cookies?.access_token ?? '';
+
+    if (!accessToken) {
+      throw new UnauthorizedException('Unauthorized');
+    }
+
+    const user = this.jwtService.verify(accessToken, {
+      secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
+    });
+
+    return user ?? { id: '', email: '', roleType: UserRole.guest };
   }
 
   @Public()

@@ -1,3 +1,10 @@
+export enum Role {
+    admin = "admin",
+    staff = "staff",
+    student = "student",
+    guest = "guest",
+}
+
 export interface LoginDto {
     email: string;
     password: string;
@@ -16,4 +23,10 @@ export interface ForgotPasswordDto {
 export interface ResetPasswordDto {
     token: string;
     password: string;
+}
+
+export interface UserInfoDto {
+    id: string
+    email: string;
+    roleType: Role;
 }
