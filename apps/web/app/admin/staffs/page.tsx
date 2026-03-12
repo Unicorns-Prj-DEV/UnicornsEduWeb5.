@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useDebouncedCallback } from "use-debounce";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as staffApi from "@/lib/apis/staff.api";
@@ -27,6 +28,8 @@ function formatCurrency(value: number | null | undefined): string {
   }).format(value);
 }
 
+const SEARCH_DEBOUNCE_MS = 1000;
+
 export default function AdminStaffPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -35,6 +38,24 @@ export default function AdminStaffPage() {
   const page = parseInt(searchParams.get("page") ?? "1");
   const statusFilter = searchParams.get("status") as "" | StaffStatus ?? "";
   const search = searchParams.get("search") ?? "";
+
+  const [searchInput, setSearchInput] = useState(search);
+
+  useEffect(() => {
+    setSearchInput(search);
+  }, [search]);
+
+  const applySearchToUrl = useDebouncedCallback((value: string) => {
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.set("search", value);
+    params.set("page", "1");
+    router.replace(`${pathname}?${params.toString()}`);
+  }, SEARCH_DEBOUNCE_MS);
+
+  const handleSearchChange = (value: string) => {
+    setSearchInput(value);
+    applySearchToUrl(value);
+  };
 
   const {
     data: staffListResponse,
@@ -55,14 +76,6 @@ export default function AdminStaffPage() {
   const list: StaffListItem[] = staffListResponse?.data ?? [];
   const total = staffListResponse?.meta?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-
-  const handleSearch = (value: string) => {
-    const params = new URLSearchParams();
-    params.set("search", value);
-    params.set("status", statusFilter);
-    params.set("page", "1");
-    router.replace(`${pathname}?${params.toString()}`);
-  };
 
   const handleStatusFilter = (value: "" | StaffStatus) => {
     const params = new URLSearchParams();
@@ -136,10 +149,8 @@ export default function AdminStaffPage() {
             <span className="shrink-0 text-sm font-medium text-text-secondary sm:w-24">Tìm kiếm</span>
             <input
               type="search"
-              value={search}
-              onChange={(e) => {
-                handleSearch(e.target.value);
-              }}
+              value={searchInput}
+              onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="Theo tên…"
               className="min-w-0 flex-1 rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
               aria-label="Tìm theo tên"
