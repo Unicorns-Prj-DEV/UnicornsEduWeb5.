@@ -9,7 +9,12 @@ export class StaffService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getStaff(
-    query: PaginationQueryDto & { search?: string; status?: string },
+    query: PaginationQueryDto & {
+      search?: string;
+      status?: string;
+      classId?: string;
+      province?: string;
+    },
   ) {
     const parsedPage = Number(query.page);
     const parsedLimit = Number(query.limit);
@@ -21,6 +26,8 @@ export class StaffService {
         : 20;
     const trimmedSearch = query.search?.trim();
     const normalizedStatus = query.status?.trim();
+    const trimmedClassId = query.classId?.trim();
+    const trimmedProvince = query.province?.trim();
     const statusFilter: StaffStatus | undefined =
       normalizedStatus === 'active'
         ? StaffStatus.active
@@ -38,6 +45,25 @@ export class StaffService {
           }
         : {}),
       ...(statusFilter ? { status: statusFilter } : {}),
+      ...(trimmedClassId
+        ? {
+            classTeachers: {
+              some: {
+                classId: trimmedClassId,
+              },
+            },
+          }
+        : {}),
+      ...(trimmedProvince
+        ? {
+            user: {
+              province: {
+                contains: trimmedProvince,
+                mode: 'insensitive' as const,
+              },
+            },
+          }
+        : {}),
     };
 
     const total = await this.prisma.staffInfo.count({ where });

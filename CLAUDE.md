@@ -46,6 +46,8 @@ Khi thay đổi code, **luôn cập nhật tài liệu liên quan trong cùng ph
 - **TanStack Query (React Query) – Bắt buộc:** Luôn luôn dùng TanStack Query cho mọi giao tiếp với Backend (query/mutation/invalidate). Không gọi API backend trực tiếp bằng `useEffect`/`useState` thuần.
 - **TanStack Query (React Query):** Dùng cho mọi server state: fetch dữ liệu, cache, mutation. Ưu tiên `useQuery` / `useMutation` với Axios client trong `lib/client.ts`. Không fetch trong `useEffect` thuần khi dữ liệu là server state.
 - **Reusable components (React best practices) – Bắt buộc:** Luôn tách UI thành các reusable components khi có phần lặp lại hoặc logic dùng lại, ưu tiên component nhỏ, rõ trách nhiệm, dễ test và dễ bảo trì.
+- **shadcn/ui – Bắt buộc ưu tiên:** Khi xây UI trong `apps/web`, ưu tiên dùng component từ `shadcn/ui` thay vì tự code component mới từ đầu.
+- **shadcn/ui – Quy tắc mở rộng:** Nếu cần custom, hãy compose/extend từ component shadcn hiện có; chỉ tự code component mới khi shadcn chưa đáp ứng được yêu cầu cụ thể.
 - **Validation/Transform:** Chọn giải pháp phù hợp theo từng module (không bắt buộc `class-validator` / `class-transformer`).
 
 ### Backend (`apps/api`) & DTO

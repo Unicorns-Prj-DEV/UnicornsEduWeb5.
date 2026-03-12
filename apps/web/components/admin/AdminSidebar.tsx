@@ -6,6 +6,8 @@ import { useRef, useState, useEffect } from "react";
 import { animate, stagger } from "animejs";
 import * as authApi from "@/lib/apis/auth.api";
 import AdminProfilePopup, { type AdminProfile } from "./AdminProfilePopup";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 const MENU_ITEMS: { href: string; label: string; icon: React.ReactNode }[] = [
   { href: "/admin", label: "Dashboard", icon: <IconDashboard /> },
@@ -95,6 +97,7 @@ function IconHistory() {
 
 export default function AdminSidebar() {
   const pathname = usePathname();
+  const queryClient = useQueryClient();
   const router = useRouter();
   const asideRef = useRef<HTMLElement>(null);
   const navListRef = useRef<HTMLUListElement>(null);
@@ -141,13 +144,19 @@ export default function AdminSidebar() {
     setCollapsed((c) => !c);
   };
 
+  const logoutMutation = useMutation({
+    mutationFn: authApi.logout,
+    onSuccess: () => {
+      queryClient.invalidateQueries();
+      router.push("/");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
   const handleLogout = async () => {
-    try {
-      await authApi.logout();
-    } finally {
-      router.push("/login");
-      router.refresh();
-    }
+    await logoutMutation.mutateAsync();
   };
 
   return (

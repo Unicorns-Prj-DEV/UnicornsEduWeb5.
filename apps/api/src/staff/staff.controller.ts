@@ -57,6 +57,20 @@ export class StaffController {
     enum: ['active', 'inactive'],
     description: 'Filter by staff status',
   })
+  @ApiQuery({
+    name: 'classId',
+    required: false,
+    type: String,
+    description: 'Filter by class ID',
+    example: '7b9f53df-0f90-4e2b-8d52-60b8488f5d5f',
+  })
+  @ApiQuery({
+    name: 'province',
+    required: false,
+    type: String,
+    description: 'Filter by province (contains, case-insensitive)',
+    example: 'ha noi',
+  })
   @ApiResponse({
     status: 200,
     description: 'Paginated staff list with data and meta.',
@@ -65,8 +79,16 @@ export class StaffController {
     @Query() query: PaginationQueryDto,
     @Query('search') search?: string,
     @Query('status') status?: string,
+    @Query('classId') classId?: string,
+    @Query('province') province?: string,
   ) {
-    return this.staffService.getStaff({ ...query, search, status });
+    return this.staffService.getStaff({
+      ...query,
+      search,
+      status,
+      classId,
+      province,
+    });
   }
 
   @Get(':id')
