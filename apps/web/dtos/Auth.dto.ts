@@ -6,14 +6,19 @@ export enum Role {
 }
 
 export interface LoginDto {
-    email: string;
+    accountHandle: string;
     password: string;
     rememberMe?: boolean;
 }
 
-export interface RegisterDto extends LoginDto {
-    fullName: string;
-    phoneNumber: string;
+export interface RegisterDto {
+    email: string;
+    phone: string;
+    password: string;
+    accountHandle: string;
+    first_name: string;
+    last_name: string;
+    province?: string;
 }
 
 export interface ForgotPasswordDto {
@@ -27,6 +32,6 @@ export interface ResetPasswordDto {
 
 export interface UserInfoDto {
     id: string
-    email: string;
+    accountHandle: string;
     roleType: Role;
 }

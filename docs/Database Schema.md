@@ -79,7 +79,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 ### 4.1 `users` (Auth core)
 - PK: `id` (UUID default)
-- Unique: `email`, `account_handle`
+- Unique: `email`, `account_handle` (hai trường độc lập; login chấp nhận chuỗi tương ứng email hoặc account_handle, ưu tiên account_handle).
 - Trường chính: `password_hash`, `role_type`, `status`, `email_verified`, `phone_verified`, `refresh_token`
 - FK optional:
   - `student_id` → `student_info.id`

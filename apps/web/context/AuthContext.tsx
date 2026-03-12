@@ -18,7 +18,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue>({
     user: {
         id: "",
-        email: "",
+        accountHandle: "",
         roleType: Role.guest,
     },
     setUser: () => { },
@@ -32,7 +32,7 @@ export const AuthProvider = ({ children, initialUser }: AuthContextProviderProps
         const fetchProfile = async () => {
             const profile = await getProfile();
             console.log(profile);
-            setUser(profile ?? { id: '', email: '', roleType: Role.guest });
+            setUser(profile ?? { id: '', accountHandle: '', roleType: Role.guest });
         };
         fetchProfile();
     }, []);

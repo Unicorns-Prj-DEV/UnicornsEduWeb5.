@@ -9,7 +9,7 @@ export default function StaffCard({
 }) {
   return (
     <section
-      className={`rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm transition-colors hover:border-border-default sm:p-5 ${className}`}
+      className={`rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm transition-colors duration-200 hover:border-border-default sm:p-5 ${className}`}
       aria-labelledby={`card-${title.replace(/\s+/g, "-")}`}
     >
       <h2

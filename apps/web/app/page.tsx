@@ -137,14 +137,14 @@ export default function LandingPage() {
               <div className="motion-fade-up flex flex-wrap gap-3">
                 <Link
                   href="/auth/login"
-                  className="inline-flex items-center justify-center rounded-lg bg-primary px-5 py-2.5 text-base font-medium text-text-inverse transition hover:-translate-y-0.5 hover:bg-[var(--ue-primary-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--ue-border-focus)]"
+                  className="inline-flex items-center justify-center rounded-lg bg-primary px-5 py-2.5 text-base font-medium text-text-inverse transition-colors transition-transform duration-200 hover:-translate-y-0.5 hover:bg-[var(--ue-primary-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--ue-border-focus)]"
                 >
                   Bắt đầu ngay
                 </Link>
                 <button
                   type="button"
                   onClick={() => scrollToSection("section-intro")}
-                  className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-surface px-5 py-2.5 text-base font-medium text-text-primary transition hover:-translate-y-0.5 hover:bg-bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--ue-border-focus)]"
+                  className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-surface px-5 py-2.5 text-base font-medium text-text-primary transition-colors transition-transform duration-200 hover:-translate-y-0.5 hover:bg-bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--ue-border-focus)]"
                 >
                   Tìm hiểu thêm
                   <svg
@@ -318,7 +318,7 @@ export default function LandingPage() {
                 </p>
                 <Link
                   href="/auth/login"
-                  className="inline-flex items-center justify-center rounded-lg bg-primary px-5 py-2.5 text-base font-medium text-text-inverse transition hover:bg-[var(--ue-primary-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--ue-border-focus)]"
+                  className="inline-flex items-center justify-center rounded-lg bg-primary px-5 py-2.5 text-base font-medium text-text-inverse transition-colors duration-200 hover:bg-[var(--ue-primary-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--ue-border-focus)]"
                 >
                   Trải nghiệm ngay
                 </Link>

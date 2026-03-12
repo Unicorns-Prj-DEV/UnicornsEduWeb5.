@@ -3,12 +3,12 @@ model User {
   email                                       String          @unique
   phone                                       String?
   passwordHash                                String?         @map("password_hash")
-  first_name                                  String?
+  first_name                                  String?         @db.VarChar
   roleType                                    UserRole        @map("role_type")
   province                                    String?
   status                                      UserStatus      @default(active)
   linkId                                      String?         @map("link_id")
-  accountHandle                               String?         @unique @map("account_handle")
+  accountHandle                               String          @unique @map("account_handle")
   emailVerified                               Boolean         @default(false) @map("email_verified")
   phoneVerified                               Boolean         @default(false) @map("phone_verified")
   refreshToken                                String?         @map("refresh_token")

@@ -21,6 +21,12 @@ Cho phép người dùng đăng nhập bằng email/password hoặc Google OAuth
 - Success login: `toast.success("Đăng nhập thành công.")`.
 - Không render alert box inline trong form.
 
+## Email vs account handle (login)
+
+- Ô đăng nhập nhận **email** hoặc **account handle** (một trường duy nhất).
+- Backend ưu tiên tìm theo `accountHandle` trùng, không có thì tìm theo `email`.
+- Profile trả về `accountHandle` (hiển thị trên navbar, popup); với user đăng ký Google thì `accountHandle` = email.
+
 ## Ghi chú
 
 - Giữ nguyên login contract và redirect flow.

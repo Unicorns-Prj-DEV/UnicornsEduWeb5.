@@ -8,7 +8,7 @@ import { Toaster } from "sonner";
 
 const defaultUser: UserInfoDto = {
   id: "",
-  email: "",
+  accountHandle: "",
   roleType: Role.guest,
 };
 

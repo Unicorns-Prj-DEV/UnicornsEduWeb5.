@@ -67,12 +67,14 @@ export class AuthService {
   }
 
   async login(
-    email: string,
+    accountHandle: string,
     password: string,
     rememberMe = false,
   ): Promise<LoginResponseDto> {
-    const user = await this.prisma.user.findUnique({
-      where: { email },
+    const user = await this.prisma.user.findFirst({
+      where: {
+        OR: [{ accountHandle: accountHandle }, { email: accountHandle }],
+      },
     });
 
     if (!user || !user.passwordHash) {
@@ -90,11 +92,11 @@ export class AuthService {
 
     return {
       roleType: user.roleType,
-      email: user.email,
+      accountHandle: user.accountHandle,
       id: user.id,
       tokenPair: await this.generateTokenPairAndSave(
         user.id,
-        user.email,
+        user.accountHandle,
         user.roleType,
         rememberMe,
       ),
@@ -106,13 +108,16 @@ export class AuthService {
     usedRefreshToken: string,
     rememberMe = false,
   ): Promise<TokenPair> {
-    console.log(userId);
-    console.log(usedRefreshToken);
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, roleType: true, refreshToken: true },
+      select: {
+        id: true,
+        accountHandle: true,
+        roleType: true,
+        refreshToken: true,
+      },
     });
-    console.log(1);
+
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
@@ -124,19 +129,25 @@ export class AuthService {
 
     return this.generateTokenPairAndSave(
       user.id,
-      user.email,
+      user.accountHandle,
       user.roleType,
       rememberMe,
     );
   }
 
   async register(data: CreateUserDto): Promise<{ message: string }> {
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email: data.email },
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        OR: [{ accountHandle: data.accountHandle }, { email: data.email }],
+      },
     });
 
-    if (existingUser && existingUser.emailVerified) {
-      throw new BadRequestException('User already exists');
+    if (existingUser && existingUser.accountHandle === data.accountHandle) {
+      throw new BadRequestException('Handle already exists');
+    }
+
+    if (existingUser && existingUser.email === data.email && existingUser.emailVerified) {
+      throw new BadRequestException('Email already exists');
     }
 
     await this.prisma.user.upsert({
@@ -255,11 +266,11 @@ export class AuthService {
 
   async generateTokenPairAndSave(
     userId: string,
-    email: string,
-    role: string,
+    accountHandle: string,
+    roleType: UserRole,
     rememberMe = false,
   ): Promise<TokenPair> {
-    const payload = { id: userId, email, roleType: role, rememberMe };
+    const payload = { id: userId, accountHandle, roleType, rememberMe };
     const refreshTokenOptions: JwtSignOptions = {
       expiresIn: rememberMe
         ? this.refreshTokenRememberExpiresIn

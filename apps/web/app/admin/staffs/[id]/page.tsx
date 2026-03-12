@@ -162,7 +162,7 @@ export default function AdminStaffDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                <tr className="border-b border-border-default bg-bg-surface transition-colors hover:bg-bg-secondary">
+                <tr className="border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary">
                   <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
                   <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
                   <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
@@ -188,7 +188,7 @@ export default function AdminStaffDetailPage() {
                   </th>
                   <th scope="col" className="px-4 py-2" />
                 </tr>
-                <tr className="border-b border-border-default bg-bg-surface transition-colors hover:bg-bg-secondary">
+                <tr className="border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary">
                   <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
                   <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
                   <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
@@ -228,7 +228,7 @@ export default function AdminStaffDetailPage() {
                   {classes.map((name) => (
                     <tr
                       key={name}
-                      className="border-b border-border-default bg-bg-surface transition-colors hover:bg-bg-secondary"
+                      className="border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary"
                     >
                       <td className="px-4 py-3 text-text-primary">{name}</td>
                       <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
@@ -276,7 +276,7 @@ export default function AdminStaffDetailPage() {
                       {otherRoles.map((role) => (
                         <tr
                           key={role}
-                          className="border-b border-border-default bg-bg-surface transition-colors hover:bg-bg-secondary"
+                          className="border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary"
                         >
                           <td className="px-4 py-3 text-text-primary">{ROLE_LABELS[role] ?? role}</td>
                           <td className="px-4 py-3 tabular-nums text-text-primary">0</td>

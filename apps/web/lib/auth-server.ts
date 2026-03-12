@@ -14,7 +14,7 @@ export async function getUser(): Promise<UserInfoDto> {
   const refreshToken = cookieStore.get("refresh_token")?.value;
 
   if (!refreshToken) {
-    return { id: "", email: "", roleType: Role.guest };
+    return { id: "", accountHandle: "", roleType: Role.guest };
   }
 
   try {
@@ -26,12 +26,12 @@ export async function getUser(): Promise<UserInfoDto> {
     });
 
     if (!res.ok) {
-      return { id: "", email: "", roleType: Role.guest };
+      return { id: "", accountHandle: "", roleType: Role.guest };
     }
 
     const data = (await res.json()) as {
       id?: string;
-      email?: string;
+      accountHandle?: string;
       roleType?: string;
     };
 
@@ -42,10 +42,10 @@ export async function getUser(): Promise<UserInfoDto> {
 
     return {
       id: data.id ?? "",
-      email: data.email ?? "",
+      accountHandle: data.accountHandle ?? "",
       roleType,
     };
   } catch {
-    return { id: "", email: "", roleType: Role.guest };
+    return { id: "", accountHandle: "", roleType: Role.guest };
   }
 }

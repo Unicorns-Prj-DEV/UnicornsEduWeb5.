@@ -6,7 +6,7 @@ import * as authApi from "@/lib/apis/auth.api";
 export type AdminProfile = {
   sub?: string;
   id?: string;
-  email?: string;
+  accountHandle?: string;
   roleType?: string;
   role?: string;
   name?: string;
@@ -75,7 +75,7 @@ export default function AdminProfilePopup({ open, onClose, profile }: Props) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-text-muted hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            className="rounded p-1 text-text-muted transition-colors duration-200 hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
             aria-label="Đóng"
           >
             <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -88,7 +88,7 @@ export default function AdminProfilePopup({ open, onClose, profile }: Props) {
           <dl className="space-y-2 text-sm">
             <div>
               <dt className="text-text-muted">Email</dt>
-              <dd className="font-medium text-text-primary break-words">{profile?.email ?? "—"}</dd>
+              <dd className="font-medium text-text-primary break-words">{profile?.accountHandle ?? "—"}</dd>
             </div>
             <div>
               <dt className="text-text-muted">Vai trò</dt>
@@ -168,7 +168,7 @@ export default function AdminProfilePopup({ open, onClose, profile }: Props) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-primary py-2 font-medium text-text-inverse hover:bg-primary-hover disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            className="w-full rounded-lg bg-primary py-2 font-medium text-text-inverse transition-colors duration-200 hover:bg-primary-hover disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
           >
             {loading ? "Đang xử lý…" : "Đổi mật khẩu"}
           </button>
