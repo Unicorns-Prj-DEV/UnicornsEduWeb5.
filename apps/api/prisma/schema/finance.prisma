@@ -88,7 +88,7 @@ model CostExtend {
   description String?
   category    String?
   amount      Int?
-  date        DateTime?      @db.Date
+  date        String?        @map("date")
   status      PaymentStatus? @default(pending)
   createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamp(6)
   updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamp(6)

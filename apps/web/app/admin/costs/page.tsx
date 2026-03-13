@@ -247,7 +247,7 @@ export default function AdminCostsPage() {
           <h1 className="text-xl font-semibold text-text-primary">Chi phí mở rộng</h1>
           <button
             type="button"
-            className="rounded-md border border-border-default bg-secondary px-4 py-2 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
+            className="rounded-md border border-border-default bg-secondary px-4 py-2 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary hover:cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
             aria-label="Thêm chi phí"
             title="Thêm chi phí"
             onClick={handleOpenCreatePopup}
@@ -310,7 +310,7 @@ export default function AdminCostsPage() {
                         key={row.id}
                         role="button"
                         tabIndex={0}
-                        className="group cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-150 hover:bg-bg-secondary/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                        className="group cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-150 hover:bg-bg-secondary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                         onClick={() => handleOpenEditPopup(row)}
                         onKeyDown={(event) => {
                           if (event.key !== "Enter" && event.key !== " ") return;

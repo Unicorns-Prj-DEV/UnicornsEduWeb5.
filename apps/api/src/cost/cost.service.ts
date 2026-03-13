@@ -100,6 +100,8 @@ export class CostService {
     if (data.date !== undefined) updateData.date = data.date;
     if (data.status !== undefined) updateData.status = data.status;
 
+    console.log(updateData);
+
     return await this.prisma.costExtend.update({
       where: { id: data.id },
       data: updateData,

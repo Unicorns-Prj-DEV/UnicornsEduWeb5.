@@ -33,7 +33,7 @@ export class CreateCostDto {
 
   @ApiPropertyOptional({ example: '2026-03-13' })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   date?: string;
 
   @ApiPropertyOptional({ enum: PaymentStatus, default: PaymentStatus.pending })
