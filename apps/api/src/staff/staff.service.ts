@@ -121,13 +121,20 @@ export class StaffService {
   }
 
   async updateStaff(data: UpdateStaffDto) {
+    const payload: Record<string, unknown> = {};
+    if (data.full_name != null) payload.fullName = data.full_name;
+    if (data.birth_date != null) payload.birthDate = data.birth_date;
+    if (data.university != null) payload.university = data.university;
+    if (data.high_school != null) payload.highSchool = data.high_school;
+    if (data.specialization != null) payload.specialization = data.specialization;
+    if (data.bank_account != null) payload.bankAccount = data.bank_account;
+    if (data.bank_qr_link != null) payload.bankQrLink = data.bank_qr_link;
+    if (data.roles != null) payload.roles = data.roles;
+    if (data.user_id != null) payload.userId = data.user_id;
+
     return await this.prisma.staffInfo.update({
-      where: {
-        id: data.id,
-      },
-      data: {
-        ...data,
-      },
+      where: { id: data.id },
+      data: payload as Parameters<typeof this.prisma.staffInfo.update>[0]['data'],
     });
   }
 

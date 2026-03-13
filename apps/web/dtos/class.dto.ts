@@ -60,6 +60,7 @@ export interface UpdateClassPayload {
     student_tuition_per_session?: number;
     tuition_package_total?: number;
     tuition_package_session?: number;
+    teacher_ids?: string[];
 }
 
 export interface ClassListItemDto {

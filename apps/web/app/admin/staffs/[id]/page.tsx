@@ -2,9 +2,18 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import * as staffApi from "@/lib/apis/staff.api";
-import { StaffCard, StaffDetailRow } from "@/components/admin/staff";
-import { ClassTeacher } from "@/dtos/class.dto";
+import {
+  EditStaffPopup,
+  StaffBonusCard,
+  StaffCard,
+  StaffDetailRow,
+  StaffQrCard,
+  QrLinkPopup,
+  type MockBonus,
+} from "@/components/admin/staff";
 import { StaffDetail, StaffStatus } from "@/dtos/staff.dto";
 
 function formatDate(iso?: string | null): string {
@@ -37,10 +46,20 @@ const ROLE_LABELS: Record<string, string> = {
   customer_care_head: "Trưởng CSKH",
 };
 
+/** Mock thưởng – dùng khi chưa kết nối BE */
+const INITIAL_MOCK_BONUSES: MockBonus[] = [
+  { id: "b1", workType: "Thưởng chuyên cần", status: "paid", amount: 500000 },
+  { id: "b2", workType: "Thưởng chất lượng", status: "unpaid", amount: 300000 },
+];
+
 export default function AdminStaffDetailPage() {
   const params = useParams();
   const id = typeof params?.id === "string" ? params.id : "";
   const router = useRouter();
+  const [editPopupOpen, setEditPopupOpen] = useState(false);
+  const [qrLink, setQrLink] = useState<string | null>(null);
+  const [qrPopupOpen, setQrPopupOpen] = useState(false);
+  const [bonuses, setBonuses] = useState<MockBonus[]>(() => INITIAL_MOCK_BONUSES);
 
   const {
     data: staff,
@@ -52,6 +71,17 @@ export default function AdminStaffDetailPage() {
     queryFn: () => staffApi.getStaffById(id),
     enabled: !!id,
   });
+
+  useEffect(() => {
+    if (staff) {
+      const link =
+        (staff as { qrPaymentLink?: string }).qrPaymentLink ||
+        (staff as { qr_payment_link?: string }).qr_payment_link ||
+        (staff as { bankQRLink?: string }).bankQRLink ||
+        (staff as { bank_qr_link?: string }).bank_qr_link;
+      if (link?.trim()) setQrLink(link.trim());
+    }
+  }, [staff]);
 
   if (isLoading) {
     return (
@@ -110,26 +140,78 @@ export default function AdminStaffDetailPage() {
         Quay lại danh sách nhân sự
       </button>
 
-      <header className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <span
-            className={`inline-block size-3 shrink-0 rounded-full ${staff.status === "active" ? "bg-warning" : "bg-text-muted"}`}
-            title={STATUS_LABELS[staff.status]}
-            aria-hidden
-          />
-          <h1 className="text-xl font-semibold text-text-primary">{staff.fullName?.trim() || "Nhân sự"}</h1>
+      <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-center gap-4">
+          <div className="relative flex shrink-0">
+            <div
+              className="flex size-16 items-center justify-center overflow-hidden rounded-full bg-bg-tertiary ring-2 ring-border-default text-2xl font-semibold text-text-primary"
+              aria-hidden
+            >
+              {(staff.fullName?.trim() || staff.user?.email || "?")
+                .charAt(0)
+                .toUpperCase()}
+            </div>
+            <span
+              className={`absolute bottom-0 right-0 block size-3 rounded-full border-2 border-bg-surface ${staff.status === "active" ? "bg-warning" : "bg-text-muted"}`}
+              title={STATUS_LABELS[staff.status]}
+              aria-hidden
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-semibold text-text-primary">
+                {staff.fullName?.trim() || "Nhân sự"}
+              </h1>
+              <button
+                type="button"
+                onClick={() => setEditPopupOpen(true)}
+                className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border-default bg-bg-surface text-text-muted transition hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                aria-label="Chỉnh sửa thông tin nhân sự"
+                title="Chỉnh sửa thông tin nhân sự"
+              >
+                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {(staff.roles ?? []).map((role) => (
+                <span
+                  key={role}
+                  className="inline-flex rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-medium text-primary"
+                >
+                  {ROLE_LABELS[role] ?? role}
+                </span>
+              ))}
+              {(!staff.roles || staff.roles.length === 0) && (
+                <span className="text-sm text-text-muted">Chưa có role</span>
+              )}
+            </div>
+          </div>
         </div>
       </header>
 
+      <EditStaffPopup
+        open={editPopupOpen}
+        onClose={() => setEditPopupOpen(false)}
+        staff={staff}
+      />
+
       <div className="flex flex-col gap-4">
-        <StaffCard title="Thông tin cơ bản">
-          <dl className="divide-y divide-border-subtle">
-            <StaffDetailRow label="Ngày sinh" value={formatDate(staff.birthDate)} />
-            <StaffDetailRow label="Tỉnh / Thành phố" value={province} />
-            <StaffDetailRow label="Trường đại học" value={staff.university?.trim()} />
-            <StaffDetailRow label="Mô tả chuyên môn" value={staff.specialization?.trim()} />
-          </dl>
-        </StaffCard>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <StaffCard title="Thông tin cơ bản">
+            <dl className="divide-y divide-border-subtle">
+              <StaffDetailRow label="Ngày sinh" value={formatDate(staff.birthDate)} />
+              <StaffDetailRow label="Tỉnh / Thành phố" value={province} />
+              <StaffDetailRow label="Trường đại học" value={staff.university?.trim()} />
+              <StaffDetailRow label="Mô tả chuyên môn" value={staff.specialization?.trim()} />
+            </dl>
+          </StaffCard>
+          <StaffQrCard
+            qrLink={qrLink}
+            onEditClick={() => setQrPopupOpen(true)}
+          />
+        </div>
 
         <section
           className="rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5"
@@ -201,48 +283,63 @@ export default function AdminStaffDetailPage() {
           </p>
         </section>
 
-        <StaffCard title="Lớp phụ trách">
-          {classes.length === 0 ? (
-            <p className="text-text-muted">Chưa gán lớp nào.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[480px] border-collapse text-left text-sm">
-                <thead>
-                  <tr className="border-b border-border-default bg-bg-secondary">
-                    <th scope="col" className="px-4 py-3 font-medium text-text-primary">
-                      Lớp
-                    </th>
-                    <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
-                      Tổng nhận
-                    </th>
-                    <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
-                      Chưa nhận
-                    </th>
-                    <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
-                      Đã nhận
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {classes.map((name) => (
-                    <tr
-                      key={name}
-                      className="border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary"
-                    >
-                      <td className="px-4 py-3 text-text-primary">{name}</td>
-                      <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
-                      <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
-                      <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <StaffCard title="Lớp phụ trách">
+            {classes.length === 0 ? (
+              <p className="text-text-muted">Chưa gán lớp nào.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[480px] border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-border-default bg-bg-secondary">
+                      <th scope="col" className="px-4 py-3 font-medium text-text-primary">
+                        Lớp
+                      </th>
+                      <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
+                        Tổng nhận
+                      </th>
+                      <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
+                        Chưa nhận
+                      </th>
+                      <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
+                        Đã nhận
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <p className="mt-3 text-xs text-text-muted">
-            Đang phát triển. Các công thức về tổng nhận / chưa nhận / đã nhận sẽ được bổ sung sau; hiện tại hiển thị 0.
-          </p>
-        </StaffCard>
+                  </thead>
+                  <tbody>
+                    {classes.map((name) => (
+                      <tr
+                        key={name}
+                        className="border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary"
+                      >
+                        <td className="px-4 py-3 text-text-primary">{name}</td>
+                        <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
+                        <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
+                        <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p className="mt-3 text-xs text-text-muted">
+              Đang phát triển. Các công thức về tổng nhận / chưa nhận / đã nhận sẽ được bổ sung sau; hiện tại hiển thị 0.
+            </p>
+          </StaffCard>
+          <StaffBonusCard
+            bonuses={bonuses}
+            totalMonth={bonuses.reduce((s, b) => s + b.amount, 0)}
+            paid={bonuses.filter((b) => b.status === "paid").reduce((s, b) => s + b.amount, 0)}
+            unpaid={bonuses.filter((b) => b.status === "unpaid").reduce((s, b) => s + b.amount, 0)}
+            onAddBonus={() => toast.info("Chức năng thêm thưởng đang phát triển.")}
+            onEditBonus={() => toast.info("Chức năng chỉnh sửa thưởng đang phát triển.")}
+            onDeleteBonus={(bid) => {
+              setBonuses((prev) => prev.filter((b) => b.id !== bid));
+              toast.success("Đã xóa thưởng.");
+            }}
+            canManage
+          />
+        </div>
 
         <StaffCard title="Công việc khác">
           {(() => {
@@ -294,6 +391,16 @@ export default function AdminStaffDetailPage() {
           })()}
         </StaffCard>
       </div>
+
+      <QrLinkPopup
+        open={qrPopupOpen}
+        onClose={() => setQrPopupOpen(false)}
+        currentLink={qrLink ?? ""}
+        onSave={(link) => {
+          setQrLink(link || null);
+          setQrPopupOpen(false);
+        }}
+      />
     </div>
   );
 }

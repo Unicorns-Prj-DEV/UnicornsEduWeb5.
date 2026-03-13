@@ -1,3 +1,4 @@
+import * as crypto from 'node:crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ClassStatus, ClassType } from 'generated/enums';
 import { PaginationQueryDto } from 'src/dtos/pagination.dto';
@@ -135,20 +136,36 @@ export class ClassService {
       throw new NotFoundException('Class not found');
     }
 
+    if (data.teacher_ids !== undefined) {
+      await this.prisma.classTeacher.deleteMany({
+        where: { classId: data.id },
+      });
+      for (const teacherId of data.teacher_ids) {
+        await this.prisma.classTeacher.create({
+          data: {
+            id: crypto.randomUUID(),
+            classId: data.id,
+            teacherId,
+          },
+        });
+      }
+    }
+
+    const { teacher_ids: _teacherIds, ...updateData } = data;
     return await this.prisma.class.update({
       where: { id: data.id },
       data: {
-        name: data.name,
-        type: data.type,
-        status: data.status,
-        maxStudents: data.max_students,
-        allowancePerSessionPerStudent: data.allowance_per_session_per_student,
-        maxAllowancePerSession: data.max_allowance_per_session,
-        scaleAmount: data.scale_amount,
-        schedule: data.schedule as Prisma.InputJsonValue | undefined,
-        studentTuitionPerSession: data.student_tuition_per_session,
-        tuitionPackageTotal: data.tuition_package_total,
-        tuitionPackageSession: data.tuition_package_session,
+        name: updateData.name,
+        type: updateData.type,
+        status: updateData.status,
+        maxStudents: updateData.max_students,
+        allowancePerSessionPerStudent: updateData.allowance_per_session_per_student,
+        maxAllowancePerSession: updateData.max_allowance_per_session,
+        scaleAmount: updateData.scale_amount,
+        schedule: updateData.schedule as Prisma.InputJsonValue | undefined,
+        studentTuitionPerSession: updateData.student_tuition_per_session,
+        tuitionPackageTotal: updateData.tuition_package_total,
+        tuitionPackageSession: updateData.tuition_package_session,
       },
     });
   }

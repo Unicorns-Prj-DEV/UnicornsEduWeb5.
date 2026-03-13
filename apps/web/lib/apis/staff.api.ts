@@ -70,6 +70,22 @@ export async function getStaffById(id: string): Promise<StaffDetail> {
     return response.data;
 }
 
+/** Cập nhật thông tin nhân sự: PATCH /staff */
+export async function updateStaff(payload: {
+    id: string;
+    full_name?: string;
+    birth_date?: string;
+    university?: string;
+    high_school?: string;
+    specialization?: string;
+    bank_account?: string;
+    bank_qr_link?: string;
+    roles?: string[];
+}): Promise<StaffDetail> {
+    const response = await api.patch("/staff", payload);
+    return response.data;
+}
+
 /** Xóa bản ghi staff (StaffInfo) theo id */
 export async function deleteStaffById(id: string) {
     const safeId = encodeURIComponent(id);

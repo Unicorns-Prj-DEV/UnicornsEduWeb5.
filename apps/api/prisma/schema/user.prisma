@@ -3,7 +3,6 @@ model User {
   email           String          @unique
   phone           String?
   passwordHash    String?         @map("password_hash")
-  first_name      String?         @db.VarChar
   roleType        UserRole        @map("role_type")
   province        String?
   status          UserStatus      @default(active)
@@ -14,6 +13,7 @@ model User {
   refreshToken    String?         @map("refresh_token")
   createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  first_name      String?         @db.VarChar
   last_name       String?         @db.VarChar
   actionHistories ActionHistory[]
   staffInfo       StaffInfo?

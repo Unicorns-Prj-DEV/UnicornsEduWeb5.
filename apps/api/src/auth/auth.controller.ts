@@ -71,6 +71,10 @@ export class AuthController {
     @Body() body: UserAuthDto,
     @Res({ passthrough: true }) res: Response,
   ) {
+    console.log('[Auth Controller DEBUG] login request received', {
+      accountHandle: body?.accountHandle?.slice(0, 20),
+      hasPassword: !!body?.password,
+    });
     const response = await this.authService.login(
       body.accountHandle,
       body.password,

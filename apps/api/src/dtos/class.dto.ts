@@ -98,4 +98,14 @@ export class UpdateClassDto extends PartialType(CreateClassDto) {
   @ApiProperty({ description: 'Class id' })
   @IsUUID()
   id: string;
+
+  @ApiPropertyOptional({
+    description: 'Staff ids (gia sư phụ trách). Sync replaces current list.',
+    type: [String],
+    example: ['uuid-1', 'uuid-2'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  teacher_ids?: string[];
 }

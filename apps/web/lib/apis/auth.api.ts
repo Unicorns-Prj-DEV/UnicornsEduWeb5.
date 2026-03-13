@@ -2,19 +2,27 @@ import { ForgotPasswordDto, LoginDto, RegisterDto, ResetPasswordDto } from '@/dt
 import { api } from '../client';
 
 export async function logIn(dto: LoginDto) {
-    console.log("[Auth API] POST /auth/login");
+    console.log("[Auth API DEBUG] POST /auth/login", {
+        accountHandle: dto.accountHandle?.slice(0, 20) + (dto.accountHandle?.length > 20 ? "..." : ""),
+        passwordLength: dto.password?.length,
+        rememberMe: dto.rememberMe,
+    });
     try {
-        const response = await api.post('/auth/login', dto);
-        console.log("[Auth API] login success");
-        console.log(response);
+        const response = await api.post("/auth/login", dto);
+        console.log("[Auth API DEBUG] login success", {
+            id: response.data?.id,
+            accountHandle: response.data?.accountHandle,
+            roleType: response.data?.roleType,
+        });
         return response.data;
     } catch (err: unknown) {
-        const ax = err as { code?: string; message?: string; response?: { status: number; data?: unknown } };
-        console.error("[Auth API] login failed", {
+        const ax = err as { code?: string; message?: string; response?: { status: number; data?: { message?: string } } };
+        console.error("[Auth API DEBUG] login failed", {
             code: ax.code,
             message: ax.message,
             status: ax.response?.status,
-            data: ax.response?.data,
+            serverMessage: ax.response?.data?.message,
+            fullData: ax.response?.data,
         });
         throw err;
     }

@@ -2,11 +2,8 @@
 
 import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { useDebounce } from "use-debounce";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import type { ClassDetail, ClassStatus, ClassType, UpdateClassPayload } from "@/dtos/class.dto";
-import * as classApi from "@/lib/apis/class.api";
-import * as staffApi from "@/lib/apis/staff.api";
+import type { ClassStatus, ClassType } from "@/dtos/class.dto";
 import { normalizeTimeOnly } from "@/lib/class.helpers";
 
 type ScheduleRangeForm = {
@@ -15,16 +12,26 @@ type ScheduleRangeForm = {
   to: string;
 };
 
-const EMPTY_SCHEDULE_RANGE = {
-  from: "",
-  to: "",
-} as const;
+const EMPTY_SCHEDULE_RANGE = { from: "", to: "" } as const;
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  classDetail: ClassDetail;
+  onAdd: (data: {
+    name: string;
+    type: ClassType;
+    status: ClassStatus;
+    teacherNames: string;
+  }) => void;
 };
+
+/** Mock gia sư – dùng khi chưa kết nối BE */
+const MOCK_STAFF = [
+  { id: "st1", fullName: "Nguyễn Văn A" },
+  { id: "st2", fullName: "Trần Thị B" },
+  { id: "st3", fullName: "Lê Văn C" },
+  { id: "st4", fullName: "Phạm Thị D" },
+];
 
 const STATUS_OPTIONS: { value: ClassStatus; label: string }[] = [
   { value: "running", label: "Đang chạy" },
@@ -46,123 +53,44 @@ function createScheduleRange(range?: Partial<Pick<ScheduleRangeForm, "from" | "t
   };
 }
 
-function normalizeSchedule(schedule: unknown): ScheduleRangeForm[] {
-  if (!Array.isArray(schedule)) return [];
-
-  return schedule.reduce<ScheduleRangeForm[]>((acc, item) => {
-    if (!item || typeof item !== "object") return acc;
-
-    const record = item as Record<string, unknown>;
-    const from = normalizeTimeOnly(typeof record.from === "string" ? record.from : "");
-    const to = normalizeTimeOnly(typeof record.to === "string" ? record.to : "");
-
-    if (!from && !to) return acc;
-
-    return [...acc, createScheduleRange({ from, to })];
-  }, []);
-}
-
-function parseOptionalInt(value: string): number | undefined {
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  const parsed = Number(trimmed);
-  if (!Number.isFinite(parsed)) return undefined;
-  return Math.floor(parsed);
-}
-
 function parseTimeToSeconds(value: string): number | null {
-  const matched = value.match(/^(\d{2}):(\d{2}):(\d{2})$/);
-  if (!matched) return null;
-
-  const [, hoursRaw, minutesRaw, secondsRaw] = matched;
-  const hours = Number(hoursRaw);
-  const minutes = Number(minutesRaw);
-  const seconds = Number(secondsRaw);
-
+  const m = value.match(/^(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (!m) return null;
+  const [, h, min, sec = "0"] = m;
+  const hours = Number(h);
+  const minutes = Number(min);
+  const seconds = Number(sec);
   if (hours > 23 || minutes > 59 || seconds > 59) return null;
   return hours * 3600 + minutes * 60 + seconds;
 }
 
-function buildSchedulePayload(scheduleRanges: ScheduleRangeForm[]): NonNullable<UpdateClassPayload["schedule"]> {
-  return scheduleRanges.reduce<NonNullable<UpdateClassPayload["schedule"]>>((acc, range) => {
-    if (!range.from && !range.to) return acc;
-
-    if ((range.from && !range.to) || (!range.from && range.to)) {
-      throw new Error("Mỗi dòng lịch học cần đủ cả thời gian bắt đầu và kết thúc.");
-    }
-
-    const from = normalizeTimeOnly(range.from);
-    const to = normalizeTimeOnly(range.to);
-    const fromSeconds = parseTimeToSeconds(from);
-    const toSeconds = parseTimeToSeconds(to);
-
-    if (!from || !to || fromSeconds == null || toSeconds == null) {
-      throw new Error("Khung giờ học phải dùng định dạng HH:mm:ss.");
-    }
-
-    if (fromSeconds >= toSeconds) {
-      throw new Error("Thời gian lịch học không hợp lệ (bắt đầu phải nhỏ hơn kết thúc).");
-    }
-
-    return [...acc, { from, to }];
-  }, []);
-}
-
-export default function EditClassPopup({ open, onClose, classDetail }: Props) {
-  const queryClient = useQueryClient();
-
-  const [name, setName] = useState(classDetail.name ?? "");
-  const [type, setType] = useState<ClassType>(classDetail.type);
-  const [status, setStatus] = useState<ClassStatus>(classDetail.status);
-  const [maxStudentsInput, setMaxStudentsInput] = useState(String(classDetail.maxStudents ?? ""));
-  const [allowancePerSessionInput, setAllowancePerSessionInput] = useState(
-    String(classDetail.allowancePerSessionPerStudent ?? ""),
-  );
-  const [maxAllowancePerSessionInput, setMaxAllowancePerSessionInput] = useState(
-    classDetail.maxAllowancePerSession == null ? "" : String(classDetail.maxAllowancePerSession),
-  );
-  const [scaleAmountInput, setScaleAmountInput] = useState(
-    classDetail.scaleAmount == null ? "" : String(classDetail.scaleAmount),
-  );
-
-  const [studentTuitionPerSessionInput, setStudentTuitionPerSessionInput] = useState(
-    classDetail.studentTuitionPerSession == null ? "" : String(classDetail.studentTuitionPerSession),
-  );
-  const [tuitionPackageTotalInput, setTuitionPackageTotalInput] = useState(
-    classDetail.tuitionPackageTotal == null ? "" : String(classDetail.tuitionPackageTotal),
-  );
-  const [tuitionPackageSessionInput, setTuitionPackageSessionInput] = useState(
-    classDetail.tuitionPackageSession == null ? "" : String(classDetail.tuitionPackageSession),
-  );
-  const [scheduleRanges, setScheduleRanges] = useState<ScheduleRangeForm[]>(() => {
-    const normalized = normalizeSchedule(classDetail.schedule);
-    return normalized.length > 0 ? normalized : [createScheduleRange()];
-  });
-  const [selectedTeachers, setSelectedTeachers] = useState<Array<{ id: string; name: string }>>(() =>
-    (classDetail.teachers ?? [])
-      .filter((t) => t?.id)
-      .map((t) => ({ id: t.id, name: t.fullName?.trim() ?? "—" })),
-  );
+export default function AddClassPopup({ open, onClose, onAdd }: Props) {
+  const [name, setName] = useState("");
+  const [type, setType] = useState<ClassType>("basic");
+  const [status, setStatus] = useState<ClassStatus>("running");
+  const [maxStudentsInput, setMaxStudentsInput] = useState("");
+  const [allowancePerSessionInput, setAllowancePerSessionInput] = useState("");
+  const [maxAllowancePerSessionInput, setMaxAllowancePerSessionInput] = useState("");
+  const [scaleAmountInput, setScaleAmountInput] = useState("");
+  const [studentTuitionPerSessionInput, setStudentTuitionPerSessionInput] = useState("");
+  const [tuitionPackageTotalInput, setTuitionPackageTotalInput] = useState("");
+  const [tuitionPackageSessionInput, setTuitionPackageSessionInput] = useState("");
+  const [scheduleRanges, setScheduleRanges] = useState<ScheduleRangeForm[]>(() => [createScheduleRange()]);
+  const [selectedTeachers, setSelectedTeachers] = useState<Array<{ id: string; name: string }>>([]);
   const [teacherSearchInput, setTeacherSearchInput] = useState("");
   const [teacherSearchFocused, setTeacherSearchFocused] = useState(false);
   const teacherSearchRef = useRef<HTMLDivElement>(null);
 
-  const [debouncedTeacherSearch] = useDebounce(teacherSearchInput.trim(), 350);
-
-  const { data: staffSearchResult } = useQuery({
-    queryKey: ["staff", "list", { page: 1, limit: 50, search: debouncedTeacherSearch }],
-    queryFn: () =>
-      staffApi.getStaff({
-        page: 1,
-        limit: 50,
-        search: debouncedTeacherSearch || undefined,
-      }),
-    enabled: open,
-  });
+  const [debouncedSearch] = useDebounce(teacherSearchInput.trim(), 350);
+  const filteredStaff = MOCK_STAFF.filter(
+    (s) =>
+      !selectedTeachers.some((t) => t.id === s.id) &&
+      (debouncedSearch ? s.fullName.toLowerCase().includes(debouncedSearch.toLowerCase()) : true),
+  );
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (teacherSearchRef.current && !teacherSearchRef.current.contains(event.target as Node)) {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (teacherSearchRef.current && !teacherSearchRef.current.contains(e.target as Node)) {
         setTeacherSearchFocused(false);
       }
     };
@@ -171,118 +99,64 @@ export default function EditClassPopup({ open, onClose, classDetail }: Props) {
   }, []);
 
   useEffect(() => {
-    if (!open) return;
-
-    setName(classDetail.name ?? "");
-    setType(classDetail.type);
-    setStatus(classDetail.status);
-    setMaxStudentsInput(String(classDetail.maxStudents ?? ""));
-    setAllowancePerSessionInput(String(classDetail.allowancePerSessionPerStudent ?? ""));
-    setMaxAllowancePerSessionInput(
-      classDetail.maxAllowancePerSession == null ? "" : String(classDetail.maxAllowancePerSession),
-    );
-    setScaleAmountInput(classDetail.scaleAmount == null ? "" : String(classDetail.scaleAmount));
-    setStudentTuitionPerSessionInput(
-      classDetail.studentTuitionPerSession == null ? "" : String(classDetail.studentTuitionPerSession),
-    );
-    setTuitionPackageTotalInput(
-      classDetail.tuitionPackageTotal == null ? "" : String(classDetail.tuitionPackageTotal),
-    );
-    setTuitionPackageSessionInput(
-      classDetail.tuitionPackageSession == null ? "" : String(classDetail.tuitionPackageSession),
-    );
-
-    const normalized = normalizeSchedule(classDetail.schedule);
-    setScheduleRanges(normalized.length > 0 ? normalized : [createScheduleRange()]);
-    setSelectedTeachers(
-      (classDetail.teachers ?? [])
-        .filter((t) => t?.id)
-        .map((t) => ({ id: t.id, name: t.fullName?.trim() ?? "—" })),
-    );
-    setTeacherSearchInput("");
-  }, [open, classDetail]);
-
-  const updateMutation = useMutation({
-    mutationFn: classApi.updateClass,
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["class", "detail", classDetail.id] }),
-        queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
-      ]);
-    },
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        (err as Error)?.message ??
-        "Không thể cập nhật lớp học.";
-      toast.error(msg);
-    },
-  });
-
-  const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const trimmedName = name.trim();
-    if (!trimmedName) {
-      toast.error("Tên lớp là bắt buộc.");
-      return;
+    if (!open) {
+      setName("");
+      setType("basic");
+      setStatus("running");
+      setMaxStudentsInput("");
+      setAllowancePerSessionInput("");
+      setMaxAllowancePerSessionInput("");
+      setScaleAmountInput("");
+      setStudentTuitionPerSessionInput("");
+      setTuitionPackageTotalInput("");
+      setTuitionPackageSessionInput("");
+      setScheduleRanges([createScheduleRange()]);
+      setSelectedTeachers([]);
+      setTeacherSearchInput("");
     }
-
-    const maxStudents = parseOptionalInt(maxStudentsInput);
-    if (maxStudents !== undefined && maxStudents < 1) {
-      toast.error("Sĩ số tối đa phải lớn hơn hoặc bằng 1.");
-      return;
-    }
-
-    let schedulePayload: NonNullable<UpdateClassPayload["schedule"]>;
-    try {
-      schedulePayload = buildSchedulePayload(scheduleRanges);
-    } catch (error) {
-      toast.error((error as Error).message || "Không thể lưu lịch học.");
-      return;
-    }
-
-    try {
-      await updateMutation.mutateAsync({
-        id: classDetail.id,
-        name: trimmedName,
-        type,
-        status,
-        max_students: maxStudents,
-        allowance_per_session_per_student: parseOptionalInt(allowancePerSessionInput),
-        max_allowance_per_session: parseOptionalInt(maxAllowancePerSessionInput),
-        scale_amount: parseOptionalInt(scaleAmountInput),
-        student_tuition_per_session: parseOptionalInt(studentTuitionPerSessionInput),
-        tuition_package_total: parseOptionalInt(tuitionPackageTotalInput),
-        tuition_package_session: parseOptionalInt(tuitionPackageSessionInput),
-        schedule: schedulePayload,
-        teacher_ids: selectedTeachers.map((t) => t.id),
-      });
-      toast.success("Đã lưu thông tin lớp học.");
-      onClose();
-    } catch {
-      // lỗi đã được xử lý trong onError
-    }
-  };
+  }, [open]);
 
   const handleAddRange = () => {
     setScheduleRanges((prev) => [...prev, createScheduleRange()]);
   };
 
   const handleRemoveRange = (id: string) => {
-    setScheduleRanges((prev) => {
-      if (prev.length === 1) {
-        return [createScheduleRange()];
-      }
-      return prev.filter((item) => item.id !== id);
-    });
+    setScheduleRanges((prev) =>
+      prev.length === 1 ? [createScheduleRange()] : prev.filter((item) => item.id !== id),
+    );
   };
 
-  const handleChangeRange = (id: string, field: keyof Pick<ScheduleRangeForm, "from" | "to">, value: string) => {
-    const normalizedValue = normalizeTimeOnly(value);
+  const handleChangeRange = (id: string, field: "from" | "to", value: string) => {
+    const normalized = normalizeTimeOnly(value);
     setScheduleRanges((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, [field]: normalizedValue } : item)),
+      prev.map((item) => (item.id === id ? { ...item, [field]: normalized } : item)),
     );
+  };
+
+  const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      toast.error("Tên lớp là bắt buộc.");
+      return;
+    }
+
+    const scheduleValid = scheduleRanges.every((r) => {
+      if (!r.from && !r.to) return true;
+      if ((r.from && !r.to) || (!r.from && r.to)) return false;
+      const fromS = parseTimeToSeconds(normalizeTimeOnly(r.from));
+      const toS = parseTimeToSeconds(normalizeTimeOnly(r.to));
+      return fromS != null && toS != null && fromS < toS;
+    });
+    if (!scheduleValid) {
+      toast.error("Khung giờ học không hợp lệ.");
+      return;
+    }
+
+    const teacherNames = selectedTeachers.length > 0 ? selectedTeachers.map((t) => t.name).join(", ") : "—";
+    onAdd({ name: trimmedName, type, status, teacherNames });
+    toast.success("Đã thêm lớp học.");
+    onClose();
   };
 
   if (!open) return null;
@@ -293,12 +167,12 @@ export default function EditClassPopup({ open, onClose, classDetail }: Props) {
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby="edit-class-title"
+        aria-labelledby="add-class-title"
         className="fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-full max-w-3xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-border-default bg-bg-surface p-5 shadow-xl"
       >
         <div className="mb-4 flex shrink-0 items-center justify-between">
-          <h2 id="edit-class-title" className="text-lg font-semibold text-text-primary">
-            Chỉnh sửa thông tin lớp học
+          <h2 id="add-class-title" className="text-lg font-semibold text-text-primary">
+            Thêm lớp học
           </h2>
           <button
             type="button"
@@ -328,7 +202,6 @@ export default function EditClassPopup({ open, onClose, classDetail }: Props) {
                   required
                 />
               </label>
-
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
                 <span>Phân loại</span>
                 <select
@@ -343,7 +216,6 @@ export default function EditClassPopup({ open, onClose, classDetail }: Props) {
                   ))}
                 </select>
               </label>
-
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
                 <span>Trạng thái</span>
                 <select
@@ -358,7 +230,6 @@ export default function EditClassPopup({ open, onClose, classDetail }: Props) {
                   ))}
                 </select>
               </label>
-
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
                 <span>Sĩ số tối đa</span>
                 <input
@@ -369,7 +240,6 @@ export default function EditClassPopup({ open, onClose, classDetail }: Props) {
                   className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />
               </label>
-
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
                 <span>Trợ cấp / HV / buổi</span>
                 <input
@@ -381,7 +251,6 @@ export default function EditClassPopup({ open, onClose, classDetail }: Props) {
                   placeholder="VNĐ"
                 />
               </label>
-
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
                 <span>Trợ cấp tối đa / buổi</span>
                 <input
@@ -393,7 +262,6 @@ export default function EditClassPopup({ open, onClose, classDetail }: Props) {
                   placeholder="VNĐ"
                 />
               </label>
-
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
                 <span>Scales</span>
                 <input
@@ -433,63 +301,48 @@ export default function EditClassPopup({ open, onClose, classDetail }: Props) {
                 ))}
               </div>
               <div className="relative" ref={teacherSearchRef}>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <input
-                      type="text"
-                      value={teacherSearchInput}
-                      onChange={(e) => setTeacherSearchInput(e.target.value)}
-                      onFocus={() => setTeacherSearchFocused(true)}
-                      placeholder="Tìm kiếm gia sư theo tên..."
-                      className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 pr-9 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                      aria-label="Tìm kiếm gia sư"
-                      aria-autocomplete="list"
-                      aria-expanded={teacherSearchFocused}
-                    />
-                    <span
-                      className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-muted"
-                      aria-hidden
-                    >
-                      <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                        />
-                      </svg>
-                    </span>
-                  </div>
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={teacherSearchInput}
+                    onChange={(e) => setTeacherSearchInput(e.target.value)}
+                    onFocus={() => setTeacherSearchFocused(true)}
+                    placeholder="Tìm kiếm gia sư theo tên..."
+                    className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 pr-9 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    aria-label="Tìm kiếm gia sư"
+                    aria-autocomplete="list"
+                    aria-expanded={teacherSearchFocused}
+                  />
+                  <span
+                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-muted"
+                    aria-hidden
+                  >
+                    <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </span>
                 </div>
                 {teacherSearchFocused && (
                   <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-48 overflow-y-auto rounded-md border border-border-default bg-bg-surface py-1 shadow-lg">
-                    {(staffSearchResult?.data ?? []).filter((s) => !selectedTeachers.some((t) => t.id === s.id))
-                      .length === 0 ? (
+                    {filteredStaff.length === 0 ? (
                       <p className="px-3 py-2 text-sm text-text-muted">
-                        {teacherSearchInput.trim()
-                          ? "Không tìm thấy kết quả"
-                          : "Nhập tên để tìm kiếm gia sư"}
+                        {teacherSearchInput.trim() ? "Không tìm thấy kết quả" : "Nhập tên để tìm kiếm gia sư"}
                       </p>
                     ) : (
-                      (staffSearchResult?.data ?? [])
-                        .filter((s) => !selectedTeachers.some((t) => t.id === s.id))
-                        .map((s) => (
-                          <button
-                            key={s.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedTeachers((prev) => [
-                                ...prev,
-                                { id: s.id, name: s.fullName?.trim() ?? s.id },
-                              ]);
-                              setTeacherSearchInput("");
-                              setTeacherSearchFocused(false);
-                            }}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text-primary transition-colors hover:bg-bg-tertiary focus:bg-bg-tertiary focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                          >
-                            {s.fullName?.trim() || s.id}
-                          </button>
-                        ))
+                      filteredStaff.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedTeachers((prev) => [...prev, { id: s.id, name: s.fullName }]);
+                            setTeacherSearchInput("");
+                            setTeacherSearchFocused(false);
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text-primary transition-colors hover:bg-bg-tertiary focus:bg-bg-tertiary focus:outline-none focus-visible:ring-0"
+                        >
+                          {s.fullName}
+                        </button>
+                      ))
                     )}
                   </div>
                 )}
@@ -513,7 +366,6 @@ export default function EditClassPopup({ open, onClose, classDetail }: Props) {
                   placeholder="VNĐ"
                 />
               </label>
-
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
                 <span>Gói học phí tổng (bao tiền)</span>
                 <input
@@ -525,7 +377,6 @@ export default function EditClassPopup({ open, onClose, classDetail }: Props) {
                   placeholder="VNĐ"
                 />
               </label>
-
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
                 <span>Số buổi gói học phí (bao buổi)</span>
                 <input
@@ -544,7 +395,7 @@ export default function EditClassPopup({ open, onClose, classDetail }: Props) {
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-text-muted">Khung giờ học</h3>
-                <p className="mt-1 text-xs text-text-muted">Định dạng HH:mm:ss.</p>
+                <p className="mt-1 text-xs text-text-muted">Định dạng HH:mm.</p>
               </div>
               <button
                 type="button"
@@ -554,7 +405,6 @@ export default function EditClassPopup({ open, onClose, classDetail }: Props) {
                 + Thêm khung giờ
               </button>
             </div>
-
             <div className="space-y-3">
               {scheduleRanges.map((range, index) => (
                 <div
@@ -573,7 +423,6 @@ export default function EditClassPopup({ open, onClose, classDetail }: Props) {
                       Xóa
                     </button>
                   </div>
-
                   <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
                     <label className="flex flex-col gap-1 text-sm text-text-secondary">
                       <span className="text-[11px] uppercase tracking-[0.2em] text-text-muted">Bắt đầu</span>
@@ -585,13 +434,11 @@ export default function EditClassPopup({ open, onClose, classDetail }: Props) {
                         className="rounded-md border border-border-default bg-bg-surface px-3 py-2 font-mono text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                       />
                     </label>
-
                     <div className="flex items-center justify-center pb-2 text-text-muted" aria-hidden>
                       <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14m-4-4 4 4-4 4" />
                       </svg>
                     </div>
-
                     <label className="flex flex-col gap-1 text-sm text-text-secondary">
                       <span className="text-[11px] uppercase tracking-[0.2em] text-text-muted">Kết thúc</span>
                       <input
@@ -618,10 +465,9 @@ export default function EditClassPopup({ open, onClose, classDetail }: Props) {
             </button>
             <button
               type="submit"
-              disabled={updateMutation.isPending}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors duration-200 hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60"
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors duration-200 hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
             >
-              {updateMutation.isPending ? "Đang lưu…" : "Lưu thông tin"}
+              Thêm lớp
             </button>
           </div>
         </form>

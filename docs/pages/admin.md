@@ -48,8 +48,9 @@
   - `province` lọc theo `user.province` bằng `contains`, không phân biệt hoa/thường.
   - FE `/admin/staff` dùng TanStack Query `useQuery` với query params (`page`, `limit`, `search`, `status`), và chỉ giữ pagination UI theo dữ liệu BE trả về.
   - Xóa staff dùng TanStack Query `useMutation`; khi thành công sẽ invalidate query danh sách và hiển thị Sonner toast.
-  - FE `/admin/staff/:id` dùng TanStack Query `useQuery` với `enabled: !!id` cho trang chi tiết.
+  - FE `/admin/staff/:id` dùng TanStack Query `useQuery` với `enabled: !!id` cho trang chi tiết. Layout: hàng 1 [Thông tin cơ bản | Ô QR] (QR: chưa link = mờ + icon upload, click mở popup nhập link; có link = hiển thị hình QR, click mở link); hàng 2 Thống kê thu nhập; hàng 3 [Lớp phụ trách | Thưởng] (Thưởng: cấu trúc backup – Tổng tháng/Đã nhận/Chưa nhận, bảng bonus, nút Thêm thưởng); hàng 4 Công việc khác. QR link và Thưởng dùng mock data khi chưa kết nối BE.
   - Các endpoint này đi qua global JWT guard (không `@Public`); `users` và `student` yêu cầu role `admin`, `staff` giữ nguyên behavior auth hiện tại của module.
+- **Class list (FE `/admin/classes`):** Hiển thị chỉ 3 cột: Tên lớp, Loại lớp, Gia sư; dấu chấm trạng thái ở đầu mỗi dòng (running = warning, ended = muted). Hiện dùng mock data trong page; filter search + type hoạt động client-side. Click dòng → `/admin/classes/:id`. Nút "Thêm lớp học" mở popup form thêm lớp (cấu trúc giống form chỉnh sửa lớp: Thông tin cơ bản, Gia sư phụ trách, Học phí, Khung giờ học); submit thêm vào mock list, không gọi BE.
 - **Class endpoints (CRUD + pagination):**
   - `GET /class?page=<number>&limit=<number>&search=<text>&status=<running|ended>&type=<vip|basic|advance|hardcore>`.
   - `GET /class/:id`.
@@ -59,8 +60,11 @@
   - `page` mặc định `1`, `limit` mặc định `20`, `limit` tối đa `100`.
   - `GET /class` trả response dạng `{ data, meta }` với `meta = { total, page, limit }`.
   - Filter hỗ trợ `search` theo tên lớp (contains, không phân biệt hoa/thường), `status`, `type`.
-  - FE `/admin/classes/:id` có 3 nút `Edit` riêng cho từng section (`Basic info`, `Tuition fee`, `Schedule`); mỗi nút mở popup đúng form tương ứng.
-  - FE `/admin/classes/:id` hiển thị `Gia sư phụ trách` bằng `TutorCard` riêng, lấy từ `teachers` của `GET /class/:id`; nếu chưa phân công sẽ hiện empty state `Chưa phân công gia sư phụ trách.` trong card.
+  - FE `/admin/classes/:id` bố cục: header (tên lớp, edit icon) → hàng 1: Gia sư phụ trách (trái) | Khung giờ học (phải) → Danh sách học sinh → Lịch sử buổi học và khảo sát (2 tab: Lịch sử, Khảo sát). Icon chỉnh sửa mở popup form đầy đủ.
+  - FE `/admin/classes/:id` hiển thị `Gia sư phụ trách` bằng `TutorCard` (trái), lấy từ `teachers` của `GET /class/:id`; nếu chưa phân công sẽ hiện empty state `Chưa phân công gia sư phụ trách.`
+  - Danh sách học sinh, Lịch sử buổi học, Khảo sát: hiện dùng mock data trong page; sẽ kết nối API sau.
+  - Tab Lịch sử: nút "Thêm buổi học", chuyển tháng (prev/next) để lọc theo tháng.
+  - Tab Khảo sát: nút "Thêm khảo sát", chuyển tháng (prev/next) để lọc theo tháng.
   - `Schedule` hỗ trợ nhiều khung giờ `from -> to` theo định dạng `HH:mm:ss`; FE `/admin/classes/:id` hiển thị bằng Time Card, popup chỉnh sửa dùng input time-only và submit mảng `[{ from, to }]` chỉ gồm giờ-phút-giây khi gọi `PATCH /class`.
   - Các endpoint đi qua global JWT guard (không `@Public`) theo behavior auth hiện tại của backend module.
 - **Cost endpoints (CRUD + pagination):**
