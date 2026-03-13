@@ -7,9 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as staffApi from "@/lib/apis/staff.api";
 import { StaffListTableSkeleton } from "@/components/admin/staff";
-
-type StaffStatus = staffApi.StaffStatus;
-type StaffListItem = staffApi.StaffListItem;
+import { StaffListResponse, StaffListItem, StaffStatus } from "@/dtos/staff.dto";
 
 const PAGE_SIZE = 20;
 
@@ -62,7 +60,7 @@ export default function AdminStaffPage() {
     isLoading,
     isError,
     error,
-  } = useQuery<staffApi.StaffListResponse>({
+  } = useQuery<StaffListResponse>({
     queryKey: ["staff", "list", page, PAGE_SIZE, search, statusFilter],
     queryFn: () =>
       staffApi.getStaff({

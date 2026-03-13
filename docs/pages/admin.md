@@ -63,6 +63,19 @@
   - FE `/admin/classes/:id` hiển thị `Gia sư phụ trách` bằng `TutorCard` riêng, lấy từ `teachers` của `GET /class/:id`; nếu chưa phân công sẽ hiện empty state `Chưa phân công gia sư phụ trách.` trong card.
   - `Schedule` hỗ trợ nhiều khung giờ `from -> to` theo định dạng `HH:mm:ss`; FE `/admin/classes/:id` hiển thị bằng Time Card, popup chỉnh sửa dùng input time-only và submit mảng `[{ from, to }]` chỉ gồm giờ-phút-giây khi gọi `PATCH /class`.
   - Các endpoint đi qua global JWT guard (không `@Public`) theo behavior auth hiện tại của backend module.
+- **Cost endpoints (CRUD + pagination):**
+  - `GET /cost?page=<number>&limit=<number>&search=<text>`.
+  - `GET /cost/:id`.
+  - `POST /cost` (payload bắt buộc `id` dạng UUID).
+  - `PATCH /cost` (payload bắt buộc `id`).
+  - `DELETE /cost/:id`.
+  - `page` mặc định `1`, `limit` mặc định `20`, `limit` tối đa `100`.
+  - `GET /cost` trả response dạng `{ data, meta }` với `meta = { total, page, limit }`.
+  - Filter hỗ trợ `search` theo `category` bằng `contains`, không phân biệt hoa/thường.
+  - FE `/admin/costs` dùng TanStack Query `useQuery` với query params (`page`, `limit`, `search`) và đồng bộ URL query (`page`, `search`).
+  - FE `/admin/costs` debounce search 1s, reset `page=1` khi đổi search, và sync lại `page` theo `meta.page` từ server khi cần.
+  - Xóa cost ở FE `/admin/costs` dùng TanStack Query `useMutation`; khi thành công invalidate query danh sách và hiển thị Sonner toast success/error.
+  - Các endpoint đi qua global JWT guard (không `@Public`) và yêu cầu role `admin`.
 
 ## DoD and week
 

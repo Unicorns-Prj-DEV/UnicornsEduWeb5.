@@ -39,6 +39,7 @@ You are working in the UnicornsEduWeb5 monorepo.
 - **Mandatory (shadcn/ui first):** In `apps/web`, prefer using `shadcn/ui` components instead of hand-coding new UI components from scratch.
 - **shadcn/ui extension rule:** When customization is needed, compose/extend existing shadcn components first; hand-code a new component only when shadcn cannot satisfy a concrete requirement.
 - Validate request/response DTOs with a solution appropriate to each module (not mandatory to use **class-validator**/**class-transformer**).
+- **Mandatory (DTO/Enums location):** All frontend DTOs and Enums must be defined in `apps/web/dtos/`. Do not define local DTO/Enum types inside `apps/web/lib/apis/*` or page/component files.
 
 # Backend (apps/api) & DTOs
 - **Swagger:** Add Swagger decorators to every controller: `@ApiTags()`, `@ApiOperation()`, `@ApiResponse()`, `@ApiBody()`, `@ApiParam()`, `@ApiCookieAuth()` when needed.

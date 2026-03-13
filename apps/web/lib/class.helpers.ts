@@ -1,4 +1,4 @@
-import type { ClassStatus, ClassType } from "./apis/class.api";
+import type { ClassStatus, ClassType } from "@/dtos/class.dto";
 
 export function formatCurrency(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return "—";

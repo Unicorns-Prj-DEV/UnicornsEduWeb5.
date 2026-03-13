@@ -49,6 +49,7 @@ Khi thay đổi code, **luôn cập nhật tài liệu liên quan trong cùng ph
 - **shadcn/ui – Bắt buộc ưu tiên:** Khi xây UI trong `apps/web`, ưu tiên dùng component từ `shadcn/ui` thay vì tự code component mới từ đầu.
 - **shadcn/ui – Quy tắc mở rộng:** Nếu cần custom, hãy compose/extend từ component shadcn hiện có; chỉ tự code component mới khi shadcn chưa đáp ứng được yêu cầu cụ thể.
 - **Validation/Transform:** Chọn giải pháp phù hợp theo từng module (không bắt buộc `class-validator` / `class-transformer`).
+- **DTO/Enums location – Bắt buộc:** Mọi DTO và Enums dùng ở frontend phải được tách và đặt trong `apps/web/dtos/`. Không khai báo DTO/Enums cục bộ trong `apps/web/lib/apis/*` hoặc trong page/component.
 
 ### Backend (`apps/api`) & DTO
 

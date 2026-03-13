@@ -9,9 +9,17 @@ import { UserModule } from './user/user.module';
 import { StudentModule } from './student/student.module';
 import { StaffModule } from './staff/staff.module';
 import { ClassModule } from './class/class.module';
+import { CostModule } from './cost/cost.module';
 
 @Module({
-  imports: [AuthModule, UserModule, StudentModule, StaffModule, ClassModule],
+  imports: [
+    AuthModule,
+    UserModule,
+    StudentModule,
+    StaffModule,
+    ClassModule,
+    CostModule,
+  ],
   controllers: [AppController],
   providers: [
     AppService,
@@ -20,4 +28,4 @@ import { ClassModule } from './class/class.module';
     { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
-export class AppModule { }
+export class AppModule {}
