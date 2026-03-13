@@ -32,7 +32,7 @@ export function TeamCard({
         href={link}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex w-fit items-center rounded-lg border border-border-default px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--ue-border-focus)]"
+        className="inline-flex w-fit items-center rounded-lg border border-border-default px-4 py-2 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--ue-border-focus)]"
       >
         Xem Fanpage
       </a>

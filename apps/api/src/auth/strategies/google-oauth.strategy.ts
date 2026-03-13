@@ -56,6 +56,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
                     emailVerified: true,
                 },
                 update: {
+                    emailVerified: true,
                 },
                 where: {
                     email: user.email,

@@ -40,19 +40,28 @@ export default async function SomePage() {
   if (user.roleType === "guest") {
     redirect("/auth/login");
   }
-  return <div>Hello, {user.email}</div>;
+  return <div>Hello, {user.accountHandle}</div>;
 }
 ```
 
 **Lưu ý:** `getUser()` chỉ chạy được ở môi trường server (Server Components, Route Handlers, Server Actions). Ở Client Component vẫn dùng `useAuth()` từ `AuthContext`.
 
+## Email vs accountHandle (model)
+
+- **email**: địa chỉ email, unique, dùng để gửi xác thực / quên mật khẩu.
+- **accountHandle**: định danh đăng nhập (username), unique, dùng trong JWT và hiển thị (navbar, profile).
+- Login chấp nhận một chuỗi: backend coi là accountHandle trước, không có thì coi là email.
+- User đăng ký Google: `accountHandle` được set = email. User đăng ký form: nhập email và accountHandle riêng (có thể trùng hoặc khác).
+
 ## API endpoints đang dùng
 
 - **API (real only):** login, logout, me (profile + role), register, verify email, forgot password, reset password.
 - **Backend Auth endpoints hiện có:**
-  - `POST /auth/login` body: `{ email, password, rememberMe? }`
+  - `POST /auth/login` body: `{ accountHandle, password, rememberMe? }`
+    - `accountHandle`: có thể là **email** hoặc **account handle** (username); backend tìm user theo accountHandle trước, không có thì theo email.
     - refresh token policy: mặc định 7 ngày, nếu `rememberMe=true` thì 30 ngày.
-  - `POST /auth/register` body: `{ email, password }`
+  - `POST /auth/register` body: `{ email, accountHandle, password, ... }`
+    - `accountHandle` phải unique; nếu trùng với user khác (khác email) sẽ trả 400.
   - `POST /auth/refresh` dùng `refresh_token` cookie
   - `GET /auth/profile`
   - `GET /auth/verify?token=...`

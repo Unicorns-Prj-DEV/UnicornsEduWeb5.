@@ -5,6 +5,8 @@ import { useAuth } from "@/context/AuthContext";
 import { Role } from "@/dtos/Auth.dto";
 import { logout } from "@/lib/apis/auth.api";
 import { useRouter } from "next/navigation";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 const HOME_MENU = [
   { id: "intro", label: "Giới thiệu" },
@@ -26,8 +28,19 @@ function scrollToSection(id: string) {
 }
 
 export function Navbar() {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const router = useRouter();
+  const queryClient = useQueryClient();
+
+  const logoutMutation = useMutation({
+    mutationFn: logout,
+    onSuccess: () => {
+      setUser({ id: "", accountHandle: "", roleType: Role.guest });
+      queryClient.invalidateQueries();
+      toast.success("Đăng xuất thành công");
+      router.push("/");
+    },
+  });
 
   return (
     <header className="sticky top-0 z-50 border-b border-border-default bg-bg-primary/90 backdrop-blur transition-colors duration-300 supports-[backdrop-filter]:bg-bg-primary/75">
@@ -66,7 +79,7 @@ export function Navbar() {
               key={item.id}
               type="button"
               onClick={() => scrollToSection(`section-${item.id}`)}
-              className="motion-fade-up rounded-md px-3 py-2 text-sm font-medium text-text-secondary transition hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)]"
+              className="motion-fade-up rounded-md px-3 py-2 text-sm font-medium text-text-secondary transition-colors duration-200 hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)]"
               style={{ animationDelay: `${index * 40}ms` }}
             >
               {item.label}
@@ -82,17 +95,16 @@ export function Navbar() {
                 className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-tertiary font-semibold text-text-primary ring-2 ring-border-default transition hover:bg-primary hover:text-text-inverse hover:ring-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
               >
                 <span className="text-sm">
-                  {user.email?.slice(0, 1).toUpperCase() ?? "?"}
+                  {user.accountHandle?.slice(0, 1).toUpperCase() ?? "?"}
                 </span>
               </Link>
 
               <button
                 type="button"
                 onClick={() => {
-                  logout();
-                  router.refresh();
+                  logoutMutation.mutate();
                 }}
-                className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-tertiary font-semibold text-text-primary ring-2 ring-border-default transition hover:bg-primary hover:text-text-inverse hover:ring-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-tertiary font-semibold text-text-primary ring-2 ring-border-default transition-colors duration-200 hover:bg-red-500 hover:text-text-inverse hover:ring-red-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
               >
                 <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -103,13 +115,13 @@ export function Navbar() {
             <>
               <Link
                 href="/auth/login"
-                className="rounded-md px-3 py-2 text-sm font-medium text-text-primary transition hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)]"
+                className="rounded-md px-3 py-2 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)]"
               >
                 Đăng nhập
               </Link>
               <Link
                 href="/auth/register"
-                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition hover:bg-[var(--ue-primary-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)]"
+                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors duration-200 hover:bg-[var(--ue-primary-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)]"
               >
                 Đăng ký
               </Link>

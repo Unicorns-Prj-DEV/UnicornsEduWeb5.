@@ -1,24 +1,25 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import { RefreshUserDto } from 'src/dtos/user.dto';
+import type { UserRole } from 'generated/enums';
 
-/** User object attached by JwtStrategy (after validate). */
 export interface JwtPayload {
-  user: RefreshUserDto;
-  rememberMe?: boolean;
+  id: string;
+  accountHandle: string;
+  roleType: UserRole;
 }
 
-/**
- * Injects the current user (from JWT guard) into a route handler parameter.
- * Use with @UseGuards(JwtAuthGuard) or global JWT guard.
- */
+export interface JwtRefreshPayload {
+  user: JwtPayload;
+  rememberMe: boolean;
+  refreshTokenExpiresAt: Date;
+}
+
 export const CurrentUser = createParamDecorator(
   (
-    data: keyof JwtPayload | undefined,
+    data: keyof JwtPayload | keyof JwtRefreshPayload | undefined,
     ctx: ExecutionContext,
-  ): JwtPayload | unknown => {
+  ): JwtPayload | JwtRefreshPayload | unknown => {
     const request = ctx.switchToHttp().getRequest();
-    console.log('debug', request);
-    const user = request.user as JwtPayload;
-    return data ? user?.[data] : user;
+    const user = request.user as JwtPayload | JwtRefreshPayload;
+    return data ? user?.[data as keyof (JwtPayload & JwtRefreshPayload)] : user;
   },
 );

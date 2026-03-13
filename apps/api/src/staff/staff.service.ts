@@ -6,7 +6,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class StaffService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async getStaff(
     query: PaginationQueryDto & {
@@ -38,31 +38,31 @@ export class StaffService {
     const where = {
       ...(trimmedSearch
         ? {
-            fullName: {
-              contains: trimmedSearch,
-              mode: 'insensitive' as const,
-            },
-          }
+          fullName: {
+            contains: trimmedSearch,
+            mode: 'insensitive' as const,
+          },
+        }
         : {}),
       ...(statusFilter ? { status: statusFilter } : {}),
       ...(trimmedClassId
         ? {
-            classTeachers: {
-              some: {
-                classId: trimmedClassId,
-              },
+          classTeachers: {
+            some: {
+              classId: trimmedClassId,
             },
-          }
+          },
+        }
         : {}),
       ...(trimmedProvince
         ? {
-            user: {
-              province: {
-                contains: trimmedProvince,
-                mode: 'insensitive' as const,
-              },
+          user: {
+            province: {
+              contains: trimmedProvince,
+              mode: 'insensitive' as const,
             },
-          }
+          },
+        }
         : {}),
     };
 
@@ -103,6 +103,17 @@ export class StaffService {
     return await this.prisma.staffInfo.findUnique({
       where: {
         id,
+      },
+      include: {
+        user: { select: { province: true } },
+        classTeachers: {
+          include: { class: { select: { id: true, name: true } } },
+        },
+        monthlyStats: {
+          orderBy: { month: 'desc' },
+          take: 1,
+          select: { totalUnpaidAll: true },
+        },
       },
     });
   }

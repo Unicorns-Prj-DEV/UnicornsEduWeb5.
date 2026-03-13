@@ -20,7 +20,7 @@ const ROLE_REDIRECT: Record<string, string> = {
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState("");
+  const [accountHandle, setAccountHandle] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const { user, setUser } = useAuth();
@@ -47,7 +47,7 @@ function LoginPageContent() {
       console.log(loginResponse);
       setUser({
         id: loginResponse.id,
-        email: loginResponse.email,
+        accountHandle: loginResponse.accountHandle,
         roleType: loginResponse.roleType,
       });
       router.push(ROLE_REDIRECT[loginResponse.roleType] ?? "/");
@@ -59,7 +59,7 @@ function LoginPageContent() {
 
   const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
-    loginMutation.mutate({ email, password, rememberMe });
+    loginMutation.mutate({ accountHandle, password, rememberMe });
   };
 
   return (
@@ -75,18 +75,18 @@ function LoginPageContent() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="login-email" className="block text-sm font-medium text-text-primary mb-1">
-                Email
+              <label htmlFor="login-account-handle" className="block text-sm font-medium text-text-primary mb-1">
+                Email hoặc account handle
               </label>
               <input
-                id="login-email"
-                type="email"
-                autoComplete="email"
+                id="login-account-handle"
+                type="text"
+                autoComplete="username"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus:ring-2 focus:ring-border-focus/30 transition-colors"
-                placeholder="you@example.com"
+                value={accountHandle}
+                onChange={(e) => setAccountHandle(e.target.value)}
+                className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus:ring-2 focus:ring-border-focus/30 transition-colors duration-200"
+                placeholder="you@example.com hoặc nguyenvan"
               />
             </div>
 
@@ -101,7 +101,7 @@ function LoginPageContent() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus:ring-2 focus:ring-border-focus/30 transition-colors"
+                className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus:ring-2 focus:ring-border-focus/30 transition-colors duration-200"
                 placeholder="••••••••"
               />
             </div>
@@ -113,7 +113,7 @@ function LoginPageContent() {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded-sm border border-border-default bg-bg-surface accent-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                  className="w-4 h-4 rounded-sm border border-border-default bg-bg-surface accent-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200"
                 />
                 <label htmlFor="remember-me" className="select-none text-sm text-text-primary ml-2">
                   Remember me for a month
@@ -130,7 +130,7 @@ function LoginPageContent() {
             <button
               type="submit"
               disabled={loginMutation.isPending}
-              className="w-full rounded-lg bg-primary py-2.5 font-medium text-text-inverse hover:bg-primary-hover active:bg-primary-active focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-offset-2 disabled:opacity-60 transition-colors"
+              className="w-full rounded-lg bg-primary py-2.5 font-medium text-text-inverse hover:bg-primary-hover active:bg-primary-active focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-offset-2 disabled:opacity-60 transition-colors duration-200"
             >
               {loginMutation.isPending ? "Đang đăng nhập..." : "Đăng nhập"}
             </button>
@@ -146,7 +146,7 @@ function LoginPageContent() {
 
             <a
               href={`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"}/auth/google`}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-border-default bg-bg-surface py-2.5 font-medium text-text-primary hover:bg-bg-tertiary focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-offset-2 transition-colors"
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-border-default bg-bg-surface py-2.5 font-medium text-text-primary hover:bg-bg-tertiary focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-offset-2 transition-colors duration-200"
             >
               <svg className="size-5" viewBox="0 0 24 24" aria-hidden>
                 <path

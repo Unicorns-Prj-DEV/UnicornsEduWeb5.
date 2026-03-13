@@ -29,4 +29,4 @@ import { GoogleStrategy } from './strategies/google-oauth.strategy';
   providers: [AuthService, JwtStrategy, JwtRefreshStrategy, GoogleStrategy],
   exports: [AuthService],
 })
-export class AuthModule { }
+export class AuthModule {}

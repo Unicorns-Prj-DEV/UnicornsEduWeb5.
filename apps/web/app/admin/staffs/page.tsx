@@ -7,9 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as staffApi from "@/lib/apis/staff.api";
 import { StaffListTableSkeleton } from "@/components/admin/staff";
-
-type StaffStatus = staffApi.StaffStatus;
-type StaffListItem = staffApi.StaffListItem;
+import { StaffListResponse, StaffListItem, StaffStatus } from "@/dtos/staff.dto";
 
 const PAGE_SIZE = 20;
 
@@ -308,7 +306,7 @@ export default function AdminStaffPage() {
                           key={row.id}
                           role="button"
                           tabIndex={0}
-                          className="group cursor-pointer border-b border-border-default bg-bg-surface transition-colors hover:bg-bg-secondary focus-within:bg-bg-secondary"
+                          className="group cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary focus-within:bg-bg-secondary"
                           onClick={() => router.push(`/admin/staffs/${row.id}`)}
                           onKeyDown={(e) => {
                             if (e.key === "Enter" || e.key === " ") {
@@ -341,7 +339,7 @@ export default function AdminStaffPage() {
                             <div className="flex items-center justify-end opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
                               <button
                                 type="button"
-                                className="rounded p-1.5 text-text-muted transition hover:bg-error/15 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:opacity-50"
+                                className="rounded p-1.5 text-text-muted transition-colors duration-200 hover:bg-error/15 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:opacity-50"
                                 aria-label={`Xóa ${row.fullName}`}
                                 title="Xóa"
                                 disabled={deleteMutation.isPending}
@@ -380,7 +378,7 @@ export default function AdminStaffPage() {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50"
                       disabled={page <= 1}
                       aria-label="Trang trước"
                       onClick={handlePreviousPage}
@@ -392,7 +390,7 @@ export default function AdminStaffPage() {
                     </span>
                     <button
                       type="button"
-                      className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50"
                       disabled={page >= totalPages}
                       aria-label="Trang sau"
                       onClick={handleNextPage}

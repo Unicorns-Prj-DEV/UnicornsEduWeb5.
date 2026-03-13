@@ -8,6 +8,8 @@ import * as authApi from "@/lib/apis/auth.api";
 import AdminProfilePopup, { type AdminProfile } from "./AdminProfilePopup";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useAuth } from "@/context/AuthContext";
+import { Role } from "@/dtos/Auth.dto";
 
 const MENU_ITEMS: { href: string; label: string; icon: React.ReactNode }[] = [
   { href: "/admin", label: "Dashboard", icon: <IconDashboard /> },
@@ -106,6 +108,7 @@ export default function AdminSidebar() {
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profile, setProfile] = useState<AdminProfile | null>(null);
+  const { user, setUser } = useAuth();
 
   useEffect(() => {
     setMounted(true);
@@ -118,7 +121,7 @@ export default function AdminSidebar() {
 
   const openProfile = async () => {
     try {
-      const data = (await authApi.getProfile()) as { sub?: string; email?: string; roleType?: string; role?: string };
+      const data = (await authApi.getProfile()) as { sub?: string; accountHandle?: string; roleType?: string; role?: string };
       setProfile(data as AdminProfile);
       setProfileOpen(true);
     } catch {
@@ -148,6 +151,7 @@ export default function AdminSidebar() {
     mutationFn: authApi.logout,
     onSuccess: () => {
       queryClient.invalidateQueries();
+      setUser({ id: "", accountHandle: "", roleType: Role.guest });
       router.push("/");
     },
     onError: (error) => {
@@ -178,7 +182,7 @@ export default function AdminSidebar() {
         <button
           type="button"
           onClick={toggleCollapse}
-          className="flex size-9 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary"
+          className="flex size-9 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors duration-200 hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary"
           aria-label={collapsed ? "Mở rộng menu" : "Thu gọn menu"}
         >
           <svg
@@ -203,7 +207,7 @@ export default function AdminSidebar() {
               <li key={item.href} className="sidebar-item">
                 <Link
                   href={item.href}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${isActive
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${isActive
                     ? "bg-primary text-text-inverse"
                     : "hover:bg-bg-tertiary hover:text-text-primary"
                     }`}
@@ -225,7 +229,7 @@ export default function AdminSidebar() {
       <div className="shrink-0 border-t border-border-default p-2">
         <Link
           href="/"
-          className={`sidebar-item flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${pathname === "/"
+          className={`sidebar-item flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${pathname === "/"
             ? "bg-primary text-text-inverse"
             : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
             }`}
@@ -241,18 +245,18 @@ export default function AdminSidebar() {
           <button
             type="button"
             onClick={openProfile}
-            className="sidebar-item flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-tertiary text-text-primary hover:bg-primary hover:text-text-inverse focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary"
+            className="sidebar-item flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-tertiary text-text-primary transition-colors duration-200 hover:bg-primary hover:text-text-inverse focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary"
             aria-label="Thông tin cá nhân"
             title="Thông tin cá nhân"
           >
             <span className="text-sm font-semibold">
-              {profile?.email?.slice(0, 1).toUpperCase() ?? "?"}
+              {profile?.accountHandle?.slice(0, 1).toUpperCase() ?? "?"}
             </span>
           </button>
           <button
             type="button"
             onClick={handleLogout}
-            className="sidebar-item flex size-10 shrink-0 items-center justify-center rounded-lg text-text-muted hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary"
+            className="sidebar-item flex size-10 shrink-0 items-center justify-center rounded-full text-text-muted transition-colors duration-200 hover:bg-red-500 hover:ring-red-800 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary"
             aria-label="Đăng xuất"
             title="Đăng xuất"
           >

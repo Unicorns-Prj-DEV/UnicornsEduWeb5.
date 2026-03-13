@@ -20,6 +20,7 @@ import { AuthGuard } from '@nestjs/passport';
 import {
   CurrentUser,
   type JwtPayload,
+  type JwtRefreshPayload,
 } from './decorators/current-user.decorator';
 import {
   CreateUserDto,
@@ -28,7 +29,6 @@ import {
   ResetPasswordDto,
   UserAuthDto,
 } from '../dtos/user.dto';
-import type { RefreshValidateResult } from './strategies/jwt-refresh.strategy';
 import {
   ApiBody,
   ApiCookieAuth,
@@ -39,17 +39,15 @@ import {
 } from '@nestjs/swagger';
 import { UserRole } from 'generated/enums';
 import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from 'src/prisma/prisma.service';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
-    private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
-  ) { }
+  ) {}
 
   @Public()
   @HttpCode(HttpStatus.OK)
@@ -57,11 +55,12 @@ export class AuthController {
   @ApiOperation({
     summary: 'Login',
     description:
-      'Authenticate with email and password. Returns access token and sets refresh token in cookie.',
+      'Authenticate with accountHandle and password (accountHandle can be username or email). Returns access token and sets refresh token in cookie.',
   })
   @ApiBody({
     type: UserAuthDto,
-    description: 'Email, password, and optional rememberMe',
+    description:
+      'accountHandle (username or email), password, and optional rememberMe',
   })
   @ApiResponse({
     status: 200,
@@ -73,7 +72,7 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const response = await this.authService.login(
-      body.email,
+      body.accountHandle,
       body.password,
       body.rememberMe,
     );
@@ -92,7 +91,7 @@ export class AuthController {
     return {
       message: 'Login successful',
       id: response.id,
-      email: response.email,
+      accountHandle: response.accountHandle,
       roleType: response.roleType,
     };
   }
@@ -116,19 +115,16 @@ export class AuthController {
     description: 'Invalid or expired refresh token.',
   })
   async refresh(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: JwtRefreshPayload,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    console.log('debug', user);
-
     const oldRefreshToken = req.cookies?.refresh_token ?? '';
     const { accessToken, refreshToken } = await this.authService.refreshTokens(
       user.user.id,
       oldRefreshToken,
+      user.rememberMe,
     );
-
-    console.log(accessToken, refreshToken);
 
     res.cookie('access_token', accessToken, {
       httpOnly: true,
@@ -155,20 +151,28 @@ export class AuthController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Current user profile (id, email, role, etc.).',
+    description: 'Current user profile (id, accountHandle, role, etc.).',
   })
   getProfile(@Req() req: Request) {
     const refreshToken = req.cookies?.refresh_token ?? '';
 
     if (!refreshToken) {
-      return { id: '', email: '', roleType: UserRole.guest };
+      return { id: '', accountHandle: '', roleType: UserRole.guest };
     }
 
-    const user = this.jwtService.verify(refreshToken, {
-      secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
-    });
+    try {
+      const payload = this.jwtService.verify(refreshToken, {
+        secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
+      }) as JwtPayload;
 
-    return user ?? { id: '', email: '', roleType: UserRole.guest };
+      return {
+        id: payload.id ?? '',
+        accountHandle: payload.accountHandle ?? '',
+        roleType: payload.roleType ?? UserRole.guest,
+      };
+    } catch {
+      return { id: '', accountHandle: '', roleType: UserRole.guest };
+    }
   }
 
   @Post('change-password')
@@ -309,7 +313,7 @@ export class AuthController {
   @Public()
   @Get('google')
   @UseGuards(AuthGuard('google'))
-  async googleAuth() { }
+  async googleAuth() {}
 
   @Public()
   @Get('google/callback')
@@ -318,13 +322,13 @@ export class AuthController {
     @Req() req: any,
     @Res({ passthrough: true }) res: Response,
   ) {
-    console.log('debug', req.user);
-    const { accessToken, refreshToken } = await this.authService.generateTokenPairAndSave(
-      req.user.id,
-      req.user.email,
-      req.user.roleType,
-      true,
-    );
+    const { accessToken, refreshToken } =
+      await this.authService.generateTokenPairAndSave(
+        req.user.id,
+        req.user.accountHandle,
+        req.user.roleType,
+        true,
+      );
 
     res.cookie('access_token', accessToken, {
       httpOnly: true,

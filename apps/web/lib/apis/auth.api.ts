@@ -21,12 +21,7 @@ export async function logIn(dto: LoginDto) {
 }
 
 export async function register(registerDto: RegisterDto) {
-    const response = await api.post('/auth/register', {
-        email: registerDto.email,
-        password: registerDto.password,
-        name: registerDto.fullName,
-        phone: registerDto.phoneNumber,
-    });
+    const response = await api.post('/auth/register', registerDto);
     return response.data;
 }
 

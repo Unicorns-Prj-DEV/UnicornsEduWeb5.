@@ -10,31 +10,42 @@ import * as authApi from "@/lib/apis/auth.api";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [fullName, setFullName] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [accountHandle, setAccountHandle] = useState("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [province, setProvince] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const registerMutation = useMutation({
-    mutationFn: (body: { fullName: string; phoneNumber: string; email: string; password: string }) => authApi.register(body),
+    mutationFn: authApi.register,
     onSuccess: () => {
       toast.success("Đăng ký thành công. Vui lòng kiểm tra email để xác thực tài khoản trước khi đăng nhập.");
       setTimeout(() => router.push("/auth/login"), 3000);
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Đăng ký thất bại. Email có thể đã được sử dụng.";
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Đăng ký thất bại. Email hoặc account handle có thể đã được sử dụng.";
       toast.error(msg);
     },
   });
 
   const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!fullName.trim()) {
-      toast.error("Vui lòng nhập họ và tên.");
+    if (!firstName.trim()) {
+      toast.error("Vui lòng nhập tên.");
       return;
     }
-    if (!phoneNumber.trim()) {
+    if (!lastName.trim()) {
+      toast.error("Vui lòng nhập họ.");
+      return;
+    }
+    if (!accountHandle.trim()) {
+      toast.error("Vui lòng nhập account handle.");
+      return;
+    }
+    if (!phone.trim()) {
       toast.error("Vui lòng nhập số điện thoại.");
       return;
     }
@@ -47,7 +58,15 @@ export default function RegisterPage() {
       return;
     }
 
-    registerMutation.mutate({ fullName: fullName.trim(), phoneNumber: phoneNumber.trim(), email, password });
+    registerMutation.mutate({
+      email: email.trim(),
+      phone: phone.trim(),
+      password,
+      accountHandle: accountHandle.trim(),
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
+      province: province.trim() || undefined,
+    });
   };
 
   return (
@@ -62,20 +81,54 @@ export default function RegisterPage() {
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="flex flex-col gap-2 md:flex-row">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
-                <label htmlFor="reg-full-name" className="block text-sm font-medium text-text-primary mb-1">
-                  Full Name
+                <label htmlFor="reg-last-name" className="block text-sm font-medium text-text-primary mb-1">
+                  Họ
                 </label>
                 <input
-                  id="reg-full-name"
+                  id="reg-last-name"
                   type="text"
-                  autoComplete="name"
+                  autoComplete="family-name"
                   required
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus:ring-2 focus:ring-border-focus/30 transition-colors"
-                  placeholder="Nguyễn Văn A"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus:ring-2 focus:ring-border-focus/30 transition-colors duration-200"
+                  placeholder="Nguyễn"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="reg-first-name" className="block text-sm font-medium text-text-primary mb-1">
+                  Tên
+                </label>
+                <input
+                  id="reg-first-name"
+                  type="text"
+                  autoComplete="given-name"
+                  required
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus:ring-2 focus:ring-border-focus/30 transition-colors duration-200"
+                  placeholder="Văn A"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label htmlFor="reg-account-handle" className="block text-sm font-medium text-text-primary mb-1">
+                  Account handle
+                </label>
+                <input
+                  id="reg-account-handle"
+                  type="text"
+                  autoComplete="username"
+                  required
+                  value={accountHandle}
+                  onChange={(e) => setAccountHandle(e.target.value)}
+                  className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus:ring-2 focus:ring-border-focus/30 transition-colors duration-200"
+                  placeholder="nguyenvana"
                 />
               </div>
 
@@ -88,27 +141,43 @@ export default function RegisterPage() {
                   type="tel"
                   autoComplete="tel"
                   required
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus:ring-2 focus:ring-border-focus/30 transition-colors"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus:ring-2 focus:ring-border-focus/30 transition-colors duration-200"
                   placeholder="0901234567"
                 />
               </div>
             </div>
-            <div>
-              <label htmlFor="reg-email" className="block text-sm font-medium text-text-primary mb-1">
-                Email
-              </label>
-              <input
-                id="reg-email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus:ring-2 focus:ring-border-focus/30 transition-colors"
-                placeholder="you@example.com"
-              />
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label htmlFor="reg-email" className="block text-sm font-medium text-text-primary mb-1">
+                  Email
+                </label>
+                <input
+                  id="reg-email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus:ring-2 focus:ring-border-focus/30 transition-colors duration-200"
+                  placeholder="you@example.com"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="reg-province" className="block text-sm font-medium text-text-primary mb-1">
+                  Tỉnh / Thành phố (tuỳ chọn)
+                </label>
+                <input
+                  id="reg-province"
+                  type="text"
+                  value={province}
+                  onChange={(e) => setProvince(e.target.value)}
+                  className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus:ring-2 focus:ring-border-focus/30 transition-colors duration-200"
+                  placeholder="TP.HCM"
+                />
+              </div>
             </div>
 
             <div>
@@ -122,7 +191,7 @@ export default function RegisterPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus:ring-2 focus:ring-border-focus/30 transition-colors"
+                className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus:ring-2 focus:ring-border-focus/30 transition-colors duration-200"
                 placeholder="Ít nhất 6 ký tự"
               />
             </div>
@@ -138,7 +207,7 @@ export default function RegisterPage() {
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus:ring-2 focus:ring-border-focus/30 transition-colors"
+                className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus:ring-2 focus:ring-border-focus/30 transition-colors duration-200"
                 placeholder="••••••••"
               />
             </div>
@@ -146,7 +215,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={registerMutation.isPending}
-              className="w-full rounded-lg bg-primary py-2.5 font-medium text-text-inverse hover:bg-primary-hover active:bg-primary-active focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-offset-2 disabled:opacity-60 transition-colors"
+              className="w-full rounded-lg bg-primary py-2.5 font-medium text-text-inverse hover:bg-primary-hover active:bg-primary-active focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-offset-2 disabled:opacity-60 transition-colors duration-200"
             >
               {registerMutation.isPending ? "Đang đăng ký..." : "Đăng ký"}
             </button>

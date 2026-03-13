@@ -6,7 +6,8 @@ Tạo tài khoản mới bằng email/password, hiển thị toàn bộ feedback
 
 ## Hành vi chính
 
-- Form gồm: fullName, phoneNumber, email, password, confirmPassword.
+- Form gồm: firstName, lastName, accountHandle, phone, email, password, confirmPassword, province.
+- `accountHandle`: định danh đăng nhập (username), **unique**; có thể dùng email hoặc tên tùy chọn. Backend từ chối nếu accountHandle đã thuộc user khác (khác email).
 - Validation client-side:
   - Password và confirmPassword phải khớp.
   - Password tối thiểu 6 ký tự.
@@ -21,5 +22,6 @@ Tạo tài khoản mới bằng email/password, hiển thị toàn bộ feedback
 
 ## Ghi chú
 
-- Giữ nguyên endpoint `POST /auth/register`; frontend map `fullName`/`phoneNumber` sang payload backend `name`/`phone`.
+- Giữ nguyên endpoint `POST /auth/register`; payload gồm `email`, `accountHandle`, `password`, `first_name`, `last_name`, `phone`, `province`.
+- Lỗi 400: email đã tồn tại (đã verify) hoặc accountHandle đã được user khác sử dụng; message từ API hiển thị qua toast.
 - Không thay đổi redirect timing/route.
