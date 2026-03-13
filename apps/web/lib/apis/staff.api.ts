@@ -99,6 +99,9 @@ export async function getStaff(params: {
     limit: number;
     search?: string;
     status?: "" | StaffStatus;
+    province?: string;
+    university?: string;
+    highSchool?: string;
 }): Promise<StaffListResponse> {
     const response = await api.get("/staff", {
         params: {
@@ -106,6 +109,9 @@ export async function getStaff(params: {
             limit: params.limit,
             ...(params.search ? { search: params.search } : {}),
             ...(params.status ? { status: params.status } : {}),
+            ...(params.province ? { province: params.province } : {}),
+            ...(params.university ? { university: params.university } : {}),
+            ...(params.highSchool ? { highSchool: params.highSchool } : {}),
         },
     });
 

@@ -78,7 +78,7 @@ export function Navbar() {
           {user.roleType !== Role.guest ? (
             <>
               <Link
-                href={links[user.roleType] ?? "/"}
+                href={links[user.roleType as keyof typeof links] ?? "/"}
                 className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-tertiary font-semibold text-text-primary ring-2 ring-border-default transition hover:bg-primary hover:text-text-inverse hover:ring-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
               >
                 <span className="text-sm">
