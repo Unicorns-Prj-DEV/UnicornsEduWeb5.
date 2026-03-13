@@ -9,10 +9,6 @@ import {
   Query,
 } from '@nestjs/common';
 import {
-  CurrentUser,
-  type JwtPayload,
-} from 'src/auth/decorators/current-user.decorator';
-import {
   ApiBody,
   ApiCookieAuth,
   ApiOperation,
@@ -21,20 +17,22 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import {
+  CurrentUser,
+  type JwtPayload,
+} from 'src/auth/decorators/current-user.decorator';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { UserRole } from 'generated/enums';
 import { PaginationQueryDto } from 'src/dtos/pagination.dto';
 import { CreateUserDto, UpdateUserDto } from 'src/dtos/user.dto';
-import { assertAdminUser } from 'src/app.service';
 import { UserService } from './user.service';
 
 @ApiTags('users')
 @Controller('users')
 @ApiCookieAuth('access_token')
+@Roles(UserRole.admin)
 export class UserController {
   constructor(private readonly userService: UserService) {}
-
-  private assertAdmin(user: JwtPayload) {
-    assertAdminUser(user);
-  }
 
   @Get()
   @ApiOperation({
@@ -62,7 +60,6 @@ export class UserController {
     @CurrentUser() user: JwtPayload,
     @Query() query: PaginationQueryDto,
   ) {
-    this.assertAdmin(user);
     return this.userService.getUsers(query);
   }
 
@@ -77,7 +74,6 @@ export class UserController {
   @ApiResponse({ status: 403, description: 'Forbidden. Admin only.' })
   @ApiResponse({ status: 404, description: 'User not found.' })
   async getUserById(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    this.assertAdmin(user);
     return this.userService.getUserById(id);
   }
 
@@ -102,7 +98,6 @@ export class UserController {
     @CurrentUser() user: JwtPayload,
     @Body() data: CreateUserDto,
   ) {
-    this.assertAdmin(user);
     return this.userService.createUser(data);
   }
 
@@ -127,7 +122,6 @@ export class UserController {
     @CurrentUser() user: JwtPayload,
     @Body() data: UpdateUserDto,
   ) {
-    this.assertAdmin(user);
     return this.userService.updateUser(data);
   }
 
@@ -146,7 +140,6 @@ export class UserController {
   @ApiResponse({ status: 403, description: 'Forbidden. Admin only.' })
   @ApiResponse({ status: 404, description: 'User not found.' })
   async deleteUser(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    this.assertAdmin(user);
     return this.userService.deleteUser(id);
   }
 }

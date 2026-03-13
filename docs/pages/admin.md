@@ -50,6 +50,19 @@
   - Xóa staff dùng TanStack Query `useMutation`; khi thành công sẽ invalidate query danh sách và hiển thị Sonner toast.
   - FE `/admin/staff/:id` dùng TanStack Query `useQuery` với `enabled: !!id` cho trang chi tiết.
   - Các endpoint này đi qua global JWT guard (không `@Public`); `users` và `student` yêu cầu role `admin`, `staff` giữ nguyên behavior auth hiện tại của module.
+- **Class endpoints (CRUD + pagination):**
+  - `GET /class?page=<number>&limit=<number>&search=<text>&status=<running|ended>&type=<vip|basic|advance|hardcore>`.
+  - `GET /class/:id`.
+  - `POST /class`.
+  - `PATCH /class` (payload bắt buộc `id`).
+  - `DELETE /class/:id`.
+  - `page` mặc định `1`, `limit` mặc định `20`, `limit` tối đa `100`.
+  - `GET /class` trả response dạng `{ data, meta }` với `meta = { total, page, limit }`.
+  - Filter hỗ trợ `search` theo tên lớp (contains, không phân biệt hoa/thường), `status`, `type`.
+  - FE `/admin/classes/:id` có 3 nút `Edit` riêng cho từng section (`Basic info`, `Tuition fee`, `Schedule`); mỗi nút mở popup đúng form tương ứng.
+  - FE `/admin/classes/:id` hiển thị `Gia sư phụ trách` bằng `TutorCard` riêng, lấy từ `teachers` của `GET /class/:id`; nếu chưa phân công sẽ hiện empty state `Chưa phân công gia sư phụ trách.` trong card.
+  - `Schedule` hỗ trợ nhiều khung giờ `from -> to` theo định dạng `HH:mm:ss`; FE `/admin/classes/:id` hiển thị bằng Time Card, popup chỉnh sửa dùng input time-only và submit mảng `[{ from, to }]` chỉ gồm giờ-phút-giây khi gọi `PATCH /class`.
+  - Các endpoint đi qua global JWT guard (không `@Public`) theo behavior auth hiện tại của backend module.
 
 ## DoD and week
 

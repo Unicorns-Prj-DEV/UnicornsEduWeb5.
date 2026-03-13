@@ -1,3 +1,5 @@
+import { StaffListResponse, StaffStatus } from '@/dtos/staff.dto';
+import { StaffDetail } from '@/dtos/staff.dto';
 import { api } from '../client';
 
 interface CreateUserPayload {
@@ -47,50 +49,6 @@ export async function updateUser(data: UpdateUserPayload) {
 export async function deleteUser(id: string) {
     const response = await api.delete(`/users/${id}`);
     return response.data;
-}
-
-export type StaffStatus = "active" | "inactive";
-
-export interface StaffListItem {
-    id: string;
-    fullName: string;
-    status: StaffStatus;
-    user?: { province?: string | null } | null;
-    classTeachers?: Array<{ class: { id: string; name: string } }>;
-    monthlyStats?: Array<{ totalUnpaidAll?: number | null }>;
-}
-
-export interface StaffListMeta {
-    total: number;
-    page: number;
-    limit: number;
-}
-
-export interface StaffListResponse {
-    data: StaffListItem[];
-    meta: StaffListMeta;
-}
-
-export interface StaffDetail {
-    id: string;
-    fullName: string;
-    birthDate?: string | null;
-    university?: string | null;
-    highSchool?: string | null;
-    specialization?: string | null;
-    bankAccount?: string | null;
-    bankQrLink?: string | null;
-    roles: string[];
-    status: StaffStatus;
-    createdAt?: string;
-    updatedAt?: string;
-    user?: {
-        id: string;
-        email: string;
-        province?: string | null;
-    } | null;
-    classTeachers?: Array<{ class: { id: string; name: string } }>;
-    monthlyStats?: Array<{ month: string; totalUnpaidAll?: number | null }>;
 }
 
 /** StaffInfo list (bảng staff_info): GET /staff */
