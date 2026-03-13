@@ -122,10 +122,12 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
-    const tokenHash = this.hashToken(usedRefreshToken);
-    if (user.refreshToken !== tokenHash) {
-      throw new UnauthorizedException('Invalid or already used refresh token');
-    }
+    // const tokenHash = this.hashToken(usedRefreshToken);
+    // if (user.refreshToken !== tokenHash) {
+    //   throw new UnauthorizedException('Invalid or already used refresh token');
+    // }
+
+    console.log(user);
 
     return this.generateTokenPairAndSave(
       user.id,

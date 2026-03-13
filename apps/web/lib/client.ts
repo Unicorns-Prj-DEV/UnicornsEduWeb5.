@@ -29,7 +29,7 @@ const processQueue = (error: Error | null) => {
 };
 
 const isPublicRoute = (pathname: string): boolean => {
-    return false;
+    return pathname.includes("/auth");
 };
 
 const shouldAttemptRefresh = (config?: AxiosRequestConfig): boolean => {

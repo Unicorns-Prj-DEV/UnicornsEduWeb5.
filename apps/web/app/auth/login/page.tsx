@@ -23,13 +23,7 @@ function LoginPageContent() {
   const [accountHandle, setAccountHandle] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
-  const { user, setUser } = useAuth();
-
-  useEffect(() => {
-    if (user.roleType !== Role.guest) {
-      router.push(ROLE_REDIRECT[user.roleType] ?? "/");
-    }
-  }, [user]);
+  const { setUser } = useAuth();
 
   useEffect(() => {
     const err = searchParams.get("error");

@@ -1,4 +1,9 @@
-import { CostListResponse } from "@/dtos/cost.dto";
+import {
+  CostDetailResponse,
+  CostListResponse,
+  CreateCostPayload,
+  UpdateCostPayload,
+} from "@/dtos/cost.dto";
 import { api } from "../client";
 
 export async function getCosts(params: {
@@ -23,6 +28,22 @@ export async function getCosts(params: {
       limit: payload?.meta?.limit ?? params.limit,
     },
   };
+}
+
+export async function getCostById(id: string): Promise<CostDetailResponse> {
+  const safeId = encodeURIComponent(id);
+  const response = await api.get(`/cost/${safeId}`);
+  return response.data as CostDetailResponse;
+}
+
+export async function createCost(data: CreateCostPayload): Promise<CostDetailResponse> {
+  const response = await api.post("/cost", data);
+  return response.data as CostDetailResponse;
+}
+
+export async function updateCost(data: UpdateCostPayload): Promise<CostDetailResponse> {
+  const response = await api.patch("/cost", data);
+  return response.data as CostDetailResponse;
 }
 
 export async function deleteCostById(id: string) {
