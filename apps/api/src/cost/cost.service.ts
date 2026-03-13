@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class CostService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async getCosts(
     query: PaginationQueryDto & {
@@ -26,11 +26,11 @@ export class CostService {
     const where = {
       ...(trimmedSearch
         ? {
-            category: {
-              contains: trimmedSearch,
-              mode: 'insensitive' as const,
-            },
-          }
+          category: {
+            contains: trimmedSearch,
+            mode: 'insensitive' as const,
+          },
+        }
         : {}),
     };
 
@@ -91,15 +91,18 @@ export class CostService {
       throw new NotFoundException('Cost not found');
     }
 
+    let updateData: UpdateCostDto = {
+      id: data.id,
+    };
+    if (data.month !== undefined) updateData.month = data.month;
+    if (data.category !== undefined) updateData.category = data.category;
+    if (data.amount !== undefined) updateData.amount = data.amount;
+    if (data.date !== undefined) updateData.date = data.date;
+    if (data.status !== undefined) updateData.status = data.status;
+
     return await this.prisma.costExtend.update({
       where: { id: data.id },
-      data: {
-        month: data.month,
-        category: data.category,
-        amount: data.amount,
-        date: data.date,
-        status: data.status,
-      },
+      data: updateData,
     });
   }
 
