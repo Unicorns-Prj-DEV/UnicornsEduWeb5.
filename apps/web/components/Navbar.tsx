@@ -79,7 +79,7 @@ export function Navbar() {
               key={item.id}
               type="button"
               onClick={() => scrollToSection(`section-${item.id}`)}
-              className="motion-fade-up rounded-md px-3 py-2 text-sm font-medium text-text-secondary transition-colors duration-200 hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)]"
+              className="motion-fade-up rounded-md px-3 py-2 text-sm font-medium text-text-secondary transition-colors duration-200 hover:cursor-pointer hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)]"
               style={{ animationDelay: `${index * 40}ms` }}
             >
               {item.label}
@@ -104,7 +104,7 @@ export function Navbar() {
                 onClick={() => {
                   logoutMutation.mutate();
                 }}
-                className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-tertiary font-semibold text-text-primary ring-2 ring-border-default transition-colors duration-200 hover:bg-red-500 hover:text-text-inverse hover:ring-red-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-tertiary font-semibold text-text-primary ring-2 ring-border-default transition-colors duration-200 hover:cursor-pointer hover:bg-red-500 hover:text-text-inverse hover:ring-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
               >
                 <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

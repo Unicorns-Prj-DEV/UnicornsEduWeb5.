@@ -23,7 +23,7 @@ function LoginPageContent() {
   const [accountHandle, setAccountHandle] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
-  const { user, setUser } = useAuth();
+  const { setUser } = useAuth();
 
   useEffect(() => {
     const err = searchParams.get("error");

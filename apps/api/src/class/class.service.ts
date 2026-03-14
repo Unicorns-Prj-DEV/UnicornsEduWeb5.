@@ -69,7 +69,14 @@ export class ClassService {
       where,
       skip,
       take: limit,
-      orderBy: { type: 'asc' },
+      orderBy: [
+        {
+          type: 'desc',
+        },
+        {
+          name: 'asc',
+        },
+      ],
     });
 
     return {

@@ -6,8 +6,9 @@ import { useDebouncedCallback } from "use-debounce";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as costApi from "@/lib/apis/cost.api";
-import { CostListTableSkeleton } from "@/components/admin/cost";
-import { CostListItem, CostListResponse, CostStatus } from "@/dtos/cost.dto";
+import { CostFormPopup, CostListTableSkeleton } from "@/components/admin/cost";
+import type { CostFormSubmitPayload } from "@/components/admin/cost/CostFormPopup";
+import { CostListItem, CostListResponse, CostStatus, CostUpsertMode } from "@/dtos/cost.dto";
 
 const PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE_MS = 1000;
@@ -53,6 +54,9 @@ export default function AdminCostsPage() {
   const search = searchParams.get("search") ?? "";
 
   const [searchInput, setSearchInput] = useState(search);
+  const [popupOpen, setPopupOpen] = useState(false);
+  const [popupMode, setPopupMode] = useState<CostUpsertMode>("create");
+  const [selectedCost, setSelectedCost] = useState<CostListItem | null>(null);
 
   useEffect(() => {
     setSearchInput(search);
@@ -113,6 +117,42 @@ export default function AdminCostsPage() {
     router.replace(`${pathname}?${params.toString()}`);
   };
 
+  const getErrorMessage = (err: unknown, fallback: string) => {
+    return (
+      (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+      (err as Error)?.message ??
+      fallback
+    );
+  };
+
+  const createMutation = useMutation({
+    mutationFn: costApi.createCost,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["cost", "list"] });
+      toast.success("Đã tạo khoản chi phí.");
+      setPopupOpen(false);
+      setSelectedCost(null);
+      setPopupMode("create");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Không thể tạo khoản chi phí."));
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: costApi.updateCost,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["cost", "list"] });
+      toast.success("Đã cập nhật khoản chi phí.");
+      setPopupOpen(false);
+      setSelectedCost(null);
+      setPopupMode("create");
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Không thể cập nhật khoản chi phí."));
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: ({ id }: { id: string }) => costApi.deleteCostById(id),
     onSuccess: () => {
@@ -120,13 +160,76 @@ export default function AdminCostsPage() {
       queryClient.invalidateQueries({ queryKey: ["cost", "list"] });
     },
     onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        (err as Error)?.message ??
-        "Không thể xóa khoản chi phí.";
-      toast.error(msg);
+      toast.error(getErrorMessage(err, "Không thể xóa khoản chi phí."));
     },
   });
+
+  const handleOpenCreatePopup = () => {
+    setPopupMode("create");
+    setSelectedCost(null);
+    setPopupOpen(true);
+  };
+
+  const handleOpenEditPopup = (cost: CostListItem) => {
+    setPopupMode("edit");
+    setSelectedCost(cost);
+    setPopupOpen(true);
+  };
+
+  const handleClosePopup = () => {
+    if (createMutation.isPending || updateMutation.isPending) return;
+    setPopupOpen(false);
+    setSelectedCost(null);
+    setPopupMode("create");
+  };
+
+  const handleSubmitCost = async (payload: CostFormSubmitPayload) => {
+    if (popupMode === "create") {
+      if (typeof crypto === "undefined" || typeof crypto.randomUUID !== "function") {
+        toast.error("Không thể tạo mã chi phí. Vui lòng thử lại.");
+        return;
+      }
+
+      const id = crypto.randomUUID();
+      if (!id) {
+        toast.error("Không thể tạo mã chi phí. Vui lòng thử lại.");
+        return;
+      }
+
+      try {
+        await createMutation.mutateAsync({
+          id,
+          category: payload.category,
+          month: payload.month,
+          date: payload.date,
+          status: payload.status,
+          amount: payload.amount,
+        });
+      } catch {
+        // toast lỗi đã xử lý trong onError
+      }
+      return;
+    }
+
+    const editingId = selectedCost?.id;
+    if (!editingId) {
+      toast.error("Không tìm thấy khoản chi phí để cập nhật.");
+      return;
+    }
+
+    try {
+      await updateMutation.mutateAsync({
+        id: editingId,
+        category: payload.category,
+        month: payload.month ?? null,
+        date: payload.date ?? null,
+        status: payload.status,
+        amount: payload.amount,
+      });
+    } catch {
+      // toast lỗi đã xử lý trong onError
+    }
+  };
 
   const handleDelete = async (id: string, category: string) => {
     if (!window.confirm(`Bạn có chắc muốn xóa khoản "${category}"?`)) return;
@@ -144,10 +247,10 @@ export default function AdminCostsPage() {
           <h1 className="text-xl font-semibold text-text-primary">Chi phí mở rộng</h1>
           <button
             type="button"
-            className="rounded-md border border-border-default bg-secondary px-4 py-2 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:opacity-50"
-            disabled
-            aria-label="Thêm chi phí (sắp ra mắt)"
-            title="Thêm chi phí (sắp ra mắt)"
+            className="rounded-md border border-border-default bg-secondary px-4 py-2 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary hover:cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
+            aria-label="Thêm chi phí"
+            title="Thêm chi phí"
+            onClick={handleOpenCreatePopup}
           >
             Thêm chi phí
           </button>
@@ -203,7 +306,18 @@ export default function AdminCostsPage() {
                   </thead>
                   <tbody>
                     {list.map((row) => (
-                      <tr key={row.id} className="group border-b border-border-default bg-bg-surface">
+                      <tr
+                        key={row.id}
+                        role="button"
+                        tabIndex={0}
+                        className="group cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-150 hover:bg-bg-secondary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                        onClick={() => handleOpenEditPopup(row)}
+                        onKeyDown={(event) => {
+                          if (event.key !== "Enter" && event.key !== " ") return;
+                          event.preventDefault();
+                          handleOpenEditPopup(row);
+                        }}
+                      >
                         <td className="min-w-0 px-4 py-3 text-text-primary">
                           <span className="truncate">{row.category?.trim() || "—"}</span>
                         </td>
@@ -221,7 +335,10 @@ export default function AdminCostsPage() {
                               aria-label={`Xóa ${row.category || "khoản chi phí"}`}
                               title="Xóa"
                               disabled={deleteMutation.isPending}
-                              onClick={() => handleDelete(row.id, row.category?.trim() || "khoản chi phí")}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleDelete(row.id, row.category?.trim() || "khoản chi phí");
+                              }}
                             >
                               <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                                 <path
@@ -277,6 +394,15 @@ export default function AdminCostsPage() {
           )}
         </div>
       </div>
+
+      <CostFormPopup
+        open={popupOpen}
+        mode={popupMode}
+        onClose={handleClosePopup}
+        initialData={popupMode === "edit" ? selectedCost : null}
+        onSubmit={handleSubmitCost}
+        isSubmitting={createMutation.isPending || updateMutation.isPending}
+      />
     </div>
   );
 }
