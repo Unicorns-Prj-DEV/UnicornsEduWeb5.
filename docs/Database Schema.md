@@ -33,6 +33,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `student_classes`
 - `sessions`
 - `attendance`
+- `cf_problem_tutorials` (tutorial theo bài Codeforces)
 
 ### Finance
 - `bonuses`
@@ -125,7 +126,13 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `action_history`: audit log thay đổi dữ liệu (`before_value`, `after_value`, `changed_fields` là JSON)
 - `documents`: metadata tài liệu (`file_url`, `tags` JSON)
 
-### 4.9 Lesson models
+### 4.9 Codeforces tutorial (`cf_problem_tutorials`)
+- Lưu nội dung tutorial cho từng bài trong contest Codeforces (group).
+- PK: `id` (UUID). Unique: `(contest_id, problem_index)`.
+- Trường: `contest_id` (Int), `problem_index` (String, vd. `"01"`, `"A"`), `tutorial` (Text, nullable).
+- Dùng cho Tab Tài liệu tại `/admin/notes-subject` khi admin chỉnh sửa tutorial cho bài.
+
+### 4.10 Lesson models
 - `lesson_task`: task nội dung (status, priority, due date)
 - `staff_lesson_task`: phân công task cho staff (junction)
 - `lesson_resources`: thư viện tài nguyên học tập

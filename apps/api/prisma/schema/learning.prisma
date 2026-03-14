@@ -93,3 +93,16 @@ model Attendance {
   @@index([studentId])
   @@map("attendance")
 }
+
+model CfProblemTutorial {
+  id           String   @id @default(uuid())
+  contestId    Int      @map("contest_id")
+  problemIndex String   @map("problem_index")
+  tutorial     String?  @db.Text
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([contestId, problemIndex])
+  @@index([contestId])
+  @@map("cf_problem_tutorials")
+}
