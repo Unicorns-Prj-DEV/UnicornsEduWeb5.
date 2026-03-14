@@ -1,4 +1,3 @@
-import * as crypto from 'node:crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ClassStatus, ClassType } from 'generated/enums';
 import { PaginationQueryDto } from 'src/dtos/pagination.dto';

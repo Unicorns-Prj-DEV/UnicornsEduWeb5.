@@ -26,12 +26,6 @@ function LoginPageContent() {
   const { user, setUser } = useAuth();
 
   useEffect(() => {
-    if (user.roleType !== Role.guest) {
-      router.push(ROLE_REDIRECT[user.roleType] ?? "/");
-    }
-  }, [user]);
-
-  useEffect(() => {
     const err = searchParams.get("error");
     if (err === "google_no_user") toast.error("Không lấy được thông tin từ Google. Vui lòng thử lại.");
   }, [searchParams]);

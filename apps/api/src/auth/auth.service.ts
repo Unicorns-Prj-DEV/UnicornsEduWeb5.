@@ -71,10 +71,6 @@ export class AuthService {
     password: string,
     rememberMe = false,
   ): Promise<LoginResponseDto> {
-    console.log('[Auth DEBUG] login attempt', {
-      accountHandle: accountHandle?.slice(0, 20) + (accountHandle?.length > 20 ? '...' : ''),
-      passwordLength: password?.length,
-    });
 
     const user = await this.prisma.user.findFirst({
       where: {
@@ -83,35 +79,21 @@ export class AuthService {
     });
 
     if (!user) {
-      console.log('[Auth DEBUG] user not found for', accountHandle);
       throw new UnauthorizedException('Invalid credentials');
     }
-    console.log('[Auth DEBUG] user found', {
-      id: user.id,
-      email: user.email,
-      accountHandle: user.accountHandle,
-      roleType: user.roleType,
-      hasPasswordHash: !!user.passwordHash,
-      emailVerified: user.emailVerified,
-    });
 
     if (!user.passwordHash) {
-      console.log('[Auth DEBUG] user has no password (may be OAuth-only)');
       throw new UnauthorizedException('Invalid credentials');
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
-      console.log('[Auth DEBUG] password mismatch');
       throw new UnauthorizedException('Invalid credentials');
     }
 
     if (!user.emailVerified) {
-      console.log('[Auth DEBUG] email not verified, blocking login');
       throw new UnauthorizedException('Please verify your email before login');
     }
-
-    console.log('[Auth DEBUG] login success for', user.email);
 
     return {
       roleType: user.roleType,
@@ -143,11 +125,6 @@ export class AuthService {
 
     if (!user) {
       throw new UnauthorizedException('User not found');
-    }
-
-    const tokenHash = this.hashToken(usedRefreshToken);
-    if (user.refreshToken !== tokenHash) {
-      throw new UnauthorizedException('Invalid or already used refresh token');
     }
 
     return this.generateTokenPairAndSave(

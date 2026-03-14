@@ -55,7 +55,7 @@ model StudentClass {
 }
 
 model Session {
-  id                   String       @id
+  id                   String       @id @default(uuid())
   teacherId            String       @map("teacher_id")
   classId              String       @map("class_id")
   allowanceAmount      Int?         @map("allowance_amount")

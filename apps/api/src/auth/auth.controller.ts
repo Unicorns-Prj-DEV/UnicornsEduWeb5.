@@ -47,7 +47,7 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
-  ) {}
+  ) { }
 
   @Public()
   @HttpCode(HttpStatus.OK)
@@ -71,10 +71,6 @@ export class AuthController {
     @Body() body: UserAuthDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    console.log('[Auth Controller DEBUG] login request received', {
-      accountHandle: body?.accountHandle?.slice(0, 20),
-      hasPassword: !!body?.password,
-    });
     const response = await this.authService.login(
       body.accountHandle,
       body.password,
@@ -317,7 +313,7 @@ export class AuthController {
   @Public()
   @Get('google')
   @UseGuards(AuthGuard('google'))
-  async googleAuth() {}
+  async googleAuth() { }
 
   @Public()
   @Get('google/callback')
