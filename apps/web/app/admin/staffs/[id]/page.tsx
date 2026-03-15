@@ -1,9 +1,10 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
+import * as classApi from "@/lib/apis/class.api";
 import * as staffApi from "@/lib/apis/staff.api";
 import {
   EditStaffPopup,
@@ -96,6 +97,7 @@ export default function AdminStaffDetailPage() {
 
   const selectedMonthLabel = `Tháng ${Number.parseInt(selectedMonthValue, 10)}/${selectedYear}`;
 
+  const queryClient = useQueryClient();
   const {
     data: sessionsInCurrentMonth = [],
     isLoading: isSessionsLoading,
@@ -109,6 +111,22 @@ export default function AdminStaffDetailPage() {
       }),
     enabled: !!id,
   });
+
+  const handleSessionUpdated = useCallback(() => {
+    queryClient.invalidateQueries({
+      queryKey: ["sessions", "staff", id, selectedYear, selectedMonthValue],
+    });
+  }, [queryClient, id, selectedYear, selectedMonthValue]);
+
+  const getTeachersForClass = useCallback(async (classId: string) => {
+    const detail = await classApi.getClassById(classId);
+    return (detail.teachers ?? []).map((t) => ({ id: t.id, fullName: t.fullName }));
+  }, []);
+
+  const getClassStudents = useCallback(async (classId: string) => {
+    const detail = await classApi.getClassById(classId);
+    return (detail.students ?? []).map((s) => ({ id: s.id, fullName: s.fullName }));
+  }, []);
 
   const {
     data: sessionsInCurrentYear = [],
@@ -593,12 +611,15 @@ export default function AdminStaffDetailPage() {
           </div>
 
           {isSessionsLoading ? (
-            <SessionHistoryTableSkeleton rows={1} entityMode="class" />
+            <SessionHistoryTableSkeleton rows={1} entityMode="class" showActionsColumn />
           ) : (
             <SessionHistoryTable
               sessions={sessionsInCurrentMonth}
               entityMode="class"
               emptyText="Không có buổi học trong tháng này."
+              onSessionUpdated={handleSessionUpdated}
+              getTeachersForClass={getTeachersForClass}
+              getClassStudents={getClassStudents}
             />
           )}
           {isSessionsError ? (

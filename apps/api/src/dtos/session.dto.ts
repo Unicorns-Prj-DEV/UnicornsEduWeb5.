@@ -18,5 +18,6 @@ export interface SessionUpdateDto {
   startTime?: string;
   endTime?: string;
   notes?: string | null;
+  teacherPaymentStatus?: string | null;
   attendance?: AttendanceUpdateDto[];
 }

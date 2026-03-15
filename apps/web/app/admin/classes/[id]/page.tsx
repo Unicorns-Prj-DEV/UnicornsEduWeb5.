@@ -156,6 +156,16 @@ export default function AdminClassDetailPage() {
     [classStudents],
   );
 
+  const getClassStudents = useCallback(
+    async (classId: string) => {
+      if (classId === id && classDetail?.students) {
+        return classDetail.students.map((s) => ({ id: s.id, fullName: s.fullName }));
+      }
+      return [];
+    },
+    [id, classDetail?.students],
+  );
+
   if (isLoading) {
     return (
       <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 sm:p-6" aria-busy="true" aria-live="polite">
@@ -189,7 +199,7 @@ export default function AdminClassDetailPage() {
 
         <div className="mt-4 rounded-lg border border-border-default bg-bg-surface p-4">
           <div className="mb-4 h-5 w-56 animate-pulse rounded bg-bg-tertiary" />
-          <SessionHistoryTableSkeleton rows={1} entityMode="teacher" />
+          <SessionHistoryTableSkeleton rows={1} entityMode="teacher" showActionsColumn />
         </div>
       </div>
     );
@@ -529,13 +539,15 @@ export default function AdminClassDetailPage() {
           {activeTab === "sessions" && (
             <>
               {isSessionsLoading ? (
-                <SessionHistoryTableSkeleton rows={5} entityMode="teacher" />
+                <SessionHistoryTableSkeleton rows={5} entityMode="teacher" showActionsColumn />
               ) : (
                 <SessionHistoryTable
                   sessions={sessionsInMonth}
                   entityMode="teacher"
                   emptyText="Không có buổi học trong tháng này."
                   onSessionUpdated={handleSessionUpdated}
+                  teachers={popupTeachers}
+                  getClassStudents={getClassStudents}
                 />
               )}
               {isSessionsError ? (

@@ -149,6 +149,9 @@ export class SessionService {
           }),
           ...(sessionEndTime !== undefined && { endTime: sessionEndTime }),
           ...(data.notes !== undefined && { notes: data.notes ?? null }),
+          ...(data.teacherPaymentStatus !== undefined && {
+            teacherPaymentStatus: data.teacherPaymentStatus ?? 'unpaid',
+          }),
         },
       });
 
@@ -267,6 +270,7 @@ export class SessionService {
       },
       include: {
         teacher: true,
+        attendance: true,
       },
       orderBy: {
         date: 'desc',
@@ -289,6 +293,7 @@ export class SessionService {
       },
       include: {
         class: true,
+        attendance: true,
       },
       orderBy: {
         date: 'desc',

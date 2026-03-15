@@ -40,7 +40,14 @@ export interface SessionUpdatePayload {
   startTime?: string;
   endTime?: string;
   notes?: string | null;
+  teacherPaymentStatus?: string | null;
   attendance?: SessionAttendanceItem[];
+}
+
+export interface SessionAttendanceRecord {
+  studentId: string;
+  status: SessionAttendanceStatus;
+  notes?: string | null;
 }
 
 export interface SessionItem {
@@ -57,4 +64,5 @@ export interface SessionItem {
   updatedAt?: string;
   class?: SessionClassRef | null;
   teacher?: SessionTeacherRef | null;
+  attendance?: SessionAttendanceRecord[] | null;
 }
