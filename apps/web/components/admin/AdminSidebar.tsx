@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useSyncExternalStore } from "react";
 import { animate, stagger } from "animejs";
 import * as authApi from "@/lib/apis/auth.api";
 import AdminProfilePopup, { type AdminProfile } from "./AdminProfilePopup";
@@ -24,6 +24,20 @@ const MENU_ITEMS: { href: string; label: string; icon: React.ReactNode }[] = [
 
 const SIDEBAR_WIDTH_EXPANDED = 224;
 const SIDEBAR_WIDTH_COLLAPSED = 60;
+const SIDEBAR_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+
+function useMediaQuery(query: string) {
+  return useSyncExternalStore(
+    (onStoreChange) => {
+      if (typeof window === "undefined") return () => undefined;
+      const mediaQuery = window.matchMedia(query);
+      mediaQuery.addEventListener("change", onStoreChange);
+      return () => mediaQuery.removeEventListener("change", onStoreChange);
+    },
+    () => (typeof window !== "undefined" ? window.matchMedia(query).matches : false),
+    () => false,
+  );
+}
 
 function IconDashboard() {
   return (
@@ -60,13 +74,6 @@ function IconNotesSubject() {
     </svg>
   );
 }
-function IconNotes() {
-  return (
-    <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-    </svg>
-  );
-}
 function IconStudents() {
   return (
     <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -78,13 +85,6 @@ function IconCosts() {
   return (
     <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  );
-}
-function IconCategories() {
-  return (
-    <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
     </svg>
   );
 }
@@ -110,20 +110,23 @@ export default function AdminSidebar() {
   const asideRef = useRef<HTMLElement>(null);
   const navListRef = useRef<HTMLUListElement>(null);
   const [collapsed, setCollapsed] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profile, setProfile] = useState<AdminProfile | null>(null);
-  const { user, setUser } = useAuth();
+  const isMobile = useMediaQuery("(max-width: 767px)");
+  const prefersReducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
+  const { setUser } = useAuth();
 
   useEffect(() => {
-    setMounted(true);
-    const mq = window.matchMedia?.("(prefers-reduced-motion: reduce)");
-    setPrefersReducedMotion(mq?.matches ?? false);
-    const handler = () => setPrefersReducedMotion(mq?.matches ?? false);
-    mq?.addEventListener("change", handler);
-    return () => mq?.removeEventListener("change", handler);
-  }, []);
+    if (!isMobile) {
+      document.body.style.overflow = "";
+      return;
+    }
+    document.body.style.overflow = mobileOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobile, mobileOpen]);
 
   const openProfile = async () => {
     try {
@@ -137,8 +140,7 @@ export default function AdminSidebar() {
   };
 
   useEffect(() => {
-    if (!mounted || !navListRef.current) return;
-    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
+    if (!navListRef.current || prefersReducedMotion) return;
     const items = navListRef.current.querySelectorAll(".sidebar-item");
     animate(items, {
       opacity: [0, 1],
@@ -147,11 +149,27 @@ export default function AdminSidebar() {
       duration: 380,
       ease: "easeOutQuad",
     });
-  }, [mounted]);
+  }, [prefersReducedMotion]);
 
   const toggleCollapse = () => {
     setCollapsed((c) => !c);
   };
+
+  const handleMobileClose = () => {
+    if (isMobile) setMobileOpen(false);
+  };
+
+  const sidebarWidth = isMobile
+    ? SIDEBAR_WIDTH_EXPANDED
+    : collapsed
+      ? SIDEBAR_WIDTH_COLLAPSED
+      : SIDEBAR_WIDTH_EXPANDED;
+  const compact = collapsed && !isMobile;
+  const mobileTransform = isMobile
+    ? mobileOpen
+      ? "translateX(0)"
+      : "translateX(-100%)"
+    : "translateX(0)";
 
   const logoutMutation = useMutation({
     mutationFn: authApi.logout,
@@ -170,35 +188,59 @@ export default function AdminSidebar() {
   };
 
   return (
-    <aside
-      ref={asideRef}
-      style={{
-        width: collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED,
-        transition: prefersReducedMotion ? "none" : "width 0.28s ease-out",
-      }}
-      className="h-screen sticky top-0 flex shrink-0 flex-col overflow-hidden border-r border-border-default bg-bg-secondary text-text-secondary"
-      aria-label="Menu admin"
-    >
+    <>
+      <button
+        type="button"
+        onClick={() => setMobileOpen(true)}
+        className="fixed left-3 top-3 z-30 flex size-10 items-center justify-center rounded-md border border-border-default bg-bg-surface text-text-primary shadow-sm transition-transform duration-200 hover:scale-105 active:scale-95 md:hidden"
+        aria-label="Mở menu"
+      >
+        <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        className={`fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 ${mobileOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"} md:hidden`}
+        onClick={() => setMobileOpen(false)}
+        aria-label="Đóng menu"
+      />
+      <aside
+        ref={asideRef}
+        style={{
+          width: sidebarWidth,
+          transform: mobileTransform,
+          transition: prefersReducedMotion
+            ? "none"
+            : `width 0.3s ${SIDEBAR_EASE}, transform 0.34s ${SIDEBAR_EASE}`,
+        }}
+        className="fixed inset-y-0 left-0 z-50 flex h-dvh shrink-0 flex-col overflow-hidden border-r border-border-default bg-bg-secondary text-text-secondary md:sticky md:top-0 md:z-auto md:h-screen"
+        aria-label="Menu admin"
+      >
       <div className="flex h-14 shrink-0 items-center justify-between border-b border-border-default px-3">
-        {!collapsed && (
-          <span className="truncate pl-1 font-semibold text-text-primary">
-            Unicorns Edu
-          </span>
-        )}
+        <span
+          className={`truncate font-semibold text-text-primary transition-[max-width,opacity,margin] duration-300 ease-out ${compact ? "ml-0 max-w-0 opacity-0" : "ml-1 max-w-[140px] opacity-100"}`}
+        >
+          Unicorns Edu
+        </span>
         <button
           type="button"
-          onClick={toggleCollapse}
+          onClick={isMobile ? () => setMobileOpen(false) : toggleCollapse}
           className="flex size-9 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors duration-200 hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary"
-          aria-label={collapsed ? "Mở rộng menu" : "Thu gọn menu"}
+          aria-label={isMobile ? "Đóng menu" : collapsed ? "Mở rộng menu" : "Thu gọn menu"}
         >
           <svg
-            className={`size-5 transition-transform duration-280 ${collapsed ? "rotate-180" : ""}`}
+            className={`size-5 transition-transform duration-300 ease-out ${collapsed && !isMobile ? "rotate-180" : ""}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
             aria-hidden
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            {isMobile ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            )}
           </svg>
         </button>
       </div>
@@ -213,19 +255,22 @@ export default function AdminSidebar() {
               <li key={item.href} className="sidebar-item">
                 <Link
                   href={item.href}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${isActive
+                  onClick={handleMobileClose}
+                  className={`flex items-center rounded-lg py-2.5 text-sm font-medium transition-[gap,padding,background-color,color] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "gap-0 px-2.5" : "gap-3 px-3"} ${isActive
                     ? "bg-primary text-text-inverse"
                     : "hover:bg-bg-tertiary hover:text-text-primary"
                     }`}
-                  aria-label={collapsed ? item.label : undefined}
-                  title={collapsed ? item.label : undefined}
+                  aria-label={collapsed && !isMobile ? item.label : undefined}
+                  title={collapsed && !isMobile ? item.label : undefined}
                 >
                   <span className="flex size-5 shrink-0 items-center justify-center [&>svg]:size-5">
                     {item.icon}
                   </span>
-                  {!collapsed && (
-                    <span className="truncate">{item.label}</span>
-                  )}
+                  <span
+                    className={`truncate whitespace-nowrap transition-[max-width,opacity] duration-300 ease-out ${compact ? "max-w-0 opacity-0" : "max-w-[140px] opacity-100"}`}
+                  >
+                    {item.label}
+                  </span>
                 </Link>
               </li>
             );
@@ -235,17 +280,22 @@ export default function AdminSidebar() {
       <div className="shrink-0 border-t border-border-default p-2">
         <Link
           href="/"
-          className={`sidebar-item flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${pathname === "/"
+          onClick={handleMobileClose}
+          className={`sidebar-item flex items-center rounded-lg py-2.5 text-sm font-medium transition-[gap,padding,background-color,color] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "gap-0 px-2.5" : "gap-3 px-3"} ${pathname === "/"
             ? "bg-primary text-text-inverse"
             : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
             }`}
-          aria-label={collapsed ? "Trang chủ" : undefined}
-          title={collapsed ? "Trang chủ" : undefined}
+          aria-label={collapsed && !isMobile ? "Trang chủ" : undefined}
+          title={collapsed && !isMobile ? "Trang chủ" : undefined}
         >
           <span className="flex size-5 shrink-0 items-center justify-center [&>svg]:size-5">
             <IconHome />
           </span>
-          {!collapsed && <span className="truncate">Trang chủ</span>}
+          <span
+            className={`truncate whitespace-nowrap transition-[max-width,opacity] duration-300 ease-out ${compact ? "max-w-0 opacity-0" : "max-w-[140px] opacity-100"}`}
+          >
+            Trang chủ
+          </span>
         </Link>
         <div className="mt-2 flex items-center gap-2">
           <button
@@ -277,6 +327,7 @@ export default function AdminSidebar() {
         onClose={() => setProfileOpen(false)}
         profile={profile}
       />
-    </aside>
+      </aside>
+    </>
   );
 }
