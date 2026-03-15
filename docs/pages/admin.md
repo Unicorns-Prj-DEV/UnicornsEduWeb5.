@@ -75,7 +75,8 @@
   - API `GET /class/:id` trả thêm `students` (danh sách học sinh theo lớp từ `student_classes`) gồm `id`, `fullName`, `status`, `remainingSessions` để FE dùng cho bảng học sinh và popup điểm danh.
   - FE `/admin/classes/:id` đã kết nối lịch sử buổi học thật từ API `GET /sessions/class/:classId?month=&year=` (TanStack Query), đồng thời dùng reusable component `SessionHistoryTable` để hiển thị bảng.
   - FE `/admin/classes/:id` loading state của trang và bảng session đã chuyển sang skeleton (`SessionHistoryTableSkeleton`) thay cho text loading.
-  - Tab Lịch sử: nút "Thêm buổi học" mở popup form (ngày học, gia sư phụ trách, giờ bắt đầu/kết thúc, ghi chú buổi học, bảng điểm danh học sinh theo `students` thật); submit gọi `POST /sessions`, success đóng popup + invalidate query sessions theo class.
+  - Tab Lịch sử: nút "Thêm buổi học" mở popup form (ngày học, gia sư phụ trách, giờ bắt đầu/kết thúc, ghi chú buổi học rich text, bảng điểm danh học sinh theo `students` thật); submit gọi `POST /sessions`, success đóng popup + invalidate query sessions theo class.
+  - **Ghi chú buổi học (session notes):** Hỗ trợ rich text (HTML từ TipTap). Hiển thị trong bảng lịch sử buổi học (khi `entityMode="teacher"`) được sanitize bằng DOMPurify trước khi render; có nút sửa trên từng dòng để mở dialog chỉnh sửa ghi chú, gọi `PUT /sessions/:id` với `notes` (HTML), sau đó invalidate query sessions. Popup thêm buổi học dùng `RichTextEditor` (TipTap) thay cho textarea.
   - Tab Lịch sử: hỗ trợ chuyển tháng (prev/next) để lọc theo tháng.
   - Tab Khảo sát: nút "Thêm khảo sát", chuyển tháng (prev/next) để lọc theo tháng.
   - `Schedule` hỗ trợ nhiều khung giờ `from -> to` theo định dạng `HH:mm:ss`; FE `/admin/classes/:id` hiển thị bằng Time Card, popup chỉnh sửa dùng input time-only và submit mảng `[{ from, to }]` chỉ gồm giờ-phút-giây khi gọi `PATCH /class`.

@@ -1,8 +1,8 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useState, useMemo, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as classApi from "@/lib/apis/class.api";
 import * as sessionApi from "@/lib/apis/session.api";
@@ -111,6 +111,7 @@ export default function AdminClassDetailPage() {
     enabled: !!id,
   });
 
+  const queryClient = useQueryClient();
   const {
     data: sessionsInMonth = [],
     isLoading: isSessionsLoading,
@@ -124,6 +125,12 @@ export default function AdminClassDetailPage() {
       }),
     enabled: !!id,
   });
+
+  const handleSessionUpdated = useCallback(() => {
+    queryClient.invalidateQueries({
+      queryKey: ["sessions", "class", id, selectedYear, selectedMonthValue],
+    });
+  }, [queryClient, id, selectedYear, selectedMonthValue]);
 
   const scheduleItems = Array.isArray(classDetail?.schedule)
     ? classDetail.schedule.filter((item) => item?.from && item?.to)
@@ -527,8 +534,8 @@ export default function AdminClassDetailPage() {
                 <SessionHistoryTable
                   sessions={sessionsInMonth}
                   entityMode="teacher"
-                  statusMode="timeline"
                   emptyText="Không có buổi học trong tháng này."
+                  onSessionUpdated={handleSessionUpdated}
                 />
               )}
               {isSessionsError ? (

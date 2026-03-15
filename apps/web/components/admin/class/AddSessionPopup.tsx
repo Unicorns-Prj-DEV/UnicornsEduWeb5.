@@ -10,6 +10,7 @@ import {
   SessionItem,
 } from "@/dtos/session.dto";
 import * as sessionApi from "@/lib/apis/session.api";
+import RichTextEditor from "@/components/ui/RichTextEditor";
 
 export interface SessionStudentItem {
   id: string;
@@ -195,8 +196,9 @@ export default function AddSessionPopup({
     }
 
     const trimmedSessionNotes = notes.trim();
+    const notesTextContent = trimmedSessionNotes.replace(/<[^>]*>/g, "").trim();
 
-    if (!trimmedSessionNotes) {
+    if (!notesTextContent) {
       toast.error("Vui lòng nhập ghi chú buổi học.");
       return;
     }
@@ -329,14 +331,10 @@ export default function AddSessionPopup({
 
               <label className="flex flex-col gap-1 text-sm text-text-secondary md:col-span-3">
                 <span>Ghi chú buổi học</span>
-                <textarea
+                <RichTextEditor
                   value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  rows={4}
-                  maxLength={MAX_SESSION_NOTES_LENGTH}
-                  className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  placeholder="Nhập ghi chú buổi học..."
-                  required
+                  onChange={setNotes}
+                  minHeight="min-h-[160px]"
                 />
               </label>
             </div>
