@@ -9,6 +9,7 @@ import * as sessionApi from "@/lib/apis/session.api";
 import { formatCurrency } from "@/lib/class.helpers";
 import {
   ClassCard,
+  ClassDetailRow,
   EditClassBasicInfoPopup,
   EditClassSchedulePopup,
   EditClassStudentsPopup,
@@ -142,7 +143,7 @@ export default function AdminClassDetailPage() {
     ? classDetail.schedule.filter((item) => item?.from && item?.to)
     : [];
 
-  const classStudents = classDetail?.students ?? [];
+  const classStudents = useMemo(() => classDetail?.students ?? [], [classDetail?.students]);
 
   const popupTeachers = useMemo(
     () =>
@@ -164,12 +165,10 @@ export default function AdminClassDetailPage() {
 
   const getClassStudents = useCallback(
     async (classId: string) => {
-      if (classId === id && classDetail?.students) {
-        return classDetail.students.map((s) => ({ id: s.id, fullName: s.fullName }));
-      }
-      return [];
+      if (classId !== id) return [];
+      return classStudents.map((student) => ({ id: student.id, fullName: student.fullName }));
     },
-    [id, classDetail?.students],
+    [id, classStudents],
   );
 
   if (isLoading) {
@@ -219,12 +218,12 @@ export default function AdminClassDetailPage() {
         <button
           type="button"
           onClick={() => router.back()}
-          className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+          className="mb-4 inline-flex min-h-11 min-w-11 items-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-primary hover:text-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary sm:min-h-0 sm:min-w-0 sm:px-0"
         >
-          <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+          <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          Quay lại danh sách lớp
+          <span className="hidden sm:inline">Quay lại danh sách lớp</span>
         </button>
         <div className="rounded-lg border border-error/30 bg-error/10 px-4 py-6 text-error" role="alert">
           <p>{message}</p>
@@ -233,24 +232,34 @@ export default function AdminClassDetailPage() {
     );
   }
 
+  const tuitionPackageLabel =
+    classDetail.tuitionPackageTotal != null || classDetail.tuitionPackageSession != null
+      ? `${formatCurrency(classDetail.tuitionPackageTotal)} / ${classDetail.tuitionPackageSession ?? "—"} buổi`
+      : "—";
+
+  const statusChipClass =
+    classDetail.status === "running"
+      ? "bg-warning/15 text-warning"
+      : "bg-text-muted/15 text-text-muted";
+
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 sm:p-6">
       <button
         type="button"
         onClick={() => router.back()}
-        className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+        className="mb-4 inline-flex min-h-11 min-w-11 items-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-primary hover:text-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary sm:min-h-0 sm:min-w-0 sm:px-0"
       >
-        <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+        <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
-        Quay lại danh sách lớp
+        <span className="hidden sm:inline">Quay lại danh sách lớp</span>
       </button>
 
-      <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-center gap-4">
+      <header className="mb-5 flex flex-col gap-4 sm:mb-6">
+        <div className="flex min-w-0 items-start gap-3 sm:gap-4">
           <div className="relative flex shrink-0">
             <div
-              className="flex size-16 items-center justify-center overflow-hidden rounded-xl bg-bg-tertiary ring-2 ring-border-default text-2xl font-semibold text-text-primary"
+              className="flex size-14 items-center justify-center overflow-hidden rounded-2xl bg-bg-tertiary text-xl font-semibold text-text-primary ring-2 ring-border-default sm:size-16 sm:text-2xl"
               aria-hidden
             >
               {(classDetail.name?.trim() || "L").charAt(0).toUpperCase()}
@@ -261,15 +270,15 @@ export default function AdminClassDetailPage() {
               aria-hidden
             />
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-semibold text-text-primary">
+              <h1 className="min-w-0 truncate text-lg font-semibold text-text-primary sm:text-xl">
                 {classDetail.name?.trim() || "Lớp học"}
               </h1>
               <button
                 type="button"
                 onClick={() => setBasicInfoPopupOpen(true)}
-                className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border-default bg-bg-surface text-text-muted transition hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border-default bg-bg-surface text-text-muted transition hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary sm:size-8"
                 aria-label="Chỉnh sửa thông tin cơ bản lớp học"
                 title="Chỉnh sửa thông tin cơ bản"
               >
@@ -278,26 +287,9 @@ export default function AdminClassDetailPage() {
                 </svg>
               </button>
             </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-secondary">
-              <span>
-                <span className="font-medium text-text-muted">Phân loại:</span>{" "}
-                {TYPE_LABELS[classDetail.type] ?? classDetail.type}
-              </span>
-              <span>
-                <span className="font-medium text-text-muted">Gói học phí:</span>{" "}
-                {classDetail.tuitionPackageTotal != null || classDetail.tuitionPackageSession != null
-                  ? `${formatCurrency(classDetail.tuitionPackageTotal)} / ${classDetail.tuitionPackageSession ?? "—"} buổi`
-                  : "—"}
-              </span>
-              <span>
-                <span className="font-medium text-text-muted">Trợ cấp/HV/buổi:</span>{" "}
-                {formatCurrency(classDetail.allowancePerSessionPerStudent)}
-              </span>
-              <span>
-                <span className="font-medium text-text-muted">Scales:</span>{" "}
-                {classDetail.scaleAmount ?? "—"}
-              </span>
-            </div>
+            <p className="mt-1 text-sm text-text-muted">
+              Chi tiết lớp học và vận hành theo buổi.
+            </p>
           </div>
         </div>
       </header>
@@ -333,6 +325,38 @@ export default function AdminClassDetailPage() {
       />
 
       <div className="flex flex-col gap-4">
+        <ClassCard title="Thông tin cơ bản" className="w-full">
+          <dl className="divide-y divide-border-subtle">
+            <ClassDetailRow
+              label="Trạng thái"
+              value={
+                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${statusChipClass}`}>
+                  {STATUS_LABELS[classDetail.status]}
+                </span>
+              }
+            />
+            <ClassDetailRow
+              label="Phân loại"
+              value={
+                <span className="inline-flex rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-medium text-primary">
+                  {TYPE_LABELS[classDetail.type] ?? classDetail.type}
+                </span>
+              }
+            />
+            <ClassDetailRow label="Gói học phí" value={tuitionPackageLabel} />
+            <ClassDetailRow
+              label="Trợ cấp/HV/buổi"
+              value={
+                <span className="font-semibold text-primary">
+                  {formatCurrency(classDetail.allowancePerSessionPerStudent)}
+                </span>
+              }
+            />
+            <ClassDetailRow label="Sĩ số tối đa" value={classDetail.maxStudents ?? "—"} />
+            <ClassDetailRow label="Scales" value={classDetail.scaleAmount ?? "—"} />
+          </dl>
+        </ClassCard>
+
         {/* Row 1: Gia sư phụ trách (trái) | Khung giờ học (phải) */}
         <div className="grid gap-4 lg:grid-cols-2">
           <TutorCard
@@ -342,7 +366,7 @@ export default function AdminClassDetailPage() {
               <button
                 type="button"
                 onClick={() => setTeachersPopupOpen(true)}
-                className="rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:w-auto"
               >
                 Chỉnh sửa
               </button>
@@ -355,14 +379,14 @@ export default function AdminClassDetailPage() {
               <button
                 type="button"
                 onClick={() => setSchedulePopupOpen(true)}
-                className="rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:w-auto"
               >
                 Chỉnh sửa
               </button>
             }
           >
             {scheduleItems.length > 0 ? (
-              <div className="space-y-3">
+              <div className="space-y-2.5 sm:space-y-3">
                 {scheduleItems.map((item, index) => (
                   <ScheduleTimeCard
                     key={`${item.from}-${item.to}-${index}`}
@@ -388,7 +412,7 @@ export default function AdminClassDetailPage() {
             <button
               type="button"
               onClick={() => setStudentsPopupOpen(true)}
-              className="rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:w-auto"
             >
               Chỉnh sửa
             </button>
@@ -505,7 +529,7 @@ export default function AdminClassDetailPage() {
               <button
                 type="button"
                 onClick={() => setActiveTab("sessions")}
-                className={`-mb-px border-b-2 px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === "sessions"
+                className={`-mb-px flex-1 border-b-2 px-3 py-2 text-sm font-medium transition-colors sm:flex-none ${activeTab === "sessions"
                   ? "border-primary text-primary"
                   : "border-transparent text-text-muted hover:text-text-primary"
                   }`}
@@ -515,7 +539,7 @@ export default function AdminClassDetailPage() {
               <button
                 type="button"
                 onClick={() => setActiveTab("surveys")}
-                className={`-mb-px border-b-2 px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === "surveys"
+                className={`-mb-px flex-1 border-b-2 px-3 py-2 text-sm font-medium transition-colors sm:flex-none ${activeTab === "surveys"
                   ? "border-primary text-primary"
                   : "border-transparent text-text-muted hover:text-text-primary"
                   }`}
@@ -525,21 +549,21 @@ export default function AdminClassDetailPage() {
             </div>
 
             {/* Thanh chuyển tháng – style backup session month picker */}
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-              <div className="text-sm text-text-muted">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+              <div className="inline-flex w-fit items-center rounded-full bg-bg-secondary px-3 py-1 text-xs text-text-muted sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm">
                 {activeTab === "sessions"
                   ? `Tổng số buổi: ${sessionsInMonth.length}`
                   : `Tổng số khảo sát: ${surveysInMonth.length}`}
               </div>
               <div
                 data-session-month-nav
-                className="relative flex items-center gap-1"
+                className="relative grid w-full grid-cols-[auto_1fr_auto] items-center gap-2 sm:flex sm:w-auto sm:justify-start"
               >
                 <button
                   type="button"
                   onClick={() => handleMonthChange(-1)}
                   title="Tháng trước"
-                  className="flex min-w-8 items-center justify-center rounded-md border border-border-default bg-bg-surface px-2 py-1 text-sm text-text-primary transition-all duration-200 hover:border-primary hover:bg-bg-primary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary transition-all duration-200 hover:border-primary hover:bg-bg-primary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-8 sm:min-w-8 sm:rounded-md sm:px-2 sm:py-1"
                   aria-label="Tháng trước"
                 >
                   ◀
@@ -548,7 +572,7 @@ export default function AdminClassDetailPage() {
                   type="button"
                   onClick={() => setMonthPopupOpen(!monthPopupOpen)}
                   title="Chọn tháng/năm"
-                  className="rounded-md border-none bg-transparent px-2 py-1 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  className="flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:rounded-md sm:border-none sm:bg-transparent sm:px-2 sm:py-1"
                   aria-expanded={monthPopupOpen}
                   aria-haspopup="dialog"
                 >
@@ -558,7 +582,7 @@ export default function AdminClassDetailPage() {
                   type="button"
                   onClick={() => handleMonthChange(1)}
                   title="Tháng sau"
-                  className="flex min-w-8 items-center justify-center rounded-md border border-border-default bg-bg-surface px-2 py-1 text-sm text-text-primary transition-all duration-200 hover:border-primary hover:bg-bg-primary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary transition-all duration-200 hover:border-primary hover:bg-bg-primary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-8 sm:min-w-8 sm:rounded-md sm:px-2 sm:py-1"
                   aria-label="Tháng sau"
                 >
                   ▶
@@ -567,9 +591,9 @@ export default function AdminClassDetailPage() {
                   <div
                     role="dialog"
                     aria-label="Chọn tháng"
-                    className="absolute left-1/2 top-full z-30 mt-1.5 min-w-[200px] -translate-x-1/2 rounded-md border border-border-default bg-bg-surface p-2 shadow-md"
+                    className="absolute left-0 top-full z-30 mt-2 w-full rounded-xl border border-border-default bg-bg-surface p-3 shadow-md sm:left-1/2 sm:min-w-[200px] sm:w-auto sm:-translate-x-1/2 sm:rounded-md sm:p-2"
                   >
-                    <div className="mb-1 flex items-center justify-between text-xs">
+                    <div className="mb-2 flex items-center justify-between text-xs sm:mb-1">
                       <button
                         type="button"
                         onClick={() => handleYearChange(-1)}
@@ -588,7 +612,7 @@ export default function AdminClassDetailPage() {
                         ›
                       </button>
                     </div>
-                    <div className="grid grid-cols-4 gap-1">
+                    <div className="grid grid-cols-3 gap-1 sm:grid-cols-4">
                       {monthNames.map((label, idx) => {
                         const val = String(idx + 1).padStart(2, "0");
                         const isActive = val === selectedMonthValue;
@@ -621,7 +645,7 @@ export default function AdminClassDetailPage() {
 
                   toast.info("Chức năng thêm khảo sát đang phát triển.");
                 }}
-                className="shrink-0 rounded-md border border-primary bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                className="min-h-11 w-full shrink-0 rounded-xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:w-auto sm:rounded-md"
               >
                 {activeTab === "sessions" ? "+ Thêm buổi học" : "+ Thêm khảo sát"}
               </button>

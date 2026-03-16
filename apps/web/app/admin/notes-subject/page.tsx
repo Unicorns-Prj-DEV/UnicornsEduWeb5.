@@ -136,7 +136,7 @@ export default function AdminNotesSubjectPage() {
                           <div className="prose prose-sm max-w-none mt-3 text-text-secondary [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_.katex-display]:my-3">
                             <ReactMarkdown
                               remarkPlugins={[remarkGfm, remarkMath]}
-                              rehypePlugins={[rehypeKatex]}
+                              rehypePlugins={[[rehypeKatex, { strict: "ignore" }]]}
                             >
                               {post.content}
                             </ReactMarkdown>

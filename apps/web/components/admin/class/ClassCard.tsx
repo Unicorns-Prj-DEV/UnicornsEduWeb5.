@@ -14,14 +14,14 @@ export default function ClassCard({
       className={`rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm transition-colors duration-200 hover:border-border-default sm:p-5 ${className}`}
       aria-labelledby={`card-${title.replace(/\s+/g, "-")}`}
     >
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2
           id={`card-${title.replace(/\s+/g, "-")}`}
           className="text-sm font-semibold uppercase tracking-wide text-text-muted"
         >
           {title}
         </h2>
-        {action ? <div className="shrink-0">{action}</div> : null}
+        {action ? <div className="w-full shrink-0 sm:w-auto">{action}</div> : null}
       </div>
       <div className="text-sm text-text-primary">{children}</div>
     </section>

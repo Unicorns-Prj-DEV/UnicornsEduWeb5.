@@ -45,19 +45,22 @@ export default function TutorCard({ teachers, className = "", action }: Props) {
   return (
     <ClassCard title="Gia sư phụ trách" className={className} action={action}>
       {tutorItems.length > 0 ? (
-        <div className="space-y-3">
+        <div className="space-y-2.5 sm:space-y-3">
           {tutorItems.map((teacher, index) => (
             <div
               key={teacher.id}
-              className="flex items-center justify-between gap-3 rounded-lg border border-border-default bg-bg-secondary px-4 py-3"
+              className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-secondary/70 px-3 py-2.5 sm:px-4 sm:py-3"
             >
-              <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-[0.2em] text-text-muted">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border-default bg-bg-surface text-[11px] font-semibold uppercase tracking-[0.18em] text-text-secondary sm:size-10">
+                {String(index + 1).padStart(2, "0")}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-text-muted sm:text-xs sm:tracking-[0.2em]">
                   Tutor {String(index + 1).padStart(2, "0")}
                 </p>
-                <p className="truncate text-sm font-semibold text-text-primary">{teacher.name}</p>
+                <p className="truncate text-sm font-semibold text-text-primary sm:text-sm">{teacher.name}</p>
               </div>
-              <div className="shrink-0 rounded-full border border-border-default bg-bg-surface px-3 py-1 text-xs text-text-secondary">
+              <div className="shrink-0 rounded-full border border-border-default bg-bg-surface px-2.5 py-0.5 text-[11px] text-text-secondary sm:px-3 sm:py-1 sm:text-xs">
                 {teacher.status ?? "Đang phân công"}
               </div>
             </div>

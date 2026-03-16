@@ -194,7 +194,7 @@ export default function ProblemTutorialPopup({
                 {normalizeTutorialContent(tutorialValue ?? data?.tutorial ?? "").trim() ? (
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm, remarkMath]}
-                    rehypePlugins={[rehypeKatex]}
+                    rehypePlugins={[[rehypeKatex, { strict: "ignore" }]]}
                   >
                     {normalizeTutorialContent(tutorialValue ?? data?.tutorial ?? "")}
                   </ReactMarkdown>

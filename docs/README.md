@@ -1,6 +1,6 @@
 # Tài liệu dự án Unicorns Edu 5.0
 
-Mục lục tài liệu trong `docs/` và cấu trúc monorepo thực tế để model/người đọc có context đúng.
+Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng thái codebase đã được đối chiếu với repo hiện tại.
 
 ## Cấu trúc monorepo (thực tế)
 
@@ -28,8 +28,31 @@ Mục lục tài liệu trong `docs/` và cấu trúc monorepo thực tế để
 
 ## Route frontend (`apps/web/app/`)
 
-- Đã có: `/` (page.tsx), `/admin` (dashboard, classes, students, costs, categories, coding, lessons), `/admin/*`, `/student`, `/staff`.
-- Theo kế hoạch (xem `pages/*.md`): `/assistant`, `/mentor`, `/landing-page`, auth (login/logout).
+- Đã có:
+  - `/`
+  - `/landing-page`
+  - `/auth/login`, `/auth/register`, `/auth/forgot-password`, `/auth/reset-password`
+  - `/admin`, `/admin/home`, `/admin/dashboard`
+  - `/admin/classes`, `/admin/classes/[id]`
+  - `/admin/students`
+  - `/admin/staffs`, `/admin/staffs/[id]`
+  - `/admin/costs`, `/admin/categories`, `/admin/history`
+  - `/admin/lesson-plans`, `/admin/lessons`, `/admin/notes-subject`
+  - `/api/healthcheck`
+- Chưa có route runtime riêng cho `/assistant`, `/mentor`, `/student`; các page plan tương ứng vẫn nằm trong `docs/pages/`.
+
+## Health snapshot (2026-03-16)
+
+- Đã kiểm tra:
+  - `pnpm --filter web exec tsc --noEmit`: pass
+  - `pnpm --filter api check-types`: pass
+  - `pnpm --filter api test`: pass
+- Cần xử lý tiếp:
+  - `pnpm --filter web lint`: fail với `19` errors và `23` warnings
+- Findings rủi ro cao từ review:
+  - API chưa bật validation runtime toàn cục; riêng payload `sessions` còn dùng `interface`, nên request body không được `class-validator` bảo vệ.
+  - Refresh token rotation đang lưu hash vào DB nhưng luồng `refresh` chưa đối chiếu token đang dùng với hash đã lưu.
+  - `apps/web/app/admin/notes-subject/page.tsx` có `useEffect` đặt sau `return`, vi phạm Rules of Hooks.
 
 ## Dùng tài liệu khi implement
 

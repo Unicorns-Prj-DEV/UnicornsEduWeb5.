@@ -17,8 +17,8 @@ UnicornsEduWeb5./
 │   ├── web/                    # Next.js frontend
 │   │   ├── app/                # App Router (routes, layout, pages)
 │   │   │   ├── admin/          # /admin (dashboard, classes, students, …)
-│   │   │   ├── student/        # /student
-│   │   │   ├── staff/          # /staff
+│   │   │   ├── auth/           # /auth/*
+│   │   │   ├── landing-page/   # /landing-page
 │   │   │   ├── api/            # Route handlers API (vd. healthcheck)
 │   │   │   ├── layout.tsx
 │   │   │   └── page.tsx
@@ -54,7 +54,7 @@ Dùng làm context khi implement hoặc review code frontend; giúp model chọn
 | **Data fetching / API** | TanStack React Query v5, Axios | React Query cho server state; Axios instance trong `lib/client.ts` (baseURL từ env, withCredentials, xử lý refresh token). |
 | **Validation / Transform** | Tùy chọn theo module | Không bắt buộc class-validator/class-transformer; chọn giải pháp phù hợp yêu cầu từng phần. |
 | **TypeScript** | TS 5.x | Path alias `@/*` → `./*` (tsconfig.json). Target ES2017, moduleResolution bundler, strict. |
-| **API base URL** | Biến môi trường | `NEXT_PUBLIC_BACKEND_URL` (mặc định `http://localhost:3001`); dùng trong `lib/client.ts`. |
+| **API base URL** | Biến môi trường | `NEXT_PUBLIC_BACKEND_URL`; nên set tường minh trong `apps/web/.env`. Frontend hiện có fallback `http://localhost:3001`, trong khi API listen ở `PORT` hoặc `4000` nếu không cấu hình. |
 
 **Cấu trúc thư mục frontend:** `apps/web/app/` (routes, layout, page), `apps/web/lib/` (API client, utils). Component và style theo cấu trúc Next.js App Router; tokens và theme đã định nghĩa sẵn trong `globals.css`.
 
@@ -114,23 +114,23 @@ pnpm clean
 
 ```bash
 # Chỉ chạy frontend (Next.js)
-pnpm dev --filter=web
+pnpm --filter web dev
 
 # Chỉ chạy api (NestJS)
-pnpm dev --filter=api
+pnpm --filter api dev
 
 # Build chỉ một app
-pnpm build --filter=web
+pnpm --filter web build
 ```
 
 ### Thêm dependency cho một app
 
 ```bash
 # Thêm dependency vào web
-pnpm add <package> --filter=web
+pnpm --filter web add <package>
 
 # Thêm devDependency vào api
-pnpm add -D <package> --filter=api
+pnpm --filter api add -D <package>
 
 # Thêm dependency vào root (ít khi dùng)
 pnpm add -D <package> -w
@@ -171,13 +171,13 @@ Tech stack chi tiết xem mục **Tech stack Frontend** ở trên.
 
 ```bash
 # Chạy dev server (mặc định port 3000)
-pnpm dev --filter=web
+pnpm --filter web dev
 
 # Build production
-pnpm build --filter=web
+pnpm --filter web build
 
 # Chạy production server
-pnpm exec turbo run start --filter=web
+pnpm --filter web start
 ```
 
 Cấu trúc Next.js: App Router trong `apps/web/app/` (layout, page, route segments); components và styles trong `app/` hoặc thư mục con; shared logic trong `apps/web/lib/`.
@@ -186,10 +186,10 @@ Cấu trúc Next.js: App Router trong `apps/web/app/` (layout, page, route segme
 
 ```bash
 # Từ root
-pnpm dev --filter=api
-pnpm build --filter=api
-pnpm exec turbo run test --filter=api
-pnpm exec turbo run test:e2e --filter=api
+pnpm --filter api dev
+pnpm --filter api build
+pnpm --filter api test
+pnpm --filter api test:e2e
 
 # Hoặc trong thư mục app
 cd apps/api
@@ -199,7 +199,7 @@ pnpm test
 pnpm run test:e2e
 ```
 
-Cấu trúc NestJS: modules, controllers, services, guards, pipes trong `apps/api/src/`; Prisma schema trong `apps/api/prisma/schema/`; Prisma Client generate ra `apps/api/generated/`. **Swagger UI:** khi chạy API, mở `http://localhost:<PORT>/api` để xem và gọi thử API (DocumentBuilder + SwaggerModule trong `main.ts`). Mọi controller phải có Swagger decorators (`@ApiTags`, `@ApiOperation`, `@ApiResponse`, …); DTO dùng interface.
+Cấu trúc NestJS: modules, controllers, services, guards, pipes trong `apps/api/src/`; Prisma schema trong `apps/api/prisma/schema/`; Prisma Client generate ra `apps/api/generated/`. **Swagger UI:** khi chạy API, mở `http://localhost:<PORT>/api` để xem và gọi thử API (DocumentBuilder + SwaggerModule trong `main.ts`). Mọi controller nên có Swagger decorators (`@ApiTags`, `@ApiOperation`, `@ApiResponse`, …). Với request body cần validation runtime, ưu tiên DTO dạng `class` + `ValidationPipe`; không nên dùng `interface` nếu muốn `class-validator` hoạt động.
 
 ## Thêm shared package mới
 
@@ -227,14 +227,14 @@ pnpm init
 3. Thêm vào app cần dùng:
 
 ```bash
-pnpm add @unicorns/shared --filter=web --workspace
+pnpm --filter web add @unicorns/shared --workspace
 ```
 
 ## Quy tắc làm việc
 
 1. **Cài đặt:** Có thể chạy `pnpm i` từ root (cả monorepo) hoặc `cd` vào từng app rồi chạy `pnpm i` trong app đó.
-2. **Chạy / build:** Từ root dùng `pnpm dev --filter=web` (hoặc filter khác); hoặc `cd apps/web` rồi chạy `pnpm dev` / `pnpm build` trực tiếp trong app.
+2. **Chạy / build:** Từ root dùng `pnpm --filter web dev` (hoặc filter khác); hoặc `cd apps/web` rồi chạy `pnpm dev` / `pnpm build` trực tiếp trong app.
 3. **Dùng `--filter`** — Khi ở root, dùng `--filter=<app>` để chỉ chạy task cho một app.
 4. **Không commit `node_modules`** — Đã có trong `.gitignore`.
 5. **Không chỉnh sửa `pnpm-lock.yaml` bằng tay** — File này được tự động tạo bởi pnpm.
-6. **Kiểm tra types trước khi commit** — Từ root: `pnpm check-types`; trong từng app có thể chạy `pnpm exec tsc --noEmit` (nếu app có cấu hình TypeScript).
+6. **Kiểm tra types trước khi commit** — Từ root: `pnpm check-types`; với frontend nên chạy thêm `pnpm --filter web exec tsc --noEmit` vì `apps/web` hiện chưa khai báo script `check-types` riêng.

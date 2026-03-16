@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import NotesSubjectRichEditor from "./NotesSubjectRichEditor";
 
@@ -45,15 +45,28 @@ export default function RulePostFormPopup({
   });
 
   const contentValue = watch("content");
+  const initializedKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
+
+    const key = initialData?.id ?? "__new__";
+    const isNewContext = initializedKeyRef.current !== key;
+    if (!isNewContext) return;
+
     reset({
       title: initialData?.title ?? "",
       description: initialData?.description ?? "",
       content: initialData?.content ?? "",
     });
-  }, [open, initialData, reset]);
+    initializedKeyRef.current = key;
+  }, [open, initialData?.id, initialData?.title, initialData?.description, initialData?.content, reset]);
+
+  useEffect(() => {
+    if (!open) {
+      initializedKeyRef.current = null;
+    }
+  }, [open]);
 
   const onFormSubmit = (values: RulePostFormValues) => {
     onSubmit(values);

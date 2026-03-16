@@ -2,24 +2,24 @@
 
 Page-level specs for `apps/web`, aligned with [Workplan](../Workplan.md) and [UI-Schema](../UI-Schema.md).
 
-**Cấu trúc frontend hiện tại:** App Router trong `apps/web/app/`. Đã có: `app/admin/` (dashboard, classes, students, costs, categories, coding, lessons), `app/student/`, `app/staff/`. Các route theo kế hoạch: `/assistant`, `/mentor`, `/landing-page` (và auth) — xem từng file plan bên dưới.
+**Cấu trúc frontend hiện tại:** App Router trong `apps/web/app/`. Đã có route runtime cho `/`, `/landing-page`, `/auth/*`, và nhóm `/admin/*`. Các route `/assistant`, `/mentor`, `/student` mới đang ở mức page plan, chưa có file route thật trong `apps/web/app/`.
 
 **Archived UI context:** [ARCHIVED-UI-CONTEXT.md](ARCHIVED-UI-CONTEXT.md) maps the archived app (`archived/UniEdu-Web-3.9/frontend/`) to 5.0 routes and lists concrete files, services, and patterns to reuse for better model results when implementing each page.
 
 ## Route index
 
-| Route | Role | Owner (Workplan) | Plan file |
-| --- | --- | --- | --- |
-| `/admin` | Admin | Huy | [admin.md](admin.md) |
-| `/assistant` | Assistant | Minh | [assistant.md](assistant.md) |
-| `/mentor` | Teacher | Huy | [mentor.md](mentor.md) |
-| `/student` | Student | Minh | [student.md](student.md) |
-| `/landing-page` | Public | Minh | [landing.md](landing.md) |
-| Auth (login/logout) | All authenticated | Huy/Minh | [auth.md](auth.md) |
-| `/auth/login` | Public | Huy/Minh | [auth-login.md](auth-login.md) |
-| `/auth/register` | Public | Huy/Minh | [auth-register.md](auth-register.md) |
-| `/auth/forgot-password` | Public | Huy/Minh | [auth-forgot-password.md](auth-forgot-password.md) |
-| `/auth/reset-password` | Public | Huy/Minh | [auth-reset-password.md](auth-reset-password.md) |
+| Route | Status | Role | Owner (Workplan) | Plan file |
+| --- | --- | --- | --- | --- |
+| `/admin` | Implemented | Admin | Huy | [admin.md](admin.md) |
+| `/landing-page` | Implemented | Public | Minh | [landing.md](landing.md) |
+| Auth (login/logout) | Partial | All authenticated | Huy/Minh | [auth.md](auth.md) |
+| `/auth/login` | Implemented | Public | Huy/Minh | [auth-login.md](auth-login.md) |
+| `/auth/register` | Implemented | Public | Huy/Minh | [auth-register.md](auth-register.md) |
+| `/auth/forgot-password` | Implemented | Public | Huy/Minh | [auth-forgot-password.md](auth-forgot-password.md) |
+| `/auth/reset-password` | Implemented | Public | Huy/Minh | [auth-reset-password.md](auth-reset-password.md) |
+| `/assistant` | Planned | Assistant | Minh | [assistant.md](assistant.md) |
+| `/mentor` | Planned | Teacher | Huy | [mentor.md](mentor.md) |
+| `/student` | Planned | Student | Minh | [student.md](student.md) |
 
 ## Workplan phase mapping
 
