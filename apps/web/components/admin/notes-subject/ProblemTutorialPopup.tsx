@@ -4,7 +4,10 @@ import { useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import DOMPurify from "dompurify";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 import NotesSubjectRichEditor from "./NotesSubjectRichEditor";
 import {
   getProblemTutorial,
@@ -22,27 +25,6 @@ type Props = {
 type FormValues = {
   tutorial: string;
 };
-
-type DomPurifyLike =
-  | { sanitize?: (value: string) => string }
-  | ((root: Window) => { sanitize?: (value: string) => string });
-
-function sanitizeHtml(value: string): string {
-  const purifier = DOMPurify as unknown as DomPurifyLike;
-
-  if (typeof purifier === "object" && typeof purifier.sanitize === "function") {
-    return purifier.sanitize(value);
-  }
-
-  if (typeof window !== "undefined" && typeof purifier === "function") {
-    const instance = purifier(window);
-    if (typeof instance?.sanitize === "function") {
-      return instance.sanitize(value);
-    }
-  }
-
-  return value;
-}
 
 export default function ProblemTutorialPopup({
   open,
@@ -86,9 +68,23 @@ export default function ProblemTutorialPopup({
   });
 
   const tutorialValue = watch("tutorial");
-  const safeTutorialHtml = sanitizeHtml(tutorialValue ?? "");
   const initializedKeyRef = useRef<string | null>(null);
   const tutorialQueryKey = `${contestId}:${problemIndex}`;
+
+  useEffect(() => {
+    if (!open) return;
+    if (typeof document === "undefined") return;
+
+    const existing = document.getElementById("katex-styles");
+    if (existing) return;
+
+    const link = document.createElement("link");
+    link.id = "katex-styles";
+    link.rel = "stylesheet";
+    link.href = "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css";
+    link.crossOrigin = "anonymous";
+    document.head.appendChild(link);
+  }, [open]);
 
   useEffect(() => {
     if (!open || !problem || isLoading) return;
@@ -114,6 +110,19 @@ export default function ProblemTutorialPopup({
       initializedKeyRef.current = null;
     }
   }, [open]);
+
+  const normalizeTutorialContent = (raw: string): string => {
+    const trimmed = raw.trim();
+    if (!trimmed) return "";
+
+    // Nếu nội dung là một đoạn HTML đơn giản <p>...</p> thì bóc ra phần text bên trong
+    if (/^<p[\s>][\s\S]*<\/p>$/.test(trimmed)) {
+      return trimmed.replace(/^<p[^>]*>/, "").replace(/<\/p>$/, "").trim();
+    }
+
+    // Nếu là HTML phức tạp hơn, tạm thời giữ nguyên để không phá cấu trúc
+    return raw;
+  };
 
   const onFormSubmit = (values: FormValues) => {
     saveTutorial(values.tutorial || null);
@@ -181,9 +190,14 @@ export default function ProblemTutorialPopup({
                 minHeight="min-h-[200px]"
               />
             ) : (
-              <div className="min-h-[200px] rounded-md border border-border-default bg-bg-secondary/40 px-3 py-3 text-sm text-text-primary [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_strong]:font-bold">
-                {safeTutorialHtml.trim() ? (
-                  <div dangerouslySetInnerHTML={{ __html: safeTutorialHtml }} />
+              <div className="prose prose-sm max-w-none min-h-[200px] rounded-md border border-border-default bg-bg-secondary/40 px-3 py-3 text-sm text-text-primary [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_.katex-display]:my-3">
+                {normalizeTutorialContent(tutorialValue ?? data?.tutorial ?? "").trim() ? (
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm, remarkMath]}
+                    rehypePlugins={[rehypeKatex]}
+                  >
+                    {normalizeTutorialContent(tutorialValue ?? data?.tutorial ?? "")}
+                  </ReactMarkdown>
                 ) : (
                   <p className="text-text-muted">Chưa có tutorial cho bài này.</p>
                 )}

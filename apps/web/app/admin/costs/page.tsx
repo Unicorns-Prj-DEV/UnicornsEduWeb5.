@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -44,6 +44,16 @@ const STATUS_LABELS: Record<CostStatus, string> = {
   pending: "Chờ thanh toán",
 };
 
+function statusChipClass(status: CostStatus | null | undefined): string {
+  if (status === "paid") {
+    return "bg-success/15 text-success ring-success/25";
+  }
+  if (status === "pending") {
+    return "bg-warning/15 text-warning ring-warning/25";
+  }
+  return "bg-bg-secondary text-text-secondary ring-border-default";
+}
+
 export default function AdminCostsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -57,6 +67,8 @@ export default function AdminCostsPage() {
   const [popupOpen, setPopupOpen] = useState(false);
   const [popupMode, setPopupMode] = useState<CostUpsertMode>("create");
   const [selectedCost, setSelectedCost] = useState<CostListItem | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [costToDelete, setCostToDelete] = useState<{ id: string; category: string } | null>(null);
 
   useEffect(() => {
     setSearchInput(search);
@@ -92,7 +104,10 @@ export default function AdminCostsPage() {
       }),
   });
 
-  const list: CostListItem[] = costListResponse?.data ?? [];
+  const list = useMemo<CostListItem[]>(
+    () => costListResponse?.data ?? [],
+    [costListResponse],
+  );
   const total = costListResponse?.meta?.total ?? 0;
   const serverPage = costListResponse?.meta?.page;
   const currentPage = serverPage && Number.isFinite(serverPage) ? serverPage : page;
@@ -231,44 +246,71 @@ export default function AdminCostsPage() {
     }
   };
 
-  const handleDelete = async (id: string, category: string) => {
-    if (!window.confirm(`Bạn có chắc muốn xóa khoản "${category}"?`)) return;
+  const openDeleteConfirm = (id: string, category: string) => {
+    setCostToDelete({ id, category });
+    setDeleteConfirmOpen(true);
+  };
+
+  const closeDeleteConfirm = () => {
+    setDeleteConfirmOpen(false);
+    setCostToDelete(null);
+  };
+
+  const handleDeleteConfirmed = async () => {
+    if (!costToDelete) return;
     try {
-      await deleteMutation.mutateAsync({ id });
+      await deleteMutation.mutateAsync({ id: costToDelete.id });
+      closeDeleteConfirm();
     } catch {
       // toast lỗi đã xử lý trong onError
     }
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 sm:p-6">
-      <div className="flex min-w-0 flex-1 flex-col rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-xl font-semibold text-text-primary">Chi phí mở rộng</h1>
-          <button
-            type="button"
-            className="rounded-md border border-border-default bg-secondary px-4 py-2 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary hover:cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
-            aria-label="Thêm chi phí"
-            title="Thêm chi phí"
-            onClick={handleOpenCreatePopup}
-          >
-            Thêm chi phí
-          </button>
-        </div>
+    <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-3 sm:p-6">
+      <div className="flex min-w-0 flex-1 flex-col rounded-xl border border-border-default bg-bg-surface p-3 shadow-sm sm:rounded-lg sm:p-5">
+        <section className="relative mb-4 overflow-hidden rounded-2xl border border-border-default bg-gradient-to-br from-bg-secondary via-bg-surface to-bg-secondary/70 p-4 sm:p-5">
+          <div className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full bg-primary/10 blur-2xl" aria-hidden />
+          <div className="pointer-events-none absolute -bottom-10 left-16 size-28 rounded-full bg-secondary/50 blur-2xl" aria-hidden />
 
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <label className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-center">
-            <span className="shrink-0 text-sm font-medium text-text-secondary sm:w-24">Tìm kiếm</span>
-            <input
-              type="search"
-              value={searchInput}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="Theo danh mục…"
-              className="min-w-0 flex-1 rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
-              aria-label="Tìm theo danh mục"
-            />
-          </label>
-        </div>
+          <div className="relative flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <h1 className="text-xl font-semibold text-text-primary sm:text-2xl">Chi phí mở rộng</h1>
+              <p className="mt-1 text-sm text-text-secondary">
+                Quản lý và theo dõi các khoản phát sinh theo tháng.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="w-full rounded-md border border-border-default bg-bg-surface/90 px-4 py-2 text-sm font-medium text-text-primary shadow-sm transition-all duration-200 hover:cursor-pointer hover:border-primary/40 hover:bg-bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface sm:w-auto"
+              aria-label="Thêm chi phí"
+              title="Thêm chi phí"
+              onClick={handleOpenCreatePopup}
+            >
+              Thêm chi phí
+            </button>
+          </div>
+
+          <div className="relative mt-4">
+            <label className="block text-sm font-medium text-text-secondary" htmlFor="cost-search-input">
+              Tìm kiếm
+            </label>
+            <div className="mt-1 flex items-center rounded-md border border-border-default bg-bg-surface/90 px-3 focus-within:border-border-focus focus-within:ring-2 focus-within:ring-border-focus">
+              <svg className="size-4 shrink-0 text-text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m21 21-4.35-4.35m1.85-5.15a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" />
+              </svg>
+              <input
+                id="cost-search-input"
+                type="search"
+                value={searchInput}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Theo danh mục…"
+                className="min-w-0 flex-1 border-0 bg-transparent px-2 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-0"
+                aria-label="Tìm theo danh mục"
+              />
+            </div>
+          </div>
+        </section>
 
         <div className="min-w-0 flex-1 overflow-auto">
           {isLoading ? (
@@ -289,16 +331,75 @@ export default function AdminCostsPage() {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto">
+              <div className="space-y-3 sm:hidden">
+                {list.map((row) => (
+                  <article
+                    key={row.id}
+                    role="button"
+                    tabIndex={0}
+                    className="rounded-xl border border-border-default bg-bg-surface p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-bg-secondary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    onClick={() => handleOpenEditPopup(row)}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" && event.key !== " ") return;
+                      event.preventDefault();
+                      handleOpenEditPopup(row);
+                    }}
+                    aria-label={`Xem và chỉnh sửa ${row.category?.trim() || "khoản chi phí"}`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="line-clamp-2 text-sm font-semibold text-text-primary">
+                        {row.category?.trim() || "—"}
+                      </p>
+                      <button
+                        type="button"
+                        className="shrink-0 rounded p-1.5 text-text-muted transition-colors duration-200 hover:bg-error/15 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:opacity-50"
+                        aria-label={`Xóa ${row.category || "khoản chi phí"}`}
+                        title="Xóa"
+                        disabled={deleteMutation.isPending}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openDeleteConfirm(row.id, row.category?.trim() || "khoản chi phí");
+                        }}
+                      >
+                        <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="mt-2 grid grid-cols-[72px_1fr] gap-x-2 gap-y-1 text-xs">
+                      <span className="text-text-muted">Tháng</span>
+                      <span className="text-text-secondary">{row.month?.trim() || "—"}</span>
+                      <span className="text-text-muted">Ngày</span>
+                      <span className="text-text-secondary">{formatDate(row.date)}</span>
+                      <span className="text-text-muted">Trạng thái</span>
+                      <span
+                        className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ${statusChipClass(row.status)}`}
+                      >
+                        {row.status ? (STATUS_LABELS[row.status] ?? row.status) : "—"}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm font-semibold tabular-nums text-text-primary">
+                      {formatCurrency(row.amount)}
+                    </p>
+                  </article>
+                ))}
+              </div>
+
+              <div className="hidden overflow-x-auto sm:block">
                 <table className="w-full min-w-[640px] border-collapse text-left text-sm">
                   <caption className="sr-only">Danh sách chi phí mở rộng</caption>
                   <thead>
-                    <tr className="border-b border-border-default bg-bg-secondary">
-                      <th scope="col" className="px-4 py-3 font-medium text-text-primary">Danh mục</th>
-                      <th scope="col" className="px-4 py-3 font-medium text-text-primary">Tháng</th>
-                      <th scope="col" className="px-4 py-3 font-medium text-text-primary">Ngày</th>
-                      <th scope="col" className="px-4 py-3 font-medium text-text-primary">Trạng thái</th>
-                      <th scope="col" className="px-4 py-3 font-medium text-text-primary">Số tiền</th>
+                    <tr className="border-b border-border-default bg-bg-secondary/80">
+                      <th scope="col" className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">Danh mục</th>
+                      <th scope="col" className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">Tháng</th>
+                      <th scope="col" className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">Ngày</th>
+                      <th scope="col" className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">Trạng thái</th>
+                      <th scope="col" className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">Số tiền</th>
                       <th scope="col" className="w-24 px-4 py-3">
                         <span className="sr-only">Xóa</span>
                       </th>
@@ -310,7 +411,7 @@ export default function AdminCostsPage() {
                         key={row.id}
                         role="button"
                         tabIndex={0}
-                        className="group cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-150 hover:bg-bg-secondary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                        className="group cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-150 hover:bg-bg-secondary/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                         onClick={() => handleOpenEditPopup(row)}
                         onKeyDown={(event) => {
                           if (event.key !== "Enter" && event.key !== " ") return;
@@ -324,7 +425,11 @@ export default function AdminCostsPage() {
                         <td className="px-4 py-3 text-text-secondary">{row.month?.trim() || "—"}</td>
                         <td className="px-4 py-3 text-text-secondary">{formatDate(row.date)}</td>
                         <td className="px-4 py-3 text-text-secondary">
-                          {row.status ? (STATUS_LABELS[row.status] ?? row.status) : "—"}
+                          <span
+                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${statusChipClass(row.status)}`}
+                          >
+                            {row.status ? (STATUS_LABELS[row.status] ?? row.status) : "—"}
+                          </span>
                         </td>
                         <td className="px-4 py-3 tabular-nums text-text-primary">{formatCurrency(row.amount)}</td>
                         <td className="px-4 py-3">
@@ -337,7 +442,7 @@ export default function AdminCostsPage() {
                               disabled={deleteMutation.isPending}
                               onClick={(event) => {
                                 event.stopPropagation();
-                                handleDelete(row.id, row.category?.trim() || "khoản chi phí");
+                                  openDeleteConfirm(row.id, row.category?.trim() || "khoản chi phí");
                               }}
                             >
                               <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -359,13 +464,13 @@ export default function AdminCostsPage() {
 
               {totalPages > 1 && (
                 <nav
-                  className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border-default pt-4"
+                  className="mt-4 flex flex-col gap-3 border-t border-border-default pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between"
                   aria-label="Phân trang"
                 >
                   <p className="text-sm text-text-muted" aria-live="polite">
-                    Hiển thị {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, total)} trong {total} khoản
+                    Hiển thị {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, total)} trong {total} khoản
                   </p>
-                  <div className="flex items-center gap-2">
+                  <div className="grid grid-cols-3 items-center gap-2 sm:flex sm:items-center">
                     <button
                       type="button"
                       className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50"
@@ -375,8 +480,8 @@ export default function AdminCostsPage() {
                     >
                       Trước
                     </button>
-                    <span className="tabular-nums text-sm text-text-secondary">
-                      Trang {currentPage} / {totalPages}
+                    <span className="text-center tabular-nums text-sm text-text-secondary">
+                      {currentPage}/{totalPages}
                     </span>
                     <button
                       type="button"
@@ -403,6 +508,73 @@ export default function AdminCostsPage() {
         onSubmit={handleSubmitCost}
         isSubmitting={createMutation.isPending || updateMutation.isPending}
       />
+      {deleteConfirmOpen && costToDelete && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[1px]"
+            aria-hidden
+            onClick={closeDeleteConfirm}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-cost-title"
+            className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border-default bg-bg-surface p-4 shadow-2xl sm:p-5"
+          >
+            <div className="flex items-start gap-3">
+              <div className="mt-1 flex size-9 items-center justify-center rounded-full bg-error/10 text-error">
+                <svg
+                  className="size-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  aria-hidden
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v4m0 4h.01M5.1 19h13.8a2 2 0 001.79-2.89L13.79 4.79a2 2 0 00-3.58 0L3.31 16.11A2 2 0 005.1 19z"
+                  />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2
+                  id="delete-cost-title"
+                  className="text-base font-semibold text-text-primary"
+                >
+                  Xóa khoản chi phí?
+                </h2>
+                <p className="mt-1 text-sm text-text-secondary">
+                  Bạn có chắc muốn xóa khoản{" "}
+                  <span className="font-semibold text-text-primary">
+                    {costToDelete.category || "chi phí này"}
+                  </span>
+                  ? Hành động này không thể hoàn tác.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeDeleteConfirm}
+                className="min-h-10 flex-1 rounded-md border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:flex-none sm:px-5"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirmed}
+                disabled={deleteMutation.isPending}
+                className="min-h-10 flex-1 rounded-md border border-error bg-error px-4 py-2.5 text-sm font-medium text-text-inverse shadow-sm transition-colors hover:bg-error/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60 sm:flex-none sm:px-5"
+              >
+                {deleteMutation.isPending ? "Đang xóa…" : "Xóa khoản chi phí"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

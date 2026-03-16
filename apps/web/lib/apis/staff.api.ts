@@ -39,6 +39,8 @@ export async function getStaff(params: {
     province?: string;
     university?: string;
     highSchool?: string;
+    role?: string;
+    className?: string;
 }): Promise<StaffListResponse> {
     const response = await api.get("/staff", {
         params: {
@@ -49,6 +51,8 @@ export async function getStaff(params: {
             ...(params.province ? { province: params.province } : {}),
             ...(params.university ? { university: params.university } : {}),
             ...(params.highSchool ? { highSchool: params.highSchool } : {}),
+            ...(params.role ? { role: params.role } : {}),
+            ...(params.className ? { className: params.className } : {}),
         },
     });
 

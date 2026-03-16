@@ -1,10 +1,11 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import * as classApi from "@/lib/apis/class.api";
+import * as bonusApi from "@/lib/apis/bonus.api";
 import * as staffApi from "@/lib/apis/staff.api";
 import {
   EditStaffPopup,
@@ -14,7 +15,6 @@ import {
   StaffQrCard,
   QrLinkPopup,
   SessionHistoryTableSkeleton,
-  type MockBonus,
 } from "@/components/admin/staff";
 import { StaffDetail, StaffStatus } from "@/dtos/staff.dto";
 import { formatCurrency } from "@/lib/class.helpers";
@@ -40,12 +40,31 @@ const STATUS_LABELS: Record<StaffStatus, string> = {
   active: "Hoạt động",
   inactive: "Ngừng",
 };
+const STAFF_ROLE_WORK_TYPE_OPTIONS = Object.values(ROLE_LABELS);
 
-/** Mock thưởng – dùng khi chưa kết nối BE */
-const INITIAL_MOCK_BONUSES: MockBonus[] = [
-  { id: "b1", workType: "Thưởng chuyên cần", status: "paid", amount: 500000 },
-  { id: "b2", workType: "Thưởng chất lượng", status: "unpaid", amount: 300000 },
-];
+type BonusFormState = {
+  workTypeOption: string;
+  amount: string;
+  status: "pending" | "paid";
+  note: string;
+};
+
+type BonusRecord = {
+  id: string;
+  workType: string;
+  amount: number;
+  status: "paid" | "pending";
+  note: string;
+};
+
+const DEFAULT_ROLE_WORK_TYPE = "Giáo viên";
+
+const DEFAULT_BONUS_FORM: BonusFormState = {
+  workTypeOption: DEFAULT_ROLE_WORK_TYPE,
+  amount: "",
+  status: "pending",
+  note: "",
+};
 
 export default function AdminStaffDetailPage() {
   const params = useParams();
@@ -54,7 +73,15 @@ export default function AdminStaffDetailPage() {
   const [editPopupOpen, setEditPopupOpen] = useState(false);
   const [qrLink, setQrLink] = useState<string | null>(null);
   const [qrPopupOpen, setQrPopupOpen] = useState(false);
-  const [bonuses, setBonuses] = useState<MockBonus[]>(() => INITIAL_MOCK_BONUSES);
+  const [addBonusPopupOpen, setAddBonusPopupOpen] = useState(false);
+  const [bonusFormMode, setBonusFormMode] = useState<"create" | "edit">("create");
+  const [editingBonusId, setEditingBonusId] = useState<string | null>(null);
+  const [bonusForm, setBonusForm] = useState<BonusFormState>(DEFAULT_BONUS_FORM);
+  const [workTypeMenuOpen, setWorkTypeMenuOpen] = useState(false);
+  const [workTypeSearch, setWorkTypeSearch] = useState("");
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const workTypeMenuRef = useRef<HTMLDivElement | null>(null);
+  const statusMenuRef = useRef<HTMLDivElement | null>(null);
 
   const { data: staff, isLoading, isError } = useQuery<StaffDetail>({
     queryKey: ["staff", "detail", id],
@@ -160,6 +187,76 @@ export default function AdminStaffDetailPage() {
     enabled: !!id,
   });
 
+  const {
+    data: bonusListResponse,
+    isError: isBonusError,
+    isLoading: isBonusLoading,
+  } = useQuery({
+    queryKey: ["bonus", "list", "staff", id, selectedMonth],
+    queryFn: () =>
+      bonusApi.getBonuses({
+        page: 1,
+        limit: 100,
+        staffId: id,
+        month: selectedMonth,
+      }),
+    enabled: !!id,
+  });
+
+  const bonusRecords = useMemo<BonusRecord[]>(() => {
+    const list = bonusListResponse?.data ?? [];
+    return list.map((item) => {
+      const amountRaw =
+        typeof item.amount === "number" ? item.amount : Number(item.amount ?? 0);
+      const safeAmount = Number.isFinite(amountRaw) ? amountRaw : 0;
+      const rawStatus = (item.status ?? "").toString().toLowerCase();
+      const mappedStatus = rawStatus === "paid" ? "paid" : "pending";
+      return {
+        id: item.id,
+        workType: item.workType?.trim() || "Khác",
+        amount: safeAmount,
+        status: mappedStatus,
+        note: item.note?.trim() || "",
+      };
+    });
+  }, [bonusListResponse]);
+
+  const bonuses = useMemo<
+    { id: string; workType: string; status: "paid" | "unpaid" | "deposit"; amount: number }[]
+  >(
+    () =>
+      bonusRecords.map((item) => ({
+        id: item.id,
+        workType: item.workType,
+        amount: item.amount,
+        status: item.status === "paid" ? "paid" : "unpaid",
+      })),
+    [bonusRecords],
+  );
+
+  const bonusTotals = useMemo(
+    () => ({
+      total: bonuses.reduce((sum, b) => sum + b.amount, 0),
+      paid: bonuses
+        .filter((b) => b.status === "paid")
+        .reduce((sum, b) => sum + b.amount, 0),
+      unpaid: bonuses
+        .filter((b) => b.status === "unpaid")
+        .reduce((sum, b) => sum + b.amount, 0),
+    }),
+    [bonuses],
+  );
+
+  const workTypeOptions = useMemo(() => {
+    return STAFF_ROLE_WORK_TYPE_OPTIONS;
+  }, []);
+
+  const filteredWorkTypeOptions = useMemo(() => {
+    const needle = workTypeSearch.trim().toLowerCase();
+    if (!needle) return workTypeOptions;
+    return workTypeOptions.filter((item) => item.toLowerCase().includes(needle));
+  }, [workTypeOptions, workTypeSearch]);
+
   const resolvedQrLink = useMemo(() => {
     const link =
       (staff as { qrPaymentLink?: string } | undefined)?.qrPaymentLink ||
@@ -235,6 +332,197 @@ export default function AdminStaffDetailPage() {
       return total + safeAmount;
     }, 0);
   }, [sessionsInCurrentYear]);
+
+  const deleteBonusMutation = useMutation({
+    mutationFn: (bonusId: string) => bonusApi.deleteBonusById(bonusId),
+    onSuccess: async () => {
+      toast.success("Đã xóa thưởng.");
+      await queryClient.invalidateQueries({
+        queryKey: ["bonus", "list", "staff", id, selectedMonth],
+      });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (err as Error)?.message ??
+        "Không thể xóa thưởng.";
+      toast.error(msg);
+    },
+  });
+
+  const createBonusMutation = useMutation({
+    mutationFn: bonusApi.createBonus,
+    onSuccess: async () => {
+      toast.success("Đã thêm thưởng.");
+      setAddBonusPopupOpen(false);
+      setBonusForm(DEFAULT_BONUS_FORM);
+      await queryClient.invalidateQueries({
+        queryKey: ["bonus", "list", "staff", id, selectedMonth],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["staff", "detail", id],
+      });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (err as Error)?.message ??
+        "Không thể thêm thưởng.";
+      toast.error(msg);
+    },
+  });
+
+  const updateBonusMutation = useMutation({
+    mutationFn: bonusApi.updateBonus,
+    onSuccess: async () => {
+      toast.success("Đã cập nhật thưởng.");
+      setAddBonusPopupOpen(false);
+      setBonusFormMode("create");
+      setEditingBonusId(null);
+      setBonusForm(DEFAULT_BONUS_FORM);
+      await queryClient.invalidateQueries({
+        queryKey: ["bonus", "list", "staff", id, selectedMonth],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["staff", "detail", id],
+      });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (err as Error)?.message ??
+        "Không thể cập nhật thưởng.";
+      toast.error(msg);
+    },
+  });
+
+  const openAddBonusPopup = () => {
+    setBonusFormMode("create");
+    setEditingBonusId(null);
+    setBonusForm(DEFAULT_BONUS_FORM);
+    setWorkTypeMenuOpen(false);
+    setWorkTypeSearch("");
+    setStatusMenuOpen(false);
+    setAddBonusPopupOpen(true);
+  };
+
+  const openEditBonusPopup = (bonusId: string) => {
+    const target = bonusRecords.find((item) => item.id === bonusId);
+    if (!target) {
+      toast.error("Không tìm thấy thưởng để chỉnh sửa.");
+      return;
+    }
+
+    const isExistingOption = workTypeOptions.includes(target.workType);
+    setBonusFormMode("edit");
+    setEditingBonusId(target.id);
+    setBonusForm({
+      workTypeOption: isExistingOption ? target.workType : DEFAULT_ROLE_WORK_TYPE,
+      amount: String(target.amount),
+      status: target.status,
+      note: target.note,
+    });
+    setWorkTypeMenuOpen(false);
+    setWorkTypeSearch("");
+    setStatusMenuOpen(false);
+    setAddBonusPopupOpen(true);
+  };
+
+  const closeAddBonusPopup = () => {
+    if (createBonusMutation.isPending || updateBonusMutation.isPending) return;
+    setAddBonusPopupOpen(false);
+    setBonusFormMode("create");
+    setEditingBonusId(null);
+    setBonusForm(DEFAULT_BONUS_FORM);
+    setWorkTypeMenuOpen(false);
+    setWorkTypeSearch("");
+    setStatusMenuOpen(false);
+  };
+
+  const resolveWorkType = () => {
+    return bonusForm.workTypeOption.trim();
+  };
+
+  useEffect(() => {
+    if (!addBonusPopupOpen || (!workTypeMenuOpen && !statusMenuOpen)) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!workTypeMenuRef.current?.contains(event.target as Node)) {
+        setWorkTypeMenuOpen(false);
+      }
+      if (!statusMenuRef.current?.contains(event.target as Node)) {
+        setStatusMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setWorkTypeMenuOpen(false);
+        setStatusMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [addBonusPopupOpen, workTypeMenuOpen, statusMenuOpen]);
+
+  const handleSubmitBonus = async () => {
+    const workType = resolveWorkType();
+    if (!workType) {
+      toast.error("Vui lòng nhập loại công việc.");
+      return;
+    }
+
+    const parsedAmount = Number(bonusForm.amount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount < 0) {
+      toast.error("Số tiền không hợp lệ.");
+      return;
+    }
+
+    if (bonusFormMode === "create") {
+      if (typeof crypto === "undefined" || typeof crypto.randomUUID !== "function") {
+        toast.error("Không thể tạo mã thưởng. Vui lòng thử lại.");
+        return;
+      }
+
+      try {
+        await createBonusMutation.mutateAsync({
+          id: crypto.randomUUID(),
+          staffId: id,
+          workType,
+          month: selectedMonth,
+          amount: Math.round(parsedAmount),
+          status: bonusForm.status,
+          note: bonusForm.note.trim() || undefined,
+        });
+      } catch {
+        // toast lỗi đã xử lý trong onError
+      }
+      return;
+    }
+
+    if (!editingBonusId) {
+      toast.error("Không tìm thấy thưởng để chỉnh sửa.");
+      return;
+    }
+
+    try {
+      await updateBonusMutation.mutateAsync({
+        id: editingBonusId,
+        workType,
+        month: selectedMonth,
+        amount: Math.round(parsedAmount),
+        status: bonusForm.status,
+        note: bonusForm.note.trim() || undefined,
+      });
+    } catch {
+      // toast lỗi đã xử lý trong onError
+    }
+  };
 
 
   if (isLoading) {
@@ -403,53 +691,53 @@ export default function AdminStaffDetailPage() {
         >
           <h2
             id="income-stats-title"
-            className="mb-4 text-sm font-semibold uppercase tracking-wide text-text-muted"
+            className="mb-4 text-sm font-semibold uppercase tracking-wide text-black"
           >
             Thống kê thu nhập
           </h2>
           <div className="space-y-3 md:hidden">
-            <div className="flex justify-between rounded-lg border border-border-default bg-bg-secondary px-4 py-3">
-              <span className="text-sm text-text-muted">Tổng tháng</span>
-              <span className="tabular-nums text-sm font-medium text-text-primary">{formatCurrency(sessionMonthlyTotals.total)}</span>
+            <div className="flex justify-between rounded-lg border border-black/10 bg-white px-4 py-3">
+              <span className="text-sm text-black">Tổng tháng</span>
+              <span className="tabular-nums text-sm font-semibold text-primary">{formatCurrency(sessionMonthlyTotals.total)}</span>
             </div>
-            <div className="flex justify-between rounded-lg border border-border-default bg-bg-secondary px-4 py-3">
-              <span className="text-sm text-text-muted">Chưa nhận</span>
-              <span className="tabular-nums text-sm font-medium text-text-primary">{formatCurrency(sessionMonthlyTotals.unpaid)}</span>
+            <div className="flex justify-between rounded-lg border border-black/10 bg-white px-4 py-3">
+              <span className="text-sm text-black">Chưa nhận</span>
+              <span className="tabular-nums text-sm font-semibold text-error">{formatCurrency(sessionMonthlyTotals.unpaid)}</span>
             </div>
-            <div className="flex justify-between rounded-lg border border-border-default bg-bg-secondary px-4 py-3">
-              <span className="text-sm text-text-muted">Đã nhận</span>
-              <span className="tabular-nums text-sm font-medium text-text-primary">{formatCurrency(sessionMonthlyTotals.paid)}</span>
+            <div className="flex justify-between rounded-lg border border-black/10 bg-white px-4 py-3">
+              <span className="text-sm text-black">Đã nhận</span>
+              <span className="tabular-nums text-sm font-semibold text-success">{formatCurrency(sessionMonthlyTotals.paid)}</span>
             </div>
-            <div className="flex justify-between rounded-lg border border-border-default bg-bg-secondary px-4 py-3">
-              <span className="text-sm text-text-muted">Tổng năm</span>
-              <span className="tabular-nums text-sm font-medium text-text-primary">{formatCurrency(sessionYearTotal)}</span>
+            <div className="flex justify-between rounded-lg border border-black/10 bg-white px-4 py-3">
+              <span className="text-sm text-black">Tổng năm</span>
+              <span className="tabular-nums text-sm font-semibold text-warning">{formatCurrency(sessionYearTotal)}</span>
             </div>
           </div>
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[400px] border-collapse text-left text-sm">
               <caption className="sr-only">Bảng thống kê thu nhập nhân sự</caption>
-              <thead>
-                <tr className="border-b border-border-default bg-bg-secondary">
-                  <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
+              <thead className="bg-white">
+                <tr className="border-b border-border-default bg-white">
+                  <th scope="col" className="px-4 py-3 font-medium tabular-nums text-black">
                     Tổng tháng
                   </th>
-                  <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
+                  <th scope="col" className="px-4 py-3 font-medium tabular-nums text-black">
                     Chưa nhận
                   </th>
-                  <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
+                  <th scope="col" className="px-4 py-3 font-medium tabular-nums text-black">
                     Đã nhận
                   </th>
-                  <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
+                  <th scope="col" className="px-4 py-3 font-medium tabular-nums text-black">
                     Tổng năm
                   </th>
                 </tr>
               </thead>
               <tbody>
                 <tr className="border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary">
-                  <td className="px-4 py-3 tabular-nums text-text-primary">{formatCurrency(sessionMonthlyTotals.total)}</td>
-                  <td className="px-4 py-3 tabular-nums text-text-primary">{formatCurrency(sessionMonthlyTotals.unpaid)}</td>
-                  <td className="px-4 py-3 tabular-nums text-text-primary">{formatCurrency(sessionMonthlyTotals.paid)}</td>
-                  <td className="px-4 py-3 tabular-nums text-text-primary">{formatCurrency(sessionYearTotal)}</td>
+                  <td className="bg-white px-4 py-3 tabular-nums font-semibold text-primary">{formatCurrency(sessionMonthlyTotals.total)}</td>
+                  <td className="bg-white px-4 py-3 tabular-nums font-semibold text-error">{formatCurrency(sessionMonthlyTotals.unpaid)}</td>
+                  <td className="bg-white px-4 py-3 tabular-nums font-semibold text-success">{formatCurrency(sessionMonthlyTotals.paid)}</td>
+                  <td className="bg-white px-4 py-3 tabular-nums font-semibold text-warning">{formatCurrency(sessionYearTotal)}</td>
                 </tr>
                 <tr className="border-b border-border-default bg-bg-tertiary">
                   <td
@@ -502,9 +790,15 @@ export default function AdminStaffDetailPage() {
                       >
                         <p className="font-medium text-text-primary">{item.name}</p>
                         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-secondary">
-                          <span>Tổng: {formatCurrency(total)}</span>
-                          <span>Chưa nhận: {formatCurrency(allowance.unpaid)}</span>
-                          <span>Đã nhận: {formatCurrency(allowance.paid)}</span>
+                          <span>
+                            Tổng: <span className="font-semibold text-primary">{formatCurrency(total)}</span>
+                          </span>
+                          <span>
+                            Chưa nhận: <span className="font-semibold text-error">{formatCurrency(allowance.unpaid)}</span>
+                          </span>
+                          <span>
+                            Đã nhận: <span className="font-semibold text-success">{formatCurrency(allowance.paid)}</span>
+                          </span>
                         </div>
                       </div>
                     );
@@ -542,13 +836,13 @@ export default function AdminStaffDetailPage() {
                             className="border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary"
                           >
                             <td className="px-4 py-3 text-text-primary">{item.name}</td>
-                            <td className="px-4 py-3 tabular-nums text-text-primary">
+                            <td className="px-4 py-3 tabular-nums font-semibold text-primary">
                               {formatCurrency(total)}
                             </td>
-                            <td className="px-4 py-3 tabular-nums text-text-primary">
+                            <td className="px-4 py-3 tabular-nums font-semibold text-error">
                               {formatCurrency(allowance.unpaid)}
                             </td>
-                            <td className="px-4 py-3 tabular-nums text-text-primary">
+                            <td className="px-4 py-3 tabular-nums font-semibold text-success">
                               {formatCurrency(allowance.paid)}
                             </td>
                           </tr>
@@ -562,17 +856,24 @@ export default function AdminStaffDetailPage() {
           </StaffCard>
           <StaffBonusCard
             bonuses={bonuses}
-            totalMonth={bonuses.reduce((s, b) => s + b.amount, 0)}
-            paid={bonuses.filter((b) => b.status === "paid").reduce((s, b) => s + b.amount, 0)}
-            unpaid={bonuses.filter((b) => b.status === "unpaid").reduce((s, b) => s + b.amount, 0)}
-            onAddBonus={() => toast.info("Chức năng thêm thưởng đang phát triển.")}
-            onEditBonus={() => toast.info("Chức năng chỉnh sửa thưởng đang phát triển.")}
-            onDeleteBonus={(bid) => {
-              setBonuses((prev) => prev.filter((b) => b.id !== bid));
-              toast.success("Đã xóa thưởng.");
-            }}
+            totalMonth={bonusTotals.total}
+            paid={bonusTotals.paid}
+            unpaid={bonusTotals.unpaid}
+            onAddBonus={openAddBonusPopup}
+            onEditBonus={(bonus) => openEditBonusPopup(bonus.id)}
+            onDeleteBonus={(bid) => deleteBonusMutation.mutate(bid)}
             canManage
           />
+          {isBonusLoading ? (
+            <p className="mt-2 text-sm text-text-muted" aria-live="polite">
+              Đang tải dữ liệu thưởng...
+            </p>
+          ) : null}
+          {isBonusError ? (
+            <p className="mt-2 text-sm text-error" role="alert">
+              Không tải được dữ liệu thưởng.
+            </p>
+          ) : null}
         </div>
 
         <StaffCard title="Công việc khác">
@@ -692,6 +993,212 @@ export default function AdminStaffDetailPage() {
           setQrPopupOpen(false);
         }}
       />
+
+      {addBonusPopupOpen ? (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/50" aria-hidden onClick={closeAddBonusPopup} />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-bonus-title"
+            className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border-default bg-bg-surface p-4 shadow-xl sm:p-5"
+          >
+            <h2 id="add-bonus-title" className="text-lg font-semibold text-text-primary">
+              {bonusFormMode === "create" ? "Thêm thưởng" : "Chỉnh sửa thưởng"}
+            </h2>
+            <p className="mt-1 text-sm text-text-muted">Áp dụng cho {selectedMonthLabel}</p>
+
+            <div className="mt-4 space-y-3">
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-text-secondary">Loại công việc</span>
+                <div className="relative" ref={workTypeMenuRef}>
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between rounded-md border border-border-default bg-bg-surface px-3 py-2 text-left text-sm text-text-primary transition-colors duration-200 hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    onClick={() => setWorkTypeMenuOpen((prev) => !prev)}
+                    aria-haspopup="listbox"
+                    aria-expanded={workTypeMenuOpen}
+                    aria-label="Chọn loại công việc"
+                  >
+                    <span className="truncate">
+                      {bonusForm.workTypeOption}
+                    </span>
+                    <svg
+                      className={`ml-2 size-4 shrink-0 text-text-muted transition-transform duration-200 ${workTypeMenuOpen ? "rotate-180" : ""}`}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      aria-hidden
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m6 9 6 6 6-6" />
+                    </svg>
+                  </button>
+
+                  {workTypeMenuOpen ? (
+                    <div
+                      role="listbox"
+                      aria-label="Danh sách công việc"
+                      className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border border-border-default bg-bg-surface shadow-lg"
+                    >
+                      <div className="border-b border-border-default p-2">
+                        <input
+                          type="search"
+                          value={workTypeSearch}
+                          onChange={(e) => setWorkTypeSearch(e.target.value)}
+                          placeholder="Tìm công việc..."
+                          className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                        />
+                      </div>
+                      <div className="max-h-64 overflow-auto p-1">
+                        {filteredWorkTypeOptions.map((item) => {
+                          const isSelected = bonusForm.workTypeOption === item;
+                          return (
+                            <button
+                              key={item}
+                              type="button"
+                              role="option"
+                              aria-selected={isSelected}
+                              className={`flex w-full items-center justify-between rounded px-2 py-2 text-left text-sm transition-colors duration-150 ${
+                                isSelected
+                                  ? "bg-primary/10 font-medium text-text-primary"
+                                  : "text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
+                              }`}
+                              onClick={() => {
+                                setBonusForm((prev) => ({
+                                  ...prev,
+                                  workTypeOption: item,
+                                }));
+                                setWorkTypeMenuOpen(false);
+                              }}
+                            >
+                              <span>{item}</span>
+                            </button>
+                          );
+                        })}
+                        {filteredWorkTypeOptions.length === 0 ? (
+                          <p className="px-2 py-2 text-sm text-text-muted">Không tìm thấy công việc phù hợp.</p>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-text-secondary">Số tiền</span>
+                <input
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  value={bonusForm.amount}
+                  onChange={(e) => setBonusForm((prev) => ({ ...prev, amount: e.target.value }))}
+                  placeholder="Ví dụ: 500000"
+                  className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-text-secondary">Trạng thái</span>
+                <div className="relative" ref={statusMenuRef}>
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between rounded-md border border-border-default bg-bg-surface px-3 py-2 text-left text-sm text-text-primary transition-colors duration-200 hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    onClick={() => setStatusMenuOpen((prev) => !prev)}
+                    aria-haspopup="listbox"
+                    aria-expanded={statusMenuOpen}
+                    aria-label="Chọn trạng thái thanh toán"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <span className={`size-2 rounded-full ${bonusForm.status === "paid" ? "bg-success" : "bg-warning"}`} aria-hidden />
+                      {bonusForm.status === "paid" ? "Đã thanh toán" : "Chờ thanh toán"}
+                    </span>
+                    <svg
+                      className={`ml-2 size-4 shrink-0 text-text-muted transition-transform duration-200 ${statusMenuOpen ? "rotate-180" : ""}`}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      aria-hidden
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m6 9 6 6 6-6" />
+                    </svg>
+                  </button>
+
+                  {statusMenuOpen ? (
+                    <div
+                      role="listbox"
+                      aria-label="Danh sách trạng thái thanh toán"
+                      className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border border-border-default bg-bg-surface p-1 shadow-lg"
+                    >
+                      {[
+                        { value: "pending" as const, label: "Chờ thanh toán", dot: "bg-warning" },
+                        { value: "paid" as const, label: "Đã thanh toán", dot: "bg-success" },
+                      ].map((option) => {
+                        const isSelected = bonusForm.status === option.value;
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            role="option"
+                            aria-selected={isSelected}
+                            className={`flex w-full items-center justify-between rounded px-2 py-2 text-left text-sm transition-colors duration-150 ${
+                              isSelected
+                                ? "bg-primary/10 font-medium text-text-primary"
+                                : "text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
+                            }`}
+                            onClick={() => {
+                              setBonusForm((prev) => ({ ...prev, status: option.value }));
+                              setStatusMenuOpen(false);
+                            }}
+                          >
+                            <span className="inline-flex items-center gap-2">
+                              <span className={`size-2 rounded-full ${option.dot}`} aria-hidden />
+                              {option.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-text-secondary">Ghi chú</span>
+                <textarea
+                  rows={3}
+                  value={bonusForm.note}
+                  onChange={(e) => setBonusForm((prev) => ({ ...prev, note: e.target.value }))}
+                  placeholder="Ghi chú thêm (nếu có)"
+                  className="w-full resize-none rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                />
+              </label>
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={closeAddBonusPopup}
+                className="min-h-11 rounded-md border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:py-2"
+                disabled={createBonusMutation.isPending || updateBonusMutation.isPending}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitBonus}
+                className="min-h-11 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:py-2 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={createBonusMutation.isPending || updateBonusMutation.isPending}
+              >
+                {createBonusMutation.isPending || updateBonusMutation.isPending
+                  ? "Đang lưu..."
+                  : bonusFormMode === "create"
+                    ? "Thêm thưởng"
+                    : "Lưu thay đổi"}
+              </button>
+            </div>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

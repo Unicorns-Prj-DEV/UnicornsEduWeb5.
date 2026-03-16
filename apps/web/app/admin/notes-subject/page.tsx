@@ -1,8 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import DOMPurify from "dompurify";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 import RulePostFormPopup, {
   type RulePostFormValues,
   type RulePostItem,
@@ -14,39 +17,19 @@ const INITIAL_MOCK_RULE_POSTS: RulePostItem[] = [
     id: "1",
     title: "Quy định nộp bài",
     description: "Hướng dẫn và thời hạn nộp bài",
-    content: "<p>Học viên cần nộp bài đúng thời hạn. Bài nộp trễ sẽ bị trừ điểm.</p>",
+    content:
+      "Học viên cần nộp bài **đúng thời hạn**. Bài nộp trễ sẽ bị trừ điểm.\n\nVí dụ: nếu bài được chấm theo thang điểm \\(10\\), nộp trễ 1 ngày trừ \\(1\\) điểm.",
   },
   {
     id: "2",
     title: "Quy định điểm danh",
     description: "Cách thức điểm danh và vắng có phép",
     content:
-      "<p>Điểm danh trước 15 phút sau giờ học. Vắng có phép cần báo trước 24h.</p>",
+      "Điểm danh trước **15 phút** sau giờ học. Vắng có phép cần báo trước *24h*.\n\nCông thức minh họa: $$\\text{Tỉ lệ chuyên cần} = \\frac{\\text{số buổi có mặt}}{\\text{tổng số buổi}} \\times 100\\%.$$",
   },
 ];
 
 type TabId = "quy-dinh" | "tai-lieu";
-
-type DomPurifyLike =
-  | { sanitize?: (value: string) => string }
-  | ((root: Window) => { sanitize?: (value: string) => string });
-
-function sanitizeHtml(value: string): string {
-  const purifier = DOMPurify as unknown as DomPurifyLike;
-
-  if (typeof purifier === "object" && typeof purifier.sanitize === "function") {
-    return purifier.sanitize(value);
-  }
-
-  if (typeof window !== "undefined" && typeof purifier === "function") {
-    const instance = purifier(window);
-    if (typeof instance?.sanitize === "function") {
-      return instance.sanitize(value);
-    }
-  }
-
-  return value;
-}
 
 export default function AdminNotesSubjectPage() {
   const [activeTab, setActiveTab] = useState<TabId>("quy-dinh");
@@ -54,14 +37,6 @@ export default function AdminNotesSubjectPage() {
     INITIAL_MOCK_RULE_POSTS
   );
   const [formPopupOpen, setFormPopupOpen] = useState(false);
-  const sanitizedRulePosts = useMemo(
-    () =>
-      rulePosts.map((post) => ({
-        ...post,
-        sanitizedContent: sanitizeHtml(post.content),
-      })),
-    [rulePosts]
-  );
 
   const handleAddRulePost = (values: RulePostFormValues) => {
     const newPost: RulePostItem = {
@@ -92,11 +67,10 @@ export default function AdminNotesSubjectPage() {
                 aria-controls="panel-quy-dinh"
                 id="tab-quy-dinh"
                 onClick={() => setActiveTab("quy-dinh")}
-                className={`rounded-t-md px-4 py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
-                  activeTab === "quy-dinh"
-                    ? "-mb-px border-b-2 border-primary bg-bg-surface text-primary"
-                    : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
-                }`}
+                className={`rounded-t-md px-4 py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${activeTab === "quy-dinh"
+                  ? "-mb-px border-b-2 border-primary bg-bg-surface text-primary"
+                  : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
+                  }`}
               >
                 Quy định
               </button>
@@ -107,11 +81,10 @@ export default function AdminNotesSubjectPage() {
                 aria-controls="panel-tai-lieu"
                 id="tab-tai-lieu"
                 onClick={() => setActiveTab("tai-lieu")}
-                className={`rounded-t-md px-4 py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
-                  activeTab === "tai-lieu"
-                    ? "-mb-px border-b-2 border-primary bg-bg-surface text-primary"
-                    : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
-                }`}
+                className={`rounded-t-md px-4 py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${activeTab === "tai-lieu"
+                  ? "-mb-px border-b-2 border-primary bg-bg-surface text-primary"
+                  : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
+                  }`}
               >
                 Tài liệu
               </button>
@@ -126,7 +99,7 @@ export default function AdminNotesSubjectPage() {
                 aria-labelledby="tab-quy-dinh"
                 className="space-y-4"
               >
-                <div className="flex items-center justify-between gap-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-text-muted">
                     Các bài quy định môn học. Bấm &quot;Thêm bài quy định&quot; để
                     tạo mới.
@@ -134,7 +107,7 @@ export default function AdminNotesSubjectPage() {
                   <button
                     type="button"
                     onClick={() => setFormPopupOpen(true)}
-                    className="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    className="w-full shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:w-auto"
                   >
                     Thêm bài quy định
                   </button>
@@ -149,7 +122,7 @@ export default function AdminNotesSubjectPage() {
                   </div>
                 ) : (
                   <ul className="space-y-3">
-                    {sanitizedRulePosts.map((post) => (
+                    {rulePosts.map((post) => (
                       <li key={post.id}>
                         <article className="rounded-xl border border-border-default bg-bg-surface p-4 transition-colors hover:border-border-focus hover:bg-bg-elevated">
                           <h3 className="font-semibold text-text-primary">
@@ -160,12 +133,14 @@ export default function AdminNotesSubjectPage() {
                               {post.description}
                             </p>
                           )}
-                          <div
-                            className="mt-3 text-sm text-text-secondary [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:mb-2 [&_strong]:font-bold [&_ul]:list-disc [&_ul]:pl-6"
-                            dangerouslySetInnerHTML={{
-                              __html: post.sanitizedContent,
-                            }}
-                          />
+                          <div className="prose prose-sm max-w-none mt-3 text-text-secondary [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_.katex-display]:my-3">
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm, remarkMath]}
+                              rehypePlugins={[rehypeKatex]}
+                            >
+                              {post.content}
+                            </ReactMarkdown>
+                          </div>
                         </article>
                       </li>
                     ))}
@@ -194,4 +169,16 @@ export default function AdminNotesSubjectPage() {
       />
     </div>
   );
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const existing = document.getElementById("katex-styles");
+    if (existing) return;
+    const link = document.createElement("link");
+    link.id = "katex-styles";
+    link.rel = "stylesheet";
+    link.href = "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css";
+    link.crossOrigin = "anonymous";
+    document.head.appendChild(link);
+  }, []);
 }

@@ -269,33 +269,37 @@ export default function DocsTab() {
                                 handleProblemClick(problem, contest.id, "view");
                               }
                             }}
-                            className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-md border border-border-subtle bg-bg-surface p-3 transition-colors hover:border-border-default hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                            className="flex min-h-[44px] cursor-pointer flex-col gap-3 rounded-md border border-border-subtle bg-bg-surface p-3 transition-colors hover:border-border-default hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:flex-row sm:items-center sm:gap-2"
                           >
-                            <span className="min-w-[2.5rem] shrink-0 text-sm font-medium text-primary">
-                              {problem.index}
-                            </span>
-                            <span className="min-w-0 flex-1 truncate text-sm text-text-primary">
-                              {problem.name}
-                            </span>
-                            <a
-                              href={cfUrl(contest.id, problem.index)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="shrink-0 rounded px-2 py-1 text-xs text-info hover:bg-info/10 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              Mở trên CF
-                            </a>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleProblemClick(problem, contest.id, "edit");
-                              }}
-                              className="shrink-0 rounded px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                            >
-                              Chỉnh sửa
-                            </button>
+                            <div className="flex items-start gap-2 sm:flex-1">
+                              <span className="min-w-[2.5rem] shrink-0 text-sm font-medium text-primary">
+                                {problem.index}
+                              </span>
+                              <span className="min-w-0 flex-1 truncate text-sm text-text-primary">
+                                {problem.name}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                              <a
+                                href={cfUrl(contest.id, problem.index)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="rounded px-2 py-1 text-xs text-info hover:bg-info/10 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Mở trên CF
+                              </a>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleProblemClick(problem, contest.id, "edit");
+                                }}
+                                className="rounded px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                              >
+                                Chỉnh sửa
+                              </button>
+                            </div>
                           </div>
                         </li>
                       ))}

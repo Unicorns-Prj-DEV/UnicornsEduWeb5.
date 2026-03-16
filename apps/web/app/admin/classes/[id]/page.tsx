@@ -395,7 +395,53 @@ export default function AdminClassDetailPage() {
           }
         >
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[400px] border-collapse text-left text-sm">
+            {/* Mobile: danh sách học sinh dạng thẻ */}
+            <div className="space-y-3 md:hidden">
+              {classStudents.length === 0 ? (
+                <p className="py-4 text-center text-sm text-text-muted">
+                  Lớp chưa có học sinh.
+                </p>
+              ) : (
+                classStudents.map((student) => {
+                  const studentStatus = student.status ?? "active";
+                  const isActive = studentStatus === "active";
+                  const statusLabel = isActive ? "Đang học" : "Ngưng học";
+
+                  return (
+                    <article
+                      key={student.id}
+                      className="rounded-lg border border-border-default bg-bg-surface p-3 shadow-sm"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-text-primary">
+                            {student.fullName}
+                          </p>
+                          <p className="mt-1 text-xs text-text-muted">
+                            Buổi còn lại:{" "}
+                            <span className="font-medium tabular-nums">
+                              {student.remainingSessions ?? "—"}
+                            </span>
+                          </p>
+                        </div>
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            isActive
+                              ? "bg-success/15 text-success"
+                              : "bg-text-muted/15 text-text-muted"
+                          }`}
+                        >
+                          {statusLabel}
+                        </span>
+                      </div>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Desktop / tablet: bảng học sinh */}
+            <table className="hidden w-full min-w-[400px] border-collapse text-left text-sm md:table">
               <caption className="sr-only">Danh sách học sinh trong lớp</caption>
               <thead>
                 <tr className="border-b border-border-default bg-bg-secondary">
@@ -434,10 +480,11 @@ export default function AdminClassDetailPage() {
                         </td>
                         <td className="px-4 py-3">
                           <span
-                            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${isActive
-                              ? "bg-success/15 text-success"
-                              : "bg-text-muted/15 text-text-muted"
-                              }`}
+                            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                              isActive
+                                ? "bg-success/15 text-success"
+                                : "bg-text-muted/15 text-text-muted"
+                            }`}
                           >
                             {statusLabel}
                           </span>
@@ -605,10 +652,52 @@ export default function AdminClassDetailPage() {
 
           {activeTab === "surveys" && (
             <div className="overflow-x-auto">
+              {/* Mobile: khảo sát dạng thẻ */}
+              <div className="md:hidden">
+                {surveysInMonth.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-text-muted">
+                    Không có khảo sát trong tháng này.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {surveysInMonth.map((sv) => (
+                      <article
+                        key={sv.id}
+                        className="rounded-lg border border-border-default bg-bg-surface p-3 shadow-sm"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                              Ngày
+                            </p>
+                            <p className="text-sm font-semibold text-text-primary">{sv.date}</p>
+                            <p className="mt-2 text-xs font-medium uppercase tracking-wide text-text-muted">
+                              Học viên
+                            </p>
+                            <p className="text-sm text-text-primary">{sv.studentName}</p>
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="rounded-full bg-warning/15 px-2.5 py-0.5 text-xs font-medium text-warning">
+                              {sv.rating}/5
+                            </span>
+                          </div>
+                        </div>
+                        {sv.note && (
+                          <p className="mt-3 text-sm text-text-secondary">{sv.note}</p>
+                        )}
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Desktop / tablet: bảng khảo sát */}
               {surveysInMonth.length === 0 ? (
-                <p className="py-6 text-center text-sm text-text-muted">Không có khảo sát trong tháng này.</p>
+                <p className="hidden py-6 text-center text-sm text-text-muted md:block">
+                  Không có khảo sát trong tháng này.
+                </p>
               ) : (
-                <table className="w-full min-w-[400px] border-collapse text-left text-sm">
+                <table className="hidden w-full min-w-[400px] border-collapse text-left text-sm md:table">
                   <caption className="sr-only">Khảo sát</caption>
                   <thead>
                     <tr className="border-b border-border-default bg-bg-secondary">

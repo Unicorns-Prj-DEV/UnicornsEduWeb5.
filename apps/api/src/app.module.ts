@@ -10,6 +10,7 @@ import { StudentModule } from './student/student.module';
 import { StaffModule } from './staff/staff.module';
 import { ClassModule } from './class/class.module';
 import { CostModule } from './cost/cost.module';
+import { BonusModule } from './bonus/bonus.module';
 import { CodeforcesModule } from './codeforces/codeforces.module';
 import { CfProblemTutorialModule } from './cf-problem-tutorial/cf-problem-tutorial.module';
 import { SessionModule } from './session/session.module';
@@ -22,6 +23,7 @@ import { SessionModule } from './session/session.module';
     StaffModule,
     ClassModule,
     CostModule,
+    BonusModule,
     CodeforcesModule,
     CfProblemTutorialModule,
     SessionModule,

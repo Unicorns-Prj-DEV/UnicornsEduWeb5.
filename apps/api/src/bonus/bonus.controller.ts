@@ -1,0 +1,141 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
+import {
+  ApiBody,
+  ApiCookieAuth,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { UserRole } from 'generated/enums';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { PaginationQueryDto } from '../dtos/pagination.dto';
+import { CreateBonusDto, UpdateBonusDto } from '../dtos/bonus.dto';
+import { BonusService } from './bonus.service';
+
+@Controller('bonus')
+@ApiTags('bonus')
+@ApiCookieAuth('access_token')
+@Roles(UserRole.admin)
+export class BonusController {
+  constructor(private readonly bonusService: BonusService) {}
+
+  @Get()
+  @ApiOperation({
+    summary: 'List bonuses',
+    description: 'Get paginated bonus list.',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (default: 20, max: 100)',
+    example: 20,
+  })
+  @ApiQuery({
+    name: 'staffId',
+    required: false,
+    type: String,
+    description: 'Filter by staff id',
+  })
+  @ApiQuery({
+    name: 'month',
+    required: false,
+    type: String,
+    description: 'Filter by month key (YYYY-MM)',
+    example: '2026-03',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    type: String,
+    description: 'Filter by payment status',
+    example: 'pending',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated bonus list with data and meta.',
+  })
+  async getBonuses(
+    @Query() query: PaginationQueryDto,
+    @Query('staffId') staffId?: string,
+    @Query('month') month?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.bonusService.getBonuses({
+      ...query,
+      staffId,
+      month,
+      status,
+    });
+  }
+
+  @Get(':id')
+  @ApiOperation({
+    summary: 'Get bonus by id',
+    description: 'Get a single bonus record by id.',
+  })
+  @ApiParam({ name: 'id', description: 'Bonus id' })
+  @ApiResponse({ status: 200, description: 'Bonus found.' })
+  @ApiResponse({ status: 404, description: 'Bonus not found.' })
+  async getBonusById(@Param('id') id: string) {
+    return this.bonusService.getBonusById(id);
+  }
+
+  @Post()
+  @ApiOperation({
+    summary: 'Create bonus',
+    description: 'Create a new bonus record.',
+  })
+  @ApiBody({ type: CreateBonusDto, description: 'Bonus create payload' })
+  @ApiResponse({ status: 201, description: 'Bonus created.' })
+  @ApiResponse({ status: 400, description: 'Validation error.' })
+  async createBonus(@Body() data: CreateBonusDto) {
+    return this.bonusService.createBonus(data);
+  }
+
+  @Patch()
+  @ApiOperation({
+    summary: 'Update bonus',
+    description: 'Update a bonus record.',
+  })
+  @ApiBody({
+    type: UpdateBonusDto,
+    description: 'Bonus update payload (id required)',
+  })
+  @ApiResponse({ status: 200, description: 'Bonus updated.' })
+  @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({ status: 404, description: 'Bonus not found.' })
+  async updateBonus(@Body() data: UpdateBonusDto) {
+    return this.bonusService.updateBonus(data);
+  }
+
+  @Delete(':id')
+  @ApiOperation({
+    summary: 'Delete bonus',
+    description: 'Delete a bonus record by id.',
+  })
+  @ApiParam({ name: 'id', description: 'Bonus id' })
+  @ApiResponse({ status: 200, description: 'Bonus deleted.' })
+  @ApiResponse({ status: 404, description: 'Bonus not found.' })
+  async deleteBonus(@Param('id') id: string) {
+    return this.bonusService.deleteBonus(id);
+  }
+}

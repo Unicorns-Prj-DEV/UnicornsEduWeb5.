@@ -459,7 +459,130 @@ export default function SessionHistoryTable({
 
   return (
     <>
-      <div className={`overflow-x-auto ${className}`}>
+      {/* Mobile layout: card list */}
+      <div className={`space-y-3 ${className} md:hidden`}>
+        {sessions.length > 0 ? (
+          sessions.map((session) => {
+            const status = renderSessionStatus(session, statusMode);
+            const notesContent = session.notes?.trim();
+            const sanitizedNotes = notesContent ? sanitizeHtml(notesContent) : "";
+            const entityLabel = shouldShowEntity ? renderEntityHeader(entityMode) : "";
+            const entityValue = shouldShowEntity ? renderEntityCell(session, entityMode) : "";
+
+            return (
+              <article
+                key={session.id}
+                className="group rounded-lg border border-border-default bg-bg-surface p-3 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                      Ngày học
+                    </p>
+                    <p className="text-sm font-semibold text-text-primary">
+                      {formatDateOnly(session.date)}
+                    </p>
+                    <p className="mt-1 text-xs font-medium uppercase tracking-wide text-text-muted">
+                      Giờ học
+                    </p>
+                    <p className="text-sm font-mono text-text-primary">
+                      {renderSessionTime(session)}
+                    </p>
+                    {shouldShowEntity && (
+                      <div className="mt-1">
+                        <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                          {entityLabel}
+                        </p>
+                        <p
+                          className="max-w-[200px] truncate text-sm text-text-primary"
+                          title={entityValue}
+                        >
+                          {entityValue}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}
+                    >
+                      {status.label}
+                    </span>
+                    {onSessionUpdated && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(session)}
+                          aria-label="Chỉnh sửa buổi học"
+                          className="rounded p-1.5 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                        >
+                          <svg
+                            className="size-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            aria-hidden
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                            />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteClick(session)}
+                          disabled={deleteMutation.isPending}
+                          aria-label="Xóa buổi học"
+                          className="rounded p-1.5 text-text-muted transition-colors hover:bg-error/10 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50"
+                        >
+                          <svg
+                            className="size-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            aria-hidden
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {entityMode === "teacher" && (
+                  <div className="mt-3 border-t border-border-subtle pt-2">
+                    <p className="mb-1 text-xs font-medium uppercase tracking-wide text-text-muted">
+                      Ghi chú
+                    </p>
+                    {sanitizedNotes ? (
+                      <div
+                        className="prose prose-xs max-w-none text-sm text-text-primary [&_p]:mb-1 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_strong]:font-bold [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm"
+                        dangerouslySetInnerHTML={{ __html: sanitizedNotes }}
+                      />
+                    ) : (
+                      <p className="text-sm text-text-muted">Không có ghi chú.</p>
+                    )}
+                  </div>
+                )}
+              </article>
+            );
+          })
+        ) : (
+          <p className="text-center text-sm text-text-muted">{emptyText}</p>
+        )}
+      </div>
+
+      {/* Desktop / tablet layout: table */}
+      <div className={`hidden overflow-x-auto md:block ${className}`}>
         <table
           className={
             entityMode === "class"
@@ -517,80 +640,123 @@ export default function SessionHistoryTable({
                 Trạng thái thanh toán
               </th>
               {onSessionUpdated ? (
-                <th scope="col" className="w-20 px-2 py-3 text-right font-medium text-text-primary" title="Thao tác">
+                <th
+                  scope="col"
+                  className="w-20 px-2 py-3 text-right font-medium text-text-primary"
+                  title="Thao tác"
+                >
                   <span className="sr-only">Thao tác</span>
                 </th>
               ) : null}
             </tr>
           </thead>
           <tbody>
-            {sessions.length > 0 ? sessions.map((session) => {
-              const status = renderSessionStatus(session, statusMode);
-              const notesContent = session.notes?.trim();
-              const sanitizedNotes = notesContent ? sanitizeHtml(notesContent) : "";
-              return (
-                <tr
-                  key={session.id}
-                  className="group border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary"
-                >
-                  <td className="px-4 py-3 text-text-primary">{formatDateOnly(session.date)}</td>
-                  {entityMode === "teacher" ? (
+            {sessions.length > 0 ? (
+              sessions.map((session) => {
+                const status = renderSessionStatus(session, statusMode);
+                const notesContent = session.notes?.trim();
+                const sanitizedNotes = notesContent ? sanitizeHtml(notesContent) : "";
+                return (
+                  <tr
+                    key={session.id}
+                    className="group border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary"
+                  >
                     <td className="px-4 py-3 text-text-primary">
-                      {sanitizedNotes ? (
-                        <div
-                          className="min-w-0 [&_p]:mb-1 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_strong]:font-bold [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm"
-                          dangerouslySetInnerHTML={{ __html: sanitizedNotes }}
-                        />
-                      ) : (
-                        <span className="text-text-muted">—</span>
-                      )}
+                      {formatDateOnly(session.date)}
                     </td>
-                  ) : null}
-                  <td className="px-4 py-3 font-mono text-text-primary">{renderSessionTime(session)}</td>
-                  {shouldShowEntity ? (
-                    <td className="min-w-0 px-4 py-3 text-text-primary">
-                      <span className="block truncate" title={renderEntityCell(session, entityMode)}>
-                        {renderEntityCell(session, entityMode)}
+                    {entityMode === "teacher" ? (
+                      <td className="px-4 py-3 text-text-primary">
+                        {sanitizedNotes ? (
+                          <div
+                            className="min-w-0 [&_p]:mb-1 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_strong]:font-bold [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm"
+                            dangerouslySetInnerHTML={{ __html: sanitizedNotes }}
+                          />
+                        ) : (
+                          <span className="text-text-muted">—</span>
+                        )}
+                      </td>
+                    ) : null}
+                    <td className="px-4 py-3 font-mono text-text-primary">
+                      {renderSessionTime(session)}
+                    </td>
+                    {shouldShowEntity ? (
+                      <td className="min-w-0 px-4 py-3 text-text-primary">
+                        <span
+                          className="block truncate"
+                          title={renderEntityCell(session, entityMode)}
+                        >
+                          {renderEntityCell(session, entityMode)}
+                        </span>
+                      </td>
+                    ) : null}
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}
+                      >
+                        {status.label}
                       </span>
                     </td>
-                  ) : null}
-                  <td className="px-4 py-3">
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
-                      {status.label}
-                    </span>
-                  </td>
-                  {onSessionUpdated ? (
-                    <td className="px-2 py-3 text-right">
-                      <div className="inline-flex items-center justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={() => openEdit(session)}
-                          aria-label="Chỉnh sửa buổi học"
-                          className="rounded p-1.5 text-text-muted opacity-0 transition-opacity duration-200 group-hover:opacity-100 hover:bg-bg-tertiary hover:text-primary focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                        >
-                          <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteClick(session)}
-                          disabled={deleteMutation.isPending}
-                          aria-label="Xóa buổi học"
-                          className="rounded p-1.5 text-text-muted opacity-0 transition-opacity duration-200 group-hover:opacity-100 hover:bg-error/10 hover:text-error focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50"
-                        >
-                          <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </td>
-                  ) : null}
-                </tr>
-              );
-            }) : (
+                    {onSessionUpdated ? (
+                      <td className="px-2 py-3 text-right">
+                        <div className="inline-flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(session)}
+                            aria-label="Chỉnh sửa buổi học"
+                            className="rounded p-1.5 text-text-muted opacity-0 transition-opacity duration-200 group-hover:opacity-100 hover:bg-bg-tertiary hover:text-primary focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                          >
+                            <svg
+                              className="size-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              aria-hidden
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                              />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteClick(session)}
+                            disabled={deleteMutation.isPending}
+                            aria-label="Xóa buổi học"
+                            className="rounded p-1.5 text-text-muted opacity-0 transition-opacity duration-200 group-hover:opacity-100 hover:bg-error/10 hover:text-error focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50"
+                          >
+                            <svg
+                              className="size-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              aria-hidden
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                    ) : null}
+                  </tr>
+                );
+              })
+            ) : (
               <tr>
-                <td colSpan={(entityMode === "teacher" ? 5 : shouldShowEntity ? 4 : 3) + (onSessionUpdated ? 1 : 0)} className="px-4 py-3 text-center text-text-muted">
+                <td
+                  colSpan={
+                    (entityMode === "teacher" ? 5 : shouldShowEntity ? 4 : 3) +
+                    (onSessionUpdated ? 1 : 0)
+                  }
+                  className="px-4 py-3 text-center text-text-muted"
+                >
                   {emptyText}
                 </td>
               </tr>
