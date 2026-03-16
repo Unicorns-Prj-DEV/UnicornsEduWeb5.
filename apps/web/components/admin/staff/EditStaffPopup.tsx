@@ -10,6 +10,8 @@ type Props = {
   open: boolean;
   onClose: () => void;
   staff: StaffDetail;
+  /** Called after a successful update (after internal query invalidation). Use to invalidate page-level queries. */
+  onSuccess?: () => void | Promise<void>;
 };
 
 const ROLE_OPTIONS: { value: string; label: string }[] = [
@@ -37,7 +39,7 @@ function formatDateInput(iso?: string | null): string {
   }
 }
 
-export default function EditStaffPopup({ open, onClose, staff }: Props) {
+export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Props) {
   const queryClient = useQueryClient();
 
   const [fullName, setFullName] = useState(staff.fullName ?? "");
@@ -70,6 +72,7 @@ export default function EditStaffPopup({ open, onClose, staff }: Props) {
         queryClient.invalidateQueries({ queryKey: ["staff", "detail", staff.id] }),
         queryClient.invalidateQueries({ queryKey: ["staff", "list"] }),
       ]);
+      await onSuccess?.();
     },
     onError: (err: unknown) => {
       const msg =

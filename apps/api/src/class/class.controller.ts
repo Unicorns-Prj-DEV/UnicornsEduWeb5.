@@ -21,7 +21,14 @@ import {
 import { UserRole } from 'generated/enums';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { PaginationQueryDto } from 'src/dtos/pagination.dto';
-import { CreateClassDto, UpdateClassDto } from 'src/dtos/class.dto';
+import {
+  CreateClassDto,
+  UpdateClassBasicInfoDto,
+  UpdateClassDto,
+  UpdateClassScheduleDto,
+  UpdateClassStudentsDto,
+  UpdateClassTeachersDto,
+} from 'src/dtos/class.dto';
 import { ClassService } from './class.service';
 
 @Controller('class')
@@ -98,6 +105,77 @@ export class ClassController {
   @ApiResponse({ status: 404, description: 'Class not found.' })
   async getStudentsByClassId(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.classService.getStudentsByClassId(id);
+  }
+
+  @Patch(':id/basic-info')
+  @ApiOperation({
+    summary: 'Update class basic info',
+    description:
+      'Update basic info and tuition. When allowance_per_session_per_student is sent, all class_teachers.customAllowance for this class are set to that value.',
+  })
+  @ApiParam({ name: 'id', description: 'Class id' })
+  @ApiBody({ type: UpdateClassBasicInfoDto })
+  @ApiResponse({ status: 200, description: 'Class updated.' })
+  @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({ status: 404, description: 'Class not found.' })
+  async updateClassBasicInfo(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateClassBasicInfoDto,
+  ) {
+    return this.classService.updateClassBasicInfo(id, dto);
+  }
+
+  @Patch(':id/teachers')
+  @ApiOperation({
+    summary: 'Update class teachers',
+    description:
+      'Replace the list of teachers (and their custom allowance) for the class.',
+  })
+  @ApiParam({ name: 'id', description: 'Class id' })
+  @ApiBody({ type: UpdateClassTeachersDto })
+  @ApiResponse({ status: 200, description: 'Class updated.' })
+  @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({ status: 404, description: 'Class not found.' })
+  async updateClassTeachers(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateClassTeachersDto,
+  ) {
+    return this.classService.updateClassTeachers(id, dto);
+  }
+
+  @Patch(':id/schedule')
+  @ApiOperation({
+    summary: 'Update class schedule',
+    description:
+      'Replace the class schedule (array of { from, to } in HH:mm:ss).',
+  })
+  @ApiParam({ name: 'id', description: 'Class id' })
+  @ApiBody({ type: UpdateClassScheduleDto })
+  @ApiResponse({ status: 200, description: 'Class updated.' })
+  @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({ status: 404, description: 'Class not found.' })
+  async updateClassSchedule(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateClassScheduleDto,
+  ) {
+    return this.classService.updateClassSchedule(id, dto);
+  }
+
+  @Patch(':id/students')
+  @ApiOperation({
+    summary: 'Update class students',
+    description: 'Replace the list of students in the class.',
+  })
+  @ApiParam({ name: 'id', description: 'Class id' })
+  @ApiBody({ type: UpdateClassStudentsDto })
+  @ApiResponse({ status: 200, description: 'Class updated.' })
+  @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({ status: 404, description: 'Class not found.' })
+  async updateClassStudents(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateClassStudentsDto,
+  ) {
+    return this.classService.updateClassStudents(id, dto);
   }
 
   @Get(':id')

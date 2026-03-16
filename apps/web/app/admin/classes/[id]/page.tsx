@@ -9,7 +9,10 @@ import * as sessionApi from "@/lib/apis/session.api";
 import { formatCurrency } from "@/lib/class.helpers";
 import {
   ClassCard,
-  EditClassPopup,
+  EditClassBasicInfoPopup,
+  EditClassSchedulePopup,
+  EditClassStudentsPopup,
+  EditClassTeachersPopup,
   ScheduleTimeCard,
   SessionHistoryTableSkeleton,
   TutorCard,
@@ -45,7 +48,10 @@ export default function AdminClassDetailPage() {
   const params = useParams();
   const id = typeof params?.id === "string" ? params.id : "";
   const router = useRouter();
-  const [editPopupOpen, setEditPopupOpen] = useState(false);
+  const [basicInfoPopupOpen, setBasicInfoPopupOpen] = useState(false);
+  const [teachersPopupOpen, setTeachersPopupOpen] = useState(false);
+  const [schedulePopupOpen, setSchedulePopupOpen] = useState(false);
+  const [studentsPopupOpen, setStudentsPopupOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>("sessions");
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const d = new Date();
@@ -262,10 +268,10 @@ export default function AdminClassDetailPage() {
               </h1>
               <button
                 type="button"
-                onClick={() => setEditPopupOpen(true)}
+                onClick={() => setBasicInfoPopupOpen(true)}
                 className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border-default bg-bg-surface text-text-muted transition hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
-                aria-label="Chỉnh sửa thông tin lớp học"
-                title="Chỉnh sửa thông tin lớp học"
+                aria-label="Chỉnh sửa thông tin cơ bản lớp học"
+                title="Chỉnh sửa thông tin cơ bản"
               >
                 <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -296,9 +302,24 @@ export default function AdminClassDetailPage() {
         </div>
       </header>
 
-      <EditClassPopup
-        open={editPopupOpen}
-        onClose={() => setEditPopupOpen(false)}
+      <EditClassBasicInfoPopup
+        open={basicInfoPopupOpen}
+        onClose={() => setBasicInfoPopupOpen(false)}
+        classDetail={classDetail}
+      />
+      <EditClassTeachersPopup
+        open={teachersPopupOpen}
+        onClose={() => setTeachersPopupOpen(false)}
+        classDetail={classDetail}
+      />
+      <EditClassSchedulePopup
+        open={schedulePopupOpen}
+        onClose={() => setSchedulePopupOpen(false)}
+        classDetail={classDetail}
+      />
+      <EditClassStudentsPopup
+        open={studentsPopupOpen}
+        onClose={() => setStudentsPopupOpen(false)}
         classDetail={classDetail}
       />
 
@@ -314,14 +335,26 @@ export default function AdminClassDetailPage() {
       <div className="flex flex-col gap-4">
         {/* Row 1: Gia sư phụ trách (trái) | Khung giờ học (phải) */}
         <div className="grid gap-4 lg:grid-cols-2">
-          <TutorCard teachers={classDetail.teachers} className="flex-1" />
+          <TutorCard
+            teachers={classDetail.teachers}
+            className="flex-1"
+            action={
+              <button
+                type="button"
+                onClick={() => setTeachersPopupOpen(true)}
+                className="rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              >
+                Chỉnh sửa
+              </button>
+            }
+          />
           <ClassCard
             className="flex-1"
             title="Khung giờ học"
             action={
               <button
                 type="button"
-                onClick={() => setEditPopupOpen(true)}
+                onClick={() => setSchedulePopupOpen(true)}
                 className="rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
               >
                 Chỉnh sửa
@@ -348,7 +381,19 @@ export default function AdminClassDetailPage() {
         </div>
 
         {/* Row 2: Danh sách học sinh */}
-        <ClassCard title="Danh sách học sinh" className="w-full">
+        <ClassCard
+          title="Danh sách học sinh"
+          className="w-full"
+          action={
+            <button
+              type="button"
+              onClick={() => setStudentsPopupOpen(true)}
+              className="rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            >
+              Chỉnh sửa
+            </button>
+          }
+        >
           <div className="overflow-x-auto">
             <table className="w-full min-w-[400px] border-collapse text-left text-sm">
               <caption className="sr-only">Danh sách học sinh trong lớp</caption>

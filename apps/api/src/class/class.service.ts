@@ -1,7 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ClassStatus, ClassType } from 'generated/enums';
 import { PaginationQueryDto } from 'src/dtos/pagination.dto';
-import { CreateClassDto, UpdateClassDto } from 'src/dtos/class.dto';
+import {
+  CreateClassDto,
+  UpdateClassBasicInfoDto,
+  UpdateClassDto,
+  UpdateClassScheduleDto,
+  UpdateClassStudentsDto,
+  UpdateClassTeachersDto,
+} from 'src/dtos/class.dto';
 import { Prisma } from '../../generated/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -449,6 +456,129 @@ export class ClassService {
         })),
       };
     });
+  }
+
+  async updateClassBasicInfo(id: string, dto: UpdateClassBasicInfoDto) {
+    const existing = await this.prisma.class.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new NotFoundException('Class not found');
+    }
+
+    const data: Prisma.ClassUpdateInput = {};
+    if (dto.name !== undefined) data.name = dto.name;
+    if (dto.type !== undefined) data.type = dto.type;
+    if (dto.status !== undefined) data.status = dto.status;
+    if (dto.max_students !== undefined) data.maxStudents = dto.max_students;
+    if (dto.allowance_per_session_per_student !== undefined) {
+      data.allowancePerSessionPerStudent =
+        dto.allowance_per_session_per_student;
+    }
+    if (dto.max_allowance_per_session !== undefined) {
+      data.maxAllowancePerSession = dto.max_allowance_per_session;
+    }
+    if (dto.scale_amount !== undefined) data.scaleAmount = dto.scale_amount;
+    if (dto.student_tuition_per_session !== undefined) {
+      data.studentTuitionPerSession = dto.student_tuition_per_session;
+    }
+    if (dto.tuition_package_total !== undefined) {
+      data.tuitionPackageTotal = dto.tuition_package_total;
+    }
+    if (dto.tuition_package_session !== undefined) {
+      data.tuitionPackageSession = dto.tuition_package_session;
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.class.update({
+        where: { id },
+        data,
+      });
+      if (dto.allowance_per_session_per_student !== undefined) {
+        await tx.classTeacher.updateMany({
+          where: { classId: id },
+          data: {
+            customAllowance: dto.allowance_per_session_per_student,
+          },
+        });
+      }
+    });
+
+    return this.getClassById(id);
+  }
+
+  async updateClassTeachers(id: string, dto: UpdateClassTeachersDto) {
+    const existing = await this.prisma.class.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new NotFoundException('Class not found');
+    }
+
+    const teacherPayload = this.getTeacherPayload({ teachers: dto.teachers });
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.classTeacher.deleteMany({
+        where: { classId: id },
+      });
+      if (teacherPayload.length > 0) {
+        await tx.classTeacher.createMany({
+          data: teacherPayload.map((t) => ({
+            classId: id,
+            teacherId: t.teacherId,
+            customAllowance: t.customAllowance,
+          })),
+        });
+      }
+    });
+
+    return this.getClassById(id);
+  }
+
+  async updateClassSchedule(id: string, dto: UpdateClassScheduleDto) {
+    const existing = await this.prisma.class.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new NotFoundException('Class not found');
+    }
+
+    const schedule = dto.schedule as unknown as Prisma.InputJsonValue;
+    await this.prisma.class.update({
+      where: { id },
+      data: { schedule },
+    });
+
+    return this.getClassById(id);
+  }
+
+  async updateClassStudents(id: string, dto: UpdateClassStudentsDto) {
+    const existing = await this.prisma.class.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new NotFoundException('Class not found');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.studentClass.deleteMany({
+        where: { classId: id },
+      });
+      if (dto.student_ids.length > 0) {
+        await tx.studentClass.createMany({
+          data: dto.student_ids.map((studentId) => ({
+            classId: id,
+            studentId,
+          })),
+        });
+      }
+    });
+
+    return this.getClassById(id);
   }
 
   async deleteClass(id: string) {

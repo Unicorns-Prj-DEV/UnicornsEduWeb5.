@@ -15,6 +15,7 @@ type TutorItem = {
 type Props = {
   teachers?: ClassTeacher[];
   className?: string;
+  action?: React.ReactNode;
 };
 
 function normalizeTutors(teachers?: ClassTeacher[]): TutorItem[] {
@@ -38,11 +39,11 @@ function normalizeTutors(teachers?: ClassTeacher[]): TutorItem[] {
   }, []);
 }
 
-export default function TutorCard({ teachers, className = "" }: Props) {
+export default function TutorCard({ teachers, className = "", action }: Props) {
   const tutorItems = normalizeTutors(teachers);
 
   return (
-    <ClassCard title="Gia sư phụ trách" className={className}>
+    <ClassCard title="Gia sư phụ trách" className={className} action={action}>
       {tutorItems.length > 0 ? (
         <div className="space-y-3">
           {tutorItems.map((teacher, index) => (

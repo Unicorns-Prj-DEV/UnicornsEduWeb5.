@@ -116,7 +116,18 @@ export default function AdminStaffDetailPage() {
     queryClient.invalidateQueries({
       queryKey: ["sessions", "staff", id, selectedYear, selectedMonthValue],
     });
+    queryClient.invalidateQueries({
+      queryKey: ["sessions", "staff", "year", id, selectedYear],
+    });
+    queryClient.invalidateQueries({
+      queryKey: ["staff", "detail", id],
+    });
   }, [queryClient, id, selectedYear, selectedMonthValue]);
+
+  const handleStaffEditSuccess = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["staff", "detail", id] });
+    queryClient.invalidateQueries({ queryKey: ["staff", "list"] });
+  }, [queryClient, id]);
 
   const getTeachersForClass = useCallback(async (classId: string) => {
     const detail = await classApi.getClassById(classId);
@@ -378,6 +389,7 @@ export default function AdminStaffDetailPage() {
         open={editPopupOpen}
         onClose={() => setEditPopupOpen(false)}
         staff={staff}
+        onSuccess={handleStaffEditSuccess}
       />
 
       <div className="flex flex-col gap-4">

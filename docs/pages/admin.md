@@ -65,12 +65,16 @@
   - `GET /class?page=<number>&limit=<number>&search=<text>&status=<running|ended>&type=<vip|basic|advance|hardcore>`.
   - `GET /class/:id`.
   - `POST /class` (không yêu cầu `id` trong payload, backend tự sinh UUID).
-  - `PATCH /class` (payload bắt buộc `id`).
+  - `PATCH /class` (payload bắt buộc `id`; vẫn hỗ trợ cập nhật toàn bộ, có thể deprecated dần).
+  - `PATCH /class/:id/basic-info` — cập nhật thông tin cơ bản + học phí (name, type, status, max_students, allowance_per_session_per_student, …). Khi gửi `allowance_per_session_per_student`, backend đồng bộ toàn bộ `class_teachers.customAllowance` của lớp về giá trị này.
+  - `PATCH /class/:id/teachers` — thay thế danh sách gia sư (body: `{ teachers: [{ teacher_id, custom_allowance? }] }`).
+  - `PATCH /class/:id/schedule` — thay thế khung giờ học (body: `{ schedule: [{ from, to }] }`, HH:mm:ss).
+  - `PATCH /class/:id/students` — thay thế danh sách học sinh (body: `{ student_ids: string[] }`).
   - `DELETE /class/:id`.
   - `page` mặc định `1`, `limit` mặc định `20`, `limit` tối đa `100`.
   - `GET /class` trả response dạng `{ data, meta }` với `meta = { total, page, limit }`.
   - Filter hỗ trợ `search` theo tên lớp (contains, không phân biệt hoa/thường), `status`, `type`.
-  - FE `/admin/classes/:id` bố cục: header (tên lớp, edit icon) → hàng 1: Gia sư phụ trách (trái) | Khung giờ học (phải) → Danh sách học sinh → Lịch sử buổi học và khảo sát (2 tab: Lịch sử, Khảo sát). Icon chỉnh sửa mở popup form đầy đủ.
+  - FE `/admin/classes/:id` bố cục: header (tên lớp, edit icon) → hàng 1: Gia sư phụ trách (trái) | Khung giờ học (phải) → Danh sách học sinh → Lịch sử buổi học và khảo sát (2 tab: Lịch sử, Khảo sát). Chỉnh sửa tách thành 4 form/popup: icon header mở form thông tin cơ bản (`PATCH /class/:id/basic-info`); mỗi card có nút "Chỉnh sửa" mở form tương ứng (gia sư → `PATCH /class/:id/teachers`, khung giờ → `PATCH /class/:id/schedule`, học sinh → `PATCH /class/:id/students`).
   - FE `/admin/classes/:id` hiển thị `Gia sư phụ trách` bằng `TutorCard` (trái), lấy từ `teachers` của `GET /class/:id`; nếu chưa phân công sẽ hiện empty state `Chưa phân công gia sư phụ trách.`
   - API `GET /class/:id` trả thêm `students` (danh sách học sinh theo lớp từ `student_classes`) gồm `id`, `fullName`, `status`, `remainingSessions` để FE dùng cho bảng học sinh và popup điểm danh.
   - FE `/admin/classes/:id` đã kết nối lịch sử buổi học thật từ API `GET /sessions/class/:classId?month=&year=` (TanStack Query), đồng thời dùng reusable component `SessionHistoryTable` để hiển thị bảng.
@@ -80,7 +84,7 @@
   - **Chỉnh sửa buổi học:** Khi truyền `onSessionUpdated`, bảng lịch sử buổi học có cột "Thao tác" với nút "Sửa". Click mở dialog chỉnh sửa đầy đủ: ngày học, gia sư phụ trách, giờ bắt đầu/kết thúc, ghi chú (rich text), trạng thái thanh toán, **điểm danh học sinh** (khi có `getClassStudents`). Danh sách gia sư: từ trang lớp truyền `teachers`; từ trang gia sư truyền `getTeachersForClass(classId)`. Danh sách học sinh để điểm danh: truyền `getClassStudents(classId)` (trang lớp trả từ `classDetail.students`, trang gia sư gọi `GET /class/:id` lấy students). API list session (`GET /sessions/class/:id`, `GET /sessions/staff/:id`) trả thêm `attendance` cho mỗi session. Gọi `PUT /sessions/:id` với `date`, `teacherId`, `startTime`, `endTime`, `notes`, `teacherPaymentStatus`, `attendance`; sau khi thành công invalidate query sessions. **Xóa buổi học:** cùng cột Thao tác có nút xóa (icon thùng rác), bấm vào hiện confirm; xác nhận thì gọi `DELETE /sessions/:id`, thành công thì toast và invalidate query sessions.
   - Tab Lịch sử: hỗ trợ chuyển tháng (prev/next) để lọc theo tháng.
   - Tab Khảo sát: nút "Thêm khảo sát", chuyển tháng (prev/next) để lọc theo tháng.
-  - `Schedule` hỗ trợ nhiều khung giờ `from -> to` theo định dạng `HH:mm:ss`; FE `/admin/classes/:id` hiển thị bằng Time Card, popup chỉnh sửa dùng input time-only và submit mảng `[{ from, to }]` chỉ gồm giờ-phút-giây khi gọi `PATCH /class`.
+  - `Schedule` hỗ trợ nhiều khung giờ `from -> to` theo định dạng `HH:mm:ss`; FE `/admin/classes/:id` hiển thị bằng Time Card, popup chỉnh sửa khung giờ gọi `PATCH /class/:id/schedule` với body `{ schedule: [{ from, to }] }`.
   - Các endpoint đi qua global JWT guard (không `@Public`) theo behavior auth hiện tại của backend module.
 - **Cost endpoints (CRUD + pagination):**
   - `GET /cost?page=<number>&limit=<number>&search=<text>`.

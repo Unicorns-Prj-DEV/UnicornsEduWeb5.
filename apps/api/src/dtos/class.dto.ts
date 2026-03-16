@@ -1,4 +1,9 @@
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+  PartialType,
+  PickType,
+} from '@nestjs/swagger';
 import { ClassStatus, ClassType } from 'generated/enums';
 import { Type } from 'class-transformer';
 import {
@@ -107,7 +112,8 @@ export class CreateClassDto {
   tuition_package_session?: number;
 
   @ApiPropertyOptional({
-    description: 'Staff ids (gia sư phụ trách). Ignored if teachers[] is provided.',
+    description:
+      'Staff ids (gia sư phụ trách). Ignored if teachers[] is provided.',
     type: [String],
     example: ['uuid-1', 'uuid-2'],
   })
@@ -117,7 +123,8 @@ export class CreateClassDto {
   teacher_ids?: string[];
 
   @ApiPropertyOptional({
-    description: 'Teachers with optional custom allowance per teacher. Takes precedence over teacher_ids.',
+    description:
+      'Teachers with optional custom allowance per teacher. Takes precedence over teacher_ids.',
     type: [ClassTeacherItemDto],
     example: [{ teacher_id: 'uuid-1', custom_allowance: 150000 }],
   })
@@ -138,13 +145,80 @@ export class CreateClassDto {
   student_ids?: string[];
 }
 
+/** DTO for PATCH /class/:id/basic-info – basic info + tuition only */
+export class UpdateClassBasicInfoDto extends PartialType(
+  PickType(CreateClassDto, [
+    'name',
+    'type',
+    'status',
+    'max_students',
+    'allowance_per_session_per_student',
+    'max_allowance_per_session',
+    'scale_amount',
+    'student_tuition_per_session',
+    'tuition_package_total',
+    'tuition_package_session',
+  ]),
+) {}
+
+/** DTO for PATCH /class/:id/teachers – replace teachers list */
+export class UpdateClassTeachersDto {
+  @ApiProperty({
+    description:
+      'Teachers with optional custom allowance. Replaces current list.',
+    type: [ClassTeacherItemDto],
+    example: [{ teacher_id: 'uuid-1', custom_allowance: 150000 }],
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ClassTeacherItemDto)
+  teachers: ClassTeacherItemDto[];
+}
+
+/** Schedule slot for UpdateClassScheduleDto */
+export class ScheduleSlotDto {
+  @ApiProperty({ description: 'Start time HH:mm:ss', example: '19:00:00' })
+  @IsString()
+  from: string;
+
+  @ApiProperty({ description: 'End time HH:mm:ss', example: '20:30:00' })
+  @IsString()
+  to: string;
+}
+
+/** DTO for PATCH /class/:id/schedule – replace schedule */
+export class UpdateClassScheduleDto {
+  @ApiProperty({
+    description: 'Class schedule array { from, to } in HH:mm:ss',
+    type: [ScheduleSlotDto],
+    example: [{ from: '19:00:00', to: '20:30:00' }],
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ScheduleSlotDto)
+  schedule: ScheduleSlotDto[];
+}
+
+/** DTO for PATCH /class/:id/students – replace students list */
+export class UpdateClassStudentsDto {
+  @ApiProperty({
+    description: 'Student ids in the class. Replaces current list.',
+    type: [String],
+    example: ['uuid-1', 'uuid-2'],
+  })
+  @IsArray()
+  @IsUUID('4', { each: true })
+  student_ids: string[];
+}
+
 export class UpdateClassDto extends PartialType(CreateClassDto) {
   @ApiProperty({ description: 'Class id' })
   @IsUUID()
   id: string;
 
   @ApiPropertyOptional({
-    description: 'Staff ids (gia sư phụ trách). Ignored if teachers[] is provided.',
+    description:
+      'Staff ids (gia sư phụ trách). Ignored if teachers[] is provided.',
     type: [String],
     example: ['uuid-1', 'uuid-2'],
   })
@@ -154,7 +228,8 @@ export class UpdateClassDto extends PartialType(CreateClassDto) {
   teacher_ids?: string[];
 
   @ApiPropertyOptional({
-    description: 'Teachers with optional custom allowance. Sync replaces current list. Takes precedence over teacher_ids.',
+    description:
+      'Teachers with optional custom allowance. Sync replaces current list. Takes precedence over teacher_ids.',
     type: [ClassTeacherItemDto],
   })
   @IsOptional()

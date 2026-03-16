@@ -1,5 +1,13 @@
 import { ClassListResponse, ClassStatus, ClassType } from '@/dtos/class.dto';
-import { ClassDetail, CreateClassPayload, UpdateClassPayload } from '@/dtos/class.dto';
+import {
+  ClassDetail,
+  CreateClassPayload,
+  UpdateClassBasicInfoPayload,
+  UpdateClassPayload,
+  UpdateClassSchedulePayload,
+  UpdateClassStudentsPayload,
+  UpdateClassTeachersPayload,
+} from '@/dtos/class.dto';
 import { api } from "../client";
 
 export async function getClasses(params: {
@@ -49,5 +57,41 @@ export async function deleteClassById(id: string) {
 
 export async function updateClass(data: UpdateClassPayload): Promise<ClassDetail> {
   const response = await api.patch("/class", data);
+  return response.data;
+}
+
+export async function updateClassBasicInfo(
+  id: string,
+  data: UpdateClassBasicInfoPayload,
+): Promise<ClassDetail> {
+  const safeId = encodeURIComponent(id);
+  const response = await api.patch(`/class/${safeId}/basic-info`, data);
+  return response.data;
+}
+
+export async function updateClassTeachers(
+  id: string,
+  data: UpdateClassTeachersPayload,
+): Promise<ClassDetail> {
+  const safeId = encodeURIComponent(id);
+  const response = await api.patch(`/class/${safeId}/teachers`, data);
+  return response.data;
+}
+
+export async function updateClassSchedule(
+  id: string,
+  data: UpdateClassSchedulePayload,
+): Promise<ClassDetail> {
+  const safeId = encodeURIComponent(id);
+  const response = await api.patch(`/class/${safeId}/schedule`, data);
+  return response.data;
+}
+
+export async function updateClassStudents(
+  id: string,
+  data: UpdateClassStudentsPayload,
+): Promise<ClassDetail> {
+  const safeId = encodeURIComponent(id);
+  const response = await api.patch(`/class/${safeId}/students`, data);
   return response.data;
 }

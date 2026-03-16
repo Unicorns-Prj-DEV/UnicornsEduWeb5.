@@ -96,6 +96,35 @@ export interface UpdateClassPayload {
     student_ids?: string[];
 }
 
+/** Payload for PATCH /class/:id/basic-info */
+export interface UpdateClassBasicInfoPayload {
+    name?: string;
+    type?: ClassType;
+    status?: ClassStatus;
+    max_students?: number;
+    allowance_per_session_per_student?: number;
+    max_allowance_per_session?: number;
+    scale_amount?: number;
+    student_tuition_per_session?: number;
+    tuition_package_total?: number;
+    tuition_package_session?: number;
+}
+
+/** Payload for PATCH /class/:id/teachers */
+export interface UpdateClassTeachersPayload {
+    teachers: { teacher_id: string; custom_allowance?: number }[];
+}
+
+/** Payload for PATCH /class/:id/schedule */
+export interface UpdateClassSchedulePayload {
+    schedule: ClassScheduleItem[];
+}
+
+/** Payload for PATCH /class/:id/students */
+export interface UpdateClassStudentsPayload {
+    student_ids: string[];
+}
+
 export interface ClassListItemDto {
     id: string;
     name: string;
