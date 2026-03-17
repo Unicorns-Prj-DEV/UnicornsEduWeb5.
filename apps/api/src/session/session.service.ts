@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PaymentStatus } from 'generated/client';
+import { PaymentStatus, WalletTransactionType } from 'generated/client';
 import { SessionCreateDto, SessionUpdateDto } from 'src/dtos/session.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -85,7 +85,7 @@ export class SessionService {
             teacherId: data.teacherId,
           },
         },
-        select: { customAllowance: true },
+        select: { customAllowance: true, class: { select: { name: true } } },
       });
 
       const studentCustomerCare = await tx.customerCareService.findMany({
@@ -107,6 +107,7 @@ export class SessionService {
         select: {
           studentId: true,
           customStudentTuitionPerSession: true,
+          student: true
         },
       });
 
@@ -124,6 +125,31 @@ export class SessionService {
         data.allowanceAmount !== undefined && data.allowanceAmount !== null
           ? data.allowanceAmount
           : classTeacher.customAllowance;
+
+      await tx.$executeRaw`
+        UPDATE student_info AS s
+        SET account_balance = s.account_balance - tf.custom_student_tuition_per_session
+        FROM (
+          SELECT student_id, custom_student_tuition_per_session
+          FROM student_classes
+          WHERE class_id = ${data.classId}
+        ) AS tf
+        WHERE s.id = tf.student_id;
+      `;
+
+      await tx.$executeRaw`
+        INSERT INTO wallet_transactions_history (id , student_id , amount , type , note)
+        SELECT
+          gen_random_uuid(),
+          student_id,
+          custom_student_tuition_per_session,
+          'extend',
+          'Đóng học phí lớp ' || classes.name ||  ' buổi học ' || now()::date || '. Số dư: ' || to_char(student_info.account_balance, 'FM999,999,999,999') || ' - ' || to_char(custom_student_tuition_per_session, 'FM999,999,999,999') || ' = ' || to_char(student_info.account_balance - custom_student_tuition_per_session, 'FM999,999,999,999') as note
+        FROM student_classes
+        join student_info on student_classes.student_id = student_info.id
+        join classes on classes.id = student_classes.class_id
+        WHERE class_id = ${data.classId}
+      `;
 
       return tx.session.create({
         data: {
@@ -313,11 +339,11 @@ export class SessionService {
 
       const sessionTuitionFeeUpdate = shouldRefreshAttendanceTuition
         ? effectiveAttendance.reduce((sum, attendanceItem) => {
-            return (
-              sum +
-              (studentTuitionFeeByStudentId.get(attendanceItem.studentId) ?? 0)
-            );
-          }, 0)
+          return (
+            sum +
+            (studentTuitionFeeByStudentId.get(attendanceItem.studentId) ?? 0)
+          );
+        }, 0)
         : undefined;
 
       await tx.session.update({
