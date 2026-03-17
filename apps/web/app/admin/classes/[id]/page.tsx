@@ -20,7 +20,7 @@ import {
 } from "@/components/admin/class";
 import AddSessionPopup from "@/components/admin/class/AddSessionPopup";
 import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable";
-import { ClassStatus, ClassType, ClassDetail } from "@/dtos/class.dto";
+import { ClassStatus, ClassType, ClassDetail, ClassStudent } from "@/dtos/class.dto";
 import { SessionItem } from "@/dtos/session.dto";
 
 /** Mock surveys – nhiều tháng để test chuyển tháng */
@@ -44,6 +44,21 @@ const TYPE_LABELS: Record<ClassType, string> = {
 };
 
 type TabId = "sessions" | "surveys";
+
+function getStudentPackageSummary(
+  student: ClassStudent,
+  classPackageTotal?: number | null,
+  classPackageSession?: number | null,
+): string | null {
+  const effectivePackageTotal = student.customTuitionPackageTotal ?? classPackageTotal;
+  const effectivePackageSession = student.customTuitionPackageSession ?? classPackageSession;
+
+  if (effectivePackageTotal == null && effectivePackageSession == null) {
+    return null;
+  }
+
+  return `${formatCurrency(effectivePackageTotal)} / ${effectivePackageSession ?? "—"} buổi`;
+}
 
 export default function AdminClassDetailPage() {
   const params = useParams();
@@ -430,6 +445,11 @@ export default function AdminClassDetailPage() {
                   const studentStatus = student.status ?? "active";
                   const isActive = studentStatus === "active";
                   const statusLabel = isActive ? "Đang học" : "Ngưng học";
+                  const packageSummary = getStudentPackageSummary(
+                    student,
+                    classDetail.tuitionPackageTotal,
+                    classDetail.tuitionPackageSession,
+                  );
 
                   return (
                     <article
@@ -441,19 +461,17 @@ export default function AdminClassDetailPage() {
                           <p className="text-sm font-semibold text-text-primary">
                             {student.fullName}
                           </p>
-                          <p className="mt-1 text-xs text-text-muted">
-                            Buổi còn lại:{" "}
-                            <span className="font-medium tabular-nums">
-                              {student.remainingSessions ?? "—"}
-                            </span>
-                          </p>
+                          {packageSummary ? (
+                            <p className="mt-1 text-xs font-medium text-primary">
+                              {packageSummary}
+                            </p>
+                          ) : null}
                         </div>
                         <span
-                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                            isActive
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${isActive
                               ? "bg-success/15 text-success"
                               : "bg-text-muted/15 text-text-muted"
-                          }`}
+                            }`}
                         >
                           {statusLabel}
                         </span>
@@ -465,15 +483,15 @@ export default function AdminClassDetailPage() {
             </div>
 
             {/* Desktop / tablet: bảng học sinh */}
-            <table className="hidden w-full min-w-[400px] border-collapse text-left text-sm md:table">
+            <table className="hidden w-full min-w-[560px] border-collapse text-left text-sm md:table">
               <caption className="sr-only">Danh sách học sinh trong lớp</caption>
               <thead>
                 <tr className="border-b border-border-default bg-bg-secondary">
                   <th scope="col" className="px-4 py-3 font-medium text-text-primary">
                     Họ tên
                   </th>
-                  <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
-                    Buổi còn lại
+                  <th scope="col" className="px-4 py-3 font-medium text-text-primary">
+                    Gói học phí
                   </th>
                   <th scope="col" className="px-4 py-3 font-medium text-text-primary">
                     Trạng thái
@@ -492,6 +510,11 @@ export default function AdminClassDetailPage() {
                     const studentStatus = student.status ?? "active";
                     const isActive = studentStatus === "active";
                     const statusLabel = isActive ? "Đang học" : "Ngưng học";
+                    const packageSummary = getStudentPackageSummary(
+                      student,
+                      classDetail.tuitionPackageTotal,
+                      classDetail.tuitionPackageSession,
+                    );
 
                     return (
                       <tr
@@ -499,16 +522,19 @@ export default function AdminClassDetailPage() {
                         className="border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary"
                       >
                         <td className="px-4 py-3 text-text-primary">{student.fullName}</td>
-                        <td className="px-4 py-3 tabular-nums text-text-primary">
-                          {student.remainingSessions ?? "—"}
+                        <td className="px-4 py-3 text-text-secondary">
+                          {packageSummary ? (
+                            <span className="font-medium text-primary">{packageSummary}</span>
+                          ) : (
+                            "—"
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <span
-                            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                              isActive
+                            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${isActive
                                 ? "bg-success/15 text-success"
                                 : "bg-text-muted/15 text-text-muted"
-                            }`}
+                              }`}
                           >
                             {statusLabel}
                           </span>

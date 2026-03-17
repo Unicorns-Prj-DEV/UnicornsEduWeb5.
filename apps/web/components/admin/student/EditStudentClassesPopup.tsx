@@ -178,16 +178,39 @@ export default function EditStudentClassesPopup({
 
       for (const classId of changedClassIds) {
         const classDetail = await classApi.getClassById(classId);
-        const existingStudentIds = Array.from(
-          new Set((classDetail.students ?? []).map((classStudent) => classStudent.id)),
+        const existingStudents = Array.from(
+          new Map(
+            (classDetail.students ?? []).map((classStudent) => [
+              classStudent.id,
+              {
+                id: classStudent.id,
+                ...(classStudent.customTuitionPerSession != null
+                  ? { custom_tuition_per_session: classStudent.customTuitionPerSession }
+                  : {}),
+                ...(classStudent.customTuitionPackageTotal != null
+                  ? { custom_tuition_package_total: classStudent.customTuitionPackageTotal }
+                  : {}),
+                ...(classStudent.customTuitionPackageSession != null
+                  ? { custom_tuition_package_session: classStudent.customTuitionPackageSession }
+                  : {}),
+              },
+            ]),
+          ).values(),
         );
         const shouldContainStudent = nextMembership.has(classId);
-        const nextStudentIds = shouldContainStudent
-          ? Array.from(new Set([...existingStudentIds, student.id]))
-          : existingStudentIds.filter((studentId) => studentId !== student.id);
+        const nextStudents = shouldContainStudent
+          ? Array.from(
+              new Map(
+                [...existingStudents, { id: student.id }].map((classStudent) => [
+                  classStudent.id,
+                  classStudent,
+                ]),
+              ).values(),
+            )
+          : existingStudents.filter((classStudent) => classStudent.id !== student.id);
 
         await classApi.updateClassStudents(classId, {
-          student_ids: nextStudentIds,
+          students: nextStudents,
         });
       }
 

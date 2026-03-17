@@ -98,7 +98,7 @@ export class ClassController {
   @ApiOperation({
     summary: 'Get students by class id',
     description:
-      'Get list of students enrolled in the class. Returns id, fullName, status, remainingSessions per student.',
+      'Get list of students enrolled in the class.',
   })
   @ApiParam({ name: 'id', description: 'Class id' })
   @ApiResponse({ status: 200, description: 'List of students in the class.' })

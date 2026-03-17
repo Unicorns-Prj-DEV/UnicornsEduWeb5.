@@ -5,11 +5,11 @@ import { createPortal } from "react-dom";
 import { useDebounce } from "use-debounce";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import type { ClassDetail } from "@/dtos/class.dto";
+import type { ClassDetail, UpdateClassStudentsPayload } from "@/dtos/class.dto";
 import * as classApi from "@/lib/apis/class.api";
 import * as studentApi from "@/lib/apis/student.api";
+import { formatCurrency } from "@/lib/class.helpers";
 import {
-  classEditorModalClassName,
   classEditorModalCloseButtonClassName,
   classEditorModalFooterClassName,
   classEditorModalHeaderClassName,
@@ -17,6 +17,7 @@ import {
   classEditorModalPrimaryButtonClassName,
   classEditorModalSecondaryButtonClassName,
   classEditorModalTitleClassName,
+  classEditorModalWideClassName,
 } from "./classEditorModalStyles";
 
 type DropdownRect = { top: number; left: number; width: number; maxHeight: number };
@@ -26,6 +27,32 @@ type Props = {
   onClose: () => void;
   classDetail: ClassDetail;
 };
+
+type SelectedStudent = {
+  id: string;
+  name: string;
+  customTuitionPackageTotal?: number;
+  customTuitionPackageSession?: number;
+};
+
+type TuitionFieldKey = "customTuitionPackageTotal" | "customTuitionPackageSession";
+
+const TUITION_FIELD_CONFIG: Array<{
+  key: TuitionFieldKey;
+  label: string;
+  placeholder: string;
+}> = [
+  {
+    key: "customTuitionPackageTotal",
+    label: "Tổng gói riêng",
+    placeholder: "Tổng tiền gói",
+  },
+  {
+    key: "customTuitionPackageSession",
+    label: "Số buổi gói riêng",
+    placeholder: "Số buổi",
+  },
+];
 
 function getDropdownRect(el: HTMLElement | null): DropdownRect | null {
   if (!el) return null;
@@ -49,6 +76,54 @@ function getDropdownRect(el: HTMLElement | null): DropdownRect | null {
   return { top, left, width, maxHeight };
 }
 
+function getInitialSelectedStudents(classDetail: ClassDetail): SelectedStudent[] {
+  return (classDetail.students ?? [])
+    .filter((student) => student?.id)
+    .map((student) => ({
+      id: student.id,
+      name: student.fullName?.trim() ?? "—",
+      customTuitionPackageTotal:
+        student.customTuitionPackageTotal ?? classDetail.tuitionPackageTotal ?? undefined,
+      customTuitionPackageSession:
+        student.customTuitionPackageSession ?? classDetail.tuitionPackageSession ?? undefined,
+    }));
+}
+
+function parseOptionalIntegerInput(rawValue: string): number | undefined | null {
+  const trimmed = rawValue.trim();
+  if (trimmed === "") return undefined;
+  if (!/^\d+$/.test(trimmed)) return null;
+  return Number(trimmed);
+}
+
+function calculateCustomTuitionPerSession(
+  packageTotal?: number,
+  packageSession?: number,
+): number | undefined {
+  if (packageTotal == null || packageSession == null || packageSession <= 0) return undefined;
+  return Math.round(packageTotal / packageSession);
+}
+
+function toStudentPayload(student: SelectedStudent): UpdateClassStudentsPayload["students"][number] {
+  const customTuitionPerSession = calculateCustomTuitionPerSession(
+    student.customTuitionPackageTotal,
+    student.customTuitionPackageSession,
+  );
+
+  return {
+    id: student.id,
+    ...(student.customTuitionPackageTotal != null
+      ? { custom_tuition_package_total: student.customTuitionPackageTotal }
+      : {}),
+    ...(student.customTuitionPackageSession != null
+      ? { custom_tuition_package_session: student.customTuitionPackageSession }
+      : {}),
+    ...(customTuitionPerSession != null
+      ? { custom_tuition_per_session: customTuitionPerSession }
+      : {}),
+  };
+}
+
 export default function EditClassStudentsPopup({ open, onClose, classDetail }: Props) {
   if (!open) return null;
 
@@ -62,8 +137,8 @@ function EditClassStudentsDialog({ onClose, classDetail }: Omit<Props, "open">) 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownRect, setDropdownRect] = useState<DropdownRect | null>(null);
 
-  const [selectedStudents, setSelectedStudents] = useState<Array<{ id: string; name: string }>>(() =>
-    (classDetail.students ?? []).map((s) => ({ id: s.id, name: s.fullName?.trim() ?? "—" })),
+  const [selectedStudents, setSelectedStudents] = useState<SelectedStudent[]>(() =>
+    getInitialSelectedStudents(classDetail),
   );
   const [studentSearchInput, setStudentSearchInput] = useState("");
   const [studentSearchFocused, setStudentSearchFocused] = useState(false);
@@ -80,16 +155,19 @@ function EditClassStudentsDialog({ onClose, classDetail }: Omit<Props, "open">) 
   });
 
   const filteredStudents = (studentSearchResult ?? []).filter(
-    (s) => !selectedStudents.some((st) => st.id === s.id),
+    (student) => !selectedStudents.some((selectedStudent) => selectedStudent.id === student.id),
   );
 
   useLayoutEffect(() => {
     if (!studentSearchFocused) return;
+
     const updateRect = () => setDropdownRect(getDropdownRect(studentSearchRef.current));
     updateRect();
+
     const scrollable = scrollableRef.current;
     scrollable?.addEventListener("scroll", updateRect, true);
     window.addEventListener("resize", updateRect);
+
     return () => {
       scrollable?.removeEventListener("scroll", updateRect, true);
       window.removeEventListener("resize", updateRect);
@@ -106,12 +184,13 @@ function EditClassStudentsDialog({ onClose, classDetail }: Omit<Props, "open">) 
         setDropdownRect(null);
       }
     };
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const updateMutation = useMutation({
-    mutationFn: (data: { student_ids: string[] }) =>
+    mutationFn: (data: UpdateClassStudentsPayload) =>
       classApi.updateClassStudents(classDetail.id, data),
     onSuccess: async () => {
       await Promise.all([
@@ -128,15 +207,53 @@ function EditClassStudentsDialog({ onClose, classDetail }: Omit<Props, "open">) 
     },
   });
 
+  const handleTuitionFieldChange = (
+    studentId: string,
+    field: TuitionFieldKey,
+    rawValue: string,
+  ) => {
+    const parsedValue = parseOptionalIntegerInput(rawValue);
+    if (parsedValue === null) return;
+
+    setSelectedStudents((prev) =>
+      prev.map((student) =>
+        student.id === studentId ? { ...student, [field]: parsedValue } : student,
+      ),
+    );
+  };
+
   const handleSubmit = async () => {
-    const student_ids = selectedStudents.map((s) => s.id);
+    const students = selectedStudents.map(toStudentPayload);
+
     try {
-      await updateMutation.mutateAsync({ student_ids });
+      await updateMutation.mutateAsync({ students });
       toast.success("Đã lưu danh sách học sinh.");
       onClose();
     } catch {
       // handled in onError
     }
+  };
+
+  const defaultTuitionCards = [
+    {
+      label: "Tổng gói",
+      value: formatCurrency(classDetail.tuitionPackageTotal),
+    },
+    {
+      label: "Số buổi gói",
+      value:
+        classDetail.tuitionPackageSession != null
+          ? `${classDetail.tuitionPackageSession} buổi`
+          : "—",
+    },
+  ];
+
+  const tuitionFieldHints: Record<TuitionFieldKey, string> = {
+    customTuitionPackageTotal: `Mặc định lớp: ${formatCurrency(classDetail.tuitionPackageTotal)}`,
+    customTuitionPackageSession:
+      classDetail.tuitionPackageSession != null
+        ? `Mặc định lớp: ${classDetail.tuitionPackageSession} buổi`
+        : "Mặc định lớp: —",
   };
 
   return (
@@ -146,12 +263,17 @@ function EditClassStudentsDialog({ onClose, classDetail }: Omit<Props, "open">) 
         role="dialog"
         aria-modal="true"
         aria-labelledby="edit-class-students-title"
-        className={classEditorModalClassName}
+        className={classEditorModalWideClassName}
       >
         <div className={classEditorModalHeaderClassName}>
-          <h2 id="edit-class-students-title" className={classEditorModalTitleClassName}>
-            Chỉnh sửa học sinh trong lớp
-          </h2>
+          <div className="space-y-1">
+            <h2 id="edit-class-students-title" className={classEditorModalTitleClassName}>
+              Chỉnh sửa học sinh trong lớp
+            </h2>
+            <p className="text-xs text-text-muted">
+              Chỉ chỉnh tổng gói và số buổi của từng học sinh. Học phí mỗi buổi sẽ tự tính khi lưu.
+            </p>
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -165,27 +287,43 @@ function EditClassStudentsDialog({ onClose, classDetail }: Omit<Props, "open">) 
         </div>
 
         <div ref={scrollableRef} className={classEditorModalInsetBodyClassName}>
-          <div className="flex flex-wrap gap-2">
-            {selectedStudents.map((s) => (
-              <span
-                key={s.id}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border-default bg-bg-surface px-3 py-1.5 text-sm text-text-primary"
-              >
-                {s.name}
-                <button
-                  type="button"
-                  onClick={() => setSelectedStudents((prev) => prev.filter((x) => x.id !== s.id))}
-                  className="rounded-full p-0.5 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  aria-label={`Bỏ ${s.name}`}
-                >
-                  <svg className="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+          <section className="rounded-2xl border border-border-default bg-bg-secondary/60 p-3 sm:p-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-text-primary">Học phí mặc định của lớp</p>
+                <p className="mt-1 text-xs text-text-muted">
+                  Nếu học phí riêng đang rỗng, form sẽ dùng dữ liệu gói mặc định của lớp.
+                </p>
+              </div>
+              <span className="inline-flex w-fit items-center rounded-full bg-bg-surface px-3 py-1 text-xs font-medium text-text-secondary ring-1 ring-border-default">
+                {selectedStudents.length} học sinh
               </span>
-            ))}
-          </div>
-          <div className="relative" ref={studentSearchRef}>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {defaultTuitionCards.map((card) => (
+                <div
+                  key={card.label}
+                  className="rounded-xl border border-border-default bg-bg-surface px-3 py-2.5"
+                >
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                    {card.label}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-text-primary sm:text-base">
+                    {card.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <div className="space-y-2">
+            <div>
+              <p className="text-sm font-semibold text-text-primary">Thêm học sinh</p>
+              <p className="mt-1 text-xs text-text-muted">
+                Tìm theo tên để thêm nhanh học sinh vào danh sách của lớp.
+              </p>
+            </div>
+            <div className="relative" ref={studentSearchRef}>
             <input
               type="text"
               value={studentSearchInput}
@@ -222,16 +360,22 @@ function EditClassStudentsDialog({ onClose, classDetail }: Omit<Props, "open">) 
                         : "Nhập tên để tìm kiếm học sinh"}
                     </p>
                   ) : (
-                    filteredStudents.map((s) => (
+                    filteredStudents.map((student) => (
                       <button
-                        key={s.id}
+                        key={student.id}
                         type="button"
                         role="option"
                         aria-selected={false}
                         onClick={() => {
                           setSelectedStudents((prev) => [
                             ...prev,
-                            { id: s.id, name: (s.fullName?.trim() ?? "") || s.id },
+                            {
+                              id: student.id,
+                              name: (student.fullName?.trim() ?? "") || student.id,
+                              customTuitionPackageTotal: classDetail.tuitionPackageTotal ?? undefined,
+                              customTuitionPackageSession:
+                                classDetail.tuitionPackageSession ?? undefined,
+                            },
                           ]);
                           setStudentSearchInput("");
                           setStudentSearchFocused(false);
@@ -239,7 +383,7 @@ function EditClassStudentsDialog({ onClose, classDetail }: Omit<Props, "open">) 
                         }}
                         className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text-primary transition-colors hover:bg-bg-tertiary focus:bg-bg-tertiary focus:outline-none focus-visible:ring-0"
                       >
-                        {(s.fullName?.trim() ?? "") || s.id}
+                        {(student.fullName?.trim() ?? "") || student.id}
                       </button>
                     ))
                   )}
@@ -247,6 +391,88 @@ function EditClassStudentsDialog({ onClose, classDetail }: Omit<Props, "open">) 
                 document.body,
               )}
           </div>
+          </div>
+
+          {selectedStudents.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border-default bg-bg-surface px-4 py-8 text-center">
+              <p className="text-sm font-medium text-text-primary">Chưa có học sinh nào trong lớp</p>
+              <p className="mt-1 text-sm text-text-muted">
+                Tìm và thêm học sinh ở ô phía trên để cấu hình danh sách và học phí riêng.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {selectedStudents.map((student) => {
+                const matchesClassPackage =
+                  student.customTuitionPackageTotal === (classDetail.tuitionPackageTotal ?? undefined) &&
+                  student.customTuitionPackageSession === (classDetail.tuitionPackageSession ?? undefined);
+
+                return (
+                  <article
+                    key={student.id}
+                    className="rounded-2xl border border-border-default bg-bg-surface p-3 shadow-sm sm:p-4"
+                  >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-semibold text-text-primary sm:text-base">
+                            {student.name}
+                          </p>
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                              matchesClassPackage
+                                ? "bg-bg-secondary text-text-secondary"
+                                : "bg-primary/10 text-primary"
+                            }`}
+                          >
+                            {matchesClassPackage ? "Theo gói lớp" : "Gói riêng"}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-text-muted">
+                          Để trống ô nào thì ô đó sẽ quay về gói mặc định của lớp khi lưu.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedStudents((prev) =>
+                            prev.filter((selectedStudent) => selectedStudent.id !== student.id),
+                          )
+                        }
+                        className="inline-flex min-h-10 w-full items-center justify-center rounded-md border border-border-default px-3 py-2 text-sm font-medium text-text-muted transition-colors hover:bg-bg-tertiary hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:w-auto"
+                        aria-label={`Bỏ ${student.name}`}
+                      >
+                        Bỏ khỏi lớp
+                      </button>
+                    </div>
+
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      {TUITION_FIELD_CONFIG.map((field) => (
+                        <label key={field.key} className="flex flex-col gap-1.5">
+                          <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                            {field.label}
+                          </span>
+                          <input
+                            type="number"
+                            min={0}
+                            step={1}
+                            inputMode="numeric"
+                            value={student[field.key] ?? ""}
+                            onChange={(e) =>
+                              handleTuitionFieldChange(student.id, field.key, e.target.value)
+                            }
+                            placeholder={field.placeholder}
+                            className="w-full rounded-md outline outline-1 outline-border-default outline-offset-0 bg-bg-primary px-3 py-2 text-right text-sm tabular-nums text-text-primary placeholder:text-text-muted focus:outline-2 focus:outline-border-focus focus:outline-offset-0"
+                          />
+                          <span className="text-xs text-text-muted">{tuitionFieldHints[field.key]}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className={classEditorModalFooterClassName}>

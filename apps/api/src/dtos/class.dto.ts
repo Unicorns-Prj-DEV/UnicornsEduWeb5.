@@ -159,7 +159,7 @@ export class UpdateClassBasicInfoDto extends PartialType(
     'tuition_package_total',
     'tuition_package_session',
   ]),
-) {}
+) { }
 
 /** DTO for PATCH /class/:id/teachers – replace teachers list */
 export class UpdateClassTeachersDto {
@@ -199,6 +199,33 @@ export class UpdateClassScheduleDto {
   schedule: ScheduleSlotDto[];
 }
 
+export class StudentClassCreateDto {
+  @ApiProperty({ description: 'Student id', example: 'uuid' })
+  @IsUUID()
+  id: string;
+
+  @ApiPropertyOptional({ example: 300000, minimum: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  custom_tuition_per_session?: number;
+
+  @ApiPropertyOptional({ example: 3600000, minimum: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  custom_tuition_package_total?: number;
+
+  @ApiPropertyOptional({ example: 12, minimum: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  custom_tuition_package_session?: number;
+}
+
 /** DTO for PATCH /class/:id/students – replace students list */
 export class UpdateClassStudentsDto {
   @ApiProperty({
@@ -208,7 +235,7 @@ export class UpdateClassStudentsDto {
   })
   @IsArray()
   @IsUUID('4', { each: true })
-  student_ids: string[];
+  students: StudentClassCreateDto[];
 }
 
 export class UpdateClassDto extends PartialType(CreateClassDto) {

@@ -130,14 +130,14 @@ function tuitionStatusLabel(status: TuitionStatus): string {
 }
 
 function formatTuitionPackageLabel(params: {
-    tuitionPackageTotal?: number | null;
-    tuitionPackageSession?: number | null;
+    packageTotal?: number | null;
+    packageSession?: number | null;
     studentTuitionPerSession?: number | null;
 }) {
-    const { tuitionPackageTotal, tuitionPackageSession, studentTuitionPerSession } = params;
+    const { packageTotal, packageSession, studentTuitionPerSession } = params;
 
-    if (tuitionPackageTotal != null || tuitionPackageSession != null) {
-        return `${formatCurrency(tuitionPackageTotal)} / ${tuitionPackageSession ?? "—"} buổi`;
+    if (packageTotal != null || packageSession != null) {
+        return `${formatCurrency(packageTotal)} / ${packageSession ?? "—"} buổi`;
     }
 
     if (studentTuitionPerSession != null) {
@@ -164,6 +164,7 @@ export default function AdminStudentDetailPage() {
         queryFn: () => studentApi.getStudentById(id),
         enabled: !!id,
     });
+    const currentStudentId = student?.id ?? "";
 
     const classItems = useMemo(() => {
         const classes = new Map<string, string>();
@@ -194,23 +195,41 @@ export default function AdminStudentDetailPage() {
                 const classDetail = classDetailQueries[index]?.data;
                 const isLoadingClassDetail = classDetailQueries[index]?.isLoading;
                 const isClassDetailError = classDetailQueries[index]?.isError;
+                const matchedStudent = classDetail?.students?.find(
+                    (classStudent) => classStudent.id === currentStudentId,
+                );
+                const isCustomPackage =
+                    matchedStudent?.customTuitionPackageTotal != null ||
+                    matchedStudent?.customTuitionPackageSession != null ||
+                    matchedStudent?.customTuitionPerSession != null;
 
                 return {
                     ...item,
                     tuitionPackageLabel: classDetail
                         ? formatTuitionPackageLabel({
-                            tuitionPackageTotal: classDetail.tuitionPackageTotal,
-                            tuitionPackageSession: classDetail.tuitionPackageSession,
-                            studentTuitionPerSession: classDetail.studentTuitionPerSession,
+                            packageTotal:
+                                matchedStudent?.customTuitionPackageTotal ??
+                                classDetail.tuitionPackageTotal,
+                            packageSession:
+                                matchedStudent?.customTuitionPackageSession ??
+                                classDetail.tuitionPackageSession,
+                            studentTuitionPerSession:
+                                matchedStudent?.customTuitionPerSession ??
+                                classDetail.studentTuitionPerSession,
                         })
                         : isLoadingClassDetail
                             ? "Đang tải gói học phí..."
                             : isClassDetailError
                                 ? "Không tải được học phí"
                                 : "Chưa cấu hình",
+                    tuitionPackageSourceLabel: classDetail
+                        ? isCustomPackage
+                            ? "Gói riêng"
+                            : "Theo lớp"
+                        : null,
                 };
             }),
-        [classItems, classDetailQueries],
+        [classItems, classDetailQueries, currentStudentId],
     );
 
     const tuitionSummary = useMemo(() => {
@@ -497,6 +516,11 @@ export default function AdminStudentDetailPage() {
                                                                     {item.tuitionPackageLabel}
                                                                 </span>
                                                             </span>
+                                                            {item.tuitionPackageSourceLabel ? (
+                                                                <span className="inline-flex w-fit rounded-full bg-bg-secondary px-2 py-0.5 text-[11px] font-medium text-text-secondary ring-1 ring-border-default">
+                                                                    {item.tuitionPackageSourceLabel}
+                                                                </span>
+                                                            ) : null}
                                                             <span>
                                                                 Thứ tự:{" "}
                                                                 <span className="font-medium text-primary">#{index + 1}</span>
@@ -537,7 +561,14 @@ export default function AdminStudentDetailPage() {
                                                     >
                                                         <td className="px-4 py-3 text-text-primary">{item.className}</td>
                                                         <td className="px-4 py-3 text-text-secondary">
-                                                            {item.tuitionPackageLabel}
+                                                            <div className="space-y-1">
+                                                                <p>{item.tuitionPackageLabel}</p>
+                                                                {item.tuitionPackageSourceLabel ? (
+                                                                    <p className="text-xs font-medium text-text-muted">
+                                                                        {item.tuitionPackageSourceLabel}
+                                                                    </p>
+                                                                ) : null}
+                                                            </div>
                                                         </td>
                                                         <td className="px-4 py-3 tabular-nums font-semibold text-primary">
                                                             #{index + 1}

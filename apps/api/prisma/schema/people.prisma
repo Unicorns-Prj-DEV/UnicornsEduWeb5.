@@ -47,6 +47,7 @@ model StudentInfo {
   studentClasses       StudentClass[]
   user                 User?                       @relation(fields: [userId], references: [id])
   walletTransactions   WalletTransactionsHistory[]
+  accountBalance       Int?                        @default(0) @map("account_balance")
 
   @@map("student_info")
 }

@@ -52,7 +52,9 @@ export interface ClassStudent {
     id: string;
     fullName: string;
     status?: ClassStudentStatus;
-    remainingSessions?: number | null;
+    customTuitionPerSession?: number | null;
+    customTuitionPackageTotal?: number | null;
+    customTuitionPackageSession?: number | null;
 }
 
 export interface ClassDetail extends ClassListItem {
@@ -121,8 +123,16 @@ export interface UpdateClassSchedulePayload {
 }
 
 /** Payload for PATCH /class/:id/students */
+export interface UpdateClassStudentItemPayload {
+    id: string;
+    custom_tuition_per_session?: number;
+    custom_tuition_package_total?: number;
+    custom_tuition_package_session?: number;
+}
+
+/** Payload for PATCH /class/:id/students */
 export interface UpdateClassStudentsPayload {
-    student_ids: string[];
+    students: UpdateClassStudentItemPayload[];
 }
 
 export interface ClassListItemDto {

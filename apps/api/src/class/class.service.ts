@@ -14,7 +14,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class ClassService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async getClasses(
     query: PaginationQueryDto & {
@@ -57,11 +57,11 @@ export class ClassService {
     const where = {
       ...(trimmedSearch
         ? {
-            name: {
-              contains: trimmedSearch,
-              mode: 'insensitive' as const,
-            },
-          }
+          name: {
+            contains: trimmedSearch,
+            mode: 'insensitive' as const,
+          },
+        }
         : {}),
       ...(statusFilter ? { status: statusFilter } : {}),
       ...(typeFilter ? { type: typeFilter } : {}),
@@ -90,23 +90,23 @@ export class ClassService {
     const classTeachers =
       classIds.length > 0
         ? await this.prisma.classTeacher.findMany({
-            where: {
-              classId: {
-                in: classIds,
+          where: {
+            classId: {
+              in: classIds,
+            },
+          },
+          select: {
+            classId: true,
+            customAllowance: true,
+            teacher: {
+              select: {
+                id: true,
+                fullName: true,
+                status: true,
               },
             },
-            select: {
-              classId: true,
-              customAllowance: true,
-              teacher: {
-                select: {
-                  id: true,
-                  fullName: true,
-                  status: true,
-                },
-              },
-            },
-          })
+          },
+        })
         : [];
 
     const teachersByClassId = classTeachers.reduce<
@@ -166,57 +166,23 @@ export class ClassService {
     const classStudents = await this.prisma.studentClass.findMany({
       where: { classId: id },
       include: {
-        student: {
-          select: {
-            id: true,
-            fullName: true,
-            status: true,
-          },
-        },
+        student: true
       },
       orderBy: {
         createdAt: 'asc',
       },
     });
 
-    const studentsById = classStudents.reduce<
-      Record<
-        string,
-        {
-          id: string;
-          fullName: string;
-          status: string;
-          remainingSessions: number | null;
-        }
-      >
-    >((acc, item) => {
-      if (acc[item.student.id]) {
-        return acc;
-      }
-
-      const packageSessionCount =
-        item.customTuitionPackageSession ?? classInfo.tuitionPackageSession;
-      const attendedSessionCount = item.totalAttendedSession ?? 0;
-      const remainingSessions =
-        packageSessionCount != null
-          ? Math.max(packageSessionCount - attendedSessionCount, 0)
-          : null;
-
-      return {
-        ...acc,
-        [item.student.id]: {
-          id: item.student.id,
-          fullName: item.student.fullName,
-          status: item.student.status,
-          remainingSessions,
-        },
-      };
-    }, {});
-
     return {
       ...classInfo,
       teachers,
-      students: Object.values(studentsById),
+      students: classStudents.map((student) => ({
+        ...student.student,
+        customStudentTuitionPerSession: student.customStudentTuitionPerSession,
+        customTuitionPackageTotal: student.customTuitionPackageTotal,
+        customTuitionPackageSession: student.customTuitionPackageSession,
+        totalAttendedSession: student.totalAttendedSession,
+      })),
     };
   }
 
@@ -242,7 +208,7 @@ export class ClassService {
   async getStudentsByClassId(classId: string) {
     const classInfo = await this.prisma.class.findUnique({
       where: { id: classId },
-      select: { id: true, tuitionPackageSession: true },
+      select: { id: true },
     });
 
     if (!classInfo) {
@@ -252,52 +218,12 @@ export class ClassService {
     const classStudents = await this.prisma.studentClass.findMany({
       where: { classId },
       include: {
-        student: {
-          select: {
-            id: true,
-            fullName: true,
-            status: true,
-          },
-        },
+        student: true
       },
       orderBy: { createdAt: 'asc' },
     });
 
-    const studentsById = classStudents.reduce<
-      Record<
-        string,
-        {
-          id: string;
-          fullName: string;
-          status: string;
-          remainingSessions: number | null;
-        }
-      >
-    >((acc, item) => {
-      if (acc[item.student.id]) {
-        return acc;
-      }
-
-      const packageSessionCount =
-        item.customTuitionPackageSession ?? classInfo.tuitionPackageSession;
-      const attendedSessionCount = item.totalAttendedSession ?? 0;
-      const remainingSessions =
-        packageSessionCount != null
-          ? Math.max(packageSessionCount - attendedSessionCount, 0)
-          : null;
-
-      return {
-        ...acc,
-        [item.student.id]: {
-          id: item.student.id,
-          fullName: item.student.fullName,
-          status: item.student.status,
-          remainingSessions,
-        },
-      };
-    }, {});
-
-    return Object.values(studentsById);
+    return classStudents;
   }
 
   async createClass(data: CreateClassDto) {
@@ -568,11 +494,15 @@ export class ClassService {
       await tx.studentClass.deleteMany({
         where: { classId: id },
       });
-      if (dto.student_ids.length > 0) {
+      if (dto.students.length > 0) {
         await tx.studentClass.createMany({
-          data: dto.student_ids.map((studentId) => ({
+          data: dto.students.map((student) => ({
             classId: id,
-            studentId,
+            studentId: student.id,
+
+            customStudentTuitionPerSession: student.custom_tuition_per_session,
+            customTuitionPackageTotal: student.custom_tuition_package_total,
+            customTuitionPackageSession: student.custom_tuition_package_session,
           })),
         });
       }
