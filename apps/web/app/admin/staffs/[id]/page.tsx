@@ -66,6 +66,11 @@ const DEFAULT_BONUS_FORM: BonusFormState = {
   note: "",
 };
 
+function normalizeMoneyAmount(value?: number | string | null): number {
+  const amount = typeof value === "number" ? value : Number(value ?? 0);
+  return Number.isFinite(amount) ? amount : 0;
+}
+
 export default function AdminStaffDetailPage() {
   const params = useParams();
   const id = typeof params?.id === "string" ? params.id : "";
@@ -275,53 +280,71 @@ export default function AdminStaffDetailPage() {
   }, [staff]);
 
   const province = staff?.user?.province || "—";
-  const classes =
-    staff?.classTeachers
-      ?.map((ct: { class: { id: string; name: string } }) => ({
-        id: ct.class.id,
-        name: ct.class.name,
-      }))
-      .filter((item) => item.id && item.name) || [];
+  const classes = useMemo(
+    () =>
+      staff?.classTeachers
+        ?.map((ct: { class: { id: string; name: string } }) => ({
+          id: ct.class.id,
+          name: ct.class.name,
+        }))
+        .filter((item) => item.id && item.name) || [],
+    [staff?.classTeachers],
+  );
 
-  const classAllowanceItems = Array.isArray(staff?.classAllowance)
-    ? staff.classAllowance
-    : [];
-  const classAllowanceByClassId = classAllowanceItems.reduce<
-    Record<string, { paid: number; unpaid: number }>
-  >((acc, item) => {
-    const amount =
-      typeof item.total_allowance === "number"
-        ? item.total_allowance
-        : Number(item.total_allowance ?? 0);
+  const classMonthlySummaries = useMemo(() => {
+    const classesById = new Map<
+      string,
+      { id: string; name: string; paid: number; unpaid: number }
+    >();
 
-    const safeAmount = Number.isFinite(amount) ? amount : 0;
-    const current = acc[item.class_id] ?? { paid: 0, unpaid: 0 };
-    const isPaid = item.teacher_payment_status === "paid";
-    const nextValue = {
-      paid: current.paid + (isPaid ? safeAmount : 0),
-      unpaid: current.unpaid + (isPaid ? 0 : safeAmount),
-    };
+    classes.forEach((item) => {
+      classesById.set(item.id, {
+        id: item.id,
+        name: item.name,
+        paid: 0,
+        unpaid: 0,
+      });
+    });
 
-    return {
-      ...acc,
-      [item.class_id]: nextValue,
-    };
-  }, {});
+    sessionsInCurrentMonth.forEach((session) => {
+      const classId = session.classId?.trim() || session.class?.id?.trim();
+      if (!classId) return;
+
+      const existing = classesById.get(classId);
+      const className =
+        existing?.name || session.class?.name?.trim() || "Lớp chưa đặt tên";
+      const summary = existing ?? {
+        id: classId,
+        name: className,
+        paid: 0,
+        unpaid: 0,
+      };
+      const amount = normalizeMoneyAmount(session.allowanceAmount);
+      const isPaid = (session.teacherPaymentStatus ?? "").toLowerCase() === "paid";
+
+      classesById.set(classId, {
+        ...summary,
+        name: summary.name || className,
+        paid: summary.paid + (isPaid ? amount : 0),
+        unpaid: summary.unpaid + (isPaid ? 0 : amount),
+      });
+    });
+
+    return Array.from(classesById.values()).sort((a, b) =>
+      a.name.localeCompare(b.name, "vi"),
+    );
+  }, [classes, sessionsInCurrentMonth]);
 
   const sessionMonthlyTotals = useMemo(() => {
     return sessionsInCurrentMonth.reduce(
       (acc, session) => {
-        const amountRaw =
-          typeof session.allowanceAmount === "number"
-            ? session.allowanceAmount
-            : Number(session.allowanceAmount ?? 0);
-        const safeAmount = Number.isFinite(amountRaw) ? amountRaw : 0;
         const isPaid = (session.teacherPaymentStatus ?? "").toLowerCase() === "paid";
+        const amount = normalizeMoneyAmount(session.allowanceAmount);
 
         return {
-          total: acc.total + safeAmount,
-          paid: acc.paid + (isPaid ? safeAmount : 0),
-          unpaid: acc.unpaid + (isPaid ? 0 : safeAmount),
+          total: acc.total + amount,
+          paid: acc.paid + (isPaid ? amount : 0),
+          unpaid: acc.unpaid + (isPaid ? 0 : amount),
         };
       },
       { total: 0, paid: 0, unpaid: 0 },
@@ -330,13 +353,7 @@ export default function AdminStaffDetailPage() {
 
   const sessionYearTotal = useMemo(() => {
     return sessionsInCurrentYear.reduce((total, session) => {
-      const amountRaw =
-        typeof session.allowanceAmount === "number"
-          ? session.allowanceAmount
-          : Number(session.allowanceAmount ?? 0);
-      const safeAmount = Number.isFinite(amountRaw) ? amountRaw : 0;
-
-      return total + safeAmount;
+      return total + normalizeMoneyAmount(session.allowanceAmount);
     }, 0);
   }, [sessionsInCurrentYear]);
 
@@ -782,14 +799,16 @@ export default function AdminStaffDetailPage() {
 
         <div className="grid gap-4 lg:grid-cols-2">
           <StaffCard title="Lớp phụ trách">
-            {classes.length === 0 ? (
+            {classMonthlySummaries.length === 0 ? (
               <p className="text-text-muted">Chưa gán lớp nào.</p>
             ) : (
               <>
+                <p className="mb-3 text-sm text-text-muted">
+                  Số liệu phụ cấp theo {selectedMonthLabel}.
+                </p>
                 <div className="space-y-3 md:hidden">
-                  {classes.map((item) => {
-                    const allowance = classAllowanceByClassId[item.id] ?? { paid: 0, unpaid: 0 };
-                    const total = allowance.paid + allowance.unpaid;
+                  {classMonthlySummaries.map((item) => {
+                    const total = item.paid + item.unpaid;
                     return (
                       <div
                         key={item.id}
@@ -801,10 +820,10 @@ export default function AdminStaffDetailPage() {
                             Tổng: <span className="font-semibold text-primary">{formatCurrency(total)}</span>
                           </span>
                           <span>
-                            Chưa nhận: <span className="font-semibold text-error">{formatCurrency(allowance.unpaid)}</span>
+                            Chưa nhận: <span className="font-semibold text-error">{formatCurrency(item.unpaid)}</span>
                           </span>
                           <span>
-                            Đã nhận: <span className="font-semibold text-success">{formatCurrency(allowance.paid)}</span>
+                            Đã nhận: <span className="font-semibold text-success">{formatCurrency(item.paid)}</span>
                           </span>
                         </div>
                       </div>
@@ -830,12 +849,8 @@ export default function AdminStaffDetailPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {classes.map((item) => {
-                        const allowance = classAllowanceByClassId[item.id] ?? {
-                          paid: 0,
-                          unpaid: 0,
-                        };
-                        const total = allowance.paid + allowance.unpaid;
+                      {classMonthlySummaries.map((item) => {
+                        const total = item.paid + item.unpaid;
 
                         return (
                           <tr
@@ -847,10 +862,10 @@ export default function AdminStaffDetailPage() {
                               {formatCurrency(total)}
                             </td>
                             <td className="px-4 py-3 tabular-nums font-semibold text-error">
-                              {formatCurrency(allowance.unpaid)}
+                              {formatCurrency(item.unpaid)}
                             </td>
                             <td className="px-4 py-3 tabular-nums font-semibold text-success">
-                              {formatCurrency(allowance.paid)}
+                              {formatCurrency(item.paid)}
                             </td>
                           </tr>
                         );
