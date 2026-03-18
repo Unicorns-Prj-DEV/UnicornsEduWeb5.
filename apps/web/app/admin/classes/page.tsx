@@ -35,8 +35,8 @@ const TYPE_LABELS: Record<ClassType, string> = {
 
 function statusBadgeClass(status: ClassStatus): string {
   return status === "running"
-    ? "bg-warning/15 text-warning ring-warning/25"
-    : "bg-bg-secondary text-text-secondary ring-border-default";
+    ? "bg-success/15 text-success ring-success/25"
+    : "bg-error/10 text-error ring-error/20";
 }
 
 function normalizeSeatValue(value: unknown): number | null {
@@ -158,7 +158,7 @@ export default function AdminClassesPage() {
   }, [classListResponse]);
 
   const statusDotColor = (status: ClassStatus) =>
-    status === "running" ? "bg-warning" : "bg-text-muted";
+    status === "running" ? "bg-success" : "bg-error";
   const statusLabel = (status: ClassStatus) =>
     status === "running" ? "Đang chạy" : "Đã kết thúc";
 
@@ -233,11 +233,14 @@ export default function AdminClassesPage() {
             <button
               type="button"
               onClick={() => setAddPopupOpen(true)}
-              className="w-full rounded-md border border-primary/25 bg-primary px-4 py-2 text-sm font-medium text-text-inverse shadow-sm transition-all duration-200 hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface sm:w-auto"
+              className="self-end flex size-11 items-center justify-center rounded-full bg-primary text-text-inverse shadow-sm transition-colors duration-200 hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface sm:size-10 sm:self-auto"
               aria-label="Thêm lớp học"
               title="Thêm lớp học"
             >
-              Thêm lớp học
+              <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span className="sr-only">Thêm lớp học</span>
             </button>
           </div>
 

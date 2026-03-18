@@ -1,3 +1,6 @@
+"use client";
+
+import { useRouter } from "next/navigation";
 import { ClassTeacher } from "@/dtos/class.dto";
 import ClassCard from "./ClassCard";
 
@@ -41,6 +44,7 @@ function normalizeTutors(teachers?: ClassTeacher[]): TutorItem[] {
 
 export default function TutorCard({ teachers, className = "", action }: Props) {
   const tutorItems = normalizeTutors(teachers);
+  const router = useRouter();
 
   return (
     <ClassCard title="Gia sư phụ trách" className={className} action={action}>
@@ -49,7 +53,16 @@ export default function TutorCard({ teachers, className = "", action }: Props) {
           {tutorItems.map((teacher, index) => (
             <div
               key={teacher.id}
-              className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-secondary/70 px-3 py-2.5 sm:px-4 sm:py-3"
+              role="button"
+              tabIndex={0}
+              onClick={() => router.push(`/admin/staffs/${encodeURIComponent(teacher.id)}`)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  router.push(`/admin/staffs/${encodeURIComponent(teacher.id)}`);
+                }
+              }}
+              className="flex cursor-pointer items-center gap-3 rounded-xl border border-border-default bg-bg-secondary/70 px-3 py-2.5 transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:px-4 sm:py-3"
             >
               <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border-default bg-bg-surface text-[11px] font-semibold uppercase tracking-[0.18em] text-text-secondary sm:size-10">
                 {String(index + 1).padStart(2, "0")}
@@ -60,7 +73,15 @@ export default function TutorCard({ teachers, className = "", action }: Props) {
                 </p>
                 <p className="truncate text-sm font-semibold text-text-primary sm:text-sm">{teacher.name}</p>
               </div>
-              <div className="shrink-0 rounded-full border border-border-default bg-bg-surface px-2.5 py-0.5 text-[11px] text-text-secondary sm:px-3 sm:py-1 sm:text-xs">
+              <div
+                className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] sm:px-3 sm:py-1 sm:text-xs ${
+                  teacher.status === "Đang hoạt động"
+                    ? "border-success/30 bg-success/10 text-success"
+                    : teacher.status === "Ngưng hoạt động"
+                      ? "border-error/30 bg-error/10 text-error"
+                      : "border-border-default bg-bg-surface text-text-secondary"
+                }`}
+              >
                 {teacher.status ?? "Đang phân công"}
               </div>
             </div>

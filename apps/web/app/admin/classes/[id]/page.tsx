@@ -127,7 +127,7 @@ export default function AdminClassDetailPage() {
     }
   }, [monthPopupOpen]);
 
-  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const monthNames = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"];
   const [selectedYear, selectedMonthValue] = selectedMonth.split("-");
   const monthNum = parseInt(selectedMonthValue, 10);
   const monthLabel = `Tháng ${monthNum}/${selectedYear}`;
@@ -298,7 +298,7 @@ export default function AdminClassDetailPage() {
               {(classDetail.name?.trim() || "L").charAt(0).toUpperCase()}
             </div>
             <span
-              className={`absolute bottom-0 right-0 block size-3 rounded-full border-2 border-bg-surface ${classDetail.status === "running" ? "bg-warning" : "bg-text-muted"}`}
+              className={`absolute bottom-0 right-0 block size-3 rounded-full border-2 border-bg-surface ${classDetail.status === "running" ? "bg-success" : "bg-error"}`}
               title={STATUS_LABELS[classDetail.status]}
               aria-hidden
             />
@@ -475,7 +475,16 @@ export default function AdminClassDetailPage() {
                   return (
                     <article
                       key={student.id}
-                      className="rounded-lg border border-border-default bg-bg-surface p-3 shadow-sm"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => router.push(`/admin/students/${encodeURIComponent(student.id)}`)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          router.push(`/admin/students/${encodeURIComponent(student.id)}`);
+                        }
+                      }}
+                      className="cursor-pointer rounded-lg border border-border-default bg-bg-surface p-3 shadow-sm transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div>
@@ -491,7 +500,7 @@ export default function AdminClassDetailPage() {
                         <span
                           className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${isActive
                               ? "bg-success/15 text-success"
-                              : "bg-text-muted/15 text-text-muted"
+                              : "bg-error/15 text-error"
                             }`}
                         >
                           {statusLabel}
@@ -540,7 +549,16 @@ export default function AdminClassDetailPage() {
                     return (
                       <tr
                         key={student.id}
-                        className="border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => router.push(`/admin/students/${encodeURIComponent(student.id)}`)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            router.push(`/admin/students/${encodeURIComponent(student.id)}`);
+                          }
+                        }}
+                        className="cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                       >
                         <td className="px-4 py-3 text-text-primary">{student.fullName}</td>
                         <td className="px-4 py-3 text-text-secondary">
@@ -554,7 +572,7 @@ export default function AdminClassDetailPage() {
                           <span
                             className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${isActive
                                 ? "bg-success/15 text-success"
-                                : "bg-text-muted/15 text-text-muted"
+                                : "bg-error/15 text-error"
                               }`}
                           >
                             {statusLabel}
@@ -571,95 +589,127 @@ export default function AdminClassDetailPage() {
 
         {/* Row 3: Lịch sử buổi học và khảo sát – 2 tab */}
         <ClassCard title="Lịch sử buổi học và khảo sát" className="w-full">
-          <div className="mb-4 flex flex-col gap-3">
-            <div className="flex gap-0.5 border-b border-border-default">
+          <div className="mb-4 flex flex-col gap-4">
+            {/* Tabs: minimal pill style */}
+            <div
+              className="inline-flex w-fit rounded-full bg-bg-secondary p-0.5"
+              role="tablist"
+              aria-label="Lịch sử hoặc khảo sát"
+            >
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeTab === "sessions"}
                 onClick={() => setActiveTab("sessions")}
-                className={`-mb-px flex-1 border-b-2 px-3 py-2 text-sm font-medium transition-colors sm:flex-none ${activeTab === "sessions"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-text-muted hover:text-text-primary"
-                  }`}
+                className={`rounded-full px-4 py-2 text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface ${
+                  activeTab === "sessions"
+                    ? "bg-bg-surface text-primary shadow-sm"
+                    : "text-text-muted hover:text-text-primary"
+                }`}
               >
                 Lịch sử
               </button>
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeTab === "surveys"}
                 onClick={() => setActiveTab("surveys")}
-                className={`-mb-px flex-1 border-b-2 px-3 py-2 text-sm font-medium transition-colors sm:flex-none ${activeTab === "surveys"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-text-muted hover:text-text-primary"
-                  }`}
+                className={`rounded-full px-4 py-2 text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface ${
+                  activeTab === "surveys"
+                    ? "bg-bg-surface text-primary shadow-sm"
+                    : "text-text-muted hover:text-text-primary"
+                }`}
               >
                 Khảo sát
               </button>
             </div>
 
-            {/* Thanh chuyển tháng – style backup session month picker */}
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-              <div className="inline-flex w-fit items-center rounded-full bg-bg-secondary px-3 py-1 text-xs text-text-muted sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm">
+            {/* Thanh chuyển tháng – modern minimal */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-sm text-text-muted">
                 {activeTab === "sessions"
-                  ? `Tổng số buổi: ${sessionsInMonth.length}`
-                  : `Tổng số khảo sát: ${surveysInMonth.length}`}
-              </div>
+                  ? `${sessionsInMonth.length} buổi`
+                  : `${surveysInMonth.length} khảo sát`}
+              </span>
+
               <div
                 data-session-month-nav
-                className="relative grid w-full grid-cols-[auto_1fr_auto] items-center gap-2 sm:flex sm:w-auto sm:justify-start"
+                className="relative flex w-full items-center justify-center gap-0 sm:w-auto"
               >
-                <button
-                  type="button"
-                  onClick={() => handleMonthChange(-1)}
-                  title="Tháng trước"
-                  className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary transition-all duration-200 hover:border-primary hover:bg-bg-primary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-8 sm:min-w-8 sm:rounded-md sm:px-2 sm:py-1"
-                  aria-label="Tháng trước"
-                >
-                  ◀
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMonthPopupOpen(!monthPopupOpen)}
-                  title="Chọn tháng/năm"
-                  className="flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:rounded-md sm:border-none sm:bg-transparent sm:px-2 sm:py-1"
-                  aria-expanded={monthPopupOpen}
-                  aria-haspopup="dialog"
-                >
-                  <span className="whitespace-nowrap">{monthLabel}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleMonthChange(1)}
-                  title="Tháng sau"
-                  className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary transition-all duration-200 hover:border-primary hover:bg-bg-primary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-8 sm:min-w-8 sm:rounded-md sm:px-2 sm:py-1"
-                  aria-label="Tháng sau"
-                >
-                  ▶
-                </button>
+                <div className="flex items-center rounded-full border border-border-subtle bg-bg-secondary/80 shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => handleMonthChange(-1)}
+                    title="Tháng trước"
+                    className="flex size-10 items-center justify-center rounded-l-full text-text-muted transition-colors hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-inset sm:size-9"
+                    aria-label="Tháng trước"
+                  >
+                    <svg className="size-5 sm:size-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMonthPopupOpen(!monthPopupOpen)}
+                    title="Chọn tháng, năm"
+                    className="min-w-[140px] px-4 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-inset sm:min-w-[120px] sm:px-3 sm:py-2"
+                    aria-expanded={monthPopupOpen}
+                    aria-haspopup="dialog"
+                  >
+                    <span className="whitespace-nowrap">{monthLabel}</span>
+                    <svg
+                      className={`ml-1 inline-block size-4 shrink-0 transition-transform duration-200 ${monthPopupOpen ? "rotate-180" : ""}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleMonthChange(1)}
+                    title="Tháng sau"
+                    className="flex size-10 items-center justify-center rounded-r-full text-text-muted transition-colors hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-inset sm:size-9"
+                    aria-label="Tháng sau"
+                  >
+                    <svg className="size-5 sm:size-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+
                 {monthPopupOpen && (
                   <div
                     role="dialog"
                     aria-label="Chọn tháng"
-                    className="absolute left-0 top-full z-30 mt-2 w-full rounded-xl border border-border-default bg-bg-surface p-3 shadow-md sm:left-1/2 sm:min-w-[200px] sm:w-auto sm:-translate-x-1/2 sm:rounded-md sm:p-2"
+                    className="absolute left-1/2 top-full z-30 mt-2 w-64 -translate-x-1/2 rounded-2xl border border-border-default bg-bg-surface p-4 shadow-lg"
                   >
-                    <div className="mb-2 flex items-center justify-between text-xs sm:mb-1">
+                    <div className="mb-3 flex items-center justify-between">
                       <button
                         type="button"
                         onClick={() => handleYearChange(-1)}
-                        className="rounded px-1 py-0.5 transition-colors hover:bg-bg-secondary"
+                        className="flex size-8 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-bg-secondary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                         aria-label="Năm trước"
                       >
-                        ‹
+                        <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
                       </button>
-                      <span className="font-medium">{selectedYear}</span>
+                      <span className="text-sm font-semibold text-text-primary">{selectedYear}</span>
                       <button
                         type="button"
                         onClick={() => handleYearChange(1)}
-                        className="rounded px-1 py-0.5 transition-colors hover:bg-bg-secondary"
+                        className="flex size-8 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-bg-secondary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                         aria-label="Năm sau"
                       >
-                        ›
+                        <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
                       </button>
                     </div>
-                    <div className="grid grid-cols-3 gap-1 sm:grid-cols-4">
+                    <div className="grid grid-cols-4 gap-1">
                       {monthNames.map((label, idx) => {
                         const val = String(idx + 1).padStart(2, "0");
                         const isActive = val === selectedMonthValue;
@@ -668,10 +718,11 @@ export default function AdminClassDetailPage() {
                             key={val}
                             type="button"
                             onClick={() => handleMonthSelect(val)}
-                            className={`rounded border px-2 py-1 text-xs transition-colors ${isActive
-                              ? "border-primary bg-primary/10 text-primary"
-                              : "border-transparent text-text-primary hover:bg-bg-secondary"
-                              }`}
+                            className={`rounded-lg py-2 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
+                              isActive
+                                ? "bg-primary/12 text-primary"
+                                : "text-text-primary hover:bg-bg-tertiary"
+                            }`}
                           >
                             {label}
                           </button>
@@ -689,12 +740,18 @@ export default function AdminClassDetailPage() {
                     setAddSessionPopupOpen(true);
                     return;
                   }
-
                   toast.info("Chức năng thêm khảo sát đang phát triển.");
                 }}
-                className="min-h-11 w-full shrink-0 rounded-xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:w-auto sm:rounded-md"
+                aria-label={activeTab === "sessions" ? "Thêm buổi học" : "Thêm khảo sát"}
+                title={activeTab === "sessions" ? "Thêm buổi học" : "Thêm khảo sát"}
+                className="order-last flex shrink-0 items-center justify-center rounded-full bg-primary text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface size-11 sm:order-none sm:size-10"
               >
-                {activeTab === "sessions" ? "+ Thêm buổi học" : "+ Thêm khảo sát"}
+                <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                <span className="sr-only">
+                  {activeTab === "sessions" ? "Thêm buổi học" : "Thêm khảo sát"}
+                </span>
               </button>
             </div>
           </div>
