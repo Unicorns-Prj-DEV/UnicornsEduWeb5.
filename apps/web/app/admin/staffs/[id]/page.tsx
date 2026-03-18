@@ -152,7 +152,14 @@ export default function AdminStaffDetailPage() {
 
   const getClassStudents = useCallback(async (classId: string) => {
     const detail = await classApi.getClassById(classId);
-    return (detail.students ?? []).map((s) => ({ id: s.id, fullName: s.fullName }));
+    return (detail.students ?? []).map((s) => ({
+      id: s.id,
+      fullName: s.fullName,
+      tuitionFee:
+        typeof s.customTuitionPerSession === "number" && Number.isFinite(s.customTuitionPerSession)
+          ? s.customTuitionPerSession
+          : null,
+    }));
   }, []);
 
   const {

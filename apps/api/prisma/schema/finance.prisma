@@ -25,6 +25,8 @@ model WalletTransactionsHistory {
   createdAt DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   student   StudentInfo           @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
+  studentTransactionAttendances Attendance?
+
   @@index([studentId])
   @@map("wallet_transactions_history")
 }

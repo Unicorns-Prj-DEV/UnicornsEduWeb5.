@@ -20,9 +20,7 @@ model User {
   studentInfo     StudentInfo?
 
   @@index([email])
-  @@index([phone])
   @@index([accountHandle])
-  @@index([linkId])
   @@index([roleType])
   @@index([status])
   @@map("users")

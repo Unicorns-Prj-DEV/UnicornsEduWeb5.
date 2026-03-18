@@ -6,7 +6,6 @@ export interface SessionCreateDto {
   date: string;
   startTime?: string;
   endTime?: string;
-  tuitionFee: number;
   notes?: string | null;
   /** Coefficient for this session (e.g. 1.0, 1.5). Default 1.0. */
   coefficient?: number;

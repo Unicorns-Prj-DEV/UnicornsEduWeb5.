@@ -187,6 +187,7 @@ export default function AdminClassDetailPage() {
       classStudents.map((student) => ({
         id: student.id,
         fullName: student.fullName,
+        tuitionFee: getStudentCustomTuitionPerSession(student),
       })),
     [classStudents],
   );
@@ -194,7 +195,11 @@ export default function AdminClassDetailPage() {
   const getClassStudents = useCallback(
     async (classId: string) => {
       if (classId !== id) return [];
-      return classStudents.map((student) => ({ id: student.id, fullName: student.fullName }));
+      return classStudents.map((student) => ({
+        id: student.id,
+        fullName: student.fullName,
+        tuitionFee: getStudentCustomTuitionPerSession(student),
+      }));
     },
     [id, classStudents],
   );
@@ -343,15 +348,17 @@ export default function AdminClassDetailPage() {
         classDetail={classDetail}
       />
 
-      <AddSessionPopup
-        open={addSessionPopupOpen}
-        classId={id}
-        defaultTeacherId={classDetail.teachers?.[0]?.id}
-        teachers={popupTeachers}
-        students={popupStudents}
-        sessionTuitionTotal={totalSessionTuition}
-        onClose={() => setAddSessionPopupOpen(false)}
-      />
+      {addSessionPopupOpen ? (
+        <AddSessionPopup
+          open={addSessionPopupOpen}
+          classId={id}
+          defaultTeacherId={classDetail.teachers?.[0]?.id}
+          teachers={popupTeachers}
+          students={popupStudents}
+          sessionTuitionTotal={totalSessionTuition}
+          onClose={() => setAddSessionPopupOpen(false)}
+        />
+      ) : null}
 
       <div className="flex flex-col gap-4">
         <ClassCard title="Thông tin cơ bản" className="w-full">

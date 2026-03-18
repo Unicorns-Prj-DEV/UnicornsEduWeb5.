@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
+import { useMemo, useState, type SyntheticEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -16,6 +16,7 @@ import RichTextEditor from "@/components/ui/RichTextEditor";
 export interface SessionStudentItem {
   id: string;
   fullName: string;
+  tuitionFee?: number | null;
 }
 
 type AttendanceFormItem = {
@@ -23,6 +24,8 @@ type AttendanceFormItem = {
   fullName: string;
   status: SessionAttendanceStatus;
   notes: string;
+  tuitionFee: string;
+  defaultTuitionFee: number | null;
 };
 
 type SessionTeacherItem = {
@@ -74,7 +77,33 @@ function toAttendancePayload(items: AttendanceFormItem[]): SessionAttendanceItem
     studentId: item.studentId,
     status: item.status,
     notes: item.notes.trim() || null,
+    ...(item.tuitionFee.trim() !== ""
+      ? { tuitionFee: Math.floor(Number(item.tuitionFee)) }
+      : {}),
   }));
+}
+
+function normalizeMoneyValue(value: number | string | null | undefined): number | null {
+  if (value == null) return null;
+  const normalized = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(normalized)) return null;
+  return Math.floor(normalized);
+}
+
+function isNonNegativeMoneyInput(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  const normalized = Number(trimmed);
+  return Number.isFinite(normalized) && normalized >= 0;
+}
+
+function resolveAttendanceTuitionValue(item: AttendanceFormItem): number {
+  const normalizedInput = normalizeMoneyValue(item.tuitionFee);
+  if (item.tuitionFee.trim() !== "" && normalizedInput != null && normalizedInput >= 0) {
+    return normalizedInput;
+  }
+
+  return normalizeMoneyValue(item.defaultTuitionFee) ?? 0;
 }
 
 export default function AddSessionPopup({
@@ -89,14 +118,25 @@ export default function AddSessionPopup({
 }: Props) {
   const queryClient = useQueryClient();
 
-  const [date, setDate] = useState(getTodayDateInputValue());
+  const [date, setDate] = useState(() => getTodayDateInputValue());
   const [startTime, setStartTime] = useState("18:00");
   const [endTime, setEndTime] = useState("20:00");
   const [notes, setNotes] = useState("");
   const [coefficient, setCoefficient] = useState<string>("1");
   const [allowanceAmount, setAllowanceAmount] = useState<string>("");
-  const [selectedTeacherId, setSelectedTeacherId] = useState(defaultTeacherId ?? teachers[0]?.id ?? "");
-  const [attendanceItems, setAttendanceItems] = useState<AttendanceFormItem[]>([]);
+  const [selectedTeacherId, setSelectedTeacherId] = useState(
+    defaultTeacherId ?? teachers[0]?.id ?? "",
+  );
+  const [attendanceItems, setAttendanceItems] = useState<AttendanceFormItem[]>(() =>
+    students.map((student) => ({
+      studentId: student.id,
+      fullName: student.fullName,
+      status: "present",
+      notes: "",
+      tuitionFee: "",
+      defaultTuitionFee: normalizeMoneyValue(student.tuitionFee),
+    })),
+  );
 
   const attendanceSummary = useMemo(() => {
     return attendanceItems.reduce(
@@ -111,28 +151,25 @@ export default function AddSessionPopup({
       },
     );
   }, [attendanceItems]);
-
-  useEffect(() => {
-    if (!open) {
-      return;
+  const resolvedSessionTuitionTotal = useMemo(() => {
+    if (attendanceItems.length === 0) {
+      return sessionTuitionTotal;
     }
 
-    setDate(getTodayDateInputValue());
-    setStartTime("18:00");
-    setEndTime("20:00");
-    setNotes("");
-    setCoefficient("1");
-    setAllowanceAmount("");
-    setSelectedTeacherId(defaultTeacherId ?? teachers[0]?.id ?? "");
-    setAttendanceItems(
-      students.map((student) => ({
-        studentId: student.id,
-        fullName: student.fullName,
-        status: "present",
-        notes: "",
-      })),
-    );
-  }, [open, students, defaultTeacherId, teachers]);
+    return attendanceItems.reduce((sum, item) => sum + resolveAttendanceTuitionValue(item), 0);
+  }, [attendanceItems, sessionTuitionTotal]);
+  const attendanceDefaultTuitionTotal = useMemo(
+    () =>
+      attendanceItems.reduce(
+        (sum, item) => sum + (normalizeMoneyValue(item.defaultTuitionFee) ?? 0),
+        0,
+      ),
+    [attendanceItems],
+  );
+  const attendanceOverrideCount = useMemo(
+    () => attendanceItems.filter((item) => item.tuitionFee.trim() !== "").length,
+    [attendanceItems],
+  );
 
   const createSessionMutation = useMutation({
     mutationFn: (payload: SessionCreatePayload) => sessionApi.createSession(payload),
@@ -170,6 +207,19 @@ export default function AddSessionPopup({
           ? {
               ...item,
               notes: value,
+            }
+          : item,
+      ),
+    );
+  };
+
+  const handleAttendanceTuitionChange = (studentId: string, value: string) => {
+    setAttendanceItems((prev) =>
+      prev.map((item) =>
+        item.studentId === studentId
+          ? {
+              ...item,
+              tuitionFee: value,
             }
           : item,
       ),
@@ -221,6 +271,15 @@ export default function AddSessionPopup({
 
     if (hasAttendanceNotesTooLong) {
       toast.error(`Ghi chú điểm danh tối đa ${MAX_ATTENDANCE_NOTES_LENGTH} ký tự.`);
+      return;
+    }
+
+    const hasInvalidAttendanceTuition = attendanceItems.some(
+      (item) => !isNonNegativeMoneyInput(item.tuitionFee),
+    );
+
+    if (hasInvalidAttendanceTuition) {
+      toast.error("Học phí từng học sinh phải là số không âm.");
       return;
     }
 
@@ -279,10 +338,10 @@ export default function AddSessionPopup({
           <div className="flex items-start justify-between gap-2 sm:justify-end">
             <div className="rounded-[1rem] border border-primary/15 bg-primary/5 px-3.5 py-2 shadow-sm">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
-                Tổng học phí / buổi
+                Tổng học phí buổi này
               </p>
               <p className="mt-1 text-right text-sm font-semibold tabular-nums text-primary sm:text-base">
-                {formatCurrency(sessionTuitionTotal)}
+                {formatCurrency(resolvedSessionTuitionTotal)}
               </p>
             </div>
             <button
@@ -403,9 +462,14 @@ export default function AddSessionPopup({
 
           <section className="rounded-lg border border-border-default bg-bg-secondary/50 p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-text-muted">
-                Điểm danh học sinh
-              </h3>
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-text-muted">
+                  Điểm danh học sinh
+                </h3>
+                <p className="mt-1 text-xs text-text-muted">
+                  Để trống học phí để dùng mức mặc định của học sinh trong lớp.
+                </p>
+              </div>
               <div className="flex flex-wrap gap-3 text-xs text-text-muted">
                 <span>
                   <span className="font-semibold text-success">Học:</span> {attendanceSummary.present}
@@ -416,6 +480,18 @@ export default function AddSessionPopup({
                 <span>
                   <span className="font-semibold text-error">Vắng:</span> {attendanceSummary.absent}
                 </span>
+                <span>
+                  <span className="font-semibold text-primary">Mặc định:</span>{" "}
+                  {formatCurrency(attendanceDefaultTuitionTotal)}
+                </span>
+                <span>
+                  <span className="font-semibold text-primary">Đang áp dụng:</span>{" "}
+                  {formatCurrency(resolvedSessionTuitionTotal)}
+                </span>
+                <span>
+                  <span className="font-semibold text-text-primary">Điều chỉnh:</span>{" "}
+                  {attendanceOverrideCount}
+                </span>
               </div>
             </div>
 
@@ -425,7 +501,7 @@ export default function AddSessionPopup({
               </div>
             ) : (
               <div className="overflow-x-auto rounded-lg border border-border-default bg-bg-surface">
-                <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+                <table className="w-full min-w-[920px] border-collapse text-left text-sm">
                   <caption className="sr-only">Danh sách điểm danh học sinh</caption>
                   <thead>
                     <tr className="border-b border-border-default bg-bg-secondary">
@@ -437,6 +513,9 @@ export default function AddSessionPopup({
                       </th>
                       <th scope="col" className="px-4 py-3 font-medium text-text-primary">
                         Ghi chú
+                      </th>
+                      <th scope="col" className="px-4 py-3 font-medium text-text-primary">
+                        Học phí buổi
                       </th>
                     </tr>
                   </thead>
@@ -475,6 +554,32 @@ export default function AddSessionPopup({
                             className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                             placeholder="Ghi chú điểm danh (nếu có)"
                           />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="space-y-1">
+                            <input
+                              type="number"
+                              min={0}
+                              value={item.tuitionFee}
+                              onChange={(event) =>
+                                handleAttendanceTuitionChange(item.studentId, event.target.value)
+                              }
+                              className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                              placeholder={
+                                item.defaultTuitionFee != null
+                                  ? String(item.defaultTuitionFee)
+                                  : "Theo học sinh"
+                              }
+                            />
+                            <p className="text-xs text-text-muted">
+                              Mặc định:{" "}
+                              <span className="font-medium tabular-nums text-text-primary">
+                                {item.defaultTuitionFee != null
+                                  ? formatCurrency(item.defaultTuitionFee)
+                                  : "Chưa cấu hình"}
+                              </span>
+                            </p>
+                          </div>
                         </td>
                       </tr>
                     ))}

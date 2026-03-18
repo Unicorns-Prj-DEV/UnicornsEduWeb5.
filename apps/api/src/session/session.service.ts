@@ -3,13 +3,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '../../generated/client';
 import { PaymentStatus, WalletTransactionType } from 'generated/client';
 import { SessionCreateDto, SessionUpdateDto } from 'src/dtos/session.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class SessionService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   private parseSessionDate(date: string) {
     const parsedDate = new Date(date);
@@ -17,6 +18,13 @@ export class SessionService {
       throw new BadRequestException('date không hợp lệ.');
     }
     return parsedDate;
+  }
+
+  private formatVND(amount: number) {
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND',
+    }).format(amount);
   }
 
   private parseSessionTime(time: string, field: 'startTime' | 'endTime') {
@@ -44,7 +52,9 @@ export class SessionService {
   }
 
   private validateAttendanceItems(
-    attendance: Array<{ studentId: string }> | undefined,
+    attendance:
+      | Array<{ studentId: string; tuitionFee?: number | null }>
+      | undefined,
     options: { required: boolean },
   ) {
     if (attendance === undefined) {
@@ -72,6 +82,47 @@ export class SessionService {
     if (uniqueStudentIds.size !== studentIds.length) {
       throw new BadRequestException('attendance chứa studentId trùng lặp.');
     }
+
+    const hasInvalidTuitionFee = attendance.some((item) => {
+      if (item?.tuitionFee === undefined || item?.tuitionFee === null) {
+        return false;
+      }
+
+      const tuitionFee = Number(item.tuitionFee);
+      return !Number.isFinite(tuitionFee) || tuitionFee < 0;
+    });
+
+    if (hasInvalidTuitionFee) {
+      throw new BadRequestException('attendance.tuitionFee không hợp lệ.');
+    }
+  }
+
+  private normalizeAttendanceTuitionFee(
+    value: number | string | null | undefined,
+  ): number | null {
+    if (value === undefined || value === null || value === '') {
+      return null;
+    }
+
+    const normalizedValue = Number(value);
+    if (!Number.isFinite(normalizedValue) || normalizedValue < 0) {
+      throw new BadRequestException('attendance.tuitionFee không hợp lệ.');
+    }
+
+    return Math.floor(normalizedValue);
+  }
+
+  private resolveAttendanceTuitionFee(
+    overrideValue: number | string | null | undefined,
+    defaultValue: number | null | undefined,
+  ): number | null {
+    const normalizedOverride =
+      this.normalizeAttendanceTuitionFee(overrideValue);
+    if (normalizedOverride !== null) {
+      return normalizedOverride;
+    }
+
+    return this.normalizeAttendanceTuitionFee(defaultValue);
   }
 
   async createSession(data: SessionCreateDto) {
@@ -116,6 +167,7 @@ export class SessionService {
         select: {
           studentId: true,
           customStudentTuitionPerSession: true,
+          student: true,
         },
       });
 
@@ -126,12 +178,16 @@ export class SessionService {
         ]),
       );
       const studentClassByStudentId = new Map(
-        studentClasses.map((studentClass) => [studentClass.studentId, studentClass]),
+        studentClasses.map((studentClass) => [
+          studentClass.studentId,
+          studentClass,
+        ]),
       );
-      const tuitionFee = studentClasses.reduce(
-        (acc, studentClass) =>
-          acc + (studentClass.customStudentTuitionPerSession ?? 0),
-        0,
+      const studentAccountBalanceByStudentId = new Map(
+        studentClasses.map((studentClass) => [
+          studentClass.studentId,
+          studentClass.student.accountBalance,
+        ]),
       );
 
       if (!classTeacher) {
@@ -149,30 +205,67 @@ export class SessionService {
           ? data.allowanceAmount
           : classTeacher.customAllowance;
 
-      await tx.$executeRaw`
-        UPDATE student_info AS s
-        SET account_balance = s.account_balance - tf.custom_student_tuition_per_session
-        FROM (
-          SELECT student_id, custom_student_tuition_per_session
-          FROM student_classes
-          WHERE class_id = ${data.classId}
-        ) AS tf
-        WHERE s.id = tf.student_id;
-      `;
+      const resolvedAttendance = data.attendance.map((attendanceItem) => {
+        const customerCare = customerCareByStudentId.get(
+          attendanceItem.studentId,
+        );
 
-      await tx.$executeRaw`
-        INSERT INTO wallet_transactions_history (id , student_id , amount , type , note)
-        SELECT
-          gen_random_uuid(),
-          student_id,
-          custom_student_tuition_per_session,
-          'extend',
-          'Đóng học phí lớp ' || classes.name ||  ' buổi học ' || now()::date || '. Số dư: ' || to_char(student_info.account_balance, 'FM999,999,999,999') || ' - ' || to_char(custom_student_tuition_per_session, 'FM999,999,999,999') || ' = ' || to_char(student_info.account_balance - custom_student_tuition_per_session, 'FM999,999,999,999') as note
-        FROM student_classes
-        join student_info on student_classes.student_id = student_info.id
-        join classes on classes.id = student_classes.class_id
-        WHERE class_id = ${data.classId}
-      `;
+        return {
+          studentId: attendanceItem.studentId,
+          status: attendanceItem.status,
+          notes: attendanceItem.notes ?? null,
+          customerCareCoef: customerCare?.profitPercent,
+          customerCareStaffId: customerCare?.staffId,
+          tuitionFee: studentClassByStudentId.get(attendanceItem.studentId)
+            ?.customStudentTuitionPerSession,
+          accountBalance: studentAccountBalanceByStudentId.get(
+            attendanceItem.studentId,
+          ),
+        };
+      });
+
+      const tuitionFee = resolvedAttendance.reduce(
+        (sum, attendanceItem) => sum + (attendanceItem.tuitionFee ?? 0),
+        0,
+      );
+
+      const attendanceWithCharge = resolvedAttendance.filter(
+        (attendanceItem) => (attendanceItem.tuitionFee ?? 0) > 0,
+      );
+
+      await Promise.all(
+        attendanceWithCharge.map((attendanceItem) =>
+          tx.studentInfo.update({
+            where: { id: attendanceItem.studentId },
+            data: {
+              accountBalance: {
+                decrement: attendanceItem.tuitionFee ?? 0,
+              },
+            },
+          }),
+        ),
+      );
+
+      const studentTransactionAttendanceId = new Map<string, string>();
+
+      if (attendanceWithCharge.length > 0) {
+        const transactions =
+          await tx.walletTransactionsHistory.createManyAndReturn({
+            data: resolvedAttendance.map((attendanceItem) => ({
+              studentId: attendanceItem.studentId,
+              amount: attendanceItem.tuitionFee ?? 0,
+              type: WalletTransactionType.extend,
+              note: `Đóng học phí lớp ${classTeacher.class.name} buổi học ${data.date}. | Số dư: ${this.formatVND(attendanceItem.accountBalance ?? 0)} - ${this.formatVND(attendanceItem.tuitionFee ?? 0)} = ${this.formatVND((attendanceItem.accountBalance ?? 0) - (attendanceItem.tuitionFee ?? 0))}`,
+            })),
+          });
+
+        transactions.forEach((transaction) => {
+          studentTransactionAttendanceId.set(
+            transaction.studentId,
+            transaction.id,
+          );
+        });
+      }
 
       return tx.session.create({
         data: {
@@ -191,24 +284,18 @@ export class SessionService {
           notes: data.notes ?? null,
           attendance: {
             createMany: {
-              data: data.attendance.map((attendanceItem) => {
-                const customerCare = customerCareByStudentId.get(
+              data: resolvedAttendance.map((attendanceItem) => ({
+                studentId: attendanceItem.studentId,
+                status: attendanceItem.status,
+                notes: attendanceItem.notes,
+                customerCareCoef: attendanceItem.customerCareCoef,
+                customerCareStaffId: attendanceItem.customerCareStaffId,
+                customerCarePaymentStatus: PaymentStatus.pending,
+                tuitionFee: attendanceItem.tuitionFee,
+                transactionId: studentTransactionAttendanceId.get(
                   attendanceItem.studentId,
-                );
-                const studentClass = studentClassByStudentId.get(
-                  attendanceItem.studentId,
-                );
-
-                return {
-                  studentId: attendanceItem.studentId,
-                  status: attendanceItem.status,
-                  notes: attendanceItem.notes ?? null,
-                  customerCareCoef: customerCare?.profitPercent,
-                  customerCareStaffId: customerCare?.staffId,
-                  customerCarePaymentStatus: PaymentStatus.pending,
-                  tuitionFee: studentClass?.customStudentTuitionPerSession,
-                };
-              }),
+                ),
+              })),
             },
           },
         },
@@ -243,6 +330,7 @@ export class SessionService {
               studentId: true,
               status: true,
               notes: true,
+              tuitionFee: true,
             },
           },
         },
@@ -306,13 +394,15 @@ export class SessionService {
           studentId: attendanceItem.studentId,
           status: attendanceItem.status,
           notes: attendanceItem.notes ?? null,
+          tuitionFee: attendanceItem.tuitionFee ?? null,
         }));
 
       const effectiveAttendanceStudentIds = effectiveAttendance.map(
         (attendanceItem) => attendanceItem.studentId,
       );
       const shouldRefreshAttendanceTuition =
-        data.attendance !== undefined || nextClassId !== existingSession.classId;
+        data.attendance !== undefined ||
+        nextClassId !== existingSession.classId;
 
       const studentTuitionFeeByStudentId = new Map<string, number | null>();
       if (
@@ -344,7 +434,10 @@ export class SessionService {
         string,
         { profitPercent: number | null; staffId: string | null }
       >();
-      if (data.attendance !== undefined && effectiveAttendanceStudentIds.length > 0) {
+      if (
+        data.attendance !== undefined &&
+        effectiveAttendanceStudentIds.length > 0
+      ) {
         const studentCustomerCare = await tx.customerCareService.findMany({
           where: {
             studentId: {
@@ -371,11 +464,15 @@ export class SessionService {
 
       const sessionTuitionFeeUpdate = shouldRefreshAttendanceTuition
         ? effectiveAttendance.reduce((sum, attendanceItem) => {
-          return (
-            sum +
-            (studentTuitionFeeByStudentId.get(attendanceItem.studentId) ?? 0)
-          );
-        }, 0)
+            return (
+              sum +
+              (this.resolveAttendanceTuitionFee(
+                attendanceItem.tuitionFee,
+                studentTuitionFeeByStudentId.get(attendanceItem.studentId) ??
+                  null,
+              ) ?? 0)
+            );
+          }, 0)
         : undefined;
 
       await tx.session.update({
@@ -447,9 +544,11 @@ export class SessionService {
                   customerCareByStudentId.get(attendanceItem.studentId)
                     ?.staffId ?? null,
                 customerCarePaymentStatus: PaymentStatus.pending,
-                tuitionFee:
+                tuitionFee: this.resolveAttendanceTuitionFee(
+                  attendanceItem.tuitionFee,
                   studentTuitionFeeByStudentId.get(attendanceItem.studentId) ??
-                  null,
+                    null,
+                ),
               },
               update: {
                 status: attendanceItem.status,
@@ -460,9 +559,11 @@ export class SessionService {
                 customerCareStaffId:
                   customerCareByStudentId.get(attendanceItem.studentId)
                     ?.staffId ?? null,
-                tuitionFee:
+                tuitionFee: this.resolveAttendanceTuitionFee(
+                  attendanceItem.tuitionFee,
                   studentTuitionFeeByStudentId.get(attendanceItem.studentId) ??
-                  null,
+                    null,
+                ),
               },
             }),
           ),
@@ -504,17 +605,81 @@ export class SessionService {
   }
 
   async deleteSession(id: string) {
-    const existingSession = await this.prisma.session.findUnique({
-      where: { id },
-      select: { id: true },
-    });
+    return this.prisma.$transaction(async (tx) => {
+      const existingSession = await tx.session.findUnique({
+        where: { id },
+        include: {
+          class: { select: { name: true } },
+          attendance: {
+            include: {
+              student: { select: { accountBalance: true } },
+              transaction: true,
+            },
+          },
+        },
+      });
 
-    if (!existingSession) {
-      throw new NotFoundException('Session not found');
-    }
+      if (!existingSession) {
+        throw new NotFoundException('Session not found');
+      }
 
-    return this.prisma.session.delete({
-      where: { id },
+      const sessionDateLabel = existingSession.date.toISOString().slice(0, 10);
+      const studentBalanceChanges = Array.from(
+        existingSession.attendance
+          .reduce((acc, attendanceItem) => {
+            const changeAmount = Math.max(
+              0,
+              attendanceItem.transaction?.amount ??
+                attendanceItem.tuitionFee ??
+                0,
+            );
+
+            if (changeAmount <= 0) {
+              return acc;
+            }
+
+            const currentItem = acc.get(attendanceItem.studentId);
+            acc.set(attendanceItem.studentId, {
+              studentId: attendanceItem.studentId,
+              change: (currentItem?.change ?? 0) + changeAmount,
+              accountBalance:
+                currentItem?.accountBalance ??
+                attendanceItem.student.accountBalance ??
+                0,
+            });
+            return acc;
+          }, new Map<string, { studentId: string; change: number; accountBalance: number }>())
+          .values(),
+      );
+
+      if (studentBalanceChanges.length > 0) {
+        const balanceRows = studentBalanceChanges.map(
+          (balanceChange) =>
+            Prisma.sql`(${balanceChange.studentId}::text, ${balanceChange.change}::integer)`,
+        );
+
+        await tx.$executeRaw(Prisma.sql`
+          UPDATE student_info AS s
+          SET account_balance = COALESCE(s.account_balance, 0) + balance_change.change
+          FROM (
+            VALUES ${Prisma.join(balanceRows)}
+          ) AS balance_change(student_id, change)
+          WHERE s.id = balance_change.student_id
+        `);
+
+        await tx.walletTransactionsHistory.createMany({
+          data: studentBalanceChanges.map((balanceChange) => ({
+            studentId: balanceChange.studentId,
+            type: WalletTransactionType.topup,
+            amount: balanceChange.change,
+            note: `Hoàn trả số dư lớp ${existingSession.class.name} buổi học ${sessionDateLabel}. | Số dư: ${this.formatVND(balanceChange.accountBalance)} + ${this.formatVND(balanceChange.change)} = ${this.formatVND(balanceChange.accountBalance + balanceChange.change)}`,
+          })),
+        });
+      }
+
+      return tx.session.delete({
+        where: { id },
+      });
     });
   }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -36,7 +36,9 @@ type Props = {
   /** Lấy danh sách gia sư theo lớp (dùng khi sửa từ trang gia sư). */
   getTeachersForClass?: (classId: string) => Promise<SessionTeacherOption[]>;
   /** Lấy danh sách học sinh của lớp để chỉnh sửa điểm danh. */
-  getClassStudents?: (classId: string) => Promise<{ id: string; fullName: string }[]>;
+  getClassStudents?: (
+    classId: string,
+  ) => Promise<{ id: string; fullName: string; tuitionFee?: number | null }[]>;
 };
 
 type AttendanceFormItem = {
@@ -44,6 +46,8 @@ type AttendanceFormItem = {
   fullName: string;
   status: SessionAttendanceStatus;
   notes: string;
+  tuitionFee: string;
+  defaultTuitionFee: number | null;
 };
 
 const ATTENDANCE_STATUS_OPTIONS: Array<{ value: SessionAttendanceStatus; label: string }> = [
@@ -215,6 +219,22 @@ function normalizeMoneyValue(value: number | string | null | undefined): number 
   return Math.floor(normalized);
 }
 
+function isNonNegativeMoneyInput(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  const normalized = Number(trimmed);
+  return Number.isFinite(normalized) && normalized >= 0;
+}
+
+function resolveAttendanceTuitionValue(item: AttendanceFormItem): number {
+  const normalizedInput = normalizeMoneyValue(item.tuitionFee);
+  if (item.tuitionFee.trim() !== "" && normalizedInput != null && normalizedInput >= 0) {
+    return normalizedInput;
+  }
+
+  return normalizeMoneyValue(item.defaultTuitionFee) ?? 0;
+}
+
 /** YYYY-MM-DD for date input from session.date (ISO or date string). */
 function toDateInputValue(raw?: string | null): string {
   const key = extractDateKey(raw);
@@ -279,60 +299,75 @@ export default function SessionHistoryTable({
     enabled: !!editingClassId,
   });
 
-  useEffect(() => {
-    if (!editingSession) return;
+  const loadTeachersForEdit = (session: SessionItem) => {
     if (teachersProp?.length) {
       setTeachersList(teachersProp);
       setTeachersLoading(false);
       return;
     }
-    if (getTeachersForClass && editingSession.classId) {
+
+    if (getTeachersForClass && session.classId) {
       setTeachersLoading(true);
       setTeachersList([]);
-      getTeachersForClass(editingSession.classId)
+      void getTeachersForClass(session.classId)
         .then((list) => setTeachersList(list ?? []))
         .catch(() => setTeachersList([]))
         .finally(() => setTeachersLoading(false));
-    } else {
-      setTeachersList([]);
-      setTeachersLoading(false);
+      return;
     }
-  }, [editingSession?.id, editingSession?.classId, teachersProp, getTeachersForClass]);
 
-  useEffect(() => {
-    if (!editingSession?.classId || !getClassStudents) {
+    setTeachersList([]);
+    setTeachersLoading(false);
+  };
+
+  const loadAttendanceForEdit = (session: SessionItem) => {
+    if (!session.classId || !getClassStudents) {
       setAttendanceItems([]);
       setAttendanceLoading(false);
       return;
     }
+
     setAttendanceLoading(true);
     setAttendanceItems([]);
-    const existingAttendance = editingSession.attendance ?? [];
-    getClassStudents(editingSession.classId)
+    const existingAttendance = session.attendance ?? [];
+    void getClassStudents(session.classId)
       .then((students) => {
         const byStudentId = new Map(
-          existingAttendance.map((a) => [
-            a.studentId,
+          existingAttendance.map((attendanceItem) => [
+            attendanceItem.studentId,
             {
-              status: (a.status ?? "absent") as SessionAttendanceStatus,
-              notes: a.notes ?? "",
+              status: (attendanceItem.status ?? "absent") as SessionAttendanceStatus,
+              notes: attendanceItem.notes ?? "",
+              tuitionFee: normalizeMoneyValue(attendanceItem.tuitionFee) ?? null,
             },
           ]),
         );
-        const merged: AttendanceFormItem[] = (students ?? []).map((s) => {
-          const existing = byStudentId.get(s.id);
+        const merged: AttendanceFormItem[] = (students ?? []).map((student) => {
+          const existing = byStudentId.get(student.id);
+          const defaultTuitionFee = normalizeMoneyValue(student.tuitionFee);
+          const existingTuitionFee = normalizeMoneyValue(existing?.tuitionFee);
+          const shouldShowOverride =
+            existingTuitionFee != null &&
+            (defaultTuitionFee == null || existingTuitionFee !== defaultTuitionFee);
+
           return {
-            studentId: s.id,
-            fullName: s.fullName?.trim() || "—",
+            studentId: student.id,
+            fullName: student.fullName?.trim() || "—",
             status: existing?.status ?? "absent",
             notes: existing?.notes ?? "",
+            tuitionFee:
+              shouldShowOverride && existingTuitionFee != null
+                ? String(existingTuitionFee)
+                : "",
+            defaultTuitionFee,
           };
         });
+
         setAttendanceItems(merged);
       })
       .catch(() => setAttendanceItems([]))
       .finally(() => setAttendanceLoading(false));
-  }, [editingSession?.id, editingSession?.classId, editingSession?.attendance, getClassStudents]);
+  };
 
   const setAttendanceStatus = (studentId: string, status: SessionAttendanceStatus) => {
     setAttendanceItems((prev) =>
@@ -346,6 +381,14 @@ export default function SessionHistoryTable({
     setAttendanceItems((prev) =>
       prev.map((item) =>
         item.studentId === studentId ? { ...item, notes } : item,
+      ),
+    );
+  };
+
+  const setAttendanceTuitionFee = (studentId: string, tuitionFee: string) => {
+    setAttendanceItems((prev) =>
+      prev.map((item) =>
+        item.studentId === studentId ? { ...item, tuitionFee } : item,
       ),
     );
   };
@@ -424,10 +467,16 @@ export default function SessionHistoryTable({
     setEditAllowanceAmount(
       allowance != null && Number.isFinite(Number(allowance)) ? String(allowance) : "",
     );
+    loadTeachersForEdit(session);
+    loadAttendanceForEdit(session);
   };
 
   const closeEdit = () => {
     setEditingSession(null);
+    setTeachersList([]);
+    setTeachersLoading(false);
+    setAttendanceItems([]);
+    setAttendanceLoading(false);
   };
 
   const handleSaveEdit = () => {
@@ -459,12 +508,22 @@ export default function SessionHistoryTable({
       toast.error(`Ghi chú điểm danh tối đa ${MAX_ATTENDANCE_NOTES_LENGTH} ký tự.`);
       return;
     }
+    const hasInvalidAttendanceTuition = attendanceItems.some(
+      (item) => !isNonNegativeMoneyInput(item.tuitionFee),
+    );
+    if (hasInvalidAttendanceTuition) {
+      toast.error("Học phí từng học sinh phải là số không âm.");
+      return;
+    }
     const attendancePayload: SessionAttendanceItem[] =
       attendanceItems.length > 0
         ? attendanceItems.map((item) => ({
           studentId: item.studentId,
           status: item.status,
           notes: item.notes.trim() || null,
+          ...(item.tuitionFee.trim() !== ""
+            ? { tuitionFee: Math.floor(Number(item.tuitionFee)) }
+            : {}),
         }))
         : [];
     const coeffNum = editCoefficient.trim() ? Number(editCoefficient) : undefined;
@@ -495,7 +554,25 @@ export default function SessionHistoryTable({
 
   const shouldShowEntity = entityMode !== "none";
   const resolvedEditSessionTuition =
-    editingSession == null ? (sessionTuitionTotal ?? 0) : (sessionTuitionTotal ?? resolveSessionTuitionFee(editingSession));
+    editingSession == null
+      ? sessionTuitionTotal ?? 0
+      : attendanceItems.length > 0
+        ? attendanceItems.reduce((sum, item) => sum + resolveAttendanceTuitionValue(item), 0)
+        : editingSession.tuitionFee != null || Array.isArray(editingSession.attendance)
+          ? resolveSessionTuitionFee(editingSession)
+          : sessionTuitionTotal ?? 0;
+  const attendanceDefaultTuitionTotal = useMemo(
+    () =>
+      attendanceItems.reduce(
+        (sum, item) => sum + (normalizeMoneyValue(item.defaultTuitionFee) ?? 0),
+        0,
+      ),
+    [attendanceItems],
+  );
+  const attendanceOverrideCount = useMemo(
+    () => attendanceItems.filter((item) => item.tuitionFee.trim() !== "").length,
+    [attendanceItems],
+  );
   const currentSessionCoefficient =
     editingSession?.coefficient != null && Number.isFinite(Number(editingSession.coefficient))
       ? Number(editingSession.coefficient)
@@ -888,7 +965,7 @@ export default function SessionHistoryTable({
               <div className="flex flex-wrap items-start justify-between gap-2 sm:justify-end">
                 <div className="rounded-[1rem] border border-primary/15 bg-primary/5 px-3.5 py-2 shadow-sm">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
-                    Tổng học phí / buổi
+                    Tổng học phí buổi này
                   </p>
                   <p className="mt-1 text-right text-sm font-semibold tabular-nums text-primary sm:text-base">
                     {formatCurrency(resolvedEditSessionTuition)}
@@ -1020,16 +1097,51 @@ export default function SessionHistoryTable({
 
               {getClassStudents ? (
                 <section className="rounded-lg border border-border-default bg-bg-secondary/50 p-4">
-                  <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-text-muted">
-                    Điểm danh học sinh
-                  </h3>
+                  <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-text-muted">
+                        Điểm danh học sinh
+                      </h3>
+                      <p className="mt-1 text-xs text-text-muted">
+                        Để trống học phí để dùng mức mặc định của học sinh trong lớp.
+                      </p>
+                    </div>
+                    {attendanceItems.length > 0 ? (
+                      <div className="grid min-w-[240px] gap-2 sm:grid-cols-3">
+                        <div className="rounded-2xl border border-border-default bg-bg-surface px-3 py-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                            Mặc định
+                          </p>
+                          <p className="mt-1 text-sm font-semibold tabular-nums text-text-primary">
+                            {formatCurrency(attendanceDefaultTuitionTotal)}
+                          </p>
+                        </div>
+                        <div className="rounded-2xl border border-primary/20 bg-primary/5 px-3 py-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                            Đang áp dụng
+                          </p>
+                          <p className="mt-1 text-sm font-semibold tabular-nums text-primary">
+                            {formatCurrency(resolvedEditSessionTuition)}
+                          </p>
+                        </div>
+                        <div className="rounded-2xl border border-border-default bg-bg-surface px-3 py-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                            Điều chỉnh
+                          </p>
+                          <p className="mt-1 text-sm font-semibold text-text-primary">
+                            {attendanceOverrideCount} học sinh
+                          </p>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                   {attendanceLoading ? (
                     <p className="py-4 text-center text-sm text-text-muted">Đang tải…</p>
                   ) : attendanceItems.length === 0 ? (
                     <p className="py-4 text-center text-sm text-text-muted">Lớp chưa có học sinh.</p>
                   ) : (
                     <div className="overflow-x-auto rounded-lg border border-border-default bg-bg-surface">
-                      <table className="w-full min-w-[520px] border-collapse text-left text-sm">
+                      <table className="w-full min-w-[760px] border-collapse text-left text-sm">
                         <caption className="sr-only">Điểm danh học sinh</caption>
                         <thead>
                           <tr className="border-b border-border-default bg-bg-secondary">
@@ -1041,6 +1153,9 @@ export default function SessionHistoryTable({
                             </th>
                             <th scope="col" className="px-4 py-3 font-medium text-text-primary">
                               Ghi chú
+                            </th>
+                            <th scope="col" className="px-4 py-3 font-medium text-text-primary">
+                              Học phí buổi
                             </th>
                           </tr>
                         </thead>
@@ -1078,6 +1193,30 @@ export default function SessionHistoryTable({
                                   className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                                   placeholder="Ghi chú (nếu có)"
                                 />
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="space-y-1">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    value={item.tuitionFee}
+                                    onChange={(e) => setAttendanceTuitionFee(item.studentId, e.target.value)}
+                                    className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                    placeholder={
+                                      item.defaultTuitionFee != null
+                                        ? String(item.defaultTuitionFee)
+                                        : "Theo học sinh"
+                                    }
+                                  />
+                                  <p className="text-xs text-text-muted">
+                                    Mặc định:{" "}
+                                    <span className="font-medium tabular-nums text-text-primary">
+                                      {item.defaultTuitionFee != null
+                                        ? formatCurrency(item.defaultTuitionFee)
+                                        : "Chưa cấu hình"}
+                                    </span>
+                                  </p>
+                                </div>
                               </td>
                             </tr>
                           ))}

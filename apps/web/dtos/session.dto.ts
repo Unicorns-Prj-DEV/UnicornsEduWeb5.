@@ -15,6 +15,7 @@ export interface SessionAttendanceItem {
   studentId: string;
   status: SessionAttendanceStatus;
   notes?: string | null;
+  tuitionFee?: number | null;
 }
 
 export interface SessionMonthYearParams {
