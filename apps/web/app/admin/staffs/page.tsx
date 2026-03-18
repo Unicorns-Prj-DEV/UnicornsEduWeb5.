@@ -252,7 +252,7 @@ export default function AdminStaffPage() {
   });
 
   const statusDotColor = (status: StaffStatus) =>
-    status === "active" ? "bg-warning" : "bg-text-muted";
+    status === "active" ? "bg-success" : "bg-error";
 
   const openDeleteConfirm = (id: string, name: string) => {
     setStaffToDelete({ id, name });

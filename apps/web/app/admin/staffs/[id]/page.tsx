@@ -22,6 +22,7 @@ import { formatCurrency } from "@/lib/class.helpers";
 import { ROLE_LABELS } from "@/lib/staff.constants";
 import * as sessionApi from "@/lib/apis/session.api";
 import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable";
+import MonthNav from "@/components/admin/MonthNav";
 import { SessionItem } from "@/dtos/session.dto";
 
 function formatDate(iso?: string | null): string {
@@ -79,6 +80,13 @@ const DEFAULT_BONUS_FORM: BonusFormState = {
 function normalizeMoneyAmount(value?: number | string | null): number {
   const amount = typeof value === "number" ? value : Number(value ?? 0);
   return Number.isFinite(amount) ? amount : 0;
+}
+
+function isDepositPaymentStatus(value: unknown): boolean {
+  const normalized = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  return normalized === "deposit" || normalized === "coc" || normalized === "cọc";
 }
 
 function parseDateValue(value?: string | null): Date | null {
@@ -182,6 +190,7 @@ export default function AdminStaffDetailPage() {
   const [workTypeMenuOpen, setWorkTypeMenuOpen] = useState(false);
   const [workTypeSearch, setWorkTypeSearch] = useState("");
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const [depositPopupOpen, setDepositPopupOpen] = useState(false);
   const workTypeMenuRef = useRef<HTMLDivElement | null>(null);
   const statusMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -195,6 +204,7 @@ export default function AdminStaffDetailPage() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
+  const [monthPopupOpen, setMonthPopupOpen] = useState(false);
   const [selectedYear, selectedMonthValue] = selectedMonth.split("-");
   const [recentReferenceDate] = useState(() => new Date());
   const recentUnpaidWindow = useMemo(
@@ -207,22 +217,6 @@ export default function AdminStaffDetailPage() {
   );
   const recentUnpaidHint =
     `Riêng cột "Chưa nhận" chỉ tính trong ${RECENT_UNPAID_DAYS} ngày gần nhất tính đến hôm nay.`;
-
-  const handleMonthChange = (delta: number) => {
-    const [year, month] = selectedMonth.split("-");
-    let newMonth = Number.parseInt(month, 10) + delta;
-    let newYear = Number.parseInt(year, 10);
-
-    if (newMonth < 1) {
-      newMonth = 12;
-      newYear -= 1;
-    } else if (newMonth > 12) {
-      newMonth = 1;
-      newYear += 1;
-    }
-
-    setSelectedMonth(`${newYear}-${String(newMonth).padStart(2, "0")}`);
-  };
 
   const selectedMonthLabel = `Tháng ${Number.parseInt(selectedMonthValue, 10)}/${selectedYear}`;
 
@@ -554,6 +548,52 @@ export default function AdminStaffDetailPage() {
       return total + normalizeMoneyAmount(session.allowanceAmount);
     }, 0);
   }, [sessionsInCurrentYear]);
+
+  const depositSessionsInYear = useMemo(() => {
+    return sessionsInCurrentYear.filter((session) =>
+      isDepositPaymentStatus(session.teacherPaymentStatus),
+    );
+  }, [sessionsInCurrentYear]);
+
+  const depositYearTotal = useMemo(() => {
+    return depositSessionsInYear.reduce(
+      (sum, session) => sum + normalizeMoneyAmount(session.allowanceAmount),
+      0,
+    );
+  }, [depositSessionsInYear]);
+
+  const depositByClass = useMemo(() => {
+    const map = new Map<
+      string,
+      { classId: string; className: string; total: number; sessions: SessionItem[] }
+    >();
+
+    depositSessionsInYear.forEach((session) => {
+      const classId = session.classId?.trim() || session.class?.id?.trim() || "";
+      if (!classId) return;
+
+      const existing = map.get(classId);
+      const className =
+        existing?.className || session.class?.name?.trim() || "Lớp chưa đặt tên";
+      const amount = normalizeMoneyAmount(session.allowanceAmount);
+      const sessions = [...(existing?.sessions ?? []), session].sort((a, b) => {
+        const aTime = parseDateValue(a.date)?.getTime() ?? 0;
+        const bTime = parseDateValue(b.date)?.getTime() ?? 0;
+        return bTime - aTime;
+      });
+
+      map.set(classId, {
+        classId,
+        className,
+        total: (existing?.total ?? 0) + amount,
+        sessions,
+      });
+    });
+
+    return Array.from(map.values()).sort((a, b) =>
+      a.className.localeCompare(b.className, "vi"),
+    );
+  }, [depositSessionsInYear]);
 
   const otherRoleSummaries = useMemo(() => {
     const roles = (staff?.roles ?? []).filter((role) => role !== "teacher");
@@ -892,7 +932,7 @@ export default function AdminStaffDetailPage() {
                 .toUpperCase()}
             </div>
             <span
-              className={`absolute bottom-0 right-0 block size-3 rounded-full border-2 border-bg-surface ${staff.status === "active" ? "bg-warning" : "bg-text-muted"}`}
+              className={`absolute bottom-0 right-0 block size-3 rounded-full border-2 border-bg-surface ${staff.status === "active" ? "bg-success" : "bg-error"}`}
               title={STATUS_LABELS[staff.status]}
               aria-hidden
             />
@@ -958,12 +998,22 @@ export default function AdminStaffDetailPage() {
           className="rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5"
           aria-labelledby="income-stats-title"
         >
-          <h2
-            id="income-stats-title"
-            className="mb-4 text-sm font-semibold uppercase tracking-wide text-black"
-          >
-            Thống kê thu nhập
-          </h2>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <h2
+              id="income-stats-title"
+              className="text-sm font-semibold uppercase tracking-wide text-black"
+            >
+              Thống kê thu nhập
+            </h2>
+            <div className="sm:pt-0.5">
+              <MonthNav
+                value={selectedMonth}
+                onChange={setSelectedMonth}
+                monthPopupOpen={monthPopupOpen}
+                setMonthPopupOpen={setMonthPopupOpen}
+              />
+            </div>
+          </div>
           <div className="space-y-3 md:hidden">
             <div className="flex justify-between rounded-lg border border-black/10 bg-white px-4 py-3">
               <span className="text-sm text-black">Tổng tháng</span>
@@ -980,6 +1030,21 @@ export default function AdminStaffDetailPage() {
             <div className="flex justify-between rounded-lg border border-black/10 bg-white px-4 py-3">
               <span className="text-sm text-black">Tổng năm</span>
               <span className="tabular-nums text-sm font-semibold text-warning">{formatCurrency(sessionYearTotal)}</span>
+            </div>
+            <div className="flex justify-between rounded-lg border border-black/10 bg-white px-4 py-3">
+              <span className="text-sm text-black">Ghi cọc</span>
+              {depositYearTotal > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setDepositPopupOpen(true)}
+                  className="tabular-nums text-sm font-semibold text-warning underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
+                  aria-label="Xem danh sách buổi cọc theo lớp"
+                >
+                  {formatCurrency(depositYearTotal)}
+                </button>
+              ) : (
+                <span className="tabular-nums text-sm font-semibold text-text-muted">0</span>
+              )}
             </div>
           </div>
           <div className="hidden overflow-x-auto md:block">
@@ -999,6 +1064,9 @@ export default function AdminStaffDetailPage() {
                   <th scope="col" className="px-4 py-3 font-medium tabular-nums text-black">
                     Tổng năm
                   </th>
+                  <th scope="col" className="px-4 py-3 font-medium tabular-nums text-black">
+                    Ghi cọc
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -1007,10 +1075,24 @@ export default function AdminStaffDetailPage() {
                   <td className="bg-white px-4 py-3 tabular-nums font-semibold text-error">{formatCurrency(sessionMonthlyTotals.unpaid)}</td>
                   <td className="bg-white px-4 py-3 tabular-nums font-semibold text-success">{formatCurrency(sessionMonthlyTotals.paid)}</td>
                   <td className="bg-white px-4 py-3 tabular-nums font-semibold text-warning">{formatCurrency(sessionYearTotal)}</td>
+                  <td className="bg-white px-4 py-3 tabular-nums font-semibold text-warning">
+                    {depositYearTotal > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => setDepositPopupOpen(true)}
+                        className="underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
+                        aria-label="Xem danh sách buổi cọc theo lớp"
+                      >
+                        {formatCurrency(depositYearTotal)}
+                      </button>
+                    ) : (
+                      <span className="text-text-muted">0</span>
+                    )}
+                  </td>
                 </tr>
                 <tr className="border-b border-border-default bg-bg-tertiary">
                   <td
-                    colSpan={4}
+                    colSpan={5}
                     className="py-2 pr-4 pl-4 text-xs font-medium uppercase tracking-wide text-text-muted"
                   >
                     Trước khấu trừ
@@ -1027,11 +1109,13 @@ export default function AdminStaffDetailPage() {
                     Đã nhận (cũ)
                   </th>
                   <th scope="col" className="px-4 py-2" />
+                  <th scope="col" className="px-4 py-2" />
                 </tr>
                 <tr className="border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary">
                   <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
                   <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
                   <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
+                  <td className="px-4 py-3 text-text-muted">—</td>
                   <td className="px-4 py-3 text-text-muted">—</td>
                 </tr>
               </tbody>
@@ -1056,7 +1140,16 @@ export default function AdminStaffDetailPage() {
                     return (
                       <div
                         key={item.id}
-                        className="rounded-lg border border-border-default bg-bg-secondary px-4 py-3"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => router.push(`/admin/classes/${encodeURIComponent(item.id)}`)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            router.push(`/admin/classes/${encodeURIComponent(item.id)}`);
+                          }
+                        }}
+                        className="cursor-pointer rounded-lg border border-border-default bg-bg-secondary px-4 py-3 transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                       >
                         <p className="font-medium text-text-primary">{item.name}</p>
                         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-secondary">
@@ -1097,7 +1190,16 @@ export default function AdminStaffDetailPage() {
                         return (
                           <tr
                             key={item.id}
-                            className="border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary"
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => router.push(`/admin/classes/${encodeURIComponent(item.id)}`)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                router.push(`/admin/classes/${encodeURIComponent(item.id)}`);
+                              }
+                            }}
+                            className="cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                           >
                             <td className="px-4 py-3 text-text-primary">{item.name}</td>
                             <td className="px-4 py-3 tabular-nums font-semibold text-primary">
@@ -1154,12 +1256,32 @@ export default function AdminStaffDetailPage() {
                   Tổng nhận và đã nhận theo {selectedMonthLabel}. {recentUnpaidHint}
                 </p>
                 <div className="space-y-3 md:hidden">
-                  {otherRoleSummaries.map((item) => (
-                    <div
-                      key={item.role}
-                      className="rounded-lg border border-border-default bg-bg-secondary px-4 py-3"
-                    >
-                      <p className="font-medium text-text-primary">{item.label}</p>
+                  {otherRoleSummaries.map((item) => {
+                    const isCskh =
+                      item.role === "customer_care" || item.role === "customer_care_head";
+                    return (
+                      <div
+                        key={item.role}
+                        role={isCskh ? "button" : undefined}
+                        tabIndex={isCskh ? 0 : undefined}
+                        onClick={
+                          isCskh
+                            ? () => router.push(`/admin/customer_care_detail/${id}`)
+                            : undefined
+                        }
+                        onKeyDown={
+                          isCskh
+                            ? (e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  router.push(`/admin/customer_care_detail/${id}`);
+                                }
+                              }
+                            : undefined
+                        }
+                        className={`rounded-lg border border-border-default bg-bg-secondary px-4 py-3 ${isCskh ? "cursor-pointer transition-colors hover:bg-bg-elevated focus:outline-none focus:ring-2 focus:ring-primary" : ""}`}
+                      >
+                        <p className="font-medium text-text-primary">{item.label}</p>
                       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-secondary">
                         <span>
                           Tổng: <span className="font-semibold text-primary">{formatCurrency(item.total)}</span>
@@ -1172,7 +1294,8 @@ export default function AdminStaffDetailPage() {
                         </span>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div className="hidden overflow-x-auto md:block">
                   <table className="w-full min-w-[480px] border-collapse text-left text-sm">
@@ -1194,12 +1317,32 @@ export default function AdminStaffDetailPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {otherRoleSummaries.map((item) => (
-                        <tr
-                          key={item.role}
-                          className="border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary"
-                        >
-                          <td className="px-4 py-3 text-text-primary">{item.label}</td>
+                      {otherRoleSummaries.map((item) => {
+                        const isCskh =
+                          item.role === "customer_care" || item.role === "customer_care_head";
+                        return (
+                          <tr
+                            key={item.role}
+                            role={isCskh ? "button" : undefined}
+                            tabIndex={isCskh ? 0 : undefined}
+                            onClick={
+                              isCskh
+                                ? () => router.push(`/admin/customer_care_detail/${id}`)
+                                : undefined
+                            }
+                            onKeyDown={
+                              isCskh
+                                ? (e) => {
+                                    if (e.key === "Enter" || e.key === " ") {
+                                      e.preventDefault();
+                                      router.push(`/admin/customer_care_detail/${id}`);
+                                    }
+                                  }
+                                : undefined
+                            }
+                            className={`border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary ${isCskh ? "cursor-pointer" : ""}`}
+                          >
+                            <td className="px-4 py-3 text-text-primary">{item.label}</td>
                           <td className="px-4 py-3 tabular-nums font-semibold text-primary">
                             {formatCurrency(item.total)}
                           </td>
@@ -1210,7 +1353,8 @@ export default function AdminStaffDetailPage() {
                             {formatCurrency(item.paid)}
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1220,30 +1364,6 @@ export default function AdminStaffDetailPage() {
         </StaffCard>
 
         <StaffCard title="Lịch sử buổi học">
-          <div className="mb-4 flex items-center justify-center gap-3 rounded-lg border border-border-default bg-bg-secondary/40 px-3 py-2">
-            <button
-              type="button"
-              onClick={() => handleMonthChange(-1)}
-              className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-md border border-border-default bg-bg-surface text-text-primary transition-colors hover:border-primary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:size-8"
-              aria-label="Tháng trước"
-              title="Tháng trước"
-            >
-              ◀
-            </button>
-            <div className="text-center">
-              <p className="text-sm font-semibold text-text-primary">{selectedMonthLabel}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => handleMonthChange(1)}
-              className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-md border border-border-default bg-bg-surface text-text-primary transition-colors hover:border-primary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:size-8"
-              aria-label="Tháng sau"
-              title="Tháng sau"
-            >
-              ▶
-            </button>
-          </div>
-
           <div className="min-w-0 overflow-x-auto">
             {isSessionsLoading ? (
               <SessionHistoryTableSkeleton
@@ -1481,6 +1601,113 @@ export default function AdminStaffDetailPage() {
                     ? "Thêm thưởng"
                     : "Lưu thay đổi"}
               </button>
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      {depositPopupOpen ? (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]"
+            aria-hidden
+            onClick={() => setDepositPopupOpen(false)}
+          />
+          <div className="fixed inset-0 z-50 p-2 sm:p-4">
+            <div className="mx-auto flex h-full w-full items-center max-w-2xl">
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="deposit-list-title"
+                className="flex max-h-full w-full flex-col overflow-hidden rounded-[1.25rem] border border-border-default bg-bg-surface p-4 shadow-2xl sm:p-5"
+              >
+                <div className="mb-4 flex items-start justify-between gap-3 border-b border-border-default/70 pb-4">
+                  <div className="min-w-0">
+                    <h2 id="deposit-list-title" className="truncate text-lg font-semibold text-text-primary">
+                      Buổi cọc theo lớp
+                    </h2>
+                    <p className="mt-1 text-sm text-text-muted">
+                      Tổng cọc năm {selectedYear}:{" "}
+                      <span className="font-semibold tabular-nums text-warning">{formatCurrency(depositYearTotal)}</span>
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDepositPopupOpen(false)}
+                    className="rounded-xl p-2 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    aria-label="Đóng"
+                  >
+                    <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto pr-1 sm:pr-2">
+                  {depositByClass.length === 0 ? (
+                    <div className="rounded-xl border border-border-default bg-bg-secondary/40 px-4 py-6 text-center">
+                      <p className="text-sm font-medium text-text-primary">Chưa có buổi cọc.</p>
+                      <p className="mt-1 text-sm text-text-muted">
+                        Buổi cọc là session có trạng thái thanh toán là <span className="font-medium">deposit</span>.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {depositByClass.map((group) => (
+                        <section
+                          key={group.classId}
+                          className="overflow-hidden rounded-xl border border-border-default bg-bg-surface"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-2 border-b border-border-default bg-bg-secondary/50 px-4 py-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-text-primary">{group.className}</p>
+                              <p className="mt-0.5 text-xs text-text-muted">
+                                {group.sessions.length} buổi
+                              </p>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Tổng cọc</p>
+                              <p className="text-sm font-semibold tabular-nums text-warning">
+                                {formatCurrency(group.total)}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="divide-y divide-border-subtle">
+                            {group.sessions.map((session) => (
+                              <div
+                                key={session.id}
+                                className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
+                              >
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-text-primary">{formatDate(session.date)}</p>
+                                  <p className="mt-0.5 text-xs text-text-muted">
+                                    Trạng thái:{" "}
+                                    <span className="font-medium">{String(session.teacherPaymentStatus ?? "deposit")}</span>
+                                  </p>
+                                </div>
+                                <p className="shrink-0 text-sm font-semibold tabular-nums text-text-primary">
+                                  {formatCurrency(normalizeMoneyAmount(session.allowanceAmount))}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </section>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-4 flex justify-end border-t border-border-default pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setDepositPopupOpen(false)}
+                    className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  >
+                    Đóng
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </>

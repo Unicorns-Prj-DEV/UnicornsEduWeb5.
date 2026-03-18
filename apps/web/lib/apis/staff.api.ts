@@ -85,6 +85,7 @@ export async function updateStaff(payload: {
     bank_account?: string;
     bank_qr_link?: string;
     roles?: string[];
+    status?: StaffStatus;
 }): Promise<StaffDetail> {
     const response = await api.patch("/staff", payload);
     return response.data;

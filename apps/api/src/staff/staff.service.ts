@@ -183,6 +183,7 @@ export class StaffService {
     if (data.bank_qr_link != null) payload.bankQrLink = data.bank_qr_link;
     if (data.roles != null) payload.roles = data.roles;
     if (data.user_id != null) payload.userId = data.user_id;
+    if (data.status != null) payload.status = data.status;
 
     return await this.prisma.staffInfo.update({
       where: { id: data.id },

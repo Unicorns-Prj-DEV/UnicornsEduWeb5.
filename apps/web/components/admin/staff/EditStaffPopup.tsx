@@ -14,6 +14,11 @@ type Props = {
   onSuccess?: () => void | Promise<void>;
 };
 
+const STATUS_OPTIONS: { value: StaffDetail["status"]; label: string; hint: string }[] = [
+  { value: "active", label: "Đang hoạt động", hint: "Nhân sự đang làm việc và hiển thị bình thường." },
+  { value: "inactive", label: "Ngừng hoạt động", hint: "Ẩn khỏi luồng làm việc chính, không dùng cho phân công mới." },
+];
+
 const ROLE_OPTIONS: { value: string; label: string }[] = [
   { value: "admin", label: "Admin" },
   { value: "teacher", label: "Giáo viên" },
@@ -43,6 +48,7 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
   const queryClient = useQueryClient();
 
   const [fullName, setFullName] = useState(staff.fullName ?? "");
+  const [status, setStatus] = useState<StaffDetail["status"]>(staff.status ?? "active");
   const [birthDateInput, setBirthDateInput] = useState(formatDateInput(staff.birthDate));
   const [university, setUniversity] = useState(staff.university ?? "");
   const [highSchool, setHighSchool] = useState(staff.highSchool ?? "");
@@ -56,6 +62,7 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
   useEffect(() => {
     if (!open) return;
     setFullName(staff.fullName ?? "");
+    setStatus(staff.status ?? "active");
     setBirthDateInput(formatDateInput(staff.birthDate));
     setUniversity(staff.university ?? "");
     setHighSchool(staff.highSchool ?? "");
@@ -107,6 +114,7 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
       await updateMutation.mutateAsync({
         id: staff.id,
         full_name: trimmedName,
+        status,
         birth_date: birthDateInput.trim() || undefined,
         university: university.trim() || undefined,
         high_school: highSchool.trim() || undefined,
@@ -161,6 +169,24 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
                   placeholder="Ví dụ: Nguyễn Văn A"
                   required
                 />
+              </label>
+
+              <label className="flex flex-col gap-1 text-sm text-text-secondary">
+                <span>Trạng thái</span>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value === "inactive" ? "inactive" : "active")}
+                  className="cursor-pointer rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                >
+                  {STATUS_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-text-muted">
+                  {STATUS_OPTIONS.find((o) => o.value === status)?.hint ?? ""}
+                </p>
               </label>
 
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
