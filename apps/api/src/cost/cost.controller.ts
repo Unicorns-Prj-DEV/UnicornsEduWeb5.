@@ -56,6 +56,18 @@ export class CostController {
     description: 'Search by category (contains, case-insensitive)',
     example: 'marketing',
   })
+  @ApiQuery({
+    name: 'year',
+    required: false,
+    type: String,
+    description: 'Filter by year (e.g. 2025). Use with month.',
+  })
+  @ApiQuery({
+    name: 'month',
+    required: false,
+    type: String,
+    description: 'Filter by month 1-12. Use with year.',
+  })
   @ApiResponse({
     status: 200,
     description: 'Paginated cost list with data and meta.',
@@ -63,10 +75,14 @@ export class CostController {
   async getCosts(
     @Query() query: PaginationQueryDto,
     @Query('search') search?: string,
+    @Query('year') year?: string,
+    @Query('month') month?: string,
   ) {
     return this.costService.getCosts({
       ...query,
       search,
+      year,
+      month,
     });
   }
 

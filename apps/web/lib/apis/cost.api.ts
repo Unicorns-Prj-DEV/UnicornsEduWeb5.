@@ -10,12 +10,16 @@ export async function getCosts(params: {
   page: number;
   limit: number;
   search?: string;
+  year?: string;
+  month?: string;
 }): Promise<CostListResponse> {
   const response = await api.get("/cost", {
     params: {
       page: params.page,
       limit: params.limit,
       ...(params.search ? { search: params.search } : {}),
+      ...(params.year ? { year: params.year } : {}),
+      ...(params.month ? { month: params.month } : {}),
     },
   });
 

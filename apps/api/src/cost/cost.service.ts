@@ -10,6 +10,8 @@ export class CostService {
   async getCosts(
     query: PaginationQueryDto & {
       search?: string;
+      year?: string;
+      month?: string;
     },
   ) {
     const parsedPage = Number(query.page);
@@ -22,6 +24,16 @@ export class CostService {
         : 20;
 
     const trimmedSearch = query.search?.trim();
+    const year = query.year?.trim();
+    const month = query.month?.trim();
+    const hasMonthFilter =
+      year &&
+      month &&
+      /^\d{4}$/.test(year) &&
+      /^(0?[1-9]|1[0-2])$/.test(month);
+    const monthPrefix = hasMonthFilter
+      ? `${year}-${month.length === 1 ? `0${month}` : month}`
+      : null;
 
     const where = {
       ...(trimmedSearch
@@ -31,6 +43,9 @@ export class CostService {
             mode: 'insensitive' as const,
           },
         }
+        : {}),
+      ...(monthPrefix
+        ? { date: { startsWith: monthPrefix } }
         : {}),
     };
 

@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as costApi from "@/lib/apis/cost.api";
 import { CostFormPopup, CostListTableSkeleton } from "@/components/admin/cost";
+import MonthNav from "@/components/admin/MonthNav";
 import type { CostFormSubmitPayload } from "@/components/admin/cost/CostFormPopup";
 import { CostListItem, CostListResponse, CostStatus, CostUpsertMode } from "@/dtos/cost.dto";
 
@@ -62,6 +63,14 @@ export default function AdminCostsPage() {
 
   const page = normalizePage(searchParams.get("page"));
   const search = searchParams.get("search") ?? "";
+  const monthParam = searchParams.get("month") ?? "";
+
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    if (monthParam && /^\d{4}-(0[1-9]|1[0-2])$/.test(monthParam)) return monthParam;
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [monthPopupOpen, setMonthPopupOpen] = useState(false);
 
   const [searchInput, setSearchInput] = useState(search);
   const [popupOpen, setPopupOpen] = useState(false);
@@ -73,6 +82,22 @@ export default function AdminCostsPage() {
   useEffect(() => {
     setSearchInput(search);
   }, [search]);
+
+  useEffect(() => {
+    if (/^\d{4}-(0[1-9]|1[0-2])$/.test(monthParam) && monthParam !== selectedMonth) {
+      setSelectedMonth(monthParam);
+    }
+  }, [monthParam]);
+
+  const syncMonthToUrl = (value: string) => {
+    setSelectedMonth(value);
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.set("month", value);
+    params.set("page", "1");
+    router.replace(`${pathname}?${params.toString()}`);
+  };
+
+  const [selectedYear, selectedMonthValue] = selectedMonth.split("-");
 
   const applySearchToUrl = useDebouncedCallback(
     (value: string, currentParams: string, currentPathname: string) => {
@@ -95,12 +120,14 @@ export default function AdminCostsPage() {
     isError,
     error,
   } = useQuery<CostListResponse>({
-    queryKey: ["cost", "list", page, PAGE_SIZE, search],
+    queryKey: ["cost", "list", page, PAGE_SIZE, search, selectedYear, selectedMonthValue],
     queryFn: () =>
       costApi.getCosts({
         page,
         limit: PAGE_SIZE,
         search: search.trim() || undefined,
+        year: selectedYear,
+        month: selectedMonthValue,
       }),
   });
 
@@ -282,12 +309,15 @@ export default function AdminCostsPage() {
             </div>
             <button
               type="button"
-              className="w-full rounded-md border border-border-default bg-bg-surface/90 px-4 py-2 text-sm font-medium text-text-primary shadow-sm transition-all duration-200 hover:cursor-pointer hover:border-primary/40 hover:bg-bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface sm:w-auto"
+              className="self-end flex size-11 items-center justify-center rounded-full bg-primary text-text-inverse shadow-sm transition-colors duration-200 hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface sm:size-10 sm:self-auto"
               aria-label="Thêm chi phí"
               title="Thêm chi phí"
               onClick={handleOpenCreatePopup}
             >
-              Thêm chi phí
+              <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span className="sr-only">Thêm chi phí</span>
             </button>
           </div>
 
@@ -311,6 +341,16 @@ export default function AdminCostsPage() {
             </div>
           </div>
         </section>
+
+        <div className="mb-4">
+          <MonthNav
+            value={selectedMonth}
+            onChange={syncMonthToUrl}
+            monthPopupOpen={monthPopupOpen}
+            setMonthPopupOpen={setMonthPopupOpen}
+            countLabel={`${total} khoản`}
+          />
+        </div>
 
         <div className="min-w-0 flex-1 overflow-auto">
           {isLoading ? (
