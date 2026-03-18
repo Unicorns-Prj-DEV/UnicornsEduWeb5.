@@ -708,6 +708,7 @@ export default function AdminClassDetailPage() {
                   sessions={sessionsInMonth}
                   entityMode="teacher"
                   emptyText="Không có buổi học trong tháng này."
+                  editorLayout="wide"
                   onSessionUpdated={handleSessionUpdated}
                   teachers={popupTeachers}
                   getClassStudents={getClassStudents}
