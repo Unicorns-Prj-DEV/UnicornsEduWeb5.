@@ -15,6 +15,12 @@ type Props = {
   onClose: () => void;
   student: StudentDetail;
   onSuccess?: () => void | Promise<void>;
+  onTransactionCommitted?: (tx: {
+    type: BalanceMode;
+    amount: number;
+    deltaAmount: number;
+    createdAt: string;
+  }) => void;
 };
 
 const MODE_COPY: Record<
@@ -67,6 +73,7 @@ export default function StudentBalancePopup({
   onClose,
   student,
   onSuccess,
+  onTransactionCommitted,
 }: Props) {
   const queryClient = useQueryClient();
   const [amountInput, setAmountInput] = useState("");
@@ -157,6 +164,12 @@ export default function StudentBalancePopup({
           ? `Đã nạp ${formatCurrency(normalizedAmount)} cho ${studentName}.`
           : `Đã rút ${formatCurrency(normalizedAmount)} khỏi tài khoản của ${studentName}.`,
       );
+      onTransactionCommitted?.({
+        type: mode,
+        amount: normalizedAmount,
+        deltaAmount,
+        createdAt: new Date().toISOString(),
+      });
       handleClose();
     } catch {
       // toast lỗi đã được xử lý trong onError

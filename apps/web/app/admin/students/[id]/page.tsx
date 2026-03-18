@@ -2,14 +2,19 @@
 
 import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
     EditStudentClassesPopup,
     EditStudentPopup,
     StudentBalancePopup,
     StudentDetailRow,
     StudentInfoCard,
+    StudentExamCard,
+    appendStudentWalletTx,
+    StudentWalletHistoryPopup,
     StudentWalletCard,
+    StudentClassTuitionPopup,
 } from "@/components/admin/student";
 import type { StudentDetail, StudentGender, StudentStatus } from "@/dtos/student.dto";
 import * as classApi from "@/lib/apis/class.api";
@@ -60,8 +65,8 @@ function normalizeGender(gender?: StudentGender): StudentGender {
 
 function statusBadgeClass(status: StudentStatus): string {
     return status === "active"
-        ? "bg-primary/10 text-primary ring-primary/20"
-        : "bg-bg-secondary text-text-secondary ring-border-default";
+        ? "bg-success/10 text-success ring-success/20"
+        : "bg-error/10 text-error ring-error/20";
 }
 
 function tuitionStatusClass(status: TuitionStatus): string {
@@ -111,6 +116,9 @@ export default function AdminStudentDetailPage() {
     const [editPopupOpen, setEditPopupOpen] = useState(false);
     const [classesPopupOpen, setClassesPopupOpen] = useState(false);
     const [balancePopupMode, setBalancePopupMode] = useState<"topup" | "withdraw" | null>(null);
+    const [walletHistoryOpen, setWalletHistoryOpen] = useState(false);
+    const [editingPackageForClassId, setEditingPackageForClassId] = useState<string | null>(null);
+    const queryClient = useQueryClient();
 
     const {
         data: student,
@@ -163,6 +171,7 @@ export default function AdminStudentDetailPage() {
 
                 return {
                     ...item,
+                    classStatus: classDetail?.status ?? null,
                     tuitionPackageLabel: classDetail
                         ? formatTuitionPackageLabel({
                             packageTotal:
@@ -185,10 +194,61 @@ export default function AdminStudentDetailPage() {
                             ? "Gói riêng"
                             : "Theo lớp"
                         : null,
+                    tuitionPerSession:
+                        matchedStudent?.customTuitionPerSession ??
+                        classDetail?.studentTuitionPerSession ??
+                        null,
+                    attendedSessions:
+                        (matchedStudent as unknown as { attendedSessions?: number | null })?.attendedSessions ??
+                        (matchedStudent as unknown as { attended_sessions?: number | null })?.attended_sessions ??
+                        null,
                 };
             }),
         [classItems, classDetailQueries, currentStudentId],
     );
+
+    const removeClassMutation = useMutation({
+        mutationFn: async (classId: string) => {
+            const classDetail = await classApi.getClassById(classId);
+            const existingStudents = Array.from(
+                new Map(
+                    (classDetail.students ?? []).map((classStudent) => [
+                        classStudent.id,
+                        {
+                            id: classStudent.id,
+                            ...(classStudent.customTuitionPerSession != null
+                                ? { custom_tuition_per_session: classStudent.customTuitionPerSession }
+                                : {}),
+                            ...(classStudent.customTuitionPackageTotal != null
+                                ? { custom_tuition_package_total: classStudent.customTuitionPackageTotal }
+                                : {}),
+                            ...(classStudent.customTuitionPackageSession != null
+                                ? { custom_tuition_package_session: classStudent.customTuitionPackageSession }
+                                : {}),
+                        },
+                    ]),
+                ).values(),
+            );
+            const nextStudents = existingStudents.filter((classStudent) => classStudent.id !== currentStudentId);
+            await classApi.updateClassStudents(classId, { students: nextStudents });
+            return classId;
+        },
+        onSuccess: async (classId) => {
+            toast.success("Đã gỡ lớp khỏi học sinh.");
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ["student", "detail", id] }),
+                queryClient.invalidateQueries({ queryKey: ["student", "list"] }),
+                queryClient.invalidateQueries({ queryKey: ["class", "detail", classId] }),
+            ]);
+        },
+        onError: (err: unknown) => {
+            const msg =
+                (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+                (err as Error)?.message ??
+                "Không thể gỡ lớp khỏi học sinh.";
+            toast.error(msg);
+        },
+    });
 
     const handleTopUp = () => setBalancePopupMode("topup");
 
@@ -278,7 +338,52 @@ export default function AdminStudentDetailPage() {
                 mode={balancePopupMode ?? "topup"}
                 onClose={() => setBalancePopupMode(null)}
                 student={student}
+                onTransactionCommitted={(tx) => {
+                    appendStudentWalletTx(student.id, {
+                        id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`,
+                        type: tx.type,
+                        amount: tx.amount,
+                        createdAt: tx.createdAt,
+                    });
+                }}
             />
+            <StudentWalletHistoryPopup
+                open={walletHistoryOpen}
+                onClose={() => setWalletHistoryOpen(false)}
+                studentId={student.id}
+                studentName={student.fullName?.trim() || "Học sinh"}
+            />
+            {editingPackageForClassId ? (() => {
+                const item = classItemsWithTuition.find((i) => i.classId === editingPackageForClassId);
+                const classDetail = classDetailQueries.find((q) => q.data?.id === editingPackageForClassId)?.data;
+                const matchedStudent = classDetail?.students?.find((s) => s.id === currentStudentId);
+                return (
+                    <StudentClassTuitionPopup
+                        open
+                        onClose={() => setEditingPackageForClassId(null)}
+                        classId={editingPackageForClassId}
+                        className={item?.className ?? ""}
+                        studentId={currentStudentId}
+                        initialPackageTotal={
+                            matchedStudent?.customTuitionPackageTotal ??
+                            classDetail?.tuitionPackageTotal ??
+                            null
+                        }
+                        initialPackageSession={
+                            matchedStudent?.customTuitionPackageSession ??
+                            classDetail?.tuitionPackageSession ??
+                            null
+                        }
+                        initialTuitionPerSession={
+                            matchedStudent?.customTuitionPerSession ??
+                            classDetail?.studentTuitionPerSession ??
+                            null
+                        }
+                        classDefaultTuitionPerSession={classDetail?.studentTuitionPerSession ?? null}
+                        onSuccess={() => setEditingPackageForClassId(null)}
+                    />
+                );
+            })() : null}
 
             <section className="relative overflow-hidden rounded-[1.5rem] border border-border-default bg-bg-surface p-3.5 shadow-sm sm:rounded-[1.75rem] sm:p-5">
                 <div className="pointer-events-none absolute -left-16 top-6 size-40 rounded-full bg-primary/10 blur-3xl" aria-hidden />
@@ -292,7 +397,7 @@ export default function AdminStudentDetailPage() {
                                     {initials}
                                 </div>
                                 <span
-                                    className={`absolute -bottom-1 -right-1 block size-3.5 rounded-full border-2 border-bg-surface ${normalizedStatus === "active" ? "bg-primary" : "bg-text-muted"
+                                    className={`absolute -bottom-1 -right-1 block size-3.5 rounded-full border-2 border-bg-surface ${normalizedStatus === "active" ? "bg-success" : "bg-error"
                                         }`}
                                     aria-hidden
                                 />
@@ -303,9 +408,22 @@ export default function AdminStudentDetailPage() {
                                     Thông tin học sinh
                                 </p>
                                 <div className="mt-2 flex flex-col gap-2">
-                                    <h1 className="min-w-0 text-2xl font-semibold leading-tight text-text-primary sm:truncate">
-                                        {student.fullName?.trim() || "Học sinh"}
-                                    </h1>
+                                    <div className="flex items-center gap-2">
+                                        <h1 className="min-w-0 text-2xl font-semibold leading-tight text-text-primary sm:truncate">
+                                            {student.fullName?.trim() || "Học sinh"}
+                                        </h1>
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditPopupOpen(true)}
+                                            className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border-default bg-bg-surface text-text-muted transition hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface sm:size-8"
+                                            aria-label="Chỉnh sửa thông tin học sinh"
+                                            title="Chỉnh sửa"
+                                        >
+                                            <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586Z" />
+                                            </svg>
+                                        </button>
+                                    </div>
                                     <div className="flex flex-wrap gap-2">
                                         <span
                                             className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${primaryChipClass}`}
@@ -326,31 +444,11 @@ export default function AdminStudentDetailPage() {
                                             {contactEmail}
                                         </p>
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => setEditPopupOpen(true)}
-                                        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition-colors hover:bg-[var(--ue-primary-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:w-full"
-                                    >
-                                        <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586Z" />
-                                        </svg>
-                                        Chỉnh sửa hồ sơ
-                                    </button>
                                 </div>
                             </div>
                         </div>
 
                         <div className="hidden shrink-0 items-center gap-2 sm:flex xl:flex-col xl:items-stretch">
-                            <button
-                                type="button"
-                                onClick={() => setEditPopupOpen(true)}
-                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition-colors hover:bg-[var(--ue-primary-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                            >
-                                <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586Z" />
-                                </svg>
-                                Chỉnh sửa
-                            </button>
                             <div className="rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-sm text-text-secondary">
                                 {contactEmail}
                             </div>
@@ -366,6 +464,7 @@ export default function AdminStudentDetailPage() {
                                     <StudentDetailRow label="Tỉnh / Thành phố" value={student.province?.trim() || "—"} />
                                     <StudentDetailRow label="Năm sinh" value={student.birthYear ?? "—"} />
                                     <StudentDetailRow label="Ngày tạo hồ sơ" value={formatDate(student.createdAt)} />
+                                    <StudentDetailRow label="Ngày ngừng theo dõi" value={formatDate(student.dropOutDate)} />
                                     <StudentDetailRow label="Mục tiêu học tập" value={student.goal?.trim() || "—"} />
                                 </dl>
                             </StudentInfoCard>
@@ -387,12 +486,15 @@ export default function AdminStudentDetailPage() {
                                 </dl>
                             </StudentInfoCard>
 
-                            <StudentWalletCard
-                                className="lg:col-span-2 xl:col-span-1"
-                                balance={student.accountBalance ?? 0}
-                                onTopUp={handleTopUp}
-                                onWithdraw={handleWithdraw}
-                            />
+                            <div className="space-y-3.5 lg:col-span-2 xl:col-span-1 sm:space-y-4">
+                                <StudentWalletCard
+                                    balance={student.accountBalance ?? 0}
+                                    onTopUp={handleTopUp}
+                                    onWithdraw={handleWithdraw}
+                                    onOpenHistory={() => setWalletHistoryOpen(true)}
+                                />
+                                <StudentExamCard studentId={student.id} />
+                            </div>
                         </div>
 
                         {/* <StudentInfoCard title="Phân bổ lớp học"> */}
@@ -409,7 +511,9 @@ export default function AdminStudentDetailPage() {
                                     <button
                                         type="button"
                                         onClick={() => setClassesPopupOpen(true)}
-                                        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition-colors hover:bg-[var(--ue-primary-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:w-auto"
+                                        className="inline-flex min-h-11 min-w-11 w-full items-center justify-center rounded-xl bg-primary px-3 py-2.5 text-sm font-medium text-text-inverse transition-colors hover:bg-[var(--ue-primary-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:w-auto"
+                                        aria-label="Điều chỉnh lớp"
+                                        title="Điều chỉnh lớp"
                                     >
                                         <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                                             <path
@@ -419,7 +523,6 @@ export default function AdminStudentDetailPage() {
                                                 d="M12 4v16m8-8H4"
                                             />
                                         </svg>
-                                        Điều chỉnh lớp
                                     </button>
                                 </div>
                             </div>
@@ -430,16 +533,78 @@ export default function AdminStudentDetailPage() {
                                         {classItemsWithTuition.map((item, index) => (
                                             <div
                                                 key={item.classId}
-                                                className="rounded-[1.1rem] border border-border-default bg-bg-surface px-3.5 py-3 shadow-sm"
+                                                role="button"
+                                                tabIndex={0}
+                                                onClick={() => router.push(`/admin/classes/${encodeURIComponent(item.classId)}`)}
+                                                onKeyDown={(event) => {
+                                                    if (event.key === "Enter" || event.key === " ") {
+                                                        event.preventDefault();
+                                                        router.push(`/admin/classes/${encodeURIComponent(item.classId)}`);
+                                                    }
+                                                }}
+                                                className="group relative cursor-pointer rounded-[1.1rem] border border-border-default bg-bg-surface px-3.5 py-3 shadow-sm transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                                             >
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        void removeClassMutation.mutateAsync(item.classId);
+                                                    }}
+                                                    disabled={removeClassMutation.isPending}
+                                                    className="absolute right-2 top-2 inline-flex size-9 items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-error/10 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60"
+                                                    aria-label={`Gỡ lớp ${item.className}`}
+                                                    title="Gỡ lớp"
+                                                >
+                                                    <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
                                                 <div className="flex flex-col gap-3">
                                                     <div className="min-w-0">
-                                                        <p className="font-medium text-text-primary">{item.className}</p>
+                                                        <div className="flex items-center gap-2">
+                                                            <span
+                                                                className={`inline-block size-2 shrink-0 rounded-full ${
+                                                                    item.classStatus === "running"
+                                                                        ? "bg-success"
+                                                                        : item.classStatus === "ended"
+                                                                            ? "bg-error"
+                                                                            : "bg-border-default"
+                                                                }`}
+                                                                aria-hidden
+                                                            />
+                                                            <p className="font-medium text-text-primary">{item.className}</p>
+                                                        </div>
                                                         <div className="mt-2 flex flex-col gap-1.5 text-sm text-text-secondary">
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setEditingPackageForClassId(item.classId);
+                                                                }}
+                                                                className="inline-flex w-full items-center gap-2 rounded-xl border border-border-default bg-secondary/20 px-3 py-2.5 text-left transition-colors duration-200 hover:border-primary/40 hover:bg-primary/10 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                                                aria-label={`Chỉnh gói học phí: ${item.className}`}
+                                                                title="Chỉnh gói học phí"
+                                                            >
+                                                                <span className="min-w-0 flex-1">
+                                                                    <span className="text-text-secondary">Gói học phí: </span>
+                                                                    <span className="font-medium text-text-primary">
+                                                                        {item.tuitionPackageLabel}
+                                                                    </span>
+                                                                </span>
+                                                                <svg className="size-4 shrink-0 text-current opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                                </svg>
+                                                            </button>
                                                             <span>
-                                                                Gói học phí:{" "}
-                                                                <span className="font-medium text-text-primary">
-                                                                    {item.tuitionPackageLabel}
+                                                                Học phí/buổi:{" "}
+                                                                <span className="font-medium text-text-primary tabular-nums">
+                                                                    {item.tuitionPerSession != null ? formatCurrency(item.tuitionPerSession) : "—"}
+                                                                </span>
+                                                            </span>
+                                                            <span>
+                                                                Số buổi:{" "}
+                                                                <span className="font-medium text-text-primary tabular-nums">
+                                                                    {item.attendedSessions ?? "—"}
                                                                 </span>
                                                             </span>
                                                             {item.tuitionPackageSourceLabel ? (
@@ -447,22 +612,15 @@ export default function AdminStudentDetailPage() {
                                                                     {item.tuitionPackageSourceLabel}
                                                                 </span>
                                                             ) : null}
-                                                            <span>
-                                                                Thứ tự:{" "}
-                                                                <span className="font-medium text-primary">#{index + 1}</span>
-                                                            </span>
                                                         </div>
                                                     </div>
-                                                    <span className="inline-flex self-start rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary ring-1 ring-primary/20">
-                                                        Đang theo học
-                                                    </span>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
 
                                     <div className="mt-4 hidden overflow-x-auto md:block">
-                                        <table className="w-full min-w-[520px] border-collapse text-left text-sm">
+                                        <table className="w-full min-w-[680px] border-collapse text-left text-sm">
                                             <thead>
                                                 <tr className="border-b border-border-default bg-bg-secondary">
                                                     <th scope="col" className="px-4 py-3 font-medium text-text-primary">
@@ -472,10 +630,13 @@ export default function AdminStudentDetailPage() {
                                                         Gói học phí
                                                     </th>
                                                     <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
-                                                        Thứ tự
+                                                        Học phí/buổi
                                                     </th>
-                                                    <th scope="col" className="px-4 py-3 font-medium text-text-primary">
-                                                        Trạng thái
+                                                    <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
+                                                        Số buổi
+                                                    </th>
+                                                    <th scope="col" className="w-12 px-2 py-3">
+                                                        <span className="sr-only">Gỡ lớp</span>
                                                     </th>
                                                 </tr>
                                             </thead>
@@ -483,26 +644,78 @@ export default function AdminStudentDetailPage() {
                                                 {classItemsWithTuition.map((item, index) => (
                                                     <tr
                                                         key={item.classId}
-                                                        className="border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary"
+                                                        role="button"
+                                                        tabIndex={0}
+                                                        onClick={() => router.push(`/admin/classes/${encodeURIComponent(item.classId)}`)}
+                                                        onKeyDown={(event) => {
+                                                            if (event.key === "Enter" || event.key === " ") {
+                                                                event.preventDefault();
+                                                                router.push(`/admin/classes/${encodeURIComponent(item.classId)}`);
+                                                            }
+                                                        }}
+                                                        className="group cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                                                     >
-                                                        <td className="px-4 py-3 text-text-primary">{item.className}</td>
-                                                        <td className="px-4 py-3 text-text-secondary">
-                                                            <div className="space-y-1">
-                                                                <p>{item.tuitionPackageLabel}</p>
-                                                                {item.tuitionPackageSourceLabel ? (
-                                                                    <p className="text-xs font-medium text-text-muted">
-                                                                        {item.tuitionPackageSourceLabel}
-                                                                    </p>
-                                                                ) : null}
+                                                        <td className="px-4 py-3 text-text-primary">
+                                                            <div className="flex items-center gap-2">
+                                                                <span
+                                                                    className={`inline-block size-2 shrink-0 rounded-full ${
+                                                                        item.classStatus === "running"
+                                                                            ? "bg-success"
+                                                                            : item.classStatus === "ended"
+                                                                                ? "bg-error"
+                                                                                : "bg-border-default"
+                                                                    }`}
+                                                                    aria-hidden
+                                                                />
+                                                                <span className="block truncate">{item.className}</span>
                                                             </div>
                                                         </td>
-                                                        <td className="px-4 py-3 tabular-nums font-semibold text-primary">
-                                                            #{index + 1}
+                                                        <td className="px-4 py-3 text-text-secondary">
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setEditingPackageForClassId(item.classId);
+                                                                }}
+                                                                className="inline-flex w-full max-w-full items-center gap-2 rounded-xl border border-border-default bg-secondary/20 py-2 pl-3 pr-2.5 text-left transition-colors duration-200 hover:border-primary/40 hover:bg-primary/10 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                                                aria-label={`Chỉnh gói học phí: ${item.className}`}
+                                                                title="Chỉnh gói học phí"
+                                                            >
+                                                                <span className="min-w-0 flex-1 space-y-0.5">
+                                                                    <p className="truncate font-medium text-text-primary">{item.tuitionPackageLabel}</p>
+                                                                    {item.tuitionPackageSourceLabel ? (
+                                                                        <p className="text-xs font-medium text-text-muted">
+                                                                            {item.tuitionPackageSourceLabel}
+                                                                        </p>
+                                                                    ) : null}
+                                                                </span>
+                                                                <svg className="size-4 shrink-0 text-current opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                                </svg>
+                                                            </button>
                                                         </td>
-                                                        <td className="px-4 py-3">
-                                                            <span className="inline-flex rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary ring-1 ring-primary/20">
-                                                                Đang theo học
-                                                            </span>
+                                                        <td className="px-4 py-3 tabular-nums font-semibold text-text-primary">
+                                                            {item.tuitionPerSession != null ? formatCurrency(item.tuitionPerSession) : "—"}
+                                                        </td>
+                                                        <td className="px-4 py-3 tabular-nums font-semibold text-text-primary">
+                                                            {item.attendedSessions ?? "—"}
+                                                        </td>
+                                                        <td className="px-2 py-3 text-right">
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    void removeClassMutation.mutateAsync(item.classId);
+                                                                }}
+                                                                disabled={removeClassMutation.isPending}
+                                                                className="rounded p-1.5 text-text-muted opacity-0 transition-opacity duration-200 group-hover:opacity-100 hover:bg-error/10 hover:text-error focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60"
+                                                                aria-label={`Gỡ lớp ${item.className}`}
+                                                                title="Gỡ lớp"
+                                                            >
+                                                                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16" />
+                                                                </svg>
+                                                            </button>
                                                         </td>
                                                     </tr>
                                                 ))}

@@ -27,12 +27,6 @@ const GENDER_LABELS: Record<StudentGender, string> = {
   female: "Nữ",
 };
 
-const STATUS_OPTIONS: Array<{ value: "" | StudentStatus; label: string }> = [
-  { value: "", label: "Tất cả trạng thái" },
-  { value: "active", label: STATUS_LABELS.active },
-  { value: "inactive", label: STATUS_LABELS.inactive },
-];
-
 const GENDER_OPTIONS: Array<{ value: "" | StudentGender; label: string }> = [
   { value: "", label: "Tất cả giới tính" },
   { value: "male", label: GENDER_LABELS.male },
@@ -81,13 +75,13 @@ function getClassItems(student: StudentListItem) {
 }
 
 function statusDotColor(status: StudentStatus): string {
-  return status === "active" ? "bg-primary" : "bg-text-muted";
+  return status === "active" ? "bg-success" : "bg-error";
 }
 
 function statusBadgeClass(status: StudentStatus): string {
   return status === "active"
-    ? "bg-primary/10 text-primary ring-primary/20"
-    : "bg-bg-secondary text-text-secondary ring-border-default";
+    ? "bg-success/10 text-success ring-success/20"
+    : "bg-error/10 text-error ring-error/20";
 }
 
 function genderBadgeClass(gender: StudentGender | null): string {
@@ -114,7 +108,6 @@ export default function AdminStudentsPage() {
 
   const page = parsePositiveInt(searchParams.get("page"));
   const search = searchParams.get("search") ?? "";
-  const filterStatus = (searchParams.get("status") ?? "") as "" | StudentStatus;
   const filterGender = (searchParams.get("gender") ?? "") as "" | StudentGender;
   const filterProvince = searchParams.get("province") ?? "";
   const filterSchool = searchParams.get("school") ?? "";
@@ -122,8 +115,6 @@ export default function AdminStudentsPage() {
 
   const [searchInput, setSearchInput] = useState(search);
   const [filterPopupOpen, setFilterPopupOpen] = useState(false);
-  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
-  const statusMenuRef = useRef<HTMLDivElement | null>(null);
   const [filterDraft, setFilterDraft] = useState<FilterDraft>({
     province: "",
     school: "",
@@ -165,22 +156,6 @@ export default function AdminStudentsPage() {
     applySearchToUrl(value);
   };
 
-  const selectedStatusLabel = useMemo(
-    () => STATUS_OPTIONS.find((option) => option.value === filterStatus)?.label ?? "Tất cả trạng thái",
-    [filterStatus],
-  );
-
-  const applyStatusFilter = (value: string) => {
-    const params = new URLSearchParams(searchParams?.toString() ?? "");
-    const trimmed = value.trim();
-
-    params.set("page", "1");
-    if (trimmed) params.set("status", trimmed);
-    else params.delete("status");
-
-    replaceWithParams(params);
-  };
-
   const applyFilter = () => {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
 
@@ -200,7 +175,6 @@ export default function AdminStudentsPage() {
 
     replaceWithParams(params);
     setFilterPopupOpen(false);
-    setStatusMenuOpen(false);
   };
 
   const clearFilter = () => {
@@ -210,41 +184,16 @@ export default function AdminStudentsPage() {
     params.delete("province");
     params.delete("school");
     params.delete("class");
-    params.delete("status");
     params.delete("gender");
     params.set("page", "1");
 
     replaceWithParams(params);
     setFilterPopupOpen(false);
-    setStatusMenuOpen(false);
   };
 
   const hasActiveFilter = Boolean(
-    filterStatus || filterGender || filterProvince || filterSchool || filterClass,
+    filterGender || filterProvince || filterSchool || filterClass,
   );
-
-  useEffect(() => {
-    if (!statusMenuOpen) return;
-
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!statusMenuRef.current?.contains(event.target as Node)) {
-        setStatusMenuOpen(false);
-      }
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setStatusMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [statusMenuOpen]);
 
   const {
     data: studentListResponse,
@@ -258,7 +207,6 @@ export default function AdminStudentsPage() {
       page,
       PAGE_SIZE,
       search,
-      filterStatus,
       filterGender,
       filterProvince,
       filterSchool,
@@ -269,7 +217,6 @@ export default function AdminStudentsPage() {
         page,
         limit: PAGE_SIZE,
         search: search.trim() || undefined,
-        status: filterStatus.trim() ? filterStatus : undefined,
         gender: filterGender.trim() ? filterGender : undefined,
         province: filterProvince.trim() || undefined,
         school: filterSchool.trim() || undefined,
@@ -288,7 +235,6 @@ export default function AdminStudentsPage() {
     const params = new URLSearchParams();
     params.set("page", currentPage.toString());
     if (search) params.set("search", search);
-    if (filterStatus) params.set("status", filterStatus);
     if (filterGender) params.set("gender", filterGender);
     if (filterProvince) params.set("province", filterProvince);
     if (filterSchool) params.set("school", filterSchool);
@@ -340,64 +286,6 @@ export default function AdminStudentsPage() {
                 </div>
               </label>
 
-              <div className="relative flex flex-col gap-1 sm:w-64" ref={statusMenuRef}>
-                <span className="text-sm font-medium text-text-secondary">Trạng thái</span>
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-sm text-text-primary shadow-sm transition-colors duration-200 hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  onClick={() => setStatusMenuOpen((prev) => !prev)}
-                  aria-haspopup="listbox"
-                  aria-expanded={statusMenuOpen}
-                  aria-label="Lọc theo trạng thái"
-                >
-                  <span className="truncate">{selectedStatusLabel}</span>
-                  <svg
-                    className={`ml-2 size-4 shrink-0 text-text-muted transition-transform duration-200 ${statusMenuOpen ? "rotate-180" : ""}`}
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    aria-hidden
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m6 9 6 6 6-6" />
-                  </svg>
-                </button>
-                {statusMenuOpen ? (
-                  <div
-                    role="listbox"
-                    aria-label="Danh sách trạng thái"
-                    className="absolute left-0 top-full z-20 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-border-default bg-bg-surface/95 p-1 shadow-xl backdrop-blur-sm"
-                  >
-                    {STATUS_OPTIONS.map((option) => {
-                      const isActive = filterStatus === option.value;
-                      return (
-                        <button
-                          key={option.value || "all"}
-                          type="button"
-                          role="option"
-                          aria-selected={isActive}
-                          className={`flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-sm transition-colors duration-150 ${
-                            isActive
-                              ? "bg-primary/10 font-medium text-text-primary"
-                              : "text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
-                          }`}
-                          onClick={() => {
-                            applyStatusFilter(option.value);
-                            setStatusMenuOpen(false);
-                          }}
-                        >
-                          <span>{option.label}</span>
-                          {isActive ? (
-                            <svg className="size-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m5 12 5 5L20 7" />
-                            </svg>
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : null}
-              </div>
-
               <button
                 type="button"
                 onClick={openFilterPopup}
@@ -418,11 +306,6 @@ export default function AdminStudentsPage() {
 
         {hasActiveFilter ? (
           <div className="mb-4 flex flex-wrap gap-2">
-            {filterStatus ? (
-              <span className="inline-flex rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary ring-1 ring-primary/25">
-                Trạng thái: {STATUS_LABELS[filterStatus]}
-              </span>
-            ) : null}
             {filterClass ? (
               <span className="inline-flex rounded-full bg-bg-secondary px-2.5 py-1 text-xs font-medium text-text-secondary ring-1 ring-border-default">
                 Lớp: {filterClass}
@@ -453,7 +336,6 @@ export default function AdminStudentsPage() {
               aria-hidden
               onClick={() => {
                 setFilterPopupOpen(false);
-                setStatusMenuOpen(false);
               }}
             />
             <div
@@ -593,10 +475,8 @@ export default function AdminStudentsPage() {
               <div className="block space-y-3 md:hidden" role="list" aria-label="Danh sách học sinh">
                 {list.map((student) => {
                   const status = normalizeStatus(student.status);
-                  const gender = normalizeGender(student.gender);
                   const classItems = getClassItems(student);
                   const province = student.province?.trim() || "—";
-                  const school = student.school?.trim() || "—";
                   const balance = student.accountBalance ?? 0;
                   const balanceClassName = balanceTextClass(balance);
 
@@ -634,11 +514,6 @@ export default function AdminStudentsPage() {
                       </div>
 
                       <div className="mt-2 flex flex-wrap gap-1">
-                        <span
-                          className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${genderBadgeClass(gender)}`}
-                        >
-                          {gender ? GENDER_LABELS[gender] : "Chưa cập nhật"}
-                        </span>
                         {classItems.length > 0 ? (
                           classItems.map((item) => (
                             <span
@@ -655,7 +530,6 @@ export default function AdminStudentsPage() {
 
                       <div className="mt-2 flex flex-col gap-1 text-sm text-text-secondary">
                         <span className="truncate">Tỉnh: {province}</span>
-                        <span className="truncate">Trường: {school}</span>
                       </div>
 
                       <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-border-default bg-bg-secondary/50 px-3 py-2">
@@ -679,32 +553,24 @@ export default function AdminStudentsPage() {
                   <thead>
                     <tr className="border-b border-border-default bg-bg-secondary/80">
                       <th scope="col" className="w-[6%] min-w-10 px-2 py-3" aria-label="Trạng thái" />
-                      <th scope="col" className="w-[20%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                      <th scope="col" className="w-[26%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         Học sinh
                       </th>
-                      <th scope="col" className="w-[14%] min-w-0 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                      <th scope="col" className="w-[16%] min-w-0 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         Số dư
                       </th>
-                      <th scope="col" className="w-[12%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
-                        Giới tính
-                      </th>
-                      <th scope="col" className="w-[14%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                      <th scope="col" className="w-[18%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         Tỉnh
                       </th>
-                      <th scope="col" className="w-[16%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                      <th scope="col" className="w-[34%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         Lớp
-                      </th>
-                      <th scope="col" className="w-[18%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
-                        Trường
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     {list.map((student) => {
                       const status = normalizeStatus(student.status);
-                      const gender = normalizeGender(student.gender);
                       const classItems = getClassItems(student);
-                      const school = student.school?.trim() || "—";
                       const balance = student.accountBalance ?? 0;
                       const balanceClassName = balanceTextClass(balance);
 
@@ -741,13 +607,6 @@ export default function AdminStudentsPage() {
                               {formatCurrency(balance)}
                             </span>
                           </td>
-                          <td className="px-4 py-3 align-middle text-text-secondary">
-                            <span
-                              className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ring-1 ${genderBadgeClass(gender)}`}
-                            >
-                              {gender ? GENDER_LABELS[gender] : "Chưa cập nhật"}
-                            </span>
-                          </td>
                           <td className="px-4 py-3 text-text-primary">
                             <span className="block truncate">
                               {student.province?.trim() || "—"}
@@ -768,9 +627,6 @@ export default function AdminStudentsPage() {
                             ) : (
                               <span className="text-text-muted">Chưa xếp lớp</span>
                             )}
-                          </td>
-                          <td className="px-4 py-3 text-text-primary">
-                            <span className="block truncate">{school}</span>
                           </td>
                         </tr>
                       );

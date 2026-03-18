@@ -1,10 +1,15 @@
 "use client";
 
-import { useState, type SyntheticEvent } from "react";
+import { useEffect, useState, type SyntheticEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { StudentDetail, StudentGender, StudentStatus } from "@/dtos/student.dto";
 import * as studentApi from "@/lib/apis/student.api";
+import {
+  readStudentExamSchedule,
+  saveStudentExamSchedule,
+  type StudentExamItem,
+} from "./StudentExamCard";
 
 type Props = {
   open: boolean;
@@ -38,6 +43,27 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
   const [gender, setGender] = useState<StudentGender>(student.gender ?? "male");
   const [status, setStatus] = useState<StudentStatus>(student.status ?? "active");
   const [goal, setGoal] = useState(student.goal ?? "");
+  const [dropOutDate, setDropOutDate] = useState(student.dropOutDate ?? "");
+  const [examItems, setExamItems] = useState<StudentExamItem[]>([]);
+
+  const createLocalId = () => {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  };
+
+  const normalizeExamDate = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+    const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return match ? trimmed : "";
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    setExamItems(readStudentExamSchedule(student.id));
+  }, [open, student.id]);
 
   const updateMutation = useMutation({
     mutationFn: (payload: Parameters<typeof studentApi.updateStudentById>[1]) =>
@@ -64,6 +90,16 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
     const trimmedName = fullName.trim();
     if (!trimmedName) {
       toast.error("Họ tên là bắt buộc.");
+      return;
+    }
+
+    const hasInvalidExamItem = examItems.some((item) => {
+      const hasAnyContent = Boolean(item.examDate?.trim() || item.note?.trim());
+      if (!hasAnyContent) return false;
+      return normalizeExamDate(item.examDate) === "";
+    });
+    if (hasInvalidExamItem) {
+      toast.error("Ngày thi không hợp lệ. Vui lòng chọn ngày thi cho từng dòng lịch thi.");
       return;
     }
 
@@ -95,7 +131,16 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
         gender,
         status,
         goal: goal.trim() || undefined,
+        drop_out_date: dropOutDate.trim() || undefined,
       });
+      const normalizedExamItems = examItems
+        .map((item) => ({
+          ...item,
+          examDate: normalizeExamDate(item.examDate),
+          note: item.note ?? "",
+        }))
+        .filter((item) => item.examDate);
+      saveStudentExamSchedule(student.id, normalizedExamItems);
       toast.success("Đã lưu thông tin học sinh.");
       onClose();
     } catch {
@@ -265,7 +310,110 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
                     placeholder="Ví dụ: Hoàn thành chương trình IELTS Foundation trong quý này"
                   />
                 </label>
+
+                <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
+                  <span>Ngày ngừng theo dõi</span>
+                  <input
+                    type="date"
+                    value={dropOutDate}
+                    onChange={(event) => setDropOutDate(event.target.value)}
+                    className="rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    placeholder="YYYY-MM-DD"
+                  />
+                </label>
               </div>
+            </section>
+
+            <section className="rounded-2xl border border-border-default bg-bg-secondary/50 p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-text-muted">
+                    Exam Schedule
+                  </p>
+                  <h3 className="mt-1 text-base font-semibold text-text-primary">Lịch thi</h3>
+                  <p className="mt-1 text-sm text-text-secondary">
+                    Thêm các ngày thi và ghi chú. Danh sách sẽ hiển thị ở trang chi tiết học sinh.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setExamItems((prev) => [
+                      ...prev,
+                      { id: createLocalId(), examDate: "", note: "", createdAt: new Date().toISOString() },
+                    ]);
+                  }}
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  aria-label="Thêm ngày thi"
+                  title="Thêm ngày thi"
+                >
+                  <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+              </div>
+
+              {examItems.length === 0 ? (
+                <div className="mt-4 rounded-xl border border-dashed border-border-default bg-bg-surface px-4 py-4 text-sm text-text-muted">
+                  Chưa có lịch thi.
+                </div>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  {examItems.map((item, index) => (
+                    <div
+                      key={item.id}
+                      className="rounded-[1.1rem] border border-border-default bg-bg-surface px-3.5 py-3 shadow-sm"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-text-muted">
+                          Kỳ thi #{index + 1}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setExamItems((prev) => prev.filter((x) => x.id !== item.id))}
+                          className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-error/10 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                          aria-label="Xóa lịch thi"
+                          title="Xóa"
+                        >
+                          <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <label className="flex flex-col gap-1 text-sm text-text-secondary">
+                          <span>Ngày thi</span>
+                          <input
+                            type="date"
+                            value={item.examDate}
+                            onChange={(e) =>
+                              setExamItems((prev) =>
+                                prev.map((x) => (x.id === item.id ? { ...x, examDate: e.target.value } : x)),
+                              )
+                            }
+                            className="rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                          />
+                        </label>
+
+                        <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
+                          <span>Ghi chú kỳ thi</span>
+                          <input
+                            value={item.note}
+                            onChange={(e) =>
+                              setExamItems((prev) =>
+                                prev.map((x) => (x.id === item.id ? { ...x, note: e.target.value } : x)),
+                              )
+                            }
+                            placeholder="Ví dụ: Thi cuối kỳ / Thi chứng chỉ / Thi HSG..."
+                            className="rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
           </div>
         </form>

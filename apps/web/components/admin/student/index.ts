@@ -5,3 +5,7 @@ export { default as StudentDetailRow } from "./StudentDetailRow";
 export { default as EditStudentPopup } from "./EditStudentPopup";
 export { default as EditStudentClassesPopup } from "./EditStudentClassesPopup";
 export { default as StudentBalancePopup } from "./StudentBalancePopup";
+export { default as StudentWalletHistoryPopup } from "./StudentWalletHistoryPopup";
+export { appendStudentWalletTx } from "./StudentWalletHistoryPopup";
+export { default as StudentExamCard } from "./StudentExamCard";
+export { default as StudentClassTuitionPopup } from "./StudentClassTuitionPopup";

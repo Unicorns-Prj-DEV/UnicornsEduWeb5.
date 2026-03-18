@@ -1,0 +1,237 @@
+"use client";
+
+import { useEffect, useState, type SyntheticEvent } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import * as classApi from "@/lib/apis/class.api";
+import { formatCurrency } from "@/lib/class.helpers";
+
+type Props = {
+  open: boolean;
+  onClose: () => void;
+  classId: string;
+  className: string;
+  studentId: string;
+  /** Giá trị hiện tại từ class detail (student trong lớp). */
+  initialPackageTotal: number | null;
+  initialPackageSession: number | null;
+  initialTuitionPerSession: number | null;
+  /** Giá trị mặc định của lớp (khi học sinh chưa set riêng). */
+  classDefaultTuitionPerSession: number | null;
+  onSuccess?: () => void | Promise<void>;
+};
+
+function toNum(v: unknown): number | null {
+  if (v == null) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+export default function StudentClassTuitionPopup({
+  open,
+  onClose,
+  classId,
+  className,
+  studentId,
+  initialPackageTotal,
+  initialPackageSession,
+  initialTuitionPerSession,
+  classDefaultTuitionPerSession,
+  onSuccess,
+}: Props) {
+  const queryClient = useQueryClient();
+  const [packageTotal, setPackageTotal] = useState("");
+  const [packageSession, setPackageSession] = useState("");
+  const [tuitionPerSession, setTuitionPerSession] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    setPackageTotal(initialPackageTotal != null ? String(initialPackageTotal) : "");
+    setPackageSession(initialPackageSession != null ? String(initialPackageSession) : "");
+    setTuitionPerSession(
+      initialTuitionPerSession != null ? String(initialTuitionPerSession) : "",
+    );
+  }, [
+    open,
+    initialPackageTotal,
+    initialPackageSession,
+    initialTuitionPerSession,
+  ]);
+
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      const classDetail = await classApi.getClassById(classId);
+      const existingStudents = (classDetail.students ?? []).map((s) => ({
+        id: s.id,
+        ...(s.customTuitionPerSession != null
+          ? { custom_tuition_per_session: s.customTuitionPerSession }
+          : {}),
+        ...(s.customTuitionPackageTotal != null
+          ? { custom_tuition_package_total: s.customTuitionPackageTotal }
+          : {}),
+        ...(s.customTuitionPackageSession != null
+          ? { custom_tuition_package_session: s.customTuitionPackageSession }
+          : {}),
+      }));
+      const totalNum = toNum(packageTotal.trim());
+      const sessionNum = toNum(packageSession.trim());
+      const perSessionNum = toNum(tuitionPerSession.trim());
+
+      const nextStudents = existingStudents.map((stu) => {
+        if (stu.id !== studentId) return stu;
+        return {
+          id: stu.id,
+          ...(totalNum != null ? { custom_tuition_package_total: totalNum } : {}),
+          ...(sessionNum != null ? { custom_tuition_package_session: sessionNum } : {}),
+          ...(perSessionNum != null ? { custom_tuition_per_session: perSessionNum } : {}),
+        };
+      });
+
+      await classApi.updateClassStudents(classId, { students: nextStudents });
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["student", "detail", studentId] }),
+        queryClient.invalidateQueries({ queryKey: ["student", "list"] }),
+        queryClient.invalidateQueries({ queryKey: ["class", "detail", classId] }),
+      ]);
+      await onSuccess?.();
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (err as Error)?.message ??
+        "Không thể cập nhật gói học phí.";
+      toast.error(msg);
+    },
+  });
+
+  const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const totalNum = toNum(packageTotal.trim());
+    const sessionNum = toNum(packageSession.trim());
+    const perSessionNum = tuitionPerSession.trim() === "" ? null : toNum(tuitionPerSession.trim());
+    if (totalNum != null && (sessionNum == null || sessionNum < 1)) {
+      toast.error("Số buổi trong gói phải là số nguyên dương.");
+      return;
+    }
+    if (sessionNum != null && (totalNum == null || totalNum < 0)) {
+      toast.error("Tổng gói học phí không hợp lệ.");
+      return;
+    }
+    if (perSessionNum != null && perSessionNum < 0) {
+      toast.error("Học phí/buổi không được âm.");
+      return;
+    }
+    updateMutation.mutate(undefined, {
+      onSuccess: () => {
+        toast.success("Đã lưu gói học phí.");
+        onClose();
+      },
+    });
+  };
+
+  if (!open) return null;
+
+  const defaultPerSession =
+    initialTuitionPerSession ?? classDefaultTuitionPerSession ?? null;
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]"
+        aria-hidden
+        onClick={onClose}
+      />
+      <div className="fixed inset-0 z-50 p-2 sm:p-4">
+        <div className="mx-auto flex h-full w-full max-w-md items-center">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="student-class-tuition-title"
+            className="w-full rounded-[1.25rem] border border-border-default bg-bg-surface p-4 shadow-2xl sm:p-5"
+          >
+            <div className="mb-4 flex items-start justify-between gap-3 border-b border-border-default/70 pb-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-text-muted">
+                  Gói học phí
+                </p>
+                <h2 id="student-class-tuition-title" className="mt-1 text-lg font-semibold text-text-primary">
+                  Điều chỉnh gói học phí
+                </h2>
+                <p className="mt-1 truncate text-sm text-text-secondary">{className}</p>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-xl p-2 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                aria-label="Đóng"
+              >
+                <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-text-secondary">Tổng gói (VNĐ)</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={packageTotal}
+                  onChange={(e) => setPackageTotal(e.target.value)}
+                  placeholder="Để trống = theo lớp"
+                  className="w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-text-secondary">Số buổi trong gói</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={packageSession}
+                  onChange={(e) => setPackageSession(e.target.value)}
+                  placeholder="Để trống = theo lớp"
+                  className="w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-text-secondary">Học phí/buổi (VNĐ)</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={tuitionPerSession}
+                  onChange={(e) => setTuitionPerSession(e.target.value)}
+                  placeholder={
+                    defaultPerSession != null
+                      ? `Mặc định: ${formatCurrency(defaultPerSession)}`
+                      : "Để trống = theo lớp"
+                  }
+                  className="w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                />
+              </label>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="min-h-11 flex-1 rounded-xl border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={updateMutation.isPending}
+                  className="min-h-11 flex-1 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60"
+                >
+                  {updateMutation.isPending ? "Đang lưu…" : "Lưu"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}

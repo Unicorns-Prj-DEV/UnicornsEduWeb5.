@@ -7,6 +7,7 @@ type Props = {
   className?: string;
   onTopUp: () => void;
   onWithdraw: () => void;
+  onOpenHistory?: () => void;
 };
 
 export default function StudentWalletCard({
@@ -14,61 +15,44 @@ export default function StudentWalletCard({
   className = "",
   onTopUp,
   onWithdraw,
+  onOpenHistory,
 }: Props) {
   const isNegativeBalance = balance < 0;
-  const isZeroBalance = balance === 0;
-  const balanceLabel = isNegativeBalance
-    ? "Âm tài khoản"
-    : isZeroBalance
-      ? "Về mức 0"
-      : "Sẵn sàng sử dụng";
-  const balanceDescription = isNegativeBalance
-    ? "Tài khoản đang âm. Nên nạp thêm để tiếp tục bù trừ các khoản phát sinh của học sinh."
-    : isZeroBalance
-      ? "Tài khoản hiện không còn số dư. Giao dịch tiếp theo sẽ cần nạp thêm trước khi rút tiền."
-      : "Số dư đang khả dụng để điều phối học phí, khoản thu bổ sung và các giao dịch nội bộ tiếp theo.";
-  const balanceHint = isNegativeBalance
-    ? "Ưu tiên nạp bù"
-    : isZeroBalance
-      ? "Cần theo dõi sát"
-      : "Có thể tiếp tục sử dụng";
-  const statusChipClass = isNegativeBalance
-    ? "bg-error/10 text-error ring-error/20"
-    : isZeroBalance
-      ? "bg-warning/15 text-text-primary ring-warning/20"
-      : "bg-primary/10 text-primary ring-primary/20";
-  const statusDotClass = isNegativeBalance
-    ? "bg-error"
-    : isZeroBalance
-      ? "bg-warning"
-      : "bg-primary";
   const amountClass = isNegativeBalance ? "text-error" : "text-text-primary";
 
   return (
     <StudentInfoCard title="Tài khoản hiện tại" className={className}>
-      <dl className="divide-y divide-border-subtle">
-        <StudentDetailRow
-          label="Số dư"
-          value={
-            <span className={`text-base font-semibold tabular-nums sm:text-lg ${amountClass}`}>
-              {formatCurrency(balance)}
-            </span>
-          }
-        />
-        <StudentDetailRow
-          label="Trạng thái"
-          value={
-            <span
-              className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${statusChipClass}`}
-            >
-              <span className={`size-2 rounded-full ${statusDotClass}`} aria-hidden />
-              {balanceLabel}
-            </span>
-          }
-        />
-        <StudentDetailRow label="Ghi chú" value={balanceDescription} />
-        <StudentDetailRow label="Ưu tiên" value={balanceHint} />
-      </dl>
+      <div className="relative">
+        <dl>
+          <StudentDetailRow
+            label="Số dư"
+            value={
+              <span className={`text-base font-semibold tabular-nums sm:text-lg ${amountClass}`}>
+                {formatCurrency(balance)}
+              </span>
+            }
+          />
+        </dl>
+
+        {onOpenHistory ? (
+          <button
+            type="button"
+            onClick={onOpenHistory}
+            className="absolute right-0 top-0 inline-flex size-9 items-center justify-center rounded-full border border-border-default bg-bg-surface text-text-muted transition hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:size-8"
+            aria-label="Xem lịch sử giao dịch"
+            title="Lịch sử giao dịch"
+          >
+            <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M17 9V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v2m12 0H5m12 0a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2m3 6h.01M12 15h.01M16 15h.01"
+              />
+            </svg>
+          </button>
+        ) : null}
+      </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <button
