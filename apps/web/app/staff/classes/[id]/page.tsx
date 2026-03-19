@@ -363,9 +363,8 @@ export default function StaffClassDetailPage() {
               {(classDetail.name?.trim() || "L").charAt(0).toUpperCase()}
             </div>
             <span
-              className={`absolute bottom-0 right-0 block size-3 rounded-full border-2 border-bg-surface ${
-                classDetail.status === "running" ? "bg-warning" : "bg-text-muted"
-              }`}
+              className={`absolute bottom-0 right-0 block size-3 rounded-full border-2 border-bg-surface ${classDetail.status === "running" ? "bg-warning" : "bg-text-muted"
+                }`}
               title={STATUS_LABELS[classDetail.status]}
               aria-hidden
             />
@@ -496,11 +495,10 @@ export default function StaffClassDetailPage() {
                           <p className="text-sm font-semibold text-text-primary">{student.fullName}</p>
                         </div>
                         <span
-                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                            isActive
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${isActive
                               ? "bg-success/15 text-success"
                               : "bg-text-muted/15 text-text-muted"
-                          }`}
+                            }`}
                         >
                           {statusLabel}
                         </span>
@@ -544,11 +542,10 @@ export default function StaffClassDetailPage() {
                         <td className="px-4 py-3 text-text-primary">{student.fullName}</td>
                         <td className="px-4 py-3">
                           <span
-                            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                              isActive
+                            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${isActive
                                 ? "bg-success/15 text-success"
                                 : "bg-text-muted/15 text-text-muted"
-                            }`}
+                              }`}
                           >
                             {statusLabel}
                           </span>
@@ -633,11 +630,10 @@ export default function StaffClassDetailPage() {
                           key={value}
                           type="button"
                           onClick={() => handleMonthSelect(value)}
-                          className={`rounded border px-2 py-1 text-xs transition-colors ${
-                            isActive
+                          className={`rounded border px-2 py-1 text-xs transition-colors ${isActive
                               ? "border-primary bg-primary/10 text-primary"
                               : "border-transparent text-text-primary hover:bg-bg-secondary"
-                          }`}
+                            }`}
                         >
                           {label}
                         </button>
@@ -672,7 +668,7 @@ export default function StaffClassDetailPage() {
             <SessionHistoryTable
               sessions={sessions}
               entityMode="teacher"
-              statusMode="timeline"
+              statusMode="payment"
               emptyText="Không có buổi học trong tháng này."
               editorLayout="wide"
               showActionsColumn

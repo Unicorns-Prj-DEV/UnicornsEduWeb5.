@@ -17,6 +17,7 @@
   - cho phép chỉnh `khung giờ học`
   - cho phép thêm `session`
   - cho phép chỉnh `session` gồm ngày học, giờ học, note buổi học, điểm danh
+  - bảng lịch sử buổi học hiển thị `trạng thái thanh toán` của từng session ở dạng chỉ đọc
 
 ## Permission boundaries
 
@@ -64,6 +65,7 @@
   - `allowTeacherSelection=false`
   - `allowPaymentStatusEdit=false`
   - `allowDeleteSession=false`
+- Bảng lịch sử buổi học trên `/staff/classes/[id]` dùng badge trạng thái thanh toán của session thay cho badge tiến độ thời gian; teacher/admin chỉ xem, không sửa từ route này
 
 ## DoD
 

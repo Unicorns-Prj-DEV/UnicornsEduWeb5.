@@ -7,6 +7,7 @@ import { logout } from "@/lib/apis/auth.api";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { FaHouse } from "react-icons/fa6";
 
 const HOME_MENU = [
   { id: "intro", label: "Giới thiệu" },
@@ -91,11 +92,20 @@ export function Navbar() {
           {user.roleType !== Role.guest ? (
             <>
               <Link
-                href={links[user.roleType as keyof typeof links] ?? "/"}
+                href={"/user-profile"}
                 className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-tertiary font-semibold text-text-primary ring-2 ring-border-default transition hover:bg-primary hover:text-text-inverse hover:ring-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
               >
                 <span className="text-sm">
                   {user.accountHandle?.slice(0, 1).toUpperCase() ?? "?"}
+                </span>
+              </Link>
+
+              <Link
+                href={links[user.roleType as keyof typeof links] ?? "/"}
+                className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-tertiary font-semibold text-text-primary ring-2 ring-border-default transition hover:bg-primary hover:text-text-inverse hover:ring-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+              >
+                <span className="text-sm">
+                  <FaHouse />
                 </span>
               </Link>
 

@@ -403,9 +403,9 @@ function ProfileSection({
     <section
       id={id}
       className={`${softCardClassName} motion-fade-up relative scroll-mt-24 overflow-hidden`}
-      style={{
-        backgroundImage: `radial-gradient(circle at top right, color-mix(in srgb, ${accent} 14%, transparent), transparent 36%), linear-gradient(180deg, var(--ue-bg-surface), color-mix(in srgb, var(--ue-bg-secondary) 28%, var(--ue-bg-surface)))`,
-      }}
+    // style={{
+    //   backgroundImage: `radial-gradient(circle at top right, color-mix(in srgb, ${accent} 14%, transparent), transparent 36%), linear-gradient(180deg, var(--ue-bg-surface), color-mix(in srgb, var(--ue-bg-secondary) 28%, var(--ue-bg-surface)))`,
+    // }}
     >
       <div
         className="absolute inset-x-0 top-0 h-1"
@@ -673,31 +673,31 @@ export default function UserProfilePage() {
 
   const staffCompletion = profile.staffInfo
     ? getCompletionStats([
-        profile.staffInfo.fullName,
-        profile.staffInfo.birthDate,
-        profile.staffInfo.university,
-        profile.staffInfo.highSchool,
-        profile.staffInfo.specialization,
-        profile.staffInfo.bankAccount,
-        profile.staffInfo.bankQrLink,
-        profile.staffInfo.status,
-        profile.staffInfo.roles,
-      ])
+      profile.staffInfo.fullName,
+      profile.staffInfo.birthDate,
+      profile.staffInfo.university,
+      profile.staffInfo.highSchool,
+      profile.staffInfo.specialization,
+      profile.staffInfo.bankAccount,
+      profile.staffInfo.bankQrLink,
+      profile.staffInfo.status,
+      profile.staffInfo.roles,
+    ])
     : null;
 
   const studentCompletion = profile.studentInfo
     ? getCompletionStats([
-        profile.studentInfo.fullName,
-        profile.studentInfo.email,
-        profile.studentInfo.school,
-        profile.studentInfo.province,
-        profile.studentInfo.birthYear,
-        profile.studentInfo.parentName,
-        profile.studentInfo.parentPhone,
-        profile.studentInfo.gender,
-        profile.studentInfo.goal,
-        profile.studentInfo.status,
-      ])
+      profile.studentInfo.fullName,
+      profile.studentInfo.email,
+      profile.studentInfo.school,
+      profile.studentInfo.province,
+      profile.studentInfo.birthYear,
+      profile.studentInfo.parentName,
+      profile.studentInfo.parentPhone,
+      profile.studentInfo.gender,
+      profile.studentInfo.goal,
+      profile.studentInfo.status,
+    ])
     : null;
 
   const allProfileValues: Array<unknown> = [
@@ -749,25 +749,25 @@ export default function UserProfilePage() {
     },
     ...(profile.staffInfo
       ? [
-          {
-            id: "profile-staff",
-            label: "Nhân sự",
-            description: "Hồ sơ học vấn, chuyên môn và thông tin thanh toán.",
-            completion: staffCompletion!,
-            tone: "success" as const,
-          },
-        ]
+        {
+          id: "profile-staff",
+          label: "Nhân sự",
+          description: "Hồ sơ học vấn, chuyên môn và thông tin thanh toán.",
+          completion: staffCompletion!,
+          tone: "success" as const,
+        },
+      ]
       : []),
     ...(profile.studentInfo
       ? [
-          {
-            id: "profile-student",
-            label: "Học viên",
-            description: "Thông tin học tập, phụ huynh và mục tiêu cá nhân.",
-            completion: studentCompletion!,
-            tone: "warning" as const,
-          },
-        ]
+        {
+          id: "profile-student",
+          label: "Học viên",
+          description: "Thông tin học tập, phụ huynh và mục tiêu cá nhân.",
+          completion: studentCompletion!,
+          tone: "warning" as const,
+        },
+      ]
       : []),
   ];
 
@@ -843,54 +843,54 @@ export default function UserProfilePage() {
 
   const staffDetails: DetailItem[] | null = profile.staffInfo
     ? [
-        { label: "Họ tên", value: profile.staffInfo.fullName ?? "—" },
-        { label: "Ngày sinh", value: formatDate(profile.staffInfo.birthDate) },
-        { label: "Trường đại học", value: profile.staffInfo.university ?? "—" },
-        { label: "Trường THPT", value: profile.staffInfo.highSchool ?? "—" },
-        { label: "Chuyên ngành", value: profile.staffInfo.specialization ?? "—" },
-        { label: "Số tài khoản", value: profile.staffInfo.bankAccount ?? "—" },
-        {
-          label: "Trạng thái",
-          value: humanizeToken(profile.staffInfo.status) ?? "—",
-        },
-        {
-          label: "Vai trò đảm nhiệm",
-          value: profile.staffInfo.roles?.length
-            ? profile.staffInfo.roles.map(humanizeToken).join(", ")
-            : "—",
-          fullWidth: true,
-        },
-      ]
+      { label: "Họ tên", value: profile.staffInfo.fullName ?? "—" },
+      { label: "Ngày sinh", value: formatDate(profile.staffInfo.birthDate) },
+      { label: "Trường đại học", value: profile.staffInfo.university ?? "—" },
+      { label: "Trường THPT", value: profile.staffInfo.highSchool ?? "—" },
+      { label: "Chuyên ngành", value: profile.staffInfo.specialization ?? "—" },
+      { label: "Số tài khoản", value: profile.staffInfo.bankAccount ?? "—" },
+      {
+        label: "Trạng thái",
+        value: humanizeToken(profile.staffInfo.status) ?? "—",
+      },
+      {
+        label: "Vai trò đảm nhiệm",
+        value: profile.staffInfo.roles?.length
+          ? profile.staffInfo.roles.map(humanizeToken).join(", ")
+          : "—",
+        fullWidth: true,
+      },
+    ]
     : null;
 
   const studentDetails: DetailItem[] | null = profile.studentInfo
     ? [
-        { label: "Họ tên", value: profile.studentInfo.fullName ?? "—" },
-        { label: "Email", value: profile.studentInfo.email ?? "—" },
-        { label: "Trường", value: profile.studentInfo.school ?? "—" },
-        {
-          label: "Tỉnh / Thành phố",
-          value: profile.studentInfo.province ?? "—",
-        },
-        { label: "Năm sinh", value: profile.studentInfo.birthYear ?? "—" },
-        {
-          label: "Phụ huynh",
-          value: profile.studentInfo.parentName ?? "—",
-          hint: profile.studentInfo.parentPhone
-            ? `Liên hệ: ${profile.studentInfo.parentPhone}`
-            : "Chưa có số điện thoại phụ huynh.",
-        },
-        { label: "Giới tính", value: getGenderLabel(profile.studentInfo.gender) },
-        {
-          label: "Trạng thái",
-          value: humanizeToken(profile.studentInfo.status),
-        },
-        {
-          label: "Mục tiêu học tập",
-          value: profile.studentInfo.goal ?? "—",
-          fullWidth: true,
-        },
-      ]
+      { label: "Họ tên", value: profile.studentInfo.fullName ?? "—" },
+      { label: "Email", value: profile.studentInfo.email ?? "—" },
+      { label: "Trường", value: profile.studentInfo.school ?? "—" },
+      {
+        label: "Tỉnh / Thành phố",
+        value: profile.studentInfo.province ?? "—",
+      },
+      { label: "Năm sinh", value: profile.studentInfo.birthYear ?? "—" },
+      {
+        label: "Phụ huynh",
+        value: profile.studentInfo.parentName ?? "—",
+        hint: profile.studentInfo.parentPhone
+          ? `Liên hệ: ${profile.studentInfo.parentPhone}`
+          : "Chưa có số điện thoại phụ huynh.",
+      },
+      { label: "Giới tính", value: getGenderLabel(profile.studentInfo.gender) },
+      {
+        label: "Trạng thái",
+        value: humanizeToken(profile.studentInfo.status),
+      },
+      {
+        label: "Mục tiêu học tập",
+        value: profile.studentInfo.goal ?? "—",
+        fullWidth: true,
+      },
+    ]
     : null;
 
   return (
@@ -910,7 +910,6 @@ export default function UserProfilePage() {
           <div className="grid gap-8 lg:grid-cols-[1.45fr_0.75fr] lg:items-start">
             <div>
               <div className="flex flex-wrap items-center gap-3">
-                <Tag label="Profile Cockpit" tone="primary" />
                 <Tag label={getRoleLabel(profile.roleType)} tone="neutral" />
                 <Link href="/" className={ghostButtonClassName}>
                   ← Về trang chủ
@@ -1180,8 +1179,8 @@ export default function UserProfilePage() {
                         defaultValue={
                           profile.staffInfo.birthDate
                             ? new Date(profile.staffInfo.birthDate)
-                                .toISOString()
-                                .slice(0, 10)
+                              .toISOString()
+                              .slice(0, 10)
                             : ""
                         }
                       />
