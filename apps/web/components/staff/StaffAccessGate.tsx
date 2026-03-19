@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getFullProfile } from "@/lib/apis/auth.api";
@@ -11,6 +11,7 @@ export default function StaffAccessGate({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
   const router = useRouter();
   const { data, isLoading, isError } = useQuery({
     queryKey: ["auth", "full-profile"],
@@ -19,8 +20,21 @@ export default function StaffAccessGate({
   });
 
   const roleType = data?.roleType;
-  const isTeacher = (data?.staffInfo?.roles ?? []).includes("teacher");
-  const isAllowed = roleType === "admin" || (roleType === "staff" && isTeacher);
+  const staffRoles = data?.staffInfo?.roles ?? [];
+  const isTeacher = staffRoles.includes("teacher");
+  const isCustomerCare = staffRoles.includes("customer_care");
+  const isCustomerCareSelfRoute = pathname.startsWith("/staff/customer-care-detail");
+  const isAllowed = isCustomerCareSelfRoute
+    ? roleType === "staff" && isCustomerCare
+    : roleType === "admin" || (roleType === "staff" && isTeacher);
+
+  const lockedLabel = isCustomerCareSelfRoute ? "Customer Care Locked" : "Staff Ops Locked";
+  const lockedTitle = isCustomerCareSelfRoute
+    ? "Tài khoản này không dùng được màn CSKH cá nhân."
+    : "Tài khoản này không dùng được màn vận hành lớp học.";
+  const lockedDescription = isCustomerCareSelfRoute
+    ? "Màn này chỉ mở cho `staff.customer_care` và luôn khóa vào đúng hồ sơ nhân sự hiện tại."
+    : "Màn này hiện mở cho `admin` hoặc `staff.teacher`. Teacher dùng nó để xem lớp phụ trách và thao tác buổi học; admin có thể truy cập để theo dõi hoặc hỗ trợ vận hành.";
 
   useEffect(() => {
     if (!isLoading && !isAllowed) {
@@ -48,16 +62,10 @@ export default function StaffAccessGate({
       <div className="flex min-h-screen items-center justify-center bg-bg-primary px-4">
         <div className="w-full max-w-xl rounded-[2rem] border border-warning/30 bg-warning/10 p-6 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-warning">
-            Staff Ops Locked
+            {lockedLabel}
           </p>
-          <h1 className="mt-3 text-2xl font-semibold text-text-primary">
-            Tài khoản này không dùng được màn vận hành lớp học.
-          </h1>
-          <p className="mt-3 text-sm text-text-secondary">
-            Màn này hiện mở cho `admin` hoặc `staff.teacher`. Teacher dùng nó để
-            xem lớp phụ trách và thao tác buổi học; admin có thể truy cập để
-            theo dõi hoặc hỗ trợ vận hành.
-          </p>
+          <h1 className="mt-3 text-2xl font-semibold text-text-primary">{lockedTitle}</h1>
+          <p className="mt-3 text-sm text-text-secondary">{lockedDescription}</p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Link
               href="/"

@@ -13,6 +13,7 @@ Page-level specs for `apps/web`, aligned with [Workplan](../Workplan.md) and [UI
 | `/admin` | Implemented | Admin | Huy | [admin.md](admin.md) |
 | `/admin/users` | Implemented | Admin | — | Danh sách user, phân quyền (role_type: nhân sự/học sinh; staff roles chi tiết) |
 | `/staff` | Implemented | `staff.teacher`, Admin | Huy | [staff.md](staff.md) |
+| `/staff/customer-care-detail` | Implemented | `staff.customer_care` | Huy | [staff.md](staff.md) |
 | `/landing-page` | Implemented | Public | Minh | [landing.md](landing.md) |
 | Auth (login/logout) | Partial | All authenticated | Huy/Minh | [auth.md](auth.md) |
 | `/auth/login` | Implemented | Public | Huy/Minh | [auth-login.md](auth-login.md) |
@@ -27,7 +28,7 @@ Page-level specs for `apps/web`, aligned with [Workplan](../Workplan.md) and [UI
 
 - **Tuần 1:** Auth, layout, mock layer; landing wireframe.
 - **Tuần 2:** `/admin` (dashboard, CRUD lớp, gán teacher/student).
-- **Runtime bổ sung:** `/staff` hiện đang phục vụ workspace lớp học cho `staff.teacher`, đồng thời `admin` có thể truy cập để theo dõi hoặc hỗ trợ cùng flow: list lớp + class detail để sửa khung giờ và thao tác session không dính finance.
+- **Runtime bổ sung:** `/staff` hiện phục vụ 2 flow: teacher workspace cho `staff.teacher` (admin có thể vào để theo dõi/hỗ trợ) và self-service customer-care detail tại `/staff/customer-care-detail` cho `staff.customer_care`.
 - **Tuần 3:** `/mentor` (lớp, session, điểm danh, lesson notes, payroll/bonus view).
 - **Tuần 4:** `/assistant` (thu phí, status, tasks).
 - **Tuần 5:** `/student` (lịch học, tài liệu, payment read-only, profile).

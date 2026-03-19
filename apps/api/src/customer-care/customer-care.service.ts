@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { StaffRole, UserRole } from 'generated/enums';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 const DEFAULT_DAYS = 30;
@@ -12,23 +17,82 @@ function toNumber(value: unknown): number {
 
 @Injectable()
 export class CustomerCareService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
+
+  private async resolveAccessibleStaffId(
+    userId: string,
+    roleType: UserRole,
+    requestedStaffId: string,
+  ) {
+    if (roleType === UserRole.admin) {
+      return requestedStaffId;
+    }
+
+    if (roleType !== UserRole.staff) {
+      throw new ForbiddenException(
+        'Chỉ admin hoặc staff.customer_care mới được xem dữ liệu customer-care.',
+      );
+    }
+
+    const staff = await this.prisma.staffInfo.findFirst({
+      where: { userId },
+      select: {
+        id: true,
+        roles: true,
+      },
+    });
+
+    if (!staff) {
+      throw new ForbiddenException(
+        'Tài khoản staff hiện tại chưa có hồ sơ nhân sự để dùng màn CSKH.',
+      );
+    }
+
+    if (!staff.roles.includes(StaffRole.customer_care)) {
+      throw new ForbiddenException(
+        'Màn CSKH self-service chỉ mở cho staff có role customer_care.',
+      );
+    }
+
+    if (staff.id !== requestedStaffId) {
+      throw new ForbiddenException(
+        'Nhân sự CSKH chỉ được xem dữ liệu của chính mình.',
+      );
+    }
+
+    return staff.id;
+  }
 
   /** List students assigned to this staff in customer_care_service, sorted by accountBalance asc. */
-  async getStudentsByStaffId(staffId: string) {
+  async getStudentsByStaffId(
+    userId: string,
+    roleType: UserRole,
+    staffId: string,
+  ) {
+    const accessibleStaffId = await this.resolveAccessibleStaffId(
+      userId,
+      roleType,
+      staffId,
+    );
+
     const staff = await this.prisma.staffInfo.findUnique({
-      where: { id: staffId },
+      where: { id: accessibleStaffId },
       select: { id: true },
     });
     if (!staff) throw new NotFoundException('Staff not found');
 
     const list = await this.prisma.customerCareService.findMany({
-      where: { staffId },
-      include: {
+      where: { staffId: accessibleStaffId },
+      select: {
         student: {
-          include: {
+          select: {
+            id: true,
+            fullName: true,
+            accountBalance: true,
+            province: true,
+            status: true,
             studentClasses: {
-              include: {
+              select: {
                 class: { select: { id: true, name: true } },
               },
             },
@@ -42,26 +106,34 @@ export class CustomerCareService {
       },
     });
 
-    const items = list.map((row) => ({
+    return list.map((row) => ({
       id: row.student.id,
       fullName: row.student.fullName ?? '',
       accountBalance: row.student.accountBalance ?? 0,
       province: row.student.province ?? null,
       status: row.student.status,
-      classes: row.student.studentClasses.map((sc) => ({
-        id: sc.class.id,
-        name: sc.class.name,
+      classes: row.student.studentClasses.map((studentClass) => ({
+        id: studentClass.class.id,
+        name: studentClass.class.name,
       })),
     }));
-
-    items.sort((a, b) => (a.accountBalance ?? 0) - (b.accountBalance ?? 0));
-    return items;
   }
 
   /** List students with total commission (last 30 days) for this staff. */
-  async getCommissionsByStaffId(staffId: string, days: number = DEFAULT_DAYS) {
+  async getCommissionsByStaffId(
+    userId: string,
+    roleType: UserRole,
+    staffId: string,
+    days: number = DEFAULT_DAYS,
+  ) {
+    const accessibleStaffId = await this.resolveAccessibleStaffId(
+      userId,
+      roleType,
+      staffId,
+    );
+
     const staff = await this.prisma.staffInfo.findUnique({
-      where: { id: staffId },
+      where: { id: accessibleStaffId },
       select: { id: true },
     });
     if (!staff) throw new NotFoundException('Staff not found');
@@ -72,12 +144,11 @@ export class CustomerCareService {
 
     const attendances = await this.prisma.attendance.findMany({
       where: {
-        customerCareStaffId: staffId,
+        customerCareStaffId: accessibleStaffId,
         session: { date: { gte: since } },
       },
       include: {
         student: { select: { id: true, fullName: true } },
-        session: { select: { id: true, date: true } },
       },
     });
 
@@ -86,17 +157,17 @@ export class CustomerCareService {
       { studentId: string; fullName: string; totalCommission: number }
     >();
 
-    for (const a of attendances) {
-      const tuition = toNumber(a.tuitionFee);
-      const coef = toNumber(a.customerCareCoef);
+    for (const attendance of attendances) {
+      const tuition = toNumber(attendance.tuitionFee);
+      const coef = toNumber(attendance.customerCareCoef);
       const commission = Math.round(tuition * coef);
-      const existing = byStudent.get(a.studentId);
+      const existing = byStudent.get(attendance.studentId);
       if (existing) {
         existing.totalCommission += commission;
       } else {
-        byStudent.set(a.studentId, {
-          studentId: a.student.id,
-          fullName: a.student.fullName ?? '',
+        byStudent.set(attendance.studentId, {
+          studentId: attendance.student.id,
+          fullName: attendance.student.fullName ?? '',
           totalCommission: commission,
         });
       }
@@ -107,12 +178,20 @@ export class CustomerCareService {
 
   /** Session-level commissions for one student under this staff (last N days). */
   async getSessionCommissionsByStudent(
+    userId: string,
+    roleType: UserRole,
     staffId: string,
     studentId: string,
     days: number = DEFAULT_DAYS,
   ) {
+    const accessibleStaffId = await this.resolveAccessibleStaffId(
+      userId,
+      roleType,
+      staffId,
+    );
+
     const staff = await this.prisma.staffInfo.findUnique({
-      where: { id: staffId },
+      where: { id: accessibleStaffId },
       select: { id: true },
     });
     if (!staff) throw new NotFoundException('Staff not found');
@@ -123,7 +202,7 @@ export class CustomerCareService {
 
     const attendances = await this.prisma.attendance.findMany({
       where: {
-        customerCareStaffId: staffId,
+        customerCareStaffId: accessibleStaffId,
         studentId,
         session: { date: { gte: since } },
       },
@@ -139,14 +218,14 @@ export class CustomerCareService {
       orderBy: { session: { date: 'desc' } },
     });
 
-    return attendances.map((a) => {
-      const tuition = toNumber(a.tuitionFee);
-      const coef = toNumber(a.customerCareCoef);
+    return attendances.map((attendance) => {
+      const tuition = toNumber(attendance.tuitionFee);
+      const coef = toNumber(attendance.customerCareCoef);
       const commission = Math.round(tuition * coef);
       return {
-        sessionId: a.session.id,
-        date: a.session.date,
-        className: a.session.class?.name ?? null,
+        sessionId: attendance.session.id,
+        date: attendance.session.date,
+        className: attendance.session.class?.name ?? null,
         tuitionFee: tuition,
         customerCareCoef: coef,
         commission,

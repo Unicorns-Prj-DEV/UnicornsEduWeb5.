@@ -4,18 +4,36 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useRef, useState, useEffect, useSyncExternalStore } from "react";
 import { animate, stagger } from "animejs";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Role } from "@/dtos/Auth.dto";
 import { useAuth } from "@/context/AuthContext";
 import * as authApi from "@/lib/apis/auth.api";
 import AdminProfilePopup, { type AdminProfile } from "@/components/admin/AdminProfilePopup";
 
-const MENU_ITEMS: { href: string; label: string; icon: React.ReactNode }[] = [
+const MENU_ITEMS: {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  isActive: (pathname: string) => boolean;
+  isVisible: (options: {
+    canAccessClassWorkspace: boolean;
+    canAccessCustomerCareSelf: boolean;
+  }) => boolean;
+}[] = [
   {
     href: "/staff",
     label: "Lớp học",
     icon: <IconOperations />,
+    isActive: (pathname) => pathname === "/staff" || pathname.startsWith("/staff/classes/"),
+    isVisible: ({ canAccessClassWorkspace }) => canAccessClassWorkspace,
+  },
+  {
+    href: "/staff/customer-care-detail",
+    label: "CSKH của tôi",
+    icon: <IconCustomerCare />,
+    isActive: (pathname) => pathname === "/staff/customer-care-detail",
+    isVisible: ({ canAccessCustomerCareSelf }) => canAccessCustomerCareSelf,
   },
 ];
 
@@ -62,6 +80,19 @@ function IconHome() {
   );
 }
 
+function IconCustomerCare() {
+  return (
+    <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M18 10a6 6 0 10-12 0v3a2 2 0 01-1 1.732V16a2 2 0 002 2h1m10-3.268A2 2 0 0117 13v-3m1 4v2a2 2 0 01-2 2h-1m-6 0v1a3 3 0 006 0v-1m-6 0h6"
+      />
+    </svg>
+  );
+}
+
 export default function StaffSidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -74,6 +105,21 @@ export default function StaffSidebar() {
   const isMobile = useMediaQuery("(max-width: 767px)");
   const prefersReducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const { setUser } = useAuth();
+  const { data: fullProfile } = useQuery({
+    queryKey: ["auth", "full-profile"],
+    queryFn: authApi.getFullProfile,
+    retry: false,
+    staleTime: 60_000,
+  });
+
+  const staffRoles = fullProfile?.staffInfo?.roles ?? [];
+  const canAccessClassWorkspace =
+    fullProfile?.roleType === "admin" || staffRoles.includes("teacher");
+  const canAccessCustomerCareSelf =
+    fullProfile?.roleType === "staff" && staffRoles.includes("customer_care");
+  const menuItems = MENU_ITEMS.filter((item) =>
+    item.isVisible({ canAccessClassWorkspace, canAccessCustomerCareSelf }),
+  );
 
   useEffect(() => {
     if (!isMobile) {
@@ -228,11 +274,13 @@ export default function StaffSidebar() {
 
         <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 overscroll-contain">
           <ul ref={navListRef} className="space-y-0.5 px-2" role="list">
-            {MENU_ITEMS.map((item) => {
-              const isActive =
-                item.href === "/staff"
-                  ? pathname === "/staff" || pathname.startsWith("/staff/classes/")
-                  : pathname.startsWith(item.href);
+            {menuItems.length === 0 && (
+              <li className="px-1.5 py-2" aria-hidden>
+                <div className="h-10 animate-pulse rounded-xl bg-bg-tertiary" />
+              </li>
+            )}
+            {menuItems.map((item) => {
+              const isActive = item.isActive(pathname);
 
               return (
                 <li key={item.href} className="sidebar-item">
