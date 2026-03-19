@@ -80,3 +80,9 @@ enum PaymentStatus {
   paid
   pending
 }
+
+enum SessionPaymentStatus {
+  deposit
+  paid
+  unpaid
+}

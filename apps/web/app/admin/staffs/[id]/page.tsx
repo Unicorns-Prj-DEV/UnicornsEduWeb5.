@@ -80,86 +80,6 @@ function normalizeMoneyAmount(value?: number | string | null): number {
   return Number.isFinite(amount) ? amount : 0;
 }
 
-function isDepositPaymentStatus(value: unknown): boolean {
-  const normalized = String(value ?? "")
-    .trim()
-    .toLowerCase();
-  return normalized === "deposit" || normalized === "coc" || normalized === "cọc";
-}
-
-function parseDateValue(value?: string | null): Date | null {
-  if (!value) return null;
-
-  const normalized = value.trim();
-  if (!normalized) return null;
-
-  const dateOnlyMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (dateOnlyMatch) {
-    const [, year, month, day] = dateOnlyMatch;
-    const parsed = new Date(
-      Number.parseInt(year, 10),
-      Number.parseInt(month, 10) - 1,
-      Number.parseInt(day, 10),
-    );
-
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }
-
-  const parsed = new Date(normalized);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function getRecentUnpaidWindow(referenceDate: Date) {
-  const end = new Date(referenceDate);
-  end.setHours(23, 59, 59, 999);
-
-  const start = new Date(referenceDate);
-  start.setDate(start.getDate() - (RECENT_UNPAID_DAYS - 1));
-  start.setHours(0, 0, 0, 0);
-
-  return { start, end };
-}
-
-function isDateWithinWindow(
-  value: string | null | undefined,
-  start: Date,
-  end: Date,
-): boolean {
-  const parsed = parseDateValue(value);
-  if (!parsed) return false;
-
-  return parsed >= start && parsed <= end;
-}
-
-function getMonthKey(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function getRecentWindowMonthParams(referenceDate: Date) {
-  const currentMonth = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1);
-  const previousMonth = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - 1, 1);
-
-  return [currentMonth, previousMonth]
-    .map((date) => ({
-      key: getMonthKey(date),
-      year: String(date.getFullYear()),
-      month: String(date.getMonth() + 1).padStart(2, "0"),
-    }))
-    .filter((item, index, arr) => arr.findIndex((entry) => entry.key === item.key) === index);
-}
-
-function dedupeById<T extends { id: string }>(items: T[]): T[] {
-  const seenIds = new Set<string>();
-  return items.filter((item) => {
-    if (seenIds.has(item.id)) {
-      return false;
-    }
-
-    seenIds.add(item.id);
-    return true;
-  });
-}
-
 function normalizeBonusRecord(item: BonusListItem): BonusRecord {
   const rawStatus = (item.status ?? "").toString().toLowerCase();
 
@@ -221,7 +141,11 @@ export default function AdminStaffDetailPage() {
     placeholderData: keepPreviousData,
   });
 
-  const { data: incomeSummary } = useQuery<StaffIncomeSummary>({
+  const {
+    data: incomeSummary,
+    isError: isIncomeSummaryError,
+    isLoading: isIncomeSummaryLoading,
+  } = useQuery<StaffIncomeSummary>({
     queryKey: ["staff", "income-summary", id, selectedYear, selectedMonthValue, RECENT_UNPAID_DAYS],
     queryFn: () =>
       staffApi.getStaffIncomeSummary(id, {
@@ -321,8 +245,10 @@ export default function AdminStaffDetailPage() {
 
   const province = staff?.user?.province || "—";
   const classMonthlySummaries = incomeSummary?.classMonthlySummaries ?? [];
-  const sessionMonthlyTotals = incomeSummary?.sessionMonthlyTotals ?? EMPTY_AMOUNT_SUMMARY;
+  const monthlyIncomeTotals = incomeSummary?.monthlyIncomeTotals ?? EMPTY_AMOUNT_SUMMARY;
   const sessionYearTotal = incomeSummary?.sessionYearTotal ?? 0;
+  const depositYearTotal = incomeSummary?.depositYearTotal ?? 0;
+  const depositByClass = incomeSummary?.depositYearByClass ?? [];
   const bonusTotals = incomeSummary?.bonusMonthlyTotals ?? EMPTY_AMOUNT_SUMMARY;
   const otherRoleSummaries = incomeSummary?.otherRoleSummaries ?? [];
 
@@ -694,7 +620,7 @@ export default function AdminStaffDetailPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <h2
               id="income-stats-title"
-              className="text-sm font-semibold uppercase tracking-wide text-black"
+              className="text-sm font-semibold uppercase tracking-wide text-text-primary"
             >
               Thống kê thu nhập
             </h2>
@@ -708,24 +634,24 @@ export default function AdminStaffDetailPage() {
             </div>
           </div>
           <div className="space-y-3 md:hidden">
-            <div className="flex justify-between rounded-lg border border-black/10 bg-white px-4 py-3">
-              <span className="text-sm text-black">Tổng tháng</span>
-              <span className="tabular-nums text-sm font-semibold text-primary">{formatCurrency(sessionMonthlyTotals.total)}</span>
+            <div className="flex justify-between rounded-lg border border-border-default bg-bg-secondary/40 px-4 py-3">
+              <span className="text-sm text-text-primary">Tổng tháng</span>
+              <span className="tabular-nums text-sm font-semibold text-primary">{formatCurrency(monthlyIncomeTotals.total)}</span>
             </div>
-            <div className="flex justify-between rounded-lg border border-black/10 bg-white px-4 py-3">
-              <span className="text-sm text-black">Chưa nhận</span>
-              <span className="tabular-nums text-sm font-semibold text-error">{formatCurrency(sessionMonthlyTotals.unpaid)}</span>
+            <div className="flex justify-between rounded-lg border border-border-default bg-bg-secondary/40 px-4 py-3">
+              <span className="text-sm text-text-primary">Chưa nhận</span>
+              <span className="tabular-nums text-sm font-semibold text-error">{formatCurrency(monthlyIncomeTotals.unpaid)}</span>
             </div>
-            <div className="flex justify-between rounded-lg border border-black/10 bg-white px-4 py-3">
-              <span className="text-sm text-black">Đã nhận</span>
-              <span className="tabular-nums text-sm font-semibold text-success">{formatCurrency(sessionMonthlyTotals.paid)}</span>
+            <div className="flex justify-between rounded-lg border border-border-default bg-bg-secondary/40 px-4 py-3">
+              <span className="text-sm text-text-primary">Đã nhận</span>
+              <span className="tabular-nums text-sm font-semibold text-success">{formatCurrency(monthlyIncomeTotals.paid)}</span>
             </div>
-            <div className="flex justify-between rounded-lg border border-black/10 bg-white px-4 py-3">
-              <span className="text-sm text-black">Tổng năm</span>
+            <div className="flex justify-between rounded-lg border border-border-default bg-bg-secondary/40 px-4 py-3">
+              <span className="text-sm text-text-primary">Tổng năm</span>
               <span className="tabular-nums text-sm font-semibold text-warning">{formatCurrency(sessionYearTotal)}</span>
             </div>
-            <div className="flex justify-between rounded-lg border border-black/10 bg-white px-4 py-3">
-              <span className="text-sm text-black">Ghi cọc</span>
+            <div className="flex justify-between rounded-lg border border-border-default bg-bg-secondary/40 px-4 py-3">
+              <span className="text-sm text-text-primary">Ghi cọc</span>
               {depositYearTotal > 0 ? (
                 <button
                   type="button"
@@ -743,32 +669,32 @@ export default function AdminStaffDetailPage() {
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[400px] border-collapse text-left text-sm">
               <caption className="sr-only">Bảng thống kê thu nhập nhân sự</caption>
-              <thead className="bg-white">
-                <tr className="border-b border-border-default bg-white">
-                  <th scope="col" className="px-4 py-3 font-medium tabular-nums text-black">
+              <thead className="bg-bg-secondary/50">
+                <tr className="border-b border-border-default bg-bg-secondary/50">
+                  <th scope="col" className="px-4 py-3 font-medium tabular-nums text-text-primary">
                     Tổng tháng
                   </th>
-                  <th scope="col" className="px-4 py-3 font-medium tabular-nums text-black">
+                  <th scope="col" className="px-4 py-3 font-medium tabular-nums text-text-primary">
                     Chưa nhận
                   </th>
-                  <th scope="col" className="px-4 py-3 font-medium tabular-nums text-black">
+                  <th scope="col" className="px-4 py-3 font-medium tabular-nums text-text-primary">
                     Đã nhận
                   </th>
-                  <th scope="col" className="px-4 py-3 font-medium tabular-nums text-black">
+                  <th scope="col" className="px-4 py-3 font-medium tabular-nums text-text-primary">
                     Tổng năm
                   </th>
-                  <th scope="col" className="px-4 py-3 font-medium tabular-nums text-black">
+                  <th scope="col" className="px-4 py-3 font-medium tabular-nums text-text-primary">
                     Ghi cọc
                   </th>
                 </tr>
               </thead>
               <tbody>
                 <tr className="border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary">
-                  <td className="bg-white px-4 py-3 tabular-nums font-semibold text-primary">{formatCurrency(sessionMonthlyTotals.total)}</td>
-                  <td className="bg-white px-4 py-3 tabular-nums font-semibold text-error">{formatCurrency(sessionMonthlyTotals.unpaid)}</td>
-                  <td className="bg-white px-4 py-3 tabular-nums font-semibold text-success">{formatCurrency(sessionMonthlyTotals.paid)}</td>
-                  <td className="bg-white px-4 py-3 tabular-nums font-semibold text-warning">{formatCurrency(sessionYearTotal)}</td>
-                  <td className="bg-white px-4 py-3 tabular-nums font-semibold text-warning">
+                  <td className="px-4 py-3 tabular-nums font-semibold text-primary">{formatCurrency(monthlyIncomeTotals.total)}</td>
+                  <td className="px-4 py-3 tabular-nums font-semibold text-error">{formatCurrency(monthlyIncomeTotals.unpaid)}</td>
+                  <td className="px-4 py-3 tabular-nums font-semibold text-success">{formatCurrency(monthlyIncomeTotals.paid)}</td>
+                  <td className="px-4 py-3 tabular-nums font-semibold text-warning">{formatCurrency(sessionYearTotal)}</td>
+                  <td className="px-4 py-3 tabular-nums font-semibold text-warning">
                     {depositYearTotal > 0 ? (
                       <button
                         type="button"
@@ -814,8 +740,15 @@ export default function AdminStaffDetailPage() {
               </tbody>
             </table>
           </div>
+          {isIncomeSummaryError ? (
+            <p className="mt-3 text-sm text-error" role="alert">
+              Không tải được tổng hợp thu nhập từ backend.
+            </p>
+          ) : null}
           <p className="mt-3 text-xs text-text-muted" aria-live="polite">
-            Tổng hợp từ lịch sử session hiện có của gia sư. Dòng &quot;Trước khấu trừ&quot; vẫn đang phát triển.
+            {isIncomeSummaryLoading && !incomeSummary
+              ? "Đang tải tổng hợp thu nhập từ backend."
+              : "Tổng tháng, chưa nhận và đã nhận đang lấy từ backend sau khi cộng cả session lẫn thưởng tháng. Dòng \"Trước khấu trừ\" vẫn đang phát triển."}
           </p>
         </section>
 
@@ -829,14 +762,14 @@ export default function AdminStaffDetailPage() {
                   {classMonthlySummaries.map((item) => {
                     return (
                       <div
-                        key={item.id}
+                        key={item.classId}
                         role="button"
                         tabIndex={0}
-                        onClick={() => router.push(`/admin/classes/${encodeURIComponent(item.id)}`)}
+                        onClick={() => router.push(`/admin/classes/${encodeURIComponent(item.classId)}`)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
-                            router.push(`/admin/classes/${encodeURIComponent(item.id)}`);
+                            router.push(`/admin/classes/${encodeURIComponent(item.classId)}`);
                           }
                         }}
                         className="cursor-pointer rounded-lg border border-border-default bg-bg-secondary px-4 py-3 transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
@@ -879,14 +812,14 @@ export default function AdminStaffDetailPage() {
                       {classMonthlySummaries.map((item) => {
                         return (
                           <tr
-                            key={item.id}
+                            key={item.classId}
                             role="button"
                             tabIndex={0}
-                            onClick={() => router.push(`/admin/classes/${encodeURIComponent(item.id)}`)}
+                            onClick={() => router.push(`/admin/classes/${encodeURIComponent(item.classId)}`)}
                             onKeyDown={(e) => {
                               if (e.key === "Enter" || e.key === " ") {
                                 e.preventDefault();
-                                router.push(`/admin/classes/${encodeURIComponent(item.id)}`);
+                                router.push(`/admin/classes/${encodeURIComponent(item.classId)}`);
                               }
                             }}
                             className="cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
@@ -1372,7 +1305,7 @@ export default function AdminStaffDetailPage() {
                                   </p>
                                 </div>
                                 <p className="shrink-0 text-sm font-semibold tabular-nums text-text-primary">
-                                  {formatCurrency(normalizeMoneyAmount(session.allowanceAmount))}
+                                  {formatCurrency(session.teacherAllowanceTotal)}
                                 </p>
                               </div>
                             ))}

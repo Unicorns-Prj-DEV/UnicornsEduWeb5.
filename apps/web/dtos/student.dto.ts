@@ -11,6 +11,7 @@ export interface StudentClassItem {
   class: {
     id: string;
     name: string;
+    status?: "running" | "ended" | null;
   };
   customTuitionPerSession?: number | null;
   customTuitionPackageTotal?: number | null;
@@ -19,6 +20,7 @@ export interface StudentClassItem {
   effectiveTuitionPackageTotal?: number | null;
   effectiveTuitionPackageSession?: number | null;
   tuitionPackageSource?: "custom" | "class" | "unset";
+  totalAttendedSession?: number | null;
 }
 
 /** Item from GET /student list */

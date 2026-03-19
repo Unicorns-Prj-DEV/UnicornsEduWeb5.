@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import * as userApi from "@/lib/apis/user.api";
 import * as staffApi from "@/lib/apis/staff.api";
 import {
@@ -17,8 +18,10 @@ import { ROLE_LABELS } from "@/lib/staff.constants";
 
 const PAGE_SIZE = 20;
 const ROLE_TYPE_OPTIONS: Array<{ value: UserRoleType; label: string }> = [
+  { value: "guest", label: USER_ROLE_LABELS.guest },
   { value: "staff", label: USER_ROLE_LABELS.staff },
   { value: "student", label: USER_ROLE_LABELS.student },
+  { value: "admin", label: USER_ROLE_LABELS.admin },
 ];
 
 const STAFF_ROLES: StaffRole[] = [
@@ -149,24 +152,21 @@ function AssignRoleModal({
 
         <div className="mt-4 space-y-4">
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-text-secondary">
+            <span
+              id="assign-role-type-label"
+              className="mb-1.5 block text-sm font-medium text-text-secondary"
+            >
               Loại tài khoản
             </span>
-            <select
+            <UpgradedSelect
               value={roleType}
-              onChange={(e) =>
-                setRoleType(e.target.value as UserRoleType)
-              }
-              className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-            >
-              <option value="guest">{USER_ROLE_LABELS.guest}</option>
-              {ROLE_TYPE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-              <option value="admin">{USER_ROLE_LABELS.admin}</option>
-            </select>
+              onValueChange={(value) => setRoleType(value as UserRoleType)}
+              options={ROLE_TYPE_OPTIONS}
+              labelId="assign-role-type-label"
+              ariaLabel="Chọn loại tài khoản"
+              buttonClassName="min-h-11 rounded-xl border border-border-default bg-gradient-to-b from-bg-surface to-bg-secondary/80 px-3.5 py-2.5 text-sm font-medium text-text-primary shadow-sm transition-[border-color,background-color,box-shadow] duration-200 hover:border-border-focus hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              menuClassName="rounded-2xl border border-border-default bg-bg-surface p-1.5 shadow-2xl"
+            />
           </label>
 
           {showStaffRoles && (

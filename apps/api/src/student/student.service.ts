@@ -17,6 +17,7 @@ const studentClassDetailInclude = {
       select: {
         id: true,
         name: true,
+        status: true,
         tuitionPackageTotal: true,
         tuitionPackageSession: true,
         studentTuitionPerSession: true,
@@ -106,6 +107,7 @@ export class StudentService {
         class: {
           id: studentClass.class.id,
           name: studentClass.class.name,
+          status: studentClass.class.status,
         },
       })),
     };
@@ -146,6 +148,7 @@ export class StudentService {
           class: {
             id: studentClass.class.id,
             name: studentClass.class.name,
+            status: studentClass.class.status,
           },
           customTuitionPerSession,
           customTuitionPackageTotal,
@@ -166,6 +169,7 @@ export class StudentService {
                 ) != null
               ? 'class'
               : 'unset',
+          totalAttendedSession: studentClass.totalAttendedSession,
         };
       }),
     };

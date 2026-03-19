@@ -82,10 +82,27 @@ export interface StaffIncomeRoleSummary extends StaffIncomeAmountSummary {
     label: string;
 }
 
+export interface StaffIncomeDepositSession {
+    id: string;
+    date: string;
+    teacherPaymentStatus: string | null;
+    teacherAllowanceTotal: number;
+}
+
+export interface StaffIncomeDepositClassSummary {
+    classId: string;
+    className: string;
+    total: number;
+    sessions: StaffIncomeDepositSession[];
+}
+
 export interface StaffIncomeSummary {
     recentUnpaidDays: number;
+    monthlyIncomeTotals: StaffIncomeAmountSummary;
     sessionMonthlyTotals: StaffIncomeAmountSummary;
     sessionYearTotal: number;
+    depositYearTotal: number;
+    depositYearByClass: StaffIncomeDepositClassSummary[];
     classMonthlySummaries: StaffIncomeClassSummary[];
     bonusMonthlyTotals: StaffIncomeAmountSummary;
     otherRoleSummaries: StaffIncomeRoleSummary[];

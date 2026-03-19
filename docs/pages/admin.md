@@ -49,7 +49,7 @@
 - **Staff endpoints & frontend data fetching:**
   - `GET /staff?page=<number>&limit=<number>&search=<text>&status=<active|inactive>&classId=<class-id>&className=<text>&province=<text>&university=<text>&highSchool=<text>&role=<staff-role>`.
   - `GET /staff/assignable-users?email=<text>` tìm user theo email để gán vào hồ sơ gia sư; response trả thêm cờ `isEligible`, `hasStaffProfile`, `ineligibleReason`.
-  - `GET /staff/:id/income-summary?month=<01-12>&year=<YYYY>&days=<number>` trả summary thu nhập authoritative từ BE cho card tổng tháng/tổng năm, theo lớp phụ trách, thưởng và công việc khác.
+  - `GET /staff/:id/income-summary?month=<01-12>&year=<YYYY>&days=<number>` trả summary thu nhập authoritative từ BE cho card tổng tháng/tổng năm, `Ghi cọc` theo năm + danh sách buổi cọc theo lớp, theo lớp phụ trách, thưởng và công việc khác.
   - Session allowance trong `income-summary` được tính ở DB layer theo công thức `min(max_allowance_per_session, (allowance_amount * attended_students + scale_amount) * coefficient)`, trong đó `attended_students` chỉ đếm attendance `present | excused`.
   - `POST /staff` dùng để tạo hồ sơ nhân sự từ `user_id`; với luồng thêm gia sư từ admin page, FE gửi `roles=["teacher"]`.
   - `page` mặc định `1`, `limit` mặc định `20`, `limit` tối đa `100`.
@@ -67,8 +67,8 @@
   - FE `/admin/staff/:id` dùng TanStack Query `useQuery` với `enabled: !!id` cho trang chi tiết. Layout: hàng 1 [Thông tin cơ bản | Ô QR]; hàng 2 Thống kê thu nhập; hàng 3 Lịch sử buổi học + [Lớp phụ trách | Thưởng]; hàng 4 Công việc khác. QR link hiện vẫn chỉnh chủ yếu ở FE popup, còn phần Thưởng đã kết nối API `/bonus` cho list/create/update/delete theo tháng.
   - FE `/admin/staff/:id` đã kết nối lịch sử buổi học thật từ API `GET /sessions/staff/:staffId?month=&year=` (TanStack Query); có điều hướng tháng (prev/next) cho bảng lịch sử buổi học.
   - FE `/admin/staff/:id` thêm card riêng "Lịch sử buổi học" ở cuối trang để hiển thị bảng session theo tháng.
-  - FE `/admin/staff/:id` phần Thống kê thu nhập dùng dữ liệu session thật: Tổng tháng/Chưa nhận/Đã nhận lấy theo tháng đang chọn từ BE, Tổng năm tổng hợp từ 12 request theo tháng trong năm đang chọn; dòng "Trước khấu trừ" vẫn là placeholder.
-- FE `/admin/staff/:id` thêm cột **Ghi cọc** cạnh **Tổng năm**. Giá trị là tổng `allowanceAmount` của các session trong năm có `teacherPaymentStatus = "deposit"` (hoặc `"coc"/"cọc"`). Click vào số tiền sẽ mở popup liệt kê **các buổi cọc theo lớp** (group theo `classId`).
+  - FE `/admin/staff/:id` phần Thống kê thu nhập dùng dữ liệu authoritative từ `GET /staff/:id/income-summary`; các số `Tổng tháng / Chưa nhận / Đã nhận` lấy từ field tổng hợp backend đã cộng cả session và thưởng tháng, FE không tự cộng thêm ở client.
+  - FE `/admin/staff/:id` thêm cột **Ghi cọc** cạnh **Tổng năm**. Giá trị và popup chi tiết lấy trực tiếp từ `GET /staff/:id/income-summary` qua `depositYearTotal` và `depositYearByClass`; tổng cọc và từng buổi cọc đều dùng cùng công thức trợ cấp authoritative từ BE, không lấy raw `sessions.allowance_amount`.
   - FE `/admin/staff/:id` bảng **Công việc khác**: khi role là CSKH hoặc Trưởng CSKH (`customer_care` / `customer_care_head`), bấm vào dòng (desktop) hoặc thẻ (mobile) sẽ chuyển sang `/admin/customer_care_detail/:id` (cùng staff id).
 - **Customer-care detail (FE `/admin/customer_care_detail/[staffId]`):**
   - Route dùng khi xem chi tiết công việc CSKH từ trang chi tiết nhân sự (bấm dòng CSKH trong bảng Công việc khác).
@@ -106,7 +106,7 @@
   - Các endpoint đi qua global JWT guard (không `@Public`) theo behavior auth hiện tại của backend module.
 - **Student detail / membership:**
   - `PATCH /student/:id/classes` thay thế toàn bộ membership lớp của học sinh trong một mutation BE duy nhất; FE không còn tự fetch từng lớp rồi patch vòng lặp.
-  - `GET /student/:id` trả luôn `effectiveTuition*`, `customTuition*`, `tuitionPackageSource` cho từng `studentClasses` để FE `/admin/students/:id` render package label trực tiếp, không N+1 `GET /class/:id`.
+  - `GET /student/:id` trả luôn `effectiveTuition*`, `customTuition*`, `tuitionPackageSource`, `totalAttendedSession` và `class.status` cho từng `studentClasses` để FE `/admin/students/:id` render package label + số buổi + trạng thái lớp trực tiếp, không N+1 `GET /class/:id`.
 - **Cost endpoints (CRUD + pagination):**
   - `GET /cost?page=<number>&limit=<number>&search=<text>`.
   - `GET /cost/:id`.

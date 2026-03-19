@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
     EditStudentClassesPopup,
@@ -75,6 +75,12 @@ function formatTuitionPackageLabel(params: {
     return "Chưa cấu hình";
 }
 
+function getTuitionPackageSourceLabel(source?: "custom" | "class" | "unset") {
+    if (source === "custom") return "Gói riêng";
+    if (source === "class") return "Theo lớp";
+    return null;
+}
+
 export default function AdminStudentDetailPage() {
     const params = useParams();
     const id = typeof params?.id === "string" ? params.id : "";
@@ -96,82 +102,50 @@ export default function AdminStudentDetailPage() {
         queryFn: () => studentApi.getStudentById(id),
         enabled: !!id,
     });
+
     const classItemsWithTuition = useMemo(
         () =>
-            classItems.map((item, index) => {
-                const classDetail = classDetailQueries[index]?.data;
-                const isLoadingClassDetail = classDetailQueries[index]?.isLoading;
-                const isClassDetailError = classDetailQueries[index]?.isError;
-                const matchedStudent = classDetail?.students?.find(
-                    (classStudent) => classStudent.id === currentStudentId,
-                );
-                const isCustomPackage =
-                    matchedStudent?.customTuitionPackageTotal != null ||
-                    matchedStudent?.customTuitionPackageSession != null ||
-                    matchedStudent?.customTuitionPerSession != null;
+            (student?.studentClasses ?? [])
+                .flatMap((item) => {
+                    const classId = item.class?.id;
+                    const className = item.class?.name?.trim();
 
-                return {
-                    ...item,
-                    classStatus: classDetail?.status ?? null,
-                    tuitionPackageLabel: classDetail
-                        ? formatTuitionPackageLabel({
-                            packageTotal:
-                                matchedStudent?.customTuitionPackageTotal ??
-                                classDetail.tuitionPackageTotal,
-                            packageSession:
-                                matchedStudent?.customTuitionPackageSession ??
-                                classDetail.tuitionPackageSession,
-                            studentTuitionPerSession:
-                                matchedStudent?.customTuitionPerSession ??
-                                classDetail.studentTuitionPerSession,
-                        })
-                        : isLoadingClassDetail
-                            ? "Đang tải gói học phí..."
-                            : isClassDetailError
-                                ? "Không tải được học phí"
-                                : "Chưa cấu hình",
-                    tuitionPackageSourceLabel: classDetail
-                        ? isCustomPackage
-                            ? "Gói riêng"
-                            : "Theo lớp"
-                        : null,
-                    tuitionPerSession:
-                        matchedStudent?.customTuitionPerSession ??
-                        classDetail?.studentTuitionPerSession ??
-                        null,
-                    attendedSessions:
-                        (matchedStudent as unknown as { attendedSessions?: number | null })?.attendedSessions ??
-                        (matchedStudent as unknown as { attended_sessions?: number | null })?.attended_sessions ??
-                        null,
-                };
-            }),
-        [classItems, classDetailQueries, currentStudentId],
+                    if (!classId || !className) {
+                        return [];
+                    }
+
+                    return [
+                        {
+                            classId,
+                            className,
+                            classStatus: item.class.status ?? null,
+                            packageTotal: item.effectiveTuitionPackageTotal ?? null,
+                            packageSession: item.effectiveTuitionPackageSession ?? null,
+                            tuitionPackageLabel: formatTuitionPackageLabel({
+                                packageTotal: item.effectiveTuitionPackageTotal,
+                                packageSession: item.effectiveTuitionPackageSession,
+                                studentTuitionPerSession: item.effectiveTuitionPerSession,
+                            }),
+                            tuitionPackageSourceLabel: getTuitionPackageSourceLabel(item.tuitionPackageSource),
+                            tuitionPerSession: item.effectiveTuitionPerSession ?? null,
+                            attendedSessions: item.totalAttendedSession ?? null,
+                        },
+                    ];
+                })
+                .sort((a, b) => a.className.localeCompare(b.className, "vi")),
+        [student],
     );
 
     const removeClassMutation = useMutation({
         mutationFn: async (classId: string) => {
-            const classDetail = await classApi.getClassById(classId);
-            const existingStudents = Array.from(
-                new Map(
-                    (classDetail.students ?? []).map((classStudent) => [
-                        classStudent.id,
-                        {
-                            id: classStudent.id,
-                            ...(classStudent.customTuitionPerSession != null
-                                ? { custom_tuition_per_session: classStudent.customTuitionPerSession }
-                                : {}),
-                            ...(classStudent.customTuitionPackageTotal != null
-                                ? { custom_tuition_package_total: classStudent.customTuitionPackageTotal }
-                                : {}),
-                            ...(classStudent.customTuitionPackageSession != null
-                                ? { custom_tuition_package_session: classStudent.customTuitionPackageSession }
-                                : {}),
-                        },
-                    ]),
-                ).values(),
-            );
-            const nextStudents = existingStudents.filter((classStudent) => classStudent.id !== currentStudentId);
-            await classApi.updateClassStudents(classId, { students: nextStudents });
+            const nextClassIds = classItemsWithTuition
+                .filter((item) => item.classId !== classId)
+                .map((item) => item.classId);
+
+            await studentApi.updateStudentClasses(id, {
+                class_ids: nextClassIds,
+            });
+
             return classId;
         },
         onSuccess: async (classId) => {
@@ -179,6 +153,7 @@ export default function AdminStudentDetailPage() {
             await Promise.all([
                 queryClient.invalidateQueries({ queryKey: ["student", "detail", id] }),
                 queryClient.invalidateQueries({ queryKey: ["student", "list"] }),
+                queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
                 queryClient.invalidateQueries({ queryKey: ["class", "detail", classId] }),
             ]);
         },
@@ -295,32 +270,19 @@ export default function AdminStudentDetailPage() {
                 studentName={student.fullName?.trim() || "Học sinh"}
             />
             {editingPackageForClassId ? (() => {
-                const item = classItemsWithTuition.find((i) => i.classId === editingPackageForClassId);
-                const classDetail = classDetailQueries.find((q) => q.data?.id === editingPackageForClassId)?.data;
-                const matchedStudent = classDetail?.students?.find((s) => s.id === currentStudentId);
+                const item = classItemsWithTuition.find((classItem) => classItem.classId === editingPackageForClassId);
+
                 return (
                     <StudentClassTuitionPopup
                         open
                         onClose={() => setEditingPackageForClassId(null)}
                         classId={editingPackageForClassId}
                         className={item?.className ?? ""}
-                        studentId={currentStudentId}
-                        initialPackageTotal={
-                            matchedStudent?.customTuitionPackageTotal ??
-                            classDetail?.tuitionPackageTotal ??
-                            null
-                        }
-                        initialPackageSession={
-                            matchedStudent?.customTuitionPackageSession ??
-                            classDetail?.tuitionPackageSession ??
-                            null
-                        }
-                        initialTuitionPerSession={
-                            matchedStudent?.customTuitionPerSession ??
-                            classDetail?.studentTuitionPerSession ??
-                            null
-                        }
-                        classDefaultTuitionPerSession={classDetail?.studentTuitionPerSession ?? null}
+                        studentId={student.id}
+                        initialPackageTotal={item?.packageTotal ?? null}
+                        initialPackageSession={item?.packageSession ?? null}
+                        initialTuitionPerSession={item?.tuitionPerSession ?? null}
+                        classDefaultTuitionPerSession={item?.tuitionPerSession ?? null}
                         onSuccess={() => setEditingPackageForClassId(null)}
                     />
                 );
@@ -471,7 +433,7 @@ export default function AdminStudentDetailPage() {
                             {classItemsWithTuition.length > 0 ? (
                                 <>
                                     <div className="mt-4 space-y-3 md:hidden">
-                                        {classItemsWithTuition.map((item, index) => (
+                                        {classItemsWithTuition.map((item) => (
                                             <div
                                                 key={item.classId}
                                                 role="button"
@@ -582,7 +544,7 @@ export default function AdminStudentDetailPage() {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {classItemsWithTuition.map((item, index) => (
+                                                {classItemsWithTuition.map((item) => (
                                                     <tr
                                                         key={item.classId}
                                                         role="button"

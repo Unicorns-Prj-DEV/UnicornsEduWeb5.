@@ -10,6 +10,7 @@ import {
   CreateStaffDto,
   type StaffIncomeAmountSummaryDto,
   type StaffIncomeClassSummaryDto,
+  type StaffIncomeDepositClassSummaryDto,
   type StaffIncomeRoleSummaryDto,
   type StaffIncomeSummaryDto,
   UpdateStaffDto,
@@ -58,6 +59,8 @@ const STAFF_ROLE_LABELS: Record<string, string> = {
   customer_care: 'CSKH',
   customer_care_head: 'Trưởng CSKH',
 };
+
+const DEPOSIT_PAYMENT_STATUSES = ['deposit', 'deposite', 'coc', 'cọc'] as const;
 
 function normalizeMoneyAmount(value: number | string | null | undefined) {
   const amount = typeof value === 'number' ? value : Number(value ?? 0);
@@ -127,6 +130,15 @@ type TeacherAllowanceByClassRow = {
 
 type TeacherAllowanceTotalRow = {
   totalAllowance: number | string | null;
+};
+
+type DepositSessionRow = {
+  id: string;
+  classId: string;
+  className: string | null;
+  date: Date | string;
+  teacherPaymentStatus: string | null;
+  teacherAllowanceTotal: number | string | null;
 };
 
 @Injectable()
@@ -374,7 +386,7 @@ export class StaffService {
     teacherId: string;
     start: Date;
     end: Date;
-    teacherPaymentStatus?: string;
+    teacherPaymentStatuses?: string[];
   }) {
     const whereClauses: Prisma.Sql[] = [
       Prisma.sql`sessions.teacher_id = ${params.teacherId}`,
@@ -382,9 +394,13 @@ export class StaffService {
       Prisma.sql`sessions.date < ${params.end}`,
     ];
 
-    if (params.teacherPaymentStatus) {
+    const normalizedPaymentStatuses = (params.teacherPaymentStatuses ?? [])
+      .map((status) => status.trim().toLowerCase())
+      .filter((status) => status.length > 0);
+
+    if (normalizedPaymentStatuses.length > 0) {
       whereClauses.push(
-        Prisma.sql`sessions.teacher_payment_status = ${params.teacherPaymentStatus}`,
+        Prisma.sql`LOWER(COALESCE(sessions.teacher_payment_status, '')) IN (${Prisma.join(normalizedPaymentStatuses)})`,
       );
     }
 
@@ -393,6 +409,7 @@ export class StaffService {
         SELECT
           sessions.id AS session_id,
           sessions.class_id,
+          sessions.date AS session_date,
           sessions.teacher_payment_status,
           classes.name AS class_name,
           COALESCE(sessions.allowance_amount, 0) AS allowance_per_student,
@@ -411,6 +428,7 @@ export class StaffService {
         GROUP BY
           sessions.id,
           sessions.class_id,
+          sessions.date,
           sessions.teacher_payment_status,
           classes.name,
           sessions.allowance_amount,
@@ -422,6 +440,7 @@ export class StaffService {
         SELECT
           session_id,
           class_id,
+          session_date,
           teacher_payment_status,
           class_name,
           LEAST(
@@ -442,7 +461,7 @@ export class StaffService {
     teacherId: string;
     start: Date;
     end: Date;
-    teacherPaymentStatus?: string;
+    teacherPaymentStatuses?: string[];
   }): Promise<TeacherAllowanceByClassStatusRow[]> {
     return this.prisma.$queryRaw<TeacherAllowanceByClassStatusRow[]>(Prisma.sql`
       ${this.buildTeacherSessionAllowanceCte(params)}
@@ -460,7 +479,7 @@ export class StaffService {
     teacherId: string;
     start: Date;
     end: Date;
-    teacherPaymentStatus?: string;
+    teacherPaymentStatuses?: string[];
   }): Promise<TeacherAllowanceByClassRow[]> {
     return this.prisma.$queryRaw<TeacherAllowanceByClassRow[]>(Prisma.sql`
       ${this.buildTeacherSessionAllowanceCte(params)}
@@ -477,7 +496,7 @@ export class StaffService {
     teacherId: string;
     start: Date;
     end: Date;
-    teacherPaymentStatus?: string;
+    teacherPaymentStatuses?: string[];
   }) {
     const [row] = await this.prisma.$queryRaw<TeacherAllowanceTotalRow[]>(
       Prisma.sql`
@@ -489,6 +508,30 @@ export class StaffService {
     );
 
     return normalizeMoneyAmount(row?.totalAllowance);
+  }
+
+  private async getDepositSessionRows(params: {
+    teacherId: string;
+    start: Date;
+    end: Date;
+  }): Promise<DepositSessionRow[]> {
+    return this.prisma.$queryRaw<DepositSessionRow[]>(Prisma.sql`
+      ${this.buildTeacherSessionAllowanceCte({
+        teacherId: params.teacherId,
+        start: params.start,
+        end: params.end,
+        teacherPaymentStatuses: [...DEPOSIT_PAYMENT_STATUSES],
+      })}
+      SELECT
+        session_id AS id,
+        class_id AS "classId",
+        class_name AS "className",
+        session_date AS date,
+        teacher_payment_status AS "teacherPaymentStatus",
+        COALESCE(teacher_allowance_total, 0) AS "teacherAllowanceTotal"
+      FROM teacher_session_allowances
+      ORDER BY class_name ASC, session_date DESC, session_id ASC
+    `);
   }
 
   async getIncomeSummary(
@@ -527,6 +570,7 @@ export class StaffService {
     const [
       monthlySessionRows,
       sessionYearTotal,
+      depositSessionRows,
       recentUnpaidSessionRows,
       monthlyBonuses,
       recentUnpaidBonuses,
@@ -541,11 +585,16 @@ export class StaffService {
         start: range.yearStart,
         end: range.yearEnd,
       }),
+      this.getDepositSessionRows({
+        teacherId: id,
+        start: range.yearStart,
+        end: range.yearEnd,
+      }),
       this.getTeacherAllowanceRowsByClass({
         teacherId: id,
         start: recentWindow.start,
         end: recentWindow.end,
-        teacherPaymentStatus: 'unpaid',
+        teacherPaymentStatuses: ['unpaid'],
       }),
       this.prisma.bonus.findMany({
         where: {
@@ -575,6 +624,8 @@ export class StaffService {
         },
       }),
     ]);
+
+    console.log(recentUnpaidSessionRows);
 
     const sessionMonthlyTotals =
       monthlySessionRows.reduce<StaffIncomeAmountSummaryDto>((summary, row) => {
@@ -651,6 +702,12 @@ export class StaffService {
       0,
     );
 
+    const monthlyIncomeTotals: StaffIncomeAmountSummaryDto = {
+      total: sessionMonthlyTotals.total + bonusMonthlyTotals.total,
+      paid: sessionMonthlyTotals.paid + bonusMonthlyTotals.paid,
+      unpaid: sessionMonthlyTotals.unpaid + bonusMonthlyTotals.unpaid,
+    };
+
     const otherRoleSummaries: StaffIncomeRoleSummaryDto[] = staff.roles
       .filter((role) => role !== StaffRole.teacher)
       .map((role) => {
@@ -685,10 +742,46 @@ export class StaffService {
         };
       });
 
+    const depositByClass = new Map<string, StaffIncomeDepositClassSummaryDto>();
+    depositSessionRows.forEach((row) => {
+      const classId = row.classId?.trim();
+      if (!classId) return;
+
+      const amount = normalizeMoneyAmount(row.teacherAllowanceTotal);
+      const current = depositByClass.get(classId) ?? {
+        classId,
+        className: row.className?.trim() || 'Lớp chưa đặt tên',
+        total: 0,
+        sessions: [],
+      };
+
+      current.total += amount;
+      current.sessions.push({
+        id: row.id,
+        date:
+          row.date instanceof Date ? row.date.toISOString() : String(row.date),
+        teacherPaymentStatus: row.teacherPaymentStatus,
+        teacherAllowanceTotal: amount,
+      });
+
+      depositByClass.set(classId, current);
+    });
+
+    const depositYearByClass = Array.from(depositByClass.values()).sort(
+      (a, b) => a.className.localeCompare(b.className, 'vi'),
+    );
+    const depositYearTotal = depositYearByClass.reduce(
+      (sum, item) => sum + item.total,
+      0,
+    );
+
     return {
       recentUnpaidDays: recentWindow.days,
+      monthlyIncomeTotals,
       sessionMonthlyTotals,
       sessionYearTotal,
+      depositYearTotal,
+      depositYearByClass,
       classMonthlySummaries: Array.from(classSummaryById.values()).sort(
         (a, b) => a.className.localeCompare(b.className, 'vi'),
       ),

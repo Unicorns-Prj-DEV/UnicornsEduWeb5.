@@ -92,10 +92,27 @@ export interface StaffIncomeRoleSummaryDto extends StaffIncomeAmountSummaryDto {
   label: string;
 }
 
+export interface StaffIncomeDepositSessionDto {
+  id: string;
+  date: string;
+  teacherPaymentStatus: string | null;
+  teacherAllowanceTotal: number;
+}
+
+export interface StaffIncomeDepositClassSummaryDto {
+  classId: string;
+  className: string;
+  total: number;
+  sessions: StaffIncomeDepositSessionDto[];
+}
+
 export interface StaffIncomeSummaryDto {
   recentUnpaidDays: number;
+  monthlyIncomeTotals: StaffIncomeAmountSummaryDto;
   sessionMonthlyTotals: StaffIncomeAmountSummaryDto;
   sessionYearTotal: number;
+  depositYearTotal: number;
+  depositYearByClass: StaffIncomeDepositClassSummaryDto[];
   classMonthlySummaries: StaffIncomeClassSummaryDto[];
   bonusMonthlyTotals: StaffIncomeAmountSummaryDto;
   otherRoleSummaries: StaffIncomeRoleSummaryDto[];
