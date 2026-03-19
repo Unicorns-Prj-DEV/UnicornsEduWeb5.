@@ -44,6 +44,10 @@ If you change project workflow/conventions for agents (commands, required checks
 - **Backend communication**: use **TanStack Query** (`useQuery` / `useMutation`) for all server state.
   - Use the shared Axios client at `apps/web/lib/client.ts`.
   - Avoid raw `useEffect` fetch patterns for server state.
+- **BE-first business logic**: frontend must not own authoritative business rules or derived server facts.
+  - Do not calculate financial totals, unpaid/paid summaries, tuition/allowance formulas, effective package values, or cross-record membership diffs in FE when those values affect persisted data or decision-making.
+  - Do not fetch broad datasets and then apply required filtering/authorization/business classification in FE if BE can enforce it; add/query a backend endpoint instead.
+  - FE may only do presentation-only derivations (formatting, labels, local UI sorting of already-authoritative data, optimistic form state). If the derived value could change what is saved, shown as official totals, or used to decide permissions/workflow, it belongs in BE.
 - **Design quality (mandatory for FE work)**:
   - Review touched UI against **Web Interface Guidelines** (source: `https://raw.githubusercontent.com/vercel-labs/web-interface-guidelines/main/command.md`) and fix violations before finalizing.
   - Follow a “frontend-design” approach: commit to a clear aesthetic direction, refine typography/spacing, avoid generic UI output.
@@ -67,4 +71,3 @@ If you change project workflow/conventions for agents (commands, required checks
 - Prefer editing existing files/components over creating new ones.
 - After substantive edits, run typecheck/lint/test commands relevant to the touched app(s).
 - If docs should change, update them before finishing.
-

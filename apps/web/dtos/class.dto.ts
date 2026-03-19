@@ -56,11 +56,17 @@ export interface ClassStudent {
     customTuitionPerSession?: number | null;
     customTuitionPackageTotal?: number | null;
     customTuitionPackageSession?: number | null;
+    effectiveTuitionPerSession?: number | null;
+    effectiveTuitionPackageTotal?: number | null;
+    effectiveTuitionPackageSession?: number | null;
+    tuitionPackageSource?: "custom" | "class" | "unset";
+    totalAttendedSession?: number | null;
 }
 
 export interface ClassDetail extends ClassListItem {
     teachers?: ClassTeacher[];
     students?: ClassStudent[];
+    sessionTuitionTotal?: number | null;
 }
 
 export interface CreateClassPayload {

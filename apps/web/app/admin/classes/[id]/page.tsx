@@ -47,11 +47,9 @@ type TabId = "sessions" | "surveys";
 
 function getStudentPackageSummary(
   student: ClassStudent,
-  classPackageTotal?: number | null,
-  classPackageSession?: number | null,
 ): string | null {
-  const effectivePackageTotal = student.customTuitionPackageTotal ?? classPackageTotal;
-  const effectivePackageSession = student.customTuitionPackageSession ?? classPackageSession;
+  const effectivePackageTotal = student.effectiveTuitionPackageTotal;
+  const effectivePackageSession = student.effectiveTuitionPackageSession;
 
   if (effectivePackageTotal == null && effectivePackageSession == null) {
     return null;
@@ -60,13 +58,11 @@ function getStudentPackageSummary(
   return `${formatCurrency(effectivePackageTotal)} / ${effectivePackageSession ?? "—"} buổi`;
 }
 
-function getStudentCustomTuitionPerSession(student: ClassStudent): number {
-  const rawValue =
-    student.customTuitionPerSession ??
-    (student as ClassStudent & { customStudentTuitionPerSession?: number | null })
-      .customStudentTuitionPerSession;
-
-  return typeof rawValue === "number" && Number.isFinite(rawValue) ? rawValue : 0;
+function getStudentEffectiveTuitionPerSession(student: ClassStudent): number {
+  return typeof student.effectiveTuitionPerSession === "number" &&
+    Number.isFinite(student.effectiveTuitionPerSession)
+    ? student.effectiveTuitionPerSession
+    : 0;
 }
 
 export default function AdminClassDetailPage() {
@@ -168,10 +164,7 @@ export default function AdminClassDetailPage() {
     : [];
 
   const classStudents = useMemo(() => classDetail?.students ?? [], [classDetail?.students]);
-  const totalSessionTuition = useMemo(
-    () => classStudents.reduce((sum, student) => sum + getStudentCustomTuitionPerSession(student), 0),
-    [classStudents],
-  );
+  const totalSessionTuition = classDetail?.sessionTuitionTotal ?? 0;
 
   const popupTeachers = useMemo(
     () =>
@@ -181,13 +174,15 @@ export default function AdminClassDetailPage() {
       })),
     [classDetail?.teachers],
   );
+  const currentClassTeacherId = popupTeachers.length === 1 ? popupTeachers[0]?.id : undefined;
+  const addSessionTeacherMode = popupTeachers.length === 1 ? "readOnly" : "select";
 
   const popupStudents = useMemo(
     () =>
       classStudents.map((student) => ({
         id: student.id,
         fullName: student.fullName,
-        tuitionFee: getStudentCustomTuitionPerSession(student),
+        tuitionFee: getStudentEffectiveTuitionPerSession(student),
       })),
     [classStudents],
   );
@@ -198,7 +193,7 @@ export default function AdminClassDetailPage() {
       return classStudents.map((student) => ({
         id: student.id,
         fullName: student.fullName,
-        tuitionFee: getStudentCustomTuitionPerSession(student),
+        tuitionFee: getStudentEffectiveTuitionPerSession(student),
       }));
     },
     [id, classStudents],
@@ -352,10 +347,11 @@ export default function AdminClassDetailPage() {
         <AddSessionPopup
           open={addSessionPopupOpen}
           classId={id}
-          defaultTeacherId={classDetail.teachers?.[0]?.id}
+          defaultTeacherId={currentClassTeacherId}
           teachers={popupTeachers}
           students={popupStudents}
           sessionTuitionTotal={totalSessionTuition}
+          teacherMode={addSessionTeacherMode}
           onClose={() => setAddSessionPopupOpen(false)}
         />
       ) : null}
@@ -468,8 +464,6 @@ export default function AdminClassDetailPage() {
                   const statusLabel = isActive ? "Đang học" : "Ngưng học";
                   const packageSummary = getStudentPackageSummary(
                     student,
-                    classDetail.tuitionPackageTotal,
-                    classDetail.tuitionPackageSession,
                   );
 
                   return (
@@ -533,8 +527,6 @@ export default function AdminClassDetailPage() {
                     const statusLabel = isActive ? "Đang học" : "Ngưng học";
                     const packageSummary = getStudentPackageSummary(
                       student,
-                      classDetail.tuitionPackageTotal,
-                      classDetail.tuitionPackageSession,
                     );
 
                     return (

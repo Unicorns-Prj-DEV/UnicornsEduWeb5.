@@ -58,6 +58,14 @@ Dùng làm context khi implement hoặc review code frontend; giúp model chọn
 
 **Cấu trúc thư mục frontend:** `apps/web/app/` (routes, layout, page), `apps/web/lib/` (API client, utils). Component và style theo cấu trúc Next.js App Router; tokens và theme đã định nghĩa sẵn trong `globals.css`.
 
+### Quy tắc BE-first cho frontend
+
+- Frontend không được giữ logic nghiệp vụ mang tính authoritative.
+- Không tự tính ở FE các giá trị ảnh hưởng dữ liệu lưu trữ hoặc số liệu chính thức như: tổng tiền, unpaid/paid summary, công thức học phí/trợ cấp, effective tuition/package, hoặc diff membership nhiều bản ghi.
+- Không lấy list rộng rồi mới filter/search/classify bắt buộc ở FE nếu backend có thể và nên enforce; cần bổ sung query param hoặc endpoint ở BE.
+- FE chỉ nên làm các biến đổi mang tính trình bày: format, label, UI-only sorting/filter cục bộ trên dữ liệu đã authoritative, state tạm trong form.
+- Nếu một giá trị có thể làm thay đổi payload gửi đi, thay đổi quyền truy cập, hoặc xuất hiện như số liệu chính thức trên màn hình, hãy chuyển logic đó sang backend trước khi hoàn thiện FE.
+
 ## Yêu cầu hệ thống
 
 - **Node.js** >= 20

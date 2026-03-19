@@ -7,6 +7,7 @@ import {
   SessionItem,
   SessionAttendanceStatus,
   SessionAttendanceItem,
+  SessionUpdatePayload,
 } from "@/dtos/session.dto";
 import { ClassDetail } from "@/dtos/class.dto";
 import { sanitizeHtml } from "@/lib/sanitize";
@@ -30,6 +31,7 @@ type Props = {
   emptyText?: string;
   className?: string;
   editorLayout?: "default" | "wide";
+  showActionsColumn?: boolean;
   sessionTuitionTotal?: number;
   onSessionUpdated?: () => void;
   /** Danh sách gia sư (lớp) để chọn khi sửa buổi học. Truyền từ trang lớp. */
@@ -40,6 +42,12 @@ type Props = {
   getClassStudents?: (
     classId: string,
   ) => Promise<{ id: string; fullName: string; tuitionFee?: number | null }[]>;
+  allowTeacherSelection?: boolean;
+  allowFinancialEdits?: boolean;
+  allowPaymentStatusEdit?: boolean;
+  allowDeleteSession?: boolean;
+  updateSessionFn?: (id: string, data: SessionUpdatePayload) => Promise<SessionItem>;
+  deleteSessionFn?: (id: string) => Promise<void>;
 };
 
 type AttendanceFormItem = {
@@ -294,13 +302,22 @@ export default function SessionHistoryTable({
   emptyText = "Chưa có buổi học nào.",
   className = "",
   editorLayout = "default",
+  showActionsColumn: showActionsColumnProp,
   sessionTuitionTotal,
   onSessionUpdated,
   teachers: teachersProp,
   getTeachersForClass,
   getClassStudents,
+  allowTeacherSelection = true,
+  allowFinancialEdits = true,
+  allowPaymentStatusEdit = true,
+  allowDeleteSession = true,
+  updateSessionFn = sessionApi.updateSession,
+  deleteSessionFn = sessionApi.deleteSession,
 }: Props) {
   const isWideEditor = editorLayout === "wide";
+  const showActionsColumn = showActionsColumnProp ?? Boolean(onSessionUpdated);
+  const showDeleteAction = showActionsColumn && allowDeleteSession;
   const [editingSession, setEditingSession] = useState<SessionItem | null>(null);
   const [editDate, setEditDate] = useState("");
   const [editStartTime, setEditStartTime] = useState("");
@@ -314,6 +331,7 @@ export default function SessionHistoryTable({
   const [teachersLoading, setTeachersLoading] = useState(false);
   const [attendanceItems, setAttendanceItems] = useState<AttendanceFormItem[]>([]);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const showTeacherInput = allowTeacherSelection && (teachersList.length > 0 || teachersLoading);
   const editingClassId = editingSession?.classId ?? "";
   const {
     data: editingClassDetail,
@@ -322,7 +340,7 @@ export default function SessionHistoryTable({
   } = useQuery<ClassDetail>({
     queryKey: ["class", "detail", "session-edit", editingClassId],
     queryFn: () => classApi.getClassById(editingClassId),
-    enabled: !!editingClassId,
+    enabled: !!editingClassId && allowFinancialEdits,
   });
 
   const loadTeachersForEdit = (session: SessionItem) => {
@@ -420,7 +438,7 @@ export default function SessionHistoryTable({
   };
 
   const deleteMutation = useMutation({
-    mutationFn: (sessionId: string) => sessionApi.deleteSession(sessionId),
+    mutationFn: (sessionId: string) => deleteSessionFn(sessionId),
     onSuccess: () => {
       toast.success("Đã xóa buổi học.");
       onSessionUpdated?.();
@@ -446,7 +464,7 @@ export default function SessionHistoryTable({
       startTime?: string;
       endTime?: string;
       notes: string | null;
-      teacherPaymentStatus: string;
+      teacherPaymentStatus?: string;
       coefficient?: number;
       allowanceAmount?: number | null;
       attendance?: SessionAttendanceItem[];
@@ -454,8 +472,10 @@ export default function SessionHistoryTable({
       const data: Parameters<typeof sessionApi.updateSession>[1] = {
         date: payload.date,
         notes: payload.notes,
-        teacherPaymentStatus: payload.teacherPaymentStatus,
       };
+      if (payload.teacherPaymentStatus !== undefined) {
+        data.teacherPaymentStatus = payload.teacherPaymentStatus;
+      }
       if (payload.teacherId) data.teacherId = payload.teacherId;
       if (payload.startTime) data.startTime = payload.startTime;
       if (payload.endTime) data.endTime = payload.endTime;
@@ -464,7 +484,7 @@ export default function SessionHistoryTable({
       if (payload.attendance != null) {
         data.attendance = payload.attendance as SessionAttendanceItem[];
       }
-      return sessionApi.updateSession(payload.id, data);
+      return updateSessionFn(payload.id, data);
     },
     onSuccess: () => {
       toast.success("Đã cập nhật buổi học.");
@@ -523,7 +543,7 @@ export default function SessionHistoryTable({
       toast.error("Vui lòng chọn ngày học.");
       return;
     }
-    if (teachersList.length > 0 && !editTeacherId.trim()) {
+    if (showTeacherInput && !editTeacherId.trim()) {
       toast.error("Vui lòng chọn gia sư phụ trách.");
       return;
     }
@@ -534,9 +554,9 @@ export default function SessionHistoryTable({
       toast.error(`Ghi chú điểm danh tối đa ${MAX_ATTENDANCE_NOTES_LENGTH} ký tự.`);
       return;
     }
-    const hasInvalidAttendanceTuition = attendanceItems.some(
-      (item) => !isNonNegativeMoneyInput(item.tuitionFee),
-    );
+    const hasInvalidAttendanceTuition =
+      allowFinancialEdits &&
+      attendanceItems.some((item) => !isNonNegativeMoneyInput(item.tuitionFee));
     if (hasInvalidAttendanceTuition) {
       toast.error("Học phí từng học sinh phải là số không âm.");
       return;
@@ -547,15 +567,17 @@ export default function SessionHistoryTable({
           studentId: item.studentId,
           status: item.status,
           notes: item.notes.trim() || null,
-          ...(item.tuitionFee.trim() !== ""
+          ...(allowFinancialEdits && item.tuitionFee.trim() !== ""
             ? { tuitionFee: Math.floor(Number(item.tuitionFee)) }
             : {}),
         }))
         : [];
-    const coeffNum = editCoefficient.trim() ? Number(editCoefficient) : undefined;
-    const allowanceNum = editAllowanceAmount.trim()
-      ? Math.floor(Number(editAllowanceAmount))
-      : undefined;
+    const coeffNum =
+      allowFinancialEdits && editCoefficient.trim() ? Number(editCoefficient) : undefined;
+    const allowanceNum =
+      allowFinancialEdits && editAllowanceAmount.trim()
+        ? Math.floor(Number(editAllowanceAmount))
+        : undefined;
     const validCoeff =
       coeffNum !== undefined &&
       Number.isFinite(coeffNum) &&
@@ -565,13 +587,18 @@ export default function SessionHistoryTable({
     updateMutation.mutate({
       id: editingSession.id,
       date: editDate.trim(),
-      ...(editTeacherId && teachersList.length > 0 && { teacherId: editTeacherId }),
+      ...(allowTeacherSelection &&
+        editTeacherId &&
+        teachersList.length > 0 && { teacherId: editTeacherId }),
       ...(startNorm && { startTime: startNorm }),
       ...(endNorm && { endTime: endNorm }),
       notes: editNotes.trim() || null,
-      teacherPaymentStatus: editPaymentStatus,
-      ...(validCoeff && { coefficient: coeffNum }),
-      ...(allowanceNum !== undefined && Number.isFinite(allowanceNum) && allowanceNum >= 0
+      ...(allowPaymentStatusEdit ? { teacherPaymentStatus: editPaymentStatus } : {}),
+      ...(allowFinancialEdits && validCoeff ? { coefficient: coeffNum } : {}),
+      ...(allowFinancialEdits &&
+        allowanceNum !== undefined &&
+        Number.isFinite(allowanceNum) &&
+        allowanceNum >= 0
         ? { allowanceAmount: allowanceNum }
         : {}),
       ...(attendancePayload.length > 0 && { attendance: attendancePayload }),
@@ -729,7 +756,7 @@ export default function SessionHistoryTable({
                     >
                       {status.label}
                     </span>
-                    {onSessionUpdated && (
+                    {showActionsColumn && (
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
@@ -752,28 +779,30 @@ export default function SessionHistoryTable({
                             />
                           </svg>
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteClick(session)}
-                          disabled={deleteMutation.isPending}
-                          aria-label="Xóa buổi học"
-                          className="rounded p-1.5 text-text-muted transition-colors hover:bg-error/10 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50"
-                        >
-                          <svg
-                            className="size-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                            aria-hidden
+                        {showDeleteAction ? (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteClick(session)}
+                            disabled={deleteMutation.isPending}
+                            aria-label="Xóa buổi học"
+                            className="rounded p-1.5 text-text-muted transition-colors hover:bg-error/10 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50"
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            />
-                          </svg>
-                        </button>
+                            <svg
+                              className="size-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              aria-hidden
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
+                          </button>
+                        ) : null}
                       </div>
                     )}
                   </div>
@@ -820,7 +849,7 @@ export default function SessionHistoryTable({
                 <col className="w-[14%]" />
                 <col className="w-[18%]" />
                 <col className="w-[18%]" />
-                {onSessionUpdated && <col className="w-[12%]" />}
+                {showActionsColumn && <col className="w-[12%]" />}
               </>
             ) : shouldShowEntity ? (
               <>
@@ -828,14 +857,14 @@ export default function SessionHistoryTable({
                 <col className="w-[14%]" />
                 <col className="w-[36%]" />
                 <col className="w-[20%]" />
-                {onSessionUpdated && <col className="w-[12%]" />}
+                {showActionsColumn && <col className="w-[12%]" />}
               </>
             ) : (
               <>
                 <col className="w-[25%]" />
                 <col className="w-[25%]" />
                 <col className="w-[38%]" />
-                {onSessionUpdated && <col className="w-[12%]" />}
+                {showActionsColumn && <col className="w-[12%]" />}
               </>
             )}
           </colgroup>
@@ -858,9 +887,9 @@ export default function SessionHistoryTable({
                 </th>
               ) : null}
               <th scope="col" className="px-4 py-3 font-medium text-text-primary">
-                Trạng thái thanh toán
+                {statusMode === "timeline" ? "Tiến độ" : "Trạng thái thanh toán"}
               </th>
-              {onSessionUpdated ? (
+              {showActionsColumn ? (
                 <th
                   scope="col"
                   className="w-20 px-2 py-3 text-right font-medium text-text-primary"
@@ -917,7 +946,7 @@ export default function SessionHistoryTable({
                         {status.label}
                       </span>
                     </td>
-                    {onSessionUpdated ? (
+                    {showActionsColumn ? (
                       <td className="px-2 py-3 text-right">
                         <div className="inline-flex items-center justify-end gap-1">
                           <button
@@ -941,28 +970,30 @@ export default function SessionHistoryTable({
                               />
                             </svg>
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteClick(session)}
-                            disabled={deleteMutation.isPending}
-                            aria-label="Xóa buổi học"
-                            className="rounded p-1.5 text-text-muted opacity-0 transition-opacity duration-200 group-hover:opacity-100 hover:bg-error/10 hover:text-error focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50"
-                          >
-                            <svg
-                              className="size-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                              aria-hidden
+                          {showDeleteAction ? (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteClick(session)}
+                              disabled={deleteMutation.isPending}
+                              aria-label="Xóa buổi học"
+                              className="rounded p-1.5 text-text-muted opacity-0 transition-opacity duration-200 group-hover:opacity-100 hover:bg-error/10 hover:text-error focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50"
                             >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                              />
-                            </svg>
-                          </button>
+                              <svg
+                                className="size-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                aria-hidden
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                            </button>
+                          ) : null}
                         </div>
                       </td>
                     ) : null}
@@ -974,7 +1005,7 @@ export default function SessionHistoryTable({
                 <td
                   colSpan={
                     (entityMode === "teacher" ? 5 : shouldShowEntity ? 4 : 3) +
-                    (onSessionUpdated ? 1 : 0)
+                    (showActionsColumn ? 1 : 0)
                   }
                   className="px-4 py-3 text-center text-text-muted"
                 >
@@ -993,13 +1024,16 @@ export default function SessionHistoryTable({
             aria-hidden
             onClick={closeEdit}
           />
-          <div className="fixed inset-0 z-50 p-2 sm:p-4">
-            <div className={`mx-auto flex h-full w-full items-center ${isWideEditor ? "max-w-[72rem]" : "max-w-2xl"}`}>
+          <div className="fixed inset-0 z-50 overflow-y-auto p-2 sm:p-4">
+            <div
+              className={`mx-auto flex min-h-full w-full items-start py-2 sm:items-center sm:py-0 ${isWideEditor ? "max-w-[72rem]" : "max-w-2xl"
+                }`}
+            >
               <div
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="edit-session-title"
-                className="flex max-h-full w-full flex-col overflow-hidden rounded-[1.75rem] border border-border-default bg-bg-surface p-3 shadow-2xl sm:p-5"
+                className="my-auto flex max-h-[calc(100dvh-1rem)] min-h-0 w-full flex-col overflow-hidden rounded-[1.75rem] border border-border-default bg-bg-surface p-3 shadow-2xl  sm:max-h-[calc(100dvh-2rem)] sm:p-5"
               >
                 <div className="mb-4 flex shrink-0 flex-col gap-3 border-b border-border-default/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
@@ -1007,18 +1041,22 @@ export default function SessionHistoryTable({
                       Chỉnh sửa buổi học
                     </h2>
                     <p className="mt-1 text-sm text-text-muted">
-                      Cập nhật thời gian, chi phí và điểm danh trong cùng một biểu mẫu.
+                      {allowFinancialEdits || allowPaymentStatusEdit || allowTeacherSelection
+                        ? "Cập nhật thời gian, cấu hình và điểm danh trong cùng một biểu mẫu."
+                        : "Cập nhật ngày học, giờ học, ghi chú và điểm danh trong cùng một biểu mẫu."}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-start justify-between gap-2 sm:justify-end">
-                    <div className="rounded-[1.15rem] border border-primary/15 bg-primary/5 px-3.5 py-2 shadow-sm">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
-                        Tổng học phí buổi này
-                      </p>
-                      <p className="mt-1 text-right text-sm font-semibold tabular-nums text-primary sm:text-base">
-                        {formatCurrency(resolvedEditSessionTuition)}
-                      </p>
-                    </div>
+                    {allowFinancialEdits ? (
+                      <div className="rounded-[1.15rem] border border-primary/15 bg-primary/5 px-3.5 py-2 shadow-sm">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
+                          Tổng học phí buổi này
+                        </p>
+                        <p className="mt-1 text-right text-sm font-semibold tabular-nums text-primary sm:text-base">
+                          {formatCurrency(resolvedEditSessionTuition)}
+                        </p>
+                      </div>
+                    ) : null}
                     <button
                       type="button"
                       onClick={closeEdit}
@@ -1032,7 +1070,7 @@ export default function SessionHistoryTable({
                   </div>
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-hidden">
+                <div className="min-h-0 flex-1 overflow-y-scroll">
                   <div className="min-h-0 h-full space-y-4 overflow-y-auto pr-1 sm:pr-2">
                     <section className="rounded-[1.5rem] border border-border-default bg-bg-secondary/50 p-4 sm:p-5">
                       <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -1050,17 +1088,20 @@ export default function SessionHistoryTable({
                         <label className={`flex flex-col gap-1 text-sm text-text-secondary ${isWideEditor ? "xl:col-span-2" : ""}`}>
                           <span>Ngày học</span>
                           <input
+                            name="edit-session-date"
                             type="date"
                             value={editDate}
+                            autoComplete="off"
                             onChange={(e) => setEditDate(e.target.value)}
                             className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                           />
                         </label>
 
-                        {(teachersList.length > 0 || teachersLoading) ? (
+                        {showTeacherInput ? (
                           <label className={`flex flex-col gap-1 text-sm text-text-secondary ${isWideEditor ? "xl:col-span-2" : ""}`}>
                             <span>Gia sư phụ trách</span>
                             <select
+                              name="edit-session-teacher"
                               value={editTeacherId}
                               onChange={(e) => setEditTeacherId(e.target.value)}
                               disabled={teachersLoading}
@@ -1082,31 +1123,35 @@ export default function SessionHistoryTable({
                           </label>
                         ) : null}
 
-                        <label
-                          className={`flex flex-col gap-1 text-sm text-text-secondary ${
-                            isWideEditor ? "sm:col-span-2 xl:col-span-2" : "sm:col-span-2"
-                          }`}
-                        >
-                          <span>Trạng thái thanh toán</span>
-                          <select
-                            value={editPaymentStatus}
-                            onChange={(e) => setEditPaymentStatus(e.target.value)}
-                            className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                        {allowPaymentStatusEdit ? (
+                          <label
+                            className={`flex flex-col gap-1 text-sm text-text-secondary ${isWideEditor ? "sm:col-span-2 xl:col-span-2" : "sm:col-span-2"
+                              }`}
                           >
-                            {PAYMENT_STATUS_OPTIONS.map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
+                            <span>Trạng thái thanh toán</span>
+                            <select
+                              name="edit-session-payment-status"
+                              value={editPaymentStatus}
+                              onChange={(e) => setEditPaymentStatus(e.target.value)}
+                              className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                            >
+                              {PAYMENT_STATUS_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        ) : null}
 
                         <label className="flex flex-col gap-1 text-sm text-text-secondary">
                           <span>Giờ bắt đầu</span>
                           <input
+                            name="edit-session-start-time"
                             type="time"
                             step={1}
                             value={editStartTime}
+                            autoComplete="off"
                             onChange={(e) => setEditStartTime(e.target.value)}
                             className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 font-mono text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                           />
@@ -1115,56 +1160,63 @@ export default function SessionHistoryTable({
                         <label className="flex flex-col gap-1 text-sm text-text-secondary">
                           <span>Giờ kết thúc</span>
                           <input
+                            name="edit-session-end-time"
                             type="time"
                             step={1}
                             value={editEndTime}
+                            autoComplete="off"
                             onChange={(e) => setEditEndTime(e.target.value)}
                             className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 font-mono text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                           />
                         </label>
 
-                        <label className={`flex flex-col gap-1 text-sm text-text-secondary ${isWideEditor ? "xl:col-span-2" : ""}`}>
-                          <span>Hệ số (coefficient)</span>
-                          <input
-                            type="number"
-                            min={0.1}
-                            max={9.9}
-                            step={0.1}
-                            value={editCoefficient}
-                            onChange={(e) => setEditCoefficient(e.target.value)}
-                            className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                            placeholder="1"
-                          />
-                        </label>
+                        {allowFinancialEdits ? (
+                          <>
+                            <label className={`flex flex-col gap-1 text-sm text-text-secondary ${isWideEditor ? "xl:col-span-2" : ""}`}>
+                              <span>Hệ số (coefficient)</span>
+                              <input
+                                name="edit-session-coefficient"
+                                type="number"
+                                min={0.1}
+                                max={9.9}
+                                step={0.1}
+                                value={editCoefficient}
+                                autoComplete="off"
+                                onChange={(e) => setEditCoefficient(e.target.value)}
+                                className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                placeholder="1"
+                              />
+                            </label>
 
-                        <label className={`flex flex-col gap-1 text-sm text-text-secondary ${isWideEditor ? "xl:col-span-2" : ""}`}>
-                          <span>Trợ cấp buổi (VNĐ)</span>
-                          <input
-                            type="number"
-                            min={0}
-                            value={editAllowanceAmount}
-                            onChange={(e) => setEditAllowanceAmount(e.target.value)}
-                            className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                            placeholder="Để trống = giữ nguyên"
-                          />
-                        </label>
+                            <label className={`flex flex-col gap-1 text-sm text-text-secondary ${isWideEditor ? "xl:col-span-2" : ""}`}>
+                              <span>Trợ cấp buổi (VNĐ)</span>
+                              <input
+                                name="edit-session-allowance"
+                                type="number"
+                                min={0}
+                                value={editAllowanceAmount}
+                                autoComplete="off"
+                                onChange={(e) => setEditAllowanceAmount(e.target.value)}
+                                className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                placeholder="Để trống = giữ nguyên"
+                              />
+                            </label>
 
-                        <p
-                          className={`rounded-2xl border border-border-default/80 bg-bg-surface px-3 py-2 text-xs ${
-                            isWideEditor ? "sm:col-span-2 xl:col-span-6" : "sm:col-span-2"
-                          } ${
-                            isEditingClassDetailError || hasPreviewValidationIssue
-                              ? "text-warning"
-                              : "text-text-muted"
-                          }`}
-                        >
-                          {allowanceFormulaNote}
-                        </p>
+                            <p
+                              className={`rounded-2xl border border-border-default/80 bg-bg-surface px-3 py-2 text-xs ${isWideEditor ? "sm:col-span-2 xl:col-span-6" : "sm:col-span-2"
+                                } ${isEditingClassDetailError || hasPreviewValidationIssue
+                                  ? "text-warning"
+                                  : "text-text-muted"
+                                }`}
+                            >
+                              {allowanceFormulaNote}
+                            </p>
+                          </>
+                        ) : null}
 
                         <label
-                          className={`flex flex-col gap-1 text-sm text-text-secondary ${
-                            isWideEditor ? "sm:col-span-2 xl:col-span-6" : "sm:col-span-2"
-                          }`}
+                          className={`flex flex-col gap-1 text-sm text-text-secondary ${isWideEditor ? "sm:col-span-2 xl:col-span-6" : "sm:col-span-2"
+                            }`}
                         >
                           <span>Ghi chú buổi học</span>
                           <RichTextEditor
@@ -1178,7 +1230,7 @@ export default function SessionHistoryTable({
 
                     {getClassStudents ? (
                       <section className="rounded-[1.5rem] border border-border-default bg-bg-secondary/50 p-4 sm:p-5">
-                        <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                        <div className="mb-4 flex flex-col gap-3 xl:justify-between">
                           <div>
                             <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-text-muted">
                               Điểm danh học sinh
@@ -1189,55 +1241,61 @@ export default function SessionHistoryTable({
                           </div>
 
                           {attendanceItems.length > 0 ? (
-                            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
-                              <div className="rounded-2xl border border-success/15 bg-success/5 px-3 py-2">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
-                                  Học
-                                </p>
-                                <p className="mt-1 text-sm font-semibold text-success">
-                                  {attendanceSummary.present}
-                                </p>
+                            <div className={`flex gap-2 flex-col`}>
+                              <div className="flex flex-row gap-2 justify-between">
+                                <div className="flex-1 rounded-2xl border border-success/15 bg-success/5 px-3 py-2">
+                                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                                    Học
+                                  </p>
+                                  <p className="mt-1 text-sm font-semibold text-success">
+                                    {attendanceSummary.present}
+                                  </p>
+                                </div>
+                                <div className="flex-1 rounded-2xl border border-warning/15 bg-warning/5 px-3 py-2">
+                                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                                    Phép
+                                  </p>
+                                  <p className="mt-1 text-sm font-semibold text-warning">
+                                    {attendanceSummary.excused}
+                                  </p>
+                                </div>
+                                <div className="flex-1 rounded-2xl border border-error/15 bg-error/5 px-3 py-2">
+                                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                                    Vắng
+                                  </p>
+                                  <p className="mt-1 text-sm font-semibold text-error">
+                                    {attendanceSummary.absent}
+                                  </p>
+                                </div>
                               </div>
-                              <div className="rounded-2xl border border-warning/15 bg-warning/5 px-3 py-2">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
-                                  Phép
-                                </p>
-                                <p className="mt-1 text-sm font-semibold text-warning">
-                                  {attendanceSummary.excused}
-                                </p>
-                              </div>
-                              <div className="rounded-2xl border border-error/15 bg-error/5 px-3 py-2">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
-                                  Vắng
-                                </p>
-                                <p className="mt-1 text-sm font-semibold text-error">
-                                  {attendanceSummary.absent}
-                                </p>
-                              </div>
-                              <div className="rounded-2xl border border-border-default bg-bg-surface px-3 py-2">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
-                                  Mặc định
-                                </p>
-                                <p className="mt-1 text-sm font-semibold tabular-nums text-text-primary">
-                                  {formatCurrency(attendanceDefaultTuitionTotal)}
-                                </p>
-                              </div>
-                              <div className="rounded-2xl border border-primary/20 bg-primary/5 px-3 py-2">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
-                                  Đang áp dụng
-                                </p>
-                                <p className="mt-1 text-sm font-semibold tabular-nums text-primary">
-                                  {formatCurrency(resolvedEditSessionTuition)}
-                                </p>
-                              </div>
-                              <div className="rounded-2xl border border-border-default bg-bg-surface px-3 py-2">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
-                                  Điều chỉnh
-                                </p>
-                                <p className="mt-1 text-sm font-semibold text-text-primary">
-                                  {attendanceOverrideCount} học sinh
-                                </p>
-                              </div>
+                              {allowFinancialEdits ? (
+                                <div className="flex flex-row gap-2 justify-between">
+                                  <div className="flex-1 rounded-2xl border border-border-default bg-bg-surface px-3 py-2">
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                                      Mặc định
+                                    </p>
+                                    <p className="mt-1 text-sm font-semibold tabular-nums text-text-primary">
+                                      {formatCurrency(attendanceDefaultTuitionTotal)}
+                                    </p>
+                                  </div>
+                                  <div className="flex-1 rounded-2xl border border-primary/20 bg-primary/5 px-3 py-2">
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                                      Đang áp dụng
+                                    </p>
+                                    <p className="mt-1 text-sm font-semibold tabular-nums text-primary">
+                                      {formatCurrency(resolvedEditSessionTuition)}
+                                    </p>
+                                  </div>
+                                  <div className="flex-1 rounded-2xl border border-border-default bg-bg-surface px-3 py-2">
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                                      Điều chỉnh
+                                    </p>
+                                    <p className="mt-1 text-sm font-semibold text-text-primary">
+                                      {attendanceOverrideCount} học sinh
+                                    </p>
+                                  </div>
+                                </div>
+                              ) : null}
                             </div>
                           ) : null}
                         </div>
@@ -1262,14 +1320,16 @@ export default function SessionHistoryTable({
                                         <p className="truncate text-sm font-semibold text-text-primary">
                                           {item.fullName}
                                         </p>
-                                        <p className="mt-1 text-xs text-text-muted">
-                                          Mặc định:{" "}
-                                          <span className="font-medium tabular-nums text-text-primary">
-                                            {item.defaultTuitionFee != null
-                                              ? formatCurrency(item.defaultTuitionFee)
-                                              : "Chưa cấu hình"}
-                                          </span>
-                                        </p>
+                                        {allowFinancialEdits ? (
+                                          <p className="mt-1 text-xs text-text-muted">
+                                            Mặc định:{" "}
+                                            <span className="font-medium tabular-nums text-text-primary">
+                                              {item.defaultTuitionFee != null
+                                                ? formatCurrency(item.defaultTuitionFee)
+                                                : "Chưa cấu hình"}
+                                            </span>
+                                          </p>
+                                        ) : null}
                                       </div>
                                       <span
                                         className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${statusMeta.badgeClassName}`}
@@ -1278,10 +1338,11 @@ export default function SessionHistoryTable({
                                       </span>
                                     </div>
 
-                                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                                    <div className={`mt-4 grid gap-3 ${allowFinancialEdits ? "sm:grid-cols-2" : ""}`}>
                                       <label className="flex flex-col gap-1 text-sm text-text-secondary">
                                         <span>Trạng thái</span>
                                         <select
+                                          name={`edit-session-attendance-status-${item.studentId}`}
                                           value={item.status}
                                           onChange={(e) =>
                                             setAttendanceStatus(
@@ -1299,27 +1360,33 @@ export default function SessionHistoryTable({
                                         </select>
                                       </label>
 
-                                      <label className="flex flex-col gap-1 text-sm text-text-secondary">
-                                        <span>Học phí buổi</span>
-                                        <input
-                                          type="number"
-                                          min={0}
-                                          value={item.tuitionFee}
-                                          onChange={(e) => setAttendanceTuitionFee(item.studentId, e.target.value)}
-                                          className="min-h-11 w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                                          placeholder={
-                                            item.defaultTuitionFee != null
-                                              ? String(item.defaultTuitionFee)
-                                              : "Theo học sinh"
-                                          }
-                                        />
-                                      </label>
+                                      {allowFinancialEdits ? (
+                                        <label className="flex flex-col gap-1 text-sm text-text-secondary">
+                                          <span>Học phí buổi</span>
+                                          <input
+                                            name={`edit-session-attendance-tuition-${item.studentId}`}
+                                            type="number"
+                                            min={0}
+                                            value={item.tuitionFee}
+                                            autoComplete="off"
+                                            onChange={(e) => setAttendanceTuitionFee(item.studentId, e.target.value)}
+                                            className="min-h-11 w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                            placeholder={
+                                              item.defaultTuitionFee != null
+                                                ? String(item.defaultTuitionFee)
+                                                : "Theo học sinh"
+                                            }
+                                          />
+                                        </label>
+                                      ) : null}
 
-                                      <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
+                                      <label className={`flex flex-col gap-1 text-sm text-text-secondary ${allowFinancialEdits ? "sm:col-span-2" : ""}`}>
                                         <span>Ghi chú</span>
                                         <input
+                                          name={`edit-session-attendance-note-${item.studentId}`}
                                           type="text"
                                           value={item.notes}
+                                          autoComplete="off"
                                           onChange={(e) => setAttendanceNotes(item.studentId, e.target.value)}
                                           maxLength={MAX_ATTENDANCE_NOTES_LENGTH}
                                           className="min-h-11 w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
@@ -1333,7 +1400,7 @@ export default function SessionHistoryTable({
                             </div>
 
                             <div className="hidden overflow-x-auto rounded-[1.25rem] border border-border-default bg-bg-surface lg:block">
-                              <table className="w-full min-w-[840px] border-collapse text-left text-sm">
+                              <table className={`w-full border-collapse text-left text-sm ${allowFinancialEdits ? "min-w-[840px]" : "min-w-[620px]"}`}>
                                 <caption className="sr-only">Điểm danh học sinh</caption>
                                 <thead>
                                   <tr className="border-b border-border-default bg-bg-secondary">
@@ -1346,9 +1413,11 @@ export default function SessionHistoryTable({
                                     <th scope="col" className="px-4 py-3 font-medium text-text-primary">
                                       Ghi chú
                                     </th>
-                                    <th scope="col" className="px-4 py-3 font-medium text-text-primary">
-                                      Học phí buổi
-                                    </th>
+                                    {allowFinancialEdits ? (
+                                      <th scope="col" className="px-4 py-3 font-medium text-text-primary">
+                                        Học phí buổi
+                                      </th>
+                                    ) : null}
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -1360,6 +1429,7 @@ export default function SessionHistoryTable({
                                       <td className="px-4 py-3 text-text-primary">{item.fullName}</td>
                                       <td className="px-4 py-3">
                                         <select
+                                          name={`edit-session-attendance-status-desktop-${item.studentId}`}
                                           value={item.status}
                                           onChange={(e) =>
                                             setAttendanceStatus(
@@ -1378,38 +1448,44 @@ export default function SessionHistoryTable({
                                       </td>
                                       <td className="px-4 py-3">
                                         <input
+                                          name={`edit-session-attendance-note-desktop-${item.studentId}`}
                                           type="text"
                                           value={item.notes}
+                                          autoComplete="off"
                                           onChange={(e) => setAttendanceNotes(item.studentId, e.target.value)}
                                           maxLength={MAX_ATTENDANCE_NOTES_LENGTH}
                                           className="w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                                           placeholder="Ghi chú (nếu có)"
                                         />
                                       </td>
-                                      <td className="px-4 py-3">
-                                        <div className="space-y-1">
-                                          <input
-                                            type="number"
-                                            min={0}
-                                            value={item.tuitionFee}
-                                            onChange={(e) => setAttendanceTuitionFee(item.studentId, e.target.value)}
-                                            className="w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                                            placeholder={
-                                              item.defaultTuitionFee != null
-                                                ? String(item.defaultTuitionFee)
-                                                : "Theo học sinh"
-                                            }
-                                          />
-                                          <p className="text-xs text-text-muted">
-                                            Mặc định:{" "}
-                                            <span className="font-medium tabular-nums text-text-primary">
-                                              {item.defaultTuitionFee != null
-                                                ? formatCurrency(item.defaultTuitionFee)
-                                                : "Chưa cấu hình"}
-                                            </span>
-                                          </p>
-                                        </div>
-                                      </td>
+                                      {allowFinancialEdits ? (
+                                        <td className="px-4 py-3">
+                                          <div className="space-y-1">
+                                            <input
+                                              name={`edit-session-attendance-tuition-desktop-${item.studentId}`}
+                                              type="number"
+                                              min={0}
+                                              value={item.tuitionFee}
+                                              autoComplete="off"
+                                              onChange={(e) => setAttendanceTuitionFee(item.studentId, e.target.value)}
+                                              className="w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                              placeholder={
+                                                item.defaultTuitionFee != null
+                                                  ? String(item.defaultTuitionFee)
+                                                  : "Theo học sinh"
+                                              }
+                                            />
+                                            <p className="text-xs text-text-muted">
+                                              Mặc định:{" "}
+                                              <span className="font-medium tabular-nums text-text-primary">
+                                                {item.defaultTuitionFee != null
+                                                  ? formatCurrency(item.defaultTuitionFee)
+                                                  : "Chưa cấu hình"}
+                                              </span>
+                                            </p>
+                                          </div>
+                                        </td>
+                                      ) : null}
                                     </tr>
                                   ))}
                                 </tbody>

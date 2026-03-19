@@ -16,7 +16,7 @@
 
 ## Redirect rules
 
-- Login thành công: redirect theo role (`admin -> /admin`, `staff -> /mentor`, `student -> /student`, `guest -> /`).
+- Login thành công: redirect theo role (`admin -> /admin`, `staff -> /staff`, `student -> /student`, `guest -> /`).
 - Register thành công: toast success, delay 3s rồi redirect `/auth/login`.
 - Reset password thành công: toast success, delay 2s rồi redirect `/auth/login`.
 - Forgot password thành công: toast success, không redirect.

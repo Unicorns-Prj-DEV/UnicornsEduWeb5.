@@ -27,6 +27,7 @@ import {
   StudentListQueryDto,
   UpdateStudentAccountBalanceCreateDto,
   UpdateStudentBodyDto,
+  UpdateStudentClassesDto,
   UpdateStudentDto,
 } from 'src/dtos/student.dto';
 import { StudentService } from './student.service';
@@ -36,7 +37,7 @@ import { StudentService } from './student.service';
 @ApiCookieAuth('access_token')
 @Roles(UserRole.admin)
 export class StudentController {
-  constructor(private readonly studentService: StudentService) { }
+  constructor(private readonly studentService: StudentService) {}
 
   @Get()
   @ApiOperation({
@@ -144,6 +145,28 @@ export class StudentController {
     @Body() data: UpdateStudentAccountBalanceCreateDto,
   ) {
     return this.studentService.updateStudentAccountBalance(data);
+  }
+
+  @Patch(':id/classes')
+  @ApiOperation({
+    summary: 'Replace student class memberships',
+    description:
+      'Replace all classes assigned to the student while preserving existing tuition overrides on unchanged memberships.',
+  })
+  @ApiParam({ name: 'id', description: 'Student ID' })
+  @ApiBody({
+    type: UpdateStudentClassesDto,
+    description: 'Student class membership payload',
+  })
+  @ApiResponse({ status: 200, description: 'Student classes updated.' })
+  @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({ status: 404, description: 'Student or class not found.' })
+  async updateStudentClasses(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: UpdateStudentClassesDto,
+  ) {
+    return this.studentService.updateStudentClasses(id, body);
   }
 
   @Patch(':id')

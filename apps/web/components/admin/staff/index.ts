@@ -1,4 +1,5 @@
 export { default as StaffListTableSkeleton } from "./StaffListTableSkeleton";
+export { default as AddTutorPopup } from "./AddTutorPopup";
 export { default as StaffCard } from "./StaffCard";
 export { default as StaffDetailRow } from "./StaffDetailRow";
 export { default as EditStaffPopup } from "./EditStaffPopup";

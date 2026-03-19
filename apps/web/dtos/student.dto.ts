@@ -12,6 +12,13 @@ export interface StudentClassItem {
     id: string;
     name: string;
   };
+  customTuitionPerSession?: number | null;
+  customTuitionPackageTotal?: number | null;
+  customTuitionPackageSession?: number | null;
+  effectiveTuitionPerSession?: number | null;
+  effectiveTuitionPackageTotal?: number | null;
+  effectiveTuitionPackageSession?: number | null;
+  tuitionPackageSource?: "custom" | "class" | "unset";
 }
 
 /** Item from GET /student list */
@@ -60,4 +67,8 @@ export interface UpdateStudentPayload {
 export interface UpdateStudentAccountBalancePayload {
   student_id: string;
   amount: number;
+}
+
+export interface UpdateStudentClassesPayload {
+  class_ids: string[];
 }

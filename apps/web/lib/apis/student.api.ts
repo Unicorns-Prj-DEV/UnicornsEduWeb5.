@@ -5,6 +5,7 @@ import type {
   StudentListResponse,
   StudentStatus,
   UpdateStudentAccountBalancePayload,
+  UpdateStudentClassesPayload,
   UpdateStudentPayload,
 } from "@/dtos/student.dto";
 import { api } from "../client";
@@ -90,7 +91,18 @@ export async function updateStudentById(
 export async function updateStudentAccountBalance(
   payload: UpdateStudentAccountBalancePayload,
 ): Promise<StudentDetail> {
-  console.log(payload);
   const response = await api.patch<StudentDetail>("/student/update-student-account-balance", payload);
+  return response.data;
+}
+
+/**
+ * PATCH /student/:id/classes – replace student memberships authoritatively in backend.
+ */
+export async function updateStudentClasses(
+  id: string,
+  payload: UpdateStudentClassesPayload,
+): Promise<StudentDetail> {
+  const safeId = encodeURIComponent(id);
+  const response = await api.patch<StudentDetail>(`/student/${safeId}/classes`, payload);
   return response.data;
 }

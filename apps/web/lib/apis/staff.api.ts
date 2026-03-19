@@ -1,5 +1,11 @@
-import { StaffListResponse, StaffStatus } from '@/dtos/staff.dto';
-import { StaffDetail } from '@/dtos/staff.dto';
+import {
+    CreateStaffPayload,
+    StaffAssignableUser,
+    StaffDetail,
+    StaffIncomeSummary,
+    StaffListResponse,
+    StaffStatus,
+} from '@/dtos/staff.dto';
 import { CreateUserPayload, UpdateUserPayload } from '@/dtos/user.dto';
 import { api } from '../client';
 
@@ -94,5 +100,42 @@ export async function updateStaff(payload: {
 export async function deleteStaffById(id: string) {
     const safeId = encodeURIComponent(id);
     const response = await api.delete(`/staff/${safeId}`);
+    return response.data;
+}
+
+export async function searchAssignableUsersByEmail(
+    email: string,
+): Promise<StaffAssignableUser[]> {
+    const response = await api.get('/staff/assignable-users', {
+        params: {
+            email,
+        },
+    });
+
+    return Array.isArray(response.data) ? (response.data as StaffAssignableUser[]) : [];
+}
+
+export async function createStaff(payload: CreateStaffPayload): Promise<StaffDetail> {
+    const response = await api.post('/staff', payload);
+    return response.data as StaffDetail;
+}
+
+export async function getStaffIncomeSummary(
+    id: string,
+    params: {
+        month: string;
+        year: string;
+        days?: number;
+    },
+): Promise<StaffIncomeSummary> {
+    const safeId = encodeURIComponent(id);
+    const response = await api.get<StaffIncomeSummary>(`/staff/${safeId}/income-summary`, {
+        params: {
+            month: params.month,
+            year: params.year,
+            ...(typeof params.days === "number" ? { days: params.days } : {}),
+        },
+    });
+
     return response.data;
 }

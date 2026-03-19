@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
     EditStudentClassesPopup,
     EditStudentPopup,
@@ -12,20 +12,8 @@ import {
     StudentWalletCard,
 } from "@/components/admin/student";
 import type { StudentDetail, StudentGender, StudentStatus } from "@/dtos/student.dto";
-import * as classApi from "@/lib/apis/class.api";
 import * as studentApi from "@/lib/apis/student.api";
 import { formatCurrency } from "@/lib/class.helpers";
-
-type TuitionStatus = "paid" | "pending" | "overdue";
-
-type TuitionRecord = {
-    id: string;
-    label: string;
-    dueDate: string;
-    amount: number;
-    status: TuitionStatus;
-    note: string;
-};
 
 const STATUS_LABELS: Record<StudentStatus, string> = {
     active: "Đang học",
@@ -64,28 +52,6 @@ function statusBadgeClass(status: StudentStatus): string {
         : "bg-bg-secondary text-text-secondary ring-border-default";
 }
 
-function tuitionStatusClass(status: TuitionStatus): string {
-    switch (status) {
-        case "paid":
-            return "bg-success/15 text-success ring-success/20";
-        case "overdue":
-            return "bg-error/15 text-error ring-error/20";
-        default:
-            return "bg-warning/15 text-text-primary ring-warning/20";
-    }
-}
-
-function tuitionStatusLabel(status: TuitionStatus): string {
-    switch (status) {
-        case "paid":
-            return "Đã thu";
-        case "overdue":
-            return "Quá hạn";
-        default:
-            return "Chờ thu";
-    }
-}
-
 function formatTuitionPackageLabel(params: {
     packageTotal?: number | null;
     packageSession?: number | null;
@@ -122,72 +88,46 @@ export default function AdminStudentDetailPage() {
         queryFn: () => studentApi.getStudentById(id),
         enabled: !!id,
     });
-    const currentStudentId = student?.id ?? "";
-
-    const classItems = useMemo(() => {
-        const classes = new Map<string, string>();
-
-        for (const item of student?.studentClasses ?? []) {
-            const classId = item.class?.id;
-            const className = item.class?.name?.trim();
-            if (!classId || !className || classes.has(classId)) continue;
-            classes.set(classId, className);
-        }
-
-        return Array.from(classes, ([classId, className]) => ({ classId, className })).sort((a, b) =>
-            a.className.localeCompare(b.className, "vi"),
-        );
-    }, [student?.studentClasses]);
-
-    const classDetailQueries = useQueries({
-        queries: classItems.map((item) => ({
-            queryKey: ["class", "detail", item.classId],
-            queryFn: () => classApi.getClassById(item.classId),
-            enabled: !!item.classId,
-        })),
-    });
-
     const classItemsWithTuition = useMemo(
-        () =>
-            classItems.map((item, index) => {
-                const classDetail = classDetailQueries[index]?.data;
-                const isLoadingClassDetail = classDetailQueries[index]?.isLoading;
-                const isClassDetailError = classDetailQueries[index]?.isError;
-                const matchedStudent = classDetail?.students?.find(
-                    (classStudent) => classStudent.id === currentStudentId,
-                );
-                const isCustomPackage =
-                    matchedStudent?.customTuitionPackageTotal != null ||
-                    matchedStudent?.customTuitionPackageSession != null ||
-                    matchedStudent?.customTuitionPerSession != null;
+        () => {
+            const classes = new Map<
+                string,
+                {
+                    classId: string;
+                    className: string;
+                    tuitionPackageLabel: string;
+                    tuitionPackageSourceLabel: string | null;
+                }
+            >();
 
-                return {
-                    ...item,
-                    tuitionPackageLabel: classDetail
-                        ? formatTuitionPackageLabel({
-                            packageTotal:
-                                matchedStudent?.customTuitionPackageTotal ??
-                                classDetail.tuitionPackageTotal,
-                            packageSession:
-                                matchedStudent?.customTuitionPackageSession ??
-                                classDetail.tuitionPackageSession,
-                            studentTuitionPerSession:
-                                matchedStudent?.customTuitionPerSession ??
-                                classDetail.studentTuitionPerSession,
-                        })
-                        : isLoadingClassDetail
-                            ? "Đang tải gói học phí..."
-                            : isClassDetailError
-                                ? "Không tải được học phí"
-                                : "Chưa cấu hình",
-                    tuitionPackageSourceLabel: classDetail
-                        ? isCustomPackage
+            for (const item of student?.studentClasses ?? []) {
+                const classId = item.class?.id;
+                const className = item.class?.name?.trim();
+
+                if (!classId || !className || classes.has(classId)) continue;
+
+                classes.set(classId, {
+                    classId,
+                    className,
+                    tuitionPackageLabel: formatTuitionPackageLabel({
+                        packageTotal: item.effectiveTuitionPackageTotal,
+                        packageSession: item.effectiveTuitionPackageSession,
+                        studentTuitionPerSession: item.effectiveTuitionPerSession,
+                    }),
+                    tuitionPackageSourceLabel:
+                        item.tuitionPackageSource === "custom"
                             ? "Gói riêng"
-                            : "Theo lớp"
-                        : null,
-                };
-            }),
-        [classItems, classDetailQueries, currentStudentId],
+                            : item.tuitionPackageSource === "class"
+                                ? "Theo lớp"
+                                : null,
+                });
+            }
+
+            return Array.from(classes.values()).sort((a, b) =>
+                a.className.localeCompare(b.className, "vi"),
+            );
+        },
+        [student?.studentClasses],
     );
 
     const handleTopUp = () => setBalancePopupMode("topup");

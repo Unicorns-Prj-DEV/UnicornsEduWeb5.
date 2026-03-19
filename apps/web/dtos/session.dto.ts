@@ -23,6 +23,16 @@ export interface SessionMonthYearParams {
   year: string;
 }
 
+export interface SessionUnpaidSummaryParams {
+  days?: number;
+}
+
+export interface SessionUnpaidSummaryItem {
+  classId: string;
+  className: string;
+  totalAllowance: number | string;
+}
+
 export interface SessionCreatePayload {
   classId: string;
   teacherId: string;

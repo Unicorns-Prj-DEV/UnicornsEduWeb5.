@@ -2,6 +2,8 @@ import {
   SessionCreatePayload,
   SessionItem,
   SessionMonthYearParams,
+  SessionUnpaidSummaryItem,
+  SessionUnpaidSummaryParams,
   SessionUpdatePayload,
 } from "@/dtos/session.dto";
 import { api } from "../client";
@@ -24,6 +26,18 @@ export async function getSessionsByStaffId(
 ): Promise<SessionItem[]> {
   const safeId = encodeURIComponent(staffId);
   const response = await api.get(`/sessions/staff/${safeId}`, {
+    params,
+  });
+  const payload = response.data;
+  return Array.isArray(payload) ? payload : [];
+}
+
+export async function getUnpaidSessionsByStaffId(
+  staffId: string,
+  params?: SessionUnpaidSummaryParams,
+): Promise<SessionUnpaidSummaryItem[]> {
+  const safeId = encodeURIComponent(staffId);
+  const response = await api.get(`/sessions/staff/${safeId}/unpaid`, {
     params,
   });
   const payload = response.data;

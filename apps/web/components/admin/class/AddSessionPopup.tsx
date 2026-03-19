@@ -33,6 +33,8 @@ type SessionTeacherItem = {
   fullName?: string | null;
 };
 
+type SessionTeacherMode = "select" | "readOnly";
+
 type Props = {
   open: boolean;
   classId: string;
@@ -40,6 +42,9 @@ type Props = {
   teachers?: SessionTeacherItem[];
   students: SessionStudentItem[];
   sessionTuitionTotal?: number;
+  teacherMode?: SessionTeacherMode;
+  allowFinancialFields?: boolean;
+  createSessionFn?: (payload: SessionCreatePayload) => Promise<SessionItem>;
   onClose: () => void;
   onCreated?: (session: SessionItem) => void;
 };
@@ -129,6 +134,26 @@ function resolveAttendanceTuitionValue(item: AttendanceFormItem): number {
   return normalizeMoneyValue(item.defaultTuitionFee) ?? 0;
 }
 
+function resolveSelectedTeacherId(options: {
+  defaultTeacherId?: string;
+  teacherMode: SessionTeacherMode;
+  teachers: SessionTeacherItem[];
+}): string {
+  if (options.defaultTeacherId) {
+    return options.defaultTeacherId;
+  }
+
+  if (options.teacherMode === "readOnly" && options.teachers.length === 1) {
+    return options.teachers[0]?.id ?? "";
+  }
+
+  if (options.teacherMode === "select") {
+    return options.teachers[0]?.id ?? "";
+  }
+
+  return "";
+}
+
 export default function AddSessionPopup({
   open,
   classId,
@@ -136,6 +161,9 @@ export default function AddSessionPopup({
   teachers = [],
   students,
   sessionTuitionTotal = 0,
+  teacherMode = "select",
+  allowFinancialFields = true,
+  createSessionFn = sessionApi.createSession,
   onClose,
   onCreated,
 }: Props) {
@@ -148,7 +176,11 @@ export default function AddSessionPopup({
   const [coefficient, setCoefficient] = useState<string>("1");
   const [allowanceAmount, setAllowanceAmount] = useState<string>("");
   const [selectedTeacherId, setSelectedTeacherId] = useState(
-    defaultTeacherId ?? teachers[0]?.id ?? "",
+    resolveSelectedTeacherId({
+      defaultTeacherId,
+      teacherMode,
+      teachers,
+    }),
   );
   const [attendanceItems, setAttendanceItems] = useState<AttendanceFormItem[]>(() =>
     students.map((student) => ({
@@ -193,9 +225,13 @@ export default function AddSessionPopup({
     () => attendanceItems.filter((item) => item.tuitionFee.trim() !== "").length,
     [attendanceItems],
   );
+  const selectedTeacher = useMemo(
+    () => teachers.find((teacher) => teacher.id === selectedTeacherId) ?? null,
+    [teachers, selectedTeacherId],
+  );
 
   const createSessionMutation = useMutation({
-    mutationFn: (payload: SessionCreatePayload) => sessionApi.createSession(payload),
+    mutationFn: (payload: SessionCreatePayload) => createSessionFn(payload),
     onSuccess: async (createdSession) => {
       await queryClient.invalidateQueries({ queryKey: ["sessions", "class", classId] });
       toast.success("Đã thêm buổi học.");
@@ -215,9 +251,9 @@ export default function AddSessionPopup({
       prev.map((item) =>
         item.studentId === studentId
           ? {
-              ...item,
-              status,
-            }
+            ...item,
+            status,
+          }
           : item,
       ),
     );
@@ -228,9 +264,9 @@ export default function AddSessionPopup({
       prev.map((item) =>
         item.studentId === studentId
           ? {
-              ...item,
-              notes: value,
-            }
+            ...item,
+            notes: value,
+          }
           : item,
       ),
     );
@@ -241,9 +277,9 @@ export default function AddSessionPopup({
       prev.map((item) =>
         item.studentId === studentId
           ? {
-              ...item,
-              tuitionFee: value,
-            }
+            ...item,
+            tuitionFee: value,
+          }
           : item,
       ),
     );
@@ -253,7 +289,11 @@ export default function AddSessionPopup({
     event.preventDefault();
 
     if (!selectedTeacherId) {
-      toast.error("Vui lòng chọn gia sư phụ trách.");
+      toast.error(
+        teacherMode === "readOnly"
+          ? "Lớp phải có đúng 1 gia sư phụ trách trước khi thêm buổi học."
+          : "Vui lòng chọn gia sư phụ trách.",
+      );
       return;
     }
 
@@ -297,17 +337,17 @@ export default function AddSessionPopup({
       return;
     }
 
-    const hasInvalidAttendanceTuition = attendanceItems.some(
-      (item) => !isNonNegativeMoneyInput(item.tuitionFee),
-    );
+    const hasInvalidAttendanceTuition =
+      allowFinancialFields &&
+      attendanceItems.some((item) => !isNonNegativeMoneyInput(item.tuitionFee));
 
     if (hasInvalidAttendanceTuition) {
       toast.error("Học phí từng học sinh phải là số không âm.");
       return;
     }
 
-    const coeffStr = coefficient.trim();
-    const allowanceStr = allowanceAmount.trim();
+    const coeffStr = allowFinancialFields ? coefficient.trim() : "";
+    const allowanceStr = allowFinancialFields ? allowanceAmount.trim() : "";
     const coeffNum = coeffStr ? Number(coefficient) : 1;
     const allowanceNum = allowanceStr ? Number(allowanceAmount) : undefined;
 
@@ -327,8 +367,16 @@ export default function AddSessionPopup({
       startTime: normalizedStartTime,
       endTime: normalizedEndTime,
       notes: trimmedSessionNotes,
-      ...(Number.isFinite(coeffNum) && coeffNum >= 0.1 && coeffNum <= 9.9 && { coefficient: coeffNum }),
-      ...(allowanceNum !== undefined && Number.isFinite(allowanceNum) && allowanceNum >= 0
+      ...(allowFinancialFields &&
+        Number.isFinite(coeffNum) &&
+        coeffNum >= 0.1 &&
+        coeffNum <= 9.9
+        ? { coefficient: coeffNum }
+        : {}),
+      ...(allowFinancialFields &&
+        allowanceNum !== undefined &&
+        Number.isFinite(allowanceNum) &&
+        allowanceNum >= 0
         ? { allowanceAmount: Math.floor(allowanceNum) }
         : {}),
       attendance: toAttendancePayload(attendanceItems),
@@ -348,13 +396,13 @@ export default function AddSessionPopup({
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]" aria-hidden onClick={onClose} />
-      <div className="fixed inset-0 z-50 p-2 sm:p-4">
-        <div className="mx-auto flex h-full w-full max-w-[72rem] items-center">
+      <div className="fixed inset-0 z-50 overflow-y-auto p-2 sm:p-4">
+        <div className="mx-auto flex min-h-full w-full max-w-[72rem] items-start py-2 sm:items-center sm:py-0">
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="add-session-title"
-            className="flex max-h-full w-full flex-col overflow-hidden rounded-[1.75rem] border border-border-default bg-bg-surface p-3 shadow-2xl sm:p-5"
+            className="my-auto flex max-h-[calc(100dvh-1rem)] min-h-0 w-full flex-col overflow-hidden rounded-[1.75rem] border border-border-default bg-bg-surface p-3 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:p-5"
           >
             <div className="mb-4 flex shrink-0 flex-col gap-3 border-b border-border-default/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
@@ -362,18 +410,22 @@ export default function AddSessionPopup({
                   Thêm buổi học
                 </h2>
                 <p className="mt-1 text-sm text-text-muted">
-                  Hoàn thiện thông tin buổi học và điểm danh ngay trong một màn hình.
+                  {allowFinancialFields
+                    ? "Hoàn thiện thông tin buổi học và điểm danh ngay trong một màn hình."
+                    : "Hoàn thiện thời gian, ghi chú và điểm danh mà không chạm vào thiết lập tài chính."}
                 </p>
               </div>
               <div className="flex items-start justify-between gap-2 sm:justify-end">
-                <div className="rounded-[1.15rem] border border-primary/15 bg-primary/5 px-3.5 py-2 shadow-sm">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
-                    Tổng học phí buổi này
-                  </p>
-                  <p className="mt-1 text-right text-sm font-semibold tabular-nums text-primary sm:text-base">
-                    {formatCurrency(resolvedSessionTuitionTotal)}
-                  </p>
-                </div>
+                {allowFinancialFields ? (
+                  <div className="rounded-[1.15rem] border border-primary/15 bg-primary/5 px-3.5 py-2 shadow-sm">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
+                      Tổng học phí buổi này
+                    </p>
+                    <p className="mt-1 text-right text-sm font-semibold tabular-nums text-primary sm:text-base">
+                      {formatCurrency(resolvedSessionTuitionTotal)}
+                    </p>
+                  </div>
+                ) : null}
                 <button
                   type="button"
                   onClick={onClose}
@@ -410,39 +462,65 @@ export default function AddSessionPopup({
                     <label className="flex flex-col gap-1 text-sm text-text-secondary xl:col-span-2">
                       <span>Ngày học</span>
                       <input
+                        name="add-session-date"
                         type="date"
                         value={date}
+                        autoComplete="off"
                         onChange={(event) => setDate(event.target.value)}
                         className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                         required
                       />
                     </label>
 
-                    <label className="flex flex-col gap-1 text-sm text-text-secondary xl:col-span-2">
-                      <span>Gia sư phụ trách</span>
-                      <select
-                        value={selectedTeacherId}
-                        onChange={(event) => setSelectedTeacherId(event.target.value)}
-                        className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                        required
-                      >
-                        <option value="" disabled>
-                          Chọn gia sư
-                        </option>
-                        {teachers.map((teacher) => (
-                          <option key={teacher.id} value={teacher.id}>
-                            {teacher.fullName?.trim() || "Gia sư"}
+                    {teacherMode === "select" ? (
+                      <label className="flex flex-col gap-1 text-sm text-text-secondary xl:col-span-2">
+                        <span>Gia sư phụ trách</span>
+                        <select
+                          name="add-session-teacher"
+                          value={selectedTeacherId}
+                          onChange={(event) => setSelectedTeacherId(event.target.value)}
+                          className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                          required
+                        >
+                          <option value="" disabled>
+                            Chọn gia sư
                           </option>
-                        ))}
-                      </select>
-                    </label>
+                          {teachers.map((teacher) => (
+                            <option key={teacher.id} value={teacher.id}>
+                              {teacher.fullName?.trim() || "Gia sư"}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : (
+                      <div className="flex flex-col gap-1 text-sm text-text-secondary xl:col-span-2">
+                        <span>Gia sư phụ trách</span>
+                        <div
+                          className={`min-h-11 rounded-xl border px-3 py-2 ${selectedTeacher
+                            ? "border-border-default bg-bg-surface text-text-primary"
+                            : "border-warning/30 bg-warning/10 text-warning"
+                            }`}
+                        >
+                          <p className="font-medium">
+                            {selectedTeacher?.fullName?.trim() || "Chưa có gia sư cố định cho lớp."}
+                          </p>
+                          <p className="mt-1 text-xs opacity-80">
+                            {selectedTeacher
+                              ? "Gia sư được khóa theo gia sư phụ trách hiện tại của lớp."
+                              : "Admin cần phân công đúng 1 gia sư trước khi tạo buổi học."}
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                     <label className="flex flex-col gap-1 text-sm text-text-secondary xl:col-span-1">
                       <span>Bắt đầu</span>
                       <input
+                        name="add-session-start-time"
                         type="time"
                         step={1}
                         value={startTime}
+                        autoComplete="off"
                         onChange={(event) => setStartTime(event.target.value)}
                         className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                         required
@@ -452,40 +530,50 @@ export default function AddSessionPopup({
                     <label className="flex flex-col gap-1 text-sm text-text-secondary xl:col-span-1">
                       <span>Kết thúc</span>
                       <input
+                        name="add-session-end-time"
                         type="time"
                         step={1}
                         value={endTime}
+                        autoComplete="off"
                         onChange={(event) => setEndTime(event.target.value)}
                         className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                         required
                       />
                     </label>
 
-                    <label className="flex flex-col gap-1 text-sm text-text-secondary xl:col-span-2">
-                      <span>Hệ số (coefficient)</span>
-                      <input
-                        type="number"
-                        min={0.1}
-                        max={9.9}
-                        step={0.1}
-                        value={coefficient}
-                        onChange={(e) => setCoefficient(e.target.value)}
-                        className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                        placeholder="1"
-                      />
-                    </label>
+                    {allowFinancialFields ? (
+                      <>
+                        <label className="flex flex-col gap-1 text-sm text-text-secondary xl:col-span-2">
+                          <span>Hệ số (coefficient)</span>
+                          <input
+                            name="add-session-coefficient"
+                            type="number"
+                            min={0.1}
+                            max={9.9}
+                            step={0.1}
+                            value={coefficient}
+                            autoComplete="off"
+                            onChange={(e) => setCoefficient(e.target.value)}
+                            className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                            placeholder="1"
+                          />
+                        </label>
 
-                    <label className="flex flex-col gap-1 text-sm text-text-secondary xl:col-span-2">
-                      <span>Trợ cấp buổi (VNĐ)</span>
-                      <input
-                        type="number"
-                        min={0}
-                        value={allowanceAmount}
-                        onChange={(e) => setAllowanceAmount(e.target.value)}
-                        className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                        placeholder="Để trống = theo gia sư"
-                      />
-                    </label>
+                        <label className="flex flex-col gap-1 text-sm text-text-secondary xl:col-span-2">
+                          <span>Trợ cấp buổi (VNĐ)</span>
+                          <input
+                            name="add-session-allowance"
+                            type="number"
+                            min={0}
+                            value={allowanceAmount}
+                            autoComplete="off"
+                            onChange={(e) => setAllowanceAmount(e.target.value)}
+                            className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                            placeholder="Để trống = theo gia sư"
+                          />
+                        </label>
+                      </>
+                    ) : null}
 
                     <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2 xl:col-span-6">
                       <span>Ghi chú buổi học</span>
@@ -499,7 +587,7 @@ export default function AddSessionPopup({
                 </section>
 
                 <section className="rounded-[1.5rem] border border-border-default bg-bg-secondary/50 p-4 sm:p-5">
-                  <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                  <div className="mb-4 flex flex-col gap-3 xl:items-start xl:justify-between">
                     <div>
                       <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-text-muted">
                         Điểm danh học sinh
@@ -508,55 +596,61 @@ export default function AddSessionPopup({
                         Trên mobile dùng dạng thẻ, trên desktop giữ bảng để thao tác nhanh hơn.
                       </p>
                     </div>
-                    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
-                      <div className="rounded-2xl border border-success/15 bg-success/5 px-3 py-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
-                          Học
-                        </p>
-                        <p className="mt-1 text-sm font-semibold text-success">
-                          {attendanceSummary.present}
-                        </p>
+                    <div className={`flex w-full flex-col gap-2 justify-between ${allowFinancialFields ? "xl:grid-cols-6" : "xl:grid-cols-3"}`}>
+                      <div className="flex flex-row gap-2 justify-between">
+                        <div className="flex-1 rounded-2xl border border-success/15 bg-success/5 px-3 py-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                            Học
+                          </p>
+                          <p className="mt-1 text-sm font-semibold text-success">
+                            {attendanceSummary.present}
+                          </p>
+                        </div>
+                        <div className="flex-1 rounded-2xl border border-warning/15 bg-warning/5 px-3 py-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                            Phép
+                          </p>
+                          <p className="mt-1 text-sm font-semibold text-warning">
+                            {attendanceSummary.excused}
+                          </p>
+                        </div>
+                        <div className="flex-1 rounded-2xl border border-error/15 bg-error/5 px-3 py-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                            Vắng
+                          </p>
+                          <p className="mt-1 text-sm font-semibold text-error">
+                            {attendanceSummary.absent}
+                          </p>
+                        </div>
                       </div>
-                      <div className="rounded-2xl border border-warning/15 bg-warning/5 px-3 py-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
-                          Phép
-                        </p>
-                        <p className="mt-1 text-sm font-semibold text-warning">
-                          {attendanceSummary.excused}
-                        </p>
-                      </div>
-                      <div className="rounded-2xl border border-error/15 bg-error/5 px-3 py-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
-                          Vắng
-                        </p>
-                        <p className="mt-1 text-sm font-semibold text-error">
-                          {attendanceSummary.absent}
-                        </p>
-                      </div>
-                      <div className="rounded-2xl border border-border-default bg-bg-surface px-3 py-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
-                          Mặc định
-                        </p>
-                        <p className="mt-1 text-sm font-semibold tabular-nums text-text-primary">
-                          {formatCurrency(attendanceDefaultTuitionTotal)}
-                        </p>
-                      </div>
-                      <div className="rounded-2xl border border-primary/20 bg-primary/5 px-3 py-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
-                          Đang áp dụng
-                        </p>
-                        <p className="mt-1 text-sm font-semibold tabular-nums text-primary">
-                          {formatCurrency(resolvedSessionTuitionTotal)}
-                        </p>
-                      </div>
-                      <div className="rounded-2xl border border-border-default bg-bg-surface px-3 py-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
-                          Điều chỉnh
-                        </p>
-                        <p className="mt-1 text-sm font-semibold text-text-primary">
-                          {attendanceOverrideCount}
-                        </p>
-                      </div>
+                      {allowFinancialFields ? (
+                        <div className="flex flex-row gap-2 justify-between">
+                          <div className="flex-1 rounded-2xl border border-border-default bg-bg-surface px-3 py-2">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                              Mặc định
+                            </p>
+                            <p className="mt-1 text-sm font-semibold tabular-nums text-text-primary">
+                              {formatCurrency(attendanceDefaultTuitionTotal)}
+                            </p>
+                          </div>
+                          <div className="flex-1 rounded-2xl border border-primary/20 bg-primary/5 px-3 py-2">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                              Đang áp dụng
+                            </p>
+                            <p className="mt-1 text-sm font-semibold tabular-nums text-primary">
+                              {formatCurrency(resolvedSessionTuitionTotal)}
+                            </p>
+                          </div>
+                          <div className="flex-1 rounded-2xl border border-border-default bg-bg-surface px-3 py-2">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                              Điều chỉnh
+                            </p>
+                            <p className="mt-1 text-sm font-semibold text-text-primary">
+                              {attendanceOverrideCount}
+                            </p>
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
 
@@ -580,14 +674,16 @@ export default function AddSessionPopup({
                                   <p className="truncate text-sm font-semibold text-text-primary">
                                     {item.fullName}
                                   </p>
-                                  <p className="mt-1 text-xs text-text-muted">
-                                    Mặc định:{" "}
-                                    <span className="font-medium tabular-nums text-text-primary">
-                                      {item.defaultTuitionFee != null
-                                        ? formatCurrency(item.defaultTuitionFee)
-                                        : "Chưa cấu hình"}
-                                    </span>
-                                  </p>
+                                  {allowFinancialFields ? (
+                                    <p className="mt-1 text-xs text-text-muted">
+                                      Mặc định:{" "}
+                                      <span className="font-medium tabular-nums text-text-primary">
+                                        {item.defaultTuitionFee != null
+                                          ? formatCurrency(item.defaultTuitionFee)
+                                          : "Chưa cấu hình"}
+                                      </span>
+                                    </p>
+                                  ) : null}
                                 </div>
                                 <span
                                   className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${statusMeta.badgeClassName}`}
@@ -596,10 +692,11 @@ export default function AddSessionPopup({
                                 </span>
                               </div>
 
-                              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                              <div className={`mt-4 grid gap-3 ${allowFinancialFields ? "sm:grid-cols-2" : ""}`}>
                                 <label className="flex flex-col gap-1 text-sm text-text-secondary">
                                   <span>Trạng thái</span>
                                   <select
+                                    name={`add-session-attendance-status-${item.studentId}`}
                                     value={item.status}
                                     onChange={(event) =>
                                       handleAttendanceStatusChange(
@@ -617,28 +714,34 @@ export default function AddSessionPopup({
                                   </select>
                                 </label>
 
-                                <label className="flex flex-col gap-1 text-sm text-text-secondary">
-                                  <span>Học phí buổi</span>
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    value={item.tuitionFee}
-                                    onChange={(event) =>
-                                      handleAttendanceTuitionChange(item.studentId, event.target.value)
-                                    }
-                                    className="min-h-11 w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                                    placeholder={
-                                      item.defaultTuitionFee != null
-                                        ? String(item.defaultTuitionFee)
-                                        : "Theo học sinh"
-                                    }
-                                  />
-                                </label>
+                                {allowFinancialFields ? (
+                                  <label className="flex flex-col gap-1 text-sm text-text-secondary">
+                                    <span>Học phí buổi</span>
+                                    <input
+                                      name={`add-session-attendance-tuition-${item.studentId}`}
+                                      type="number"
+                                      min={0}
+                                      value={item.tuitionFee}
+                                      autoComplete="off"
+                                      onChange={(event) =>
+                                        handleAttendanceTuitionChange(item.studentId, event.target.value)
+                                      }
+                                      className="min-h-11 w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                      placeholder={
+                                        item.defaultTuitionFee != null
+                                          ? String(item.defaultTuitionFee)
+                                          : "Theo học sinh"
+                                      }
+                                    />
+                                  </label>
+                                ) : null}
 
-                                <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
+                                <label className={`flex flex-col gap-1 text-sm text-text-secondary ${allowFinancialFields ? "sm:col-span-2" : ""}`}>
                                   <span>Ghi chú</span>
                                   <input
+                                    name={`add-session-attendance-note-${item.studentId}`}
                                     value={item.notes}
+                                    autoComplete="off"
                                     onChange={(event) =>
                                       handleAttendanceNotesChange(item.studentId, event.target.value)
                                     }
@@ -653,8 +756,8 @@ export default function AddSessionPopup({
                         })}
                       </div>
 
-                      <div className="hidden overflow-x-auto rounded-[1.25rem] border border-border-default bg-bg-surface lg:block">
-                        <table className="w-full min-w-[860px] border-collapse text-left text-sm">
+                      <div className="hidden  rounded-[1.25rem] border border-border-default bg-bg-surface lg:block">
+                        <table className={`w-full border-collapse text-left text-sm ${allowFinancialFields ? "min-w-[860px]" : "min-w-[620px]"}`}>
                           <caption className="sr-only">Danh sách điểm danh học sinh</caption>
                           <thead>
                             <tr className="border-b border-border-default bg-bg-secondary">
@@ -667,9 +770,11 @@ export default function AddSessionPopup({
                               <th scope="col" className="px-4 py-3 font-medium text-text-primary">
                                 Ghi chú
                               </th>
-                              <th scope="col" className="px-4 py-3 font-medium text-text-primary">
-                                Học phí buổi
-                              </th>
+                              {allowFinancialFields ? (
+                                <th scope="col" className="px-4 py-3 font-medium text-text-primary">
+                                  Học phí buổi
+                                </th>
+                              ) : null}
                             </tr>
                           </thead>
                           <tbody>
@@ -681,6 +786,7 @@ export default function AddSessionPopup({
                                 <td className="px-4 py-3 text-text-primary">{item.fullName}</td>
                                 <td className="px-4 py-3">
                                   <select
+                                    name={`add-session-attendance-status-desktop-${item.studentId}`}
                                     value={item.status}
                                     onChange={(event) =>
                                       handleAttendanceStatusChange(
@@ -699,7 +805,9 @@ export default function AddSessionPopup({
                                 </td>
                                 <td className="px-4 py-3">
                                   <input
+                                    name={`add-session-attendance-note-desktop-${item.studentId}`}
                                     value={item.notes}
+                                    autoComplete="off"
                                     onChange={(event) =>
                                       handleAttendanceNotesChange(item.studentId, event.target.value)
                                     }
@@ -708,32 +816,36 @@ export default function AddSessionPopup({
                                     placeholder="Ghi chú điểm danh (nếu có)"
                                   />
                                 </td>
-                                <td className="px-4 py-3">
-                                  <div className="space-y-1">
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      value={item.tuitionFee}
-                                      onChange={(event) =>
-                                        handleAttendanceTuitionChange(item.studentId, event.target.value)
-                                      }
-                                      className="w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                                      placeholder={
-                                        item.defaultTuitionFee != null
-                                          ? String(item.defaultTuitionFee)
-                                          : "Theo học sinh"
-                                      }
-                                    />
-                                    <p className="text-xs text-text-muted">
-                                      Mặc định:{" "}
-                                      <span className="font-medium tabular-nums text-text-primary">
-                                        {item.defaultTuitionFee != null
-                                          ? formatCurrency(item.defaultTuitionFee)
-                                          : "Chưa cấu hình"}
-                                      </span>
-                                    </p>
-                                  </div>
-                                </td>
+                                {allowFinancialFields ? (
+                                  <td className="px-4 py-3">
+                                    <div className="space-y-1">
+                                      <input
+                                        name={`add-session-attendance-tuition-desktop-${item.studentId}`}
+                                        type="number"
+                                        min={0}
+                                        value={item.tuitionFee}
+                                        autoComplete="off"
+                                        onChange={(event) =>
+                                          handleAttendanceTuitionChange(item.studentId, event.target.value)
+                                        }
+                                        className="w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                        placeholder={
+                                          item.defaultTuitionFee != null
+                                            ? String(item.defaultTuitionFee)
+                                            : "Theo học sinh"
+                                        }
+                                      />
+                                      <p className="text-xs text-text-muted">
+                                        Mặc định:{" "}
+                                        <span className="font-medium tabular-nums text-text-primary">
+                                          {item.defaultTuitionFee != null
+                                            ? formatCurrency(item.defaultTuitionFee)
+                                            : "Chưa cấu hình"}
+                                        </span>
+                                      </p>
+                                    </div>
+                                  </td>
+                                ) : null}
                               </tr>
                             ))}
                           </tbody>

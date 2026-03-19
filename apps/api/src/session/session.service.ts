@@ -1,16 +1,130 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '../../generated/client';
 import { PaymentStatus, WalletTransactionType } from 'generated/client';
-import { SessionCreateDto, SessionUpdateDto } from 'src/dtos/session.dto';
+import { StaffRole, UserRole } from 'generated/enums';
+import {
+  SessionCreateDto,
+  SessionUnpaidSummaryItem,
+  SessionUpdateDto,
+} from 'src/dtos/session.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class SessionService {
   constructor(private readonly prisma: PrismaService) { }
+
+  private async getStaffOperationsActor(userId: string, roleType: UserRole) {
+    if (roleType === UserRole.admin) {
+      return {
+        id: userId,
+        roles: [] as StaffRole[],
+      };
+    }
+
+    if (roleType !== UserRole.staff) {
+      throw new ForbiddenException(
+        'Chỉ tài khoản staff mới được dùng màn quản lý lớp học cho teacher.',
+      );
+    }
+
+    const staff = await this.prisma.staffInfo.findFirst({
+      where: { userId },
+      select: {
+        id: true,
+        roles: true,
+      },
+    });
+
+    if (!staff) {
+      throw new ForbiddenException(
+        'Chỉ nhân sự có hồ sơ staff mới được dùng màn vận hành lớp học.',
+      );
+    }
+
+    if (!staff.roles.includes(StaffRole.teacher)) {
+      throw new ForbiddenException(
+        'Màn /staff hiện chỉ mở cho staff có role teacher.',
+      );
+    }
+
+    return staff;
+  }
+
+  private async assertTeacherAssignedToClass(teacherId: string, classId: string) {
+    const assignment = await this.prisma.classTeacher.findUnique({
+      where: {
+        classId_teacherId: {
+          classId,
+          teacherId,
+        },
+      },
+      select: {
+        teacherId: true,
+      },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('Class not found');
+    }
+  }
+
+  private async assertAttendanceStudentsBelongToClass(
+    classId: string,
+    studentIds: string[],
+  ) {
+    if (studentIds.length === 0) {
+      throw new BadRequestException('attendance là bắt buộc.');
+    }
+
+    const uniqueStudentIds = Array.from(new Set(studentIds));
+    const studentRows = await this.prisma.studentClass.findMany({
+      where: {
+        classId,
+        studentId: {
+          in: uniqueStudentIds,
+        },
+      },
+      select: {
+        studentId: true,
+        customStudentTuitionPerSession: true,
+      },
+    });
+
+    if (studentRows.length !== uniqueStudentIds.length) {
+      throw new BadRequestException(
+        'attendance chỉ được phép chứa học sinh thuộc lớp học hiện tại.',
+      );
+    }
+
+    return new Map(
+      studentRows.map((studentRow) => [
+        studentRow.studentId,
+        studentRow.customStudentTuitionPerSession ?? null,
+      ]),
+    );
+  }
+
+  private async resolveSingleTeacherForClass(classId: string) {
+    const classTeachers = await this.prisma.classTeacher.findMany({
+      where: { classId },
+      select: {
+        teacherId: true,
+      },
+    });
+
+    if (classTeachers.length !== 1) {
+      throw new BadRequestException(
+        'Lớp phải có đúng 1 gia sư phụ trách trước khi Staff có thể tạo buổi học.',
+      );
+    }
+
+    return classTeachers[0].teacherId;
+  }
 
   private parseSessionDate(date: string) {
     const parsedDate = new Date(date);
@@ -306,6 +420,65 @@ export class SessionService {
     });
 
     return createdSession;
+  }
+
+  async createSessionForStaff(
+    userId: string,
+    roleType: UserRole,
+    classId: string,
+    data: {
+      date: string;
+      startTime?: string;
+      endTime?: string;
+      notes?: string | null;
+      attendance: Array<{
+        studentId: string;
+        status: SessionCreateDto['attendance'][number]['status'];
+        notes?: string | null;
+      }>;
+    },
+  ) {
+    const actor = await this.getStaffOperationsActor(userId, roleType);
+    const isTeacher = actor.roles.includes(StaffRole.teacher);
+    if (isTeacher) {
+      await this.assertTeacherAssignedToClass(actor.id, classId);
+    }
+    await this.assertAttendanceStudentsBelongToClass(
+      classId,
+      data.attendance.map((attendanceItem) => attendanceItem.studentId),
+    );
+    const teacherId = isTeacher
+      ? actor.id
+      : await this.resolveSingleTeacherForClass(classId);
+
+    const allowance = await this.prisma.classTeacher.findUnique({
+      where: {
+        classId_teacherId: {
+          classId,
+          teacherId,
+        },
+      },
+      select: {
+        customAllowance: true,
+      },
+    });
+
+    console.log(allowance);
+
+    return this.createSession({
+      classId,
+      teacherId,
+      date: data.date,
+      allowanceAmount: allowance?.customAllowance ?? null,
+      startTime: data.startTime,
+      endTime: data.endTime,
+      notes: data.notes ?? null,
+      attendance: data.attendance.map((attendanceItem) => ({
+        studentId: attendanceItem.studentId,
+        status: attendanceItem.status,
+        notes: attendanceItem.notes ?? null,
+      })),
+    });
   }
 
   async updateSession(data: SessionUpdateDto) {
@@ -866,6 +1039,79 @@ export class SessionService {
     });
   }
 
+  async updateSessionForStaff(
+    userId: string,
+    roleType: UserRole,
+    sessionId: string,
+    data: {
+      date?: string;
+      startTime?: string;
+      endTime?: string;
+      notes?: string | null;
+      attendance?: Array<{
+        studentId: string;
+        status: NonNullable<SessionUpdateDto['attendance']>[number]['status'];
+        notes?: string | null;
+      }>;
+    },
+  ) {
+    const existingSession = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+      select: {
+        id: true,
+        classId: true,
+        attendance: {
+          select: {
+            studentId: true,
+            tuitionFee: true,
+          },
+        },
+      },
+    });
+
+    if (!existingSession) {
+      throw new NotFoundException('Session not found');
+    }
+
+    const actor = await this.getStaffOperationsActor(userId, roleType);
+    if (actor.roles.includes(StaffRole.teacher)) {
+      await this.assertTeacherAssignedToClass(actor.id, existingSession.classId);
+    }
+
+    let enrichedAttendance: SessionUpdateDto['attendance'] | undefined;
+    if (data.attendance !== undefined) {
+      const tuitionByStudentId = await this.assertAttendanceStudentsBelongToClass(
+        existingSession.classId,
+        data.attendance.map((attendanceItem) => attendanceItem.studentId),
+      );
+      const existingAttendanceByStudentId = new Map(
+        existingSession.attendance.map((attendanceItem) => [
+          attendanceItem.studentId,
+          attendanceItem.tuitionFee ?? null,
+        ]),
+      );
+
+      enrichedAttendance = data.attendance.map((attendanceItem) => ({
+        studentId: attendanceItem.studentId,
+        status: attendanceItem.status,
+        notes: attendanceItem.notes ?? null,
+        tuitionFee:
+          existingAttendanceByStudentId.get(attendanceItem.studentId) ??
+          tuitionByStudentId.get(attendanceItem.studentId) ??
+          null,
+      }));
+    }
+
+    return this.updateSession({
+      id: sessionId,
+      date: data.date,
+      startTime: data.startTime,
+      endTime: data.endTime,
+      notes: data.notes,
+      attendance: enrichedAttendance,
+    });
+  }
+
   async deleteSession(id: string) {
     return this.prisma.$transaction(async (tx) => {
       const existingSession = await tx.session.findUnique({
@@ -991,6 +1237,20 @@ export class SessionService {
     return sessions;
   }
 
+  async getSessionsByClassIdForStaff(
+    userId: string,
+    roleType: UserRole,
+    classId: string,
+    month: string,
+    year: string,
+  ) {
+    const actor = await this.getStaffOperationsActor(userId, roleType);
+    if (actor.roles.includes(StaffRole.teacher)) {
+      await this.assertTeacherAssignedToClass(actor.id, classId);
+    }
+    return this.getSessionsByClassId(classId, month, year);
+  }
+
   async getSessionsByTeacherId(teacherId: string, month: string, year: string) {
     const range = this.buildMonthRange(month, year);
 
@@ -1012,5 +1272,52 @@ export class SessionService {
     });
 
     return sessions;
+  }
+
+  async getUnpaidSessionsByTeacherId(
+    teacherId: string,
+    days = 14,
+  ): Promise<SessionUnpaidSummaryItem[]> {
+    const safeDays = Number.isInteger(days) && days > 0 ? days : 14;
+
+    return this.prisma.$queryRaw<SessionUnpaidSummaryItem[]>(Prisma.sql`
+      SELECT
+        tab.class_id AS "classId",
+        classes.name AS "className",
+        SUM(tab.teacher_allowance_total) AS "totalAllowance"
+      FROM (
+        SELECT
+          attendance.session_id,
+          sessions.class_id,
+          sessions.allowance_amount,
+          classes.scale_amount,
+          LEAST(
+            classes.max_allowance_per_session,
+            sessions.coefficient * (
+              sessions.allowance_amount * COUNT(
+                CASE
+                  WHEN attendance.status = 'present' OR attendance.status = 'excused' THEN 1
+                END
+              ) + classes.scale_amount
+            )
+          ) AS teacher_allowance_total
+        FROM attendance
+        JOIN sessions ON attendance.session_id = sessions.id
+        JOIN classes ON classes.id = sessions.class_id
+        WHERE sessions.teacher_id = ${teacherId}
+          AND sessions.teacher_payment_status = 'unpaid'
+          AND sessions.date >= CURRENT_DATE - make_interval(days => ${safeDays - 1})
+          AND sessions.date < CURRENT_DATE + INTERVAL '1 day'
+        GROUP BY
+          sessions.class_id,
+          attendance.session_id,
+          sessions.allowance_amount,
+          classes.scale_amount,
+          classes.max_allowance_per_session,
+          sessions.coefficient
+      ) AS tab
+      JOIN classes ON classes.id = tab.class_id
+      GROUP BY tab.class_id, classes.name
+    `);
   }
 }

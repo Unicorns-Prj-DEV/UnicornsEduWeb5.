@@ -32,6 +32,7 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
   - `/`
   - `/landing-page`
   - `/auth/login`, `/auth/register`, `/auth/forgot-password`, `/auth/reset-password`
+  - `/staff`, `/staff/classes/[id]`
   - `/admin`, `/admin/home`, `/admin/dashboard`
   - `/admin/classes`, `/admin/classes/[id]`
   - `/admin/students`
@@ -40,6 +41,12 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
   - `/admin/lesson-plans`, `/admin/lessons`, `/admin/notes-subject`
   - `/api/healthcheck`
 - Chưa có route runtime riêng cho `/assistant`, `/mentor`, `/student`; các page plan tương ứng vẫn nằm trong `docs/pages/`.
+- Route `/staff` hiện là runtime thật cho luồng vận hành lớp học:
+  - mở cho `staff.teacher` và `admin`
+  - teacher chỉ thấy lớp được phân công
+  - admin có thể truy cập để xem hoặc hỗ trợ cùng flow này
+  - từ class detail chỉ cho sửa khung giờ, tạo/chỉnh session và điểm danh
+  - route này không cho thay đổi trợ cấp hoặc học phí học sinh
 
 ## Health snapshot (2026-03-16)
 

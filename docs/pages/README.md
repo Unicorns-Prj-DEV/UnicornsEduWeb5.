@@ -2,7 +2,7 @@
 
 Page-level specs for `apps/web`, aligned with [Workplan](../Workplan.md) and [UI-Schema](../UI-Schema.md).
 
-**Cấu trúc frontend hiện tại:** App Router trong `apps/web/app/`. Đã có route runtime cho `/`, `/landing-page`, `/auth/*`, và nhóm `/admin/*`. Các route `/assistant`, `/mentor`, `/student` mới đang ở mức page plan, chưa có file route thật trong `apps/web/app/`.
+**Cấu trúc frontend hiện tại:** App Router trong `apps/web/app/`. Đã có route runtime cho `/`, `/landing-page`, `/auth/*`, nhóm `/admin/*`, và nhóm `/staff/*`. Các route `/assistant`, `/mentor`, `/student` mới đang ở mức page plan, chưa có file route thật trong `apps/web/app/`.
 
 **Archived UI context:** [ARCHIVED-UI-CONTEXT.md](ARCHIVED-UI-CONTEXT.md) maps the archived app (`archived/UniEdu-Web-3.9/frontend/`) to 5.0 routes and lists concrete files, services, and patterns to reuse for better model results when implementing each page.
 
@@ -11,6 +11,7 @@ Page-level specs for `apps/web`, aligned with [Workplan](../Workplan.md) and [UI
 | Route | Status | Role | Owner (Workplan) | Plan file |
 | --- | --- | --- | --- | --- |
 | `/admin` | Implemented | Admin | Huy | [admin.md](admin.md) |
+| `/staff` | Implemented | `staff.teacher`, Admin | Huy | [staff.md](staff.md) |
 | `/landing-page` | Implemented | Public | Minh | [landing.md](landing.md) |
 | Auth (login/logout) | Partial | All authenticated | Huy/Minh | [auth.md](auth.md) |
 | `/auth/login` | Implemented | Public | Huy/Minh | [auth-login.md](auth-login.md) |
@@ -25,6 +26,7 @@ Page-level specs for `apps/web`, aligned with [Workplan](../Workplan.md) and [UI
 
 - **Tuần 1:** Auth, layout, mock layer; landing wireframe.
 - **Tuần 2:** `/admin` (dashboard, CRUD lớp, gán teacher/student).
+- **Runtime bổ sung:** `/staff` hiện đang phục vụ workspace lớp học cho `staff.teacher`, đồng thời `admin` có thể truy cập để theo dõi hoặc hỗ trợ cùng flow: list lớp + class detail để sửa khung giờ và thao tác session không dính finance.
 - **Tuần 3:** `/mentor` (lớp, session, điểm danh, lesson notes, payroll/bonus view).
 - **Tuần 4:** `/assistant` (thu phí, status, tasks).
 - **Tuần 5:** `/student` (lịch học, tài liệu, payment read-only, profile).

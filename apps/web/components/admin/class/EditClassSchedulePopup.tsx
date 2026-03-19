@@ -29,6 +29,8 @@ type Props = {
   open: boolean;
   onClose: () => void;
   classDetail: ClassDetail;
+  onSubmitSchedule?: (data: { schedule: ClassScheduleItem[] }) => Promise<unknown>;
+  onScheduleSaved?: () => Promise<unknown> | void;
 };
 
 function createScheduleRange(range?: Partial<Pick<ScheduleRangeForm, "from" | "to">>): ScheduleRangeForm {
@@ -82,13 +84,31 @@ function buildSchedulePayload(scheduleRanges: ScheduleRangeForm[]): ClassSchedul
   }, []);
 }
 
-export default function EditClassSchedulePopup({ open, onClose, classDetail }: Props) {
+export default function EditClassSchedulePopup({
+  open,
+  onClose,
+  classDetail,
+  onSubmitSchedule,
+  onScheduleSaved,
+}: Props) {
   if (!open) return null;
 
-  return <EditClassScheduleDialog onClose={onClose} classDetail={classDetail} />;
+  return (
+    <EditClassScheduleDialog
+      onClose={onClose}
+      classDetail={classDetail}
+      onSubmitSchedule={onSubmitSchedule}
+      onScheduleSaved={onScheduleSaved}
+    />
+  );
 }
 
-function EditClassScheduleDialog({ onClose, classDetail }: Omit<Props, "open">) {
+function EditClassScheduleDialog({
+  onClose,
+  classDetail,
+  onSubmitSchedule,
+  onScheduleSaved,
+}: Omit<Props, "open">) {
   const queryClient = useQueryClient();
   const [scheduleRanges, setScheduleRanges] = useState<ScheduleRangeForm[]>(() => {
     const normalized = normalizeSchedule(classDetail.schedule);
@@ -97,11 +117,14 @@ function EditClassScheduleDialog({ onClose, classDetail }: Omit<Props, "open">) 
 
   const updateMutation = useMutation({
     mutationFn: (data: { schedule: ClassScheduleItem[] }) =>
-      classApi.updateClassSchedule(classDetail.id, data),
+      onSubmitSchedule
+        ? onSubmitSchedule(data)
+        : classApi.updateClassSchedule(classDetail.id, data),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["class", "detail", classDetail.id] }),
         queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
+        Promise.resolve(onScheduleSaved?.()),
       ]);
     },
     onError: (err: unknown) => {
@@ -159,7 +182,7 @@ function EditClassScheduleDialog({ onClose, classDetail }: Omit<Props, "open">) 
         role="dialog"
         aria-modal="true"
         aria-labelledby="edit-class-schedule-title"
-        className={classEditorModalClassName}
+        className={`${classEditorModalClassName} overscroll-contain`}
       >
         <div className={classEditorModalHeaderClassName}>
           <h2 id="edit-class-schedule-title" className={classEditorModalTitleClassName}>
@@ -210,9 +233,11 @@ function EditClassScheduleDialog({ onClose, classDetail }: Omit<Props, "open">) 
                   <label className="flex flex-col gap-1 text-sm text-text-secondary">
                     <span className="text-[11px] uppercase tracking-wider text-text-muted">Bắt đầu</span>
                     <input
+                      name={`edit-class-schedule-from-${range.id}`}
                       type="time"
                       step={1}
                       value={range.from}
+                      autoComplete="off"
                       onChange={(e) => handleChangeRange(range.id, "from", e.target.value)}
                       className="rounded-md border border-border-default bg-bg-surface px-3 py-2 font-mono text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                     />
@@ -225,9 +250,11 @@ function EditClassScheduleDialog({ onClose, classDetail }: Omit<Props, "open">) 
                   <label className="flex flex-col gap-1 text-sm text-text-secondary">
                     <span className="text-[11px] uppercase tracking-wider text-text-muted">Kết thúc</span>
                     <input
+                      name={`edit-class-schedule-to-${range.id}`}
                       type="time"
                       step={1}
                       value={range.to}
+                      autoComplete="off"
                       onChange={(e) => handleChangeRange(range.id, "to", e.target.value)}
                       className="rounded-md border border-border-default bg-bg-surface px-3 py-2 font-mono text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                     />

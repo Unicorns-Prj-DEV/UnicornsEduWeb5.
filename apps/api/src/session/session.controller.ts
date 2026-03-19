@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -20,6 +21,7 @@ import {
 import { UserRole } from 'generated/enums';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import {
+  type SessionUnpaidSummaryItem,
   type SessionCreateDto,
   type SessionUpdateDto,
 } from 'src/dtos/session.dto';
@@ -61,6 +63,48 @@ export class SessionController {
   @ApiResponse({ status: 404, description: 'Session không tồn tại.' })
   async deleteSession(@Param('id') id: string) {
     return this.sessionService.deleteSession(id);
+  }
+
+  @Get('/staff/:staffId/unpaid')
+  @Roles(UserRole.admin)
+  @ApiOperation({
+    summary:
+      'Lấy tổng phụ cấp session chưa nhận theo staff trong N ngày gần nhất',
+  })
+  @ApiParam({ name: 'staffId', description: 'ID staff' })
+  @ApiQuery({
+    name: 'days',
+    required: false,
+    description: 'Số ngày gần nhất cần tổng hợp. Mặc định 14 ngày.',
+    example: 14,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Danh sách tổng phụ cấp chưa nhận theo lớp.',
+    type: Object,
+    isArray: true,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'days phải là số nguyên dương nếu được truyền vào.',
+  })
+  async getUnpaidSessionsByTeacherId(
+    @Param('staffId') teacherId: string,
+    @Query('days') days?: string,
+  ): Promise<SessionUnpaidSummaryItem[]> {
+    if (days == null) {
+      return this.sessionService.getUnpaidSessionsByTeacherId(teacherId);
+    }
+
+    const parsedDays = Number(days);
+    if (!Number.isInteger(parsedDays) || parsedDays < 1) {
+      throw new BadRequestException('days must be a positive integer.');
+    }
+
+    return this.sessionService.getUnpaidSessionsByTeacherId(
+      teacherId,
+      parsedDays,
+    );
   }
 
   @Get('/staff/:staffId')

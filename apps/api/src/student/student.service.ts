@@ -6,28 +6,89 @@ import {
   StudentListQueryDto,
   UpdateStudentAccountBalanceCreateDto,
   UpdateStudentBodyDto,
+  UpdateStudentClassesDto,
   UpdateStudentDto,
 } from 'src/dtos/student.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 
+const studentClassDetailInclude = {
+  include: {
+    class: {
+      select: {
+        id: true,
+        name: true,
+        tuitionPackageTotal: true,
+        tuitionPackageSession: true,
+        studentTuitionPerSession: true,
+      },
+    },
+  },
+} satisfies Prisma.StudentClassFindManyArgs;
+
 type StudentWithClasses = Prisma.StudentInfoGetPayload<{
   include: {
-    studentClasses: {
-      include: {
-        class: {
-          select: {
-            id: true;
-            name: true;
-          };
-        };
-      };
-    };
+    studentClasses: typeof studentClassDetailInclude;
   };
 }>;
 
+function normalizeNullableMoney(
+  value: number | null | undefined,
+): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return null;
+  }
+
+  return Math.floor(value);
+}
+
+function resolveDerivedTuitionPerSession(
+  packageTotal: number | null | undefined,
+  packageSession: number | null | undefined,
+): number | null {
+  if (
+    typeof packageTotal !== 'number' ||
+    !Number.isFinite(packageTotal) ||
+    typeof packageSession !== 'number' ||
+    !Number.isFinite(packageSession) ||
+    packageSession <= 0
+  ) {
+    return null;
+  }
+
+  return Math.round(packageTotal / packageSession);
+}
+
+function resolveEffectiveTuitionPerSession(options: {
+  customTuitionPerSession?: number | null;
+  classTuitionPerSession?: number | null;
+  effectivePackageTotal?: number | null;
+  effectivePackageSession?: number | null;
+}) {
+  return (
+    normalizeNullableMoney(options.customTuitionPerSession) ??
+    normalizeNullableMoney(options.classTuitionPerSession) ??
+    resolveDerivedTuitionPerSession(
+      options.effectivePackageTotal,
+      options.effectivePackageSession,
+    )
+  );
+}
+
+function hasCustomTuitionOverride(options: {
+  customTuitionPerSession?: number | null;
+  customTuitionPackageTotal?: number | null;
+  customTuitionPackageSession?: number | null;
+}) {
+  return (
+    normalizeNullableMoney(options.customTuitionPerSession) != null ||
+    normalizeNullableMoney(options.customTuitionPackageTotal) != null ||
+    normalizeNullableMoney(options.customTuitionPackageSession) != null
+  );
+}
+
 @Injectable()
 export class StudentService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   private serializeStudentListItem(student: StudentWithClasses) {
     return {
@@ -58,6 +119,55 @@ export class StudentService {
       parentPhone: student.parentPhone,
       goal: student.goal,
       dropOutDate: student.dropOutDate,
+      studentClasses: student.studentClasses.map((studentClass) => {
+        const customTuitionPerSession = normalizeNullableMoney(
+          studentClass.customStudentTuitionPerSession,
+        );
+        const customTuitionPackageTotal = normalizeNullableMoney(
+          studentClass.customTuitionPackageTotal,
+        );
+        const customTuitionPackageSession = normalizeNullableMoney(
+          studentClass.customTuitionPackageSession,
+        );
+        const effectiveTuitionPackageTotal =
+          customTuitionPackageTotal ??
+          normalizeNullableMoney(studentClass.class.tuitionPackageTotal);
+        const effectiveTuitionPackageSession =
+          customTuitionPackageSession ??
+          normalizeNullableMoney(studentClass.class.tuitionPackageSession);
+        const effectiveTuitionPerSession = resolveEffectiveTuitionPerSession({
+          customTuitionPerSession,
+          classTuitionPerSession: studentClass.class.studentTuitionPerSession,
+          effectivePackageTotal: effectiveTuitionPackageTotal,
+          effectivePackageSession: effectiveTuitionPackageSession,
+        });
+
+        return {
+          class: {
+            id: studentClass.class.id,
+            name: studentClass.class.name,
+          },
+          customTuitionPerSession,
+          customTuitionPackageTotal,
+          customTuitionPackageSession,
+          effectiveTuitionPerSession,
+          effectiveTuitionPackageTotal,
+          effectiveTuitionPackageSession,
+          tuitionPackageSource: hasCustomTuitionOverride({
+            customTuitionPerSession,
+            customTuitionPackageTotal,
+            customTuitionPackageSession,
+          })
+            ? 'custom'
+            : effectiveTuitionPackageTotal != null ||
+                effectiveTuitionPackageSession != null ||
+                normalizeNullableMoney(
+                  studentClass.class.studentTuitionPerSession,
+                ) != null
+              ? 'class'
+              : 'unset',
+        };
+      }),
     };
   }
 
@@ -117,43 +227,43 @@ export class StudentService {
     const where: Prisma.StudentInfoWhereInput = {
       ...(trimmedSearch
         ? {
-          fullName: {
-            contains: trimmedSearch,
-            mode: 'insensitive' as const,
-          },
-        }
+            fullName: {
+              contains: trimmedSearch,
+              mode: 'insensitive' as const,
+            },
+          }
         : {}),
       ...(trimmedSchool
         ? {
-          school: {
-            contains: trimmedSchool,
-            mode: 'insensitive' as const,
-          },
-        }
+            school: {
+              contains: trimmedSchool,
+              mode: 'insensitive' as const,
+            },
+          }
         : {}),
       ...(trimmedProvince
         ? {
-          province: {
-            contains: trimmedProvince,
-            mode: 'insensitive' as const,
-          },
-        }
+            province: {
+              contains: trimmedProvince,
+              mode: 'insensitive' as const,
+            },
+          }
         : {}),
       ...(statusFilter ? { status: statusFilter } : {}),
       ...(genderFilter ? { gender: genderFilter } : {}),
       ...(trimmedClassName
         ? {
-          studentClasses: {
-            some: {
-              class: {
-                name: {
-                  contains: trimmedClassName,
-                  mode: 'insensitive' as const,
+            studentClasses: {
+              some: {
+                class: {
+                  name: {
+                    contains: trimmedClassName,
+                    mode: 'insensitive' as const,
+                  },
                 },
               },
             },
-          },
-        }
+          }
         : {}),
     };
 
@@ -166,18 +276,13 @@ export class StudentService {
       where,
       skip,
       take: limit,
-      orderBy: [{ accountBalance: 'asc' }, { status: 'asc' }, { fullName: 'asc' }],
+      orderBy: [
+        { accountBalance: 'asc' },
+        { status: 'asc' },
+        { fullName: 'asc' },
+      ],
       include: {
-        studentClasses: {
-          include: {
-            class: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
+        studentClasses: studentClassDetailInclude,
       },
     });
 
@@ -195,16 +300,7 @@ export class StudentService {
     const student = await this.prisma.studentInfo.findUnique({
       where: { id },
       include: {
-        studentClasses: {
-          include: {
-            class: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
+        studentClasses: studentClassDetailInclude,
       },
     });
 
@@ -233,16 +329,7 @@ export class StudentService {
       where: { id },
       data: updateData,
       include: {
-        studentClasses: {
-          include: {
-            class: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
+        studentClasses: studentClassDetailInclude,
       },
     });
 
@@ -253,7 +340,9 @@ export class StudentService {
     return this.updateStudentById(data.id, data);
   }
 
-  async updateStudentAccountBalance(data: UpdateStudentAccountBalanceCreateDto) {
+  async updateStudentAccountBalance(
+    data: UpdateStudentAccountBalanceCreateDto,
+  ) {
     const student = await this.prisma.studentInfo.findUnique({
       where: { id: data.student_id },
     });
@@ -266,20 +355,80 @@ export class StudentService {
       where: { id: data.student_id },
       data: { accountBalance: { increment: data.amount } },
       include: {
-        studentClasses: {
-          include: {
-            class: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
+        studentClasses: studentClassDetailInclude,
       },
     });
 
     return this.serializeStudentDetail(updated);
+  }
+
+  async updateStudentClasses(id: string, dto: UpdateStudentClassesDto) {
+    const student = await this.prisma.studentInfo.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    const classIds = Array.from(new Set(dto.class_ids));
+    if (classIds.length > 0) {
+      const classes = await this.prisma.class.findMany({
+        where: {
+          id: {
+            in: classIds,
+          },
+        },
+        select: { id: true },
+      });
+
+      if (classes.length !== classIds.length) {
+        throw new NotFoundException('One or more classes not found');
+      }
+    }
+
+    const existingMemberships = await this.prisma.studentClass.findMany({
+      where: { studentId: id },
+      select: { classId: true },
+    });
+    const existingClassIds = new Set(
+      existingMemberships.map((membership) => membership.classId),
+    );
+    const classIdsToRemove = existingMemberships
+      .map((membership) => membership.classId)
+      .filter((classId) => !classIds.includes(classId));
+    const classIdsToAdd = classIds.filter(
+      (classId) => !existingClassIds.has(classId),
+    );
+
+    await this.prisma.$transaction(async (tx) => {
+      if (classIdsToRemove.length > 0) {
+        await tx.studentClass.deleteMany({
+          where: {
+            studentId: id,
+            classId: {
+              in: classIdsToRemove,
+            },
+          },
+        });
+      }
+
+      if (classIds.length === 0) {
+        return;
+      }
+
+      if (classIdsToAdd.length > 0) {
+        await tx.studentClass.createMany({
+          data: classIdsToAdd.map((classId) => ({
+            classId,
+            studentId: id,
+          })),
+        });
+      }
+    });
+
+    return this.getStudentById(id);
   }
 
   async deleteStudent(id: string) {

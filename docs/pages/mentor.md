@@ -1,5 +1,7 @@
 # Mentor – `/mentor`
 
+> Ghi chú runtime hiện tại: teacher workspace đang được phục vụ tạm qua `/staff` cho `staff.teacher`, gồm list lớp được assign và class detail cho sửa khung giờ + thao tác session không dính finance. `/mentor` vẫn là page plan cho workspace teacher chuyên biệt ở phase sau.
+
 ## Route and role
 
 - **Path:** `/mentor`

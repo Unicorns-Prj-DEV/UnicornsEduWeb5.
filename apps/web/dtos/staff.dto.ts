@@ -52,6 +52,56 @@ export interface StaffDetail {
     classAllowance?: StaffClassAllowanceItem[];
 }
 
+export interface StaffAssignableUser {
+    id: string;
+    email: string;
+    accountHandle: string;
+    province?: string | null;
+    roleType: string;
+    status: string;
+    fullName?: string | null;
+    hasStaffProfile: boolean;
+    staffId?: string | null;
+    isEligible: boolean;
+    ineligibleReason?: string | null;
+}
+
+export interface StaffIncomeAmountSummary {
+    total: number;
+    paid: number;
+    unpaid: number;
+}
+
+export interface StaffIncomeClassSummary extends StaffIncomeAmountSummary {
+    classId: string;
+    className: string;
+}
+
+export interface StaffIncomeRoleSummary extends StaffIncomeAmountSummary {
+    role: string;
+    label: string;
+}
+
+export interface StaffIncomeSummary {
+    recentUnpaidDays: number;
+    sessionMonthlyTotals: StaffIncomeAmountSummary;
+    sessionYearTotal: number;
+    classMonthlySummaries: StaffIncomeClassSummary[];
+    bonusMonthlyTotals: StaffIncomeAmountSummary;
+    otherRoleSummaries: StaffIncomeRoleSummary[];
+}
+
+export interface CreateStaffPayload {
+    full_name: string;
+    birth_date?: string;
+    university?: string;
+    high_school?: string;
+    specialization?: string;
+    bank_account?: string;
+    bank_qr_link?: string;
+    roles: string[];
+    user_id: string;
+}
 
 export interface StaffInfoDto {
     id: string;

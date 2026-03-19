@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import type { ClassListItem, ClassStatus, ClassType } from "@/dtos/class.dto";
 import type { StudentDetail } from "@/dtos/student.dto";
 import * as classApi from "@/lib/apis/class.api";
+import * as studentApi from "@/lib/apis/student.api";
 
 type Props = {
   open: boolean;
@@ -171,48 +172,15 @@ export default function EditStudentClassesPopup({
 
   const updateMutation = useMutation({
     mutationFn: async () => {
-      const nextMembership = new Set(selectedClasses.map((item) => item.id));
+      const nextClassIds = selectedClasses.map((item) => item.id);
+      const nextClassIdSet = new Set(nextClassIds);
       const changedClassIds = Array.from(
-        new Set([...currentClassIds, ...nextMembership]),
-      ).filter((classId) => currentClassIds.has(classId) !== nextMembership.has(classId));
+        new Set([...currentClassIds, ...nextClassIds]),
+      ).filter((classId) => currentClassIds.has(classId) !== nextClassIdSet.has(classId));
 
-      for (const classId of changedClassIds) {
-        const classDetail = await classApi.getClassById(classId);
-        const existingStudents = Array.from(
-          new Map(
-            (classDetail.students ?? []).map((classStudent) => [
-              classStudent.id,
-              {
-                id: classStudent.id,
-                ...(classStudent.customTuitionPerSession != null
-                  ? { custom_tuition_per_session: classStudent.customTuitionPerSession }
-                  : {}),
-                ...(classStudent.customTuitionPackageTotal != null
-                  ? { custom_tuition_package_total: classStudent.customTuitionPackageTotal }
-                  : {}),
-                ...(classStudent.customTuitionPackageSession != null
-                  ? { custom_tuition_package_session: classStudent.customTuitionPackageSession }
-                  : {}),
-              },
-            ]),
-          ).values(),
-        );
-        const shouldContainStudent = nextMembership.has(classId);
-        const nextStudents = shouldContainStudent
-          ? Array.from(
-              new Map(
-                [...existingStudents, { id: student.id }].map((classStudent) => [
-                  classStudent.id,
-                  classStudent,
-                ]),
-              ).values(),
-            )
-          : existingStudents.filter((classStudent) => classStudent.id !== student.id);
-
-        await classApi.updateClassStudents(classId, {
-          students: nextStudents,
-        });
-      }
+      await studentApi.updateStudentClasses(student.id, {
+        class_ids: nextClassIds,
+      });
 
       return changedClassIds;
     },
@@ -276,7 +244,7 @@ export default function EditStudentClassesPopup({
         role="dialog"
         aria-modal="true"
         aria-labelledby="edit-student-classes-title"
-        className="fixed inset-x-3 bottom-3 top-16 z-50 flex max-h-[calc(100vh-4.75rem)] flex-col overflow-hidden rounded-[1.75rem] border border-border-default bg-bg-surface shadow-2xl sm:inset-auto sm:left-1/2 sm:top-1/2 sm:max-h-[90vh] sm:w-[min(64rem,calc(100%-2rem))] sm:-translate-x-1/2 sm:-translate-y-1/2"
+        className="fixed inset-x-3 bottom-3 top-16 z-50 flex min-h-0 max-h-[calc(100dvh-4.75rem)] flex-col overflow-hidden rounded-[1.75rem] border border-border-default bg-bg-surface shadow-2xl sm:inset-auto sm:left-1/2 sm:top-1/2 sm:max-h-[90dvh] sm:w-[min(64rem,calc(100%-2rem))] sm:-translate-x-1/2 sm:-translate-y-1/2"
       >
         <div className="border-b border-border-default bg-[radial-gradient(circle_at_top_left,var(--ue-secondary),transparent_34%),linear-gradient(120deg,var(--ue-bg-surface),var(--ue-bg-secondary))] px-4 py-3.5 sm:px-6 sm:py-4">
           <div className="flex items-start justify-between gap-4">
@@ -314,9 +282,9 @@ export default function EditStudentClassesPopup({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
-          <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-            <section className="rounded-[1.5rem] border border-border-default bg-bg-secondary/40 p-4">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
+          <div className="grid min-h-0 gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+            <section className="rounded-[1.5rem] border border-border-default bg-bg-secondary/40 p-4 xl:flex xl:min-h-0 xl:flex-col">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
@@ -331,7 +299,7 @@ export default function EditStudentClassesPopup({
                 </div>
               </div>
 
-              <label className="mt-4 block">
+              <label className="mt-4 block shrink-0">
                 <span className="sr-only">Tìm kiếm lớp học</span>
                 <div className="relative">
                   <input
@@ -358,7 +326,7 @@ export default function EditStudentClassesPopup({
                 </div>
               </label>
 
-              <div className="mt-4 space-y-3">
+              <div className="mt-4 space-y-3 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-1">
                 {isClassSearchLoading ? (
                   Array.from({ length: 3 }).map((_, index) => (
                     <div
@@ -416,7 +384,7 @@ export default function EditStudentClassesPopup({
               </div>
             </section>
 
-            <section className="rounded-[1.5rem] border border-border-default bg-bg-primary p-4 shadow-sm">
+            <section className="rounded-[1.5rem] border border-border-default bg-bg-primary p-4 shadow-sm xl:flex xl:min-h-0 xl:flex-col">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
@@ -432,7 +400,7 @@ export default function EditStudentClassesPopup({
               </div>
 
               {selectedClasses.length > 0 ? (
-                <div className="mt-4 space-y-3">
+                <div className="mt-4 space-y-3 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-1">
                   {selectedClassesWithMeta.map((classItem) => {
                     const isNew = !currentClassIds.has(classItem.id);
 
@@ -483,12 +451,12 @@ export default function EditStudentClassesPopup({
                   })}
                 </div>
               ) : (
-                <div className="mt-4 rounded-2xl border border-dashed border-border-default bg-bg-secondary/40 p-5 text-sm text-text-secondary">
+                <div className="mt-4 rounded-2xl border border-dashed border-border-default bg-bg-secondary/40 p-5 text-sm text-text-secondary xl:flex-1">
                   Học sinh sẽ không thuộc lớp nào sau khi lưu thay đổi này.
                 </div>
               )}
 
-              <div className="mt-5 grid gap-3 md:grid-cols-2">
+              <div className="mt-5 grid gap-3 md:grid-cols-2 xl:shrink-0">
                 <div className="rounded-2xl border border-border-default bg-bg-secondary/40 p-4">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
                     Sẽ thêm

@@ -159,7 +159,7 @@ export class UpdateClassBasicInfoDto extends PartialType(
     'tuition_package_total',
     'tuition_package_session',
   ]),
-) { }
+) {}
 
 /** DTO for PATCH /class/:id/teachers – replace teachers list */
 export class UpdateClassTeachersDto {
@@ -199,6 +199,24 @@ export class UpdateClassScheduleDto {
   schedule: ScheduleSlotDto[];
 }
 
+/** DTO for POST /staff-ops/classes – minimal class metadata only */
+export class CreateStaffOpsClassDto extends PickType(CreateClassDto, [
+  'name',
+  'type',
+  'status',
+] as const) {
+  @ApiPropertyOptional({
+    description: 'Class schedule array { from, to } in HH:mm:ss',
+    type: [ScheduleSlotDto],
+    example: [{ from: '19:00:00', to: '20:30:00' }],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ScheduleSlotDto)
+  schedule?: ScheduleSlotDto[];
+}
+
 export class StudentClassCreateDto {
   @ApiProperty({ description: 'Student id', example: 'uuid' })
   @IsUUID()
@@ -229,12 +247,14 @@ export class StudentClassCreateDto {
 /** DTO for PATCH /class/:id/students – replace students list */
 export class UpdateClassStudentsDto {
   @ApiProperty({
-    description: 'Student ids in the class. Replaces current list.',
-    type: [String],
-    example: ['uuid-1', 'uuid-2'],
+    description:
+      'Student memberships in the class. Replaces current list and lets backend derive effective tuition overrides.',
+    type: [StudentClassCreateDto],
+    example: [{ id: 'uuid-1', custom_tuition_package_total: 3600000 }],
   })
   @IsArray()
-  @IsUUID('4', { each: true })
+  @ValidateNested({ each: true })
+  @Type(() => StudentClassCreateDto)
   students: StudentClassCreateDto[];
 }
 

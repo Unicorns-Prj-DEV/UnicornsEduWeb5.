@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsArray,
   IsDateString,
   IsEmail,
   IsEnum,
@@ -191,4 +192,16 @@ export class UpdateStudentAccountBalanceCreateDto {
   @ApiProperty({ description: 'Amount' })
   @IsNumber()
   amount: number;
+}
+
+export class UpdateStudentClassesDto {
+  @ApiProperty({
+    description:
+      'Class ids assigned to the student. Replaces current memberships.',
+    type: [String],
+    example: ['uuid-1', 'uuid-2'],
+  })
+  @IsArray()
+  @IsUUID('4', { each: true })
+  class_ids: string[];
 }

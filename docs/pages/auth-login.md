@@ -10,7 +10,7 @@ Cho phép người dùng đăng nhập bằng email/password hoặc Google OAuth
 - Nếu nhận `accessToken` + `refreshToken`, set cookie client-side rồi gọi `authApi.getProfile` để lấy role.
 - Redirect theo role:
   - `admin` -> `/admin`
-  - `staff` -> `/mentor`
+  - `staff` -> `/staff`
   - `student` -> `/student`
   - fallback -> `/`
 - Trường hợp query `error=google_no_user`: hiển thị `toast.error`.

@@ -3,12 +3,12 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDebouncedCallback } from "use-debounce";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as staffApi from "@/lib/apis/staff.api";
 import { ROLE_LABELS } from "@/lib/staff.constants";
-import { StaffListTableSkeleton } from "@/components/admin/staff";
-import { StaffListResponse, StaffListItem, StaffStatus } from "@/dtos/staff.dto";
+import { AddTutorPopup, StaffListTableSkeleton } from "@/components/admin/staff";
+import { StaffListResponse, StaffStatus } from "@/dtos/staff.dto";
 
 const PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE_MS = 1000;
@@ -43,6 +43,7 @@ export default function AdminStaffPage() {
   const roleMenuRef = useRef<HTMLDivElement | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [staffToDelete, setStaffToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [addTutorPopupOpen, setAddTutorPopupOpen] = useState(false);
   const [filterDraft, setFilterDraft] = useState({
     province: "",
     university: "",
@@ -187,34 +188,17 @@ export default function AdminStaffPage() {
         role: filterRole.trim() || undefined,
         className: filterClass.trim() || undefined,
       }),
+    placeholderData: keepPreviousData,
   });
 
-  const list = useMemo<StaffListItem[]>(() => staffListResponse?.data ?? [], [staffListResponse]);
-
-  const filteredList = useMemo(() => {
-    const roleNeedle = filterRole.trim().toLowerCase();
-    const classNeedle = filterClass.trim().toLowerCase();
-    if (!roleNeedle && !classNeedle) return list;
-
-    return list.filter((item) => {
-      const roleMatched = !roleNeedle
-        ? true
-        : (item.roles ?? []).some((role) => role.toLowerCase() === roleNeedle);
-      const classMatched = !classNeedle
-        ? true
-        : (item.classTeachers ?? []).some((ct) =>
-            (ct.class.name ?? "").trim().toLowerCase().includes(classNeedle),
-          );
-      return roleMatched && classMatched;
-    });
-  }, [list, filterRole, filterClass]);
-
+  const staffRows = staffListResponse?.data ?? [];
   const total = staffListResponse?.meta?.total ?? 0;
+  const currentPage = staffListResponse?.meta?.page ?? page;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const buildListParams = () => {
     const params = new URLSearchParams();
-    params.set("page", page.toString());
+    params.set("page", currentPage.toString());
     if (search) params.set("search", search);
     if (filterProvince) params.set("province", filterProvince);
     if (filterUniversity) params.set("university", filterUniversity);
@@ -226,13 +210,13 @@ export default function AdminStaffPage() {
 
   const handlePreviousPage = () => {
     const params = buildListParams();
-    params.set("page", (page - 1).toString());
+    params.set("page", (currentPage - 1).toString());
     router.replace(`${pathname}?${params.toString()}`);
   };
 
   const handleNextPage = () => {
     const params = buildListParams();
-    params.set("page", (page + 1).toString());
+    params.set("page", (currentPage + 1).toString());
     router.replace(`${pathname}?${params.toString()}`);
   };
 
@@ -282,10 +266,25 @@ export default function AdminStaffPage() {
           <div className="pointer-events-none absolute -bottom-10 left-16 size-28 rounded-full bg-warning/10 blur-2xl" aria-hidden />
 
           <div className="relative">
-            <h1 className="text-xl font-semibold text-text-primary sm:text-2xl">Nhân sự</h1>
-            <p className="mt-1 text-sm text-text-secondary">
-              Quản lý đội ngũ, theo dõi vai trò và lớp phụ trách tập trung.
-            </p>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <h1 className="text-xl font-semibold text-text-primary sm:text-2xl">Nhân sự</h1>
+                <p className="mt-1 text-sm text-text-secondary">
+                  Quản lý đội ngũ, theo dõi vai trò và lớp phụ trách tập trung.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setAddTutorPopupOpen(true)}
+                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse shadow-[0_14px_35px_-18px_rgba(37,99,235,0.7)] transition-all duration-200 hover:bg-primary-hover hover:shadow-[0_18px_40px_-18px_rgba(37,99,235,0.8)] focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              >
+                <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Thêm nhân sự
+              </button>
+            </div>
 
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
               <label className="block min-w-0 flex-1" htmlFor="staff-search-input">
@@ -534,6 +533,11 @@ export default function AdminStaffPage() {
           </>
         ) : null}
 
+        <AddTutorPopup
+          open={addTutorPopupOpen}
+          onClose={() => setAddTutorPopupOpen(false)}
+        />
+
         <div className="min-w-0 flex-1 overflow-auto">
           {isLoading ? (
             <StaffListTableSkeleton rows={5} />
@@ -545,7 +549,7 @@ export default function AdminStaffPage() {
                   "Không tải được danh sách nhân sự."}
               </p>
             </div>
-          ) : filteredList.length === 0 ? (
+          ) : staffRows.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-text-muted" aria-live="polite">
               <p className="text-sm">
                 {search || filterProvince || filterUniversity || filterHighSchool || filterRole || filterClass
@@ -556,7 +560,7 @@ export default function AdminStaffPage() {
           ) : (
             <>
               <div className="block space-y-3 md:hidden" role="list" aria-label="Danh sách nhân sự">
-                {filteredList.map((row) => {
+                {staffRows.map((row) => {
                   const unpaid = row.monthlyStats?.[0]?.totalUnpaidAll;
                   const classItems =
                     row.classTeachers
@@ -670,7 +674,7 @@ export default function AdminStaffPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredList.map((row) => {
+                    {staffRows.map((row) => {
                       const unpaid = row.monthlyStats?.[0]?.totalUnpaidAll;
                       const classItems =
                         row.classTeachers
@@ -779,23 +783,23 @@ export default function AdminStaffPage() {
                   aria-label="Phân trang"
                 >
                   <p className="text-sm text-text-muted" aria-live="polite">
-                    Hiển thị {(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, total)} trong {total} nhân sự
+                    Hiển thị {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, total)} trong {total} nhân sự
                   </p>
                   <div className="grid grid-cols-3 items-center gap-2 sm:flex sm:items-center">
                     <button
                       type="button"
                       className="min-h-11 rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50 sm:py-2"
-                      disabled={page <= 1}
+                      disabled={currentPage <= 1}
                       aria-label="Trang trước"
                       onClick={handlePreviousPage}
                     >
                       Trước
                     </button>
-                    <span className="text-center tabular-nums text-sm text-text-secondary">{page}/{totalPages}</span>
+                    <span className="text-center tabular-nums text-sm text-text-secondary">{currentPage}/{totalPages}</span>
                     <button
                       type="button"
                       className="min-h-11 rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50 sm:py-2"
-                      disabled={page >= totalPages}
+                      disabled={currentPage >= totalPages}
                       aria-label="Trang sau"
                       onClick={handleNextPage}
                     >

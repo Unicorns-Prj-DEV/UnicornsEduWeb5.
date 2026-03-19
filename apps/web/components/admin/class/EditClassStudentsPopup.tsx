@@ -31,6 +31,7 @@ type Props = {
 type SelectedStudent = {
   id: string;
   name: string;
+  customTuitionPerSession?: number;
   customTuitionPackageTotal?: number;
   customTuitionPackageSession?: number;
 };
@@ -82,10 +83,9 @@ function getInitialSelectedStudents(classDetail: ClassDetail): SelectedStudent[]
     .map((student) => ({
       id: student.id,
       name: student.fullName?.trim() ?? "—",
-      customTuitionPackageTotal:
-        student.customTuitionPackageTotal ?? classDetail.tuitionPackageTotal ?? undefined,
-      customTuitionPackageSession:
-        student.customTuitionPackageSession ?? classDetail.tuitionPackageSession ?? undefined,
+      customTuitionPerSession: student.customTuitionPerSession ?? undefined,
+      customTuitionPackageTotal: student.customTuitionPackageTotal ?? undefined,
+      customTuitionPackageSession: student.customTuitionPackageSession ?? undefined,
     }));
 }
 
@@ -96,30 +96,17 @@ function parseOptionalIntegerInput(rawValue: string): number | undefined | null 
   return Number(trimmed);
 }
 
-function calculateCustomTuitionPerSession(
-  packageTotal?: number,
-  packageSession?: number,
-): number | undefined {
-  if (packageTotal == null || packageSession == null || packageSession <= 0) return undefined;
-  return Math.round(packageTotal / packageSession);
-}
-
 function toStudentPayload(student: SelectedStudent): UpdateClassStudentsPayload["students"][number] {
-  const customTuitionPerSession = calculateCustomTuitionPerSession(
-    student.customTuitionPackageTotal,
-    student.customTuitionPackageSession,
-  );
-
   return {
     id: student.id,
+    ...(student.customTuitionPerSession != null
+      ? { custom_tuition_per_session: student.customTuitionPerSession }
+      : {}),
     ...(student.customTuitionPackageTotal != null
       ? { custom_tuition_package_total: student.customTuitionPackageTotal }
       : {}),
     ...(student.customTuitionPackageSession != null
       ? { custom_tuition_package_session: student.customTuitionPackageSession }
-      : {}),
-    ...(customTuitionPerSession != null
-      ? { custom_tuition_per_session: customTuitionPerSession }
       : {}),
   };
 }
