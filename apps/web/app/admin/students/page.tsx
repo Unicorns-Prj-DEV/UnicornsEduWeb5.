@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { useQuery } from "@tanstack/react-query";
 import { StudentListTableSkeleton } from "@/components/admin/student";
+import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import {
   StudentGender,
   StudentListItem,
@@ -511,22 +512,18 @@ export default function AdminStudentsPage() {
 
                 <label className="block">
                   <span className="mb-1 block text-sm font-medium text-text-secondary">Giới tính</span>
-                  <select
+                  <UpgradedSelect
+                    name="students-filter-gender"
                     value={filterDraft.gender}
-                    onChange={(event) =>
+                    onValueChange={(nextValue) =>
                       setFilterDraft((current) => ({
                         ...current,
-                        gender: event.target.value as "" | StudentGender,
+                        gender: nextValue as "" | StudentGender,
                       }))
                     }
-                    className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  >
-                    {GENDER_OPTIONS.map((option) => (
-                      <option key={option.value || "all"} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                    options={GENDER_OPTIONS}
+                    buttonClassName="w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  />
                 </label>
 
                 <label className="block">

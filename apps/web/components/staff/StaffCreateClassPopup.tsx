@@ -3,6 +3,7 @@
 import { useEffect, useState, type SyntheticEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type { ClassScheduleItem, ClassStatus, ClassType } from "@/dtos/class.dto";
 import type { StaffOpsCreateClassPayload } from "@/dtos/staff-ops.dto";
 import * as staffOpsApi from "@/lib/apis/staff-ops.api";
@@ -226,34 +227,24 @@ export default function StaffCreateClassPopup({
 
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
                 <span>Loại lớp</span>
-                <select
+                <UpgradedSelect
                   name="staff-create-class-type"
                   value={type}
-                  onChange={(event) => setType(event.target.value as ClassType)}
-                  className="rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                >
-                  {TYPE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={(nextValue) => setType(nextValue as ClassType)}
+                  options={TYPE_OPTIONS}
+                  buttonClassName="rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                />
               </label>
 
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
                 <span>Trạng thái</span>
-                <select
+                <UpgradedSelect
                   name="staff-create-class-status"
                   value={status}
-                  onChange={(event) => setStatus(event.target.value as ClassStatus)}
-                  className="rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                >
-                  {STATUS_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={(nextValue) => setStatus(nextValue as ClassStatus)}
+                  options={STATUS_OPTIONS}
+                  buttonClassName="rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                />
               </label>
             </div>
           </section>

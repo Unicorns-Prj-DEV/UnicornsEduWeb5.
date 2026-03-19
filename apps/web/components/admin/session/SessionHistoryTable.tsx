@@ -13,6 +13,7 @@ import { ClassDetail } from "@/dtos/class.dto";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { formatCurrency } from "@/lib/class.helpers";
 import RichTextEditor from "@/components/ui/RichTextEditor";
+import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import * as classApi from "@/lib/apis/class.api";
 import * as sessionApi from "@/lib/apis/session.api";
 
@@ -152,6 +153,13 @@ function renderSessionTime(session: SessionItem): string {
   }
 
   return start !== "—" ? start : end;
+}
+
+function renderSessionDeleteSummary(session: SessionItem): string {
+  const date = formatDateOnly(session.date);
+  const time = renderSessionTime(session);
+
+  return time !== "—" ? `${date} (${time})` : date;
 }
 
 function renderSessionStatus(
@@ -319,6 +327,7 @@ export default function SessionHistoryTable({
   const showActionsColumn = showActionsColumnProp ?? Boolean(onSessionUpdated);
   const showDeleteAction = showActionsColumn && allowDeleteSession;
   const [editingSession, setEditingSession] = useState<SessionItem | null>(null);
+  const [sessionToDelete, setSessionToDelete] = useState<SessionItem | null>(null);
   const [editDate, setEditDate] = useState("");
   const [editStartTime, setEditStartTime] = useState("");
   const [editEndTime, setEditEndTime] = useState("");
@@ -449,10 +458,22 @@ export default function SessionHistoryTable({
   });
 
   const handleDeleteClick = (session: SessionItem) => {
-    const dateStr = formatDateOnly(session.date);
-    const timeStr = renderSessionTime(session);
-    if (window.confirm(`Bạn có chắc muốn xóa buổi học ${dateStr} ${timeStr !== "—" ? `(${timeStr})` : ""}? Hành động này không thể hoàn tác.`)) {
-      deleteMutation.mutate(session.id);
+    setSessionToDelete(session);
+  };
+
+  const closeDeleteConfirm = () => {
+    if (deleteMutation.isPending) return;
+    setSessionToDelete(null);
+  };
+
+  const handleDeleteConfirmed = async () => {
+    if (!sessionToDelete || deleteMutation.isPending) return;
+
+    try {
+      await deleteMutation.mutateAsync(sessionToDelete.id);
+      setSessionToDelete(null);
+    } catch {
+      // Keep the popup open so the user can retry or cancel after seeing the toast.
     }
   };
 
@@ -1017,6 +1038,74 @@ export default function SessionHistoryTable({
         </table>
       </div>
 
+      {sessionToDelete ? (
+        <>
+          <div
+            className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-[1px]"
+            aria-hidden
+            onClick={closeDeleteConfirm}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-session-title"
+            className="fixed left-1/2 top-1/2 z-[70] w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border-default bg-bg-surface p-4 shadow-2xl sm:p-5"
+          >
+            <div className="flex items-start gap-3">
+              <div className="mt-1 flex size-9 items-center justify-center rounded-full bg-error/10 text-error">
+                <svg
+                  className="size-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  aria-hidden
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v4m0 4h.01M5.1 19h13.8a2 2 0 001.79-2.89L13.79 4.79a2 2 0 00-3.58 0L3.31 16.11A2 2 0 005.1 19z"
+                  />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2
+                  id="delete-session-title"
+                  className="text-base font-semibold text-text-primary"
+                >
+                  Xóa buổi học?
+                </h2>
+                <p className="mt-1 text-sm text-text-secondary">
+                  Bạn có chắc muốn xóa buổi học{" "}
+                  <span className="font-semibold text-text-primary">
+                    {renderSessionDeleteSummary(sessionToDelete)}
+                  </span>
+                  ? Hành động này không thể hoàn tác.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeDeleteConfirm}
+                className="min-h-10 flex-1 rounded-md border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:flex-none sm:px-5"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirmed}
+                disabled={deleteMutation.isPending}
+                className="min-h-10 flex-1 rounded-md border border-error bg-error px-4 py-2.5 text-sm font-medium text-text-inverse shadow-sm transition-colors hover:bg-error/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60 sm:flex-none sm:px-5"
+              >
+                {deleteMutation.isPending ? "Đang xóa…" : "Xóa buổi học"}
+              </button>
+            </div>
+          </div>
+        </>
+      ) : null}
+
       {editingSession && (
         <>
           <div
@@ -1100,26 +1189,18 @@ export default function SessionHistoryTable({
                         {showTeacherInput ? (
                           <label className={`flex flex-col gap-1 text-sm text-text-secondary ${isWideEditor ? "xl:col-span-2" : ""}`}>
                             <span>Gia sư phụ trách</span>
-                            <select
+                            <UpgradedSelect
                               name="edit-session-teacher"
                               value={editTeacherId}
-                              onChange={(e) => setEditTeacherId(e.target.value)}
+                              onValueChange={setEditTeacherId}
                               disabled={teachersLoading}
-                              className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60"
-                            >
-                              {teachersLoading ? (
-                                <option value="">Đang tải…</option>
-                              ) : (
-                                <>
-                                  <option value="">Chọn gia sư</option>
-                                  {teachersList.map((t) => (
-                                    <option key={t.id} value={t.id}>
-                                      {t.fullName?.trim() || "Gia sư"}
-                                    </option>
-                                  ))}
-                                </>
-                              )}
-                            </select>
+                              options={teachersList.map((teacher) => ({
+                                value: teacher.id,
+                                label: teacher.fullName?.trim() || "Gia sư",
+                              }))}
+                              placeholder={teachersLoading ? "Đang tải…" : "Chọn gia sư"}
+                              buttonClassName="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                            />
                           </label>
                         ) : null}
 
@@ -1129,18 +1210,13 @@ export default function SessionHistoryTable({
                               }`}
                           >
                             <span>Trạng thái thanh toán</span>
-                            <select
+                            <UpgradedSelect
                               name="edit-session-payment-status"
                               value={editPaymentStatus}
-                              onChange={(e) => setEditPaymentStatus(e.target.value)}
-                              className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                            >
-                              {PAYMENT_STATUS_OPTIONS.map((opt) => (
-                                <option key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </option>
-                              ))}
-                            </select>
+                              onValueChange={setEditPaymentStatus}
+                              options={PAYMENT_STATUS_OPTIONS}
+                              buttonClassName="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                            />
                           </label>
                         ) : null}
 
@@ -1341,23 +1417,18 @@ export default function SessionHistoryTable({
                                     <div className={`mt-4 grid gap-3 ${allowFinancialEdits ? "sm:grid-cols-2" : ""}`}>
                                       <label className="flex flex-col gap-1 text-sm text-text-secondary">
                                         <span>Trạng thái</span>
-                                        <select
+                                        <UpgradedSelect
                                           name={`edit-session-attendance-status-${item.studentId}`}
                                           value={item.status}
-                                          onChange={(e) =>
+                                          onValueChange={(nextValue) =>
                                             setAttendanceStatus(
                                               item.studentId,
-                                              e.target.value as SessionAttendanceStatus,
+                                              nextValue as SessionAttendanceStatus,
                                             )
                                           }
-                                          className="min-h-11 w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                                        >
-                                          {ATTENDANCE_STATUS_OPTIONS.map((opt) => (
-                                            <option key={opt.value} value={opt.value}>
-                                              {opt.label}
-                                            </option>
-                                          ))}
-                                        </select>
+                                          options={ATTENDANCE_STATUS_OPTIONS}
+                                          buttonClassName="min-h-11 w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                        />
                                       </label>
 
                                       {allowFinancialEdits ? (
@@ -1428,23 +1499,18 @@ export default function SessionHistoryTable({
                                     >
                                       <td className="px-4 py-3 text-text-primary">{item.fullName}</td>
                                       <td className="px-4 py-3">
-                                        <select
+                                        <UpgradedSelect
                                           name={`edit-session-attendance-status-desktop-${item.studentId}`}
                                           value={item.status}
-                                          onChange={(e) =>
+                                          onValueChange={(nextValue) =>
                                             setAttendanceStatus(
                                               item.studentId,
-                                              e.target.value as SessionAttendanceStatus,
+                                              nextValue as SessionAttendanceStatus,
                                             )
                                           }
-                                          className="w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                                        >
-                                          {ATTENDANCE_STATUS_OPTIONS.map((opt) => (
-                                            <option key={opt.value} value={opt.value}>
-                                              {opt.label}
-                                            </option>
-                                          ))}
-                                        </select>
+                                          options={ATTENDANCE_STATUS_OPTIONS}
+                                          buttonClassName="w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                        />
                                       </td>
                                       <td className="px-4 py-3">
                                         <input

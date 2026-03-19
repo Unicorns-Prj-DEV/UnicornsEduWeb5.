@@ -3,6 +3,7 @@
 import { useState, type SyntheticEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type { StudentDetail, StudentGender, StudentStatus } from "@/dtos/student.dto";
 import * as studentApi from "@/lib/apis/student.api";
 
@@ -227,32 +228,24 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
 
                 <label className="flex flex-col gap-1 text-sm text-text-secondary">
                   <span>Giới tính</span>
-                  <select
+                  <UpgradedSelect
+                    name="student-gender"
                     value={gender}
-                    onChange={(event) => setGender(event.target.value as StudentGender)}
-                    className="rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  >
-                    {GENDER_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                    onValueChange={(nextValue) => setGender(nextValue as StudentGender)}
+                    options={GENDER_OPTIONS}
+                    buttonClassName="rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  />
                 </label>
 
                 <label className="flex flex-col gap-1 text-sm text-text-secondary">
                   <span>Trạng thái</span>
-                  <select
+                  <UpgradedSelect
+                    name="student-status"
                     value={status}
-                    onChange={(event) => setStatus(event.target.value as StudentStatus)}
-                    className="rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  >
-                    {STATUS_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                    onValueChange={(nextValue) => setStatus(nextValue as StudentStatus)}
+                    options={STATUS_OPTIONS}
+                    buttonClassName="rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  />
                 </label>
 
                 <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">

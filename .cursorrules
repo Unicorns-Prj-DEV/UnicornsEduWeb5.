@@ -38,6 +38,8 @@ You are working in the UnicornsEduWeb5 monorepo.
 - **Mandatory:** Always extract and reuse UI into reusable React components when markup/logic repeats. Follow React best practices: small focused components, clear responsibilities, and composability.
 - **Mandatory (shadcn/ui first):** In `apps/web`, prefer using `shadcn/ui` components instead of hand-coding new UI components from scratch.
 - **shadcn/ui extension rule:** When customization is needed, compose/extend existing shadcn components first; hand-code a new component only when shadcn cannot satisfy a concrete requirement.
+- **Mandatory (upgraded dropdowns):** For simple single-select dropdowns in `apps/web`, always use the shared `apps/web/components/ui/UpgradedSelect.tsx` instead of native `<select>`.
+- **Dropdown exception rule:** Only keep or build a custom combobox/listbox when the UX genuinely needs search, multi-select, async suggestions, or richer option content than a simple dropdown.
 - **Mobile-first (Mandatory):** **ALWAYS CODE MOBILE-FIRST**. Design and implement UI for small screens first, then progressively enhance for tablet/desktop breakpoints.
 - Validate request/response DTOs with a solution appropriate to each module (not mandatory to use **class-validator**/**class-transformer**).
 - **Mandatory (DTO/Enums location):** All frontend DTOs and Enums must be defined in `apps/web/dtos/`. Do not define local DTO/Enum types inside `apps/web/lib/apis/*` or page/component files.

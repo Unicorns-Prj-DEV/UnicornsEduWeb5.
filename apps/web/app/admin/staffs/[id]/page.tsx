@@ -166,7 +166,6 @@ export default function AdminStaffDetailPage() {
     placeholderData: keepPreviousData,
   });
 
-  const recentUnpaidHint = `Riêng cột "Chưa nhận" chỉ tính trong ${incomeSummary?.recentUnpaidDays ?? RECENT_UNPAID_DAYS} ngày gần nhất tính đến hôm nay.`;
 
   const handleSessionUpdated = useCallback(() => {
     queryClient.invalidateQueries({
@@ -715,9 +714,6 @@ export default function AdminStaffDetailPage() {
               <p className="text-text-muted">Chưa gán lớp nào.</p>
             ) : (
               <>
-                <p className="mb-3 text-sm text-text-muted">
-                  Số liệu phụ cấp theo {selectedMonthLabel}. {recentUnpaidHint}
-                </p>
                 <div className="space-y-3 md:hidden">
                   {classMonthlySummaries.map((item) => {
                     return (
@@ -796,7 +792,6 @@ export default function AdminStaffDetailPage() {
               onDeleteBonus={(bid) => deleteBonusMutation.mutate(bid)}
               canManage
             />
-            <p className="text-xs text-text-muted">{recentUnpaidHint}</p>
             {isBonusLoading ? (
               <p className="text-sm text-text-muted" aria-live="polite">
                 Đang tải dữ liệu thưởng...
@@ -817,9 +812,6 @@ export default function AdminStaffDetailPage() {
             }
             return (
               <>
-                <p className="mb-3 text-sm text-text-muted">
-                  Tổng nhận và đã nhận theo {selectedMonthLabel}. {recentUnpaidHint}
-                </p>
                 <div className="space-y-3 md:hidden">
                   {otherRoleSummaries.map((item) => (
                     <div
@@ -923,6 +915,7 @@ export default function AdminStaffDetailPage() {
                 sessions={sessionsInCurrentMonth}
                 entityMode="class"
                 emptyText="Không có buổi học trong tháng này."
+                editorLayout="wide"
                 onSessionUpdated={handleSessionUpdated}
                 getTeachersForClass={getTeachersForClass}
                 getClassStudents={getClassStudents}

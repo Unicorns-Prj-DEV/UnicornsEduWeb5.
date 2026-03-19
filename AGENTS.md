@@ -54,6 +54,8 @@ If you change project workflow/conventions for agents (commands, required checks
 - **Mock data for UI-first work (preferred)**: if backend data is not required yet, create page-local mock data directly inside the relevant `apps/web/app/**/page.tsx` to render UI immediately. When switching to real data, replace the mock with TanStack Query + DTOs in `apps/web/dtos/`.
 - **Notifications**: use **Sonner** for success/error toasts (avoid inline alert blocks unless explicitly required).
 - **UI components**: prefer **shadcn/ui** components; compose/extend before hand-rolling new components.
+- **Dropdowns**: for simple single-select dropdowns, use the shared upgraded dropdown at `apps/web/components/ui/UpgradedSelect.tsx` instead of native `<select>`.
+  - Keep a custom combobox/listbox only when the UX truly needs search, multi-select, async suggestions, or richer option content.
 - **Mobile-first**: implement for small screens first, then add larger breakpoints.
 - **DTOs/enums location**: define all frontend DTOs/enums in `apps/web/dtos/` (do not define ad-hoc types in pages or `lib/apis/*`).
 

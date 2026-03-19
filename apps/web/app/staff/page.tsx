@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { useQuery } from "@tanstack/react-query";
+import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type { ClassListResponse, ClassStatus, ClassType } from "@/dtos/class.dto";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as staffOpsApi from "@/lib/apis/staff-ops.api";
@@ -199,44 +200,34 @@ export default function StaffOperationsPage() {
 
           <label className="flex flex-col gap-1 text-sm text-text-secondary">
             <span>Loại lớp</span>
-            <select
+            <UpgradedSelect
               name="class-type-filter"
               value={type}
-              onChange={(event) =>
+              onValueChange={(nextValue) =>
                 replaceParams((params) => {
-                  params.set("type", event.target.value);
+                  params.set("type", nextValue);
                   params.set("page", "1");
                 })
               }
-              className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-            >
-              {TYPE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              options={TYPE_OPTIONS}
+              buttonClassName="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            />
           </label>
 
           <label className="flex flex-col gap-1 text-sm text-text-secondary">
             <span>Trạng thái</span>
-            <select
+            <UpgradedSelect
               name="class-status-filter"
               value={status}
-              onChange={(event) =>
+              onValueChange={(nextValue) =>
                 replaceParams((params) => {
-                  params.set("status", event.target.value);
+                  params.set("status", nextValue);
                   params.set("page", "1");
                 })
               }
-              className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-            >
-              {STATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              options={STATUS_OPTIONS}
+              buttonClassName="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            />
           </label>
         </div>
       </section>

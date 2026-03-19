@@ -3,7 +3,8 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDebouncedCallback } from "use-debounce";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import * as classApi from "@/lib/apis/class.api";
 import { AddClassPopup, ClassListTableSkeleton } from "@/components/admin/class";
 import { ClassListResponse, ClassStatus, ClassType } from "@/dtos/class.dto";
@@ -80,6 +81,7 @@ type ClassRow = {
 
 export default function AdminClassesPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -90,6 +92,8 @@ export default function AdminClassesPage() {
   const [searchInput, setSearchInput] = useState(search);
   const [addPopupOpen, setAddPopupOpen] = useState(false);
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [classToDelete, setClassToDelete] = useState<{ id: string; name: string } | null>(null);
   const typeMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -190,6 +194,44 @@ export default function AdminClassesPage() {
   const handleSelectType = (nextType: "" | ClassType) => {
     handleFilterChange({ type: nextType });
     setTypeMenuOpen(false);
+  };
+
+  const deleteMutation = useMutation({
+    mutationFn: ({ id }: { id: string }) => classApi.deleteClassById(id),
+    onSuccess: async () => {
+      toast.success("Đã xóa lớp học.");
+      await queryClient.invalidateQueries({ queryKey: ["class", "list"] });
+      setDeleteConfirmOpen(false);
+      setClassToDelete(null);
+    },
+    onError: (err: unknown) => {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (err as Error)?.message ??
+        "Không thể xóa lớp học.";
+      toast.error(message);
+    },
+  });
+
+  const openDeleteConfirm = (id: string, name: string) => {
+    setClassToDelete({ id, name });
+    setDeleteConfirmOpen(true);
+  };
+
+  const closeDeleteConfirm = () => {
+    if (deleteMutation.isPending) return;
+    setDeleteConfirmOpen(false);
+    setClassToDelete(null);
+  };
+
+  const handleDeleteConfirmed = async () => {
+    if (!classToDelete) return;
+
+    try {
+      await deleteMutation.mutateAsync({ id: classToDelete.id });
+    } catch {
+      // handled in onError
+    }
   };
 
   useEffect(() => {
@@ -341,23 +383,54 @@ export default function AdminClassesPage() {
             <>
               <div className="space-y-3 sm:hidden">
                 {list.map((row) => (
-                  <button
+                  <article
                     key={row.id}
-                    type="button"
-                    className="w-full rounded-xl border border-border-default bg-bg-surface p-3 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    className="rounded-xl border border-border-default bg-bg-surface p-3 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-bg-secondary focus-within:ring-2 focus-within:ring-border-focus"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => router.push(`/admin/classes/${row.id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        router.push(`/admin/classes/${row.id}`);
+                      }
+                    }}
                     aria-label={`Xem chi tiết lớp ${row.name?.trim() || ""}`}
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <p className="line-clamp-2 text-sm font-semibold text-text-primary">
-                        {row.name?.trim() || "—"}
-                      </p>
-                      <span
-                        className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs ring-1 ${statusBadgeClass(row.status)}`}
-                      >
-                        <span className={`inline-block size-2 rounded-full ${statusDotColor(row.status)}`} aria-hidden />
-                        {statusLabel(row.status)}
-                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="line-clamp-2 text-sm font-semibold text-text-primary">
+                          {row.name?.trim() || "—"}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-start gap-2">
+                        <span
+                          className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs ring-1 ${statusBadgeClass(row.status)}`}
+                        >
+                          <span className={`inline-block size-2 rounded-full ${statusDotColor(row.status)}`} aria-hidden />
+                          {statusLabel(row.status)}
+                        </span>
+                        <button
+                          type="button"
+                          className="flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-error/15 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:opacity-50"
+                          aria-label={`Xóa lớp ${row.name?.trim() || ""}`}
+                          title="Xóa lớp"
+                          disabled={deleteMutation.isPending}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openDeleteConfirm(row.id, row.name?.trim() || "");
+                          }}
+                        >
+                          <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                     <div className="mt-2 grid grid-cols-[56px_1fr] gap-x-2 gap-y-1 text-xs">
                       <span className="text-text-muted">Loại</span>
@@ -373,7 +446,7 @@ export default function AdminClassesPage() {
                       <span className="text-text-muted">Gia sư</span>
                       <span className="line-clamp-2 text-text-secondary">{row.teacherNames || "—"}</span>
                     </div>
-                  </button>
+                  </article>
                 ))}
               </div>
 
@@ -395,6 +468,9 @@ export default function AdminClassesPage() {
                       <th scope="col" className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         Gia sư
                       </th>
+                      <th scope="col" className="w-16 px-4 py-3">
+                        <span className="sr-only">Xóa</span>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -403,7 +479,7 @@ export default function AdminClassesPage() {
                         key={row.id}
                         role="button"
                         tabIndex={0}
-                        className="cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary/80 focus-within:bg-bg-secondary/80"
+                        className="group cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary/80 focus-within:bg-bg-secondary/80"
                         onClick={() => router.push(`/admin/classes/${row.id}`)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
@@ -437,6 +513,30 @@ export default function AdminClassesPage() {
                         </td>
                         <td className="px-4 py-3 text-text-secondary">
                           {row.teacherNames || "—"}
+                        </td>
+                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+                            <button
+                              type="button"
+                              className="rounded p-1.5 text-text-muted transition-colors duration-200 hover:bg-error/15 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:opacity-50"
+                              aria-label={`Xóa lớp ${row.name?.trim() || ""}`}
+                              title="Xóa lớp"
+                              disabled={deleteMutation.isPending}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openDeleteConfirm(row.id, row.name?.trim() || "");
+                              }}
+                            >
+                              <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -486,6 +586,74 @@ export default function AdminClassesPage() {
         open={addPopupOpen}
         onClose={() => setAddPopupOpen(false)}
       />
+
+      {deleteConfirmOpen && classToDelete ? (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[1px]"
+            aria-hidden
+            onClick={closeDeleteConfirm}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-class-title"
+            className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border-default bg-bg-surface p-4 shadow-2xl sm:p-5"
+          >
+            <div className="flex items-start gap-3">
+              <div className="mt-1 flex size-9 items-center justify-center rounded-full bg-error/10 text-error">
+                <svg
+                  className="size-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  aria-hidden
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v4m0 4h.01M5.1 19h13.8a2 2 0 001.79-2.89L13.79 4.79a2 2 0 00-3.58 0L3.31 16.11A2 2 0 005.1 19z"
+                  />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2
+                  id="delete-class-title"
+                  className="text-base font-semibold text-text-primary"
+                >
+                  Xóa lớp học?
+                </h2>
+                <p className="mt-1 text-sm text-text-secondary">
+                  Bạn có chắc muốn xóa lớp{" "}
+                  <span className="font-semibold text-text-primary">
+                    {classToDelete.name || "này"}
+                  </span>
+                  ? Hành động này không thể hoàn tác.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeDeleteConfirm}
+                className="min-h-10 flex-1 rounded-md border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:flex-none sm:px-5"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirmed}
+                disabled={deleteMutation.isPending}
+                className="min-h-10 flex-1 rounded-md border border-error bg-error px-4 py-2.5 text-sm font-medium text-text-inverse shadow-sm transition-colors hover:bg-error/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60 sm:flex-none sm:px-5"
+              >
+                {deleteMutation.isPending ? "Đang xóa…" : "Xóa lớp học"}
+              </button>
+            </div>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

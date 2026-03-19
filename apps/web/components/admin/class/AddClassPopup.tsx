@@ -5,6 +5,7 @@ import { useDebounce } from "use-debounce";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { ClassStatus, ClassType, CreateClassPayload } from "@/dtos/class.dto";
+import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import * as classApi from "@/lib/apis/class.api";
 import * as staffApi from "@/lib/apis/staff.api";
 import * as studentApi from "@/lib/apis/student.api";
@@ -292,31 +293,23 @@ export default function AddClassPopup({ open, onClose }: Props) {
               </label>
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
                 <span>Phân loại</span>
-                <select
+                <UpgradedSelect
+                  name="add-class-type"
                   value={type}
-                  onChange={(e) => setType(e.target.value as ClassType)}
-                  className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                >
-                  {TYPE_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={(nextValue) => setType(nextValue as ClassType)}
+                  options={TYPE_OPTIONS}
+                  buttonClassName="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                />
               </label>
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
                 <span>Trạng thái</span>
-                <select
+                <UpgradedSelect
+                  name="add-class-status"
                   value={status}
-                  onChange={(e) => setStatus(e.target.value as ClassStatus)}
-                  className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                >
-                  {STATUS_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={(nextValue) => setStatus(nextValue as ClassStatus)}
+                  options={STATUS_OPTIONS}
+                  buttonClassName="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                />
               </label>
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
                 <span>Sĩ số tối đa</span>

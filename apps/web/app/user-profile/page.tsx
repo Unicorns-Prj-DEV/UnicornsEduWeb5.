@@ -4,6 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState, type CSSProperties, type ReactNode } from "react";
 import { toast } from "sonner";
+import UpgradedSelect, {
+  type UpgradedSelectOption,
+} from "@/components/ui/UpgradedSelect";
 import * as authApi from "@/lib/apis/auth.api";
 import type {
   FullProfileDto,
@@ -327,27 +330,29 @@ function SelectField({
   name,
   label,
   defaultValue,
-  children,
+  options,
 }: {
   id: string;
   name: string;
   label: string;
   defaultValue?: string;
-  children: ReactNode;
+  options: UpgradedSelectOption[];
 }) {
+  const labelId = `${id}-label`;
   return (
     <div>
-      <label htmlFor={id} className={labelClassName}>
+      <label id={labelId} className={labelClassName}>
         {label}
       </label>
-      <select
+      <UpgradedSelect
+        key={`${id}-${defaultValue ?? ""}`}
         id={id}
         name={name}
-        className={inputClassName}
         defaultValue={defaultValue}
-      >
-        {children}
-      </select>
+        options={options}
+        labelId={labelId}
+        buttonClassName={inputClassName}
+      />
     </div>
   );
 }
@@ -1280,10 +1285,11 @@ export default function UserProfilePage() {
                         name="gender"
                         label="Giới tính"
                         defaultValue={profile.studentInfo.gender ?? "male"}
-                      >
-                        <option value="male">Nam</option>
-                        <option value="female">Nữ</option>
-                      </SelectField>
+                        options={[
+                          { value: "male", label: "Nam" },
+                          { value: "female", label: "Nữ" },
+                        ]}
+                      />
                       <TextField
                         id="student-parent_name"
                         name="parent_name"

@@ -65,6 +65,8 @@ Dùng làm context khi implement hoặc review code frontend; giúp model chọn
 - Không lấy list rộng rồi mới filter/search/classify bắt buộc ở FE nếu backend có thể và nên enforce; cần bổ sung query param hoặc endpoint ở BE.
 - FE chỉ nên làm các biến đổi mang tính trình bày: format, label, UI-only sorting/filter cục bộ trên dữ liệu đã authoritative, state tạm trong form.
 - Nếu một giá trị có thể làm thay đổi payload gửi đi, thay đổi quyền truy cập, hoặc xuất hiện như số liệu chính thức trên màn hình, hãy chuyển logic đó sang backend trước khi hoàn thiện FE.
+- Với simple single-select dropdown trong `apps/web`, dùng component chung `apps/web/components/ui/UpgradedSelect.tsx` thay cho native `<select>`.
+- Chỉ dùng custom combobox/listbox khác khi thật sự cần search, multi-select, async suggestion hoặc option content phức tạp hơn simple dropdown.
 
 ## Yêu cầu hệ thống
 

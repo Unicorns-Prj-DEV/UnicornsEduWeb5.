@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type SyntheticEvent } from "react";
 import { toast } from "sonner";
+import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type { CostBaseFields, CostStatus, CostUpsertMode } from "@/dtos/cost.dto";
 
 export interface CostFormSubmitPayload {
@@ -161,17 +162,13 @@ export default function CostFormPopup({
 
             <label className="flex flex-col gap-1 text-sm text-text-secondary">
               <span>Trạng thái</span>
-              <select
+              <UpgradedSelect
+                name="cost-status"
                 value={status}
-                onChange={(e) => setStatus(e.target.value as CostStatus)}
-                className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-              >
-                {STATUS_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(nextValue) => setStatus(nextValue as CostStatus)}
+                options={STATUS_OPTIONS}
+                buttonClassName="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              />
             </label>
 
             <label className="flex flex-col gap-1 text-sm text-text-secondary">

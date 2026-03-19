@@ -182,10 +182,54 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
             {selectedTeachers.map((t) => (
               <div
                 key={t.id}
-                className="rounded-xl border border-border-default bg-bg-surface p-3"
+                className="rounded-2xl border border-border-default bg-bg-surface p-3 shadow-sm"
               >
-                <div className="flex items-start gap-2">
-                  <span className="min-w-0 flex-1 text-sm font-medium text-text-primary">{t.name}</span>
+                <div className="grid grid-cols-[minmax(0,1fr)_minmax(8.5rem,10rem)_auto] items-start gap-2 sm:gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">
+                      Gia sư phụ trách
+                    </p>
+                    <p className="truncate text-lg font-semibold text-text-primary">{t.name}</p>
+                  </div>
+                  <label className="min-w-0">
+                    <span className="sr-only">Trợ cấp riêng cho {t.name}</span>
+                    <p className="ml-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                      Trợ cấp
+                    </p>
+                    <div className="rounded-xl border border-border-default bg-bg-primary px-3 py-2">
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          min={0}
+                          value={t.customAllowance ?? ""}
+                          onChange={(e) => {
+                            const v = e.target.value.trim();
+                            if (v === "") {
+                              setSelectedTeachers((prev) =>
+                                prev.map((x) =>
+                                  x.id === t.id ? { ...x, customAllowance: undefined } : x,
+                                ),
+                              );
+                              return;
+                            }
+                            const num = Number(v);
+                            if (!Number.isFinite(num) || num < 0) {
+                              toast.error("Trợ cấp riêng phải là số không âm.");
+                              return;
+                            }
+                            setSelectedTeachers((prev) =>
+                              prev.map((x) =>
+                                x.id === t.id ? { ...x, customAllowance: Math.floor(num) } : x,
+                              ),
+                            );
+                          }}
+                          placeholder={String(classDetail.allowancePerSessionPerStudent ?? "")}
+                          className="min-w-0 flex-1 bg-transparent text-right text-sm font-semibold tabular-nums text-text-primary outline-none placeholder:text-text-muted"
+                        />
+                        <span className="shrink-0 text-xs font-medium text-text-muted">VNĐ</span>
+                      </div>
+                    </div>
+                  </label>
                   <button
                     type="button"
                     onClick={() => setSelectedTeachers((prev) => prev.filter((x) => x.id !== t.id))}
@@ -197,37 +241,9 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
                     </svg>
                   </button>
                 </div>
-                <label className="mt-3 flex flex-col gap-1 text-sm text-text-secondary">
-                  <span className="text-[11px] uppercase tracking-wide text-text-muted">Trợ cấp riêng</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={t.customAllowance ?? ""}
-                    onChange={(e) => {
-                      const v = e.target.value.trim();
-                      if (v === "") {
-                        setSelectedTeachers((prev) =>
-                          prev.map((x) =>
-                            x.id === t.id ? { ...x, customAllowance: undefined } : x,
-                          ),
-                        );
-                        return;
-                      }
-                      const num = Number(v);
-                      if (!Number.isFinite(num) || num < 0) {
-                        toast.error("Trợ cấp riêng phải là số không âm.");
-                        return;
-                      }
-                      setSelectedTeachers((prev) =>
-                        prev.map((x) =>
-                          x.id === t.id ? { ...x, customAllowance: Math.floor(num) } : x,
-                        ),
-                      );
-                    }}
-                    placeholder="VNĐ"
-                    className="w-full rounded outline outline-1 outline-border-default outline-offset-0 bg-bg-primary px-3 py-2 text-right text-sm tabular-nums text-text-primary focus:outline-2 focus:outline-border-focus focus:outline-offset-0 sm:w-36"
-                  />
-                </label>
+                <p className="mt-2 text-xs text-text-muted text-right">
+                  Để trống để dùng trợ cấp mặc định của lớp.
+                </p>
               </div>
             ))}
           </div>

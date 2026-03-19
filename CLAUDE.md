@@ -48,6 +48,8 @@ Khi thay đổi code, **luôn cập nhật tài liệu liên quan trong cùng ph
 - **Reusable components (React best practices) – Bắt buộc:** Luôn tách UI thành các reusable components khi có phần lặp lại hoặc logic dùng lại, ưu tiên component nhỏ, rõ trách nhiệm, dễ test và dễ bảo trì.
 - **shadcn/ui – Bắt buộc ưu tiên:** Khi xây UI trong `apps/web`, ưu tiên dùng component từ `shadcn/ui` thay vì tự code component mới từ đầu.
 - **shadcn/ui – Quy tắc mở rộng:** Nếu cần custom, hãy compose/extend từ component shadcn hiện có; chỉ tự code component mới khi shadcn chưa đáp ứng được yêu cầu cụ thể.
+- **Dropdown nâng cấp – Bắt buộc:** Với simple single-select dropdown trong `apps/web`, luôn dùng `apps/web/components/ui/UpgradedSelect.tsx`; không thêm lại native `<select>` cho UI đã style.
+- **Ngoại lệ dropdown:** Chỉ giữ hoặc tự làm custom combobox/listbox khi thật sự cần search, multi-select, async suggestion hoặc option content phức tạp hơn simple dropdown.
 - **Mobile-first – Bắt buộc:** **LUÔN LUÔN CODE MOBILE-FIRST**. Thiết kế và implement UI từ màn hình nhỏ trước, sau đó mới mở rộng breakpoint cho tablet/desktop.
 - **Validation/Transform:** Chọn giải pháp phù hợp theo từng module (không bắt buộc `class-validator` / `class-transformer`).
 - **DTO/Enums location – Bắt buộc:** Mọi DTO và Enums dùng ở frontend phải được tách và đặt trong `apps/web/dtos/`. Không khai báo DTO/Enums cục bộ trong `apps/web/lib/apis/*` hoặc trong page/component.
