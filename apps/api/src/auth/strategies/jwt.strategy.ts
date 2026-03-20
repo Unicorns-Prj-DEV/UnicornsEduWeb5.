@@ -10,6 +10,7 @@ const ACCESS_TOKEN_COOKIE = 'access_token';
 
 interface AccessTokenPayload {
   id: string;
+  email: string;
   accountHandle: string;
   roleType: UserRole;
 }
@@ -32,13 +33,20 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   async validate(payload: AccessTokenPayload) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.id },
-      select: { id: true, accountHandle: true, roleType: true, status: true },
+      select: {
+        id: true,
+        email: true,
+        accountHandle: true,
+        roleType: true,
+        status: true,
+      },
     });
     if (!user || user.status !== 'active') {
       throw new UnauthorizedException();
     }
     return {
       id: user.id,
+      email: user.email,
       accountHandle: user.accountHandle,
       roleType: user.roleType,
     };

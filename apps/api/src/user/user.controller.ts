@@ -98,7 +98,11 @@ export class UserController {
     @CurrentUser() user: JwtPayload,
     @Body() data: CreateUserDto,
   ) {
-    return this.userService.createUser(data);
+    return this.userService.createUser(data, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Patch()
@@ -122,7 +126,11 @@ export class UserController {
     @CurrentUser() user: JwtPayload,
     @Body() data: UpdateUserDto,
   ) {
-    return this.userService.updateUser(data);
+    return this.userService.updateUser(data, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Delete(':id')
@@ -140,6 +148,10 @@ export class UserController {
   @ApiResponse({ status: 403, description: 'Forbidden. Admin only.' })
   @ApiResponse({ status: 404, description: 'User not found.' })
   async deleteUser(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.userService.deleteUser(id);
+    return this.userService.deleteUser(id, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 }

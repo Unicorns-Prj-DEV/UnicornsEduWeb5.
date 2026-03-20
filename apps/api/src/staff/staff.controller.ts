@@ -24,6 +24,10 @@ import { UserRole } from 'generated/enums';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { PaginationQueryDto } from 'src/dtos/pagination.dto';
 import {
+  CurrentUser,
+  type JwtPayload,
+} from 'src/auth/decorators/current-user.decorator';
+import {
   CreateStaffDto,
   type StaffIncomeSummaryDto,
   SearchCustomerCareStaffDto,
@@ -264,8 +268,15 @@ export class StaffController {
   @ApiResponse({ status: 201, description: 'Staff created.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({ status: 404, description: 'User not found.' })
-  async createStaff(@Body() data: CreateStaffDto) {
-    return this.staffService.createStaff(data);
+  async createStaff(
+    @CurrentUser() user: JwtPayload,
+    @Body() data: CreateStaffDto,
+  ) {
+    return this.staffService.createStaff(data, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Patch()
@@ -280,8 +291,15 @@ export class StaffController {
   @ApiResponse({ status: 200, description: 'Staff updated.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({ status: 404, description: 'Staff not found.' })
-  async updateStaff(@Body() data: UpdateStaffDto) {
-    return this.staffService.updateStaff(data);
+  async updateStaff(
+    @CurrentUser() user: JwtPayload,
+    @Body() data: UpdateStaffDto,
+  ) {
+    return this.staffService.updateStaff(data, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Delete(':id')
@@ -292,7 +310,14 @@ export class StaffController {
   @ApiParam({ name: 'id', description: 'Staff id' })
   @ApiResponse({ status: 200, description: 'Staff deleted.' })
   @ApiResponse({ status: 404, description: 'Staff not found.' })
-  async deleteStaff(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.staffService.deleteStaff(id);
+  async deleteStaff(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.staffService.deleteStaff(id, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 }

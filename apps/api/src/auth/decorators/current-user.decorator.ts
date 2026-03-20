@@ -3,6 +3,7 @@ import type { UserRole } from 'generated/enums';
 
 export interface JwtPayload {
   id: string;
+  email: string;
   accountHandle: string;
   roleType: UserRole;
 }

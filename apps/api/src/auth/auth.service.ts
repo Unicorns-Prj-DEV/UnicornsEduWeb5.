@@ -9,13 +9,19 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'node:crypto';
+import type { Prisma } from '../../generated/client';
 import { UserRole } from 'generated/enums';
+import {
+  ActionHistoryActor,
+  ActionHistoryService,
+} from '../action-history/action-history.service';
 import { CreateUserDto } from '../dtos/user.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { LoginResponseDto } from 'src/dtos/auth.dto';
 
 type JwtSignOptions = Parameters<JwtService['signAsync']>[1];
+type UserAuditClient = Prisma.TransactionClient | PrismaService;
 
 export interface TokenPair {
   accessToken: string;
@@ -45,6 +51,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
     private readonly mailService: MailService,
+    private readonly actionHistoryService: ActionHistoryService,
   ) {
     this.accessTokenOptions = {
       expiresIn: this.accessTokenExpiresIn,
@@ -64,6 +71,28 @@ export class AuthService {
     this.emailVerifySecret = this.configService.getOrThrow<string>(
       'JWT_EMAIL_VERIFY_SECRET',
     );
+  }
+
+  private getUserAuditSnapshot(db: UserAuditClient, userId: string) {
+    return db.user.findUnique({
+      where: { id: userId },
+      include: {
+        staffInfo: true,
+        studentInfo: true,
+      },
+    });
+  }
+
+  private buildUserActor(user: {
+    id: string;
+    email: string;
+    roleType: UserRole;
+  }): ActionHistoryActor {
+    return {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    };
   }
 
   async login(
@@ -153,28 +182,64 @@ export class AuthService {
       throw new BadRequestException('Email already exists');
     }
 
-    await this.prisma.user.upsert({
-      where: { email: data.email },
-      create: {
-        email: data.email,
-        phone: data.phone,
-        passwordHash: await bcrypt.hash(data.password, 10),
-        first_name: data.first_name,
-        last_name: data.last_name,
-        roleType: UserRole.guest,
-        province: data.province,
-        accountHandle: data.accountHandle,
-      },
-      update: {
-        email: data.email,
-        phone: data.phone,
-        passwordHash: await bcrypt.hash(data.password, 10),
-        first_name: data.first_name,
-        last_name: data.last_name,
-        roleType: UserRole.guest,
-        province: data.province,
-        accountHandle: data.accountHandle,
-      },
+    const passwordHash = await bcrypt.hash(data.password, 10);
+
+    await this.prisma.$transaction(async (tx) => {
+      const beforeValue = existingUser
+        ? await this.getUserAuditSnapshot(tx, existingUser.id)
+        : null;
+      const persistedUser = await tx.user.upsert({
+        where: { email: data.email },
+        create: {
+          email: data.email,
+          phone: data.phone,
+          passwordHash,
+          first_name: data.first_name,
+          last_name: data.last_name,
+          roleType: UserRole.guest,
+          province: data.province,
+          accountHandle: data.accountHandle,
+        },
+        update: {
+          email: data.email,
+          phone: data.phone,
+          passwordHash,
+          first_name: data.first_name,
+          last_name: data.last_name,
+          roleType: UserRole.guest,
+          province: data.province,
+          accountHandle: data.accountHandle,
+        },
+      });
+
+      const afterValue = await this.getUserAuditSnapshot(
+        tx,
+        persistedUser.id,
+      );
+      if (!afterValue) {
+        return;
+      }
+
+      const actor = this.buildUserActor(persistedUser);
+      if (beforeValue) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor,
+          entityType: 'user',
+          entityId: persistedUser.id,
+          description: 'Cập nhật người dùng qua đăng ký',
+          beforeValue,
+          afterValue,
+        });
+        return;
+      }
+
+      await this.actionHistoryService.recordCreate(tx, {
+        actor,
+        entityType: 'user',
+        entityId: persistedUser.id,
+        description: 'Đăng ký người dùng',
+        afterValue,
+      });
     });
 
     const verificationToken = await this.generateEmailVerificationToken(
@@ -216,7 +281,12 @@ export class AuthService {
 
     const user = await this.prisma.user.findUnique({
       where: { email: payload.email },
-      select: { emailVerified: true },
+      select: {
+        id: true,
+        email: true,
+        roleType: true,
+        emailVerified: true,
+      },
     });
 
     if (!user) {
@@ -227,9 +297,35 @@ export class AuthService {
       return { message: 'Email already verified' };
     }
 
-    await this.prisma.user.update({
-      where: { email: payload.email },
-      data: { emailVerified: true },
+    await this.prisma.$transaction(async (tx) => {
+      const beforeValue = await this.getUserAuditSnapshot(tx, user.id);
+
+      const updatedUser = await tx.user.update({
+        where: { email: payload.email },
+        data: { emailVerified: true },
+        select: {
+          id: true,
+          email: true,
+          roleType: true,
+        },
+      });
+
+      const afterValue = await this.getUserAuditSnapshot(
+        tx,
+        updatedUser.id,
+      );
+      if (!beforeValue || !afterValue) {
+        return;
+      }
+
+      await this.actionHistoryService.recordUpdate(tx, {
+        actor: this.buildUserActor(updatedUser),
+        entityType: 'user',
+        entityId: updatedUser.id,
+        description: 'Xác thực email',
+        beforeValue,
+        afterValue,
+      });
     });
 
     return { message: 'Email verified successfully' };
@@ -326,12 +422,37 @@ export class AuthService {
       throw new BadRequestException('User not found');
     }
 
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        passwordHash: await bcrypt.hash(password, 10),
-        refreshToken: null,
-      },
+    await this.prisma.$transaction(async (tx) => {
+      const beforeValue = await this.getUserAuditSnapshot(tx, user.id);
+      const updatedUser = await tx.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash: await bcrypt.hash(password, 10),
+          refreshToken: null,
+        },
+        select: {
+          id: true,
+          email: true,
+          roleType: true,
+        },
+      });
+
+      const afterValue = await this.getUserAuditSnapshot(
+        tx,
+        updatedUser.id,
+      );
+      if (!beforeValue || !afterValue) {
+        return;
+      }
+
+      await this.actionHistoryService.recordUpdate(tx, {
+        actor: this.buildUserActor(updatedUser),
+        entityType: 'user',
+        entityId: updatedUser.id,
+        description: 'Đặt lại mật khẩu',
+        beforeValue,
+        afterValue,
+      });
     });
 
     return { message: 'Password reset successfully' };
@@ -360,12 +481,37 @@ export class AuthService {
       throw new UnauthorizedException('Mật khẩu hiện tại không đúng');
     }
 
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        passwordHash: await bcrypt.hash(newPassword, 10),
-        refreshToken: null,
-      },
+    await this.prisma.$transaction(async (tx) => {
+      const beforeValue = await this.getUserAuditSnapshot(tx, userId);
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          passwordHash: await bcrypt.hash(newPassword, 10),
+          refreshToken: null,
+        },
+        select: {
+          id: true,
+          email: true,
+          roleType: true,
+        },
+      });
+
+      const afterValue = await this.getUserAuditSnapshot(
+        tx,
+        updatedUser.id,
+      );
+      if (!beforeValue || !afterValue) {
+        return;
+      }
+
+      await this.actionHistoryService.recordUpdate(tx, {
+        actor: this.buildUserActor(updatedUser),
+        entityType: 'user',
+        entityId: updatedUser.id,
+        description: 'Đổi mật khẩu',
+        beforeValue,
+        afterValue,
+      });
     });
 
     return { message: 'Đổi mật khẩu thành công' };

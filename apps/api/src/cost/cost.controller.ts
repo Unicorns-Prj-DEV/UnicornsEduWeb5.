@@ -18,6 +18,10 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { UserRole } from 'generated/enums';
+import {
+  CurrentUser,
+  type JwtPayload,
+} from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CreateCostDto, UpdateCostDto } from '../dtos/cost.dto';
 import { PaginationQueryDto } from '../dtos/pagination.dto';
@@ -106,8 +110,15 @@ export class CostController {
   @ApiBody({ type: CreateCostDto, description: 'Cost create payload' })
   @ApiResponse({ status: 201, description: 'Cost created.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
-  async createCost(@Body() data: CreateCostDto) {
-    return this.costService.createCost(data);
+  async createCost(
+    @CurrentUser() user: JwtPayload,
+    @Body() data: CreateCostDto,
+  ) {
+    return this.costService.createCost(data, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Patch()
@@ -122,8 +133,15 @@ export class CostController {
   @ApiResponse({ status: 200, description: 'Cost updated.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({ status: 404, description: 'Cost not found.' })
-  async updateCost(@Body() data: UpdateCostDto) {
-    return this.costService.updateCost(data);
+  async updateCost(
+    @CurrentUser() user: JwtPayload,
+    @Body() data: UpdateCostDto,
+  ) {
+    return this.costService.updateCost(data, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Delete(':id')
@@ -134,7 +152,14 @@ export class CostController {
   @ApiParam({ name: 'id', description: 'Cost id' })
   @ApiResponse({ status: 200, description: 'Cost deleted.' })
   @ApiResponse({ status: 404, description: 'Cost not found.' })
-  async deleteCost(@Param('id') id: string) {
-    return this.costService.deleteCost(id);
+  async deleteCost(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+  ) {
+    return this.costService.deleteCost(id, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 }

@@ -17,13 +17,23 @@ describe('CostService', () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
+    $transaction: jest.fn(),
+  };
+
+  const actionHistoryService = {
+    recordCreate: jest.fn(),
+    recordUpdate: jest.fn(),
+    recordDelete: jest.fn(),
   };
 
   let service: CostService;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new CostService(mockPrisma as never);
+    mockPrisma.$transaction.mockImplementation((callback: (db: typeof mockPrisma) => unknown) =>
+      callback(mockPrisma),
+    );
+    service = new CostService(mockPrisma as never, actionHistoryService as never);
   });
 
   it('returns paginated list with clamped limit and case-insensitive category search', async () => {
@@ -100,5 +110,37 @@ describe('CostService', () => {
     await expect(
       service.deleteCost('f2d57c88-f724-46df-9e4b-2f044f5dcf42'),
     ).rejects.toThrow(new NotFoundException('Cost not found'));
+  });
+
+  it('records action history after creating a cost', async () => {
+    mockPrisma.costExtend.create.mockResolvedValue({
+      id: 'cost-1',
+      category: 'Marketing',
+      amount: 100000,
+    });
+
+    await service.createCost(
+      {
+        id: 'cost-1',
+        category: 'Marketing',
+        amount: 100000,
+        date: '2026-03-20',
+        month: '2026-03',
+        status: PaymentStatus.pending,
+      },
+      {
+        userId: 'user-1',
+        userEmail: 'admin@example.com',
+        roleType: 'admin',
+      },
+    );
+
+    expect(actionHistoryService.recordCreate).toHaveBeenCalledWith(
+      mockPrisma,
+      expect.objectContaining({
+        entityType: 'cost',
+        entityId: 'cost-1',
+      }),
+    );
   });
 });

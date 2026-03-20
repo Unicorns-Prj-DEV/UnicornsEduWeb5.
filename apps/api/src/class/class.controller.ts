@@ -19,6 +19,10 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { UserRole } from 'generated/enums';
+import {
+  CurrentUser,
+  type JwtPayload,
+} from 'src/auth/decorators/current-user.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { PaginationQueryDto } from 'src/dtos/pagination.dto';
 import {
@@ -119,10 +123,15 @@ export class ClassController {
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({ status: 404, description: 'Class not found.' })
   async updateClassBasicInfo(
+    @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateClassBasicInfoDto,
   ) {
-    return this.classService.updateClassBasicInfo(id, dto);
+    return this.classService.updateClassBasicInfo(id, dto, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Patch(':id/teachers')
@@ -137,10 +146,15 @@ export class ClassController {
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({ status: 404, description: 'Class not found.' })
   async updateClassTeachers(
+    @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateClassTeachersDto,
   ) {
-    return this.classService.updateClassTeachers(id, dto);
+    return this.classService.updateClassTeachers(id, dto, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Patch(':id/schedule')
@@ -155,10 +169,15 @@ export class ClassController {
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({ status: 404, description: 'Class not found.' })
   async updateClassSchedule(
+    @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateClassScheduleDto,
   ) {
-    return this.classService.updateClassSchedule(id, dto);
+    return this.classService.updateClassSchedule(id, dto, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Patch(':id/students')
@@ -172,10 +191,15 @@ export class ClassController {
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({ status: 404, description: 'Class not found.' })
   async updateClassStudents(
+    @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateClassStudentsDto,
   ) {
-    return this.classService.updateClassStudents(id, dto);
+    return this.classService.updateClassStudents(id, dto, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Get(':id')
@@ -199,8 +223,15 @@ export class ClassController {
   @ApiBody({ type: CreateClassDto, description: 'Class create payload' })
   @ApiResponse({ status: 201, description: 'Class created.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
-  async createClass(@Body() data: CreateClassDto) {
-    return this.classService.createClass(data);
+  async createClass(
+    @CurrentUser() user: JwtPayload,
+    @Body() data: CreateClassDto,
+  ) {
+    return this.classService.createClass(data, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Patch()
@@ -215,8 +246,15 @@ export class ClassController {
   @ApiResponse({ status: 200, description: 'Class updated.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({ status: 404, description: 'Class not found.' })
-  async updateClass(@Body() data: UpdateClassDto) {
-    return this.classService.updateClass(data);
+  async updateClass(
+    @CurrentUser() user: JwtPayload,
+    @Body() data: UpdateClassDto,
+  ) {
+    return this.classService.updateClass(data, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Delete(':id')
@@ -227,7 +265,14 @@ export class ClassController {
   @ApiParam({ name: 'id', description: 'Class id' })
   @ApiResponse({ status: 200, description: 'Class deleted.' })
   @ApiResponse({ status: 404, description: 'Class not found.' })
-  async deleteClass(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.classService.deleteClass(id);
+  async deleteClass(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.classService.deleteClass(id, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 }

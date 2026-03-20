@@ -3,7 +3,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ClassStatus, ClassType, StaffRole, UserRole } from 'generated/enums';
+import { ClassStatus, ClassType, UserRole } from 'generated/enums';
+import {
+  ActionHistoryActor,
+  ActionHistoryService,
+} from 'src/action-history/action-history.service';
 import { PaginationQueryDto } from 'src/dtos/pagination.dto';
 import {
   CreateClassDto,
@@ -16,6 +20,7 @@ import {
 } from 'src/dtos/class.dto';
 import { Prisma } from '../../generated/client';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { StaffOperationsAccessService } from 'src/staff-ops/staff-operations-access.service';
 
 function normalizeNullableMoney(
   value: number | null | undefined,
@@ -74,43 +79,111 @@ function hasCustomTuitionOverride(options: {
 
 @Injectable()
 export class ClassService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly staffOperationsAccess: StaffOperationsAccessService,
+    private readonly actionHistoryService: ActionHistoryService,
+  ) {}
 
-  private async getStaffOperationsActor(userId: string, roleType: UserRole) {
-    if (roleType === UserRole.admin) {
-      return {
-        id: userId,
-        roles: [] as StaffRole[],
-      };
-    }
+  private isTeacherActor(roles: string[]) {
+    return roles.length > 0;
+  }
 
-    if (roleType !== UserRole.staff) {
-      throw new ForbiddenException(
-        'Chỉ tài khoản staff mới được dùng màn quản lý lớp học cho teacher.',
-      );
-    }
-
-    const staff = await this.prisma.staffInfo.findFirst({
-      where: { userId },
-      select: {
-        id: true,
-        roles: true,
-      },
+  private async getClassAuditSnapshot(
+    db: Pick<PrismaService, 'class' | 'classTeacher' | 'studentClass'>,
+    id: string,
+  ) {
+    const classInfo = await db.class.findUnique({
+      where: { id },
     });
 
-    if (!staff) {
-      throw new ForbiddenException(
-        'Chỉ nhân sự có hồ sơ staff mới được dùng màn vận hành lớp học.',
-      );
+    if (!classInfo) {
+      return null;
     }
 
-    if (!staff.roles.includes(StaffRole.teacher)) {
-      throw new ForbiddenException(
-        'Màn /staff hiện chỉ mở cho staff có role teacher.',
-      );
-    }
+    const classRecord = await db.classTeacher.findMany({
+      where: { classId: id },
+      select: {
+        customAllowance: true,
+        teacher: {
+          select: {
+            id: true,
+            fullName: true,
+            status: true,
+          },
+        },
+      },
+      orderBy: [{ createdAt: 'asc' }, { teacherId: 'asc' }],
+    });
 
-    return staff;
+    const teachers = classRecord.map((record) => ({
+      ...record.teacher,
+      customAllowance: record.customAllowance,
+    }));
+
+    const classStudents = await db.studentClass.findMany({
+      where: { classId: id },
+      include: {
+        student: true,
+      },
+      orderBy: [{ createdAt: 'asc' }, { studentId: 'asc' }],
+    });
+
+    const students = classStudents.map((student) => {
+      const customTuitionPerSession = normalizeNullableMoney(
+        student.customStudentTuitionPerSession,
+      );
+      const customTuitionPackageTotal = normalizeNullableMoney(
+        student.customTuitionPackageTotal,
+      );
+      const customTuitionPackageSession = normalizeNullableMoney(
+        student.customTuitionPackageSession,
+      );
+      const effectiveTuitionPackageTotal =
+        customTuitionPackageTotal ??
+        normalizeNullableMoney(classInfo.tuitionPackageTotal);
+      const effectiveTuitionPackageSession =
+        customTuitionPackageSession ??
+        normalizeNullableMoney(classInfo.tuitionPackageSession);
+      const effectiveTuitionPerSession = resolveEffectiveTuitionPerSession({
+        customTuitionPerSession,
+        classTuitionPerSession: classInfo.studentTuitionPerSession,
+        effectivePackageTotal: effectiveTuitionPackageTotal,
+        effectivePackageSession: effectiveTuitionPackageSession,
+      });
+
+      return {
+        ...student.student,
+        customTuitionPerSession,
+        customTuitionPackageTotal,
+        customTuitionPackageSession,
+        effectiveTuitionPerSession,
+        effectiveTuitionPackageTotal,
+        effectiveTuitionPackageSession,
+        tuitionPackageSource: hasCustomTuitionOverride({
+          customTuitionPerSession,
+          customTuitionPackageTotal,
+          customTuitionPackageSession,
+        })
+          ? 'custom'
+          : effectiveTuitionPackageTotal != null ||
+              effectiveTuitionPackageSession != null ||
+              normalizeNullableMoney(classInfo.studentTuitionPerSession) != null
+            ? 'class'
+            : 'unset',
+        totalAttendedSession: student.totalAttendedSession,
+      };
+    });
+
+    return {
+      ...classInfo,
+      teachers,
+      students,
+      sessionTuitionTotal: students.reduce(
+        (sum, student) => sum + (student.effectiveTuitionPerSession ?? 0),
+        0,
+      ),
+    };
   }
 
   async getClasses(
@@ -411,31 +484,20 @@ export class ClassService {
       type?: string;
     },
   ) {
-    const actor = await this.getStaffOperationsActor(userId, roleType);
+    const actor = await this.staffOperationsAccess.resolveActor(userId, roleType);
     return this.getClasses({
       ...query,
-      ...(actor.roles.includes(StaffRole.teacher)
-        ? { teacherId: actor.id }
-        : {}),
+      ...(this.isTeacherActor(actor.roles) ? { teacherId: actor.id } : {}),
     });
   }
 
   async getClassByIdForStaff(userId: string, roleType: UserRole, id: string) {
-    const actor = await this.getStaffOperationsActor(userId, roleType);
-    if (actor.roles.includes(StaffRole.teacher)) {
-      const assignment = await this.prisma.classTeacher.findUnique({
-        where: {
-          classId_teacherId: {
-            classId: id,
-            teacherId: actor.id,
-          },
-        },
-        select: { id: true },
-      });
-
-      if (!assignment) {
-        throw new NotFoundException('Class not found');
-      }
+    const actor = await this.staffOperationsAccess.resolveActor(userId, roleType);
+    if (this.isTeacherActor(actor.roles)) {
+      await this.staffOperationsAccess.assertTeacherAssignedToClass(
+        actor.id,
+        id,
+      );
     }
 
     return this.getClassById(id);
@@ -445,18 +507,22 @@ export class ClassService {
     userId: string,
     roleType: UserRole,
     dto: CreateStaffOpsClassDto,
+    auditActor?: ActionHistoryActor,
   ) {
-    const actor = await this.getStaffOperationsActor(userId, roleType);
-    if (actor.roles.includes(StaffRole.teacher)) {
+    const actor = await this.staffOperationsAccess.resolveActor(userId, roleType);
+    if (this.isTeacherActor(actor.roles)) {
       throw new ForbiddenException('Giáo viên không được phép tạo lớp học.');
     }
 
-    return this.createClass({
-      name: dto.name,
-      type: dto.type,
-      status: dto.status,
-      schedule: dto.schedule,
-    });
+    return this.createClass(
+      {
+        name: dto.name,
+        type: dto.type,
+        status: dto.status,
+        schedule: dto.schedule,
+      },
+      auditActor,
+    );
   }
 
   async updateClassScheduleForStaff(
@@ -464,27 +530,19 @@ export class ClassService {
     roleType: UserRole,
     id: string,
     dto: UpdateClassScheduleDto,
+    auditActor?: ActionHistoryActor,
   ) {
-    const actor = await this.getStaffOperationsActor(userId, roleType);
-    if (actor.roles.includes(StaffRole.teacher)) {
-      const assignment = await this.prisma.classTeacher.findUnique({
-        where: {
-          classId_teacherId: {
-            classId: id,
-            teacherId: actor.id,
-          },
-        },
-        select: { id: true },
-      });
-
-      if (!assignment) {
-        throw new NotFoundException('Class not found');
-      }
+    const actor = await this.staffOperationsAccess.resolveActor(userId, roleType);
+    if (this.isTeacherActor(actor.roles)) {
+      await this.staffOperationsAccess.assertTeacherAssignedToClass(
+        actor.id,
+        id,
+      );
     }
-    return this.updateClassSchedule(id, dto);
+    return this.updateClassSchedule(id, dto, auditActor);
   }
 
-  async createClass(data: CreateClassDto) {
+  async createClass(data: CreateClassDto, auditActor?: ActionHistoryActor) {
     return await this.prisma.$transaction(async (tx) => {
       const createdClass = await tx.class.create({
         data: {
@@ -536,6 +594,19 @@ export class ClassService {
         },
       });
 
+      if (auditActor) {
+        const afterValue = await this.getClassAuditSnapshot(tx, createdClass.id);
+        if (afterValue) {
+          await this.actionHistoryService.recordCreate(tx, {
+            actor: auditActor,
+            entityType: 'class',
+            entityId: createdClass.id,
+            description: 'Tạo lớp học',
+            afterValue,
+          });
+        }
+      }
+
       return {
         ...createdClass,
         teachers: classRecord.map((record) => ({
@@ -546,7 +617,7 @@ export class ClassService {
     });
   }
 
-  async updateClass(data: UpdateClassDto) {
+  async updateClass(data: UpdateClassDto, auditActor?: ActionHistoryActor) {
     const existingClass = await this.prisma.class.findUnique({
       where: { id: data.id },
       select: { id: true },
@@ -557,6 +628,9 @@ export class ClassService {
     }
 
     return await this.prisma.$transaction(async (tx) => {
+      const beforeValue = auditActor
+        ? await this.getClassAuditSnapshot(tx, data.id)
+        : null;
       const teacherPayload =
         data.teachers !== undefined || data.teacher_ids !== undefined
           ? this.getTeacherPayload(data)
@@ -624,6 +698,20 @@ export class ClassService {
         },
       });
 
+      if (auditActor) {
+        const afterValue = await this.getClassAuditSnapshot(tx, data.id);
+        if (afterValue) {
+          await this.actionHistoryService.recordUpdate(tx, {
+            actor: auditActor,
+            entityType: 'class',
+            entityId: data.id,
+            description: 'Cập nhật lớp học',
+            beforeValue,
+            afterValue,
+          });
+        }
+      }
+
       return {
         ...updatedClass,
         teachers: classRecord.map((record) => ({
@@ -634,7 +722,11 @@ export class ClassService {
     });
   }
 
-  async updateClassBasicInfo(id: string, dto: UpdateClassBasicInfoDto) {
+  async updateClassBasicInfo(
+    id: string,
+    dto: UpdateClassBasicInfoDto,
+    auditActor?: ActionHistoryActor,
+  ) {
     const existing = await this.prisma.class.findUnique({
       where: { id },
       select: { id: true },
@@ -666,7 +758,10 @@ export class ClassService {
       data.tuitionPackageSession = dto.tuition_package_session;
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
+      const beforeValue = auditActor
+        ? await this.getClassAuditSnapshot(tx, id)
+        : null;
       await tx.class.update({
         where: { id },
         data,
@@ -679,12 +774,32 @@ export class ClassService {
           },
         });
       }
-    });
 
-    return this.getClassById(id);
+      const afterValue = await this.getClassAuditSnapshot(tx, id);
+      if (!afterValue) {
+        throw new NotFoundException('Class not found');
+      }
+
+      if (auditActor) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor: auditActor,
+          entityType: 'class',
+          entityId: id,
+          description: 'Cập nhật thông tin cơ bản lớp học',
+          beforeValue,
+          afterValue,
+        });
+      }
+
+      return afterValue;
+    });
   }
 
-  async updateClassTeachers(id: string, dto: UpdateClassTeachersDto) {
+  async updateClassTeachers(
+    id: string,
+    dto: UpdateClassTeachersDto,
+    auditActor?: ActionHistoryActor,
+  ) {
     const existing = await this.prisma.class.findUnique({
       where: { id },
       select: { id: true },
@@ -695,7 +810,10 @@ export class ClassService {
 
     const teacherPayload = this.getTeacherPayload({ teachers: dto.teachers });
 
-    await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
+      const beforeValue = auditActor
+        ? await this.getClassAuditSnapshot(tx, id)
+        : null;
       await tx.classTeacher.deleteMany({
         where: { classId: id },
       });
@@ -708,12 +826,32 @@ export class ClassService {
           })),
         });
       }
-    });
 
-    return this.getClassById(id);
+      const afterValue = await this.getClassAuditSnapshot(tx, id);
+      if (!afterValue) {
+        throw new NotFoundException('Class not found');
+      }
+
+      if (auditActor) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor: auditActor,
+          entityType: 'class',
+          entityId: id,
+          description: 'Cập nhật giáo viên của lớp học',
+          beforeValue,
+          afterValue,
+        });
+      }
+
+      return afterValue;
+    });
   }
 
-  async updateClassSchedule(id: string, dto: UpdateClassScheduleDto) {
+  async updateClassSchedule(
+    id: string,
+    dto: UpdateClassScheduleDto,
+    auditActor?: ActionHistoryActor,
+  ) {
     const existing = await this.prisma.class.findUnique({
       where: { id },
       select: { id: true },
@@ -723,15 +861,40 @@ export class ClassService {
     }
 
     const schedule = dto.schedule as unknown as Prisma.InputJsonValue;
-    await this.prisma.class.update({
-      where: { id },
-      data: { schedule },
-    });
+    return this.prisma.$transaction(async (tx) => {
+      const beforeValue = auditActor
+        ? await this.getClassAuditSnapshot(tx, id)
+        : null;
+      await tx.class.update({
+        where: { id },
+        data: { schedule },
+      });
 
-    return this.getClassById(id);
+      const afterValue = await this.getClassAuditSnapshot(tx, id);
+      if (!afterValue) {
+        throw new NotFoundException('Class not found');
+      }
+
+      if (auditActor) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor: auditActor,
+          entityType: 'class',
+          entityId: id,
+          description: 'Cập nhật lịch học của lớp học',
+          beforeValue,
+          afterValue,
+        });
+      }
+
+      return afterValue;
+    });
   }
 
-  async updateClassStudents(id: string, dto: UpdateClassStudentsDto) {
+  async updateClassStudents(
+    id: string,
+    dto: UpdateClassStudentsDto,
+    auditActor?: ActionHistoryActor,
+  ) {
     const existing = await this.prisma.class.findUnique({
       where: { id },
       select: { id: true },
@@ -744,7 +907,10 @@ export class ClassService {
       new Map(dto.students.map((student) => [student.id, student])).values(),
     );
 
-    await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
+      const beforeValue = auditActor
+        ? await this.getClassAuditSnapshot(tx, id)
+        : null;
       await tx.studentClass.deleteMany({
         where: { classId: id },
       });
@@ -760,26 +926,52 @@ export class ClassService {
               ) ?? student.custom_tuition_per_session,
             customTuitionPackageTotal: student.custom_tuition_package_total,
             customTuitionPackageSession: student.custom_tuition_package_session,
-          })),
+            })),
         });
       }
-    });
 
-    return this.getClassById(id);
+      const afterValue = await this.getClassAuditSnapshot(tx, id);
+      if (!afterValue) {
+        throw new NotFoundException('Class not found');
+      }
+
+      if (auditActor) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor: auditActor,
+          entityType: 'class',
+          entityId: id,
+          description: 'Cập nhật học sinh của lớp học',
+          beforeValue,
+          afterValue,
+        });
+      }
+
+      return afterValue;
+    });
   }
 
-  async deleteClass(id: string) {
-    const existingClass = await this.prisma.class.findUnique({
-      where: { id },
-      select: { id: true },
-    });
+  async deleteClass(id: string, auditActor?: ActionHistoryActor) {
+    return this.prisma.$transaction(async (tx) => {
+      const beforeValue = await this.getClassAuditSnapshot(tx, id);
+      if (!beforeValue) {
+        throw new NotFoundException('Class not found');
+      }
 
-    if (!existingClass) {
-      throw new NotFoundException('Class not found');
-    }
+      const deletedClass = await tx.class.delete({
+        where: { id },
+      });
 
-    return await this.prisma.class.delete({
-      where: { id },
+      if (auditActor) {
+        await this.actionHistoryService.recordDelete(tx, {
+          actor: auditActor,
+          entityType: 'class',
+          entityId: id,
+          description: 'Xóa lớp học',
+          beforeValue,
+        });
+      }
+
+      return deletedClass;
     });
   }
 }

@@ -129,7 +129,11 @@ export class StudentController {
     @CurrentUser() user: JwtPayload,
     @Body() data: UpdateStudentDto,
   ) {
-    return this.studentService.updateStudent(data);
+    return this.studentService.updateStudent(data, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Patch('update-student-account-balance')
@@ -148,7 +152,11 @@ export class StudentController {
     @CurrentUser() user: JwtPayload,
     @Body() data: UpdateStudentAccountBalanceCreateDto,
   ) {
-    return this.studentService.updateStudentAccountBalance(data);
+    return this.studentService.updateStudentAccountBalance(data, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Patch(':id/classes')
@@ -170,7 +178,11 @@ export class StudentController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: UpdateStudentClassesDto,
   ) {
-    return this.studentService.updateStudentClasses(id, body);
+    return this.studentService.updateStudentClasses(id, body, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Patch(':id')
@@ -191,7 +203,11 @@ export class StudentController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: UpdateStudentBodyDto,
   ) {
-    return this.studentService.updateStudentById(id, body);
+    return this.studentService.updateStudentById(id, body, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Get(':id/wallet-history')
@@ -248,6 +264,10 @@ export class StudentController {
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
-    return this.studentService.deleteStudent(id);
+    return this.studentService.deleteStudent(id, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 }

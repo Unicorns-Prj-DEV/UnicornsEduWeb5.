@@ -4,6 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '../../generated/client';
+import {
+  ActionHistoryActor,
+  ActionHistoryService,
+} from '../action-history/action-history.service';
 import { StaffRole, StaffStatus, UserRole } from 'generated/enums';
 import { PaginationQueryDto } from 'src/dtos/pagination.dto';
 import {
@@ -141,9 +145,52 @@ type DepositSessionRow = {
   teacherAllowanceTotal: number | string | null;
 };
 
+type StaffAuditClient = Prisma.TransactionClient | PrismaService;
+
 @Injectable()
 export class StaffService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly actionHistoryService: ActionHistoryService,
+  ) {}
+
+  private getStaffAuditSnapshot(db: StaffAuditClient, staffId: string) {
+    return db.staffInfo.findUnique({
+      where: { id: staffId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            phone: true,
+            first_name: true,
+            last_name: true,
+            accountHandle: true,
+            province: true,
+            roleType: true,
+            status: true,
+            emailVerified: true,
+            phoneVerified: true,
+            linkId: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+        classTeachers: {
+          select: {
+            customAllowance: true,
+            class: {
+              select: {
+                id: true,
+                name: true,
+                status: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
 
   async searchCustomerCareStaff(query: SearchCustomerCareStaffDto) {
     const limit =
@@ -884,7 +931,13 @@ export class StaffService {
     return tx;
   }
 
-  async updateStaff(data: UpdateStaffDto) {
+  async updateStaff(data: UpdateStaffDto, auditActor?: ActionHistoryActor) {
+    const existingStaff = await this.getStaffAuditSnapshot(this.prisma, data.id);
+
+    if (!existingStaff) {
+      throw new NotFoundException('Staff not found');
+    }
+
     const payload: Record<string, unknown> = {};
     if (data.full_name != null) payload.fullName = data.full_name;
     const birthDateNorm = toDateOrNull(data.birth_date);
@@ -899,22 +952,60 @@ export class StaffService {
     if (data.user_id != null) payload.userId = data.user_id;
     if (data.status != null) payload.status = data.status;
 
-    return await this.prisma.staffInfo.update({
-      where: { id: data.id },
-      data: payload as Parameters<
-        typeof this.prisma.staffInfo.update
-      >[0]['data'],
+    return this.prisma.$transaction(async (tx) => {
+      const updatedStaff = await tx.staffInfo.update({
+        where: { id: data.id },
+        data: payload as Parameters<
+          typeof this.prisma.staffInfo.update
+        >[0]['data'],
+      });
+
+      if (auditActor) {
+        const afterValue = await this.getStaffAuditSnapshot(tx, data.id);
+        if (afterValue) {
+          await this.actionHistoryService.recordUpdate(tx, {
+            actor: auditActor,
+            entityType: 'staff',
+            entityId: data.id,
+            description: 'Cập nhật nhân sự',
+            beforeValue: existingStaff,
+            afterValue,
+          });
+        }
+      }
+
+      return updatedStaff;
     });
   }
 
-  async deleteStaff(id: string) {
-    return await this.prisma.staffInfo.delete({
-      where: {
-        id,
-      },
+  async deleteStaff(id: string, auditActor?: ActionHistoryActor) {
+    const existingStaff = await this.getStaffAuditSnapshot(this.prisma, id);
+
+    if (!existingStaff) {
+      throw new NotFoundException('Staff not found');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const deletedStaff = await tx.staffInfo.delete({
+        where: {
+          id,
+        },
+      });
+
+      if (auditActor) {
+        await this.actionHistoryService.recordDelete(tx, {
+          actor: auditActor,
+          entityType: 'staff',
+          entityId: id,
+          description: 'Xóa nhân sự',
+          beforeValue: existingStaff,
+        });
+      }
+
+      return deletedStaff;
     });
   }
-  async createStaff(data: CreateStaffDto) {
+  async createStaff(data: CreateStaffDto, auditActor?: ActionHistoryActor) {
     const user = await this.prisma.user.findUnique({
       where: {
         id: data.user_id,
@@ -962,6 +1053,19 @@ export class StaffService {
             roleType: UserRole.staff,
           },
         });
+      }
+
+      if (auditActor) {
+        const afterValue = await this.getStaffAuditSnapshot(tx, createdStaff.id);
+        if (afterValue) {
+          await this.actionHistoryService.recordCreate(tx, {
+            actor: auditActor,
+            entityType: 'staff',
+            entityId: createdStaff.id,
+            description: 'Tạo nhân sự',
+            afterValue,
+          });
+        }
       }
 
       return createdStaff;

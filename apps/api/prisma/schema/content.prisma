@@ -29,6 +29,10 @@ model ActionHistory {
   user          User?    @relation(fields: [userId], references: [id])
 
   @@index([userId])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([actionType])
+  @@index([createdAt])
   @@map("action_history")
 }
 

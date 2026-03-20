@@ -18,6 +18,10 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { UserRole } from 'generated/enums';
+import {
+  CurrentUser,
+  type JwtPayload,
+} from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PaginationQueryDto } from '../dtos/pagination.dto';
 import { CreateBonusDto, UpdateBonusDto } from '../dtos/bonus.dto';
@@ -107,8 +111,15 @@ export class BonusController {
   @ApiBody({ type: CreateBonusDto, description: 'Bonus create payload' })
   @ApiResponse({ status: 201, description: 'Bonus created.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
-  async createBonus(@Body() data: CreateBonusDto) {
-    return this.bonusService.createBonus(data);
+  async createBonus(
+    @CurrentUser() user: JwtPayload,
+    @Body() data: CreateBonusDto,
+  ) {
+    return this.bonusService.createBonus(data, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Patch()
@@ -123,8 +134,15 @@ export class BonusController {
   @ApiResponse({ status: 200, description: 'Bonus updated.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({ status: 404, description: 'Bonus not found.' })
-  async updateBonus(@Body() data: UpdateBonusDto) {
-    return this.bonusService.updateBonus(data);
+  async updateBonus(
+    @CurrentUser() user: JwtPayload,
+    @Body() data: UpdateBonusDto,
+  ) {
+    return this.bonusService.updateBonus(data, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Delete(':id')
@@ -135,7 +153,14 @@ export class BonusController {
   @ApiParam({ name: 'id', description: 'Bonus id' })
   @ApiResponse({ status: 200, description: 'Bonus deleted.' })
   @ApiResponse({ status: 404, description: 'Bonus not found.' })
-  async deleteBonus(@Param('id') id: string) {
-    return this.bonusService.deleteBonus(id);
+  async deleteBonus(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+  ) {
+    return this.bonusService.deleteBonus(id, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 }

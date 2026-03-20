@@ -107,6 +107,9 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - Mỗi buổi học gắn với 1 lớp và 1 giáo viên
 - Trường chính: ngày học, start/end time, `coefficient`, `allowance_amount`, `teacher_payment_status`, `tuition_fee`
 - Quan hệ con: `attendance`
+- Indexes chính:
+  - đơn lẻ: `teacher_id`, `class_id`, `date`
+  - composite cho read path nóng: `(class_id, date)`, `(teacher_id, date)`, `(teacher_id, teacher_payment_status, date)`
 
 ### 4.6 `attendance`
 - Điểm danh theo từng session & student
@@ -125,6 +128,27 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `class_surveys`: báo cáo/đánh giá lớp theo mốc test
 - `action_history`: audit log thay đổi dữ liệu (`before_value`, `after_value`, `changed_fields` là JSON)
 - `documents`: metadata tài liệu (`file_url`, `tags` JSON)
+
+### 4.8.1 `action_history`
+- Dùng để lưu thao tác `create | update | delete` ở backend cho các entity nghiệp vụ.
+- Actor: `user_id`, `user_email`
+- Phân loại: `entity_type`, `entity_id`, `action_type`
+- Snapshot:
+  - `before_value`: toàn bộ dữ liệu trước khi thay đổi
+  - `after_value`: toàn bộ dữ liệu sau khi thay đổi
+  - `changed_fields`: diff dạng JSON giữa before/after
+- Coverage hiện tại:
+  - learning / finance / content: `session`, `class`, `cost`, `bonus`, `cf_problem_tutorial`
+  - identity / people: `user`, `student`, `staff`
+  - auth state của `user`: `register`, `verify email`, `reset password`, `change password`, Google OAuth create/verify
+- Ghi chú bảo mật:
+  - snapshot `user` lưu theo dữ liệu thực tế ở DB, nên các field hash như `passwordHash` hoặc `refreshToken` có thể xuất hiện trong `before_value` / `after_value` khi chính các field đó thay đổi
+- Indexes phục vụ tra cứu lịch sử:
+  - `user_id`
+  - `entity_type`
+  - `entity_id`
+  - `action_type`
+  - `created_at`
 
 ### 4.9 Codeforces tutorial (`cf_problem_tutorials`)
 - Lưu nội dung tutorial cho từng bài trong contest Codeforces (group).

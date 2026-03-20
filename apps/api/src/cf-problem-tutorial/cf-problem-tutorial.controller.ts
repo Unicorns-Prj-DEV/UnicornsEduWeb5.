@@ -15,6 +15,10 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { UserRole } from 'generated/enums';
+import {
+  CurrentUser,
+  type JwtPayload,
+} from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CfProblemTutorialService } from './cf-problem-tutorial.service';
 
@@ -55,6 +59,7 @@ export class CfProblemTutorialController {
   @ApiBody({ type: UpsertTutorialDto })
   @ApiResponse({ status: 200, description: 'Đã lưu.' })
   async upsertTutorial(
+    @CurrentUser() user: JwtPayload,
     @Param('contestId', ParseIntPipe) contestId: number,
     @Param('problemIndex') problemIndex: string,
     @Body() body: UpsertTutorialDto,
@@ -63,6 +68,11 @@ export class CfProblemTutorialController {
       contestId,
       problemIndex,
       body.tutorial ?? null,
+      {
+        userId: user.id,
+        userEmail: user.email,
+        roleType: user.roleType,
+      },
     );
   }
 }

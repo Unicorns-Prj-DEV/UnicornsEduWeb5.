@@ -81,6 +81,11 @@ export class StaffOpsSessionController {
       user.roleType,
       classId,
       dto,
+      {
+        userId: user.id,
+        userEmail: user.email,
+        roleType: user.roleType,
+      },
     );
   }
 
@@ -103,6 +108,11 @@ export class StaffOpsSessionController {
       user.roleType,
       id,
       dto,
+      {
+        userId: user.id,
+        userEmail: user.email,
+        roleType: user.roleType,
+      },
     );
   }
 }

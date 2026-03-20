@@ -4,6 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  ActionHistoryActor,
+  ActionHistoryService,
+} from '../action-history/action-history.service';
+import {
   Gender,
   StaffRole,
   StudentStatus,
@@ -166,9 +170,14 @@ function normalizeCustomerCareProfitPercent(
   return new Prisma.Decimal(rounded.toFixed(2));
 }
 
+type StudentAuditClient = Prisma.TransactionClient | PrismaService;
+
 @Injectable()
 export class StudentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly actionHistoryService: ActionHistoryService,
+  ) {}
 
   private formatVND(amount: number) {
     return `${Math.round(amount).toLocaleString('vi-VN')}đ`;
@@ -282,6 +291,18 @@ export class StudentService {
       date: transaction.date,
       createdAt: transaction.createdAt,
     };
+  }
+
+  private async getStudentAuditSnapshot(
+    db: StudentAuditClient,
+    studentId: string,
+  ) {
+    const student = await db.studentInfo.findUnique({
+      where: { id: studentId },
+      include: studentDetailInclude,
+    });
+
+    return student ? this.serializeStudentDetail(student) : null;
   }
 
   private buildUpdateData(dto: UpdateStudentBodyDto) {
@@ -542,7 +563,11 @@ export class StudentService {
     );
   }
 
-  async updateStudentById(id: string, dto: UpdateStudentBodyDto) {
+  async updateStudentById(
+    id: string,
+    dto: UpdateStudentBodyDto,
+    auditActor?: ActionHistoryActor,
+  ) {
     const student = await this.prisma.studentInfo.findUnique({
       where: { id },
     });
@@ -559,6 +584,10 @@ export class StudentService {
     if (Object.keys(updateData).length === 0 && !shouldSyncCustomerCare) {
       return this.getStudentById(id);
     }
+
+    const beforeValue = auditActor
+      ? await this.getStudentAuditSnapshot(this.prisma, id)
+      : null;
 
     const updated = await this.prisma.$transaction(async (tx) => {
       if (Object.keys(updateData).length > 0) {
@@ -579,24 +608,41 @@ export class StudentService {
         throw new NotFoundException('Student not found');
       }
 
+      if (auditActor && beforeValue) {
+        const afterValue = this.serializeStudentDetail(nextStudent);
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor: auditActor,
+          entityType: 'student',
+          entityId: id,
+          description: 'Cập nhật học sinh',
+          beforeValue,
+          afterValue,
+        });
+      }
+
       return nextStudent;
     });
 
     return this.serializeStudentDetail(updated);
   }
 
-  async updateStudent(data: UpdateStudentDto) {
-    return this.updateStudentById(data.id, data);
+  async updateStudent(data: UpdateStudentDto, auditActor?: ActionHistoryActor) {
+    return this.updateStudentById(data.id, data, auditActor);
   }
 
   async updateStudentAccountBalance(
     data: UpdateStudentAccountBalanceCreateDto,
+    auditActor?: ActionHistoryActor,
   ) {
     const normalizedAmount = Math.round(data.amount);
 
     if (!Number.isFinite(normalizedAmount) || normalizedAmount === 0) {
       throw new BadRequestException('Amount must be a non-zero number.');
     }
+
+    const beforeValue = auditActor
+      ? await this.getStudentAuditSnapshot(this.prisma, data.student_id)
+      : null;
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const student = await tx.studentInfo.findUnique({
@@ -634,17 +680,34 @@ export class StudentService {
         },
       });
 
-      return tx.studentInfo.update({
+      const nextStudent = await tx.studentInfo.update({
         where: { id: data.student_id },
         data: { accountBalance: { increment: normalizedAmount } },
         include: studentDetailInclude,
       });
+
+      if (auditActor && beforeValue) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor: auditActor,
+          entityType: 'student',
+          entityId: data.student_id,
+          description: 'Điều chỉnh số dư học sinh',
+          beforeValue,
+          afterValue: this.serializeStudentDetail(nextStudent),
+        });
+      }
+
+      return nextStudent;
     });
 
     return this.serializeStudentDetail(updated);
   }
 
-  async updateStudentClasses(id: string, dto: UpdateStudentClassesDto) {
+  async updateStudentClasses(
+    id: string,
+    dto: UpdateStudentClassesDto,
+    auditActor?: ActionHistoryActor,
+  ) {
     const student = await this.prisma.studentInfo.findUnique({
       where: { id },
       select: { id: true },
@@ -684,7 +747,11 @@ export class StudentService {
       (classId) => !existingClassIds.has(classId),
     );
 
-    await this.prisma.$transaction(async (tx) => {
+    const beforeValue = auditActor
+      ? await this.getStudentAuditSnapshot(this.prisma, id)
+      : null;
+
+    const updatedStudent = await this.prisma.$transaction(async (tx) => {
       if (classIdsToRemove.length > 0) {
         await tx.studentClass.deleteMany({
           where: {
@@ -697,7 +764,27 @@ export class StudentService {
       }
 
       if (classIds.length === 0) {
-        return;
+        const nextStudent = await tx.studentInfo.findUnique({
+          where: { id },
+          include: studentDetailInclude,
+        });
+
+        if (!nextStudent) {
+          throw new NotFoundException('Student not found');
+        }
+
+        if (auditActor && beforeValue) {
+          await this.actionHistoryService.recordUpdate(tx, {
+            actor: auditActor,
+            entityType: 'student',
+            entityId: id,
+            description: 'Cập nhật danh sách lớp của học sinh',
+            beforeValue,
+            afterValue: this.serializeStudentDetail(nextStudent),
+          });
+        }
+
+        return nextStudent;
       }
 
       if (classIdsToAdd.length > 0) {
@@ -708,42 +795,105 @@ export class StudentService {
           })),
         });
       }
+
+      const nextStudent = await tx.studentInfo.findUnique({
+        where: { id },
+        include: studentDetailInclude,
+      });
+
+      if (!nextStudent) {
+        throw new NotFoundException('Student not found');
+      }
+
+      if (auditActor && beforeValue) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor: auditActor,
+          entityType: 'student',
+          entityId: id,
+          description: 'Cập nhật danh sách lớp của học sinh',
+          beforeValue,
+          afterValue: this.serializeStudentDetail(nextStudent),
+        });
+      }
+
+      return nextStudent;
     });
 
-    return this.getStudentById(id);
+    return this.serializeStudentDetail(updatedStudent);
   }
 
-  async deleteStudent(id: string) {
-    return await this.prisma.studentInfo.delete({
-      where: {
-        id,
-      },
-    });
-  }
+  async deleteStudent(id: string, auditActor?: ActionHistoryActor) {
+    const beforeValue = await this.getStudentAuditSnapshot(this.prisma, id);
 
-  async createStudent(data: CreateStudentDto) {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        id: data.user_id,
-      },
-    });
-    if (!user) {
-      throw new NotFoundException('User not found');
+    if (!beforeValue) {
+      throw new NotFoundException('Student not found');
     }
-    return await this.prisma.studentInfo.create({
-      data: {
-        fullName: data.full_name,
-        email: data.email,
-        school: data.school,
-        province: data.province,
-        birthYear: data.birth_year,
-        parentName: data.parent_name,
-        parentPhone: data.parent_phone,
-        status: data.status,
-        gender: data.gender,
-        goal: data.goal,
-        userId: data.user_id,
-      },
+
+    return this.prisma.$transaction(async (tx) => {
+      const deletedStudent = await tx.studentInfo.delete({
+        where: {
+          id,
+        },
+      });
+
+      if (auditActor) {
+        await this.actionHistoryService.recordDelete(tx, {
+          actor: auditActor,
+          entityType: 'student',
+          entityId: id,
+          description: 'Xóa học sinh',
+          beforeValue,
+        });
+      }
+
+      return deletedStudent;
+    });
+  }
+
+  async createStudent(data: CreateStudentDto, auditActor?: ActionHistoryActor) {
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: {
+          id: data.user_id,
+        },
+      });
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      const createdStudent = await tx.studentInfo.create({
+        data: {
+          fullName: data.full_name,
+          email: data.email,
+          school: data.school,
+          province: data.province,
+          birthYear: data.birth_year,
+          parentName: data.parent_name,
+          parentPhone: data.parent_phone,
+          status: data.status,
+          gender: data.gender,
+          goal: data.goal,
+          userId: data.user_id,
+        },
+      });
+
+      if (auditActor) {
+        const afterValue = await this.getStudentAuditSnapshot(
+          tx,
+          createdStudent.id,
+        );
+        if (afterValue) {
+          await this.actionHistoryService.recordCreate(tx, {
+            actor: auditActor,
+            entityType: 'student',
+            entityId: createdStudent.id,
+            description: 'Tạo học sinh',
+            afterValue,
+          });
+        }
+      }
+
+      return createdStudent;
     });
   }
 }

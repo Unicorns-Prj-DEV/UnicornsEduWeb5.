@@ -15,6 +15,7 @@ import { CodeforcesModule } from './codeforces/codeforces.module';
 import { CfProblemTutorialModule } from './cf-problem-tutorial/cf-problem-tutorial.module';
 import { SessionModule } from './session/session.module';
 import { CustomerCareModule } from './customer-care/customer-care.module';
+import { ActionHistoryModule } from './action-history/action-history.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { CustomerCareModule } from './customer-care/customer-care.module';
     CfProblemTutorialModule,
     SessionModule,
     CustomerCareModule,
+    ActionHistoryModule,
   ],
   controllers: [AppController],
   providers: [

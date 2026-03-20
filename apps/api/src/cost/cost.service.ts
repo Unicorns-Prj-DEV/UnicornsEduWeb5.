@@ -1,11 +1,18 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ActionHistoryActor,
+  ActionHistoryService,
+} from '../action-history/action-history.service';
 import { PaginationQueryDto } from '../dtos/pagination.dto';
 import { CreateCostDto, UpdateCostDto } from '../dtos/cost.dto';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class CostService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly actionHistoryService: ActionHistoryService,
+  ) {}
 
   async getCosts(
     query: PaginationQueryDto & {
@@ -83,23 +90,36 @@ export class CostService {
     return cost;
   }
 
-  async createCost(data: CreateCostDto) {
-    return await this.prisma.costExtend.create({
-      data: {
-        id: data.id,
-        month: data.month,
-        category: data.category,
-        amount: data.amount,
-        date: data.date,
-        status: data.status,
-      },
+  async createCost(data: CreateCostDto, auditActor?: ActionHistoryActor) {
+    return this.prisma.$transaction(async (tx) => {
+      const createdCost = await tx.costExtend.create({
+        data: {
+          id: data.id,
+          month: data.month,
+          category: data.category,
+          amount: data.amount,
+          date: data.date,
+          status: data.status,
+        },
+      });
+
+      if (auditActor) {
+        await this.actionHistoryService.recordCreate(tx, {
+          actor: auditActor,
+          entityType: 'cost',
+          entityId: createdCost.id,
+          description: 'Tạo khoản chi',
+          afterValue: createdCost,
+        });
+      }
+
+      return createdCost;
     });
   }
 
-  async updateCost(data: UpdateCostDto) {
+  async updateCost(data: UpdateCostDto, auditActor?: ActionHistoryActor) {
     const existingCost = await this.prisma.costExtend.findUnique({
       where: { id: data.id },
-      select: { id: true },
     });
 
     if (!existingCost) {
@@ -114,24 +134,52 @@ export class CostService {
     if (data.status !== undefined) updateData.status = data.status;
 
 
-    return await this.prisma.costExtend.update({
-      where: { id: data.id },
-      data: updateData,
+    return this.prisma.$transaction(async (tx) => {
+      const updatedCost = await tx.costExtend.update({
+        where: { id: data.id },
+        data: updateData,
+      });
+
+      if (auditActor) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor: auditActor,
+          entityType: 'cost',
+          entityId: data.id,
+          description: 'Cập nhật khoản chi',
+          beforeValue: existingCost,
+          afterValue: updatedCost,
+        });
+      }
+
+      return updatedCost;
     });
   }
 
-  async deleteCost(id: string) {
+  async deleteCost(id: string, auditActor?: ActionHistoryActor) {
     const existingCost = await this.prisma.costExtend.findUnique({
       where: { id },
-      select: { id: true },
     });
 
     if (!existingCost) {
       throw new NotFoundException('Cost not found');
     }
 
-    return await this.prisma.costExtend.delete({
-      where: { id },
+    return this.prisma.$transaction(async (tx) => {
+      const deletedCost = await tx.costExtend.delete({
+        where: { id },
+      });
+
+      if (auditActor) {
+        await this.actionHistoryService.recordDelete(tx, {
+          actor: auditActor,
+          entityType: 'cost',
+          entityId: id,
+          description: 'Xóa khoản chi',
+          beforeValue: existingCost,
+        });
+      }
+
+      return deletedCost;
     });
   }
 }

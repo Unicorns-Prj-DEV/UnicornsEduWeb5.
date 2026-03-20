@@ -1,11 +1,25 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ActionHistoryActor,
+  ActionHistoryService,
+} from '../action-history/action-history.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginationQueryDto } from '../dtos/pagination.dto';
 import { CreateBonusDto, UpdateBonusDto } from '../dtos/bonus.dto';
 
 @Injectable()
 export class BonusService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly actionHistoryService: ActionHistoryService,
+  ) {}
+
+  private getBonusSnapshot(id: string) {
+    return this.prisma.bonus.findUnique({
+      where: { id },
+      include: { staff: true },
+    });
+  }
 
   async getBonuses(
     query: PaginationQueryDto & {
@@ -75,25 +89,44 @@ export class BonusService {
     return bonus;
   }
 
-  async createBonus(data: CreateBonusDto) {
-    return await this.prisma.bonus.create({
-      data: {
-        id: data.id,
-        staffId: data.staffId,
-        workType: data.workType,
-        month: data.month,
-        amount: data.amount ?? 0,
-        status: data.status,
-        note: data.note,
-      },
+  async createBonus(data: CreateBonusDto, auditActor?: ActionHistoryActor) {
+    return this.prisma.$transaction(async (tx) => {
+      const createdBonus = await tx.bonus.create({
+        data: {
+          id: data.id,
+          staffId: data.staffId,
+          workType: data.workType,
+          month: data.month,
+          amount: data.amount ?? 0,
+          status: data.status,
+          note: data.note,
+        },
+      });
+
+      if (auditActor) {
+        const afterValue = await tx.bonus.findUnique({
+          where: { id: createdBonus.id },
+          include: { staff: true },
+        });
+        await this.actionHistoryService.recordCreate(tx, {
+          actor: auditActor,
+          entityType: 'bonus',
+          entityId: createdBonus.id,
+          description: 'Tạo khoản thưởng',
+          afterValue,
+        });
+      }
+
+      return createdBonus;
     });
   }
 
-  async updateBonus(data: UpdateBonusDto) {
-    const existingBonus = await this.prisma.bonus.findUnique({
-      where: { id: data.id },
-      select: { id: true },
-    });
+  async updateBonus(data: UpdateBonusDto, auditActor?: ActionHistoryActor) {
+    if (!data.id) {
+      throw new NotFoundException('Bonus not found');
+    }
+
+    const existingBonus = await this.getBonusSnapshot(data.id);
 
     if (!existingBonus) {
       throw new NotFoundException('Bonus not found');
@@ -108,25 +141,54 @@ export class BonusService {
     if (data.status !== undefined) updateData.status = data.status;
     if (data.note !== undefined) updateData.note = data.note;
 
-    return await this.prisma.bonus.update({
-      where: { id: data.id },
-      data: updateData,
+    return this.prisma.$transaction(async (tx) => {
+      const updatedBonus = await tx.bonus.update({
+        where: { id: data.id },
+        data: updateData,
+      });
+
+      if (auditActor) {
+        const afterValue = await tx.bonus.findUnique({
+          where: { id: data.id },
+          include: { staff: true },
+        });
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor: auditActor,
+          entityType: 'bonus',
+          entityId: data.id,
+          description: 'Cập nhật khoản thưởng',
+          beforeValue: existingBonus,
+          afterValue,
+        });
+      }
+
+      return updatedBonus;
     });
   }
 
-  async deleteBonus(id: string) {
-    const existingBonus = await this.prisma.bonus.findUnique({
-      where: { id },
-      select: { id: true },
-    });
+  async deleteBonus(id: string, auditActor?: ActionHistoryActor) {
+    const existingBonus = await this.getBonusSnapshot(id);
 
     if (!existingBonus) {
       throw new NotFoundException('Bonus not found');
     }
 
-    return await this.prisma.bonus.delete({
-      where: { id },
+    return this.prisma.$transaction(async (tx) => {
+      const deletedBonus = await tx.bonus.delete({
+        where: { id },
+      });
+
+      if (auditActor) {
+        await this.actionHistoryService.recordDelete(tx, {
+          actor: auditActor,
+          entityType: 'bonus',
+          entityId: id,
+          description: 'Xóa khoản thưởng',
+          beforeValue: existingBonus,
+        });
+      }
+
+      return deletedBonus;
     });
   }
 }
-

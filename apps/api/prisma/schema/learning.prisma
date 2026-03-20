@@ -75,6 +75,9 @@ model Session {
   @@index([teacherId])
   @@index([classId])
   @@index([date])
+  @@index([classId, date])
+  @@index([teacherId, date])
+  @@index([teacherId, teacherPaymentStatus, date])
   @@map("sessions")
 }
 

@@ -113,6 +113,7 @@
   - `PATCH /student/:id` hỗ trợ cập nhật `customer_care_staff_id` và `customer_care_profit_percent`; backend sẽ upsert hoặc xóa bản ghi `customer_care_service` trong cùng transaction với phần hồ sơ học sinh. Gửi `customer_care_staff_id = null` để gỡ CSKH khỏi học sinh.
   - `PATCH /student/update-student-account-balance` ngoài việc cập nhật `accountBalance` còn ghi transaction mới vào `wallet_transactions_history`; số dương lưu type `topup`, số âm lưu type `loan`.
   - FE popup **Chỉnh sửa hồ sơ học sinh** có thêm khối **Chăm sóc khách hàng** với combobox tìm theo họ và tên, và input tỷ lệ lợi nhuận theo `%` (ví dụ nhập `20` để lưu `profitPercent = 0.20`).
+  - Trong popup này, nếu học sinh đang có CSKH thì admin có thể bấm **Loại bỏ CSKH** để clear cả nhân sự phụ trách lẫn `% lợi nhuận` ở draft form; UI hiển thị trạng thái “sẽ gỡ khi lưu” và cho phép khôi phục trước khi submit.
 - **Cost endpoints (CRUD + pagination):**
   - `GET /cost?page=<number>&limit=<number>&search=<text>`.
   - `GET /cost/:id`.
@@ -165,5 +166,8 @@ See [ARCHIVED-UI-CONTEXT.md](ARCHIVED-UI-CONTEXT.md) for full mapping.
   - FE `/admin/students/:id` mục **Danh sách lớp học**: click vào dòng lớp → `/admin/classes/:id`. Bảng hiển thị `(•) Lớp | Gói học phí | Số buổi đã vào học`, nút điều chỉnh lớp dùng icon `+`, và có icon gỡ lớp ở cuối dòng (chỉ hiện khi hover/focus).
 - **Personnel:** `pages/Teachers.tsx`, `pages/Staff.tsx`, `pages/StaffDetail.tsx`, `pages/StaffCSKHDetail.tsx`; teachersService, staffService; staff roles (accountant, lesson_plan, etc.).
 - **Costs / categories:** `pages/Costs.tsx`, `pages/Categories.tsx`; costsService, categoriesService.
-- **Action history:** `pages/ActionHistory.tsx`; actionHistoryService; admin-only in sidebar.
+- **Action history:** `/admin/history`; admin-only in sidebar.
+  - Backend-authoritative data path: `GET /action-history` (summary list, paginated) + `GET /action-history/:id` (full before/after snapshot).
+  - UI ưu tiên recent-first timeline một cột bám layout archived, filter theo `entityType`, `actionType`, date range và exact `entityId`; chi tiết before/after chỉ tải khi mở bản ghi tương ứng để tránh kéo toàn bộ JSON snapshot ngay từ list.
+  - FE global query bridge sẽ `invalidateQueries(["action-history"])` sau mọi response thành công của `POST` / `PUT` / `PATCH` / `DELETE` (trừ `auth/refresh`), nên nếu đang mở `/admin/history` thì timeline sẽ tự refetch khi app phát sinh mutation mới.
 - **Layout:** Admin uses sidebar only (`Layout.tsx`, `Sidebar.tsx`); menu items filtered by role and requireStaffRole.

@@ -55,7 +55,11 @@ export class UserProfileController {
     @CurrentUser() user: JwtPayload,
     @Body() body: UpdateMyProfileDto,
   ) {
-    return this.userService.updateMyProfile(user.id, body);
+    return this.userService.updateMyProfile(user.id, body, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Patch('staff')
@@ -72,7 +76,11 @@ export class UserProfileController {
     @CurrentUser() user: JwtPayload,
     @Body() body: UpdateMyStaffProfileDto,
   ) {
-    return this.userService.updateMyStaffProfile(user.id, body);
+    return this.userService.updateMyStaffProfile(user.id, body, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Patch('student')
@@ -89,6 +97,10 @@ export class UserProfileController {
     @CurrentUser() user: JwtPayload,
     @Body() body: UpdateMyStudentProfileDto,
   ) {
-    return this.userService.updateMyStudentProfile(user.id, body);
+    return this.userService.updateMyStudentProfile(user.id, body, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 }

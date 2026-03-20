@@ -97,7 +97,16 @@ export class StaffOpsClassController {
     @CurrentUser() user: JwtPayload,
     @Body() dto: CreateStaffOpsClassDto,
   ) {
-    return this.classService.createClassForStaff(user.id, user.roleType, dto);
+    return this.classService.createClassForStaff(
+      user.id,
+      user.roleType,
+      dto,
+      {
+        userId: user.id,
+        userEmail: user.email,
+        roleType: user.roleType,
+      },
+    );
   }
 
   @Patch(':id/schedule')
@@ -117,6 +126,11 @@ export class StaffOpsClassController {
       user.roleType,
       id,
       dto,
+      {
+        userId: user.id,
+        userEmail: user.email,
+        roleType: user.roleType,
+      },
     );
   }
 }

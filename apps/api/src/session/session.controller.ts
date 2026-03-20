@@ -8,6 +8,8 @@ import {
   Post,
   Put,
   Query,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import {
   ApiBody,
@@ -19,40 +21,63 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { UserRole } from 'generated/enums';
+import {
+  CurrentUser,
+  type JwtPayload,
+} from 'src/auth/decorators/current-user.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import {
-  type SessionUnpaidSummaryItem,
-  type SessionCreateDto,
-  type SessionUpdateDto,
+  SessionCreateDto,
+  SessionUnpaidSummaryItem,
+  SessionUpdateDto,
 } from 'src/dtos/session.dto';
 import { SessionService } from './session.service';
 
 @Controller('sessions')
 @ApiTags('sessions')
 @ApiCookieAuth('access_token')
+@UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class SessionController {
   constructor(private readonly sessionService: SessionService) {}
 
   @Post()
   @Roles(UserRole.admin)
   @ApiOperation({ summary: 'Tạo session' })
-  @ApiBody({ type: Object, description: 'Session create payload' })
+  @ApiBody({ type: SessionCreateDto, description: 'Session create payload' })
   @ApiResponse({ status: 201, description: 'Session đã được tạo.' })
   @ApiResponse({ status: 400, description: 'Lỗi khi tạo session.' })
-  async createSession(@Body() data: SessionCreateDto) {
-    return this.sessionService.createSession(data);
+  async createSession(
+    @CurrentUser() user: JwtPayload,
+    @Body() data: SessionCreateDto,
+  ) {
+    return this.sessionService.createSession(data, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Put(':id')
   @Roles(UserRole.admin)
   @ApiOperation({ summary: 'Cập nhật session' })
   @ApiParam({ name: 'id', description: 'ID session' })
-  @ApiBody({ type: Object, description: 'Session update payload' })
+  @ApiBody({ type: SessionUpdateDto, description: 'Session update payload' })
   @ApiResponse({ status: 200, description: 'Session đã được cập nhật.' })
   @ApiResponse({ status: 400, description: 'Lỗi khi cập nhật session.' })
   @ApiResponse({ status: 404, description: 'Session không tồn tại.' })
-  async updateSession(@Param('id') id: string, @Body() data: SessionUpdateDto) {
-    return this.sessionService.updateSession({ ...data, id });
+  async updateSession(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() data: SessionUpdateDto,
+  ) {
+    return this.sessionService.updateSession(
+      { ...data, id },
+      {
+        userId: user.id,
+        userEmail: user.email,
+        roleType: user.roleType,
+      },
+    );
   }
 
   @Delete(':id')
@@ -61,8 +86,15 @@ export class SessionController {
   @ApiParam({ name: 'id', description: 'ID session' })
   @ApiResponse({ status: 200, description: 'Session đã được xóa.' })
   @ApiResponse({ status: 404, description: 'Session không tồn tại.' })
-  async deleteSession(@Param('id') id: string) {
-    return this.sessionService.deleteSession(id);
+  async deleteSession(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+  ) {
+    return this.sessionService.deleteSession(id, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Get('/staff/:staffId/unpaid')

@@ -7,7 +7,7 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
 | Thư mục / file | Mô tả |
 |----------------|--------|
 | `apps/web` | Next.js 16, React 19, App Router. Frontend: `app/` (routes), `lib/` (API client). |
-| `apps/api` | NestJS backend. `src/` (auth, prisma, mail, …), `prisma/schema/`, `generated/` (Prisma Client), `dtos/`. |
+| `apps/api` | NestJS backend. `src/` (auth, `action-history/`, prisma, `session/` workflow services, `staff-ops/` access helpers, user/student/staff services, mail, …), `prisma/schema/`, `generated/` (Prisma Client), `dtos/`. |
 | `packages/` | Shared packages (hiện chỉ có `.gitkeep`, chưa có package con). |
 | `archived/` | Bản lưu tham khảo (vd. `UniEdu-Web-3.9`). |
 | Root | `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `pnpm-lock.yaml`. |
@@ -40,6 +40,7 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
   - `/admin/staffs`, `/admin/staffs/[id]`
   - `/admin/customer_care_detail/[staffId]` (chi tiết công việc CSKH: tab Học sinh, tab Hoa Hồng)
   - `/admin/costs`, `/admin/categories`, `/admin/history`
+    - `/admin/history` đã nối dữ liệu thật từ backend audit log (`/action-history` list + `/action-history/:id` detail)
   - `/admin/lesson-plans`, `/admin/lessons`, `/admin/notes-subject`
   - `/api/healthcheck`
 - Chưa có route runtime riêng cho `/assistant`, `/mentor`, `/student`; các page plan tương ứng vẫn nằm trong `docs/pages/`.
@@ -49,16 +50,19 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
   - từ class detail chỉ cho sửa khung giờ, tạo/chỉnh session và điểm danh; route này không cho thay đổi trợ cấp hoặc học phí học sinh
   - `/staff/customer-care-detail` mở cho `staff.customer_care`, chỉ hiện trong staff sidebar và luôn khóa theo hồ sơ staff hiện tại
 
-## Health snapshot (2026-03-16)
+## Health snapshot (2026-03-20)
 
 - Đã kiểm tra:
   - `pnpm --filter web exec tsc --noEmit`: pass
   - `pnpm --filter api check-types`: pass
   - `pnpm --filter api test`: pass
+- Backend audit coverage hiện tại:
+  - `action_history` đã phủ các mutate flow ở `session`, `class`, `cost`, `bonus`, `cf_problem_tutorial`, `user`, `student`, `staff`
+  - auth flow có thay đổi `user` cũng đã ghi audit: `register`, `verify email`, `reset password`, `change password`, và Google OAuth khi tạo/xác thực user
 - Cần xử lý tiếp:
   - `pnpm --filter web lint`: fail với `19` errors và `23` warnings
 - Findings rủi ro cao từ review:
-  - API chưa bật validation runtime toàn cục; riêng payload `sessions` còn dùng `interface`, nên request body không được `class-validator` bảo vệ.
+  - API chưa bật validation runtime toàn cục; riêng payload `sessions` đã chuyển sang DTO `class` + `ValidationPipe`, nhưng các controller khác vẫn cần được rà soát tương tự.
   - Refresh token rotation đang lưu hash vào DB nhưng luồng `refresh` chưa đối chiếu token đang dùng với hash đã lưu.
   - `apps/web/app/admin/notes-subject/page.tsx` có `useEffect` đặt sau `return`, vi phạm Rules of Hooks.
 

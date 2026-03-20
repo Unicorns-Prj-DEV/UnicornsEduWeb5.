@@ -1,5 +1,7 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 
+export const ACTION_HISTORY_INVALIDATION_EVENT = "ue:action-history:invalidate";
+
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
 if (typeof window !== "undefined") {
     console.log("[Auth API] baseURL:", API_URL);
@@ -32,6 +34,28 @@ const isPublicRoute = (pathname: string): boolean => {
     return pathname.includes("/auth");
 };
 
+const shouldInvalidateActionHistory = (config?: AxiosRequestConfig): boolean => {
+    const method = config?.method?.toLowerCase();
+    if (!method) {
+        return false;
+    }
+
+    if (!["post", "put", "patch", "delete"].includes(method)) {
+        return false;
+    }
+
+    const url = config?.url?.toString() ?? "";
+    return !url.includes("/auth/refresh");
+};
+
+const notifyActionHistoryInvalidation = () => {
+    if (typeof window === "undefined") {
+        return;
+    }
+
+    window.dispatchEvent(new Event(ACTION_HISTORY_INVALIDATION_EVENT));
+};
+
 const shouldAttemptRefresh = (config?: AxiosRequestConfig): boolean => {
     if (!config?.url) {
         return false;
@@ -56,7 +80,13 @@ const refresh = async (): Promise<void> => {
 };
 
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        if (shouldInvalidateActionHistory(response.config)) {
+            notifyActionHistoryInvalidation();
+        }
+
+        return response;
+    },
     (error: AxiosError) => {
         const status = error.response?.status;
         const originalRequest = error.config as
