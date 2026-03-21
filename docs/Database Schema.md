@@ -72,6 +72,8 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - **ClassSurvey → Class / StaffInfo**: optional FK, `onDelete: SetNull`.
 - **ActionHistory → User**: optional FK, `onDelete: SetNull`.
 - **StaffLessonTask**: bảng giao giữa `staff_info` và `lesson_task`, unique `(staff_id, lesson_task_id)`.
+- **LessonTask → LessonResource**: 1-N optional (`lesson_resources.lessonTaskId`, `onDelete: SetNull`).
+- **LessonTask → LessonOutput**: 1-N optional (`lesson_outputs.lesson_task_id`, `onDelete: SetNull`).
 - **LessonOutput → StaffInfo**: optional FK, `onDelete: SetNull`.
 
 ---
@@ -164,7 +166,17 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `lesson_resources`: thư viện tài nguyên học tập
   - field chính cho admin lesson overview: `title`, `description`, `resource_link`, `tags`, `updated_at`
   - index read path hiện có: `created_at`, `updated_at`
-- `lesson_outputs`: sản phẩm bài học + chi phí + trạng thái thanh toán staff
+- `lesson_outputs`: sản phẩm bài học gắn optional với `lesson_task`
+  - field chính cho work tab / output detail: `lesson_task_id`, `lesson_name`, `contest_uploaded`, `date`, `status`, `staff_id`, `cost`, `link`, `original_link`, `source`, `level`, `tags`
+  - relation optional:
+    - `lesson_task_id -> lesson_task.id`
+    - `staff_id -> staff_info.id`
+  - index read path hiện có:
+    - `lesson_task_id`
+    - `(lesson_task_id, status)`
+    - `(lesson_task_id, date)`
+    - `staff_id`
+    - `level`
 
 ---
 
@@ -190,6 +202,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 ### Lesson
 - `LessonTaskStatus`: `pending | in_progress | completed | cancelled`
 - `LessonTaskPriority`: `low | medium | high`
+- `LessonOutputStatus`: `pending | completed | cancelled`
 
 ---
 

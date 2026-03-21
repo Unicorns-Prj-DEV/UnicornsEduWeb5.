@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+  LessonOutputStatus,
   LessonTaskPriority,
   LessonTaskStatus,
 } from "@/dtos/lesson.dto";
@@ -17,6 +18,12 @@ export const LESSON_TASK_PRIORITY_LABELS: Record<LessonTaskPriority, string> = {
   low: "Thấp",
   medium: "Vừa",
   high: "Cao",
+};
+
+export const LESSON_OUTPUT_STATUS_LABELS: Record<LessonOutputStatus, string> = {
+  pending: "Chưa xong",
+  completed: "Hoàn thành",
+  cancelled: "Hủy",
 };
 
 export function formatLessonDateTime(value: string | null | undefined) {
@@ -58,6 +65,13 @@ export function lessonTaskPriorityChipClass(priority: LessonTaskPriority) {
   if (priority === "medium")
     return "bg-primary/12 text-primary ring-primary/20";
   return "bg-bg-secondary text-text-secondary ring-border-default";
+}
+
+export function lessonOutputStatusChipClass(status: LessonOutputStatus) {
+  if (status === "completed")
+    return "bg-success/15 text-success ring-success/25";
+  if (status === "cancelled") return "bg-error/15 text-error ring-error/25";
+  return "bg-warning/15 text-warning ring-warning/25";
 }
 
 export function formatLessonStaffRoleLabel(roles: string[]) {

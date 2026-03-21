@@ -26,10 +26,14 @@ import {
 import { Roles } from '../auth/decorators/roles.decorator';
 import {
   CreateLessonResourceDto,
+  CreateLessonOutputDto,
   CreateLessonTaskDto,
   LessonOverviewQueryDto,
+  LessonOutputStaffOptionsQueryDto,
+  LessonWorkQueryDto,
   LessonTaskStaffOptionsQueryDto,
   UpdateLessonResourceDto,
+  UpdateLessonOutputDto,
   UpdateLessonTaskDto,
 } from '../dtos/lesson.dto';
 import { LessonService } from './lesson.service';
@@ -56,6 +60,20 @@ export class LessonController {
     return this.lessonService.getOverview(query);
   }
 
+  @Get('lesson-work')
+  @ApiOperation({
+    summary: 'Get lesson work board',
+    description:
+      'Load the admin lesson work board with paginated lesson outputs and task context.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lesson work board loaded successfully.',
+  })
+  async getWork(@Query() query: LessonWorkQueryDto) {
+    return this.lessonService.getWork(query);
+  }
+
   @Get('lesson-task-staff-options')
   @ApiOperation({
     summary: 'Search staff options for lesson task assignment',
@@ -70,6 +88,22 @@ export class LessonController {
     return this.lessonService.searchTaskStaffOptions(query);
   }
 
+  @Get('lesson-output-staff-options')
+  @ApiOperation({
+    summary: 'Search staff options for lesson output assignment',
+    description:
+      'Return lightweight staff options for assigning an owner to lesson outputs.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lesson output staff options loaded successfully.',
+  })
+  async searchOutputStaffOptions(
+    @Query() query: LessonOutputStaffOptionsQueryDto,
+  ) {
+    return this.lessonService.searchOutputStaffOptions(query);
+  }
+
   @Get('lesson-tasks/:id')
   @ApiOperation({
     summary: 'Get lesson task detail',
@@ -80,6 +114,18 @@ export class LessonController {
   @ApiResponse({ status: 404, description: 'Lesson task not found.' })
   async getTaskById(@Param('id') id: string) {
     return this.lessonService.getTaskById(id);
+  }
+
+  @Get('lesson-outputs/:id')
+  @ApiOperation({
+    summary: 'Get lesson output detail',
+    description: 'Load a single lesson output detail by id.',
+  })
+  @ApiParam({ name: 'id', description: 'Lesson output id' })
+  @ApiResponse({ status: 200, description: 'Lesson output loaded.' })
+  @ApiResponse({ status: 404, description: 'Lesson output not found.' })
+  async getOutputById(@Param('id') id: string) {
+    return this.lessonService.getOutputById(id);
   }
 
   @Post('lesson-resources')
@@ -141,6 +187,68 @@ export class LessonController {
     @Param('id') id: string,
   ) {
     return this.lessonService.deleteResource(id, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
+  }
+
+  @Post('lesson-outputs')
+  @ApiOperation({
+    summary: 'Create lesson output',
+    description: 'Create a lesson output under a lesson task.',
+  })
+  @ApiBody({
+    type: CreateLessonOutputDto,
+    description: 'Lesson output create payload',
+  })
+  @ApiResponse({ status: 201, description: 'Lesson output created.' })
+  @ApiResponse({ status: 400, description: 'Validation error.' })
+  async createOutput(
+    @CurrentUser() user: JwtPayload,
+    @Body() data: CreateLessonOutputDto,
+  ) {
+    return this.lessonService.createOutput(data, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
+  }
+
+  @Patch('lesson-outputs/:id')
+  @ApiOperation({
+    summary: 'Update lesson output',
+    description: 'Update a lesson output by id.',
+  })
+  @ApiParam({ name: 'id', description: 'Lesson output id' })
+  @ApiBody({
+    type: UpdateLessonOutputDto,
+    description: 'Lesson output update payload',
+  })
+  @ApiResponse({ status: 200, description: 'Lesson output updated.' })
+  @ApiResponse({ status: 404, description: 'Lesson output not found.' })
+  async updateOutput(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() data: UpdateLessonOutputDto,
+  ) {
+    return this.lessonService.updateOutput(id, data, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
+  }
+
+  @Delete('lesson-outputs/:id')
+  @ApiOperation({
+    summary: 'Delete lesson output',
+    description: 'Delete a lesson output by id.',
+  })
+  @ApiParam({ name: 'id', description: 'Lesson output id' })
+  @ApiResponse({ status: 200, description: 'Lesson output deleted.' })
+  @ApiResponse({ status: 404, description: 'Lesson output not found.' })
+  async deleteOutput(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    return this.lessonService.deleteOutput(id, {
       userId: user.id,
       userEmail: user.email,
       roleType: user.roleType,

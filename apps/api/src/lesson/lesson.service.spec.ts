@@ -6,12 +6,24 @@ jest.mock('../../generated/client', () => ({
 }));
 
 import { BadRequestException } from '@nestjs/common';
-import { LessonTaskPriority, LessonTaskStatus } from '../../generated/enums';
+import {
+  LessonOutputStatus,
+  LessonTaskPriority,
+  LessonTaskStatus,
+} from '../../generated/enums';
 import { LessonService } from './lesson.service';
 
 describe('LessonService', () => {
   const mockPrisma = {
     lessonResource: {
+      count: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
+    lessonOutput: {
       count: jest.fn(),
       findMany: jest.fn(),
       create: jest.fn(),
@@ -203,6 +215,105 @@ describe('LessonService', () => {
                 status: true,
               },
             },
+          },
+        },
+      },
+    });
+  });
+
+  it('returns work board outputs with task context', async () => {
+    mockPrisma.lessonTask.count.mockResolvedValue(5);
+    mockPrisma.lessonOutput.count
+      .mockResolvedValueOnce(3)
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(0);
+    mockPrisma.lessonOutput.findMany.mockResolvedValue([
+      {
+        id: 'output-1',
+        lessonName: 'Bài 1',
+        originalTitle: null,
+        source: null,
+        originalLink: null,
+        level: null,
+        tags: ['algebra'],
+        cost: 0,
+        lessonTaskId: 'task-work-1',
+        contestUploaded: 'Vĩnh Phúc HSG 2024',
+        status: LessonOutputStatus.completed,
+        date: new Date('2026-03-22T00:00:00.000Z'),
+        updatedAt: new Date('2026-03-22T08:00:00.000Z'),
+        createdAt: new Date('2026-03-22T07:00:00.000Z'),
+        link: 'https://example.com/output-1',
+        staffId: 'staff-owner',
+        staff: {
+          id: 'staff-owner',
+          fullName: 'Planner Owner',
+          roles: ['lesson_plan_head'],
+          status: 'active',
+        },
+        lessonTask: {
+          id: 'task-work-1',
+          title: 'Sinh test đề HSG Vĩnh Phúc',
+          status: LessonTaskStatus.in_progress,
+          priority: LessonTaskPriority.high,
+        },
+      },
+    ]);
+
+    const result = await service.getWork({
+      page: 1,
+      limit: 6,
+    });
+
+    expect(result.summary).toEqual({
+      taskCount: 5,
+      outputCount: 3,
+      pendingOutputCount: 2,
+      completedOutputCount: 1,
+      cancelledOutputCount: 0,
+    });
+    expect(result.outputsMeta).toEqual({
+      total: 3,
+      page: 1,
+      limit: 6,
+      totalPages: 1,
+    });
+    expect(result.outputs[0]).toEqual({
+      id: 'output-1',
+      lessonName: 'Bài 1',
+      contestUploaded: 'Vĩnh Phúc HSG 2024',
+      date: '2026-03-22',
+      staffId: 'staff-owner',
+      staffDisplayName: 'Planner Owner',
+      status: LessonOutputStatus.completed,
+      updatedAt: '2026-03-22T08:00:00.000Z',
+      task: {
+        id: 'task-work-1',
+        title: 'Sinh test đề HSG Vĩnh Phúc',
+        status: LessonTaskStatus.in_progress,
+        priority: LessonTaskPriority.high,
+      },
+    });
+    expect(mockPrisma.lessonOutput.findMany).toHaveBeenCalledWith({
+      skip: 0,
+      take: 6,
+      orderBy: [{ updatedAt: 'desc' }, { date: 'desc' }, { lessonName: 'asc' }],
+      include: {
+        staff: {
+          select: {
+            id: true,
+            fullName: true,
+            roles: true,
+            status: true,
+          },
+        },
+        lessonTask: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            priority: true,
           },
         },
       },
@@ -501,6 +612,45 @@ describe('LessonService', () => {
         },
       ],
     });
+    mockPrisma.lessonOutput.findMany.mockResolvedValue([
+      {
+        id: 'output-1',
+        lessonTaskId: 'task-3',
+        lessonName: 'Bài 1',
+        originalTitle: 'Đề gốc bài 1',
+        source: 'Vĩnh Phúc HSG 2024',
+        originalLink: 'https://example.com/original-1',
+        level: 'HSG tỉnh',
+        tags: ['hsg'],
+        cost: 100000,
+        date: new Date('2026-03-27T00:00:00.000Z'),
+        contestUploaded: 'Vĩnh Phúc HSG 2024',
+        link: 'https://example.com/output-1',
+        staffId: 'staff-creator',
+        status: LessonOutputStatus.completed,
+        createdAt: new Date('2026-03-27T02:00:00.000Z'),
+        updatedAt: new Date('2026-03-27T03:00:00.000Z'),
+        staff: {
+          id: 'staff-creator',
+          fullName: 'Planner Owner',
+          roles: ['lesson_plan'],
+          status: 'active',
+        },
+        lessonTask: {
+          id: 'task-3',
+          title: 'Review final slide',
+          status: LessonTaskStatus.in_progress,
+          priority: LessonTaskPriority.high,
+        },
+      },
+    ]);
+    mockPrisma.lessonResource.findMany.mockResolvedValue([
+      {
+        id: 'resource-10',
+        title: 'Đề gốc',
+        resourceLink: 'https://example.com/resource-10',
+      },
+    ]);
 
     const result = await service.getTaskById('task-3');
 
@@ -525,6 +675,29 @@ describe('LessonService', () => {
           status: 'active',
         },
       ],
+      outputs: [
+        {
+          id: 'output-1',
+          lessonName: 'Bài 1',
+          contestUploaded: 'Vĩnh Phúc HSG 2024',
+          date: '2026-03-27',
+          staffId: 'staff-creator',
+          staffDisplayName: 'Planner Owner',
+          status: LessonOutputStatus.completed,
+        },
+      ],
+      outputProgress: {
+        total: 1,
+        completed: 1,
+      },
+      resourcePreview: [
+        {
+          id: 'resource-10',
+          title: 'Đề gốc',
+          resourceLink: 'https://example.com/resource-10',
+        },
+      ],
+      contestUploadedSummary: ['Vĩnh Phúc HSG 2024'],
     });
   });
 
@@ -559,6 +732,120 @@ describe('LessonService', () => {
         id: true,
       },
     });
+  });
+
+  it('creates a lesson output under a task and maps the full response', async () => {
+    mockPrisma.lessonTask.findUnique.mockResolvedValue({ id: 'task-output-1' });
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({ id: 'staff-output-1' });
+    mockPrisma.lessonOutput.create.mockResolvedValue({
+      id: 'output-99',
+      lessonTaskId: 'task-output-1',
+      lessonName: 'Bài 2 - Hình học',
+      originalTitle: 'Đề gốc bài 2',
+      source: 'Vĩnh Phúc HSG 2024',
+      originalLink: 'https://example.com/original-output',
+      level: 'HSG tỉnh',
+      tags: ['hsg', 'hinh-hoc'],
+      cost: 250000,
+      date: new Date('2026-03-28T00:00:00.000Z'),
+      contestUploaded: 'Vĩnh Phúc HSG 2024',
+      link: 'https://example.com/final-output',
+      staffId: 'staff-output-1',
+      status: LessonOutputStatus.pending,
+      createdAt: new Date('2026-03-28T08:00:00.000Z'),
+      updatedAt: new Date('2026-03-28T09:00:00.000Z'),
+      staff: {
+        id: 'staff-output-1',
+        fullName: 'Output Owner',
+        roles: ['lesson_plan'],
+        status: 'active',
+      },
+      lessonTask: {
+        id: 'task-output-1',
+        title: 'Sinh test đề',
+        status: LessonTaskStatus.in_progress,
+        priority: LessonTaskPriority.high,
+      },
+    });
+
+    const result = await service.createOutput(
+      {
+        lessonTaskId: 'task-output-1',
+        lessonName: '  Bài 2 - Hình học  ',
+        originalTitle: '  Đề gốc bài 2 ',
+        source: '  Vĩnh Phúc HSG 2024 ',
+        originalLink: 'https://example.com/original-output',
+        level: ' HSG tỉnh ',
+        tags: ['hsg', '  hinh-hoc  '],
+        cost: 250000,
+        date: '2026-03-28',
+        contestUploaded: '  Vĩnh Phúc HSG 2024 ',
+        link: 'https://example.com/final-output',
+        staffId: 'staff-output-1',
+      },
+      {
+        userId: 'user-1',
+        userEmail: 'planner@example.com',
+        roleType: 'admin',
+      },
+    );
+
+    expect(mockPrisma.lessonOutput.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          lessonTaskId: 'task-output-1',
+          lessonName: 'Bài 2 - Hình học',
+          originalTitle: 'Đề gốc bài 2',
+          source: 'Vĩnh Phúc HSG 2024',
+          originalLink: 'https://example.com/original-output',
+          level: 'HSG tỉnh',
+          tags: ['hsg', 'hinh-hoc'],
+          cost: 250000,
+          date: new Date('2026-03-28T00:00:00.000Z'),
+          contestUploaded: 'Vĩnh Phúc HSG 2024',
+          link: 'https://example.com/final-output',
+          staffId: 'staff-output-1',
+          status: LessonOutputStatus.pending,
+        },
+      }),
+    );
+    expect(result).toEqual({
+      id: 'output-99',
+      lessonTaskId: 'task-output-1',
+      lessonName: 'Bài 2 - Hình học',
+      originalTitle: 'Đề gốc bài 2',
+      source: 'Vĩnh Phúc HSG 2024',
+      originalLink: 'https://example.com/original-output',
+      level: 'HSG tỉnh',
+      tags: ['hsg', 'hinh-hoc'],
+      cost: 250000,
+      date: '2026-03-28',
+      contestUploaded: 'Vĩnh Phúc HSG 2024',
+      link: 'https://example.com/final-output',
+      staffId: 'staff-output-1',
+      staff: {
+        id: 'staff-output-1',
+        fullName: 'Output Owner',
+        roles: ['lesson_plan'],
+        status: 'active',
+      },
+      status: LessonOutputStatus.pending,
+      task: {
+        id: 'task-output-1',
+        title: 'Sinh test đề',
+        status: LessonTaskStatus.in_progress,
+        priority: LessonTaskPriority.high,
+      },
+      createdAt: '2026-03-28T08:00:00.000Z',
+      updatedAt: '2026-03-28T09:00:00.000Z',
+    });
+    expect(actionHistoryService.recordCreate).toHaveBeenCalledWith(
+      mockPrisma,
+      expect.objectContaining({
+        entityType: 'lesson_output',
+        entityId: 'output-99',
+      }),
+    );
   });
 
   it('rejects resource creation when title or link is blank after trimming', async () => {

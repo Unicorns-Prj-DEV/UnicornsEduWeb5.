@@ -1,19 +1,23 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { StaffRole, StaffStatus } from 'generated/enums';
-import { LessonTaskPriority, LessonTaskStatus } from 'generated/enums';
+import {
+  LessonOutputStatus,
+  LessonTaskPriority,
+  LessonTaskStatus,
+} from 'generated/enums';
 import {
   ArrayMaxSize,
   IsArray,
-  IsInt,
   IsDateString,
   IsEnum,
-  Max,
-  Min,
+  IsInt,
   IsOptional,
   IsString,
   IsUrl,
   IsUUID,
+  Max,
+  Min,
 } from 'class-validator';
 
 export interface LessonListMetaDto {
@@ -72,12 +76,101 @@ export interface LessonTaskResponseDto {
   assignees: LessonTaskAssigneeDto[];
 }
 
+export interface LessonResourcePreviewDto {
+  id: string;
+  title: string | null;
+  resourceLink: string;
+}
+
+export interface LessonTaskOutputProgressDto {
+  total: number;
+  completed: number;
+}
+
+export interface LessonTaskOutputListItemDto {
+  id: string;
+  lessonName: string;
+  contestUploaded: string | null;
+  date: string;
+  staffId: string | null;
+  staffDisplayName: string | null;
+  status: LessonOutputStatus;
+}
+
+export interface LessonTaskDetailResponseDto extends LessonTaskResponseDto {
+  outputs: LessonTaskOutputListItemDto[];
+  outputProgress: LessonTaskOutputProgressDto;
+  resourcePreview: LessonResourcePreviewDto[];
+  contestUploadedSummary: string[];
+}
+
 export interface LessonOverviewResponseDto {
   summary: LessonOverviewSummaryDto;
   resources: LessonResourceResponseDto[];
   resourcesMeta: LessonListMetaDto;
   tasks: LessonTaskResponseDto[];
   tasksMeta: LessonListMetaDto;
+}
+
+export interface LessonWorkSummaryDto {
+  taskCount: number;
+  outputCount: number;
+  pendingOutputCount: number;
+  completedOutputCount: number;
+  cancelledOutputCount: number;
+}
+
+export interface LessonWorkOutputItemDto extends LessonTaskOutputListItemDto {
+  updatedAt: string;
+  task: LessonOutputTaskSummaryDto | null;
+}
+
+export interface LessonWorkResponseDto {
+  summary: LessonWorkSummaryDto;
+  outputs: LessonWorkOutputItemDto[];
+  outputsMeta: LessonListMetaDto;
+}
+
+export interface LessonOutputTaskSummaryDto {
+  id: string;
+  title: string | null;
+  status: LessonTaskStatus;
+  priority: LessonTaskPriority;
+}
+
+export interface LessonOutputStaffDto {
+  id: string;
+  fullName: string;
+  roles: StaffRole[];
+  status: StaffStatus;
+}
+
+export interface LessonOutputStaffOptionDto {
+  id: string;
+  fullName: string;
+  roles: StaffRole[];
+  status: StaffStatus;
+}
+
+export interface LessonOutputResponseDto {
+  id: string;
+  lessonTaskId: string | null;
+  lessonName: string;
+  originalTitle: string | null;
+  source: string | null;
+  originalLink: string | null;
+  level: string | null;
+  tags: string[];
+  cost: number;
+  date: string;
+  contestUploaded: string | null;
+  link: string | null;
+  staffId: string | null;
+  staff: LessonOutputStaffDto | null;
+  status: LessonOutputStatus;
+  task: LessonOutputTaskSummaryDto | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export class LessonOverviewQueryDto {
@@ -112,6 +205,23 @@ export class LessonOverviewQueryDto {
   taskLimit?: number;
 }
 
+export class LessonWorkQueryDto {
+  @ApiPropertyOptional({ example: 1, minimum: 1, default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ example: 6, minimum: 1, maximum: 100, default: 6 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+}
+
 export class LessonTaskStaffOptionsQueryDto {
   @ApiPropertyOptional({
     example: 'Nguyen',
@@ -128,6 +238,25 @@ export class LessonTaskStaffOptionsQueryDto {
   @IsInt()
   @Min(1)
   @Max(3)
+  limit?: number;
+}
+
+export class LessonOutputStaffOptionsQueryDto {
+  @ApiPropertyOptional({
+    example: 'Nguyen',
+    description: 'Search by staff full name.',
+  })
+  @IsOptional()
+  @Type(() => String)
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({ example: 6, minimum: 1, maximum: 12, default: 6 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(12)
   limit?: number;
 }
 
@@ -228,3 +357,102 @@ export class CreateLessonTaskDto {
 }
 
 export class UpdateLessonTaskDto extends PartialType(CreateLessonTaskDto) {}
+
+export class CreateLessonOutputDto {
+  @ApiProperty({
+    example: '99e2effd-fab2-42e1-8b17-43c0d840e1be',
+    description: 'Parent lesson task id.',
+  })
+  @IsUUID('4')
+  lessonTaskId: string;
+
+  @ApiProperty({ example: 'Bài 1 - Tổ hợp cơ bản' })
+  @Type(() => String)
+  @IsString()
+  lessonName: string;
+
+  @ApiPropertyOptional({ example: 'Đề HSG Vĩnh Phúc 2024 - Bài 1' })
+  @IsOptional()
+  @Type(() => String)
+  @IsString()
+  originalTitle?: string | null;
+
+  @ApiPropertyOptional({ example: 'Vĩnh Phúc HSG 2024' })
+  @IsOptional()
+  @Type(() => String)
+  @IsString()
+  source?: string | null;
+
+  @ApiPropertyOptional({ example: 'https://example.com/original-problem' })
+  @IsOptional()
+  @Type(() => String)
+  @IsString()
+  @IsUrl({
+    require_protocol: true,
+    require_tld: true,
+  })
+  originalLink?: string | null;
+
+  @ApiPropertyOptional({ example: 'HSG tỉnh' })
+  @IsOptional()
+  @Type(() => String)
+  @IsString()
+  level?: string | null;
+
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['hsg', 'vinh-phuc', 'to-hop'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[] | null;
+
+  @ApiPropertyOptional({ example: 250000, default: 0, minimum: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  cost?: number;
+
+  @ApiProperty({
+    example: '2026-03-21',
+    description: 'Date-only string in YYYY-MM-DD format.',
+  })
+  @IsDateString()
+  date: string;
+
+  @ApiPropertyOptional({ example: 'Vĩnh Phúc HSG 2024' })
+  @IsOptional()
+  @Type(() => String)
+  @IsString()
+  contestUploaded?: string | null;
+
+  @ApiPropertyOptional({ example: 'https://example.com/output-link' })
+  @IsOptional()
+  @Type(() => String)
+  @IsString()
+  @IsUrl({
+    require_protocol: true,
+    require_tld: true,
+  })
+  link?: string | null;
+
+  @ApiPropertyOptional({
+    example: '99e2effd-fab2-42e1-8b17-43c0d840e1be',
+    description: 'Assigned staff id for this output.',
+  })
+  @IsOptional()
+  @IsUUID('4')
+  staffId?: string | null;
+
+  @ApiPropertyOptional({
+    enum: LessonOutputStatus,
+    default: LessonOutputStatus.pending,
+  })
+  @IsOptional()
+  @IsEnum(LessonOutputStatus)
+  status?: LessonOutputStatus;
+}
+
+export class UpdateLessonOutputDto extends PartialType(CreateLessonOutputDto) {}

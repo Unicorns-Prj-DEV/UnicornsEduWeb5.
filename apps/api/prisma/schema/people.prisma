@@ -17,6 +17,7 @@ model StaffInfo {
   classSurveys               ClassSurvey[]
   classTeachers              ClassTeacher[]
   customerCareServices       CustomerCareService[]
+  lessonOutputs              LessonOutput[]
   sessions                   Session[]
   user                       User?                 @relation(fields: [userId], references: [id])
   staffLessonTasks           StaffLessonTask[]

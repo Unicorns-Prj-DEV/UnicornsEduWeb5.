@@ -23,10 +23,9 @@ model LessonTask {
   priority         LessonTaskPriority
   dueDate          DateTime?          @map("due_date") @db.Date
   createdBy        String?            @map("created_by")
-  lessonOutputsId  String?            @unique @map("lesson_outputs_id")
   lessonResources  LessonResource[]
+  lessonOutputs    LessonOutput[]
   staffLessonTasks StaffLessonTask[]
-  lessonOutputs    LessonOutput?      @relation(fields: [lessonOutputsId], references: [id])
   createdByStaff   StaffInfo?         @relation(fields: [createdBy], references: [id])
   createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -54,22 +53,28 @@ model LessonResource {
 }
 
 model LessonOutput {
-  id                 String      @id @default(uuid())
-  tags               Json?       @default("[]")
+  id                 String             @id @default(uuid())
+  tags               Json?              @default("[]")
   level              String?
-  lessonName         String      @map("lesson_name")
-  originalTitle      String?     @map("original_title")
+  lessonName         String             @map("lesson_name")
+  originalTitle      String?            @map("original_title")
   source             String?
-  originalLink       String?     @map("original_link")
-  cost               Int         @default(0)
-  date               DateTime    @db.Date
-  contestUploaded    String?     @map("contest_uploaded")
+  originalLink       String?            @map("original_link")
+  cost               Int                @default(0)
+  date               DateTime           @db.Date
+  contestUploaded    String?            @map("contest_uploaded")
   link               String?
-  staffId            String?     @map("staff_id")
-  createdAt          DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  originalLessonTask LessonTask?
+  lessonTaskId       String?            @map("lesson_task_id")
+  staffId            String?            @map("staff_id")
+  status             LessonOutputStatus @default(pending) @map("status")
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  lessonTask         LessonTask?        @relation(fields: [lessonTaskId], references: [id], onDelete: SetNull)
+  staff              StaffInfo?         @relation(fields: [staffId], references: [id], onDelete: SetNull)
 
+  @@index([lessonTaskId])
+  @@index([lessonTaskId, status])
+  @@index([lessonTaskId, date])
   @@index([staffId])
   @@index([level])
   @@map("lesson_outputs")

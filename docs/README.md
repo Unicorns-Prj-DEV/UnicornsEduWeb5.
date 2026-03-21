@@ -41,10 +41,12 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
   - `/admin/customer_care_detail/[staffId]` (chi tiết công việc CSKH: tab Học sinh, tab Hoa Hồng)
   - `/admin/costs`, `/admin/categories`, `/admin/history`
   - `/admin/history` đã nối dữ liệu thật từ backend audit log (`/action-history` list + `/action-history/:id` detail)
-  - `/admin/lesson-plans`, `/admin/lesson-plans/tasks/[taskId]`, `/admin/lessons`, `/admin/notes-subject`
-    - `/admin/lesson-plans` là workspace giáo án admin đã chạy dữ liệu thật với 3 tab (`Tổng quan`, `Công việc`, `Bài tập`); trong pha hiện tại chỉ hoàn thiện tab `Tổng quan` với 2 bảng xếp dọc: `Resources` và `Tasks`, mỗi bảng có pagination riêng. `Resources` được quản lý inline trong bảng, không có route detail riêng. Bảng task đã bỏ cột `Nhân sự`, giữ cột `Phụ trách`, và bấm trực tiếp vào row task để sang trang chi tiết xem assignee đầy đủ
+  - `/admin/lesson-plans`, `/admin/lesson-plans/tasks/[taskId]`, `/admin/lesson-plans/outputs/[outputId]`, `/admin/lessons`, `/admin/notes-subject`
+    - `/admin/lesson-plans` là workspace giáo án admin đã chạy dữ liệu thật với 3 tab (`Tổng quan`, `Công việc`, `Bài tập`). `Tổng quan` giữ 2 bảng xếp dọc `Resources` và `Tasks`, mỗi bảng có pagination riêng. `Resources` được quản lý inline trong bảng, không có route detail riêng. Bảng task đã bỏ cột `Nhân sự`, giữ cột `Phụ trách`, và bấm trực tiếp vào row task để sang trang chi tiết xem assignee đầy đủ
+    - Tab `Công việc` là output desk: paginated theo `LessonOutput`, mỗi output là một item độc lập có `status`, `contestUploaded`, `date`, nhân sự và context task cha. Tab này không group theo task; muốn xem toàn bộ outputs của một task thì mở task detail
     - Popup task hỗ trợ search nhân sự theo tên, gắn tối đa 3 người thực hiện và cho phép chỉnh trực tiếp `người chịu trách nhiệm`
-    - `/admin/lesson-plans/tasks/[taskId]` là trang chi tiết lesson task, đọc dữ liệu thật từ backend và cho phép mở popup chỉnh sửa ngay tại trang
+    - `/admin/lesson-plans/tasks/[taskId]` là trang chi tiết lesson task, đọc dữ liệu thật từ backend, hiển thị đầy đủ outputs/resource của task và cho phép mở popup chỉnh sửa hoặc tạo output mới ngay tại trang
+    - `/admin/lesson-plans/outputs/[outputId]` là trang chi tiết lesson output, hiển thị đầy đủ metadata và cho phép chỉnh sửa / xóa record tại chỗ
     - `/admin/lessons` chỉ giữ vai trò alias và redirect về `/admin/lesson-plans`
   - `/api/healthcheck`
 - Chưa có route runtime riêng cho `/assistant`, `/mentor`, `/student`; các page plan tương ứng vẫn nằm trong `docs/pages/`.

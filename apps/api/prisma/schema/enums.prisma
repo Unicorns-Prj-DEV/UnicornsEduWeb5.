@@ -85,3 +85,9 @@ enum SessionPaymentStatus {
   paid
   unpaid
 }
+
+enum LessonOutputStatus {
+  pending
+  completed
+  cancelled
+}

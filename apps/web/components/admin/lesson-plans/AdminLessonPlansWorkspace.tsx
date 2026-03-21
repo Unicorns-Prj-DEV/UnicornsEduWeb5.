@@ -19,6 +19,7 @@ import LessonDeleteConfirmPopup from "./LessonDeleteConfirmPopup";
 import LessonOverviewSkeleton from "./LessonOverviewSkeleton";
 import LessonResourceFormPopup from "./LessonResourceFormPopup";
 import LessonTaskFormPopup from "./LessonTaskFormPopup";
+import LessonWorkTab from "./LessonWorkTab";
 import {
   formatLessonDateOnly,
   formatLessonDateTime,
@@ -96,6 +97,30 @@ function SummaryCard({
   );
 }
 
+function HeroChip({
+  label,
+  value,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string;
+  tone?: "neutral" | "primary";
+}) {
+  return (
+    <span
+      className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium ring-1 ${tone === "primary"
+        ? "bg-primary/10 text-primary ring-primary/20"
+        : "bg-bg-surface/90 text-text-secondary ring-border-default"
+        }`}
+    >
+      <span className="uppercase tracking-[0.18em] text-[10px] text-text-muted">
+        {label}
+      </span>
+      <span>{value}</span>
+    </span>
+  );
+}
+
 function EmptyState({
   title,
   description,
@@ -121,30 +146,6 @@ function EmptyState({
         {actionLabel}
       </button>
     </div>
-  );
-}
-
-function TabPlaceholder({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
-  return (
-    <section className="rounded-[1.75rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
-      <div className="rounded-[1.5rem] border border-dashed border-border-default bg-bg-secondary/40 px-5 py-14 text-center">
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
-          Under Development
-        </p>
-        <h2 className="mt-3 text-2xl font-semibold text-text-primary">
-          {title}
-        </h2>
-        <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-text-secondary">
-          {description}
-        </p>
-      </div>
-    </section>
   );
 }
 
@@ -503,34 +504,31 @@ export default function AdminLessonPlansWorkspace() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-3 pb-8 sm:p-6">
-      <div className="mx-auto w-full max-w-7xl space-y-6">
-        <section className="relative overflow-hidden rounded-[2rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
+      <div className="flex min-w-0 flex-1 flex-col rounded-xl border border-border-default bg-bg-surface p-3 shadow-sm sm:rounded-lg sm:p-5">
+        <section className="relative mb-4 overflow-visible rounded-2xl border border-border-default bg-gradient-to-br from-bg-secondary via-bg-surface to-bg-secondary/70 p-4 sm:p-5">
           <div
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.14),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(14,165,233,0.12),_transparent_28%)]"
+            className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full bg-primary/10 blur-2xl"
             aria-hidden
           />
           <div
-            className="pointer-events-none absolute inset-y-0 right-0 w-48 bg-[linear-gradient(135deg,transparent_0%,rgba(37,99,235,0.08)_100%)]"
+            className="pointer-events-none absolute -bottom-10 left-16 size-28 rounded-full bg-info/10 blur-2xl"
             aria-hidden
           />
 
           <div className="relative">
-            <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-              <div className="max-w-3xl">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+              <div className="min-w-0 max-w-3xl">
                 <p className="text-xs font-semibold uppercase tracking-[0.28em] text-text-muted">
                   Editorial Workspace
                 </p>
-                <h1 className="mt-3 text-3xl font-semibold tracking-tight text-text-primary sm:text-4xl">
+                <h1 className="mt-3 text-xl font-semibold text-text-primary sm:text-2xl">
                   Giáo án
                 </h1>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-text-secondary sm:text-base">
-                  Một bàn điều phối gọn, rõ nhịp thao tác để quản lý tài nguyên
-                  và các việc cần xử lý của team giáo án.
-                </p>
+
               </div>
 
               <nav
-                className="inline-flex w-full flex-wrap gap-2 rounded-[1.3rem] border border-border-default bg-bg-primary/80 p-2 xl:w-auto"
+                className="inline-flex w-full flex-wrap gap-2 rounded-xl border border-border-default bg-bg-surface/90 p-2 shadow-sm xl:w-auto"
                 role="tablist"
                 aria-label="Tabs giáo án"
               >
@@ -545,11 +543,10 @@ export default function AdminLessonPlansWorkspace() {
                       aria-selected={isActive}
                       aria-controls={`lesson-panel-${tabId}`}
                       onClick={() => syncTabToUrl(tabId)}
-                      className={`min-h-11 rounded-[1rem] px-4 py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
-                        isActive
-                          ? "bg-primary text-text-inverse shadow-sm"
-                          : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
-                      }`}
+                      className={`min-h-11 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${isActive
+                        ? "bg-primary text-text-inverse shadow-[0_14px_35px_-18px_rgba(37,99,235,0.7)]"
+                        : "text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
+                        }`}
                     >
                       {TAB_LABELS[tabId]}
                     </button>
@@ -557,550 +554,577 @@ export default function AdminLessonPlansWorkspace() {
                 })}
               </nav>
             </div>
+
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div className="flex flex-wrap gap-2">
+                <HeroChip
+                  label="Tab"
+                  value={TAB_LABELS[activeTab]}
+                  tone="primary"
+                />
+                <HeroChip
+                  label="Resources"
+                  value={String(data?.summary.resourceCount ?? 0)}
+                />
+                <HeroChip
+                  label="Tasks"
+                  value={String(data?.summary.taskCount ?? 0)}
+                />
+                <HeroChip
+                  label="Open"
+                  value={String(data?.summary.openTaskCount ?? 0)}
+                />
+              </div>
+
+            </div>
           </div>
         </section>
 
-        {activeTab === "overview" ? (
-          <section
-            id="lesson-panel-overview"
-            role="tabpanel"
-            aria-labelledby="lesson-tab-overview"
-            className="space-y-6"
-          >
-            {isLoading && !data ? (
-              <LessonOverviewSkeleton />
-            ) : isError ? (
-              <section className="rounded-[1.75rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
-                <div className="rounded-[1.5rem] border border-dashed border-border-default bg-bg-secondary/40 px-5 py-12 text-center">
-                  <p className="text-base font-semibold text-text-primary">
-                    Không tải được dữ liệu giáo án.
-                  </p>
-                  <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-text-secondary">
-                    {getErrorMessage(error, "Đã có lỗi khi tải tab Tổng quan.")}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => void refetch()}
-                    className="mt-5 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+        <div className="min-w-0 flex-1">
+          {activeTab === "overview" ? (
+            <section
+              id="lesson-panel-overview"
+              role="tabpanel"
+              aria-labelledby="lesson-tab-overview"
+              className="space-y-6"
+            >
+              {isLoading && !data ? (
+                <LessonOverviewSkeleton />
+              ) : isError ? (
+                <section className="rounded-[1.75rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
+                  <div className="rounded-[1.5rem] border border-dashed border-border-default bg-bg-secondary/40 px-5 py-12 text-center">
+                    <p className="text-base font-semibold text-text-primary">
+                      Không tải được dữ liệu giáo án.
+                    </p>
+                    <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-text-secondary">
+                      {getErrorMessage(error, "Đã có lỗi khi tải tab Tổng quan.")}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void refetch()}
+                      className="mt-5 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    >
+                      Tải lại
+                    </button>
+                  </div>
+                </section>
+              ) : (
+                <>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <SummaryCard
+                      eyebrow="Resources"
+                      value={data?.summary.resourceCount ?? 0}
+                      label="Tài nguyên đang sẵn sàng trong thư viện điều phối."
+                      accent="bg-[linear-gradient(90deg,var(--color-primary),transparent)]"
+                    />
+                    <SummaryCard
+                      eyebrow="Tasks"
+                      value={data?.summary.taskCount ?? 0}
+                      label="Tổng số đầu việc giáo án đã được ghi nhận."
+                      accent="bg-[linear-gradient(90deg,var(--color-info),transparent)]"
+                    />
+                    <SummaryCard
+                      eyebrow="Open"
+                      value={data?.summary.openTaskCount ?? 0}
+                      label="Việc đang mở cần theo dõi hoặc hoàn tất tiếp."
+                      accent="bg-[linear-gradient(90deg,var(--color-warning),transparent)]"
+                    />
+                  </div>
+
+                  <section
+                    className="rounded-[1.75rem] border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5"
+                    aria-busy={isResourceListPending}
                   >
-                    Tải lại
-                  </button>
+                    <div className="flex flex-col gap-4 border-b border-border-default pb-4 sm:flex-row sm:items-end sm:justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
+                          List 01
+                        </p>
+                        <h2 className="mt-2 text-2xl font-semibold text-text-primary">
+                          Resources
+                        </h2>
+                        <p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">
+                          Kho tài nguyên nền cho team giáo án, ưu tiên những nguồn
+                          cần mở lại nhanh trong quá trình soạn bài.
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full border border-border-default bg-bg-secondary px-3 py-1 text-xs font-medium text-text-secondary">
+                          {data?.resourcesMeta.total ?? resources.length} tài
+                          nguyên
+                        </span>
+                        {isResourceListPending ? (
+                          <span className="rounded-full border border-border-default bg-bg-surface px-3 py-1 text-xs font-medium text-text-secondary">
+                            Đang đổi trang
+                          </span>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={openCreateResource}
+                          className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                        >
+                          Thêm tài nguyên
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-4">
+                      {isResourceListPending ? (
+                        <ListTableSkeleton variant="resource" />
+                      ) : resources.length === 0 ? (
+                        <EmptyState
+                          title="Chưa có tài nguyên nào trong tab Tổng quan"
+                          description="Thêm tài liệu gốc, link lecture note, bộ đề, hoặc tài nguyên định hướng để team có một thư viện chung ngay tại route giáo án."
+                          actionLabel="Tạo tài nguyên đầu tiên"
+                          onAction={openCreateResource}
+                        />
+                      ) : (
+                        <div className="overflow-hidden rounded-[1.4rem] border border-border-default">
+                          <div className="overflow-x-auto">
+                            <table className="min-w-full border-collapse text-left">
+                              <thead className="bg-bg-secondary">
+                                <tr className="text-sm text-text-secondary">
+                                  <th
+                                    scope="col"
+                                    className="px-4 py-3 font-medium"
+                                  >
+                                    Tài nguyên
+                                  </th>
+                                  <th
+                                    scope="col"
+                                    className="px-4 py-3 font-medium"
+                                  >
+                                    Tags
+                                  </th>
+                                  <th
+                                    scope="col"
+                                    className="px-4 py-3 font-medium"
+                                  >
+                                    Link
+                                  </th>
+                                  <th
+                                    scope="col"
+                                    className="px-4 py-3 font-medium"
+                                  >
+                                    Cập nhật
+                                  </th>
+                                  <th
+                                    scope="col"
+                                    className="w-20 px-4 py-3 text-right"
+                                  >
+                                    <span className="sr-only">Thao tác</span>
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {resources.map((resource) => (
+                                  <tr
+                                    key={resource.id}
+                                    className="group border-t border-border-default bg-bg-surface align-top transition-colors hover:bg-bg-secondary/50"
+                                  >
+                                    <td className="px-4 py-4">
+                                      <div className="min-w-[16rem]">
+                                        <p className="font-medium text-text-primary">
+                                          {resource.title ??
+                                            "Tài nguyên chưa đặt tên"}
+                                        </p>
+                                        {resource.description ? (
+                                          <p className="mt-1 text-sm leading-6 text-text-secondary">
+                                            {resource.description}
+                                          </p>
+                                        ) : (
+                                          <p className="mt-1 text-sm text-text-muted">
+                                            Không có mô tả
+                                          </p>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-4">
+                                      <div className="flex min-w-[10rem] flex-wrap gap-2">
+                                        {resource.tags.length > 0 ? (
+                                          resource.tags.map((tag) => (
+                                            <span
+                                              key={tag}
+                                              className="rounded-full border border-border-default bg-bg-secondary px-2.5 py-1 text-xs text-text-secondary"
+                                            >
+                                              {tag}
+                                            </span>
+                                          ))
+                                        ) : (
+                                          <span className="text-sm text-text-muted">
+                                            Không có tag
+                                          </span>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-4">
+                                      <a
+                                        href={resource.resourceLink}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex max-w-[18rem] items-center gap-2 text-sm text-primary underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                      >
+                                        <span className="truncate">
+                                          {resource.resourceLink}
+                                        </span>
+                                      </a>
+                                    </td>
+                                    <td className="px-4 py-4 text-sm text-text-secondary">
+                                      {formatLessonDateTime(resource.updatedAt)}
+                                    </td>
+                                    <td className="px-4 py-4">
+                                      <div className="flex items-center justify-end gap-1 opacity-100 transition-opacity duration-150 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            openEditResource(resource)
+                                          }
+                                          className="rounded p-1.5 text-text-muted transition-colors duration-200 hover:bg-primary/12 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
+                                          aria-label={`Sửa tài nguyên ${resource.title?.trim() || ""}`}
+                                          title="Sửa tài nguyên"
+                                        >
+                                          <svg
+                                            className="size-4"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                            aria-hidden
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth={2}
+                                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                            />
+                                          </svg>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setDeleteTarget({
+                                              kind: "resource",
+                                              id: resource.id,
+                                              label:
+                                                resource.title ??
+                                                "tài nguyên chưa đặt tên",
+                                            })
+                                          }
+                                          className="rounded p-1.5 text-text-muted transition-colors duration-200 hover:bg-error/15 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
+                                          aria-label={`Xóa tài nguyên ${resource.title?.trim() || ""}`}
+                                          title="Xóa tài nguyên"
+                                        >
+                                          <svg
+                                            className="size-4"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                            aria-hidden
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth={2}
+                                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                            />
+                                          </svg>
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <div className="px-4 py-4">
+                            <TablePagination
+                              label="Resources"
+                              isPending={isResourceListPending}
+                              meta={
+                                data?.resourcesMeta ?? {
+                                  total: resources.length,
+                                  page: 1,
+                                  limit: RESOURCE_PAGE_SIZE,
+                                  totalPages: 1,
+                                }
+                              }
+                              onPageChange={(page) =>
+                                setListPage("resourcePage", page)
+                              }
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+
+                  <section
+                    className="rounded-[1.75rem] border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5"
+                    aria-busy={isTaskListPending}
+                  >
+                    <div className="flex flex-col gap-4 border-b border-border-default pb-4 sm:flex-row sm:items-end sm:justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
+                          List 02
+                        </p>
+                        <h2 className="mt-2 text-2xl font-semibold text-text-primary">
+                          Tasks
+                        </h2>
+                        <p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">
+                          Theo dõi đầu việc giáo án ở cùng một màn hình, ưu tiên
+                          trạng thái rõ ràng và hạn xử lý dễ đọc trên mobile.
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full border border-border-default bg-bg-secondary px-3 py-1 text-xs font-medium text-text-secondary">
+                          {data?.tasksMeta.total ?? tasks.length} công việc
+                        </span>
+                        {isTaskListPending ? (
+                          <span className="rounded-full border border-border-default bg-bg-surface px-3 py-1 text-xs font-medium text-text-secondary">
+                            Đang đổi trang
+                          </span>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={openCreateTask}
+                          className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                        >
+                          Thêm công việc
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-4">
+                      {isTaskListPending ? (
+                        <ListTableSkeleton variant="task" />
+                      ) : tasks.length === 0 ? (
+                        <EmptyState
+                          title="Chưa có công việc nào trong tab Tổng quan"
+                          description="Tạo task ngay tại đây để chốt backlog soạn bài, biên tập tài nguyên, hoặc các checklist cần xử lý cho route giáo án."
+                          actionLabel="Tạo công việc đầu tiên"
+                          onAction={openCreateTask}
+                        />
+                      ) : (
+                        <div className="overflow-hidden rounded-[1.4rem] border border-border-default">
+                          <div className="overflow-x-auto">
+                            <table className="min-w-full border-collapse text-left">
+                              <thead className="bg-bg-secondary">
+                                <tr className="text-sm text-text-secondary">
+                                  <th
+                                    scope="col"
+                                    className="px-4 py-3 font-medium"
+                                  >
+                                    Công việc
+                                  </th>
+                                  <th
+                                    scope="col"
+                                    className="px-4 py-3 font-medium"
+                                  >
+                                    Trạng thái
+                                  </th>
+                                  <th
+                                    scope="col"
+                                    className="px-4 py-3 font-medium"
+                                  >
+                                    Ưu tiên
+                                  </th>
+                                  <th
+                                    scope="col"
+                                    className="px-4 py-3 font-medium"
+                                  >
+                                    Hạn xử lý
+                                  </th>
+                                  <th
+                                    scope="col"
+                                    className="px-4 py-3 font-medium"
+                                  >
+                                    Phụ trách
+                                  </th>
+                                  <th
+                                    scope="col"
+                                    className="w-20 px-4 py-3 text-right"
+                                  >
+                                    <span className="sr-only">Thao tác</span>
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {tasks.map((task) => (
+                                  <tr
+                                    key={task.id}
+                                    role="button"
+                                    tabIndex={0}
+                                    className="group cursor-pointer border-t border-border-default bg-bg-surface align-top transition-colors hover:bg-bg-secondary/50 focus-within:bg-bg-secondary/50"
+                                    onClick={() =>
+                                      router.push(buildTaskDetailHref(task.id))
+                                    }
+                                    onKeyDown={(event) => {
+                                      if (
+                                        event.key === "Enter" ||
+                                        event.key === " "
+                                      ) {
+                                        event.preventDefault();
+                                        router.push(buildTaskDetailHref(task.id));
+                                      }
+                                    }}
+                                    aria-label={`Xem chi tiết công việc ${task.title?.trim() || ""}`}
+                                  >
+                                    <td className="px-4 py-4">
+                                      <div className="min-w-[16rem]">
+                                        <p className="font-medium text-text-primary">
+                                          {task.title ?? "Công việc chưa đặt tên"}
+                                        </p>
+                                        {task.description ? (
+                                          <p className="mt-1 text-sm leading-6 text-text-secondary">
+                                            {task.description}
+                                          </p>
+                                        ) : (
+                                          <p className="mt-1 text-sm text-text-muted">
+                                            Không có mô tả
+                                          </p>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-4">
+                                      <span
+                                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.16em] ring-1 ${lessonTaskStatusChipClass(
+                                          task.status,
+                                        )}`}
+                                      >
+                                        {LESSON_TASK_STATUS_LABELS[task.status]}
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-4">
+                                      <span
+                                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.16em] ring-1 ${lessonTaskPriorityChipClass(
+                                          task.priority,
+                                        )}`}
+                                      >
+                                        {LESSON_TASK_PRIORITY_LABELS[task.priority]}
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-4 text-sm text-text-secondary">
+                                      {formatLessonDateOnly(task.dueDate)}
+                                    </td>
+                                    <td className="px-4 py-4 text-sm text-text-secondary">
+                                      {task.createdByStaff?.fullName ??
+                                        "Chưa ghi nhận"}
+                                    </td>
+                                    <td
+                                      className="px-4 py-4"
+                                      onClick={(event) => event.stopPropagation()}
+                                    >
+                                      <div className="flex items-center justify-end gap-1 opacity-100 transition-opacity duration-150 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
+                                        <button
+                                          type="button"
+                                          onClick={() => openEditTask(task)}
+                                          className="rounded p-1.5 text-text-muted transition-colors duration-200 hover:bg-primary/12 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
+                                          aria-label={`Sửa công việc ${task.title?.trim() || ""}`}
+                                          title="Sửa công việc"
+                                        >
+                                          <svg
+                                            className="size-4"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                            aria-hidden
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth={2}
+                                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                            />
+                                          </svg>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setDeleteTarget({
+                                              kind: "task",
+                                              id: task.id,
+                                              label:
+                                                task.title ??
+                                                "công việc chưa đặt tên",
+                                            })
+                                          }
+                                          className="rounded p-1.5 text-text-muted transition-colors duration-200 hover:bg-error/15 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
+                                          aria-label={`Xóa công việc ${task.title?.trim() || ""}`}
+                                          title="Xóa công việc"
+                                        >
+                                          <svg
+                                            className="size-4"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                            aria-hidden
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth={2}
+                                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                            />
+                                          </svg>
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <div className="px-4 py-4">
+                            <TablePagination
+                              label="Tasks"
+                              isPending={isTaskListPending}
+                              meta={
+                                data?.tasksMeta ?? {
+                                  total: tasks.length,
+                                  page: 1,
+                                  limit: TASK_PAGE_SIZE,
+                                  totalPages: 1,
+                                }
+                              }
+                              onPageChange={(page) =>
+                                setListPage("taskPage", page)
+                              }
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                </>
+              )}
+            </section>
+          ) : activeTab === "work" ? (
+            <LessonWorkTab />
+          ) : (
+            <section
+              id="lesson-panel-exercises"
+              role="tabpanel"
+              aria-labelledby="lesson-tab-exercises"
+            >
+              <section className="rounded-[1.75rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
+                <div className="rounded-[1.5rem] border border-dashed border-border-default bg-bg-secondary/40 px-5 py-14 text-center">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
+                    Under Development
+                  </p>
+                  <h2 className="mt-3 text-2xl font-semibold text-text-primary">
+                    Tab Bài tập đang được chuẩn bị
+                  </h2>
+                  <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-text-secondary">
+                    Bố cục 3 tab đã được khóa. Tab Bài tập hiện giữ trạng thái
+                    Under Development để tránh giả lập logic chưa có contract đầy
+                    đủ.
+                  </p>
                 </div>
               </section>
-            ) : (
-              <>
-                <div className="grid gap-3 md:grid-cols-3">
-                  <SummaryCard
-                    eyebrow="Resources"
-                    value={data?.summary.resourceCount ?? 0}
-                    label="Tài nguyên đang sẵn sàng trong thư viện điều phối."
-                    accent="bg-[linear-gradient(90deg,var(--color-primary),transparent)]"
-                  />
-                  <SummaryCard
-                    eyebrow="Tasks"
-                    value={data?.summary.taskCount ?? 0}
-                    label="Tổng số đầu việc giáo án đã được ghi nhận."
-                    accent="bg-[linear-gradient(90deg,var(--color-info),transparent)]"
-                  />
-                  <SummaryCard
-                    eyebrow="Open"
-                    value={data?.summary.openTaskCount ?? 0}
-                    label="Việc đang mở cần theo dõi hoặc hoàn tất tiếp."
-                    accent="bg-[linear-gradient(90deg,var(--color-warning),transparent)]"
-                  />
-                </div>
-
-                <section
-                  className="rounded-[1.75rem] border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5"
-                  aria-busy={isResourceListPending}
-                >
-                  <div className="flex flex-col gap-4 border-b border-border-default pb-4 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
-                        List 01
-                      </p>
-                      <h2 className="mt-2 text-2xl font-semibold text-text-primary">
-                        Resources
-                      </h2>
-                      <p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">
-                        Kho tài nguyên nền cho team giáo án, ưu tiên những nguồn
-                        cần mở lại nhanh trong quá trình soạn bài.
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span className="rounded-full border border-border-default bg-bg-secondary px-3 py-1 text-xs font-medium text-text-secondary">
-                        {data?.resourcesMeta.total ?? resources.length} tài
-                        nguyên
-                      </span>
-                      {isResourceListPending ? (
-                        <span className="rounded-full border border-border-default bg-bg-surface px-3 py-1 text-xs font-medium text-text-secondary">
-                          Đang đổi trang
-                        </span>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={openCreateResource}
-                        className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                      >
-                        Thêm tài nguyên
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="mt-4">
-                    {isResourceListPending ? (
-                      <ListTableSkeleton variant="resource" />
-                    ) : resources.length === 0 ? (
-                      <EmptyState
-                        title="Chưa có tài nguyên nào trong tab Tổng quan"
-                        description="Thêm tài liệu gốc, link lecture note, bộ đề, hoặc tài nguyên định hướng để team có một thư viện chung ngay tại route giáo án."
-                        actionLabel="Tạo tài nguyên đầu tiên"
-                        onAction={openCreateResource}
-                      />
-                    ) : (
-                      <div className="overflow-hidden rounded-[1.4rem] border border-border-default">
-                        <div className="overflow-x-auto">
-                          <table className="min-w-full border-collapse text-left">
-                            <thead className="bg-bg-secondary">
-                              <tr className="text-sm text-text-secondary">
-                                <th
-                                  scope="col"
-                                  className="px-4 py-3 font-medium"
-                                >
-                                  Tài nguyên
-                                </th>
-                                <th
-                                  scope="col"
-                                  className="px-4 py-3 font-medium"
-                                >
-                                  Tags
-                                </th>
-                                <th
-                                  scope="col"
-                                  className="px-4 py-3 font-medium"
-                                >
-                                  Link
-                                </th>
-                                <th
-                                  scope="col"
-                                  className="px-4 py-3 font-medium"
-                                >
-                                  Cập nhật
-                                </th>
-                                <th
-                                  scope="col"
-                                  className="w-20 px-4 py-3 text-right"
-                                >
-                                  <span className="sr-only">Thao tác</span>
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {resources.map((resource) => (
-                                <tr
-                                  key={resource.id}
-                                  className="group border-t border-border-default bg-bg-surface align-top transition-colors hover:bg-bg-secondary/50"
-                                >
-                                  <td className="px-4 py-4">
-                                    <div className="min-w-[16rem]">
-                                      <p className="font-medium text-text-primary">
-                                        {resource.title ??
-                                          "Tài nguyên chưa đặt tên"}
-                                      </p>
-                                      {resource.description ? (
-                                        <p className="mt-1 text-sm leading-6 text-text-secondary">
-                                          {resource.description}
-                                        </p>
-                                      ) : (
-                                        <p className="mt-1 text-sm text-text-muted">
-                                          Không có mô tả
-                                        </p>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-4">
-                                    <div className="flex min-w-[10rem] flex-wrap gap-2">
-                                      {resource.tags.length > 0 ? (
-                                        resource.tags.map((tag) => (
-                                          <span
-                                            key={tag}
-                                            className="rounded-full border border-border-default bg-bg-secondary px-2.5 py-1 text-xs text-text-secondary"
-                                          >
-                                            {tag}
-                                          </span>
-                                        ))
-                                      ) : (
-                                        <span className="text-sm text-text-muted">
-                                          Không có tag
-                                        </span>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-4">
-                                    <a
-                                      href={resource.resourceLink}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="inline-flex max-w-[18rem] items-center gap-2 text-sm text-primary underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                                    >
-                                      <span className="truncate">
-                                        {resource.resourceLink}
-                                      </span>
-                                    </a>
-                                  </td>
-                                  <td className="px-4 py-4 text-sm text-text-secondary">
-                                    {formatLessonDateTime(resource.updatedAt)}
-                                  </td>
-                                  <td className="px-4 py-4">
-                                    <div className="flex items-center justify-end gap-1 opacity-100 transition-opacity duration-150 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          openEditResource(resource)
-                                        }
-                                        className="rounded p-1.5 text-text-muted transition-colors duration-200 hover:bg-primary/12 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
-                                        aria-label={`Sửa tài nguyên ${resource.title?.trim() || ""}`}
-                                        title="Sửa tài nguyên"
-                                      >
-                                        <svg
-                                          className="size-4"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          viewBox="0 0 24 24"
-                                          aria-hidden
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                                          />
-                                        </svg>
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          setDeleteTarget({
-                                            kind: "resource",
-                                            id: resource.id,
-                                            label:
-                                              resource.title ??
-                                              "tài nguyên chưa đặt tên",
-                                          })
-                                        }
-                                        className="rounded p-1.5 text-text-muted transition-colors duration-200 hover:bg-error/15 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
-                                        aria-label={`Xóa tài nguyên ${resource.title?.trim() || ""}`}
-                                        title="Xóa tài nguyên"
-                                      >
-                                        <svg
-                                          className="size-4"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          viewBox="0 0 24 24"
-                                          aria-hidden
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                          />
-                                        </svg>
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                        <div className="px-4 py-4">
-                          <TablePagination
-                            label="Resources"
-                            isPending={isResourceListPending}
-                            meta={
-                              data?.resourcesMeta ?? {
-                                total: resources.length,
-                                page: 1,
-                                limit: RESOURCE_PAGE_SIZE,
-                                totalPages: 1,
-                              }
-                            }
-                            onPageChange={(page) =>
-                              setListPage("resourcePage", page)
-                            }
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </section>
-
-                <section
-                  className="rounded-[1.75rem] border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5"
-                  aria-busy={isTaskListPending}
-                >
-                  <div className="flex flex-col gap-4 border-b border-border-default pb-4 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
-                        List 02
-                      </p>
-                      <h2 className="mt-2 text-2xl font-semibold text-text-primary">
-                        Tasks
-                      </h2>
-                      <p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">
-                        Theo dõi đầu việc giáo án ở cùng một màn hình, ưu tiên
-                        trạng thái rõ ràng và hạn xử lý dễ đọc trên mobile.
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span className="rounded-full border border-border-default bg-bg-secondary px-3 py-1 text-xs font-medium text-text-secondary">
-                        {data?.tasksMeta.total ?? tasks.length} công việc
-                      </span>
-                      {isTaskListPending ? (
-                        <span className="rounded-full border border-border-default bg-bg-surface px-3 py-1 text-xs font-medium text-text-secondary">
-                          Đang đổi trang
-                        </span>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={openCreateTask}
-                        className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                      >
-                        Thêm công việc
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="mt-4">
-                    {isTaskListPending ? (
-                      <ListTableSkeleton variant="task" />
-                    ) : tasks.length === 0 ? (
-                      <EmptyState
-                        title="Chưa có công việc nào trong tab Tổng quan"
-                        description="Tạo task ngay tại đây để chốt backlog soạn bài, biên tập tài nguyên, hoặc các checklist cần xử lý cho route giáo án."
-                        actionLabel="Tạo công việc đầu tiên"
-                        onAction={openCreateTask}
-                      />
-                    ) : (
-                      <div className="overflow-hidden rounded-[1.4rem] border border-border-default">
-                        <div className="overflow-x-auto">
-                          <table className="min-w-full border-collapse text-left">
-                            <thead className="bg-bg-secondary">
-                              <tr className="text-sm text-text-secondary">
-                                <th
-                                  scope="col"
-                                  className="px-4 py-3 font-medium"
-                                >
-                                  Công việc
-                                </th>
-                                <th
-                                  scope="col"
-                                  className="px-4 py-3 font-medium"
-                                >
-                                  Trạng thái
-                                </th>
-                                <th
-                                  scope="col"
-                                  className="px-4 py-3 font-medium"
-                                >
-                                  Ưu tiên
-                                </th>
-                                <th
-                                  scope="col"
-                                  className="px-4 py-3 font-medium"
-                                >
-                                  Hạn xử lý
-                                </th>
-                                <th
-                                  scope="col"
-                                  className="px-4 py-3 font-medium"
-                                >
-                                  Phụ trách
-                                </th>
-                                <th
-                                  scope="col"
-                                  className="w-20 px-4 py-3 text-right"
-                                >
-                                  <span className="sr-only">Thao tác</span>
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {tasks.map((task) => (
-                                <tr
-                                  key={task.id}
-                                  role="button"
-                                  tabIndex={0}
-                                  className="group cursor-pointer border-t border-border-default bg-bg-surface align-top transition-colors hover:bg-bg-secondary/50 focus-within:bg-bg-secondary/50"
-                                  onClick={() =>
-                                    router.push(buildTaskDetailHref(task.id))
-                                  }
-                                  onKeyDown={(event) => {
-                                    if (
-                                      event.key === "Enter" ||
-                                      event.key === " "
-                                    ) {
-                                      event.preventDefault();
-                                      router.push(buildTaskDetailHref(task.id));
-                                    }
-                                  }}
-                                  aria-label={`Xem chi tiết công việc ${task.title?.trim() || ""}`}
-                                >
-                                  <td className="px-4 py-4">
-                                    <div className="min-w-[16rem]">
-                                      <p className="font-medium text-text-primary">
-                                        {task.title ?? "Công việc chưa đặt tên"}
-                                      </p>
-                                      {task.description ? (
-                                        <p className="mt-1 text-sm leading-6 text-text-secondary">
-                                          {task.description}
-                                        </p>
-                                      ) : (
-                                        <p className="mt-1 text-sm text-text-muted">
-                                          Không có mô tả
-                                        </p>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-4">
-                                    <span
-                                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.16em] ring-1 ${lessonTaskStatusChipClass(
-                                        task.status,
-                                      )}`}
-                                    >
-                                      {LESSON_TASK_STATUS_LABELS[task.status]}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-4">
-                                    <span
-                                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.16em] ring-1 ${lessonTaskPriorityChipClass(
-                                        task.priority,
-                                      )}`}
-                                    >
-                                      {LESSON_TASK_PRIORITY_LABELS[task.priority]}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-4 text-sm text-text-secondary">
-                                    {formatLessonDateOnly(task.dueDate)}
-                                  </td>
-                                  <td className="px-4 py-4 text-sm text-text-secondary">
-                                    {task.createdByStaff?.fullName ??
-                                      "Chưa ghi nhận"}
-                                  </td>
-                                  <td
-                                    className="px-4 py-4"
-                                    onClick={(event) => event.stopPropagation()}
-                                  >
-                                    <div className="flex items-center justify-end gap-1 opacity-100 transition-opacity duration-150 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
-                                      <button
-                                        type="button"
-                                        onClick={() => openEditTask(task)}
-                                        className="rounded p-1.5 text-text-muted transition-colors duration-200 hover:bg-primary/12 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
-                                        aria-label={`Sửa công việc ${task.title?.trim() || ""}`}
-                                        title="Sửa công việc"
-                                      >
-                                        <svg
-                                          className="size-4"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          viewBox="0 0 24 24"
-                                          aria-hidden
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                                          />
-                                        </svg>
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          setDeleteTarget({
-                                            kind: "task",
-                                            id: task.id,
-                                            label:
-                                              task.title ??
-                                              "công việc chưa đặt tên",
-                                          })
-                                        }
-                                        className="rounded p-1.5 text-text-muted transition-colors duration-200 hover:bg-error/15 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
-                                        aria-label={`Xóa công việc ${task.title?.trim() || ""}`}
-                                        title="Xóa công việc"
-                                      >
-                                        <svg
-                                          className="size-4"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          viewBox="0 0 24 24"
-                                          aria-hidden
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                          />
-                                        </svg>
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                        <div className="px-4 py-4">
-                          <TablePagination
-                            label="Tasks"
-                            isPending={isTaskListPending}
-                            meta={
-                              data?.tasksMeta ?? {
-                                total: tasks.length,
-                                page: 1,
-                                limit: TASK_PAGE_SIZE,
-                                totalPages: 1,
-                              }
-                            }
-                            onPageChange={(page) =>
-                              setListPage("taskPage", page)
-                            }
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </section>
-              </>
-            )}
-          </section>
-        ) : activeTab === "work" ? (
-          <section
-            id="lesson-panel-work"
-            role="tabpanel"
-            aria-labelledby="lesson-tab-work"
-          >
-            <TabPlaceholder
-              title="Tab Công việc đang được mở rộng"
-              description="Shell điều hướng đã sẵn sàng. Pha này chỉ hoàn thiện tab Tổng quan, còn tab Công việc sẽ tiếp tục được build ở bước sau với flow sâu hơn."
-            />
-          </section>
-        ) : (
-          <section
-            id="lesson-panel-exercises"
-            role="tabpanel"
-            aria-labelledby="lesson-tab-exercises"
-          >
-            <TabPlaceholder
-              title="Tab Bài tập đang được chuẩn bị"
-              description="Bố cục 3 tab đã được khóa. Tab Bài tập hiện giữ trạng thái Under Development để tránh giả lập logic chưa có contract đầy đủ."
-            />
-          </section>
-        )}
+            </section>
+          )}
+        </div>
       </div>
 
       <LessonResourceFormPopup

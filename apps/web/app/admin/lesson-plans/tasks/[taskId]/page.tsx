@@ -5,17 +5,25 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import LessonOutputFormPopup from "@/components/admin/lesson-plans/LessonOutputFormPopup";
 import LessonTaskFormPopup from "@/components/admin/lesson-plans/LessonTaskFormPopup";
 import {
   formatLessonDateOnly,
   formatLessonStaffRoleLabel,
   formatLessonStaffStatusLabel,
+  LESSON_OUTPUT_STATUS_LABELS,
   LESSON_TASK_PRIORITY_LABELS,
   LESSON_TASK_STATUS_LABELS,
+  lessonOutputStatusChipClass,
   lessonTaskPriorityChipClass,
   lessonTaskStatusChipClass,
 } from "@/components/admin/lesson-plans/lessonTaskUi";
-import type { CreateLessonTaskPayload, LessonTaskItem } from "@/dtos/lesson.dto";
+import type {
+  CreateLessonOutputPayload,
+  CreateLessonTaskPayload,
+  LessonTaskDetail,
+  LessonTaskItem,
+} from "@/dtos/lesson.dto";
 import * as lessonApi from "@/lib/apis/lesson.api";
 
 function normalizePositiveInt(value: string | null, fallback = 1) {
@@ -88,6 +96,7 @@ export default function AdminLessonTaskDetailPage() {
   const queryClient = useQueryClient();
   const taskId = typeof params?.taskId === "string" ? params.taskId : "";
   const [editPopupOpen, setEditPopupOpen] = useState(false);
+  const [createOutputOpen, setCreateOutputOpen] = useState(false);
 
   const backHref = useMemo(() => {
     const nextParams = new URLSearchParams();
@@ -100,8 +109,33 @@ export default function AdminLessonTaskDetailPage() {
       "taskPage",
       String(normalizePositiveInt(searchParams.get("taskPage"))),
     );
+    nextParams.set(
+      "workPage",
+      String(normalizePositiveInt(searchParams.get("workPage"))),
+    );
     return `/admin/lesson-plans?${nextParams.toString()}`;
   }, [searchParams]);
+
+  const buildOutputHref = (outputId: string) => {
+    const nextParams = new URLSearchParams();
+    nextParams.set("tab", normalizeTab(searchParams.get("tab")));
+    nextParams.set(
+      "resourcePage",
+      String(normalizePositiveInt(searchParams.get("resourcePage"))),
+    );
+    nextParams.set(
+      "taskPage",
+      String(normalizePositiveInt(searchParams.get("taskPage"))),
+    );
+    nextParams.set(
+      "workPage",
+      String(normalizePositiveInt(searchParams.get("workPage"))),
+    );
+    nextParams.set("taskId", taskId);
+    nextParams.set("origin", "task");
+
+    return `/admin/lesson-plans/outputs/${encodeURIComponent(outputId)}?${nextParams.toString()}`;
+  };
 
   const {
     data: task,
@@ -109,7 +143,7 @@ export default function AdminLessonTaskDetailPage() {
     isError,
     error,
     refetch,
-  } = useQuery<LessonTaskItem>({
+  } = useQuery<LessonTaskDetail>({
     queryKey: ["lesson", "task", taskId],
     queryFn: () => lessonApi.getLessonTaskById(taskId),
     enabled: !!taskId,
@@ -130,8 +164,31 @@ export default function AdminLessonTaskDetailPage() {
     },
   });
 
+  const createOutputMutation = useMutation({
+    mutationFn: lessonApi.createLessonOutput,
+    onSuccess: async (createdOutput) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["lesson", "work"] }),
+        queryClient.invalidateQueries({
+          queryKey: ["lesson", "task", createdOutput.lessonTaskId],
+        }),
+      ]);
+      toast.success("Đã tạo lesson output mới.");
+      setCreateOutputOpen(false);
+    },
+    onError: (mutationError) => {
+      toast.error(
+        getErrorMessage(mutationError, "Không thể tạo lesson output."),
+      );
+    },
+  });
+
   const handleSubmit = async (payload: CreateLessonTaskPayload) => {
     await updateTaskMutation.mutateAsync(payload);
+  };
+
+  const handleCreateOutput = async (payload: CreateLessonOutputPayload) => {
+    await createOutputMutation.mutateAsync(payload);
   };
 
   if (!taskId) {
@@ -260,11 +317,11 @@ export default function AdminLessonTaskDetailPage() {
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setEditPopupOpen(true)}
-                      className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditPopupOpen(true)}
+                    className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                     >
                       Chỉnh sửa task
                     </button>
@@ -368,23 +425,146 @@ export default function AdminLessonTaskDetailPage() {
                 </p>
               </div>
             </section>
+
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+              <section className="rounded-[1.75rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
+                      Outputs
+                    </p>
+                    <h2 className="mt-2 text-2xl font-semibold text-text-primary">
+                      Lesson outputs
+                    </h2>
+                    <p className="mt-2 text-sm leading-6 text-text-secondary">
+                      Đây là nơi xem đầy đủ outputs thuộc riêng task này và tạo
+                      thêm output mới đúng ngữ cảnh.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm text-text-secondary">
+                      {task.outputProgress.completed}/{task.outputProgress.total} hoàn
+                      thành
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setCreateOutputOpen(true)}
+                      className="inline-flex min-h-11 items-center rounded-xl border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    >
+                      Tạo output
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {task.outputs.length > 0 ? (
+                    task.outputs.map((output) => (
+                      <Link
+                        key={output.id}
+                        href={buildOutputHref(output.id)}
+                        className="flex flex-col gap-3 rounded-[1.35rem] border border-border-default bg-bg-secondary/45 p-4 transition-colors hover:bg-bg-secondary/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-text-primary">
+                              {output.lessonName}
+                            </p>
+                            <p className="mt-1 text-sm text-text-secondary">
+                              {output.contestUploaded ?? "Chưa ghi contest"}
+                            </p>
+                          </div>
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.16em] ring-1 ${lessonOutputStatusChipClass(
+                              output.status,
+                            )}`}
+                          >
+                            {LESSON_OUTPUT_STATUS_LABELS[output.status]}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap gap-3 text-xs text-text-muted">
+                          <span>Ngày: {formatLessonDateOnly(output.date)}</span>
+                          <span>
+                            Nhân sự:{" "}
+                            {output.staffDisplayName ?? output.staffId ?? "Chưa gán"}
+                          </span>
+                        </div>
+                      </Link>
+                    ))
+                  ) : (
+                    <div className="rounded-[1.35rem] border border-dashed border-border-default bg-bg-secondary/40 px-4 py-8 text-sm text-text-muted">
+                      Task này chưa có output nào.
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              <section className="rounded-[1.75rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
+                    Resources
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold text-text-primary">
+                    Tài nguyên liên quan
+                  </h2>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {task.resourcePreview.length > 0 ? (
+                    task.resourcePreview.map((resource) => (
+                      <a
+                        key={resource.id}
+                        href={resource.resourceLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block rounded-[1.35rem] border border-border-default bg-bg-secondary/45 px-4 py-4 text-sm text-primary transition-colors hover:bg-bg-secondary/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                      >
+                        <span className="block truncate">
+                          {resource.title ?? resource.resourceLink}
+                        </span>
+                      </a>
+                    ))
+                  ) : (
+                    <div className="rounded-[1.35rem] border border-dashed border-border-default bg-bg-secondary/40 px-4 py-8 text-sm text-text-muted">
+                      Chưa có resource nào được gắn với task này.
+                    </div>
+                  )}
+                </div>
+              </section>
+            </div>
           </>
         )}
       </div>
 
       {task ? (
-        <LessonTaskFormPopup
-          key={`task-detail-${task.id}-${editPopupOpen ? "open" : "closed"}`}
-          open={editPopupOpen}
-          mode="edit"
-          initialData={task}
-          isSubmitting={updateTaskMutation.isPending}
-          onClose={() => {
-            if (updateTaskMutation.isPending) return;
-            setEditPopupOpen(false);
-          }}
-          onSubmit={handleSubmit}
-        />
+        <>
+          <LessonTaskFormPopup
+            key={`task-detail-${task.id}-${editPopupOpen ? "open" : "closed"}`}
+            open={editPopupOpen}
+            mode="edit"
+            initialData={task}
+            isSubmitting={updateTaskMutation.isPending}
+            onClose={() => {
+              if (updateTaskMutation.isPending) return;
+              setEditPopupOpen(false);
+            }}
+            onSubmit={handleSubmit}
+          />
+          <LessonOutputFormPopup
+            open={createOutputOpen}
+            mode="create"
+            task={{
+              id: task.id,
+              title: task.title,
+            }}
+            isSubmitting={createOutputMutation.isPending}
+            onClose={() => {
+              if (createOutputMutation.isPending) return;
+              setCreateOutputOpen(false);
+            }}
+            onSubmit={handleCreateOutput}
+          />
+        </>
       ) : null}
     </div>
   );

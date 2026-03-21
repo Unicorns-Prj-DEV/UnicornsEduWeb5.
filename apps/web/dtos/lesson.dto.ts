@@ -6,6 +6,7 @@ export type LessonTaskStatus =
   | "completed"
   | "cancelled";
 export type LessonTaskPriority = "low" | "medium" | "high";
+export type LessonOutputStatus = "pending" | "completed" | "cancelled";
 export type LessonStaffStatus = "active" | "inactive";
 export type LessonStaffRole =
   | "admin"
@@ -73,6 +74,34 @@ export interface LessonTaskItem {
   assignees: LessonTaskAssignee[];
 }
 
+export interface LessonResourcePreview {
+  id: string;
+  title: string | null;
+  resourceLink: string;
+}
+
+export interface LessonOutputProgress {
+  total: number;
+  completed: number;
+}
+
+export interface LessonOutputListItem {
+  id: string;
+  lessonName: string;
+  contestUploaded: string | null;
+  date: string;
+  staffId: string | null;
+  staffDisplayName: string | null;
+  status: LessonOutputStatus;
+}
+
+export interface LessonTaskDetail extends LessonTaskItem {
+  outputs: LessonOutputListItem[];
+  outputProgress: LessonOutputProgress;
+  resourcePreview: LessonResourcePreview[];
+  contestUploadedSummary: string[];
+}
+
 export interface LessonOverviewResponse {
   summary: LessonOverviewSummary;
   resources: LessonResourceItem[];
@@ -81,11 +110,35 @@ export interface LessonOverviewResponse {
   tasksMeta: LessonListMeta;
 }
 
+export interface LessonWorkSummary {
+  taskCount: number;
+  outputCount: number;
+  pendingOutputCount: number;
+  completedOutputCount: number;
+  cancelledOutputCount: number;
+}
+
+export interface LessonWorkOutputItem extends LessonOutputListItem {
+  updatedAt: string;
+  task: LessonOutputTaskSummary | null;
+}
+
+export interface LessonWorkResponse {
+  summary: LessonWorkSummary;
+  outputs: LessonWorkOutputItem[];
+  outputsMeta: LessonListMeta;
+}
+
 export interface LessonOverviewQueryParams {
   resourcePage: number;
   resourceLimit: number;
   taskPage: number;
   taskLimit: number;
+}
+
+export interface LessonWorkQueryParams {
+  page: number;
+  limit: number;
 }
 
 export interface CreateLessonResourcePayload {
@@ -120,4 +173,78 @@ export interface UpdateLessonTaskPayload {
   dueDate?: string | null;
   createdByStaffId?: string | null;
   assignedStaffIds?: string[];
+}
+
+export interface LessonOutputTaskSummary {
+  id: string;
+  title: string | null;
+  status: LessonTaskStatus;
+  priority: LessonTaskPriority;
+}
+
+export interface LessonOutputStaff {
+  id: string;
+  fullName: string;
+  roles: LessonStaffRole[];
+  status: LessonStaffStatus;
+}
+
+export interface LessonOutputStaffOption {
+  id: string;
+  fullName: string;
+  roles: LessonStaffRole[];
+  status: LessonStaffStatus;
+}
+
+export interface LessonOutputItem {
+  id: string;
+  lessonTaskId: string | null;
+  lessonName: string;
+  originalTitle: string | null;
+  source: string | null;
+  originalLink: string | null;
+  level: string | null;
+  tags: string[];
+  cost: number;
+  date: string;
+  contestUploaded: string | null;
+  link: string | null;
+  staffId: string | null;
+  staff: LessonOutputStaff | null;
+  status: LessonOutputStatus;
+  task: LessonOutputTaskSummary | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateLessonOutputPayload {
+  lessonTaskId: string;
+  lessonName: string;
+  originalTitle?: string | null;
+  source?: string | null;
+  originalLink?: string | null;
+  level?: string | null;
+  tags?: string[];
+  cost?: number;
+  date: string;
+  contestUploaded?: string | null;
+  link?: string | null;
+  staffId?: string | null;
+  status?: LessonOutputStatus;
+}
+
+export interface UpdateLessonOutputPayload {
+  lessonTaskId?: string;
+  lessonName?: string;
+  originalTitle?: string | null;
+  source?: string | null;
+  originalLink?: string | null;
+  level?: string | null;
+  tags?: string[];
+  cost?: number;
+  date?: string;
+  contestUploaded?: string | null;
+  link?: string | null;
+  staffId?: string | null;
+  status?: LessonOutputStatus;
 }
