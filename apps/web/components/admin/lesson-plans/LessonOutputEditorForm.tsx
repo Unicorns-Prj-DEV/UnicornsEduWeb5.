@@ -28,6 +28,12 @@ type Props = {
   mode: LessonUpsertMode;
   initialData?: LessonOutputItem | null;
   initialTask?: TaskContext;
+  /** Khi `false`, ẩn khối “Parent Task” (dùng tab Công việc — chọn task ở ngoài). */
+  showParentTaskBanner?: boolean;
+  /** Khi `true`, ẩn toàn bộ khối gán nhân sự (tab Công việc — Thêm bài mới). */
+  hideStaffFields?: boolean;
+  /** Khi `true`, cho phép submit không có `lessonTaskId` (gửi `null`). */
+  allowTasklessOutput?: boolean;
   isSubmitting?: boolean;
   onCancel?: () => void;
   onSubmit: (payload: CreateLessonOutputPayload) => Promise<void> | void;
@@ -112,6 +118,9 @@ export default function LessonOutputEditorForm({
   mode,
   initialData,
   initialTask = null,
+  showParentTaskBanner = true,
+  hideStaffFields = false,
+  allowTasklessOutput = false,
   isSubmitting = false,
   onCancel,
   onSubmit,
@@ -119,6 +128,7 @@ export default function LessonOutputEditorForm({
 }: Props) {
   const lessonTaskId = initialData?.lessonTaskId ?? initialTask?.id ?? "";
   const lessonTaskTitle = initialData?.task?.title ?? initialTask?.title ?? null;
+  const hasParentTask = lessonTaskId.trim().length > 0;
   const [lessonName, setLessonName] = useState(
     () => initialData?.lessonName ?? "",
   );
@@ -173,6 +183,9 @@ export default function LessonOutputEditorForm({
     });
 
   const resultSummary = useMemo(() => {
+    if (hideStaffFields) {
+      return "";
+    }
     if (isStaffOptionsFetching) {
       return "Đang tìm nhân sự…";
     }
@@ -184,7 +197,12 @@ export default function LessonOutputEditorForm({
     }
 
     return `Có ${staffOptions.length} nhân sự gần nhất cho truy vấn hiện tại.`;
-  }, [deferredStaffSearch, isStaffOptionsFetching, staffOptions.length]);
+  }, [
+    deferredStaffSearch,
+    hideStaffFields,
+    isStaffOptionsFetching,
+    staffOptions.length,
+  ]);
 
   const validateOptionalUrl = (value: string, label: string) => {
     const trimmedValue = value.trim();
@@ -210,7 +228,7 @@ export default function LessonOutputEditorForm({
     event.preventDefault();
 
     const trimmedLessonName = lessonName.trim();
-    if (!lessonTaskId) {
+    if (!allowTasklessOutput && !lessonTaskId.trim()) {
       toast.error("Không xác định được task cha cho lesson output.");
       return;
     }
@@ -238,8 +256,12 @@ export default function LessonOutputEditorForm({
       return;
     }
 
+    const resolvedTaskId = allowTasklessOutput
+      ? lessonTaskId.trim() || null
+      : lessonTaskId.trim();
+
     await onSubmit({
-      lessonTaskId,
+      lessonTaskId: resolvedTaskId,
       lessonName: trimmedLessonName,
       originalTitle: originalTitle.trim() || null,
       source: source.trim() || null,
@@ -250,36 +272,50 @@ export default function LessonOutputEditorForm({
       date: date.trim(),
       contestUploaded: contestUploaded.trim() || null,
       link: link.trim() || null,
-      staffId: selectedStaff?.id ?? null,
+      staffId: hideStaffFields ? null : (selectedStaff?.id ?? null),
       status,
     });
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      <section className="rounded-[1.5rem] border border-border-default bg-bg-secondary/45 p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-text-muted">
-              Parent Task
-            </p>
-            <p className="mt-2 text-lg font-semibold text-text-primary">
-              {lessonTaskTitle ?? "Task chưa đặt tên"}
-            </p>
-            <p className="mt-1 text-xs text-text-muted">Task ID: {lessonTaskId}</p>
+      {showParentTaskBanner ? (
+        <section className="rounded-[1.5rem] border border-border-default bg-bg-secondary/45 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-text-muted">
+                Parent Task
+              </p>
+              <p className="mt-2 text-lg font-semibold text-text-primary">
+                {hasParentTask
+                  ? (lessonTaskTitle ?? "Task chưa đặt tên")
+                  : "Chưa gắn công việc"}
+              </p>
+              <p className="mt-1 text-xs text-text-muted">
+                {hasParentTask
+                  ? `Task ID: ${lessonTaskId}`
+                  : "Sản phẩm này đang được quản lý độc lập ngoài task."}
+              </p>
+            </div>
+
+            <span
+              className={`inline-flex h-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ring-1 ${lessonOutputStatusChipClass(
+                status,
+              )}`}
+            >
+              {LESSON_OUTPUT_STATUS_LABELS[status]}
+            </span>
           </div>
+        </section>
+      ) : null}
 
-          <span
-            className={`inline-flex h-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ring-1 ${lessonOutputStatusChipClass(
-              status,
-            )}`}
-          >
-            {LESSON_OUTPUT_STATUS_LABELS[status]}
-          </span>
-        </div>
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(20rem,0.95fr)]">
+      <section
+        className={
+          hideStaffFields
+            ? "space-y-4"
+            : "grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(20rem,0.95fr)]"
+        }
+      >
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
@@ -422,111 +458,112 @@ export default function LessonOutputEditorForm({
           ) : null}
         </div>
 
-        <div className="space-y-4">
-          <section className="rounded-[1.5rem] border border-border-default bg-bg-secondary/50 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-text-primary">
-                  Nhân sự phụ trách output
-                </p>
-                <p className="mt-1 text-xs leading-5 text-text-secondary">
-                  Dùng để biết ai đang đứng tên output này khi rà soát tiến độ.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-3">
-              {selectedStaff ? (
-                <StaffCard
-                  staff={selectedStaff}
-                  onClear={() => setSelectedStaff(null)}
-                />
-              ) : (
-                <div className="rounded-2xl border border-dashed border-border-default bg-bg-surface px-4 py-5 text-sm text-text-muted">
-                  Chưa gán nhân sự cho output này.
+        {hideStaffFields ? null : (
+          <div className="space-y-4">
+            <section className="rounded-[1.5rem] border border-border-default bg-bg-secondary/50 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-text-primary">
+                    Nhân sự phụ trách output
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-text-secondary">
+                    Dùng để biết ai đang đứng tên output này khi rà soát tiến độ.
+                  </p>
                 </div>
-              )}
-            </div>
-          </section>
+              </div>
 
-          <section className="rounded-[1.5rem] border border-border-default bg-bg-surface p-4 shadow-sm">
-            <div className="flex flex-col gap-3 border-b border-border-default pb-4 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-text-primary">
-                  Tìm nhân sự
-                </p>
-                <p className="mt-1 text-xs leading-5 text-text-secondary">
-                  Gắn người chịu trách nhiệm cho output ngay trong cùng flow tạo.
+              <div className="mt-3">
+                {selectedStaff ? (
+                  <StaffCard
+                    staff={selectedStaff}
+                    onClear={() => setSelectedStaff(null)}
+                  />
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-border-default bg-bg-surface px-4 py-5 text-sm text-text-muted">
+                    Chưa gán nhân sự cho output này.
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="rounded-[1.5rem] border border-border-default bg-bg-surface p-4 shadow-sm">
+              <div className="flex flex-col gap-3 border-b border-border-default pb-4 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-text-primary">
+                    Tìm nhân sự
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-text-secondary">
+                    Gắn người chịu trách nhiệm cho output ngay trong cùng flow tạo.
+                  </p>
+                </div>
+                <p className="text-xs text-text-muted" aria-live="polite">
+                  {resultSummary}
                 </p>
               </div>
-              <p className="text-xs text-text-muted" aria-live="polite">
-                {resultSummary}
-              </p>
-            </div>
 
-            <div className="mt-4">
-              <label className="flex flex-col gap-1 text-sm text-text-secondary">
-                <span>Tìm theo họ tên</span>
-                <input
-                  type="search"
-                  value={staffSearch}
-                  onChange={(event) => setStaffSearch(event.target.value)}
-                  placeholder="Nhập tên nhân sự…"
-                  className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                />
-              </label>
-            </div>
+              <div className="mt-4">
+                <label className="flex flex-col gap-1 text-sm text-text-secondary">
+                  <span>Tìm theo họ tên</span>
+                  <input
+                    type="search"
+                    value={staffSearch}
+                    onChange={(event) => setStaffSearch(event.target.value)}
+                    placeholder="Nhập tên nhân sự…"
+                    className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  />
+                </label>
+              </div>
 
-            <div className="mt-4 grid gap-3">
-              {staffOptions.length > 0 ? (
-                staffOptions.map((staff) => {
-                  const isSelected = selectedStaff?.id === staff.id;
+              <div className="mt-4 grid gap-3">
+                {staffOptions.length > 0 ? (
+                  staffOptions.map((staff) => {
+                    const isSelected = selectedStaff?.id === staff.id;
 
-                  return (
-                    <article
-                      key={staff.id}
-                      className="rounded-2xl border border-border-default bg-bg-secondary/50 p-4"
-                    >
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-text-primary">
-                            {staff.fullName}
-                          </p>
-                          <p className="mt-1 text-xs text-text-secondary">
-                            {formatLessonStaffRoleLabel(staff.roles)}
-                          </p>
-                          <p className="mt-2 text-xs text-text-muted">
-                            {formatLessonStaffStatusLabel(staff.status)}
-                          </p>
-                        </div>
+                    return (
+                      <article
+                        key={staff.id}
+                        className="rounded-2xl border border-border-default bg-bg-secondary/50 p-4"
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-text-primary">
+                              {staff.fullName}
+                            </p>
+                            <p className="mt-1 text-xs text-text-secondary">
+                              {formatLessonStaffRoleLabel(staff.roles)}
+                            </p>
+                            <p className="mt-2 text-xs text-text-muted">
+                              {formatLessonStaffStatusLabel(staff.status)}
+                            </p>
+                          </div>
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setSelectedStaff((current) =>
-                              current?.id === staff.id ? null : staff,
-                            )
-                          }
-                          className={`rounded-xl px-3 py-2 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
-                            isSelected
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSelectedStaff((current) =>
+                                current?.id === staff.id ? null : staff,
+                              )
+                            }
+                            className={`rounded-xl px-3 py-2 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${isSelected
                               ? "border border-primary/25 bg-primary/12 text-primary"
                               : "border border-border-default bg-bg-surface text-text-primary hover:bg-bg-tertiary"
-                          }`}
-                        >
-                          {isSelected ? "Đang gắn" : "Chọn cho output"}
-                        </button>
-                      </div>
-                    </article>
-                  );
-                })
-              ) : (
-                <div className="rounded-2xl border border-dashed border-border-default bg-bg-secondary/40 px-4 py-8 text-sm text-text-muted">
-                  Chưa có kết quả nhân sự cho tìm kiếm hiện tại.
-                </div>
-              )}
-            </div>
-          </section>
-        </div>
+                              }`}
+                          >
+                            {isSelected ? "Đang gắn" : "Chọn cho output"}
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-border-default bg-bg-secondary/40 px-4 py-8 text-sm text-text-muted">
+                    Chưa có kết quả nhân sự cho tìm kiếm hiện tại.
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>
+        )}
       </section>
 
       <div className="flex items-center justify-end gap-2 border-t border-border-default pt-4">

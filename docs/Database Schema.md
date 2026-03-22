@@ -172,11 +172,15 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
     - `lesson_task_id -> lesson_task.id`
     - `staff_id -> staff_info.id`
   - index read path hiện có:
+    - `date`
     - `lesson_task_id`
     - `(lesson_task_id, status)`
     - `(lesson_task_id, date)`
+    - `(status, date)`
     - `staff_id`
+    - `(staff_id, date)`
     - `level`
+    - `updated_at`
 
 ---
 

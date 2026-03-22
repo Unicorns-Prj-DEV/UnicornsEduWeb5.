@@ -139,14 +139,16 @@
   - Route chuẩn giữ ở `/admin/lesson-plans`; `/admin/lessons` redirect về route này để tránh tách hai flow quản trị giáo án.
   - Có thêm route chi tiết `FE /admin/lesson-plans/tasks/[taskId]` để xem đầy đủ một lesson task và chỉnh sửa trực tiếp ngay trên trang detail.
   - Có thêm route chi tiết `FE /admin/lesson-plans/outputs/[outputId]` để đọc sâu, chỉnh sửa và xóa `LessonOutput`.
-  - Page chia 3 tab: `Tổng quan`, `Công việc`, `Bài tập`.
+  - Page chia 3 tab: `Tổng quan`, `Công việc`, `Bài tập` (thanh chuyển dạng pill full width, ba nút chia đều — cùng visual pill với chi tiết lớp nhưng dùng hết chiều ngang khối nội dung). Header tối giản: chỉ tiêu đề **Giáo Án** (không mô tả phụ), không dòng “Đang xem”, không hàng card thống kê ở tab Tổng quan / Công việc / Bài tập.
   - Tab `Tổng quan`: 2 bảng xếp dọc `Resources` (trên) và `Tasks` (dưới). Mỗi bảng có toolbar riêng, count badge, empty state riêng, CRUD popup riêng, và pagination độc lập.
+  - `Resources`: bảng tối giản — **không** có đoạn mô tả dưới tiêu đề section; bảng chỉ cột **Tài nguyên**, **Link**, **Tag** (thứ tự đó) và cột thao tác; không cột cập nhật; không hiển thị mô tả dưới tên từng dòng.
+  - `Tasks`: **không** có đoạn mô tả dưới tiêu đề section; mỗi dòng chỉ hiển thị tiêu đề công việc (không preview mô tả trong bảng).
   - `Resources` vẫn được quản lý inline ngay trong bảng, không có route detail riêng; action sửa/xóa dùng icon trực tiếp trên row.
   - Khi đổi `resourcePage` hoặc `taskPage`, FE giữ URL/query state nhưng không scroll viewport về đầu trang. List đang đổi trang sẽ render skeleton inline ngay trong section tương ứng thay cho loading popup/veil, và list còn lại không bị ảnh hưởng.
   - FE dùng TanStack Query qua API thật; không dùng mock-local cho CRUD. Query key chính: `["lesson", "overview"]`.
   - API lesson mới:
     - `GET /lesson-overview?resourcePage=&resourceLimit=&taskPage=&taskLimit=` trả `{ summary, resources, resourcesMeta, tasks, tasksMeta }`
-    - `GET /lesson-work?page=&limit=` trả `{ summary, outputs, outputsMeta }` cho tab `Công việc`
+    - `GET /lesson-work` — query: `page`, `limit`, `year`+`month` (lọc theo tháng theo `date`), hoặc `dateFrom`+`dateTo` (YYYY-MM-DD, **thay** lọc tháng khi cả hai hợp lệ), thêm `search` (tên bài / contest), `tag` (substring), `staffId`, `outputStatus` (`all` \| `pending` \| `completed` \| `cancelled`), `level` (`0`…`5` — khớp `Level {n}` hoặc chuỗi số). Trả `{ summary, outputs, outputsMeta }`; mỗi output có `tags`, `level`, `link`, `originalLink`, `cost`, …
     - `GET /lesson-task-staff-options?search=&limit=` trả option nhân sự gọn cho popup gắn task; hiện giới hạn tối đa `3` kết quả mỗi lần, search theo `fullName`, và chỉ trả staff có role `lesson_plan` hoặc `lesson_plan_head`
     - `GET /lesson-output-staff-options?search=&limit=` trả option nhân sự gọn cho form lesson output; search theo `fullName`
     - `GET /lesson-tasks/:id`
@@ -157,7 +159,7 @@
     - `POST /lesson-tasks`
     - `PATCH /lesson-tasks/:id`
     - `DELETE /lesson-tasks/:id`
-    - `POST /lesson-outputs`
+    - `POST /lesson-outputs` (body: `lessonTaskId` **optional** — có thể tạo output chưa gắn công việc; các field khác như API)
     - `PATCH /lesson-outputs/:id`
     - `DELETE /lesson-outputs/:id`
   - `resources` hiện được quản lý như thư viện độc lập trong tab `Tổng quan`; chưa quản lý liên kết bắt buộc với `task` ở pha này.
@@ -165,12 +167,8 @@
   - Bảng `Tasks` trong tab `Tổng quan` đã bỏ cột `Nhân sự`; cột `Phụ trách` vẫn giữ trên list, còn danh sách assignee đầy đủ được chuyển sang route detail của task. Từ list, bấm trực tiếp vào row task để mở detail page; cell action chỉ giữ icon sửa/xóa và không còn nút `Chi tiết`.
   - Field `createdBy` / `createdByStaff` trong lesson task được hiểu là `người chịu trách nhiệm` của task, không phải người đã bấm tạo bản ghi.
   - Popup task trong tab `Tổng quan` cho phép search nhân sự theo tên, gắn tối đa `3` người cho mỗi task và điều chỉnh `người chịu trách nhiệm`; backend enforce cùng giới hạn này và chỉ chấp nhận staff có role `lesson_plan` hoặc `lesson_plan_head`.
-  - Tab `Công việc` là output desk thật:
-    - paginated theo `workPage`
-    - mỗi `LessonOutput` hiển thị như list item độc lập, không group theo task
-    - item output hiển thị `lessonName`, `contestUploaded`, `date`, `staff`, `status`, `updatedAt` và context task cha
-    - từ item có thể mở route detail output hoặc nhảy sang route detail task
-    - không tạo output mới ngay trong tab này; tạo mới được chuyển sang trang chi tiết task để giữ đúng ngữ cảnh
+  - Tab `Bài tập`: sidebar **Level** (`exLevel`: Tất cả \| `0`…`5` → query `GET /lesson-work` với `level`), **Bộ lọc nhanh** (URL `exSearch`…`exDateTo`, tái sử dụng UI lọc như tab Công việc), bảng **Các bài đã làm (tổng)** — cột **Tag** · **Tên bài** · **Link** (sao chép / mở ngoài; ưu tiên `link`, fallback `originalLink`); nút **+** cạnh tiêu đề chuyển sang tab **Công việc** để thêm bài (không nhúng form Thêm bài mới trên tab này); mặc định **không** gắn tháng (xem toàn bộ thời gian trừ khi lọc ngày); TanStack Query `["lesson","exercises", …]`.
+  - Tab `Công việc` đồng bộ backup: **Bộ lọc nhanh** (Tìm kiếm, Tag, Trạng thái output, Nhân sự, Từ/Đến ngày, **Áp dụng** / **Xóa lọc**; query `workSearch`, `workTag`, `workOutputStatus`, `workStaffId`, `workDateFrom`, `workDateTo`); **Thêm bài mới** (panel viền nét đứt, mở/đóng): form `LessonWorkAddLessonForm` (4 khối — **THÔNG TIN BÀI**, **PHÂN LOẠI**, **THỜI GIAN & THANH TOÁN**, **BỔ SUNG**) — **không** chọn công việc gốc trên UI, **không** gán nhân sự; bắt buộc: tên bài, link gốc, tên gốc, nguồn, ngày; Level (dropdown); Tag + Tag mới; checkbox **Checker**/**Code** gộp vào `tags`; trạng thái thanh toán (Chưa/Đã) map sang `cost` (đã thanh toán → `0` và khóa ô chi phí; chưa thanh toán → nhập chi phí > 0); Link bổ sung + Contest (textarea); `POST /lesson-outputs` với `lessonTaskId`/`staffId` có thể `null`, `status` mặc định `pending`. **Bố cục FE:** mỗi khối bọc card viền/nền nhẹ; **Thông tin bài**: tên full width, hai hàng cặp (link gốc | tên gốc), (nguồn | level); **Thời gian & thanh toán**: một hàng ba cột (Ngày | Trạng thái thanh toán | Chi phí) từ breakpoint `md`, Checker/Code trong ô phụ **Gắn tag nhanh**. Khối **Bài giáo án đã làm** + bảng như trên.
   - Quan hệ lesson mới:
     - `LessonTask` có thể có nhiều `LessonOutput`
     - `LessonTask` có thể có nhiều `LessonResource`

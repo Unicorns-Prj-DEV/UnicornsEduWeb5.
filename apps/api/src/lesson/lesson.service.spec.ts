@@ -26,6 +26,7 @@ describe('LessonService', () => {
     lessonOutput: {
       count: jest.fn(),
       findMany: jest.fn(),
+      groupBy: jest.fn(),
       create: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
@@ -223,11 +224,16 @@ describe('LessonService', () => {
 
   it('returns work board outputs with task context', async () => {
     mockPrisma.lessonTask.count.mockResolvedValue(5);
-    mockPrisma.lessonOutput.count
-      .mockResolvedValueOnce(3)
-      .mockResolvedValueOnce(2)
-      .mockResolvedValueOnce(1)
-      .mockResolvedValueOnce(0);
+    mockPrisma.lessonOutput.groupBy.mockResolvedValue([
+      {
+        status: LessonOutputStatus.pending,
+        _count: 2,
+      },
+      {
+        status: LessonOutputStatus.completed,
+        _count: 1,
+      },
+    ]);
     mockPrisma.lessonOutput.findMany.mockResolvedValue([
       {
         id: 'output-1',
@@ -288,6 +294,11 @@ describe('LessonService', () => {
       staffDisplayName: 'Planner Owner',
       status: LessonOutputStatus.completed,
       updatedAt: '2026-03-22T08:00:00.000Z',
+      tags: ['algebra'],
+      level: null,
+      link: 'https://example.com/output-1',
+      originalLink: null,
+      cost: 0,
       task: {
         id: 'task-work-1',
         title: 'Sinh test đề HSG Vĩnh Phúc',
@@ -298,6 +309,93 @@ describe('LessonService', () => {
     expect(mockPrisma.lessonOutput.findMany).toHaveBeenCalledWith({
       skip: 0,
       take: 6,
+      orderBy: [{ updatedAt: 'desc' }, { date: 'desc' }, { lessonName: 'asc' }],
+      include: {
+        staff: {
+          select: {
+            id: true,
+            fullName: true,
+            roles: true,
+            status: true,
+          },
+        },
+        lessonTask: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            priority: true,
+          },
+        },
+      },
+    });
+  });
+
+  it('applies work filters to counts and list queries', async () => {
+    mockPrisma.lessonTask.count.mockResolvedValue(2);
+    mockPrisma.lessonOutput.groupBy.mockResolvedValue([
+      {
+        status: LessonOutputStatus.pending,
+        _count: 1,
+      },
+    ]);
+    mockPrisma.lessonOutput.findMany.mockResolvedValue([]);
+
+    await service.getWork({
+      page: 1,
+      limit: 10,
+      year: 2026,
+      month: 3,
+      search: 'hsg',
+      tag: 'checker',
+      staffId: 'staff-owner',
+      outputStatus: 'pending',
+      level: '3',
+    });
+
+    const expectedWhere = {
+      AND: [
+        {
+          date: {
+            gte: new Date('2026-03-01T00:00:00.000Z'),
+            lte: new Date('2026-03-31T00:00:00.000Z'),
+          },
+        },
+        {
+          OR: [
+            { lessonName: { contains: 'hsg', mode: 'insensitive' } },
+            { contestUploaded: { contains: 'hsg', mode: 'insensitive' } },
+          ],
+        },
+        {
+          OR: [
+            { lessonName: { contains: 'checker', mode: 'insensitive' } },
+            { contestUploaded: { contains: 'checker', mode: 'insensitive' } },
+          ],
+        },
+        { staffId: 'staff-owner' },
+        { status: LessonOutputStatus.pending },
+        {
+          OR: [
+            { level: { equals: 'Level 3', mode: 'insensitive' } },
+            { level: { equals: '3', mode: 'insensitive' } },
+          ],
+        },
+      ],
+    };
+
+    expect(mockPrisma.lessonOutput.groupBy).toHaveBeenCalledWith({
+      by: ['status'],
+      where: expectedWhere,
+      orderBy: {
+        status: 'asc',
+      },
+      _count: true,
+    });
+    expect(mockPrisma.lessonOutput.findMany).toHaveBeenCalledWith({
+      where: expectedWhere,
+      skip: 0,
+      take: 10,
       orderBy: [{ updatedAt: 'desc' }, { date: 'desc' }, { lessonName: 'asc' }],
       include: {
         staff: {
@@ -846,6 +944,183 @@ describe('LessonService', () => {
         entityId: 'output-99',
       }),
     );
+  });
+
+  it('creates a taskless lesson output when lessonTaskId is omitted', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue(null);
+    mockPrisma.lessonOutput.create.mockResolvedValue({
+      id: 'output-taskless-1',
+      lessonTaskId: null,
+      lessonName: 'Bài lẻ',
+      originalTitle: null,
+      source: 'Codeforces',
+      originalLink: 'https://example.com/original-taskless',
+      level: 'Level 5',
+      tags: ['checker'],
+      cost: 0,
+      date: new Date('2026-03-29T00:00:00.000Z'),
+      contestUploaded: null,
+      link: null,
+      staffId: null,
+      status: LessonOutputStatus.pending,
+      createdAt: new Date('2026-03-29T08:00:00.000Z'),
+      updatedAt: new Date('2026-03-29T08:30:00.000Z'),
+      staff: null,
+      lessonTask: null,
+    });
+
+    const result = await service.createOutput({
+      lessonName: '  Bài lẻ ',
+      source: ' Codeforces ',
+      originalLink: 'https://example.com/original-taskless',
+      level: ' Level 5 ',
+      tags: [' checker '],
+      date: '2026-03-29',
+      staffId: null,
+    });
+
+    expect(mockPrisma.lessonTask.findUnique).not.toHaveBeenCalled();
+    expect(mockPrisma.lessonOutput.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          lessonTaskId: null,
+          lessonName: 'Bài lẻ',
+          originalTitle: null,
+          source: 'Codeforces',
+          originalLink: 'https://example.com/original-taskless',
+          level: 'Level 5',
+          tags: ['checker'],
+          cost: 0,
+          date: new Date('2026-03-29T00:00:00.000Z'),
+          contestUploaded: null,
+          link: null,
+          staffId: null,
+          status: LessonOutputStatus.pending,
+        },
+      }),
+    );
+    expect(result).toEqual({
+      id: 'output-taskless-1',
+      lessonTaskId: null,
+      lessonName: 'Bài lẻ',
+      originalTitle: null,
+      source: 'Codeforces',
+      originalLink: 'https://example.com/original-taskless',
+      level: 'Level 5',
+      tags: ['checker'],
+      cost: 0,
+      date: '2026-03-29',
+      contestUploaded: null,
+      link: null,
+      staffId: null,
+      staff: null,
+      status: LessonOutputStatus.pending,
+      task: null,
+      createdAt: '2026-03-29T08:00:00.000Z',
+      updatedAt: '2026-03-29T08:30:00.000Z',
+    });
+  });
+
+  it('disconnects a lesson output from its task when lessonTaskId is null on update', async () => {
+    mockPrisma.lessonOutput.findUnique
+      .mockResolvedValueOnce({
+        id: 'output-42',
+        lessonTaskId: 'task-output-42',
+        lessonName: 'Bài đang gắn task',
+        originalTitle: null,
+        source: null,
+        originalLink: null,
+        level: null,
+        tags: [],
+        cost: 0,
+        date: new Date('2026-03-30T00:00:00.000Z'),
+        contestUploaded: null,
+        link: null,
+        staffId: null,
+        status: LessonOutputStatus.pending,
+        createdAt: new Date('2026-03-30T08:00:00.000Z'),
+        updatedAt: new Date('2026-03-30T08:30:00.000Z'),
+        staff: null,
+        lessonTask: {
+          id: 'task-output-42',
+          title: 'Task cũ',
+          status: LessonTaskStatus.pending,
+          priority: LessonTaskPriority.medium,
+        },
+      })
+      .mockResolvedValueOnce({
+        id: 'output-42',
+        lessonTaskId: null,
+        lessonName: 'Bài đang gắn task',
+        originalTitle: null,
+        source: null,
+        originalLink: null,
+        level: null,
+        tags: [],
+        cost: 0,
+        date: new Date('2026-03-30T00:00:00.000Z'),
+        contestUploaded: null,
+        link: null,
+        staffId: null,
+        status: LessonOutputStatus.pending,
+        createdAt: new Date('2026-03-30T08:00:00.000Z'),
+        updatedAt: new Date('2026-03-30T09:00:00.000Z'),
+        staff: null,
+        lessonTask: null,
+      });
+    mockPrisma.lessonOutput.update.mockResolvedValue({
+      id: 'output-42',
+      lessonTaskId: null,
+      lessonName: 'Bài đang gắn task',
+      originalTitle: null,
+      source: null,
+      originalLink: null,
+      level: null,
+      tags: [],
+      cost: 0,
+      date: new Date('2026-03-30T00:00:00.000Z'),
+      contestUploaded: null,
+      link: null,
+      staffId: null,
+      status: LessonOutputStatus.pending,
+      createdAt: new Date('2026-03-30T08:00:00.000Z'),
+      updatedAt: new Date('2026-03-30T09:00:00.000Z'),
+      staff: null,
+      lessonTask: null,
+    });
+
+    const result = await service.updateOutput('output-42', {
+      lessonTaskId: null,
+    });
+
+    expect(mockPrisma.lessonOutput.update).toHaveBeenCalledWith({
+      where: { id: 'output-42' },
+      data: {
+        lessonTask: {
+          disconnect: true,
+        },
+      },
+      include: {
+        staff: {
+          select: {
+            id: true,
+            fullName: true,
+            roles: true,
+            status: true,
+          },
+        },
+        lessonTask: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            priority: true,
+          },
+        },
+      },
+    });
+    expect(result.task).toBeNull();
+    expect(result.lessonTaskId).toBeNull();
   });
 
   it('rejects resource creation when title or link is blank after trimming', async () => {

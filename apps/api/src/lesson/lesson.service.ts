@@ -250,31 +250,44 @@ export class LessonService {
   async getWork(
     query: LessonWorkQueryDto = {},
   ): Promise<LessonWorkResponseDto> {
+    type LessonOutputStatusGroup = {
+      status: LessonOutputStatus;
+      _count: number;
+    };
+
     const limit = this.resolveLimit(query.limit, 6);
     const requestedPage = this.resolvePage(query.page);
 
-    const [
-      taskCount,
-      outputCount,
-      pendingOutputCount,
-      completedOutputCount,
-      cancelledOutputCount,
-    ] = await this.prisma.$transaction([
+    const workWhere = this.buildWorkWhere(query);
+
+    const [taskCount, rawOutputGroups] = await this.prisma.$transaction([
       this.prisma.lessonTask.count(),
-      this.prisma.lessonOutput.count(),
-      this.prisma.lessonOutput.count({
-        where: { status: LessonOutputStatus.pending },
-      }),
-      this.prisma.lessonOutput.count({
-        where: { status: LessonOutputStatus.completed },
-      }),
-      this.prisma.lessonOutput.count({
-        where: { status: LessonOutputStatus.cancelled },
+      this.prisma.lessonOutput.groupBy({
+        by: ['status'] as const,
+        where: workWhere,
+        orderBy: {
+          status: 'asc',
+        },
+        _count: true,
       }),
     ]);
+    const outputGroups = rawOutputGroups as unknown as LessonOutputStatusGroup[];
+
+    const pendingOutputCount =
+      outputGroups.find((group) => group.status === LessonOutputStatus.pending)
+        ?._count ?? 0;
+    const completedOutputCount =
+      outputGroups.find((group) => group.status === LessonOutputStatus.completed)
+        ?._count ?? 0;
+    const cancelledOutputCount =
+      outputGroups.find((group) => group.status === LessonOutputStatus.cancelled)
+        ?._count ?? 0;
+    const outputCount =
+      pendingOutputCount + completedOutputCount + cancelledOutputCount;
 
     const outputMeta = this.buildListMeta(outputCount, requestedPage, limit);
     const outputs = await this.prisma.lessonOutput.findMany({
+      where: workWhere,
       skip: (outputMeta.page - 1) * outputMeta.limit,
       take: outputMeta.limit,
       orderBy: [{ updatedAt: 'desc' }, { date: 'desc' }, { lessonName: 'asc' }],
@@ -588,7 +601,7 @@ export class LessonService {
     data: CreateLessonOutputDto,
     auditActor?: ActionHistoryActor,
   ): Promise<LessonOutputResponseDto> {
-    const lessonTaskId = await this.resolveLessonOutputTaskId(
+    const lessonTaskId = await this.resolveOptionalLessonOutputTaskId(
       this.prisma,
       data.lessonTaskId,
     );
@@ -653,7 +666,7 @@ export class LessonService {
     const updateData: Prisma.LessonOutputUpdateInput = {};
 
     if (data.lessonTaskId !== undefined) {
-      const lessonTaskId = await this.resolveLessonOutputTaskId(
+      const lessonTaskId = await this.resolveOptionalLessonOutputTaskId(
         this.prisma,
         data.lessonTaskId,
       );
@@ -1010,7 +1023,120 @@ export class LessonService {
       ...this.mapTaskOutputListItem(output),
       updatedAt: output.updatedAt.toISOString(),
       task: this.mapOutputTask(output.lessonTask),
+      tags: parseJsonStringArray(output.tags),
+      level: output.level,
+      link: output.link,
+      originalLink: output.originalLink,
+      cost: output.cost,
     };
+  }
+
+  /** Lọc `lesson_outputs.date` (theo ngày) trong khoảng [start, end] của tháng (UTC). */
+  private buildLessonOutputMonthWhere(year: number, month: number) {
+    const start = new Date(Date.UTC(year, month - 1, 1));
+    const end = new Date(Date.UTC(year, month, 0));
+    return {
+      date: {
+        gte: start,
+        lte: end,
+      },
+    } satisfies Prisma.LessonOutputWhereInput;
+  }
+
+  /**
+   * Nếu có `dateFrom` + `dateTo` hợp lệ → lọc khoảng ngày (thay lọc tháng).
+   * Ngược lại, nếu có `year` + `month` → lọc theo tháng.
+   */
+  private buildLessonOutputTimeFilter(
+    query: LessonWorkQueryDto,
+  ): Prisma.LessonOutputWhereInput | undefined {
+    const from = query.dateFrom?.trim();
+    const to = query.dateTo?.trim();
+    if (from && to) {
+      const d1 = new Date(`${from}T00:00:00.000Z`);
+      const d2 = new Date(`${to}T00:00:00.000Z`);
+      if (
+        !Number.isNaN(d1.getTime()) &&
+        !Number.isNaN(d2.getTime()) &&
+        d1 <= d2
+      ) {
+        return {
+          date: {
+            gte: d1,
+            lte: d2,
+          },
+        };
+      }
+    }
+
+    if (
+      typeof query.year === 'number' &&
+      typeof query.month === 'number' &&
+      query.month >= 1 &&
+      query.month <= 12
+    ) {
+      return this.buildLessonOutputMonthWhere(query.year, query.month);
+    }
+
+    return undefined;
+  }
+
+  private buildWorkWhere(
+    query: LessonWorkQueryDto,
+  ): Prisma.LessonOutputWhereInput | undefined {
+    const parts: Prisma.LessonOutputWhereInput[] = [];
+    const timeFilter = this.buildLessonOutputTimeFilter(query);
+    if (timeFilter) {
+      parts.push(timeFilter);
+    }
+
+    const search = query.search?.trim();
+    if (search) {
+      parts.push({
+        OR: [
+          { lessonName: { contains: search, mode: 'insensitive' } },
+          { contestUploaded: { contains: search, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    const tag = query.tag?.trim();
+    if (tag) {
+      parts.push({
+        OR: [
+          { lessonName: { contains: tag, mode: 'insensitive' } },
+          { contestUploaded: { contains: tag, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    if (query.staffId) {
+      parts.push({ staffId: query.staffId });
+    }
+
+    if (query.outputStatus && query.outputStatus !== 'all') {
+      parts.push({
+        status: query.outputStatus as LessonOutputStatus,
+      });
+    }
+
+    const levelKey = query.level?.trim();
+    if (levelKey && /^[0-5]$/.test(levelKey)) {
+      parts.push({
+        OR: [
+          { level: { equals: `Level ${levelKey}`, mode: 'insensitive' } },
+          { level: { equals: levelKey, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    if (parts.length === 0) {
+      return undefined;
+    }
+    if (parts.length === 1) {
+      return parts[0];
+    }
+    return { AND: parts };
   }
 
   private mapOutput(output: LessonOutputRecord): LessonOutputResponseDto {
@@ -1421,13 +1547,13 @@ export class LessonService {
     );
   }
 
-  private async resolveLessonOutputTaskId(
+  private async resolveOptionalLessonOutputTaskId(
     db: Prisma.TransactionClient | PrismaService,
     lessonTaskId: string | null | undefined,
-  ) {
+  ): Promise<string | null> {
     const normalizedTaskId = toTrimmedString(lessonTaskId);
     if (!normalizedTaskId) {
-      throw new BadRequestException('lessonTaskId là bắt buộc.');
+      return null;
     }
 
     const task = await db.lessonTask.findUnique({

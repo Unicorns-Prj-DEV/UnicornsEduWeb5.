@@ -68,27 +68,38 @@ export default function AdminLessonOutputDetailPage() {
       : null;
 
   const backHref = useMemo(() => {
-    const nextParams = new URLSearchParams();
-    nextParams.set("tab", searchParams.get("tab") === "overview" ? "overview" : "work");
-    nextParams.set(
-      "resourcePage",
-      String(normalizePositiveInt(searchParams.get("resourcePage"))),
-    );
-    nextParams.set(
-      "taskPage",
-      String(normalizePositiveInt(searchParams.get("taskPage"))),
-    );
-    nextParams.set(
-      "workPage",
-      String(normalizePositiveInt(searchParams.get("workPage"))),
-    );
+    const nextParams = new URLSearchParams(searchParams?.toString() ?? "");
+    const tab = searchParams.get("tab");
+    if (tab === "overview" || tab === "work" || tab === "exercises") {
+      nextParams.set("tab", tab);
+    } else if (!nextParams.get("tab")) {
+      nextParams.set("tab", "work");
+    }
+    if (!nextParams.get("resourcePage")) {
+      nextParams.set(
+        "resourcePage",
+        String(normalizePositiveInt(searchParams.get("resourcePage"))),
+      );
+    }
+    if (!nextParams.get("taskPage")) {
+      nextParams.set(
+        "taskPage",
+        String(normalizePositiveInt(searchParams.get("taskPage"))),
+      );
+    }
+    if (!nextParams.get("workPage")) {
+      nextParams.set(
+        "workPage",
+        String(normalizePositiveInt(searchParams.get("workPage"))),
+      );
+    }
     if (originTaskId) {
       return `/admin/lesson-plans/tasks/${encodeURIComponent(originTaskId)}?${nextParams.toString()}`;
     }
     return `/admin/lesson-plans?${nextParams.toString()}`;
   }, [originTaskId, searchParams]);
 
-  const backLabel = originTaskId ? "Quay lại task" : "Quay lại work board";
+  const backLabel = originTaskId ? "Quay lại công việc" : "Quay lại Giáo Án";
 
   const {
     data: output,
@@ -106,18 +117,24 @@ export default function AdminLessonOutputDetailPage() {
     mutationFn: (payload: CreateLessonOutputPayload) =>
       lessonApi.updateLessonOutput(outputId, payload),
     onSuccess: async (updatedOutput) => {
-      await Promise.all([
+      const invalidations = [
         queryClient.invalidateQueries({ queryKey: ["lesson", "output", outputId] }),
         queryClient.invalidateQueries({ queryKey: ["lesson", "work"] }),
-        queryClient.invalidateQueries({
-          queryKey: ["lesson", "task", updatedOutput.lessonTaskId],
-        }),
-      ]);
-      toast.success("Đã cập nhật lesson output.");
+        queryClient.invalidateQueries({ queryKey: ["lesson", "exercises"] }),
+      ];
+      if (updatedOutput.lessonTaskId) {
+        invalidations.push(
+          queryClient.invalidateQueries({
+            queryKey: ["lesson", "task", updatedOutput.lessonTaskId],
+          }),
+        );
+      }
+      await Promise.all(invalidations);
+      toast.success("Đã cập nhật sản phẩm bài học.");
     },
     onError: (mutationError) => {
       toast.error(
-        getErrorMessage(mutationError, "Không thể cập nhật lesson output."),
+        getErrorMessage(mutationError, "Không thể cập nhật sản phẩm bài học."),
       );
     },
   });
@@ -127,6 +144,7 @@ export default function AdminLessonOutputDetailPage() {
     onSuccess: async () => {
       const invalidations = [
         queryClient.invalidateQueries({ queryKey: ["lesson", "work"] }),
+        queryClient.invalidateQueries({ queryKey: ["lesson", "exercises"] }),
         queryClient.invalidateQueries({ queryKey: ["lesson"] }),
       ];
       if (output?.lessonTaskId) {
@@ -137,11 +155,11 @@ export default function AdminLessonOutputDetailPage() {
         );
       }
       await Promise.all(invalidations);
-      toast.success("Đã xóa lesson output.");
+      toast.success("Đã xóa sản phẩm bài học.");
       router.push(backHref);
     },
     onError: (mutationError) => {
-      toast.error(getErrorMessage(mutationError, "Không thể xóa lesson output."));
+      toast.error(getErrorMessage(mutationError, "Không thể xóa sản phẩm bài học."));
     },
   });
 
@@ -150,7 +168,7 @@ export default function AdminLessonOutputDetailPage() {
       <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 sm:p-6">
         <div className="mx-auto w-full max-w-5xl rounded-[1.75rem] border border-border-default bg-bg-surface p-5 shadow-sm">
           <p className="text-base font-semibold text-text-primary">
-            Không tìm thấy mã lesson output.
+            Không tìm thấy sản phẩm bài học.
           </p>
           <Link
             href={backHref}
@@ -165,11 +183,11 @@ export default function AdminLessonOutputDetailPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-3 pb-8 sm:p-6">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 rounded-xl border border-border-default bg-bg-surface p-3 shadow-sm sm:rounded-lg sm:p-5">
+        <div className="mb-4 flex flex-wrap items-center gap-3">
           <Link
             href={backHref}
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border-default bg-bg-secondary px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
           >
             <svg
               className="size-4 shrink-0"
@@ -205,10 +223,10 @@ export default function AdminLessonOutputDetailPage() {
           <section className="rounded-[1.75rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
             <div className="rounded-[1.5rem] border border-dashed border-border-default bg-bg-secondary/40 px-5 py-12 text-center">
               <p className="text-base font-semibold text-text-primary">
-                Không tải được lesson output.
+                Không tải được sản phẩm bài học.
               </p>
               <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-text-secondary">
-                {getErrorMessage(error, "Đã có lỗi khi tải dữ liệu output.")}
+                {getErrorMessage(error, "Đã có lỗi khi tải dữ liệu.")}
               </p>
               <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
                 <button
@@ -239,10 +257,10 @@ export default function AdminLessonOutputDetailPage() {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="max-w-3xl">
                     <p className="text-xs font-semibold uppercase tracking-[0.28em] text-text-muted">
-                      Lesson Output Detail
+                      Chi tiết sản phẩm bài học
                     </p>
                     <h1 className="mt-3 text-3xl font-semibold tracking-tight text-text-primary text-balance sm:text-4xl">
-                      {output.lessonName || "Lesson output chưa đặt tên"}
+                      {output.lessonName || "Chưa đặt tên sản phẩm"}
                     </h1>
                     <div className="mt-4 flex flex-wrap gap-2">
                       <span
@@ -260,7 +278,7 @@ export default function AdminLessonOutputDetailPage() {
                     </div>
                     <p className="mt-4 max-w-2xl text-sm leading-6 text-text-secondary">
                       {output.originalTitle?.trim() ||
-                        "Output này chưa có original title. Có thể bổ sung trực tiếp ở form chỉnh sửa bên dưới."}
+                        "Chưa có tiêu đề gốc — có thể bổ sung ở form bên dưới."}
                     </p>
                   </div>
 
@@ -270,16 +288,16 @@ export default function AdminLessonOutputDetailPage() {
                       onClick={() => setDeleteOpen(true)}
                       className="inline-flex min-h-11 items-center rounded-xl border border-error/30 bg-error/8 px-4 py-2 text-sm font-medium text-error transition-colors hover:bg-error/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                     >
-                      Xóa output
+                      Xóa sản phẩm
                     </button>
                   </div>
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-4">
                   <OutputMetaCard
-                    label="Contest"
+                    label="Cuộc thi / đề"
                     value={output.contestUploaded ?? "Chưa ghi"}
-                    hint="Contest hoặc bộ đề đang được gắn cho output."
+                    hint="Mã contest hoặc bộ đề đã gắn."
                   />
                   <OutputMetaCard
                     label="Ngày"
@@ -300,11 +318,11 @@ export default function AdminLessonOutputDetailPage() {
               </div>
             </section>
 
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+            <div className="grid gap-6 flex flex-col">
               <section className="rounded-[1.75rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
-                    Context
+                    Bối cảnh
                   </p>
                   <h2 className="mt-2 text-2xl font-semibold text-text-primary">
                     Thông tin điều phối
@@ -348,7 +366,7 @@ export default function AdminLessonOutputDetailPage() {
 
                   <div className="rounded-[1.35rem] border border-border-default bg-bg-secondary/40 p-4">
                     <p className="text-sm font-semibold text-text-primary">
-                      Links
+                      Liên kết
                     </p>
                     <div className="mt-3 space-y-2">
                       {output.originalLink ? (
@@ -384,14 +402,14 @@ export default function AdminLessonOutputDetailPage() {
               <section className="rounded-[1.75rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
-                    Editor
+                    Chỉnh sửa
                   </p>
                   <h2 className="mt-2 text-2xl font-semibold text-text-primary">
-                    Chỉnh sửa lesson output
+                    Form sản phẩm bài học
                   </h2>
                   <p className="mt-2 text-sm leading-6 text-text-secondary">
-                    Đây là nơi chỉnh sửa toàn bộ metadata của output, thay vì nhồi
-                    CRUD chi tiết ngay trong work board.
+                    Cập nhật đầy đủ thông tin sản phẩm tại đây (thay cho chỉnh sửa
+                    nhanh trên danh sách tab Công việc).
                   </p>
                 </div>
 
@@ -399,8 +417,9 @@ export default function AdminLessonOutputDetailPage() {
                   <LessonOutputEditorForm
                     mode="edit"
                     initialData={output}
+                    allowTasklessOutput={!output.lessonTaskId}
                     isSubmitting={updateOutputMutation.isPending}
-                    submitLabel="Lưu lesson output"
+                    submitLabel="Lưu sản phẩm"
                     onSubmit={async (payload) => {
                       await updateOutputMutation.mutateAsync(payload);
                     }}
@@ -414,9 +433,9 @@ export default function AdminLessonOutputDetailPage() {
 
       <LessonDeleteConfirmPopup
         open={deleteOpen}
-        title="Xóa lesson output?"
-        description={`Thao tác này sẽ xóa output “${output?.lessonName ?? "chưa đặt tên"}”. Record sẽ biến mất khỏi task và work board ngay sau khi xác nhận.`}
-        confirmLabel="Xóa output"
+        title="Xóa sản phẩm bài học?"
+        description={`Thao tác này sẽ xóa “${output?.lessonName ?? "chưa đặt tên"}”. Dữ liệu sẽ biến mất khỏi công việc liên quan và tab Công việc.`}
+        confirmLabel="Xóa"
         onClose={() => {
           if (deleteOutputMutation.isPending) return;
           setDeleteOpen(false);

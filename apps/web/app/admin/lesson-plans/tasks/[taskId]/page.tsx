@@ -169,6 +169,7 @@ export default function AdminLessonTaskDetailPage() {
     onSuccess: async (createdOutput) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["lesson", "work"] }),
+        queryClient.invalidateQueries({ queryKey: ["lesson", "exercises"] }),
         queryClient.invalidateQueries({
           queryKey: ["lesson", "task", createdOutput.lessonTaskId],
         }),
@@ -196,7 +197,7 @@ export default function AdminLessonTaskDetailPage() {
       <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 sm:p-6">
         <div className="mx-auto w-full max-w-5xl rounded-[1.75rem] border border-border-default bg-bg-surface p-5 shadow-sm">
           <p className="text-base font-semibold text-text-primary">
-            Không tìm thấy mã lesson task.
+            Không tìm thấy công việc giáo án.
           </p>
           <Link
             href={backHref}
@@ -211,11 +212,11 @@ export default function AdminLessonTaskDetailPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-3 pb-8 sm:p-6">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 rounded-xl border border-border-default bg-bg-surface p-3 shadow-sm sm:rounded-lg sm:p-5">
+        <div className="mb-4 flex flex-wrap items-center gap-3">
           <Link
             href={backHref}
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border-default bg-bg-secondary px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
           >
             <svg
               className="size-4 shrink-0"
@@ -231,7 +232,7 @@ export default function AdminLessonTaskDetailPage() {
                 d="M15 19l-7-7 7-7"
               />
             </svg>
-            Quay lại workspace
+            Quay lại Giáo Án
           </Link>
         </div>
 
@@ -256,10 +257,10 @@ export default function AdminLessonTaskDetailPage() {
           <section className="rounded-[1.75rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
             <div className="rounded-[1.5rem] border border-dashed border-border-default bg-bg-secondary/40 px-5 py-12 text-center">
               <p className="text-base font-semibold text-text-primary">
-                Không tải được chi tiết lesson task.
+                Không tải được chi tiết công việc.
               </p>
               <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-text-secondary">
-                {getErrorMessage(error, "Đã có lỗi khi tải dữ liệu task.")}
+                {getErrorMessage(error, "Đã có lỗi khi tải dữ liệu công việc.")}
               </p>
               <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
                 <button
@@ -273,7 +274,7 @@ export default function AdminLessonTaskDetailPage() {
                   href={backHref}
                   className="rounded-xl border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 >
-                  Trở về lesson-plans
+                  Trở về Giáo Án
                 </Link>
               </div>
             </div>
@@ -290,7 +291,7 @@ export default function AdminLessonTaskDetailPage() {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="max-w-3xl">
                     <p className="text-xs font-semibold uppercase tracking-[0.28em] text-text-muted">
-                      Lesson Task Detail
+                      Chi tiết công việc giáo án
                     </p>
                     <h1 className="mt-3 text-3xl font-semibold tracking-tight text-text-primary text-balance sm:text-4xl">
                       {task.title ?? "Công việc chưa đặt tên"}
@@ -313,7 +314,7 @@ export default function AdminLessonTaskDetailPage() {
                     </div>
                     <p className="mt-4 max-w-2xl text-sm leading-6 text-text-secondary">
                       {task.description?.trim() ||
-                        "Task này chưa có mô tả chi tiết. Có thể mở popup chỉnh sửa để bổ sung checklist, mục tiêu hoặc handoff note."}
+                        "Chưa có mô tả chi tiết — mở chỉnh sửa để bổ sung."}
                     </p>
                   </div>
 
@@ -323,7 +324,7 @@ export default function AdminLessonTaskDetailPage() {
                     onClick={() => setEditPopupOpen(true)}
                     className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                     >
-                      Chỉnh sửa task
+                      Chỉnh sửa công việc
                     </button>
                   </div>
                 </div>
@@ -409,19 +410,19 @@ export default function AdminLessonTaskDetailPage() {
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
-                    Notes
+                    Ghi chú
                   </p>
                   <h2 className="mt-2 text-2xl font-semibold text-text-primary">
                     Mô tả và ngữ cảnh
                   </h2>
                 </div>
-                <p className="text-xs text-text-muted">Task ID: {task.id}</p>
+                <p className="text-xs text-text-muted">Mã: {task.id}</p>
               </div>
 
               <div className="mt-4 rounded-[1.35rem] border border-border-default bg-bg-secondary/45 p-4">
                 <p className="whitespace-pre-wrap text-sm leading-7 text-text-secondary">
                   {task.description?.trim() ||
-                    "Chưa có mô tả chi tiết cho task này."}
+                    "Chưa có mô tả chi tiết."}
                 </p>
               </div>
             </section>
@@ -431,14 +432,14 @@ export default function AdminLessonTaskDetailPage() {
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
-                      Outputs
+                      Sản phẩm
                     </p>
                     <h2 className="mt-2 text-2xl font-semibold text-text-primary">
-                      Lesson outputs
+                      Sản phẩm bài học
                     </h2>
                     <p className="mt-2 text-sm leading-6 text-text-secondary">
-                      Đây là nơi xem đầy đủ outputs thuộc riêng task này và tạo
-                      thêm output mới đúng ngữ cảnh.
+                      Danh sách sản phẩm thuộc công việc này; có thể tạo thêm sản
+                      phẩm mới tại đây.
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -451,7 +452,7 @@ export default function AdminLessonTaskDetailPage() {
                       onClick={() => setCreateOutputOpen(true)}
                       className="inline-flex min-h-11 items-center rounded-xl border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                     >
-                      Tạo output
+                      Tạo sản phẩm
                     </button>
                   </div>
                 </div>
@@ -470,7 +471,7 @@ export default function AdminLessonTaskDetailPage() {
                               {output.lessonName}
                             </p>
                             <p className="mt-1 text-sm text-text-secondary">
-                              {output.contestUploaded ?? "Chưa ghi contest"}
+                              {output.contestUploaded ?? "Chưa ghi cuộc thi/đề"}
                             </p>
                           </div>
                           <span
@@ -493,7 +494,7 @@ export default function AdminLessonTaskDetailPage() {
                     ))
                   ) : (
                     <div className="rounded-[1.35rem] border border-dashed border-border-default bg-bg-secondary/40 px-4 py-8 text-sm text-text-muted">
-                      Task này chưa có output nào.
+                      Chưa có sản phẩm bài học nào.
                     </div>
                   )}
                 </div>
@@ -502,7 +503,7 @@ export default function AdminLessonTaskDetailPage() {
               <section className="rounded-[1.75rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
-                    Resources
+                    Tài nguyên
                   </p>
                   <h2 className="mt-2 text-2xl font-semibold text-text-primary">
                     Tài nguyên liên quan
@@ -526,7 +527,7 @@ export default function AdminLessonTaskDetailPage() {
                     ))
                   ) : (
                     <div className="rounded-[1.35rem] border border-dashed border-border-default bg-bg-secondary/40 px-4 py-8 text-sm text-text-muted">
-                      Chưa có resource nào được gắn với task này.
+                      Chưa có tài nguyên nào gắn với công việc này.
                     </div>
                   )}
                 </div>

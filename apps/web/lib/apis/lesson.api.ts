@@ -204,6 +204,16 @@ function normalizeLessonWorkOutputItem(
     ...baseOutput,
     updatedAt: value?.updatedAt ?? "",
     task: normalizeLessonOutputTaskSummary(value?.task ?? undefined),
+    tags: Array.isArray(value?.tags)
+      ? value.tags.map((item) => String(item).trim()).filter(Boolean)
+      : [],
+    level: value?.level ?? null,
+    link: value?.link ?? null,
+    originalLink: value?.originalLink ?? null,
+    cost:
+      typeof value?.cost === "number" && Number.isFinite(value.cost)
+        ? value.cost
+        : 0,
   };
 }
 
@@ -253,6 +263,22 @@ export async function getLessonWork(
     params: {
       page: params.page,
       limit: params.limit,
+      ...(typeof params.year === "number" && typeof params.month === "number"
+        ? { year: params.year, month: params.month }
+        : {}),
+      ...(params.search?.trim() ? { search: params.search.trim() } : {}),
+      ...(params.tag?.trim() ? { tag: params.tag.trim() } : {}),
+      ...(params.staffId?.trim() ? { staffId: params.staffId.trim() } : {}),
+      ...(params.outputStatus &&
+      params.outputStatus !== "all" &&
+      params.outputStatus.trim()
+        ? { outputStatus: params.outputStatus.trim() }
+        : {}),
+      ...(params.dateFrom?.trim() ? { dateFrom: params.dateFrom.trim() } : {}),
+      ...(params.dateTo?.trim() ? { dateTo: params.dateTo.trim() } : {}),
+      ...(params.level && /^[0-5]$/.test(params.level.trim())
+        ? { level: params.level.trim() }
+        : {}),
     },
   });
   const payload = response.data as Partial<LessonWorkResponse> | undefined;

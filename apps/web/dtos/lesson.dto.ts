@@ -121,6 +121,12 @@ export interface LessonWorkSummary {
 export interface LessonWorkOutputItem extends LessonOutputListItem {
   updatedAt: string;
   task: LessonOutputTaskSummary | null;
+  tags: string[];
+  level: string | null;
+  link: string | null;
+  /** Link gốc — fallback khi `link` trống (copy / mở ngoài) */
+  originalLink: string | null;
+  cost: number;
 }
 
 export interface LessonWorkResponse {
@@ -139,6 +145,18 @@ export interface LessonOverviewQueryParams {
 export interface LessonWorkQueryParams {
   page: number;
   limit: number;
+  /** Lọc theo tháng (1–12), dùng cùng `year`. */
+  year?: number;
+  month?: number;
+  search?: string;
+  tag?: string;
+  staffId?: string;
+  /** `all` hoặc bỏ qua = không lọc theo trạng thái output */
+  outputStatus?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  /** Lọc level 0–5 (tab Bài tập / API `GET /lesson-work`) */
+  level?: string;
 }
 
 export interface CreateLessonResourcePayload {
@@ -218,7 +236,8 @@ export interface LessonOutputItem {
 }
 
 export interface CreateLessonOutputPayload {
-  lessonTaskId: string;
+  /** Bỏ qua hoặc `null` khi tạo output chưa gắn lesson task. */
+  lessonTaskId?: string | null;
   lessonName: string;
   originalTitle?: string | null;
   source?: string | null;
@@ -234,7 +253,7 @@ export interface CreateLessonOutputPayload {
 }
 
 export interface UpdateLessonOutputPayload {
-  lessonTaskId?: string;
+  lessonTaskId?: string | null;
   lessonName?: string;
   originalTitle?: string | null;
   source?: string | null;

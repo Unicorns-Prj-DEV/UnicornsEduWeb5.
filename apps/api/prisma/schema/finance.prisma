@@ -16,16 +16,15 @@ model Bonus {
 }
 
 model WalletTransactionsHistory {
-  id        String                @id @default(uuid())
-  studentId String                @map("student_id")
-  type      WalletTransactionType
-  amount    Int                   @default(0)
-  note      String?
-  date      DateTime              @default(now()) @db.Date
-  createdAt DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
-  student   StudentInfo           @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
+  id                            String                @id @default(uuid())
+  studentId                     String                @map("student_id")
+  type                          WalletTransactionType
+  amount                        Int                   @default(0)
+  note                          String?
+  date                          DateTime              @default(now()) @db.Date
+  createdAt                     DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   studentTransactionAttendances Attendance?
+  student                       StudentInfo           @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@index([studentId])
   @@map("wallet_transactions_history")

@@ -19,10 +19,10 @@ import LessonDeleteConfirmPopup from "./LessonDeleteConfirmPopup";
 import LessonOverviewSkeleton from "./LessonOverviewSkeleton";
 import LessonResourceFormPopup from "./LessonResourceFormPopup";
 import LessonTaskFormPopup from "./LessonTaskFormPopup";
+import LessonExercisesTab from "./LessonExercisesTab";
 import LessonWorkTab from "./LessonWorkTab";
 import {
   formatLessonDateOnly,
-  formatLessonDateTime,
   LESSON_TASK_PRIORITY_LABELS,
   LESSON_TASK_STATUS_LABELS,
   lessonTaskPriorityChipClass,
@@ -66,58 +66,6 @@ function getErrorMessage(error: unknown, fallback: string) {
       ?.message ??
     (error as Error)?.message ??
     fallback
-  );
-}
-
-function SummaryCard({
-  eyebrow,
-  value,
-  label,
-  accent,
-}: {
-  eyebrow: string;
-  value: number;
-  label: string;
-  accent: string;
-}) {
-  return (
-    <article className="relative overflow-hidden rounded-[1.5rem] border border-border-default bg-bg-surface p-4 shadow-sm">
-      <div
-        className={`pointer-events-none absolute inset-x-0 top-0 h-1 ${accent}`}
-        aria-hidden
-      />
-      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
-        {eyebrow}
-      </p>
-      <p className="mt-5 text-3xl font-semibold tracking-tight text-text-primary">
-        {value}
-      </p>
-      <p className="mt-2 text-sm text-text-secondary">{label}</p>
-    </article>
-  );
-}
-
-function HeroChip({
-  label,
-  value,
-  tone = "neutral",
-}: {
-  label: string;
-  value: string;
-  tone?: "neutral" | "primary";
-}) {
-  return (
-    <span
-      className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium ring-1 ${tone === "primary"
-        ? "bg-primary/10 text-primary ring-primary/20"
-        : "bg-bg-surface/90 text-text-secondary ring-border-default"
-        }`}
-    >
-      <span className="uppercase tracking-[0.18em] text-[10px] text-text-muted">
-        {label}
-      </span>
-      <span>{value}</span>
-    </span>
   );
 }
 
@@ -228,30 +176,38 @@ function ListTableSkeleton({
             key={`${variant}-row-${index}`}
             className="grid gap-4 bg-bg-surface px-4 py-4 lg:grid-cols-12"
           >
-            <div className="space-y-3 lg:col-span-4">
+            <div
+              className={
+                variant === "resource" ? "lg:col-span-3" : "lg:col-span-4"
+              }
+            >
               <div className="h-4 w-2/3 animate-pulse rounded-full bg-bg-tertiary" />
-              <div className="h-3 w-full animate-pulse rounded-full bg-bg-tertiary/85" />
-              <div className="h-3 w-5/6 animate-pulse rounded-full bg-bg-tertiary/70" />
             </div>
 
-            <div className="flex flex-wrap gap-2 lg:col-span-3">
-              {variant === "resource" ? (
-                <>
+            {variant === "resource" ? (
+              <>
+                <div className="space-y-2 lg:col-span-5">
+                  <div className="h-3 w-full animate-pulse rounded-full bg-bg-tertiary/80" />
+                  <div className="h-3 w-4/5 animate-pulse rounded-full bg-bg-tertiary/65" />
+                </div>
+                <div className="flex flex-wrap gap-2 lg:col-span-2">
                   <div className="h-7 w-16 animate-pulse rounded-full bg-bg-tertiary/80" />
                   <div className="h-7 w-20 animate-pulse rounded-full bg-bg-tertiary/65" />
-                </>
-              ) : (
-                <>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-2 lg:col-span-3">
                   <div className="h-7 w-24 animate-pulse rounded-full bg-bg-tertiary/80" />
                   <div className="h-7 w-20 animate-pulse rounded-full bg-bg-tertiary/65" />
-                </>
-              )}
-            </div>
+                </div>
 
-            <div className="space-y-3 lg:col-span-3">
-              <div className="h-3 w-4/5 animate-pulse rounded-full bg-bg-tertiary/80" />
-              <div className="h-3 w-3/5 animate-pulse rounded-full bg-bg-tertiary/65" />
-            </div>
+                <div className="space-y-3 lg:col-span-3">
+                  <div className="h-3 w-4/5 animate-pulse rounded-full bg-bg-tertiary/80" />
+                  <div className="h-3 w-3/5 animate-pulse rounded-full bg-bg-tertiary/65" />
+                </div>
+              </>
+            )}
 
             <div className="flex items-start justify-end gap-2 lg:col-span-2">
               <div className="h-8 w-8 animate-pulse rounded-lg bg-bg-tertiary/70" />
@@ -505,80 +461,53 @@ export default function AdminLessonPlansWorkspace() {
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-3 pb-8 sm:p-6">
       <div className="flex min-w-0 flex-1 flex-col rounded-xl border border-border-default bg-bg-surface p-3 shadow-sm sm:rounded-lg sm:p-5">
+        {/* Hero: giống pattern header trang admin */}
         <section className="relative mb-4 overflow-visible rounded-2xl border border-border-default bg-gradient-to-br from-bg-secondary via-bg-surface to-bg-secondary/70 p-4 sm:p-5">
           <div
             className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full bg-primary/10 blur-2xl"
             aria-hidden
           />
           <div
-            className="pointer-events-none absolute -bottom-10 left-16 size-28 rounded-full bg-info/10 blur-2xl"
+            className="pointer-events-none absolute -bottom-10 left-10 size-28 rounded-full bg-warning/10 blur-2xl"
             aria-hidden
           />
 
-          <div className="relative">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-              <div className="min-w-0 max-w-3xl">
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-text-muted">
-                  Editorial Workspace
-                </p>
-                <h1 className="mt-3 text-xl font-semibold text-text-primary sm:text-2xl">
-                  Giáo án
-                </h1>
-
-              </div>
-
-              <nav
-                className="inline-flex w-full flex-wrap gap-2 rounded-xl border border-border-default bg-bg-surface/90 p-2 shadow-sm xl:w-auto"
-                role="tablist"
-                aria-label="Tabs giáo án"
-              >
-                {(Object.keys(TAB_LABELS) as LessonTabId[]).map((tabId) => {
-                  const isActive = activeTab === tabId;
-                  return (
-                    <button
-                      key={tabId}
-                      id={`lesson-tab-${tabId}`}
-                      type="button"
-                      role="tab"
-                      aria-selected={isActive}
-                      aria-controls={`lesson-panel-${tabId}`}
-                      onClick={() => syncTabToUrl(tabId)}
-                      className={`min-h-11 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${isActive
-                        ? "bg-primary text-text-inverse shadow-[0_14px_35px_-18px_rgba(37,99,235,0.7)]"
-                        : "text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
-                        }`}
-                    >
-                      {TAB_LABELS[tabId]}
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
-
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div className="flex flex-wrap gap-2">
-                <HeroChip
-                  label="Tab"
-                  value={TAB_LABELS[activeTab]}
-                  tone="primary"
-                />
-                <HeroChip
-                  label="Resources"
-                  value={String(data?.summary.resourceCount ?? 0)}
-                />
-                <HeroChip
-                  label="Tasks"
-                  value={String(data?.summary.taskCount ?? 0)}
-                />
-                <HeroChip
-                  label="Open"
-                  value={String(data?.summary.openTaskCount ?? 0)}
-                />
-              </div>
-
-            </div>
+          <div className="relative min-w-0">
+            <h1 className="text-xl font-semibold text-text-primary sm:text-2xl">
+              Giáo Án
+            </h1>
           </div>
         </section>
+
+        {/* Thanh 3 tab — full width, pill; mỗi tab chia đều để dễ bấm và nhìn rõ */}
+        <div className="mb-5 w-full min-w-0">
+          <div
+            className="flex w-full min-w-0 rounded-full bg-bg-secondary p-1 sm:p-1.5"
+            role="tablist"
+            aria-label="Tổng quan, Công việc hoặc Giáo án"
+          >
+            {(Object.keys(TAB_LABELS) as LessonTabId[]).map((tabId) => {
+              const isActive = activeTab === tabId;
+              return (
+                <button
+                  key={tabId}
+                  id={`lesson-tab-${tabId}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  aria-controls={`lesson-panel-${tabId}`}
+                  onClick={() => syncTabToUrl(tabId)}
+                  className={`min-h-12 flex-1 min-w-0 rounded-full px-3 py-2.5 text-sm font-semibold transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface sm:min-h-14 sm:px-6 sm:py-3 sm:text-base ${isActive
+                    ? "bg-bg-surface text-primary shadow-sm"
+                    : "text-text-muted hover:text-text-primary"
+                    }`}
+                >
+                  {TAB_LABELS[tabId]}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         <div className="min-w-0 flex-1">
           {activeTab === "overview" ? (
@@ -610,43 +539,15 @@ export default function AdminLessonPlansWorkspace() {
                 </section>
               ) : (
                 <>
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <SummaryCard
-                      eyebrow="Resources"
-                      value={data?.summary.resourceCount ?? 0}
-                      label="Tài nguyên đang sẵn sàng trong thư viện điều phối."
-                      accent="bg-[linear-gradient(90deg,var(--color-primary),transparent)]"
-                    />
-                    <SummaryCard
-                      eyebrow="Tasks"
-                      value={data?.summary.taskCount ?? 0}
-                      label="Tổng số đầu việc giáo án đã được ghi nhận."
-                      accent="bg-[linear-gradient(90deg,var(--color-info),transparent)]"
-                    />
-                    <SummaryCard
-                      eyebrow="Open"
-                      value={data?.summary.openTaskCount ?? 0}
-                      label="Việc đang mở cần theo dõi hoặc hoàn tất tiếp."
-                      accent="bg-[linear-gradient(90deg,var(--color-warning),transparent)]"
-                    />
-                  </div>
-
                   <section
                     className="rounded-[1.75rem] border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5"
                     aria-busy={isResourceListPending}
                   >
                     <div className="flex flex-col gap-4 border-b border-border-default pb-4 sm:flex-row sm:items-end sm:justify-between">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
-                          List 01
-                        </p>
-                        <h2 className="mt-2 text-2xl font-semibold text-text-primary">
-                          Resources
+                        <h2 className="text-lg font-semibold text-text-primary sm:text-xl">
+                          Tài nguyên giáo án
                         </h2>
-                        <p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">
-                          Kho tài nguyên nền cho team giáo án, ưu tiên những nguồn
-                          cần mở lại nhanh trong quá trình soạn bài.
-                        </p>
                       </div>
 
                       <div className="flex items-center gap-2">
@@ -695,19 +596,13 @@ export default function AdminLessonPlansWorkspace() {
                                     scope="col"
                                     className="px-4 py-3 font-medium"
                                   >
-                                    Tags
-                                  </th>
-                                  <th
-                                    scope="col"
-                                    className="px-4 py-3 font-medium"
-                                  >
                                     Link
                                   </th>
                                   <th
                                     scope="col"
                                     className="px-4 py-3 font-medium"
                                   >
-                                    Cập nhật
+                                    Tag
                                   </th>
                                   <th
                                     scope="col"
@@ -724,38 +619,11 @@ export default function AdminLessonPlansWorkspace() {
                                     className="group border-t border-border-default bg-bg-surface align-top transition-colors hover:bg-bg-secondary/50"
                                   >
                                     <td className="px-4 py-4">
-                                      <div className="min-w-[16rem]">
+                                      <div className="min-w-[12rem]">
                                         <p className="font-medium text-text-primary">
                                           {resource.title ??
                                             "Tài nguyên chưa đặt tên"}
                                         </p>
-                                        {resource.description ? (
-                                          <p className="mt-1 text-sm leading-6 text-text-secondary">
-                                            {resource.description}
-                                          </p>
-                                        ) : (
-                                          <p className="mt-1 text-sm text-text-muted">
-                                            Không có mô tả
-                                          </p>
-                                        )}
-                                      </div>
-                                    </td>
-                                    <td className="px-4 py-4">
-                                      <div className="flex min-w-[10rem] flex-wrap gap-2">
-                                        {resource.tags.length > 0 ? (
-                                          resource.tags.map((tag) => (
-                                            <span
-                                              key={tag}
-                                              className="rounded-full border border-border-default bg-bg-secondary px-2.5 py-1 text-xs text-text-secondary"
-                                            >
-                                              {tag}
-                                            </span>
-                                          ))
-                                        ) : (
-                                          <span className="text-sm text-text-muted">
-                                            Không có tag
-                                          </span>
-                                        )}
                                       </div>
                                     </td>
                                     <td className="px-4 py-4">
@@ -770,8 +638,23 @@ export default function AdminLessonPlansWorkspace() {
                                         </span>
                                       </a>
                                     </td>
-                                    <td className="px-4 py-4 text-sm text-text-secondary">
-                                      {formatLessonDateTime(resource.updatedAt)}
+                                    <td className="px-4 py-4">
+                                      <div className="flex min-w-[10rem] flex-wrap gap-2">
+                                        {resource.tags.length > 0 ? (
+                                          resource.tags.map((tag) => (
+                                            <span
+                                              key={tag}
+                                              className="rounded-full border border-border-default bg-bg-secondary px-2.5 py-1 text-xs text-text-secondary"
+                                            >
+                                              {tag}
+                                            </span>
+                                          ))
+                                        ) : (
+                                          <span className="text-sm text-text-muted">
+                                            —
+                                          </span>
+                                        )}
+                                      </div>
                                     </td>
                                     <td className="px-4 py-4">
                                       <div className="flex items-center justify-end gap-1 opacity-100 transition-opacity duration-150 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
@@ -838,7 +721,7 @@ export default function AdminLessonPlansWorkspace() {
                           </div>
                           <div className="px-4 py-4">
                             <TablePagination
-                              label="Resources"
+                              label="Tài nguyên"
                               isPending={isResourceListPending}
                               meta={
                                 data?.resourcesMeta ?? {
@@ -864,16 +747,9 @@ export default function AdminLessonPlansWorkspace() {
                   >
                     <div className="flex flex-col gap-4 border-b border-border-default pb-4 sm:flex-row sm:items-end sm:justify-between">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
-                          List 02
-                        </p>
-                        <h2 className="mt-2 text-2xl font-semibold text-text-primary">
-                          Tasks
+                        <h2 className="text-lg font-semibold text-text-primary sm:text-xl">
+                          Công việc giáo án
                         </h2>
-                        <p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">
-                          Theo dõi đầu việc giáo án ở cùng một màn hình, ưu tiên
-                          trạng thái rõ ràng và hạn xử lý dễ đọc trên mobile.
-                        </p>
                       </div>
 
                       <div className="flex items-center gap-2">
@@ -971,19 +847,10 @@ export default function AdminLessonPlansWorkspace() {
                                     aria-label={`Xem chi tiết công việc ${task.title?.trim() || ""}`}
                                   >
                                     <td className="px-4 py-4">
-                                      <div className="min-w-[16rem]">
+                                      <div className="min-w-[12rem]">
                                         <p className="font-medium text-text-primary">
                                           {task.title ?? "Công việc chưa đặt tên"}
                                         </p>
-                                        {task.description ? (
-                                          <p className="mt-1 text-sm leading-6 text-text-secondary">
-                                            {task.description}
-                                          </p>
-                                        ) : (
-                                          <p className="mt-1 text-sm text-text-muted">
-                                            Không có mô tả
-                                          </p>
-                                        )}
                                       </div>
                                     </td>
                                     <td className="px-4 py-4">
@@ -1077,7 +944,7 @@ export default function AdminLessonPlansWorkspace() {
                           </div>
                           <div className="px-4 py-4">
                             <TablePagination
-                              label="Tasks"
+                              label="Công việc"
                               isPending={isTaskListPending}
                               meta={
                                 data?.tasksMeta ?? {
@@ -1102,27 +969,7 @@ export default function AdminLessonPlansWorkspace() {
           ) : activeTab === "work" ? (
             <LessonWorkTab />
           ) : (
-            <section
-              id="lesson-panel-exercises"
-              role="tabpanel"
-              aria-labelledby="lesson-tab-exercises"
-            >
-              <section className="rounded-[1.75rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
-                <div className="rounded-[1.5rem] border border-dashed border-border-default bg-bg-secondary/40 px-5 py-14 text-center">
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
-                    Under Development
-                  </p>
-                  <h2 className="mt-3 text-2xl font-semibold text-text-primary">
-                    Tab Bài tập đang được chuẩn bị
-                  </h2>
-                  <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-text-secondary">
-                    Bố cục 3 tab đã được khóa. Tab Bài tập hiện giữ trạng thái
-                    Under Development để tránh giả lập logic chưa có contract đầy
-                    đủ.
-                  </p>
-                </div>
-              </section>
-            </section>
+            <LessonExercisesTab />
           )}
         </div>
       </div>

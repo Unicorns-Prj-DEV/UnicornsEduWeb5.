@@ -7,7 +7,6 @@ import { logout } from "@/lib/apis/auth.api";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { FaHouse } from "react-icons/fa6";
 
 const HOME_MENU = [
   { id: "intro", label: "Giới thiệu" },
@@ -103,10 +102,23 @@ export function Navbar() {
               <Link
                 href={links[user.roleType as keyof typeof links] ?? "/"}
                 className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-tertiary font-semibold text-text-primary ring-2 ring-border-default transition hover:bg-primary hover:text-text-inverse hover:ring-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                aria-label="Về trang chính theo vai trò"
+                title="Trang chính"
               >
-                <span className="text-sm">
-                  <FaHouse />
-                </span>
+                <svg
+                  className="size-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                  />
+                </svg>
               </Link>
 
               <button

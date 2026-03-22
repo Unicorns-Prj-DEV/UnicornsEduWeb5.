@@ -11,12 +11,14 @@ import {
   IsArray,
   IsDateString,
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
   IsUrl,
   IsUUID,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 
@@ -123,6 +125,14 @@ export interface LessonWorkSummaryDto {
 export interface LessonWorkOutputItemDto extends LessonTaskOutputListItemDto {
   updatedAt: string;
   task: LessonOutputTaskSummaryDto | null;
+  /** Tag hiển thị trên bảng tab Công việc */
+  tags: string[];
+  level: string | null;
+  link: string | null;
+  /** Link gốc (bài) — dùng fallback khi `link` trống */
+  originalLink: string | null;
+  /** Chi phí (dùng FE hiển thị thanh toán: cost > 0 → chưa thanh toán) */
+  cost: number;
 }
 
 export interface LessonWorkResponseDto {
@@ -220,6 +230,86 @@ export class LessonWorkQueryDto {
   @Min(1)
   @Max(100)
   limit?: number;
+
+  @ApiPropertyOptional({
+    example: 2026,
+    minimum: 2000,
+    maximum: 2100,
+    description: 'Lọc theo tháng: năm (dùng cùng month).',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  year?: number;
+
+  @ApiPropertyOptional({
+    example: 3,
+    minimum: 1,
+    maximum: 12,
+    description: 'Lọc theo tháng: tháng 1–12 (dùng cùng year).',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  month?: number;
+
+  @ApiPropertyOptional({
+    description: 'Tìm theo tên bài hoặc contest (contains, không phân biệt hoa thường).',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  search?: string;
+
+  @ApiPropertyOptional({
+    description: 'Gợi ý tag (substring trên tên bài / contest).',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  tag?: string;
+
+  @ApiPropertyOptional({ description: 'Lọc theo nhân sự phụ trách output.' })
+  @IsOptional()
+  @IsUUID('4')
+  staffId?: string;
+
+  @ApiPropertyOptional({
+    enum: ['all', 'pending', 'completed', 'cancelled'],
+    description: 'Trạng thái output; `all` = không lọc.',
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['all', 'pending', 'completed', 'cancelled'])
+  outputStatus?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Từ ngày (YYYY-MM-DD). Nếu cả dateFrom và dateTo hợp lệ, dùng khoảng này thay cho lọc tháng year/month.',
+  })
+  @IsOptional()
+  @IsDateString()
+  dateFrom?: string;
+
+  @ApiPropertyOptional({
+    description: 'Đến ngày (YYYY-MM-DD).',
+  })
+  @IsOptional()
+  @IsDateString()
+  dateTo?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Lọc theo level (0–5): khớp `Level {n}` hoặc chuỗi `{n}` (không phân biệt hoa thường).',
+    enum: ['0', '1', '2', '3', '4', '5'],
+  })
+  @IsOptional()
+  @IsIn(['0', '1', '2', '3', '4', '5'])
+  level?: string;
 }
 
 export class LessonTaskStaffOptionsQueryDto {
@@ -359,12 +449,14 @@ export class CreateLessonTaskDto {
 export class UpdateLessonTaskDto extends PartialType(CreateLessonTaskDto) {}
 
 export class CreateLessonOutputDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: '99e2effd-fab2-42e1-8b17-43c0d840e1be',
-    description: 'Parent lesson task id.',
+    description:
+      'Parent lesson task id. Có thể bỏ qua để tạo output chưa gắn công việc.',
   })
+  @IsOptional()
   @IsUUID('4')
-  lessonTaskId: string;
+  lessonTaskId?: string | null;
 
   @ApiProperty({ example: 'Bài 1 - Tổ hợp cơ bản' })
   @Type(() => String)
