@@ -107,23 +107,23 @@ function ExPagination({
         ) : null}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center">
         <button
           type="button"
           onClick={() => onPageChange(page - 1)}
           disabled={page <= 1 || isPending}
-          className="rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
         >
           Trước
         </button>
-        <span className="rounded-xl border border-border-default bg-bg-secondary px-3 py-2 text-sm font-medium text-text-secondary">
+        <span className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-secondary px-3 py-2 text-center text-sm font-medium text-text-secondary">
           {page}/{Math.max(1, totalPages)}
         </span>
         <button
           type="button"
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages || isPending}
-          className="rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
         >
           Sau
         </button>
@@ -392,28 +392,32 @@ export default function LessonExercisesTab() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
         <aside className="shrink-0 lg:w-52">
           <nav
-            className="rounded-xl border border-border-default bg-bg-surface p-2 shadow-sm"
+            className="rounded-[1.45rem] border border-border-default bg-[linear-gradient(180deg,rgba(248,250,252,0.92),rgba(255,255,255,0.98))] p-2.5 shadow-sm"
             aria-label="Lọc theo level"
           >
-            <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted">
-              Level
-            </p>
-            <ul className="flex flex-row gap-1 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] lg:flex-col lg:overflow-x-visible lg:pb-0 [&::-webkit-scrollbar]:hidden">
+            <div className="px-2 pb-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted">
+                Level
+              </p>
+              <p className="mt-1 text-sm font-semibold text-text-primary">
+                Lọc độ khó
+              </p>
+            </div>
+            <ul className="grid grid-cols-1 gap-1.5 pb-1 sm:grid-cols-1 lg:flex lg:flex-col lg:gap-1 lg:overflow-x-visible lg:pb-0">
               {LEVEL_OPTIONS.map((opt) => {
                 const active =
                   opt.key === "all"
                     ? exLevel === "all"
                     : exLevel === opt.key;
                 return (
-                  <li key={opt.key} className="shrink-0 lg:w-full">
+                  <li key={opt.key} className=" lg:w-full">
                     <button
                       type="button"
                       onClick={() => setLevel(opt.key)}
-                      className={`w-full min-h-10 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
-                        active
-                          ? "bg-primary text-text-inverse"
-                          : "text-text-primary hover:bg-bg-secondary/80"
-                      }`}
+                      className={`w-full min-h-10 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus lg:text-left ${active
+                        ? "bg-primary text-text-inverse shadow-sm"
+                        : "text-text-primary hover:bg-bg-secondary/80"
+                        }`}
                     >
                       {opt.label}
                     </button>
@@ -450,7 +454,7 @@ export default function LessonExercisesTab() {
               <button
                 type="button"
                 onClick={goToWorkTabToAddLesson}
-                className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:size-10 sm:w-10 sm:px-0"
                 aria-label="Thêm bài mới — mở tab Công việc"
                 title="Thêm bài mới (tab Công việc)"
               >
@@ -468,23 +472,24 @@ export default function LessonExercisesTab() {
                     d="M12 4v16m8-8H4"
                   />
                 </svg>
+                <span className="sm:hidden">Mở tab Công việc</span>
               </button>
             </div>
 
-            <div className="mt-4 max-h-[min(32rem,70vh)] overflow-y-auto">
+            <div className="mt-4 md:max-h-[min(32rem,70vh)] md:overflow-y-auto">
               {outputs.length > 0 ? (
                 <div className="overflow-hidden rounded-xl border border-border-default">
                   <div className="overflow-x-auto">
-                    <table className="min-w-[40rem] border-collapse text-left">
+                    <table className="w-full border-collapse text-left">
                       <thead className="sticky top-0 z-[1] bg-bg-secondary">
                         <tr className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-                          <th className="min-w-[12rem] px-3 py-3" scope="col">
+                          <th className=" px-3 py-3" scope="col">
                             Tag
                           </th>
-                          <th className="min-w-[16rem] px-3 py-3" scope="col">
+                          <th className=" px-3 py-3" scope="col">
                             Tên bài
                           </th>
-                          <th className="w-28 px-3 py-3 text-right" scope="col">
+                          <th className=" px-3 py-3 text-right" scope="col">
                             Link
                           </th>
                         </tr>
@@ -538,52 +543,6 @@ export default function LessonExercisesTab() {
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <div className="flex items-center justify-end gap-0.5">
-                                  <button
-                                    type="button"
-                                    title="Sao chép liên kết"
-                                    disabled={!linkUrl}
-                                    onClick={() =>
-                                      void copyText(linkUrl, "liên kết")
-                                    }
-                                    className="rounded-lg p-2 text-text-muted transition-colors hover:bg-bg-secondary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
-                                  >
-                                    <svg
-                                      className="size-4"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                      aria-hidden
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                      />
-                                    </svg>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    title="Mở liên kết"
-                                    disabled={!linkUrl}
-                                    onClick={() => openExternal(linkUrl)}
-                                    className="rounded-lg p-2 text-text-muted transition-colors hover:bg-bg-secondary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
-                                  >
-                                    <svg
-                                      className="size-4"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                      aria-hidden
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                                      />
-                                    </svg>
-                                  </button>
                                   <button
                                     type="button"
                                     title="Xóa"

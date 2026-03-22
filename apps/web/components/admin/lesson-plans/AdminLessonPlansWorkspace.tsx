@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type {
@@ -89,10 +90,54 @@ function EmptyState({
       <button
         type="button"
         onClick={onAction}
-        className="mt-5 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+        className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:w-auto"
       >
         {actionLabel}
       </button>
+    </div>
+  );
+}
+
+function OverviewActionButton({
+  label,
+  onClick,
+  tone = "neutral",
+  icon,
+}: {
+  label: string;
+  onClick: () => void;
+  tone?: "neutral" | "danger";
+  icon: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex min-h-10 min-w-10 items-center justify-center rounded-xl border p-2.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${tone === "danger"
+        ? "border-error/20 bg-error/6 text-error hover:bg-error/12"
+        : "border-border-default bg-bg-surface text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
+        }`}
+      aria-label={label}
+      title={label}
+    >
+      {icon}
+    </button>
+  );
+}
+
+function OverviewMetaBlock({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-border-default/70 bg-bg-secondary/35 p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
+        {label}
+      </p>
+      <div className="mt-2 min-w-0">{children}</div>
     </div>
   );
 }
@@ -125,23 +170,23 @@ function TablePagination({
         ) : null}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center">
         <button
           type="button"
           onClick={() => onPageChange(meta.page - 1)}
           disabled={meta.page <= 1 || isPending}
-          className="rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
         >
           Trước
         </button>
-        <span className="rounded-xl border border-border-default bg-bg-secondary px-3 py-2 text-sm font-medium text-text-secondary">
+        <span className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-secondary px-3 py-2 text-center text-sm font-medium text-text-secondary">
           Trang {meta.page}/{meta.totalPages}
         </span>
         <button
           type="button"
           onClick={() => onPageChange(meta.page + 1)}
           disabled={meta.page >= meta.totalPages || isPending}
-          className="rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
         >
           Sau
         </button>
@@ -158,65 +203,103 @@ function ListTableSkeleton({
   variant: "resource" | "task";
 }) {
   return (
-    <div className="overflow-hidden rounded-[1.4rem] border border-border-default">
-      <div className="border-b border-border-default bg-bg-secondary px-4 py-3">
-        <div className="grid grid-cols-4 gap-3">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <div
-              key={`header-${variant}-${index}`}
-              className="h-4 animate-pulse rounded-full bg-bg-tertiary"
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="divide-y divide-border-default">
+    <>
+      <div className="space-y-3 md:hidden">
         {Array.from({ length: rows }).map((_, index) => (
           <div
-            key={`${variant}-row-${index}`}
-            className="grid gap-4 bg-bg-surface px-4 py-4 lg:grid-cols-12"
+            key={`mobile-${variant}-${index}`}
+            className="rounded-[1.35rem] border border-border-default bg-bg-surface p-4"
           >
-            <div
-              className={
-                variant === "resource" ? "lg:col-span-3" : "lg:col-span-4"
-              }
-            >
-              <div className="h-4 w-2/3 animate-pulse rounded-full bg-bg-tertiary" />
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="h-3 w-20 animate-pulse rounded-full bg-bg-tertiary/80" />
+                <div className="h-5 w-4/5 animate-pulse rounded-full bg-bg-tertiary" />
+                <div className="h-4 w-28 animate-pulse rounded-full bg-bg-tertiary/65" />
+              </div>
+              <div className="flex gap-2">
+                <div className="h-10 w-10 animate-pulse rounded-xl bg-bg-tertiary/80" />
+                <div className="h-10 w-10 animate-pulse rounded-xl bg-bg-tertiary/65" />
+              </div>
             </div>
 
-            {variant === "resource" ? (
-              <>
-                <div className="space-y-2 lg:col-span-5">
-                  <div className="h-3 w-full animate-pulse rounded-full bg-bg-tertiary/80" />
-                  <div className="h-3 w-4/5 animate-pulse rounded-full bg-bg-tertiary/65" />
-                </div>
-                <div className="flex flex-wrap gap-2 lg:col-span-2">
+            <div className="mt-4 grid gap-3">
+              <div className="rounded-2xl border border-border-default/70 bg-bg-secondary/35 p-3">
+                <div className="h-3 w-16 animate-pulse rounded-full bg-bg-tertiary/75" />
+                <div className="mt-3 h-4 w-full animate-pulse rounded-full bg-bg-tertiary/70" />
+                <div className="mt-2 h-4 w-3/4 animate-pulse rounded-full bg-bg-tertiary/55" />
+              </div>
+              <div className="rounded-2xl border border-border-default/70 bg-bg-secondary/35 p-3">
+                <div className="h-3 w-20 animate-pulse rounded-full bg-bg-tertiary/75" />
+                <div className="mt-3 flex flex-wrap gap-2">
                   <div className="h-7 w-16 animate-pulse rounded-full bg-bg-tertiary/80" />
                   <div className="h-7 w-20 animate-pulse rounded-full bg-bg-tertiary/65" />
                 </div>
-              </>
-            ) : (
-              <>
-                <div className="flex flex-wrap gap-2 lg:col-span-3">
-                  <div className="h-7 w-24 animate-pulse rounded-full bg-bg-tertiary/80" />
-                  <div className="h-7 w-20 animate-pulse rounded-full bg-bg-tertiary/65" />
-                </div>
-
-                <div className="space-y-3 lg:col-span-3">
-                  <div className="h-3 w-4/5 animate-pulse rounded-full bg-bg-tertiary/80" />
-                  <div className="h-3 w-3/5 animate-pulse rounded-full bg-bg-tertiary/65" />
-                </div>
-              </>
-            )}
-
-            <div className="flex items-start justify-end gap-2 lg:col-span-2">
-              <div className="h-8 w-8 animate-pulse rounded-lg bg-bg-tertiary/70" />
-              <div className="h-8 w-8 animate-pulse rounded-lg bg-bg-tertiary/55" />
+              </div>
             </div>
           </div>
         ))}
       </div>
-    </div>
+
+      <div className="hidden overflow-hidden rounded-[1.4rem] border border-border-default md:block">
+        <div className="border-b border-border-default bg-bg-secondary px-4 py-3">
+          <div className="grid grid-cols-4 gap-3">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div
+                key={`header-${variant}-${index}`}
+                className="h-4 animate-pulse rounded-full bg-bg-tertiary"
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="divide-y divide-border-default">
+          {Array.from({ length: rows }).map((_, index) => (
+            <div
+              key={`${variant}-row-${index}`}
+              className="grid gap-4 bg-bg-surface px-4 py-4 lg:grid-cols-12"
+            >
+              <div
+                className={
+                  variant === "resource" ? "lg:col-span-3" : "lg:col-span-4"
+                }
+              >
+                <div className="h-4 w-2/3 animate-pulse rounded-full bg-bg-tertiary" />
+              </div>
+
+              {variant === "resource" ? (
+                <>
+                  <div className="space-y-2 lg:col-span-5">
+                    <div className="h-3 w-full animate-pulse rounded-full bg-bg-tertiary/80" />
+                    <div className="h-3 w-4/5 animate-pulse rounded-full bg-bg-tertiary/65" />
+                  </div>
+                  <div className="flex flex-wrap gap-2 lg:col-span-2">
+                    <div className="h-7 w-16 animate-pulse rounded-full bg-bg-tertiary/80" />
+                    <div className="h-7 w-20 animate-pulse rounded-full bg-bg-tertiary/65" />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-2 lg:col-span-3">
+                    <div className="h-7 w-24 animate-pulse rounded-full bg-bg-tertiary/80" />
+                    <div className="h-7 w-20 animate-pulse rounded-full bg-bg-tertiary/65" />
+                  </div>
+
+                  <div className="space-y-3 lg:col-span-3">
+                    <div className="h-3 w-4/5 animate-pulse rounded-full bg-bg-tertiary/80" />
+                    <div className="h-3 w-3/5 animate-pulse rounded-full bg-bg-tertiary/65" />
+                  </div>
+                </>
+              )}
+
+              <div className="flex items-start justify-end gap-2 lg:col-span-2">
+                <div className="h-8 w-8 animate-pulse rounded-lg bg-bg-tertiary/70" />
+                <div className="h-8 w-8 animate-pulse rounded-lg bg-bg-tertiary/55" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -550,20 +633,22 @@ export default function AdminLessonPlansWorkspace() {
                         </h2>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <span className="rounded-full border border-border-default bg-bg-secondary px-3 py-1 text-xs font-medium text-text-secondary">
-                          {data?.resourcesMeta.total ?? resources.length} tài
-                          nguyên
-                        </span>
-                        {isResourceListPending ? (
-                          <span className="rounded-full border border-border-default bg-bg-surface px-3 py-1 text-xs font-medium text-text-secondary">
-                            Đang đổi trang
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full border border-border-default bg-bg-secondary px-3 py-1 text-xs font-medium text-text-secondary">
+                            {data?.resourcesMeta.total ?? resources.length} tài
+                            nguyên
                           </span>
-                        ) : null}
+                          {isResourceListPending ? (
+                            <span className="rounded-full border border-border-default bg-bg-surface px-3 py-1 text-xs font-medium text-text-secondary">
+                              Đang đổi trang
+                            </span>
+                          ) : null}
+                        </div>
                         <button
                           type="button"
                           onClick={openCreateResource}
-                          className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                          className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:w-auto"
                         >
                           Thêm tài nguyên
                         </button>
@@ -582,7 +667,116 @@ export default function AdminLessonPlansWorkspace() {
                         />
                       ) : (
                         <div className="overflow-hidden rounded-[1.4rem] border border-border-default">
-                          <div className="overflow-x-auto">
+                          <div className="space-y-3 p-3 md:hidden">
+                            {resources.map((resource) => (
+                              <article
+                                key={resource.id}
+                                className="rounded-[1.35rem] border border-border-default bg-bg-surface p-4 shadow-sm"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted">
+                                      Tài nguyên
+                                    </p>
+                                    <p className="mt-1 break-words text-base font-semibold leading-6 text-text-primary">
+                                      {resource.title ??
+                                        "Tài nguyên chưa đặt tên"}
+                                    </p>
+                                    <p className="mt-2 text-xs leading-5 text-text-muted">
+                                      Cập nhật{" "}
+                                      {formatLessonDateOnly(resource.updatedAt)}
+                                    </p>
+                                  </div>
+
+                                  <div className="flex shrink-0 items-center gap-2">
+                                    <OverviewActionButton
+                                      label={`Sửa tài nguyên ${resource.title?.trim() || ""}`}
+                                      onClick={() => openEditResource(resource)}
+                                      icon={
+                                        <svg
+                                          className="size-4"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          viewBox="0 0 24 24"
+                                          aria-hidden
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                          />
+                                        </svg>
+                                      }
+                                    />
+                                    <OverviewActionButton
+                                      label={`Xóa tài nguyên ${resource.title?.trim() || ""}`}
+                                      tone="danger"
+                                      onClick={() =>
+                                        setDeleteTarget({
+                                          kind: "resource",
+                                          id: resource.id,
+                                          label:
+                                            resource.title ??
+                                            "tài nguyên chưa đặt tên",
+                                        })
+                                      }
+                                      icon={
+                                        <svg
+                                          className="size-4"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          viewBox="0 0 24 24"
+                                          aria-hidden
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                          />
+                                        </svg>
+                                      }
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="mt-4 grid gap-3">
+                                  <OverviewMetaBlock label="Link">
+                                    <a
+                                      href={resource.resourceLink}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex max-w-full items-center gap-2 break-all text-sm text-primary underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                    >
+                                      {resource.resourceLink}
+                                    </a>
+                                  </OverviewMetaBlock>
+
+                                  <OverviewMetaBlock label="Tag">
+                                    <div className="flex flex-wrap gap-2">
+                                      {resource.tags.length > 0 ? (
+                                        resource.tags.map((tag) => (
+                                          <span
+                                            key={`${resource.id}-${tag}`}
+                                            className="rounded-full border border-border-default bg-bg-secondary px-2.5 py-1 text-xs text-text-secondary"
+                                          >
+                                            {tag}
+                                          </span>
+                                        ))
+                                      ) : (
+                                        <span className="text-sm text-text-muted">
+                                          —
+                                        </span>
+                                      )}
+                                    </div>
+                                  </OverviewMetaBlock>
+                                </div>
+                              </article>
+                            ))}
+                          </div>
+
+                          <div className="hidden overflow-x-auto md:block">
                             <table className="min-w-full border-collapse text-left">
                               <thead className="bg-bg-secondary">
                                 <tr className="text-sm text-text-secondary">
@@ -752,19 +946,21 @@ export default function AdminLessonPlansWorkspace() {
                         </h2>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <span className="rounded-full border border-border-default bg-bg-secondary px-3 py-1 text-xs font-medium text-text-secondary">
-                          {data?.tasksMeta.total ?? tasks.length} công việc
-                        </span>
-                        {isTaskListPending ? (
-                          <span className="rounded-full border border-border-default bg-bg-surface px-3 py-1 text-xs font-medium text-text-secondary">
-                            Đang đổi trang
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full border border-border-default bg-bg-secondary px-3 py-1 text-xs font-medium text-text-secondary">
+                            {data?.tasksMeta.total ?? tasks.length} công việc
                           </span>
-                        ) : null}
+                          {isTaskListPending ? (
+                            <span className="rounded-full border border-border-default bg-bg-surface px-3 py-1 text-xs font-medium text-text-secondary">
+                              Đang đổi trang
+                            </span>
+                          ) : null}
+                        </div>
                         <button
                           type="button"
                           onClick={openCreateTask}
-                          className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                          className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:w-auto"
                         >
                           Thêm công việc
                         </button>
@@ -783,7 +979,115 @@ export default function AdminLessonPlansWorkspace() {
                         />
                       ) : (
                         <div className="overflow-hidden rounded-[1.4rem] border border-border-default">
-                          <div className="overflow-x-auto">
+                          <div className="space-y-3 p-3 md:hidden">
+                            {tasks.map((task) => (
+                              <article
+                                key={task.id}
+                                className="rounded-[1.35rem] border border-border-default bg-bg-surface p-4 shadow-sm"
+                              >
+                                <div className="flex items-start gap-3">
+                                  <Link
+                                    href={buildTaskDetailHref(task.id)}
+                                    className="min-w-0 flex-1 rounded-[1.2rem] transition-colors hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                    aria-label={`Xem chi tiết công việc ${task.title?.trim() || ""}`}
+                                  >
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted">
+                                      Công việc
+                                    </p>
+                                    <p className="mt-1 break-words text-base font-semibold leading-6 text-text-primary">
+                                      {task.title ?? "Công việc chưa đặt tên"}
+                                    </p>
+
+                                    <div className="mt-4 flex flex-wrap gap-2">
+                                      <span
+                                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.16em] ring-1 ${lessonTaskStatusChipClass(
+                                          task.status,
+                                        )}`}
+                                      >
+                                        {LESSON_TASK_STATUS_LABELS[task.status]}
+                                      </span>
+                                      <span
+                                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.16em] ring-1 ${lessonTaskPriorityChipClass(
+                                          task.priority,
+                                        )}`}
+                                      >
+                                        {LESSON_TASK_PRIORITY_LABELS[task.priority]}
+                                      </span>
+                                    </div>
+
+                                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                                      <OverviewMetaBlock label="Hạn xử lý">
+                                        <p className="text-sm font-medium text-text-primary">
+                                          {formatLessonDateOnly(task.dueDate)}
+                                        </p>
+                                      </OverviewMetaBlock>
+
+                                      <OverviewMetaBlock label="Phụ trách">
+                                        <p className="text-sm font-medium text-text-primary">
+                                          {task.createdByStaff?.fullName ??
+                                            "Chưa ghi nhận"}
+                                        </p>
+                                      </OverviewMetaBlock>
+                                    </div>
+                                  </Link>
+
+                                  <div className="flex shrink-0 items-center gap-2">
+                                    <OverviewActionButton
+                                      label={`Sửa công việc ${task.title?.trim() || ""}`}
+                                      onClick={() => openEditTask(task)}
+                                      icon={
+                                        <svg
+                                          className="size-4"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          viewBox="0 0 24 24"
+                                          aria-hidden
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                          />
+                                        </svg>
+                                      }
+                                    />
+                                    <OverviewActionButton
+                                      label={`Xóa công việc ${task.title?.trim() || ""}`}
+                                      tone="danger"
+                                      onClick={() =>
+                                        setDeleteTarget({
+                                          kind: "task",
+                                          id: task.id,
+                                          label:
+                                            task.title ??
+                                            "công việc chưa đặt tên",
+                                        })
+                                      }
+                                      icon={
+                                        <svg
+                                          className="size-4"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          viewBox="0 0 24 24"
+                                          aria-hidden
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                          />
+                                        </svg>
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                              </article>
+                            ))}
+                          </div>
+
+                          <div className="hidden overflow-x-auto md:block">
                             <table className="min-w-full border-collapse text-left">
                               <thead className="bg-bg-secondary">
                                 <tr className="text-sm text-text-secondary">

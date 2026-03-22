@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type {
   LessonOutputStaffOption,
@@ -47,6 +47,18 @@ export default function LessonWorkQuickFilters({
   footerNote,
 }: Props) {
   const [draft, setDraft] = useState(initialDraft);
+  const activeFilterCount = useMemo(
+    () =>
+      [
+        draft.search.trim(),
+        draft.tag.trim(),
+        draft.outputStatus !== "all" ? draft.outputStatus.trim() : "",
+        draft.staffId.trim(),
+        draft.dateFrom.trim(),
+        draft.dateTo.trim(),
+      ].filter(Boolean).length,
+    [draft],
+  );
   const staffSelectOptions = [
     { value: "", label: "Tất cả nhân sự" },
     ...staffOptions.map((s) => ({
@@ -55,17 +67,46 @@ export default function LessonWorkQuickFilters({
     })),
   ];
 
+  const handleClear = () => {
+    setDraft({
+      search: "",
+      tag: "",
+      outputStatus: "all",
+      staffId: "",
+      dateFrom: "",
+      dateTo: "",
+    });
+    onClear();
+  };
+
   return (
-    <div className="rounded-xl border border-border-default bg-bg-surface shadow-sm">
+    <div className="overflow-hidden rounded-[1.5rem] border border-border-default bg-[linear-gradient(180deg,rgba(248,250,252,0.92),rgba(255,255,255,0.98))] shadow-sm">
       <button
         type="button"
         onClick={() => onOpenChange(!open)}
-        className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
+        className="flex w-full items-start justify-between gap-4 px-4 py-4 text-left transition-colors hover:bg-bg-secondary/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface sm:px-5"
         aria-expanded={open}
       >
-        <span>Bộ lọc nhanh</span>
-        <span className="inline-flex items-center gap-2 text-text-secondary">
-          <span className="hidden sm:inline">
+        <span className="min-w-0">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">
+            Quick Filters
+          </span>
+          <span className="mt-1 block text-sm font-semibold text-text-primary sm:text-base">
+            Bộ lọc nhanh
+          </span>
+          <span className="mt-1 block text-xs leading-5 text-text-secondary">
+            Lọc theo tên bài, tag, trạng thái, nhân sự và khoảng ngày mà không
+            rời khỏi màn hình quản lý.
+          </span>
+        </span>
+
+        <span className="inline-flex shrink-0 items-center gap-2 text-text-secondary">
+          {activeFilterCount > 0 ? (
+            <span className="inline-flex min-h-7 min-w-7 items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-2 text-xs font-semibold text-primary">
+              {activeFilterCount}
+            </span>
+          ) : null}
+          <span className="hidden text-xs font-medium sm:inline">
             {open ? "Thu gọn" : "Mở bộ lọc"}
           </span>
           <svg
@@ -109,11 +150,13 @@ export default function LessonWorkQuickFilters({
                 </span>
                 <input
                   type="search"
+                  name="lesson-work-search"
                   value={draft.search}
                   onChange={(e) =>
                     setDraft((current) => ({ ...current, search: e.target.value }))
                   }
-                  placeholder="Tìm theo tên hoặc tag"
+                  placeholder="Tìm theo tên hoặc tag…"
+                  autoComplete="off"
                   className="min-h-11 w-full rounded-xl border border-border-default bg-bg-surface py-2.5 pl-9 pr-3 text-sm text-text-primary shadow-sm placeholder:text-text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />
               </span>
@@ -123,11 +166,13 @@ export default function LessonWorkQuickFilters({
               <span>Tag</span>
               <input
                 type="text"
+                name="lesson-work-tag"
                 value={draft.tag}
                 onChange={(e) =>
                   setDraft((current) => ({ ...current, tag: e.target.value }))
                 }
-                placeholder="Tìm kiếm và chọn tag"
+                placeholder="Tìm kiếm và chọn tag…"
+                autoComplete="off"
                 className="min-h-11 w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-sm text-text-primary shadow-sm placeholder:text-text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
               />
             </label>
@@ -189,6 +234,7 @@ export default function LessonWorkQuickFilters({
                 </span>
                 <input
                   type="date"
+                  name="lesson-work-date-from"
                   value={draft.dateFrom}
                   onChange={(e) =>
                     setDraft((current) => ({
@@ -196,6 +242,7 @@ export default function LessonWorkQuickFilters({
                       dateFrom: e.target.value,
                     }))
                   }
+                  autoComplete="off"
                   className="min-h-11 w-full rounded-xl border border-border-default bg-bg-surface py-2.5 pl-9 pr-3 text-sm text-text-primary shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />
               </span>
@@ -222,6 +269,7 @@ export default function LessonWorkQuickFilters({
                 </span>
                 <input
                   type="date"
+                  name="lesson-work-date-to"
                   value={draft.dateTo}
                   onChange={(e) =>
                     setDraft((current) => ({
@@ -229,12 +277,13 @@ export default function LessonWorkQuickFilters({
                       dateTo: e.target.value,
                     }))
                   }
+                  autoComplete="off"
                   className="min-h-11 w-full rounded-xl border border-border-default bg-bg-surface py-2.5 pl-9 pr-3 text-sm text-text-primary shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />
               </span>
             </label>
 
-            <div className="flex flex-col gap-2 sm:col-span-2 lg:col-span-2 lg:flex-row lg:justify-end lg:gap-2">
+            <div className="flex flex-col gap-2 sm:col-span-2 sm:flex-row sm:justify-end lg:col-span-2 lg:gap-2">
               <button
                 type="button"
                 onClick={() => onApply(draft)}
@@ -244,7 +293,7 @@ export default function LessonWorkQuickFilters({
               </button>
               <button
                 type="button"
-                onClick={onClear}
+                onClick={handleClear}
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
               >
                 <svg
@@ -267,9 +316,11 @@ export default function LessonWorkQuickFilters({
           </div>
 
           {footerNote === null ? null : footerNote !== undefined ? (
-            <div className="text-xs leading-5 text-text-muted">{footerNote}</div>
+            <div className="rounded-2xl border border-border-default/70 bg-bg-surface/70 px-3 py-2.5 text-xs leading-5 text-text-muted">
+              {footerNote}
+            </div>
           ) : (
-            <p className="text-xs leading-5 text-text-muted">
+            <p className="rounded-2xl border border-border-default/70 bg-bg-surface/70 px-3 py-2.5 text-xs leading-5 text-text-muted">
               Khi chọn <strong>Từ ngày</strong> và <strong>Đến ngày</strong> hợp
               lệ, danh sách lọc theo khoảng ngày đó (thay lọc theo tháng ở bảng
               bên dưới). Để trống hai ô ngày để chỉ dùng lọc theo tháng đang xem.

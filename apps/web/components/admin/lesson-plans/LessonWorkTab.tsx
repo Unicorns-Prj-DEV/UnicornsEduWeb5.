@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
@@ -153,6 +154,23 @@ function WorkActionButton({
   );
 }
 
+function WorkMetaBlock({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-border-default/70 bg-bg-secondary/30 p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
+        {label}
+      </p>
+      <div className="mt-2 min-w-0">{children}</div>
+    </div>
+  );
+}
+
 function WorkPagination({
   page,
   totalPages,
@@ -179,23 +197,23 @@ function WorkPagination({
         ) : null}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:flex sm:items-center">
         <button
           type="button"
           onClick={() => onPageChange(page - 1)}
           disabled={page <= 1 || isPending}
-          className="rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
         >
           Trước
         </button>
-        <span className="rounded-xl border border-border-default bg-bg-secondary px-3 py-2 text-sm font-medium text-text-secondary">
+        <span className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-secondary px-3 py-2 text-center text-sm font-medium text-text-secondary">
           Trang {page}/{totalPages}
         </span>
         <button
           type="button"
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages || isPending}
-          className="rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
         >
           Sau
         </button>
@@ -206,80 +224,118 @@ function WorkPagination({
 
 function WorkTableSkeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="overflow-hidden rounded-[1.35rem] border border-border-default bg-bg-surface shadow-sm">
-      <div className="overflow-x-auto">
-        <table className="w-full table-fixed border-collapse text-left">
-          <colgroup>
-            <col style={{ width: "13%" }} />
-            <col style={{ width: "29%" }} />
-            <col style={{ width: "18%" }} />
-            <col style={{ width: "15%" }} />
-            <col style={{ width: "15%" }} />
-            <col style={{ width: "10%" }} />
-          </colgroup>
-          <thead className="bg-bg-secondary/70">
-            <tr className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
-              <th className="px-4 py-3.5" scope="col">
-                Ngày
-              </th>
-              <th className="px-4 py-3.5" scope="col">
-                Bài giáo án
-              </th>
-              <th className="px-4 py-3.5" scope="col">
-                Công việc
-              </th>
-              <th className="px-4 py-3.5" scope="col">
-                Trạng thái
-              </th>
-              <th className="px-4 py-3.5" scope="col">
-                Contest / Link
-              </th>
-              <th className="px-4 py-3.5 text-right" scope="col">
-                Thao tác
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {Array.from({ length: rows }).map((_, index) => (
-              <tr
-                key={`work-sk-${index}`}
-                className="border-t border-border-default/80"
-              >
-                <td className="px-4 py-4 align-top">
-                  <div className="h-8 w-24 animate-pulse rounded-full bg-bg-tertiary" />
-                </td>
-                <td className="px-4 py-4 align-top">
-                  <div className="h-5 w-full max-w-[16rem] animate-pulse rounded bg-bg-tertiary" />
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <div className="h-6 w-[4.5rem] animate-pulse rounded-full bg-bg-tertiary/85" />
-                    <div className="h-6 w-20 animate-pulse rounded-full bg-bg-tertiary/70" />
-                  </div>
-                  <div className="mt-3 h-4 w-32 animate-pulse rounded bg-bg-tertiary/65" />
-                </td>
-                <td className="px-4 py-4 align-top">
-                  <div className="h-4 w-full max-w-[10rem] animate-pulse rounded bg-bg-tertiary/85" />
-                  <div className="mt-3 h-4 w-24 animate-pulse rounded bg-bg-tertiary/70" />
-                </td>
-                <td className="px-4 py-4 align-top">
+    <>
+      <div className="space-y-3 md:hidden">
+        {Array.from({ length: rows }).map((_, index) => (
+          <div
+            key={`work-mobile-sk-${index}`}
+            className="rounded-[1.35rem] border border-border-default bg-bg-surface p-4 shadow-sm"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="h-3 w-20 animate-pulse rounded-full bg-bg-tertiary/80" />
+                <div className="h-5 w-3/4 animate-pulse rounded-full bg-bg-tertiary" />
+                <div className="h-4 w-28 animate-pulse rounded-full bg-bg-tertiary/65" />
+              </div>
+              <div className="flex gap-2">
+                <div className="h-10 w-10 animate-pulse rounded-xl bg-bg-tertiary/85" />
+                <div className="h-10 w-10 animate-pulse rounded-xl bg-bg-tertiary/65" />
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              <div className="rounded-2xl border border-border-default/70 bg-bg-secondary/30 p-3">
+                <div className="h-3 w-20 animate-pulse rounded-full bg-bg-tertiary/80" />
+                <div className="mt-3 h-4 w-full animate-pulse rounded-full bg-bg-tertiary/70" />
+                <div className="mt-2 h-4 w-3/4 animate-pulse rounded-full bg-bg-tertiary/55" />
+              </div>
+              <div className="rounded-2xl border border-border-default/70 bg-bg-secondary/30 p-3">
+                <div className="h-3 w-24 animate-pulse rounded-full bg-bg-tertiary/80" />
+                <div className="mt-3 flex flex-wrap gap-2">
                   <div className="h-7 w-28 animate-pulse rounded-full bg-bg-tertiary" />
-                  <div className="mt-3 h-7 w-full max-w-[8rem] animate-pulse rounded-full bg-bg-tertiary/80" />
-                </td>
-                <td className="px-4 py-4 align-top">
-                  <div className="h-4 w-full max-w-[10rem] animate-pulse rounded bg-bg-tertiary/85" />
-                  <div className="mt-3 h-4 w-full max-w-[8rem] animate-pulse rounded bg-bg-tertiary/70" />
-                </td>
-                <td className="px-4 py-4 align-top">
-                  <div className="ml-auto flex flex-wrap justify-end gap-2">
-                    <div className="h-10 w-full max-w-[5rem] animate-pulse rounded-xl bg-bg-tertiary" />
-                    <div className="size-10 animate-pulse rounded-xl bg-bg-tertiary/85" />
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  <div className="h-7 w-32 animate-pulse rounded-full bg-bg-tertiary/75" />
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
-    </div>
+
+      <div className="hidden overflow-hidden rounded-[1.35rem] border border-border-default bg-bg-surface shadow-sm md:block">
+        <div className="overflow-x-auto">
+          <table className="w-full table-fixed border-collapse text-left">
+            <colgroup>
+              <col style={{ width: "13%" }} />
+              <col style={{ width: "29%" }} />
+              <col style={{ width: "18%" }} />
+              <col style={{ width: "15%" }} />
+              <col style={{ width: "15%" }} />
+              <col style={{ width: "10%" }} />
+            </colgroup>
+            <thead className="bg-bg-secondary/70">
+              <tr className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
+                <th className="px-4 py-3.5" scope="col">
+                  Ngày
+                </th>
+                <th className="px-4 py-3.5" scope="col">
+                  Bài giáo án
+                </th>
+                <th className="px-4 py-3.5" scope="col">
+                  Công việc
+                </th>
+                <th className="px-4 py-3.5" scope="col">
+                  Trạng thái
+                </th>
+                <th className="px-4 py-3.5" scope="col">
+                  Contest / Link
+                </th>
+                <th className="px-4 py-3.5 text-right" scope="col">
+                  Thao tác
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: rows }).map((_, index) => (
+                <tr
+                  key={`work-sk-${index}`}
+                  className="border-t border-border-default/80"
+                >
+                  <td className="px-4 py-4 align-top">
+                    <div className="h-8 w-24 animate-pulse rounded-full bg-bg-tertiary" />
+                  </td>
+                  <td className="px-4 py-4 align-top">
+                    <div className="h-5 w-full max-w-[16rem] animate-pulse rounded bg-bg-tertiary" />
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <div className="h-6 w-[4.5rem] animate-pulse rounded-full bg-bg-tertiary/85" />
+                      <div className="h-6 w-20 animate-pulse rounded-full bg-bg-tertiary/70" />
+                    </div>
+                    <div className="mt-3 h-4 w-32 animate-pulse rounded bg-bg-tertiary/65" />
+                  </td>
+                  <td className="px-4 py-4 align-top">
+                    <div className="h-4 w-full max-w-[10rem] animate-pulse rounded bg-bg-tertiary/85" />
+                    <div className="mt-3 h-4 w-24 animate-pulse rounded bg-bg-tertiary/70" />
+                  </td>
+                  <td className="px-4 py-4 align-top">
+                    <div className="h-7 w-28 animate-pulse rounded-full bg-bg-tertiary" />
+                    <div className="mt-3 h-7 w-full max-w-[8rem] animate-pulse rounded-full bg-bg-tertiary/80" />
+                  </td>
+                  <td className="px-4 py-4 align-top">
+                    <div className="h-4 w-full max-w-[10rem] animate-pulse rounded bg-bg-tertiary/85" />
+                    <div className="mt-3 h-4 w-full max-w-[8rem] animate-pulse rounded bg-bg-tertiary/70" />
+                  </td>
+                  <td className="px-4 py-4 align-top">
+                    <div className="ml-auto flex flex-wrap justify-end gap-2">
+                      <div className="h-10 w-full max-w-[5rem] animate-pulse rounded-xl bg-bg-tertiary" />
+                      <div className="size-10 animate-pulse rounded-xl bg-bg-tertiary/85" />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -549,7 +605,7 @@ export default function LessonWorkTab() {
               </p>
             </div>
 
-            <div className="flex items-center gap-2 self-start lg:self-auto">
+            <div className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 self-start lg:w-auto lg:self-auto">
               <button
                 type="button"
                 onClick={() => handleMonthStep(-1)}
@@ -560,11 +616,11 @@ export default function LessonWorkTab() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
-              <div className="rounded-2xl border border-border-default bg-bg-surface px-4 py-2.5 text-center shadow-sm">
+              <div className="min-w-0 rounded-2xl border border-border-default bg-bg-surface px-4 py-2.5 text-center shadow-sm">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">
                   Tháng đang xem
                 </p>
-                <p className="mt-1 text-sm font-semibold tabular-nums text-text-primary">
+                <p className="mt-1 truncate text-sm font-semibold tabular-nums text-text-primary">
                   {formatMonthLabel(workYear, workMonth)}
                 </p>
               </div>
@@ -585,7 +641,156 @@ export default function LessonWorkTab() {
         <div className="px-4 py-4 sm:px-5 sm:py-5">
           {outputs.length > 0 ? (
             <div className="overflow-hidden rounded-[1.35rem] border border-border-default bg-bg-surface shadow-sm">
-              <div className="overflow-x-auto">
+              <div className="space-y-3 p-3 md:hidden">
+                {outputs.map((output) => {
+                  const detailHref = buildOutputHref(
+                    output.id,
+                    workPage,
+                    workYear,
+                    workMonth,
+                  );
+                  const linkUrl = resolvePrimaryLink(output);
+                  const linkLabel = linkUrl.replace(/^https?:\/\//, "");
+                  const taskLabel =
+                    output.task?.title?.trim() || "Bài độc lập";
+                  const staffLabel =
+                    output.staffDisplayName?.trim() || "Chưa gán";
+                  const contestLabel =
+                    output.contestUploaded?.trim() ||
+                    "Chưa ghi cuộc thi / bộ đề";
+                  const visibleTags = output.tags.slice(0, 3);
+                  const extraTagCount = output.tags.length - visibleTags.length;
+
+                  return (
+                    <article
+                      key={output.id}
+                      className="rounded-[1.45rem] border border-border-default bg-bg-surface p-4 shadow-sm"
+                    >
+                      <div className="flex items-start gap-3">
+                        <Link
+                          href={detailHref}
+                          className="group min-w-0 flex-1 rounded-[1.2rem] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                          aria-label={`Mở chỉnh sửa ${output.lessonName}`}
+                        >
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">
+                            Ngày làm
+                          </p>
+                          <span className="mt-2 inline-flex w-fit rounded-full border border-border-default bg-bg-secondary px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-text-secondary">
+                            {formatLessonDateOnly(output.date)}
+                          </span>
+                          <p className="mt-2 text-xs leading-5 text-text-muted">
+                            Cập nhật {formatLessonDateTime(output.updatedAt)}
+                          </p>
+
+                          <div className="mt-4 min-w-0">
+                            <p className="break-words text-base font-semibold leading-6 text-text-primary transition-colors group-hover:text-primary">
+                              {output.lessonName}
+                            </p>
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                              <LevelPill level={output.level} />
+                              {visibleTags.length > 0 ? (
+                                visibleTags.map((tag) => (
+                                  <span
+                                    key={`${output.id}-mobile-${tag}`}
+                                    className="rounded-full border border-border-default bg-bg-secondary px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.08em] text-text-secondary"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="rounded-full border border-dashed border-border-default px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.08em] text-text-muted">
+                                  Không tag
+                                </span>
+                              )}
+                              {extraTagCount > 0 ? (
+                                <span className="rounded-full bg-bg-secondary px-2.5 py-1 text-[11px] font-medium text-text-muted">
+                                  +{extraTagCount}
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+
+                          <div className="mt-4 grid gap-3">
+                            <WorkMetaBlock label="Công việc / Phụ trách">
+                              <p className="break-words text-sm font-medium leading-6 text-text-primary">
+                                {taskLabel}
+                              </p>
+                              <p className="mt-1 break-words text-sm leading-6 text-text-secondary">
+                                {staffLabel}
+                              </p>
+                            </WorkMetaBlock>
+
+                            <WorkMetaBlock label="Trạng thái">
+                              <div className="flex flex-wrap gap-2">
+                                <OutputStatusPill status={output.status} />
+                                <PaymentPill cost={output.cost} />
+                              </div>
+                            </WorkMetaBlock>
+
+                            <WorkMetaBlock label="Contest / Link">
+                              <p className="break-words text-sm leading-6 text-text-primary">
+                                {contestLabel}
+                              </p>
+                              <p className="mt-2 break-all text-xs leading-5 text-text-muted">
+                                {linkUrl
+                                  ? linkLabel
+                                  : "Chưa có liên kết công khai"}
+                              </p>
+                            </WorkMetaBlock>
+                          </div>
+                        </Link>
+
+                        <div className="flex shrink-0 items-center gap-2">
+                          <WorkActionButton
+                            label="Sửa bài giáo án"
+                            onClick={() => router.push(detailHref)}
+                            icon={
+                              <svg
+                                className="size-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                aria-hidden
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                />
+                              </svg>
+                            }
+                          />
+                          <WorkActionButton
+                            label="Xóa bài giáo án"
+                            tone="danger"
+                            disabled={deleteMutation.isPending}
+                            onClick={() => confirmDelete(output)}
+                            icon={
+                              <svg
+                                className="size-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                aria-hidden
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                            }
+                          />
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full table-fixed border-collapse text-left">
                   <colgroup>
                     <col style={{ width: "13%" }} />

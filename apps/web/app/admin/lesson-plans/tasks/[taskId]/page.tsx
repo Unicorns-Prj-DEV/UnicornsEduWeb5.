@@ -318,11 +318,11 @@ export default function AdminLessonTaskDetailPage() {
                     </p>
                   </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditPopupOpen(true)}
-                    className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditPopupOpen(true)}
+                      className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                     >
                       Chỉnh sửa công việc
                     </button>
@@ -349,8 +349,28 @@ export default function AdminLessonTaskDetailPage() {
               </div>
             </section>
 
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-              <section className="rounded-[1.75rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
+            <section className="rounded-[1.75rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
+                    Ghi chú
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold text-text-primary">
+                    Mô tả
+                  </h2>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-[1.35rem] border border-border-default bg-bg-secondary/45 p-4">
+                <p className="whitespace-pre-wrap text-sm leading-7 text-text-secondary">
+                  {task.description?.trim() ||
+                    "Chưa có mô tả chi tiết."}
+                </p>
+              </div>
+            </section>
+
+            <div className="gap-6 flex flex-col md:flex-row">
+              <section className="rounded-[1.75rem] flex-1 border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
@@ -378,7 +398,7 @@ export default function AdminLessonTaskDetailPage() {
                 </div>
               </section>
 
-              <section className="rounded-[1.75rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
+              <section className="rounded-[1.75rem] flex-1 border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
                     Execution
@@ -406,29 +426,8 @@ export default function AdminLessonTaskDetailPage() {
               </section>
             </div>
 
-            <section className="rounded-[1.75rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
-                    Ghi chú
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold text-text-primary">
-                    Mô tả và ngữ cảnh
-                  </h2>
-                </div>
-                <p className="text-xs text-text-muted">Mã: {task.id}</p>
-              </div>
-
-              <div className="mt-4 rounded-[1.35rem] border border-border-default bg-bg-secondary/45 p-4">
-                <p className="whitespace-pre-wrap text-sm leading-7 text-text-secondary">
-                  {task.description?.trim() ||
-                    "Chưa có mô tả chi tiết."}
-                </p>
-              </div>
-            </section>
-
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-              <section className="rounded-[1.75rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
+            <div className="gap-6 flex flex-col">
+              <section className="rounded-[1.75rem] flex-1 border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
@@ -500,7 +499,7 @@ export default function AdminLessonTaskDetailPage() {
                 </div>
               </section>
 
-              <section className="rounded-[1.75rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
+              <section className="rounded-[1.75rem] flex-1 border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
                     Tài nguyên
