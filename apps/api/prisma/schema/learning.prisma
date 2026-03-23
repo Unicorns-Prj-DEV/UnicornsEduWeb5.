@@ -101,6 +101,7 @@ model Attendance {
   @@unique([sessionId, studentId])
   @@index([sessionId])
   @@index([studentId])
+  @@index([customerCareStaffId, customerCarePaymentStatus])
   @@map("attendance")
 }
 

@@ -20,6 +20,7 @@ export interface StaffListItem {
     user?: { province?: string | null } | null;
     classTeachers?: Array<{ class: { id: string; name: string } }>;
     monthlyStats?: Array<{ totalUnpaidAll?: number | null }>;
+    unpaidAmountTotal?: number | null;
 }
 
 export interface CustomerCareStaffOption {
@@ -108,6 +109,7 @@ export interface StaffIncomeSummary {
     monthlyIncomeTotals: StaffIncomeAmountSummary;
     sessionMonthlyTotals: StaffIncomeAmountSummary;
     sessionYearTotal: number;
+    yearIncomeTotal: number;
     depositYearTotal: number;
     depositYearByClass: StaffIncomeDepositClassSummary[];
     classMonthlySummaries: StaffIncomeClassSummary[];

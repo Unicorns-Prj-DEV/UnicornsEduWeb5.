@@ -65,7 +65,15 @@ export async function getStaff(params: {
 
     const payload = response.data as StaffListResponse;
     return {
-        data: Array.isArray(payload?.data) ? payload.data : [],
+        data: Array.isArray(payload?.data)
+            ? payload.data.map((item) => ({
+                ...item,
+                unpaidAmountTotal:
+                    typeof item?.unpaidAmountTotal === "number" && Number.isFinite(item.unpaidAmountTotal)
+                        ? item.unpaidAmountTotal
+                        : 0,
+            }))
+            : [],
         meta: {
             total: payload?.meta?.total ?? 0,
             page: payload?.meta?.page ?? params.page,

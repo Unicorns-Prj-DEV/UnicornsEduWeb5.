@@ -561,7 +561,8 @@ export default function AdminStaffPage() {
             <>
               <div className="block space-y-3 md:hidden" role="list" aria-label="Danh sách nhân sự">
                 {staffRows.map((row) => {
-                  const unpaid = row.monthlyStats?.[0]?.totalUnpaidAll;
+                  const unpaid = row.unpaidAmountTotal ?? 0;
+                  const hasUnpaid = unpaid > 0;
                   const classItems =
                     row.classTeachers
                       ?.map((ct) => ({ id: ct.class.id, name: ct.class.name?.trim() }))
@@ -649,8 +650,8 @@ export default function AdminStaffPage() {
                         ) : null}
                       </div>
 
-                      <p className="mt-2 text-sm tabular-nums text-text-primary">
-                        Chưa thanh toán: {formatCurrency(unpaid ?? undefined)}
+                      <p className={`mt-2 text-sm tabular-nums ${hasUnpaid ? "font-semibold text-error" : "text-text-primary"}`}>
+                        Chưa thanh toán: {formatCurrency(unpaid)}
                       </p>
                     </article>
                   );
@@ -675,7 +676,8 @@ export default function AdminStaffPage() {
                   </thead>
                   <tbody>
                     {staffRows.map((row) => {
-                      const unpaid = row.monthlyStats?.[0]?.totalUnpaidAll;
+                      const unpaid = row.unpaidAmountTotal ?? 0;
+                      const hasUnpaid = unpaid > 0;
                       const classItems =
                         row.classTeachers
                           ?.map((ct) => ({ id: ct.class.id, name: ct.class.name?.trim() }))
@@ -743,8 +745,8 @@ export default function AdminStaffPage() {
                               )}
                             </div>
                           </td>
-                          <td className="w-[15%] min-w-0 px-4 py-3 tabular-nums text-text-primary">
-                            {formatCurrency(unpaid ?? undefined)}
+                          <td className={`w-[15%] min-w-0 px-4 py-3 tabular-nums ${hasUnpaid ? "font-semibold text-error" : "text-text-primary"}`}>
+                            {formatCurrency(unpaid)}
                           </td>
                           <td className="w-[17%] min-w-16 px-4 py-3" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-end opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">

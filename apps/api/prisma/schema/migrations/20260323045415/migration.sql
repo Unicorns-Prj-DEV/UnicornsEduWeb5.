@@ -1,0 +1,2 @@
+-- RenameIndex
+ALTER INDEX "attendance_customer_care_staff_id_customer_care_payment_status_" RENAME TO "attendance_customer_care_staff_id_customer_care_payment_sta_idx";

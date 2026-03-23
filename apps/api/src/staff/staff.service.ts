@@ -157,6 +157,11 @@ type RolePaymentSummaryRow = {
   totalAmount: number | string | null;
 };
 
+type StaffUnpaidTotalRow = {
+  staffId: string;
+  totalUnpaid: number | string | null;
+};
+
 type DepositSessionRow = {
   id: string;
   classId: string;
@@ -464,16 +469,17 @@ export class StaffService {
         classTeachers: {
           include: { class: { select: { id: true, name: true } } },
         },
-        monthlyStats: {
-          orderBy: { month: 'desc' },
-          take: 1,
-          select: { totalUnpaidAll: true },
-        },
       },
     });
+    const unpaidTotalsByStaffId = await this.getUnpaidTotalsByStaffIds(
+      data.map((staff) => staff.id),
+    );
 
     return {
-      data,
+      data: data.map((staff) => ({
+        ...staff,
+        unpaidAmountTotal: unpaidTotalsByStaffId.get(staff.id) ?? 0,
+      })),
       meta: {
         total,
         page: safePage,
@@ -675,6 +681,118 @@ export class StaffService {
     `);
   }
 
+  private async getUnpaidTotalsByStaffIds(staffIds: string[]) {
+    const normalizedStaffIds = Array.from(
+      new Set(
+        staffIds
+          .map((staffId) => staffId.trim())
+          .filter((staffId) => staffId.length > 0),
+      ),
+    );
+
+    if (normalizedStaffIds.length === 0) {
+      return new Map<string, number>();
+    }
+
+    const rows = await this.prisma.$queryRaw<StaffUnpaidTotalRow[]>(Prisma.sql`
+      WITH target_staff AS (
+        SELECT id
+        FROM staff_info
+        WHERE id IN (${Prisma.join(normalizedStaffIds)})
+      ),
+      teacher_session_allowances AS (
+        SELECT
+          sessions.teacher_id AS staff_id,
+          LEAST(
+            COALESCE(
+              classes.max_allowance_per_session,
+              (
+                (COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (WHERE attendance.status = 'present')) +
+                COALESCE(classes.scale_amount, 0)
+              ) * COALESCE(sessions.coefficient, 1)
+            ),
+            (
+              (COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (WHERE attendance.status = 'present')) +
+              COALESCE(classes.scale_amount, 0)
+            ) * COALESCE(sessions.coefficient, 1)
+          ) AS amount
+        FROM attendance
+        INNER JOIN sessions ON attendance.session_id = sessions.id
+        INNER JOIN classes ON classes.id = sessions.class_id
+        INNER JOIN target_staff ON target_staff.id = sessions.teacher_id
+        WHERE LOWER(COALESCE(sessions.teacher_payment_status, '')) = 'unpaid'
+        GROUP BY
+          sessions.teacher_id,
+          sessions.id,
+          sessions.allowance_amount,
+          classes.scale_amount,
+          classes.max_allowance_per_session,
+          sessions.coefficient
+      ),
+      session_unpaid AS (
+        SELECT
+          staff_id,
+          COALESCE(SUM(amount), 0) AS amount
+        FROM teacher_session_allowances
+        GROUP BY staff_id
+      ),
+      bonus_unpaid AS (
+        SELECT
+          bonuses.staff_id AS staff_id,
+          COALESCE(SUM(bonuses.amount), 0) AS amount
+        FROM bonuses
+        INNER JOIN target_staff ON target_staff.id = bonuses.staff_id
+        WHERE bonuses.status::text = 'pending'
+        GROUP BY bonuses.staff_id
+      ),
+      customer_care_unpaid AS (
+        SELECT
+          attendance.customer_care_staff_id AS staff_id,
+          COALESCE(
+            SUM(
+              ROUND(
+                (COALESCE(attendance.tuition_fee, 0) * COALESCE(attendance.customer_care_coef, 0))::numeric,
+                0
+              )
+            ),
+            0
+          ) AS amount
+        FROM attendance
+        INNER JOIN target_staff ON target_staff.id = attendance.customer_care_staff_id
+        WHERE COALESCE(attendance.customer_care_payment_status::text, 'pending') = 'pending'
+        GROUP BY attendance.customer_care_staff_id
+      ),
+      lesson_output_unpaid AS (
+        SELECT
+          lesson_outputs.staff_id AS staff_id,
+          COALESCE(SUM(lesson_outputs.cost), 0) AS amount
+        FROM lesson_outputs
+        INNER JOIN target_staff ON target_staff.id = lesson_outputs.staff_id
+        WHERE lesson_outputs.payment_status::text = 'pending'
+        GROUP BY lesson_outputs.staff_id
+      ),
+      all_unpaid AS (
+        SELECT staff_id, amount FROM session_unpaid
+        UNION ALL
+        SELECT staff_id, amount FROM bonus_unpaid
+        UNION ALL
+        SELECT staff_id, amount FROM customer_care_unpaid
+        UNION ALL
+        SELECT staff_id, amount FROM lesson_output_unpaid
+      )
+      SELECT
+        target_staff.id AS "staffId",
+        COALESCE(SUM(all_unpaid.amount), 0) AS "totalUnpaid"
+      FROM target_staff
+      LEFT JOIN all_unpaid ON all_unpaid.staff_id = target_staff.id
+      GROUP BY target_staff.id
+    `);
+
+    return new Map(
+      rows.map((row) => [row.staffId, normalizeMoneyAmount(row.totalUnpaid)]),
+    );
+  }
+
   async getIncomeSummary(
     id: string,
     query: {
@@ -714,8 +832,11 @@ export class StaffService {
       depositSessionRows,
       recentUnpaidSessionRows,
       monthlyBonuses,
+      yearBonuses,
       customerCareMonthlyRows,
+      customerCareYearRows,
       lessonOutputMonthlyRows,
+      lessonOutputYearRows,
     ] = await Promise.all([
       this.getTeacherAllowanceRowsByClassAndStatus({
         teacherId: id,
@@ -749,8 +870,36 @@ export class StaffService {
           status: true,
         },
       }),
+      this.prisma.bonus.findMany({
+        where: {
+          staffId: id,
+          month: {
+            startsWith: `${query.year}-`,
+          },
+        },
+        select: {
+          amount: true,
+        },
+      }),
       staff.roles.includes(StaffRole.customer_care)
         ? this.getCustomerCareCommissionRowsByStatus({
+            staffId: id,
+            start: range.start,
+            end: range.end,
+          })
+        : Promise.resolve<RolePaymentSummaryRow[]>([]),
+      staff.roles.includes(StaffRole.customer_care)
+        ? this.getCustomerCareCommissionRowsByStatus({
+            staffId: id,
+            start: range.yearStart,
+            end: range.yearEnd,
+          })
+        : Promise.resolve<RolePaymentSummaryRow[]>([]),
+      staff.roles.some(
+        (role) =>
+          role === StaffRole.lesson_plan || role === StaffRole.lesson_plan_head,
+      )
+        ? this.getLessonOutputRowsByPaymentStatus({
             staffId: id,
             start: range.start,
             end: range.end,
@@ -762,8 +911,8 @@ export class StaffService {
       )
         ? this.getLessonOutputRowsByPaymentStatus({
             staffId: id,
-            start: range.start,
-            end: range.end,
+            start: range.yearStart,
+            end: range.yearEnd,
           })
         : Promise.resolve<RolePaymentSummaryRow[]>([]),
     ]);
@@ -877,6 +1026,24 @@ export class StaffService {
       lessonOutputMonthlyTotals,
     ].reduce(mergeAmountSummary, makeAmountSummary());
 
+    const bonusYearTotal = yearBonuses.reduce(
+      (sum, bonus) => sum + normalizeMoneyAmount(bonus.amount),
+      0,
+    );
+    const customerCareYearTotal = customerCareYearRows.reduce(
+      (sum, row) => sum + normalizeMoneyAmount(row.totalAmount),
+      0,
+    );
+    const lessonOutputYearTotal = lessonOutputYearRows.reduce(
+      (sum, row) => sum + normalizeMoneyAmount(row.totalAmount),
+      0,
+    );
+    const yearIncomeTotal =
+      sessionYearTotal +
+      bonusYearTotal +
+      customerCareYearTotal +
+      lessonOutputYearTotal;
+
     const lessonRoleForOutputs = staff.roles.includes(
       StaffRole.lesson_plan_head,
     )
@@ -980,6 +1147,7 @@ export class StaffService {
       monthlyIncomeTotals,
       sessionMonthlyTotals,
       sessionYearTotal,
+      yearIncomeTotal,
       depositYearTotal,
       depositYearByClass,
       classMonthlySummaries: Array.from(classSummaryById.values()).sort(

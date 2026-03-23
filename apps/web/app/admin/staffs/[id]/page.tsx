@@ -258,7 +258,7 @@ export default function AdminStaffDetailPage() {
   const province = staff?.user?.province || "—";
   const classMonthlySummaries = incomeSummary?.classMonthlySummaries ?? [];
   const monthlyIncomeTotals = incomeSummary?.monthlyIncomeTotals ?? EMPTY_AMOUNT_SUMMARY;
-  const sessionYearTotal = incomeSummary?.sessionYearTotal ?? 0;
+  const yearIncomeTotal = incomeSummary?.yearIncomeTotal ?? 0;
   const depositYearTotal = incomeSummary?.depositYearTotal ?? 0;
   const depositByClass = incomeSummary?.depositYearByClass ?? [];
   const bonusTotals = incomeSummary?.bonusMonthlyTotals ?? EMPTY_AMOUNT_SUMMARY;
@@ -661,7 +661,7 @@ export default function AdminStaffDetailPage() {
             </div>
             <div className="flex justify-between rounded-lg border border-border-default bg-bg-secondary/40 px-4 py-3">
               <span className="text-sm text-text-primary">Tổng năm</span>
-              <span className="tabular-nums text-sm font-semibold text-warning">{formatCurrency(sessionYearTotal)}</span>
+              <span className="tabular-nums text-sm font-semibold text-warning">{formatCurrency(yearIncomeTotal)}</span>
             </div>
             <div className="flex justify-between rounded-lg border border-border-default bg-bg-secondary/40 px-4 py-3">
               <span className="text-sm text-text-primary">Ghi cọc</span>
@@ -706,7 +706,7 @@ export default function AdminStaffDetailPage() {
                   <td className="px-4 py-3 tabular-nums font-semibold text-primary">{formatCurrency(monthlyIncomeTotals.total)}</td>
                   <td className="px-4 py-3 tabular-nums font-semibold text-error">{formatCurrency(monthlyIncomeTotals.unpaid)}</td>
                   <td className="px-4 py-3 tabular-nums font-semibold text-success">{formatCurrency(monthlyIncomeTotals.paid)}</td>
-                  <td className="px-4 py-3 tabular-nums font-semibold text-warning">{formatCurrency(sessionYearTotal)}</td>
+                  <td className="px-4 py-3 tabular-nums font-semibold text-warning">{formatCurrency(yearIncomeTotal)}</td>
                   <td className="px-4 py-3 tabular-nums font-semibold text-warning">
                     {depositYearTotal > 0 ? (
                       <button

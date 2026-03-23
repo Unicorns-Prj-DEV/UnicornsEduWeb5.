@@ -136,6 +136,7 @@ export interface StaffIncomeSummaryDto {
   monthlyIncomeTotals: StaffIncomeAmountSummaryDto;
   sessionMonthlyTotals: StaffIncomeAmountSummaryDto;
   sessionYearTotal: number;
+  yearIncomeTotal: number;
   depositYearTotal: number;
   depositYearByClass: StaffIncomeDepositClassSummaryDto[];
   classMonthlySummaries: StaffIncomeClassSummaryDto[];

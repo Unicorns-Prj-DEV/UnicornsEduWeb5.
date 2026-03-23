@@ -117,6 +117,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - Điểm danh theo từng session & student
 - Unique composite: `(session_id, student_id)`
 - Trạng thái dùng enum `AttendanceStatus`
+- Index read path bổ sung cho aggregate CSKH: `(customer_care_staff_id, customer_care_payment_status)`
 
 ### 4.7 Finance models
 - `bonuses`: khoản thưởng theo staff/tháng/trạng thái thanh toán

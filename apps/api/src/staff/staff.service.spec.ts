@@ -140,18 +140,27 @@ describe('StaffService', () => {
       roles: [StaffRole.customer_care, StaffRole.lesson_plan],
       classTeachers: [],
     });
-    mockPrisma.bonus.findMany.mockResolvedValue([
-      {
-        workType: 'CSKH',
-        amount: 5000,
-        status: PaymentStatus.pending,
-      },
-      {
-        workType: 'Giáo án',
-        amount: 10000,
-        status: PaymentStatus.paid,
-      },
-    ]);
+    mockPrisma.bonus.findMany
+      .mockResolvedValueOnce([
+        {
+          workType: 'CSKH',
+          amount: 5000,
+          status: PaymentStatus.pending,
+        },
+        {
+          workType: 'Giáo án',
+          amount: 10000,
+          status: PaymentStatus.paid,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          amount: 5000,
+        },
+        {
+          amount: 10000,
+        },
+      ]);
     mockPrisma.$queryRaw
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ totalAllowance: 0 }])
@@ -160,6 +169,14 @@ describe('StaffService', () => {
       .mockResolvedValueOnce([
         { paymentStatus: PaymentStatus.paid, totalAmount: 30000 },
         { paymentStatus: PaymentStatus.pending, totalAmount: 12000 },
+      ])
+      .mockResolvedValueOnce([
+        { paymentStatus: PaymentStatus.paid, totalAmount: 30000 },
+        { paymentStatus: PaymentStatus.pending, totalAmount: 12000 },
+      ])
+      .mockResolvedValueOnce([
+        { paymentStatus: PaymentStatus.paid, totalAmount: 80000 },
+        { paymentStatus: PaymentStatus.pending, totalAmount: 20000 },
       ])
       .mockResolvedValueOnce([
         { paymentStatus: PaymentStatus.paid, totalAmount: 80000 },
@@ -177,6 +194,7 @@ describe('StaffService', () => {
       paid: 120000,
       unpaid: 37000,
     });
+    expect(result.yearIncomeTotal).toBe(157000);
     expect(result.otherRoleSummaries).toEqual([
       {
         role: StaffRole.customer_care,
@@ -192,6 +210,50 @@ describe('StaffService', () => {
         paid: 90000,
         unpaid: 20000,
       },
+    ]);
+  });
+
+  it('returns authoritative unpaid totals for staff list rows', async () => {
+    mockPrisma.staffInfo.count.mockResolvedValue(1);
+    mockPrisma.staffInfo.findMany.mockResolvedValue([
+      {
+        id: 'staff-1',
+        fullName: 'Teacher A',
+        status: 'active',
+        roles: [StaffRole.teacher, StaffRole.customer_care],
+        user: {
+          province: 'Hanoi',
+        },
+        classTeachers: [],
+      },
+    ]);
+    mockPrisma.$queryRaw.mockResolvedValue([
+      {
+        staffId: 'staff-1',
+        totalUnpaid: 345000,
+      },
+    ]);
+
+    const result = await service.getStaff({
+      page: 1,
+      limit: 20,
+    });
+
+    expect(mockPrisma.staffInfo.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: {
+          user: { select: { province: true } },
+          classTeachers: {
+            include: { class: { select: { id: true, name: true } } },
+          },
+        },
+      }),
+    );
+    expect(result.data).toEqual([
+      expect.objectContaining({
+        id: 'staff-1',
+        unpaidAmountTotal: 345000,
+      }),
     ]);
   });
 });

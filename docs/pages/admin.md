@@ -50,11 +50,11 @@
   - `GET /staff?page=<number>&limit=<number>&search=<text>&status=<active|inactive>&classId=<class-id>&className=<text>&province=<text>&university=<text>&highSchool=<text>&role=<staff-role>`.
   - `GET /staff/assignable-users?email=<text>` tìm user theo email để gán vào hồ sơ gia sư; response trả thêm cờ `isEligible`, `hasStaffProfile`, `ineligibleReason`.
   - `GET /staff/customer-care-options?search=<text>&limit=<number>` trả danh sách rút gọn nhân sự có role `customer_care`, dùng cho combobox tìm CSKH theo họ tên ở form sửa học sinh.
-  - `GET /staff/:id/income-summary?month=<01-12>&year=<YYYY>&days=<number>` trả summary thu nhập authoritative từ BE cho card tổng tháng/tổng năm, `Ghi cọc` theo năm + danh sách buổi cọc theo lớp, theo lớp phụ trách, thưởng và công việc khác.
+  - `GET /staff/:id/income-summary?month=<01-12>&year=<YYYY>&days=<number>` trả summary thu nhập authoritative từ BE cho card tổng tháng/tổng năm; `Tổng năm` dùng field `yearIncomeTotal` đã cộng session, thưởng, CSKH và giáo án trong năm đang xem. `Ghi cọc` vẫn tách riêng theo năm + danh sách buổi cọc theo lớp.
   - Session allowance trong `income-summary` được tính ở DB layer theo công thức `min(max_allowance_per_session, (allowance_amount * attended_students + scale_amount) * coefficient)`, trong đó `attended_students` chỉ đếm attendance `present`.
   - `POST /staff` dùng để tạo hồ sơ nhân sự từ `user_id`; với luồng thêm gia sư từ admin page, FE gửi `roles=["teacher"]`.
   - `page` mặc định `1`, `limit` mặc định `20`, `limit` tối đa `100`.
-  - `GET /staff` trả response dạng `{ data, meta }` với `meta = { total, page, limit }`.
+  - `GET /staff` trả response dạng `{ data, meta }` với `meta = { total, page, limit }`; mỗi row trong `data` có thêm `unpaidAmountTotal` là tổng tiền chưa thanh toán authoritative từ session `teacher_payment_status = unpaid`, bonus `status = pending`, commission CSKH `customer_care_payment_status = pending/null`, và lesson output `payment_status = pending`.
   - `GET /staff/:id` trả thêm `classAllowance` (tổng hợp theo `class_id` + `teacher_payment_status`) để FE render cột `Tổng nhận / Chưa nhận / Đã nhận` theo lớp phụ trách.
   - `PATCH /staff` (update staff) hỗ trợ cập nhật thêm `status` (`active|inactive`) từ form “Chỉnh sửa thông tin nhân sự”.
   - Search và status filtering đã được chuyển xuống BE (`staff.service`) thay vì filter client-side.
@@ -62,6 +62,7 @@
   - `classId` lọc staff có dạy lớp tương ứng (match theo class ID qua `classTeachers`).
   - `province` lọc theo `user.province` bằng `contains`, không phân biệt hoa/thường.
   - FE `/admin/staff` dùng TanStack Query `useQuery` với query params (`page`, `limit`, `search`, `status`), và chỉ giữ pagination UI theo dữ liệu BE trả về.
+  - FE `/admin/staffs` cột **Chưa thanh toán** trên list page lấy trực tiếp từ `unpaidAmountTotal` của `GET /staff`; không còn đọc snapshot `monthlyStats.totalUnpaidAll`.
   - FE `/admin/staffs` có nút ở góc trên bên phải để thêm gia sư từ user đã tồn tại: popup tìm kiếm user bằng email, chỉ cho chọn user hợp lệ, sau đó tạo `staff_info` với role `teacher`.
   - Khi admin tạo hồ sơ gia sư thành công, backend sẽ cập nhật `users.role_type` của user được gán sang `staff` để tài khoản đó dùng được các luồng staff/teacher.
   - Xóa staff dùng TanStack Query `useMutation`; khi thành công sẽ invalidate query danh sách và hiển thị Sonner toast.
@@ -69,7 +70,7 @@
   - FE `/admin/staff/:id` đã kết nối lịch sử buổi học thật từ API `GET /sessions/staff/:staffId?month=&year=` (TanStack Query); có điều hướng tháng (prev/next) cho bảng lịch sử buổi học.
   - FE `/admin/staff/:id` thêm card riêng "Lịch sử buổi học" ở cuối trang để hiển thị bảng session theo tháng.
   - FE `/admin/staff/:id` phần Thống kê thu nhập dùng dữ liệu authoritative từ `GET /staff/:id/income-summary`; các số `Tổng tháng / Chưa nhận / Đã nhận` lấy từ field tổng hợp backend đã cộng session, thưởng, CSKH và giáo án trong tháng, FE không tự cộng thêm ở client.
-  - FE `/admin/staff/:id` thêm cột **Ghi cọc** cạnh **Tổng năm**. Giá trị và popup chi tiết lấy trực tiếp từ `GET /staff/:id/income-summary` qua `depositYearTotal` và `depositYearByClass`; tổng cọc và từng buổi cọc đều dùng cùng công thức trợ cấp authoritative từ BE, không lấy raw `sessions.allowance_amount`.
+  - FE `/admin/staff/:id` thêm cột **Ghi cọc** cạnh **Tổng năm**. `Tổng năm` lấy từ `yearIncomeTotal` của `GET /staff/:id/income-summary`, còn `Ghi cọc` và popup chi tiết lấy trực tiếp từ `depositYearTotal` và `depositYearByClass`; tổng cọc và từng buổi cọc đều dùng cùng công thức trợ cấp authoritative từ BE, không lấy raw `sessions.allowance_amount`.
   - FE `/admin/staff/:id` bảng **Công việc khác** lấy số tổng hợp trực tiếp từ `GET /staff/:id/income-summary`; CSKH được cộng từ attendance commission theo `customer_care_payment_status`, giáo án được cộng từ `lesson_outputs.cost` + `lesson_outputs.payment_status`, và bonus cùng role vẫn được gộp thêm trên BE. Khi role là CSKH (`customer_care`), bấm vào dòng (desktop) hoặc thẻ (mobile) sẽ chuyển sang `/admin/customer_care_detail/:id` (cùng staff id); khi role là `lesson_plan` hoặc `lesson_plan_head`, sẽ chuyển sang `/admin/lesson_plan_detail/:id`.
 - **Customer-care detail (FE `/admin/customer_care_detail/[staffId]`):**
   - Route dùng khi xem chi tiết công việc CSKH từ trang chi tiết nhân sự (bấm dòng CSKH trong bảng Công việc khác).
