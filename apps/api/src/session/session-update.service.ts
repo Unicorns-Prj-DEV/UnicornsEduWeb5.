@@ -6,6 +6,7 @@ import {
 import {
   AttendanceStatus,
   PaymentStatus,
+  SessionPaymentStatus,
   StaffRole,
   UserRole,
   WalletTransactionType,
@@ -14,7 +15,10 @@ import {
   ActionHistoryActor,
   ActionHistoryService,
 } from '../action-history/action-history.service';
-import { SessionUpdateDto } from '../dtos/session.dto';
+import {
+  SessionBulkPaymentStatusUpdateResult,
+  SessionUpdateDto,
+} from '../dtos/session.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { StaffOperationsAccessService } from '../staff-ops/staff-operations-access.service';
 import { SessionLedgerService } from './session-ledger.service';
@@ -22,6 +26,22 @@ import { SessionRosterService } from './session-roster.service';
 import { SessionSnapshotService } from './session-snapshot.service';
 import { SessionStudentBalanceService } from './session-student-balance.service';
 import { SessionValidationService } from './session-validation.service';
+
+function normalizeSessionPaymentStatus(
+  value?: string | null,
+): SessionPaymentStatus {
+  const normalized = String(value ?? SessionPaymentStatus.unpaid).toLowerCase();
+
+  if (normalized === SessionPaymentStatus.paid) {
+    return SessionPaymentStatus.paid;
+  }
+
+  if (normalized === SessionPaymentStatus.deposit) {
+    return SessionPaymentStatus.deposit;
+  }
+
+  return SessionPaymentStatus.unpaid;
+}
 
 @Injectable()
 export class SessionUpdateService {
@@ -36,6 +56,117 @@ export class SessionUpdateService {
     private readonly actionHistoryService: ActionHistoryService,
   ) {}
 
+  async updateSessionPaymentStatuses(
+    sessionIds: string[],
+    teacherPaymentStatus: SessionPaymentStatus,
+    actor?: ActionHistoryActor,
+  ): Promise<SessionBulkPaymentStatusUpdateResult> {
+    const uniqueSessionIds = Array.from(
+      new Set(
+        sessionIds.filter(
+          (sessionId): sessionId is string =>
+            typeof sessionId === 'string' && sessionId.trim().length > 0,
+        ),
+      ),
+    );
+
+    if (uniqueSessionIds.length === 0) {
+      throw new BadRequestException('sessionIds must contain at least one id.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const existingSessions = await tx.session.findMany({
+        where: {
+          id: {
+            in: uniqueSessionIds,
+          },
+        },
+        select: {
+          id: true,
+          teacherPaymentStatus: true,
+        },
+      });
+
+      if (existingSessions.length !== uniqueSessionIds.length) {
+        const existingIds = new Set(
+          existingSessions.map((session) => session.id),
+        );
+        const missingSessionId = uniqueSessionIds.find(
+          (sessionId) => !existingIds.has(sessionId),
+        );
+
+        throw new NotFoundException(
+          missingSessionId
+            ? `Session not found: ${missingSessionId}`
+            : 'Session not found',
+        );
+      }
+
+      const changedSessionIds = existingSessions
+        .filter(
+          (session) =>
+            normalizeSessionPaymentStatus(session.teacherPaymentStatus) !==
+            teacherPaymentStatus,
+        )
+        .map((session) => session.id);
+
+      if (changedSessionIds.length === 0) {
+        return {
+          requestedCount: uniqueSessionIds.length,
+          updatedCount: 0,
+        };
+      }
+
+      const beforeValueBySessionId = new Map<string, unknown>();
+      if (actor) {
+        for (const sessionId of changedSessionIds) {
+          beforeValueBySessionId.set(
+            sessionId,
+            await this.sessionSnapshotService.getSessionAuditSnapshot(
+              tx,
+              sessionId,
+            ),
+          );
+        }
+      }
+
+      await tx.session.updateMany({
+        where: {
+          id: {
+            in: changedSessionIds,
+          },
+        },
+        data: {
+          teacherPaymentStatus,
+        },
+      });
+
+      if (actor) {
+        for (const sessionId of changedSessionIds) {
+          const afterValue =
+            await this.sessionSnapshotService.getSessionAuditSnapshot(
+              tx,
+              sessionId,
+            );
+
+          await this.actionHistoryService.recordUpdate(tx, {
+            actor,
+            entityType: 'session',
+            entityId: sessionId,
+            description: 'Cập nhật trạng thái thanh toán buổi học',
+            beforeValue: beforeValueBySessionId.get(sessionId) ?? null,
+            afterValue,
+          });
+        }
+      }
+
+      return {
+        requestedCount: uniqueSessionIds.length,
+        updatedCount: changedSessionIds.length,
+      };
+    });
+  }
+
   async updateSession(data: SessionUpdateDto, actor?: ActionHistoryActor) {
     if (!data.id) {
       throw new BadRequestException('Session id is required');
@@ -49,7 +180,10 @@ export class SessionUpdateService {
 
     return this.prisma.$transaction(async (tx) => {
       const beforeValue = actor
-        ? await this.sessionSnapshotService.getSessionAuditSnapshot(tx, sessionId)
+        ? await this.sessionSnapshotService.getSessionAuditSnapshot(
+            tx,
+            sessionId,
+          )
         : null;
       const existingSession = await tx.session.findUnique({
         where: { id: sessionId },
@@ -598,10 +732,11 @@ export class SessionUpdateService {
       }
 
       if (actor) {
-        const afterValue = await this.sessionSnapshotService.getSessionAuditSnapshot(
-          tx,
-          sessionId,
-        );
+        const afterValue =
+          await this.sessionSnapshotService.getSessionAuditSnapshot(
+            tx,
+            sessionId,
+          );
 
         await this.actionHistoryService.recordUpdate(tx, {
           actor,
@@ -652,7 +787,10 @@ export class SessionUpdateService {
       throw new NotFoundException('Session not found');
     }
 
-    const actor = await this.staffOperationsAccess.resolveActor(userId, roleType);
+    const actor = await this.staffOperationsAccess.resolveActor(
+      userId,
+      roleType,
+    );
     if (actor.roles.includes(StaffRole.teacher)) {
       await this.staffOperationsAccess.assertTeacherAssignedToClass(
         actor.id,

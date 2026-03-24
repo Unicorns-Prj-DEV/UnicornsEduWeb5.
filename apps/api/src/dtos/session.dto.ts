@@ -1,6 +1,9 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
   IsArray,
   IsEnum,
   IsNumber,
@@ -13,7 +16,7 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { AttendanceStatus } from '../../generated/enums';
+import { AttendanceStatus, SessionPaymentStatus } from '../../generated/enums';
 import { AttendanceCreateDto, AttendanceUpdateDto } from './attendance.dto';
 
 export class SessionCreateDto {
@@ -120,6 +123,33 @@ export class SessionUpdateDto extends PartialType(SessionCreateDto) {
   @ValidateNested({ each: true })
   @Type(() => AttendanceUpdateDto)
   declare attendance?: AttendanceUpdateDto[];
+}
+
+export class SessionBulkPaymentStatusUpdateDto {
+  @ApiProperty({
+    description: 'Danh sách id session cần cập nhật trạng thái thanh toán.',
+    type: [String],
+    example: ['550e8400-e29b-41d4-a716-446655440000'],
+  })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(200)
+  @ArrayUnique()
+  @IsUUID(undefined, { each: true })
+  sessionIds: string[];
+
+  @ApiProperty({
+    description: 'Trạng thái thanh toán mới cho các session đã chọn.',
+    enum: SessionPaymentStatus,
+    example: SessionPaymentStatus.paid,
+  })
+  @IsEnum(SessionPaymentStatus)
+  teacherPaymentStatus: SessionPaymentStatus;
+}
+
+export interface SessionBulkPaymentStatusUpdateResult {
+  requestedCount: number;
+  updatedCount: number;
 }
 
 export interface SessionUnpaidSummaryItem {

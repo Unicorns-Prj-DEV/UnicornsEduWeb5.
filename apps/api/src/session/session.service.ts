@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import {
+  SessionBulkPaymentStatusUpdateResult,
   SessionCreateDto,
   SessionUnpaidSummaryItem,
   SessionUpdateDto,
 } from '../dtos/session.dto';
-import { UserRole } from '../../generated/enums';
+import { SessionPaymentStatus, UserRole } from '../../generated/enums';
 import { ActionHistoryActor } from '../action-history/action-history.service';
 import { SessionCreateService } from './session-create.service';
 import { SessionDeleteService } from './session-delete.service';
@@ -52,6 +53,18 @@ export class SessionService {
 
   updateSession(data: SessionUpdateDto, actor?: ActionHistoryActor) {
     return this.sessionUpdateService.updateSession(data, actor);
+  }
+
+  updateSessionPaymentStatuses(
+    sessionIds: string[],
+    teacherPaymentStatus: SessionPaymentStatus,
+    actor?: ActionHistoryActor,
+  ): Promise<SessionBulkPaymentStatusUpdateResult> {
+    return this.sessionUpdateService.updateSessionPaymentStatuses(
+      sessionIds,
+      teacherPaymentStatus,
+      actor,
+    );
   }
 
   updateSessionForStaff(

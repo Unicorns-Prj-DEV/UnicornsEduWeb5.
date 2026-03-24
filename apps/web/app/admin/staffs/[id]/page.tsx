@@ -1,7 +1,12 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import * as classApi from "@/lib/apis/class.api";
@@ -112,9 +117,12 @@ export default function AdminStaffDetailPage() {
   const [qrLink, setQrLink] = useState<string | null>(null);
   const [qrPopupOpen, setQrPopupOpen] = useState(false);
   const [addBonusPopupOpen, setAddBonusPopupOpen] = useState(false);
-  const [bonusFormMode, setBonusFormMode] = useState<"create" | "edit">("create");
+  const [bonusFormMode, setBonusFormMode] = useState<"create" | "edit">(
+    "create",
+  );
   const [editingBonusId, setEditingBonusId] = useState<string | null>(null);
-  const [bonusForm, setBonusForm] = useState<BonusFormState>(DEFAULT_BONUS_FORM);
+  const [bonusForm, setBonusForm] =
+    useState<BonusFormState>(DEFAULT_BONUS_FORM);
   const [workTypeMenuOpen, setWorkTypeMenuOpen] = useState(false);
   const [workTypeSearch, setWorkTypeSearch] = useState("");
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
@@ -122,7 +130,11 @@ export default function AdminStaffDetailPage() {
   const workTypeMenuRef = useRef<HTMLDivElement | null>(null);
   const statusMenuRef = useRef<HTMLDivElement | null>(null);
 
-  const { data: staff, isLoading, isError } = useQuery<StaffDetail>({
+  const {
+    data: staff,
+    isLoading,
+    isError,
+  } = useQuery<StaffDetail>({
     queryKey: ["staff", "detail", id],
     queryFn: () => staffApi.getStaffById(id),
     enabled: !!id,
@@ -158,7 +170,14 @@ export default function AdminStaffDetailPage() {
     isError: isIncomeSummaryError,
     isLoading: isIncomeSummaryLoading,
   } = useQuery<StaffIncomeSummary>({
-    queryKey: ["staff", "income-summary", id, selectedYear, selectedMonthValue, RECENT_UNPAID_DAYS],
+    queryKey: [
+      "staff",
+      "income-summary",
+      id,
+      selectedYear,
+      selectedMonthValue,
+      RECENT_UNPAID_DAYS,
+    ],
     queryFn: () =>
       staffApi.getStaffIncomeSummary(id, {
         month: selectedMonthValue,
@@ -168,7 +187,6 @@ export default function AdminStaffDetailPage() {
     enabled: !!id,
     placeholderData: keepPreviousData,
   });
-
 
   const handleSessionUpdated = useCallback(() => {
     queryClient.invalidateQueries({
@@ -189,7 +207,10 @@ export default function AdminStaffDetailPage() {
 
   const getTeachersForClass = useCallback(async (classId: string) => {
     const detail = await classApi.getClassById(classId);
-    return (detail.teachers ?? []).map((t) => ({ id: t.id, fullName: t.fullName }));
+    return (detail.teachers ?? []).map((t) => ({
+      id: t.id,
+      fullName: t.fullName,
+    }));
   }, []);
 
   const getClassStudents = useCallback(async (classId: string) => {
@@ -223,7 +244,12 @@ export default function AdminStaffDetailPage() {
   }, [bonusListResponse]);
 
   const bonuses = useMemo<
-    { id: string; workType: string; status: "paid" | "unpaid" | "deposit"; amount: number }[]
+    {
+      id: string;
+      workType: string;
+      status: "paid" | "unpaid" | "deposit";
+      amount: number;
+    }[]
   >(
     () =>
       bonusRecords.map((item) => ({
@@ -242,7 +268,9 @@ export default function AdminStaffDetailPage() {
   const filteredWorkTypeOptions = useMemo(() => {
     const needle = workTypeSearch.trim().toLowerCase();
     if (!needle) return workTypeOptions;
-    return workTypeOptions.filter((item) => item.toLowerCase().includes(needle));
+    return workTypeOptions.filter((item) =>
+      item.toLowerCase().includes(needle),
+    );
   }, [workTypeOptions, workTypeSearch]);
 
   const resolvedQrLink = useMemo(() => {
@@ -257,7 +285,8 @@ export default function AdminStaffDetailPage() {
 
   const province = staff?.user?.province || "—";
   const classMonthlySummaries = incomeSummary?.classMonthlySummaries ?? [];
-  const monthlyIncomeTotals = incomeSummary?.monthlyIncomeTotals ?? EMPTY_AMOUNT_SUMMARY;
+  const monthlyIncomeTotals =
+    incomeSummary?.monthlyIncomeTotals ?? EMPTY_AMOUNT_SUMMARY;
   const yearIncomeTotal = incomeSummary?.yearIncomeTotal ?? 0;
   const depositYearTotal = incomeSummary?.depositYearTotal ?? 0;
   const depositByClass = incomeSummary?.depositYearByClass ?? [];
@@ -277,7 +306,8 @@ export default function AdminStaffDetailPage() {
     },
     onError: (err: unknown) => {
       const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ??
         (err as Error)?.message ??
         "Không thể xóa thưởng.";
       toast.error(msg);
@@ -302,7 +332,8 @@ export default function AdminStaffDetailPage() {
     },
     onError: (err: unknown) => {
       const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ??
         (err as Error)?.message ??
         "Không thể thêm thưởng.";
       toast.error(msg);
@@ -329,7 +360,8 @@ export default function AdminStaffDetailPage() {
     },
     onError: (err: unknown) => {
       const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ??
         (err as Error)?.message ??
         "Không thể cập nhật thưởng.";
       toast.error(msg);
@@ -357,7 +389,9 @@ export default function AdminStaffDetailPage() {
     setBonusFormMode("edit");
     setEditingBonusId(target.id);
     setBonusForm({
-      workTypeOption: isExistingOption ? target.workType : DEFAULT_ROLE_WORK_TYPE,
+      workTypeOption: isExistingOption
+        ? target.workType
+        : DEFAULT_ROLE_WORK_TYPE,
       amount: String(target.amount),
       status: target.status,
       note: target.note,
@@ -424,7 +458,10 @@ export default function AdminStaffDetailPage() {
     }
 
     if (bonusFormMode === "create") {
-      if (typeof crypto === "undefined" || typeof crypto.randomUUID !== "function") {
+      if (
+        typeof crypto === "undefined" ||
+        typeof crypto.randomUUID !== "function"
+      ) {
         toast.error("Không thể tạo mã thưởng. Vui lòng thử lại.");
         return;
       }
@@ -464,10 +501,13 @@ export default function AdminStaffDetailPage() {
     }
   };
 
-
   if (isLoading) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 pb-8 sm:p-6" aria-busy="true" aria-live="polite">
+      <div
+        className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 pb-8 sm:p-6"
+        aria-busy="true"
+        aria-live="polite"
+      >
         <div className="mb-4 h-8 w-48 animate-pulse rounded bg-bg-tertiary" />
         <div className="mb-6 flex h-8 w-64 animate-pulse rounded bg-bg-tertiary" />
 
@@ -526,12 +566,26 @@ export default function AdminStaffDetailPage() {
           onClick={() => router.back()}
           className="mb-4 inline-flex min-h-11 min-w-11 items-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-primary hover:text-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary sm:min-h-0 sm:min-w-0 sm:px-0"
         >
-          <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          <svg
+            className="size-4 shrink-0"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
           </svg>
           <span className="hidden sm:inline">Quay lại danh sách nhân sự</span>
         </button>
-        <div className="rounded-lg border border-error/30 bg-error/10 px-4 py-6 text-error" role="alert">
+        <div
+          className="rounded-lg border border-error/30 bg-error/10 px-4 py-6 text-error"
+          role="alert"
+        >
           <p>{message}</p>
         </div>
       </div>
@@ -545,8 +599,19 @@ export default function AdminStaffDetailPage() {
         onClick={() => router.back()}
         className="mb-4 inline-flex min-h-11 min-w-11 items-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-primary hover:text-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary sm:min-h-0 sm:min-w-0 sm:px-0"
       >
-        <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        <svg
+          className="size-4 shrink-0"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M15 19l-7-7 7-7"
+          />
         </svg>
         <span className="hidden sm:inline">Quay lại danh sách nhân sự</span>
       </button>
@@ -580,8 +645,19 @@ export default function AdminStaffDetailPage() {
                 aria-label="Chỉnh sửa thông tin nhân sự"
                 title="Chỉnh sửa thông tin nhân sự"
               >
-                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                <svg
+                  className="size-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                  />
                 </svg>
               </button>
             </div>
@@ -614,10 +690,19 @@ export default function AdminStaffDetailPage() {
         <div className="grid gap-4 lg:grid-cols-2">
           <StaffCard title="Thông tin cơ bản">
             <dl className="divide-y divide-border-subtle">
-              <StaffDetailRow label="Ngày sinh" value={formatDate(staff.birthDate)} />
+              <StaffDetailRow
+                label="Ngày sinh"
+                value={formatDate(staff.birthDate)}
+              />
               <StaffDetailRow label="Tỉnh / Thành phố" value={province} />
-              <StaffDetailRow label="Trường đại học" value={staff.university?.trim()} />
-              <StaffDetailRow label="Mô tả chuyên môn" value={staff.specialization?.trim()} />
+              <StaffDetailRow
+                label="Trường đại học"
+                value={staff.university?.trim()}
+              />
+              <StaffDetailRow
+                label="Mô tả chuyên môn"
+                value={staff.specialization?.trim()}
+              />
             </dl>
           </StaffCard>
           <StaffQrCard
@@ -649,19 +734,27 @@ export default function AdminStaffDetailPage() {
           <div className="space-y-3 md:hidden">
             <div className="flex justify-between rounded-lg border border-border-default bg-bg-secondary/40 px-4 py-3">
               <span className="text-sm text-text-primary">Tổng tháng</span>
-              <span className="tabular-nums text-sm font-semibold text-primary">{formatCurrency(monthlyIncomeTotals.total)}</span>
+              <span className="tabular-nums text-sm font-semibold text-primary">
+                {formatCurrency(monthlyIncomeTotals.total)}
+              </span>
             </div>
             <div className="flex justify-between rounded-lg border border-border-default bg-bg-secondary/40 px-4 py-3">
               <span className="text-sm text-text-primary">Chưa nhận</span>
-              <span className="tabular-nums text-sm font-semibold text-error">{formatCurrency(monthlyIncomeTotals.unpaid)}</span>
+              <span className="tabular-nums text-sm font-semibold text-error">
+                {formatCurrency(monthlyIncomeTotals.unpaid)}
+              </span>
             </div>
             <div className="flex justify-between rounded-lg border border-border-default bg-bg-secondary/40 px-4 py-3">
               <span className="text-sm text-text-primary">Đã nhận</span>
-              <span className="tabular-nums text-sm font-semibold text-success">{formatCurrency(monthlyIncomeTotals.paid)}</span>
+              <span className="tabular-nums text-sm font-semibold text-success">
+                {formatCurrency(monthlyIncomeTotals.paid)}
+              </span>
             </div>
             <div className="flex justify-between rounded-lg border border-border-default bg-bg-secondary/40 px-4 py-3">
               <span className="text-sm text-text-primary">Tổng năm</span>
-              <span className="tabular-nums text-sm font-semibold text-warning">{formatCurrency(yearIncomeTotal)}</span>
+              <span className="tabular-nums text-sm font-semibold text-warning">
+                {formatCurrency(yearIncomeTotal)}
+              </span>
             </div>
             <div className="flex justify-between rounded-lg border border-border-default bg-bg-secondary/40 px-4 py-3">
               <span className="text-sm text-text-primary">Ghi cọc</span>
@@ -675,38 +768,65 @@ export default function AdminStaffDetailPage() {
                   {formatCurrency(depositYearTotal)}
                 </button>
               ) : (
-                <span className="tabular-nums text-sm font-semibold text-text-muted">0</span>
+                <span className="tabular-nums text-sm font-semibold text-text-muted">
+                  0
+                </span>
               )}
             </div>
           </div>
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[400px] border-collapse text-left text-sm">
-              <caption className="sr-only">Bảng thống kê thu nhập nhân sự</caption>
+              <caption className="sr-only">
+                Bảng thống kê thu nhập nhân sự
+              </caption>
               <thead className="bg-bg-secondary/50">
                 <tr className="border-b border-border-default bg-bg-secondary/50">
-                  <th scope="col" className="px-4 py-3 font-medium tabular-nums text-text-primary">
+                  <th
+                    scope="col"
+                    className="px-4 py-3 font-medium tabular-nums text-text-primary"
+                  >
                     Tổng tháng
                   </th>
-                  <th scope="col" className="px-4 py-3 font-medium tabular-nums text-text-primary">
+                  <th
+                    scope="col"
+                    className="px-4 py-3 font-medium tabular-nums text-text-primary"
+                  >
                     Chưa nhận
                   </th>
-                  <th scope="col" className="px-4 py-3 font-medium tabular-nums text-text-primary">
+                  <th
+                    scope="col"
+                    className="px-4 py-3 font-medium tabular-nums text-text-primary"
+                  >
                     Đã nhận
                   </th>
-                  <th scope="col" className="px-4 py-3 font-medium tabular-nums text-text-primary">
+                  <th
+                    scope="col"
+                    className="px-4 py-3 font-medium tabular-nums text-text-primary"
+                  >
                     Tổng năm
                   </th>
-                  <th scope="col" className="px-4 py-3 font-medium tabular-nums text-text-primary">
+                  <th
+                    scope="col"
+                    className="px-4 py-3 font-medium tabular-nums text-text-primary"
+                  >
                     Ghi cọc
                   </th>
                 </tr>
               </thead>
               <tbody>
                 <tr className="border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary">
-                  <td className="px-4 py-3 tabular-nums font-semibold text-primary">{formatCurrency(monthlyIncomeTotals.total)}</td>
-                  <td className="px-4 py-3 tabular-nums font-semibold text-error">{formatCurrency(monthlyIncomeTotals.unpaid)}</td>
-                  <td className="px-4 py-3 tabular-nums font-semibold text-success">{formatCurrency(monthlyIncomeTotals.paid)}</td>
-                  <td className="px-4 py-3 tabular-nums font-semibold text-warning">{formatCurrency(yearIncomeTotal)}</td>
+                  <td className="px-4 py-3 tabular-nums font-semibold text-primary">
+                    {formatCurrency(monthlyIncomeTotals.total)}
+                  </td>
+                  <td className="px-4 py-3 tabular-nums font-semibold text-error">
+                    {formatCurrency(monthlyIncomeTotals.unpaid)}
+                  </td>
+                  <td className="px-4 py-3 tabular-nums font-semibold text-success">
+                    {formatCurrency(monthlyIncomeTotals.paid)}
+                  </td>
+                  <td className="px-4 py-3 tabular-nums font-semibold text-warning">
+                    {formatCurrency(yearIncomeTotal)}
+                  </td>
                   <td className="px-4 py-3 tabular-nums font-semibold text-warning">
                     {depositYearTotal > 0 ? (
                       <button
@@ -731,22 +851,37 @@ export default function AdminStaffDetailPage() {
                   </td>
                 </tr>
                 <tr className="border-b border-border-default bg-bg-tertiary">
-                  <th scope="col" className="py-2 pr-4 text-left text-xs font-medium text-text-muted">
+                  <th
+                    scope="col"
+                    className="py-2 pr-4 text-left text-xs font-medium text-text-muted"
+                  >
                     Tổng tháng (cũ)
                   </th>
-                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-text-muted">
+                  <th
+                    scope="col"
+                    className="px-4 py-2 text-left text-xs font-medium text-text-muted"
+                  >
                     Chưa nhận (cũ)
                   </th>
-                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-text-muted">
+                  <th
+                    scope="col"
+                    className="px-4 py-2 text-left text-xs font-medium text-text-muted"
+                  >
                     Đã nhận (cũ)
                   </th>
                   <th scope="col" className="px-4 py-2" />
                   <th scope="col" className="px-4 py-2" />
                 </tr>
                 <tr className="border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary">
-                  <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
-                  <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
-                  <td className="px-4 py-3 tabular-nums text-text-primary">0</td>
+                  <td className="px-4 py-3 tabular-nums text-text-primary">
+                    0
+                  </td>
+                  <td className="px-4 py-3 tabular-nums text-text-primary">
+                    0
+                  </td>
+                  <td className="px-4 py-3 tabular-nums text-text-primary">
+                    0
+                  </td>
                   <td className="px-4 py-3 text-text-muted">—</td>
                   <td className="px-4 py-3 text-text-muted">—</td>
                 </tr>
@@ -761,7 +896,7 @@ export default function AdminStaffDetailPage() {
           <p className="mt-3 text-xs text-text-muted" aria-live="polite">
             {isIncomeSummaryLoading && !incomeSummary
               ? "Đang tải tổng hợp thu nhập từ backend."
-              : "Tổng tháng, chưa nhận và đã nhận đang lấy từ backend sau khi cộng cả session lẫn thưởng tháng. Dòng \"Trước khấu trừ\" vẫn đang phát triển."}
+              : 'Tổng tháng, chưa nhận và đã nhận đang lấy từ backend sau khi cộng cả session lẫn thưởng tháng. Dòng "Trước khấu trừ" vẫn đang phát triển.'}
           </p>
         </section>
 
@@ -778,25 +913,42 @@ export default function AdminStaffDetailPage() {
                         key={item.classId}
                         role="button"
                         tabIndex={0}
-                        onClick={() => router.push(`/admin/classes/${encodeURIComponent(item.classId)}`)}
+                        onClick={() =>
+                          router.push(
+                            `/admin/classes/${encodeURIComponent(item.classId)}`,
+                          )
+                        }
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
-                            router.push(`/admin/classes/${encodeURIComponent(item.classId)}`);
+                            router.push(
+                              `/admin/classes/${encodeURIComponent(item.classId)}`,
+                            );
                           }
                         }}
                         className="cursor-pointer rounded-lg border border-border-default bg-bg-secondary px-4 py-3 transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                       >
-                        <p className="font-medium text-text-primary">{item.className}</p>
+                        <p className="font-medium text-text-primary">
+                          {item.className}
+                        </p>
                         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-secondary">
                           <span>
-                            Tổng: <span className="font-semibold text-primary">{formatCurrency(item.total)}</span>
+                            Tổng:{" "}
+                            <span className="font-semibold text-primary">
+                              {formatCurrency(item.total)}
+                            </span>
                           </span>
                           <span>
-                            Chưa nhận: <span className="font-semibold text-error">{formatCurrency(item.unpaid)}</span>
+                            Chưa nhận:{" "}
+                            <span className="font-semibold text-error">
+                              {formatCurrency(item.unpaid)}
+                            </span>
                           </span>
                           <span>
-                            Đã nhận: <span className="font-semibold text-success">{formatCurrency(item.paid)}</span>
+                            Đã nhận:{" "}
+                            <span className="font-semibold text-success">
+                              {formatCurrency(item.paid)}
+                            </span>
                           </span>
                         </div>
                       </div>
@@ -807,16 +959,28 @@ export default function AdminStaffDetailPage() {
                   <table className="w-full min-w-[480px] border-collapse text-left text-sm">
                     <thead>
                       <tr className="border-b border-border-default bg-bg-secondary">
-                        <th scope="col" className="px-4 py-3 font-medium text-text-primary">
+                        <th
+                          scope="col"
+                          className="px-4 py-3 font-medium text-text-primary"
+                        >
                           Lớp
                         </th>
-                        <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
+                        <th
+                          scope="col"
+                          className="px-4 py-3 font-medium text-text-primary tabular-nums"
+                        >
                           Tổng nhận
                         </th>
-                        <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
+                        <th
+                          scope="col"
+                          className="px-4 py-3 font-medium text-text-primary tabular-nums"
+                        >
                           Chưa nhận
                         </th>
-                        <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
+                        <th
+                          scope="col"
+                          className="px-4 py-3 font-medium text-text-primary tabular-nums"
+                        >
                           Đã nhận
                         </th>
                       </tr>
@@ -828,16 +992,24 @@ export default function AdminStaffDetailPage() {
                             key={item.classId}
                             role="button"
                             tabIndex={0}
-                            onClick={() => router.push(`/admin/classes/${encodeURIComponent(item.classId)}`)}
+                            onClick={() =>
+                              router.push(
+                                `/admin/classes/${encodeURIComponent(item.classId)}`,
+                              )
+                            }
                             onKeyDown={(e) => {
                               if (e.key === "Enter" || e.key === " ") {
                                 e.preventDefault();
-                                router.push(`/admin/classes/${encodeURIComponent(item.classId)}`);
+                                router.push(
+                                  `/admin/classes/${encodeURIComponent(item.classId)}`,
+                                );
                               }
                             }}
                             className="cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                           >
-                            <td className="px-4 py-3 text-text-primary">{item.className}</td>
+                            <td className="px-4 py-3 text-text-primary">
+                              {item.className}
+                            </td>
                             <td className="px-4 py-3 tabular-nums font-semibold text-primary">
                               {formatCurrency(item.total)}
                             </td>
@@ -883,7 +1055,11 @@ export default function AdminStaffDetailPage() {
         <StaffCard title="Công việc khác">
           {(() => {
             if (otherRoleSummaries.length === 0) {
-              return <p className="text-text-muted">Chưa có công việc khác (role ngoài giáo viên).</p>;
+              return (
+                <p className="text-text-muted">
+                  Chưa có công việc khác (role ngoài giáo viên).
+                </p>
+              );
             }
             return (
               <>
@@ -897,7 +1073,9 @@ export default function AdminStaffDetailPage() {
                         role={isInteractive ? "button" : undefined}
                         tabIndex={isInteractive ? 0 : undefined}
                         onClick={
-                          isInteractive ? () => router.push(detailHref) : undefined
+                          isInteractive
+                            ? () => router.push(detailHref)
+                            : undefined
                         }
                         onKeyDown={
                           isInteractive
@@ -911,44 +1089,72 @@ export default function AdminStaffDetailPage() {
                         }
                         className={`rounded-lg border border-border-default bg-bg-secondary px-4 py-3 ${isInteractive ? "cursor-pointer transition-colors hover:bg-bg-elevated focus:outline-none focus:ring-2 focus:ring-primary" : ""}`}
                       >
-                        <p className="font-medium text-text-primary">{item.label}</p>
-                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-secondary">
-                        <span>
-                          Tổng: <span className="font-semibold text-primary">{formatCurrency(item.total)}</span>
-                        </span>
-                        <span>
-                          Chưa nhận: <span className="font-semibold text-error">{formatCurrency(item.unpaid)}</span>
-                        </span>
-                        <span>
-                          Đã nhận: <span className="font-semibold text-success">{formatCurrency(item.paid)}</span>
-                        </span>
+                        <p className="font-medium text-text-primary">
+                          {item.label}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-secondary">
+                          <span>
+                            Tổng:{" "}
+                            <span className="font-semibold text-primary">
+                              {formatCurrency(item.total)}
+                            </span>
+                          </span>
+                          <span>
+                            Chưa nhận:{" "}
+                            <span className="font-semibold text-error">
+                              {formatCurrency(item.unpaid)}
+                            </span>
+                          </span>
+                          <span>
+                            Đã nhận:{" "}
+                            <span className="font-semibold text-success">
+                              {formatCurrency(item.paid)}
+                            </span>
+                          </span>
+                        </div>
                       </div>
-                    </div>
                     );
                   })}
                 </div>
                 <div className="hidden overflow-x-auto md:block">
                   <table className="w-full min-w-[480px] border-collapse text-left text-sm">
-                    <caption className="sr-only">Bảng công việc khác theo role</caption>
+                    <caption className="sr-only">
+                      Bảng công việc khác theo role
+                    </caption>
                     <thead>
                       <tr className="border-b border-border-default bg-bg-secondary">
-                        <th scope="col" className="px-4 py-3 font-medium text-text-primary">
+                        <th
+                          scope="col"
+                          className="px-4 py-3 font-medium text-text-primary"
+                        >
                           Công việc
                         </th>
-                        <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
+                        <th
+                          scope="col"
+                          className="px-4 py-3 font-medium text-text-primary tabular-nums"
+                        >
                           Tổng nhận
                         </th>
-                        <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
+                        <th
+                          scope="col"
+                          className="px-4 py-3 font-medium text-text-primary tabular-nums"
+                        >
                           Chưa nhận
                         </th>
-                        <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
+                        <th
+                          scope="col"
+                          className="px-4 py-3 font-medium text-text-primary tabular-nums"
+                        >
                           Đã nhận
                         </th>
                       </tr>
                     </thead>
                     <tbody>
                       {otherRoleSummaries.map((item) => {
-                        const detailHref = getOtherRoleDetailHref(item.role, id);
+                        const detailHref = getOtherRoleDetailHref(
+                          item.role,
+                          id,
+                        );
                         const isInteractive = detailHref !== null;
                         return (
                           <tr
@@ -956,7 +1162,9 @@ export default function AdminStaffDetailPage() {
                             role={isInteractive ? "button" : undefined}
                             tabIndex={isInteractive ? 0 : undefined}
                             onClick={
-                              isInteractive ? () => router.push(detailHref) : undefined
+                              isInteractive
+                                ? () => router.push(detailHref)
+                                : undefined
                             }
                             onKeyDown={
                               isInteractive
@@ -970,17 +1178,19 @@ export default function AdminStaffDetailPage() {
                             }
                             className={`border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary ${isInteractive ? "cursor-pointer" : ""}`}
                           >
-                            <td className="px-4 py-3 text-text-primary">{item.label}</td>
-                          <td className="px-4 py-3 tabular-nums font-semibold text-primary">
-                            {formatCurrency(item.total)}
-                          </td>
-                          <td className="px-4 py-3 tabular-nums font-semibold text-error">
-                            {formatCurrency(item.unpaid)}
-                          </td>
-                          <td className="px-4 py-3 tabular-nums font-semibold text-success">
-                            {formatCurrency(item.paid)}
-                          </td>
-                        </tr>
+                            <td className="px-4 py-3 text-text-primary">
+                              {item.label}
+                            </td>
+                            <td className="px-4 py-3 tabular-nums font-semibold text-primary">
+                              {formatCurrency(item.total)}
+                            </td>
+                            <td className="px-4 py-3 tabular-nums font-semibold text-error">
+                              {formatCurrency(item.unpaid)}
+                            </td>
+                            <td className="px-4 py-3 tabular-nums font-semibold text-success">
+                              {formatCurrency(item.paid)}
+                            </td>
+                          </tr>
                         );
                       })}
                     </tbody>
@@ -1005,6 +1215,7 @@ export default function AdminStaffDetailPage() {
                 entityMode="class"
                 emptyText="Không có buổi học trong tháng này."
                 editorLayout="wide"
+                enableBulkPaymentStatusEdit
                 onSessionUpdated={handleSessionUpdated}
                 getTeachersForClass={getTeachersForClass}
                 getClassStudents={getClassStudents}
@@ -1031,21 +1242,32 @@ export default function AdminStaffDetailPage() {
 
       {addBonusPopupOpen ? (
         <>
-          <div className="fixed inset-0 z-40 bg-black/50" aria-hidden onClick={closeAddBonusPopup} />
+          <div
+            className="fixed inset-0 z-40 bg-black/50"
+            aria-hidden
+            onClick={closeAddBonusPopup}
+          />
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="add-bonus-title"
             className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border-default bg-bg-surface p-4 shadow-xl sm:p-5"
           >
-            <h2 id="add-bonus-title" className="text-lg font-semibold text-text-primary">
+            <h2
+              id="add-bonus-title"
+              className="text-lg font-semibold text-text-primary"
+            >
               {bonusFormMode === "create" ? "Thêm thưởng" : "Chỉnh sửa thưởng"}
             </h2>
-            <p className="mt-1 text-sm text-text-muted">Áp dụng cho {selectedMonthLabel}</p>
+            <p className="mt-1 text-sm text-text-muted">
+              Áp dụng cho {selectedMonthLabel}
+            </p>
 
             <div className="mt-4 space-y-3">
               <label className="block">
-                <span className="mb-1 block text-sm font-medium text-text-secondary">Loại công việc</span>
+                <span className="mb-1 block text-sm font-medium text-text-secondary">
+                  Loại công việc
+                </span>
                 <div className="relative" ref={workTypeMenuRef}>
                   <button
                     type="button"
@@ -1055,9 +1277,7 @@ export default function AdminStaffDetailPage() {
                     aria-expanded={workTypeMenuOpen}
                     aria-label="Chọn loại công việc"
                   >
-                    <span className="truncate">
-                      {bonusForm.workTypeOption}
-                    </span>
+                    <span className="truncate">{bonusForm.workTypeOption}</span>
                     <svg
                       className={`ml-2 size-4 shrink-0 text-text-muted transition-transform duration-200 ${workTypeMenuOpen ? "rotate-180" : ""}`}
                       viewBox="0 0 24 24"
@@ -1065,7 +1285,12 @@ export default function AdminStaffDetailPage() {
                       stroke="currentColor"
                       aria-hidden
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m6 9 6 6 6-6" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="m6 9 6 6 6-6"
+                      />
                     </svg>
                   </button>
 
@@ -1093,10 +1318,11 @@ export default function AdminStaffDetailPage() {
                               type="button"
                               role="option"
                               aria-selected={isSelected}
-                              className={`flex w-full items-center justify-between rounded px-2 py-2 text-left text-sm transition-colors duration-150 ${isSelected
-                                ? "bg-primary/10 font-medium text-text-primary"
-                                : "text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
-                                }`}
+                              className={`flex w-full items-center justify-between rounded px-2 py-2 text-left text-sm transition-colors duration-150 ${
+                                isSelected
+                                  ? "bg-primary/10 font-medium text-text-primary"
+                                  : "text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
+                              }`}
                               onClick={() => {
                                 setBonusForm((prev) => ({
                                   ...prev,
@@ -1110,7 +1336,9 @@ export default function AdminStaffDetailPage() {
                           );
                         })}
                         {filteredWorkTypeOptions.length === 0 ? (
-                          <p className="px-2 py-2 text-sm text-text-muted">Không tìm thấy công việc phù hợp.</p>
+                          <p className="px-2 py-2 text-sm text-text-muted">
+                            Không tìm thấy công việc phù hợp.
+                          </p>
                         ) : null}
                       </div>
                     </div>
@@ -1119,20 +1347,29 @@ export default function AdminStaffDetailPage() {
               </label>
 
               <label className="block">
-                <span className="mb-1 block text-sm font-medium text-text-secondary">Số tiền</span>
+                <span className="mb-1 block text-sm font-medium text-text-secondary">
+                  Số tiền
+                </span>
                 <input
                   type="number"
                   min={0}
                   inputMode="numeric"
                   value={bonusForm.amount}
-                  onChange={(e) => setBonusForm((prev) => ({ ...prev, amount: e.target.value }))}
+                  onChange={(e) =>
+                    setBonusForm((prev) => ({
+                      ...prev,
+                      amount: e.target.value,
+                    }))
+                  }
                   placeholder="Ví dụ: 500000"
                   className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />
               </label>
 
               <label className="block">
-                <span className="mb-1 block text-sm font-medium text-text-secondary">Trạng thái</span>
+                <span className="mb-1 block text-sm font-medium text-text-secondary">
+                  Trạng thái
+                </span>
                 <div className="relative" ref={statusMenuRef}>
                   <button
                     type="button"
@@ -1143,8 +1380,13 @@ export default function AdminStaffDetailPage() {
                     aria-label="Chọn trạng thái thanh toán"
                   >
                     <span className="inline-flex items-center gap-2">
-                      <span className={`size-2 rounded-full ${bonusForm.status === "paid" ? "bg-success" : "bg-warning"}`} aria-hidden />
-                      {bonusForm.status === "paid" ? "Đã thanh toán" : "Chờ thanh toán"}
+                      <span
+                        className={`size-2 rounded-full ${bonusForm.status === "paid" ? "bg-success" : "bg-warning"}`}
+                        aria-hidden
+                      />
+                      {bonusForm.status === "paid"
+                        ? "Đã thanh toán"
+                        : "Chờ thanh toán"}
                     </span>
                     <svg
                       className={`ml-2 size-4 shrink-0 text-text-muted transition-transform duration-200 ${statusMenuOpen ? "rotate-180" : ""}`}
@@ -1153,7 +1395,12 @@ export default function AdminStaffDetailPage() {
                       stroke="currentColor"
                       aria-hidden
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m6 9 6 6 6-6" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="m6 9 6 6 6-6"
+                      />
                     </svg>
                   </button>
 
@@ -1164,8 +1411,16 @@ export default function AdminStaffDetailPage() {
                       className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border border-border-default bg-bg-surface p-1 shadow-lg"
                     >
                       {[
-                        { value: "pending" as const, label: "Chờ thanh toán", dot: "bg-warning" },
-                        { value: "paid" as const, label: "Đã thanh toán", dot: "bg-success" },
+                        {
+                          value: "pending" as const,
+                          label: "Chờ thanh toán",
+                          dot: "bg-warning",
+                        },
+                        {
+                          value: "paid" as const,
+                          label: "Đã thanh toán",
+                          dot: "bg-success",
+                        },
                       ].map((option) => {
                         const isSelected = bonusForm.status === option.value;
                         return (
@@ -1174,17 +1429,24 @@ export default function AdminStaffDetailPage() {
                             type="button"
                             role="option"
                             aria-selected={isSelected}
-                            className={`flex w-full items-center justify-between rounded px-2 py-2 text-left text-sm transition-colors duration-150 ${isSelected
-                              ? "bg-primary/10 font-medium text-text-primary"
-                              : "text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
-                              }`}
+                            className={`flex w-full items-center justify-between rounded px-2 py-2 text-left text-sm transition-colors duration-150 ${
+                              isSelected
+                                ? "bg-primary/10 font-medium text-text-primary"
+                                : "text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
+                            }`}
                             onClick={() => {
-                              setBonusForm((prev) => ({ ...prev, status: option.value }));
+                              setBonusForm((prev) => ({
+                                ...prev,
+                                status: option.value,
+                              }));
                               setStatusMenuOpen(false);
                             }}
                           >
                             <span className="inline-flex items-center gap-2">
-                              <span className={`size-2 rounded-full ${option.dot}`} aria-hidden />
+                              <span
+                                className={`size-2 rounded-full ${option.dot}`}
+                                aria-hidden
+                              />
                               {option.label}
                             </span>
                           </button>
@@ -1196,11 +1458,15 @@ export default function AdminStaffDetailPage() {
               </label>
 
               <label className="block">
-                <span className="mb-1 block text-sm font-medium text-text-secondary">Ghi chú</span>
+                <span className="mb-1 block text-sm font-medium text-text-secondary">
+                  Ghi chú
+                </span>
                 <textarea
                   rows={3}
                   value={bonusForm.note}
-                  onChange={(e) => setBonusForm((prev) => ({ ...prev, note: e.target.value }))}
+                  onChange={(e) =>
+                    setBonusForm((prev) => ({ ...prev, note: e.target.value }))
+                  }
                   placeholder="Ghi chú thêm (nếu có)"
                   className="w-full resize-none rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />
@@ -1212,7 +1478,9 @@ export default function AdminStaffDetailPage() {
                 type="button"
                 onClick={closeAddBonusPopup}
                 className="min-h-11 rounded-md border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:py-2"
-                disabled={createBonusMutation.isPending || updateBonusMutation.isPending}
+                disabled={
+                  createBonusMutation.isPending || updateBonusMutation.isPending
+                }
               >
                 Hủy
               </button>
@@ -1220,7 +1488,9 @@ export default function AdminStaffDetailPage() {
                 type="button"
                 onClick={handleSubmitBonus}
                 className="min-h-11 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:py-2 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={createBonusMutation.isPending || updateBonusMutation.isPending}
+                disabled={
+                  createBonusMutation.isPending || updateBonusMutation.isPending
+                }
               >
                 {createBonusMutation.isPending || updateBonusMutation.isPending
                   ? "Đang lưu..."
@@ -1250,12 +1520,17 @@ export default function AdminStaffDetailPage() {
               >
                 <div className="mb-4 flex items-start justify-between gap-3 border-b border-border-default/70 pb-4">
                   <div className="min-w-0">
-                    <h2 id="deposit-list-title" className="truncate text-lg font-semibold text-text-primary">
+                    <h2
+                      id="deposit-list-title"
+                      className="truncate text-lg font-semibold text-text-primary"
+                    >
                       Buổi cọc theo lớp
                     </h2>
                     <p className="mt-1 text-sm text-text-muted">
                       Tổng cọc năm {selectedYear}:{" "}
-                      <span className="font-semibold tabular-nums text-warning">{formatCurrency(depositYearTotal)}</span>
+                      <span className="font-semibold tabular-nums text-warning">
+                        {formatCurrency(depositYearTotal)}
+                      </span>
                     </p>
                   </div>
                   <button
@@ -1264,8 +1539,19 @@ export default function AdminStaffDetailPage() {
                     className="rounded-xl p-2 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                     aria-label="Đóng"
                   >
-                    <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <svg
+                      className="size-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                   </button>
                 </div>
@@ -1273,9 +1559,12 @@ export default function AdminStaffDetailPage() {
                 <div className="min-h-0 flex-1 overflow-y-auto pr-1 sm:pr-2">
                   {depositByClass.length === 0 ? (
                     <div className="rounded-xl border border-border-default bg-bg-secondary/40 px-4 py-6 text-center">
-                      <p className="text-sm font-medium text-text-primary">Chưa có buổi cọc.</p>
+                      <p className="text-sm font-medium text-text-primary">
+                        Chưa có buổi cọc.
+                      </p>
                       <p className="mt-1 text-sm text-text-muted">
-                        Buổi cọc là session có trạng thái thanh toán là <span className="font-medium">deposit</span>.
+                        Buổi cọc là session có trạng thái thanh toán là{" "}
+                        <span className="font-medium">deposit</span>.
                       </p>
                     </div>
                   ) : (
@@ -1287,13 +1576,17 @@ export default function AdminStaffDetailPage() {
                         >
                           <div className="flex flex-wrap items-start justify-between gap-2 border-b border-border-default bg-bg-secondary/50 px-4 py-3">
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-text-primary">{group.className}</p>
+                              <p className="truncate text-sm font-semibold text-text-primary">
+                                {group.className}
+                              </p>
                               <p className="mt-0.5 text-xs text-text-muted">
                                 {group.sessions.length} buổi
                               </p>
                             </div>
                             <div className="shrink-0 text-right">
-                              <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Tổng cọc</p>
+                              <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                                Tổng cọc
+                              </p>
                               <p className="text-sm font-semibold tabular-nums text-warning">
                                 {formatCurrency(group.total)}
                               </p>
@@ -1307,14 +1600,23 @@ export default function AdminStaffDetailPage() {
                                 className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
                               >
                                 <div className="min-w-0">
-                                  <p className="text-sm font-medium text-text-primary">{formatDate(session.date)}</p>
+                                  <p className="text-sm font-medium text-text-primary">
+                                    {formatDate(session.date)}
+                                  </p>
                                   <p className="mt-0.5 text-xs text-text-muted">
                                     Trạng thái:{" "}
-                                    <span className="font-medium">{String(session.teacherPaymentStatus ?? "deposit")}</span>
+                                    <span className="font-medium">
+                                      {String(
+                                        session.teacherPaymentStatus ??
+                                          "deposit",
+                                      )}
+                                    </span>
                                   </p>
                                 </div>
                                 <p className="shrink-0 text-sm font-semibold tabular-nums text-text-primary">
-                                  {formatCurrency(session.teacherAllowanceTotal)}
+                                  {formatCurrency(
+                                    session.teacherAllowanceTotal,
+                                  )}
                                 </p>
                               </div>
                             ))}

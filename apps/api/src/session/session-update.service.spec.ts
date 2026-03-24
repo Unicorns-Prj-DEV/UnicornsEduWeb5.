@@ -5,14 +5,22 @@ jest.mock('./session-student-balance.service', () => ({
   SessionStudentBalanceService: class SessionStudentBalanceServiceMock {},
 }));
 
-import { AttendanceStatus, StaffRole, UserRole } from '../../generated/enums';
+import {
+  AttendanceStatus,
+  SessionPaymentStatus,
+  StaffRole,
+  UserRole,
+} from '../../generated/enums';
 import { SessionValidationService } from './session-validation.service';
 import { SessionUpdateService } from './session-update.service';
 
 describe('SessionUpdateService', () => {
   const mockPrisma = {
+    $transaction: jest.fn(),
     session: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
+      updateMany: jest.fn(),
     },
   };
 
@@ -47,6 +55,10 @@ describe('SessionUpdateService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(
+      async (callback: (tx: typeof mockPrisma) => Promise<unknown>) =>
+        callback(mockPrisma),
+    );
     service = new SessionUpdateService(
       mockPrisma as never,
       accessService as never,
@@ -85,24 +97,19 @@ describe('SessionUpdateService', () => {
       .spyOn(service, 'updateSession')
       .mockResolvedValue({ id: 'session-1' } as never);
 
-    await service.updateSessionForStaff(
-      'user-1',
-      UserRole.staff,
-      'session-1',
-      {
-        attendance: [
-          {
-            studentId: 'student-1',
-            status: AttendanceStatus.present,
-          },
-          {
-            studentId: 'student-2',
-            status: AttendanceStatus.present,
-            notes: 'Đi học bù',
-          },
-        ],
-      },
-    );
+    await service.updateSessionForStaff('user-1', UserRole.staff, 'session-1', {
+      attendance: [
+        {
+          studentId: 'student-1',
+          status: AttendanceStatus.present,
+        },
+        {
+          studentId: 'student-2',
+          status: AttendanceStatus.present,
+          notes: 'Đi học bù',
+        },
+      ],
+    });
 
     expect(accessService.assertTeacherAssignedToClass).toHaveBeenCalledWith(
       'teacher-1',
@@ -132,5 +139,58 @@ describe('SessionUpdateService', () => {
       },
       undefined,
     );
+  });
+
+  it('updates only sessions whose payment status actually changes', async () => {
+    mockPrisma.session.findMany.mockResolvedValue([
+      {
+        id: 'session-1',
+        teacherPaymentStatus: SessionPaymentStatus.unpaid,
+      },
+      {
+        id: 'session-2',
+        teacherPaymentStatus: SessionPaymentStatus.paid,
+      },
+    ]);
+    snapshotService.getSessionAuditSnapshot
+      .mockResolvedValueOnce({
+        id: 'session-1',
+        teacherPaymentStatus: 'unpaid',
+      })
+      .mockResolvedValueOnce({ id: 'session-1', teacherPaymentStatus: 'paid' });
+
+    const result = await service.updateSessionPaymentStatuses(
+      ['session-1', 'session-2'],
+      SessionPaymentStatus.paid,
+      {
+        userId: 'admin-1',
+        userEmail: 'admin@example.com',
+        roleType: UserRole.admin,
+      },
+    );
+
+    expect(mockPrisma.session.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: {
+          in: ['session-1'],
+        },
+      },
+      data: {
+        teacherPaymentStatus: SessionPaymentStatus.paid,
+      },
+    });
+    expect(actionHistoryService.recordUpdate).toHaveBeenCalledTimes(1);
+    expect(actionHistoryService.recordUpdate).toHaveBeenCalledWith(
+      mockPrisma,
+      expect.objectContaining({
+        entityType: 'session',
+        entityId: 'session-1',
+        description: 'Cập nhật trạng thái thanh toán buổi học',
+      }),
+    );
+    expect(result).toEqual({
+      requestedCount: 2,
+      updatedCount: 1,
+    });
   });
 });

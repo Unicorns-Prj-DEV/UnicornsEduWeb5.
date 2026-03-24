@@ -1,4 +1,6 @@
 import {
+  SessionBulkPaymentStatusUpdatePayload,
+  SessionBulkPaymentStatusUpdateResult,
   SessionCreatePayload,
   SessionItem,
   SessionMonthYearParams,
@@ -44,15 +46,27 @@ export async function getUnpaidSessionsByStaffId(
   return Array.isArray(payload) ? payload : [];
 }
 
-export async function createSession(data: SessionCreatePayload): Promise<SessionItem> {
+export async function createSession(
+  data: SessionCreatePayload,
+): Promise<SessionItem> {
   const response = await api.post("/sessions", data);
   return response.data as SessionItem;
 }
 
-export async function updateSession(id: string, data: SessionUpdatePayload): Promise<SessionItem> {
+export async function updateSession(
+  id: string,
+  data: SessionUpdatePayload,
+): Promise<SessionItem> {
   const safeId = encodeURIComponent(id);
   const response = await api.put(`/sessions/${safeId}`, data);
   return response.data as SessionItem;
+}
+
+export async function bulkUpdateSessionPaymentStatus(
+  data: SessionBulkPaymentStatusUpdatePayload,
+): Promise<SessionBulkPaymentStatusUpdateResult> {
+  const response = await api.patch("/sessions/payment-status/bulk", data);
+  return response.data as SessionBulkPaymentStatusUpdateResult;
 }
 
 export async function deleteSession(id: string): Promise<void> {

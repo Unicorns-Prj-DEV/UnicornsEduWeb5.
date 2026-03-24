@@ -1,4 +1,4 @@
-export type SessionPaymentStatus = "paid" | "unpaid" | string;
+export type SessionPaymentStatus = "paid" | "unpaid" | "deposit" | string;
 export type SessionAttendanceStatus = "present" | "excused" | "absent";
 
 export interface SessionClassRef {
@@ -59,6 +59,16 @@ export interface SessionUpdatePayload {
   coefficient?: number;
   allowanceAmount?: number | null;
   attendance?: SessionAttendanceItem[];
+}
+
+export interface SessionBulkPaymentStatusUpdatePayload {
+  sessionIds: string[];
+  teacherPaymentStatus: SessionPaymentStatus;
+}
+
+export interface SessionBulkPaymentStatusUpdateResult {
+  requestedCount: number;
+  updatedCount: number;
 }
 
 export interface SessionAttendanceRecord {

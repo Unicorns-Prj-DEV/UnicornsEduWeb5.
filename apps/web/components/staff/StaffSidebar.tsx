@@ -21,21 +21,21 @@ const MENU_ITEMS: {
     canAccessCustomerCareSelf: boolean;
   }) => boolean;
 }[] = [
-  {
-    href: "/staff",
-    label: "Lớp học",
-    icon: <IconOperations />,
-    isActive: (pathname) => pathname === "/staff" || pathname.startsWith("/staff/classes/"),
-    isVisible: ({ canAccessClassWorkspace }) => canAccessClassWorkspace,
-  },
-  {
-    href: "/staff/customer-care-detail",
-    label: "CSKH của tôi",
-    icon: <IconCustomerCare />,
-    isActive: (pathname) => pathname === "/staff/customer-care-detail",
-    isVisible: ({ canAccessCustomerCareSelf }) => canAccessCustomerCareSelf,
-  },
-];
+    {
+      href: "/staff",
+      label: "Lớp học",
+      icon: <IconOperations />,
+      isActive: (pathname) => pathname === "/staff" || pathname.startsWith("/staff/classes/"),
+      isVisible: ({ canAccessClassWorkspace }) => canAccessClassWorkspace,
+    },
+    {
+      href: "/staff/customer-care-detail",
+      label: "CSKH",
+      icon: <IconCustomerCare />,
+      isActive: (pathname) => pathname === "/staff/customer-care-detail",
+      isVisible: ({ canAccessCustomerCareSelf }) => canAccessCustomerCareSelf,
+    },
+  ];
 
 const SIDEBAR_WIDTH_EXPANDED = 224;
 const SIDEBAR_WIDTH_COLLAPSED = 60;
@@ -212,9 +212,8 @@ export default function StaffSidebar() {
 
       <button
         type="button"
-        className={`fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 ${
-          mobileOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
-        } md:hidden`}
+        className={`fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 ${mobileOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+          } md:hidden`}
         onClick={() => setMobileOpen(false)}
         aria-label="Đóng menu"
       />
@@ -232,9 +231,8 @@ export default function StaffSidebar() {
       >
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-border-default px-3">
           <span
-            className={`truncate font-semibold text-text-primary transition-[max-width,opacity,margin] duration-300 ease-out ${
-              compact ? "ml-0 max-w-0 opacity-0" : "ml-1 max-w-[140px] opacity-100"
-            }`}
+            className={`truncate font-semibold text-text-primary transition-[max-width,opacity,margin] duration-300 ease-out ${compact ? "ml-0 max-w-0 opacity-0" : "ml-1 max-w-[140px] opacity-100"
+              }`}
           >
             Unicorns Edu
           </span>
@@ -245,9 +243,8 @@ export default function StaffSidebar() {
             aria-label={isMobile ? "Đóng menu" : collapsed ? "Mở rộng menu" : "Thu gọn menu"}
           >
             <svg
-              className={`size-5 transition-transform duration-300 ease-out ${
-                collapsed && !isMobile ? "rotate-180" : ""
-              }`}
+              className={`size-5 transition-transform duration-300 ease-out ${collapsed && !isMobile ? "rotate-180" : ""
+                }`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -287,13 +284,11 @@ export default function StaffSidebar() {
                   <Link
                     href={item.href}
                     onClick={handleMobileClose}
-                    className={`flex items-center rounded-lg py-2.5 text-sm font-medium transition-[gap,padding,background-color,color] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${
-                      compact ? "gap-0 px-2.5" : "gap-3 px-3"
-                    } ${
-                      isActive
+                    className={`flex items-center rounded-lg py-2.5 text-sm font-medium transition-[gap,padding,background-color,color] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "gap-0 px-2.5" : "gap-3 px-3"
+                      } ${isActive
                         ? "bg-primary text-text-inverse"
                         : "hover:bg-bg-tertiary hover:text-text-primary"
-                    }`}
+                      }`}
                     aria-label={collapsed && !isMobile ? item.label : undefined}
                     title={collapsed && !isMobile ? item.label : undefined}
                   >
@@ -301,9 +296,8 @@ export default function StaffSidebar() {
                       {item.icon}
                     </span>
                     <span
-                      className={`truncate whitespace-nowrap transition-[max-width,opacity] duration-300 ease-out ${
-                        compact ? "max-w-0 opacity-0" : "max-w-[140px] opacity-100"
-                      }`}
+                      className={`truncate whitespace-nowrap transition-[max-width,opacity] duration-300 ease-out ${compact ? "max-w-0 opacity-0" : "max-w-[140px] opacity-100"
+                        }`}
                     >
                       {item.label}
                     </span>
@@ -318,13 +312,11 @@ export default function StaffSidebar() {
           <Link
             href="/"
             onClick={handleMobileClose}
-            className={`sidebar-item flex items-center rounded-lg py-2.5 text-sm font-medium transition-[gap,padding,background-color,color] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${
-              compact ? "gap-0 px-2.5" : "gap-3 px-3"
-            } ${
-              pathname === "/"
+            className={`sidebar-item flex items-center rounded-lg py-2.5 text-sm font-medium transition-[gap,padding,background-color,color] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "gap-0 px-2.5" : "gap-3 px-3"
+              } ${pathname === "/"
                 ? "bg-primary text-text-inverse"
                 : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
-            }`}
+              }`}
             aria-label={collapsed && !isMobile ? "Trang chủ" : undefined}
             title={collapsed && !isMobile ? "Trang chủ" : undefined}
           >
@@ -332,9 +324,8 @@ export default function StaffSidebar() {
               <IconHome />
             </span>
             <span
-              className={`truncate whitespace-nowrap transition-[max-width,opacity] duration-300 ease-out ${
-                compact ? "max-w-0 opacity-0" : "max-w-[140px] opacity-100"
-              }`}
+              className={`truncate whitespace-nowrap transition-[max-width,opacity] duration-300 ease-out ${compact ? "max-w-0 opacity-0" : "max-w-[140px] opacity-100"
+                }`}
             >
               Trang chủ
             </span>

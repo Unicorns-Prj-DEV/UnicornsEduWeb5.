@@ -5,6 +5,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -27,6 +28,8 @@ import {
 } from 'src/auth/decorators/current-user.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import {
+  SessionBulkPaymentStatusUpdateDto,
+  SessionBulkPaymentStatusUpdateResult,
   SessionCreateDto,
   SessionUnpaidSummaryItem,
   SessionUpdateDto,
@@ -72,6 +75,43 @@ export class SessionController {
   ) {
     return this.sessionService.updateSession(
       { ...data, id },
+      {
+        userId: user.id,
+        userEmail: user.email,
+        roleType: user.roleType,
+      },
+    );
+  }
+
+  @Patch('payment-status/bulk')
+  @Roles(UserRole.admin)
+  @ApiOperation({
+    summary: 'Cập nhật trạng thái thanh toán cho nhiều session',
+  })
+  @ApiBody({
+    type: SessionBulkPaymentStatusUpdateDto,
+    description: 'Bulk update payment status payload',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Đã cập nhật trạng thái thanh toán cho các session được chọn.',
+    type: Object,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Payload không hợp lệ hoặc thiếu sessionIds.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Ít nhất một session không tồn tại.',
+  })
+  async updateSessionPaymentStatuses(
+    @CurrentUser() user: JwtPayload,
+    @Body() data: SessionBulkPaymentStatusUpdateDto,
+  ): Promise<SessionBulkPaymentStatusUpdateResult> {
+    return this.sessionService.updateSessionPaymentStatuses(
+      data.sessionIds,
+      data.teacherPaymentStatus,
       {
         userId: user.id,
         userEmail: user.email,

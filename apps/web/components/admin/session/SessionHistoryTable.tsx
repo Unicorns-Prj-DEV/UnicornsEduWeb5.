@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
+  SessionPaymentStatus,
   SessionItem,
   SessionAttendanceStatus,
   SessionAttendanceItem,
@@ -47,7 +48,11 @@ type Props = {
   allowFinancialEdits?: boolean;
   allowPaymentStatusEdit?: boolean;
   allowDeleteSession?: boolean;
-  updateSessionFn?: (id: string, data: SessionUpdatePayload) => Promise<SessionItem>;
+  enableBulkPaymentStatusEdit?: boolean;
+  updateSessionFn?: (
+    id: string,
+    data: SessionUpdatePayload,
+  ) => Promise<SessionItem>;
   deleteSessionFn?: (id: string) => Promise<void>;
 };
 
@@ -60,7 +65,10 @@ type AttendanceFormItem = {
   defaultTuitionFee: number | null;
 };
 
-const ATTENDANCE_STATUS_OPTIONS: Array<{ value: SessionAttendanceStatus; label: string }> = [
+const ATTENDANCE_STATUS_OPTIONS: Array<{
+  value: SessionAttendanceStatus;
+  label: string;
+}> = [
   { value: "present", label: "Học" },
   { value: "excused", label: "Phép" },
   { value: "absent", label: "Vắng" },
@@ -112,7 +120,8 @@ function extractDateKey(raw?: string | null): string | null {
 function formatDateOnly(raw?: string | null): string {
   const dateKey = extractDateKey(raw);
   if (dateKey) {
-    const [, year, month, day] = dateKey.match(/^(\d{4})-(\d{2})-(\d{2})$/) ?? [];
+    const [, year, month, day] =
+      dateKey.match(/^(\d{4})-(\d{2})-(\d{2})$/) ?? [];
     if (year && month && day) {
       return `${day}/${month}/${year}`;
     }
@@ -217,7 +226,10 @@ function renderSessionStatus(
   };
 }
 
-function renderEntityCell(session: SessionItem, entityMode: SessionEntityMode): string {
+function renderEntityCell(
+  session: SessionItem,
+  entityMode: SessionEntityMode,
+): string {
   if (entityMode === "teacher") {
     return session.teacher?.fullName?.trim() || "—";
   }
@@ -243,7 +255,9 @@ function renderEntityHeader(entityMode: SessionEntityMode): string {
 
 function resolveSessionTuitionFee(session: SessionItem): number {
   const sessionTuitionRaw =
-    typeof session.tuitionFee === "number" ? session.tuitionFee : Number(session.tuitionFee);
+    typeof session.tuitionFee === "number"
+      ? session.tuitionFee
+      : Number(session.tuitionFee);
   if (Number.isFinite(sessionTuitionRaw)) {
     return sessionTuitionRaw;
   }
@@ -258,12 +272,16 @@ function resolveSessionTuitionFee(session: SessionItem): number {
     }
 
     const tuitionRaw =
-      typeof item.tuitionFee === "number" ? item.tuitionFee : Number(item.tuitionFee ?? 0);
+      typeof item.tuitionFee === "number"
+        ? item.tuitionFee
+        : Number(item.tuitionFee ?? 0);
     return sum + (Number.isFinite(tuitionRaw) ? tuitionRaw : 0);
   }, 0);
 }
 
-function normalizeMoneyValue(value: number | string | null | undefined): number | null {
+function normalizeMoneyValue(
+  value: number | string | null | undefined,
+): number | null {
   if (value == null) return null;
   const normalized = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(normalized)) return null;
@@ -277,7 +295,9 @@ function isNonNegativeMoneyInput(value: string): boolean {
   return Number.isFinite(normalized) && normalized >= 0;
 }
 
-function isChargeableAttendanceStatus(status: SessionAttendanceStatus): boolean {
+function isChargeableAttendanceStatus(
+  status: SessionAttendanceStatus,
+): boolean {
   return status === "present";
 }
 
@@ -287,7 +307,11 @@ function resolveAttendanceTuitionValue(item: AttendanceFormItem): number {
   }
 
   const normalizedInput = normalizeMoneyValue(item.tuitionFee);
-  if (item.tuitionFee.trim() !== "" && normalizedInput != null && normalizedInput >= 0) {
+  if (
+    item.tuitionFee.trim() !== "" &&
+    normalizedInput != null &&
+    normalizedInput >= 0
+  ) {
     return normalizedInput;
   }
 
@@ -317,11 +341,175 @@ function normalizeTimeForApi(value: string): string {
   return `${h}:${m}:${s}`;
 }
 
-const PAYMENT_STATUS_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "unpaid", label: "Chưa thanh toán" },
-  { value: "deposit", label: "Cọc" },
-  { value: "paid", label: "Đã thanh toán" },
-];
+const PAYMENT_STATUS_META = {
+  unpaid: {
+    label: "Chưa thanh toán",
+    dotClassName: "bg-warning",
+    pillClassName:
+      "border border-warning/25 bg-warning/10 text-warning shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]",
+  },
+  deposit: {
+    label: "Cọc",
+    dotClassName: "bg-info",
+    pillClassName:
+      "border border-info/25 bg-info/10 text-info shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]",
+  },
+  paid: {
+    label: "Đã thanh toán",
+    dotClassName: "bg-success",
+    pillClassName:
+      "border border-success/25 bg-success/10 text-success shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]",
+  },
+} satisfies Record<
+  "unpaid" | "deposit" | "paid",
+  {
+    label: string;
+    dotClassName: string;
+    pillClassName: string;
+  }
+>;
+
+function renderPaymentStatusOptionLabel(status: "unpaid" | "deposit" | "paid") {
+  const meta = PAYMENT_STATUS_META[status];
+
+  return (
+    <span
+      className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-semibold ${meta.pillClassName}`}
+    >
+      <span
+        className={`size-2 rounded-full ${meta.dotClassName}`}
+        aria-hidden
+      />
+      {meta.label}
+    </span>
+  );
+}
+
+const PAYMENT_STATUS_OPTIONS = (
+  [
+    { value: "unpaid", label: renderPaymentStatusOptionLabel("unpaid") },
+    { value: "deposit", label: renderPaymentStatusOptionLabel("deposit") },
+    { value: "paid", label: renderPaymentStatusOptionLabel("paid") },
+  ] as const
+).map((option) => ({
+  value: option.value,
+  label: option.label,
+}));
+const DEFAULT_BULK_PAYMENT_STATUS: SessionPaymentStatus = "paid";
+
+function getPaymentStatusLabel(status: SessionPaymentStatus): string {
+  if (status === "paid" || status === "deposit" || status === "unpaid") {
+    return PAYMENT_STATUS_META[status].label;
+  }
+
+  return String(status);
+}
+
+type SelectionCheckboxProps = {
+  checked: boolean;
+  indeterminate?: boolean;
+  onChange: () => void;
+  disabled?: boolean;
+  ariaLabel: string;
+};
+
+function SelectionCheckbox({
+  checked,
+  indeterminate = false,
+  onChange,
+  disabled = false,
+  ariaLabel,
+}: SelectionCheckboxProps) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!inputRef.current) return;
+    inputRef.current.indeterminate = indeterminate;
+  }, [indeterminate]);
+
+  const isActive = checked || indeterminate;
+  const outerClassName = isActive
+    ? checked
+      ? "border-primary/35 bg-gradient-to-br from-primary/20 via-primary/8 to-info/18 shadow-[0_16px_35px_-22px_rgba(37,99,235,0.7)]"
+      : "border-warning/35 bg-gradient-to-br from-warning/22 via-warning/10 to-info/18 shadow-[0_16px_35px_-24px_rgba(245,158,11,0.75)]"
+    : "border-border-default/80 bg-bg-surface shadow-[0_10px_25px_-18px_rgba(15,23,42,0.3)] hover:border-primary/30 hover:bg-bg-secondary";
+  const innerShellClassName = isActive
+    ? checked
+      ? "border-white/25 bg-white/12"
+      : "border-warning/25 bg-white/10"
+    : "border-border-default/70 bg-bg-surface/95 group-hover:border-primary/20 group-hover:bg-bg-secondary/90";
+  const iconPlateClassName = isActive
+    ? checked
+      ? "border-white/12 bg-transparent text-white shadow-none"
+      : "border-warning/35 bg-warning/15 text-warning"
+    : "border-border-default bg-bg-surface text-transparent group-hover:border-primary/25 group-hover:bg-primary/5";
+
+  return (
+    <label
+      className={`group touch-manipulation relative inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center overflow-hidden rounded-[1.05rem] border p-[5px] transition-all duration-200 motion-reduce:transition-none focus-within:ring-2 focus-within:ring-border-focus focus-within:ring-offset-2 focus-within:ring-offset-bg-surface ${outerClassName} ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+    >
+      <input
+        ref={inputRef}
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        disabled={disabled}
+        aria-label={ariaLabel}
+        className="sr-only"
+      />
+      <span
+        className={`absolute inset-[5px] rounded-[0.8rem] border transition-all duration-200 motion-reduce:transition-none ${innerShellClassName}`}
+        aria-hidden
+      />
+      <span
+        className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.2),_transparent_58%)] opacity-90"
+        aria-hidden
+      />
+      {checked ? (
+        <span
+          className="pointer-events-none absolute left-1/2 top-1/2 z-0 size-[1.45rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-success/35 bg-[radial-gradient(circle_at_35%_35%,rgba(255,255,255,0.7),rgba(34,197,94,0.95)_42%,rgba(22,163,74,1)_100%)] shadow-[0_0_0_4px_rgba(34,197,94,0.12),0_12px_26px_-14px_rgba(22,163,74,0.85)] transition-all duration-200 motion-reduce:transition-none"
+          aria-hidden
+        />
+      ) : null}
+      <span
+        className={`relative z-10 flex size-5 items-center justify-center rounded-[0.68rem] border shadow-sm transition-all duration-200 motion-reduce:transition-none ${iconPlateClassName}`}
+        aria-hidden
+      >
+        {checked ? (
+          <svg
+            className="size-3.5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2.5}
+              d="m5 12 4.2 4.2L19 6.8"
+            />
+          </svg>
+        ) : indeterminate ? (
+          <svg
+            className="size-3.5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2.5}
+              d="M6 12h12"
+            />
+          </svg>
+        ) : (
+          <span className="size-1.5 rounded-full bg-primary/30" />
+        )}
+      </span>
+    </label>
+  );
+}
 
 export default function SessionHistoryTable({
   sessions,
@@ -340,14 +528,24 @@ export default function SessionHistoryTable({
   allowFinancialEdits = true,
   allowPaymentStatusEdit = true,
   allowDeleteSession = true,
+  enableBulkPaymentStatusEdit = false,
   updateSessionFn = sessionApi.updateSession,
   deleteSessionFn = sessionApi.deleteSession,
 }: Props) {
   const isWideEditor = editorLayout === "wide";
   const showActionsColumn = showActionsColumnProp ?? Boolean(onSessionUpdated);
   const showDeleteAction = showActionsColumn && allowDeleteSession;
-  const [editingSession, setEditingSession] = useState<SessionItem | null>(null);
-  const [sessionToDelete, setSessionToDelete] = useState<SessionItem | null>(null);
+  const showBulkPaymentStatusBar =
+    enableBulkPaymentStatusEdit &&
+    statusMode === "payment" &&
+    allowPaymentStatusEdit &&
+    Boolean(onSessionUpdated);
+  const [editingSession, setEditingSession] = useState<SessionItem | null>(
+    null,
+  );
+  const [sessionToDelete, setSessionToDelete] = useState<SessionItem | null>(
+    null,
+  );
   const [editDate, setEditDate] = useState("");
   const [editStartTime, setEditStartTime] = useState("");
   const [editEndTime, setEditEndTime] = useState("");
@@ -358,9 +556,19 @@ export default function SessionHistoryTable({
   const [editTeacherId, setEditTeacherId] = useState("");
   const [teachersList, setTeachersList] = useState<SessionTeacherOption[]>([]);
   const [teachersLoading, setTeachersLoading] = useState(false);
-  const [attendanceItems, setAttendanceItems] = useState<AttendanceFormItem[]>([]);
+  const [attendanceItems, setAttendanceItems] = useState<AttendanceFormItem[]>(
+    [],
+  );
   const [attendanceLoading, setAttendanceLoading] = useState(false);
-  const showTeacherInput = allowTeacherSelection && (teachersList.length > 0 || teachersLoading);
+  const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [bulkEditPopupOpen, setBulkEditPopupOpen] = useState(false);
+  const [bulkPaymentStatusDraft, setBulkPaymentStatusDraft] =
+    useState<SessionPaymentStatus>(DEFAULT_BULK_PAYMENT_STATUS);
+  const showTeacherInput =
+    allowTeacherSelection && (teachersList.length > 0 || teachersLoading);
+  const selectionColumnCount = showBulkPaymentStatusBar ? 1 : 0;
   const editingClassId = editingSession?.classId ?? "";
   const {
     data: editingClassDetail,
@@ -371,6 +579,24 @@ export default function SessionHistoryTable({
     queryFn: () => classApi.getClassById(editingClassId),
     enabled: !!editingClassId && allowFinancialEdits,
   });
+  const pageSessionIds = useMemo(
+    () => sessions.map((session) => session.id),
+    [sessions],
+  );
+  const visibleSelectedSessionIds = useMemo(
+    () =>
+      new Set(
+        pageSessionIds.filter((sessionId) => selectedSessionIds.has(sessionId)),
+      ),
+    [pageSessionIds, selectedSessionIds],
+  );
+  const selectedCount = useMemo(
+    () => visibleSelectedSessionIds.size,
+    [visibleSelectedSessionIds],
+  );
+  const allSessionsSelected =
+    pageSessionIds.length > 0 && selectedCount === pageSessionIds.length;
+  const hasPartialSessionSelection = selectedCount > 0 && !allSessionsSelected;
 
   const loadTeachersForEdit = (session: SessionItem) => {
     if (teachersProp?.length) {
@@ -409,9 +635,11 @@ export default function SessionHistoryTable({
           existingAttendance.map((attendanceItem) => [
             attendanceItem.studentId,
             {
-              status: (attendanceItem.status ?? "absent") as SessionAttendanceStatus,
+              status: (attendanceItem.status ??
+                "absent") as SessionAttendanceStatus,
               notes: attendanceItem.notes ?? "",
-              tuitionFee: normalizeMoneyValue(attendanceItem.tuitionFee) ?? null,
+              tuitionFee:
+                normalizeMoneyValue(attendanceItem.tuitionFee) ?? null,
             },
           ]),
         );
@@ -421,7 +649,8 @@ export default function SessionHistoryTable({
           const existingTuitionFee = normalizeMoneyValue(existing?.tuitionFee);
           const shouldShowOverride =
             existingTuitionFee != null &&
-            (defaultTuitionFee == null || existingTuitionFee !== defaultTuitionFee);
+            (defaultTuitionFee == null ||
+              existingTuitionFee !== defaultTuitionFee);
 
           return {
             studentId: student.id,
@@ -442,7 +671,10 @@ export default function SessionHistoryTable({
       .finally(() => setAttendanceLoading(false));
   };
 
-  const setAttendanceStatus = (studentId: string, status: SessionAttendanceStatus) => {
+  const setAttendanceStatus = (
+    studentId: string,
+    status: SessionAttendanceStatus,
+  ) => {
     setAttendanceItems((prev) =>
       prev.map((item) =>
         item.studentId === studentId ? { ...item, status } : item,
@@ -476,6 +708,77 @@ export default function SessionHistoryTable({
       toast.error("Không thể xóa buổi học. Vui lòng thử lại.");
     },
   });
+
+  const bulkPaymentStatusMutation = useMutation({
+    mutationFn: (teacherPaymentStatus: SessionPaymentStatus) =>
+      sessionApi.bulkUpdateSessionPaymentStatus({
+        sessionIds: Array.from(visibleSelectedSessionIds),
+        teacherPaymentStatus,
+      }),
+    onSuccess: (result, teacherPaymentStatus) => {
+      const paymentLabel = getPaymentStatusLabel(teacherPaymentStatus);
+      if (result.updatedCount > 0) {
+        toast.success(
+          `Đã chuyển ${result.updatedCount} buổi sang trạng thái ${paymentLabel.toLowerCase()}.`,
+        );
+      } else {
+        toast.success(
+          `Các buổi đã ở trạng thái ${paymentLabel.toLowerCase()}.`,
+        );
+      }
+      setBulkEditPopupOpen(false);
+      setSelectedSessionIds(new Set());
+      onSessionUpdated?.();
+    },
+    onError: (error: unknown) => {
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response
+          ?.data?.message ??
+        (error as Error)?.message ??
+        "Không thể cập nhật trạng thái thanh toán hàng loạt.";
+      toast.error(message);
+    },
+  });
+
+  const toggleSessionSelection = (sessionId: string) => {
+    if (!showBulkPaymentStatusBar || bulkPaymentStatusMutation.isPending)
+      return;
+
+    setSelectedSessionIds((current) => {
+      const next = new Set(current);
+      if (next.has(sessionId)) {
+        next.delete(sessionId);
+      } else {
+        next.add(sessionId);
+      }
+      return next;
+    });
+  };
+
+  const toggleAllSessions = () => {
+    if (!showBulkPaymentStatusBar || bulkPaymentStatusMutation.isPending)
+      return;
+
+    setSelectedSessionIds(
+      allSessionsSelected ? new Set() : new Set(pageSessionIds),
+    );
+  };
+
+  const openBulkEditPopup = () => {
+    if (selectedCount === 0 || bulkPaymentStatusMutation.isPending) return;
+    setBulkPaymentStatusDraft(DEFAULT_BULK_PAYMENT_STATUS);
+    setBulkEditPopupOpen(true);
+  };
+
+  const closeBulkEditPopup = () => {
+    if (bulkPaymentStatusMutation.isPending) return;
+    setBulkEditPopupOpen(false);
+  };
+
+  const confirmBulkPaymentStatusUpdate = () => {
+    if (selectedCount === 0 || bulkPaymentStatusMutation.isPending) return;
+    bulkPaymentStatusMutation.mutate(bulkPaymentStatusDraft);
+  };
 
   const handleDeleteClick = (session: SessionItem) => {
     setSessionToDelete(session);
@@ -520,8 +823,10 @@ export default function SessionHistoryTable({
       if (payload.teacherId) data.teacherId = payload.teacherId;
       if (payload.startTime) data.startTime = payload.startTime;
       if (payload.endTime) data.endTime = payload.endTime;
-      if (payload.coefficient !== undefined) data.coefficient = payload.coefficient;
-      if (payload.allowanceAmount !== undefined) data.allowanceAmount = payload.allowanceAmount;
+      if (payload.coefficient !== undefined)
+        data.coefficient = payload.coefficient;
+      if (payload.allowanceAmount !== undefined)
+        data.allowanceAmount = payload.allowanceAmount;
       if (payload.attendance != null) {
         data.attendance = payload.attendance as SessionAttendanceItem[];
       }
@@ -545,14 +850,18 @@ export default function SessionHistoryTable({
     setEditNotes(session.notes ?? "");
     setEditTeacherId(session.teacherId ?? "");
     const status = (session.teacherPaymentStatus ?? "unpaid").toLowerCase();
-    setEditPaymentStatus(status === "paid" ? "paid" : status === "deposit" ? "deposit" : "unpaid");
+    setEditPaymentStatus(
+      status === "paid" ? "paid" : status === "deposit" ? "deposit" : "unpaid",
+    );
     const coeff = session.coefficient;
     setEditCoefficient(
       coeff != null && Number.isFinite(Number(coeff)) ? String(coeff) : "1",
     );
     const allowance = session.allowanceAmount;
     setEditAllowanceAmount(
-      allowance != null && Number.isFinite(Number(allowance)) ? String(allowance) : "",
+      allowance != null && Number.isFinite(Number(allowance))
+        ? String(allowance)
+        : "",
     );
     loadTeachersForEdit(session);
     loadAttendanceForEdit(session);
@@ -592,7 +901,9 @@ export default function SessionHistoryTable({
       (item) => item.notes.length > MAX_ATTENDANCE_NOTES_LENGTH,
     );
     if (hasAttendanceNotesTooLong) {
-      toast.error(`Ghi chú điểm danh tối đa ${MAX_ATTENDANCE_NOTES_LENGTH} ký tự.`);
+      toast.error(
+        `Ghi chú điểm danh tối đa ${MAX_ATTENDANCE_NOTES_LENGTH} ký tự.`,
+      );
       return;
     }
     const hasInvalidAttendanceTuition =
@@ -605,16 +916,18 @@ export default function SessionHistoryTable({
     const attendancePayload: SessionAttendanceItem[] =
       attendanceItems.length > 0
         ? attendanceItems.map((item) => ({
-          studentId: item.studentId,
-          status: item.status,
-          notes: item.notes.trim() || null,
-          ...(allowFinancialEdits && item.tuitionFee.trim() !== ""
-            ? { tuitionFee: Math.floor(Number(item.tuitionFee)) }
-            : {}),
-        }))
+            studentId: item.studentId,
+            status: item.status,
+            notes: item.notes.trim() || null,
+            ...(allowFinancialEdits && item.tuitionFee.trim() !== ""
+              ? { tuitionFee: Math.floor(Number(item.tuitionFee)) }
+              : {}),
+          }))
         : [];
     const coeffNum =
-      allowFinancialEdits && editCoefficient.trim() ? Number(editCoefficient) : undefined;
+      allowFinancialEdits && editCoefficient.trim()
+        ? Number(editCoefficient)
+        : undefined;
     const allowanceNum =
       allowFinancialEdits && editAllowanceAmount.trim()
         ? Math.floor(Number(editAllowanceAmount))
@@ -634,12 +947,14 @@ export default function SessionHistoryTable({
       ...(startNorm && { startTime: startNorm }),
       ...(endNorm && { endTime: endNorm }),
       notes: editNotes.trim() || null,
-      ...(allowPaymentStatusEdit ? { teacherPaymentStatus: editPaymentStatus } : {}),
+      ...(allowPaymentStatusEdit
+        ? { teacherPaymentStatus: editPaymentStatus }
+        : {}),
       ...(allowFinancialEdits && validCoeff ? { coefficient: coeffNum } : {}),
       ...(allowFinancialEdits &&
-        allowanceNum !== undefined &&
-        Number.isFinite(allowanceNum) &&
-        allowanceNum >= 0
+      allowanceNum !== undefined &&
+      Number.isFinite(allowanceNum) &&
+      allowanceNum >= 0
         ? { allowanceAmount: allowanceNum }
         : {}),
       ...(attendancePayload.length > 0 && { attendance: attendancePayload }),
@@ -649,12 +964,16 @@ export default function SessionHistoryTable({
   const shouldShowEntity = entityMode !== "none";
   const resolvedEditSessionTuition =
     editingSession == null
-      ? sessionTuitionTotal ?? 0
+      ? (sessionTuitionTotal ?? 0)
       : attendanceItems.length > 0
-        ? attendanceItems.reduce((sum, item) => sum + resolveAttendanceTuitionValue(item), 0)
-        : editingSession.tuitionFee != null || Array.isArray(editingSession.attendance)
+        ? attendanceItems.reduce(
+            (sum, item) => sum + resolveAttendanceTuitionValue(item),
+            0,
+          )
+        : editingSession.tuitionFee != null ||
+            Array.isArray(editingSession.attendance)
           ? resolveSessionTuitionFee(editingSession)
-          : sessionTuitionTotal ?? 0;
+          : (sessionTuitionTotal ?? 0);
   const attendanceDefaultTuitionTotal = useMemo(
     () =>
       attendanceItems.reduce(
@@ -685,12 +1004,15 @@ export default function SessionHistoryTable({
   const attendanceOverrideCount = useMemo(
     () =>
       attendanceItems.filter(
-        (item) => isChargeableAttendanceStatus(item.status) && item.tuitionFee.trim() !== "",
+        (item) =>
+          isChargeableAttendanceStatus(item.status) &&
+          item.tuitionFee.trim() !== "",
       ).length,
     [attendanceItems],
   );
   const currentSessionCoefficient =
-    editingSession?.coefficient != null && Number.isFinite(Number(editingSession.coefficient))
+    editingSession?.coefficient != null &&
+    Number.isFinite(Number(editingSession.coefficient))
       ? Number(editingSession.coefficient)
       : 1;
   const coefficientInput = editCoefficient.trim();
@@ -707,16 +1029,21 @@ export default function SessionHistoryTable({
       : isCoefficientInputValid
         ? coefficientInputValue
         : null;
-  const selectedTeacherId = editTeacherId.trim() || editingSession?.teacherId || "";
+  const selectedTeacherId =
+    editTeacherId.trim() || editingSession?.teacherId || "";
   const selectedTeacherCustomAllowance =
-    editingClassDetail?.teachers?.find((teacher) => teacher.id === selectedTeacherId)
-      ?.customAllowance ?? null;
+    editingClassDetail?.teachers?.find(
+      (teacher) => teacher.id === selectedTeacherId,
+    )?.customAllowance ?? null;
   const classDefaultAllowance = normalizeMoneyValue(
     editingClassDetail?.allowancePerSessionPerStudent,
   );
   const fallbackTeacherAllowance =
-    normalizeMoneyValue(selectedTeacherCustomAllowance) ?? classDefaultAllowance;
-  const currentSessionAllowance = normalizeMoneyValue(editingSession?.allowanceAmount);
+    normalizeMoneyValue(selectedTeacherCustomAllowance) ??
+    classDefaultAllowance;
+  const currentSessionAllowance = normalizeMoneyValue(
+    editingSession?.allowanceAmount,
+  );
   const allowanceInput = editAllowanceAmount.trim();
   const allowanceInputValue =
     allowanceInput === "" ? null : Number(editAllowanceAmount);
@@ -728,7 +1055,7 @@ export default function SessionHistoryTable({
     allowanceInput === ""
       ? selectedTeacherId !== (editingSession?.teacherId ?? "")
         ? fallbackTeacherAllowance
-        : currentSessionAllowance ?? fallbackTeacherAllowance
+        : (currentSessionAllowance ?? fallbackTeacherAllowance)
       : isAllowanceInputValid
         ? Math.floor(allowanceInputValue)
         : null;
@@ -755,20 +1082,77 @@ export default function SessionHistoryTable({
 
   return (
     <>
+      {showBulkPaymentStatusBar && sessions.length > 0 ? (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={toggleAllSessions}
+            disabled={
+              pageSessionIds.length === 0 || bulkPaymentStatusMutation.isPending
+            }
+            className="touch-manipulation inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3.5 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {allSessionsSelected
+              ? "Bỏ chọn tất cả"
+              : `Chọn tất cả ${pageSessionIds.length} buổi`}
+          </button>
+
+          <button
+            type="button"
+            onClick={openBulkEditPopup}
+            disabled={
+              selectedCount === 0 || bulkPaymentStatusMutation.isPending
+            }
+            className="touch-manipulation inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse shadow-[0_14px_30px_-18px_rgba(37,99,235,0.55)] transition-all hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            aria-label={`Sửa trạng thái thanh toán cho ${selectedCount} buổi học đã chọn`}
+          >
+            <svg
+              className="size-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+              />
+            </svg>
+            <span>Sửa trạng thái thanh toán</span>
+            <span className="rounded-full bg-white/18 px-2 py-0.5 text-xs font-semibold tabular-nums">
+              {selectedCount}
+            </span>
+          </button>
+        </div>
+      ) : null}
+
       {/* Mobile layout: card list */}
       <div className={`space-y-3 ${className} md:hidden`}>
         {sessions.length > 0 ? (
           sessions.map((session) => {
             const status = renderSessionStatus(session, statusMode);
             const notesContent = session.notes?.trim();
-            const sanitizedNotes = notesContent ? sanitizeHtml(notesContent) : "";
-            const entityLabel = shouldShowEntity ? renderEntityHeader(entityMode) : "";
-            const entityValue = shouldShowEntity ? renderEntityCell(session, entityMode) : "";
+            const sanitizedNotes = notesContent
+              ? sanitizeHtml(notesContent)
+              : "";
+            const entityLabel = shouldShowEntity
+              ? renderEntityHeader(entityMode)
+              : "";
+            const entityValue = shouldShowEntity
+              ? renderEntityCell(session, entityMode)
+              : "";
 
             return (
               <article
                 key={session.id}
-                className="group rounded-lg border border-border-default bg-bg-surface p-3 shadow-sm"
+                className={`group rounded-lg border p-3 shadow-sm transition-colors ${
+                  showBulkPaymentStatusBar &&
+                  visibleSelectedSessionIds.has(session.id)
+                    ? "border-primary/35 bg-primary/5"
+                    : "border-border-default bg-bg-surface"
+                }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="space-y-1">
@@ -799,6 +1183,14 @@ export default function SessionHistoryTable({
                     )}
                   </div>
                   <div className="flex flex-col items-end gap-2">
+                    {showBulkPaymentStatusBar ? (
+                      <SelectionCheckbox
+                        checked={visibleSelectedSessionIds.has(session.id)}
+                        onChange={() => toggleSessionSelection(session.id)}
+                        disabled={bulkPaymentStatusMutation.isPending}
+                        ariaLabel={`Chọn buổi học ${formatDateOnly(session.date)} ${renderSessionTime(session)}`}
+                      />
+                    ) : null}
                     <span
                       className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}
                     >
@@ -867,7 +1259,9 @@ export default function SessionHistoryTable({
                         dangerouslySetInnerHTML={{ __html: sanitizedNotes }}
                       />
                     ) : (
-                      <p className="text-sm text-text-muted">Không có ghi chú.</p>
+                      <p className="text-sm text-text-muted">
+                        Không có ghi chú.
+                      </p>
                     )}
                   </div>
                 )}
@@ -884,12 +1278,13 @@ export default function SessionHistoryTable({
         <table
           className={
             entityMode === "class"
-              ? "w-full min-w-[400px] table-fixed border-collapse text-left text-sm"
-              : "w-full min-w-[520px] border-collapse text-left text-sm"
+              ? "w-full min-w-[440px] table-fixed border-collapse text-left text-sm"
+              : "w-full min-w-[560px] border-collapse text-left text-sm"
           }
         >
           <caption className="sr-only">Lịch sử buổi học</caption>
           <colgroup>
+            {showBulkPaymentStatusBar ? <col className="w-12" /> : null}
             {entityMode === "teacher" ? (
               <>
                 <col className="w-[10%]" />
@@ -918,24 +1313,52 @@ export default function SessionHistoryTable({
           </colgroup>
           <thead>
             <tr className="border-b border-border-default bg-bg-secondary">
-              <th scope="col" className="px-4 py-3 font-medium text-text-primary">
+              {showBulkPaymentStatusBar ? (
+                <th scope="col" className="px-3 py-3 text-center">
+                  <SelectionCheckbox
+                    checked={allSessionsSelected}
+                    indeterminate={hasPartialSessionSelection}
+                    onChange={toggleAllSessions}
+                    disabled={bulkPaymentStatusMutation.isPending}
+                    ariaLabel="Chọn tất cả buổi học trong bảng"
+                  />
+                </th>
+              ) : null}
+              <th
+                scope="col"
+                className="px-4 py-3 font-medium text-text-primary"
+              >
                 Ngày học
               </th>
               {entityMode === "teacher" ? (
-                <th scope="col" className="px-4 py-3 font-medium text-text-primary">
+                <th
+                  scope="col"
+                  className="px-4 py-3 font-medium text-text-primary"
+                >
                   Note
                 </th>
               ) : null}
-              <th scope="col" className="px-4 py-3 font-medium text-text-primary">
+              <th
+                scope="col"
+                className="px-4 py-3 font-medium text-text-primary"
+              >
                 Giờ học
               </th>
               {shouldShowEntity ? (
-                <th scope="col" className="min-w-0 px-4 py-3 font-medium text-text-primary">
+                <th
+                  scope="col"
+                  className="min-w-0 px-4 py-3 font-medium text-text-primary"
+                >
                   {renderEntityHeader(entityMode)}
                 </th>
               ) : null}
-              <th scope="col" className="px-4 py-3 font-medium text-text-primary">
-                {statusMode === "timeline" ? "Tiến độ" : "Trạng thái thanh toán"}
+              <th
+                scope="col"
+                className="px-4 py-3 font-medium text-text-primary"
+              >
+                {statusMode === "timeline"
+                  ? "Tiến độ"
+                  : "Trạng thái thanh toán"}
               </th>
               {showActionsColumn ? (
                 <th
@@ -953,12 +1376,29 @@ export default function SessionHistoryTable({
               sessions.map((session) => {
                 const status = renderSessionStatus(session, statusMode);
                 const notesContent = session.notes?.trim();
-                const sanitizedNotes = notesContent ? sanitizeHtml(notesContent) : "";
+                const sanitizedNotes = notesContent
+                  ? sanitizeHtml(notesContent)
+                  : "";
                 return (
                   <tr
                     key={session.id}
-                    className="group border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary"
+                    className={`group border-b border-border-default transition-colors duration-200 ${
+                      showBulkPaymentStatusBar &&
+                      visibleSelectedSessionIds.has(session.id)
+                        ? "bg-primary/5 hover:bg-primary/10"
+                        : "bg-bg-surface hover:bg-bg-secondary"
+                    }`}
                   >
+                    {showBulkPaymentStatusBar ? (
+                      <td className="px-3 py-3 text-center align-middle">
+                        <SelectionCheckbox
+                          checked={visibleSelectedSessionIds.has(session.id)}
+                          onChange={() => toggleSessionSelection(session.id)}
+                          disabled={bulkPaymentStatusMutation.isPending}
+                          ariaLabel={`Chọn buổi học ${formatDateOnly(session.date)} ${renderSessionTime(session)}`}
+                        />
+                      </td>
+                    ) : null}
                     <td className="px-4 py-3 text-text-primary">
                       {formatDateOnly(session.date)}
                     </td>
@@ -1052,6 +1492,7 @@ export default function SessionHistoryTable({
               <tr>
                 <td
                   colSpan={
+                    selectionColumnCount +
                     (entityMode === "teacher" ? 5 : shouldShowEntity ? 4 : 3) +
                     (showActionsColumn ? 1 : 0)
                   }
@@ -1064,6 +1505,119 @@ export default function SessionHistoryTable({
           </tbody>
         </table>
       </div>
+
+      {bulkEditPopupOpen ? (
+        <>
+          <div
+            className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-[1px]"
+            aria-hidden
+            onClick={closeBulkEditPopup}
+          />
+          <div className="fixed inset-0 z-[70] p-3 sm:p-4">
+            <div className="mx-auto flex h-full w-full max-w-md items-center">
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="bulk-payment-status-title"
+                className="relative w-full overflow-hidden rounded-[1.5rem] border border-border-default bg-bg-surface p-5 shadow-2xl"
+              >
+                <div
+                  className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-success/0 via-success/50 to-primary/0"
+                  aria-hidden
+                />
+                <div
+                  className="absolute -right-8 -top-10 h-24 w-24 rounded-full bg-success/10 blur-3xl"
+                  aria-hidden
+                />
+
+                <div className="relative">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
+                        Chỉnh sửa hàng loạt
+                      </p>
+                      <h2
+                        id="bulk-payment-status-title"
+                        className="mt-1 text-lg font-semibold text-text-primary text-balance"
+                      >
+                        Cập nhật trạng thái thanh toán
+                      </h2>
+                      <p className="mt-2 text-sm text-text-secondary">
+                        Áp dụng cho{" "}
+                        <span className="font-semibold text-primary">
+                          {selectedCount}
+                        </span>{" "}
+                        buổi học đã chọn.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={closeBulkEditPopup}
+                      className="rounded-xl p-2 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                      aria-label="Đóng popup sửa trạng thái thanh toán"
+                    >
+                      <svg
+                        className="size-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        aria-hidden
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div className="mt-5 space-y-4">
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-medium text-text-secondary">
+                        Trạng thái muốn đổi
+                      </span>
+                      <UpgradedSelect
+                        name="bulk-session-payment-status"
+                        value={bulkPaymentStatusDraft}
+                        onValueChange={(value) =>
+                          setBulkPaymentStatusDraft(
+                            value as SessionPaymentStatus,
+                          )
+                        }
+                        options={PAYMENT_STATUS_OPTIONS}
+                        buttonClassName="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                      />
+                    </label>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={closeBulkEditPopup}
+                        disabled={bulkPaymentStatusMutation.isPending}
+                        className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Hủy
+                      </button>
+                      <button
+                        type="button"
+                        onClick={confirmBulkPaymentStatusUpdate}
+                        disabled={bulkPaymentStatusMutation.isPending}
+                        className="min-h-11 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {bulkPaymentStatusMutation.isPending
+                          ? "Đang cập nhật…"
+                          : "Xác nhận"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : null}
 
       {sessionToDelete ? (
         <>
@@ -1140,10 +1694,11 @@ export default function SessionHistoryTable({
             aria-hidden
             onClick={closeEdit}
           />
-          <div className="fixed inset-0 z-50 overflow-y-auto p-2 sm:p-4">
+          <div className="fixed inset-0 z-50 overflow-y-auto overscroll-contain p-2 sm:p-4">
             <div
-              className={`mx-auto flex min-h-full w-full items-start py-2 sm:items-center sm:py-0 ${isWideEditor ? "max-w-[72rem]" : "max-w-2xl"
-                }`}
+              className={`mx-auto flex min-h-full w-full items-start py-2 sm:items-center sm:py-0 ${
+                isWideEditor ? "max-w-[72rem]" : "max-w-2xl"
+              }`}
             >
               <div
                 role="dialog"
@@ -1153,11 +1708,16 @@ export default function SessionHistoryTable({
               >
                 <div className="mb-4 flex shrink-0 flex-col gap-3 border-b border-border-default/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <h2 id="edit-session-title" className="text-lg font-semibold text-text-primary">
+                    <h2
+                      id="edit-session-title"
+                      className="text-lg font-semibold text-text-primary"
+                    >
                       Chỉnh sửa buổi học
                     </h2>
                     <p className="mt-1 text-sm text-text-muted">
-                      {allowFinancialEdits || allowPaymentStatusEdit || allowTeacherSelection
+                      {allowFinancialEdits ||
+                      allowPaymentStatusEdit ||
+                      allowTeacherSelection
                         ? "Cập nhật thời gian, cấu hình và điểm danh trong cùng một biểu mẫu."
                         : "Cập nhật ngày học, giờ học, ghi chú và điểm danh trong cùng một biểu mẫu."}
                     </p>
@@ -1179,8 +1739,19 @@ export default function SessionHistoryTable({
                       className="rounded-xl p-2 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                       aria-label="Đóng"
                     >
-                      <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      <svg
+                        className="size-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        aria-hidden
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
                       </svg>
                     </button>
                   </div>
@@ -1195,13 +1766,18 @@ export default function SessionHistoryTable({
                             Cấu hình buổi học
                           </h3>
                           <p className="mt-1 text-xs text-text-muted">
-                            Mở rộng bố cục trên desktop nhưng vẫn ưu tiên thao tác một tay trên mobile.
+                            Mở rộng bố cục trên desktop nhưng vẫn ưu tiên thao
+                            tác một tay trên mobile.
                           </p>
                         </div>
                       </div>
 
-                      <div className={`grid gap-4 sm:grid-cols-2 ${isWideEditor ? "xl:grid-cols-6" : ""}`}>
-                        <label className={`flex flex-col gap-1 text-sm text-text-secondary ${isWideEditor ? "xl:col-span-2" : ""}`}>
+                      <div
+                        className={`grid gap-4 sm:grid-cols-2 ${isWideEditor ? "xl:grid-cols-6" : ""}`}
+                      >
+                        <label
+                          className={`flex flex-col gap-1 text-sm text-text-secondary ${isWideEditor ? "xl:col-span-2" : ""}`}
+                        >
                           <span>Ngày học</span>
                           <input
                             name="edit-session-date"
@@ -1214,7 +1790,9 @@ export default function SessionHistoryTable({
                         </label>
 
                         {showTeacherInput ? (
-                          <label className={`flex flex-col gap-1 text-sm text-text-secondary ${isWideEditor ? "xl:col-span-2" : ""}`}>
+                          <label
+                            className={`flex flex-col gap-1 text-sm text-text-secondary ${isWideEditor ? "xl:col-span-2" : ""}`}
+                          >
                             <span>Gia sư phụ trách</span>
                             <UpgradedSelect
                               name="edit-session-teacher"
@@ -1225,7 +1803,9 @@ export default function SessionHistoryTable({
                                 value: teacher.id,
                                 label: teacher.fullName?.trim() || "Gia sư",
                               }))}
-                              placeholder={teachersLoading ? "Đang tải…" : "Chọn gia sư"}
+                              placeholder={
+                                teachersLoading ? "Đang tải…" : "Chọn gia sư"
+                              }
                               buttonClassName="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                             />
                           </label>
@@ -1233,8 +1813,11 @@ export default function SessionHistoryTable({
 
                         {allowPaymentStatusEdit ? (
                           <label
-                            className={`flex flex-col gap-1 text-sm text-text-secondary ${isWideEditor ? "sm:col-span-2 xl:col-span-2" : "sm:col-span-2"
-                              }`}
+                            className={`flex flex-col gap-1 text-sm text-text-secondary ${
+                              isWideEditor
+                                ? "sm:col-span-2 xl:col-span-2"
+                                : "sm:col-span-2"
+                            }`}
                           >
                             <span>Trạng thái thanh toán</span>
                             <UpgradedSelect
@@ -1275,7 +1858,9 @@ export default function SessionHistoryTable({
 
                         {allowFinancialEdits ? (
                           <>
-                            <label className={`flex flex-col gap-1 text-sm text-text-secondary ${isWideEditor ? "xl:col-span-2" : ""}`}>
+                            <label
+                              className={`flex flex-col gap-1 text-sm text-text-secondary ${isWideEditor ? "xl:col-span-2" : ""}`}
+                            >
                               <span>Hệ số (coefficient)</span>
                               <input
                                 name="edit-session-coefficient"
@@ -1285,13 +1870,17 @@ export default function SessionHistoryTable({
                                 step={0.1}
                                 value={editCoefficient}
                                 autoComplete="off"
-                                onChange={(e) => setEditCoefficient(e.target.value)}
+                                onChange={(e) =>
+                                  setEditCoefficient(e.target.value)
+                                }
                                 className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                                 placeholder="1"
                               />
                             </label>
 
-                            <label className={`flex flex-col gap-1 text-sm text-text-secondary ${isWideEditor ? "xl:col-span-2" : ""}`}>
+                            <label
+                              className={`flex flex-col gap-1 text-sm text-text-secondary ${isWideEditor ? "xl:col-span-2" : ""}`}
+                            >
                               <span>Trợ cấp buổi (VNĐ)</span>
                               <input
                                 name="edit-session-allowance"
@@ -1299,18 +1888,25 @@ export default function SessionHistoryTable({
                                 min={0}
                                 value={editAllowanceAmount}
                                 autoComplete="off"
-                                onChange={(e) => setEditAllowanceAmount(e.target.value)}
+                                onChange={(e) =>
+                                  setEditAllowanceAmount(e.target.value)
+                                }
                                 className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                                 placeholder="Để trống = giữ nguyên"
                               />
                             </label>
 
                             <p
-                              className={`rounded-2xl border border-border-default/80 bg-bg-surface px-3 py-2 text-xs ${isWideEditor ? "sm:col-span-2 xl:col-span-6" : "sm:col-span-2"
-                                } ${isEditingClassDetailError || hasPreviewValidationIssue
+                              className={`rounded-2xl border border-border-default/80 bg-bg-surface px-3 py-2 text-xs ${
+                                isWideEditor
+                                  ? "sm:col-span-2 xl:col-span-6"
+                                  : "sm:col-span-2"
+                              } ${
+                                isEditingClassDetailError ||
+                                hasPreviewValidationIssue
                                   ? "text-warning"
                                   : "text-text-muted"
-                                }`}
+                              }`}
                             >
                               {allowanceFormulaNote}
                             </p>
@@ -1318,8 +1914,11 @@ export default function SessionHistoryTable({
                         ) : null}
 
                         <label
-                          className={`flex flex-col gap-1 text-sm text-text-secondary ${isWideEditor ? "sm:col-span-2 xl:col-span-6" : "sm:col-span-2"
-                            }`}
+                          className={`flex flex-col gap-1 text-sm text-text-secondary ${
+                            isWideEditor
+                              ? "sm:col-span-2 xl:col-span-6"
+                              : "sm:col-span-2"
+                          }`}
                         >
                           <span>Ghi chú buổi học</span>
                           <RichTextEditor
@@ -1339,7 +1938,8 @@ export default function SessionHistoryTable({
                               Điểm danh học sinh
                             </h3>
                             <p className="mt-1 text-xs text-text-muted">
-                              Mobile dùng dạng thẻ để tránh kéo ngang, desktop giữ bảng để chỉnh hàng loạt.
+                              Mobile dùng dạng thẻ để tránh kéo ngang, desktop
+                              giữ bảng để chỉnh hàng loạt.
                             </p>
                           </div>
 
@@ -1378,7 +1978,9 @@ export default function SessionHistoryTable({
                                       Mặc định
                                     </p>
                                     <p className="mt-1 text-sm font-semibold tabular-nums text-text-primary">
-                                      {formatCurrency(attendanceDefaultTuitionTotal)}
+                                      {formatCurrency(
+                                        attendanceDefaultTuitionTotal,
+                                      )}
                                     </p>
                                   </div>
                                   <div className="flex-1 rounded-2xl border border-primary/20 bg-primary/5 px-3 py-2">
@@ -1386,7 +1988,9 @@ export default function SessionHistoryTable({
                                       Đang áp dụng
                                     </p>
                                     <p className="mt-1 text-sm font-semibold tabular-nums text-primary">
-                                      {formatCurrency(resolvedEditSessionTuition)}
+                                      {formatCurrency(
+                                        resolvedEditSessionTuition,
+                                      )}
                                     </p>
                                   </div>
                                   <div className="flex-1 rounded-2xl border border-border-default bg-bg-surface px-3 py-2">
@@ -1404,14 +2008,20 @@ export default function SessionHistoryTable({
                         </div>
 
                         {attendanceLoading ? (
-                          <p className="py-4 text-center text-sm text-text-muted">Đang tải…</p>
+                          <p className="py-4 text-center text-sm text-text-muted">
+                            Đang tải…
+                          </p>
                         ) : attendanceItems.length === 0 ? (
-                          <p className="py-4 text-center text-sm text-text-muted">Lớp chưa có học sinh.</p>
+                          <p className="py-4 text-center text-sm text-text-muted">
+                            Lớp chưa có học sinh.
+                          </p>
                         ) : (
                           <>
                             <div className="space-y-3 lg:hidden">
                               {attendanceItems.map((item) => {
-                                const statusMeta = getAttendanceStatusMeta(item.status);
+                                const statusMeta = getAttendanceStatusMeta(
+                                  item.status,
+                                );
 
                                 return (
                                   <article
@@ -1428,7 +2038,9 @@ export default function SessionHistoryTable({
                                             Mặc định:{" "}
                                             <span className="font-medium tabular-nums text-text-primary">
                                               {item.defaultTuitionFee != null
-                                                ? formatCurrency(item.defaultTuitionFee)
+                                                ? formatCurrency(
+                                                    item.defaultTuitionFee,
+                                                  )
                                                 : "Chưa cấu hình"}
                                             </span>
                                           </p>
@@ -1441,7 +2053,9 @@ export default function SessionHistoryTable({
                                       </span>
                                     </div>
 
-                                    <div className={`mt-4 grid gap-3 ${allowFinancialEdits ? "sm:grid-cols-2" : ""}`}>
+                                    <div
+                                      className={`mt-4 grid gap-3 ${allowFinancialEdits ? "sm:grid-cols-2" : ""}`}
+                                    >
                                       <label className="flex flex-col gap-1 text-sm text-text-secondary">
                                         <span>Trạng thái</span>
                                         <UpgradedSelect
@@ -1467,7 +2081,12 @@ export default function SessionHistoryTable({
                                             min={0}
                                             value={item.tuitionFee}
                                             autoComplete="off"
-                                            onChange={(e) => setAttendanceTuitionFee(item.studentId, e.target.value)}
+                                            onChange={(e) =>
+                                              setAttendanceTuitionFee(
+                                                item.studentId,
+                                                e.target.value,
+                                              )
+                                            }
                                             className="min-h-11 w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                                             placeholder={
                                               item.defaultTuitionFee != null
@@ -1478,15 +2097,24 @@ export default function SessionHistoryTable({
                                         </label>
                                       ) : null}
 
-                                      <label className={`flex flex-col gap-1 text-sm text-text-secondary ${allowFinancialEdits ? "sm:col-span-2" : ""}`}>
+                                      <label
+                                        className={`flex flex-col gap-1 text-sm text-text-secondary ${allowFinancialEdits ? "sm:col-span-2" : ""}`}
+                                      >
                                         <span>Ghi chú</span>
                                         <input
                                           name={`edit-session-attendance-note-${item.studentId}`}
                                           type="text"
                                           value={item.notes}
                                           autoComplete="off"
-                                          onChange={(e) => setAttendanceNotes(item.studentId, e.target.value)}
-                                          maxLength={MAX_ATTENDANCE_NOTES_LENGTH}
+                                          onChange={(e) =>
+                                            setAttendanceNotes(
+                                              item.studentId,
+                                              e.target.value,
+                                            )
+                                          }
+                                          maxLength={
+                                            MAX_ATTENDANCE_NOTES_LENGTH
+                                          }
                                           className="min-h-11 w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                                           placeholder="Ghi chú (nếu có)"
                                         />
@@ -1498,21 +2126,37 @@ export default function SessionHistoryTable({
                             </div>
 
                             <div className="hidden overflow-x-auto rounded-[1.25rem] border border-border-default bg-bg-surface lg:block">
-                              <table className={`w-full border-collapse text-left text-sm ${allowFinancialEdits ? "min-w-[840px]" : "min-w-[620px]"}`}>
-                                <caption className="sr-only">Điểm danh học sinh</caption>
+                              <table
+                                className={`w-full border-collapse text-left text-sm ${allowFinancialEdits ? "min-w-[840px]" : "min-w-[620px]"}`}
+                              >
+                                <caption className="sr-only">
+                                  Điểm danh học sinh
+                                </caption>
                                 <thead>
                                   <tr className="border-b border-border-default bg-bg-secondary">
-                                    <th scope="col" className="px-4 py-3 font-medium text-text-primary">
+                                    <th
+                                      scope="col"
+                                      className="px-4 py-3 font-medium text-text-primary"
+                                    >
                                       Học sinh
                                     </th>
-                                    <th scope="col" className="px-4 py-3 font-medium text-text-primary">
+                                    <th
+                                      scope="col"
+                                      className="px-4 py-3 font-medium text-text-primary"
+                                    >
                                       Trạng thái
                                     </th>
-                                    <th scope="col" className="px-4 py-3 font-medium text-text-primary">
+                                    <th
+                                      scope="col"
+                                      className="px-4 py-3 font-medium text-text-primary"
+                                    >
                                       Ghi chú
                                     </th>
                                     {allowFinancialEdits ? (
-                                      <th scope="col" className="px-4 py-3 font-medium text-text-primary">
+                                      <th
+                                        scope="col"
+                                        className="px-4 py-3 font-medium text-text-primary"
+                                      >
                                         Học phí buổi
                                       </th>
                                     ) : null}
@@ -1524,7 +2168,9 @@ export default function SessionHistoryTable({
                                       key={item.studentId}
                                       className="border-b border-border-default bg-bg-surface transition-colors hover:bg-bg-secondary"
                                     >
-                                      <td className="px-4 py-3 text-text-primary">{item.fullName}</td>
+                                      <td className="px-4 py-3 text-text-primary">
+                                        {item.fullName}
+                                      </td>
                                       <td className="px-4 py-3">
                                         <UpgradedSelect
                                           name={`edit-session-attendance-status-desktop-${item.studentId}`}
@@ -1545,8 +2191,15 @@ export default function SessionHistoryTable({
                                           type="text"
                                           value={item.notes}
                                           autoComplete="off"
-                                          onChange={(e) => setAttendanceNotes(item.studentId, e.target.value)}
-                                          maxLength={MAX_ATTENDANCE_NOTES_LENGTH}
+                                          onChange={(e) =>
+                                            setAttendanceNotes(
+                                              item.studentId,
+                                              e.target.value,
+                                            )
+                                          }
+                                          maxLength={
+                                            MAX_ATTENDANCE_NOTES_LENGTH
+                                          }
                                           className="w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                                           placeholder="Ghi chú (nếu có)"
                                         />
@@ -1560,11 +2213,18 @@ export default function SessionHistoryTable({
                                               min={0}
                                               value={item.tuitionFee}
                                               autoComplete="off"
-                                              onChange={(e) => setAttendanceTuitionFee(item.studentId, e.target.value)}
+                                              onChange={(e) =>
+                                                setAttendanceTuitionFee(
+                                                  item.studentId,
+                                                  e.target.value,
+                                                )
+                                              }
                                               className="w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                                               placeholder={
                                                 item.defaultTuitionFee != null
-                                                  ? String(item.defaultTuitionFee)
+                                                  ? String(
+                                                      item.defaultTuitionFee,
+                                                    )
                                                   : "Theo học sinh"
                                               }
                                             />
@@ -1572,7 +2232,9 @@ export default function SessionHistoryTable({
                                               Mặc định:{" "}
                                               <span className="font-medium tabular-nums text-text-primary">
                                                 {item.defaultTuitionFee != null
-                                                  ? formatCurrency(item.defaultTuitionFee)
+                                                  ? formatCurrency(
+                                                      item.defaultTuitionFee,
+                                                    )
                                                   : "Chưa cấu hình"}
                                               </span>
                                             </p>
