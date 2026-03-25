@@ -171,7 +171,7 @@ export class AuthController {
     try {
       const payload = this.jwtService.verify(refreshToken, {
         secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
-      }) as JwtPayload;
+      });
 
       return {
         id: payload.id ?? '',

@@ -19,6 +19,9 @@ const MENU_ITEMS: { href: string; label: string; icon: React.ReactNode }[] = [
   { href: "/admin/notes-subject", label: "Ghi chú môn học", icon: <IconNotesSubject /> },
   { href: "/admin/students", label: "Học sinh", icon: <IconStudents /> },
   { href: "/admin/costs", label: "Chi phí", icon: <IconCosts /> },
+  // { href: "/admin/accountant_detail", label: "Trợ cấp kế toán", icon: <IconExtraAllowances /> },
+  // { href: "/admin/assistant_detail", label: "Trợ cấp trợ lí", icon: <IconExtraAllowances /> },
+  // { href: "/admin/communication_detail", label: "Trợ cấp truyền thông", icon: <IconExtraAllowances /> },
   { href: "/admin/lesson-plans", label: "Giáo Án", icon: <IconLessonPlans /> },
   { href: "/admin/history", label: "Lịch sử", icon: <IconHistory /> },
 ];
@@ -93,6 +96,13 @@ function IconCosts() {
   return (
     <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
+function IconExtraAllowances() {
+  return (
+    <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v12m-4-8h8m7 2a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
   );
 }
@@ -225,116 +235,116 @@ export default function AdminSidebar() {
         className="fixed inset-y-0 left-0 z-50 flex h-dvh shrink-0 flex-col overflow-hidden border-r border-border-default bg-bg-secondary text-text-secondary md:sticky md:top-0 md:z-auto md:h-screen"
         aria-label="Menu admin"
       >
-      <div className="flex h-14 shrink-0 items-center justify-between border-b border-border-default px-3">
-        <span
-          className={`truncate font-semibold text-text-primary transition-[max-width,opacity,margin] duration-300 ease-out ${compact ? "ml-0 max-w-0 opacity-0" : "ml-1 max-w-[140px] opacity-100"}`}
-        >
-          Unicorns Edu
-        </span>
-        <button
-          type="button"
-          onClick={isMobile ? () => setMobileOpen(false) : toggleCollapse}
-          className="flex size-9 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors duration-200 hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary"
-          aria-label={isMobile ? "Đóng menu" : collapsed ? "Mở rộng menu" : "Thu gọn menu"}
-        >
-          <svg
-            className={`size-5 transition-transform duration-300 ease-out ${collapsed && !isMobile ? "rotate-180" : ""}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden
-          >
-            {isMobile ? (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-            )}
-          </svg>
-        </button>
-      </div>
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 overscroll-contain">
-        <ul ref={navListRef} className="space-y-0.5 px-2" role="list">
-          {MENU_ITEMS.map((item) => {
-            const isActive =
-              item.href === "/admin"
-                ? pathname === "/admin"
-                : pathname.startsWith(item.href);
-            return (
-              <li key={item.href} className="sidebar-item">
-                <Link
-                  href={item.href}
-                  onClick={handleMobileClose}
-                  className={`flex items-center rounded-lg py-2.5 text-sm font-medium transition-[gap,padding,background-color,color] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "gap-0 px-2.5" : "gap-3 px-3"} ${isActive
-                    ? "bg-primary text-text-inverse"
-                    : "hover:bg-bg-tertiary hover:text-text-primary"
-                    }`}
-                  aria-label={collapsed && !isMobile ? item.label : undefined}
-                  title={collapsed && !isMobile ? item.label : undefined}
-                >
-                  <span className="flex size-5 shrink-0 items-center justify-center [&>svg]:size-5">
-                    {item.icon}
-                  </span>
-                  <span
-                    className={`truncate whitespace-nowrap transition-[max-width,opacity] duration-300 ease-out ${compact ? "max-w-0 opacity-0" : "max-w-[140px] opacity-100"}`}
-                  >
-                    {item.label}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
-      <div className="shrink-0 border-t border-border-default p-2">
-        <Link
-          href="/"
-          onClick={handleMobileClose}
-          className={`sidebar-item flex items-center rounded-lg py-2.5 text-sm font-medium transition-[gap,padding,background-color,color] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "gap-0 px-2.5" : "gap-3 px-3"} ${pathname === "/"
-            ? "bg-primary text-text-inverse"
-            : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
-            }`}
-          aria-label={collapsed && !isMobile ? "Trang chủ" : undefined}
-          title={collapsed && !isMobile ? "Trang chủ" : undefined}
-        >
-          <span className="flex size-5 shrink-0 items-center justify-center [&>svg]:size-5">
-            <IconHome />
-          </span>
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-border-default px-3">
           <span
-            className={`truncate whitespace-nowrap transition-[max-width,opacity] duration-300 ease-out ${compact ? "max-w-0 opacity-0" : "max-w-[140px] opacity-100"}`}
+            className={`truncate font-semibold text-text-primary transition-[max-width,opacity,margin] duration-300 ease-out ${compact ? "ml-0 max-w-0 opacity-0" : "ml-1 max-w-[140px] opacity-100"}`}
           >
-            Trang chủ
+            Unicorns Edu
           </span>
-        </Link>
-        <div className="mt-2 flex items-center gap-2">
           <button
             type="button"
-            onClick={openProfile}
-            className="sidebar-item flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-tertiary text-text-primary transition-colors duration-200 hover:bg-primary hover:text-text-inverse focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary"
-            aria-label="Thông tin cá nhân"
-            title="Thông tin cá nhân"
+            onClick={isMobile ? () => setMobileOpen(false) : toggleCollapse}
+            className="flex size-9 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors duration-200 hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary"
+            aria-label={isMobile ? "Đóng menu" : collapsed ? "Mở rộng menu" : "Thu gọn menu"}
           >
-            <span className="text-sm font-semibold">
-              {profile?.accountHandle?.slice(0, 1).toUpperCase() ?? "?"}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="sidebar-item flex size-10 shrink-0 items-center justify-center rounded-full text-text-muted transition-colors duration-200 hover:bg-red-500 hover:ring-red-800 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary"
-            aria-label="Đăng xuất"
-            title="Đăng xuất"
-          >
-            <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            <svg
+              className={`size-5 transition-transform duration-300 ease-out ${collapsed && !isMobile ? "rotate-180" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              {isMobile ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+              )}
             </svg>
           </button>
         </div>
-      </div>
-      <AdminProfilePopup
-        open={profileOpen}
-        onClose={() => setProfileOpen(false)}
-        profile={profile}
-      />
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 overscroll-contain">
+          <ul ref={navListRef} className="space-y-0.5 px-2" role="list">
+            {MENU_ITEMS.map((item) => {
+              const isActive =
+                item.href === "/admin"
+                  ? pathname === "/admin"
+                  : pathname.startsWith(item.href);
+              return (
+                <li key={item.href} className="sidebar-item">
+                  <Link
+                    href={item.href}
+                    onClick={handleMobileClose}
+                    className={`flex items-center rounded-lg py-2.5 text-sm font-medium transition-[gap,padding,background-color,color] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "gap-0 px-2.5" : "gap-3 px-3"} ${isActive
+                      ? "bg-primary text-text-inverse"
+                      : "hover:bg-bg-tertiary hover:text-text-primary"
+                      }`}
+                    aria-label={collapsed && !isMobile ? item.label : undefined}
+                    title={collapsed && !isMobile ? item.label : undefined}
+                  >
+                    <span className="flex size-5 shrink-0 items-center justify-center [&>svg]:size-5">
+                      {item.icon}
+                    </span>
+                    <span
+                      className={`truncate whitespace-nowrap transition-[max-width,opacity] duration-300 ease-out ${compact ? "max-w-0 opacity-0" : "max-w-[140px] opacity-100"}`}
+                    >
+                      {item.label}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+        <div className="shrink-0 border-t border-border-default p-2">
+          <Link
+            href="/"
+            onClick={handleMobileClose}
+            className={`sidebar-item flex items-center rounded-lg py-2.5 text-sm font-medium transition-[gap,padding,background-color,color] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "gap-0 px-2.5" : "gap-3 px-3"} ${pathname === "/"
+              ? "bg-primary text-text-inverse"
+              : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
+              }`}
+            aria-label={collapsed && !isMobile ? "Trang chủ" : undefined}
+            title={collapsed && !isMobile ? "Trang chủ" : undefined}
+          >
+            <span className="flex size-5 shrink-0 items-center justify-center [&>svg]:size-5">
+              <IconHome />
+            </span>
+            <span
+              className={`truncate whitespace-nowrap transition-[max-width,opacity] duration-300 ease-out ${compact ? "max-w-0 opacity-0" : "max-w-[140px] opacity-100"}`}
+            >
+              Trang chủ
+            </span>
+          </Link>
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={openProfile}
+              className="sidebar-item flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-tertiary text-text-primary transition-colors duration-200 hover:bg-primary hover:text-text-inverse focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary"
+              aria-label="Thông tin cá nhân"
+              title="Thông tin cá nhân"
+            >
+              <span className="text-sm font-semibold">
+                {profile?.accountHandle?.slice(0, 1).toUpperCase() ?? "?"}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="sidebar-item flex size-10 shrink-0 items-center justify-center rounded-full text-text-muted transition-colors duration-200 hover:bg-red-500 hover:ring-red-800 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary"
+              aria-label="Đăng xuất"
+              title="Đăng xuất"
+            >
+              <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <AdminProfilePopup
+          open={profileOpen}
+          onClose={() => setProfileOpen(false)}
+          profile={profile}
+        />
       </aside>
     </>
   );

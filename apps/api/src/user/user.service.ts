@@ -142,7 +142,10 @@ export class UserService {
         });
 
         if (auditActor) {
-          const afterValue = await this.getUserAuditSnapshot(tx, createdUser.id);
+          const afterValue = await this.getUserAuditSnapshot(
+            tx,
+            createdUser.id,
+          );
           if (afterValue) {
             await this.actionHistoryService.recordCreate(tx, {
               actor: auditActor,
@@ -381,7 +384,9 @@ export class UserService {
     await this.prisma.$transaction(async (tx) => {
       await tx.staffInfo.update({
         where: { id: staff.id },
-        data: data as Parameters<typeof this.prisma.staffInfo.update>[0]['data'],
+        data: data as Parameters<
+          typeof this.prisma.staffInfo.update
+        >[0]['data'],
       });
 
       if (auditActor) {

@@ -102,6 +102,18 @@ function getOtherRoleDetailHref(role: string, staffId: string) {
     return `/admin/customer_care_detail/${staffId}`;
   }
 
+  if (role === "assistant") {
+    return `/admin/assistant_detail?staffId=${encodeURIComponent(staffId)}`;
+  }
+
+  if (role === "accountant") {
+    return `/admin/accountant_detail?staffId=${encodeURIComponent(staffId)}`;
+  }
+
+  if (role === "communication") {
+    return `/admin/communication_detail?staffId=${encodeURIComponent(staffId)}`;
+  }
+
   if (role === "lesson_plan" || role === "lesson_plan_head") {
     return `/admin/lesson_plan_detail/${staffId}`;
   }

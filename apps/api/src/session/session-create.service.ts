@@ -237,10 +237,11 @@ export class SessionCreateService {
       });
 
       if (actor) {
-        const afterValue = await this.sessionSnapshotService.getSessionAuditSnapshot(
-          tx,
-          createdSession.id,
-        );
+        const afterValue =
+          await this.sessionSnapshotService.getSessionAuditSnapshot(
+            tx,
+            createdSession.id,
+          );
 
         await this.actionHistoryService.recordCreate(tx, {
           actor,
@@ -272,7 +273,10 @@ export class SessionCreateService {
     },
     auditActor?: ActionHistoryActor,
   ) {
-    const actor = await this.staffOperationsAccess.resolveActor(userId, roleType);
+    const actor = await this.staffOperationsAccess.resolveActor(
+      userId,
+      roleType,
+    );
     const isTeacher = actor.roles.includes(StaffRole.teacher);
     if (isTeacher) {
       await this.staffOperationsAccess.assertTeacherAssignedToClass(

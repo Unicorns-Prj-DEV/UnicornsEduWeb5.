@@ -82,7 +82,9 @@ describe('StaffOperationsAccessService', () => {
         UserRole.staff,
       ),
     ).rejects.toThrow(
-      new ForbiddenException('Màn /staff hiện chỉ mở cho staff có role teacher.'),
+      new ForbiddenException(
+        'Màn /staff hiện chỉ mở cho staff có role teacher.',
+      ),
     );
   });
 

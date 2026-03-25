@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS "attendance_customer_care_staff_id_customer_care_payment_status_";

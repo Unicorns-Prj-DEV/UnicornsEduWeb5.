@@ -35,7 +35,9 @@ type ChangedFieldMap = Record<
 export class ActionHistoryService {
   async recordCreate(
     db: ActionHistoryWriteClient,
-    params: Omit<RecordActionHistoryParams, 'beforeValue'> & { afterValue: unknown },
+    params: Omit<RecordActionHistoryParams, 'beforeValue'> & {
+      afterValue: unknown;
+    },
   ) {
     return this.recordAction(db, {
       ...params,
@@ -59,7 +61,9 @@ export class ActionHistoryService {
 
   async recordDelete(
     db: ActionHistoryWriteClient,
-    params: Omit<RecordActionHistoryParams, 'afterValue'> & { beforeValue: unknown },
+    params: Omit<RecordActionHistoryParams, 'afterValue'> & {
+      beforeValue: unknown;
+    },
   ) {
     return this.recordAction(db, {
       ...params,
@@ -125,36 +129,32 @@ export class ActionHistoryService {
     const afterIsObject = this.isPlainObject(afterValue);
 
     if ((beforeValue == null || beforeValue === undefined) && afterIsObject) {
-      Object.entries(afterValue as Record<string, unknown>).forEach(
-        ([key, value]) => {
-          this.collectChangedFields(
-            changes,
-            path ? `${path}.${key}` : key,
-            undefined,
-            value,
-          );
-        },
-      );
+      Object.entries(afterValue).forEach(([key, value]) => {
+        this.collectChangedFields(
+          changes,
+          path ? `${path}.${key}` : key,
+          undefined,
+          value,
+        );
+      });
       return;
     }
 
     if ((afterValue == null || afterValue === undefined) && beforeIsObject) {
-      Object.entries(beforeValue as Record<string, unknown>).forEach(
-        ([key, value]) => {
-          this.collectChangedFields(
-            changes,
-            path ? `${path}.${key}` : key,
-            value,
-            undefined,
-          );
-        },
-      );
+      Object.entries(beforeValue).forEach(([key, value]) => {
+        this.collectChangedFields(
+          changes,
+          path ? `${path}.${key}` : key,
+          value,
+          undefined,
+        );
+      });
       return;
     }
 
     if (beforeIsObject && afterIsObject) {
-      const beforeRecord = beforeValue as Record<string, unknown>;
-      const afterRecord = afterValue as Record<string, unknown>;
+      const beforeRecord = beforeValue;
+      const afterRecord = afterValue;
       const keys = new Set([
         ...Object.keys(beforeRecord),
         ...Object.keys(afterRecord),

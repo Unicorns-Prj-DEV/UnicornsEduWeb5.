@@ -91,3 +91,21 @@ model CostExtend {
 
   @@map("cost_extend")
 }
+
+model ExtraAllowance {
+  id        String        @id @default(uuid())
+  staffId   String        @map("staff_id")
+  amount    Int           @default(0)
+  status    PaymentStatus @default(pending)
+  note      String?
+  month     String
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt DateTime      @updatedAt @map("updated_at") @db.Timestamp(6)
+  roleType  StaffRole     @default(teacher) @map("role_type")
+  staff     StaffInfo     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([staffId])
+  @@index([month])
+  @@index([roleType])
+  @@map("extra_allowances")
+}

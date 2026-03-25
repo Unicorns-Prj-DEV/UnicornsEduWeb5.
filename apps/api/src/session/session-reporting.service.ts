@@ -63,7 +63,10 @@ export class SessionReportingService {
     month: string,
     year: string,
   ) {
-    const actor = await this.staffOperationsAccess.resolveActor(userId, roleType);
+    const actor = await this.staffOperationsAccess.resolveActor(
+      userId,
+      roleType,
+    );
     if (actor.roles.length > 0) {
       await this.staffOperationsAccess.assertTeacherAssignedToClass(
         actor.id,

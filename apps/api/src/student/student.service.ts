@@ -66,16 +66,17 @@ type StudentDetailEntity = Prisma.StudentInfoGetPayload<{
   include: typeof studentDetailInclude;
 }>;
 
-type WalletTransactionHistoryEntity = Prisma.WalletTransactionsHistoryGetPayload<{
-  select: {
-    id: true;
-    type: true;
-    amount: true;
-    note: true;
-    date: true;
-    createdAt: true;
-  };
-}>;
+type WalletTransactionHistoryEntity =
+  Prisma.WalletTransactionsHistoryGetPayload<{
+    select: {
+      id: true;
+      type: true;
+      amount: true;
+      note: true;
+      date: true;
+      createdAt: true;
+    };
+  }>;
 
 function normalizeNullableMoney(
   value: number | null | undefined,

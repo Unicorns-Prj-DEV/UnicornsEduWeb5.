@@ -40,7 +40,7 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
   - `/admin/staffs`, `/admin/staffs/[id]`
   - `/admin/customer_care_detail/[staffId]` (chi tiết công việc CSKH: tab Học sinh, tab Hoa Hồng)
   - `/admin/lesson_plan_detail/[staffId]` (chi tiết lesson output theo staff: 3 card tổng hợp thanh toán + bảng bài đã làm theo layout tab Công việc)
-  - `/admin/costs`, `/admin/categories`, `/admin/history`
+  - `/admin/costs`, `/admin/accountant_detail`, `/admin/assistant_detail`, `/admin/communication_detail`, `/admin/categories`, `/admin/history`
   - `/admin/history` đã nối dữ liệu thật từ backend audit log (`/action-history` list + `/action-history/:id` detail)
   - `/admin/lesson-plans`, `/admin/lesson-plans/tasks/[taskId]`, `/admin/lesson-plans/outputs/[outputId]`, `/admin/lesson-manage-details`, `/admin/lessons`, `/admin/notes-subject`
     - `/admin/lesson-plans` là workspace giáo án admin (dữ liệu thật), **cùng shell trang admin** với Lớp học: `bg-bg-primary` → khối `rounded-xl border bg-bg-surface`, hero gradient chỉ có tiêu đề **Giáo Án** (không mô tả phụ), thanh tab **pill** full width, ba nút chia đều (`Tổng quan` · `Công việc` · `Giáo Án`), không có dòng “Đang xem” và **không** có hàng card tổng kết ở tab Tổng quan / Công việc / Giáo Án — đi thẳng vào bảng / danh sách. Tab `Tổng quan`: hai bảng xếp dọc **Tài nguyên giáo án** và **Công việc giáo án** (pagination riêng); không có mô tả phụ dưới tiêu đề section; bảng tài nguyên chỉ các cột **Tài nguyên · Link · Tag** (+ thao tác); bảng công việc bấm dòng → chi tiết, không hiển thị mô tả dưới tiêu đề công việc; cột **Phụ trách** = người chịu trách nhiệm.
@@ -65,7 +65,7 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
   - `pnpm --filter api check-types`: pass
   - `pnpm --filter api test`: pass
 - Backend audit coverage hiện tại:
-  - `action_history` đã phủ các mutate flow ở `session`, `class`, `cost`, `bonus`, `cf_problem_tutorial`, `user`, `student`, `staff`
+  - `action_history` đã phủ các mutate flow ở `session`, `class`, `cost`, `bonus`, `extra_allowance`, `cf_problem_tutorial`, `user`, `student`, `staff`
   - auth flow có thay đổi `user` cũng đã ghi audit: `register`, `verify email`, `reset password`, `change password`, và Google OAuth khi tạo/xác thực user
 - Cần xử lý tiếp:
   - `pnpm --filter web lint`: fail với `19` errors và `23` warnings

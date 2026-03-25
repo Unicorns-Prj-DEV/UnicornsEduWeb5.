@@ -43,8 +43,8 @@ describe('SessionDeleteService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockPrisma.$transaction.mockImplementation((callback: (db: typeof tx) => unknown) =>
-      callback(tx),
+    mockPrisma.$transaction.mockImplementation(
+      (callback: (db: typeof tx) => unknown) => callback(tx),
     );
     service = new SessionDeleteService(
       mockPrisma as never,

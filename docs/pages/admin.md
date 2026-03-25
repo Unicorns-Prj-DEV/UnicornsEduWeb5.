@@ -51,7 +51,7 @@
   - `GET /staff?page=<number>&limit=<number>&search=<text>&status=<active|inactive>&classId=<class-id>&className=<text>&province=<text>&university=<text>&highSchool=<text>&role=<staff-role>`.
   - `GET /staff/assignable-users?email=<text>` tìm user theo email để gán vào hồ sơ gia sư; response trả thêm cờ `isEligible`, `hasStaffProfile`, `ineligibleReason`.
   - `GET /staff/customer-care-options?search=<text>&limit=<number>` trả danh sách rút gọn nhân sự có role `customer_care`, dùng cho combobox tìm CSKH theo họ tên ở form sửa học sinh.
-  - `GET /staff/:id/income-summary?month=<01-12>&year=<YYYY>&days=<number>` trả summary thu nhập authoritative từ BE cho card tổng tháng/tổng năm; `Tổng năm` dùng field `yearIncomeTotal` đã cộng session, thưởng, CSKH và giáo án trong năm đang xem. `Ghi cọc` vẫn tách riêng theo năm + danh sách buổi cọc theo lớp.
+  - `GET /staff/:id/income-summary?month=<01-12>&year=<YYYY>&days=<number>` trả summary thu nhập authoritative từ BE cho card tổng tháng/tổng năm; `Tổng năm` dùng field `yearIncomeTotal` đã cộng session, thưởng, trợ cấp thêm, CSKH và giáo án trong năm đang xem. `Ghi cọc` vẫn tách riêng theo năm + danh sách buổi cọc theo lớp.
   - Session allowance trong `income-summary` được tính ở DB layer theo công thức `min(max_allowance_per_session, (allowance_amount * attended_students + scale_amount) * coefficient)`, trong đó `attended_students` chỉ đếm attendance `present`.
   - `POST /staff` dùng để tạo hồ sơ nhân sự từ `user_id`; với luồng thêm gia sư từ admin page, FE gửi `roles=["teacher"]`.
   - `page` mặc định `1`, `limit` mặc định `20`, `limit` tối đa `100`.
@@ -71,9 +71,9 @@
   - FE `/admin/staff/:id` đã kết nối lịch sử buổi học thật từ API `GET /sessions/staff/:staffId?month=&year=` (TanStack Query); có điều hướng tháng (prev/next) cho bảng lịch sử buổi học.
   - FE `/admin/staff/:id` thêm card riêng "Lịch sử buổi học" ở cuối trang để hiển thị bảng session theo tháng.
   - FE `/admin/staff/:id` card "Lịch sử buổi học" hỗ trợ chọn nhiều / chọn tất cả session của tháng đang xem để đổi nhanh trạng thái thanh toán (`unpaid` | `deposit` | `paid`) bằng mutation bulk; checkbox từng dòng/thẻ dùng cùng hit target với label, có state highlight cho các buổi đã chọn, và luôn hiện nút **Sửa trạng thái thanh toán**. Nút này sẽ bị disable khi chưa chọn session nào; khi bấm sẽ mở popup nhỏ với dropdown chọn trạng thái mới (mặc định `paid`) + nút `Hủy` / `Xác nhận`.
-  - FE `/admin/staff/:id` phần Thống kê thu nhập dùng dữ liệu authoritative từ `GET /staff/:id/income-summary`; các số `Tổng tháng / Chưa nhận / Đã nhận` lấy từ field tổng hợp backend đã cộng session, thưởng, CSKH và giáo án trong tháng, FE không tự cộng thêm ở client.
+  - FE `/admin/staff/:id` phần Thống kê thu nhập dùng dữ liệu authoritative từ `GET /staff/:id/income-summary`; các số `Tổng tháng / Chưa nhận / Đã nhận` lấy từ field tổng hợp backend đã cộng session, thưởng, trợ cấp thêm, CSKH và giáo án trong tháng, FE không tự cộng thêm ở client.
   - FE `/admin/staff/:id` thêm cột **Ghi cọc** cạnh **Tổng năm**. `Tổng năm` lấy từ `yearIncomeTotal` của `GET /staff/:id/income-summary`, còn `Ghi cọc` và popup chi tiết lấy trực tiếp từ `depositYearTotal` và `depositYearByClass`; tổng cọc và từng buổi cọc đều dùng cùng công thức trợ cấp authoritative từ BE, không lấy raw `sessions.allowance_amount`.
-  - FE `/admin/staff/:id` bảng **Công việc khác** lấy số tổng hợp trực tiếp từ `GET /staff/:id/income-summary`; CSKH được cộng từ attendance commission theo `customer_care_payment_status`, giáo án được cộng từ `lesson_outputs.cost` + `lesson_outputs.payment_status`, và bonus cùng role vẫn được gộp thêm trên BE. Khi role là CSKH (`customer_care`), bấm vào dòng (desktop) hoặc thẻ (mobile) sẽ chuyển sang `/admin/customer_care_detail/:id` (cùng staff id); khi role là `lesson_plan` hoặc `lesson_plan_head`, sẽ chuyển sang `/admin/lesson_plan_detail/:id`.
+  - FE `/admin/staff/:id` bảng **Công việc khác** lấy số tổng hợp trực tiếp từ `GET /staff/:id/income-summary`; CSKH được cộng từ attendance commission theo `customer_care_payment_status`, giáo án được cộng từ `lesson_outputs.cost` + `lesson_outputs.payment_status`, assistant/communication/accountant được cộng từ `extra_allowances.amount` theo `roleType + status`, và bonus cùng role vẫn được gộp thêm trên BE. Khi role là CSKH (`customer_care`), bấm vào dòng (desktop) hoặc thẻ (mobile) sẽ chuyển sang `/admin/customer_care_detail/:id` (cùng staff id); khi role là `lesson_plan` hoặc `lesson_plan_head`, sẽ chuyển sang `/admin/lesson_plan_detail/:id`; khi role là `assistant`, route đích là `/admin/assistant_detail?staffId=:id`; khi role là `accountant`, route đích là `/admin/accountant_detail?staffId=:id`; khi role là `communication`, route đích là `/admin/communication_detail?staffId=:id`.
 - **Customer-care detail (FE `/admin/customer_care_detail/[staffId]`):**
   - Route dùng khi xem chi tiết công việc CSKH từ trang chi tiết nhân sự (bấm dòng CSKH trong bảng Công việc khác).
   - Hai tab: **Học sinh** (danh sách học sinh chăm sóc: icon trạng thái, tên, số dư, tỉnh, lớp; sắp xếp theo số dư tăng dần); **Hoa Hồng** (danh sách học sinh kèm tổng hoa hồng 30 ngày qua; trên desktop, các hàng dùng cột `Tên` và `Tổng tiền hoa hồng` cố định để giữ alignment khi mở rộng chi tiết buổi học).
@@ -144,6 +144,21 @@
   - Khi tạo cost mới, FE sinh `id` bằng `crypto.randomUUID()` trước khi gọi `POST /cost`; nếu không sinh được UUID thì chặn submit và hiện toast error.
   - Xóa cost ở FE `/admin/costs` dùng TanStack Query `useMutation`; khi thành công invalidate query danh sách và hiển thị Sonner toast success/error.
   - Các endpoint đi qua global JWT guard (không `@Public`) và yêu cầu role `admin`.
+- **Trợ cấp thêm (FE `/admin/accountant_detail`, `/admin/assistant_detail`, `/admin/communication_detail`):**
+  - API mới:
+    - `GET /extra-allowance?page=&limit=&search=&year=&month=&roleType=&staffId=&status=` trả `{ data, meta }`; filter tháng dùng trực tiếp cột indexed `month = YYYY-MM`, không ép filter qua FE.
+    - `GET /extra-allowance/:id`
+    - `POST /extra-allowance` (payload bắt buộc `id`, `staffId`, `month`, `roleType`)
+    - `PATCH /extra-allowance` (payload bắt buộc `id`)
+    - `PATCH /extra-allowance/status/bulk` với payload `{ allowanceIds, status }`, trả `{ requestedCount, updatedCount }`
+    - `DELETE /extra-allowance/:id`
+    - `GET /staff/options?search=&limit=` trả option nhân sự nhẹ cho popup chọn staff, không dùng `GET /staff` nặng
+  - FE admin đã bỏ route `/admin/extra_allowances`; sidebar tách thành 3 route cố định theo role: `/admin/accountant_detail`, `/admin/assistant_detail` và `/admin/communication_detail`.
+  - Ba route này dùng cùng layout với `/admin/lesson_plan_detail/[staffId]`: 3 card tổng hợp, action strip **Thanh toán hàng loạt**, mobile card + desktop table. Mỗi page cố định `roleType` tương ứng (`accountant`, `assistant` hoặc `communication`) và nhận optional query `staffId` để thu hẹp theo một nhân sự khi đi từ `/admin/staff/:id`.
+  - Khi page có `staffId`, FE tải đúng hồ sơ `GET /staff/:id` theo khóa chính để khóa ngữ cảnh popup **Thêm trợ cấp**; popup không cho đổi sang nhân sự/role khác, chỉ nhập `month`, `status`, `amount`, `note`, rồi submit `POST /extra-allowance`.
+  - FE dùng TanStack Query gọi `GET /extra-allowance` với `roleType` cố định và `staffId` nếu có; thao tác **Sửa trạng thái thanh toán** gọi `PATCH /extra-allowance/status/bulk`. Sau khi tạo mới hoặc cập nhật trạng thái ở page có `staffId`, FE invalidate thêm `["staff","income-summary",staffId]` để bảng **Công việc khác** trong staff detail cập nhật ngay.
+  - Filter role và chip hiển thị vẫn dựa trên enum `StaffRole` (`assistant`, `communication`, …); danh sách được render recent-first theo `month desc, createdAt desc` từ backend.
+  - Mutation `extra_allowance` tiếp tục ghi `action_history`, nên `/admin/history` đọc được thay đổi trạng thái của khoản trợ cấp thêm.
 - **Ghi chú môn học (FE `/admin/notes-subject`):**
   - 2 tab: Quy định, Tài liệu.
   - Tab Quy định: danh sách bài post quy định; nút "Thêm bài quy định" mở popup form (tiêu đề, mô tả, nội dung TipTap); submit thêm vào mock list ngay trong page; hiện tại dùng mock data trong page, không gọi BE.

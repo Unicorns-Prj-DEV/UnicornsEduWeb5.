@@ -5,6 +5,7 @@ import {
     StaffDetail,
     StaffIncomeSummary,
     StaffListResponse,
+    StaffOption,
     StaffStatus,
 } from '@/dtos/staff.dto';
 import { CreateUserPayload, UpdateUserPayload } from '@/dtos/user.dto';
@@ -130,6 +131,20 @@ export async function searchCustomerCareStaff(params: {
     limit?: number;
 }): Promise<CustomerCareStaffOption[]> {
     const response = await api.get<CustomerCareStaffOption[]>('/staff/customer-care-options', {
+        params: {
+            ...(params.search?.trim() ? { search: params.search.trim() } : {}),
+            ...(typeof params.limit === "number" ? { limit: params.limit } : {}),
+        },
+    });
+
+    return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function searchStaffOptions(params: {
+    search?: string;
+    limit?: number;
+}): Promise<StaffOption[]> {
+    const response = await api.get<StaffOption[]>('/staff/options', {
         params: {
             ...(params.search?.trim() ? { search: params.search.trim() } : {}),
             ...(typeof params.limit === "number" ? { limit: params.limit } : {}),

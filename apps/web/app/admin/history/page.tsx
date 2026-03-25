@@ -31,6 +31,7 @@ const ENTITY_LABELS: Record<string, string> = {
   session: "Buổi học",
   cost: "Khoản chi",
   bonus: "Khoản thưởng",
+  extra_allowance: "Trợ cấp thêm",
   cf_problem_tutorial: "Tutorial CF",
 };
 
@@ -43,6 +44,7 @@ const ENTITY_OPTIONS = [
   { value: "user", label: "Người dùng" },
   { value: "cost", label: "Khoản chi" },
   { value: "bonus", label: "Khoản thưởng" },
+  { value: "extra_allowance", label: "Trợ cấp thêm" },
   { value: "cf_problem_tutorial", label: "Tutorial CF" },
 ];
 

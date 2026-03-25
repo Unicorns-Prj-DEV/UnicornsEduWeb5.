@@ -11,4 +11,4 @@ import { ConfigModule } from '@nestjs/config';
   controllers: [BonusController],
   providers: [BonusService, PrismaService],
 })
-export class BonusModule { }
+export class BonusModule {}

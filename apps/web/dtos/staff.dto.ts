@@ -30,6 +30,13 @@ export interface CustomerCareStaffOption {
     roles: string[];
 }
 
+export interface StaffOption {
+    id: string;
+    fullName: string;
+    status: StaffStatus;
+    roles: string[];
+}
+
 export interface StaffClassAllowanceItem {
     class_id: string;
     teacher_payment_status: string;

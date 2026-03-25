@@ -212,10 +212,7 @@ export class AuthService {
         },
       });
 
-      const afterValue = await this.getUserAuditSnapshot(
-        tx,
-        persistedUser.id,
-      );
+      const afterValue = await this.getUserAuditSnapshot(tx, persistedUser.id);
       if (!afterValue) {
         return;
       }
@@ -310,10 +307,7 @@ export class AuthService {
         },
       });
 
-      const afterValue = await this.getUserAuditSnapshot(
-        tx,
-        updatedUser.id,
-      );
+      const afterValue = await this.getUserAuditSnapshot(tx, updatedUser.id);
       if (!beforeValue || !afterValue) {
         return;
       }
@@ -437,10 +431,7 @@ export class AuthService {
         },
       });
 
-      const afterValue = await this.getUserAuditSnapshot(
-        tx,
-        updatedUser.id,
-      );
+      const afterValue = await this.getUserAuditSnapshot(tx, updatedUser.id);
       if (!beforeValue || !afterValue) {
         return;
       }
@@ -496,10 +487,7 @@ export class AuthService {
         },
       });
 
-      const afterValue = await this.getUserAuditSnapshot(
-        tx,
-        updatedUser.id,
-      );
+      const afterValue = await this.getUserAuditSnapshot(tx, updatedUser.id);
       if (!beforeValue || !afterValue) {
         return;
       }

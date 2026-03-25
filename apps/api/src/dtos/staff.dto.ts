@@ -45,6 +45,27 @@ export class SearchCustomerCareStaffDto {
   limit?: number;
 }
 
+export class SearchStaffOptionsDto {
+  @ApiPropertyOptional({
+    description: 'Full or partial staff full name',
+    example: 'Nguyen',
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({
+    description: 'Max number of options to return (default 20, max 50)',
+    example: 20,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  limit?: number;
+}
+
 export class CreateStaffDto {
   @ApiProperty({ example: 'Nguyen Van B' })
   @IsString()

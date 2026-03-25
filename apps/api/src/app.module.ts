@@ -11,6 +11,7 @@ import { StaffModule } from './staff/staff.module';
 import { ClassModule } from './class/class.module';
 import { CostModule } from './cost/cost.module';
 import { BonusModule } from './bonus/bonus.module';
+import { ExtraAllowanceModule } from './extra-allowance/extra-allowance.module';
 import { CodeforcesModule } from './codeforces/codeforces.module';
 import { CfProblemTutorialModule } from './cf-problem-tutorial/cf-problem-tutorial.module';
 import { SessionModule } from './session/session.module';
@@ -27,6 +28,7 @@ import { LessonModule } from './lesson/lesson.module';
     ClassModule,
     CostModule,
     BonusModule,
+    ExtraAllowanceModule,
     CodeforcesModule,
     CfProblemTutorialModule,
     SessionModule,

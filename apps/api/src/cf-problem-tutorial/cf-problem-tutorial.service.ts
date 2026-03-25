@@ -12,7 +12,10 @@ export class CfProblemTutorialService {
     private readonly actionHistoryService: ActionHistoryService,
   ) {}
 
-  async getTutorial(contestId: number, problemIndex: string): Promise<string | null> {
+  async getTutorial(
+    contestId: number,
+    problemIndex: string,
+  ): Promise<string | null> {
     const row = await this.prisma.cfProblemTutorial.findUnique({
       where: {
         contestId_problemIndex: { contestId, problemIndex },

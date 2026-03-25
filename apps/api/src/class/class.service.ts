@@ -484,7 +484,10 @@ export class ClassService {
       type?: string;
     },
   ) {
-    const actor = await this.staffOperationsAccess.resolveActor(userId, roleType);
+    const actor = await this.staffOperationsAccess.resolveActor(
+      userId,
+      roleType,
+    );
     return this.getClasses({
       ...query,
       ...(this.isTeacherActor(actor.roles) ? { teacherId: actor.id } : {}),
@@ -492,7 +495,10 @@ export class ClassService {
   }
 
   async getClassByIdForStaff(userId: string, roleType: UserRole, id: string) {
-    const actor = await this.staffOperationsAccess.resolveActor(userId, roleType);
+    const actor = await this.staffOperationsAccess.resolveActor(
+      userId,
+      roleType,
+    );
     if (this.isTeacherActor(actor.roles)) {
       await this.staffOperationsAccess.assertTeacherAssignedToClass(
         actor.id,
@@ -509,7 +515,10 @@ export class ClassService {
     dto: CreateStaffOpsClassDto,
     auditActor?: ActionHistoryActor,
   ) {
-    const actor = await this.staffOperationsAccess.resolveActor(userId, roleType);
+    const actor = await this.staffOperationsAccess.resolveActor(
+      userId,
+      roleType,
+    );
     if (this.isTeacherActor(actor.roles)) {
       throw new ForbiddenException('Giáo viên không được phép tạo lớp học.');
     }
@@ -532,7 +541,10 @@ export class ClassService {
     dto: UpdateClassScheduleDto,
     auditActor?: ActionHistoryActor,
   ) {
-    const actor = await this.staffOperationsAccess.resolveActor(userId, roleType);
+    const actor = await this.staffOperationsAccess.resolveActor(
+      userId,
+      roleType,
+    );
     if (this.isTeacherActor(actor.roles)) {
       await this.staffOperationsAccess.assertTeacherAssignedToClass(
         actor.id,
@@ -595,7 +607,10 @@ export class ClassService {
       });
 
       if (auditActor) {
-        const afterValue = await this.getClassAuditSnapshot(tx, createdClass.id);
+        const afterValue = await this.getClassAuditSnapshot(
+          tx,
+          createdClass.id,
+        );
         if (afterValue) {
           await this.actionHistoryService.recordCreate(tx, {
             actor: auditActor,
@@ -926,7 +941,7 @@ export class ClassService {
               ) ?? student.custom_tuition_per_session,
             customTuitionPackageTotal: student.custom_tuition_package_total,
             customTuitionPackageSession: student.custom_tuition_package_session,
-            })),
+          })),
         });
       }
 

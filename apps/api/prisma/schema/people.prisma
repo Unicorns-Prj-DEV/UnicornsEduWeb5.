@@ -23,6 +23,7 @@ model StaffInfo {
   user                       User?                 @relation(fields: [userId], references: [id])
   staffLessonTasks           StaffLessonTask[]
   monthlyStats               StaffMonthlyStat[]
+  extraAllowances            ExtraAllowance[]
 
   @@map("staff_info")
 }

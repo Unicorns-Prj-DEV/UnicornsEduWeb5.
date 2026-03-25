@@ -40,6 +40,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `wallet_transactions_history`
 - `customer_care_service`
 - `staff_monthly_stats`
+- `extra_allowances`
 - `dashboard_cache`
 - `cost_extend`
 
@@ -69,6 +70,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - **WalletTransactionsHistory → StaffInfo (CustomerCareStaff)**: N-1 (relation name `CustomerCareStaff`).
 - **CustomerCareService**: liên kết `student_info` và `staff_info`.
 - **StaffMonthlyStat → StaffInfo**: N-1.
+- **ExtraAllowance → StaffInfo**: N-1.
 - **ClassSurvey → Class / StaffInfo**: optional FK, `onDelete: SetNull`.
 - **ActionHistory → User**: optional FK, `onDelete: SetNull`.
 - **StaffLessonTask**: bảng giao giữa `staff_info` và `lesson_task`, unique `(staff_id, lesson_task_id)`.
@@ -91,7 +93,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 ### 4.2 `staff_info`
 - Thông tin nhân sự: hồ sơ cá nhân, ngân hàng, `roles` (`StaffRole[]` dạng Postgres enum array), `status`
-- Được tham chiếu bởi: `users`, `class_teachers`, `sessions`, `bonuses`, `lesson_outputs`, `customer_care_service`, `wallet_transactions_history` (customer care), `staff_monthly_stats`, `class_surveys`, `staff_lesson_task`
+- Được tham chiếu bởi: `users`, `class_teachers`, `sessions`, `bonuses`, `lesson_outputs`, `customer_care_service`, `wallet_transactions_history` (customer care), `staff_monthly_stats`, `extra_allowances`, `class_surveys`, `staff_lesson_task`
 
 ### 4.3 `student_info`
 - Hồ sơ học viên: liên hệ phụ huynh, trạng thái, giới tính, mục tiêu
@@ -117,13 +119,14 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - Điểm danh theo từng session & student
 - Unique composite: `(session_id, student_id)`
 - Trạng thái dùng enum `AttendanceStatus`
-- Index read path bổ sung cho aggregate CSKH: `(customer_care_staff_id, customer_care_payment_status)`
+- Index read path bổ sung cho aggregate CSKH: `(customer_care_staff_id, customer_care_payment_status)` với tên index thực tế `attendance_customer_care_staff_id_customer_care_payment_sta_idx`
 
 ### 4.7 Finance models
 - `bonuses`: khoản thưởng theo staff/tháng/trạng thái thanh toán
 - `wallet_transactions_history`: lịch sử ví học viên + thông tin chia lợi nhuận CSKH
 - `customer_care_service`: map staff chăm sóc theo học viên + % profit
 - `staff_monthly_stats`: số liệu tổng hợp lương/việc theo tháng
+- `extra_allowances`: khoản trợ cấp bổ sung theo staff/tháng/role, có `amount`, `status`, `note`, `month`, `role_type`
 - `dashboard_cache`: cache JSON theo key/type + `expires_at`
 - `cost_extend`: khoản chi mở rộng theo tháng/danh mục
 

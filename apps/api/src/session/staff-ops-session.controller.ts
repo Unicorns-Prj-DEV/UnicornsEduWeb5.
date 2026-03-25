@@ -46,7 +46,10 @@ export class StaffOpsSessionController {
   @ApiParam({ name: 'classId', description: 'Class id' })
   @ApiQuery({ name: 'month', required: true, description: 'Tháng (01-12)' })
   @ApiQuery({ name: 'year', required: true, description: 'Năm (YYYY)' })
-  @ApiResponse({ status: 200, description: 'Class sessions in selected month.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Class sessions in selected month.',
+  })
   async getSessionsByClassId(
     @CurrentUser() user: JwtPayload,
     @Param('classId', new ParseUUIDPipe()) classId: string,

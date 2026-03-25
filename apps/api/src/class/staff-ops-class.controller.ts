@@ -38,7 +38,7 @@ import { ClassService } from './class.service';
 @Roles(UserRole.staff, UserRole.admin)
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class StaffOpsClassController {
-  constructor(private readonly classService: ClassService) { }
+  constructor(private readonly classService: ClassService) {}
 
   @Get()
   @ApiOperation({
@@ -97,16 +97,11 @@ export class StaffOpsClassController {
     @CurrentUser() user: JwtPayload,
     @Body() dto: CreateStaffOpsClassDto,
   ) {
-    return this.classService.createClassForStaff(
-      user.id,
-      user.roleType,
-      dto,
-      {
-        userId: user.id,
-        userEmail: user.email,
-        roleType: user.roleType,
-      },
-    );
+    return this.classService.createClassForStaff(user.id, user.roleType, dto, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Patch(':id/schedule')

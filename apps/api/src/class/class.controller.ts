@@ -101,8 +101,7 @@ export class ClassController {
   @Get(':id/students')
   @ApiOperation({
     summary: 'Get students by class id',
-    description:
-      'Get list of students enrolled in the class.',
+    description: 'Get list of students enrolled in the class.',
   })
   @ApiParam({ name: 'id', description: 'Class id' })
   @ApiResponse({ status: 200, description: 'List of students in the class.' })

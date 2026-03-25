@@ -107,26 +107,29 @@ describe('SessionCreateService', () => {
       'class-1',
     );
     expect(accessService.resolveSingleTeacherForClass).not.toHaveBeenCalled();
-    expect(createSessionSpy).toHaveBeenCalledWith({
-      classId: 'class-1',
-      teacherId: 'teacher-1',
-      date: '2026-03-20',
-      allowanceAmount: 120000,
-      startTime: undefined,
-      endTime: undefined,
-      notes: 'Buổi thử',
-      attendance: [
-        {
-          studentId: 'student-1',
-          status: AttendanceStatus.present,
-          notes: null,
-        },
-      ],
-    }, {
-      userId: 'user-1',
-      userEmail: 'teacher@example.com',
-      roleType: 'staff',
-    });
+    expect(createSessionSpy).toHaveBeenCalledWith(
+      {
+        classId: 'class-1',
+        teacherId: 'teacher-1',
+        date: '2026-03-20',
+        allowanceAmount: 120000,
+        startTime: undefined,
+        endTime: undefined,
+        notes: 'Buổi thử',
+        attendance: [
+          {
+            studentId: 'student-1',
+            status: AttendanceStatus.present,
+            notes: null,
+          },
+        ],
+      },
+      {
+        userId: 'user-1',
+        userEmail: 'teacher@example.com',
+        roleType: 'staff',
+      },
+    );
   });
 
   it('resolves the class teacher when admin creates a staff-ops session', async () => {
@@ -170,25 +173,28 @@ describe('SessionCreateService', () => {
     expect(accessService.resolveSingleTeacherForClass).toHaveBeenCalledWith(
       'class-1',
     );
-    expect(createSessionSpy).toHaveBeenCalledWith({
-      classId: 'class-1',
-      teacherId: 'teacher-9',
-      date: '2026-03-20',
-      allowanceAmount: null,
-      startTime: undefined,
-      endTime: undefined,
-      notes: null,
-      attendance: [
-        {
-          studentId: 'student-1',
-          status: AttendanceStatus.present,
-          notes: null,
-        },
-      ],
-    }, {
-      userId: 'user-1',
-      userEmail: 'admin@example.com',
-      roleType: 'admin',
-    });
+    expect(createSessionSpy).toHaveBeenCalledWith(
+      {
+        classId: 'class-1',
+        teacherId: 'teacher-9',
+        date: '2026-03-20',
+        allowanceAmount: null,
+        startTime: undefined,
+        endTime: undefined,
+        notes: null,
+        attendance: [
+          {
+            studentId: 'student-1',
+            status: AttendanceStatus.present,
+            notes: null,
+          },
+        ],
+      },
+      {
+        userId: 'user-1',
+        userEmail: 'admin@example.com',
+        roleType: 'admin',
+      },
+    );
   });
 });

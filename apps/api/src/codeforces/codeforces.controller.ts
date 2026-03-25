@@ -1,10 +1,4 @@
-import {
-  Controller,
-  Get,
-  Param,
-  ParseIntPipe,
-  Query,
-} from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
 import {
   ApiCookieAuth,
   ApiOperation,
@@ -15,11 +9,7 @@ import {
 } from '@nestjs/swagger';
 import { UserRole } from 'generated/enums';
 import { Roles } from '../auth/decorators/roles.decorator';
-import {
-  CodeforcesService,
-  CfContest,
-  CfProblem,
-} from './codeforces.service';
+import { CodeforcesService, CfContest, CfProblem } from './codeforces.service';
 
 @Controller('codeforces')
 @ApiTags('codeforces')

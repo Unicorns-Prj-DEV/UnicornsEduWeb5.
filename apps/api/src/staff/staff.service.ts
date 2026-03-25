@@ -135,6 +135,10 @@ function buildRecentWindow(days?: number) {
   };
 }
 
+function formatMonthKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
 type TeacherAllowanceByClassStatusRow = {
   classId: string;
   className: string;
@@ -153,6 +157,12 @@ type TeacherAllowanceTotalRow = {
 };
 
 type RolePaymentSummaryRow = {
+  paymentStatus: string | null;
+  totalAmount: number | string | null;
+};
+
+type ExtraAllowanceRolePaymentSummaryRow = {
+  roleType: StaffRole;
   paymentStatus: string | null;
   totalAmount: number | string | null;
 };
@@ -488,6 +498,33 @@ export class StaffService {
     };
   }
 
+  async searchStaffOptions(query: { search?: string; limit?: number }) {
+    const trimmedSearch = query.search?.trim();
+    const limit =
+      typeof query.limit === 'number'
+        ? Math.min(Math.max(query.limit, 1), 50)
+        : 20;
+
+    return this.prisma.staffInfo.findMany({
+      where: trimmedSearch
+        ? {
+            fullName: {
+              contains: trimmedSearch,
+              mode: 'insensitive',
+            },
+          }
+        : undefined,
+      take: limit,
+      orderBy: [{ fullName: 'asc' }],
+      select: {
+        id: true,
+        fullName: true,
+        roles: true,
+        status: true,
+      },
+    });
+  }
+
   private buildTeacherSessionAllowanceCte(params: {
     teacherId: string;
     start: Date;
@@ -681,6 +718,32 @@ export class StaffService {
     `);
   }
 
+  private async getExtraAllowanceRowsByRoleAndStatus(params: {
+    staffId: string;
+    startMonthKey: string;
+    endMonthKeyExclusive: string;
+  }): Promise<ExtraAllowanceRolePaymentSummaryRow[]> {
+    const rows = await this.prisma.extraAllowance.groupBy({
+      by: ['roleType', 'status'],
+      where: {
+        staffId: params.staffId,
+        month: {
+          gte: params.startMonthKey,
+          lt: params.endMonthKeyExclusive,
+        },
+      },
+      _sum: {
+        amount: true,
+      },
+    });
+
+    return rows.map((row) => ({
+      roleType: row.roleType,
+      paymentStatus: row.status,
+      totalAmount: row._sum.amount ?? 0,
+    }));
+  }
+
   private async getUnpaidTotalsByStaffIds(staffIds: string[]) {
     const normalizedStaffIds = Array.from(
       new Set(
@@ -803,6 +866,9 @@ export class StaffService {
   ): Promise<StaffIncomeSummaryDto> {
     const range = buildMonthRange(query.month, query.year);
     const recentWindow = buildRecentWindow(query.days);
+    const nextMonthKey = formatMonthKey(range.end);
+    const yearStartMonthKey = `${query.year}-01`;
+    const yearEndMonthKeyExclusive = `${range.yearEnd.getFullYear()}-01`;
 
     const staff = await this.prisma.staffInfo.findUnique({
       where: { id },
@@ -833,6 +899,8 @@ export class StaffService {
       recentUnpaidSessionRows,
       monthlyBonuses,
       yearBonuses,
+      monthlyExtraAllowanceRows,
+      yearExtraAllowanceRows,
       customerCareMonthlyRows,
       customerCareYearRows,
       lessonOutputMonthlyRows,
@@ -880,6 +948,16 @@ export class StaffService {
         select: {
           amount: true,
         },
+      }),
+      this.getExtraAllowanceRowsByRoleAndStatus({
+        staffId: id,
+        startMonthKey: range.monthKey,
+        endMonthKeyExclusive: nextMonthKey,
+      }),
+      this.getExtraAllowanceRowsByRoleAndStatus({
+        staffId: id,
+        startMonthKey: yearStartMonthKey,
+        endMonthKeyExclusive: yearEndMonthKeyExclusive,
       }),
       staff.roles.includes(StaffRole.customer_care)
         ? this.getCustomerCareCommissionRowsByStatus({
@@ -987,6 +1065,22 @@ export class StaffService {
         };
       }, makeAmountSummary());
 
+    const extraAllowanceMonthlyTotals =
+      monthlyExtraAllowanceRows.reduce<StaffIncomeAmountSummaryDto>(
+        (summary, row) => {
+          const amount = normalizeMoneyAmount(row.totalAmount);
+          const isPaid =
+            String(row.paymentStatus ?? '').toLowerCase() === 'paid';
+
+          return {
+            total: summary.total + amount,
+            paid: summary.paid + (isPaid ? amount : 0),
+            unpaid: summary.unpaid + (isPaid ? 0 : amount),
+          };
+        },
+        makeAmountSummary(),
+      );
+
     const customerCareMonthlyTotals =
       customerCareMonthlyRows.reduce<StaffIncomeAmountSummaryDto>(
         (summary, row) => {
@@ -1022,12 +1116,17 @@ export class StaffService {
     const monthlyIncomeTotals = [
       sessionMonthlyTotals,
       bonusMonthlyTotals,
+      extraAllowanceMonthlyTotals,
       customerCareMonthlyTotals,
       lessonOutputMonthlyTotals,
     ].reduce(mergeAmountSummary, makeAmountSummary());
 
     const bonusYearTotal = yearBonuses.reduce(
       (sum, bonus) => sum + normalizeMoneyAmount(bonus.amount),
+      0,
+    );
+    const extraAllowanceYearTotal = yearExtraAllowanceRows.reduce(
+      (sum, row) => sum + normalizeMoneyAmount(row.totalAmount),
       0,
     );
     const customerCareYearTotal = customerCareYearRows.reduce(
@@ -1041,6 +1140,7 @@ export class StaffService {
     const yearIncomeTotal =
       sessionYearTotal +
       bonusYearTotal +
+      extraAllowanceYearTotal +
       customerCareYearTotal +
       lessonOutputYearTotal;
 
@@ -1074,6 +1174,19 @@ export class StaffService {
 
       const amount = normalizeMoneyAmount(bonus.amount);
       const isPaid = String(bonus.status ?? '').toLowerCase() === 'paid';
+      summary.total += amount;
+      summary.paid += isPaid ? amount : 0;
+      summary.unpaid += isPaid ? 0 : amount;
+    });
+
+    monthlyExtraAllowanceRows.forEach((row) => {
+      const summary = otherRoleSummaryMap.get(row.roleType);
+      if (!summary) {
+        return;
+      }
+
+      const amount = normalizeMoneyAmount(row.totalAmount);
+      const isPaid = String(row.paymentStatus ?? '').toLowerCase() === 'paid';
       summary.total += amount;
       summary.paid += isPaid ? amount : 0;
       summary.unpaid += isPaid ? 0 : amount;

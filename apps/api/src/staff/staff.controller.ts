@@ -32,6 +32,7 @@ import {
   type StaffIncomeSummaryDto,
   SearchCustomerCareStaffDto,
   SearchAssignableStaffUsersDto,
+  SearchStaffOptionsDto,
   UpdateStaffDto,
 } from 'src/dtos/staff.dto';
 import { StaffService } from './staff.service';
@@ -93,6 +94,34 @@ export class StaffController {
     @Query() query: SearchCustomerCareStaffDto,
   ) {
     return this.staffService.searchCustomerCareStaff(query);
+  }
+
+  @Get('options')
+  @ApiOperation({
+    summary: 'Search staff options',
+    description:
+      'Return lightweight staff options for admin selection controls.',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Search by full name',
+    example: 'Nguyen',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Max number of options to return (default 20, max 50)',
+    example: 20,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Matching lightweight staff options.',
+  })
+  async searchStaffOptions(@Query() query: SearchStaffOptionsDto) {
+    return this.staffService.searchStaffOptions(query);
   }
 
   @Get()
