@@ -8,7 +8,7 @@
 
 ## Features
 
-- **Dashboard (sơ bộ):** Tổng quan lớp, nhân sự, doanh thu (data from `revenue`, `dashboard_cache`).
+- **Dashboard:** `/admin` redirect về `/admin/dashboard`. Màn hình dashboard gồm hero tổng quan, KPI `số lượng lớp` + doanh thu/lợi nhuận/thu nhập, chart biến động doanh thu-lợi nhuận, chart thống kê thu nhập, bảng cảnh báo hành động (học sinh sắp hết tiền, chưa thu, nhân sự chưa thanh toán), bảng lớp tạo doanh thu và bảng tổng kết năm. Dữ liệu hiện được lấy thật từ backend qua `GET /dashboard`; frontend dùng TanStack Query (`apps/web/lib/apis/dashboard.api.ts`) và chỉ render dữ liệu aggregate authoritative từ BE, không tự suy luận tổng tài chính từ dataset thô.
 - **CRUD lớp:** List, create, edit, archive classes; fields aligned with `classes` + relations.
 - **Gán học sinh / giáo viên:** Manage `class_teachers`, `student_classes`; prevent duplicate N-N rows.
 - **Sessions và attendance:** Mở session, ghi nhận attendance (`present` / `excused` / `absent`) with financial impact per Workplan state machine.
@@ -33,6 +33,18 @@
 - **Mock (Tuần 2–6):** Mock contract pack for admin: class list (empty + many students), permission denied, validation errors.
 - **De-mock (Tuần 7):** Replace mock with real API per endpoint; checklist per screen/endpoint.
 - **API (real):** `users`, `classes`, `sessions`, `attendance`, `class_teachers`, `student_classes`, dashboard/revenue endpoints.
+- **Dashboard aggregate endpoint (admin-only):**
+  - `GET /dashboard?month=<01-12>&year=<YYYY>&alertLimit=<1-20>&topClassLimit=<1-20>` trả toàn bộ payload cho `/admin/dashboard`: `period`, `summary`, `revenueProfitTrend`, `breakdown`, `actionAlerts`, `classPerformance`, `yearlySummary`.
+  - `summary.activeClasses` đếm `classes.status = running`; `summary.activeStudents` đếm học sinh active đang thuộc lớp running.
+  - `summary.monthlyRevenue` và line chart doanh thu lấy từ tổng `attendance.tuition_fee` của attendance `status = present`, gom theo `sessions.date`.
+  - `summary.monthlyExpense` và breakdown chi phí được cộng từ các nguồn authoritative ở DB: phụ cấp buổi dạy theo công thức session allowance, commission CSKH (`attendance.customer_care_coef`), `lesson_outputs.cost`, `bonuses.amount`, `extra_allowances.amount`, `cost_extend.amount`.
+  - `summary.monthlyProfit = monthlyRevenue - monthlyExpense`; `pendingCollectionTotal` lấy từ tổng số dư âm của học sinh còn nợ; `pendingPayrollTotal` lấy từ tổng khoản pending của staff.
+  - `actionAlerts` được chia thành ba nhóm real-data:
+    - `Sắp hết tiền`: học sinh active trong lớp running có `account_balance >= 0` nhưng chỉ còn tối đa khoảng `2` buổi theo mức học phí tham chiếu của lớp/gói học.
+    - `Chưa thu`: học sinh có `account_balance < 0`; số tiền cần thu lấy theo trị tuyệt đối của số dư âm.
+    - `Nhân sự chưa thanh toán`: nhân sự active còn khoản pending ở session `teacher_payment_status = unpaid`, bonus pending, CSKH pending, lesson output pending hoặc extra allowance pending.
+  - `classPerformance` là top lớp running theo doanh thu tháng đang xem; `profit` ở bảng này hiện được tính theo `revenue - teacher allowance cost` của chính lớp đó, còn `balanceRisk` là tổng số dư âm của học sinh trong lớp.
+  - `yearlySummary` gom theo quý trong năm đang xem; `classes` đếm số lớp có phát sinh session trong quý, còn `revenue` / `expense` / `profit` cộng từ chuỗi aggregate theo tháng của cùng năm.
 - **Sessions endpoints (admin-only):**
   - `POST /sessions` tạo session kèm danh sách attendance. Chỉ attendance có `status = present` mới bị tính học phí và ghi transaction ví; `excused` / `absent` vẫn được lưu nhưng không bị charge.
   - `PUT /sessions/:id` cập nhật session; attendance được đồng bộ theo payload (upsert bản ghi có trong payload, xóa bản ghi cũ không còn trong payload). Khi đổi một học sinh từ `present` sang `excused` hoặc `absent`, backend sẽ bỏ học phí của attendance đó và cân lại số dư/transaction tương ứng.

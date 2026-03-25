@@ -1,5 +1,5 @@
-import UnderDevelopment from "@/components/admin/UnderDevelopment";
+import { redirect } from "next/navigation";
 
 export default function AdminDashboardPage() {
-  return <UnderDevelopment />;
+  redirect("/admin/dashboard");
 }

@@ -18,6 +18,7 @@ import { SessionModule } from './session/session.module';
 import { CustomerCareModule } from './customer-care/customer-care.module';
 import { ActionHistoryModule } from './action-history/action-history.module';
 import { LessonModule } from './lesson/lesson.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { LessonModule } from './lesson/lesson.module';
     CustomerCareModule,
     ActionHistoryModule,
     LessonModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [
