@@ -72,10 +72,10 @@ const ATTENDANCE_STATUS_OPTIONS: Array<{
   value: SessionAttendanceStatus;
   label: string;
 }> = [
-  { value: "present", label: "Học" },
-  { value: "excused", label: "Phép" },
-  { value: "absent", label: "Vắng" },
-];
+    { value: "present", label: "Học" },
+    { value: "excused", label: "Phép" },
+    { value: "absent", label: "Vắng" },
+  ];
 
 function getAttendanceStatusMeta(status: SessionAttendanceStatus): {
   label: string;
@@ -582,6 +582,20 @@ export default function SessionHistoryTable({
     canEditCoefficient && !canEditAllowance && !canEditAttendanceTuition;
   const showTeacherInput =
     allowTeacherSelection && (teachersList.length > 0 || teachersLoading);
+  const dateFieldClass = isWideEditor ? "xl:col-span-2" : "";
+  const teacherFieldClass = isWideEditor
+    ? allowPaymentStatusEdit
+      ? "xl:col-span-2"
+      : "xl:col-span-2"
+    : "";
+  const paymentStatusFieldClass = isWideEditor
+    ? "sm:col-span-2 xl:col-span-2"
+    : "sm:col-span-2";
+  const coefficientFieldClass = isWideEditor ? "xl:col-span-1" : "";
+  const allowanceFieldClass = isWideEditor ? "xl:col-span-2" : "";
+  const fullWidthFieldClass = isWideEditor
+    ? "sm:col-span-2 xl:col-span-4"
+    : "sm:col-span-2";
   const selectionColumnCount = showBulkPaymentStatusBar ? 1 : 0;
   const editingClassId = editingSession?.classId ?? "";
   const {
@@ -930,13 +944,13 @@ export default function SessionHistoryTable({
     const attendancePayload: SessionAttendanceItem[] =
       attendanceItems.length > 0
         ? attendanceItems.map((item) => ({
-            studentId: item.studentId,
-            status: item.status,
-            notes: item.notes.trim() || null,
-            ...(canEditAttendanceTuition && item.tuitionFee.trim() !== ""
-              ? { tuitionFee: Math.floor(Number(item.tuitionFee)) }
-              : {}),
-          }))
+          studentId: item.studentId,
+          status: item.status,
+          notes: item.notes.trim() || null,
+          ...(canEditAttendanceTuition && item.tuitionFee.trim() !== ""
+            ? { tuitionFee: Math.floor(Number(item.tuitionFee)) }
+            : {}),
+        }))
         : [];
     const coeffNum =
       canEditCoefficient && editCoefficient.trim()
@@ -966,9 +980,9 @@ export default function SessionHistoryTable({
         : {}),
       ...(canEditCoefficient && validCoeff ? { coefficient: coeffNum } : {}),
       ...(canEditAllowance &&
-      allowanceNum !== undefined &&
-      Number.isFinite(allowanceNum) &&
-      allowanceNum >= 0
+        allowanceNum !== undefined &&
+        Number.isFinite(allowanceNum) &&
+        allowanceNum >= 0
         ? { allowanceAmount: allowanceNum }
         : {}),
       ...(attendancePayload.length > 0 && { attendance: attendancePayload }),
@@ -981,11 +995,11 @@ export default function SessionHistoryTable({
       ? (sessionTuitionTotal ?? 0)
       : attendanceItems.length > 0
         ? attendanceItems.reduce(
-            (sum, item) => sum + resolveAttendanceTuitionValue(item),
-            0,
-          )
+          (sum, item) => sum + resolveAttendanceTuitionValue(item),
+          0,
+        )
         : editingSession.tuitionFee != null ||
-            Array.isArray(editingSession.attendance)
+          Array.isArray(editingSession.attendance)
           ? resolveSessionTuitionFee(editingSession)
           : (sessionTuitionTotal ?? 0);
   const attendanceDefaultTuitionTotal = useMemo(
@@ -1026,7 +1040,7 @@ export default function SessionHistoryTable({
   );
   const currentSessionCoefficient =
     editingSession?.coefficient != null &&
-    Number.isFinite(Number(editingSession.coefficient))
+      Number.isFinite(Number(editingSession.coefficient))
       ? Number(editingSession.coefficient)
       : 1;
   const coefficientInput = editCoefficient.trim();
@@ -1045,6 +1059,10 @@ export default function SessionHistoryTable({
         : null;
   const selectedTeacherId =
     editTeacherId.trim() || editingSession?.teacherId || "";
+  const selectedTeacherName =
+    teachersList.find((teacher) => teacher.id === selectedTeacherId)?.fullName?.trim() ||
+    editingSession?.teacher?.fullName?.trim() ||
+    (selectedTeacherId ? "Gia sư đang phụ trách" : "");
   const selectedTeacherCustomAllowance =
     editingClassDetail?.teachers?.find(
       (teacher) => teacher.id === selectedTeacherId,
@@ -1161,12 +1179,11 @@ export default function SessionHistoryTable({
             return (
               <article
                 key={session.id}
-                className={`group rounded-lg border p-3 shadow-sm transition-colors ${
-                  showBulkPaymentStatusBar &&
+                className={`group rounded-lg border p-3 shadow-sm transition-colors ${showBulkPaymentStatusBar &&
                   visibleSelectedSessionIds.has(session.id)
-                    ? "border-primary/35 bg-primary/5"
-                    : "border-border-default bg-bg-surface"
-                }`}
+                  ? "border-primary/35 bg-primary/5"
+                  : "border-border-default bg-bg-surface"
+                  }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="space-y-1">
@@ -1396,12 +1413,11 @@ export default function SessionHistoryTable({
                 return (
                   <tr
                     key={session.id}
-                    className={`group border-b border-border-default transition-colors duration-200 ${
-                      showBulkPaymentStatusBar &&
+                    className={`group border-b border-border-default transition-colors duration-200 ${showBulkPaymentStatusBar &&
                       visibleSelectedSessionIds.has(session.id)
-                        ? "bg-primary/5 hover:bg-primary/10"
-                        : "bg-bg-surface hover:bg-bg-secondary"
-                    }`}
+                      ? "bg-primary/5 hover:bg-primary/10"
+                      : "bg-bg-surface hover:bg-bg-secondary"
+                      }`}
                   >
                     {showBulkPaymentStatusBar ? (
                       <td className="px-3 py-3 text-center align-middle">
@@ -1710,9 +1726,8 @@ export default function SessionHistoryTable({
           />
           <div className="fixed inset-0 z-50 overflow-y-auto overscroll-contain p-2 sm:p-4">
             <div
-              className={`mx-auto flex min-h-full w-full items-start py-2 sm:items-center sm:py-0 ${
-                isWideEditor ? "max-w-[72rem]" : "max-w-2xl"
-              }`}
+              className={`mx-auto flex min-h-full w-full items-start py-2 sm:items-center sm:py-0 ${isWideEditor ? "max-w-[72rem]" : "max-w-2xl"
+                }`}
             >
               <div
                 role="dialog"
@@ -1730,8 +1745,8 @@ export default function SessionHistoryTable({
                     </h2>
                     <p className="mt-1 text-sm text-text-muted">
                       {hasFinancialEditorControls ||
-                      allowPaymentStatusEdit ||
-                      allowTeacherSelection
+                        allowPaymentStatusEdit ||
+                        allowTeacherSelection
                         ? "Cập nhật thời gian, cấu hình và điểm danh trong cùng một biểu mẫu."
                         : "Cập nhật ngày học, giờ học, ghi chú và điểm danh trong cùng một biểu mẫu."}
                     </p>
@@ -1787,10 +1802,10 @@ export default function SessionHistoryTable({
                       </div>
 
                       <div
-                        className={`grid gap-4 sm:grid-cols-2 ${isWideEditor ? "xl:grid-cols-6" : ""}`}
+                        className={`grid gap-4 sm:grid-cols-2 ${isWideEditor ? "xl:grid-cols-4" : ""}`}
                       >
                         <label
-                          className={`flex flex-col gap-1 text-sm text-text-secondary ${isWideEditor ? "xl:col-span-2" : ""}`}
+                          className={`flex flex-col gap-1 text-sm text-text-secondary ${dateFieldClass}`}
                         >
                           <span>Ngày học</span>
                           <input
@@ -1805,7 +1820,7 @@ export default function SessionHistoryTable({
 
                         {showTeacherInput ? (
                           <label
-                            className={`flex flex-col gap-1 text-sm text-text-secondary ${isWideEditor ? "xl:col-span-2" : ""}`}
+                            className={`flex flex-col gap-1 text-sm text-text-secondary ${teacherFieldClass}`}
                           >
                             <span>Gia sư phụ trách</span>
                             <UpgradedSelect
@@ -1823,25 +1838,17 @@ export default function SessionHistoryTable({
                               buttonClassName="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                             />
                           </label>
-                        ) : null}
-
-                        {allowPaymentStatusEdit ? (
-                          <label
-                            className={`flex flex-col gap-1 text-sm text-text-secondary ${
-                              isWideEditor
-                                ? "sm:col-span-2 xl:col-span-2"
-                                : "sm:col-span-2"
-                            }`}
+                        ) : selectedTeacherName ? (
+                          <div
+                            className={`flex flex-col gap-1 text-sm text-text-secondary ${teacherFieldClass}`}
                           >
-                            <span>Trạng thái thanh toán</span>
-                            <UpgradedSelect
-                              name="edit-session-payment-status"
-                              value={editPaymentStatus}
-                              onValueChange={setEditPaymentStatus}
-                              options={PAYMENT_STATUS_OPTIONS}
-                              buttonClassName="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                            />
-                          </label>
+                            <span>Gia sư phụ trách</span>
+                            <div className="flex min-h-11 items-center rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary">
+                              <span className="truncate font-medium">
+                                {selectedTeacherName}
+                              </span>
+                            </div>
+                          </div>
                         ) : null}
 
                         <label className="flex flex-col gap-1 text-sm text-text-secondary">
@@ -1870,11 +1877,26 @@ export default function SessionHistoryTable({
                           />
                         </label>
 
+                        {allowPaymentStatusEdit ? (
+                          <label
+                            className={`flex flex-col gap-1 text-sm text-text-secondary ${paymentStatusFieldClass}`}
+                          >
+                            <span>Trạng thái thanh toán</span>
+                            <UpgradedSelect
+                              name="edit-session-payment-status"
+                              value={editPaymentStatus}
+                              onValueChange={setEditPaymentStatus}
+                              options={PAYMENT_STATUS_OPTIONS}
+                              buttonClassName="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                            />
+                          </label>
+                        ) : null}
+
                         {canEditCoefficient || canEditAllowance ? (
                           <>
                             {canEditCoefficient ? (
                               <label
-                                className={`flex flex-col gap-1 text-sm text-text-secondary ${isWideEditor ? "xl:col-span-2" : ""}`}
+                                className={`flex flex-col gap-1 text-sm text-text-secondary xl:col-span-2 ${coefficientFieldClass}`}
                               >
                                 <span>Hệ số (coefficient)</span>
                                 <input
@@ -1896,7 +1918,7 @@ export default function SessionHistoryTable({
 
                             {canEditAllowance ? (
                               <label
-                                className={`flex flex-col gap-1 text-sm text-text-secondary ${isWideEditor ? "xl:col-span-2" : ""}`}
+                                className={`flex flex-col gap-1 text-sm text-text-secondary ${allowanceFieldClass}`}
                               >
                                 <span>Trợ cấp buổi (VNĐ)</span>
                                 <input
@@ -1916,26 +1938,17 @@ export default function SessionHistoryTable({
 
                             {canEditAllowance ? (
                               <p
-                                className={`rounded-2xl border border-border-default/80 bg-bg-surface px-3 py-2 text-xs ${
-                                  isWideEditor
-                                    ? "sm:col-span-2 xl:col-span-6"
-                                    : "sm:col-span-2"
-                                } ${
-                                  isEditingClassDetailError ||
+                                className={`rounded-2xl border border-border-default/80 bg-bg-surface px-3 py-2 text-xs ${fullWidthFieldClass} ${isEditingClassDetailError ||
                                   hasPreviewValidationIssue
-                                    ? "text-warning"
-                                    : "text-text-muted"
-                                }`}
+                                  ? "text-warning"
+                                  : "text-text-muted"
+                                  }`}
                               >
                                 {allowanceFormulaNote}
                               </p>
                             ) : isCoefficientOnlyEditor ? (
                               <p
-                                className={`rounded-2xl border border-border-default/80 bg-bg-surface px-3 py-2 text-xs text-text-muted ${
-                                  isWideEditor
-                                    ? "sm:col-span-2 xl:col-span-6"
-                                    : "sm:col-span-2"
-                                }`}
+                                className={`rounded-2xl border border-border-default/80 bg-bg-surface px-3 py-2 text-xs text-text-muted ${fullWidthFieldClass}`}
                               >
                                 Tại màn này bạn chỉ được chỉnh hệ số buổi học. Trợ cấp vẫn lấy theo cấu hình hiện tại của lớp hoặc gia sư.
                               </p>
@@ -1944,11 +1957,7 @@ export default function SessionHistoryTable({
                         ) : null}
 
                         <label
-                          className={`flex flex-col gap-1 text-sm text-text-secondary ${
-                            isWideEditor
-                              ? "sm:col-span-2 xl:col-span-6"
-                              : "sm:col-span-2"
-                          }`}
+                          className={`flex flex-col gap-1 text-sm text-text-secondary ${fullWidthFieldClass}`}
                         >
                           <span>Ghi chú buổi học</span>
                           <RichTextEditor
@@ -2069,8 +2078,8 @@ export default function SessionHistoryTable({
                                             <span className="font-medium tabular-nums text-text-primary">
                                               {item.defaultTuitionFee != null
                                                 ? formatCurrency(
-                                                    item.defaultTuitionFee,
-                                                  )
+                                                  item.defaultTuitionFee,
+                                                )
                                                 : "Chưa cấu hình"}
                                             </span>
                                           </p>
@@ -2253,8 +2262,8 @@ export default function SessionHistoryTable({
                                               placeholder={
                                                 item.defaultTuitionFee != null
                                                   ? String(
-                                                      item.defaultTuitionFee,
-                                                    )
+                                                    item.defaultTuitionFee,
+                                                  )
                                                   : "Theo học sinh"
                                               }
                                             />
@@ -2263,8 +2272,8 @@ export default function SessionHistoryTable({
                                               <span className="font-medium tabular-nums text-text-primary">
                                                 {item.defaultTuitionFee != null
                                                   ? formatCurrency(
-                                                      item.defaultTuitionFee,
-                                                    )
+                                                    item.defaultTuitionFee,
+                                                  )
                                                   : "Chưa cấu hình"}
                                               </span>
                                             </p>

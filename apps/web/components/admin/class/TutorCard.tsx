@@ -19,6 +19,7 @@ type Props = {
   teachers?: ClassTeacher[];
   className?: string;
   action?: React.ReactNode;
+  enableTeacherNavigation?: boolean;
 };
 
 function normalizeTutors(teachers?: ClassTeacher[]): TutorItem[] {
@@ -42,7 +43,12 @@ function normalizeTutors(teachers?: ClassTeacher[]): TutorItem[] {
   }, []);
 }
 
-export default function TutorCard({ teachers, className = "", action }: Props) {
+export default function TutorCard({
+  teachers,
+  className = "",
+  action,
+  enableTeacherNavigation = true,
+}: Props) {
   const tutorItems = normalizeTutors(teachers);
   const router = useRouter();
 
@@ -53,16 +59,28 @@ export default function TutorCard({ teachers, className = "", action }: Props) {
           {tutorItems.map((teacher, index) => (
             <div
               key={teacher.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => router.push(`/admin/staffs/${encodeURIComponent(teacher.id)}`)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  router.push(`/admin/staffs/${encodeURIComponent(teacher.id)}`);
-                }
-              }}
-              className="flex cursor-pointer items-center gap-3 rounded-xl border border-border-default bg-bg-secondary/70 px-3 py-2.5 transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:px-4 sm:py-3"
+              role={enableTeacherNavigation ? "button" : undefined}
+              tabIndex={enableTeacherNavigation ? 0 : undefined}
+              onClick={
+                enableTeacherNavigation
+                  ? () => router.push(`/admin/staffs/${encodeURIComponent(teacher.id)}`)
+                  : undefined
+              }
+              onKeyDown={
+                enableTeacherNavigation
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        router.push(`/admin/staffs/${encodeURIComponent(teacher.id)}`);
+                      }
+                    }
+                  : undefined
+              }
+              className={`flex items-center gap-3 rounded-xl border border-border-default bg-bg-secondary/70 px-3 py-2.5 transition-colors sm:px-4 sm:py-3 ${
+                enableTeacherNavigation
+                  ? "cursor-pointer hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  : "cursor-default"
+              }`}
             >
               <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border-default bg-bg-surface text-[11px] font-semibold uppercase tracking-[0.18em] text-text-secondary sm:size-10">
                 {String(index + 1).padStart(2, "0")}

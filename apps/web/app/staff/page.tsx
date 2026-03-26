@@ -16,15 +16,11 @@ import {
   StaffQrCard,
   SessionHistoryTableSkeleton,
 } from "@/components/admin/staff";
-import AddSessionPopup from "@/components/admin/class/AddSessionPopup";
 import MonthNav from "@/components/admin/MonthNav";
 import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable";
-import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import StaffSelfEditPopup from "@/components/staff/StaffSelfEditPopup";
-import { ClassDetail } from "@/dtos/class.dto";
 import { BonusListItem } from "@/dtos/bonus.dto";
 import {
-  SessionCreatePayload,
   SessionItem,
   SessionUpdatePayload,
 } from "@/dtos/session.dto";
@@ -133,21 +129,6 @@ function getOtherRoleDetailHref(role: string) {
   return null;
 }
 
-function toStaffCreateSessionPayload(payload: SessionCreatePayload) {
-  return {
-    date: payload.date,
-    startTime: payload.startTime,
-    endTime: payload.endTime,
-    notes: payload.notes ?? null,
-    coefficient: payload.coefficient,
-    attendance: (payload.attendance ?? []).map((item) => ({
-      studentId: item.studentId,
-      status: item.status,
-      notes: item.notes ?? null,
-    })),
-  };
-}
-
 function toStaffUpdateSessionPayload(payload: SessionUpdatePayload) {
   return {
     date: payload.date,
@@ -174,10 +155,6 @@ export default function StaffSelfDetailPage() {
   const [workTypeMenuOpen, setWorkTypeMenuOpen] = useState(false);
   const [workTypeSearch, setWorkTypeSearch] = useState("");
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
-  const [sessionClassPickerOpen, setSessionClassPickerOpen] = useState(false);
-  const [sessionPickerClassId, setSessionPickerClassId] = useState("");
-  const [addSessionClassId, setAddSessionClassId] = useState("");
-  const [openingSessionClassId, setOpeningSessionClassId] = useState("");
   const workTypeMenuRef = useRef<HTMLDivElement | null>(null);
   const statusMenuRef = useRef<HTMLDivElement | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(() => {
@@ -204,7 +181,6 @@ export default function StaffSelfDetailPage() {
     profile?.roleType === "admin" ||
     (profile?.roleType === "staff" &&
       (profile.staffInfo?.roles ?? []).includes("teacher"));
-  const canCreateSessionFromStaffPage = canAccessClassWorkspace;
 
   const {
     data: staff,
@@ -231,27 +207,6 @@ export default function StaffSelfDetailPage() {
       }),
     enabled: !!linkedStaffId,
     placeholderData: keepPreviousData,
-  });
-
-  const {
-    data: classListResponse,
-    isLoading: isClassPickerLoading,
-  } = useQuery({
-    queryKey: ["staff-ops", "class", "list", "self", "session-picker"],
-    queryFn: () =>
-      staffOpsApi.getClasses({
-        page: 1,
-        limit: 100,
-      }),
-    enabled: canCreateSessionFromStaffPage && !!linkedStaffId,
-    staleTime: 30_000,
-  });
-
-  const { data: addSessionClassDetail } = useQuery<ClassDetail>({
-    queryKey: ["staff-ops", "class", "detail", "session-create", addSessionClassId],
-    queryFn: () => staffOpsApi.getClassById(addSessionClassId),
-    enabled: !!addSessionClassId,
-    staleTime: 30_000,
   });
 
   const {
@@ -376,47 +331,6 @@ export default function StaffSelfDetailPage() {
     );
   }, [workTypeOptions, workTypeSearch]);
 
-  const availableSessionClasses = useMemo(
-    () => classListResponse?.data ?? [],
-    [classListResponse?.data],
-  );
-  const sessionClassOptions = useMemo(
-    () =>
-      availableSessionClasses.map((item) => ({
-        value: item.id,
-        label: item.name?.trim() || "Lớp học",
-      })),
-    [availableSessionClasses],
-  );
-  const selectedSessionClass = useMemo(
-    () =>
-      availableSessionClasses.find((item) => item.id === sessionPickerClassId) ??
-      null,
-    [availableSessionClasses, sessionPickerClassId],
-  );
-  const addSessionPopupTeachers = useMemo(
-    () =>
-      (addSessionClassDetail?.teachers ?? []).map((teacher) => ({
-        id: teacher.id,
-        fullName: teacher.fullName,
-      })),
-    [addSessionClassDetail?.teachers],
-  );
-  const addSessionPopupStudents = useMemo(
-    () =>
-      (addSessionClassDetail?.students ?? []).map((student) => ({
-        id: student.id,
-        fullName: student.fullName,
-        tuitionFee: student.effectiveTuitionPerSession ?? null,
-      })),
-    [addSessionClassDetail?.students],
-  );
-  const addSessionDefaultTeacherId =
-    profile?.roleType === "staff" && (profile.staffInfo?.roles ?? []).includes("teacher")
-      ? linkedStaffId
-      : addSessionPopupTeachers.length === 1
-        ? addSessionPopupTeachers[0]?.id ?? ""
-        : "";
   const getClassStudentsForSessionEditor = useCallback(
     async (classId: string) => {
       if (!classId) return [];
@@ -433,88 +347,6 @@ export default function StaffSelfDetailPage() {
       }));
     },
     [queryClient],
-  );
-
-  const openSessionCreateForClass = useCallback(
-    async (classId: string) => {
-      setOpeningSessionClassId(classId);
-
-      try {
-        await queryClient.ensureQueryData({
-          queryKey: [
-            "staff-ops",
-            "class",
-            "detail",
-            "session-create",
-            classId,
-          ],
-          queryFn: () => staffOpsApi.getClassById(classId),
-        });
-        setAddSessionClassId(classId);
-        setSessionClassPickerOpen(false);
-      } catch {
-        toast.error("Không tải được dữ liệu lớp để thêm buổi học.");
-      } finally {
-        setOpeningSessionClassId("");
-      }
-    },
-    [queryClient],
-  );
-
-  const openAddSessionFlow = useCallback(() => {
-    if (availableSessionClasses.length === 0) {
-      toast.error("Hiện chưa có lớp phù hợp để thêm buổi học.");
-      return;
-    }
-
-    if (availableSessionClasses.length === 1) {
-      void openSessionCreateForClass(availableSessionClasses[0].id);
-      return;
-    }
-
-    setSessionPickerClassId(
-      (current) => current || availableSessionClasses[0]?.id || "",
-    );
-    setSessionClassPickerOpen(true);
-  }, [availableSessionClasses, openSessionCreateForClass]);
-
-  const closeSessionClassPicker = () => {
-    if (openingSessionClassId) return;
-    setSessionClassPickerOpen(false);
-  };
-
-  const closeAddSessionPopup = () => {
-    if (openingSessionClassId) return;
-    setAddSessionClassId("");
-  };
-
-  const handleCreateSessionFromStaffPage = useCallback(
-    async (payload: SessionCreatePayload) => {
-      if (!addSessionClassId) {
-        throw new Error("Thiếu lớp để tạo buổi học.");
-      }
-
-      const createdSession = await staffOpsApi.createSession(
-        addSessionClassId,
-        toStaffCreateSessionPayload(payload),
-      );
-
-      await Promise.all([
-        refreshStaffSelfSessionData(),
-        queryClient.invalidateQueries({
-          queryKey: [
-            "staff-ops",
-            "class",
-            "detail",
-            "session-create",
-            addSessionClassId,
-          ],
-        }),
-      ]);
-
-      return createdSession;
-    },
-    [addSessionClassId, queryClient, refreshStaffSelfSessionData],
   );
 
   const handleUpdateSessionFromStaffPage = useCallback(
@@ -805,111 +637,6 @@ export default function StaffSelfDetailPage() {
         profile={profile}
         onSuccess={handleStaffEditSuccess}
       />
-
-      {sessionClassPickerOpen ? (
-        <>
-          <div
-            className="fixed inset-0 z-40 bg-black/50"
-            aria-hidden
-            onClick={closeSessionClassPicker}
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="session-class-picker-title"
-            className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-1.5rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-[1.4rem] border border-border-default bg-bg-surface p-4 shadow-2xl sm:p-5"
-          >
-            <h2
-              id="session-class-picker-title"
-              className="text-lg font-semibold text-text-primary"
-            >
-              Chọn lớp để thêm buổi học
-            </h2>
-            <p className="mt-1 text-sm text-text-muted">
-              Chọn lớp bạn đang phụ trách. Popup tiếp theo sẽ giữ nguyên logic
-              staff-ops, cho chỉnh hệ số buổi học nhưng không cho chỉnh tay
-              trợ cấp custom.
-            </p>
-
-            <div className="mt-4 space-y-3">
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium text-text-secondary">
-                  Lớp học
-                </span>
-                <UpgradedSelect
-                  name="staff-session-class-picker"
-                  value={sessionPickerClassId}
-                  onValueChange={setSessionPickerClassId}
-                  options={sessionClassOptions}
-                  placeholder="Chọn lớp"
-                  buttonClassName="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                />
-              </label>
-
-              {selectedSessionClass ? (
-                <div className="rounded-[1.15rem] border border-border-default bg-bg-secondary/40 px-4 py-3">
-                  <p className="text-sm font-semibold text-text-primary">
-                    {selectedSessionClass.name}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-text-muted">
-                    <span className="rounded-full border border-border-default bg-bg-surface px-2.5 py-1">
-                      {selectedSessionClass.studentCount ?? 0} học sinh
-                    </span>
-                    <span className="rounded-full border border-border-default bg-bg-surface px-2.5 py-1">
-                      {(selectedSessionClass.teachers ?? []).length} gia sư
-                    </span>
-                    <span className="rounded-full border border-border-default bg-bg-surface px-2.5 py-1">
-                      {selectedSessionClass.status === "running"
-                        ? "Đang chạy"
-                        : "Đã kết thúc"}
-                    </span>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={closeSessionClassPicker}
-                disabled={openingSessionClassId !== ""}
-                className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!sessionPickerClassId) {
-                    toast.error("Vui lòng chọn lớp học.");
-                    return;
-                  }
-                  void openSessionCreateForClass(sessionPickerClassId);
-                }}
-                disabled={!sessionPickerClassId || openingSessionClassId !== ""}
-                className="min-h-11 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {openingSessionClassId ? "Đang mở..." : "Tiếp tục"}
-              </button>
-            </div>
-          </div>
-        </>
-      ) : null}
-
-      {addSessionClassId && addSessionClassDetail ? (
-        <AddSessionPopup
-          open={Boolean(addSessionClassId)}
-          classId={addSessionClassId}
-          defaultTeacherId={addSessionDefaultTeacherId}
-          teachers={addSessionPopupTeachers}
-          students={addSessionPopupStudents}
-          teacherMode="readOnly"
-          allowFinancialFields={false}
-          allowCoefficientField
-          createSessionFn={handleCreateSessionFromStaffPage}
-          onClose={closeAddSessionPopup}
-        />
-      ) : null}
 
       <div className="flex flex-col gap-4">
         <div className="grid gap-4 lg:grid-cols-2">
@@ -1449,21 +1176,18 @@ export default function StaffSelfDetailPage() {
         <StaffCard title="Lịch sử buổi học">
           <div className="min-w-0 overflow-x-auto">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="rounded-full bg-bg-secondary px-3 py-1 text-xs text-text-muted sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm">
-                Đang xem {selectedMonthLabel} · {sessionsInCurrentMonth.length} buổi
+              <div className="space-y-2">
+                <div className="rounded-full bg-bg-secondary px-3 py-1 text-xs text-text-muted sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm">
+                  Đang xem {selectedMonthLabel} · {sessionsInCurrentMonth.length} buổi
+                </div>
+                {canAccessClassWorkspace ? (
+                  <p className="text-xs text-text-muted">
+                    Thêm buổi học đã được chuyển vào từng trang lớp trong mục
+                    {" "}
+                    <span className="font-medium text-text-primary">Lớp phụ trách</span>.
+                  </p>
+                ) : null}
               </div>
-              {canCreateSessionFromStaffPage ? (
-                <button
-                  type="button"
-                  onClick={openAddSessionFlow}
-                  disabled={isClassPickerLoading || openingSessionClassId !== ""}
-                  className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isClassPickerLoading || openingSessionClassId
-                    ? "Đang chuẩn bị..."
-                    : "Thêm buổi học"}
-                </button>
-              ) : null}
             </div>
             {isSessionsLoading ? (
               <SessionHistoryTableSkeleton rows={1} entityMode="class" />

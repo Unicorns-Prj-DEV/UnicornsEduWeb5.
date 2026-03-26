@@ -448,7 +448,7 @@ export default function AddSessionPopup({
                     ? "Hoàn thiện thời gian, cấu hình và điểm danh trong cùng một biểu mẫu."
                     : canEditCoefficient
                       ? "Cập nhật ngày học, giờ học, hệ số, ghi chú và điểm danh trong cùng một biểu mẫu."
-                    : "Cập nhật ngày học, giờ học, ghi chú và điểm danh trong cùng một biểu mẫu."}
+                      : "Cập nhật ngày học, giờ học, ghi chú và điểm danh trong cùng một biểu mẫu."}
                 </p>
               </div>
               <div className="flex flex-wrap items-start justify-between gap-2 sm:justify-end">
@@ -495,7 +495,7 @@ export default function AddSessionPopup({
                       </div>
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                       <label className="flex flex-col gap-1 text-sm text-text-secondary xl:col-span-2">
                         <span>Ngày học</span>
                         <input
@@ -576,7 +576,7 @@ export default function AddSessionPopup({
                       {canEditCoefficient || canEditAllowance ? (
                         <>
                           {canEditCoefficient ? (
-                            <label className="flex flex-col gap-1 text-sm text-text-secondary xl:col-span-2">
+                            <label className="flex flex-col gap-1 text-sm text-text-secondary xl:col-span-1">
                               <span>Hệ số (coefficient)</span>
                               <input
                                 name="add-session-coefficient"

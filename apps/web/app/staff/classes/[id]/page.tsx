@@ -65,6 +65,7 @@ function toStaffCreateSessionPayload(payload: SessionCreatePayload) {
     startTime: payload.startTime,
     endTime: payload.endTime,
     notes: payload.notes ?? null,
+    coefficient: payload.coefficient,
     attendance: (payload.attendance ?? []).map((item) => ({
       studentId: item.studentId,
       status: item.status,
@@ -79,6 +80,7 @@ function toStaffUpdateSessionPayload(payload: SessionUpdatePayload) {
     startTime: payload.startTime,
     endTime: payload.endTime,
     notes: payload.notes ?? null,
+    coefficient: payload.coefficient,
     attendance: payload.attendance?.map((item) => ({
       studentId: item.studentId,
       status: item.status,
@@ -403,6 +405,7 @@ export default function StaffClassDetailPage() {
           students={popupStudents}
           teacherMode="readOnly"
           allowFinancialFields={false}
+          allowCoefficientField
           createSessionFn={handleCreateSession}
           onClose={() => setAddSessionPopupOpen(false)}
         />
@@ -434,6 +437,7 @@ export default function StaffClassDetailPage() {
           <TutorCard
             teachers={classDetail.teachers}
             className="flex-1"
+            enableTeacherNavigation={false}
             action={
               <div className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary sm:min-h-0 sm:w-auto">
                 Chỉ xem
@@ -676,6 +680,7 @@ export default function StaffClassDetailPage() {
               getClassStudents={getClassStudentsForEditor}
               allowTeacherSelection={false}
               allowFinancialEdits={false}
+              allowCoefficientEdit
               allowPaymentStatusEdit={false}
               allowDeleteSession={false}
               updateSessionFn={handleUpdateSession}
