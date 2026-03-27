@@ -17,13 +17,13 @@ model StaffInfo {
   classSurveys               ClassSurvey[]
   classTeachers              ClassTeacher[]
   customerCareServices       CustomerCareService[]
+  extraAllowances            ExtraAllowance[]
   lessonOutputs              LessonOutput[]
   tasksCreated               LessonTask[]
   sessions                   Session[]
   user                       User?                 @relation(fields: [userId], references: [id])
   staffLessonTasks           StaffLessonTask[]
   monthlyStats               StaffMonthlyStat[]
-  extraAllowances            ExtraAllowance[]
 
   @@map("staff_info")
 }

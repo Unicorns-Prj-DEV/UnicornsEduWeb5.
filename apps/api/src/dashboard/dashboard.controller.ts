@@ -15,8 +15,12 @@ import {
 import { UserRole } from 'generated/enums';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import {
+  type AdminDashboardTopupHistoryItemDto,
+  type AdminDashboardStudentBalanceItemDto,
   type AdminDashboardDto,
   GetAdminDashboardQueryDto,
+  GetAdminStudentBalanceDetailsQueryDto,
+  GetAdminTopupHistoryQueryDto,
 } from '../dtos/dashboard.dto';
 import { DashboardService } from './dashboard.service';
 
@@ -70,5 +74,65 @@ export class DashboardController {
     @Query() query: GetAdminDashboardQueryDto,
   ): Promise<AdminDashboardDto> {
     return this.dashboardService.getAdminDashboard(query);
+  }
+
+  @Get('topup-history')
+  @ApiOperation({
+    summary: 'Get topup history in selected month',
+    description:
+      'Return wallet topup rows and cumulative totals for the selected period.',
+  })
+  @ApiQuery({
+    name: 'month',
+    required: false,
+    type: String,
+    description: 'Month in 01-12 format. Defaults to current month.',
+    example: '03',
+  })
+  @ApiQuery({
+    name: 'year',
+    required: false,
+    type: String,
+    description: 'Year in YYYY format. Defaults to current year.',
+    example: '2026',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Maximum number of rows returned.',
+    example: 120,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Topup history rows in selected period.',
+  })
+  async getAdminTopupHistory(
+    @Query() query: GetAdminTopupHistoryQueryDto,
+  ): Promise<AdminDashboardTopupHistoryItemDto[]> {
+    return this.dashboardService.getAdminTopupHistory(query);
+  }
+
+  @Get('student-balance-details')
+  @ApiOperation({
+    summary: 'Get student balance detail rows',
+    description:
+      'Return active students and class labels with current account balance for dashboard detail popup.',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Maximum number of rows returned.',
+    example: 200,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Student balance detail rows.',
+  })
+  async getAdminStudentBalanceDetails(
+    @Query() query: GetAdminStudentBalanceDetailsQueryDto,
+  ): Promise<AdminDashboardStudentBalanceItemDto[]> {
+    return this.dashboardService.getAdminStudentBalanceDetails(query);
   }
 }

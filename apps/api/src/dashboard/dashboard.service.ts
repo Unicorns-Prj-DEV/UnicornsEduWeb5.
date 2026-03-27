@@ -5,9 +5,13 @@ import {
   type AdminDashboardBreakdownItemDto,
   type AdminDashboardClassPerformanceDto,
   type AdminDashboardDto,
+  type AdminDashboardStudentBalanceItemDto,
+  type AdminDashboardTopupHistoryItemDto,
   type AdminDashboardTrendPointDto,
   type AdminDashboardYearlySummaryDto,
   GetAdminDashboardQueryDto,
+  GetAdminStudentBalanceDetailsQueryDto,
+  GetAdminTopupHistoryQueryDto,
 } from '../dtos/dashboard.dto';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -65,6 +69,22 @@ type ClassPerformanceSqlRow = {
 type QuarterClassCountSqlRow = {
   quarterNumber: number | string | null;
   classCount: number | string | null;
+};
+
+type TopupHistorySqlRow = {
+  id: string;
+  dateTime: Date | string;
+  studentName: string;
+  amount: number | string | null;
+  note: string | null;
+  cumulativeAfter: number | string | null;
+};
+
+type StudentBalanceDetailSqlRow = {
+  studentId: string;
+  studentName: string;
+  className: string;
+  balance: number | string | null;
 };
 
 type MonthlyTrendNormalizedRow = {
@@ -962,6 +982,8 @@ export class DashboardService {
         due: formatStudentBalanceDue(row),
         amount: normalizeMoneyAmount(row.accountBalance),
         severity: 'warning' as const,
+        targetType: 'student' as const,
+        targetId: row.studentId,
       })),
       ...debtStudents.map((row) => ({
         type: 'Chưa thu' as const,
@@ -970,6 +992,8 @@ export class DashboardService {
         due: formatDebtDue(row),
         amount: normalizeMoneyAmount(row.debtAmount),
         severity: 'destructive' as const,
+        targetType: 'student' as const,
+        targetId: row.studentId,
       })),
       ...unpaidStaff.map((row) => ({
         type: 'Nhân sự chưa thanh toán' as const,
@@ -988,6 +1012,21 @@ export class DashboardService {
         } nguồn pending`,
         amount: normalizeMoneyAmount(row.totalUnpaid),
         severity: 'info' as const,
+        targetType: 'staff' as const,
+        targetId: row.staffId,
+      })),
+      ...topClasses
+        .filter((row) => normalizeMoneyAmount(row.balanceRisk) > 0)
+        .slice(0, alertLimit)
+        .map((row) => ({
+          type: 'Lớp cảnh báo' as const,
+          subject: row.name,
+          owner: 'Vận hành',
+          due: 'Có rủi ro công nợ',
+          amount: normalizeMoneyAmount(row.balanceRisk),
+          severity: 'warning' as const,
+          targetType: 'class' as const,
+          targetId: row.classId,
       })),
     ];
 
@@ -1052,5 +1091,100 @@ export class DashboardService {
       classPerformance,
       yearlySummary,
     };
+  }
+
+  async getAdminTopupHistory(
+    query: GetAdminTopupHistoryQueryDto,
+  ): Promise<AdminDashboardTopupHistoryItemDto[]> {
+    const range = buildDashboardRange(query.month, query.year);
+    const limit = typeof query.limit === 'number' ? query.limit : 120;
+
+    const rows = await this.prisma.$queryRaw<TopupHistorySqlRow[]>(Prisma.sql`
+      WITH topup_rows AS (
+        SELECT
+          wallet_transactions_history.id,
+          wallet_transactions_history.created_at AS "dateTime",
+          student_info.full_name AS "studentName",
+          COALESCE(wallet_transactions_history.amount, 0) AS amount,
+          wallet_transactions_history.note AS note,
+          SUM(COALESCE(wallet_transactions_history.amount, 0)) OVER (
+            ORDER BY
+              wallet_transactions_history.created_at ASC,
+              wallet_transactions_history.id ASC
+          ) AS "cumulativeAfter"
+        FROM wallet_transactions_history
+        INNER JOIN student_info ON student_info.id = wallet_transactions_history.student_id
+        WHERE wallet_transactions_history.type::text = 'topup'
+      )
+      SELECT
+        id,
+        "dateTime",
+        "studentName",
+        amount,
+        note,
+        "cumulativeAfter"
+      FROM topup_rows
+      WHERE "dateTime" >= ${range.monthStart}
+        AND "dateTime" < ${range.monthEnd}
+      ORDER BY "dateTime" DESC, id DESC
+      LIMIT ${limit}
+    `);
+
+    return rows.map((row) => {
+      const dateTime =
+        row.dateTime instanceof Date
+          ? row.dateTime.toISOString()
+          : new Date(row.dateTime).toISOString();
+      const amount = normalizeMoneyAmount(row.amount);
+      const cumulativeAfter = normalizeMoneyAmount(row.cumulativeAfter);
+      const cumulativeBefore = Math.max(0, cumulativeAfter - amount);
+
+      return {
+        id: row.id,
+        dateTime,
+        studentName: row.studentName,
+        amount,
+        note:
+          row.note?.trim() ||
+          `Nạp tiền: +${amount.toLocaleString('vi-VN')}đ`,
+        cumulativeBefore,
+        cumulativeAfter,
+      };
+    });
+  }
+
+  async getAdminStudentBalanceDetails(
+    query: GetAdminStudentBalanceDetailsQueryDto,
+  ): Promise<AdminDashboardStudentBalanceItemDto[]> {
+    const limit = typeof query.limit === 'number' ? query.limit : 250;
+
+    const rows = await this.prisma.$queryRaw<StudentBalanceDetailSqlRow[]>(Prisma.sql`
+      SELECT
+        student_info.id AS "studentId",
+        student_info.full_name AS "studentName",
+        STRING_AGG(DISTINCT classes.name, ' - ' ORDER BY classes.name) AS "className",
+        COALESCE(student_info.account_balance, 0) AS balance
+      FROM student_info
+      INNER JOIN student_classes ON student_classes.student_id = student_info.id
+      INNER JOIN classes ON classes.id = student_classes.class_id
+      WHERE student_info.status = 'active'
+        AND classes.status = 'running'
+        AND COALESCE(student_info.account_balance, 0) > 0
+      GROUP BY
+        student_info.id,
+        student_info.full_name,
+        student_info.account_balance
+      ORDER BY
+        COALESCE(student_info.account_balance, 0) DESC,
+        student_info.full_name ASC
+      LIMIT ${limit}
+    `);
+
+    return rows.map((row) => ({
+      studentId: row.studentId,
+      studentName: row.studentName,
+      className: row.className,
+      balance: normalizeMoneyAmount(row.balance),
+    }));
   }
 }
