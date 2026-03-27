@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  NotFoundException,
   Patch,
   Post,
   Query,
@@ -24,8 +25,8 @@ import {
   CurrentUser,
   type JwtPayload,
 } from 'src/auth/decorators/current-user.decorator';
+import { CreateMyBonusDto, UpdateMyBonusDto } from 'src/dtos/bonus.dto';
 import { PaginationQueryDto } from 'src/dtos/pagination.dto';
-import { CreateMyBonusDto } from 'src/dtos/bonus.dto';
 import {
   UpdateMyProfileDto,
   UpdateMyStaffProfileDto,
@@ -211,6 +212,54 @@ export class UserProfileController {
         ...body,
         staffId,
         status: PaymentStatus.pending,
+      },
+      {
+        userId: user.id,
+        userEmail: user.email,
+        roleType: user.roleType,
+      },
+    );
+  }
+
+  @Patch('staff-bonuses')
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
+  @ApiOperation({
+    summary: 'Update current staff bonus',
+    description:
+      'Updates a bonus record belonging to the current linked staff profile. Self-service can edit work type, month, amount and note, but cannot change payment status.',
+  })
+  @ApiBody({ type: UpdateMyBonusDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Bonus updated for current staff.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error or no staff record.',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({
+    status: 404,
+    description: 'Bonus not found for current staff.',
+  })
+  async updateMyStaffBonus(
+    @CurrentUser() user: JwtPayload,
+    @Body() body: UpdateMyBonusDto,
+  ) {
+    const staffId = await this.userService.getLinkedStaffId(user.id);
+    const bonus = await this.bonusService.getBonusOwnershipById(body.id);
+
+    if (bonus.staffId !== staffId) {
+      throw new NotFoundException('Bonus not found');
+    }
+
+    return this.bonusService.updateBonus(
+      {
+        id: body.id,
+        workType: body.workType,
+        month: body.month,
+        amount: body.amount,
+        note: body.note,
       },
       {
         userId: user.id,

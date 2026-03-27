@@ -22,6 +22,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 ## [Unreleased]
 
 ### Added
+- BE self-service users: thêm endpoint `PATCH /users/me/staff-bonuses` để staff chỉnh `workType`, `month`, `amount`, `note` của khoản thưởng thuộc chính mình; route kiểm tra ownership bằng truy vấn hẹp `id` + `staffId` và không cho tự đổi `status`.
 - BE dashboard: thêm endpoint `GET /dashboard/topup-history?month=&year=&limit=` trả lịch sử nạp (topup) trong tháng kèm tổng nạp tích lũy trước/sau mỗi giao dịch để phục vụ popup tra cứu.
 - BE dashboard: thêm endpoint `GET /dashboard/student-balance-details?limit=` trả danh sách chi tiết học sinh - lớp - số dư (`account_balance > 0`) cho popup “Nợ học phí chưa dạy”.
 - BE class: 4 endpoint PATCH riêng cho từng form cập nhật lớp — `PATCH /class/:id/basic-info`, `PATCH /class/:id/teachers`, `PATCH /class/:id/schedule`, `PATCH /class/:id/students`. Khi form basic-info gửi `allowance_per_session_per_student`, backend đồng bộ toàn bộ `class_teachers.customAllowance` của lớp về giá trị đó.
@@ -39,6 +40,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - BE lesson: thêm `GET /lesson-task-options?search=&limit=` cho flow đổi task gốc của output; query giữ bounded search với `limit` nhỏ, select tối thiểu và recent-first khi không search để tránh tải danh sách task rộng xuống FE.
 
 ### Changed
+- FE `/staff`: section **Thưởng** giờ cho bấm từng dòng để mở popup **Điều chỉnh thưởng** ngay tại chỗ; popup self-service giữ layout add/edit chung, hiển thị `payment status` ở dạng chỉ đọc và chỉ cho staff sửa nội dung thưởng của chính mình.
 - FE `/admin/customer_care_detail/[staffId]` và `/staff/customer-care-detail`: tab **Hoa hồng** giờ hiển thị trạng thái thanh toán CSKH theo từng buổi học bằng badge lấy từ `customerCarePaymentStatus`; danh sách chi tiết buổi được đổi sang layout một hàng/ledger thay vì card, vẫn giữ học phí, hệ số CSKH và tiền commission trên cùng dòng.
 - BE customer-care: `GET /customer-care/staff/:staffId/students/:studentId/session-commissions` trả thêm `paymentStatus` (fallback `pending` cho record cũ còn `null`) và co hẹp `select` trên truy vấn attendance để chỉ lấy đúng cột cần cho màn chi tiết CSKH.
 - FE tab `Công việc` (`/admin/lesson-plans`): thêm tick chọn nhiều + popup cập nhật `paymentStatus` hàng loạt cho bảng **Bài giáo án đã làm**; thanh bulk action chỉ hiện khi có ít nhất 1 item được chọn và dùng cùng UI checkbox minimal/bulk bar của hệ thống.

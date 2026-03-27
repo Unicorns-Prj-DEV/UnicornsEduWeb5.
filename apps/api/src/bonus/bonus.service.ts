@@ -89,6 +89,22 @@ export class BonusService {
     return bonus;
   }
 
+  async getBonusOwnershipById(id: string) {
+    const bonus = await this.prisma.bonus.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        staffId: true,
+      },
+    });
+
+    if (!bonus) {
+      throw new NotFoundException('Bonus not found');
+    }
+
+    return bonus;
+  }
+
   async createBonus(data: CreateBonusDto, auditActor?: ActionHistoryActor) {
     return this.prisma.$transaction(async (tx) => {
       const createdBonus = await tx.bonus.create({

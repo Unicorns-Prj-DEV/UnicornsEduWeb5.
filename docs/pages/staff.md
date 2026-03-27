@@ -28,10 +28,10 @@
     - `Thống kê thu nhập` theo tháng với `MonthNav`
     - popup `Buổi cọc theo lớp`
     - `Lớp phụ trách`
-    - `Thưởng` của chính mình, cho phép tự thêm khoản thưởng mới vào tháng đang xem
+    - `Thưởng` của chính mình, cho phép tự thêm khoản thưởng mới và điều chỉnh nội dung khoản thưởng hiện có trong tháng đang xem
     - `Công việc khác` với tổng trợ cấp theo từng role của chính mình
     - `Lịch sử buổi học` của chính mình, kèm điều hướng sang lớp phụ trách để tạo buổi học mới
-  - popup thêm thưởng trên `/staff` dùng cùng bố cục/form với popup add bonus ở admin staff detail: `loại công việc` dạng dropdown có search, `số tiền`, `trạng thái`, `ghi chú`; ở self-service bản ghi tạo ra vẫn luôn được backend khóa về `pending`
+  - popup thưởng trên `/staff` dùng cùng bố cục/form với popup add bonus ở admin staff detail: `loại công việc` dạng dropdown có search, `số tiền`, `trạng thái thanh toán` dạng chỉ đọc, `ghi chú`; ở self-service bản ghi tạo ra vẫn luôn được backend khóa về `pending` và khi chỉnh sửa cũng không được tự đổi `payment status`
   - từ section `Lớp phụ trách` trên `/staff`, teacher/admin đi vào `/staff/classes/[id]`; route chi tiết lớp là nơi mở `AddSessionPopup` để thêm buổi học
   - popup thêm buổi học chỉ còn nằm ở `/staff/classes/[id]`, tiếp tục dùng flow `staff-ops` với các field ngày học, giờ học, `coefficient`, ghi chú, điểm danh; các field tài chính còn lại như `allowanceAmount`, học phí override và mọi khả năng chỉnh `custom allowance` vẫn bị khóa
   - từ bảng `Lịch sử buổi học` trên `/staff`, staff có thể mở form chỉnh sửa buổi học để cập nhật lại ngày giờ, `coefficient`, ghi chú và điểm danh; popup này vẫn không cho chỉnh trợ cấp hay học phí
@@ -71,6 +71,7 @@
   - xem thống kê thu nhập, thưởng, ghi cọc, lịch sử buổi học và tổng trợ cấp theo role của chính mình
   - tự sửa thông tin cơ bản và thông tin nhận thanh toán cơ bản
   - tự thêm thưởng cho chính mình từ `/staff`; backend luôn tạo ở trạng thái `pending`
+  - tự điều chỉnh `workType`, `month`, `amount`, `note` của thưởng chính mình từ `/staff`; trạng thái thanh toán vẫn do admin/quản trị xử lý
   - tự thêm và chỉnh sửa buổi học của lớp mình trực tiếp từ `/staff/classes/[id]`; backend vẫn tự áp dụng `customAllowance` hiện có của lớp, còn UI self-service chỉ được gửi `coefficient`
   - mở các link detail tự phục vụ đúng theo staff roles hiện tại khi route self-service tương ứng tồn tại
 - Staff self role detail pages **được phép**
@@ -104,7 +105,7 @@
   - sửa học phí hay trợ cấp ở cấp lớp
 - Staff self page **không được phép**
   - sửa role staff, status staff hoặc quyền hệ thống
-  - sửa/xóa thưởng đã có hoặc tự đổi trạng thái thanh toán thưởng
+  - xóa thưởng đã có hoặc tự đổi trạng thái thanh toán thưởng
   - chuyển trạng thái thanh toán buổi học, bonus, lesson output hoặc extra allowance
   - chỉnh học phí, trợ cấp, `custom allowance` hoặc bất kỳ field finance nào khác ngoài `coefficient` buổi học
   - xem hoặc thao tác dữ liệu của staff khác qua route `/staff`
@@ -121,6 +122,7 @@
   - `GET /users/me/staff-income-summary?month=&year=&days=`
   - `GET /users/me/staff-bonuses?page=&limit=&month=&status=`
   - `POST /users/me/staff-bonuses`
+  - `PATCH /users/me/staff-bonuses`
   - `GET /users/me/staff-sessions?month=&year=`
   - `GET /users/me/staff-extra-allowances?page=&limit=&year=&month=&roleType=&status=`
   - `GET /users/me/staff-lesson-output-stats?days=`
@@ -150,7 +152,7 @@
   - `customer_care`: mục `CSKH của tôi`
   - staff có cả `teacher` và `customer_care`: thấy cả hai mục
 - `/staff` tái sử dụng shared staff detail components của admin (`StaffCard`, `StaffDetailRow`, `StaffQrCard`, `StaffBonusCard`, `SessionHistoryTable`, `MonthNav`) để giữ layout gần như trùng admin detail
-- popup self-edit thay cho `EditStaffPopup`; bonus card trên `/staff` vẫn dùng `canManage=true` để giữ CTA thêm thưởng, nhưng không truyền callback sửa/xóa nên danh sách bonus vẫn chỉ đọc
+- popup self-edit thay cho `EditStaffPopup`; bonus card trên `/staff` dùng `canManage=true`, giữ CTA thêm thưởng và truyền callback sửa để bấm từng dòng mở popup điều chỉnh, nhưng vẫn không có callback xóa
 - `/staff` không còn CTA thêm buổi học; teacher/admin phải vào từng route `/staff/classes/[id]` từ section `Lớp phụ trách` để tạo buổi học
 - popup chỉnh sửa session trong bảng `Lịch sử buổi học` trên `/staff` chạy với `allowFinancialEdits=false` và `allowCoefficientEdit=true`, nên chỉ mở riêng field hệ số
 - các route trợ cấp role phụ và lesson-plan dùng cùng visual language với admin, nhưng mọi CTA mutate đều bị bỏ khỏi UI
@@ -170,7 +172,7 @@
 - `/staff` hiển thị self-detail của staff hiện tại với layout chính bám admin staff detail
 - `/staff` chỉ cho chỉnh thông tin cơ bản, ngân hàng và QR
 - `/staff` hiển thị thống kê thu nhập, popup ghi cọc, khối thưởng self-service, công việc khác và lịch sử buổi học
-- `/staff` cho thêm thưởng mới của chính mình, nhưng chỉ ở trạng thái `pending`
+- `/staff` cho thêm và điều chỉnh thưởng của chính mình; bản ghi mới vẫn ở trạng thái `pending`, còn `payment status` hiện có chỉ hiển thị để xem
 - `/staff` chỉ cho chỉnh sửa buổi học từ bảng lịch sử qua `staff-ops`, cho phép đổi `coefficient` nhưng không cho chỉnh `allowanceAmount`, học phí override hay `custom allowance`
 - các dòng role trong `Công việc khác` mở được self route tương ứng nếu actor có role đó
 - `staff.teacher` thấy section lớp của mình trên `/staff`

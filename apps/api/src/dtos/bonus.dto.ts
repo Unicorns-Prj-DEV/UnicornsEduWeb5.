@@ -51,3 +51,11 @@ export class CreateMyBonusDto extends OmitType(CreateBonusDto, [
 ] as const) {}
 
 export class UpdateBonusDto extends PartialType(CreateBonusDto) {}
+
+export class UpdateMyBonusDto extends PartialType(
+  OmitType(CreateBonusDto, ['staffId', 'status'] as const),
+) {
+  @ApiProperty({ description: 'Bonus id' })
+  @IsUUID()
+  id: string;
+}

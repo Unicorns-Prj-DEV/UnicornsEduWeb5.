@@ -32,6 +32,7 @@ import {
   getMyStaffDetail,
   getMyStaffIncomeSummary,
   getMyStaffSessions,
+  updateMyStaffBonus,
 } from "@/lib/apis/auth.api";
 import { formatCurrency } from "@/lib/class.helpers";
 import * as staffOpsApi from "@/lib/apis/staff-ops.api";
@@ -69,6 +70,8 @@ type BonusFormState = {
   status: "pending" | "paid";
   note: string;
 };
+
+type BonusFormMode = "create" | "edit";
 
 const EMPTY_AMOUNT_SUMMARY = {
   total: 0,
@@ -150,13 +153,13 @@ export default function StaffSelfDetailPage() {
   const [editPopupOpen, setEditPopupOpen] = useState(false);
   const [addBonusPopupOpen, setAddBonusPopupOpen] = useState(false);
   const [depositPopupOpen, setDepositPopupOpen] = useState(false);
+  const [bonusFormMode, setBonusFormMode] = useState<BonusFormMode>("create");
+  const [editingBonusId, setEditingBonusId] = useState<string | null>(null);
   const [bonusForm, setBonusForm] =
     useState<BonusFormState>(DEFAULT_BONUS_FORM);
   const [workTypeMenuOpen, setWorkTypeMenuOpen] = useState(false);
   const [workTypeSearch, setWorkTypeSearch] = useState("");
-  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const workTypeMenuRef = useRef<HTMLDivElement | null>(null);
-  const statusMenuRef = useRef<HTMLDivElement | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -253,10 +256,11 @@ export default function StaffSelfDetailPage() {
     onSuccess: async () => {
       toast.success("Đã thêm thưởng mới ở trạng thái chờ thanh toán.");
       setAddBonusPopupOpen(false);
+      setBonusFormMode("create");
+      setEditingBonusId(null);
       setBonusForm(DEFAULT_BONUS_FORM);
       setWorkTypeMenuOpen(false);
       setWorkTypeSearch("");
-      setStatusMenuOpen(false);
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: ["bonus", "self", selectedMonth],
@@ -275,6 +279,38 @@ export default function StaffSelfDetailPage() {
           ?.message ??
         (error as Error)?.message ??
         "Không thể thêm thưởng.";
+      toast.error(message);
+    },
+  });
+
+  const updateBonusMutation = useMutation({
+    mutationFn: updateMyStaffBonus,
+    onSuccess: async () => {
+      toast.success("Đã điều chỉnh thưởng.");
+      setAddBonusPopupOpen(false);
+      setBonusFormMode("create");
+      setEditingBonusId(null);
+      setBonusForm(DEFAULT_BONUS_FORM);
+      setWorkTypeMenuOpen(false);
+      setWorkTypeSearch("");
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["bonus", "self", selectedMonth],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["staff", "self", "income-summary"],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["staff", "self", "detail"],
+        }),
+      ]);
+    },
+    onError: (error: unknown) => {
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ??
+        (error as Error)?.message ??
+        "Không thể điều chỉnh thưởng.";
       toast.error(message);
     },
   });
@@ -363,38 +399,56 @@ export default function StaffSelfDetailPage() {
   );
 
   const openAddBonusPopup = () => {
+    setBonusFormMode("create");
+    setEditingBonusId(null);
     setBonusForm(DEFAULT_BONUS_FORM);
     setWorkTypeMenuOpen(false);
     setWorkTypeSearch("");
-    setStatusMenuOpen(false);
+    setAddBonusPopupOpen(true);
+  };
+
+  const openEditBonusPopup = (bonusId: string) => {
+    const target = bonusRecords.find((item) => item.id === bonusId);
+    if (!target) {
+      toast.error("Không tìm thấy thưởng để điều chỉnh.");
+      return;
+    }
+
+    setBonusFormMode("edit");
+    setEditingBonusId(target.id);
+    setBonusForm({
+      workTypeOption: target.workType,
+      amount: String(target.amount),
+      status: target.status,
+      note: target.note,
+    });
+    setWorkTypeMenuOpen(false);
+    setWorkTypeSearch("");
     setAddBonusPopupOpen(true);
   };
 
   const closeAddBonusPopup = () => {
-    if (createBonusMutation.isPending) return;
+    if (createBonusMutation.isPending || updateBonusMutation.isPending) return;
     setAddBonusPopupOpen(false);
+    setBonusFormMode("create");
+    setEditingBonusId(null);
     setBonusForm(DEFAULT_BONUS_FORM);
     setWorkTypeMenuOpen(false);
     setWorkTypeSearch("");
-    setStatusMenuOpen(false);
   };
 
   useEffect(() => {
-    if (!addBonusPopupOpen || (!workTypeMenuOpen && !statusMenuOpen)) return;
+    if (!addBonusPopupOpen || !workTypeMenuOpen) return;
 
     const handlePointerDown = (event: MouseEvent) => {
       if (!workTypeMenuRef.current?.contains(event.target as Node)) {
         setWorkTypeMenuOpen(false);
-      }
-      if (!statusMenuRef.current?.contains(event.target as Node)) {
-        setStatusMenuOpen(false);
       }
     };
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setWorkTypeMenuOpen(false);
-        setStatusMenuOpen(false);
       }
     };
 
@@ -404,7 +458,7 @@ export default function StaffSelfDetailPage() {
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("keydown", handleEscape);
     };
-  }, [addBonusPopupOpen, workTypeMenuOpen, statusMenuOpen]);
+  }, [addBonusPopupOpen, workTypeMenuOpen]);
 
   const handleSubmitBonus = async () => {
     const workType = bonusForm.workTypeOption.trim();
@@ -419,17 +473,37 @@ export default function StaffSelfDetailPage() {
       return;
     }
 
-    if (
-      typeof crypto === "undefined" ||
-      typeof crypto.randomUUID !== "function"
-    ) {
-      toast.error("Không thể tạo mã thưởng. Vui lòng thử lại.");
+    if (bonusFormMode === "create") {
+      if (
+        typeof crypto === "undefined" ||
+        typeof crypto.randomUUID !== "function"
+      ) {
+        toast.error("Không thể tạo mã thưởng. Vui lòng thử lại.");
+        return;
+      }
+
+      try {
+        await createBonusMutation.mutateAsync({
+          id: crypto.randomUUID(),
+          workType,
+          month: selectedMonth,
+          amount: Math.round(parsedAmount),
+          note: bonusForm.note.trim() || undefined,
+        });
+      } catch {
+        // toast lỗi đã xử lý trong onError
+      }
+      return;
+    }
+
+    if (!editingBonusId) {
+      toast.error("Không tìm thấy thưởng để điều chỉnh.");
       return;
     }
 
     try {
-      await createBonusMutation.mutateAsync({
-        id: crypto.randomUUID(),
+      await updateBonusMutation.mutateAsync({
+        id: editingBonusId,
         workType,
         month: selectedMonth,
         amount: Math.round(parsedAmount),
@@ -1007,6 +1081,7 @@ export default function StaffSelfDetailPage() {
               paid={bonusTotals.paid}
               unpaid={bonusTotals.unpaid}
               onAddBonus={openAddBonusPopup}
+              onEditBonus={(bonus) => openEditBonusPopup(bonus.id)}
               canManage
             />
             {isBonusLoading ? (
@@ -1233,10 +1308,14 @@ export default function StaffSelfDetailPage() {
               id="add-bonus-title"
               className="text-lg font-semibold text-text-primary"
             >
-              Thêm thưởng
+              {bonusFormMode === "create"
+                ? "Thêm thưởng"
+                : "Điều chỉnh thưởng"}
             </h2>
             <p className="mt-1 text-sm text-text-muted">
-              Áp dụng cho {selectedMonthLabel}
+              {bonusFormMode === "create"
+                ? `Tạo đề nghị thưởng cho ${selectedMonthLabel}`
+                : `Cập nhật nội dung khoản thưởng trong ${selectedMonthLabel}`}
             </p>
 
             <div className="mt-4 space-y-3">
@@ -1250,7 +1329,6 @@ export default function StaffSelfDetailPage() {
                     className="flex w-full items-center justify-between rounded-md border border-border-default bg-bg-surface px-3 py-2 text-left text-sm text-text-primary transition-colors duration-200 hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                     onClick={() => {
                       setWorkTypeMenuOpen((prev) => !prev);
-                      setStatusMenuOpen(false);
                     }}
                     aria-haspopup="listbox"
                     aria-expanded={workTypeMenuOpen}
@@ -1346,89 +1424,27 @@ export default function StaffSelfDetailPage() {
 
               <label className="block">
                 <span className="mb-1 block text-sm font-medium text-text-secondary">
-                  Trạng thái
+                  Trạng thái thanh toán
                 </span>
-                <div className="relative" ref={statusMenuRef}>
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between rounded-md border border-border-default bg-bg-surface px-3 py-2 text-left text-sm text-text-primary transition-colors duration-200 hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                    onClick={() => {
-                      setStatusMenuOpen((prev) => !prev);
-                      setWorkTypeMenuOpen(false);
-                    }}
-                    aria-haspopup="listbox"
-                    aria-expanded={statusMenuOpen}
-                    aria-label="Chọn trạng thái thanh toán"
-                  >
-                    <span className="inline-flex items-center gap-2">
+                <div className="rounded-lg border border-border-default bg-bg-secondary/60 px-3 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="inline-flex items-center gap-2 text-sm font-medium text-text-primary">
                       <span
-                        className={`size-2 rounded-full ${bonusForm.status === "paid" ? "bg-success" : "bg-warning"}`}
+                        className={`size-2.5 rounded-full ${bonusForm.status === "paid" ? "bg-success" : "bg-warning"}`}
                         aria-hidden
                       />
                       {bonusForm.status === "paid"
                         ? "Đã thanh toán"
                         : "Chờ thanh toán"}
                     </span>
-                    <svg
-                      className={`ml-2 size-4 shrink-0 text-text-muted transition-transform duration-200 ${statusMenuOpen ? "rotate-180" : ""}`}
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      aria-hidden
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="m6 9 6 6 6-6"
-                      />
-                    </svg>
-                  </button>
-
-                  {statusMenuOpen ? (
-                    <div
-                      role="listbox"
-                      aria-label="Danh sách trạng thái thanh toán"
-                      className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border border-border-default bg-bg-surface p-1 shadow-lg"
-                    >
-                      {[
-                        {
-                          value: "pending" as const,
-                          label: "Chờ thanh toán",
-                          dot: "bg-warning",
-                        },
-                      ].map((option) => {
-                        const isSelected = bonusForm.status === option.value;
-                        return (
-                          <button
-                            key={option.value}
-                            type="button"
-                            role="option"
-                            aria-selected={isSelected}
-                            className={`flex w-full items-center justify-between rounded px-2 py-2 text-left text-sm transition-colors duration-150 ${isSelected
-                                ? "bg-primary/10 font-medium text-text-primary"
-                                : "text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
-                              }`}
-                            onClick={() => {
-                              setBonusForm((prev) => ({
-                                ...prev,
-                                status: option.value,
-                              }));
-                              setStatusMenuOpen(false);
-                            }}
-                          >
-                            <span className="inline-flex items-center gap-2">
-                              <span
-                                className={`size-2 rounded-full ${option.dot}`}
-                                aria-hidden
-                              />
-                              {option.label}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : null}
+                    <span className="rounded-full border border-border-default bg-bg-surface px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                      Chỉ xem
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-text-muted">
+                    Trạng thái thanh toán do quản trị xác nhận. Bạn chỉ điều
+                    chỉnh nội dung khoản thưởng.
+                  </p>
                 </div>
               </label>
 
@@ -1453,7 +1469,9 @@ export default function StaffSelfDetailPage() {
                 type="button"
                 onClick={closeAddBonusPopup}
                 className="min-h-11 rounded-md border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:py-2"
-                disabled={createBonusMutation.isPending}
+                disabled={
+                  createBonusMutation.isPending || updateBonusMutation.isPending
+                }
               >
                 Hủy
               </button>
@@ -1461,9 +1479,15 @@ export default function StaffSelfDetailPage() {
                 type="button"
                 onClick={handleSubmitBonus}
                 className="min-h-11 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:py-2 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={createBonusMutation.isPending}
+                disabled={
+                  createBonusMutation.isPending || updateBonusMutation.isPending
+                }
               >
-                {createBonusMutation.isPending ? "Đang lưu..." : "Thêm thưởng"}
+                {createBonusMutation.isPending || updateBonusMutation.isPending
+                  ? "Đang lưu..."
+                  : bonusFormMode === "create"
+                    ? "Thêm thưởng"
+                    : "Lưu điều chỉnh"}
               </button>
             </div>
           </div>

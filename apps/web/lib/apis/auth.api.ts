@@ -2,6 +2,7 @@ import { ForgotPasswordDto, LoginDto, RegisterDto, ResetPasswordDto } from '@/dt
 import type {
     BonusListResponse,
     CreateMyBonusPayload,
+    UpdateMyBonusPayload,
 } from '@/dtos/bonus.dto';
 import type {
     ExtraAllowanceListResponse,
@@ -137,6 +138,14 @@ export async function createMyStaffBonus(
     dto: CreateMyBonusPayload,
 ) {
     const response = await api.post('/users/me/staff-bonuses', dto);
+    return response.data;
+}
+
+/** Update a bonus for current linked staff. Payment status remains backend-managed. */
+export async function updateMyStaffBonus(
+    dto: UpdateMyBonusPayload,
+) {
+    const response = await api.patch('/users/me/staff-bonuses', dto);
     return response.data;
 }
 
