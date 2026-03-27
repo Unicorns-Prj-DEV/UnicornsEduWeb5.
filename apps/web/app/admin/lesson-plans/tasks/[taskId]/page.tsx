@@ -210,6 +210,7 @@ export default function AdminLessonTaskDetailPage() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["lesson", "work"] }),
         queryClient.invalidateQueries({ queryKey: ["lesson", "exercises"] }),
+        queryClient.invalidateQueries({ queryKey: ["lesson", "overview"] }),
         queryClient.invalidateQueries({
           queryKey: ["lesson", "task", createdOutput.lessonTaskId],
         }),
@@ -302,7 +303,6 @@ export default function AdminLessonTaskDetailPage() {
   const attachExistingResourceMutation = useMutation({
     mutationFn: ({
       resourceId,
-      previousTaskId,
     }: {
       resourceId: string;
       previousTaskId: string | null;
@@ -541,7 +541,7 @@ export default function AdminLessonTaskDetailPage() {
                   </div>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-3">
+                <div className="grid gap-3 md:grid-cols-2">
                   <TaskMetaCard
                     label="Hạn xử lý"
                     value={formatLessonDateOnly(task.dueDate)}
@@ -552,11 +552,7 @@ export default function AdminLessonTaskDetailPage() {
                     value={task.createdByStaff?.fullName ?? "Chưa khóa cụ thể"}
                     hint="Có thể thay đổi trực tiếp trong popup chỉnh sửa."
                   />
-                  <TaskMetaCard
-                    label="Nhân sự tham gia"
-                    value={`${task.assignees.length} người`}
-                    hint="Tối đa 3 người thực hiện cho mỗi task."
-                  />
+
                 </div>
               </div>
             </section>
@@ -619,7 +615,8 @@ export default function AdminLessonTaskDetailPage() {
                     Nhân sự thực hiện
                   </h2>
                   <p className="mt-2 text-sm leading-6 text-text-secondary">
-                    Danh sách nhân sự đang được giao tham gia xử lý task này.
+                    Danh sách này tự đồng bộ từ các output con đang gắn với task
+                    này.
                   </p>
                 </div>
 
@@ -630,8 +627,8 @@ export default function AdminLessonTaskDetailPage() {
                     ))
                   ) : (
                     <div className="rounded-[1.35rem] border border-dashed border-border-default bg-bg-secondary/40 px-4 py-8 text-sm text-text-muted">
-                      Chưa có nhân sự thực hiện. Có thể gắn ngay trong popup chỉnh
-                      sửa.
+                      Chưa có nhân sự đồng bộ. Hãy gắn người đứng tên cho output
+                      con để task tự cập nhật danh sách.
                     </div>
                   )}
                 </div>

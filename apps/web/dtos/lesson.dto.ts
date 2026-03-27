@@ -217,7 +217,6 @@ export interface CreateLessonTaskPayload {
   priority?: LessonTaskPriority;
   dueDate?: string | null;
   createdByStaffId?: string | null;
-  assignedStaffIds?: string[];
 }
 
 export interface UpdateLessonTaskPayload {
@@ -227,7 +226,6 @@ export interface UpdateLessonTaskPayload {
   priority?: LessonTaskPriority;
   dueDate?: string | null;
   createdByStaffId?: string | null;
-  assignedStaffIds?: string[];
 }
 
 export interface LessonOutputTaskSummary {

@@ -73,7 +73,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - **ExtraAllowance → StaffInfo**: N-1.
 - **ClassSurvey → Class / StaffInfo**: optional FK, `onDelete: SetNull`.
 - **ActionHistory → User**: optional FK, `onDelete: SetNull`.
-- **StaffLessonTask**: bảng giao giữa `staff_info` và `lesson_task`, unique `(staff_id, lesson_task_id)`.
+- **StaffLessonTask**: bảng giao giữa `staff_info` và `lesson_task`, unique `(staff_id, lesson_task_id)`; hiện được backend đồng bộ theo các `lesson_outputs` con của task thay vì gán tay từ form task.
 - **LessonTask → LessonResource**: 1-N optional (`lesson_resources.lessonTaskId`, `onDelete: SetNull`).
 - **LessonTask → LessonOutput**: 1-N optional (`lesson_outputs.lesson_task_id`, `onDelete: SetNull`).
 - **LessonOutput → StaffInfo**: optional FK, `onDelete: SetNull`.
@@ -166,7 +166,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `lesson_task`: task nội dung (status, priority, due date, created_at, updated_at)
   - quan hệ optional `created_by -> staff_info.id`
   - index read path hiện có cho tab tổng quan giáo án admin: `(status, due_date)`, `updated_at`
-- `staff_lesson_task`: phân công task cho staff (junction)
+- `staff_lesson_task`: junction đồng bộ nhân sự task theo `lesson_outputs`
 - `lesson_resources`: thư viện tài nguyên học tập
   - field chính cho admin lesson overview: `title`, `description`, `resource_link`, `tags`, `updated_at`
   - index read path hiện có: `created_at`, `updated_at`

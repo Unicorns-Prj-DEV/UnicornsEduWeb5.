@@ -545,17 +545,6 @@ export class CreateLessonTaskDto {
   @IsOptional()
   @IsUUID('4')
   createdByStaffId?: string | null;
-
-  @ApiPropertyOptional({
-    type: [String],
-    example: ['99e2effd-fab2-42e1-8b17-43c0d840e1be'],
-    description: 'Assigned staff ids for this lesson task.',
-  })
-  @IsOptional()
-  @IsArray()
-  @ArrayMaxSize(3)
-  @IsUUID('4', { each: true })
-  assignedStaffIds?: string[] | null;
 }
 
 export class UpdateLessonTaskDto extends PartialType(CreateLessonTaskDto) {}

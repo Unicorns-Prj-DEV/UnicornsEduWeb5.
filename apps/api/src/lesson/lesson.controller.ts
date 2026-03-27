@@ -82,9 +82,9 @@ export class LessonController {
 
   @Get('lesson-task-staff-options')
   @ApiOperation({
-    summary: 'Search staff options for lesson task assignment',
+    summary: 'Search staff options for lesson task ownership',
     description:
-      'Return lightweight staff options for assigning personnel to lesson tasks.',
+      'Return lightweight staff options for selecting the responsible owner of a lesson task.',
   })
   @ApiResponse({
     status: 200,
