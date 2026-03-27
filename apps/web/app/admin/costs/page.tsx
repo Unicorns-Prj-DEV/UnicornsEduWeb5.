@@ -440,73 +440,75 @@ export default function AdminCostsPage() {
           />
         </div>
 
-        <section className="relative mb-4 overflow-hidden rounded-2xl border border-border-default bg-gradient-to-br from-bg-surface via-bg-secondary/70 to-bg-surface p-3 shadow-sm">
-          <div className="pointer-events-none absolute -right-8 top-0 size-24 rounded-full bg-success/10 blur-2xl" aria-hidden />
-          <div className="pointer-events-none absolute bottom-0 left-10 size-20 rounded-full bg-primary/10 blur-2xl" aria-hidden />
+        {totalSelectedCount > 0 ? (
+          <section className="relative mb-4 overflow-hidden rounded-2xl border border-border-default bg-gradient-to-br from-bg-surface via-bg-secondary/70 to-bg-surface p-3 shadow-sm">
+            <div className="pointer-events-none absolute -right-8 top-0 size-24 rounded-full bg-success/10 blur-2xl" aria-hidden />
+            <div className="pointer-events-none absolute bottom-0 left-10 size-20 rounded-full bg-primary/10 blur-2xl" aria-hidden />
 
-          <div className="relative flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="space-y-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
-                Thanh toán hàng loạt
-              </p>
-              <div className="flex flex-wrap items-center gap-2 text-sm text-text-secondary">
-                <span className="inline-flex items-center rounded-full border border-primary/15 bg-primary/8 px-2.5 py-1 font-medium text-primary">
-                  Đã chọn {totalSelectedCount} khoản
-                </span>
-                {selectedFromOtherPagesCount > 0 ? (
-                  <span className="inline-flex items-center rounded-full border border-border-default bg-bg-surface px-2.5 py-1 text-text-secondary">
-                    +{selectedFromOtherPagesCount} khoản từ trang khác
+            <div className="relative flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-1">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
+                  Thanh toán hàng loạt
+                </p>
+                <div className="flex flex-wrap items-center gap-2 text-sm text-text-secondary">
+                  <span className="inline-flex items-center rounded-full border border-primary/15 bg-primary/8 px-2.5 py-1 font-medium text-primary">
+                    Đã chọn {totalSelectedCount} khoản
                   </span>
-                ) : (
-                  <span className="text-text-muted">
-                    Chọn nhiều trang trong cùng bộ lọc hiện tại.
+                  {selectedFromOtherPagesCount > 0 ? (
+                    <span className="inline-flex items-center rounded-full border border-border-default bg-bg-surface px-2.5 py-1 text-text-secondary">
+                      +{selectedFromOtherPagesCount} khoản từ trang khác
+                    </span>
+                  ) : (
+                    <span className="text-text-muted">
+                      Chọn nhiều trang trong cùng bộ lọc hiện tại.
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end md:w-auto">
+                <button
+                  type="button"
+                  onClick={toggleAllCosts}
+                  disabled={pageCostIds.length === 0 || bulkStatusMutation.isPending}
+                  className="touch-manipulation inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3.5 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {allCostsSelectedOnPage
+                    ? `Bỏ chọn ${selectedOnPageCount} khoản ở trang này`
+                    : `Chọn cả ${pageCostIds.length} khoản ở trang ${currentPage}`}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCostIds(new Set())}
+                  disabled={bulkStatusMutation.isPending}
+                  className="touch-manipulation inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3.5 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Bỏ chọn toàn bộ
+                </button>
+                <button
+                  type="button"
+                  onClick={openBulkEditPopup}
+                  disabled={bulkStatusMutation.isPending}
+                  className="touch-manipulation inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse shadow-[0_14px_30px_-18px_rgba(37,99,235,0.55)] transition-all hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label={`Sửa trạng thái thanh toán cho ${totalSelectedCount} khoản chi đã chọn`}
+                >
+                  <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                    />
+                  </svg>
+                  <span>Sửa trạng thái thanh toán</span>
+                  <span className="rounded-full bg-white/18 px-2 py-0.5 text-xs font-semibold tabular-nums">
+                    {totalSelectedCount}
                   </span>
-                )}
+                </button>
               </div>
             </div>
-
-            <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end md:w-auto">
-              <button
-                type="button"
-                onClick={toggleAllCosts}
-                disabled={pageCostIds.length === 0 || bulkStatusMutation.isPending}
-                className="touch-manipulation inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3.5 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {allCostsSelectedOnPage
-                  ? `Bỏ chọn ${selectedOnPageCount} khoản ở trang này`
-                  : `Chọn cả ${pageCostIds.length} khoản ở trang ${currentPage}`}
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedCostIds(new Set())}
-                disabled={totalSelectedCount === 0 || bulkStatusMutation.isPending}
-                className="touch-manipulation inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3.5 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Bỏ chọn toàn bộ
-              </button>
-              <button
-                type="button"
-                onClick={openBulkEditPopup}
-                disabled={totalSelectedCount === 0 || bulkStatusMutation.isPending}
-                className="touch-manipulation inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse shadow-[0_14px_30px_-18px_rgba(37,99,235,0.55)] transition-all hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
-                aria-label={`Sửa trạng thái thanh toán cho ${totalSelectedCount} khoản chi đã chọn`}
-              >
-                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                  />
-                </svg>
-                <span>Sửa trạng thái thanh toán</span>
-                <span className="rounded-full bg-white/18 px-2 py-0.5 text-xs font-semibold tabular-nums">
-                  {totalSelectedCount}
-                </span>
-              </button>
-            </div>
-          </div>
-        </section>
+          </section>
+        ) : null}
 
         <div className="min-w-0 flex-1 overflow-auto">
           {isLoading ? (

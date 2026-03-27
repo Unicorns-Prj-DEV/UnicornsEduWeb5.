@@ -20,6 +20,7 @@ import * as sessionApi from "@/lib/apis/session.api";
 
 type SessionEntityMode = "teacher" | "class" | "none";
 type SessionStatusMode = "payment" | "timeline";
+type SessionTableVariant = "default" | "classDetail";
 
 export type SessionTeacherOption = {
   id: string;
@@ -30,6 +31,7 @@ type Props = {
   sessions: SessionItem[];
   entityMode?: SessionEntityMode;
   statusMode?: SessionStatusMode;
+  variant?: SessionTableVariant;
   emptyText?: string;
   className?: string;
   editorLayout?: "default" | "wide";
@@ -131,6 +133,16 @@ function formatDateOnly(raw?: string | null): string {
   }
 
   return "—";
+}
+
+function formatWeekdayLabel(raw?: string | null): string {
+  const dateKey = extractDateKey(raw);
+  if (!dateKey) return "—";
+  const date = new Date(`${dateKey}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return "—";
+  const d = date.getDay(); // 0..6 (Sun..Sat)
+  if (d === 0) return "Chủ nhật";
+  return `Thứ ${d + 1}`;
 }
 
 function formatTimeOnly(raw?: string | null): string {
@@ -414,6 +426,7 @@ type SelectionCheckboxProps = {
   onChange: () => void;
   disabled?: boolean;
   ariaLabel: string;
+  appearance?: "default" | "minimal";
 };
 
 function SelectionCheckbox({
@@ -422,6 +435,7 @@ function SelectionCheckbox({
   onChange,
   disabled = false,
   ariaLabel,
+  appearance = "default",
 }: SelectionCheckboxProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -429,6 +443,48 @@ function SelectionCheckbox({
     if (!inputRef.current) return;
     inputRef.current.indeterminate = indeterminate;
   }, [indeterminate]);
+
+  if (appearance === "minimal") {
+    return (
+      <label
+        className={`inline-flex min-h-9 min-w-9 cursor-pointer items-center justify-center rounded-xl border transition-colors focus-within:ring-2 focus-within:ring-border-focus focus-within:ring-offset-2 focus-within:ring-offset-bg-surface ${checked || indeterminate
+          ? "border-primary/45 bg-primary/10"
+          : "border-border-default bg-bg-surface hover:border-primary/30 hover:bg-bg-secondary"
+          } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+      >
+        <input
+          ref={inputRef}
+          type="checkbox"
+          checked={checked}
+          onChange={onChange}
+          disabled={disabled}
+          aria-label={ariaLabel}
+          className="sr-only"
+        />
+        <span
+          className={`inline-flex size-5 items-center justify-center rounded-md border text-[11px] font-bold transition-colors ${checked
+            ? "border-primary bg-primary text-text-inverse"
+            : indeterminate
+              ? "border-warning/60 bg-warning/15 text-warning"
+              : "border-border-default bg-bg-surface text-transparent"
+            }`}
+          aria-hidden
+        >
+          {checked ? (
+            <svg className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="m5 12 4.2 4.2L19 6.8" />
+            </svg>
+          ) : indeterminate ? (
+            <svg className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 12h12" />
+            </svg>
+          ) : (
+            "•"
+          )}
+        </span>
+      </label>
+    );
+  }
 
   const isActive = checked || indeterminate;
   const outerClassName = isActive
@@ -514,10 +570,24 @@ function SelectionCheckbox({
   );
 }
 
+function countPresentStudents(session: SessionItem): number {
+  const list = session.attendance ?? [];
+  if (!Array.isArray(list)) return 0;
+  return list.filter((item) => (item?.status ?? "absent") === "present").length;
+}
+
+function renderCoefficientLabel(raw: unknown): string {
+  const coeff = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(coeff)) return "1";
+  const rounded = Math.round(coeff * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
 export default function SessionHistoryTable({
   sessions,
   entityMode = "none",
   statusMode = "payment",
+  variant = "default",
   emptyText = "Chưa có buổi học nào.",
   className = "",
   editorLayout = "default",
@@ -1114,49 +1184,50 @@ export default function SessionHistoryTable({
 
   return (
     <>
-      {showBulkPaymentStatusBar && sessions.length > 0 ? (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={toggleAllSessions}
-            disabled={
-              pageSessionIds.length === 0 || bulkPaymentStatusMutation.isPending
-            }
-            className="touch-manipulation inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3.5 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {allSessionsSelected
-              ? "Bỏ chọn tất cả"
-              : `Chọn tất cả ${pageSessionIds.length} buổi`}
-          </button>
-
-          <button
-            type="button"
-            onClick={openBulkEditPopup}
-            disabled={
-              selectedCount === 0 || bulkPaymentStatusMutation.isPending
-            }
-            className="touch-manipulation inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse shadow-[0_14px_30px_-18px_rgba(37,99,235,0.55)] transition-all hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-            aria-label={`Sửa trạng thái thanh toán cho ${selectedCount} buổi học đã chọn`}
-          >
-            <svg
-              className="size-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden
+      {showBulkPaymentStatusBar && sessions.length > 0 && selectedCount > 0 ? (
+        <div className="mb-4 rounded-xl border border-border-default bg-bg-secondary/55 px-3 py-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="inline-flex min-h-10 items-center rounded-lg bg-bg-surface px-3 text-sm font-medium text-text-secondary">
+              Đã chọn: {selectedCount} buổi
+            </div>
+            <button
+              type="button"
+              onClick={toggleAllSessions}
+              disabled={
+                pageSessionIds.length === 0 || bulkPaymentStatusMutation.isPending
+              }
+              className="touch-manipulation inline-flex min-h-10 items-center justify-center rounded-lg px-1 text-sm font-medium text-text-muted transition-colors hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-              />
-            </svg>
-            <span>Sửa trạng thái thanh toán</span>
-            <span className="rounded-full bg-white/18 px-2 py-0.5 text-xs font-semibold tabular-nums">
-              {selectedCount}
-            </span>
-          </button>
+              {allSessionsSelected
+                ? "Bỏ chọn tất cả"
+                : `Chọn tất cả ${pageSessionIds.length} buổi`}
+            </button>
+            <button
+              type="button"
+              onClick={openBulkEditPopup}
+              disabled={
+                selectedCount === 0 || bulkPaymentStatusMutation.isPending
+              }
+              className="touch-manipulation ml-auto inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label={`Sửa trạng thái thanh toán cho ${selectedCount} buổi học đã chọn`}
+            >
+              <svg
+                className="size-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                />
+              </svg>
+              <span>Chuyển trạng thái thanh toán</span>
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -1179,11 +1250,28 @@ export default function SessionHistoryTable({
             return (
               <article
                 key={session.id}
-                className={`group rounded-lg border p-3 shadow-sm transition-colors ${showBulkPaymentStatusBar &&
+                role={showActionsColumn ? "button" : undefined}
+                tabIndex={showActionsColumn ? 0 : undefined}
+                onClick={
+                  showActionsColumn && variant === "classDetail" && entityMode === "teacher"
+                    ? () => openEdit(session)
+                    : undefined
+                }
+                onKeyDown={
+                  showActionsColumn && variant === "classDetail" && entityMode === "teacher"
+                    ? (event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openEdit(session);
+                      }
+                    }
+                    : undefined
+                }
+                className={`group rounded-lg border p-3 shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${showBulkPaymentStatusBar &&
                   visibleSelectedSessionIds.has(session.id)
                   ? "border-primary/35 bg-primary/5"
                   : "border-border-default bg-bg-surface"
-                  }`}
+                  } ${showActionsColumn && variant === "classDetail" && entityMode === "teacher" ? "cursor-pointer" : ""}`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="space-y-1">
@@ -1191,7 +1279,7 @@ export default function SessionHistoryTable({
                       Ngày học
                     </p>
                     <p className="text-sm font-semibold text-text-primary">
-                      {formatDateOnly(session.date)}
+                      {formatWeekdayLabel(session.date)} · {formatDateOnly(session.date)}
                     </p>
                     <p className="mt-1 text-xs font-medium uppercase tracking-wide text-text-muted">
                       Giờ học
@@ -1220,6 +1308,7 @@ export default function SessionHistoryTable({
                         onChange={() => toggleSessionSelection(session.id)}
                         disabled={bulkPaymentStatusMutation.isPending}
                         ariaLabel={`Chọn buổi học ${formatDateOnly(session.date)} ${renderSessionTime(session)}`}
+                        appearance="minimal"
                       />
                     ) : null}
                     <span
@@ -1227,6 +1316,35 @@ export default function SessionHistoryTable({
                     >
                       {status.label}
                     </span>
+                    {variant === "classDetail" && entityMode === "teacher" ? (
+                      <div className="flex flex-col items-end gap-1 text-xs text-text-muted">
+                        <div className="inline-flex items-center gap-1">
+                          <span className="text-text-muted">Σ</span>
+                          <span className="tabular-nums text-text-secondary">
+                            {renderCoefficientLabel(session.coefficient)}
+                          </span>
+                        </div>
+                        <div className="inline-flex items-center gap-1">
+                          <svg
+                            className="size-3.5 text-text-muted"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            aria-hidden
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M17 20h5v-2a4 4 0 00-4-4h-1m-6 6H2v-2a4 4 0 014-4h5m4-10a4 4 0 11-8 0 4 4 0 018 0zm6 4a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
+                          </svg>
+                          <span className="tabular-nums text-text-secondary">
+                            {countPresentStudents(session)}
+                          </span>
+                        </div>
+                      </div>
+                    ) : null}
                     {showActionsColumn && (
                       <div className="flex items-center gap-1">
                         <button
@@ -1306,6 +1424,216 @@ export default function SessionHistoryTable({
 
       {/* Desktop / tablet layout: table */}
       <div className={`hidden overflow-x-auto md:block ${className}`}>
+        {variant === "classDetail" && entityMode === "teacher" ? (
+          <table className="w-full min-w-[880px] border-collapse text-left text-sm">
+            <caption className="sr-only">Lịch sử buổi học</caption>
+            <colgroup>
+              {showBulkPaymentStatusBar ? <col className="w-12" /> : null}
+              <col className="w-[18%]" />
+              <col />
+              <col className="w-[22%]" />
+              <col className="w-12" />
+            </colgroup>
+            <thead>
+              <tr className="border-b border-border-default bg-bg-secondary">
+                {showBulkPaymentStatusBar ? (
+                  <th scope="col" className="px-3 py-3 text-center">
+                    <SelectionCheckbox
+                      checked={allSessionsSelected}
+                      indeterminate={hasPartialSessionSelection}
+                      onChange={toggleAllSessions}
+                      disabled={bulkPaymentStatusMutation.isPending}
+                      ariaLabel="Chọn tất cả buổi học trong bảng"
+                      appearance="minimal"
+                    />
+                  </th>
+                ) : null}
+                <th scope="col" className="px-4 py-3 font-medium text-text-primary">
+                  Thời gian
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium text-text-primary">
+                  Nhận xét
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium text-text-primary">
+                  Thông tin
+                </th>
+                <th scope="col" className="px-2 py-3 text-right font-medium text-text-primary">
+                  <span className="sr-only">Xóa</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {sessions.length > 0 ? (
+                sessions.map((session) => {
+                  const status = renderSessionStatus(session, "payment");
+                  const notesContent = session.notes?.trim();
+                  const sanitizedNotes = notesContent ? sanitizeHtml(notesContent) : "";
+                  const presentCount = countPresentStudents(session);
+                  const coefficientLabel = renderCoefficientLabel(session.coefficient);
+
+                  return (
+                    <tr
+                      key={session.id}
+                      role={showActionsColumn ? "button" : undefined}
+                      tabIndex={showActionsColumn ? 0 : undefined}
+                      onClick={showActionsColumn ? () => openEdit(session) : undefined}
+                      onKeyDown={
+                        showActionsColumn
+                          ? (event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              openEdit(session);
+                            }
+                          }
+                          : undefined
+                      }
+                      className={`border-b border-border-default bg-bg-surface transition-colors ${showActionsColumn ? "cursor-pointer hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus" : "hover:bg-bg-secondary"}`}
+                    >
+                      {showBulkPaymentStatusBar ? (
+                        <td className="px-3 py-3 text-center align-top">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              toggleSessionSelection(session.id);
+                            }}
+                            className="inline-flex items-center justify-center"
+                            aria-label={`Chọn buổi học ${formatDateOnly(session.date)} ${renderSessionTime(session)}`}
+                          >
+                            <SelectionCheckbox
+                              checked={visibleSelectedSessionIds.has(session.id)}
+                              onChange={() => toggleSessionSelection(session.id)}
+                              disabled={bulkPaymentStatusMutation.isPending}
+                              ariaLabel={`Chọn buổi học ${formatDateOnly(session.date)} ${renderSessionTime(session)}`}
+                              appearance="minimal"
+                            />
+                          </button>
+                        </td>
+                      ) : null}
+                      <td className="px-4 py-3 align-top text-text-primary">
+                        <div className="space-y-1">
+                          <p className="font-semibold">{formatWeekdayLabel(session.date)}</p>
+                          <p className="text-sm text-text-secondary">{formatDateOnly(session.date)}</p>
+                          <p className="font-mono text-sm text-text-muted">
+                            {renderSessionTime(session)}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 align-top text-text-primary">
+                        {sanitizedNotes ? (
+                          <div
+                            className="prose prose-sm max-w-none text-sm text-text-primary [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_strong]:font-semibold [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm"
+                            dangerouslySetInnerHTML={{ __html: sanitizedNotes }}
+                          />
+                        ) : (
+                          <span className="text-text-muted">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        <div className="flex flex-col items-start gap-2">
+                          <div className="inline-flex items-center gap-2 text-text-primary">
+                            <svg
+                              className="size-4 text-text-muted"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              aria-hidden
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2m10-10a4 4 0 11-8 0 4 4 0 018 0zm10 10v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"
+                              />
+                            </svg>
+                            <span className="truncate text-sm font-medium">
+                              {session.teacher?.fullName?.trim() || "—"}
+                            </span>
+                          </div>
+
+                          <span
+                            className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium ${status.className}`}
+                          >
+                            <span className="sr-only">Trạng thái thanh toán:</span>
+                            {status.label}
+                          </span>
+
+                          <div className="flex items-center gap-4 text-xs text-text-muted">
+                            <div className="inline-flex items-center gap-1">
+                              <span className="text-text-muted">Σ</span>
+                              <span className="tabular-nums text-text-secondary">
+                                {coefficientLabel}
+                              </span>
+                            </div>
+                            <div className="inline-flex items-center gap-1">
+                              <svg
+                                className="size-4 text-text-muted"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                aria-hidden
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M17 20h5v-2a4 4 0 00-4-4h-1m-6 6H2v-2a4 4 0 014-4h5m4-10a4 4 0 11-8 0 4 4 0 018 0zm6 4a3 3 0 11-6 0 3 3 0 016 0z"
+                                />
+                              </svg>
+                              <span className="tabular-nums text-text-secondary">
+                                {presentCount}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-2 py-3 align-top text-right">
+                        {showDeleteAction ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleDeleteClick(session);
+                            }}
+                            disabled={deleteMutation.isPending}
+                            aria-label="Xóa buổi học"
+                            className="rounded p-1.5 text-text-muted transition-colors hover:bg-error/10 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50"
+                          >
+                            <svg
+                              className="size-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              aria-hidden
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
+                          </button>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td
+                    colSpan={showBulkPaymentStatusBar ? 5 : 4}
+                    className="px-4 py-4 text-center text-text-muted"
+                  >
+                    {emptyText}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        ) : (
         <table
           className={
             entityMode === "class"
@@ -1352,6 +1680,7 @@ export default function SessionHistoryTable({
                     onChange={toggleAllSessions}
                     disabled={bulkPaymentStatusMutation.isPending}
                     ariaLabel="Chọn tất cả buổi học trong bảng"
+                    appearance="minimal"
                   />
                 </th>
               ) : null}
@@ -1426,6 +1755,7 @@ export default function SessionHistoryTable({
                           onChange={() => toggleSessionSelection(session.id)}
                           disabled={bulkPaymentStatusMutation.isPending}
                           ariaLabel={`Chọn buổi học ${formatDateOnly(session.date)} ${renderSessionTime(session)}`}
+                          appearance="minimal"
                         />
                       </td>
                     ) : null}
@@ -1534,6 +1864,7 @@ export default function SessionHistoryTable({
             )}
           </tbody>
         </table>
+        )}
       </div>
 
       {bulkEditPopupOpen ? (

@@ -43,12 +43,14 @@ export interface AdminDashboardBreakdownItem {
 }
 
 export interface AdminDashboardActionAlert {
-  type: "Sắp hết tiền" | "Chưa thu" | "Nhân sự chưa thanh toán";
+  type: "Sắp hết tiền" | "Chưa thu" | "Nhân sự chưa thanh toán" | "Lớp cảnh báo";
   subject: string;
   owner: string | null;
   due: string;
   amount: number;
   severity: "warning" | "destructive" | "info";
+  targetType: "student" | "staff" | "class";
+  targetId: string;
 }
 
 export interface AdminDashboardClassPerformance {
@@ -66,6 +68,23 @@ export interface AdminDashboardYearlySummary {
   revenue: number;
   expense: number;
   profit: number;
+}
+
+export interface AdminDashboardTopupHistoryItem {
+  id: string;
+  dateTime: string;
+  studentName: string;
+  amount: number;
+  note: string;
+  cumulativeBefore: number;
+  cumulativeAfter: number;
+}
+
+export interface AdminDashboardStudentBalanceItem {
+  studentId: string;
+  studentName: string;
+  className: string;
+  balance: number;
 }
 
 export interface AdminDashboardDto {

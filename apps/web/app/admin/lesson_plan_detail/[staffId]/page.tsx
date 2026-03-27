@@ -390,81 +390,81 @@ export default function AdminLessonPlanDetailPage() {
               </span>
             </div>
 
-            <section className="relative mt-5 overflow-hidden rounded-[1.35rem] border border-border-default bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92),rgba(14,165,233,0.08))] p-3 shadow-sm">
-              <div
-                className="pointer-events-none absolute -right-10 top-0 size-28 rounded-full bg-success/10 blur-3xl"
-                aria-hidden
-              />
-              <div
-                className="pointer-events-none absolute bottom-0 left-8 size-24 rounded-full bg-primary/10 blur-3xl"
-                aria-hidden
-              />
+            {selectedCount > 0 ? (
+              <section className="relative mt-5 overflow-hidden rounded-[1.35rem] border border-border-default bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92),rgba(14,165,233,0.08))] p-3 shadow-sm">
+                <div
+                  className="pointer-events-none absolute -right-10 top-0 size-28 rounded-full bg-success/10 blur-3xl"
+                  aria-hidden
+                />
+                <div
+                  className="pointer-events-none absolute bottom-0 left-8 size-24 rounded-full bg-primary/10 blur-3xl"
+                  aria-hidden
+                />
 
-              <div className="relative flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div className="space-y-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
-                    Thanh toán hàng loạt
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2 text-sm text-text-secondary">
-                    <span className="inline-flex items-center rounded-full border border-primary/15 bg-primary/8 px-2.5 py-1 font-medium text-primary">
-                      Đã chọn {selectedCount} bài
-                    </span>
-                    <span className="text-text-muted">
-                      {totalOutputs > 0
-                        ? "Chọn nhiều lesson output để đổi trạng thái trong một lần."
-                        : "Danh sách hiện chưa có lesson output để thao tác."}
-                    </span>
+                <div className="relative flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
+                      Thanh toán hàng loạt
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-text-secondary">
+                      <span className="inline-flex items-center rounded-full border border-primary/15 bg-primary/8 px-2.5 py-1 font-medium text-primary">
+                        Đã chọn {selectedCount} bài
+                      </span>
+                      <span className="text-text-muted">
+                        Chọn nhiều lesson output để đổi trạng thái trong một lần.
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end lg:w-auto">
+                    <button
+                      type="button"
+                      onClick={toggleAllOutputs}
+                      disabled={outputIds.length === 0 || bulkStatusMutation.isPending}
+                      className="touch-manipulation inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3.5 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {allOutputsSelected
+                        ? `Bỏ chọn ${selectedCount} bài`
+                        : `Chọn cả ${outputIds.length} bài`}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearSelection}
+                      disabled={bulkStatusMutation.isPending}
+                      className="touch-manipulation inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3.5 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Bỏ chọn toàn bộ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openBulkEditPopup}
+                      disabled={bulkStatusMutation.isPending}
+                      className="touch-manipulation inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse shadow-[0_14px_30px_-18px_rgba(37,99,235,0.55)] transition-all hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label={`Sửa trạng thái thanh toán cho ${selectedCount} lesson output đã chọn`}
+                    >
+                      <svg
+                        className="size-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        aria-hidden
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                        />
+                      </svg>
+                      <span>Sửa trạng thái thanh toán</span>
+                      <span className="rounded-full bg-white/18 px-2 py-0.5 text-xs font-semibold tabular-nums">
+                        {selectedCount}
+                      </span>
+                    </button>
                   </div>
                 </div>
-
-                <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end lg:w-auto">
-                  <button
-                    type="button"
-                    onClick={toggleAllOutputs}
-                    disabled={outputIds.length === 0 || bulkStatusMutation.isPending}
-                    className="touch-manipulation inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3.5 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {allOutputsSelected
-                      ? `Bỏ chọn ${selectedCount} bài`
-                      : `Chọn cả ${outputIds.length} bài`}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={clearSelection}
-                    disabled={selectedCount === 0 || bulkStatusMutation.isPending}
-                    className="touch-manipulation inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3.5 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Bỏ chọn toàn bộ
-                  </button>
-                  <button
-                    type="button"
-                    onClick={openBulkEditPopup}
-                    disabled={selectedCount === 0 || bulkStatusMutation.isPending}
-                    className="touch-manipulation inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse shadow-[0_14px_30px_-18px_rgba(37,99,235,0.55)] transition-all hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
-                    aria-label={`Sửa trạng thái thanh toán cho ${selectedCount} lesson output đã chọn`}
-                  >
-                    <svg
-                      className="size-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      aria-hidden
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                      />
-                    </svg>
-                    <span>Sửa trạng thái thanh toán</span>
-                    <span className="rounded-full bg-white/18 px-2 py-0.5 text-xs font-semibold tabular-nums">
-                      {selectedCount}
-                    </span>
-                  </button>
-                </div>
-              </div>
-            </section>
+              </section>
+            ) : null}
 
             {outputs.length === 0 ? (
               <div className="mt-5 rounded-[1.5rem] border border-dashed border-border-default bg-bg-secondary/35 p-6 text-center text-sm text-text-muted">

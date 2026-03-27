@@ -1,4 +1,8 @@
-import { AdminDashboardDto } from "@/dtos/dashboard.dto";
+import {
+  AdminDashboardDto,
+  AdminDashboardStudentBalanceItem,
+  AdminDashboardTopupHistoryItem,
+} from "@/dtos/dashboard.dto";
 import { api } from "../client";
 
 export async function getAdminDashboard(params?: {
@@ -13,6 +17,34 @@ export async function getAdminDashboard(params?: {
       ...(params?.year ? { year: params.year } : {}),
       ...(typeof params?.alertLimit === "number" ? { alertLimit: params.alertLimit } : {}),
       ...(typeof params?.topClassLimit === "number" ? { topClassLimit: params.topClassLimit } : {}),
+    },
+  });
+
+  return response.data;
+}
+
+export async function getAdminTopupHistory(params?: {
+  month?: string;
+  year?: string;
+  limit?: number;
+}): Promise<AdminDashboardTopupHistoryItem[]> {
+  const response = await api.get<AdminDashboardTopupHistoryItem[]>("/dashboard/topup-history", {
+    params: {
+      ...(params?.month ? { month: params.month } : {}),
+      ...(params?.year ? { year: params.year } : {}),
+      ...(typeof params?.limit === "number" ? { limit: params.limit } : {}),
+    },
+  });
+
+  return response.data;
+}
+
+export async function getAdminStudentBalanceDetails(params?: {
+  limit?: number;
+}): Promise<AdminDashboardStudentBalanceItem[]> {
+  const response = await api.get<AdminDashboardStudentBalanceItem[]>("/dashboard/student-balance-details", {
+    params: {
+      ...(typeof params?.limit === "number" ? { limit: params.limit } : {}),
     },
   });
 

@@ -1,85 +1,25 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Area,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Line,
-  LineChart,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { getAdminDashboard } from "@/lib/apis/dashboard.api";
-import {
-  AdminDashboardActionAlert,
-  AdminDashboardBreakdownItem,
-  AdminDashboardBreakdownKey,
-  AdminDashboardClassPerformance,
-  AdminDashboardDto,
-} from "@/dtos/dashboard.dto";
+import { useRouter } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader } from "@/components/ui/card";
-import {
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
-const revenueProfitChartConfig = {
-  revenue: { label: "Doanh thu", color: "var(--ue-primary)" },
-  profit: { label: "Lợi nhuận", color: "var(--ue-success)" },
-} satisfies ChartConfig;
-
-const incomeChartConfig = {
-  amount: { label: "Giá trị", color: "var(--ue-primary)" },
-} satisfies ChartConfig;
-
-const BREAKDOWN_COLORS: Record<AdminDashboardBreakdownKey, string> = {
-  revenue: "var(--ue-primary)",
-  teacherCost: "var(--ue-success)",
-  customerCareCost: "var(--ue-info)",
-  lessonCost: "var(--ue-warning)",
-  bonusCost: "color-mix(in srgb, var(--ue-warning) 60%, var(--ue-error) 40%)",
-  extraAllowanceCost: "var(--ue-text-secondary)",
-  operatingCost: "color-mix(in srgb, var(--ue-primary) 35%, var(--ue-text-primary) 65%)",
-};
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  getAdminDashboard,
+  getAdminStudentBalanceDetails,
+  getAdminTopupHistory,
+} from "@/lib/apis/dashboard.api";
+import type {
+  AdminDashboardActionAlert,
+  AdminDashboardDto,
+  AdminDashboardStudentBalanceItem,
+  AdminDashboardTopupHistoryItem,
+} from "@/dtos/dashboard.dto";
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-function formatCompactCurrency(value: number) {
-  return new Intl.NumberFormat("vi-VN", {
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
-}
-
-function formatPercent(value: number) {
-  return `${value >= 0 ? "+" : ""}${new Intl.NumberFormat("vi-VN", {
-    style: "percent",
-    maximumFractionDigits: 1,
-  }).format(value)}`;
-}
-
-function toneVariant(tone: AdminDashboardActionAlert["severity"]) {
-  if (tone === "warning") return "warning";
-  if (tone === "destructive") return "destructive";
-  return "info";
+  return `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value)} đ`;
 }
 
 function getErrorMessage(error: unknown) {
@@ -91,11 +31,9 @@ function getErrorMessage(error: unknown) {
   ) {
     return (error as { response?: { data?: { message?: string } } }).response?.data?.message as string;
   }
-
   if (error instanceof Error && error.message.trim()) {
     return error.message;
   }
-
   return "Không thể tải dashboard từ dữ liệu thật.";
 }
 
@@ -107,268 +45,188 @@ function DashboardIcon({ path }: { path: string }) {
   );
 }
 
-function SectionKicker({ children }: { children: string }) {
-  return <p className="text-[11px] font-semibold tracking-[0.24em] text-text-muted uppercase">{children}</p>;
-}
-
-function SectionHeading({
-  kicker,
+function KpiCard({
   title,
-  description,
-  aside,
+  value,
+  note,
+  tone,
 }: {
-  kicker: string;
   title: string;
-  description: string;
-  aside?: React.ReactNode;
+  value: string;
+  note: string;
+  tone: "primary" | "success" | "warning" | "default";
 }) {
+  const accent =
+    tone === "success" ? "bg-success" : tone === "warning" ? "bg-warning" : tone === "primary" ? "bg-primary" : "bg-border-focus";
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-      <div className="min-w-0">
-        <SectionKicker>{kicker}</SectionKicker>
-        <h2 className="mt-3 text-balance text-[1.7rem] font-semibold tracking-[-0.05em] text-text-primary sm:text-[2rem]">
-          {title}
-        </h2>
-        <CardDescription className="mt-3 max-w-2xl">{description}</CardDescription>
-      </div>
-      {aside ? <div className="min-w-0">{aside}</div> : null}
+    <div className="relative rounded-lg border border-border-default bg-bg-surface p-4">
+      <span className={`absolute bottom-0 left-0 top-0 w-1 rounded-l-lg ${accent}`} aria-hidden />
+      <p className="pl-2 text-xs text-text-muted">{title}</p>
+      <p className="pl-2 pt-2 text-3xl font-semibold tabular-nums text-text-primary">{value}</p>
+      <p className="pl-2 pt-1 text-sm text-text-secondary">{note}</p>
     </div>
   );
 }
 
-function OverviewRailItem({
-  label,
-  value,
-  detail,
+function AlertGroupCard({
+  title,
+  alerts,
   tone,
+  onOpenAlert,
 }: {
-  label: string;
-  value: string;
-  detail: string;
-  tone: "default" | "success" | "warning";
-}) {
-  const toneClass =
-    tone === "success"
-      ? "border-success/20 bg-success/10"
-      : tone === "warning"
-        ? "border-warning/20 bg-warning/10"
-        : "border-border-default bg-bg-secondary";
-
-  return (
-    <div className={`rounded-[1.2rem] border p-4 ${toneClass}`}>
-      <p className="text-[11px] font-semibold tracking-[0.2em] text-text-muted uppercase">{label}</p>
-      <p className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-text-primary sm:text-[2rem]">{value}</p>
-      <p className="mt-2 text-sm leading-6 text-text-secondary">{detail}</p>
-    </div>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  supporting,
-  tone,
-}: {
-  label: string;
-  value: string;
-  supporting: string;
-  tone: "default" | "success" | "warning" | "info";
-}) {
-  const toneClass =
-    tone === "success"
-      ? "border-success/20 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ue-success)_12%,transparent),transparent_88%)]"
-      : tone === "warning"
-        ? "border-warning/20 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ue-warning)_12%,transparent),transparent_88%)]"
-        : tone === "info"
-          ? "border-info/20 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ue-info)_12%,transparent),transparent_88%)]"
-          : "border-border-default bg-bg-surface";
-
-  const accentClass =
-    tone === "success"
-      ? "bg-success"
-      : tone === "warning"
-        ? "bg-warning"
-        : tone === "info"
-          ? "bg-info"
-          : "bg-primary";
-
-  return (
-    <div className={`rounded-[1.5rem] border p-5 ${toneClass}`}>
-      <span className={`block h-1.5 w-14 rounded-full ${accentClass}`} aria-hidden />
-      <p className="mt-4 text-[11px] font-semibold tracking-[0.2em] text-text-muted uppercase">{label}</p>
-      <p className="mt-4 text-3xl font-semibold tracking-[-0.06em] text-text-primary sm:text-[2.5rem]">{value}</p>
-      <p className="mt-3 text-sm leading-6 text-text-secondary">{supporting}</p>
-    </div>
-  );
-}
-
-function StatusPanel({
-  label,
-  value,
-  supporting,
-  tone,
-  iconPath,
-}: {
-  label: string;
-  value: string;
-  supporting: string;
-  tone: "warning" | "destructive" | "info";
-  iconPath: string;
+  title: string;
+  alerts: AdminDashboardActionAlert[];
+  tone: "warning" | "destructive" | "info" | "class";
+  onOpenAlert: (alert: AdminDashboardActionAlert) => void;
 }) {
   const toneClass =
     tone === "warning"
-      ? "border-warning/20 bg-warning/10 text-warning"
+      ? "border-warning/35"
       : tone === "destructive"
-        ? "border-error/20 bg-error/10 text-error"
-        : "border-info/20 bg-info/10 text-info";
-
+        ? "border-error/35"
+        : tone === "info"
+          ? "border-info/35"
+          : "border-error/25";
+  const headerClass =
+    tone === "warning"
+      ? "bg-warning/10 text-warning"
+      : tone === "destructive"
+        ? "bg-error/10 text-error"
+        : tone === "info"
+          ? "bg-info/10 text-info"
+          : "bg-error/8 text-error";
+  const toneDotClass =
+    tone === "warning"
+      ? "bg-warning"
+      : tone === "destructive"
+        ? "bg-error"
+        : tone === "info"
+          ? "bg-info"
+          : "bg-error";
+  const itemToneClass =
+    tone === "warning"
+      ? "border-warning/25 bg-warning/5 hover:bg-warning/10"
+      : tone === "destructive"
+        ? "border-error/25 bg-error/5 hover:bg-error/10"
+        : tone === "info"
+          ? "border-info/25 bg-info/5 hover:bg-info/10"
+          : "border-error/20 bg-error/5 hover:bg-error/10";
   return (
-    <div className={`rounded-[1.35rem] border p-4 ${toneClass}`}>
-      <div className="flex items-start gap-3">
-        <div className="mt-0.5 rounded-full border border-current/15 bg-current/10 p-2">
-          <DashboardIcon path={iconPath} />
-        </div>
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold tracking-[0.2em] text-current/85 uppercase">{label}</p>
-          <p className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-text-primary">{value}</p>
-          <p className="mt-2 text-sm leading-6 text-text-secondary">{supporting}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LeaderboardCard({
-  item,
-  index,
-  maxRevenue,
-}: {
-  item: AdminDashboardClassPerformance;
-  index: number;
-  maxRevenue: number;
-}) {
-  const revenueWidth = Math.max(16, Math.round((item.revenue / maxRevenue) * 100));
-  const profitVariant = item.profit >= 0 ? "success" : "destructive";
-
-  return (
-    <div className="rounded-[1.4rem] border border-border-default bg-bg-secondary p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-3">
-            <span className="inline-flex size-8 items-center justify-center rounded-full border border-border-default bg-bg-surface text-sm font-semibold text-text-primary">
-              {index + 1}
-            </span>
-            <div className="min-w-0">
-              <p className="truncate font-medium text-text-primary">{item.name}</p>
-              <p className="text-sm leading-6 text-text-muted">
-                {item.students} học sinh · {item.balanceRisk > 0 ? `rủi ro ${formatCompactCurrency(item.balanceRisk)}` : "ví ổn định"}
-              </p>
-            </div>
+    <article className={`rounded-xl border bg-bg-surface p-2.5 ${toneClass}`}>
+      <div className={`mb-2 rounded-md border px-2.5 py-2 ${headerClass}`}>
+        <div className="flex items-start gap-2">
+          <span className={`mt-1 inline-flex size-2 rounded-full ${toneDotClass}`} aria-hidden />
+          <div>
+            <p className="text-sm font-semibold leading-5">{title}</p>
+            <p className="mt-0.5 text-xs opacity-80">{alerts.length} mục</p>
           </div>
         </div>
-        <Badge variant={profitVariant}>{item.profit >= 0 ? "Biên dương" : "Biên âm"}</Badge>
       </div>
+      <div className="max-h-52 space-y-1.5 overflow-y-auto pr-1">
+        {alerts.length > 0 ? (
+          alerts.slice(0, 5).map((item) => (
+            <button
+              key={`${title}-${item.targetId}-${item.subject}`}
+              type="button"
+              onClick={() => onOpenAlert(item)}
+              className={`w-full rounded-md border px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${itemToneClass}`}
+              title="Mở chi tiết"
+            >
+              <p className="line-clamp-2 text-xs font-semibold text-text-primary">{item.subject}</p>
+              <p className="mt-0.5 text-[11px] text-text-secondary">{item.owner ?? item.due}</p>
+              <p className="mt-0.5 text-[11px] font-medium text-text-primary">{formatCurrency(item.amount)}</p>
+            </button>
+          ))
+        ) : (
+          <div className="rounded-md bg-bg-secondary/45 px-2 py-2 text-xs text-text-muted">Không có mục cần xử lý.</div>
+        )}
+      </div>
+    </article>
+  );
+}
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <div>
-          <p className="text-[11px] font-semibold tracking-[0.18em] text-text-muted uppercase">Doanh Thu</p>
-          <p className="mt-2 font-mono text-lg font-semibold tabular-nums text-text-primary">{formatCurrency(item.revenue)}</p>
-        </div>
-        <div>
-          <p className="text-[11px] font-semibold tracking-[0.18em] text-text-muted uppercase">Lợi Nhuận Gộp</p>
-          <p className="mt-2 font-mono text-lg font-semibold tabular-nums text-text-primary">{formatCurrency(item.profit)}</p>
-        </div>
-      </div>
-
-      <div className="mt-4">
-        <div className="flex items-center justify-between gap-3 text-xs text-text-muted">
-          <span>Mức đóng góp doanh thu</span>
-          <span>{formatCompactCurrency(item.revenue)}</span>
-        </div>
-        <div className="mt-2 h-2 rounded-full bg-bg-primary">
-          <div
-            className="h-full rounded-full bg-[linear-gradient(90deg,var(--ue-primary),color-mix(in_srgb,var(--ue-primary)_50%,white))]"
-            style={{ width: `${revenueWidth}%` }}
-          />
-        </div>
-      </div>
+function QuickViewCard({
+  label,
+  value,
+  description,
+}: {
+  label: string;
+  value: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-lg border border-border-default bg-bg-secondary/25 p-4">
+      <p className="text-sm text-text-muted">{label}</p>
+      <p className="mt-2 text-2xl font-semibold tabular-nums text-text-primary">{value}</p>
+      <p className="mt-1 text-xs text-text-secondary">{description}</p>
     </div>
   );
 }
+
+function monthLabel(month: string, year: string) {
+  const date = new Date(Number(year), Number(month) - 1, 1);
+  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(date);
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+  }).format(new Date(value));
+}
+
+function stepMonth(month: string, year: string, delta: number) {
+  const d = new Date(Number(year), Number(month) - 1 + delta, 1);
+  return {
+    month: String(d.getMonth() + 1).padStart(2, "0"),
+    year: String(d.getFullYear()),
+  };
+}
+
+function getBreakdownAmount(dashboard: AdminDashboardDto, key: string) {
+  return dashboard.breakdown.find((item) => item.key === key)?.amount ?? 0;
+}
+
+function exportCsv(filename: string, rows: Array<{ label: string; value: string; note: string }>) {
+  const header = "Danh mục,Giá trị,Ghi chú\n";
+  const body = rows
+    .map((row) =>
+      `"${row.label.replace(/"/g, '""')}","${row.value.replace(/"/g, '""')}","${row.note.replace(/"/g, '""')}"`,
+    )
+    .join("\n");
+  const blob = new Blob([header + body], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+type QuickViewKey = "finance" | "ops" | "students";
 
 function DashboardLoadingState() {
   return (
-    <div className="min-h-full overflow-hidden bg-bg-primary">
-      <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-8 px-4 py-5 sm:px-6 lg:px-8">
-        <Card className="overflow-hidden rounded-[2.5rem]">
-          <CardContent className="flex flex-col gap-8 py-8">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <Skeleton className="h-8 w-32 rounded-full" />
-              <Skeleton className="h-8 w-40 rounded-full" />
-            </div>
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_360px]">
-              <div className="flex flex-col gap-4">
-                <Skeleton className="h-4 w-36 rounded-full" />
-                <Skeleton className="h-18 w-full max-w-4xl rounded-[2rem]" />
-                <Skeleton className="h-7 w-full max-w-3xl rounded-full" />
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {Array.from({ length: 3 }).map((_, index) => (
-                    <Skeleton key={index} className="h-24 rounded-[1.25rem]" />
-                  ))}
-                </div>
-              </div>
-              <Skeleton className="h-full min-h-[280px] rounded-[1.8rem]" />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
-              {Array.from({ length: 4 }).map((_, index) => (
-                <Skeleton key={index} className="h-48 rounded-[1.5rem]" />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.95fr)]">
-          {Array.from({ length: 2 }).map((_, index) => (
-            <Card key={index}>
-              <CardHeader className="gap-4">
-                <Skeleton className="h-4 w-32 rounded-full" />
-                <Skeleton className="h-10 w-72 rounded-[1.2rem]" />
-                <Skeleton className="h-5 w-full max-w-2xl rounded-full" />
-              </CardHeader>
-              <CardContent className="grid gap-5">
-                <Skeleton className="h-[320px] rounded-[1.6rem]" />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {Array.from({ length: 2 }).map((__, metricIndex) => (
-                    <Skeleton key={metricIndex} className="h-24 rounded-[1.2rem]" />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+    <div className="min-h-full bg-bg-primary p-4 sm:p-6">
+      <div className="mx-auto w-full max-w-[1320px] space-y-4">
+        <Skeleton className="h-20 rounded-xl" />
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, idx) => (
+            <Skeleton key={idx} className="h-28 rounded-xl" />
           ))}
         </div>
-
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.16fr)_minmax(0,0.84fr)]">
-          <Skeleton className="h-[420px] rounded-[2rem]" />
-          <Skeleton className="h-[420px] rounded-[2rem]" />
-        </div>
-
-        <Skeleton className="h-[420px] rounded-[2rem]" />
+        <Skeleton className="h-64 rounded-xl" />
+        <Skeleton className="h-64 rounded-xl" />
       </div>
     </div>
-  );
-}
-
-function EmptyTableRow({ message, colSpan }: { message: string; colSpan: number }) {
-  return (
-    <TableRow>
-      <TableCell colSpan={colSpan} className="py-10 text-center text-sm text-text-muted">
-        {message}
-      </TableCell>
-    </TableRow>
   );
 }
 
 export default function AdminDashboardTabPage() {
+  const router = useRouter();
   const defaultPeriod = useMemo(() => {
     const now = new Date();
     return {
@@ -376,27 +234,44 @@ export default function AdminDashboardTabPage() {
       year: String(now.getFullYear()),
     };
   }, []);
+  const [month, setMonth] = useState(defaultPeriod.month);
+  const [year, setYear] = useState(defaultPeriod.year);
+  const [quickView, setQuickView] = useState<QuickViewKey>("finance");
+  const [isTopupHistoryOpen, setIsTopupHistoryOpen] = useState(false);
+  const [isStudentBalanceOpen, setIsStudentBalanceOpen] = useState(false);
 
   const dashboardQuery = useQuery<AdminDashboardDto>({
-    queryKey: ["dashboard", "admin", defaultPeriod.year, defaultPeriod.month],
+    queryKey: ["dashboard", "admin", year, month],
     queryFn: () =>
       getAdminDashboard({
-        month: defaultPeriod.month,
-        year: defaultPeriod.year,
-        alertLimit: 6,
-        topClassLimit: 5,
+        month,
+        year,
+        alertLimit: 12,
+        topClassLimit: 8,
       }),
     staleTime: 30_000,
   });
 
-  if (dashboardQuery.isLoading) {
-    return <DashboardLoadingState />;
-  }
+  const topupHistoryQuery = useQuery<AdminDashboardTopupHistoryItem[]>({
+    queryKey: ["dashboard", "admin", "topup-history", year, month],
+    queryFn: () => getAdminTopupHistory({ month, year, limit: 150 }),
+    enabled: isTopupHistoryOpen,
+    staleTime: 20_000,
+  });
+
+  const studentBalanceQuery = useQuery<AdminDashboardStudentBalanceItem[]>({
+    queryKey: ["dashboard", "admin", "student-balance-details"],
+    queryFn: () => getAdminStudentBalanceDetails({ limit: 300 }),
+    enabled: isStudentBalanceOpen,
+    staleTime: 20_000,
+  });
+
+  if (dashboardQuery.isLoading) return <DashboardLoadingState />;
 
   if (dashboardQuery.isError || !dashboardQuery.data) {
     return (
-      <div className="min-h-full overflow-hidden bg-bg-primary">
-        <div className="mx-auto flex w-full max-w-[960px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="min-h-full bg-bg-primary p-4 sm:p-6">
+        <div className="mx-auto w-full max-w-[960px]">
           <Alert variant="destructive">
             <DashboardIcon path="M12 9v4m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
             <AlertTitle>Dashboard chưa tải được dữ liệu</AlertTitle>
@@ -408,520 +283,484 @@ export default function AdminDashboardTabPage() {
   }
 
   const dashboard = dashboardQuery.data;
-  const yearlyRevenueTotal = dashboard.yearlySummary.reduce((total, item) => total + item.revenue, 0);
-  const yearlyExpenseTotal = dashboard.yearlySummary.reduce((total, item) => total + item.expense, 0);
-  const yearlyProfitTotal = dashboard.yearlySummary.reduce((total, item) => total + item.profit, 0);
-  const breakdownRows = dashboard.breakdown.map((item) => ({
-    ...item,
-    fill: BREAKDOWN_COLORS[item.key],
-  }));
-  const largestExpenseItem = breakdownRows
-    .filter((item) => item.kind === "expense")
-    .sort((left, right) => right.amount - left.amount)[0];
-  const profitMargin =
-    dashboard.summary.monthlyRevenue > 0 ? dashboard.summary.monthlyProfit / dashboard.summary.monthlyRevenue : 0;
-  const topClassMaxRevenue = Math.max(1, ...dashboard.classPerformance.map((item) => item.revenue));
-  const actionFollowUpTotal = dashboard.actionAlerts.reduce((total, item) => total + item.amount, 0);
-  const primaryGrowthNote =
-    dashboard.summary.monthlyProfit >= 0
-      ? `Lợi nhuận ròng đang giữ ở ${formatCompactCurrency(dashboard.summary.monthlyProfit)} trong ${dashboard.period.monthLabel.toLowerCase()}.`
-      : `Biên lợi nhuận đang âm ${formatCompactCurrency(Math.abs(dashboard.summary.monthlyProfit))}; cần siết lại các nhóm chi phí tháng này.`;
+  const yearOptions = Array.from({ length: 4 }).map((_, index) => {
+    const y = String(Number(defaultPeriod.year) - index);
+    return { value: y, label: y };
+  });
+
+  const teacherCost = getBreakdownAmount(dashboard, "teacherCost");
+  const customerCareCost = getBreakdownAmount(dashboard, "customerCareCost");
+  const lessonCost = getBreakdownAmount(dashboard, "lessonCost");
+  const bonusCost = getBreakdownAmount(dashboard, "bonusCost");
+  const extraAllowanceCost = getBreakdownAmount(dashboard, "extraAllowanceCost");
+  const operatingCost = getBreakdownAmount(dashboard, "operatingCost");
+  const payrollTotal = teacherCost + customerCareCost + lessonCost + bonusCost + extraAllowanceCost;
+
+  const financialRows = [
+    { label: "Tổng nạp", value: formatCurrency(dashboard.summary.monthlyRevenue), note: "Tổng số tiền học sinh đã nạp" },
+    { label: "Học phí đã học", value: formatCurrency(dashboard.summary.monthlyRevenue), note: "Tổng học phí các buổi đã học" },
+    { label: "Nợ học phí chưa dạy", value: formatCurrency(dashboard.summary.pendingCollectionTotal), note: "Tổng số dư hiện tại của tất cả học sinh" },
+    { label: "Chưa thu", value: formatCurrency(dashboard.summary.pendingCollectionTotal), note: "Tổng nợ học phí của học sinh" },
+    {
+      label: "Chờ Thanh Toán Trợ Cấp",
+      value: formatCurrency(dashboard.summary.pendingPayrollTotal),
+      note: `Gia sư: ${formatCurrency(teacherCost)} • Giáo án: ${formatCurrency(lessonCost)} • SALE&CSKH: ${formatCurrency(customerCareCost)} • Thưởng: ${formatCurrency(bonusCost)}`,
+    },
+    {
+      label: "Chi phí Nhân Sự",
+      value: formatCurrency(payrollTotal),
+      note: `Gia sư: ${formatCurrency(teacherCost)} • Giáo án: ${formatCurrency(lessonCost)} • SALE&CSKH: ${formatCurrency(customerCareCost)} • Thưởng: ${formatCurrency(bonusCost + extraAllowanceCost)}`,
+    },
+    { label: "Chi phí Khác", value: formatCurrency(operatingCost), note: "Nguyên học thử, marketing, vận hành khác" },
+    { label: "Lợi nhuận", value: formatCurrency(dashboard.summary.monthlyProfit), note: "Học phí đã học - Chi phí nhân sự - Chi phí khác" },
+    {
+      label: "Tổng nhận",
+      value: formatCurrency(dashboard.summary.monthlyRevenue - payrollTotal - operatingCost),
+      note: "Tổng nạp - Chi phí nhân sự - Chi phí khác",
+    },
+  ];
+
+  const expiringAlerts = dashboard.actionAlerts.filter((item) => item.type === "Sắp hết tiền");
+  const debtAlerts = dashboard.actionAlerts.filter((item) => item.type === "Chưa thu");
+  const payrollAlerts = dashboard.actionAlerts.filter((item) => item.type === "Nhân sự chưa thanh toán");
+  const classAlerts = dashboard.actionAlerts.filter((item) => item.type === "Lớp cảnh báo");
+
+  const openAlertDetail = (alert: AdminDashboardActionAlert) => {
+    if (alert.targetType === "student") {
+      router.push(`/admin/students/${alert.targetId}`);
+      return;
+    }
+    if (alert.targetType === "staff") {
+      router.push(`/admin/staffs/${alert.targetId}`);
+      return;
+    }
+    router.push(`/admin/classes/${alert.targetId}`);
+  };
+
+  const quickCards =
+    quickView === "finance"
+      ? [
+          {
+            label: "Tổng doanh thu",
+            value: formatCurrency(dashboard.yearlySummary.reduce((sum, item) => sum + item.revenue, 0)),
+            description: "Tổng hợp phí đã học các tháng trong năm",
+          },
+          {
+            label: "Chi phí gia sư",
+            value: formatCurrency(dashboard.yearlySummary.reduce((sum, item) => sum + item.expense, 0)),
+            description: "Payroll theo dữ liệu annual summary",
+          },
+          { label: "Chi phí khác", value: formatCurrency(operatingCost), description: "Marketing, vận hành và các khoản khác" },
+          {
+            label: "Lợi nhuận ròng",
+            value: formatCurrency(dashboard.yearlySummary.reduce((sum, item) => sum + item.profit, 0)),
+            description: "Doanh thu - Chi phí",
+          },
+        ]
+      : quickView === "ops"
+        ? [
+            { label: "Lớp đang hoạt động", value: String(dashboard.summary.activeClasses), description: "Số lớp đang chạy" },
+            { label: "Cảnh báo mở", value: String(dashboard.summary.totalAlerts), description: "Tổng cảnh báo cần xử lý" },
+            { label: "Nhân sự chưa thanh toán", value: String(dashboard.summary.unpaidStaffCount), description: "Nhân sự còn khoản pending" },
+            { label: "Trợ cấp chờ thanh toán", value: formatCurrency(dashboard.summary.pendingPayrollTotal), description: "Tổng payroll pending" },
+          ]
+        : [
+            { label: "Học sinh active", value: String(dashboard.summary.activeStudents), description: "Học sinh thuộc lớp running" },
+            { label: "Học sinh gần hết tiền", value: String(dashboard.summary.expiringStudentsCount), description: "Cần follow-up sớm" },
+            { label: "Học sinh nợ học phí", value: String(dashboard.summary.debtStudentsCount), description: "Đang âm ví" },
+            { label: "Tổng nợ học phí", value: formatCurrency(dashboard.summary.pendingCollectionTotal), description: "Tổng nợ hiện tại" },
+          ];
 
   return (
-    <div className="relative min-h-full overflow-hidden bg-bg-primary">
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-[34rem] opacity-90"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at top left, color-mix(in srgb, var(--ue-primary) 12%, transparent), transparent 30%), radial-gradient(circle at 85% 10%, color-mix(in srgb, var(--ue-warning) 10%, transparent), transparent 28%), linear-gradient(180deg, color-mix(in srgb, var(--ue-primary) 4%, transparent), transparent 70%)",
-        }}
-      />
-
-      <div className="relative mx-auto flex w-full max-w-[1480px] flex-col gap-8 px-4 py-5 sm:px-6 lg:px-8">
-        <section
-          aria-labelledby="dashboard-overview-title"
-          className="motion-fade-up relative overflow-hidden rounded-[2.5rem] border border-border-default bg-bg-surface"
-        >
-          <div
-            className="pointer-events-none absolute inset-0"
-            style={{
-              backgroundImage:
-                "linear-gradient(135deg, color-mix(in srgb, var(--ue-primary) 8%, transparent), transparent 32%), radial-gradient(circle at top right, color-mix(in srgb, var(--ue-warning) 8%, transparent), transparent 24%)",
-            }}
-          />
-
-          <div className="relative flex flex-col gap-8 px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="outline" className="bg-bg-surface/90 px-3 py-1.5 backdrop-blur">
-                  Operations Snapshot
-                </Badge>
-                <Badge variant="secondary" className="bg-bg-primary/70 px-3 py-1.5">
-                  Live aggregate từ database
-                </Badge>
-              </div>
-              <Badge
-                variant={dashboard.summary.monthlyProfit >= 0 ? "success" : "destructive"}
-                className="px-3 py-1.5"
+    <div className="min-h-full bg-bg-primary p-4 sm:p-6">
+      <div className="mx-auto w-full max-w-[1320px] space-y-4 rounded-xl border border-border-default bg-bg-surface p-4 sm:p-5">
+        <section className="flex flex-col gap-3 border-b border-border-default pb-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-text-muted">Bộ lọc theo thời gian</span>
+            <div className="inline-flex w-fit items-center gap-2 rounded-md border border-border-default bg-bg-surface p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const next = stepMonth(month, year, -1);
+                  setMonth(next.month);
+                  setYear(next.year);
+                }}
+                className="inline-flex min-h-8 min-w-8 items-center justify-center rounded border border-border-default bg-bg-surface text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                aria-label="Tháng trước"
+                title="Tháng trước"
               >
-                {dashboard.period.monthLabel}
-              </Badge>
-            </div>
-
-            <div className="flex">
-              <div className="min-w-0 flex-1">
-                {/* <SectionKicker>Financial Control Center</SectionKicker> */}
-                <h1
-                  id="dashboard-overview-title"
-                  className="hidden mt-4 max-w-5xl text-balance text-[clamp(2.7rem,6vw,5.8rem)] font-semibold leading-[0.96] tracking-[-0.08em] text-text-primary"
-                >
-                  Admin Dashboard
-                </h1>
-
-
-                <div className="mt-2 grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-[1.2rem] border border-border-default bg-bg-primary/70 px-4 py-3 backdrop-blur">
-                    <SectionKicker>Kỳ Xem</SectionKicker>
-                    <p className="mt-2 font-medium text-text-primary">{dashboard.period.monthLabel}</p>
-                  </div>
-                  <div className="rounded-[1.2rem] border border-border-default bg-bg-primary/70 px-4 py-3 backdrop-blur">
-                    <SectionKicker>Học Sinh Active</SectionKicker>
-                    <p className="mt-2 font-medium text-text-primary">
-                      {dashboard.summary.activeStudents} học sinh đang thuộc lớp running
-                    </p>
-                  </div>
-                  <div className="rounded-[1.2rem] border border-border-default bg-bg-primary/70 px-4 py-3 backdrop-blur">
-                    <SectionKicker>Nhịp Ưu Tiên</SectionKicker>
-                    <p className="mt-2 font-medium text-text-primary">
-                      {dashboard.summary.totalAlerts} điểm cần follow-up trong tháng
-                    </p>
-                  </div>
-                </div>
+                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <div className="min-w-[150px] rounded border border-border-default px-3 py-1.5 text-center text-sm font-medium text-text-primary">
+                {monthLabel(month, year)}
               </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = stepMonth(month, year, 1);
+                  setMonth(next.month);
+                  setYear(next.year);
+                }}
+                className="inline-flex min-h-8 min-w-8 items-center justify-center rounded border border-border-default bg-bg-surface text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                aria-label="Tháng sau"
+                title="Tháng sau"
+              >
+                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
             </div>
+          </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
-              <MetricCard
-                label="Doanh Thu Tháng"
-                value={formatCompactCurrency(dashboard.summary.monthlyRevenue)}
-                supporting={`Ghi nhận trực tiếp từ attendance.present trong ${dashboard.period.monthLabel.toLowerCase()}.`}
-                tone="default"
-              />
-              <MetricCard
-                label="Lợi Nhuận Tháng"
-                value={formatCompactCurrency(dashboard.summary.monthlyProfit)}
-                supporting={primaryGrowthNote}
-                tone="success"
-              />
-              <MetricCard
-                label="Tổng Chi Phí"
-                value={formatCompactCurrency(dashboard.summary.monthlyExpense)}
-                supporting="Đã gồm giảng dạy, CSKH, giáo án, bonus, trợ cấp và chi phí mở rộng."
-                tone="info"
-              />
-              <MetricCard
-                label="Cảnh Báo Mở"
-                value={String(dashboard.summary.totalAlerts)}
-                supporting={`${dashboard.summary.expiringStudentsCount} sắp hết tiền, ${dashboard.summary.debtStudentsCount} chưa thu, ${dashboard.summary.unpaidStaffCount} payroll pending.`}
-                tone="warning"
-              />
-            </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex min-h-10 items-center rounded-md border border-border-default bg-bg-surface px-3 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            >
+              Xuất PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => exportCsv(`dashboard-${year}-${month}.csv`, financialRows)}
+              className="inline-flex min-h-10 items-center rounded-md bg-primary px-3 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            >
+              Xuất Excel
+            </button>
           </div>
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.95fr)]">
-          <Card className="motion-fade-up overflow-hidden rounded-[2rem]">
-            <CardHeader className="gap-5">
-              <SectionHeading
-                kicker="Revenue Pulse"
-                title="Biến động doanh thu và lợi nhuận"
-                description="Biểu đồ giữ trọng tâm vào nhịp vận hành theo tháng, bớt phần mô tả dư và đẩy số tổng hợp lên header để scan nhanh hơn."
-                aside={
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-[1.1rem] border border-border-default bg-bg-secondary px-4 py-3">
-                      <SectionKicker>Doanh Thu Năm</SectionKicker>
-                      <p className="mt-2 font-mono text-lg font-semibold tabular-nums text-text-primary">
-                        {formatCompactCurrency(yearlyRevenueTotal)}
-                      </p>
-                    </div>
-                    <div className="rounded-[1.1rem] border border-border-default bg-bg-secondary px-4 py-3">
-                      <SectionKicker>Chi Phí Năm</SectionKicker>
-                      <p className="mt-2 font-mono text-lg font-semibold tabular-nums text-text-primary">
-                        {formatCompactCurrency(yearlyExpenseTotal)}
-                      </p>
-                    </div>
-                    <div className="rounded-[1.1rem] border border-border-default bg-bg-secondary px-4 py-3">
-                      <SectionKicker>Lợi Nhuận Năm</SectionKicker>
-                      <p className="mt-2 font-mono text-lg font-semibold tabular-nums text-text-primary">
-                        {formatCompactCurrency(yearlyProfitTotal)}
-                      </p>
-                    </div>
-                  </div>
-                }
-              />
-            </CardHeader>
-
-            <CardContent className="px-3 pb-0 sm:px-6">
-              <ChartContainer config={revenueProfitChartConfig} className="min-h-[340px] w-full">
-                <LineChart data={dashboard.revenueProfitTrend} margin={{ left: 8, right: 8, top: 16, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="revenue-fill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--color-revenue)" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="var(--color-revenue)" stopOpacity={0.03} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid vertical={false} />
-                  <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={10} minTickGap={20} />
-                  <YAxis hide />
-                  <ChartTooltip
-                    cursor={{
-                      stroke: "color-mix(in srgb, var(--ue-border-default) 80%, transparent)",
-                      strokeDasharray: "4 4",
-                    }}
-                    content={
-                      <ChartTooltipContent
-                        labelFormatter={(value) => <span className="text-text-primary">{String(value)}</span>}
-                        formatter={(value, name) => (
-                          <div className="flex w-full items-center justify-between gap-6">
-                            <span className="text-text-muted">
-                              {Object.hasOwn(revenueProfitChartConfig, String(name))
-                                ? revenueProfitChartConfig[String(name) as keyof typeof revenueProfitChartConfig].label
-                                : String(name)}
-                            </span>
-                            <span className="font-mono font-semibold tabular-nums text-text-primary">
-                              {formatCurrency(Number(value))}
-                            </span>
-                          </div>
-                        )}
-                      />
-                    }
-                  />
-                  <ChartLegend content={<ChartLegendContent />} />
-                  <Area
-                    type="monotone"
-                    dataKey="revenue"
-                    fill="url(#revenue-fill)"
-                    fillOpacity={1}
-                    stroke="var(--color-revenue)"
-                    strokeWidth={2}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="profit"
-                    stroke="var(--color-profit)"
-                    strokeWidth={2.5}
-                    dot={{ fill: "var(--color-profit)", r: 3 }}
-                    activeDot={{ r: 4 }}
-                  />
-                </LineChart>
-              </ChartContainer>
-            </CardContent>
-
-
-          </Card>
-
-          <Card className="motion-fade-up overflow-hidden rounded-[2rem]">
-            <CardHeader className="gap-5">
-              <SectionHeading
-                kicker="Cost Anatomy"
-                title="Thu và chi trong tháng"
-                description="Biểu đồ ngang giúp nhận ra ngay khoản nào đang kéo biên lợi nhuận xuống, còn danh sách dưới giữ lại phần đối chiếu chi tiết."
-                aside={
-                  <div className="rounded-[1.2rem] border border-border-default bg-bg-secondary px-4 py-4">
-                    <SectionKicker>Net Position</SectionKicker>
-                    <p className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-text-primary">
-                      {formatCompactCurrency(dashboard.summary.monthlyProfit)}
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-text-secondary">
-                      {dashboard.summary.monthlyProfit >= 0 ? "Đang có lãi sau chi phí." : "Đang âm sau khi trừ các khoản chi."}
-                    </p>
-                  </div>
-                }
-              />
-            </CardHeader>
-
-            <CardContent className="grid gap-5 px-3 sm:px-6">
-              <ChartContainer config={incomeChartConfig} className="min-h-[320px] w-full">
-                <BarChart data={breakdownRows} layout="vertical" margin={{ left: 18, right: 8, top: 4, bottom: 4 }}>
-                  <CartesianGrid horizontal={false} />
-                  <XAxis type="number" hide />
-                  <YAxis dataKey="label" type="category" width={112} tickLine={false} axisLine={false} />
-                  <ChartTooltip
-                    cursor={{ fill: "color-mix(in srgb, var(--ue-primary) 8%, transparent)" }}
-                    content={
-                      <ChartTooltipContent
-                        hideLabel
-                        indicator="line"
-                        formatter={(value, name, item) => {
-                          const label =
-                            typeof item.payload === "object" && item.payload !== null && "label" in item.payload
-                              ? String(item.payload.label)
-                              : String(name);
-
-                          return (
-                            <div className="flex w-full items-center justify-between gap-6">
-                              <span className="text-text-muted">{label}</span>
-                              <span className="font-mono font-semibold tabular-nums text-text-primary">
-                                {formatCurrency(Number(value))}
-                              </span>
-                            </div>
-                          );
-                        }}
-                      />
-                    }
-                  />
-                  <Bar dataKey="amount" radius={12}>
-                    {breakdownRows.map((item: AdminDashboardBreakdownItem & { fill: string }) => (
-                      <Cell key={item.key} fill={item.fill} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ChartContainer>
-
-              <div className="grid grid-cols-2 flex-wrap gap-1">
-                {breakdownRows.map((item) => (
-                  <div
-                    key={item.key}
-                    className="flex flex-row w-full gap-3 rounded-[1.2rem] border border-border-default bg-bg-secondary px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="min-w-0 w-full">
-                      <div className="flex items-center gap-2">
-                        <span className="size-2.5 rounded-full" style={{ backgroundColor: item.fill }} aria-hidden />
-                        <p className="font-medium text-text-primary">{item.label}</p>
-                      </div>
-                      <p className="font-mono text-base font-semibold tabular-nums text-text-primary text-center">
-                        {formatCurrency(item.amount)}
-                      </p>
-                    </div>
-
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <KpiCard title="Lớp học" value={String(dashboard.summary.activeClasses)} note={`${dashboard.summary.activeClasses} đang hoạt động`} tone="primary" />
+          <KpiCard title="Học sinh" value={String(dashboard.summary.activeStudents)} note={`${dashboard.summary.activeStudents} đang học`} tone="default" />
+          <KpiCard title="Giáo viên" value={String(dashboard.summary.unpaidStaffCount)} note="Đang hợp tác" tone="success" />
+          <KpiCard
+            title="Số tiền lãi"
+            value={formatCurrency(dashboard.summary.monthlyProfit)}
+            note="Học phí đã học - Chi phí phụ cấp"
+            tone={dashboard.summary.monthlyProfit >= 0 ? "success" : "warning"}
+          />
+          <KpiCard
+            title="Nợ học phí chưa dạy"
+            value={formatCurrency(dashboard.summary.pendingCollectionTotal)}
+            note="Tổng số dư hiện tại của tất cả học sinh"
+            tone="warning"
+          />
+          <KpiCard
+            title="Chưa thu"
+            value={formatCurrency(dashboard.summary.pendingCollectionTotal)}
+            note="Tổng nợ học phí của học sinh"
+            tone="default"
+          />
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.16fr)_minmax(0,0.84fr)]">
-          <Card className="motion-fade-up overflow-hidden rounded-[2rem]">
-            <CardHeader className="gap-5">
-              <SectionHeading
-                kicker="Action Queue"
-                title="Cảnh báo hành động"
-                description="Nhóm cảnh báo được làm gọn hơn để người vận hành nhìn ra thứ tự ưu tiên trước, sau đó mới đọc xuống bảng chi tiết."
-                aside={
-                  <div className="rounded-[1.2rem] border border-border-default bg-bg-secondary px-4 py-4">
-                    <SectionKicker>Giá Trị Cần Theo Dõi</SectionKicker>
-                    <p className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-text-primary">
-                      {formatCompactCurrency(actionFollowUpTotal)}
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-text-secondary">
-                      Tổng cộng của các dòng cảnh báo đang hiển thị trên dashboard.
-                    </p>
-                  </div>
-                }
-              />
-            </CardHeader>
-
-            <CardContent className="grid gap-4">
-              <div className="grid gap-3 md:grid-cols-3">
-                <StatusPanel
-                  label="Sắp Hết Tiền"
-                  value={String(dashboard.summary.expiringStudentsCount)}
-                  supporting="Những học sinh chỉ còn khoảng tối đa 2 buổi theo mức phí effective hiện tại."
-                  tone="warning"
-                  iconPath="M12 8v5l3 3m6-4a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-                <StatusPanel
-                  label="Chưa Thu"
-                  value={formatCompactCurrency(dashboard.summary.pendingCollectionTotal)}
-                  supporting={`${dashboard.summary.debtStudentsCount} học sinh đang âm số dư và cần follow-up.`}
-                  tone="destructive"
-                  iconPath="M12 9v4m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z"
-                />
-                <StatusPanel
-                  label="Payroll Pending"
-                  value={formatCompactCurrency(dashboard.summary.pendingPayrollTotal)}
-                  supporting={`${dashboard.summary.unpaidStaffCount} nhân sự còn khoản pending ở payroll.`}
-                  tone="info"
-                  iconPath="M17 9V7a5 5 0 00-10 0v2m-1 0h12a1 1 0 011 1v8a1 1 0 01-1 1H6a1 1 0 01-1-1v-8a1 1 0 011-1z"
-                />
-              </div>
-
-              <Table className="min-w-[760px]">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nhóm Cảnh Báo</TableHead>
-                    <TableHead>Đối Tượng</TableHead>
-                    <TableHead>Phụ Trách</TableHead>
-                    <TableHead>Hạn Xử Lý</TableHead>
-                    <TableHead className="text-right">Giá Trị</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {dashboard.actionAlerts.length > 0 ? (
-                    dashboard.actionAlerts.map((item) => (
-                      <TableRow key={`${item.type}-${item.subject}`}>
-                        <TableCell>
-                          <Badge variant={toneVariant(item.severity)}>{item.type}</Badge>
-                        </TableCell>
-                        <TableCell className="max-w-[20rem] min-w-0 whitespace-normal text-text-primary">{item.subject}</TableCell>
-                        <TableCell>{item.owner ?? "Chưa gán"}</TableCell>
-                        <TableCell>{item.due}</TableCell>
-                        <TableCell className="text-right font-mono tabular-nums text-text-primary">
-                          {formatCurrency(item.amount)}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <EmptyTableRow message="Chưa có cảnh báo nào trong kỳ hiện tại." colSpan={5} />
-                  )}
-                </TableBody>
-                <TableFooter>
-                  <TableRow>
-                    <TableCell colSpan={4} className="font-medium text-text-primary">
-                      Tổng giá trị cần theo dõi
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-semibold tabular-nums text-text-primary">
-                      {formatCurrency(actionFollowUpTotal)}
-                    </TableCell>
-                  </TableRow>
-                </TableFooter>
-              </Table>
-            </CardContent>
-          </Card>
-
-          <Card className="motion-fade-up overflow-hidden rounded-[2rem]">
-            <CardHeader className="gap-5">
-              <SectionHeading
-                kicker="Class Leaderboard"
-                title="Lớp tạo doanh thu"
-                description="Bỏ bảng cứng ở cột phải và chuyển sang leaderboard card để khu vực này đỡ chật, đọc tốt hơn trên cả desktop lẫn mobile."
-              />
-            </CardHeader>
-
-            <CardContent className="grid gap-3">
-              {dashboard.classPerformance.length > 0 ? (
-                dashboard.classPerformance.map((item, index) => (
-                  <LeaderboardCard key={item.classId} item={item} index={index} maxRevenue={topClassMaxRevenue} />
-                ))
-              ) : (
-                <div className="rounded-[1.4rem] border border-dashed border-border-default bg-bg-secondary px-4 py-10 text-center text-sm text-text-muted">
-                  Chưa có lớp phát sinh doanh thu trong tháng hiện tại.
-                </div>
-              )}
-            </CardContent>
-
-            <CardFooter className="mt-2 border-t border-border-default pt-5">
-              <div className="flex w-full flex-wrap items-center justify-between gap-3 text-sm text-text-secondary">
-                <span>Top {dashboard.classPerformance.length} lớp theo doanh thu của tháng đang xem.</span>
-                <Badge variant="secondary">{dashboard.period.monthLabel}</Badge>
-              </div>
-            </CardFooter>
-          </Card>
-        </section>
-
-        <Card className="motion-fade-up overflow-hidden rounded-[2rem]">
-          <CardHeader className="gap-6">
-            <SectionHeading
-              kicker="Year Overview"
-              title="Tổng kết năm"
-              description="Phần cuối trang được làm thành closing section rõ ràng hơn: có scan nhanh theo quý phía trên và table đối soát ngay bên dưới."
-              aside={
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-[1.1rem] border border-border-default bg-bg-secondary px-4 py-3">
-                    <SectionKicker>Doanh Thu</SectionKicker>
-                    <p className="mt-2 font-mono text-lg font-semibold tabular-nums text-text-primary">
-                      {formatCompactCurrency(yearlyRevenueTotal)}
-                    </p>
-                  </div>
-                  <div className="rounded-[1.1rem] border border-border-default bg-bg-secondary px-4 py-3">
-                    <SectionKicker>Chi Phí</SectionKicker>
-                    <p className="mt-2 font-mono text-lg font-semibold tabular-nums text-text-primary">
-                      {formatCompactCurrency(yearlyExpenseTotal)}
-                    </p>
-                  </div>
-                  <div className="rounded-[1.1rem] border border-border-default bg-bg-secondary px-4 py-3">
-                    <SectionKicker>Lợi Nhuận</SectionKicker>
-                    <p className="mt-2 font-mono text-lg font-semibold tabular-nums text-text-primary">
-                      {formatCompactCurrency(yearlyProfitTotal)}
-                    </p>
-                  </div>
-                </div>
-              }
-            />
-          </CardHeader>
-
-          <CardContent className="grid gap-5">
-            <div className="grid gap-3 lg:grid-cols-4">
-              {dashboard.yearlySummary.map((item) => {
-                const quarterMargin = item.revenue > 0 ? item.profit / item.revenue : 0;
-
-                return (
-                  <div key={item.quarter} className="rounded-[1.25rem] border border-border-default bg-bg-secondary px-4 py-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <Badge variant="outline">{item.quarter}</Badge>
-                      <span className="text-xs font-medium text-text-muted">{formatPercent(quarterMargin)}</span>
-                    </div>
-                    <p className="mt-4 text-2xl font-semibold tracking-[-0.05em] text-text-primary">
-                      {formatCompactCurrency(item.profit)}
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-text-secondary">
-                      {item.classes} lớp có session · doanh thu {formatCompactCurrency(item.revenue)}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-
-            <Table className="min-w-[760px]">
+        <section className="rounded-xl border border-border-default bg-bg-surface">
+          <div className="border-b border-border-default px-4 py-3">
+            <h2 className="text-base font-semibold text-text-primary">Báo cáo tài chính</h2>
+          </div>
+          <div className="overflow-x-auto px-2 py-2 sm:px-4">
+            <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Quý</TableHead>
-                  <TableHead>Số Lớp</TableHead>
-                  <TableHead className="text-right">Doanh Thu</TableHead>
-                  <TableHead className="text-right">Chi Phí</TableHead>
-                  <TableHead className="text-right">Lợi Nhuận</TableHead>
+                  <TableHead>Danh mục</TableHead>
+                  <TableHead>Giá trị</TableHead>
+                  <TableHead>Ghi chú</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {dashboard.yearlySummary.length > 0 ? (
-                  dashboard.yearlySummary.map((item) => (
-                    <TableRow key={item.quarter}>
-                      <TableCell className="font-medium text-text-primary">{item.quarter}</TableCell>
-                      <TableCell>{item.classes}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums text-text-primary">
-                        {formatCurrency(item.revenue)}
-                      </TableCell>
-                      <TableCell className="text-right font-mono tabular-nums text-text-primary">
-                        {formatCurrency(item.expense)}
-                      </TableCell>
-                      <TableCell className="text-right font-mono tabular-nums text-text-primary">
-                        {formatCurrency(item.profit)}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <EmptyTableRow message="Chưa có dữ liệu tổng kết năm." colSpan={5} />
-                )}
+                {financialRows.map((row) => (
+                  <TableRow
+                    key={row.label}
+                    className={
+                      row.label === "Chờ Thanh Toán Trợ Cấp" || row.label === "Chi phí Nhân Sự"
+                        ? "bg-bg-secondary/45"
+                        : undefined
+                    }
+                  >
+                    <TableCell className="font-medium text-text-primary">{row.label}</TableCell>
+                    <TableCell className="font-semibold tabular-nums text-text-primary">
+                      {row.label === "Tổng nạp" || row.label === "Nợ học phí chưa dạy" ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (row.label === "Tổng nạp") {
+                              setIsTopupHistoryOpen(true);
+                              return;
+                            }
+                            setIsStudentBalanceOpen(true);
+                          }}
+                          className="text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                        >
+                          {row.value}
+                        </button>
+                      ) : (
+                        row.value
+                      )}
+                    </TableCell>
+                    <TableCell className="text-text-secondary">{row.note}</TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
-              <TableFooter>
-                <TableRow>
-                  <TableCell className="font-medium text-text-primary">Tổng</TableCell>
-                  <TableCell>{dashboard.yearlySummary.reduce((total, item) => total + item.classes, 0)}</TableCell>
-                  <TableCell className="text-right font-mono font-semibold tabular-nums text-text-primary">
-                    {formatCurrency(yearlyRevenueTotal)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono font-semibold tabular-nums text-text-primary">
-                    {formatCurrency(yearlyExpenseTotal)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono font-semibold tabular-nums text-text-primary">
-                    {formatCurrency(yearlyProfitTotal)}
-                  </TableCell>
-                </TableRow>
-              </TableFooter>
             </Table>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-border-default bg-bg-surface p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <DashboardIcon path="M12 9v4m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
+            <h2 className="text-base font-semibold text-text-primary">Cảnh báo & hành động</h2>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <AlertGroupCard
+              title="Học sinh cần gia hạn"
+              alerts={expiringAlerts}
+              tone="destructive"
+              onOpenAlert={openAlertDetail}
+            />
+            <AlertGroupCard
+              title="Chờ thanh toán trợ cấp"
+              alerts={payrollAlerts}
+              tone="info"
+              onOpenAlert={openAlertDetail}
+            />
+            <AlertGroupCard
+              title="Lớp chưa báo cáo lần 4"
+              alerts={classAlerts}
+              tone="class"
+              onOpenAlert={openAlertDetail}
+            />
+            <AlertGroupCard
+              title="Chưa thu học phí"
+              alerts={debtAlerts}
+              tone="warning"
+              onOpenAlert={openAlertDetail}
+            />
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-border-default bg-bg-surface p-4">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-base font-semibold text-text-primary">Chế độ xem nhanh theo phân hệ</h2>
+            <label className="flex items-center gap-2 text-sm text-text-secondary">
+              <span>Năm</span>
+              <select
+                value={year}
+                onChange={(event) => setYear(event.target.value)}
+                className="min-h-9 rounded-md border border-border-default bg-bg-surface px-2.5 text-sm text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              >
+                {yearOptions.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="mb-4 flex flex-wrap gap-2">
+            {[
+              { key: "finance" as const, label: "Tài chính" },
+              { key: "ops" as const, label: "Vận hành" },
+              { key: "students" as const, label: "Học viên" },
+            ].map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setQuickView(item.key)}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
+                  quickView === item.key
+                    ? "bg-primary text-text-inverse"
+                    : "border border-border-default bg-bg-surface text-text-secondary hover:bg-bg-secondary"
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {quickCards.map((card) => (
+              <QuickViewCard key={card.label} label={card.label} value={card.value} description={card.description} />
+            ))}
+          </div>
+        </section>
+
+        {isTopupHistoryOpen ? (
+          <>
+            <div
+              className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]"
+              aria-hidden
+              onClick={() => setIsTopupHistoryOpen(false)}
+            />
+            <div className="fixed inset-0 z-50 p-3 sm:p-6">
+              <div className="mx-auto flex h-full w-full items-center max-w-6xl">
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="dashboard-topup-history-title"
+                  className="flex h-auto max-h-full w-full flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-surface shadow-2xl"
+                >
+                  <div className="flex items-start justify-between gap-4 border-b border-border-default px-5 py-4">
+                    <div>
+                      <h2 id="dashboard-topup-history-title" className="text-xl font-semibold text-text-primary">
+                        Lịch sử nạp
+                      </h2>
+                      <p className="mt-1 text-sm text-text-secondary">
+                        Lịch sử nạp tiền trong kỳ đang chọn (ngày giờ - học sinh - số tiền - ghi chú - tổng nạp tích lũy toàn hệ thống).
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsTopupHistoryOpen(false)}
+                      className="rounded-lg p-2 text-text-muted transition-colors hover:bg-bg-secondary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                      aria-label="Đóng popup lịch sử nạp"
+                    >
+                      <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="max-h-[72vh] overflow-auto px-4 py-3">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="whitespace-nowrap">Ngày giờ</TableHead>
+                          <TableHead className="whitespace-nowrap">Tên học sinh</TableHead>
+                          <TableHead className="whitespace-nowrap">Số tiền nạp</TableHead>
+                          <TableHead>Ghi chú</TableHead>
+                          <TableHead className="whitespace-nowrap text-right">Tổng nạp</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {topupHistoryQuery.isLoading ? (
+                          Array.from({ length: 6 }).map((_, idx) => (
+                            <TableRow key={`topup-loading-${idx}`}>
+                              <TableCell colSpan={5}>
+                                <Skeleton className="h-6 w-full rounded-md" />
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : topupHistoryQuery.isError ? (
+                          <TableRow>
+                            <TableCell colSpan={5} className="py-6 text-center text-sm text-error">
+                              {getErrorMessage(topupHistoryQuery.error)}
+                            </TableCell>
+                          </TableRow>
+                        ) : topupHistoryQuery.data && topupHistoryQuery.data.length > 0 ? (
+                          topupHistoryQuery.data.map((item) => (
+                            <TableRow key={item.id}>
+                              <TableCell className="whitespace-nowrap text-text-secondary">{formatDateTime(item.dateTime)}</TableCell>
+                              <TableCell className="whitespace-nowrap font-medium text-text-primary">{item.studentName}</TableCell>
+                              <TableCell className="whitespace-nowrap font-semibold text-primary">{formatCurrency(item.amount)}</TableCell>
+                              <TableCell className="max-w-[340px] truncate text-text-secondary" title={item.note}>
+                                {item.note}
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap text-right font-medium text-text-primary">
+                                {formatCurrency(item.cumulativeBefore)} {"\u2192"} {formatCurrency(item.cumulativeAfter)}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={5} className="py-8 text-center text-sm text-text-muted">
+                              Chưa có giao dịch nạp trong kỳ này.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : null}
+
+        {isStudentBalanceOpen ? (
+          <>
+            <div
+              className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]"
+              aria-hidden
+              onClick={() => setIsStudentBalanceOpen(false)}
+            />
+            <div className="fixed inset-0 z-50 p-3 sm:p-6">
+              <div className="mx-auto flex h-full w-full items-center max-w-6xl">
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="dashboard-student-balance-title"
+                  className="flex h-auto max-h-full w-full flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-surface shadow-2xl"
+                >
+                  <div className="flex items-start justify-between gap-4 border-b border-border-default px-5 py-4">
+                    <div>
+                      <h2 id="dashboard-student-balance-title" className="text-xl font-semibold text-text-primary">
+                        Chi tiết Nợ học phí chưa dạy
+                      </h2>
+                      <p className="mt-1 text-sm text-text-secondary">
+                        Tổng số dư hiện tại của tất cả học sinh (học sinh - lớp - số dư).
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsStudentBalanceOpen(false)}
+                      className="rounded-lg p-2 text-text-muted transition-colors hover:bg-bg-secondary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                      aria-label="Đóng popup chi tiết nợ học phí chưa dạy"
+                    >
+                      <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="max-h-[72vh] overflow-auto px-4 py-3">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="whitespace-nowrap">Học sinh</TableHead>
+                          <TableHead>Lớp</TableHead>
+                          <TableHead className="whitespace-nowrap text-right">Số dư</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {studentBalanceQuery.isLoading ? (
+                          Array.from({ length: 8 }).map((_, idx) => (
+                            <TableRow key={`student-balance-loading-${idx}`}>
+                              <TableCell colSpan={3}>
+                                <Skeleton className="h-6 w-full rounded-md" />
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : studentBalanceQuery.isError ? (
+                          <TableRow>
+                            <TableCell colSpan={3} className="py-6 text-center text-sm text-error">
+                              {getErrorMessage(studentBalanceQuery.error)}
+                            </TableCell>
+                          </TableRow>
+                        ) : studentBalanceQuery.data && studentBalanceQuery.data.length > 0 ? (
+                          studentBalanceQuery.data.map((item) => (
+                            <TableRow key={item.studentId}>
+                              <TableCell className="font-medium text-text-primary">{item.studentName}</TableCell>
+                              <TableCell className="text-text-secondary">{item.className}</TableCell>
+                              <TableCell className="text-right font-semibold tabular-nums text-warning">{formatCurrency(item.balance)}</TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={3} className="py-8 text-center text-sm text-text-muted">
+                              Chưa có dữ liệu số dư học sinh.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : null}
+
       </div>
     </div>
   );
