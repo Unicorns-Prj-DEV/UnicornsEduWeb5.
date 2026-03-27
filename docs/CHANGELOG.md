@@ -22,6 +22,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 ## [Unreleased]
 
 ### Added
+- BE dashboard: thêm endpoint `GET /dashboard/topup-history?month=&year=&limit=` trả lịch sử nạp (topup) trong tháng kèm tổng nạp tích lũy trước/sau mỗi giao dịch để phục vụ popup tra cứu.
+- BE dashboard: thêm endpoint `GET /dashboard/student-balance-details?limit=` trả danh sách chi tiết học sinh - lớp - số dư (`account_balance > 0`) cho popup “Nợ học phí chưa dạy”.
 - BE class: 4 endpoint PATCH riêng cho từng form cập nhật lớp — `PATCH /class/:id/basic-info`, `PATCH /class/:id/teachers`, `PATCH /class/:id/schedule`, `PATCH /class/:id/students`. Khi form basic-info gửi `allowance_per_session_per_student`, backend đồng bộ toàn bộ `class_teachers.customAllowance` của lớp về giá trị đó.
 - Xóa buổi học: bảng lịch sử buổi học có nút xóa (icon thùng rác) trong cột Thao tác; bấm vào hiện confirm, xác nhận thì gọi `DELETE /sessions/:id`, toast và invalidate sessions.
 - Chỉnh sửa buổi học đầy đủ: bảng lịch sử buổi học có cột "Thao tác" (khi có `onSessionUpdated`) với nút "Sửa" mở dialog chỉnh sửa ngày học, gia sư phụ trách, giờ bắt đầu/kết thúc, ghi chú (rich text), trạng thái thanh toán, **điểm danh học sinh** (trạng thái Học/Phép/Vắng + ghi chú từng học sinh). Trang lớp truyền `teachers` và `getClassStudents`; trang gia sư truyền `getTeachersForClass(classId)` và `getClassStudents(classId)`. BE: list session trả thêm `attendance`; `PUT /sessions/:id` hỗ trợ `teacherId`, `teacherPaymentStatus`, `attendance`.
@@ -37,6 +39,29 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - BE lesson: thêm `GET /lesson-task-options?search=&limit=` cho flow đổi task gốc của output; query giữ bounded search với `limit` nhỏ, select tối thiểu và recent-first khi không search để tránh tải danh sách task rộng xuống FE.
 
 ### Changed
+- FE tab `Công việc` (`/admin/lesson-plans`): thêm tick chọn nhiều + popup cập nhật `paymentStatus` hàng loạt cho bảng **Bài giáo án đã làm**; thanh bulk action chỉ hiện khi có ít nhất 1 item được chọn và dùng cùng UI checkbox minimal/bulk bar của hệ thống.
+- FE bulk selection UI: chuẩn hoá checkbox tick (minimal) và bulk action bar chỉ hiện khi có selection cho các bảng lịch sử buổi học (lớp + nhân sự), đồng bộ UX “tick → hiện thanh hành động”.
+- FE bulk selection UI: áp dụng cùng behavior “chỉ hiện thanh bulk khi đã chọn” cho các màn thanh toán hàng loạt (Chi phí, Trợ cấp thêm, Giáo án theo nhân sự) và chuẩn hoá checkbox tick theo style minimal dùng chung.
+- FE `/admin/classes/:id`: đồng bộ và cải tiến UI/UX vùng **Lịch sử & Khảo sát** theo backup (tab underline, thanh điều khiển tổng buổi + điều hướng tháng + nút thêm), đồng thời bật chọn nhiều buổi để chuyển nhanh trạng thái thanh toán ngay trong tab Lịch sử.
+- FE `/admin/lesson-manage-details`: mở rộng khung hiển thị (max width lớn hơn), bỏ block heading mô tả “Quản lí Giáo Án chi tiết…”, và thêm nút **Quay lại** về trang `lesson-plans`.
+- FE tab **Giáo Án**: đồng bộ cụm thao tác cột `Link` theo backup với icon **copy / mở liên kết / xóa** trên từng dòng bài (giữ layout cột `Tag | Tên bài | Link`).
+- FE `/admin/lesson-plans`: chuyển lại flow chi tiết output sang **popup nhanh** trong tab `Công việc` và `Giáo Án`; bấm vào bài sẽ mở modal chỉnh sửa tại chỗ thay vì vào trang detail nặng.
+- FE `/admin/lesson-plans`: bỏ popup chỉnh sửa khi bấm bài ở cả tab **Công việc** và **Giáo Án**; hành vi click dòng/tên bài chuyển về route chi tiết `/admin/lesson-plans/outputs/[outputId]`.
+- FE tab **Giáo Án**: đồng bộ header popup với tab **Công việc** (kicker `Bài giáo án`, title `Chỉnh sửa thông tin bài`, cùng chiều rộng modal) để UI thống nhất.
+- FE tab **Giáo Án** popup bài trong chuyên đề: tối ưu lại để dùng chung trực tiếp `LessonOutputEditorForm` (cùng form với tab **Công việc**), không duy trì form chỉnh sửa riêng.
+- FE tab **Giáo Án** popup **Thông tin chi tiết bài**: thêm nút **Chỉnh sửa** ở cuối form chi tiết; bấm vào sẽ mở form chỉnh sửa ngay trong popup và lưu bằng API update output.
+- FE tab **Giáo Án** popup **Thông tin chi tiết bài**: bổ sung hiển thị thêm **Ngày tạo** và **Người tạo** để form chi tiết đầy đủ hơn khi bấm vào bài trong chuyên đề.
+- FE tab **Giáo Án** (tab bài tập cũ): bấm vào dòng bài hoặc tên bài trong danh sách chuyên đề giờ mở popup **Thông tin chi tiết bài** ngay trong tab, không điều hướng sang trang mới.
+- FE `/admin/dashboard`: trong bảng **Báo cáo tài chính**, đổi nhãn dòng cuối từ **Tổng niên** thành **Tổng nhận** để đúng wording nghiệp vụ.
+- FE `/admin/dashboard`: khối **Cảnh báo & hành động** đồng bộ lại đúng 4 thẻ theo backup (`Học sinh cần gia hạn`, `Chờ thanh toán trợ cấp`, `Lớp chưa báo cáo lần 4`, `Chưa thu học phí`) cùng tone màu riêng cho từng thẻ và style item trong card.
+- FE `/admin/dashboard`: đồng bộ lại UI/UX khối **Cảnh báo & hành động** theo màu từng loại cảnh báo (warning/destructive/info/default), card rõ trọng tâm hơn và mỗi dòng cảnh báo có thể bấm để đi tới trang chi tiết tương ứng.
+- BE/FE dashboard alerts: mở rộng payload `actionAlerts` với `targetType` + `targetId`; thêm nhóm cảnh báo lớp (`Lớp cảnh báo`) dựa trên `classPerformance.balanceRisk` để hỗ trợ điều hướng sang `/admin/classes/:id`.
+- FE `/admin/dashboard`: bấm vào giá trị dòng **Tổng nạp** trong bảng tài chính sẽ mở popup **Lịch sử nạp** theo backup (ngày giờ, học sinh, số tiền nạp, ghi chú, tổng nạp tích lũy trước/sau) theo tháng đang chọn.
+- FE `/admin/dashboard`: bấm vào giá trị dòng **Nợ học phí chưa dạy** sẽ mở popup chi tiết theo backup với bảng 3 cột **Học sinh / Lớp / Số dư**.
+- FE `/admin/dashboard`: thay 2 ô lọc tháng/chọn tháng bằng thanh hành vi chuyển tháng (nút trước/sau + nhãn tháng hiện tại) để thao tác nhanh hơn.
+- FE `/admin/dashboard`: tinh chỉnh lần 2 để bám sát backup hơn (thêm card `Chưa thu` cùng cụm KPI, highlight 2 dòng tài chính trọng tâm, card cảnh báo dạng cột có header màu + danh sách scroll, bỏ cụm summary cuối trang).
+- FE `/admin/dashboard`: đồng bộ UI/UX và bố cục theo backup theo hướng tối giản (lọc thời gian + xuất PDF/Excel, dải KPI card, bảng báo cáo tài chính, card cảnh báo & hành động, quick-view theo phân hệ với tab + chọn năm), giữ dữ liệu thật từ `GET /dashboard`.
+- Web dependencies: thêm `recharts` cho `apps/web` để sửa lỗi build `Module not found: Can't resolve 'recharts'` ở trang `/admin/dashboard`.
 - FE popup `EditStudentPopup` (`/admin/students/:id`): tối giản bố cục form chỉnh sửa hồ sơ học sinh (bỏ bớt mô tả dài, giảm tầng card/bo góc/spacing, giữ nguyên logic cập nhật dữ liệu và các khối CSKH + lịch thi).
 - FE `/admin/lesson_plan_detail/[staffId]`: tối giản trang chi tiết giáo án theo staff, chỉ giữ 3 card tổng hợp (**Tổng số bài**, **Đã thanh toán**, **Chưa thanh toán**) và bảng danh sách bài đã làm theo cấu trúc tab `Công việc` (Tag/Level/Tên bài/Trạng thái/Contest/Link), bỏ hero + metadata nhân sự và detail-row mở rộng.
 - FE tab **Giáo Án** (tab bài tập cũ): bấm vào một dòng bài trong bảng giờ chuyển sang route chi tiết `FE /admin/lesson-plans/outputs/[outputId]` thay cho popup tại chỗ; giữ lại filter/page hiện tại để nút quay lại trả đúng danh sách, kể cả khi vào từ màn hình phóng to `/admin/lesson-manage-details`.

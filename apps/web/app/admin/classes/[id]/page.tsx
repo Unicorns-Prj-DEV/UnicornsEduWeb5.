@@ -580,11 +580,10 @@ export default function AdminClassDetailPage() {
         </ClassCard>
 
         {/* Row 3: Lịch sử buổi học và khảo sát – 2 tab */}
-        <ClassCard title="Lịch sử buổi học và khảo sát" className="w-full">
+        <ClassCard title="Lịch sử & Khảo sát" className="w-full">
           <div className="mb-4 flex flex-col gap-4">
-            {/* Tabs: minimal pill style */}
             <div
-              className="inline-flex w-fit rounded-full bg-bg-secondary p-0.5"
+              className="inline-flex w-fit items-center border-b border-border-default"
               role="tablist"
               aria-label="Lịch sử hoặc khảo sát"
             >
@@ -593,42 +592,40 @@ export default function AdminClassDetailPage() {
                 role="tab"
                 aria-selected={activeTab === "sessions"}
                 onClick={() => setActiveTab("sessions")}
-                className={`rounded-full px-4 py-2 text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface ${
+                className={`border-b-2 px-4 py-2 text-sm font-semibold transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface ${
                   activeTab === "sessions"
-                    ? "bg-bg-surface text-primary shadow-sm"
-                    : "text-text-muted hover:text-text-primary"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-text-muted hover:text-text-primary"
                 }`}
               >
-                Lịch sử
+                Lịch sử buổi học
               </button>
               <button
                 type="button"
                 role="tab"
                 aria-selected={activeTab === "surveys"}
                 onClick={() => setActiveTab("surveys")}
-                className={`rounded-full px-4 py-2 text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface ${
+                className={`border-b-2 px-4 py-2 text-sm font-semibold transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface ${
                   activeTab === "surveys"
-                    ? "bg-bg-surface text-primary shadow-sm"
-                    : "text-text-muted hover:text-text-primary"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-text-muted hover:text-text-primary"
                 }`}
               >
                 Khảo sát
               </button>
             </div>
 
-            {/* Thanh chuyển tháng – modern minimal */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-sm text-text-muted">
+            <div className="flex items-center gap-2 rounded-xl border border-border-default bg-bg-secondary/55 px-2 py-2">
+              <div className="min-w-[132px] rounded-lg bg-bg-surface px-3 py-2 text-sm font-medium text-text-secondary">
                 {activeTab === "sessions"
-                  ? `${sessionsInMonth.length} buổi`
-                  : `${surveysInMonth.length} khảo sát`}
-              </span>
-
+                  ? `Tổng số buổi: ${sessionsInMonth.length}`
+                  : `Tổng khảo sát: ${surveysInMonth.length}`}
+              </div>
               <div
                 data-session-month-nav
-                className="relative flex w-full items-center justify-center gap-0 sm:w-auto"
+                className="relative flex min-w-0 flex-1 items-center justify-center"
               >
-                <div className="flex items-center rounded-full border border-border-subtle bg-bg-secondary/80 shadow-sm">
+                <div className="flex items-center rounded-full border border-border-subtle bg-bg-surface shadow-sm">
                   <button
                     type="button"
                     onClick={() => handleMonthChange(-1)}
@@ -736,7 +733,7 @@ export default function AdminClassDetailPage() {
                 }}
                 aria-label={activeTab === "sessions" ? "Thêm buổi học" : "Thêm khảo sát"}
                 title={activeTab === "sessions" ? "Thêm buổi học" : "Thêm khảo sát"}
-                className="order-last flex shrink-0 items-center justify-center rounded-full bg-primary text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface size-11 sm:order-none sm:size-10"
+                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
               >
                 <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -756,8 +753,10 @@ export default function AdminClassDetailPage() {
                 <SessionHistoryTable
                   sessions={sessionsInMonth}
                   entityMode="teacher"
+                  variant="classDetail"
                   emptyText="Không có buổi học trong tháng này."
                   editorLayout="wide"
+                  enableBulkPaymentStatusEdit
                   onSessionUpdated={handleSessionUpdated}
                   teachers={popupTeachers}
                   getClassStudents={getClassStudents}
@@ -819,7 +818,7 @@ export default function AdminClassDetailPage() {
                   Không có khảo sát trong tháng này.
                 </p>
               ) : (
-                <table className="hidden w-full min-w-[400px] border-collapse text-left text-sm md:table">
+                <table className="hidden w-full min-w-[400px] border-collapse overflow-hidden rounded-xl text-left text-sm md:table">
                   <caption className="sr-only">Khảo sát</caption>
                   <thead>
                     <tr className="border-b border-border-default bg-bg-secondary">
