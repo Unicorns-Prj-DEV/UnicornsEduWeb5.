@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
@@ -10,6 +9,7 @@ import * as lessonApi from "@/lib/apis/lesson.api";
 import LessonWorkQuickFilters, {
   type LessonWorkFilterDraft,
 } from "./LessonWorkQuickFilters";
+import LessonOutputQuickPopup from "./LessonOutputQuickPopup";
 
 const EX_PAGE_SIZE = 15;
 
@@ -151,6 +151,7 @@ export default function LessonExercisesTab({
   const exDateTo = searchParams.get("exDateTo") ?? "";
 
   const [filterOpen, setFilterOpen] = useState(false);
+  const [selectedOutputId, setSelectedOutputId] = useState<string | null>(null);
   const appliedDraft = useMemo<LessonWorkFilterDraft>(
     () => ({
       search: exSearch,
@@ -235,26 +236,11 @@ export default function LessonExercisesTab({
     syncExParams({ exPage: page });
   };
 
-  const buildOutputHref = useCallback(
-    (outputId: string) => {
-      const params = new URLSearchParams(searchParams?.toString() ?? "");
-      params.set("tab", "exercises");
-      params.delete("origin");
-      params.delete("taskId");
-      if (expandedView) {
-        params.set("origin", "manage-details");
-      }
-
-      return `/admin/lesson-plans/outputs/${encodeURIComponent(outputId)}?${params.toString()}`;
-    },
-    [expandedView, searchParams],
-  );
-
   const openOutputDetail = useCallback(
     (outputId: string) => {
-      router.push(buildOutputHref(outputId));
+      setSelectedOutputId(outputId);
     },
-    [buildOutputHref, router],
+    [],
   );
 
   const goToExpandedManageDetails = () => {
@@ -316,6 +302,7 @@ export default function LessonExercisesTab({
       placeholderData: (previousData) => previousData,
     });
 
+
   const deleteMutation = useMutation({
     mutationFn: (id: string) => lessonApi.deleteLessonOutput(id),
     onSuccess: () => {
@@ -329,6 +316,7 @@ export default function LessonExercisesTab({
     },
   });
 
+
   const copyText = async (text: string, label: string) => {
     if (!text.trim()) {
       toast.error("Không có nội dung để sao chép.");
@@ -339,6 +327,22 @@ export default function LessonExercisesTab({
       toast.success(`Đã sao chép ${label}.`);
     } catch {
       toast.error("Không sao chép được.");
+    }
+  };
+
+  const openExternal = (url: string) => {
+    const normalizedUrl = url.trim();
+    if (!normalizedUrl) {
+      toast.error("Chưa có liên kết.");
+      return;
+    }
+    try {
+      const href = normalizedUrl.startsWith("http")
+        ? normalizedUrl
+        : `https://${normalizedUrl}`;
+      window.open(href, "_blank", "noopener,noreferrer");
+    } catch {
+      toast.error("Không mở được liên kết.");
     }
   };
 
@@ -522,8 +526,6 @@ export default function LessonExercisesTab({
                       <tbody>
                         {outputs.map((output) => {
                           const linkUrl = resolvePrimaryLink(output);
-                          const outputHref = buildOutputHref(output.id);
-
                           return (
                             <tr
                               key={output.id}
@@ -536,9 +538,12 @@ export default function LessonExercisesTab({
                                 </span>
                               </td>
                               <td className="px-3 py-3 align-top">
-                                <Link
-                                  href={outputHref}
-                                  onClick={(event) => event.stopPropagation()}
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    openOutputDetail(output.id);
+                                  }}
                                   className="inline-flex items-start gap-2 text-left text-sm font-semibold leading-snug text-text-primary underline-offset-4 transition-colors hover:text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                                 >
                                   <span className="line-clamp-4">
@@ -558,13 +563,35 @@ export default function LessonExercisesTab({
                                       d="M9 5l7 7-7 7"
                                     />
                                   </svg>
-                                </Link>
+                                </button>
                               </td>
                               <td
                                 className="px-3 py-3 align-top text-right"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <div className="flex items-center justify-end gap-0.5">
+                                  <button
+                                    type="button"
+                                    title="Sao chép liên kết"
+                                    disabled={!linkUrl}
+                                    onClick={() => void copyText(linkUrl, "liên kết")}
+                                    className="rounded-lg p-2 text-text-muted transition-colors hover:bg-bg-secondary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                                  >
+                                    <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    title="Mở liên kết"
+                                    disabled={!linkUrl}
+                                    onClick={() => openExternal(linkUrl)}
+                                    className="rounded-lg p-2 text-text-muted transition-colors hover:bg-bg-secondary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                                  >
+                                    <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    </svg>
+                                  </button>
                                   <button
                                     type="button"
                                     title="Xóa"
@@ -624,6 +651,13 @@ export default function LessonExercisesTab({
           </div>
         </div>
       </div>
+
+      <LessonOutputQuickPopup
+        open={Boolean(selectedOutputId)}
+        outputId={selectedOutputId}
+        onClose={() => setSelectedOutputId(null)}
+      />
+
     </section>
   );
 }

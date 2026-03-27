@@ -4,17 +4,25 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
-import type { LessonWorkOutputItem, LessonWorkResponse } from "@/dtos/lesson.dto";
+import type {
+  LessonPaymentStatus,
+  LessonWorkOutputItem,
+  LessonWorkResponse,
+} from "@/dtos/lesson.dto";
 import * as lessonApi from "@/lib/apis/lesson.api";
-import LessonOutputEditorForm from "./LessonOutputEditorForm";
+import LessonOutputQuickPopup from "./LessonOutputQuickPopup";
 import LessonWorkNewLessonPanel from "./LessonWorkNewLessonPanel";
 import LessonWorkQuickFilters, {
   type LessonWorkFilterDraft,
 } from "./LessonWorkQuickFilters";
 import {
+  DEFAULT_BULK_LESSON_PAYMENT_STATUS,
   LESSON_PAYMENT_STATUS_LABELS,
+  LESSON_PAYMENT_STATUS_OPTIONS,
   lessonPaymentStatusChipClass,
 } from "./lessonTaskUi";
+import SelectionCheckbox from "@/components/ui/SelectionCheckbox";
+import UpgradedSelect from "@/components/ui/UpgradedSelect";
 
 const WORK_PAGE_SIZE = 10;
 const EMPTY_OUTPUTS: LessonWorkOutputItem[] = [];
@@ -314,7 +322,10 @@ export default function LessonWorkTab() {
 
   const [filterOpen, setFilterOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [editingOutputId, setEditingOutputId] = useState<string | null>(null);
+  const [selectedOutputId, setSelectedOutputId] = useState<string | null>(null);
+  const [bulkEditPopupOpen, setBulkEditPopupOpen] = useState(false);
+  const [bulkPaymentStatusDraft, setBulkPaymentStatusDraft] =
+    useState<LessonPaymentStatus>(DEFAULT_BULK_LESSON_PAYMENT_STATUS);
 
   const workSearch = searchParams.get("workSearch") ?? "";
   const workTag = searchParams.get("workTag") ?? "";
@@ -413,6 +424,10 @@ export default function LessonWorkTab() {
     syncWorkParams({ workPage: page });
   };
 
+  const openOutputDetail = useCallback((outputId: string) => {
+    setSelectedOutputId(outputId);
+  }, []);
+
   const queryKey = useMemo(
     () =>
       [
@@ -463,17 +478,6 @@ export default function LessonWorkTab() {
       placeholderData: (previousData) => previousData,
     });
 
-  const {
-    data: editingOutputDetail,
-    isFetching: isEditingDetailFetching,
-    isError: isEditingDetailError,
-    error: editingDetailError,
-  } = useQuery({
-    queryKey: ["lesson", "output", editingOutputId],
-    queryFn: () => lessonApi.getLessonOutputById(editingOutputId as string),
-    enabled: Boolean(editingOutputId),
-  });
-
   const deleteMutation = useMutation({
     mutationFn: (id: string) => lessonApi.deleteLessonOutput(id),
     onSuccess: () => {
@@ -485,32 +489,50 @@ export default function LessonWorkTab() {
       toast.error(getErrorMessage(err, "Không xóa được bản ghi."));
     },
   });
-  const updateMutation = useMutation({
-    mutationFn: ({
-      outputId,
-      payload,
-    }: {
-      outputId: string;
-      payload: Parameters<typeof lessonApi.updateLessonOutput>[1];
-    }) => lessonApi.updateLessonOutput(outputId, payload),
-    onSuccess: () => {
-      toast.success("Đã cập nhật bài giáo án.");
-      void queryClient.invalidateQueries({ queryKey: ["lesson", "work"] });
-      void queryClient.invalidateQueries({ queryKey: ["lesson", "overview"] });
-      void queryClient.invalidateQueries({ queryKey: ["lesson", "exercises"] });
-      setEditingOutputId(null);
-    },
-    onError: (err: unknown) => {
-      toast.error(getErrorMessage(err, "Không cập nhật được bài giáo án."));
-    },
-  });
 
   const outputs = data?.outputs ?? EMPTY_OUTPUTS;
   const pageIds = useMemo(() => outputs.map((o) => o.id), [outputs]);
+  const selectedVisibleIds = useMemo(
+    () => pageIds.filter((id) => selected.has(id)),
+    [pageIds, selected],
+  );
+  const selectedCount = selectedVisibleIds.length;
   const allSelected =
     pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+  const hasPartialSelection = selectedCount > 0 && !allSelected;
+
+  const bulkStatusMutation = useMutation({
+    mutationFn: (paymentStatus: LessonPaymentStatus) =>
+      lessonApi.bulkUpdateLessonOutputPaymentStatus({
+        outputIds: selectedVisibleIds,
+        paymentStatus,
+      }),
+    onSuccess: async (result, paymentStatus) => {
+      const statusLabel = LESSON_PAYMENT_STATUS_LABELS[paymentStatus].toLowerCase();
+
+      if (result.updatedCount > 0) {
+        toast.success(`Đã chuyển ${result.updatedCount} bài sang trạng thái ${statusLabel}.`);
+      } else {
+        toast.success(`Các bài đã ở trạng thái ${statusLabel}.`);
+      }
+
+      setBulkEditPopupOpen(false);
+      setSelected(new Set());
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["lesson", "work"] }),
+        queryClient.invalidateQueries({ queryKey: ["lesson", "overview"] }),
+        queryClient.invalidateQueries({ queryKey: ["lesson", "exercises"] }),
+      ]);
+    },
+    onError: (err: unknown) => {
+      toast.error(
+        getErrorMessage(err, "Không thể cập nhật trạng thái thanh toán hàng loạt."),
+      );
+    },
+  });
 
   const toggleAllPage = () => {
+    if (bulkStatusMutation.isPending) return;
     if (allSelected) {
       setSelected((prev) => {
         const next = new Set(prev);
@@ -527,6 +549,7 @@ export default function LessonWorkTab() {
   };
 
   const toggleOne = (id: string) => {
+    if (bulkStatusMutation.isPending) return;
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -548,16 +571,28 @@ export default function LessonWorkTab() {
     deleteMutation.mutate(output.id);
   };
 
-  const openEditPopup = (outputId: string) => {
-    setEditingOutputId(outputId);
+  const clearSelection = () => {
+    if (bulkStatusMutation.isPending) return;
+    setSelected(new Set());
+    setBulkEditPopupOpen(false);
   };
 
-  const closeEditPopup = () => {
-    if (updateMutation.isPending) {
-      return;
-    }
-    setEditingOutputId(null);
+  const openBulkEditPopup = () => {
+    if (selectedCount === 0 || bulkStatusMutation.isPending) return;
+    setBulkPaymentStatusDraft(DEFAULT_BULK_LESSON_PAYMENT_STATUS);
+    setBulkEditPopupOpen(true);
   };
+
+  const closeBulkEditPopup = () => {
+    if (bulkStatusMutation.isPending) return;
+    setBulkEditPopupOpen(false);
+  };
+
+  const confirmBulkPaymentStatusUpdate = () => {
+    if (selectedCount === 0 || bulkStatusMutation.isPending) return;
+    bulkStatusMutation.mutate(bulkPaymentStatusDraft);
+  };
+
 
   if (isLoading && !data) {
     return (
@@ -597,6 +632,12 @@ export default function LessonWorkTab() {
             </button>
           </div>
         </section>
+
+      <LessonOutputQuickPopup
+        open={Boolean(selectedOutputId)}
+        outputId={selectedOutputId}
+        onClose={() => setSelectedOutputId(null)}
+      />
       </section>
     );
   }
@@ -663,6 +704,61 @@ export default function LessonWorkTab() {
         </div>
 
         <div className="px-4 py-3.5 sm:px-5 sm:py-4">
+          {selectedCount > 0 ? (
+            <section className="relative mb-4 overflow-hidden rounded-[1.2rem] border border-border-default bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92),rgba(14,165,233,0.08))] p-3 shadow-sm">
+              <div className="pointer-events-none absolute -right-10 top-0 size-24 rounded-full bg-success/10 blur-3xl" aria-hidden />
+              <div className="pointer-events-none absolute bottom-0 left-8 size-20 rounded-full bg-primary/10 blur-3xl" aria-hidden />
+              <div className="relative flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="space-y-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
+                    Thanh toán hàng loạt
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-text-secondary">
+                    <span className="inline-flex items-center rounded-full border border-primary/15 bg-primary/8 px-2.5 py-1 font-medium text-primary">
+                      Đã chọn {selectedCount} bài
+                    </span>
+                    <span className="text-text-muted">
+                      Chọn nhiều bài để chuyển trạng thái thanh toán trong một lần.
+                    </span>
+                  </div>
+                </div>
+                <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end lg:w-auto">
+                  <button
+                    type="button"
+                    onClick={toggleAllPage}
+                    disabled={pageIds.length === 0 || bulkStatusMutation.isPending}
+                    className="touch-manipulation inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3.5 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {allSelected ? `Bỏ chọn ${selectedCount} bài` : `Chọn cả ${pageIds.length} bài`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearSelection}
+                    disabled={bulkStatusMutation.isPending}
+                    className="touch-manipulation inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3.5 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Bỏ chọn toàn bộ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openBulkEditPopup}
+                    disabled={bulkStatusMutation.isPending}
+                    className="touch-manipulation inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse shadow-[0_14px_30px_-18px_rgba(37,99,235,0.55)] transition-all hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label={`Sửa trạng thái thanh toán cho ${selectedCount} bài đã chọn`}
+                  >
+                    <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                    <span>Sửa trạng thái thanh toán</span>
+                    <span className="rounded-full bg-white/18 px-2 py-0.5 text-xs font-semibold tabular-nums">
+                      {selectedCount}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </section>
+          ) : null}
+
           {outputs.length > 0 ? (
             <div className="overflow-hidden rounded-xl border border-border-default">
               <div className="overflow-x-auto">
@@ -679,12 +775,12 @@ export default function LessonWorkTab() {
                   <thead className="bg-bg-secondary">
                     <tr className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                       <th className="w-10 px-2.5 py-2.5" scope="col">
-                        <input
-                          type="checkbox"
+                        <SelectionCheckbox
                           checked={allSelected}
+                          indeterminate={hasPartialSelection}
                           onChange={() => toggleAllPage()}
-                          className="size-4 rounded border-border-default text-primary focus:ring-border-focus"
-                          aria-label="Chọn tất cả trên trang này"
+                          disabled={bulkStatusMutation.isPending}
+                          ariaLabel="Chọn tất cả trên trang này"
                         />
                       </th>
                       <th className="px-2.5 py-2.5" scope="col">
@@ -715,15 +811,14 @@ export default function LessonWorkTab() {
                         <tr
                           key={output.id}
                           className="cursor-pointer border-t border-border-default bg-bg-surface transition-colors hover:bg-bg-secondary/40"
-                          onClick={() => router.push(`/admin/lesson-plans/outputs/${output.id}`)}
+                          onClick={() => openOutputDetail(output.id)}
                         >
                           <td className="px-2.5 py-2.5 align-middle" onClick={(e) => e.stopPropagation()}>
-                            <input
-                              type="checkbox"
+                            <SelectionCheckbox
                               checked={selected.has(output.id)}
                               onChange={() => toggleOne(output.id)}
-                              className="size-4 rounded border-border-default text-primary focus:ring-border-focus"
-                              aria-label={`Chọn ${output.lessonName}`}
+                              disabled={bulkStatusMutation.isPending}
+                              ariaLabel={`Chọn ${output.lessonName}`}
                             />
                           </td>
                           <td className="px-2.5 py-2.5 align-top">
@@ -751,7 +846,7 @@ export default function LessonWorkTab() {
                               className="text-left text-sm font-semibold leading-snug text-text-primary underline-offset-4 hover:text-primary hover:underline"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                openEditPopup(output.id);
+                                openOutputDetail(output.id);
                               }}
                             >
                               {output.lessonName}
@@ -837,88 +932,100 @@ export default function LessonWorkTab() {
         </div>
       </section>
 
-      {editingOutputId ? (
+      <LessonOutputQuickPopup
+        open={Boolean(selectedOutputId)}
+        outputId={selectedOutputId}
+        onClose={() => setSelectedOutputId(null)}
+      />
+
+      {bulkEditPopupOpen && selectedCount > 0 ? (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/50"
+            className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-[1px]"
             aria-hidden
-            onClick={closeEditPopup}
+            onClick={closeBulkEditPopup}
           />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="lesson-work-edit-output-title"
-            className="fixed inset-x-3 top-1/2 z-50 max-h-[90vh] -translate-y-1/2 overflow-y-auto overscroll-contain rounded-[1.5rem] border border-border-default bg-bg-surface p-4 shadow-xl sm:left-1/2 sm:w-full sm:max-w-5xl sm:-translate-x-1/2 sm:p-6"
-          >
-            <div className="mb-4 flex items-start justify-between gap-4 border-b border-border-default pb-3 sm:mb-5">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
-                  Bài giáo án
-                </p>
-                <h3
-                  id="lesson-work-edit-output-title"
-                  className="mt-1 text-lg font-semibold text-text-primary"
-                >
-                  Chỉnh sửa thông tin bài
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={closeEditPopup}
-                disabled={updateMutation.isPending}
-                className="rounded-xl p-2 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50"
-                aria-label="Đóng popup chỉnh sửa bài giáo án"
+          <div className="fixed inset-0 z-[70] p-3 sm:p-4">
+            <div className="mx-auto flex h-full w-full max-w-md items-center">
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="bulk-work-payment-status-title"
+                className="relative w-full overflow-hidden rounded-[1.5rem] border border-border-default bg-bg-surface p-5 shadow-2xl"
               >
-                <svg
-                  className="size-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-success/0 via-success/50 to-primary/0" aria-hidden />
+                <div className="absolute -right-8 -top-10 h-24 w-24 rounded-full bg-success/10 blur-3xl" aria-hidden />
+
+                <div className="relative">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
+                        Chỉnh sửa hàng loạt
+                      </p>
+                      <h2
+                        id="bulk-work-payment-status-title"
+                        className="mt-1 text-lg font-semibold text-text-primary text-balance"
+                      >
+                        Cập nhật trạng thái thanh toán
+                      </h2>
+                      <p className="mt-2 text-sm text-text-secondary">
+                        Áp dụng cho{" "}
+                        <span className="font-semibold text-primary">
+                          {selectedCount}
+                        </span>{" "}
+                        bài đã chọn.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={closeBulkEditPopup}
+                      className="rounded-xl p-2 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                      aria-label="Đóng popup sửa trạng thái thanh toán"
+                    >
+                      <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div className="mt-5 space-y-4">
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-medium text-text-secondary">
+                        Trạng thái muốn đổi
+                      </span>
+                      <UpgradedSelect
+                        name="bulk-work-payment-status"
+                        value={bulkPaymentStatusDraft}
+                        onValueChange={(value) =>
+                          setBulkPaymentStatusDraft(value as LessonPaymentStatus)
+                        }
+                        options={LESSON_PAYMENT_STATUS_OPTIONS}
+                        buttonClassName="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                      />
+                    </label>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={closeBulkEditPopup}
+                        disabled={bulkStatusMutation.isPending}
+                        className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Hủy
+                      </button>
+                      <button
+                        type="button"
+                        onClick={confirmBulkPaymentStatusUpdate}
+                        disabled={bulkStatusMutation.isPending}
+                        className="min-h-11 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {bulkStatusMutation.isPending ? "Đang cập nhật…" : "Xác nhận"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-
-            {isEditingDetailFetching && !editingOutputDetail ? (
-              <div className="rounded-xl border border-border-default bg-bg-secondary/35 px-4 py-8 text-center text-sm text-text-secondary">
-                Đang tải dữ liệu bài giáo án...
-              </div>
-            ) : null}
-
-            {isEditingDetailError ? (
-              <div className="rounded-xl border border-error/40 bg-error/10 px-4 py-8 text-center text-sm text-error">
-                {getErrorMessage(
-                  editingDetailError,
-                  "Không tải được dữ liệu để chỉnh sửa.",
-                )}
-              </div>
-            ) : null}
-
-            {editingOutputDetail ? (
-              <LessonOutputEditorForm
-                mode="edit"
-                initialData={editingOutputDetail}
-                showParentTaskBanner={false}
-                hideStaffFields
-                allowTasklessOutput
-                isSubmitting={updateMutation.isPending}
-                submitLabel="Lưu thay đổi"
-                onCancel={closeEditPopup}
-                onSubmit={async (payload) => {
-                  await updateMutation.mutateAsync({
-                    outputId: editingOutputDetail.id,
-                    payload,
-                  });
-                }}
-              />
-            ) : null}
           </div>
         </>
       ) : null}
