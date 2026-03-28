@@ -1,13 +1,19 @@
 import Link from "next/link";
 import LessonExercisesTab from "@/components/admin/lesson-plans/LessonExercisesTab";
 
-export default function AdminLessonManageDetailsPage() {
+export function LessonManageDetailsPage({
+  basePagePath = "/admin/lesson-plans",
+  manageDetailsPath = "/admin/lesson-manage-details",
+}: {
+  basePagePath?: string;
+  manageDetailsPath?: string;
+}) {
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-3 pb-8 sm:p-6">
       <div className="mx-auto flex w-full max-w-[1720px] flex-col gap-4 rounded-xl border border-border-default bg-bg-surface p-2 shadow-sm sm:rounded-lg sm:p-4">
         <div className="flex items-center justify-start">
           <Link
-            href="/admin/lesson-plans?tab=exercises"
+            href={`${basePagePath}?tab=exercises`}
             className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
           >
             <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -16,8 +22,16 @@ export default function AdminLessonManageDetailsPage() {
             Quay lại
           </Link>
         </div>
-        <LessonExercisesTab expandedView />
+        <LessonExercisesTab
+          expandedView
+          basePagePath={basePagePath}
+          manageDetailsPath={manageDetailsPath}
+        />
       </div>
     </div>
   );
+}
+
+export default function AdminLessonManageDetailsPage() {
+  return <LessonManageDetailsPage />;
 }

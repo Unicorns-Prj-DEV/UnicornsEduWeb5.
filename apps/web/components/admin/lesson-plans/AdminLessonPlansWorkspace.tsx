@@ -303,7 +303,15 @@ function ListTableSkeleton({
   );
 }
 
-export default function AdminLessonPlansWorkspace() {
+export default function AdminLessonPlansWorkspace({
+  basePath = "/admin/lesson-plans",
+  manageDetailsPath = "/admin/lesson-manage-details",
+  taskDetailBasePath = "/admin/lesson-plans/tasks",
+}: {
+  basePath?: string;
+  manageDetailsPath?: string;
+  taskDetailBasePath?: string;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -466,7 +474,7 @@ export default function AdminLessonPlansWorkspace() {
     params.set("tab", activeTab);
     params.set("resourcePage", String(resourcePage));
     params.set("taskPage", String(taskPage));
-    return `/admin/lesson-plans/tasks/${encodeURIComponent(taskId)}?${params.toString()}`;
+    return `${taskDetailBasePath}/${encodeURIComponent(taskId)}?${params.toString()}`;
   };
 
   const openCreateResource = () => {
@@ -1268,9 +1276,12 @@ export default function AdminLessonPlansWorkspace() {
               )}
             </section>
           ) : activeTab === "work" ? (
-            <LessonWorkTab />
+            <LessonWorkTab basePagePath={basePath} />
           ) : (
-            <LessonExercisesTab />
+            <LessonExercisesTab
+              basePagePath={basePath}
+              manageDetailsPath={manageDetailsPath}
+            />
           )}
         </div>
       </div>

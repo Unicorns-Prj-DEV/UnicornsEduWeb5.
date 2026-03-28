@@ -128,6 +128,8 @@ function ExPagination({
 
 type LessonExercisesTabProps = {
   expandedView?: boolean;
+  basePagePath?: string;
+  manageDetailsPath?: string;
 };
 
 /**
@@ -136,6 +138,8 @@ type LessonExercisesTabProps = {
  */
 export default function LessonExercisesTab({
   expandedView = false,
+  basePagePath = "/admin/lesson-plans",
+  manageDetailsPath = "/admin/lesson-manage-details",
 }: LessonExercisesTabProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -176,9 +180,7 @@ export default function LessonExercisesTab({
       }),
   });
 
-  const basePagePath = expandedView
-    ? "/admin/lesson-manage-details"
-    : "/admin/lesson-plans";
+  const currentPagePath = expandedView ? manageDetailsPath : basePagePath;
 
   const syncExParams = useCallback(
     (patch: Record<string, string | number | null | undefined>) => {
@@ -191,11 +193,11 @@ export default function LessonExercisesTab({
           params.set(key, String(value));
         }
       }
-      router.replace(`${basePagePath}?${params.toString()}`, {
+      router.replace(`${currentPagePath}?${params.toString()}`, {
         scroll: false,
       });
     },
-    [basePagePath, router, searchParams],
+    [currentPagePath, router, searchParams],
   );
 
   const applyFilters = useCallback((draft: LessonWorkFilterDraft) => {
@@ -246,13 +248,13 @@ export default function LessonExercisesTab({
   const goToExpandedManageDetails = () => {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("tab", "exercises");
-    router.push(`/admin/lesson-manage-details?${params.toString()}`);
+    router.push(`${manageDetailsPath}?${params.toString()}`);
   };
 
   const goBackToLessonPlans = () => {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("tab", "exercises");
-    router.push(`/admin/lesson-plans?${params.toString()}`);
+    router.push(`${basePagePath}?${params.toString()}`);
   };
 
   const queryKey = useMemo(

@@ -15,6 +15,7 @@ type Props = {
   hideStaffFields?: boolean;
   showParentTaskBanner?: boolean;
   allowTasklessOutput?: boolean;
+  forceSharedLayout?: boolean;
   allowDelete?: boolean;
   relatedTaskIds?: string[];
 };
@@ -52,6 +53,7 @@ export default function LessonOutputQuickPopup({
   hideStaffFields = true,
   showParentTaskBanner = false,
   allowTasklessOutput = true,
+  forceSharedLayout = false,
   allowDelete = false,
   relatedTaskIds = [],
 }: Props) {
@@ -206,6 +208,7 @@ export default function LessonOutputQuickPopup({
               initialData={outputDetail}
               showParentTaskBanner={showParentTaskBanner}
               hideStaffFields={hideStaffFields}
+              forceSharedLayout={forceSharedLayout}
               allowTasklessOutput={allowTasklessOutput}
               isSubmitting={updateMutation.isPending}
               submitLabel="Lưu thay đổi"

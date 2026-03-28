@@ -5,8 +5,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import type { CreateLessonOutputPayload } from "@/dtos/lesson.dto";
 import * as lessonApi from "@/lib/apis/lesson.api";
+import LessonOutputEditorForm from "./LessonOutputEditorForm";
 import LessonOutputQuickPopup from "./LessonOutputQuickPopup";
-import LessonWorkAddLessonForm from "./LessonWorkAddLessonForm";
 
 function getErrorMessage(error: unknown, fallback: string) {
   return (
@@ -84,7 +84,12 @@ export default function LessonWorkNewLessonPanel() {
 
       {open ? (
         <div className="border-t border-border-default px-4 pb-5 pt-4 sm:px-5 sm:pb-6">
-          <LessonWorkAddLessonForm
+          <LessonOutputEditorForm
+            mode="create"
+            showParentTaskBanner={false}
+            hideStaffFields
+            forceSharedLayout
+            allowTasklessOutput
             isSubmitting={createMutation.isPending}
             onCancel={() => setOpen(false)}
             onSubmit={async (payload) => {
@@ -97,6 +102,7 @@ export default function LessonWorkNewLessonPanel() {
       <LessonOutputQuickPopup
         open={Boolean(selectedOutputId)}
         outputId={selectedOutputId}
+        forceSharedLayout
         onClose={() => setSelectedOutputId(null)}
       />
     </div>

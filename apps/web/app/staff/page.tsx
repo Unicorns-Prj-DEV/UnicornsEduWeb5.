@@ -125,7 +125,11 @@ function getOtherRoleDetailHref(role: string) {
     return "/staff/communication-detail";
   }
 
-  if (role === "lesson_plan" || role === "lesson_plan_head") {
+  if (role === "lesson_plan_head") {
+    return "/staff/lesson-plans";
+  }
+
+  if (role === "lesson_plan") {
     return "/staff/lesson-plan-detail";
   }
 

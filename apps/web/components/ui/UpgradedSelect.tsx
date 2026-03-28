@@ -14,6 +14,7 @@ import { createPortal } from "react-dom";
 export type UpgradedSelectOption = {
   value: string;
   label: ReactNode;
+  selectedLabel?: ReactNode;
   disabled?: boolean;
 };
 
@@ -93,6 +94,7 @@ export default function UpgradedSelect({
     () => options.find((option) => option.value === selectedValue) ?? null,
     [options, selectedValue],
   );
+  const selectedContent = selectedOption?.selectedLabel ?? selectedOption?.label;
 
   useEffect(() => {
     if (!open) return;
@@ -284,13 +286,13 @@ export default function UpgradedSelect({
         }}
         onKeyDown={handleTriggerKeyDown}
       >
-        <span
-          className={`truncate ${
+        <div
+          className={`min-w-0 flex-1 ${
             selectedOption ? "text-text-primary" : "text-text-muted"
           }`}
         >
-          {selectedOption?.label ?? placeholder}
-        </span>
+          {selectedContent ?? placeholder}
+        </div>
         <svg
           className={`ml-2 size-4 shrink-0 text-text-muted transition-transform duration-200 ${
             open ? "rotate-180" : ""
@@ -334,7 +336,7 @@ export default function UpgradedSelect({
                     role="option"
                     aria-selected={isSelected}
                     disabled={option.disabled}
-                    className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm transition-colors duration-150 ${
+                    className={`flex w-full items-start justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors duration-150 ${
                       option.disabled
                         ? "cursor-not-allowed text-text-muted/60"
                         : isSelected
@@ -346,7 +348,7 @@ export default function UpgradedSelect({
                       commitValue(option.value);
                     }}
                   >
-                    <span className="truncate">{option.label}</span>
+                    <div className="min-w-0 flex-1">{option.label}</div>
                     {isSelected ? (
                       <svg
                         className="ml-3 size-4 shrink-0 text-primary"

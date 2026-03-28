@@ -6,7 +6,7 @@ import { useRef, useState, useEffect, useSyncExternalStore } from "react";
 import { animate, stagger } from "animejs";
 import * as authApi from "@/lib/apis/auth.api";
 import AdminProfilePopup, { type AdminProfile } from "./AdminProfilePopup";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { Role } from "@/dtos/Auth.dto";
@@ -134,6 +134,21 @@ export default function AdminSidebar() {
   const isMobile = useMediaQuery("(max-width: 767px)");
   const prefersReducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const { setUser } = useAuth();
+  const { data: fullProfile, isLoading: isProfileLoading } = useQuery({
+    queryKey: ["auth", "full-profile"],
+    queryFn: authApi.getFullProfile,
+    retry: false,
+    staleTime: 60_000,
+  });
+  const staffRoles = fullProfile?.staffInfo?.roles ?? [];
+  const isLessonPlanHeadManager =
+    fullProfile?.roleType === "staff" &&
+    staffRoles.includes("lesson_plan_head");
+  const menuItems = isProfileLoading
+    ? []
+    : isLessonPlanHeadManager
+      ? MENU_ITEMS.filter((item) => item.href === "/admin/lesson-plans")
+      : MENU_ITEMS;
 
   useEffect(() => {
     if (!isMobile) {
@@ -264,7 +279,12 @@ export default function AdminSidebar() {
         </div>
         <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 overscroll-contain">
           <ul ref={navListRef} className="space-y-0.5 px-2" role="list">
-            {MENU_ITEMS.map((item) => {
+            {menuItems.length === 0 && (
+              <li className="px-1.5 py-2" aria-hidden>
+                <div className="h-10 animate-pulse rounded-xl bg-bg-tertiary" />
+              </li>
+            )}
+            {menuItems.map((item) => {
               const isActive =
                 item.href === "/admin"
                   ? pathname === "/admin"

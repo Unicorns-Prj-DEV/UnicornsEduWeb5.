@@ -189,10 +189,11 @@ type Props = {
 };
 
 type PickerPanelPosition = {
-  top: number;
   left: number;
   width: number;
   maxHeight: number;
+  top?: number;
+  bottom?: number;
 };
 
 export default function LessonTagPicker({
@@ -207,6 +208,7 @@ export default function LessonTagPicker({
     null,
   );
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const selected = useMemo(() => new Set(value), [value]);
 
   useEffect(() => {
@@ -280,29 +282,38 @@ export default function LessonTagPicker({
     }
 
     const updatePanelPosition = () => {
-      const container = containerRef.current;
-      if (!container) return;
+      const input = inputRef.current;
+      if (!input) return;
 
-      const rect = container.getBoundingClientRect();
+      const rect = input.getBoundingClientRect();
       const viewportPadding = 16;
       const gap = 8;
       const preferredMaxHeight = 320;
+      const maxWidth = window.innerWidth - viewportPadding * 2;
+      const width = Math.min(rect.width, maxWidth);
+      const left = Math.min(
+        Math.max(rect.left, viewportPadding),
+        window.innerWidth - width - viewportPadding,
+      );
       const spaceBelow = window.innerHeight - rect.bottom - viewportPadding;
       const spaceAbove = rect.top - viewportPadding;
       const shouldOpenUpward = spaceBelow < 220 && spaceAbove > spaceBelow;
       const availableSpace = shouldOpenUpward ? spaceAbove : spaceBelow;
       const maxHeight = Math.max(
         160,
-        Math.min(preferredMaxHeight, availableSpace - gap),
+        Math.min(
+          preferredMaxHeight,
+          availableSpace - (shouldOpenUpward ? 0 : gap),
+        ),
       );
 
       setPanelPosition({
-        top: shouldOpenUpward
-          ? Math.max(viewportPadding, rect.top - maxHeight - gap)
-          : rect.bottom + gap,
-        left: Math.max(viewportPadding, rect.left),
-        width: rect.width,
+        left,
+        width,
         maxHeight,
+        ...(shouldOpenUpward
+          ? { bottom: window.innerHeight - rect.top }
+          : { top: rect.bottom + gap }),
       });
     };
 
@@ -325,6 +336,7 @@ export default function LessonTagPicker({
   return (
     <div ref={containerRef} className="relative">
       <input
+        ref={inputRef}
         type="text"
         value={search}
         onFocus={() => setOpen(true)}
@@ -358,10 +370,11 @@ export default function LessonTagPicker({
             <div
               className="fixed z-[80] overflow-y-auto rounded-xl border border-border-default bg-bg-surface shadow-lg"
               style={{
-                top: panelPosition.top,
                 left: panelPosition.left,
                 width: panelPosition.width,
                 maxHeight: panelPosition.maxHeight,
+                top: panelPosition.top,
+                bottom: panelPosition.bottom,
               }}
             >
               {visibleGroups.map((group) => (

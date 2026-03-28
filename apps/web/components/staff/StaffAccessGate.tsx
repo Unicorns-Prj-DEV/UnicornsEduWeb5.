@@ -30,12 +30,17 @@ export default function StaffAccessGate({
   const isCommunication = staffRoles.includes("communication");
   const isLessonPlanner =
     staffRoles.includes("lesson_plan") || staffRoles.includes("lesson_plan_head");
+  const isLessonPlanManager =
+    roleType === "admin" || staffRoles.includes("lesson_plan_head");
   const isRootStaffProfileRoute = pathname === "/staff";
   const isCustomerCareSelfRoute = pathname.startsWith("/staff/customer-care-detail");
   const isAssistantSelfRoute = pathname.startsWith("/staff/assistant-detail");
   const isAccountantSelfRoute = pathname.startsWith("/staff/accountant-detail");
   const isCommunicationSelfRoute = pathname.startsWith("/staff/communication-detail");
   const isLessonPlanSelfRoute = pathname.startsWith("/staff/lesson-plan-detail");
+  const isLessonPlanManagementRoute =
+    pathname.startsWith("/staff/lesson-plans") ||
+    pathname.startsWith("/staff/lesson-manage-details");
   const isAllowed = isRootStaffProfileRoute
     ? hasStaffProfile && isStaffOrAdmin
     : isCustomerCareSelfRoute
@@ -46,6 +51,8 @@ export default function StaffAccessGate({
           ? hasStaffProfile && isStaffOrAdmin && isAccountant
           : isCommunicationSelfRoute
             ? hasStaffProfile && isStaffOrAdmin && isCommunication
+            : isLessonPlanManagementRoute
+              ? hasStaffProfile && isStaffOrAdmin && isLessonPlanManager
             : isLessonPlanSelfRoute
               ? hasStaffProfile && isStaffOrAdmin && isLessonPlanner
       : roleType === "admin" || (roleType === "staff" && isTeacher);
@@ -56,6 +63,8 @@ export default function StaffAccessGate({
       ? "Customer Care Locked"
       : isAssistantSelfRoute || isAccountantSelfRoute || isCommunicationSelfRoute
         ? "Allowance Locked"
+        : isLessonPlanManagementRoute
+          ? "Lesson Plan Workspace Locked"
         : isLessonPlanSelfRoute
           ? "Lesson Plan Locked"
       : "Staff Ops Locked";
@@ -69,6 +78,8 @@ export default function StaffAccessGate({
           ? "Tài khoản này không dùng được màn trợ cấp kế toán cá nhân."
           : isCommunicationSelfRoute
             ? "Tài khoản này không dùng được màn trợ cấp truyền thông cá nhân."
+            : isLessonPlanManagementRoute
+              ? "Tài khoản này không dùng được workspace quản lý giáo án."
             : isLessonPlanSelfRoute
               ? "Tài khoản này không dùng được màn lesson output cá nhân."
       : "Tài khoản này không dùng được màn vận hành lớp học.";
@@ -82,6 +93,8 @@ export default function StaffAccessGate({
           ? "Màn này chỉ mở khi hồ sơ nhân sự hiện tại có role `accountant`. Nó chỉ hiển thị trợ cấp của chính bạn và không cho phép chỉnh sửa."
           : isCommunicationSelfRoute
             ? "Màn này chỉ mở khi hồ sơ nhân sự hiện tại có role `communication`. Nó chỉ hiển thị trợ cấp của chính bạn và không cho phép chỉnh sửa."
+            : isLessonPlanManagementRoute
+              ? "Workspace này chỉ mở cho `admin` hoặc staff có role `lesson_plan_head`. Tại đây Trưởng giáo án có toàn quyền điều chỉnh giống admin, nhưng giữ nguyên trong shell `/staff`."
             : isLessonPlanSelfRoute
               ? "Màn này chỉ mở khi hồ sơ nhân sự hiện tại có role `lesson_plan` hoặc `lesson_plan_head`. Nó chỉ hiển thị lesson output của chính bạn và không cho phép chỉnh sửa."
       : "Màn này hiện mở cho `admin` hoặc `staff.teacher`. Teacher dùng nó để xem lớp phụ trách và thao tác buổi học; admin có thể truy cập để theo dõi hoặc hỗ trợ vận hành.";

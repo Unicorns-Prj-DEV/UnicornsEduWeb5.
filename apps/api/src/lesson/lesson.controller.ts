@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -43,11 +44,13 @@ import {
   UpdateLessonTaskDto,
 } from '../dtos/lesson.dto';
 import { LessonService } from './lesson.service';
+import { LessonManagementGuard } from './lesson-management.guard';
 
 @Controller()
 @ApiTags('lesson')
 @ApiCookieAuth('access_token')
-@Roles(UserRole.admin)
+@Roles(UserRole.admin, UserRole.staff)
+@UseGuards(LessonManagementGuard)
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class LessonController {
   constructor(private readonly lessonService: LessonService) {}

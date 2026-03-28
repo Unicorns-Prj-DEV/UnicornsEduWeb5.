@@ -99,7 +99,11 @@ function StaffCard({
   );
 }
 
-export default function AdminLessonTaskDetailPage() {
+export function LessonTaskDetailPage({
+  workspaceBasePath = "/admin/lesson-plans",
+}: {
+  workspaceBasePath?: string;
+}) {
   const params = useParams();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -131,8 +135,8 @@ export default function AdminLessonTaskDetailPage() {
       "workPage",
       String(normalizePositiveInt(searchParams.get("workPage"))),
     );
-    return `/admin/lesson-plans?${nextParams.toString()}`;
-  }, [searchParams]);
+    return `${workspaceBasePath}?${nextParams.toString()}`;
+  }, [searchParams, workspaceBasePath]);
 
   const {
     data: task,
@@ -1009,4 +1013,8 @@ export default function AdminLessonTaskDetailPage() {
       ) : null}
     </div>
   );
+}
+
+export default function AdminLessonTaskDetailPage() {
+  return <LessonTaskDetailPage />;
 }

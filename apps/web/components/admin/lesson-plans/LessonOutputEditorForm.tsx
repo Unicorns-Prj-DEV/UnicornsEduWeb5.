@@ -1,7 +1,13 @@
 "use client";
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useDeferredValue, useMemo, useState, type SyntheticEvent } from "react";
+import {
+  useDeferredValue,
+  useMemo,
+  useState,
+  type ReactNode,
+  type SyntheticEvent,
+} from "react";
 import { toast } from "sonner";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type {
@@ -37,6 +43,8 @@ type Props = {
   showParentTaskBanner?: boolean;
   /** Khi `true`, ẩn toàn bộ khối gán nhân sự (tab Công việc — Thêm bài mới). */
   hideStaffFields?: boolean;
+  /** Khi `true`, vẫn dùng shared layout của task detail dù đang ở chế độ taskless. */
+  forceSharedLayout?: boolean;
   /** Khi `true`, cho phép submit không có `lessonTaskId` (gửi `null`). */
   allowTasklessOutput?: boolean;
   isSubmitting?: boolean;
@@ -60,15 +68,15 @@ const STATUS_OPTIONS: { value: LessonOutputStatus; label: string }[] = [
   },
 ];
 
-const LEVEL_OPTIONS = [
-  { value: "", label: "-- Chọn --" },
-  { value: "Level 0", label: "Level 0" },
-  { value: "Level 1", label: "Level 1" },
-  { value: "Level 2", label: "Level 2" },
-  { value: "Level 3", label: "Level 3" },
-  { value: "Level 4", label: "Level 4" },
-  { value: "Level 5", label: "Level 5" },
-];
+const LEVEL_VALUES = [
+  "",
+  "Level 0",
+  "Level 1",
+  "Level 2",
+  "Level 3",
+  "Level 4",
+  "Level 5",
+] as const;
 
 function getSubmitLabel(mode: LessonUpsertMode, submitLabel?: string) {
   if (submitLabel) {
@@ -133,6 +141,176 @@ function fieldInputClass() {
   return "min-h-11 w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-sm text-text-primary shadow-sm placeholder:text-text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus";
 }
 
+function selectButtonClass() {
+  return "min-h-11 rounded-xl border border-border-default bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ue-bg-surface)_96%,white),color-mix(in_srgb,var(--ue-bg-secondary)_74%,white))] px-3 py-2.5 text-sm text-text-primary shadow-sm transition-all duration-200 hover:border-primary/25 hover:bg-bg-secondary/65 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus";
+}
+
+function selectMenuClass() {
+  return "overflow-auto rounded-[1.2rem] border border-border-default bg-bg-surface/96 p-1.5 shadow-[0_28px_68px_-30px_rgba(15,23,42,0.5)] backdrop-blur-sm";
+}
+
+function DropdownLabel({
+  eyebrow,
+  title,
+  hint,
+  badge,
+}: {
+  eyebrow?: string;
+  title: string;
+  hint?: string;
+  badge?: ReactNode;
+}) {
+  return (
+    <div className="flex min-w-0 items-start gap-3">
+      {badge ? <div className="pt-0.5">{badge}</div> : null}
+      <div className="min-w-0">
+        {eyebrow ? (
+          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">
+            {eyebrow}
+          </div>
+        ) : null}
+        <div className="truncate text-sm font-semibold text-text-primary">{title}</div>
+        {hint ? (
+          <div className="mt-0.5 text-xs leading-5 text-text-muted">{hint}</div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function CompactDropdownValue({
+  title,
+  badge,
+}: {
+  title: string;
+  badge?: ReactNode;
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-2.5">
+      {badge ? <div className="shrink-0">{badge}</div> : null}
+      <div className="truncate text-sm font-medium text-text-primary">{title}</div>
+    </div>
+  );
+}
+
+function levelBadgeClass(level: string) {
+  if (!level.trim()) {
+    return "border-border-default bg-bg-secondary text-text-secondary";
+  }
+
+  return "border-primary/20 bg-primary/10 text-primary";
+}
+
+const LEVEL_OPTIONS = LEVEL_VALUES.map((value) => {
+  const hasValue = value.trim().length > 0;
+  const title = hasValue ? value : "Không gắn level";
+  const hint = "";
+
+  return {
+    value,
+    label: (
+      <DropdownLabel
+        eyebrow="Level"
+        title={title}
+        hint={hint}
+        badge={
+          <span
+            className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${levelBadgeClass(
+              value,
+            )}`}
+          >
+            {hasValue ? value.replace("Level ", "L") : "None"}
+          </span>
+        }
+      />
+    ),
+    selectedLabel: (
+      <CompactDropdownValue
+        title={title}
+        badge={
+          <span
+            className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${levelBadgeClass(
+              value,
+            )}`}
+          >
+            {hasValue ? value.replace("Level ", "L") : "None"}
+          </span>
+        }
+      />
+    ),
+  };
+});
+
+const STATUS_SELECT_OPTIONS = STATUS_OPTIONS.map((option) => ({
+  value: option.value,
+  label: (
+    <DropdownLabel
+      // eyebrow="Workflow"
+      // title={option.label}
+      title=""
+      hint=""
+      badge={
+        <span
+          className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ring-1 ${lessonOutputStatusChipClass(
+            option.value,
+          )}`}
+        >
+          {option.label}
+        </span>
+      }
+    />
+  ),
+  selectedLabel: (
+    <CompactDropdownValue
+      title={option.label}
+      badge={
+        <span
+          className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ring-1 ${lessonOutputStatusChipClass(
+            option.value,
+          )}`}
+        >
+          {option.label}
+        </span>
+      }
+    />
+  ),
+}));
+
+const PAYMENT_SELECT_OPTIONS = LESSON_PAYMENT_STATUS_OPTIONS.map((option) => ({
+  value: option.value,
+  label: (
+    <DropdownLabel
+      // eyebrow="Payment"
+      // title={typeof option.label === "string" ? option.label : LESSON_PAYMENT_STATUS_LABELS[option.value as LessonPaymentStatus]}
+      title=""
+      hint=""
+      badge={
+        <span
+          className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ring-1 ${lessonPaymentStatusChipClass(
+            option.value as LessonPaymentStatus,
+          )}`}
+        >
+          {LESSON_PAYMENT_STATUS_LABELS[option.value as LessonPaymentStatus]}
+        </span>
+      }
+    />
+  ),
+  selectedLabel: (
+    <CompactDropdownValue
+      title={LESSON_PAYMENT_STATUS_LABELS[option.value as LessonPaymentStatus]}
+      badge={
+        <span
+          className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ring-1 ${lessonPaymentStatusChipClass(
+            option.value as LessonPaymentStatus,
+          )}`}
+        >
+          {LESSON_PAYMENT_STATUS_LABELS[option.value as LessonPaymentStatus]}
+        </span>
+      }
+    />
+  ),
+}));
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("vi-VN").format(value);
 }
@@ -143,12 +321,14 @@ export default function LessonOutputEditorForm({
   initialTask = null,
   showParentTaskBanner = true,
   hideStaffFields = false,
+  forceSharedLayout = false,
   allowTasklessOutput = false,
   isSubmitting = false,
   onCancel,
   onSubmit,
   submitLabel,
 }: Props) {
+  const useCompactTasklessLayout = hideStaffFields && !forceSharedLayout;
   const lessonTaskId = initialData?.lessonTaskId ?? initialTask?.id ?? "";
   const lessonTaskTitle = initialData?.task?.title ?? initialTask?.title ?? null;
   const hasParentTask = lessonTaskId.trim().length > 0;
@@ -318,7 +498,7 @@ export default function LessonOutputEditorForm({
     });
   };
 
-  if (hideStaffFields) {
+  if (useCompactTasklessLayout) {
     const parsedCost = Number(cost.trim() || "0");
     const displayCost = Number.isFinite(parsedCost) ? Math.max(0, parsedCost) : 0;
 
@@ -403,8 +583,9 @@ export default function LessonOutputEditorForm({
                   onValueChange={(value) => setLevel((value ?? "").trim())}
                   options={LEVEL_OPTIONS}
                   ariaLabel="Level"
-                  placeholder="-- Chọn --"
-                  buttonClassName={`${fieldInputClass()} flex items-center justify-between text-left`}
+                  placeholder="Chọn level"
+                  buttonClassName={`${selectButtonClass()} flex items-center justify-between text-left`}
+                  menuClassName={selectMenuClass()}
                 />
               </div>
             </div>
@@ -468,9 +649,10 @@ export default function LessonOutputEditorForm({
                 name="paymentStatus"
                 value={paymentStatus}
                 onValueChange={(value) => setPaymentStatus(value as LessonPaymentStatus)}
-                options={LESSON_PAYMENT_STATUS_OPTIONS}
+                options={PAYMENT_SELECT_OPTIONS}
                 ariaLabel="Trạng thái thanh toán output"
-                buttonClassName={`${fieldInputClass()} flex items-center justify-between text-left`}
+                buttonClassName={`${selectButtonClass()} flex items-center justify-between text-left`}
+                menuClassName={selectMenuClass()}
               />
             </label>
 
@@ -612,9 +794,11 @@ export default function LessonOutputEditorForm({
                 name="status"
                 value={status}
                 onValueChange={(value) => setStatus(value as LessonOutputStatus)}
-                options={STATUS_OPTIONS}
+                options={STATUS_SELECT_OPTIONS}
                 ariaLabel="Trạng thái lesson output"
                 placeholder="Chọn trạng thái"
+                buttonClassName={`${selectButtonClass()} flex items-center justify-between text-left`}
+                menuClassName={selectMenuClass()}
               />
             </label>
 
@@ -624,9 +808,11 @@ export default function LessonOutputEditorForm({
                 name="paymentStatus"
                 value={paymentStatus}
                 onValueChange={(value) => setPaymentStatus(value as LessonPaymentStatus)}
-                options={LESSON_PAYMENT_STATUS_OPTIONS}
+                options={PAYMENT_SELECT_OPTIONS}
                 ariaLabel="Trạng thái thanh toán output"
                 placeholder="Chọn trạng thái thanh toán"
+                buttonClassName={`${selectButtonClass()} flex items-center justify-between text-left`}
+                menuClassName={selectMenuClass()}
               />
             </label>
 
@@ -648,45 +834,60 @@ export default function LessonOutputEditorForm({
 
             <label className="flex flex-col gap-1 text-sm text-text-secondary">
               <span>Level</span>
-              <input
-                type="text"
+              <UpgradedSelect
+                name="level"
                 value={level}
-                onChange={(event) => setLevel(event.target.value)}
-                placeholder="Ví dụ: HSG tỉnh"
-                className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                onValueChange={(value) => setLevel((value ?? "").trim())}
+                options={LEVEL_OPTIONS}
+                ariaLabel="Level lesson output"
+                placeholder="Chọn level"
+                buttonClassName={`${selectButtonClass()} flex items-center justify-between text-left`}
+                menuClassName={selectMenuClass()}
               />
             </label>
 
             <label className="flex flex-col gap-1 text-sm text-text-secondary">
-              <span>Nguồn</span>
+              <span>
+                Nguồn
+                {hideStaffFields ? <span className="text-error"> *</span> : null}
+              </span>
               <input
                 type="text"
                 value={source}
                 onChange={(event) => setSource(event.target.value)}
                 placeholder="Ví dụ: Vĩnh Phúc HSG 2024"
                 className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                required={hideStaffFields}
               />
             </label>
 
             <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
-              <span>Original title</span>
+              <span>
+                Original title
+                {hideStaffFields ? <span className="text-error"> *</span> : null}
+              </span>
               <input
                 type="text"
                 value={originalTitle}
                 onChange={(event) => setOriginalTitle(event.target.value)}
                 placeholder="Tên bài gốc hoặc tên trong đề nguồn"
                 className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                required={hideStaffFields}
               />
             </label>
 
             <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
-              <span>Link gốc</span>
+              <span>
+                Link gốc
+                {hideStaffFields ? <span className="text-error"> *</span> : null}
+              </span>
               <input
                 type="url"
                 value={originalLink}
                 onChange={(event) => setOriginalLink(event.target.value)}
                 placeholder="https://..."
                 className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                required={hideStaffFields}
               />
             </label>
 
@@ -709,6 +910,29 @@ export default function LessonOutputEditorForm({
                 placeholder="Tìm kiếm và chọn tag..."
               />
             </label>
+
+            {hideStaffFields ? (
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 sm:col-span-2">
+                <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-text-primary">
+                  <input
+                    type="checkbox"
+                    checked={tagChecker}
+                    onChange={(event) => setTagChecker(event.target.checked)}
+                    className="size-4 rounded border-border-default text-primary focus:ring-border-focus"
+                  />
+                  Checker
+                </label>
+                <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-text-primary">
+                  <input
+                    type="checkbox"
+                    checked={tagCode}
+                    onChange={(event) => setTagCode(event.target.checked)}
+                    className="size-4 rounded border-border-default text-primary focus:ring-border-focus"
+                  />
+                  Code
+                </label>
+              </div>
+            ) : null}
           </div>
         </div>
 

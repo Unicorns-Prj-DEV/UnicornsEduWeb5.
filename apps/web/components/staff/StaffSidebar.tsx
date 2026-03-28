@@ -19,6 +19,7 @@ const MENU_ITEMS: {
   isVisible: (options: {
     canAccessClassWorkspace: boolean;
     canAccessCustomerCareSelf: boolean;
+    canAccessLessonPlanWorkspace: boolean;
   }) => boolean;
 }[] = [
     {
@@ -34,6 +35,15 @@ const MENU_ITEMS: {
       icon: <IconCustomerCare />,
       isActive: (pathname) => pathname === "/staff/customer-care-detail",
       isVisible: ({ canAccessCustomerCareSelf }) => canAccessCustomerCareSelf,
+    },
+    {
+      href: "/staff/lesson-plans",
+      label: "Giáo Án",
+      icon: <IconLessonPlans />,
+      isActive: (pathname) =>
+        pathname.startsWith("/staff/lesson-plans") ||
+        pathname.startsWith("/staff/lesson-manage-details"),
+      isVisible: ({ canAccessLessonPlanWorkspace }) => canAccessLessonPlanWorkspace,
     },
   ];
 
@@ -93,6 +103,19 @@ function IconCustomerCare() {
   );
 }
 
+function IconLessonPlans() {
+  return (
+    <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+      />
+    </svg>
+  );
+}
+
 export default function StaffSidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -117,8 +140,14 @@ export default function StaffSidebar() {
     fullProfile?.roleType === "admin" || staffRoles.includes("teacher");
   const canAccessCustomerCareSelf =
     fullProfile?.roleType === "staff" && staffRoles.includes("customer_care");
+  const canAccessLessonPlanWorkspace =
+    fullProfile?.roleType === "admin" || staffRoles.includes("lesson_plan_head");
   const menuItems = MENU_ITEMS.filter((item) =>
-    item.isVisible({ canAccessClassWorkspace, canAccessCustomerCareSelf }),
+    item.isVisible({
+      canAccessClassWorkspace,
+      canAccessCustomerCareSelf,
+      canAccessLessonPlanWorkspace,
+    }),
   );
 
   useEffect(() => {

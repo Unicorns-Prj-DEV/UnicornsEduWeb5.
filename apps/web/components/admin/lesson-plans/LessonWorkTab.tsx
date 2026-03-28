@@ -310,7 +310,11 @@ function WorkTableSkeleton({ rows = 5 }: { rows?: number }) {
   );
 }
 
-export default function LessonWorkTab() {
+export default function LessonWorkTab({
+  basePagePath = "/admin/lesson-plans",
+}: {
+  basePagePath?: string;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -375,11 +379,11 @@ export default function LessonWorkTab() {
           params.set(key, String(value));
         }
       }
-      router.replace(`/admin/lesson-plans?${params.toString()}`, {
+      router.replace(`${basePagePath}?${params.toString()}`, {
         scroll: false,
       });
     },
-    [router, searchParams],
+    [basePagePath, router, searchParams],
   );
 
   const applyFilters = useCallback((draft: LessonWorkFilterDraft) => {
@@ -636,6 +640,7 @@ export default function LessonWorkTab() {
       <LessonOutputQuickPopup
         open={Boolean(selectedOutputId)}
         outputId={selectedOutputId}
+        forceSharedLayout
         onClose={() => setSelectedOutputId(null)}
       />
       </section>
@@ -935,6 +940,7 @@ export default function LessonWorkTab() {
       <LessonOutputQuickPopup
         open={Boolean(selectedOutputId)}
         outputId={selectedOutputId}
+        forceSharedLayout
         onClose={() => setSelectedOutputId(null)}
       />
 

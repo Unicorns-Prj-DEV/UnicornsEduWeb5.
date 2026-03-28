@@ -2,7 +2,7 @@
 
 ## Route and role
 
-- **Paths:** `/staff`, `/staff/classes/[id]`, `/staff/customer-care-detail`, `/staff/assistant-detail`, `/staff/accountant-detail`, `/staff/communication-detail`, `/staff/lesson-plan-detail`
+- **Paths:** `/staff`, `/staff/classes/[id]`, `/staff/customer-care-detail`, `/staff/assistant-detail`, `/staff/accountant-detail`, `/staff/communication-detail`, `/staff/lesson-plan-detail`, `/staff/lesson-plans`, `/staff/lesson-plans/tasks/[taskId]`, `/staff/lesson-manage-details`
 - **Runtime access hiện tại:**
   - `/staff`: tài khoản hiện tại phải có linked `staffInfo`; đây là self-profile page của chính staff đang đăng nhập
   - `/staff/classes/[id]`: `admin`, hoặc `roleType=staff` và `staffInfo.roles` có `teacher`
@@ -11,7 +11,8 @@
   - `/staff/accountant-detail`: hồ sơ staff hiện tại có role `accountant`
   - `/staff/communication-detail`: hồ sơ staff hiện tại có role `communication`
   - `/staff/lesson-plan-detail`: hồ sơ staff hiện tại có role `lesson_plan` hoặc `lesson_plan_head`
-- **Scope hiện tại:** self-service hồ sơ staff, teacher workflow cho lớp học, cộng thêm self-service route cho CSKH
+  - `/staff/lesson-plans`, `/staff/lesson-plans/tasks/[taskId]`, `/staff/lesson-manage-details`: `admin`, hoặc `roleType=staff` và `staffInfo.roles` có `lesson_plan_head`
+- **Scope hiện tại:** self-service hồ sơ staff, teacher workflow cho lớp học, self-service route cho CSKH, và workspace quản lí giáo án cho `lesson_plan_head`
 
 ## Features
 
@@ -38,7 +39,8 @@
   - nếu actor có role `teacher` hoặc là `admin`, các dòng trong section `Lớp phụ trách` mở sang `/staff/classes/[id]`
   - nếu actor có role `customer_care`, dòng `customer_care` trong section `Công việc khác` mở sang `/staff/customer-care-detail`
   - các role `assistant`, `accountant`, `communication` mở sang self route read-only để xem chi tiết trợ cấp của chính mình
-  - các role `lesson_plan`, `lesson_plan_head` mở sang self route read-only để xem lesson output của chính mình
+  - role `lesson_plan` mở sang self route read-only để xem lesson output của chính mình
+  - role `lesson_plan_head` có mục sidebar `Giáo Án` và dòng `Công việc khác` mở sang `/staff/lesson-plans`; từ self route `/staff/lesson-plan-detail` vẫn có CTA sang workspace quản lí
 - `/staff/classes/[id]`
   - hiển thị thông tin lớp gần tương tự admin class detail
   - section `Gia sư phụ trách` là chỉ đọc; bấm vào từng gia sư không dẫn sang `/admin/staffs/:id`
@@ -63,6 +65,11 @@
   - dùng self-service endpoint đọc thống kê lesson output của chính staff hiện tại trong 30 ngày gần nhất
   - layout bám màn admin lesson plan detail nhưng chỉ giữ chế độ chỉ đọc
   - vẫn cho copy link / mở link ngoài từ từng lesson output, nhưng không cho bulk payment status edit
+  - nếu actor có role `lesson_plan_head`, header có thêm CTA mở workspace `/staff/lesson-plans`
+- `/staff/lesson-plans`, `/staff/lesson-plans/tasks/[taskId]`, `/staff/lesson-manage-details`
+  - dùng chung lesson workspace với admin nhưng route-base giữ trong nhóm `/staff`
+  - `lesson_plan_head` có toàn quyền tạo/sửa/xóa `LessonResource`, `LessonTask`, `LessonOutput`, bulk update `paymentStatus`, mở popup detail, mở màn phóng to và vào trang task detail ngay trong staff shell
+  - các link nội bộ của module được giữ dưới `/staff` (`/staff/lesson-plans/tasks/[taskId]`, `/staff/lesson-manage-details`) thay vì nhảy sang `/admin`
 
 ## Permission boundaries
 
@@ -78,6 +85,11 @@
   - xem chi tiết trợ cấp `assistant`, `accountant`, `communication` của chính mình
   - xem chi tiết lesson output `lesson_plan` / `lesson_plan_head` của chính mình
   - xem chi tiết CSKH của chính mình khi có role `customer_care`
+- Staff `lesson_plan_head` **được phép**
+  - vào `/staff/lesson-plans`
+  - vào `/staff/lesson-plans/tasks/[taskId]`
+  - vào `/staff/lesson-manage-details`
+  - dùng đầy đủ CRUD và bulk actions của module giáo án như admin
 - Teacher **được phép**
   - xem danh sách lớp của chính mình từ section `Lớp phụ trách` trong `/staff`
   - xem chi tiết lớp được assign
@@ -126,6 +138,25 @@
   - `GET /users/me/staff-sessions?month=&year=`
   - `GET /users/me/staff-extra-allowances?page=&limit=&year=&month=&roleType=&status=`
   - `GET /users/me/staff-lesson-output-stats?days=`
+  - `GET /lesson-overview?resourcePage=&resourceLimit=&taskPage=&taskLimit=`
+  - `GET /lesson-work`
+  - `GET /lesson-task-staff-options?search=&limit=`
+  - `GET /lesson-task-options?search=&limit=`
+  - `GET /lesson-resource-options?search=&limit=&excludeTaskId=`
+  - `GET /lesson-output-staff-options?search=&limit=`
+  - `GET /lesson-tasks/:id`
+  - `GET /lesson-outputs/:id`
+  - `GET /lesson-resources/:id`
+  - `POST /lesson-resources`
+  - `PATCH /lesson-resources/:id`
+  - `DELETE /lesson-resources/:id`
+  - `POST /lesson-tasks`
+  - `PATCH /lesson-tasks/:id`
+  - `DELETE /lesson-tasks/:id`
+  - `POST /lesson-outputs`
+  - `PATCH /lesson-outputs/:id`
+  - `PATCH /lesson-outputs/payment-status/bulk`
+  - `DELETE /lesson-outputs/:id`
   - `GET /staff-ops/classes`
   - `GET /staff-ops/classes/:id`
   - `PATCH /staff-ops/classes/:id/schedule`
@@ -142,15 +173,17 @@
   - root `/staff` lấy `staffId` từ user đang đăng nhập, không nhận `id` từ URL
   - service layer filter theo `staff.teacher` khi actor là staff; admin được bypass filter role staff nhưng vẫn đi cùng contract UI
   - riêng customer-care endpoints: admin đọc được mọi `staffId`; `UserRole.staff` chỉ được đọc khi staff hiện tại có role `customer_care` và `staffId` trùng hồ sơ của chính họ
+  - riêng lesson management endpoints: backend mở cho `UserRole.admin` và `UserRole.staff`, nhưng có guard phụ chỉ cho `staff.lesson_plan_head` dùng nhóm `/lesson-*`
 
 ## UI notes
 
 - `/staff`, `/staff/classes/[id]` và `/staff/customer-care-detail` cùng dùng staff shell: mobile drawer, collapse desktop, footer avatar + logout
-- các route `/staff/assistant-detail`, `/staff/accountant-detail`, `/staff/communication-detail`, `/staff/lesson-plan-detail` cũng đi chung staff shell
+- các route `/staff/assistant-detail`, `/staff/accountant-detail`, `/staff/communication-detail`, `/staff/lesson-plan-detail`, `/staff/lesson-plans`, `/staff/lesson-plans/tasks/[taskId]`, `/staff/lesson-manage-details` cũng đi chung staff shell
 - Điều hướng của staff sidebar vẫn hiển thị theo role của staff hiện tại:
   - `teacher` hoặc `admin`: mục `Lớp học`
   - `customer_care`: mục `CSKH của tôi`
-  - staff có cả `teacher` và `customer_care`: thấy cả hai mục
+  - `lesson_plan_head` hoặc `admin`: mục `Giáo Án`
+  - staff có nhiều role hợp lệ sẽ thấy đồng thời các mục tương ứng
 - `/staff` tái sử dụng shared staff detail components của admin (`StaffCard`, `StaffDetailRow`, `StaffQrCard`, `StaffBonusCard`, `SessionHistoryTable`, `MonthNav`) để giữ layout gần như trùng admin detail
 - popup self-edit thay cho `EditStaffPopup`; bonus card trên `/staff` dùng `canManage=true`, giữ CTA thêm thưởng và truyền callback sửa để bấm từng dòng mở popup điều chỉnh, nhưng vẫn không có callback xóa
 - `/staff` không còn CTA thêm buổi học; teacher/admin phải vào từng route `/staff/classes/[id]` từ section `Lớp phụ trách` để tạo buổi học
@@ -183,7 +216,9 @@
 - hồ sơ staff có role `accountant` vào được `/staff/accountant-detail`
 - hồ sơ staff có role `communication` vào được `/staff/communication-detail`
 - hồ sơ staff có role `lesson_plan` hoặc `lesson_plan_head` vào được `/staff/lesson-plan-detail`
+- hồ sơ staff có role `lesson_plan_head` vào được `/staff/lesson-plans`, `/staff/lesson-plans/tasks/[taskId]`, `/staff/lesson-manage-details`
 - `/staff/customer-care-detail` chỉ hiển thị dữ liệu CSKH của user hiện tại
 - sidebar staff chỉ hiện mục `CSKH của tôi` khi actor có role `customer_care`
+- sidebar staff hiện mục `Giáo Án` khi actor có role `lesson_plan_head` hoặc là `admin`
 - `/staff` route gốc render staff sidebar như các route staff khác
 - Teacher không thể đụng vào trợ cấp hay học phí học sinh từ route này
