@@ -20,10 +20,13 @@ describe('UserService', () => {
       delete: jest.fn(),
     },
     staffInfo: {
+      create: jest.fn(),
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
       update: jest.fn(),
     },
     studentInfo: {
+      create: jest.fn(),
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
@@ -178,6 +181,190 @@ describe('UserService', () => {
         accountHandle: 'nguyenvan',
       }),
     ]);
+  });
+
+  it('auto-creates a staff profile when roleType is changed to staff', async () => {
+    mockPrisma.user.findUnique
+      .mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'new-user@example.com',
+        phone: '0123456789',
+        passwordHash: 'hashed-password',
+        refreshToken: null,
+        first_name: 'New',
+        last_name: 'User',
+        roleType: UserRole.guest,
+        province: 'Hanoi',
+        accountHandle: 'new-user',
+        createdAt: new Date('2026-03-20T10:00:00.000Z'),
+        updatedAt: new Date('2026-03-20T10:00:00.000Z'),
+        staffInfo: null,
+        studentInfo: null,
+      })
+      .mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'new-user@example.com',
+        phone: '0123456789',
+        passwordHash: 'hashed-password',
+        refreshToken: null,
+        first_name: 'New',
+        last_name: 'User',
+        roleType: UserRole.staff,
+        province: 'Hanoi',
+        accountHandle: 'new-user',
+        createdAt: new Date('2026-03-20T10:00:00.000Z'),
+        updatedAt: new Date('2026-03-21T10:00:00.000Z'),
+        staffInfo: {
+          id: 'staff-1',
+          fullName: 'New User',
+          roles: ['teacher'],
+        },
+        studentInfo: null,
+      });
+    mockPrisma.user.update.mockResolvedValue({
+      id: 'user-1',
+      email: 'new-user@example.com',
+      phone: '0123456789',
+      passwordHash: 'hashed-password',
+      refreshToken: null,
+      first_name: 'New',
+      last_name: 'User',
+      roleType: UserRole.staff,
+      province: 'Hanoi',
+      accountHandle: 'new-user',
+      createdAt: new Date('2026-03-20T10:00:00.000Z'),
+      updatedAt: new Date('2026-03-21T10:00:00.000Z'),
+    });
+    mockPrisma.staffInfo.create.mockResolvedValue({
+      id: 'staff-1',
+    });
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      fullName: 'New User',
+      roles: ['teacher'],
+      userId: 'user-1',
+      status: 'active',
+    });
+
+    await service.updateUser(
+      {
+        id: 'user-1',
+        roleType: UserRole.staff,
+        staffRoles: ['teacher'],
+      },
+      {
+        userId: 'admin-1',
+        userEmail: 'admin@example.com',
+        roleType: 'admin',
+      },
+    );
+
+    expect(mockPrisma.staffInfo.create).toHaveBeenCalledWith({
+      data: {
+        fullName: 'New User',
+        roles: ['teacher'],
+        userId: 'user-1',
+      },
+    });
+    expect(actionHistoryService.recordCreate).toHaveBeenCalledWith(
+      mockPrisma,
+      expect.objectContaining({
+        entityType: 'staff',
+        entityId: 'staff-1',
+      }),
+    );
+  });
+
+  it('auto-creates a student profile when roleType is changed to student', async () => {
+    mockPrisma.user.findUnique
+      .mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'new-user@example.com',
+        phone: '0123456789',
+        passwordHash: 'hashed-password',
+        refreshToken: null,
+        first_name: 'New',
+        last_name: 'User',
+        roleType: UserRole.guest,
+        province: 'Hanoi',
+        accountHandle: 'new-user',
+        createdAt: new Date('2026-03-20T10:00:00.000Z'),
+        updatedAt: new Date('2026-03-20T10:00:00.000Z'),
+        staffInfo: null,
+        studentInfo: null,
+      })
+      .mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'new-user@example.com',
+        phone: '0123456789',
+        passwordHash: 'hashed-password',
+        refreshToken: null,
+        first_name: 'New',
+        last_name: 'User',
+        roleType: UserRole.student,
+        province: 'Hanoi',
+        accountHandle: 'new-user',
+        createdAt: new Date('2026-03-20T10:00:00.000Z'),
+        updatedAt: new Date('2026-03-21T10:00:00.000Z'),
+        staffInfo: null,
+        studentInfo: {
+          id: 'student-1',
+          fullName: 'New User',
+        },
+      });
+    mockPrisma.user.update.mockResolvedValue({
+      id: 'user-1',
+      email: 'new-user@example.com',
+      phone: '0123456789',
+      passwordHash: 'hashed-password',
+      refreshToken: null,
+      first_name: 'New',
+      last_name: 'User',
+      roleType: UserRole.student,
+      province: 'Hanoi',
+      accountHandle: 'new-user',
+      createdAt: new Date('2026-03-20T10:00:00.000Z'),
+      updatedAt: new Date('2026-03-21T10:00:00.000Z'),
+    });
+    mockPrisma.studentInfo.create.mockResolvedValue({
+      id: 'student-1',
+    });
+    mockPrisma.studentInfo.findUnique.mockResolvedValue({
+      id: 'student-1',
+      fullName: 'New User',
+      email: 'new-user@example.com',
+      province: 'Hanoi',
+      userId: 'user-1',
+      status: 'active',
+    });
+
+    await service.updateUser(
+      {
+        id: 'user-1',
+        roleType: UserRole.student,
+      },
+      {
+        userId: 'admin-1',
+        userEmail: 'admin@example.com',
+        roleType: 'admin',
+      },
+    );
+
+    expect(mockPrisma.studentInfo.create).toHaveBeenCalledWith({
+      data: {
+        fullName: 'New User',
+        email: 'new-user@example.com',
+        province: 'Hanoi',
+        userId: 'user-1',
+      },
+    });
+    expect(actionHistoryService.recordCreate).toHaveBeenCalledWith(
+      mockPrisma,
+      expect.objectContaining({
+        entityType: 'student',
+        entityId: 'student-1',
+      }),
+    );
   });
 
   it('gets linked student id via unique user mapping', async () => {

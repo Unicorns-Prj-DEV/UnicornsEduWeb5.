@@ -64,6 +64,22 @@ export interface StudentDetail extends StudentListItem {
   } | null;
 }
 
+export interface StudentAssignableUser {
+  id: string;
+  email: string;
+  accountHandle: string;
+  province?: string | null;
+  roleType: string;
+  status: string;
+  fullName?: string | null;
+  hasStudentProfile: boolean;
+  studentId?: string | null;
+  hasStaffProfile: boolean;
+  staffId?: string | null;
+  isEligible: boolean;
+  ineligibleReason?: string | null;
+}
+
 export interface StudentWalletTransaction {
   id: string;
   type: StudentWalletTransactionType;
@@ -114,6 +130,21 @@ export interface UpdateStudentPayload {
   drop_out_date?: string;
   customer_care_staff_id?: string | null;
   customer_care_profit_percent?: number | null;
+}
+
+export interface CreateStudentPayload {
+  full_name: string;
+  email?: string;
+  school?: string;
+  province?: string;
+  birth_year?: number;
+  parent_name?: string;
+  parent_phone?: string;
+  status?: StudentStatus;
+  gender?: StudentGender;
+  goal?: string;
+  drop_out_date?: string;
+  user_id: string;
 }
 
 export interface UpdateStudentAccountBalancePayload {

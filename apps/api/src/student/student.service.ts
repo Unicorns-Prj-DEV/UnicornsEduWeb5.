@@ -11,6 +11,7 @@ import {
   Gender,
   StaffRole,
   StudentStatus,
+  UserRole,
   WalletTransactionType,
 } from 'generated/enums';
 import { Prisma } from '../../generated/client';
@@ -179,6 +180,45 @@ function normalizeCustomerCareProfitPercent(
   return new Prisma.Decimal(rounded.toFixed(2));
 }
 
+function normalizeOptionalText(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function toDateOrNull(
+  value: string | Date | null | undefined,
+): Date | null | undefined {
+  if (value == null) return value;
+  if (value instanceof Date) return value;
+
+  const normalized = String(value).trim();
+  if (!normalized) {
+    return undefined;
+  }
+
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+function getPreferredUserFullName(user: {
+  first_name: string | null;
+  last_name: string | null;
+  accountHandle: string;
+  email: string;
+}) {
+  const fullName = `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim();
+  if (fullName) {
+    return fullName;
+  }
+
+  const handle = user.accountHandle?.trim();
+  if (handle) {
+    return handle;
+  }
+
+  return user.email;
+}
+
 type StudentAuditClient = Prisma.TransactionClient | PrismaService;
 
 @Injectable()
@@ -190,6 +230,40 @@ export class StudentService {
 
   private formatVND(amount: number) {
     return `${Math.round(amount).toLocaleString('vi-VN')}đ`;
+  }
+
+  private getUserEligibilityForStudentAssignment(user: {
+    roleType: UserRole;
+    studentInfo: { id: string } | null;
+    staffInfo: { id: string } | null;
+  }) {
+    if (user.studentInfo) {
+      return {
+        isEligible: false,
+        ineligibleReason: 'User này đã có hồ sơ học sinh.',
+      };
+    }
+
+    if (user.staffInfo) {
+      return {
+        isEligible: false,
+        ineligibleReason:
+          'User này đang có hồ sơ nhân sự nên không thể gán làm học sinh.',
+      };
+    }
+
+    if (user.roleType !== UserRole.guest && user.roleType !== UserRole.student) {
+      return {
+        isEligible: false,
+        ineligibleReason:
+          'Chỉ có thể gán học sinh cho user đang có role guest hoặc student.',
+      };
+    }
+
+    return {
+      isEligible: true,
+      ineligibleReason: null,
+    };
   }
 
   private serializeStudentListItem(student: StudentWithClasses) {
@@ -444,6 +518,77 @@ export class StudentService {
         profitPercent: nextProfitPercent,
       },
     });
+  }
+
+  async searchAssignableUsersByEmail(email: string) {
+    const trimmedEmail = email.trim();
+    if (trimmedEmail.length < 2) {
+      throw new BadRequestException('Email tìm kiếm phải có ít nhất 2 ký tự.');
+    }
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        email: {
+          contains: trimmedEmail,
+          mode: 'insensitive',
+        },
+      },
+      take: 8,
+      orderBy: {
+        createdAt: 'desc',
+      },
+      select: {
+        id: true,
+        email: true,
+        accountHandle: true,
+        province: true,
+        roleType: true,
+        status: true,
+        first_name: true,
+        last_name: true,
+        studentInfo: {
+          select: {
+            id: true,
+          },
+        },
+        staffInfo: {
+          select: {
+            id: true,
+          },
+        },
+      },
+    });
+
+    return users
+      .map((user) => {
+        const eligibility = this.getUserEligibilityForStudentAssignment(user);
+
+        return {
+          id: user.id,
+          email: user.email,
+          accountHandle: user.accountHandle,
+          province: user.province,
+          roleType: user.roleType,
+          status: user.status,
+          fullName: getPreferredUserFullName(user),
+          hasStudentProfile: Boolean(user.studentInfo),
+          studentId: user.studentInfo?.id ?? null,
+          hasStaffProfile: Boolean(user.staffInfo),
+          staffId: user.staffInfo?.id ?? null,
+          isEligible: eligibility.isEligible,
+          ineligibleReason: eligibility.ineligibleReason,
+        };
+      })
+      .sort((a, b) => {
+        const aExact = a.email.toLowerCase() === trimmedEmail.toLowerCase();
+        const bExact = b.email.toLowerCase() === trimmedEmail.toLowerCase();
+
+        if (aExact === bExact) {
+          return a.email.localeCompare(b.email);
+        }
+
+        return aExact ? -1 : 1;
+      });
   }
 
   async getStudents(query: StudentListQueryDto) {
@@ -956,31 +1101,71 @@ export class StudentService {
   }
 
   async createStudent(data: CreateStudentDto, auditActor?: ActionHistoryActor) {
-    return this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.findUnique({
-        where: {
-          id: data.user_id,
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: data.user_id,
+      },
+      select: {
+        id: true,
+        email: true,
+        province: true,
+        roleType: true,
+        studentInfo: {
+          select: {
+            id: true,
+          },
         },
-      });
-      if (!user) {
-        throw new NotFoundException('User not found');
-      }
+        staffInfo: {
+          select: {
+            id: true,
+          },
+        },
+      },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
 
+    const eligibility = this.getUserEligibilityForStudentAssignment(user);
+    if (!eligibility.isEligible) {
+      throw new BadRequestException(eligibility.ineligibleReason);
+    }
+
+    const trimmedFullName = data.full_name.trim();
+    if (!trimmedFullName) {
+      throw new BadRequestException('Student full name is required.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
       const createdStudent = await tx.studentInfo.create({
         data: {
-          fullName: data.full_name,
-          email: data.email,
-          school: data.school,
-          province: data.province,
+          fullName: trimmedFullName,
+          email: normalizeOptionalText(data.email) ?? user.email,
+          school: normalizeOptionalText(data.school),
+          province:
+            normalizeOptionalText(data.province) ??
+            normalizeOptionalText(user.province),
           birthYear: data.birth_year,
-          parentName: data.parent_name,
-          parentPhone: data.parent_phone,
-          status: data.status,
-          gender: data.gender,
-          goal: data.goal,
+          parentName: normalizeOptionalText(data.parent_name),
+          parentPhone: normalizeOptionalText(data.parent_phone),
+          status: data.status ?? StudentStatus.active,
+          gender: data.gender ?? Gender.male,
+          goal: normalizeOptionalText(data.goal),
+          dropOutDate: toDateOrNull(data.drop_out_date) ?? undefined,
           userId: data.user_id,
         },
       });
+
+      if (user.roleType !== UserRole.student) {
+        await tx.user.update({
+          where: {
+            id: data.user_id,
+          },
+          data: {
+            roleType: UserRole.student,
+          },
+        });
+      }
 
       if (auditActor) {
         const afterValue = await this.getStudentAuditSnapshot(

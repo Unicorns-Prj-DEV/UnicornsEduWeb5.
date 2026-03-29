@@ -1,4 +1,5 @@
 export { default as StudentListTableSkeleton } from "./StudentListTableSkeleton";
+export { default as AddStudentPopup } from "./AddStudentPopup";
 export { default as StudentInfoCard } from "./StudentInfoCard";
 export { default as StudentWalletCard } from "./StudentWalletCard";
 export { default as StudentDetailRow } from "./StudentDetailRow";

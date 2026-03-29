@@ -34,6 +34,7 @@ export interface UpdateUserPayload {
   accountHandle?: string;
   emailVerified?: boolean;
   phoneVerified?: boolean;
+  staffRoles?: StaffRole[];
 }
 
 /** Một dòng user trong danh sách (admin). */
@@ -64,4 +65,5 @@ export interface UserListResponse {
 /** User chi tiết (có staffInfo khi cần phân quyền nhân sự). */
 export interface UserDetailWithStaff extends UserListItem {
   staffInfo?: { id: string; roles: StaffRole[] } | null;
+  studentInfo?: { id: string } | null;
 }

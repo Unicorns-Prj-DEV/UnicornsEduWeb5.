@@ -1,4 +1,6 @@
 import type {
+  CreateStudentPayload,
+  StudentAssignableUser,
   StudentDetail,
   StudentGender,
   StudentListItem,
@@ -25,6 +27,18 @@ type StudentListParams = {
 type StudentWalletHistoryParams = {
   limit?: number;
 };
+
+export async function searchAssignableUsersByEmail(
+  email: string,
+): Promise<StudentAssignableUser[]> {
+  const response = await api.get("/student/assignable-users", {
+    params: {
+      email,
+    },
+  });
+
+  return Array.isArray(response.data) ? (response.data as StudentAssignableUser[]) : [];
+}
 
 /**
  * GET /student – paginated student list for admin pages.
@@ -93,6 +107,11 @@ export async function getStudentWalletHistory(
   });
 
   return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function createStudent(payload: CreateStudentPayload): Promise<StudentDetail> {
+  const response = await api.post<StudentDetail>("/student", payload);
+  return response.data;
 }
 
 /**

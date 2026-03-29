@@ -8,7 +8,7 @@ import {
   IsUUID,
   MinLength,
 } from 'class-validator';
-import { UserRole, UserStatus } from 'generated/enums';
+import { StaffRole, UserRole, UserStatus } from 'generated/enums';
 import { PaginationQueryDto } from './pagination.dto';
 
 export class CreateUserDto {
@@ -93,6 +93,16 @@ export class UserInfoDto {
   @IsOptional()
   @IsBoolean()
   phoneVerified?: boolean;
+
+  @ApiPropertyOptional({
+    enum: StaffRole,
+    isArray: true,
+    description:
+      'Detailed staff roles to persist when roleType is staff. Missing profile will be auto-created if needed.',
+  })
+  @IsOptional()
+  @IsEnum(StaffRole, { each: true })
+  staffRoles?: StaffRole[];
 }
 
 export class UpdateUserDto extends PartialType(UserInfoDto) {

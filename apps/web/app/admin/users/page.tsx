@@ -7,7 +7,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import * as userApi from "@/lib/apis/user.api";
-import * as staffApi from "@/lib/apis/staff.api";
 import {
   type UserListItem,
   type UserRoleType,
@@ -88,20 +87,18 @@ function AssignRoleModal({
   const [saving, setSaving] = useState(false);
 
   const updateUserMutation = useMutation({
-    mutationFn: (payload: { id: string; roleType: UserRoleType }) =>
+    mutationFn: (payload: {
+      id: string;
+      roleType: UserRoleType;
+      staffRoles?: StaffRole[];
+    }) =>
       userApi.updateUser(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user", "list"] });
       queryClient.invalidateQueries({ queryKey: ["user", user?.id] });
-    },
-  });
-
-  const updateStaffMutation = useMutation({
-    mutationFn: (payload: { id: string; roles: string[] }) =>
-      staffApi.updateStaff(payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user", user?.id] });
       queryClient.invalidateQueries({ queryKey: ["staff"] });
+      queryClient.invalidateQueries({ queryKey: ["student"] });
+      queryClient.invalidateQueries({ queryKey: ["auth", "full-profile"] });
     },
   });
 
@@ -116,13 +113,11 @@ function AssignRoleModal({
     if (!user) return;
     setSaving(true);
     try {
-      await updateUserMutation.mutateAsync({ id: user.id, roleType });
-      if (roleType === "staff" && user.staffInfo && staffRoles.length > 0) {
-        await updateStaffMutation.mutateAsync({
-          id: user.staffInfo.id,
-          roles: staffRoles,
-        });
-      }
+      await updateUserMutation.mutateAsync({
+        id: user.id,
+        roleType,
+        ...(roleType === "staff" ? { staffRoles } : {}),
+      });
       toast.success("Đã cập nhật phân quyền.");
       onSaved();
       onClose();
@@ -137,7 +132,12 @@ function AssignRoleModal({
   };
 
   const hasStaffInfo = !!user?.staffInfo;
+  const hasStudentInfo = !!user?.studentInfo;
   const showStaffRoles = roleType === "staff";
+  const willAutoCreateStaffProfile = showStaffRoles && !hasStaffInfo;
+  const willAutoCreateStudentProfile = roleType === "student" && !hasStudentInfo;
+  const hasExistingLinkedProfile =
+    roleType === "staff" ? hasStaffInfo : roleType === "student" ? hasStudentInfo : false;
 
   if (!user) return null;
 
@@ -186,41 +186,53 @@ function AssignRoleModal({
             />
           </label>
 
+
+
           {showStaffRoles && (
             <div className="block">
-              <span className="mb-2 block text-sm font-medium text-text-secondary">
-                Role nhân sự
-              </span>
-              {hasStaffInfo ? (
-                <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border border-border-default bg-bg-secondary/50 p-3">
-                  {STAFF_ROLES.map((role) => (
-                    <label
-                      key={role}
-                      className="flex cursor-pointer items-center gap-2 text-sm text-text-primary"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={staffRoles.includes(role)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setStaffRoles((prev) => [...prev, role]);
-                          } else {
-                            setStaffRoles((prev) => prev.filter((r) => r !== role));
-                          }
-                        }}
-                        className="h-4 w-4 rounded border-border-default text-primary focus:ring-border-focus"
-                      />
-                      {ROLE_LABELS[role] ?? role}
-                    </label>
-                  ))}
-                </div>
-              ) : (
-                <p className="rounded-md border border-border-default bg-bg-secondary/50 p-3 text-sm text-text-muted">
-                  User chưa có hồ sơ nhân sự. Tạo hồ sơ tại trang Nhân sự trước khi gán role chi tiết.
-                </p>
-              )}
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <span className="block text-sm font-medium text-text-secondary">
+                  Role nhân sự
+                </span>
+                <span className="rounded-full border border-border-default bg-bg-secondary px-2.5 py-1 text-xs font-medium text-text-secondary">
+                  {staffRoles.length} role
+                </span>
+              </div>
+              <div className="max-h-48 space-y-2 overflow-y-auto rounded-xl border border-border-default bg-bg-secondary/50 p-3">
+                {STAFF_ROLES.map((role) => (
+                  <label
+                    key={role}
+                    className="flex cursor-pointer items-center gap-2 text-sm text-text-primary"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={staffRoles.includes(role)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setStaffRoles((prev) =>
+                            prev.includes(role) ? prev : [...prev, role],
+                          );
+                        } else {
+                          setStaffRoles((prev) => prev.filter((r) => r !== role));
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-border-default text-primary focus:ring-border-focus"
+                    />
+                    {ROLE_LABELS[role] ?? role}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-2 text-xs leading-5 text-text-muted">
+                {willAutoCreateStaffProfile
+                  ? "Nếu user chưa có staff profile, hệ thống sẽ tạo mới và gắn các role đã chọn ngay trong lần lưu này."
+                  : "Các role chi tiết sẽ được cập nhật thẳng vào staff profile hiện có."}
+                {" "}
+                Bạn có thể để trống rồi bổ sung sau.
+              </p>
             </div>
           )}
+
+
         </div>
 
         <div className="mt-6 flex gap-2">
@@ -335,6 +347,7 @@ export default function AdminUsersPage() {
     setAssignModalUser({
       ...u,
       staffInfo: undefined,
+      studentInfo: undefined,
     });
   };
 
@@ -596,7 +609,7 @@ export default function AdminUsersPage() {
         <AssignRoleModal
           user={detailLoading ? assignModalUser : (modalUser ?? assignModalUser)}
           onClose={handleCloseModal}
-          onSaved={() => {}}
+          onSaved={() => { }}
         />
       )}
     </div>

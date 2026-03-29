@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import type { Prisma } from '../../generated/client';
-import { UserRole } from 'generated/enums';
+import { StaffRole, UserRole } from 'generated/enums';
 import {
   ActionHistoryActor,
   ActionHistoryService,
@@ -25,6 +25,11 @@ import { PrismaService } from 'src/prisma/prisma.service';
 
 type UserAuditClient = Prisma.TransactionClient | PrismaService;
 
+function normalizeOptionalText(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 @Injectable()
 export class UserService {
   constructor(
@@ -41,6 +46,28 @@ export class UserService {
       ...safeUser
     } = user;
     return safeUser;
+  }
+
+  private serializeUserDetail<
+    T extends {
+      passwordHash: string | null;
+      refreshToken: string | null;
+      staffInfo?: { id: string; roles?: StaffRole[] | null } | null;
+      studentInfo?: { id: string } | null;
+    },
+  >(user: T) {
+    const sanitized = this.sanitizeUser(user);
+
+    return {
+      ...sanitized,
+      staffInfo: user.staffInfo
+        ? {
+            id: user.staffInfo.id,
+            roles: user.staffInfo.roles ?? [],
+          }
+        : null,
+      studentInfo: user.studentInfo ? { id: user.studentInfo.id } : null,
+    };
   }
 
   private isUniqueConstraintError(error: unknown) {
@@ -81,6 +108,41 @@ export class UserService {
     return db.studentInfo.findUnique({
       where: { id: studentId },
     });
+  }
+
+  private getPreferredProfileFullName(user: {
+    first_name?: string | null;
+    last_name?: string | null;
+    accountHandle: string;
+    email: string;
+  }) {
+    const fullName = `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim();
+    if (fullName) {
+      return fullName;
+    }
+
+    const accountHandle = normalizeOptionalText(user.accountHandle);
+    if (accountHandle) {
+      return accountHandle;
+    }
+
+    return user.email;
+  }
+
+  private normalizeStaffRoles(staffRoles?: StaffRole[]) {
+    if (!Array.isArray(staffRoles)) {
+      return undefined;
+    }
+
+    const normalizedRoles = Array.from(
+      new Set(
+        staffRoles.filter((role): role is StaffRole =>
+          Object.values(StaffRole).includes(role),
+        ),
+      ),
+    );
+
+    return normalizedRoles;
   }
 
   private buildUserSearchWhere(search?: string): Prisma.UserWhereInput {
@@ -170,6 +232,7 @@ export class UserService {
       where: { id },
       include: {
         staffInfo: { select: { id: true, roles: true } },
+        studentInfo: { select: { id: true } },
       },
     });
 
@@ -177,13 +240,7 @@ export class UserService {
       throw new NotFoundException('User not found');
     }
 
-    const sanitized = this.sanitizeUser(user);
-    return {
-      ...sanitized,
-      staffInfo: user.staffInfo
-        ? { id: user.staffInfo.id, roles: user.staffInfo.roles }
-        : null,
-    };
+    return this.serializeUserDetail(user);
   }
 
   async createUser(data: CreateUserDto, auditActor?: ActionHistoryActor) {
@@ -238,18 +295,22 @@ export class UserService {
       throw new NotFoundException('User not found');
     }
 
-    const updateData = {
-      email: data.email,
-      phone: data.phone,
-      name: data.name,
-      roleType: data.roleType,
-      status: data.status,
-      linkId: data.linkId,
-      province: data.province,
-      accountHandle: data.accountHandle,
-      emailVerified: data.emailVerified,
-      phoneVerified: data.phoneVerified,
-    };
+    const nextRoleType = data.roleType ?? existingUser.roleType;
+    const normalizedStaffRoles = this.normalizeStaffRoles(data.staffRoles);
+    const updateData: Prisma.UserUpdateInput = {};
+
+    if (data.email !== undefined) updateData.email = data.email;
+    if (data.phone !== undefined) updateData.phone = data.phone;
+    if (data.roleType !== undefined) updateData.roleType = data.roleType;
+    if (data.status !== undefined) updateData.status = data.status;
+    if (data.linkId !== undefined) updateData.linkId = data.linkId;
+    if (data.province !== undefined) updateData.province = data.province;
+    if (data.accountHandle !== undefined)
+      updateData.accountHandle = data.accountHandle;
+    if (data.emailVerified !== undefined)
+      updateData.emailVerified = data.emailVerified;
+    if (data.phoneVerified !== undefined)
+      updateData.phoneVerified = data.phoneVerified;
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -258,21 +319,105 @@ export class UserService {
           data: updateData,
         });
 
-        if (auditActor) {
-          const afterValue = await this.getUserAuditSnapshot(tx, data.id);
-          if (afterValue) {
-            await this.actionHistoryService.recordUpdate(tx, {
-              actor: auditActor,
-              entityType: 'user',
-              entityId: data.id,
-              description: 'Cập nhật người dùng',
-              beforeValue: existingUser,
-              afterValue,
+        if (nextRoleType === UserRole.staff) {
+          if (!existingUser.staffInfo) {
+            const createdStaff = await tx.staffInfo.create({
+              data: {
+                fullName: this.getPreferredProfileFullName(updatedUser),
+                roles: normalizedStaffRoles ?? [],
+                userId: data.id,
+              },
             });
+
+            if (auditActor) {
+              const afterStaffValue = await this.getStaffAuditSnapshot(
+                tx,
+                createdStaff.id,
+              );
+              if (afterStaffValue) {
+                await this.actionHistoryService.recordCreate(tx, {
+                  actor: auditActor,
+                  entityType: 'staff',
+                  entityId: createdStaff.id,
+                  description:
+                    'Tự động tạo hồ sơ nhân sự khi cập nhật phân quyền user',
+                  afterValue: afterStaffValue,
+                });
+              }
+            }
+          } else if (normalizedStaffRoles !== undefined) {
+            await tx.staffInfo.update({
+              where: { id: existingUser.staffInfo.id },
+              data: {
+                roles: normalizedStaffRoles,
+              },
+            });
+
+            if (auditActor) {
+              const afterStaffValue = await this.getStaffAuditSnapshot(
+                tx,
+                existingUser.staffInfo.id,
+              );
+              if (afterStaffValue) {
+                await this.actionHistoryService.recordUpdate(tx, {
+                  actor: auditActor,
+                  entityType: 'staff',
+                  entityId: existingUser.staffInfo.id,
+                  description:
+                    'Cập nhật staff roles từ tab phân quyền user',
+                  beforeValue: existingUser.staffInfo,
+                  afterValue: afterStaffValue,
+                });
+              }
+            }
           }
         }
 
-        return this.sanitizeUser(updatedUser);
+        if (nextRoleType === UserRole.student && !existingUser.studentInfo) {
+          const createdStudent = await tx.studentInfo.create({
+            data: {
+              fullName: this.getPreferredProfileFullName(updatedUser),
+              email: updatedUser.email,
+              province: normalizeOptionalText(updatedUser.province),
+              userId: data.id,
+            },
+          });
+
+          if (auditActor) {
+            const afterStudentValue = await this.getStudentAuditSnapshot(
+              tx,
+              createdStudent.id,
+            );
+            if (afterStudentValue) {
+              await this.actionHistoryService.recordCreate(tx, {
+                actor: auditActor,
+                entityType: 'student',
+                entityId: createdStudent.id,
+                description:
+                  'Tự động tạo hồ sơ học sinh khi cập nhật phân quyền user',
+                afterValue: afterStudentValue,
+              });
+            }
+          }
+        }
+
+        const afterValue = await this.getUserAuditSnapshot(tx, data.id);
+        if (!afterValue) {
+          throw new NotFoundException('User not found');
+        }
+
+        if (auditActor) {
+          await this.actionHistoryService.recordUpdate(tx, {
+            actor: auditActor,
+            entityType: 'user',
+            entityId: data.id,
+            description: 'Cập nhật người dùng',
+            beforeValue: existingUser,
+            afterValue,
+          });
+        }
+
+        return this.serializeUserDetail(afterValue);
       });
     } catch (error) {
       if (this.isUniqueConstraintError(error)) {

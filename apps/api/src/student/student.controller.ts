@@ -6,6 +6,7 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
+  Post,
   Query,
   UsePipes,
   ValidationPipe,
@@ -26,6 +27,8 @@ import {
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { UserRole } from 'generated/enums';
 import {
+  CreateStudentDto,
+  SearchAssignableStudentUsersDto,
   StudentWalletHistoryQueryDto,
   StudentListQueryDto,
   UpdateStudentAccountBalanceCreateDto,
@@ -42,6 +45,50 @@ import { StudentService } from './student.service';
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class StudentController {
   constructor(private readonly studentService: StudentService) {}
+
+  @Get('assignable-users')
+  @ApiOperation({
+    summary: 'Search users by email for student assignment',
+    description:
+      'Search existing users by email and return whether they can be linked to a new student profile.',
+  })
+  @ApiQuery({
+    name: 'email',
+    required: true,
+    type: String,
+    description: 'Full or partial email',
+    example: 'student@example.com',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Matching users with eligibility metadata.',
+  })
+  async searchAssignableUsers(@Query() query: SearchAssignableStudentUsersDto) {
+    return this.studentService.searchAssignableUsersByEmail(query.email);
+  }
+
+  @Post()
+  @ApiOperation({
+    summary: 'Create student',
+    description: 'Create a student profile from an existing user.',
+  })
+  @ApiBody({
+    type: CreateStudentDto,
+    description: 'Student creation payload',
+  })
+  @ApiResponse({ status: 201, description: 'Created student.' })
+  @ApiResponse({ status: 400, description: 'Validation or eligibility error.' })
+  @ApiResponse({ status: 404, description: 'User not found.' })
+  async createStudent(
+    @CurrentUser() user: JwtPayload,
+    @Body() data: CreateStudentDto,
+  ) {
+    return this.studentService.createStudent(data, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
+  }
 
   @Get()
   @ApiOperation({

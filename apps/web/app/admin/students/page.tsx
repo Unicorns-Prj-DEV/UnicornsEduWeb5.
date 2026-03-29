@@ -1,10 +1,10 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { useQuery } from "@tanstack/react-query";
-import { StudentListTableSkeleton } from "@/components/admin/student";
+import { AddStudentPopup, StudentListTableSkeleton } from "@/components/admin/student";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import {
   StudentGender,
@@ -55,11 +55,6 @@ function normalizeStatus(status?: StudentStatus): StudentStatus {
   return status === "inactive" ? "inactive" : "active";
 }
 
-function normalizeGender(gender?: StudentGender): StudentGender | null {
-  if (gender === "male" || gender === "female") return gender;
-  return null;
-}
-
 function getClassItems(student: StudentListItem) {
   const classes = new Map<string, string>();
 
@@ -85,18 +80,6 @@ function statusBadgeClass(status: StudentStatus): string {
     : "bg-error/10 text-error ring-error/20";
 }
 
-function genderBadgeClass(gender: StudentGender | null): string {
-  if (gender === "female") {
-    return "bg-warning/15 text-text-primary ring-warning/20";
-  }
-
-  if (gender === "male") {
-    return "bg-bg-tertiary text-text-secondary ring-border-default";
-  }
-
-  return "bg-bg-tertiary text-text-muted ring-border-default";
-}
-
 function balanceTextClass(balance?: number | null): string {
   if ((balance ?? 0) < 0) return "text-error";
   return "text-text-primary";
@@ -116,6 +99,7 @@ export default function AdminStudentsPage() {
 
   const [searchInput, setSearchInput] = useState(search);
   const [filterPopupOpen, setFilterPopupOpen] = useState(false);
+  const [addStudentOpen, setAddStudentOpen] = useState(false);
   const [filterDraft, setFilterDraft] = useState<FilterDraft>({
     province: "",
     school: "",
@@ -263,10 +247,25 @@ export default function AdminStudentsPage() {
           <div className="pointer-events-none absolute -bottom-10 left-16 size-28 rounded-full bg-warning/10 blur-2xl" aria-hidden />
 
           <div className="relative">
-            <h1 className="text-xl font-semibold text-text-primary sm:text-2xl">Học sinh</h1>
-            <p className="mt-1 text-sm text-text-secondary">
-              Quản lý danh sách học sinh, theo dõi trạng thái học tập và lớp đang tham gia tập trung.
-            </p>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <h1 className="text-xl font-semibold text-text-primary sm:text-2xl">Học sinh</h1>
+                <p className="mt-1 text-sm text-text-secondary">
+                  Quản lý danh sách học sinh, theo dõi trạng thái học tập và lớp đang tham gia tập trung.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setAddStudentOpen(true)}
+                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse shadow-[0_14px_35px_-18px_rgba(37,99,235,0.7)] transition-all duration-200 hover:bg-primary-hover hover:shadow-[0_18px_40px_-18px_rgba(37,99,235,0.8)] focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              >
+                <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Thêm học sinh
+              </button>
+            </div>
 
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
               <label className="block min-w-0 flex-1" htmlFor="student-search-input">
@@ -466,6 +465,18 @@ export default function AdminStudentsPage() {
                   ? "Không có học sinh phù hợp bộ lọc."
                   : "Chưa có học sinh nào."}
               </p>
+              {!search && !hasActiveFilter ? (
+                <button
+                  type="button"
+                  onClick={() => setAddStudentOpen(true)}
+                  className="mt-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition-colors duration-200 hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                >
+                  <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v14m-7-7h14" />
+                  </svg>
+                  Tạo học sinh đầu tiên
+                </button>
+              ) : null}
             </div>
           ) : (
             <>
@@ -669,6 +680,10 @@ export default function AdminStudentsPage() {
           )}
         </div>
       </div>
+
+      {addStudentOpen ? (
+        <AddStudentPopup open={addStudentOpen} onClose={() => setAddStudentOpen(false)} />
+      ) : null}
     </div>
   );
 }

@@ -11,7 +11,7 @@ Page-level specs for `apps/web`, aligned with [Workplan](../Workplan.md) and [UI
 | Route | Status | Role | Owner (Workplan) | Plan file |
 | --- | --- | --- | --- | --- |
 | `/admin` | Implemented | Admin | Huy | [admin.md](admin.md) |
-| `/admin/users` | Implemented | Admin | — | Danh sách user, phân quyền (role_type: nhân sự/học sinh; staff roles chi tiết) |
+| `/admin/users` | Implemented | Admin | — | Danh sách user, phân quyền (role_type: nhân sự/học sinh; staff roles chi tiết, auto-create profile liên kết) |
 | `/staff` | Implemented | `staff.teacher`, Admin | Huy | [staff.md](staff.md) |
 | `/staff/customer-care-detail` | Implemented | `staff.customer_care` | Huy | [staff.md](staff.md) |
 | `/staff/lesson-plan-tasks` | Implemented | `staff.lesson_plan` | Huy | [staff.md](staff.md) |

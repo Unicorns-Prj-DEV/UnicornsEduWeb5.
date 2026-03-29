@@ -64,6 +64,8 @@
   - `DELETE /users/:id`
   - Các endpoint này đi qua global JWT guard (không `@Public`) và chỉ cho role `admin`.
   - `search` trên `GET /users` được xử lý ở backend theo `accountHandle`, `email`, `phone`, `first_name`, `last_name`; FE `/admin/users` debounce input và sync `search` vào URL query để pagination luôn bám dữ liệu server.
+  - `PATCH /users` hỗ trợ nhận thêm `staffRoles`; khi admin đổi `roleType` sang `staff` hoặc `student`, backend sẽ tự tạo `staff_info` hoặc `student_info` tối thiểu nếu user chưa có profile tương ứng, rồi ghi `action_history` cho cả user và profile mới.
+  - FE `/admin/users` popup **Phân quyền** giờ chỉ dùng một mutation `PATCH /users`; phần `staff roles` có thể chọn ngay cả khi user chưa có staff profile, vì backend sẽ tự tạo profile liên kết trong cùng transaction.
 - **Staff endpoints & frontend data fetching:**
   - `GET /staff?page=<number>&limit=<number>&search=<text>&status=<active|inactive>&classId=<class-id>&className=<text>&province=<text>&university=<text>&highSchool=<text>&role=<staff-role>`.
   - `GET /staff/assignable-users?email=<text>` tìm user theo email để gán vào hồ sơ gia sư; response trả thêm cờ `isEligible`, `hasStaffProfile`, `ineligibleReason`.
@@ -137,11 +139,14 @@
   - Các endpoint đi qua global JWT guard (không `@Public`) theo behavior auth hiện tại của backend module.
 - **Student detail / membership:**
   - `PATCH /student/:id/classes` thay thế toàn bộ membership lớp của học sinh trong một mutation BE duy nhất; FE không còn tự fetch từng lớp rồi patch vòng lặp.
+  - `GET /student/assignable-users?email=<text>` tìm user theo email để gán vào hồ sơ học sinh; response trả thêm `isEligible`, `hasStudentProfile`, `hasStaffProfile`, `ineligibleReason`.
+  - `POST /student` tạo hồ sơ học sinh từ `user_id` đã tồn tại; backend là nơi chặn user đã có hồ sơ học sinh/nhân sự và tự đồng bộ `users.role_type` sang `student` khi tạo thành công.
   - `GET /student/:id` trả luôn `effectiveTuition*`, `customTuition*`, `tuitionPackageSource`, `totalAttendedSession` và `class.status` cho từng `studentClasses` để FE `/admin/students/:id` render package label + số buổi + trạng thái lớp trực tiếp, không N+1 `GET /class/:id`.
   - `GET /student/:id` trả thêm `customerCare` dạng `{ staff: { id, fullName, roles, status }, profitPercent }` để FE hiển thị CSKH phụ trách và hệ số lợi nhuận hiện tại ngay trên trang chi tiết học sinh.
   - `GET /student/:id/wallet-history?limit=<number>` trả danh sách transaction mới nhất từ `wallet_transactions_history`, sắp xếp `createdAt desc`; FE popup lịch sử ví chỉ render dữ liệu authoritative từ backend.
   - `PATCH /student/:id` hỗ trợ cập nhật `customer_care_staff_id` và `customer_care_profit_percent`; backend sẽ upsert hoặc xóa bản ghi `customer_care_service` trong cùng transaction với phần hồ sơ học sinh. Gửi `customer_care_staff_id = null` để gỡ CSKH khỏi học sinh.
   - `PATCH /student/update-student-account-balance` ngoài việc cập nhật `accountBalance` còn ghi transaction mới vào `wallet_transactions_history`; số dương lưu type `topup`, số âm lưu type `loan`.
+  - FE `/admin/students` có nút **Thêm học sinh** ở phần header danh sách; popup tạo mới dùng flow 2 bước: tìm user theo email rồi hoàn thiện hồ sơ học viên, sau đó invalidate lại TanStack Query của list page.
   - FE popup **Chỉnh sửa hồ sơ học sinh** có thêm khối **Chăm sóc khách hàng** với combobox tìm theo họ và tên, và input tỷ lệ lợi nhuận theo `%` (ví dụ nhập `20` để lưu `profitPercent = 0.20`).
   - Popup **Chỉnh sửa hồ sơ học sinh** được tối giản UI: giảm mô tả dài/nhãn phụ, giảm tầng card và làm gọn spacing để thao tác chỉnh sửa nhanh hơn, vẫn giữ đủ các khối dữ liệu (thông tin cơ bản, phụ huynh/trạng thái, CSKH, lịch thi).
   - Trong popup này, nếu học sinh đang có CSKH thì admin có thể bấm **Loại bỏ CSKH** để clear cả nhân sự phụ trách lẫn `% lợi nhuận` ở draft form; UI hiển thị trạng thái “sẽ gỡ khi lưu” và cho phép khôi phục trước khi submit.

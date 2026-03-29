@@ -11,7 +11,9 @@ import { StudentService } from './student.service';
 describe('StudentService', () => {
   const mockPrisma = {
     user: {
+      findMany: jest.fn(),
       findUnique: jest.fn(),
+      update: jest.fn(),
     },
     studentInfo: {
       create: jest.fn(),
@@ -66,7 +68,15 @@ describe('StudentService', () => {
   it('records action history after creating a student', async () => {
     mockPrisma.user.findUnique.mockResolvedValue({
       id: 'user-1',
+      email: 'student@example.com',
+      province: 'Hanoi',
       roleType: UserRole.guest,
+      studentInfo: null,
+      staffInfo: null,
+    });
+    mockPrisma.user.update.mockResolvedValue({
+      id: 'user-1',
+      roleType: UserRole.student,
     });
     mockPrisma.studentInfo.create.mockResolvedValue({
       id: 'student-1',
@@ -113,7 +123,6 @@ describe('StudentService', () => {
       {
         full_name: 'Nguyen Van A',
         email: 'student@example.com',
-        phone: '0901234567',
         school: 'THPT Nguyen Du',
         province: 'Hanoi',
         birth_year: 2010,
@@ -138,6 +147,37 @@ describe('StudentService', () => {
         entityId: 'student-1',
       }),
     );
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: {
+        id: 'user-1',
+      },
+      data: {
+        roleType: UserRole.student,
+      },
+    });
+  });
+
+  it('rejects creating a student for a user that already has a staff profile', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'student@example.com',
+      province: 'Hanoi',
+      roleType: UserRole.guest,
+      studentInfo: null,
+      staffInfo: {
+        id: 'staff-1',
+      },
+    });
+
+    await expect(
+      service.createStudent({
+        full_name: 'Nguyen Van A',
+        user_id: 'user-1',
+      }),
+    ).rejects.toThrow('User này đang có hồ sơ nhân sự nên không thể gán làm học sinh.');
+
+    expect(mockPrisma.studentInfo.create).not.toHaveBeenCalled();
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
   });
 
   it('returns self detail without finance-only tuition fields', async () => {

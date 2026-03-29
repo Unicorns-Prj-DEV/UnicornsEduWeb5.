@@ -12,9 +12,20 @@ import {
   IsUUID,
   Max,
   Min,
+  MinLength,
 } from 'class-validator';
 import { Gender, StudentStatus } from 'generated/enums';
 import { PaginationQueryDto } from './pagination.dto';
+
+export class SearchAssignableStudentUsersDto {
+  @ApiProperty({
+    description: 'Full or partial email to search existing users',
+    example: 'student@example.com',
+  })
+  @IsString()
+  @MinLength(2)
+  email: string;
+}
 
 export class StudentListQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
@@ -151,46 +162,51 @@ export class CreateStudentDto {
   @IsString()
   full_name: string;
 
-  @ApiProperty({ example: 'student@example.com' })
+  @ApiPropertyOptional({ example: 'student@example.com' })
+  @IsOptional()
   @IsEmail()
-  email: string;
+  email?: string;
 
-  @ApiProperty({ example: '0901234567' })
+  @ApiPropertyOptional({ example: 'THPT ABC' })
+  @IsOptional()
   @IsString()
-  phone: string;
+  school?: string;
 
-  @ApiProperty({ example: 'THPT ABC' })
+  @ApiPropertyOptional({ example: 'TP.HCM' })
+  @IsOptional()
   @IsString()
-  school: string;
+  province?: string;
 
-  @ApiProperty({ example: 'TP.HCM' })
-  @IsString()
-  province: string;
-
-  @ApiProperty({ example: 2010 })
+  @ApiPropertyOptional({ example: 2010 })
+  @IsOptional()
   @IsInt()
   @Min(1900)
-  birth_year: number;
+  birth_year?: number;
 
-  @ApiProperty({ example: 'Nguyễn Văn A' })
+  @ApiPropertyOptional({ example: 'Nguyễn Văn A' })
+  @IsOptional()
   @IsString()
-  parent_name: string;
+  parent_name?: string;
 
-  @ApiProperty({ example: '0912345678' })
+  @ApiPropertyOptional({ example: '0912345678' })
+  @IsOptional()
   @IsString()
-  parent_phone: string;
+  parent_phone?: string;
 
-  @ApiProperty({ enum: StudentStatus })
+  @ApiPropertyOptional({ enum: StudentStatus })
+  @IsOptional()
   @IsEnum(StudentStatus)
-  status: StudentStatus;
+  status?: StudentStatus;
 
-  @ApiProperty({ enum: Gender })
+  @ApiPropertyOptional({ enum: Gender })
+  @IsOptional()
   @IsEnum(Gender)
-  gender: Gender;
+  gender?: Gender;
 
-  @ApiProperty({ example: 'Đạt IELTS 7.0' })
+  @ApiPropertyOptional({ example: 'Đạt IELTS 7.0' })
+  @IsOptional()
   @IsString()
-  goal: string;
+  goal?: string;
 
   @ApiPropertyOptional({ example: '2026-03-10' })
   @IsOptional()

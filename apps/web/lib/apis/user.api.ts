@@ -38,7 +38,7 @@ export async function getUserById(id: string): Promise<UserDetailWithStaff> {
 }
 
 /** Cập nhật user (roleType, status, ...). */
-export async function updateUser(data: UpdateUserPayload): Promise<unknown> {
-  const response = await api.patch("/users", data);
+export async function updateUser(data: UpdateUserPayload): Promise<UserDetailWithStaff> {
+  const response = await api.patch<UserDetailWithStaff>("/users", data);
   return response.data;
 }
