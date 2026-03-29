@@ -28,6 +28,7 @@ import {
   ChangePasswordDto,
   ForgotPasswordDto,
   ResetPasswordDto,
+  SetupPasswordDto,
   UserAuthDto,
 } from '../dtos/user.dto';
 import {
@@ -58,6 +59,7 @@ interface GoogleAuthRequest extends Request {
     id: string;
     accountHandle: string;
     roleType: UserRole;
+    passwordHash?: string | null;
   };
 }
 
@@ -74,6 +76,60 @@ export class AuthController {
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
   ) {}
+
+  private getGuestProfile() {
+    return {
+      id: '',
+      accountHandle: '',
+      roleType: UserRole.guest,
+      requiresPasswordSetup: false,
+    };
+  }
+
+  private getVerifiedAccessTokenPayload(req: Request): VerifiedTokenPayload {
+    const accessToken = readCookie(req, 'access_token');
+    if (!accessToken) {
+      throw new UnauthorizedException('Unauthorized');
+    }
+
+    return this.jwtService.verify<VerifiedTokenPayload>(accessToken, {
+      secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
+    });
+  }
+
+  private setAuthCookies(
+    res: Response,
+    tokenPair: { accessToken: string; refreshToken: string },
+    rememberMe = false,
+  ) {
+    const refreshMaxAge = rememberMe
+      ? this.authService.refreshTokenRememberExpiresIn * 1000
+      : this.authService.refreshTokenDefaultExpiresIn * 1000;
+
+    res.cookie('access_token', tokenPair.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: this.authService.accessTokenExpiresIn * 1000,
+    });
+    res.cookie('refresh_token', tokenPair.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: refreshMaxAge,
+    });
+  }
+
+  private buildFrontendRedirectUrl(
+    path = '',
+    search?: URLSearchParams,
+  ): string {
+    const frontendUrl = this.configService
+      .getOrThrow<string>('FRONTEND_URL')
+      .replace(/\/$/, '');
+    const query = search && search.size > 0 ? `?${search.toString()}` : '';
+    return `${frontendUrl}${path}${query}`;
+  }
 
   @Public()
   @HttpCode(HttpStatus.OK)
@@ -105,21 +161,7 @@ export class AuthController {
       body.password,
       rememberMe,
     );
-    const refreshMaxAge = rememberMe
-      ? this.authService.refreshTokenRememberExpiresIn * 1000
-      : this.authService.refreshTokenDefaultExpiresIn * 1000;
-    res.cookie('access_token', response.tokenPair.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: this.authService.accessTokenExpiresIn * 1000,
-    });
-    res.cookie('refresh_token', response.tokenPair.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: refreshMaxAge,
-    });
+    this.setAuthCookies(res, response.tokenPair, rememberMe);
 
     return {
       message: 'Login successful',
@@ -161,22 +203,7 @@ export class AuthController {
       user.rememberMe,
     );
 
-    const refreshMaxAge = user.rememberMe
-      ? this.authService.refreshTokenRememberExpiresIn * 1000
-      : this.authService.refreshTokenDefaultExpiresIn * 1000;
-
-    res.cookie('access_token', accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: this.authService.accessTokenExpiresIn * 1000,
-    });
-    res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: refreshMaxAge,
-    });
+    this.setAuthCookies(res, { accessToken, refreshToken }, user.rememberMe);
     return { message: 'Refresh successful' };
   }
 
@@ -191,11 +218,11 @@ export class AuthController {
     status: 200,
     description: 'Current user profile (id, accountHandle, role, etc.).',
   })
-  getProfile(@Req() req: Request) {
+  async getProfile(@Req() req: Request) {
     const refreshToken = readCookie(req, 'refresh_token');
 
     if (!refreshToken) {
-      return { id: '', accountHandle: '', roleType: UserRole.guest };
+      return this.getGuestProfile();
     }
 
     try {
@@ -205,14 +232,10 @@ export class AuthController {
           secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
         },
       );
-
-      return {
-        id: payload.id ?? '',
-        accountHandle: payload.accountHandle ?? '',
-        roleType: payload.roleType ?? UserRole.guest,
-      };
+      const profile = await this.authService.getAuthProfile(payload.id);
+      return profile ?? this.getGuestProfile();
     } catch {
-      return { id: '', accountHandle: '', roleType: UserRole.guest };
+      return this.getGuestProfile();
     }
   }
 
@@ -233,14 +256,7 @@ export class AuthController {
   })
   @ApiResponse({ status: 429, description: 'Too many requests.' })
   async changePassword(@Req() req: Request, @Body() body: ChangePasswordDto) {
-    const accessToken = readCookie(req, 'access_token');
-    if (!accessToken) {
-      throw new UnauthorizedException('Unauthorized');
-    }
-
-    const payload = this.jwtService.verify<VerifiedTokenPayload>(accessToken, {
-      secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
-    });
+    const payload = this.getVerifiedAccessTokenPayload(req);
 
     if (!payload?.id) {
       throw new UnauthorizedException('Unauthorized');
@@ -251,6 +267,48 @@ export class AuthController {
       body.currentPassword,
       body.newPassword,
     );
+  }
+
+  @Post('setup-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: THIRTY_MINUTES_IN_MS } })
+  @ApiCookieAuth('access_token')
+  @ApiOperation({
+    summary: 'Set initial password',
+    description:
+      'Create the first password for the current authenticated user when the account was created via Google OAuth.',
+  })
+  @ApiBody({ type: SetupPasswordDto })
+  @ApiResponse({ status: 200, description: 'Password set successfully.' })
+  @ApiResponse({
+    status: 400,
+    description: 'Password already exists or request is invalid.',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 429, description: 'Too many requests.' })
+  async setupPassword(
+    @Req() req: Request,
+    @Body() body: SetupPasswordDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const payload = this.getVerifiedAccessTokenPayload(req);
+    if (!payload?.id) {
+      throw new UnauthorizedException('Unauthorized');
+    }
+
+    const result = await this.authService.setupPassword(
+      payload.id,
+      body.password,
+    );
+    const tokenPair = await this.authService.generateTokenPairAndSave(
+      payload.id,
+      payload.accountHandle,
+      payload.roleType,
+      payload.rememberMe ?? false,
+    );
+    this.setAuthCookies(res, tokenPair, payload.rememberMe ?? false);
+
+    return result;
   }
 
   @Public()
@@ -341,8 +399,13 @@ export class AuthController {
   })
   @ApiResponse({ status: 200, description: 'Current user payload.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
-  getMe(@CurrentUser() user: JwtPayload) {
-    return user;
+  async getMe(@CurrentUser() user: JwtPayload) {
+    const profile = await this.authService.getAuthProfile(user.id);
+    if (!profile) {
+      throw new UnauthorizedException('Unauthorized');
+    }
+
+    return profile;
   }
 
   @Post('logout')
@@ -373,27 +436,22 @@ export class AuthController {
     @Req() req: GoogleAuthRequest,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { accessToken, refreshToken } =
-      await this.authService.generateTokenPairAndSave(
-        req.user.id,
-        req.user.accountHandle,
-        req.user.roleType,
-        true,
-      );
+    const rememberMe = true;
+    const tokenPair = await this.authService.generateTokenPairAndSave(
+      req.user.id,
+      req.user.accountHandle,
+      req.user.roleType,
+      rememberMe,
+    );
+    this.setAuthCookies(res, tokenPair, rememberMe);
 
-    res.cookie('access_token', accessToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'lax',
-      maxAge: this.authService.accessTokenExpiresIn * 1000,
-    });
-    res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'lax',
-      maxAge: this.authService.refreshTokenDefaultExpiresIn * 1000,
-    });
+    const redirectUrl = req.user.passwordHash
+      ? this.buildFrontendRedirectUrl()
+      : this.buildFrontendRedirectUrl(
+          '/auth/setup-password',
+          new URLSearchParams({ source: 'google' }),
+        );
 
-    return res.redirect(this.configService.getOrThrow<string>('FRONTEND_URL'));
+    return res.redirect(redirectUrl);
   }
 }

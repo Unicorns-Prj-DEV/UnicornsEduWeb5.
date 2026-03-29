@@ -31,7 +31,7 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
 - Đã có:
   - `/`
   - `/landing-page`
-  - `/auth/login`, `/auth/register`, `/auth/forgot-password`, `/auth/reset-password`
+  - `/auth/login`, `/auth/register`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/setup-password`
   - `/student`
   - `/staff`, `/staff/classes/[id]`, `/staff/customer-care-detail`, `/staff/assistant-detail`, `/staff/accountant-detail`, `/staff/communication-detail`, `/staff/lesson-plan-detail`, `/staff/lesson-plan-tasks`, `/staff/lesson-plan-tasks/[taskId]`, `/staff/lesson-plan-manage-details`, `/staff/lesson-plans`, `/staff/lesson-plans/tasks/[taskId]`, `/staff/lesson-manage-details`
   - `/admin`, `/admin/home`, `/admin/dashboard`
@@ -80,7 +80,7 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
   - `pnpm --filter api test`: pass
 - Backend audit coverage hiện tại:
   - `action_history` đã phủ các mutate flow ở `session`, `class`, `cost`, `bonus`, `extra_allowance`, `cf_problem_tutorial`, `user`, `student`, `staff`
-  - auth flow có thay đổi `user` cũng đã ghi audit: `register`, `verify email`, `reset password`, `change password`, và Google OAuth khi tạo/xác thực user
+  - auth flow có thay đổi `user` cũng đã ghi audit: `register`, `verify email`, `reset password`, `change password`, `setup password` cho tài khoản OAuth chưa có mật khẩu, và Google OAuth khi tạo/xác thực user
 - Cần xử lý tiếp:
   - `pnpm --filter web lint`: fail với `19` errors và `23` warnings
 - Findings rủi ro cao từ review:

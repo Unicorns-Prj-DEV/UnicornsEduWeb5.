@@ -117,4 +117,100 @@ describe('AuthService', () => {
       }),
     );
   });
+
+  it('returns requiresPasswordSetup when the user has no password hash', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      accountHandle: 'google-user',
+      roleType: UserRole.guest,
+      passwordHash: null,
+    });
+
+    await expect(service.getAuthProfile('user-1')).resolves.toEqual({
+      id: 'user-1',
+      accountHandle: 'google-user',
+      roleType: UserRole.guest,
+      requiresPasswordSetup: true,
+    });
+  });
+
+  it('sets the first password for an OAuth user and records action history', async () => {
+    mockPrisma.user.findUnique
+      .mockResolvedValueOnce({
+        id: 'user-1',
+        passwordHash: null,
+      })
+      .mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'google-user@example.com',
+        phone: '0123456789',
+        passwordHash: null,
+        refreshToken: 'old-refresh-token',
+        first_name: 'Google',
+        last_name: 'User',
+        roleType: UserRole.guest,
+        province: 'Hanoi',
+        accountHandle: 'google-user@example.com',
+        emailVerified: true,
+        phoneVerified: false,
+        linkId: null,
+        status: 'active',
+        createdAt: new Date('2026-03-20T10:00:00.000Z'),
+        updatedAt: new Date('2026-03-20T10:00:00.000Z'),
+        staffInfo: null,
+        studentInfo: null,
+      })
+      .mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'google-user@example.com',
+        phone: '0123456789',
+        passwordHash: 'hashed-password',
+        refreshToken: null,
+        first_name: 'Google',
+        last_name: 'User',
+        roleType: UserRole.guest,
+        province: 'Hanoi',
+        accountHandle: 'google-user@example.com',
+        emailVerified: true,
+        phoneVerified: false,
+        linkId: null,
+        status: 'active',
+        createdAt: new Date('2026-03-20T10:00:00.000Z'),
+        updatedAt: new Date('2026-03-20T11:00:00.000Z'),
+        staffInfo: null,
+        studentInfo: null,
+      });
+    mockPrisma.user.update.mockResolvedValue({
+      id: 'user-1',
+      email: 'google-user@example.com',
+      roleType: UserRole.guest,
+    });
+
+    await expect(
+      service.setupPassword('user-1', 'secret-123'),
+    ).resolves.toEqual({
+      message: 'Thiết lập mật khẩu thành công',
+    });
+
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: {
+        passwordHash: 'hashed-password',
+        refreshToken: null,
+      },
+      select: {
+        id: true,
+        email: true,
+        roleType: true,
+      },
+    });
+    expect(actionHistoryService.recordUpdate).toHaveBeenCalledWith(
+      mockPrisma,
+      expect.objectContaining({
+        entityType: 'user',
+        entityId: 'user-1',
+        description: 'Thiết lập mật khẩu ban đầu qua Google OAuth',
+      }),
+    );
+  });
 });

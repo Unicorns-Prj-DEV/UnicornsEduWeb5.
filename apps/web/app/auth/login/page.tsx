@@ -62,6 +62,7 @@ function LoginPageContent() {
         id: loginResponse.id,
         accountHandle: loginResponse.accountHandle,
         roleType: loginResponse.roleType,
+        requiresPasswordSetup: false,
       });
 
       let fullProfile: FullProfileDto | null = null;

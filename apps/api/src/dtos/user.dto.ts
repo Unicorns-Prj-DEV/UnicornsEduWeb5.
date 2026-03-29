@@ -166,6 +166,16 @@ export class ChangePasswordDto {
   newPassword: string;
 }
 
+export class SetupPasswordDto {
+  @ApiProperty({
+    description: 'First password for an OAuth-created account',
+    example: 'NewStrongPass123!',
+  })
+  @IsString()
+  @MinLength(6)
+  password: string;
+}
+
 export interface RefreshUserDto {
   id: string;
   accountHandle: string;

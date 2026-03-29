@@ -1,4 +1,11 @@
-import { ForgotPasswordDto, LoginDto, RegisterDto, ResetPasswordDto } from '@/dtos/Auth.dto';
+import {
+    ForgotPasswordDto,
+    LoginDto,
+    RegisterDto,
+    ResetPasswordDto,
+    SetupPasswordDto,
+    UserInfoDto,
+} from '@/dtos/Auth.dto';
 import type {
     BonusListResponse,
     CreateMyBonusPayload,
@@ -50,13 +57,18 @@ export async function verifyEmail(token: string) {
     return response.data;
 }
 
-export async function getProfile() {
-    const response = await api.get('/auth/profile');
+export async function getProfile(): Promise<UserInfoDto> {
+    const response = await api.get<UserInfoDto>('/auth/profile');
     return response.data;
 }
 
 export async function changePassword(data: { currentPassword: string; newPassword: string }) {
     const response = await api.post('/auth/change-password', data);
+    return response.data;
+}
+
+export async function setupPassword(data: SetupPasswordDto) {
+    const response = await api.post('/auth/setup-password', data);
     return response.data;
 }
 

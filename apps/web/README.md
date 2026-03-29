@@ -10,6 +10,7 @@ Frontend của Unicorns Edu 5.0, dùng Next.js App Router.
 - `/auth/register`
 - `/auth/forgot-password`
 - `/auth/reset-password`
+- `/auth/setup-password`
 - `/admin`
 - `/admin/home`
 - `/admin/dashboard`

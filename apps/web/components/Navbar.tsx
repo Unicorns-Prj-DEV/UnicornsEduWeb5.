@@ -35,7 +35,12 @@ export function Navbar({ showHomeMenu = true }: { showHomeMenu?: boolean }) {
   const logoutMutation = useMutation({
     mutationFn: logout,
     onSuccess: () => {
-      setUser({ id: "", accountHandle: "", roleType: Role.guest });
+      setUser({
+        id: "",
+        accountHandle: "",
+        roleType: Role.guest,
+        requiresPasswordSetup: false,
+      });
       queryClient.invalidateQueries();
       toast.success("Đăng xuất thành công");
       router.push("/");
@@ -92,7 +97,7 @@ export function Navbar({ showHomeMenu = true }: { showHomeMenu?: boolean }) {
         )}
 
         <div className="flex items-center gap-2">
-          {user.roleType !== Role.guest ? (
+          {user.id ? (
             <>
               <Link
                 href={"/user-profile"}

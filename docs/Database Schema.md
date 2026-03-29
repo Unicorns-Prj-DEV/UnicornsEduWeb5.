@@ -146,7 +146,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - Coverage hiện tại:
   - learning / finance / content: `session`, `class`, `cost`, `bonus`, `cf_problem_tutorial`
   - identity / people: `user`, `student`, `staff`
-  - auth state của `user`: `register`, `verify email`, `reset password`, `change password`, Google OAuth create/verify
+  - auth state của `user`: `register`, `verify email`, `reset password`, `change password`, `setup password` cho user OAuth, Google OAuth create/verify
 - Ghi chú bảo mật:
   - snapshot `user` lưu theo dữ liệu thực tế ở DB, nên các field hash như `passwordHash` hoặc `refreshToken` có thể xuất hiện trong `before_value` / `after_value` khi chính các field đó thay đổi
 - Indexes phục vụ tra cứu lịch sử:

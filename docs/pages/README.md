@@ -22,6 +22,7 @@ Page-level specs for `apps/web`, aligned with [Workplan](../Workplan.md) and [UI
 | `/auth/register` | Implemented | Public | Huy/Minh | [auth-register.md](auth-register.md) |
 | `/auth/forgot-password` | Implemented | Public | Huy/Minh | [auth-forgot-password.md](auth-forgot-password.md) |
 | `/auth/reset-password` | Implemented | Public | Huy/Minh | [auth-reset-password.md](auth-reset-password.md) |
+| `/auth/setup-password` | Implemented | Public route, auth-gated | Huy/Minh | [auth-setup-password.md](auth-setup-password.md) |
 | `/assistant` | Planned | Assistant | Minh | [assistant.md](assistant.md) |
 | `/mentor` | Planned | Teacher | Huy | [mentor.md](mentor.md) |
 | `/student` | Implemented | Student | Minh | [student.md](student.md) |

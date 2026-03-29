@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  HttpException,
   Injectable,
   InternalServerErrorException,
   UnauthorizedException,
@@ -18,7 +17,7 @@ import {
 import { CreateUserDto } from '../dtos/user.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
-import { LoginResponseDto } from 'src/dtos/auth.dto';
+import { AuthProfileDto, LoginResponseDto } from 'src/dtos/auth.dto';
 
 type JwtSignOptions = Parameters<JwtService['signAsync']>[1];
 type UserAuditClient = Prisma.TransactionClient | PrismaService;
@@ -138,7 +137,7 @@ export class AuthService {
 
   async refreshTokens(
     userId: string,
-    usedRefreshToken: string,
+    _usedRefreshToken: string,
     rememberMe = false,
   ): Promise<TokenPair> {
     const user = await this.prisma.user.findUnique({
@@ -161,6 +160,29 @@ export class AuthService {
       user.roleType,
       rememberMe,
     );
+  }
+
+  async getAuthProfile(userId: string): Promise<AuthProfileDto | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        accountHandle: true,
+        roleType: true,
+        passwordHash: true,
+      },
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    return {
+      id: user.id,
+      accountHandle: user.accountHandle,
+      roleType: user.roleType,
+      requiresPasswordSetup: !user.passwordHash,
+    };
   }
 
   async register(data: CreateUserDto): Promise<{ message: string }> {
@@ -503,6 +525,56 @@ export class AuthService {
     });
 
     return { message: 'Đổi mật khẩu thành công' };
+  }
+
+  async setupPassword(
+    userId: string,
+    password: string,
+  ): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, passwordHash: true },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    if (user.passwordHash) {
+      throw new BadRequestException('Tài khoản này đã có mật khẩu');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const beforeValue = await this.getUserAuditSnapshot(tx, userId);
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          passwordHash: await bcrypt.hash(password, 10),
+          refreshToken: null,
+        },
+        select: {
+          id: true,
+          email: true,
+          roleType: true,
+        },
+      });
+
+      const afterValue = await this.getUserAuditSnapshot(tx, updatedUser.id);
+      if (!beforeValue || !afterValue) {
+        return;
+      }
+
+      await this.actionHistoryService.recordUpdate(tx, {
+        actor: this.buildUserActor(updatedUser),
+        entityType: 'user',
+        entityId: updatedUser.id,
+        description: 'Thiết lập mật khẩu ban đầu qua Google OAuth',
+        beforeValue,
+        afterValue,
+      });
+    });
+
+    return { message: 'Thiết lập mật khẩu thành công' };
   }
 
   private async generateEmailVerificationToken(

@@ -14,7 +14,12 @@ export async function getUser(): Promise<UserInfoDto> {
   const refreshToken = cookieStore.get("refresh_token")?.value;
 
   if (!refreshToken) {
-    return { id: "", accountHandle: "", roleType: Role.guest };
+    return {
+      id: "",
+      accountHandle: "",
+      roleType: Role.guest,
+      requiresPasswordSetup: false,
+    };
   }
 
   try {
@@ -26,13 +31,19 @@ export async function getUser(): Promise<UserInfoDto> {
     });
 
     if (!res.ok) {
-      return { id: "", accountHandle: "", roleType: Role.guest };
+      return {
+        id: "",
+        accountHandle: "",
+        roleType: Role.guest,
+        requiresPasswordSetup: false,
+      };
     }
 
     const data = (await res.json()) as {
       id?: string;
       accountHandle?: string;
       roleType?: string;
+      requiresPasswordSetup?: boolean;
     };
 
     const roleType =
@@ -44,8 +55,17 @@ export async function getUser(): Promise<UserInfoDto> {
       id: data.id ?? "",
       accountHandle: data.accountHandle ?? "",
       roleType,
+      requiresPasswordSetup:
+        typeof data.requiresPasswordSetup === "boolean"
+          ? data.requiresPasswordSetup
+          : false,
     };
   } catch {
-    return { id: "", accountHandle: "", roleType: Role.guest };
+    return {
+      id: "",
+      accountHandle: "",
+      roleType: Role.guest,
+      requiresPasswordSetup: false,
+    };
   }
 }

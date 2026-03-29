@@ -208,7 +208,12 @@ export default function AdminSidebar() {
     mutationFn: authApi.logout,
     onSuccess: () => {
       queryClient.invalidateQueries();
-      setUser({ id: "", accountHandle: "", roleType: Role.guest });
+      setUser({
+        id: "",
+        accountHandle: "",
+        roleType: Role.guest,
+        requiresPasswordSetup: false,
+      });
       router.push("/");
     },
     onError: (error) => {

@@ -12,6 +12,7 @@ interface AuthContextValue {
     user: UserInfoDto;
     setUser: (user: UserInfoDto) => void;
     resetUser: () => void;
+    isAuthReady: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -19,18 +20,39 @@ const AuthContext = createContext<AuthContextValue>({
         id: "",
         accountHandle: "",
         roleType: Role.guest,
+        requiresPasswordSetup: false,
     },
     setUser: () => { },
     resetUser: () => { },
+    isAuthReady: false,
 });
 
 export const AuthProvider = ({ children, initialUser }: AuthContextProviderProps) => {
     const [user, setUser] = useState<UserInfoDto>(initialUser);
+    const [isAuthReady, setIsAuthReady] = useState(false);
 
     useEffect(() => {
         const fetchProfile = async () => {
-            const profile = await getProfile();
-            setUser(profile ?? { id: '', accountHandle: '', roleType: Role.guest });
+            try {
+                const profile = await getProfile();
+                setUser(
+                    profile ?? {
+                        id: "",
+                        accountHandle: "",
+                        roleType: Role.guest,
+                        requiresPasswordSetup: false,
+                    },
+                );
+            } catch {
+                setUser({
+                    id: "",
+                    accountHandle: "",
+                    roleType: Role.guest,
+                    requiresPasswordSetup: false,
+                });
+            } finally {
+                setIsAuthReady(true);
+            }
         };
         fetchProfile();
     }, []);
@@ -40,10 +62,16 @@ export const AuthProvider = ({ children, initialUser }: AuthContextProviderProps
             user,
             setUser,
             resetUser: () => {
-                setUser({ id: '', accountHandle: '', roleType: Role.guest });
+                setUser({
+                    id: '',
+                    accountHandle: '',
+                    roleType: Role.guest,
+                    requiresPasswordSetup: false,
+                });
             },
+            isAuthReady,
         }),
-        [user]
+        [isAuthReady, user]
     );
 
     return <AuthContext.Provider value={value} > {children} </AuthContext.Provider>;

@@ -34,4 +34,9 @@ export interface UserInfoDto {
     id: string
     accountHandle: string;
     roleType: Role;
+    requiresPasswordSetup: boolean;
+}
+
+export interface SetupPasswordDto {
+    password: string;
 }

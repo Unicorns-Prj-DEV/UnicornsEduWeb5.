@@ -1,15 +1,16 @@
-# Auth pages (Login / Register / Forgot / Reset)
+# Auth pages (Login / Register / Forgot / Reset / Setup Password)
 
 ## Tổng quan
 
-- **Paths:** `/auth/login`, `/auth/register`, `/auth/forgot-password`, `/auth/reset-password`.
+- **Paths:** `/auth/login`, `/auth/register`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/setup-password`.
 - **State layer:** TanStack Query (`useMutation`) cho toàn bộ submit flow auth.
 - **Global providers:** `QueryClientProvider` + Sonner `Toaster` được mount tại `apps/web/app/providers.tsx`.
-- **Auth API contract:** Giữ nguyên theo `apps/web/lib/apis/auth.api` (không đổi request/response contract).
+- **Auth gate:** `apps/web/app/providers.tsx` có `AuthPasswordSetupGate`; nếu user có session hợp lệ (`id` + `accountHandle`) và `requiresPasswordSetup=true` thì mọi route client sẽ bị đẩy về `/auth/setup-password`, kể cả khi `roleType` hiện tại vẫn là `guest`.
+- **Auth API contract:** `GET /auth/profile` và `GET /auth/me` trả thêm `requiresPasswordSetup`; frontend dùng cờ này để cưỡng bức flow thiết lập mật khẩu sau Google OAuth.
 
 ## UI feedback chuẩn hoá
 
-- Thay toàn bộ box thông báo inline lỗi/thành công trong 4 auth pages bằng toast của Sonner.
+- Thay toàn bộ box thông báo inline lỗi/thành công trong 5 auth pages bằng toast của Sonner.
 - Dùng `toast.error(...)` cho validation/mutation failure.
 - Dùng `toast.success(...)` cho mutation success.
 - Giữ nguyên redirect logic và fallback message hiện có.
@@ -21,6 +22,13 @@
   - `staff -> /staff` chỉ khi `GET /users/me/full` xác nhận đã có linked `staffInfo`; nếu chưa có profile thì fallback `/user-profile`
   - `student -> /student` chỉ khi `GET /users/me/full` xác nhận đã có linked `studentInfo`; nếu chưa có profile thì fallback `/user-profile`
   - `guest -> /`
+- Google OAuth thành công:
+  - nếu user đã có `passwordHash`: backend set cookie và redirect về `FRONTEND_URL` như flow cũ
+  - nếu user chưa có `passwordHash`: backend set cookie và redirect tới `/auth/setup-password?source=google`
+  - trường hợp account mới vẫn có `roleType = guest` vẫn được coi là session hợp lệ để hoàn tất setup password, không bị đá về login chỉ vì role là `guest`
+- Setup password thành công:
+  - ưu tiên redirect về `next` hợp lệ nếu route đó bị gate chặn trước đó
+  - nếu không có `next`, redirect theo role giống login thường
 - Register thành công: toast success, delay 3s rồi redirect `/auth/login`.
 - Reset password thành công: toast success, delay 2s rồi redirect `/auth/login`.
 - Forgot password thành công: toast success, không redirect.
@@ -30,7 +38,7 @@
 Để lấy thông tin user hiện tại trong **Server Component**, Route Handler hoặc Server Action (không dùng React context):
 
 - Import và gọi `getUser()` từ `@/lib/auth-server`.
-- Hàm đọc cookie `refresh_token` từ request, gọi backend `GET /auth/profile` với cookie đó, và trả về `UserInfoDto` hoặc user guest nếu chưa đăng nhập/lỗi.
+- Hàm đọc cookie `refresh_token` từ request, gọi backend `GET /auth/profile` với cookie đó, và trả về `UserInfoDto` gồm `id`, `accountHandle`, `roleType`, `requiresPasswordSetup`; nếu lỗi thì fallback guest user.
 
 **Ví dụ (trang server component):**
 
@@ -56,10 +64,11 @@ export default async function SomePage() {
 - **accountHandle**: định danh đăng nhập (username), unique, dùng trong JWT và hiển thị (navbar, profile).
 - Login chấp nhận một chuỗi: backend coi là accountHandle trước, không có thì coi là email.
 - User đăng ký Google: `accountHandle` được set = email. User đăng ký form: nhập email và accountHandle riêng (có thể trùng hoặc khác).
+- Nếu user đăng nhập Google mà tài khoản tương ứng vẫn chưa có `passwordHash`, backend sẽ giữ session nhưng đánh dấu `requiresPasswordSetup=true` cho tới khi hoàn tất `POST /auth/setup-password`.
 
 ## API endpoints đang dùng
 
-- **API (real only):** login, logout, me (profile + role), register, verify email, forgot password, reset password.
+- **API (real only):** login, logout, me (profile + role + `requiresPasswordSetup`), register, verify email, forgot password, reset password, setup password đầu tiên cho user OAuth.
 - **Backend Auth endpoints hiện có:**
   - `POST /auth/login` body: `{ accountHandle, password, rememberMe? }`
     - `accountHandle`: có thể là **email** hoặc **account handle** (username); backend tìm user theo accountHandle trước, không có thì theo email.
@@ -70,15 +79,20 @@ export default async function SomePage() {
     - rate limit: `10` request / `1 giờ` / IP.
   - `POST /auth/refresh` dùng `refresh_token` cookie
     - rate limit: `120` request / `1 phút` / IP.
-  - `GET /auth/profile` — thông tin cơ bản từ JWT (id, accountHandle, roleType), dùng cho server/getUser.
-  - `GET /auth/me` — payload JWT hiện tại (id, accountHandle, roleType). Yêu cầu cookie `access_token`.
+  - `GET /auth/profile` — thông tin auth cơ bản cho frontend/server (`id`, `accountHandle`, `roleType`, `requiresPasswordSetup`), dùng cho `getUser()` và `AuthContext`.
+  - `GET /auth/me` — thông tin auth hiện tại từ DB (`id`, `accountHandle`, `roleType`, `requiresPasswordSetup`). Yêu cầu cookie `access_token`.
   - `GET /auth/verify?token=...`
     - rate limit: `30` request / `1 giờ` / IP.
   - `POST /auth/forgot-password` body: `{ email }`
     - rate limit: `5` request / `1 giờ` / IP.
   - `POST /auth/reset-password` body: `{ token, password }`
     - rate limit: `10` request / `1 giờ` / IP.
+  - `POST /auth/setup-password` body: `{ password }`
+    - chỉ dùng cho user đã đăng nhập nhưng chưa có `passwordHash`
+    - backend sẽ hash mật khẩu, ghi audit, rotate lại cookies auth hiện tại
+    - rate limit: `10` request / `30 phút` / IP.
   - `POST /auth/change-password`
+    - chỉ dùng khi tài khoản đã có mật khẩu và cần truyền `currentPassword`
     - rate limit: `10` request / `30 phút` / IP.
 - **Global rate limit:** các endpoint HTTP khác của API dùng limit mặc định `300` request / `60s` / endpoint / IP; health check `GET /` được `@SkipThrottle()`.
 - **Phản hồi khi vượt ngưỡng:** backend trả `429 Too Many Requests`; frontend nên surface message này qua Sonner toast như các lỗi auth khác.
@@ -113,3 +127,4 @@ DTO: `apps/web/dtos/profile.dto.ts` và `apps/api/src/dtos/profile.dto.ts`.
 - [auth-register.md](./auth-register.md)
 - [auth-forgot-password.md](./auth-forgot-password.md)
 - [auth-reset-password.md](./auth-reset-password.md)
+- [auth-setup-password.md](./auth-setup-password.md)

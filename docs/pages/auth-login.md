@@ -7,13 +7,14 @@ Cho phép người dùng đăng nhập bằng email/password hoặc Google OAuth
 ## Hành vi chính
 
 - Submit login gọi `authApi.logIn`.
-- Nếu nhận `accessToken` + `refreshToken`, set cookie client-side rồi gọi `authApi.getProfile` để lấy role.
+- Backend set `access_token` + `refresh_token` qua HTTP-only cookies; frontend chỉ cập nhật auth state và gọi `authApi.getFullProfile()` để resolve redirect.
 - Redirect theo role:
   - `admin` -> `/admin`
   - `staff` -> `/staff`
   - `student` -> `/student`
   - fallback -> `/`
 - Trường hợp query `error=google_no_user`: hiển thị `toast.error`.
+- Nếu user bấm Google OAuth và backend phát hiện tài khoản tương ứng chưa có `passwordHash`, flow sẽ bị chuyển sang `/auth/setup-password?source=google` thay vì cho vào app ngay.
 
 ## Feedback UI
 
