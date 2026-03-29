@@ -127,7 +127,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `customer_care_service`: map staff chăm sóc theo học viên + % profit
 - `staff_monthly_stats`: số liệu tổng hợp lương/việc theo tháng
 - `extra_allowances`: khoản trợ cấp bổ sung theo staff/tháng/role, có `amount`, `status`, `note`, `month`, `role_type`
-- `dashboard_cache`: cache JSON theo key/type + `expires_at`
+- `dashboard_cache`: cache JSON theo key/type + `expires_at`; hiện được backend dùng làm server-side response cache cho các read endpoint nặng của admin dashboard
 - `cost_extend`: khoản chi mở rộng theo tháng/danh mục
 
 ### 4.8 Content & audit

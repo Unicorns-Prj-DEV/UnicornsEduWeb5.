@@ -37,11 +37,11 @@
 - **Dashboard aggregate endpoint (admin-only):**
   - `GET /dashboard?month=<01-12>&year=<YYYY>&alertLimit=<1-20>&topClassLimit=<1-20>` trả toàn bộ payload cho `/admin/dashboard`: `period`, `summary`, `revenueProfitTrend`, `breakdown`, `actionAlerts`, `classPerformance`, `yearlySummary`.
     - `actionAlerts` hiện có thêm `targetType` (`student|staff|class`) + `targetId` để FE điều hướng chi tiết khi bấm từng dòng.
-    - Khi `REDIS_URL` được cấu hình ở API, payload aggregate này được cache ở server bằng Redis với TTL ngắn (`REDIS_CACHE_DEFAULT_TTL_SECONDS`, mặc định `60s`) theo bộ tham số `month/year/alertLimit/topClassLimit`; nếu Redis không khả dụng thì backend fallback đọc DB trực tiếp.
+    - Payload aggregate này được cache ở server bằng bảng `dashboard_cache` với TTL ngắn (`DASHBOARD_CACHE_DEFAULT_TTL_SECONDS`, mặc định `60s`) theo bộ tham số `month/year/alertLimit/topClassLimit`; nếu thao tác cache lỗi thì backend fallback query dữ liệu tươi trực tiếp từ PostgreSQL.
   - `GET /dashboard/topup-history?month=<01-12>&year=<YYYY>&limit=<1-300>` trả danh sách giao dịch `wallet_transactions_history` loại `topup` trong kỳ đang xem, kèm `cumulativeBefore/cumulativeAfter` để FE render popup lịch sử nạp khi bấm vào số tiền **Tổng nạp**.
-    - Khi `REDIS_URL` được cấu hình, endpoint này cũng dùng Redis cache theo `month/year/limit`; dữ liệu authoritative vẫn đến từ PostgreSQL khi cache miss hoặc Redis bị lỗi.
+    - Endpoint này cũng dùng `dashboard_cache` theo `month/year/limit`; dữ liệu authoritative vẫn đến từ PostgreSQL khi cache miss, row đã hết hạn hoặc thao tác cache lỗi.
   - `GET /dashboard/student-balance-details?limit=<1-500>` trả danh sách học sinh active thuộc lớp running có số dư dương (`account_balance > 0`), gồm `studentName`, `className`, `balance`; FE dùng cho popup chi tiết khi bấm vào số tiền **Nợ học phí chưa dạy**.
-    - Khi `REDIS_URL` được cấu hình, endpoint này dùng Redis cache theo `limit`; nếu Redis không có cấu hình hoặc mất kết nối thì backend bỏ qua cache và query DB như cũ.
+    - Endpoint này dùng `dashboard_cache` theo `limit`; nếu row cache không tồn tại, hết hạn hoặc thao tác cache lỗi thì backend bỏ qua cache và query DB như cũ.
   - `summary.activeClasses` đếm `classes.status = running`; `summary.activeStudents` đếm học sinh active đang thuộc lớp running.
   - `summary.monthlyRevenue` và line chart doanh thu lấy từ tổng `attendance.tuition_fee` của attendance `status = present`, gom theo `sessions.date`.
   - `summary.monthlyExpense` và breakdown chi phí được cộng từ các nguồn authoritative ở DB: phụ cấp buổi dạy theo công thức session allowance, commission CSKH (`attendance.customer_care_coef`), `lesson_outputs.cost`, `bonuses.amount`, `extra_allowances.amount`, `cost_extend.amount`.

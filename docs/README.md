@@ -7,7 +7,7 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
 | Thư mục / file | Mô tả |
 |----------------|--------|
 | `apps/web` | Next.js 16, React 19, App Router. Frontend: `app/` (routes), `lib/` (API client). |
-| `apps/api` | NestJS backend. `src/` (auth, `action-history/`, `cache/`, prisma, `session/` workflow services, `staff-ops/` access helpers, user/student/staff services, mail, …), `prisma/schema/`, `generated/` (Prisma Client), `dtos/`. Runtime hiện có Redis-backed cache cho dashboard read endpoints và global HTTP rate limiting qua `@nestjs/throttler`. |
+| `apps/api` | NestJS backend. `src/` (auth, `action-history/`, `cache/`, prisma, `session/` workflow services, `staff-ops/` access helpers, user/student/staff services, mail, …), `prisma/schema/`, `generated/` (Prisma Client), `dtos/`. Runtime hiện dùng bảng `dashboard_cache` của PostgreSQL cho dashboard read cache và global HTTP rate limiting qua `@nestjs/throttler`. |
 | `packages/` | Shared packages (hiện chỉ có `.gitkeep`, chưa có package con). |
 | `archived/` | Bản lưu tham khảo (vd. `UniEdu-Web-3.9`). |
 | Root | `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `pnpm-lock.yaml`. |

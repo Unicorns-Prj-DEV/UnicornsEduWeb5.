@@ -13,7 +13,7 @@ import {
   GetAdminStudentBalanceDetailsQueryDto,
   GetAdminTopupHistoryQueryDto,
 } from '../dtos/dashboard.dto';
-import { RedisCacheService } from '../cache/redis-cache.service';
+import { DashboardCacheService } from '../cache/dashboard-cache.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 type SummaryCountRow = {
@@ -210,7 +210,7 @@ function buildCacheKey(scope: string, params: Record<string, number | string>) {
 export class DashboardService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly redisCacheService: RedisCacheService,
+    private readonly dashboardCacheService: DashboardCacheService,
   ) {}
 
   private async getSummaryCounts(): Promise<SummaryCountRow> {
@@ -878,13 +878,14 @@ export class DashboardService {
       typeof query.topClassLimit === 'number' ? query.topClassLimit : 5;
     const range = buildDashboardRange(query.month, query.year);
 
-    return this.redisCacheService.wrapJson({
+    return this.dashboardCacheService.wrapJson({
       key: buildCacheKey('aggregate', {
         alertLimit,
         month: range.month,
         topClassLimit,
         year: range.year,
       }),
+      cacheType: 'aggregate',
       loader: async () => {
         const [
           summaryCounts,
@@ -1127,12 +1128,13 @@ export class DashboardService {
     const range = buildDashboardRange(query.month, query.year);
     const limit = typeof query.limit === 'number' ? query.limit : 120;
 
-    return this.redisCacheService.wrapJson({
+    return this.dashboardCacheService.wrapJson({
       key: buildCacheKey('topup-history', {
         limit,
         month: range.month,
         year: range.year,
       }),
+      cacheType: 'topup-history',
       loader: async () => {
         const rows = await this.prisma.$queryRaw<
           TopupHistorySqlRow[]
@@ -1197,8 +1199,9 @@ export class DashboardService {
   ): Promise<AdminDashboardStudentBalanceItemDto[]> {
     const limit = typeof query.limit === 'number' ? query.limit : 250;
 
-    return this.redisCacheService.wrapJson({
+    return this.dashboardCacheService.wrapJson({
       key: buildCacheKey('student-balance-details', { limit }),
+      cacheType: 'student-balance-details',
       loader: async () => {
         const rows = await this.prisma.$queryRaw<
           StudentBalanceDetailSqlRow[]

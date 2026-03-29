@@ -22,7 +22,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 ## [Unreleased]
 
 ### Added
-- BE server cache: thêm Redis-backed cache service (`apps/api/src/cache/redis-cache.service.ts`) và áp dụng cho các read endpoint nặng của admin dashboard (`GET /dashboard`, `GET /dashboard/topup-history`, `GET /dashboard/student-balance-details`) với key theo query params và TTL ngắn; nếu `REDIS_URL` chưa cấu hình hoặc Redis lỗi thì backend fallback đọc PostgreSQL trực tiếp.
+- BE server cache: thêm Postgres-backed dashboard cache service (`apps/api/src/cache/dashboard-cache.service.ts`) dùng bảng `dashboard_cache` cho các read endpoint nặng của admin dashboard (`GET /dashboard`, `GET /dashboard/topup-history`, `GET /dashboard/student-balance-details`) với key theo query params và TTL ngắn; nếu thao tác cache lỗi thì backend vẫn fallback query dữ liệu tươi từ PostgreSQL.
 - BE self-service users: thêm endpoint `PATCH /users/me/staff-bonuses` để staff chỉnh `workType`, `month`, `amount`, `note` của khoản thưởng thuộc chính mình; route kiểm tra ownership bằng truy vấn hẹp `id` + `staffId` và không cho tự đổi `status`.
 - BE dashboard: thêm endpoint `GET /dashboard/topup-history?month=&year=&limit=` trả lịch sử nạp (topup) trong tháng kèm tổng nạp tích lũy trước/sau mỗi giao dịch để phục vụ popup tra cứu.
 - BE dashboard: thêm endpoint `GET /dashboard/student-balance-details?limit=` trả danh sách chi tiết học sinh - lớp - số dư (`account_balance > 0`) cho popup “Nợ học phí chưa dạy”.
