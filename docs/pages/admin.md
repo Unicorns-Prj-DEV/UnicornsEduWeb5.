@@ -9,7 +9,7 @@
 
 ## Features
 
-- **Dashboard:** route canonical là `/admin/dashboard`; `/admin` là alias render cùng nội dung để tránh lỗi dev runtime khi đo performance trên redirect page. Dashboard đã đồng bộ layout backup theo hướng tối giản: thanh lọc thời gian + nút xuất, cụm KPI card ngang, bảng **Báo cáo tài chính**, section **Cảnh báo & hành động** dạng card group, và section **Chế độ xem nhanh theo phân hệ** (tab Tài chính/Vận hành/Học viên + chọn năm). Dữ liệu lấy thật từ backend qua `GET /dashboard`; frontend dùng TanStack Query (`apps/web/lib/apis/dashboard.api.ts`) và chỉ render dữ liệu aggregate authoritative từ BE. Ở bảng tài chính, khi bấm vào giá trị dòng **Tổng nạp** sẽ mở popup **Lịch sử nạp** (ngày giờ, học sinh, số tiền, ghi chú, tổng nạp tích lũy trước/sau) theo tháng đang chọn; khi bấm vào giá trị dòng **Nợ học phí chưa dạy** sẽ mở popup chi tiết danh sách **Học sinh - Lớp - Số dư**.
+- **Dashboard:** route canonical là `/admin/dashboard`; `/admin` là alias render cùng nội dung để tránh lỗi dev runtime khi đo performance trên redirect page. Dashboard đã đồng bộ layout backup theo hướng tối giản: thanh lọc thời gian + nút xuất, **cụm KPI card dạng grid compact** (gọn chiều cao/spacing để scan nhanh), bảng **Báo cáo tài chính**, section **Cảnh báo & hành động** dạng card group, và section **Chế độ xem nhanh theo phân hệ** (tab Tài chính/Vận hành/Học viên + chọn năm). Dữ liệu lấy thật từ backend qua `GET /dashboard`; frontend dùng TanStack Query (`apps/web/lib/apis/dashboard.api.ts`) và chỉ render dữ liệu aggregate authoritative từ BE. Ở bảng tài chính, khi bấm vào giá trị dòng **Tổng nạp** sẽ mở popup **Lịch sử nạp** (ngày giờ, học sinh, số tiền, ghi chú, tổng nạp tích lũy trước/sau) theo tháng đang chọn; khi bấm vào giá trị dòng **Nợ học phí chưa dạy** sẽ mở popup chi tiết danh sách **Học sinh - Lớp - Số dư**.
   - Khối **Cảnh báo & hành động** được render đúng 4 thẻ theo backup: **Học sinh cần gia hạn**, **Chờ thanh toán trợ cấp**, **Lớp chưa báo cáo lần 4**, **Chưa thu học phí**; mỗi thẻ có màu riêng theo loại và mỗi dòng cảnh báo có thể bấm để mở trang chi tiết tương ứng: học sinh → `/admin/students/:id`, gia sư/nhân sự → `/admin/staffs/:id`, lớp → `/admin/classes/:id`.
 - **CRUD lớp:** List, create, edit, archive classes; fields aligned with `classes` + relations.
 - **Gán học sinh / giáo viên:** Manage `class_teachers`, `student_classes`; prevent duplicate N-N rows.
@@ -28,6 +28,7 @@
 - **Alerts:** Status tint background; icon + label for accessibility.
 - **Reusable components (staff admin):** Tách các phần UI dùng lại vào `apps/web/components/admin/staff` (ví dụ: `StaffListTableSkeleton`, `StaffCard`, `StaffDetailRow`) để giữ page gọn và dễ bảo trì.
 - **Reusable components (session history):** Dùng chung `SessionHistoryTable` + `SessionHistoryTableSkeleton` cho `/admin/classes/:id` và `/admin/staff/:id`; cột thực thể được điều khiển bởi `entityMode` (`teacher` | `class` | `none`).
+- **Reusable components (month toolbar):** Dùng chung `MonthNav` cho mọi màn hình có điều hướng tháng (dashboard/staff detail/class detail/costs/…); UI toolbar chuyển tháng được đồng bộ theo backup.
 
 ## Data and API
 
@@ -91,7 +92,7 @@
   - FE `/admin/staffs` cột **Chưa thanh toán** trên list page lấy trực tiếp từ `unpaidAmountTotal` của `GET /staff`; không còn đọc snapshot `monthlyStats.totalUnpaidAll`.
   - FE `/admin/staffs` có nút ở góc trên bên phải để thêm gia sư từ user đã tồn tại: popup tìm kiếm user bằng email, chỉ cho chọn user hợp lệ, sau đó tạo `staff_info` với role `teacher`.
   - Khi admin tạo hồ sơ gia sư thành công, backend sẽ cập nhật `users.role_type` của user được gán sang `staff` để tài khoản đó dùng được các luồng staff/teacher.
-  - Xóa staff dùng TanStack Query `useMutation`; khi thành công sẽ invalidate query danh sách và hiển thị Sonner toast.
+- Xóa staff dùng TanStack Query `useMutation`; khi thành công sẽ invalidate query danh sách và hiển thị Sonner toast. Lưu ý: backend sẽ chặn xóa nếu nhân sự đang có buổi học liên kết (`sessions.teacher_id`), và trả 400 để FE hiển thị thông báo.
   - FE `/admin/staff/:id` dùng TanStack Query `useQuery` với `enabled: !!id` cho trang chi tiết. Layout: hàng 1 [Thông tin cơ bản | Ô QR]; hàng 2 Thống kê thu nhập; hàng 3 Lịch sử buổi học + [Lớp phụ trách | Thưởng]; hàng 4 Công việc khác. QR link hiện vẫn chỉnh chủ yếu ở FE popup, còn phần Thưởng đã kết nối API `/bonus` cho list/create/update/delete theo tháng.
   - FE `/admin/staff/:id` đã kết nối lịch sử buổi học thật từ API `GET /sessions/staff/:staffId?month=&year=` (TanStack Query); có điều hướng tháng (prev/next) cho bảng lịch sử buổi học.
   - FE `/admin/staff/:id` thêm card riêng "Lịch sử buổi học" ở cuối trang để hiển thị bảng session theo tháng.
@@ -153,6 +154,8 @@
   - `PATCH /student/:id` hỗ trợ cập nhật `customer_care_staff_id` và `customer_care_profit_percent`; backend sẽ upsert hoặc xóa bản ghi `customer_care_service` trong cùng transaction với phần hồ sơ học sinh. Gửi `customer_care_staff_id = null` để gỡ CSKH khỏi học sinh.
   - `PATCH /student/update-student-account-balance` ngoài việc cập nhật `accountBalance` còn ghi transaction mới vào `wallet_transactions_history`; số dương lưu type `topup`, số âm lưu type `loan`.
   - FE `/admin/students` có nút **Thêm học sinh** ở phần header danh sách; popup tạo mới dùng flow 2 bước: tìm user theo email rồi hoàn thiện hồ sơ học viên, sau đó invalidate lại TanStack Query của list page.
+- FE `/admin/students`: mỗi dòng học sinh có thêm icon **Xóa** ở cuối (desktop) để xoá nhanh học sinh; bấm vào sẽ mở confirm popup và gọi `DELETE /student/:id`, thành công toast + refetch list.
+  - Backend sẽ chặn xóa nếu học sinh đã có điểm danh/buổi học liên kết (`attendance.student_id`), và trả 400 để FE hiển thị thông báo.
   - FE popup **Chỉnh sửa hồ sơ học sinh** có thêm khối **Chăm sóc khách hàng** với combobox tìm theo họ và tên, và input tỷ lệ lợi nhuận theo `%` (ví dụ nhập `20` để lưu `profitPercent = 0.20`).
   - Popup **Chỉnh sửa hồ sơ học sinh** được tối giản UI: giảm mô tả dài/nhãn phụ, giảm tầng card và làm gọn spacing để thao tác chỉnh sửa nhanh hơn, vẫn giữ đủ các khối dữ liệu (thông tin cơ bản, phụ huynh/trạng thái, CSKH, lịch thi).
   - Trong popup này, nếu học sinh đang có CSKH thì admin có thể bấm **Loại bỏ CSKH** để clear cả nhân sự phụ trách lẫn `% lợi nhuận` ở draft form; UI hiển thị trạng thái “sẽ gỡ khi lưu” và cho phép khôi phục trước khi submit.
@@ -283,6 +286,6 @@ See [ARCHIVED-UI-CONTEXT.md](ARCHIVED-UI-CONTEXT.md) for full mapping.
   - Backend-authoritative data path: `GET /action-history` (summary list, paginated) + `GET /action-history/:id` (full before/after snapshot).
   - UI ưu tiên recent-first timeline một cột bám layout archived, filter theo `entityType`, `actionType`, date range và exact `entityId`; state expand của timeline là local UI state, không ghi vào pathname/query string, và có thể mở nhiều card cùng lúc.
   - Summary list trả thêm `entityDisplayName` khi suy ra được từ snapshot (ví dụ học sinh, nhân sự, user), nên title trên timeline hiển thị tên ngay từ đầu thay vì chờ mở card.
-  - Mobile layout dùng kiểu “audit ledger”: hero tóm tắt + stat cards, filter deck xếp stack card, timeline card nén metadata theo block để scan nhanh trên màn hình nhỏ; khi expand, phần diff + before/after snapshot mở inline ngay trong card và detail chỉ fetch khi card đó được mở.
+  - Mobile layout dùng kiểu “audit ledger” tối giản: header gọn + stat cards, filter card compact, timeline card nén metadata để scan nhanh; khi expand, phần diff + snapshot trước/sau mở inline và detail chỉ fetch khi card đó được mở.
   - FE global query bridge sẽ `invalidateQueries(["action-history"])` sau mọi response thành công của `POST` / `PUT` / `PATCH` / `DELETE` (trừ `auth/refresh`), nên nếu đang mở `/admin/history` thì timeline sẽ tự refetch khi app phát sinh mutation mới.
 - **Layout:** Admin uses sidebar only (`Layout.tsx`, `Sidebar.tsx`); menu items filtered by role and requireStaffRole.

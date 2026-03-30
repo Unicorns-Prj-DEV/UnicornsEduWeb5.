@@ -28,7 +28,7 @@
   - hiển thị đầy đủ các section cùng contract dữ liệu với admin detail:
     - `Thông tin cơ bản`
     - `QR thanh toán`
-    - `Thống kê thu nhập` theo tháng với `MonthNav`
+    - `Thống kê thu nhập` theo tháng với `MonthNav` (toolbar chuyển tháng UI đồng bộ theo backup)
     - popup `Buổi cọc theo lớp`
     - `Lớp phụ trách`
     - `Thưởng` của chính mình, cho phép tự thêm khoản thưởng mới và điều chỉnh nội dung khoản thưởng hiện có trong tháng đang xem
