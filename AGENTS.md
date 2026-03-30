@@ -57,6 +57,7 @@ If you change project workflow/conventions for agents (commands, required checks
 - **Dropdowns**: for simple single-select dropdowns, use the shared upgraded dropdown at `apps/web/components/ui/UpgradedSelect.tsx` instead of native `<select>`.
   - Keep a custom combobox/listbox only when the UX truly needs search, multi-select, async suggestions, or richer option content.
 - **Mobile-first**: implement for small screens first, then add larger breakpoints.
+- **Route parity**: if you change anything in `apps/web/app/admin/**` (UI, behavior, permissions, shared components), review and update the corresponding `staff` and/or `student` routes/features that rely on the same domain behavior so experiences don’t diverge.
 - **DTOs/enums location**: define all frontend DTOs/enums in `apps/web/dtos/` (do not define ad-hoc types in pages or `lib/apis/*`).
 
 ## Backend rules (`apps/api`) (mandatory)
