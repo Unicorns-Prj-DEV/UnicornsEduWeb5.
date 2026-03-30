@@ -4,6 +4,15 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
+  getExtraAllowanceStatusChipClass,
+  getExtraAllowanceStatusLabel,
+} from "@/components/admin/extra-allowance/extraAllowancePresentation";
+import type {
+  ExtraAllowanceListItem,
+  ExtraAllowanceListResponse,
+  ExtraAllowanceStatus,
+} from "@/dtos/extra-allowance.dto";
+import {
   getFullProfile,
   getMyStaffExtraAllowances,
   getMyStaffIncomeSummary,
@@ -12,18 +21,7 @@ import { formatCurrency } from "@/lib/class.helpers";
 import { ROLE_LABELS } from "@/lib/staff.constants";
 
 const RECENT_UNPAID_DAYS = 14;
-
-type CommandTone = "primary" | "warning" | "info" | "neutral";
-type ShortcutShell = "Admin shell" | "Staff shell";
-
-type CommandShortcut = {
-  href: string;
-  label: string;
-  description: string;
-  eyebrow: string;
-  shell: ShortcutShell;
-  tone: CommandTone;
-};
+const MAX_VISIBLE_ALLOWANCES = 20;
 
 function getCurrentMonth() {
   const now = new Date();
@@ -33,22 +31,20 @@ function getCurrentMonth() {
   };
 }
 
-function formatCount(value: number) {
-  return new Intl.NumberFormat("vi-VN").format(value);
+function formatMonthLabel(value: string | null | undefined) {
+  if (!value?.trim()) return "—";
+  const matched = /^(\d{4})-(\d{2})$/.exec(value.trim());
+  if (!matched) return value;
+  return `Tháng ${matched[2]}/${matched[1]}`;
 }
 
-function getCommandToneClass(tone: CommandTone) {
-  switch (tone) {
-    case "primary":
-      return "border-primary/20 bg-primary/10";
-    case "warning":
-      return "border-warning/25 bg-warning/10";
-    case "info":
-      return "border-info/20 bg-info/10";
-    default:
-      return "border-border-default bg-bg-surface/92";
-  }
+function resolveNote(note: string | null | undefined) {
+  return note?.trim() || "Chưa có ghi chú.";
 }
+
+/* ------------------------------------------------------------------ */
+/*  Shared presentational helpers                                      */
+/* ------------------------------------------------------------------ */
 
 function DashboardCard({
   title,
@@ -84,9 +80,16 @@ function PlaceholderCard({
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  Loading state                                                      */
+/* ------------------------------------------------------------------ */
+
 function StaffRootLoadingState() {
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 pb-8 sm:p-6" aria-busy="true">
+    <div
+      className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 pb-8 sm:p-6"
+      aria-busy="true"
+    >
       <div className="mb-6 h-8 w-56 animate-pulse rounded-lg bg-bg-tertiary" />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
@@ -104,170 +107,139 @@ function StaffRootLoadingState() {
   );
 }
 
-function AssistantMetricCard({
+/* ------------------------------------------------------------------ */
+/*  Assistant detail — status pill                                     */
+/* ------------------------------------------------------------------ */
+
+function AllowanceStatusPill({
+  status,
+}: {
+  status: ExtraAllowanceStatus | null | undefined;
+}) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-wide ring-1 ${getExtraAllowanceStatusChipClass(status)}`}
+    >
+      {getExtraAllowanceStatusLabel(status)}
+    </span>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Assistant detail — metric tiles                                    */
+/* ------------------------------------------------------------------ */
+
+function MetricTile({
   label,
   value,
-  note,
-  tone = "neutral",
+  accent = "default",
 }: {
   label: string;
   value: string;
-  note: string;
-  tone?: CommandTone;
+  accent?: "default" | "amber" | "rose" | "emerald";
 }) {
+  const accentMap = {
+    amber:
+      "border-warning/25 bg-[linear-gradient(135deg,rgba(245,158,11,0.08),rgba(255,255,255,0.95))]",
+    rose: "border-error/20 bg-[linear-gradient(135deg,rgba(239,68,68,0.06),rgba(255,255,255,0.95))]",
+    emerald:
+      "border-success/25 bg-[linear-gradient(135deg,rgba(16,185,129,0.07),rgba(255,255,255,0.95))]",
+    default: "border-border-default bg-bg-surface",
+  } as const;
+
   return (
     <article
-      className={`rounded-[1.4rem] border px-4 py-4 shadow-sm sm:px-5 ${getCommandToneClass(
-        tone,
-      )}`}
+      className={`rounded-2xl border px-5 py-4 shadow-sm ${accentMap[accent]}`}
     >
-      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted">
         {label}
       </p>
-      <p className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-text-primary">
+      <p className="mt-2.5 text-[1.65rem] font-semibold tabular-nums tracking-tight text-text-primary">
         {value}
       </p>
-      <p className="mt-2 text-sm leading-6 text-text-secondary">{note}</p>
     </article>
   );
 }
 
-function CommandSectionHeading({
-  eyebrow,
-  title,
-  description,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="mb-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-primary/80">
-        {eyebrow}
-      </p>
-      <h2 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-text-primary">
-        {title}
-      </h2>
-      <p className="mt-2 max-w-3xl text-sm leading-6 text-text-secondary">
-        {description}
-      </p>
-    </div>
-  );
-}
+/* ------------------------------------------------------------------ */
+/*  Assistant detail — allowance row (mobile card)                     */
+/* ------------------------------------------------------------------ */
 
-function CommandShortcutCard({
-  shortcut,
-}: {
-  shortcut: CommandShortcut;
-}) {
+function AllowanceMobileCard({ item }: { item: ExtraAllowanceListItem }) {
   return (
-    <Link
-      href={shortcut.href}
-      className={`group relative overflow-hidden rounded-[1.5rem] border p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${getCommandToneClass(
-        shortcut.tone,
-      )}`}
-    >
-      <div
-        className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent opacity-70"
-        aria-hidden
-      />
+    <article className="rounded-2xl border border-border-default bg-bg-surface p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">
-            {shortcut.eyebrow}
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-text-muted">
+            {formatMonthLabel(item.month)}
           </p>
-          <h3 className="mt-3 text-lg font-semibold tracking-[-0.02em] text-text-primary">
-            {shortcut.label}
-          </h3>
+          <p className="mt-1.5 text-xl font-semibold tabular-nums text-text-primary">
+            {formatCurrency(item.amount ?? 0)}
+          </p>
         </div>
-        <span className="inline-flex shrink-0 rounded-full border border-white/50 bg-white/70 px-2.5 py-1 text-[11px] font-medium text-text-secondary backdrop-blur">
-          {shortcut.shell}
-        </span>
+        <AllowanceStatusPill status={item.status} />
       </div>
-
-      <p className="mt-3 text-sm leading-6 text-text-secondary">
-        {shortcut.description}
+      <p className="mt-3 text-sm leading-relaxed text-text-secondary">
+        {resolveNote(item.note)}
       </p>
-
-      <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-primary transition-transform duration-200 group-hover:translate-x-0.5">
-        Mở nhanh
-        <svg
-          className="size-4 shrink-0"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          aria-hidden
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 5l7 7-7 7"
-          />
-        </svg>
-      </div>
-    </Link>
+    </article>
   );
 }
 
-function AssistantCommandHub({
+/* ------------------------------------------------------------------ */
+/*  Assistant detail — main view                                       */
+/* ------------------------------------------------------------------ */
+
+function AssistantDetailView({
   staffName,
   roles,
+  monthlyTotal,
+  monthlyUnpaid,
   assistantAllowanceTotal,
-  monthlyIncomeTotal,
-  monthlyIncomeUnpaid,
-  pendingAssistantCount,
-  ownStaffDetailHref,
-  adminShortcuts,
-  selfShortcuts,
-  roleSpecificShortcuts,
+  pendingCount,
+  paidCount,
+  allowances,
+  totalAvailable,
+  isAllowancesLoading,
 }: {
   staffName: string;
   roles: string[];
+  monthlyTotal: number;
+  monthlyUnpaid: number;
   assistantAllowanceTotal: number;
-  monthlyIncomeTotal: number;
-  monthlyIncomeUnpaid: number;
-  pendingAssistantCount: number;
-  ownStaffDetailHref: string;
-  adminShortcuts: CommandShortcut[];
-  selfShortcuts: CommandShortcut[];
-  roleSpecificShortcuts: CommandShortcut[];
+  pendingCount: number;
+  paidCount: number;
+  allowances: ExtraAllowanceListItem[];
+  totalAvailable: number;
+  isAllowancesLoading: boolean;
 }) {
-  const totalVisibleCapabilities =
-    adminShortcuts.length + selfShortcuts.length + roleSpecificShortcuts.length;
+  const visibilityNote =
+    totalAvailable > allowances.length
+      ? `Hiển thị ${allowances.length}/${totalAvailable} khoản gần nhất.`
+      : `Toàn bộ ${allowances.length} khoản trợ cấp trợ lí.`;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 pb-8 sm:p-6">
-      <section className="relative overflow-hidden rounded-[2rem] border border-primary/20 bg-[linear-gradient(130deg,rgba(255,255,255,0.98),rgba(248,250,252,0.95),rgba(18,86,104,0.07)),radial-gradient(circle_at_top_right,rgba(245,158,11,0.16),transparent_28%)] p-5 shadow-sm sm:p-6 lg:p-8">
+      {/* ── Header ── */}
+      <header className="relative overflow-hidden rounded-[1.75rem] border border-warning/20 bg-[linear-gradient(130deg,rgba(255,255,255,0.98),rgba(253,251,247,0.96),rgba(245,158,11,0.07)),radial-gradient(circle_at_80%_20%,rgba(245,158,11,0.14),transparent_45%)] p-5 shadow-sm sm:p-6 lg:p-8">
         <div
-          className="pointer-events-none absolute right-[-4rem] top-[-5rem] size-44 rounded-full bg-primary/10 blur-3xl"
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute bottom-[-5rem] left-[20%] size-52 rounded-full bg-warning/15 blur-3xl"
+          className="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-warning/10 blur-3xl"
           aria-hidden
         />
 
-        <div className="relative grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.95fr)] xl:items-end">
+        <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-primary/85">
-              Assistant Command Hub
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-warning">
+              Trợ lí
             </p>
-            <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-[-0.05em] text-text-primary sm:text-4xl">
-              Điều phối toàn bộ tác vụ quản trị từ staff shell.
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-text-primary sm:text-3xl">
+              {staffName}
             </h1>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-text-secondary sm:text-[15px]">
-              Role trợ lí dùng chung toàn bộ cây route quản trị ngay trong staff shell. Route này
-              là command deck để mở nhanh đúng phân hệ cần làm việc, trong khi dashboard của trợ lí
-              vẫn trỏ về staff detail riêng của chính bạn thay cho dashboard tổng hợp.
-            </p>
-
-            <div className="mt-5 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-1.5">
               {roles.map((role) => (
                 <span
                   key={role}
-                  className="inline-flex rounded-full border border-primary/15 bg-white/80 px-3 py-1 text-xs font-medium text-primary shadow-sm"
+                  className="inline-flex rounded-full border border-warning/15 bg-white/80 px-2.5 py-0.5 text-xs font-medium text-text-secondary shadow-sm"
                 >
                   {ROLE_LABELS[role] ?? role}
                 </span>
@@ -275,130 +247,163 @@ function AssistantCommandHub({
             </div>
           </div>
 
-          <div className="rounded-[1.5rem] border border-primary/15 bg-white/75 p-4 shadow-sm backdrop-blur sm:p-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">
-              Điểm vào chính
-            </p>
-            <h2 className="mt-3 text-xl font-semibold tracking-[-0.03em] text-text-primary">
-              Hồ sơ nhân sự của {staffName}
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-text-secondary">
-              Dashboard của trợ lí luôn mở vào staff detail của chính bạn. Từ đây bạn đi thẳng vào
-              route mirror `/staff/dashboard` hoặc staff detail riêng mà không chạm vào aggregate dashboard.
-            </p>
+          <div className="flex flex-wrap gap-2 lg:flex-col lg:items-end">
             <Link
-              href={ownStaffDetailHref}
-              className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              href="/staff/profile"
+              className="inline-flex min-h-10 items-center rounded-xl border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary shadow-sm transition-colors hover:bg-bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
             >
-              Mở dashboard của tôi
+              Hồ sơ nhân sự
+            </Link>
+            <Link
+              href="/staff/dashboard"
+              className="inline-flex min-h-10 items-center rounded-xl bg-warning/90 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-warning focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            >
+              Staff detail
             </Link>
           </div>
         </div>
-      </section>
+      </header>
 
-      <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <AssistantMetricCard
+      {/* ── Metric tiles ── */}
+      <section className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricTile
           label="Thu nhập tháng"
-          value={formatCurrency(monthlyIncomeTotal)}
-          note="Tổng thu nhập self-service của tháng hiện tại."
-          tone="primary"
+          value={formatCurrency(monthlyTotal)}
+          accent="amber"
         />
-        <AssistantMetricCard
+        <MetricTile
           label="Chưa nhận"
-          value={formatCurrency(monthlyIncomeUnpaid)}
-          note="Khoản chưa thanh toán trong income summary của chính bạn."
-          tone="warning"
+          value={formatCurrency(monthlyUnpaid)}
+          accent="rose"
         />
-        <AssistantMetricCard
+        <MetricTile
           label="Trợ cấp trợ lí"
           value={formatCurrency(assistantAllowanceTotal)}
-          note="Tổng role assistant trong tháng hiện tại, lấy từ backend summary."
-          tone="info"
+          accent="emerald"
         />
-        <AssistantMetricCard
-          label="Khoản pending"
-          value={formatCount(pendingAssistantCount)}
-          note={`${formatCount(totalVisibleCapabilities)} lối tắt đang khả dụng trong command hub này.`}
+        <MetricTile
+          label="Chờ thanh toán"
+          value={new Intl.NumberFormat("vi-VN").format(pendingCount)}
         />
       </section>
 
-      <section className="mt-6 rounded-[2rem] border border-border-default bg-bg-surface/92 p-5 shadow-sm sm:p-6">
-        <CommandSectionHeading
-          eyebrow="Quản trị"
-          title="Các phân hệ admin mà trợ lí được dùng"
-          description="Những card này mở thẳng vào tree `/staff/**` mirror lại các module quản trị. Assistant giữ đầy đủ quyền admin ngay trong staff shell, ngoại trừ dashboard tổng hợp."
-        />
-        <div className="grid gap-4 xl:grid-cols-2">
-          {adminShortcuts.map((shortcut) => (
-            <CommandShortcutCard key={shortcut.href} shortcut={shortcut} />
-          ))}
+      {/* ── Allowance detail ── */}
+      <section className="mt-4 rounded-[1.75rem] border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5 lg:p-6">
+        <div className="flex flex-col gap-3 border-b border-border-default pb-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-base font-semibold text-text-primary sm:text-lg">
+                Chi tiết trợ cấp trợ lí
+              </h2>
+              <span className="inline-flex rounded-full bg-warning/15 px-2.5 py-1 text-xs font-semibold text-warning ring-1 ring-warning/25">
+                Trợ lí
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-text-muted">{visibilityNote}</p>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-3">
+            <div className="flex items-center gap-1.5 rounded-full border border-success/20 bg-success/8 px-2.5 py-1">
+              <span className="size-1.5 rounded-full bg-success" aria-hidden />
+              <span className="text-xs font-medium text-success">
+                {paidCount} đã thanh toán
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 rounded-full border border-error/20 bg-error/8 px-2.5 py-1">
+              <span className="size-1.5 rounded-full bg-error" aria-hidden />
+              <span className="text-xs font-medium text-error">
+                {pendingCount} chờ
+              </span>
+            </div>
+          </div>
         </div>
+
+        {isAllowancesLoading ? (
+          <div className="mt-5 space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={`allowance-skeleton-${i}`}
+                className="h-20 animate-pulse rounded-2xl border border-border-default bg-bg-secondary/50"
+              />
+            ))}
+          </div>
+        ) : allowances.length === 0 ? (
+          <div className="mt-5 rounded-2xl border border-dashed border-border-default bg-bg-secondary/30 px-6 py-10 text-center">
+            <p className="text-sm font-medium text-text-muted">
+              Chưa có khoản trợ cấp trợ lí nào.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Mobile cards */}
+            <div className="mt-4 space-y-3 lg:hidden">
+              {allowances.map((item) => (
+                <AllowanceMobileCard key={item.id} item={item} />
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <div className="mt-4 hidden overflow-hidden rounded-xl border border-border-default lg:block">
+              <div className="overflow-x-auto">
+                <table className="w-full table-fixed border-collapse text-left">
+                  <colgroup>
+                    <col style={{ width: "18%" }} />
+                    <col style={{ width: "42%" }} />
+                    <col style={{ width: "20%" }} />
+                    <col style={{ width: "20%" }} />
+                  </colgroup>
+                  <thead className="bg-bg-secondary/80">
+                    <tr className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                      <th className="px-4 py-3" scope="col">
+                        Tháng
+                      </th>
+                      <th className="px-4 py-3" scope="col">
+                        Ghi chú
+                      </th>
+                      <th className="px-4 py-3" scope="col">
+                        Trạng thái
+                      </th>
+                      <th className="px-4 py-3 text-right" scope="col">
+                        Số tiền
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allowances.map((item) => (
+                      <tr
+                        key={item.id}
+                        className="border-t border-border-default bg-bg-surface transition-colors hover:bg-bg-secondary/30"
+                      >
+                        <td className="px-4 py-3 align-top text-sm font-medium text-text-primary">
+                          {formatMonthLabel(item.month)}
+                        </td>
+                        <td className="px-4 py-3 align-top text-sm text-text-secondary">
+                          <p className="line-clamp-2 break-words">
+                            {resolveNote(item.note)}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3 align-top">
+                          <AllowanceStatusPill status={item.status} />
+                        </td>
+                        <td className="px-4 py-3 text-right align-top text-sm font-semibold tabular-nums text-text-primary">
+                          {formatCurrency(item.amount ?? 0)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
       </section>
-
-      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.9fr)]">
-        <section className="rounded-[2rem] border border-border-default bg-bg-surface/92 p-5 shadow-sm sm:p-6">
-          <CommandSectionHeading
-            eyebrow="Self Service"
-            title="Tác vụ của chính bạn"
-            description="Các màn này vẫn ở staff shell để bạn xử lý hồ sơ, trợ cấp trợ lí và tài liệu nội bộ mà không cần rời khỏi khu vực tự phục vụ."
-          />
-          <div className="grid gap-4 md:grid-cols-2">
-            {selfShortcuts.map((shortcut) => (
-              <CommandShortcutCard key={shortcut.href} shortcut={shortcut} />
-            ))}
-          </div>
-        </section>
-
-        <section className="rounded-[2rem] border border-border-default bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.94))] p-5 shadow-sm sm:p-6">
-          <CommandSectionHeading
-            eyebrow="Guard Rail"
-            title="Ranh giới quyền"
-            description="Hub này chỉ surfacing capability. Dashboard aggregate của admin vẫn bị khóa; mọi số liệu trên trang chỉ lấy từ self-service endpoints của chính bạn."
-          />
-
-          <div className="space-y-3 rounded-[1.35rem] border border-border-default bg-bg-secondary/40 p-4">
-            <div className="flex items-start gap-3">
-              <div className="mt-1 size-2.5 shrink-0 rounded-full bg-primary" aria-hidden />
-              <p className="text-sm leading-6 text-text-secondary">
-                Không gọi <span className="font-medium text-text-primary">/dashboard</span> và
-                không hiển thị KPI aggregate của admin.
-              </p>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="mt-1 size-2.5 shrink-0 rounded-full bg-warning" aria-hidden />
-              <p className="text-sm leading-6 text-text-secondary">
-                Các shortcut quản trị mở vào mirror route trong `/staff`, nhưng quyền backend vẫn
-                tiếp tục dùng guard authoritative của admin/assistant.
-              </p>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="mt-1 size-2.5 shrink-0 rounded-full bg-info" aria-hidden />
-              <p className="text-sm leading-6 text-text-secondary">
-                Nếu bạn đồng thời mang role khác, hub vẫn lộ đúng self-service route tương ứng ở
-                phần dưới.
-              </p>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      {roleSpecificShortcuts.length > 0 ? (
-        <section className="mt-4 rounded-[2rem] border border-border-default bg-bg-surface/92 p-5 shadow-sm sm:p-6">
-          <CommandSectionHeading
-            eyebrow="Role Mix"
-            title="Lối tắt theo role đang mang"
-            description="Assistant có thể kiêm nhiều trách nhiệm. Những card này chỉ hiện khi hồ sơ hiện tại đang mang đúng role tương ứng."
-          />
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {roleSpecificShortcuts.map((shortcut) => (
-              <CommandShortcutCard key={shortcut.href} shortcut={shortcut} />
-            ))}
-          </div>
-        </section>
-      ) : null}
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/*  Regular staff dashboard (non-assistant)                            */
+/* ------------------------------------------------------------------ */
 
 function StaffDashboardOverview({
   staffName,
@@ -469,8 +474,13 @@ function StaffDashboardOverview({
           ) : (
             <ul className="space-y-2">
               {todayClasses.map((c) => (
-                <li key={c.classId} className="flex items-center justify-between text-sm">
-                  <span className="truncate text-text-primary">{c.className}</span>
+                <li
+                  key={c.classId}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <span className="truncate text-text-primary">
+                    {c.className}
+                  </span>
                   <span className="shrink-0 tabular-nums font-medium text-primary">
                     {formatCurrency(c.total)}
                   </span>
@@ -504,6 +514,10 @@ function StaffDashboardOverview({
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  Root page                                                          */
+/* ------------------------------------------------------------------ */
+
 export default function StaffDashboardPage() {
   const { month, year } = getCurrentMonth();
 
@@ -521,34 +535,38 @@ export default function StaffDashboardPage() {
     profile?.roleType === "staff" && staffRoles.includes("assistant");
 
   const { data: incomeSummary } = useQuery({
-    queryKey: ["staff", "self", "income-summary", year, month, RECENT_UNPAID_DAYS],
+    queryKey: [
+      "staff",
+      "self",
+      "income-summary",
+      year,
+      month,
+      RECENT_UNPAID_DAYS,
+    ],
     queryFn: () =>
       getMyStaffIncomeSummary({ month, year, days: RECENT_UNPAID_DAYS }),
     enabled: !!linkedStaffId,
     staleTime: 30_000,
   });
 
-  const { data: assistantPendingAllowanceResponse } = useQuery({
-    queryKey: [
-      "extra-allowance",
-      "self",
-      "assistant",
-      "pending-count",
-      year,
-      month,
-    ],
-    queryFn: () =>
-      getMyStaffExtraAllowances({
-        page: 1,
-        limit: 1,
-        year,
-        month,
-        roleType: "assistant",
-        status: "pending",
-      }),
-    enabled: !!linkedStaffId && isAssistant,
-    staleTime: 30_000,
-  });
+  const { data: allowanceResponse, isLoading: isAllowancesLoading } =
+    useQuery<ExtraAllowanceListResponse>({
+      queryKey: [
+        "extra-allowance",
+        "self",
+        "role-detail",
+        "assistant",
+        MAX_VISIBLE_ALLOWANCES,
+      ],
+      queryFn: () =>
+        getMyStaffExtraAllowances({
+          page: 1,
+          limit: MAX_VISIBLE_ALLOWANCES,
+          roleType: "assistant",
+        }),
+      enabled: !!linkedStaffId && isAssistant,
+      staleTime: 60_000,
+    });
 
   const monthlyTotals = incomeSummary?.monthlyIncomeTotals ?? {
     total: 0,
@@ -560,7 +578,9 @@ export default function StaffDashboardPage() {
 
   const assistantRoleSummary = useMemo(
     () =>
-      incomeSummary?.otherRoleSummaries?.find((item) => item.role === "assistant") ?? {
+      incomeSummary?.otherRoleSummaries?.find(
+        (item) => item.role === "assistant",
+      ) ?? {
         role: "assistant",
         label: ROLE_LABELS.assistant,
         total: 0,
@@ -570,186 +590,10 @@ export default function StaffDashboardPage() {
     [incomeSummary?.otherRoleSummaries],
   );
 
-  const assistantOwnStaffDetailHref = linkedStaffId
-    ? "/staff/dashboard"
-    : "/staff/profile";
-
-  const assistantAdminShortcuts = useMemo<CommandShortcut[]>(
-    () => [
-      {
-        href: assistantOwnStaffDetailHref,
-        label: "Dashboard của bạn",
-        description:
-          "Điểm vào thay cho dashboard aggregate. Route này sẽ mở đúng staff detail của chính bạn trong staff shell.",
-        eyebrow: "Thay dashboard",
-        shell: "Staff shell",
-        tone: "primary",
-      },
-      {
-        href: "/staff/staffs",
-        label: "Nhân sự",
-        description: "Quản lý danh sách staff, xem detail và theo dõi các flow liên quan tới nhân sự ngay trong staff shell.",
-        eyebrow: "Nhân sự",
-        shell: "Staff shell",
-        tone: "neutral",
-      },
-      {
-        href: "/staff/classes",
-        label: "Lớp học",
-        description: "Mở danh sách lớp để vào class detail, hỗ trợ teacher workflow và lịch học.",
-        eyebrow: "Vận hành",
-        shell: "Staff shell",
-        tone: "info",
-      },
-      {
-        href: "/staff/students",
-        label: "Học sinh",
-        description: "Đi vào student workspace để tra cứu hồ sơ, công nợ và lịch sử liên quan.",
-        eyebrow: "Học viên",
-        shell: "Staff shell",
-        tone: "neutral",
-      },
-      {
-        href: "/staff/costs",
-        label: "Chi phí",
-        description: "Xử lý các khoản chi và mở chi tiết các dòng tài chính quản trị.",
-        eyebrow: "Tài chính",
-        shell: "Staff shell",
-        tone: "warning",
-      },
-      {
-        href: "/staff/users",
-        label: "Người dùng",
-        description: "Tạo, sửa và phân quyền user trong staff shell dành riêng cho trợ lí.",
-        eyebrow: "Tài khoản",
-        shell: "Staff shell",
-        tone: "neutral",
-      },
-      {
-        href: "/staff/lesson-plans",
-        label: "Giáo án",
-        description: "Mở workspace lesson management dùng chung với admin, nhưng route-base giữ nguyên trong `/staff`.",
-        eyebrow: "Nội dung",
-        shell: "Staff shell",
-        tone: "info",
-      },
-      {
-        href: "/staff/history",
-        label: "Lịch sử",
-        description: "Tra audit log và action history của các thao tác quản trị trong hệ thống.",
-        eyebrow: "Kiểm tra",
-        shell: "Staff shell",
-        tone: "neutral",
-      },
-    ],
-    [assistantOwnStaffDetailHref],
-  );
-
-  const assistantSelfShortcuts = useMemo<CommandShortcut[]>(
-    () => [
-      {
-        href: "/staff/profile",
-        label: "Hồ sơ staff",
-        description: "Đi tới self-service detail để chỉnh hồ sơ, xem thưởng, lịch sử buổi học và lớp phụ trách.",
-        eyebrow: "Cá nhân",
-        shell: "Staff shell",
-        tone: "primary",
-      },
-      {
-        href: "/staff/assistant-detail",
-        label: "Trợ cấp trợ lí",
-        description: "Xem đầy đủ lịch sử extra allowance của role assistant cho chính bạn.",
-        eyebrow: "Allowance",
-        shell: "Staff shell",
-        tone: "warning",
-      },
-      {
-        href: "/staff/notes-subject",
-        label: "Ghi chú môn học",
-        description: "Mở thư viện quy định và tài liệu nội bộ ngay trong staff shell.",
-        eyebrow: "Knowledge",
-        shell: "Staff shell",
-        tone: "info",
-      },
-    ],
-    [],
-  );
-
-  const assistantRoleSpecificShortcuts = useMemo<CommandShortcut[]>(() => {
-    const shortcuts: CommandShortcut[] = [];
-
-    if (staffRoles.includes("teacher")) {
-      shortcuts.push({
-        href: "/staff/profile",
-        label: "Lớp phụ trách của tôi",
-        description:
-          "Đi qua self profile để mở section lớp phụ trách và teacher workflow hiện tại.",
-        eyebrow: "Teacher",
-        shell: "Staff shell",
-        tone: "info",
-      });
-    }
-
-    if (staffRoles.includes("customer_care")) {
-      shortcuts.push({
-        href: "/staff/customer-care-detail",
-        label: "CSKH của tôi",
-        description:
-          "Mở self-service customer-care detail với tab học sinh và hoa hồng của chính bạn.",
-        eyebrow: "Customer care",
-        shell: "Staff shell",
-        tone: "neutral",
-      });
-    }
-
-    if (staffRoles.includes("lesson_plan_head")) {
-      shortcuts.push({
-        href: "/staff/lesson-plans",
-        label: "Quản lí giáo án",
-        description:
-          "Vào lesson workspace manager dưới staff shell nếu bạn đang kiêm trưởng giáo án.",
-        eyebrow: "Lesson manager",
-        shell: "Staff shell",
-        tone: "info",
-      });
-    } else if (staffRoles.includes("lesson_plan")) {
-      shortcuts.push({
-        href: "/staff/lesson-plan-tasks",
-        label: "Task giáo án",
-        description:
-          "Mở participant workspace của lesson plan để xử lý đúng các task đang được gán.",
-        eyebrow: "Lesson participant",
-        shell: "Staff shell",
-        tone: "info",
-      });
-    }
-
-    if (staffRoles.includes("accountant")) {
-      shortcuts.push({
-        href: "/staff/accountant-detail",
-        label: "Trợ cấp kế toán",
-        description:
-          "Xem lịch sử trợ cấp kế toán của chính bạn trong self-service shell.",
-        eyebrow: "Accounting",
-        shell: "Staff shell",
-        tone: "warning",
-      });
-    }
-
-    if (staffRoles.includes("communication")) {
-      shortcuts.push({
-        href: "/staff/communication-detail",
-        label: "Truyền thông",
-        description:
-          "Mở trang chi tiết trợ cấp truyền thông của chính bạn nếu role này đang hoạt động.",
-        eyebrow: "Communication",
-        shell: "Staff shell",
-        tone: "neutral",
-      });
-    }
-
-    return shortcuts;
-  }, [staffRoles]);
+  const allowances = allowanceResponse?.data ?? [];
+  const paidCount = allowances.filter((a) => a.status === "paid").length;
+  const pendingCount = allowances.filter((a) => a.status === "pending").length;
+  const totalAvailable = allowanceResponse?.meta.total ?? allowances.length;
 
   if (profileLoading) {
     return <StaffRootLoadingState />;
@@ -760,17 +604,17 @@ export default function StaffDashboardPage() {
 
   if (isAssistant) {
     return (
-      <AssistantCommandHub
+      <AssistantDetailView
         staffName={staffName}
         roles={staffRoles}
+        monthlyTotal={monthlyTotals.total}
+        monthlyUnpaid={monthlyTotals.unpaid}
         assistantAllowanceTotal={assistantRoleSummary.total}
-        monthlyIncomeTotal={monthlyTotals.total}
-        monthlyIncomeUnpaid={monthlyTotals.unpaid}
-        pendingAssistantCount={assistantPendingAllowanceResponse?.meta.total ?? 0}
-        ownStaffDetailHref={assistantOwnStaffDetailHref}
-        adminShortcuts={assistantAdminShortcuts}
-        selfShortcuts={assistantSelfShortcuts}
-        roleSpecificShortcuts={assistantRoleSpecificShortcuts}
+        pendingCount={pendingCount}
+        paidCount={paidCount}
+        allowances={allowances}
+        totalAvailable={totalAvailable}
+        isAllowancesLoading={isAllowancesLoading}
       />
     );
   }

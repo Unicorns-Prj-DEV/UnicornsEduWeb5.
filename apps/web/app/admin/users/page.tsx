@@ -154,10 +154,12 @@ function AssignRoleModal({
   user,
   onClose,
   onSaved,
+  hideAdminOptions = false,
 }: {
   user: UserDetailWithStaff | null;
   onClose: () => void;
   onSaved: () => void;
+  hideAdminOptions?: boolean;
 }) {
   const queryClient = useQueryClient();
   const [roleType, setRoleType] = useState<UserRoleType>(user?.roleType ?? "guest");
@@ -165,6 +167,13 @@ function AssignRoleModal({
     user?.staffInfo?.roles ?? []
   );
   const [saving, setSaving] = useState(false);
+
+  const visibleRoleTypeOptions = hideAdminOptions
+    ? ROLE_TYPE_OPTIONS.filter((opt) => opt.value !== "admin")
+    : ROLE_TYPE_OPTIONS;
+  const visibleStaffRoles = hideAdminOptions
+    ? STAFF_ROLES.filter((role) => role !== "admin")
+    : STAFF_ROLES;
 
   const updateUserMutation = useMutation({
     mutationFn: (payload: {
@@ -252,7 +261,7 @@ function AssignRoleModal({
             <UpgradedSelect
               value={roleType}
               onValueChange={(value) => setRoleType(value as UserRoleType)}
-              options={ROLE_TYPE_OPTIONS}
+              options={visibleRoleTypeOptions}
               labelId="assign-role-type-label"
               ariaLabel="Chọn loại tài khoản"
               buttonClassName="min-h-11 rounded-xl border border-border-default bg-gradient-to-b from-bg-surface to-bg-secondary/80 px-3.5 py-2.5 text-sm font-medium text-text-primary shadow-sm transition-[border-color,background-color,box-shadow] duration-200 hover:border-border-focus hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
@@ -273,7 +282,7 @@ function AssignRoleModal({
                 </span>
               </div>
               <div className="max-h-48 space-y-2 overflow-y-auto rounded-xl border border-border-default bg-bg-secondary/50 p-3">
-                {STAFF_ROLES.map((role) => (
+                {visibleStaffRoles.map((role) => (
                   <label
                     key={role}
                     className="flex cursor-pointer items-center gap-2 text-sm text-text-primary"
@@ -349,6 +358,7 @@ export default function AdminUsersPage() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const pathname = usePathname();
+  const isStaffShell = pathname?.startsWith("/staff") ?? false;
   const searchParams = useSearchParams();
   const page = parsePage(searchParams.get("page"));
   const search = searchParams.get("search") ?? "";
@@ -552,6 +562,12 @@ export default function AdminUsersPage() {
     ? createUserErrors[createUserFirstErrorField]
     : null;
   const showCreateUserStaffRoles = createUserForm.roleType === "staff";
+  const createRoleTypeOptions = isStaffShell
+    ? ROLE_TYPE_OPTIONS.filter((opt) => opt.value !== "admin")
+    : ROLE_TYPE_OPTIONS;
+  const createStaffRoles = isStaffShell
+    ? STAFF_ROLES.filter((role) => role !== "admin")
+    : STAFF_ROLES;
 
   useEffect(() => {
     if (currentPage === page) return;
@@ -716,7 +732,7 @@ export default function AdminUsersPage() {
                             onValueChange={(value) =>
                               setCreateUserRoleType(value as UserRoleType)
                             }
-                            options={ROLE_TYPE_OPTIONS}
+                            options={createRoleTypeOptions}
                             labelId="create-user-role-type-label"
                             ariaLabel="Chọn loại tài khoản khi tạo user"
                             buttonClassName="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3.5 py-2.5 text-sm font-medium text-text-primary shadow-sm transition-[border-color,background-color,box-shadow] duration-200 hover:border-border-focus hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
@@ -735,7 +751,7 @@ export default function AdminUsersPage() {
                               </span>
                             </div>
                             <div className="grid gap-2 rounded-xl border border-border-default bg-bg-surface p-3 sm:grid-cols-2">
-                              {STAFF_ROLES.map((role) => (
+                              {createStaffRoles.map((role) => (
                                 <label
                                   key={role}
                                   className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm text-text-primary transition-colors duration-200 hover:bg-bg-secondary/70"
@@ -1333,6 +1349,7 @@ export default function AdminUsersPage() {
           user={detailLoading ? assignModalUser : (modalUser ?? assignModalUser)}
           onClose={handleCloseModal}
           onSaved={() => { }}
+          hideAdminOptions={isStaffShell}
         />
       )}
     </div>

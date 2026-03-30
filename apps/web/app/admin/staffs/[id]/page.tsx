@@ -102,9 +102,11 @@ function normalizeBonusRecord(item: BonusListItem): BonusRecord {
   };
 }
 
-export default function AdminStaffDetailPage() {
+export default function AdminStaffDetailPage({
+  staffId: propStaffId,
+}: { staffId?: string } = {}) {
   const params = useParams();
-  const id = typeof params?.id === "string" ? params.id : "";
+  const id = propStaffId ?? (typeof params?.id === "string" ? params.id : "");
   const router = useRouter();
   const pathname = usePathname();
   const routeBase = resolveAdminLikeRouteBase(pathname);
