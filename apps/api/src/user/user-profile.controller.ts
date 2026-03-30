@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   NotFoundException,
   Patch,
   Post,
@@ -30,6 +32,7 @@ import {
   type JwtPayload,
 } from 'src/auth/decorators/current-user.decorator';
 import { CreateMyBonusDto, UpdateMyBonusDto } from 'src/dtos/bonus.dto';
+import { CreateMyCommunicationExtraAllowanceDto } from 'src/dtos/extra-allowance.dto';
 import { PaginationQueryDto } from 'src/dtos/pagination.dto';
 import {
   UpdateMyProfileDto,
@@ -118,7 +121,10 @@ export class UserProfileController {
     status: 200,
     description: 'Current staff income summary.',
   })
-  @ApiResponse({ status: 400, description: 'month/year invalid or no staff record.' })
+  @ApiResponse({
+    status: 400,
+    description: 'month/year invalid or no staff record.',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   async getMyStaffIncomeSummary(
     @CurrentUser() user: JwtPayload,
@@ -205,7 +211,10 @@ export class UserProfileController {
     status: 201,
     description: 'Bonus created for current staff with pending payment status.',
   })
-  @ApiResponse({ status: 400, description: 'Validation error or no staff record.' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error or no staff record.',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   async createMyStaffBonus(
     @CurrentUser() user: JwtPayload,
@@ -299,7 +308,10 @@ export class UserProfileController {
     status: 200,
     description: 'Session list for current staff in the selected month.',
   })
-  @ApiResponse({ status: 400, description: 'month/year invalid or no staff record.' })
+  @ApiResponse({
+    status: 400,
+    description: 'month/year invalid or no staff record.',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   async getMyStaffSessions(
     @CurrentUser() user: JwtPayload,
@@ -382,6 +394,37 @@ export class UserProfileController {
       status,
       staffId,
     });
+  }
+
+  @Post('staff-extra-allowances')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Create communication extra allowance (self)',
+    description:
+      'Staff with role `communication` may create one pending extra allowance for themselves per request; amount and month are supplied; admin confirms payment separately.',
+  })
+  @ApiBody({ type: CreateMyCommunicationExtraAllowanceDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Extra allowance created in pending status.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error or no staff record.',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Not staff or staff lacks communication role.',
+  })
+  async createMyCommunicationExtraAllowance(
+    @CurrentUser() user: JwtPayload,
+    @Body() body: CreateMyCommunicationExtraAllowanceDto,
+  ) {
+    return this.extraAllowanceService.createMyCommunicationExtraAllowance(
+      user,
+      body,
+    );
   }
 
   @Get('staff-lesson-output-stats')
@@ -475,7 +518,8 @@ export class UserProfileController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Validation error, no student record, or insufficient balance.',
+    description:
+      'Validation error, no student record, or insufficient balance.',
   })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   async updateMyStudentAccountBalance(

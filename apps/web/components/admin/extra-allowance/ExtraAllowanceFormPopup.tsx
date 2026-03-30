@@ -18,6 +18,7 @@ import {
   EXTRA_ALLOWANCE_ROLE_OPTIONS,
   EXTRA_ALLOWANCE_STATUS_OPTIONS,
   getExtraAllowanceRoleLabel,
+  getExtraAllowanceStatusLabel,
 } from "./extraAllowancePresentation";
 
 export interface ExtraAllowanceFormSubmitPayload {
@@ -38,6 +39,8 @@ type Props = {
     staff: StaffOption;
     roleType: ExtraAllowanceRoleType;
   } | null;
+  /** When true, status is fixed to pending (self-service create). */
+  lockStatusToPending?: boolean;
   onSubmit: (payload: ExtraAllowanceFormSubmitPayload) => Promise<void> | void;
   isSubmitting?: boolean;
 };
@@ -111,6 +114,7 @@ export default function ExtraAllowanceFormPopup({
   onClose,
   initialData,
   lockedContext,
+  lockStatusToPending = false,
   onSubmit,
   isSubmitting = false,
 }: Props) {
@@ -151,6 +155,12 @@ export default function ExtraAllowanceFormPopup({
   const availableStaffOptions = staffOptions.filter(
     (option) => option.id !== selectedStaff?.id,
   );
+
+  useEffect(() => {
+    if (open && lockStatusToPending) {
+      setStatus("pending");
+    }
+  }, [open, lockStatusToPending]);
 
   useEffect(() => {
     if (!staffSearchFocused) return;
@@ -443,18 +453,30 @@ export default function ExtraAllowanceFormPopup({
               />
             </label>
 
-            <label className="flex flex-col gap-1 text-sm text-text-secondary">
+            <div className="flex flex-col gap-1 text-sm text-text-secondary">
               <span>Trạng thái</span>
-              <UpgradedSelect
-                name="extra-allowance-status"
-                value={status}
-                onValueChange={(nextValue) =>
-                  setStatus(nextValue as ExtraAllowanceStatus)
-                }
-                options={EXTRA_ALLOWANCE_STATUS_OPTIONS}
-                buttonClassName="min-h-11 rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-              />
-            </label>
+              {lockStatusToPending ? (
+                <div className="min-h-11 rounded-md border border-border-default bg-bg-secondary/50 px-3 py-2.5 text-text-primary">
+                  <span className="font-medium">
+                    {getExtraAllowanceStatusLabel("pending")}
+                  </span>
+                  <p className="mt-1 text-xs text-text-muted">
+                    Khoản tự khai báo luôn ở trạng thái chờ; kế toán/admin sẽ xác nhận
+                    thanh toán sau.
+                  </p>
+                </div>
+              ) : (
+                <UpgradedSelect
+                  name="extra-allowance-status"
+                  value={status}
+                  onValueChange={(nextValue) =>
+                    setStatus(nextValue as ExtraAllowanceStatus)
+                  }
+                  options={EXTRA_ALLOWANCE_STATUS_OPTIONS}
+                  buttonClassName="min-h-11 rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                />
+              )}
+            </div>
 
             <label className="flex flex-col gap-1 text-sm text-text-secondary">
               <span>Số tiền</span>

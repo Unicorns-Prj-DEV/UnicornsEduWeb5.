@@ -1,11 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import SelectionCheckbox from "@/components/ui/SelectionCheckbox";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
+import {
+  buildAdminLikePath,
+  resolveAdminLikeRouteBase,
+} from "@/lib/admin-shell-paths";
 import * as staffApi from "@/lib/apis/staff.api";
 import ExtraAllowanceFormPopup, {
   type ExtraAllowanceFormSubmitPayload,
@@ -194,13 +199,15 @@ export default function ExtraAllowanceRoleDetailPage({
   roleType: SupportedRoleType;
   staffId?: string | null;
 }) {
+  const pathname = usePathname();
+  const routeBase = resolveAdminLikeRouteBase(pathname);
   const queryClient = useQueryClient();
   const theme = ROLE_THEMES[roleType];
   const roleLabel = getExtraAllowanceRoleLabel(roleType);
   const normalizedStaffId = staffId?.trim() || "";
   const backHref = normalizedStaffId
-    ? `/admin/staffs/${encodeURIComponent(normalizedStaffId)}`
-    : "/admin/staffs";
+    ? buildAdminLikePath(routeBase, `staffs/${encodeURIComponent(normalizedStaffId)}`)
+    : buildAdminLikePath(routeBase, "staffs");
 
   const [selectedAllowanceIds, setSelectedAllowanceIds] = useState<Set<string>>(
     new Set(),

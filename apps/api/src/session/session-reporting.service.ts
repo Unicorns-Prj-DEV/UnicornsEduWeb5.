@@ -35,17 +35,27 @@ export class SessionReportingService {
     };
   }
 
-  async getSessionsByClassId(classId: string, month: string, year: string) {
+  private buildSessionsByClassWhere(
+    classId: string,
+    month: string,
+    year: string,
+    teacherId?: string,
+  ): Prisma.SessionWhereInput {
     const range = this.buildMonthRange(month, year);
 
-    return this.prisma.session.findMany({
-      where: {
-        classId,
-        date: {
-          gte: range.start,
-          lt: range.end,
-        },
+    return {
+      classId,
+      ...(teacherId ? { teacherId } : {}),
+      date: {
+        gte: range.start,
+        lt: range.end,
       },
+    };
+  }
+
+  async getSessionsByClassId(classId: string, month: string, year: string) {
+    return this.prisma.session.findMany({
+      where: this.buildSessionsByClassWhere(classId, month, year),
       include: {
         teacher: true,
         attendance: true,
@@ -67,6 +77,7 @@ export class SessionReportingService {
       userId,
       roleType,
     );
+
     if (actor.roles.length > 0) {
       await this.staffOperationsAccess.assertTeacherAssignedToClass(
         actor.id,
@@ -74,7 +85,21 @@ export class SessionReportingService {
       );
     }
 
-    return this.getSessionsByClassId(classId, month, year);
+    return this.prisma.session.findMany({
+      where: this.buildSessionsByClassWhere(
+        classId,
+        month,
+        year,
+        actor.roles.length > 0 ? actor.id : undefined,
+      ),
+      include: {
+        teacher: true,
+        attendance: true,
+      },
+      orderBy: {
+        date: 'desc',
+      },
+    });
   }
 
   async getSessionsByTeacherId(teacherId: string, month: string, year: string) {

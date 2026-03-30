@@ -44,6 +44,7 @@ import {
   UpdateLessonTaskDto,
 } from '../dtos/lesson.dto';
 import { LessonService } from './lesson.service';
+import { AdminOnlyDeleteGuard } from './admin-only-delete.guard';
 import { LessonManagementGuard } from './lesson-management.guard';
 
 @Controller()
@@ -180,10 +181,7 @@ export class LessonController {
   @ApiParam({ name: 'id', description: 'Lesson task id' })
   @ApiResponse({ status: 200, description: 'Lesson task loaded.' })
   @ApiResponse({ status: 404, description: 'Lesson task not found.' })
-  async getTaskById(
-    @CurrentUser() user: JwtPayload,
-    @Param('id') id: string,
-  ) {
+  async getTaskById(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     return this.lessonService.getTaskById(id, user);
   }
 
@@ -277,7 +275,7 @@ export class LessonController {
   @ApiParam({ name: 'id', description: 'Lesson resource id' })
   @ApiResponse({ status: 200, description: 'Lesson resource deleted.' })
   @ApiResponse({ status: 404, description: 'Lesson resource not found.' })
-  @UseGuards(LessonManagementGuard)
+  @UseGuards(LessonManagementGuard, AdminOnlyDeleteGuard)
   async deleteResource(
     @CurrentUser() user: JwtPayload,
     @Param('id') id: string,
@@ -388,7 +386,7 @@ export class LessonController {
   @ApiParam({ name: 'id', description: 'Lesson output id' })
   @ApiResponse({ status: 200, description: 'Lesson output deleted.' })
   @ApiResponse({ status: 404, description: 'Lesson output not found.' })
-  @UseGuards(LessonManagementGuard)
+  @UseGuards(LessonManagementGuard, AdminOnlyDeleteGuard)
   async deleteOutput(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     return this.lessonService.deleteOutput(id, {
       userId: user.id,
@@ -455,7 +453,7 @@ export class LessonController {
   @ApiParam({ name: 'id', description: 'Lesson task id' })
   @ApiResponse({ status: 200, description: 'Lesson task deleted.' })
   @ApiResponse({ status: 404, description: 'Lesson task not found.' })
-  @UseGuards(LessonManagementGuard)
+  @UseGuards(LessonManagementGuard, AdminOnlyDeleteGuard)
   async deleteTask(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     return this.lessonService.deleteTask(id, {
       userId: user.id,

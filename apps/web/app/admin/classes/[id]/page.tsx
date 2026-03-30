@@ -6,7 +6,7 @@ import {
   useReducedMotion,
   type Transition,
 } from "framer-motion";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -29,6 +29,10 @@ import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable"
 import MonthNav from "@/components/admin/MonthNav";
 import { ClassStatus, ClassType, ClassDetail, ClassStudent } from "@/dtos/class.dto";
 import { SessionItem } from "@/dtos/session.dto";
+import {
+  buildAdminLikePath,
+  resolveAdminLikeRouteBase,
+} from "@/lib/admin-shell-paths";
 
 /** Mock surveys – nhiều tháng để test chuyển tháng */
 const MOCK_SURVEYS = [
@@ -86,6 +90,8 @@ export default function AdminClassDetailPage() {
   const params = useParams();
   const id = typeof params?.id === "string" ? params.id : "";
   const router = useRouter();
+  const pathname = usePathname();
+  const routeBase = resolveAdminLikeRouteBase(pathname);
   const prefersReducedMotion = useReducedMotion();
   const [basicInfoPopupOpen, setBasicInfoPopupOpen] = useState(false);
   const [teachersPopupOpen, setTeachersPopupOpen] = useState(false);
@@ -464,11 +470,23 @@ export default function AdminClassDetailPage() {
                       key={student.id}
                       role="button"
                       tabIndex={0}
-                      onClick={() => router.push(`/admin/students/${encodeURIComponent(student.id)}`)}
+                      onClick={() =>
+                        router.push(
+                          buildAdminLikePath(
+                            routeBase,
+                            `students/${encodeURIComponent(student.id)}`,
+                          ),
+                        )
+                      }
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
-                          router.push(`/admin/students/${encodeURIComponent(student.id)}`);
+                          router.push(
+                            buildAdminLikePath(
+                              routeBase,
+                              `students/${encodeURIComponent(student.id)}`,
+                            ),
+                          );
                         }
                       }}
                       className="cursor-pointer rounded-lg border border-border-default bg-bg-surface p-3 shadow-sm transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
@@ -536,11 +554,23 @@ export default function AdminClassDetailPage() {
                         key={student.id}
                         role="button"
                         tabIndex={0}
-                        onClick={() => router.push(`/admin/students/${encodeURIComponent(student.id)}`)}
+                        onClick={() =>
+                          router.push(
+                            buildAdminLikePath(
+                              routeBase,
+                              `students/${encodeURIComponent(student.id)}`,
+                            ),
+                          )
+                        }
                         onKeyDown={(event) => {
                           if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
-                            router.push(`/admin/students/${encodeURIComponent(student.id)}`);
+                            router.push(
+                              buildAdminLikePath(
+                                routeBase,
+                                `students/${encodeURIComponent(student.id)}`,
+                              ),
+                            );
                           }
                         }}
                         className="cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"

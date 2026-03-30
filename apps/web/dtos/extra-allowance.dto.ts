@@ -37,6 +37,14 @@ export interface ExtraAllowanceListItem extends ExtraAllowanceBaseFields {
 
 export type ExtraAllowanceDetailResponse = ExtraAllowanceListItem;
 
+/** POST /users/me/staff-extra-allowances — communication role self-service */
+export interface CreateMyCommunicationExtraAllowancePayload {
+  id: string;
+  month: string;
+  amount?: number;
+  note?: string;
+}
+
 export interface CreateExtraAllowancePayload {
   id: string;
   staffId: string;

@@ -1,4 +1,5 @@
 export { default as AdminLessonPlansWorkspace } from "./AdminLessonPlansWorkspace";
+export type { WorkspacePolicy } from "./AdminLessonPlansWorkspace";
 export { default as LessonExercisesTab } from "./LessonExercisesTab";
 export { default as LessonDeleteConfirmPopup } from "./LessonDeleteConfirmPopup";
 export { default as LessonOverviewSkeleton } from "./LessonOverviewSkeleton";

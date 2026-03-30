@@ -7,6 +7,7 @@ export default function StaffLessonPlannerTaskDetailPage() {
     <LessonTaskDetailPage
       workspaceBasePath="/staff/lesson-plan-tasks"
       participantMode
+      allowDelete={false}
     />
   );
 }

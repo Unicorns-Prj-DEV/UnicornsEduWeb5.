@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import SelectionCheckbox from "@/components/ui/SelectionCheckbox";
@@ -17,6 +17,10 @@ import type {
   LessonPaymentStatus,
   LessonWorkOutputItem,
 } from "@/dtos/lesson.dto";
+import {
+  buildAdminLikePath,
+  resolveAdminLikeRouteBase,
+} from "@/lib/admin-shell-paths";
 import * as lessonApi from "@/lib/apis/lesson.api";
 import { toast } from "sonner";
 
@@ -107,8 +111,10 @@ function SummaryCard({
 
 export default function AdminLessonPlanDetailPage() {
   const params = useParams();
+  const pathname = usePathname();
   const queryClient = useQueryClient();
   const staffId = typeof params?.staffId === "string" ? params.staffId : "";
+  const routeBase = resolveAdminLikeRouteBase(pathname);
 
   const [selectedOutputIds, setSelectedOutputIds] = useState<Set<string>>(
     new Set(),
@@ -134,7 +140,10 @@ export default function AdminLessonPlanDetailPage() {
 
   const outputs = data?.outputs ?? EMPTY_OUTPUTS;
   const summary = data?.summary;
-  const backHref = `/admin/staffs/${encodeURIComponent(staffId)}`;
+  const backHref = buildAdminLikePath(
+    routeBase,
+    `staffs/${encodeURIComponent(staffId)}`,
+  );
   const outputIds = useMemo(() => outputs.map((output) => output.id), [outputs]);
   const selectedVisibleOutputIds = useMemo(
     () => outputIds.filter((outputId) => selectedOutputIds.has(outputId)),
@@ -278,8 +287,7 @@ export default function AdminLessonPlanDetailPage() {
             Không tìm thấy nhân sự để xem lesson output.
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-text-secondary">
-            Route `/admin/lesson_plan_detail/[staffId]` cần `staffId` hợp lệ để tải dữ
-            liệu thống kê lesson output.
+            Route này cần `staffId` hợp lệ để tải dữ liệu thống kê lesson output.
           </p>
         </section>
       </div>

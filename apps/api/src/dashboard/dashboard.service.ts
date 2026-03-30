@@ -21,6 +21,10 @@ type SummaryCountRow = {
   activeStudents: number | string | null;
 };
 
+type AggregateMoneySqlRow = {
+  totalAmount: number | string | null;
+};
+
 type MonthlyTrendSqlRow = {
   monthStart: Date | string;
   revenue: number | string | null;
@@ -237,6 +241,50 @@ export class DashboardService {
         activeStudents: 0,
       }
     );
+  }
+
+  private async getMonthlyTopupTotal(params: {
+    monthStart: Date;
+    monthEnd: Date;
+  }): Promise<number> {
+    const [row] = await this.prisma.$queryRaw<AggregateMoneySqlRow[]>(
+      Prisma.sql`
+        SELECT
+          COALESCE(SUM(COALESCE(wallet_transactions_history.amount, 0)), 0) AS "totalAmount"
+        FROM wallet_transactions_history
+        WHERE wallet_transactions_history.type::text = 'topup'
+          AND wallet_transactions_history.created_at >= ${params.monthStart}
+          AND wallet_transactions_history.created_at < ${params.monthEnd}
+      `,
+    );
+
+    return normalizeMoneyAmount(row?.totalAmount);
+  }
+
+  private async getPrepaidTuitionTotal(): Promise<number> {
+    const [row] = await this.prisma.$queryRaw<AggregateMoneySqlRow[]>(
+      Prisma.sql`
+        WITH eligible_students AS (
+          SELECT
+            student_info.id,
+            COALESCE(student_info.account_balance, 0) AS balance
+          FROM student_info
+          WHERE student_info.status = 'active'
+            AND COALESCE(student_info.account_balance, 0) > 0
+            AND EXISTS (
+              SELECT 1
+              FROM student_classes
+              INNER JOIN classes ON classes.id = student_classes.class_id
+              WHERE student_classes.student_id = student_info.id
+                AND classes.status = 'running'
+            )
+        )
+        SELECT COALESCE(SUM(balance), 0) AS "totalAmount"
+        FROM eligible_students
+      `,
+    );
+
+    return normalizeMoneyAmount(row?.totalAmount);
   }
 
   private async getMonthlyTrend(params: {
@@ -889,7 +937,9 @@ export class DashboardService {
       loader: async () => {
         const [
           summaryCounts,
+          monthlyTopupTotal,
           trendRows,
+          prepaidTuitionTotal,
           expiringStudents,
           debtStudents,
           unpaidStaff,
@@ -897,10 +947,15 @@ export class DashboardService {
           quarterClassCounts,
         ] = await Promise.all([
           this.getSummaryCounts(),
+          this.getMonthlyTopupTotal({
+            monthStart: range.monthStart,
+            monthEnd: range.monthEnd,
+          }),
           this.getMonthlyTrend({
             yearStart: range.yearStart,
             yearEnd: range.yearEnd,
           }),
+          this.getPrepaidTuitionTotal(),
           this.getExpiringStudents(alertLimit),
           this.getDebtStudents(alertLimit),
           this.getUnpaidStaff(alertLimit),
@@ -1101,9 +1156,11 @@ export class DashboardService {
           summary: {
             activeClasses: normalizeInteger(summaryCounts.activeClasses),
             activeStudents: normalizeInteger(summaryCounts.activeStudents),
+            monthlyTopupTotal,
             monthlyRevenue: selectedMonthTrend.revenue,
             monthlyExpense: selectedMonthTrend.expense,
             monthlyProfit: selectedMonthTrend.profit,
+            prepaidTuitionTotal,
             pendingCollectionTotal,
             pendingPayrollTotal,
             expiringStudentsCount,

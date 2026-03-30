@@ -7,9 +7,11 @@ export interface AdminDashboardPeriod {
 export interface AdminDashboardSummary {
   activeClasses: number;
   activeStudents: number;
+  monthlyTopupTotal: number;
   monthlyRevenue: number;
   monthlyExpense: number;
   monthlyProfit: number;
+  prepaidTuitionTotal: number;
   pendingCollectionTotal: number;
   pendingPayrollTotal: number;
   expiringStudentsCount: number;

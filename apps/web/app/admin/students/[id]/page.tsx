@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -16,6 +16,10 @@ import {
     StudentClassTuitionPopup,
 } from "@/components/admin/student";
 import type { StudentDetail, StudentGender, StudentStatus } from "@/dtos/student.dto";
+import {
+    buildAdminLikePath,
+    resolveAdminLikeRouteBase,
+} from "@/lib/admin-shell-paths";
 import * as studentApi from "@/lib/apis/student.api";
 import { formatCurrency } from "@/lib/class.helpers";
 
@@ -89,6 +93,8 @@ export default function AdminStudentDetailPage() {
     const params = useParams();
     const id = typeof params?.id === "string" ? params.id : "";
     const router = useRouter();
+    const pathname = usePathname();
+    const routeBase = resolveAdminLikeRouteBase(pathname);
     const [editPopupOpen, setEditPopupOpen] = useState(false);
     const [classesPopupOpen, setClassesPopupOpen] = useState(false);
     const [balancePopupMode, setBalancePopupMode] = useState<"topup" | "withdraw" | null>(null);
@@ -447,11 +453,23 @@ export default function AdminStudentDetailPage() {
                                                 key={item.classId}
                                                 role="button"
                                                 tabIndex={0}
-                                                onClick={() => router.push(`/admin/classes/${encodeURIComponent(item.classId)}`)}
+                                                onClick={() =>
+                                                    router.push(
+                                                        buildAdminLikePath(
+                                                            routeBase,
+                                                            `classes/${encodeURIComponent(item.classId)}`,
+                                                        ),
+                                                    )
+                                                }
                                                 onKeyDown={(event) => {
                                                     if (event.key === "Enter" || event.key === " ") {
                                                         event.preventDefault();
-                                                        router.push(`/admin/classes/${encodeURIComponent(item.classId)}`);
+                                                        router.push(
+                                                            buildAdminLikePath(
+                                                                routeBase,
+                                                                `classes/${encodeURIComponent(item.classId)}`,
+                                                            ),
+                                                        );
                                                     }
                                                 }}
                                                 className="group relative cursor-pointer rounded-[1.1rem] border border-border-default bg-bg-surface px-3.5 py-3 shadow-sm transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
@@ -558,11 +576,23 @@ export default function AdminStudentDetailPage() {
                                                         key={item.classId}
                                                         role="button"
                                                         tabIndex={0}
-                                                        onClick={() => router.push(`/admin/classes/${encodeURIComponent(item.classId)}`)}
+                                                        onClick={() =>
+                                                            router.push(
+                                                                buildAdminLikePath(
+                                                                    routeBase,
+                                                                    `classes/${encodeURIComponent(item.classId)}`,
+                                                                ),
+                                                            )
+                                                        }
                                                         onKeyDown={(event) => {
                                                             if (event.key === "Enter" || event.key === " ") {
                                                                 event.preventDefault();
-                                                                router.push(`/admin/classes/${encodeURIComponent(item.classId)}`);
+                                                                router.push(
+                                                                    buildAdminLikePath(
+                                                                        routeBase,
+                                                                        `classes/${encodeURIComponent(item.classId)}`,
+                                                                    ),
+                                                                );
                                                             }
                                                         }}
                                                         className="group cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"

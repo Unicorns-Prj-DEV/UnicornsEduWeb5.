@@ -12,6 +12,7 @@ import type {
     UpdateMyBonusPayload,
 } from '@/dtos/bonus.dto';
 import type {
+    CreateMyCommunicationExtraAllowancePayload,
     ExtraAllowanceListResponse,
     ExtraAllowanceRoleType,
     ExtraAllowanceStatus,
@@ -237,6 +238,14 @@ export async function getMyStaffExtraAllowances(params: {
             limit: payload?.meta?.limit ?? params.limit,
         },
     };
+}
+
+/** Self-service: staff with role `communication` creates a pending extra allowance for themselves. */
+export async function createMyCommunicationExtraAllowance(
+    dto: CreateMyCommunicationExtraAllowancePayload,
+): Promise<unknown> {
+    const response = await api.post('/users/me/staff-extra-allowances', dto);
+    return response.data;
 }
 
 /** Current linked staff lesson output stats for self-service lesson-plan detail page. */

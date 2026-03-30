@@ -12,9 +12,24 @@ const LESSON_MANAGEMENT_ROUTE_PREFIXES = [
   "/admin/lessons",
 ];
 
+const ACCOUNTANT_ALLOWED_PREFIXES = [
+  "/admin/dashboard",
+  "/admin/classes",
+  "/admin/staffs",
+  "/admin/costs",
+  "/admin/lesson-plans",
+  "/admin/lesson-manage-details",
+];
+
 function isLessonManagementRoute(pathname: string) {
   return LESSON_MANAGEMENT_ROUTE_PREFIXES.some((prefix) =>
     pathname.startsWith(prefix),
+  );
+}
+
+function isAccountantAllowedRoute(pathname: string) {
+  return ACCOUNTANT_ALLOWED_PREFIXES.some((prefix) =>
+    pathname === prefix || pathname.startsWith(prefix + "/"),
   );
 }
 
@@ -35,6 +50,8 @@ export default function AdminAccessGate({
   const roleType = data?.roleType;
   const staffRoles = data?.staffInfo?.roles ?? [];
   const hasStaffProfile = Boolean(data?.staffInfo?.id);
+  const isAssistant = roleType === "staff" && hasStaffProfile && staffRoles.includes("assistant");
+  const isAccountant = roleType === "staff" && hasStaffProfile && staffRoles.includes("accountant");
   const canManageLessonsAsStaff =
     roleType === "staff" &&
     hasStaffProfile &&
@@ -42,8 +59,16 @@ export default function AdminAccessGate({
   const lessonManagementRoute = isLessonManagementRoute(pathname);
   const isAllowed =
     roleType === "admin" ||
+    isAssistant ||
+    (isAccountant && isAccountantAllowedRoute(pathname)) ||
     (canManageLessonsAsStaff && lessonManagementRoute);
-  const fallbackHref = canManageLessonsAsStaff ? "/admin/lesson-plans" : "/";
+  const fallbackHref = isAssistant
+    ? "/admin/dashboard"
+    : isAccountant
+      ? "/admin/classes"
+      : canManageLessonsAsStaff
+        ? "/admin/lesson-plans"
+        : "/";
 
   useEffect(() => {
     if (!isLoading && !isAllowed) {

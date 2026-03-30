@@ -29,45 +29,78 @@ export default function StaffAccessGate({
   const isAssistant = staffRoles.includes("assistant");
   const isAccountant = staffRoles.includes("accountant");
   const isCommunication = staffRoles.includes("communication");
+  const isAssistantStaff = roleType === "staff" && hasStaffProfile && isAssistant;
   const isLessonPlanner =
     staffRoles.includes("lesson_plan") || staffRoles.includes("lesson_plan_head");
   const isLessonPlanParticipant =
     staffRoles.includes("lesson_plan") &&
     !staffRoles.includes("lesson_plan_head");
   const isLessonPlanManager =
-    roleType === "admin" || staffRoles.includes("lesson_plan_head");
-  const isRootStaffProfileRoute = pathname === "/staff";
+    roleType === "admin" || isAssistantStaff || staffRoles.includes("lesson_plan_head");
+  const isDashboardRoute = pathname === "/staff";
+  const isAssistantDashboardRoute = pathname === "/staff/dashboard";
+  const isProfileRoute = pathname === "/staff/profile";
+  const isAssistantUsersRoute = pathname.startsWith("/staff/users");
+  const isAssistantStaffsRoute = pathname.startsWith("/staff/staffs");
+  const isAssistantClassesListRoute = pathname === "/staff/classes";
+  const isAssistantStudentsRoute = pathname.startsWith("/staff/students");
+  const isAssistantCostsRoute = pathname.startsWith("/staff/costs");
+  const isAssistantHistoryRoute = pathname.startsWith("/staff/history");
+  const isNotesSubjectRoute = pathname.startsWith("/staff/notes-subject");
+  const isRootStaffProfileRoute = isDashboardRoute || isProfileRoute;
   const isCustomerCareSelfRoute = pathname.startsWith("/staff/customer-care-detail");
+  const isCustomerCareAdminRoute = pathname.startsWith("/staff/customer-care-detail/");
   const isAssistantSelfRoute = pathname.startsWith("/staff/assistant-detail");
   const isAccountantSelfRoute = pathname.startsWith("/staff/accountant-detail");
   const isCommunicationSelfRoute = pathname.startsWith("/staff/communication-detail");
   const isLessonPlanSelfRoute = pathname.startsWith("/staff/lesson-plan-detail");
+  const isLessonPlanAdminDetailRoute = pathname.startsWith("/staff/lesson-plan-detail/");
   const isLessonPlanParticipantRoute =
     pathname.startsWith("/staff/lesson-plan-tasks") ||
     pathname.startsWith("/staff/lesson-plan-manage-details");
   const isLessonPlanManagementRoute =
     pathname.startsWith("/staff/lesson-plans") ||
     pathname.startsWith("/staff/lesson-manage-details");
-  const isAllowed = isRootStaffProfileRoute
+  const isAssistantAdminLikeRoute =
+    isAssistantDashboardRoute ||
+    isAssistantUsersRoute ||
+    isAssistantStaffsRoute ||
+    isAssistantClassesListRoute ||
+    isAssistantStudentsRoute ||
+    isAssistantCostsRoute ||
+    isAssistantHistoryRoute ||
+    isCustomerCareAdminRoute ||
+    isLessonPlanAdminDetailRoute;
+  const isAllowed = isDashboardRoute || isProfileRoute || isNotesSubjectRoute
     ? hasStaffProfile && isStaffOrAdmin
+    : isAssistantAdminLikeRoute
+      ? isAssistantStaff
     : isCustomerCareSelfRoute
-      ? hasStaffProfile && isStaffOrAdmin && isCustomerCare
+      ? isCustomerCareAdminRoute
+        ? isAssistantStaff
+        : hasStaffProfile && isStaffOrAdmin && isCustomerCare
       : isAssistantSelfRoute
-        ? hasStaffProfile && isStaffOrAdmin && isAssistant
+        ? hasStaffProfile && isStaffOrAdmin && (isAssistant || isAssistantStaff)
         : isAccountantSelfRoute
-          ? hasStaffProfile && isStaffOrAdmin && isAccountant
+          ? hasStaffProfile && isStaffOrAdmin && (isAccountant || isAssistantStaff)
           : isCommunicationSelfRoute
-            ? hasStaffProfile && isStaffOrAdmin && isCommunication
+            ? hasStaffProfile && isStaffOrAdmin && (isCommunication || isAssistantStaff)
             : isLessonPlanParticipantRoute
               ? hasStaffProfile && roleType === "staff" && isLessonPlanParticipant
               : isLessonPlanManagementRoute
                 ? hasStaffProfile && isStaffOrAdmin && isLessonPlanManager
                 : isLessonPlanSelfRoute
-                  ? hasStaffProfile && isStaffOrAdmin && isLessonPlanner
-                  : roleType === "admin" || (roleType === "staff" && isTeacher);
+                  ? hasStaffProfile &&
+                    isStaffOrAdmin &&
+                    (isLessonPlanAdminDetailRoute
+                      ? isAssistantStaff
+                      : isLessonPlanner || isAssistantStaff)
+                  : roleType === "admin" || isAssistantStaff || (roleType === "staff" && isTeacher);
 
-  const lockedLabel = isRootStaffProfileRoute
+  const lockedLabel = isRootStaffProfileRoute || isNotesSubjectRoute
     ? "Staff Profile Locked"
+    : isAssistantAdminLikeRoute
+      ? "Assistant Workspace Locked"
     : isCustomerCareSelfRoute
       ? "Customer Care Locked"
       : isAssistantSelfRoute || isAccountantSelfRoute || isCommunicationSelfRoute
@@ -79,8 +112,10 @@ export default function StaffAccessGate({
             : isLessonPlanSelfRoute
               ? "Lesson Plan Locked"
               : "Staff Ops Locked";
-  const lockedTitle = isRootStaffProfileRoute
+  const lockedTitle = isRootStaffProfileRoute || isNotesSubjectRoute
     ? "Tài khoản này chưa mở được hồ sơ staff tự phục vụ."
+    : isAssistantAdminLikeRoute
+      ? "Route này chỉ mở cho staff có role `assistant`."
     : isCustomerCareSelfRoute
       ? "Tài khoản này không dùng được màn CSKH cá nhân."
       : isAssistantSelfRoute
@@ -96,8 +131,10 @@ export default function StaffAccessGate({
                 : isLessonPlanSelfRoute
                   ? "Tài khoản này không dùng được màn lesson output cá nhân."
                   : "Tài khoản này không dùng được màn vận hành lớp học.";
-  const lockedDescription = isRootStaffProfileRoute
+  const lockedDescription = isRootStaffProfileRoute || isNotesSubjectRoute
     ? "Route `/staff` hiện là hồ sơ của chính nhân sự đang đăng nhập. Nó chỉ mở khi tài khoản có liên kết staff record hợp lệ."
+    : isAssistantAdminLikeRoute
+      ? "Nhóm route này mirror lại các module quản trị trong staff shell. Nó chỉ mở cho `roleType=staff` có role `assistant`; các staff role khác tiếp tục dùng self-service hoặc workspace chuyên biệt của riêng mình."
     : isCustomerCareSelfRoute
       ? "Màn này chỉ mở khi hồ sơ nhân sự hiện tại có role `customer_care`. Dữ liệu luôn khóa vào đúng hồ sơ đang đăng nhập."
       : isAssistantSelfRoute
@@ -116,9 +153,9 @@ export default function StaffAccessGate({
 
   useEffect(() => {
     if (!isLoading && !isAllowed) {
-      router.replace(isStaffOrAdmin ? "/user-profile" : "/");
+      router.replace(isAssistantStaff ? "/staff" : isStaffOrAdmin ? "/user-profile" : "/");
     }
-  }, [isAllowed, isLoading, isStaffOrAdmin, router]);
+  }, [isAllowed, isAssistantStaff, isLoading, isStaffOrAdmin, router]);
 
   if (isLoading) {
     return (

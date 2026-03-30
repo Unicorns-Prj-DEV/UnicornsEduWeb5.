@@ -2071,7 +2071,9 @@ export class LessonService {
       };
     }
 
-    const canManage = staff.roles.includes(StaffRole.lesson_plan_head);
+    const canManage =
+      staff.roles.includes(StaffRole.assistant) ||
+      staff.roles.includes(StaffRole.lesson_plan_head);
     const canParticipate =
       canManage || staff.roles.includes(StaffRole.lesson_plan);
 

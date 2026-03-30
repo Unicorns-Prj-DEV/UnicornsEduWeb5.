@@ -319,16 +319,27 @@ function ListTableSkeleton({
   );
 }
 
+export type WorkspacePolicy = "admin" | "lesson_plan_head" | "lesson_plan" | "accountant";
+
+const POLICY_VISIBLE_TABS: Record<WorkspacePolicy, LessonTabId[]> = {
+  admin: ["overview", "work", "exercises"],
+  lesson_plan_head: ["overview", "work", "exercises"],
+  lesson_plan: ["overview"],
+  accountant: ["work"],
+};
+
 export default function AdminLessonPlansWorkspace({
   basePath = "/admin/lesson-plans",
   manageDetailsPath = "/admin/lesson-manage-details",
   taskDetailBasePath = "/admin/lesson-plans/tasks",
   participantMode = false,
+  workspacePolicy = "admin",
 }: {
   basePath?: string;
   manageDetailsPath?: string;
   taskDetailBasePath?: string;
   participantMode?: boolean;
+  workspacePolicy?: WorkspacePolicy;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -349,7 +360,10 @@ export default function AdminLessonPlansWorkspace({
   const [selectedTask, setSelectedTask] = useState<LessonTaskItem | null>(null);
 
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
-  const canManageWorkspace = !participantMode;
+  const canManageWorkspace = !participantMode && workspacePolicy !== "accountant";
+  const canCreate = workspacePolicy === "admin" || workspacePolicy === "lesson_plan_head" || (participantMode && workspacePolicy !== "accountant");
+  const canDelete = workspacePolicy === "admin";
+  const visibleTabs = POLICY_VISIBLE_TABS[workspacePolicy];
 
   const { data, isLoading, isFetching, isError, error, refetch } =
     useQuery<LessonOverviewResponse>({
@@ -610,7 +624,7 @@ export default function AdminLessonPlansWorkspace({
             role="tablist"
             aria-label="Tổng quan, Công việc hoặc Giáo án"
           >
-            {(Object.keys(TAB_LABELS) as LessonTabId[]).map((tabId) => {
+            {(Object.keys(TAB_LABELS) as LessonTabId[]).filter((t) => visibleTabs.includes(t)).map((tabId) => {
               const isActive = activeTab === tabId;
               return (
                 <button
@@ -762,6 +776,7 @@ export default function AdminLessonPlansWorkspace({
                                           </svg>
                                         }
                                       />
+                                      {canDelete ? (
                                       <OverviewActionButton
                                         label={`Xóa tài nguyên ${resource.title?.trim() || ""}`}
                                         tone="danger"
@@ -791,6 +806,7 @@ export default function AdminLessonPlansWorkspace({
                                           </svg>
                                         }
                                       />
+                                      ) : null}
                                     </div>
                                   ) : null}
                                 </div>
@@ -931,6 +947,7 @@ export default function AdminLessonPlansWorkspace({
                                               />
                                             </svg>
                                           </button>
+                                          {canDelete ? (
                                           <button
                                             type="button"
                                             onClick={() =>
@@ -961,6 +978,7 @@ export default function AdminLessonPlansWorkspace({
                                               />
                                             </svg>
                                           </button>
+                                          ) : null}
                                         </div>
                                       ) : null}
                                     </td>
@@ -1123,6 +1141,7 @@ export default function AdminLessonPlansWorkspace({
                                           </svg>
                                         }
                                       />
+                                      {canDelete ? (
                                       <OverviewActionButton
                                         label={`Xóa công việc ${task.title?.trim() || ""}`}
                                         tone="danger"
@@ -1152,6 +1171,7 @@ export default function AdminLessonPlansWorkspace({
                                           </svg>
                                         }
                                       />
+                                      ) : null}
                                     </div>
                                   ) : null}
                                 </div>
@@ -1282,6 +1302,7 @@ export default function AdminLessonPlansWorkspace({
                                               />
                                             </svg>
                                           </button>
+                                          {canDelete ? (
                                           <button
                                             type="button"
                                             onClick={() =>
@@ -1312,6 +1333,7 @@ export default function AdminLessonPlansWorkspace({
                                               />
                                             </svg>
                                           </button>
+                                          ) : null}
                                         </div>
                                       ) : null}
                                     </td>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import {
   keepPreviousData,
   useMutation,
@@ -25,6 +25,11 @@ import { BonusListItem } from "@/dtos/bonus.dto";
 import { StaffDetail, StaffIncomeSummary, StaffStatus } from "@/dtos/staff.dto";
 import { formatCurrency } from "@/lib/class.helpers";
 import { ROLE_LABELS } from "@/lib/staff.constants";
+import {
+  buildAdminLikePath,
+  buildStaffRoleDetailHref,
+  resolveAdminLikeRouteBase,
+} from "@/lib/admin-shell-paths";
 import * as sessionApi from "@/lib/apis/session.api";
 import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable";
 import MonthNav from "@/components/admin/MonthNav";
@@ -97,34 +102,12 @@ function normalizeBonusRecord(item: BonusListItem): BonusRecord {
   };
 }
 
-function getOtherRoleDetailHref(role: string, staffId: string) {
-  if (role === "customer_care") {
-    return `/admin/customer_care_detail/${staffId}`;
-  }
-
-  if (role === "assistant") {
-    return `/admin/assistant_detail?staffId=${encodeURIComponent(staffId)}`;
-  }
-
-  if (role === "accountant") {
-    return `/admin/accountant_detail?staffId=${encodeURIComponent(staffId)}`;
-  }
-
-  if (role === "communication") {
-    return `/admin/communication_detail?staffId=${encodeURIComponent(staffId)}`;
-  }
-
-  if (role === "lesson_plan" || role === "lesson_plan_head") {
-    return `/admin/lesson_plan_detail/${staffId}`;
-  }
-
-  return null;
-}
-
 export default function AdminStaffDetailPage() {
   const params = useParams();
   const id = typeof params?.id === "string" ? params.id : "";
   const router = useRouter();
+  const pathname = usePathname();
+  const routeBase = resolveAdminLikeRouteBase(pathname);
   const [editPopupOpen, setEditPopupOpen] = useState(false);
   const [qrLink, setQrLink] = useState<string | null>(null);
   const [qrPopupOpen, setQrPopupOpen] = useState(false);
@@ -927,14 +910,20 @@ export default function AdminStaffDetailPage() {
                         tabIndex={0}
                         onClick={() =>
                           router.push(
-                            `/admin/classes/${encodeURIComponent(item.classId)}`,
+                            buildAdminLikePath(
+                              routeBase,
+                              `classes/${encodeURIComponent(item.classId)}`,
+                            ),
                           )
                         }
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
                             router.push(
-                              `/admin/classes/${encodeURIComponent(item.classId)}`,
+                              buildAdminLikePath(
+                                routeBase,
+                                `classes/${encodeURIComponent(item.classId)}`,
+                              ),
                             );
                           }
                         }}
@@ -1006,14 +995,20 @@ export default function AdminStaffDetailPage() {
                             tabIndex={0}
                             onClick={() =>
                               router.push(
-                                `/admin/classes/${encodeURIComponent(item.classId)}`,
+                                buildAdminLikePath(
+                                  routeBase,
+                                  `classes/${encodeURIComponent(item.classId)}`,
+                                ),
                               )
                             }
                             onKeyDown={(e) => {
                               if (e.key === "Enter" || e.key === " ") {
                                 e.preventDefault();
                                 router.push(
-                                  `/admin/classes/${encodeURIComponent(item.classId)}`,
+                                  buildAdminLikePath(
+                                    routeBase,
+                                    `classes/${encodeURIComponent(item.classId)}`,
+                                  ),
                                 );
                               }
                             }}
@@ -1077,7 +1072,11 @@ export default function AdminStaffDetailPage() {
               <>
                 <div className="space-y-3 md:hidden">
                   {otherRoleSummaries.map((item) => {
-                    const detailHref = getOtherRoleDetailHref(item.role, id);
+                    const detailHref = buildStaffRoleDetailHref(
+                      routeBase,
+                      item.role,
+                      id,
+                    );
                     const isInteractive = detailHref !== null;
                     return (
                       <div
@@ -1163,7 +1162,8 @@ export default function AdminStaffDetailPage() {
                     </thead>
                     <tbody>
                       {otherRoleSummaries.map((item) => {
-                        const detailHref = getOtherRoleDetailHref(
+                        const detailHref = buildStaffRoleDetailHref(
+                          routeBase,
                           item.role,
                           id,
                         );

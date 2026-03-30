@@ -99,13 +99,6 @@ function IconCosts() {
     </svg>
   );
 }
-function IconExtraAllowances() {
-  return (
-    <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v12m-4-8h8m7 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  );
-}
 function IconLessonPlans() {
   return (
     <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -141,14 +134,32 @@ export default function AdminSidebar() {
     staleTime: 60_000,
   });
   const staffRoles = fullProfile?.staffInfo?.roles ?? [];
-  const isLessonPlanHeadManager =
-    fullProfile?.roleType === "staff" &&
-    staffRoles.includes("lesson_plan_head");
+  const isStaff = fullProfile?.roleType === "staff";
+  const isAssistant = isStaff && staffRoles.includes("assistant");
+  const isAccountant = isStaff && staffRoles.includes("accountant");
+  const isLessonPlanHeadManager = isStaff && staffRoles.includes("lesson_plan_head");
+  const assistantDashboardHref =
+    isAssistant && fullProfile?.staffInfo?.id
+      ? `/admin/staffs/${encodeURIComponent(fullProfile.staffInfo.id)}`
+      : "/admin/dashboard";
+
+  const ACCOUNTANT_VISIBLE_HREFS = new Set([
+    "/admin/dashboard",
+    "/admin/classes",
+    "/admin/staffs",
+    "/admin/costs",
+    "/admin/lesson-plans",
+  ]);
+
   const menuItems = isProfileLoading
     ? []
-    : isLessonPlanHeadManager
-      ? MENU_ITEMS.filter((item) => item.href === "/admin/lesson-plans")
-      : MENU_ITEMS;
+    : isAssistant || fullProfile?.roleType === "admin"
+      ? MENU_ITEMS
+      : isAccountant
+        ? MENU_ITEMS.filter((item) => ACCOUNTANT_VISIBLE_HREFS.has(item.href))
+        : isLessonPlanHeadManager
+          ? MENU_ITEMS.filter((item) => item.href === "/admin/lesson-plans")
+          : MENU_ITEMS;
 
   useEffect(() => {
     if (!isMobile) {
@@ -290,14 +301,28 @@ export default function AdminSidebar() {
               </li>
             )}
             {menuItems.map((item) => {
+              const resolvedHref =
+                item.href === "/admin/dashboard"
+                  ? assistantDashboardHref
+                  : item.href;
+              const isAssistantDashboardTarget =
+                isAssistant &&
+                item.href === "/admin/dashboard" &&
+                Boolean(fullProfile?.staffInfo?.id);
               const isActive =
                 item.href === "/admin/dashboard"
-                  ? pathname === "/admin" || pathname === "/admin/dashboard"
-                  : pathname.startsWith(item.href);
+                  ? pathname === "/admin" ||
+                    pathname === "/admin/dashboard" ||
+                    (isAssistantDashboardTarget && pathname === assistantDashboardHref)
+                  : item.href === "/admin/staffs" &&
+                      isAssistantDashboardTarget &&
+                      pathname === assistantDashboardHref
+                    ? false
+                    : pathname.startsWith(item.href);
               return (
-                <li key={item.href} className="sidebar-item">
+                <li key={`${item.href}-${resolvedHref}`} className="sidebar-item">
                   <Link
-                    href={item.href}
+                    href={resolvedHref}
                     onClick={handleMobileClose}
                     className={`flex items-center rounded-lg py-2.5 text-sm font-medium transition-[gap,padding,background-color,color] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "gap-0 px-2.5" : "gap-3 px-3"} ${isActive
                       ? "bg-primary text-text-inverse"

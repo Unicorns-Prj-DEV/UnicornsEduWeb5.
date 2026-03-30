@@ -17,6 +17,13 @@ const ROLE_REDIRECT: Record<string, string> = {
   guest: "/",
 };
 
+function isAssistantStaffProfile(profile?: FullProfileDto | null) {
+  return (
+    profile?.roleType === "staff" &&
+    (profile.staffInfo?.roles ?? []).includes("assistant")
+  );
+}
+
 function resolvePostLoginRedirect(
   roleType: string,
   profile?: FullProfileDto | null,
@@ -26,6 +33,10 @@ function resolvePostLoginRedirect(
   }
 
   if (roleType === "staff") {
+    if (isAssistantStaffProfile(profile)) {
+      return "/admin/dashboard";
+    }
+
     return profile?.staffInfo?.id ? ROLE_REDIRECT.staff : "/user-profile";
   }
 
@@ -80,13 +91,14 @@ function SetupPasswordPageContent() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const source = searchParams.get("source");
   const nextPath = readSafeNextPath(searchParams.get("next"));
+  const hasSession = hasAuthenticatedSession(user);
 
   useEffect(() => {
     if (!isAuthReady) {
       return;
     }
 
-    if (!hasAuthenticatedSession(user)) {
+    if (!hasSession) {
       router.replace("/auth/login");
       return;
     }
@@ -100,6 +112,7 @@ function SetupPasswordPageContent() {
       });
     }
   }, [
+    hasSession,
     isAuthReady,
     nextPath,
     queryClient,
@@ -159,7 +172,7 @@ function SetupPasswordPageContent() {
     );
   }
 
-  if (!hasAuthenticatedSession(user)) {
+  if (!hasSession) {
     return null;
   }
 

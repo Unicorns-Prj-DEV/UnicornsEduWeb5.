@@ -50,7 +50,7 @@ export default function AdminCustomerCareDetailPage() {
         </p>
       </header>
 
-      <CustomerCareDetailPanels staffId={staffId} />
+      <CustomerCareDetailPanels staffId={staffId} workspaceMode="admin" />
     </div>
   );
 }

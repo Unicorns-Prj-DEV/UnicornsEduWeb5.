@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   AnimatePresence,
@@ -15,6 +17,10 @@ import type {
   CustomerCareStudentItem,
 } from "@/dtos/customer-care.dto";
 import type { StudentStatus } from "@/dtos/student.dto";
+import {
+  buildAdminLikePath,
+  resolveAdminLikeRouteBase,
+} from "@/lib/admin-shell-paths";
 import * as customerCareApi from "@/lib/apis/customer-care.api";
 import { formatCurrency } from "@/lib/class.helpers";
 
@@ -72,12 +78,19 @@ function paymentStatusChipClass(status: CustomerCarePaymentStatus): string {
 
 export default function CustomerCareDetailPanels({
   staffId,
+  workspaceMode = "self",
+  allowStaffClassNavigation = false,
 }: {
   staffId: string;
+  workspaceMode?: "admin" | "self";
+  allowStaffClassNavigation?: boolean;
 }) {
+  const pathname = usePathname();
+  const routeBase = resolveAdminLikeRouteBase(pathname);
   const prefersReducedMotion = useReducedMotion();
   const [activeTab, setActiveTab] = useState<TabId>("students");
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
+  const isAdminWorkspace = workspaceMode === "admin";
 
   const {
     data: students = [],
@@ -249,7 +262,16 @@ export default function CustomerCareDetailPanels({
                         />
                       </td>
                       <td className="px-3 py-3 font-medium text-text-primary">
-                        {row.fullName || "—"}
+                        {isAdminWorkspace ? (
+                          <Link
+                            href={`${buildAdminLikePath(routeBase, "students")}?search=${encodeURIComponent(row.fullName || "")}`}
+                            className="text-primary underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                          >
+                            {row.fullName || "—"}
+                          </Link>
+                        ) : (
+                          row.fullName || "—"
+                        )}
                       </td>
                       <td className="px-3 py-3 tabular-nums text-text-secondary">
                         {formatCurrency(row.accountBalance)}
@@ -257,7 +279,31 @@ export default function CustomerCareDetailPanels({
                       <td className="px-3 py-3 text-text-secondary">{row.province ?? "—"}</td>
                       <td className="px-3 py-3 text-text-secondary">
                         {row.classes?.length
-                          ? row.classes.map((classItem) => classItem.name).join(", ")
+                          ? row.classes.map((classItem, idx) => (
+                            <span key={classItem.id}>
+                              {idx > 0 ? ", " : ""}
+                              {isAdminWorkspace ? (
+                                <Link
+                                  href={buildAdminLikePath(
+                                    routeBase,
+                                    `classes/${encodeURIComponent(classItem.id)}`,
+                                  )}
+                                  className="text-primary underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                >
+                                  {classItem.name}
+                                </Link>
+                              ) : allowStaffClassNavigation ? (
+                                <Link
+                                  href={`/staff/classes/${encodeURIComponent(classItem.id)}`}
+                                  className="text-primary underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                >
+                                  {classItem.name}
+                                </Link>
+                              ) : (
+                                classItem.name
+                              )}
+                            </span>
+                          ))
                           : "—"}
                       </td>
                     </tr>

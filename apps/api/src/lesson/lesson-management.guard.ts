@@ -40,9 +40,12 @@ export class LessonManagementGuard implements CanActivate {
       );
     }
 
-    if (!staff.roles.includes(StaffRole.lesson_plan_head)) {
+    if (
+      !staff.roles.includes(StaffRole.assistant) &&
+      !staff.roles.includes(StaffRole.lesson_plan_head)
+    ) {
       throw new ForbiddenException(
-        'Màn quản lý giáo án chỉ mở cho staff có role lesson_plan_head.',
+        'Màn quản lý giáo án chỉ mở cho admin, trợ lí, hoặc staff có role lesson_plan_head.',
       );
     }
 

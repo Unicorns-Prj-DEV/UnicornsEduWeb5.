@@ -9,6 +9,10 @@ import * as staffApi from "@/lib/apis/staff.api";
 import { ROLE_LABELS } from "@/lib/staff.constants";
 import { AddTutorPopup, StaffListTableSkeleton } from "@/components/admin/staff";
 import { StaffListResponse, StaffStatus } from "@/dtos/staff.dto";
+import {
+  buildAdminLikePath,
+  resolveAdminLikeRouteBase,
+} from "@/lib/admin-shell-paths";
 
 const PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE_MS = 1000;
@@ -28,6 +32,7 @@ export default function AdminStaffPage() {
   const queryClient = useQueryClient();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const routeBase = resolveAdminLikeRouteBase(pathname);
 
   const page = parseInt(searchParams.get("page") ?? "1");
   const search = searchParams.get("search") ?? "";
@@ -574,11 +579,13 @@ export default function AdminStaffPage() {
                       key={row.id}
                       role="listitem"
                       className="cursor-pointer rounded-xl border border-border-default bg-bg-surface p-4 shadow-sm transition-colors duration-200 hover:bg-bg-secondary focus-within:bg-bg-secondary"
-                      onClick={() => router.push(`/admin/staffs/${row.id}`)}
+                      onClick={() =>
+                        router.push(buildAdminLikePath(routeBase, `staffs/${row.id}`))
+                      }
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          router.push(`/admin/staffs/${row.id}`);
+                          router.push(buildAdminLikePath(routeBase, `staffs/${row.id}`));
                         }
                       }}
                       tabIndex={0}
@@ -691,11 +698,13 @@ export default function AdminStaffPage() {
                           role="button"
                           tabIndex={0}
                           className="group cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary/80 focus-within:bg-bg-secondary/80"
-                          onClick={() => router.push(`/admin/staffs/${row.id}`)}
+                          onClick={() =>
+                            router.push(buildAdminLikePath(routeBase, `staffs/${row.id}`))
+                          }
                           onKeyDown={(e) => {
                             if (e.key === "Enter" || e.key === " ") {
                               e.preventDefault();
-                              router.push(`/admin/staffs/${row.id}`);
+                              router.push(buildAdminLikePath(routeBase, `staffs/${row.id}`));
                             }
                           }}
                           aria-label={`Xem chi tiết ${row.fullName?.trim() || "nhân sự"}`}

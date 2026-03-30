@@ -16,6 +16,7 @@ import {
   SessionHistoryTableSkeleton,
   TutorCard,
 } from "@/components/admin/class";
+import AdminClassDetailPage from "@/app/admin/classes/[id]/page";
 import AddSessionPopup from "@/components/admin/class/AddSessionPopup";
 import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable";
 import MonthNav from "@/components/admin/MonthNav";
@@ -117,6 +118,10 @@ export default function StaffClassDetailPage() {
 
   const isAdmin = profile?.roleType === "admin";
   const isTeacher = getTeacherRole(profile);
+  const isAssistant =
+    profile?.roleType === "staff" &&
+    (profile.staffInfo?.roles ?? []).includes("assistant");
+  const canAccessClassWorkspace = isAdmin || isTeacher;
   const actorStaffId = profile?.staffInfo?.id ?? "";
 
   const {
@@ -126,7 +131,8 @@ export default function StaffClassDetailPage() {
   } = useQuery<ClassDetail>({
     queryKey: classDetailQueryKey,
     queryFn: () => staffOpsApi.getClassById(id),
-    enabled: !!id,
+    enabled: !!id && canAccessClassWorkspace,
+    retry: false,
     staleTime: 30_000,
   });
 
@@ -141,8 +147,9 @@ export default function StaffClassDetailPage() {
         month: selectedMonthValue,
         year: selectedYear,
       }),
-    enabled: !!id,
+    enabled: !!id && canAccessClassWorkspace,
     placeholderData: keepPreviousData,
+    retry: false,
   });
 
   const scheduleItems = Array.isArray(classDetail?.schedule)
@@ -161,7 +168,13 @@ export default function StaffClassDetailPage() {
   }));
 
   const teacherCount = classDetail?.teachers?.length ?? 0;
-  const canManageSchedule = isTeacher || isAdmin;
+  const canManageSchedule = canAccessClassWorkspace;
+  const teacherScopedSessionLabel = isAdmin ? "Buổi trong tháng" : "Buổi bạn dạy trong tháng";
+  const teacherScopedHistoryTitle = isAdmin ? "Lịch sử buổi học" : "Lịch sử buổi học bạn dạy";
+  const teacherScopedHistorySummary = isAdmin ? "Tổng số buổi" : "Tổng số buổi bạn dạy";
+  const teacherScopedEmptyText = isAdmin
+    ? "Không có buổi học trong tháng này."
+    : "Bạn chưa dạy buổi nào trong tháng này.";
   const canCreateSession =
     classStudents.length > 0 &&
     (isTeacher ? Boolean(actorStaffId) : teacherCount === 1);
@@ -232,6 +245,10 @@ export default function StaffClassDetailPage() {
     [updateSessionMutation],
   );
 
+  if (isAssistant) {
+    return <AdminClassDetailPage />;
+  }
+
   if (isLoading) {
     return (
       <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 sm:p-6" aria-busy="true" aria-live="polite">
@@ -271,8 +288,12 @@ export default function StaffClassDetailPage() {
     );
   }
 
-  if (!id || isError || !classDetail) {
-    const message = !id ? "Thiếu mã lớp học." : "Không tìm thấy lớp học.";
+  if (!id || !canAccessClassWorkspace || isError || !classDetail) {
+    const message = !id
+      ? "Thiếu mã lớp học."
+      : !canAccessClassWorkspace
+        ? "Tài khoản hiện tại không có quyền mở workspace lớp học."
+        : "Không tìm thấy lớp học hoặc bạn chưa được phân công lớp này.";
 
     return (
       <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 sm:p-6">
@@ -385,7 +406,7 @@ export default function StaffClassDetailPage() {
             <ClassDetailRow label="Sĩ số tối đa" value={classDetail.maxStudents ?? "—"} />
             <ClassDetailRow label="Số học sinh" value={classStudents.length} />
             <ClassDetailRow label="Gia sư phụ trách" value={teacherCount} />
-            <ClassDetailRow label="Buổi trong tháng" value={sessions.length} />
+            <ClassDetailRow label={teacherScopedSessionLabel} value={sessions.length} />
           </dl>
         </ClassCard>
 
@@ -519,20 +540,48 @@ export default function StaffClassDetailPage() {
           </div>
         </ClassCard>
 
-        <ClassCard title="Lịch sử buổi học" className="w-full">
-          <div className="mb-4 rounded-xl border border-border-default bg-bg-secondary/55 px-3 py-2">
-            <MonthNav
-              value={selectedMonth}
-              onChange={setSelectedMonth}
-              monthPopupOpen={monthPopupOpen}
-              setMonthPopupOpen={setMonthPopupOpen}
-              countLabel={`Tổng số buổi: ${sessions.length}`}
-              actionButton={
-                <button
-                  type="button"
-                  onClick={() => setAddSessionPopupOpen(true)}
-                  disabled={!canCreateSession}
-                  className="min-h-11 w-full shrink-0 rounded-xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:w-auto sm:rounded-md"
+        <ClassCard title={teacherScopedHistoryTitle} className="w-full">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <div className="inline-flex w-fit items-center rounded-full bg-bg-secondary px-3 py-1 text-xs text-text-muted sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm">
+              {teacherScopedHistorySummary}: {sessions.length}
+            </div>
+            <div
+              data-session-month-nav
+              className="relative grid w-full grid-cols-[auto_1fr_auto] items-center gap-2 sm:flex sm:w-auto sm:justify-start"
+            >
+              <button
+                type="button"
+                onClick={() => handleMonthChange(-1)}
+                title="Tháng trước"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary transition-all duration-200 hover:border-primary hover:bg-bg-primary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-8 sm:min-w-8 sm:rounded-md sm:px-2 sm:py-1"
+                aria-label="Tháng trước"
+              >
+                ◀
+              </button>
+              <button
+                type="button"
+                onClick={() => setMonthPopupOpen(!monthPopupOpen)}
+                title="Chọn tháng/năm"
+                className="flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:rounded-md sm:border-none sm:bg-transparent sm:px-2 sm:py-1"
+                aria-expanded={monthPopupOpen}
+                aria-haspopup="dialog"
+              >
+                <span className="whitespace-nowrap">{monthLabel}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleMonthChange(1)}
+                title="Tháng sau"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary transition-all duration-200 hover:border-primary hover:bg-bg-primary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-8 sm:min-w-8 sm:rounded-md sm:px-2 sm:py-1"
+                aria-label="Tháng sau"
+              >
+                ▶
+              </button>
+              {monthPopupOpen ? (
+                <div
+                  role="dialog"
+                  aria-label="Chọn tháng"
+                  className="absolute left-0 top-full z-30 mt-2 w-full rounded-xl border border-border-default bg-bg-surface p-3 shadow-md sm:left-1/2 sm:min-w-[200px] sm:w-auto sm:-translate-x-1/2 sm:rounded-md sm:p-2"
                 >
                   + Thêm buổi học
                 </button>
@@ -555,7 +604,7 @@ export default function StaffClassDetailPage() {
               sessions={sessions}
               entityMode="teacher"
               statusMode="payment"
-              emptyText="Không có buổi học trong tháng này."
+              emptyText={teacherScopedEmptyText}
               editorLayout="wide"
               showActionsColumn
               teachers={popupTeachers}

@@ -9,6 +9,7 @@ export default function StaffLessonPlannerWorkspacePage() {
       manageDetailsPath="/staff/lesson-plan-manage-details"
       taskDetailBasePath="/staff/lesson-plan-tasks"
       participantMode
+      workspacePolicy="lesson_plan"
     />
   );
 }

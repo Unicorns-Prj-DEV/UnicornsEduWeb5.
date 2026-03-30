@@ -10,12 +10,19 @@ Page-level specs for `apps/web`, aligned with [Workplan](../Workplan.md) and [UI
 
 | Route | Status | Role | Owner (Workplan) | Plan file |
 | --- | --- | --- | --- | --- |
-| `/admin` | Implemented | Admin | Huy | [admin.md](admin.md) |
+| `/admin` | Implemented | `admin`, `staff.assistant` | Huy | [admin.md](admin.md) |
 | `/admin/users` | Implemented | Admin | — | Danh sách user, thêm account mới theo register + mail verify + gán role ngay, phân quyền (role_type: nhân sự/học sinh; staff roles chi tiết, auto-create profile liên kết) |
-| `/staff` | Implemented | `staff.teacher`, Admin | Huy | [staff.md](staff.md) |
+| `/staff` | Implemented | linked `staffInfo`, `admin` | Huy | [staff.md](staff.md) |
+| `/staff/dashboard` | Implemented | `staff.assistant` | Huy | [staff.md](staff.md) |
+| `/staff/users` | Implemented | `staff.assistant` | Huy | [staff.md](staff.md) |
+| `/staff/staffs` | Implemented | `staff.assistant` | Huy | [staff.md](staff.md) |
+| `/staff/classes` | Implemented | `staff.assistant` | Huy | [staff.md](staff.md) |
+| `/staff/students` | Implemented | `staff.assistant` | Huy | [staff.md](staff.md) |
+| `/staff/costs` | Implemented | `staff.assistant` | Huy | [staff.md](staff.md) |
+| `/staff/history` | Implemented | `staff.assistant` | Huy | [staff.md](staff.md) |
 | `/staff/customer-care-detail` | Implemented | `staff.customer_care` | Huy | [staff.md](staff.md) |
 | `/staff/lesson-plan-tasks` | Implemented | `staff.lesson_plan` | Huy | [staff.md](staff.md) |
-| `/staff/lesson-plans` | Implemented | `staff.lesson_plan_head`, Admin | Huy | [staff.md](staff.md) |
+| `/staff/lesson-plans` | Implemented | `staff.lesson_plan_head`, `staff.assistant`, Admin | Huy | [staff.md](staff.md) |
 | `/landing-page` | Implemented | Public | Minh | [landing.md](landing.md) |
 | Auth (login/logout) | Partial | All authenticated | Huy/Minh | [auth.md](auth.md) |
 | `/auth/login` | Implemented | Public | Huy/Minh | [auth-login.md](auth-login.md) |
@@ -31,7 +38,7 @@ Page-level specs for `apps/web`, aligned with [Workplan](../Workplan.md) and [UI
 
 - **Tuần 1:** Auth, layout, mock layer; landing wireframe.
 - **Tuần 2:** `/admin` (dashboard, CRUD lớp, gán teacher/student).
-- **Runtime bổ sung:** `/staff` hiện phục vụ 4 flow: teacher workspace cho `staff.teacher` (admin có thể vào để theo dõi/hỗ trợ), self-service customer-care detail tại `/staff/customer-care-detail` cho `staff.customer_care`, participant lesson workspace tại `/staff/lesson-plan-tasks*` + `/staff/lesson-plan-manage-details` cho `staff.lesson_plan`, và lesson management workspace tại `/staff/lesson-plans*` cho `staff.lesson_plan_head`.
+- **Runtime bổ sung:** `/staff` hiện phục vụ 5 flow: assistant admin-mirror workspace (`/staff/dashboard`, `/staff/users`, `/staff/staffs*`, `/staff/classes`, `/staff/students*`, `/staff/costs`, `/staff/history`), teacher workspace cho `staff.teacher` (admin có thể vào để theo dõi/hỗ trợ), self-service customer-care detail tại `/staff/customer-care-detail` cho `staff.customer_care`, participant lesson workspace tại `/staff/lesson-plan-tasks*` + `/staff/lesson-plan-manage-details` cho `staff.lesson_plan`, và lesson management workspace tại `/staff/lesson-plans*` cho `staff.lesson_plan_head` hoặc `staff.assistant`.
 - **Tuần 3:** `/mentor` (lớp, session, điểm danh, lesson notes, payroll/bonus view).
 - **Tuần 4:** `/assistant` (thu phí, status, tasks).
 - **Tuần 5:** `/student` (hồ sơ cá nhân, ví tự phục vụ, lớp đang học, lịch thi; dữ liệu luôn khóa theo tài khoản hiện tại).

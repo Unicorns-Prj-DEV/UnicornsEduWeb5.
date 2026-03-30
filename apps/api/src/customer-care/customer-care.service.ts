@@ -24,6 +24,16 @@ function toNumber(value: unknown): number {
 export class CustomerCareService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private async resolveStaffProfile(userId: string) {
+    return this.prisma.staffInfo.findFirst({
+      where: { userId },
+      select: {
+        id: true,
+        roles: true,
+      },
+    });
+  }
+
   private async resolveAccessibleStaffId(
     userId: string,
     roleType: UserRole,
@@ -39,13 +49,7 @@ export class CustomerCareService {
       );
     }
 
-    const staff = await this.prisma.staffInfo.findFirst({
-      where: { userId },
-      select: {
-        id: true,
-        roles: true,
-      },
-    });
+    const staff = await this.resolveStaffProfile(userId);
 
     if (!staff) {
       throw new ForbiddenException(
@@ -53,9 +57,13 @@ export class CustomerCareService {
       );
     }
 
+    if (staff.roles.includes(StaffRole.assistant)) {
+      return requestedStaffId;
+    }
+
     if (!staff.roles.includes(StaffRole.customer_care)) {
       throw new ForbiddenException(
-        'Màn CSKH self-service chỉ mở cho staff có role customer_care.',
+        'Màn CSKH chỉ mở cho admin, trợ lí, hoặc staff có role customer_care.',
       );
     }
 

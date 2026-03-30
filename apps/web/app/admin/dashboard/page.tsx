@@ -1,16 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import UpgradedSelect from "@/components/ui/UpgradedSelect";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   getAdminDashboard,
   getAdminStudentBalanceDetails,
   getAdminTopupHistory,
 } from "@/lib/apis/dashboard.api";
+import { getFullProfile } from "@/lib/apis/auth.api";
+import {
+  buildAdminLikePath,
+  resolveAdminLikeRouteBase,
+} from "@/lib/admin-shell-paths";
 import type {
   AdminDashboardActionAlert,
   AdminDashboardDto,
@@ -167,16 +173,17 @@ function QuickViewCard({
 
 function monthLabel(month: string, year: string) {
   const date = new Date(Number(year), Number(month) - 1, 1);
-  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(date);
+  return new Intl.DateTimeFormat("vi-VN", { month: "long", year: "numeric" }).format(date);
 }
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("vi-VN", {
     hour: "2-digit",
+    hour12: false,
     minute: "2-digit",
     day: "2-digit",
     month: "2-digit",
-    year: "2-digit",
+    year: "numeric",
   }).format(new Date(value));
 }
 
@@ -210,9 +217,55 @@ function exportCsv(filename: string, rows: Array<{ label: string; value: string;
 
 type QuickViewKey = "finance" | "ops" | "students";
 
+type FinancialRowGroup = "Dòng tiền" | "Treo & công nợ" | "Chi phí" | "Kết quả";
+type FinancialRowTone = "primary" | "success" | "warning" | "danger" | "info" | "default";
+type FinancialRowDrilldown = "topup-history" | "student-balance";
+
+type FinancialRow = {
+  group: FinancialRowGroup;
+  label: string;
+  value: number;
+  note: string;
+  tone: FinancialRowTone;
+  emphasis?: boolean;
+  drilldown?: FinancialRowDrilldown;
+};
+
+function getFinancialGroupClass(group: FinancialRowGroup) {
+  switch (group) {
+    case "Dòng tiền":
+      return "border-primary/20 bg-primary/10 text-primary";
+    case "Treo & công nợ":
+      return "border-warning/25 bg-warning/10 text-warning";
+    case "Chi phí":
+      return "border-info/20 bg-info/10 text-info";
+    case "Kết quả":
+      return "border-success/20 bg-success/10 text-success";
+    default:
+      return "";
+  }
+}
+
+function getFinancialValueClass(tone: FinancialRowTone) {
+  switch (tone) {
+    case "primary":
+      return "text-primary";
+    case "success":
+      return "text-success";
+    case "warning":
+      return "text-warning";
+    case "danger":
+      return "text-error";
+    case "info":
+      return "text-info";
+    default:
+      return "text-text-primary";
+  }
+}
+
 function DashboardLoadingState() {
   return (
-    <div className="min-h-full bg-bg-primary p-4 sm:p-6">
+    <div className="min-h-full bg-bg-primary p-4 sm:p-6" aria-busy="true" aria-live="polite">
       <div className="mx-auto w-full max-w-[1320px] space-y-4">
         <Skeleton className="h-20 rounded-xl" />
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -227,8 +280,99 @@ function DashboardLoadingState() {
   );
 }
 
+function AssistantDashboardRedirect({
+  staffId,
+}: {
+  staffId?: string;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const routeBase = resolveAdminLikeRouteBase(pathname);
+
+  useEffect(() => {
+    if (staffId) {
+      router.replace(
+        buildAdminLikePath(routeBase, `staffs/${encodeURIComponent(staffId)}`),
+      );
+      return;
+    }
+
+    router.replace("/user-profile");
+  }, [routeBase, router, staffId]);
+
+  return (
+    <div className="min-h-full bg-bg-primary p-4 sm:p-6">
+      <div className="mx-auto w-full max-w-[1020px]">
+        <section className="overflow-hidden rounded-[1.75rem] border border-primary/20 bg-[radial-gradient(circle_at_top_left,rgba(18,86,104,0.12),transparent_42%),linear-gradient(135deg,rgba(255,255,255,0.98),rgba(246,250,252,0.94))] shadow-sm">
+          <div className="grid gap-6 px-5 py-6 sm:px-7 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)] lg:items-end">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-primary/80">
+                Assistant Workspace
+              </p>
+              <h1 className="mt-3 max-w-2xl text-2xl font-semibold tracking-[-0.03em] text-text-primary sm:text-3xl">
+                Đang mở hồ sơ nhân sự thay cho dashboard tổng hợp.
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-text-secondary">
+                Trợ lí dùng chung toàn bộ admin workspace, nhưng route dashboard sẽ tự chuyển sang
+                trang chi tiết nhân sự của chính bạn để tránh hiển thị dashboard tổng hợp của admin.
+              </p>
+            </div>
+
+            <div className="grid gap-3 rounded-[1.25rem] border border-primary/15 bg-bg-surface/80 p-4 backdrop-blur">
+              <div className="rounded-xl border border-border-default bg-bg-secondary/35 p-3">
+                <p className="text-xs uppercase tracking-[0.22em] text-text-muted">
+                  Điều hướng
+                </p>
+                <div className="mt-2 h-2 w-28 animate-pulse rounded-full bg-primary/20" />
+              </div>
+              <div className="rounded-xl border border-border-default bg-bg-secondary/35 p-3">
+                <p className="text-xs uppercase tracking-[0.22em] text-text-muted">
+                  Đang chuyển
+                </p>
+                <div className="mt-2 h-2 w-36 animate-pulse rounded-full bg-primary/20" />
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function ProfileGateLoadingState() {
+  return (
+    <div className="min-h-full bg-bg-primary p-4 sm:p-6" aria-busy="true" aria-live="polite">
+      <div className="mx-auto w-full max-w-[1320px] space-y-4">
+        <Skeleton className="h-28 rounded-[1.75rem]" />
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, idx) => (
+            <Skeleton key={idx} className="h-28 rounded-xl" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboardTabPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const routeBase = resolveAdminLikeRouteBase(pathname);
+  const quickViewYearLabelId = useId();
+
+  const fullProfileQuery = useQuery({
+    queryKey: ["auth", "full-profile"],
+    queryFn: getFullProfile,
+    retry: false,
+    staleTime: 60_000,
+  });
+  const profileData = fullProfileQuery.data;
+
+  const isAssistantStaff =
+    profileData?.roleType === "staff" &&
+    (profileData.staffInfo?.roles ?? []).includes("assistant");
+  const assistantStaffId = profileData?.staffInfo?.id ?? "";
+
   const defaultPeriod = useMemo(() => {
     const now = new Date();
     return {
@@ -251,22 +395,45 @@ export default function AdminDashboardTabPage() {
         alertLimit: 12,
         topClassLimit: 8,
       }),
+    enabled: fullProfileQuery.isSuccess && !isAssistantStaff,
     staleTime: 30_000,
   });
 
   const topupHistoryQuery = useQuery<AdminDashboardTopupHistoryItem[]>({
     queryKey: ["dashboard", "admin", "topup-history", year, month],
     queryFn: () => getAdminTopupHistory({ month, year, limit: 150 }),
-    enabled: isTopupHistoryOpen,
+    enabled: fullProfileQuery.isSuccess && !isAssistantStaff && isTopupHistoryOpen,
     staleTime: 20_000,
   });
 
   const studentBalanceQuery = useQuery<AdminDashboardStudentBalanceItem[]>({
     queryKey: ["dashboard", "admin", "student-balance-details"],
     queryFn: () => getAdminStudentBalanceDetails({ limit: 300 }),
-    enabled: isStudentBalanceOpen,
+    enabled: fullProfileQuery.isSuccess && !isAssistantStaff && isStudentBalanceOpen,
     staleTime: 20_000,
   });
+
+  if (fullProfileQuery.isLoading) return <ProfileGateLoadingState />;
+
+  if (isAssistantStaff) {
+    return <AssistantDashboardRedirect staffId={assistantStaffId} />;
+  }
+
+  if (fullProfileQuery.isError) {
+    return (
+      <div className="min-h-full bg-bg-primary p-4 sm:p-6">
+        <div className="mx-auto w-full max-w-[960px]">
+          <Alert variant="destructive">
+            <DashboardIcon path="M12 9v4m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
+            <AlertTitle>Không xác nhận được hồ sơ truy cập</AlertTitle>
+            <AlertDescription>
+              Không tải được hồ sơ người dùng để xác định quyền dashboard.
+            </AlertDescription>
+          </Alert>
+        </div>
+      </div>
+    );
+  }
 
   if (dashboardQuery.isLoading) return <DashboardLoadingState />;
 
@@ -296,31 +463,137 @@ export default function AdminDashboardTabPage() {
   const bonusCost = getBreakdownAmount(dashboard, "bonusCost");
   const extraAllowanceCost = getBreakdownAmount(dashboard, "extraAllowanceCost");
   const operatingCost = getBreakdownAmount(dashboard, "operatingCost");
-  const payrollTotal = teacherCost + customerCareCost + lessonCost + bonusCost + extraAllowanceCost;
-
-  const financialRows = [
-    { label: "Tổng nạp", value: formatCurrency(dashboard.summary.monthlyRevenue), note: "Tổng số tiền học sinh đã nạp" },
-    { label: "Học phí đã học", value: formatCurrency(dashboard.summary.monthlyRevenue), note: "Tổng học phí các buổi đã học" },
-    { label: "Nợ học phí chưa dạy", value: formatCurrency(dashboard.summary.pendingCollectionTotal), note: "Tổng số dư hiện tại của tất cả học sinh" },
-    { label: "Chưa thu", value: formatCurrency(dashboard.summary.pendingCollectionTotal), note: "Tổng nợ học phí của học sinh" },
+  const financeSignalCards = [
     {
-      label: "Chờ Thanh Toán Trợ Cấp",
-      value: formatCurrency(dashboard.summary.pendingPayrollTotal),
-      note: `Gia sư: ${formatCurrency(teacherCost)} • Giáo án: ${formatCurrency(lessonCost)} • SALE&CSKH: ${formatCurrency(customerCareCost)} • Thưởng: ${formatCurrency(bonusCost)}`,
+      label: "Tổng nạp trong tháng",
+      value: formatCurrency(dashboard.summary.monthlyTopupTotal),
+      description: "Topup phát sinh theo giao dịch ví trong kỳ đang xem.",
+      tone: "primary" as const,
     },
     {
-      label: "Chi phí Nhân Sự",
-      value: formatCurrency(payrollTotal),
-      note: `Gia sư: ${formatCurrency(teacherCost)} • Giáo án: ${formatCurrency(lessonCost)} • SALE&CSKH: ${formatCurrency(customerCareCost)} • Thưởng: ${formatCurrency(bonusCost + extraAllowanceCost)}`,
+      label: "Tổng chi đã ghi nhận",
+      value: formatCurrency(dashboard.summary.monthlyExpense),
+      description: "Bao gồm nhân sự, bonus, trợ cấp và vận hành trong kỳ.",
+      tone: "info" as const,
     },
-    { label: "Chi phí Khác", value: formatCurrency(operatingCost), note: "Nguyên học thử, marketing, vận hành khác" },
-    { label: "Lợi nhuận", value: formatCurrency(dashboard.summary.monthlyProfit), note: "Học phí đã học - Chi phí nhân sự - Chi phí khác" },
     {
-      label: "Tổng nhận",
-      value: formatCurrency(dashboard.summary.monthlyRevenue - payrollTotal - operatingCost),
-      note: "Tổng nạp - Chi phí nhân sự - Chi phí khác",
+      label: "Lợi nhuận tháng",
+      value: formatCurrency(dashboard.summary.monthlyProfit),
+      description:
+        dashboard.summary.monthlyTopupTotal > 0
+          ? `${Math.round((dashboard.summary.monthlyRevenue / dashboard.summary.monthlyTopupTotal) * 100)}% topup đã được ghi nhận thành doanh thu`
+          : "Chưa có giao dịch nạp trong kỳ đang xem.",
+      tone: dashboard.summary.monthlyProfit >= 0 ? ("success" as const) : ("warning" as const),
     },
   ];
+  const financialRows: FinancialRow[] = [
+    {
+      group: "Dòng tiền",
+      label: "Tổng nạp",
+      value: dashboard.summary.monthlyTopupTotal,
+      note: "Topup phát sinh trong kỳ đang xem. Nhấp để mở lịch sử nạp chi tiết.",
+      tone: "primary",
+      drilldown: "topup-history",
+    },
+    {
+      group: "Dòng tiền",
+      label: "Doanh thu đã ghi nhận",
+      value: dashboard.summary.monthlyRevenue,
+      note: "Chỉ tính học phí từ attendance có trạng thái present trong tháng.",
+      tone: "success",
+    },
+    {
+      group: "Treo & công nợ",
+      label: "Học phí chưa dạy",
+      value: dashboard.summary.prepaidTuitionTotal,
+      note: "Snapshot số dư dương còn treo trên ví của học sinh active. Nhấp để xem chi tiết.",
+      tone: "warning",
+      drilldown: "student-balance",
+    },
+    {
+      group: "Treo & công nợ",
+      label: "Chưa thu học phí",
+      value: dashboard.summary.pendingCollectionTotal,
+      note: "Snapshot số dư âm cần follow-up thu thêm từ học sinh.",
+      tone: "danger",
+    },
+    {
+      group: "Treo & công nợ",
+      label: "Nhân sự chờ thanh toán",
+      value: dashboard.summary.pendingPayrollTotal,
+      note: `Buổi dạy: ${formatCurrency(teacherCost)} • CSKH: ${formatCurrency(customerCareCost)} • Giáo án: ${formatCurrency(lessonCost)} • Bonus: ${formatCurrency(bonusCost)} • Trợ cấp: ${formatCurrency(extraAllowanceCost)}`,
+      tone: "info",
+    },
+    {
+      group: "Chi phí",
+      label: "Chi giảng dạy",
+      value: teacherCost,
+      note: "Phụ cấp buổi dạy đã ghi nhận trong tháng.",
+      tone: "default",
+    },
+    {
+      group: "Chi phí",
+      label: "Chi CSKH",
+      value: customerCareCost,
+      note: "Chi phí customer care phát sinh từ attendance trong tháng.",
+      tone: "default",
+    },
+    {
+      group: "Chi phí",
+      label: "Chi giáo án",
+      value: lessonCost,
+      note: "Chi phí lesson output phát sinh trong tháng.",
+      tone: "default",
+    },
+    {
+      group: "Chi phí",
+      label: "Bonus",
+      value: bonusCost,
+      note: "Khoản thưởng theo tháng đang xem.",
+      tone: "default",
+    },
+    {
+      group: "Chi phí",
+      label: "Trợ cấp khác",
+      value: extraAllowanceCost,
+      note: "Extra allowance ghi nhận theo tháng đang xem.",
+      tone: "default",
+    },
+    {
+      group: "Chi phí",
+      label: "Chi phí vận hành",
+      value: operatingCost,
+      note: "Marketing, học thử và các khoản vận hành khác.",
+      tone: "default",
+    },
+    {
+      group: "Chi phí",
+      label: "Tổng chi đã ghi nhận",
+      value: dashboard.summary.monthlyExpense,
+      note: "Tổng chi phí ghi nhận trong kỳ đang xem.",
+      tone: "default",
+      emphasis: true,
+    },
+    {
+      group: "Kết quả",
+      label: "Lợi nhuận tháng",
+      value: dashboard.summary.monthlyProfit,
+      note: "Doanh thu đã ghi nhận trừ tổng chi đã ghi nhận.",
+      tone: dashboard.summary.monthlyProfit >= 0 ? "success" : "danger",
+      emphasis: true,
+    },
+  ];
+  const financialCsvRows = financialRows.map((row) => ({
+    label: `${row.group} - ${row.label}`,
+    value: formatCurrency(row.value),
+    note: row.note,
+  }));
+  const yearlyRevenueTotal = dashboard.yearlySummary.reduce((sum, item) => sum + item.revenue, 0);
+  const yearlyExpenseTotal = dashboard.yearlySummary.reduce((sum, item) => sum + item.expense, 0);
+  const yearlyProfitTotal = dashboard.yearlySummary.reduce((sum, item) => sum + item.profit, 0);
+  const bestQuarter =
+    dashboard.yearlySummary.reduce((best, item) => (item.profit > best.profit ? item : best), dashboard.yearlySummary[0]) ??
+    { quarter: "Q1", classes: 0, revenue: 0, expense: 0, profit: 0 };
 
   const expiringAlerts = dashboard.actionAlerts.filter((item) => item.type === "Sắp hết tiền");
   const debtAlerts = dashboard.actionAlerts.filter((item) => item.type === "Chưa thu");
@@ -329,14 +602,14 @@ export default function AdminDashboardTabPage() {
 
   const openAlertDetail = (alert: AdminDashboardActionAlert) => {
     if (alert.targetType === "student") {
-      router.push(`/admin/students/${alert.targetId}`);
+      router.push(buildAdminLikePath(routeBase, `students/${alert.targetId}`));
       return;
     }
     if (alert.targetType === "staff") {
-      router.push(`/admin/staffs/${alert.targetId}`);
+      router.push(buildAdminLikePath(routeBase, `staffs/${alert.targetId}`));
       return;
     }
-    router.push(`/admin/classes/${alert.targetId}`);
+    router.push(buildAdminLikePath(routeBase, `classes/${alert.targetId}`));
   };
 
   const quickCards =
@@ -344,20 +617,20 @@ export default function AdminDashboardTabPage() {
       ? [
         {
           label: "Tổng doanh thu",
-          value: formatCurrency(dashboard.yearlySummary.reduce((sum, item) => sum + item.revenue, 0)),
-          description: "Tổng hợp phí đã học các tháng trong năm",
+          value: formatCurrency(yearlyRevenueTotal),
+          description: "Học phí đã ghi nhận của toàn bộ các quý trong năm.",
         },
         {
-          label: "Chi phí gia sư",
-          value: formatCurrency(dashboard.yearlySummary.reduce((sum, item) => sum + item.expense, 0)),
-          description: "Payroll theo dữ liệu annual summary",
+          label: "Tổng chi phí",
+          value: formatCurrency(yearlyExpenseTotal),
+          description: "Nhân sự và vận hành đã ghi nhận trong năm đang xem.",
         },
-        { label: "Chi phí khác", value: formatCurrency(operatingCost), description: "Marketing, vận hành và các khoản khác" },
         {
           label: "Lợi nhuận ròng",
-          value: formatCurrency(dashboard.yearlySummary.reduce((sum, item) => sum + item.profit, 0)),
-          description: "Doanh thu - Chi phí",
+          value: formatCurrency(yearlyProfitTotal),
+          description: "Doanh thu trừ chi phí của toàn bộ năm đang xem.",
         },
+        { label: "Quý hiệu quả nhất", value: bestQuarter.quarter, description: `${formatCurrency(bestQuarter.profit)} lợi nhuận` },
       ]
       : quickView === "ops"
         ? [
@@ -426,7 +699,7 @@ export default function AdminDashboardTabPage() {
             </button>
             <button
               type="button"
-              onClick={() => exportCsv(`dashboard-${year}-${month}.csv`, financialRows)}
+              onClick={() => exportCsv(`dashboard-${year}-${month}.csv`, financialCsvRows)}
               className="inline-flex min-h-10 items-center rounded-md bg-primary px-3 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
             >
               Xuất Excel
@@ -437,71 +710,115 @@ export default function AdminDashboardTabPage() {
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <KpiCard title="Lớp học" value={String(dashboard.summary.activeClasses)} note={`${dashboard.summary.activeClasses} đang hoạt động`} tone="primary" />
           <KpiCard title="Học sinh" value={String(dashboard.summary.activeStudents)} note={`${dashboard.summary.activeStudents} đang học`} tone="default" />
-          <KpiCard title="Giáo viên" value={String(dashboard.summary.unpaidStaffCount)} note="Đang hợp tác" tone="success" />
           <KpiCard
-            title="Số tiền lãi"
-            value={formatCurrency(dashboard.summary.monthlyProfit)}
-            note="Học phí đã học - Chi phí phụ cấp"
-            tone={dashboard.summary.monthlyProfit >= 0 ? "success" : "warning"}
-          />
-          <KpiCard
-            title="Nợ học phí chưa dạy"
-            value={formatCurrency(dashboard.summary.pendingCollectionTotal)}
-            note="Tổng số dư hiện tại của tất cả học sinh"
+            title="Nhân sự chờ thanh toán"
+            value={String(dashboard.summary.unpaidStaffCount)}
+            note={`${dashboard.summary.unpaidStaffCount} nhân sự còn pending`}
             tone="warning"
           />
           <KpiCard
-            title="Chưa thu"
+            title="Lợi nhuận tháng"
+            value={formatCurrency(dashboard.summary.monthlyProfit)}
+            note="Doanh thu đã ghi nhận - tổng chi trong tháng"
+            tone={dashboard.summary.monthlyProfit >= 0 ? "success" : "warning"}
+          />
+          <KpiCard
+            title="Học phí chưa dạy"
+            value={formatCurrency(dashboard.summary.prepaidTuitionTotal)}
+            note="Số dư dương còn treo trên ví học sinh"
+            tone="warning"
+          />
+          <KpiCard
+            title="Chưa thu học phí"
             value={formatCurrency(dashboard.summary.pendingCollectionTotal)}
-            note="Tổng nợ học phí của học sinh"
+            note="Số dư âm cần follow-up thu thêm"
             tone="default"
           />
         </section>
 
-        <section className="rounded-xl border border-border-default bg-bg-surface">
-          <div className="border-b border-border-default px-4 py-3">
-            <h2 className="text-base font-semibold text-text-primary">Báo cáo tài chính</h2>
+        <section className="overflow-hidden rounded-[24px] border border-border-default bg-bg-surface shadow-[0_24px_60px_-48px_rgba(15,23,42,0.45)]">
+          <div className="border-b border-border-default bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.12),_transparent_38%),linear-gradient(135deg,rgba(248,250,252,0.92),rgba(255,255,255,0.98))] px-4 py-4 sm:px-5">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+              <div className="max-w-2xl">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Finance Ledger</p>
+                <h2 className="mt-2 text-xl font-semibold text-balance text-text-primary">Báo cáo tài chính</h2>
+                <p className="mt-1 text-sm leading-6 text-text-secondary">
+                  Bảng đã tách rõ dòng tiền, khoản treo, công nợ và chi phí ghi nhận để tránh đọc nhầm giữa topup, số dư
+                  ví học sinh và doanh thu thực tế.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[660px]">
+                {financeSignalCards.map((card) => (
+                  <div
+                    key={card.label}
+                    className={`rounded-2xl border bg-bg-surface/90 p-4 shadow-sm ${
+                      card.tone === "success"
+                        ? "border-success/20"
+                        : card.tone === "warning"
+                          ? "border-warning/20"
+                          : card.tone === "info"
+                            ? "border-info/20"
+                            : "border-primary/20"
+                    }`}
+                  >
+                    <p className="text-xs font-medium text-text-muted">{card.label}</p>
+                    <p className={`mt-2 text-2xl font-semibold tabular-nums ${getFinancialValueClass(card.tone)}`}>{card.value}</p>
+                    <p className="mt-1 text-xs leading-5 text-text-secondary">{card.description}</p>
                   </div>
+                ))}
+              </div>
+            </div>
+          </div>
           <div className="overflow-x-auto px-2 py-2 sm:px-4">
             <Table>
+              <TableCaption className="px-3 pb-3 pt-2 text-left text-xs text-text-muted">
+                Nhấp vào dòng <span className="font-medium text-text-primary">Tổng nạp</span> hoặc{" "}
+                <span className="font-medium text-text-primary">Học phí chưa dạy</span> để mở drill-down chi tiết.
+              </TableCaption>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Danh mục</TableHead>
-                  <TableHead>Giá trị</TableHead>
-                  <TableHead>Ghi chú</TableHead>
+                  <TableHead className="w-[160px]">Nhóm</TableHead>
+                  <TableHead className="min-w-[260px]">Danh mục</TableHead>
+                  <TableHead className="w-[220px] text-right">Giá trị</TableHead>
+                  <TableHead className="min-w-[320px]">Ghi chú</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {financialRows.map((row) => (
-                  <TableRow
-                    key={row.label}
-                    className={
-                      row.label === "Chờ Thanh Toán Trợ Cấp" || row.label === "Chi phí Nhân Sự"
-                        ? "bg-bg-secondary/45"
-                        : undefined
-                    }
-                  >
-                    <TableCell className="font-medium text-text-primary">{row.label}</TableCell>
-                    <TableCell className="font-semibold tabular-nums text-text-primary">
-                      {row.label === "Tổng nạp" || row.label === "Nợ học phí chưa dạy" ? (
+                  <TableRow key={`${row.group}-${row.label}`} className={row.emphasis ? "bg-bg-secondary/45" : undefined}>
+                    <TableCell>
+                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${getFinancialGroupClass(row.group)}`}>
+                        {row.group}
+                      </span>
+                    </TableCell>
+                    <TableCell className="whitespace-normal">
+                      <p className="font-semibold text-text-primary">{row.label}</p>
+                    </TableCell>
+                    <TableCell className={`text-right font-semibold tabular-nums ${getFinancialValueClass(row.tone)}`}>
+                      {row.drilldown ? (
                         <button
                           type="button"
                           onClick={() => {
-                            if (row.label === "Tổng nạp") {
+                            if (row.drilldown === "topup-history") {
                               setIsTopupHistoryOpen(true);
                               return;
                             }
                             setIsStudentBalanceOpen(true);
                           }}
-                          className="text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                          className="inline-flex items-center gap-2 rounded-md text-right underline decoration-current/35 underline-offset-3 transition-colors hover:text-text-primary hover:decoration-current focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                          aria-label={
+                            row.drilldown === "topup-history"
+                              ? "Mở lịch sử nạp theo tháng đang xem"
+                              : "Mở chi tiết học phí chưa dạy của học sinh"
+                          }
                         >
-                          {row.value}
+                          {formatCurrency(row.value)}
                         </button>
                       ) : (
-                        row.value
+                        formatCurrency(row.value)
                       )}
                     </TableCell>
-                    <TableCell className="text-text-secondary">{row.note}</TableCell>
+                    <TableCell className="whitespace-normal leading-6 text-text-secondary">{row.note}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -545,20 +862,19 @@ export default function AdminDashboardTabPage() {
         <section className="rounded-xl border border-border-default bg-bg-surface p-4">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-base font-semibold text-text-primary">Chế độ xem nhanh theo phân hệ</h2>
-            <label className="flex items-center gap-2 text-sm text-text-secondary">
-              <span>Năm</span>
-              <select
-                value={year}
-                onChange={(event) => setYear(event.target.value)}
-                className="min-h-9 rounded-md border border-border-default bg-bg-surface px-2.5 text-sm text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-              >
-                {yearOptions.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="flex items-center gap-2 text-sm text-text-secondary">
+              <span id={quickViewYearLabelId}>Năm</span>
+              <div className="w-[120px]">
+                <UpgradedSelect
+                  labelId={quickViewYearLabelId}
+                  value={year}
+                  onValueChange={setYear}
+                  options={yearOptions}
+                  buttonClassName="min-h-9 rounded-md border border-border-default bg-bg-surface px-2.5 py-2 text-sm text-text-primary shadow-none transition-colors duration-200 hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  menuClassName="overflow-auto rounded-xl border border-border-default bg-bg-surface p-1 shadow-[0_18px_40px_-24px_rgba(15,23,42,0.35)]"
+                />
+              </div>
+            </div>
           </div>
 
           <div className="mb-4 flex flex-wrap gap-2">
@@ -601,15 +917,15 @@ export default function AdminDashboardTabPage() {
                   role="dialog"
                   aria-modal="true"
                   aria-labelledby="dashboard-topup-history-title"
-                  className="flex h-auto max-h-full w-full flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-surface shadow-2xl"
+                  className="flex h-auto max-h-full w-full flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-surface shadow-2xl overscroll-contain"
                 >
                   <div className="flex items-start justify-between gap-4 border-b border-border-default px-5 py-4">
                     <div>
-                      <h2 id="dashboard-topup-history-title" className="text-xl font-semibold text-text-primary">
+                      <h2 id="dashboard-topup-history-title" className="text-xl font-semibold text-balance text-text-primary">
                         Lịch sử nạp
                       </h2>
                       <p className="mt-1 text-sm text-text-secondary">
-                        Lịch sử nạp tiền trong kỳ đang chọn (ngày giờ - học sinh - số tiền - ghi chú - tổng nạp tích lũy toàn hệ thống).
+                        Topup trong kỳ đang chọn, gồm thời điểm phát sinh, học sinh, số tiền và mức tích lũy trước/sau giao dịch.
                       </p>
                     </div>
                     <button
@@ -692,22 +1008,22 @@ export default function AdminDashboardTabPage() {
                   role="dialog"
                   aria-modal="true"
                   aria-labelledby="dashboard-student-balance-title"
-                  className="flex h-auto max-h-full w-full flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-surface shadow-2xl"
+                  className="flex h-auto max-h-full w-full flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-surface shadow-2xl overscroll-contain"
                 >
                   <div className="flex items-start justify-between gap-4 border-b border-border-default px-5 py-4">
                     <div>
-                      <h2 id="dashboard-student-balance-title" className="text-xl font-semibold text-text-primary">
-                        Chi tiết Nợ học phí chưa dạy
+                      <h2 id="dashboard-student-balance-title" className="text-xl font-semibold text-balance text-text-primary">
+                        Chi tiết học phí chưa dạy
                       </h2>
                       <p className="mt-1 text-sm text-text-secondary">
-                        Tổng số dư hiện tại của tất cả học sinh (học sinh - lớp - số dư).
+                        Snapshot số dư dương hiện tại của học sinh active thuộc lớp running.
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setIsStudentBalanceOpen(false)}
                       className="rounded-lg p-2 text-text-muted transition-colors hover:bg-bg-secondary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                      aria-label="Đóng popup chi tiết nợ học phí chưa dạy"
+                      aria-label="Đóng popup chi tiết học phí chưa dạy"
                     >
                       <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" />

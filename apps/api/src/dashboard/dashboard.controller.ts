@@ -13,6 +13,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { UserRole } from 'generated/enums';
+import { AllowAssistantOnAdminRoutes } from 'src/auth/decorators/allow-assistant-on-admin.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import {
   type AdminDashboardTopupHistoryItemDto,
@@ -27,6 +28,7 @@ import { DashboardService } from './dashboard.service';
 @Controller('dashboard')
 @ApiTags('dashboard')
 @ApiCookieAuth('access_token')
+@AllowAssistantOnAdminRoutes(false)
 @Roles(UserRole.admin)
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class DashboardController {

@@ -1,7 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { toast } from "sonner";
+import ExtraAllowanceFormPopup, {
+  type ExtraAllowanceFormSubmitPayload,
+} from "@/components/admin/extra-allowance/ExtraAllowanceFormPopup";
 import {
   getExtraAllowanceRoleChipClass,
   getExtraAllowanceRoleLabel,
@@ -14,7 +19,12 @@ import type {
   ExtraAllowanceRoleType,
   ExtraAllowanceStatus,
 } from "@/dtos/extra-allowance.dto";
-import { getMyStaffExtraAllowances } from "@/lib/apis/auth.api";
+import type { StaffOption } from "@/dtos/staff.dto";
+import {
+  createMyCommunicationExtraAllowance,
+  getMyStaffExtraAllowances,
+  getMyStaffDetail,
+} from "@/lib/apis/auth.api";
 
 const MAX_VISIBLE_ALLOWANCES = 20;
 
@@ -142,11 +152,57 @@ function StatusPill({
 
 export default function StaffSelfExtraAllowanceRoleDetailPage({
   roleType,
+  allowCreate = false,
 }: {
   roleType: SupportedRoleType;
+  /** Chỉ dùng cho Truyền thông: tự thêm khoản trợ cấp (pending), backend kiểm tra role. */
+  allowCreate?: boolean;
 }) {
   const theme = ROLE_THEMES[roleType];
   const roleLabel = getExtraAllowanceRoleLabel(roleType);
+  const canSelfCreateAllowance = Boolean(allowCreate) && roleType === "communication";
+  const queryClient = useQueryClient();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createFormKey, setCreateFormKey] = useState(0);
+
+  const { data: meStaff, isLoading: isMeStaffLoading } = useQuery({
+    queryKey: ["users", "me", "staff-detail"],
+    queryFn: getMyStaffDetail,
+    enabled: canSelfCreateAllowance,
+    staleTime: 60_000,
+  });
+
+  const lockedStaffOption: StaffOption | null = meStaff
+    ? {
+        id: meStaff.id,
+        fullName: meStaff.fullName,
+        status: meStaff.status,
+        roles: Array.isArray(meStaff.roles) ? meStaff.roles : [],
+      }
+    : null;
+
+  const createMutation = useMutation({
+    mutationFn: async (payload: ExtraAllowanceFormSubmitPayload) => {
+      await createMyCommunicationExtraAllowance({
+        id: crypto.randomUUID(),
+        month: payload.month,
+        amount: payload.amount,
+        note: payload.note,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Đã tạo khoản trợ cấp. Trạng thái: chờ thanh toán.");
+      void queryClient.invalidateQueries({
+        queryKey: ["extra-allowance", "self", "role-detail", roleType],
+      });
+      setCreateOpen(false);
+    },
+    onError: (err) => {
+      toast.error(
+        getErrorMessage(err, "Không tạo được trợ cấp. Vui lòng thử lại."),
+      );
+    },
+  });
 
   const {
     data,
@@ -182,6 +238,13 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
     totalAvailable > totalAllowances
       ? `Đang hiển thị ${totalAllowances}/${totalAvailable} khoản mới nhất của chính bạn.`
       : `Lịch sử trợ cấp ${roleLabel.toLowerCase()} của chính bạn.`;
+
+  const scopeChipLabel = canSelfCreateAllowance
+    ? "Có thể thêm khoản chờ thanh toán"
+    : "Không cho phép thêm hoặc đổi trạng thái";
+  const scopeDescription = canSelfCreateAllowance
+    ? "Bạn có thể khai báo thêm khoản trợ cấp theo tháng; mỗi khoản mới luôn ở trạng thái chờ cho đến khi kế toán xác nhận."
+    : "Trang này chỉ hiển thị lịch sử trợ cấp theo đúng role của chính bạn.";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
@@ -293,9 +356,28 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
                 </div>
                 <p className="mt-1 text-sm text-text-muted">{visibilityNote}</p>
               </div>
-              <span className="inline-flex rounded-full border border-border-default bg-bg-secondary px-2.5 py-1 text-xs font-semibold text-text-secondary">
-                {totalAvailable}
-              </span>
+              <div className="flex flex-col items-stretch gap-2 sm:items-end">
+                {canSelfCreateAllowance ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCreateFormKey((k) => k + 1);
+                      setCreateOpen(true);
+                    }}
+                    disabled={
+                      isMeStaffLoading ||
+                      !lockedStaffOption ||
+                      createMutation.isPending
+                    }
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse shadow-sm transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50 sm:w-auto"
+                  >
+                    Thêm trợ cấp
+                  </button>
+                ) : null}
+                <span className="inline-flex rounded-full border border-border-default bg-bg-secondary px-2.5 py-1 text-xs font-semibold text-text-secondary sm:self-end">
+                  {totalAvailable}
+                </span>
+              </div>
             </div>
 
             <section
@@ -316,11 +398,11 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
                     Self-Service Scope
                   </p>
                   <p className="mt-1 text-sm text-text-secondary">
-                    Trang này chỉ hiển thị lịch sử trợ cấp theo đúng role của chính bạn.
+                    {scopeDescription}
                   </p>
                 </div>
                 <span className="inline-flex rounded-full border border-primary/15 bg-primary/8 px-2.5 py-1 text-xs font-semibold text-primary">
-                  Không cho phép thêm hoặc đổi trạng thái
+                  {scopeChipLabel}
                 </span>
               </div>
 
@@ -422,6 +504,24 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
               )}
             </section>
           </section>
+
+          {canSelfCreateAllowance && lockedStaffOption ? (
+            <ExtraAllowanceFormPopup
+              key={createFormKey}
+              open={createOpen}
+              mode="create"
+              onClose={() => setCreateOpen(false)}
+              lockedContext={{
+                staff: lockedStaffOption,
+                roleType: "communication",
+              }}
+              lockStatusToPending
+              isSubmitting={createMutation.isPending}
+              onSubmit={async (payload) => {
+                await createMutation.mutateAsync(payload);
+              }}
+            />
+          ) : null}
         </>
       )}
     </div>

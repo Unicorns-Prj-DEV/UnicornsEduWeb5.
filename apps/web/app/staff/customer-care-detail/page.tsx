@@ -16,6 +16,9 @@ export default function StaffCustomerCareDetailPage() {
   const isCustomerCare =
     (profile?.roleType === "staff" || profile?.roleType === "admin") &&
     (staffInfo?.roles ?? []).includes("customer_care");
+  const canOpenStaffClassDetail =
+    profile?.roleType === "admin" ||
+    (staffInfo?.roles ?? []).includes("teacher");
 
   if (isLoading) {
     return (
@@ -76,7 +79,11 @@ export default function StaffCustomerCareDetailPage() {
         </div>
       </section>
 
-      <CustomerCareDetailPanels staffId={staffInfo.id} />
+      <CustomerCareDetailPanels
+        staffId={staffInfo.id}
+        workspaceMode="self"
+        allowStaffClassNavigation={canOpenStaffClassDetail}
+      />
     </div>
   );
 }

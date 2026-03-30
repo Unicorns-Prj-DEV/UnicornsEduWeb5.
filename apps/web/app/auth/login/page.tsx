@@ -18,6 +18,13 @@ const ROLE_REDIRECT: Record<string, string> = {
   guest: "/",
 };
 
+function isAssistantStaffProfile(profile?: FullProfileDto | null) {
+  return (
+    profile?.roleType === "staff" &&
+    (profile.staffInfo?.roles ?? []).includes("assistant")
+  );
+}
+
 function resolvePostLoginRedirect(
   roleType: string,
   profile?: FullProfileDto | null,
@@ -27,6 +34,10 @@ function resolvePostLoginRedirect(
   }
 
   if (roleType === "staff") {
+    if (isAssistantStaffProfile(profile)) {
+      return "/admin/dashboard";
+    }
+
     return profile?.staffInfo?.id ? ROLE_REDIRECT.staff : "/user-profile";
   }
 

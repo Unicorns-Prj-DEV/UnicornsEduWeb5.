@@ -1,6 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Prisma } from '../../generated/client';
-import { PaymentStatus, StaffRole } from 'generated/enums';
+import { PaymentStatus, StaffRole, UserRole } from 'generated/enums';
 import {
   ActionHistoryActor,
   ActionHistoryService,
@@ -8,6 +13,7 @@ import {
 import {
   ExtraAllowanceBulkStatusUpdateResult,
   CreateExtraAllowanceDto,
+  CreateMyCommunicationExtraAllowanceDto,
   UpdateExtraAllowanceDto,
 } from '../dtos/extra-allowance.dto';
 import { PaginationQueryDto } from '../dtos/pagination.dto';
@@ -155,6 +161,53 @@ export class ExtraAllowanceService {
     }
 
     return allowance;
+  }
+
+  /**
+   * Staff self-service: only users with linked staff that includes `communication`
+   * may create an extra allowance for themselves, role fixed to communication, status pending.
+   */
+  async createMyCommunicationExtraAllowance(
+    user: { id: string; email: string; roleType: UserRole },
+    data: CreateMyCommunicationExtraAllowanceDto,
+  ) {
+    if (user.roleType !== UserRole.staff) {
+      throw new ForbiddenException(
+        'Chỉ tài khoản nhân sự mới được tự tạo trợ cấp truyền thông.',
+      );
+    }
+
+    const staff = await this.prisma.staffInfo.findFirst({
+      where: { userId: user.id },
+      select: { id: true, roles: true },
+    });
+
+    if (!staff) {
+      throw new BadRequestException('User has no linked staff record');
+    }
+
+    if (!staff.roles.includes(StaffRole.communication)) {
+      throw new ForbiddenException(
+        'Chỉ nhân sự có role Truyền thông mới được tự thêm trợ cấp này.',
+      );
+    }
+
+    return this.createExtraAllowance(
+      {
+        id: data.id,
+        staffId: staff.id,
+        month: data.month,
+        amount: data.amount ?? 0,
+        status: PaymentStatus.pending,
+        note: data.note,
+        roleType: StaffRole.communication,
+      },
+      {
+        userId: user.id,
+        userEmail: user.email,
+        roleType: user.roleType,
+      },
+    );
   }
 
   async createExtraAllowance(

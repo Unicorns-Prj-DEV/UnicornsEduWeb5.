@@ -101,9 +101,11 @@ export interface AdminDashboardPeriodDto {
 export interface AdminDashboardSummaryDto {
   activeClasses: number;
   activeStudents: number;
+  monthlyTopupTotal: number;
   monthlyRevenue: number;
   monthlyExpense: number;
   monthlyProfit: number;
+  prepaidTuitionTotal: number;
   pendingCollectionTotal: number;
   pendingPayrollTotal: number;
   expiringStudentsCount: number;
@@ -135,7 +137,11 @@ export interface AdminDashboardBreakdownItemDto {
 }
 
 export interface AdminDashboardActionAlertDto {
-  type: 'Sắp hết tiền' | 'Chưa thu' | 'Nhân sự chưa thanh toán' | 'Lớp cảnh báo';
+  type:
+    | 'Sắp hết tiền'
+    | 'Chưa thu'
+    | 'Nhân sự chưa thanh toán'
+    | 'Lớp cảnh báo';
   subject: string;
   owner: string | null;
   due: string;

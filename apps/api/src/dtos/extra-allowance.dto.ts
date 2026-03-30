@@ -100,3 +100,33 @@ export interface ExtraAllowanceBulkStatusUpdateResult {
   requestedCount: number;
   updatedCount: number;
 }
+
+/** Self-service: staff with role `communication` creates their own communication allowance (always pending). */
+export class CreateMyCommunicationExtraAllowanceDto {
+  @ApiProperty({ description: 'Client-generated UUID for the new record' })
+  @IsUUID()
+  id: string;
+
+  @ApiProperty({
+    description: 'Month key in format YYYY-MM',
+    example: '2026-03',
+  })
+  @Matches(MONTH_KEY_PATTERN, {
+    message: 'month must be in YYYY-MM format',
+  })
+  month: string;
+
+  @ApiPropertyOptional({ example: 500000, default: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  amount?: number;
+
+  @ApiPropertyOptional({
+    example: 'Hỗ trợ truyền thông tháng 3',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  note?: string;
+}

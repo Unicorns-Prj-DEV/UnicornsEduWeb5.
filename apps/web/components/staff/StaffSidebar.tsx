@@ -11,24 +11,39 @@ import { useAuth } from "@/context/AuthContext";
 import * as authApi from "@/lib/apis/auth.api";
 import AdminProfilePopup, { type AdminProfile } from "@/components/admin/AdminProfilePopup";
 
-const MENU_ITEMS: {
+type MenuVisibility = {
+  hasStaffProfile: boolean;
+  canAccessClassWorkspace: boolean;
+  canAccessCustomerCareSelf: boolean;
+  canAccessLessonPlanWorkspace: boolean;
+  canAccessLessonPlanParticipant: boolean;
+  isAccountant: boolean;
+  isCommunication: boolean;
+};
+
+type MenuItem = {
   href: string;
   label: string;
   icon: React.ReactNode;
   isActive: (pathname: string) => boolean;
-  isVisible: (options: {
-    canAccessClassWorkspace: boolean;
-    canAccessCustomerCareSelf: boolean;
-    canAccessLessonPlanWorkspace: boolean;
-    canAccessLessonPlanParticipant: boolean;
-  }) => boolean;
-}[] = [
+  isVisible: (options: MenuVisibility) => boolean;
+};
+
+const DEFAULT_MENU_ITEMS: MenuItem[] = [
     {
       href: "/staff",
-      label: "Lớp học",
+      label: "Dashboard",
+      icon: <IconHome />,
+      isActive: (pathname) => pathname === "/staff",
+      isVisible: ({ hasStaffProfile }) => hasStaffProfile,
+    },
+    {
+      href: "/staff/profile",
+      label: "Cá nhân",
       icon: <IconOperations />,
-      isActive: (pathname) => pathname === "/staff" || pathname.startsWith("/staff/classes/"),
-      isVisible: ({ canAccessClassWorkspace }) => canAccessClassWorkspace,
+      isActive: (pathname) =>
+        pathname === "/staff/profile" || pathname.startsWith("/staff/classes/"),
+      isVisible: ({ hasStaffProfile }) => hasStaffProfile,
     },
     {
       href: "/staff/customer-care-detail",
@@ -56,7 +71,100 @@ const MENU_ITEMS: {
         pathname.startsWith("/staff/lesson-manage-details"),
       isVisible: ({ canAccessLessonPlanWorkspace }) => canAccessLessonPlanWorkspace,
     },
+    {
+      href: "/staff/communication-detail",
+      label: "Truyền thông",
+      icon: <IconCommunication />,
+      isActive: (pathname) => pathname.startsWith("/staff/communication-detail"),
+      isVisible: ({ isCommunication }) => isCommunication,
+    },
+    {
+      href: "/staff/notes-subject",
+      label: "Ghi chú môn học",
+      icon: <IconNotesSubject />,
+      isActive: (pathname) => pathname.startsWith("/staff/notes-subject"),
+      isVisible: ({ hasStaffProfile }) => hasStaffProfile,
+    },
   ];
+
+function buildAssistantMenuItems(ownStaffId: string): MenuItem[] {
+  const ownStaffDetailHref = ownStaffId
+    ? `/staff/staffs/${encodeURIComponent(ownStaffId)}`
+    : "/staff/dashboard";
+
+  return [
+    {
+      href: "/staff/dashboard",
+      label: "Dashboard",
+      icon: <IconDashboard />,
+      isActive: (pathname) =>
+        pathname === "/staff" ||
+        pathname === "/staff/dashboard" ||
+        pathname === ownStaffDetailHref,
+      isVisible: () => true,
+    },
+    {
+      href: "/staff/users",
+      label: "User",
+      icon: <IconUsers />,
+      isActive: (pathname) => pathname.startsWith("/staff/users"),
+      isVisible: () => true,
+    },
+    {
+      href: "/staff/staffs",
+      label: "Nhân sự",
+      icon: <IconStaff />,
+      isActive: (pathname) =>
+        pathname.startsWith("/staff/staffs") && pathname !== ownStaffDetailHref,
+      isVisible: () => true,
+    },
+    {
+      href: "/staff/classes",
+      label: "Lớp học",
+      icon: <IconClasses />,
+      isActive: (pathname) =>
+        pathname === "/staff/classes" || pathname.startsWith("/staff/classes/"),
+      isVisible: () => true,
+    },
+    {
+      href: "/staff/notes-subject",
+      label: "Ghi chú môn học",
+      icon: <IconNotesSubject />,
+      isActive: (pathname) => pathname.startsWith("/staff/notes-subject"),
+      isVisible: () => true,
+    },
+    {
+      href: "/staff/students",
+      label: "Học sinh",
+      icon: <IconStudents />,
+      isActive: (pathname) => pathname.startsWith("/staff/students"),
+      isVisible: () => true,
+    },
+    {
+      href: "/staff/costs",
+      label: "Chi phí",
+      icon: <IconCosts />,
+      isActive: (pathname) => pathname.startsWith("/staff/costs"),
+      isVisible: () => true,
+    },
+    {
+      href: "/staff/lesson-plans",
+      label: "Giáo Án",
+      icon: <IconLessonPlans />,
+      isActive: (pathname) =>
+        pathname.startsWith("/staff/lesson-plans") ||
+        pathname.startsWith("/staff/lesson-manage-details"),
+      isVisible: () => true,
+    },
+    {
+      href: "/staff/history",
+      label: "Lịch sử",
+      icon: <IconHistory />,
+      isActive: (pathname) => pathname.startsWith("/staff/history"),
+      isVisible: () => true,
+    },
+  ];
+}
 
 const SIDEBAR_WIDTH_EXPANDED = 224;
 const SIDEBAR_WIDTH_COLLAPSED = 60;
@@ -101,6 +209,55 @@ function IconHome() {
   );
 }
 
+function IconDashboard() {
+  return (
+    <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+    </svg>
+  );
+}
+
+function IconUsers() {
+  return (
+    <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+    </svg>
+  );
+}
+
+function IconStaff() {
+  return (
+    <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+    </svg>
+  );
+}
+
+function IconClasses() {
+  return (
+    <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+    </svg>
+  );
+}
+
+function IconStudents() {
+  return (
+    <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+    </svg>
+  );
+}
+
+function IconCosts() {
+  return (
+    <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
+
 function IconCustomerCare() {
   return (
     <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -127,6 +284,30 @@ function IconLessonPlans() {
   );
 }
 
+function IconCommunication() {
+  return (
+    <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+    </svg>
+  );
+}
+
+function IconHistory() {
+  return (
+    <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
+
+function IconNotesSubject() {
+  return (
+    <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+    </svg>
+  );
+}
+
 export default function StaffSidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -147,6 +328,9 @@ export default function StaffSidebar() {
   });
 
   const staffRoles = fullProfile?.staffInfo?.roles ?? [];
+  const hasStaffProfile = Boolean(fullProfile?.staffInfo?.id);
+  const isAssistant =
+    fullProfile?.roleType === "staff" && staffRoles.includes("assistant");
   const canAccessClassWorkspace =
     fullProfile?.roleType === "admin" || staffRoles.includes("teacher");
   const canAccessCustomerCareSelf =
@@ -157,12 +341,20 @@ export default function StaffSidebar() {
     fullProfile?.roleType === "staff" &&
     staffRoles.includes("lesson_plan") &&
     !staffRoles.includes("lesson_plan_head");
-  const menuItems = MENU_ITEMS.filter((item) =>
+  const isAccountant = staffRoles.includes("accountant");
+  const isCommunication = staffRoles.includes("communication");
+  const menuItems = (isAssistant
+    ? buildAssistantMenuItems(fullProfile?.staffInfo?.id ?? "")
+    : DEFAULT_MENU_ITEMS
+  ).filter((item) =>
     item.isVisible({
+      hasStaffProfile,
       canAccessClassWorkspace,
       canAccessCustomerCareSelf,
       canAccessLessonPlanWorkspace,
       canAccessLessonPlanParticipant,
+      isAccountant,
+      isCommunication,
     }),
   );
 

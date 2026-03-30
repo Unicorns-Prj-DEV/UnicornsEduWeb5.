@@ -8,6 +8,10 @@ import { toast } from "sonner";
 import * as classApi from "@/lib/apis/class.api";
 import { AddClassPopup, ClassListTableSkeleton } from "@/components/admin/class";
 import { ClassListResponse, ClassStatus, ClassType } from "@/dtos/class.dto";
+import {
+  buildAdminLikePath,
+  resolveAdminLikeRouteBase,
+} from "@/lib/admin-shell-paths";
 import { normalizeClassType } from "@/lib/class.helpers";
 
 const SEARCH_DEBOUNCE_MS = 1000;
@@ -84,6 +88,7 @@ export default function AdminClassesPage() {
   const queryClient = useQueryClient();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const routeBase = resolveAdminLikeRouteBase(pathname);
 
   const page = normalizePage(searchParams.get("page"));
   const typeFilter = normalizeClassType(searchParams.get("type"));
@@ -391,11 +396,13 @@ export default function AdminClassesPage() {
                     className="rounded-xl border border-border-default bg-bg-surface p-3 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-bg-secondary focus-within:ring-2 focus-within:ring-border-focus"
                     role="button"
                     tabIndex={0}
-                    onClick={() => router.push(`/admin/classes/${row.id}`)}
+                    onClick={() =>
+                      router.push(buildAdminLikePath(routeBase, `classes/${row.id}`))
+                    }
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        router.push(`/admin/classes/${row.id}`);
+                        router.push(buildAdminLikePath(routeBase, `classes/${row.id}`));
                       }
                     }}
                     aria-label={`Xem chi tiết lớp ${row.name?.trim() || ""}`}
@@ -483,11 +490,13 @@ export default function AdminClassesPage() {
                         role="button"
                         tabIndex={0}
                         className="group cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary/80 focus-within:bg-bg-secondary/80"
-                        onClick={() => router.push(`/admin/classes/${row.id}`)}
+                        onClick={() =>
+                          router.push(buildAdminLikePath(routeBase, `classes/${row.id}`))
+                        }
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
-                            router.push(`/admin/classes/${row.id}`);
+                            router.push(buildAdminLikePath(routeBase, `classes/${row.id}`));
                           }
                         }}
                         aria-label={`Xem chi tiết lớp ${row.name?.trim() || ""}`}

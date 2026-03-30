@@ -102,11 +102,11 @@ function StaffCard({
 export function LessonTaskDetailPage({
   workspaceBasePath = "/admin/lesson-plans",
   participantMode = false,
-  hideOutputExecutionStaff = false,
+  allowDelete: allowDeleteProp,
 }: {
   workspaceBasePath?: string;
   participantMode?: boolean;
-  hideOutputExecutionStaff?: boolean;
+  allowDelete?: boolean;
 }) {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -124,10 +124,9 @@ export function LessonTaskDetailPage({
   const [resourceSearch, setResourceSearch] = useState("");
   const deferredResourceSearch = useDeferredValue(resourceSearch.trim());
   const canManageTask = !participantMode;
+  const canDeleteInPage = allowDeleteProp ?? canManageTask;
   const canCreateResource = canManageTask || participantMode;
   const canOpenOutputPopup = canManageTask || participantMode;
-  const showOutputExecutionStaff =
-    !participantMode && !hideOutputExecutionStaff;
 
   const backHref = useMemo(() => {
     const nextParams = new URLSearchParams();
@@ -536,11 +535,7 @@ export function LessonTaskDetailPage({
                   ) : null}
                 </div>
 
-                <div
-                  className={`grid gap-3 md:grid-cols-2 ${
-                    showOutputExecutionStaff ? "xl:grid-cols-4" : "xl:grid-cols-3"
-                  }`}
-                >
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   <TaskMetaCard
                     label="Hạn xử lý"
                     value={formatLessonDateOnly(task.dueDate)}
@@ -560,13 +555,6 @@ export function LessonTaskDetailPage({
                     value={String(task.assignees.length)}
                     hint="Số nhân sự đang được giao thực hiện task."
                   />
-                  {showOutputExecutionStaff ? (
-                    <TaskMetaCard
-                      label="Output Team"
-                      value={String(task.outputAssignees.length)}
-                      hint="Số nhân sự đã đứng tên các output con."
-                    />
-                  ) : null}
                 </div>
               </div>
             </section>
@@ -591,11 +579,7 @@ export function LessonTaskDetailPage({
               </div>
             </section>
 
-            <div
-              className={`grid gap-6 ${
-                showOutputExecutionStaff ? "lg:grid-cols-3" : "lg:grid-cols-2"
-              }`}
-            >
+            <div className="grid gap-6 lg:grid-cols-2">
               <section className="rounded-[1.75rem] flex-1 border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -653,35 +637,6 @@ export function LessonTaskDetailPage({
                   )}
                 </div>
               </section>
-
-              {showOutputExecutionStaff ? (
-                <section className="rounded-[1.75rem] flex-1 border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
-                      Output Execution
-                    </p>
-                    <h2 className="mt-2 text-2xl font-semibold text-text-primary">
-                      Nhân sự thực hiện output
-                    </h2>
-                    <p className="mt-2 text-sm leading-6 text-text-secondary">
-                      Danh sách chỉ đọc này tổng hợp từ các output con đang gắn với
-                      task, tách biệt với assignment của task.
-                    </p>
-                  </div>
-
-                  <div className="mt-4 space-y-3">
-                    {task.outputAssignees.length > 0 ? (
-                      task.outputAssignees.map((assignee) => (
-                        <StaffCard key={assignee.id} staff={assignee} />
-                      ))
-                    ) : (
-                      <div className="rounded-[1.35rem] border border-dashed border-border-default bg-bg-secondary/40 px-4 py-8 text-sm text-text-muted">
-                        Chưa có output nào được gán nhân sự thực hiện.
-                      </div>
-                    )}
-                  </div>
-                </section>
-              ) : null}
             </div>
 
             <div className="gap-6 flex flex-col">
@@ -746,7 +701,7 @@ export function LessonTaskDetailPage({
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div className="flex flex-wrap gap-3 text-xs text-text-muted">
                             <span>Ngày: {formatLessonDateOnly(output.date)}</span>
-                            {showOutputExecutionStaff ? (
+                            {!participantMode ? (
                               <span>
                                 Nhân sự output:{" "}
                                 {output.staffDisplayName ?? output.staffId ?? "Chưa gán"}
@@ -1086,7 +1041,7 @@ export function LessonTaskDetailPage({
               showStaffSummary={!participantMode}
               forceSharedLayout={participantMode}
               allowTasklessOutput={false}
-              allowDelete={canManageTask}
+              allowDelete={canDeleteInPage}
               allowPaymentStatusEdit={!participantMode}
               allowCostEdit={!participantMode}
               relatedTaskIds={[task.id]}
