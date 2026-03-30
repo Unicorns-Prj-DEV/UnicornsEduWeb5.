@@ -653,19 +653,19 @@ export default function LessonWorkTab({
           </div>
         </section>
 
-          {canOpenOutputPopup ? (
-            <LessonOutputQuickPopup
-              open={Boolean(selectedOutputId)}
-              outputId={selectedOutputId}
-              forceSharedLayout
-              showStaffSummary={!participantMode}
-              allowTasklessOutput={!participantMode}
-              allowPaymentStatusEdit={!participantMode}
-              allowCostEdit={!participantMode}
-              allowDelete={canDeleteOutputs}
-              onClose={() => setSelectedOutputId(null)}
-            />
-          ) : null}
+        {canOpenOutputPopup ? (
+          <LessonOutputQuickPopup
+            open={Boolean(selectedOutputId)}
+            outputId={selectedOutputId}
+            forceSharedLayout
+            showStaffSummary={!participantMode}
+            allowTasklessOutput={!participantMode}
+            allowPaymentStatusEdit={!participantMode}
+            allowCostEdit={!participantMode}
+            allowDelete={canDeleteOutputs}
+            onClose={() => setSelectedOutputId(null)}
+          />
+        ) : null}
       </section>
     );
   }
@@ -803,12 +803,12 @@ export default function LessonWorkTab({
                 <table className="w-full table-fixed border-collapse text-left">
                   <colgroup>
                     {canBulkEditPaymentStatus ? (
-                      <col style={{ width: "42px" }} />
+                      <col style={{ width: "80px" }} />
                     ) : null}
                     <col style={{ width: "20%" }} />
                     <col style={{ width: "12%" }} />
-                    <col style={{ width: "26%" }} />
                     <col style={{ width: "20%" }} />
+                    <col style={{ width: "26%" }} />
                     <col style={{ width: "16%" }} />
                     <col style={{ width: "96px" }} />
                   </colgroup>

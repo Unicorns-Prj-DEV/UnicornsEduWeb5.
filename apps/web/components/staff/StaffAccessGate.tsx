@@ -44,8 +44,8 @@ export default function StaffAccessGate({
   const isAssistantStaffsRoute = pathname.startsWith("/staff/staffs");
   const isStaffClassesRoute = pathname.startsWith("/staff/classes");
   const isStaffClassDetailRoute = pathname.startsWith("/staff/classes/");
+  const isStaffCostsRoute = pathname.startsWith("/staff/costs");
   const isAssistantStudentsRoute = pathname.startsWith("/staff/students");
-  const isAssistantCostsRoute = pathname.startsWith("/staff/costs");
   const isAssistantHistoryRoute = pathname.startsWith("/staff/history");
   const isNotesSubjectRoute = pathname.startsWith("/staff/notes-subject");
   const isRootStaffProfileRoute = isDashboardRoute || isProfileRoute;
@@ -59,15 +59,15 @@ export default function StaffAccessGate({
   const isLessonPlanParticipantRoute =
     pathname.startsWith("/staff/lesson-plan-tasks") ||
     pathname.startsWith("/staff/lesson-plan-manage-details");
+  const isStaffLessonPlansRoute = pathname.startsWith("/staff/lesson-plans");
+  const isStaffLessonPlansHomeRoute = pathname === "/staff/lesson-plans";
   const isLessonPlanManagementRoute =
-    pathname.startsWith("/staff/lesson-plans") ||
-    pathname.startsWith("/staff/lesson-manage-details");
+    isStaffLessonPlansRoute || pathname.startsWith("/staff/lesson-manage-details");
   const isAssistantAdminLikeRoute =
     isAssistantDashboardRoute ||
     isAssistantUsersRoute ||
     isAssistantStaffsRoute ||
     isAssistantStudentsRoute ||
-    isAssistantCostsRoute ||
     isAssistantHistoryRoute ||
     isCustomerCareAdminRoute ||
     isLessonPlanAdminDetailRoute;
@@ -77,6 +77,12 @@ export default function StaffAccessGate({
       ? isAssistantStaff ||
         (hasStaffProfile && isStaffOrAdmin && isAccountant) ||
         (roleType === "staff" && isTeacher && isStaffClassDetailRoute)
+    : isStaffCostsRoute
+      ? isAssistantStaff || (hasStaffProfile && isStaffOrAdmin && isAccountant)
+    : isStaffLessonPlansHomeRoute
+      ? hasStaffProfile &&
+        isStaffOrAdmin &&
+        (isLessonPlanManager || isAccountant)
     : isAssistantAdminLikeRoute
       ? isAssistantStaff
     : isCustomerCareSelfRoute
@@ -105,6 +111,8 @@ export default function StaffAccessGate({
     ? "Staff Profile Locked"
     : isStaffClassesRoute
       ? "Class Workspace Locked"
+    : isStaffCostsRoute
+      ? "Cost Workspace Locked"
     : isAssistantAdminLikeRoute
       ? "Assistant Workspace Locked"
     : isCustomerCareSelfRoute
@@ -122,6 +130,8 @@ export default function StaffAccessGate({
     ? "Tài khoản này chưa mở được hồ sơ staff tự phục vụ."
     : isStaffClassesRoute
       ? "Tài khoản này không dùng được màn lớp học trong staff shell."
+    : isStaffCostsRoute
+      ? "Tài khoản này không dùng được màn chi phí trong staff shell."
     : isAssistantAdminLikeRoute
       ? "Route này chỉ mở cho staff có role `assistant`."
     : isCustomerCareSelfRoute
@@ -143,6 +153,8 @@ export default function StaffAccessGate({
     ? "Route `/staff` hiện là hồ sơ của chính nhân sự đang đăng nhập. Nó chỉ mở khi tài khoản có liên kết staff record hợp lệ."
     : isStaffClassesRoute
       ? "Route `/staff/classes` hiện mở cho `staff.assistant` và `staff.accountant`; riêng `staff.teacher` chỉ mở trực tiếp trang chi tiết lớp được phân công dưới `/staff/classes/[id]`."
+    : isStaffCostsRoute
+      ? "Route `/staff/costs` hiện mở cho `staff.assistant` và `staff.accountant`. Kế toán dùng admin-like cost workspace trong staff shell, nhưng các action tạo mới/xóa vẫn bị khóa theo policy accountant."
     : isAssistantAdminLikeRoute
       ? "Nhóm route này mirror lại các module quản trị trong staff shell. Nó chỉ mở cho `roleType=staff` có role `assistant`; các staff role khác tiếp tục dùng self-service hoặc workspace chuyên biệt của riêng mình."
     : isCustomerCareSelfRoute
@@ -156,7 +168,7 @@ export default function StaffAccessGate({
             : isLessonPlanParticipantRoute
               ? "Workspace này chỉ mở cho staff có role `lesson_plan` thông thường. Bạn chỉ xem được các task mình tham gia, xem resource của các task đó, và chỉ thêm output/resource vào đúng các task được gán."
               : isLessonPlanManagementRoute
-                ? "Workspace này chỉ mở cho `admin` hoặc staff có role `lesson_plan_head`. Tại đây Trưởng giáo án có toàn quyền điều chỉnh giống admin, nhưng giữ nguyên trong shell `/staff`."
+                ? "Workspace `/staff/lesson-plans` mở cho `admin`, `staff.assistant`, `staff.lesson_plan_head`, và `staff.accountant`. Riêng accountant chỉ dùng tab `Công việc`, không mở các route task/manage detail riêng và không có quyền tạo mới/xóa."
                 : isLessonPlanSelfRoute
                   ? "Màn này chỉ mở khi hồ sơ nhân sự hiện tại có role `lesson_plan` hoặc `lesson_plan_head`. Nó chỉ hiển thị lesson output của chính bạn và không cho phép chỉnh sửa."
                   : "Màn này hiện mở cho `admin` hoặc `staff.teacher`. Teacher dùng nó để xem lớp phụ trách và thao tác buổi học; admin có thể truy cập để theo dõi hoặc hỗ trợ vận hành.";

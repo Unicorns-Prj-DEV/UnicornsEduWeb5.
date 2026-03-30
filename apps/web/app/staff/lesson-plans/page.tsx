@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { AdminLessonPlansWorkspace } from "@/components/admin/lesson-plans";
 import { getFullProfile } from "@/lib/apis/auth.api";
+import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
 
 export default function StaffLessonPlansPage() {
   const { data: profile } = useQuery({
@@ -11,16 +12,16 @@ export default function StaffLessonPlansPage() {
     retry: false,
     staleTime: 60_000,
   });
-  const isAssistant =
-    profile?.roleType === "staff" &&
-    (profile.staffInfo?.roles ?? []).includes("assistant");
+  const { isAssistant, isAccountant } = resolveAdminShellAccess(profile);
 
   return (
     <AdminLessonPlansWorkspace
       basePath="/staff/lesson-plans"
       manageDetailsPath="/staff/lesson-manage-details"
       taskDetailBasePath="/staff/lesson-plans/tasks"
-      workspacePolicy={isAssistant ? "admin" : "lesson_plan_head"}
+      workspacePolicy={
+        isAssistant ? "admin" : isAccountant ? "accountant" : "lesson_plan_head"
+      }
     />
   );
 }

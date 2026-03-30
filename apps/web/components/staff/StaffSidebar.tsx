@@ -49,7 +49,15 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
       href: "/staff/classes",
       label: "Lớp học",
       icon: <IconClasses />,
-      isActive: (pathname) => pathname === "/staff/classes",
+      isActive: (pathname) =>
+        pathname === "/staff/classes" || pathname.startsWith("/staff/classes/"),
+      isVisible: ({ isAccountant }) => isAccountant,
+    },
+    {
+      href: "/staff/costs",
+      label: "Chi phí",
+      icon: <IconCosts />,
+      isActive: (pathname) => pathname.startsWith("/staff/costs"),
       isVisible: ({ isAccountant }) => isAccountant,
     },
     {
@@ -76,7 +84,8 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
       isActive: (pathname) =>
         pathname.startsWith("/staff/lesson-plans") ||
         pathname.startsWith("/staff/lesson-manage-details"),
-      isVisible: ({ canAccessLessonPlanWorkspace }) => canAccessLessonPlanWorkspace,
+      isVisible: ({ canAccessLessonPlanWorkspace, isAccountant }) =>
+        canAccessLessonPlanWorkspace || isAccountant,
     },
     {
       href: "/staff/communication-detail",

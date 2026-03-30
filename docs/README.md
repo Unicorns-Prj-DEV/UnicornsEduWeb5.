@@ -70,6 +70,8 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
   - từ `/staff/profile` staff chỉ được sửa thông tin cơ bản, ngân hàng và QR qua `PATCH /users/me/staff`; ngoài ra staff có thể tự thêm thưởng cho chính mình qua `POST /users/me/staff-bonuses`, nhưng backend luôn khóa bản ghi mới ở trạng thái `pending`
   - các mutate nhạy cảm còn lại trên role, trạng thái, trợ cấp, học phí và thanh toán vẫn bị khóa
   - `staff.accountant` thấy thêm item `Lớp học` trong sidebar staff shell và có thể mở `/staff/classes`, `/staff/classes/[id]` theo admin-like class workspace; các action tạo mới/xóa vẫn bị ẩn giống policy accountant ở admin shell
+  - `staff.accountant` thấy thêm item `Chi phí` trong sidebar staff shell và có thể mở `/staff/costs` theo admin-like cost workspace; các action tạo mới/xóa vẫn bị ẩn giống policy accountant ở admin shell
+  - `staff.accountant` thấy thêm item `Giáo Án` trong sidebar staff shell và có thể mở `/staff/lesson-plans`; workspace bị ép về policy accountant: chỉ còn tab `Công việc`, cho sửa output hiện có và cập nhật trạng thái thanh toán, không cho tạo mới/xóa và không mở các route task/manage detail riêng
   - `/staff/classes/[id]` mở cho `staff.teacher`, `admin`, `staff.assistant`, và `staff.accountant`; assistant/accountant thấy class detail kiểu admin ngay trong staff shell, còn teacher/admin giữ teacher workspace self-service
   - từ class detail chỉ cho sửa khung giờ, tạo/chỉnh session và điểm danh; route này không cho thay đổi trợ cấp hoặc học phí học sinh
   - `/staff/customer-care-detail` mở khi hồ sơ staff hiện tại có role `customer_care`, luôn khóa theo đúng hồ sơ đó; nếu actor có role này, dòng `customer_care` ở section `Công việc khác` trên `/staff` sẽ mở sang màn self-service tương ứng
