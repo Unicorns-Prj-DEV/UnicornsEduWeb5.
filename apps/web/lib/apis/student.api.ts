@@ -147,3 +147,12 @@ export async function updateStudentClasses(
   const response = await api.patch<StudentDetail>(`/student/${safeId}/classes`, payload);
   return response.data;
 }
+
+/**
+ * DELETE /student/:id – delete a student by ID.
+ */
+export async function deleteStudentById(id: string) {
+  const safeId = encodeURIComponent(id);
+  const response = await api.delete(`/student/${safeId}`);
+  return response.data;
+}

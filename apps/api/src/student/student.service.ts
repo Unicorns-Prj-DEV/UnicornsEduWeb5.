@@ -1079,6 +1079,17 @@ export class StudentService {
       throw new NotFoundException('Student not found');
     }
 
+    const attendanceCount = await this.prisma.attendance.count({
+      where: {
+        studentId: id,
+      },
+    });
+    if (attendanceCount > 0) {
+      throw new BadRequestException(
+        'Không thể xóa học sinh vì đã có điểm danh/buổi học liên kết. Vui lòng cân nhắc chuyển trạng thái hoặc lưu trữ thay vì xóa.',
+      );
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const deletedStudent = await tx.studentInfo.delete({
         where: {

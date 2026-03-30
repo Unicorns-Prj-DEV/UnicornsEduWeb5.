@@ -1394,6 +1394,17 @@ export class StaffService {
       throw new NotFoundException('Staff not found');
     }
 
+    const sessionsCount = await this.prisma.session.count({
+      where: {
+        teacherId: id,
+      },
+    });
+    if (sessionsCount > 0) {
+      throw new BadRequestException(
+        'Không thể xóa nhân sự vì đang có buổi học liên kết. Vui lòng gỡ phân công hoặc chuyển gia sư cho các buổi học trước.',
+      );
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const deletedStaff = await tx.staffInfo.delete({
         where: {

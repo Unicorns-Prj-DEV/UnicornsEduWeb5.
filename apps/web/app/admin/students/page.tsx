@@ -3,7 +3,8 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useDebouncedCallback } from "use-debounce";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { AddStudentPopup, StudentListTableSkeleton } from "@/components/admin/student";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import {
@@ -89,6 +90,7 @@ export default function AdminStudentsPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
 
   const page = parsePositiveInt(searchParams.get("page"));
   const search = searchParams.get("search") ?? "";
@@ -100,6 +102,8 @@ export default function AdminStudentsPage() {
   const [searchInput, setSearchInput] = useState(search);
   const [filterPopupOpen, setFilterPopupOpen] = useState(false);
   const [addStudentOpen, setAddStudentOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState<{ id: string; name: string } | null>(null);
   const [filterDraft, setFilterDraft] = useState<FilterDraft>({
     province: "",
     school: "",
@@ -237,6 +241,41 @@ export default function AdminStudentsPage() {
     const params = buildListParams();
     params.set("page", String(currentPage + 1));
     replaceWithParams(params);
+  };
+
+  const deleteMutation = useMutation({
+    mutationFn: ({ id }: { id: string }) => studentApi.deleteStudentById(id),
+    onSuccess: () => {
+      toast.success("Đã xóa học sinh.");
+      queryClient.invalidateQueries({ queryKey: ["student", "list"] });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (err as Error)?.message ??
+        "Không thể xóa.";
+      toast.error(msg);
+    },
+  });
+
+  const openDeleteConfirm = (id: string, name: string) => {
+    setStudentToDelete({ id, name });
+    setDeleteConfirmOpen(true);
+  };
+
+  const closeDeleteConfirm = () => {
+    setDeleteConfirmOpen(false);
+    setStudentToDelete(null);
+  };
+
+  const handleDeleteConfirmed = async () => {
+    if (!studentToDelete) return;
+    try {
+      await deleteMutation.mutateAsync({ id: studentToDelete.id });
+      closeDeleteConfirm();
+    } catch {
+      // toast lỗi đã xử lý trong onError
+    }
   };
 
   return (
@@ -570,9 +609,10 @@ export default function AdminStudentsPage() {
                       <th scope="col" className="w-[18%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         Tỉnh
                       </th>
-                      <th scope="col" className="w-[34%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                      <th scope="col" className="w-[30%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         Lớp
                       </th>
+                      <th scope="col" className="w-[4%] min-w-10 px-2 py-3 text-right" aria-label="Xóa" />
                     </tr>
                   </thead>
                   <tbody>
@@ -587,7 +627,7 @@ export default function AdminStudentsPage() {
                           key={student.id}
                           role="button"
                           tabIndex={0}
-                          className="cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary/70 focus-within:bg-bg-secondary/70"
+                          className="group cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary/70 focus-within:bg-bg-secondary/70"
                           onClick={() => router.push(`/admin/students/${student.id}`)}
                           onKeyDown={(event) => {
                             if (event.key === "Enter" || event.key === " ") {
@@ -635,6 +675,20 @@ export default function AdminStudentsPage() {
                             ) : (
                               <span className="text-text-muted">Chưa xếp lớp</span>
                             )}
+                          </td>
+                          <td className="px-2 py-3 align-middle text-right" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              title="Xóa học sinh"
+                              disabled={deleteMutation.isPending}
+                              onClick={() => openDeleteConfirm(student.id, student.fullName?.trim() || "")}
+                              className="rounded-lg p-2 text-text-muted opacity-0 transition-all duration-200 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-error/10 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                              aria-label={`Xóa học sinh ${student.fullName?.trim() || ""}`}
+                            >
+                              <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
                           </td>
                         </tr>
                       );
@@ -684,6 +738,61 @@ export default function AdminStudentsPage() {
       {addStudentOpen ? (
         <AddStudentPopup open={addStudentOpen} onClose={() => setAddStudentOpen(false)} />
       ) : null}
+
+      {deleteConfirmOpen && studentToDelete && (
+        <>
+          <div
+            className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-[1px]"
+            aria-hidden
+            onClick={closeDeleteConfirm}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-student-title"
+            className="fixed left-1/2 top-1/2 z-[70] w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border-default bg-bg-surface p-4 shadow-2xl sm:p-5"
+          >
+            <div className="flex items-start gap-3">
+              <div className="mt-1 flex size-9 items-center justify-center rounded-full bg-error/10 text-error">
+                <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v4m0 4h.01M5.1 19h13.8a2 2 0 001.79-2.89L13.79 4.79a2 2 0 00-3.58 0L3.31 16.11A2 2 0 005.1 19z" />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 id="delete-student-title" className="text-base font-semibold text-text-primary">
+                  Xóa học sinh?
+                </h2>
+                <p className="mt-1 text-sm text-text-secondary">
+                  Bạn có chắc muốn xóa học sinh{" "}
+                  <span className="font-semibold text-text-primary">
+                    {studentToDelete.name || "này"}
+                  </span>
+                  ? Hành động này không thể hoàn tác.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeDeleteConfirm}
+                disabled={deleteMutation.isPending}
+                className="min-h-10 flex-1 rounded-md border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none sm:px-5"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirmed}
+                disabled={deleteMutation.isPending}
+                className="min-h-10 flex-1 rounded-md border border-error bg-error px-4 py-2.5 text-sm font-medium text-text-inverse shadow-sm transition-colors hover:bg-error/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none sm:px-5"
+              >
+                {deleteMutation.isPending ? "Đang xóa…" : "Xóa học sinh"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
