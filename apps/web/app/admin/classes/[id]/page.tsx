@@ -26,6 +26,7 @@ import {
 } from "@/components/admin/class";
 import AddSessionPopup from "@/components/admin/class/AddSessionPopup";
 import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable";
+import MonthNav from "@/components/admin/MonthNav";
 import { ClassStatus, ClassType, ClassDetail, ClassStudent } from "@/dtos/class.dto";
 import { SessionItem } from "@/dtos/session.dto";
 
@@ -102,48 +103,7 @@ export default function AdminClassDetailPage() {
     return MOCK_SURVEYS.filter((s) => s.date.startsWith(selectedMonth));
   }, [selectedMonth]);
 
-  const handleMonthChange = (delta: number) => {
-    const [year, month] = selectedMonth.split("-");
-    let newMonth = parseInt(month, 10) + delta;
-    let newYear = parseInt(year, 10);
-    if (newMonth < 1) {
-      newMonth = 12;
-      newYear -= 1;
-    } else if (newMonth > 12) {
-      newMonth = 1;
-      newYear += 1;
-    }
-    setSelectedMonth(`${newYear}-${String(newMonth).padStart(2, "0")}`);
-  };
-
-  const handleYearChange = (delta: number) => {
-    const [year, month] = selectedMonth.split("-");
-    const newYear = parseInt(year, 10) + delta;
-    setSelectedMonth(`${newYear}-${month}`);
-  };
-
-  const handleMonthSelect = (monthVal: string) => {
-    setSelectedMonth(`${selectedYear}-${monthVal}`);
-    setMonthPopupOpen(false);
-  };
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (monthPopupOpen && !target.closest("[data-session-month-nav]")) {
-        setMonthPopupOpen(false);
-      }
-    };
-    if (monthPopupOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [monthPopupOpen]);
-
-  const monthNames = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"];
   const [selectedYear, selectedMonthValue] = selectedMonth.split("-");
-  const monthNum = parseInt(selectedMonthValue, 10);
-  const monthLabel = `Tháng ${monthNum}/${selectedYear}`;
   const indicatorTransition = prefersReducedMotion
     ? { duration: 0 }
     : TAB_INDICATOR_TRANSITION;
@@ -668,133 +628,40 @@ export default function AdminClassDetailPage() {
               </button>
             </div>
 
-            <div className="flex items-center gap-2 rounded-xl border border-border-default bg-bg-secondary/55 px-2 py-2">
-              <div className="min-w-[132px] rounded-lg bg-bg-surface px-3 py-2 text-sm font-medium text-text-secondary">
-                {activeTab === "sessions"
-                  ? `Tổng số buổi: ${sessionsInMonth.length}`
-                  : `Tổng khảo sát: ${surveysInMonth.length}`}
-              </div>
-              <div
-                data-session-month-nav
-                className="relative flex min-w-0 flex-1 items-center justify-center"
-              >
-                <div className="flex items-center rounded-full border border-border-subtle bg-bg-surface shadow-sm">
+            <div className="flex flex-col gap-2 rounded-xl border border-border-default bg-bg-secondary/55 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+              <MonthNav
+                value={selectedMonth}
+                onChange={setSelectedMonth}
+                monthPopupOpen={monthPopupOpen}
+                setMonthPopupOpen={setMonthPopupOpen}
+                countLabel={
+                  activeTab === "sessions"
+                    ? `Tổng số buổi: ${sessionsInMonth.length}`
+                    : `Tổng khảo sát: ${surveysInMonth.length}`
+                }
+                actionButton={
                   <button
                     type="button"
-                    onClick={() => handleMonthChange(-1)}
-                    title="Tháng trước"
-                    className="flex size-10 items-center justify-center rounded-l-full text-text-muted transition-colors hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-inset sm:size-9"
-                    aria-label="Tháng trước"
+                    onClick={() => {
+                      if (activeTab === "sessions") {
+                        setAddSessionPopupOpen(true);
+                        return;
+                      }
+                      toast.info("Chức năng thêm khảo sát đang phát triển.");
+                    }}
+                    aria-label={activeTab === "sessions" ? "Thêm buổi học" : "Thêm khảo sát"}
+                    title={activeTab === "sessions" ? "Thêm buổi học" : "Thêm khảo sát"}
+                    className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
                   >
-                    <svg className="size-5 sm:size-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
+                    <span className="sr-only">
+                      {activeTab === "sessions" ? "Thêm buổi học" : "Thêm khảo sát"}
+                    </span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setMonthPopupOpen(!monthPopupOpen)}
-                    title="Chọn tháng, năm"
-                    className="min-w-[140px] px-4 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-inset sm:min-w-[120px] sm:px-3 sm:py-2"
-                    aria-expanded={monthPopupOpen}
-                    aria-haspopup="dialog"
-                  >
-                    <span className="whitespace-nowrap">{monthLabel}</span>
-                    <svg
-                      className={`ml-1 inline-block size-4 shrink-0 transition-transform duration-200 ${monthPopupOpen ? "rotate-180" : ""}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      aria-hidden
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleMonthChange(1)}
-                    title="Tháng sau"
-                    className="flex size-10 items-center justify-center rounded-r-full text-text-muted transition-colors hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-inset sm:size-9"
-                    aria-label="Tháng sau"
-                  >
-                    <svg className="size-5 sm:size-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </div>
-
-                {monthPopupOpen && (
-                  <div
-                    role="dialog"
-                    aria-label="Chọn tháng"
-                    className="absolute left-1/2 top-full z-30 mt-2 w-64 -translate-x-1/2 rounded-2xl border border-border-default bg-bg-surface p-4 shadow-lg"
-                  >
-                    <div className="mb-3 flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={() => handleYearChange(-1)}
-                        className="flex size-8 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-bg-secondary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                        aria-label="Năm trước"
-                      >
-                        <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                        </svg>
-                      </button>
-                      <span className="text-sm font-semibold text-text-primary">{selectedYear}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleYearChange(1)}
-                        className="flex size-8 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-bg-secondary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                        aria-label="Năm sau"
-                      >
-                        <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-4 gap-1">
-                      {monthNames.map((label, idx) => {
-                        const val = String(idx + 1).padStart(2, "0");
-                        const isActive = val === selectedMonthValue;
-                        return (
-                          <button
-                            key={val}
-                            type="button"
-                            onClick={() => handleMonthSelect(val)}
-                            className={`rounded-lg py-2 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
-                              isActive
-                                ? "bg-primary/12 text-primary"
-                                : "text-text-primary hover:bg-bg-tertiary"
-                            }`}
-                          >
-                            {label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (activeTab === "sessions") {
-                    setAddSessionPopupOpen(true);
-                    return;
-                  }
-                  toast.info("Chức năng thêm khảo sát đang phát triển.");
-                }}
-                aria-label={activeTab === "sessions" ? "Thêm buổi học" : "Thêm khảo sát"}
-                title={activeTab === "sessions" ? "Thêm buổi học" : "Thêm khảo sát"}
-                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
-              >
-                <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                <span className="sr-only">
-                  {activeTab === "sessions" ? "Thêm buổi học" : "Thêm khảo sát"}
-                </span>
-              </button>
+                }
+              />
             </div>
           </div>
 

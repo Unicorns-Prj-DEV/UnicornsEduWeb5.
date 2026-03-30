@@ -752,7 +752,7 @@ export default function StaffSelfDetailPage() {
             >
               Thống kê thu nhập
             </h2>
-            <div className="sm:pt-0.5">
+            <div className="w-full sm:ml-auto sm:w-auto sm:pt-0.5">
               <MonthNav
                 value={selectedMonth}
                 onChange={setSelectedMonth}
@@ -761,7 +761,7 @@ export default function StaffSelfDetailPage() {
               />
             </div>
           </div>
-          <div className="space-y-3 md:hidden">
+          <div className="mt-3 space-y-3 md:hidden">
             <div className="flex justify-between rounded-lg border border-border-default bg-bg-secondary/40 px-4 py-3">
               <span className="text-sm text-text-primary">Tổng tháng</span>
               <span className="tabular-nums text-sm font-semibold text-primary">
@@ -804,7 +804,7 @@ export default function StaffSelfDetailPage() {
               )}
             </div>
           </div>
-          <div className="hidden overflow-x-auto md:block">
+          <div className="mt-3 hidden overflow-x-auto md:block">
             <table className="w-full min-w-[400px] border-collapse text-left text-sm">
               <caption className="sr-only">
                 Bảng thống kê thu nhập nhân sự
