@@ -12,9 +12,29 @@ export interface StaffOperationsActor {
   roles: StaffRole[];
 }
 
+export type StaffClassViewAccessMode = 'admin' | 'teacher' | 'customer_care';
+
 @Injectable()
 export class StaffOperationsAccessService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private async resolveStaffActor(userId: string): Promise<StaffOperationsActor> {
+    const staff = await this.prisma.staffInfo.findFirst({
+      where: { userId },
+      select: {
+        id: true,
+        roles: true,
+      },
+    });
+
+    if (!staff) {
+      throw new ForbiddenException(
+        'Chỉ nhân sự có hồ sơ staff mới được dùng màn vận hành lớp học.',
+      );
+    }
+
+    return staff;
+  }
 
   async resolveActor(
     userId: string,
@@ -33,23 +53,42 @@ export class StaffOperationsAccessService {
       );
     }
 
-    const staff = await this.prisma.staffInfo.findFirst({
-      where: { userId },
-      select: {
-        id: true,
-        roles: true,
-      },
-    });
-
-    if (!staff) {
-      throw new ForbiddenException(
-        'Chỉ nhân sự có hồ sơ staff mới được dùng màn vận hành lớp học.',
-      );
-    }
+    const staff = await this.resolveStaffActor(userId);
 
     if (!staff.roles.includes(StaffRole.teacher)) {
       throw new ForbiddenException(
         'Màn /staff hiện chỉ mở cho staff có role teacher.',
+      );
+    }
+
+    return staff;
+  }
+
+  async resolveClassViewerActor(
+    userId: string,
+    roleType: UserRole,
+  ): Promise<StaffOperationsActor> {
+    if (roleType === UserRole.admin) {
+      return {
+        id: userId,
+        roles: [],
+      };
+    }
+
+    if (roleType !== UserRole.staff) {
+      throw new ForbiddenException(
+        'Chỉ tài khoản staff mới được dùng màn chi tiết lớp trong staff shell.',
+      );
+    }
+
+    const staff = await this.resolveStaffActor(userId);
+
+    if (
+      !staff.roles.includes(StaffRole.teacher) &&
+      !staff.roles.includes(StaffRole.customer_care)
+    ) {
+      throw new ForbiddenException(
+        'Màn chi tiết lớp chỉ mở cho staff có role teacher hoặc customer_care.',
       );
     }
 
@@ -75,6 +114,57 @@ export class StaffOperationsAccessService {
     if (!assignment) {
       throw new NotFoundException('Class not found');
     }
+  }
+
+  async resolveClassViewAccessMode(
+    actor: StaffOperationsActor,
+    classId: string,
+  ): Promise<StaffClassViewAccessMode> {
+    if (actor.roles.length === 0) {
+      return 'admin';
+    }
+
+    if (actor.roles.includes(StaffRole.teacher)) {
+      const teacherAssignment = await this.prisma.classTeacher.findUnique({
+        where: {
+          classId_teacherId: {
+            classId,
+            teacherId: actor.id,
+          },
+        },
+        select: {
+          teacherId: true,
+        },
+      });
+
+      if (teacherAssignment) {
+        return 'teacher';
+      }
+    }
+
+    if (actor.roles.includes(StaffRole.customer_care)) {
+      const customerCareAssignment = await this.prisma.customerCareService.findFirst({
+        where: {
+          staffId: actor.id,
+          student: {
+            studentClasses: {
+              some: {
+                classId,
+              },
+            },
+          },
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (customerCareAssignment) {
+        return 'customer_care';
+      }
+    }
+
+    throw new NotFoundException('Class not found');
   }
 
   async resolveSingleTeacherForClass(classId: string): Promise<string> {

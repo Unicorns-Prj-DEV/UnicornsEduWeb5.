@@ -124,7 +124,10 @@ export default function StaffClassDetailPage() {
   const isAssistant =
     profile?.roleType === "staff" &&
     (profile.staffInfo?.roles ?? []).includes("assistant");
-  const canAccessClassWorkspace = isAdmin || isTeacher;
+  const isCustomerCare =
+    profile?.roleType === "staff" &&
+    (profile.staffInfo?.roles ?? []).includes("customer_care");
+  const canAccessClassWorkspace = isAdmin || isTeacher || isCustomerCare;
   const actorStaffId = profile?.staffInfo?.id ?? "";
 
   const {
@@ -170,18 +173,25 @@ export default function StaffClassDetailPage() {
     tuitionFee: student.effectiveTuitionPerSession ?? null,
   }));
 
+  const teacherAssignedToClass =
+    Boolean(actorStaffId) &&
+    (classDetail?.teachers ?? []).some((teacher) => teacher.id === actorStaffId);
+  const isCustomerCareView = isCustomerCare && !isAdmin && !teacherAssignedToClass;
+  const usesTeacherScope = teacherAssignedToClass && !isAdmin;
   const teacherCount = classDetail?.teachers?.length ?? 0;
-  const canManageSchedule = canAccessClassWorkspace;
-  const teacherScopedSessionLabel = isAdmin ? "Buổi trong tháng" : "Buổi bạn dạy trong tháng";
-  const teacherScopedHistoryTitle = isAdmin ? "Lịch sử buổi học" : "Lịch sử buổi học bạn dạy";
-  const teacherScopedHistorySummary = isAdmin ? "Tổng số buổi" : "Tổng số buổi bạn dạy";
-  const teacherScopedEmptyText = isAdmin
-    ? "Không có buổi học trong tháng này."
-    : "Bạn chưa dạy buổi nào trong tháng này.";
+  const canManageSchedule = isAdmin || teacherAssignedToClass;
+  const canManageSessions = isAdmin || teacherAssignedToClass;
+  const teacherScopedSessionLabel = usesTeacherScope ? "Buổi bạn dạy trong tháng" : "Buổi trong tháng";
+  const teacherScopedHistoryTitle = usesTeacherScope ? "Lịch sử buổi học bạn dạy" : "Lịch sử buổi học";
+  const teacherScopedHistorySummary = usesTeacherScope ? "Tổng số buổi bạn dạy" : "Tổng số buổi";
+  const teacherScopedEmptyText = usesTeacherScope
+    ? "Bạn chưa dạy buổi nào trong tháng này."
+    : "Không có buổi học trong tháng này.";
   const canCreateSession =
+    canManageSessions &&
     classStudents.length > 0 &&
-    (isTeacher ? Boolean(actorStaffId) : teacherCount === 1);
-  const defaultTeacherId = isTeacher
+    (teacherAssignedToClass ? Boolean(actorStaffId) : teacherCount === 1);
+  const defaultTeacherId = teacherAssignedToClass
     ? actorStaffId
     : teacherCount === 1
       ? classDetail?.teachers?.[0]?.id ?? ""
@@ -247,6 +257,15 @@ export default function StaffClassDetailPage() {
       updateSessionMutation.mutateAsync({ sessionId, payload }),
     [updateSessionMutation],
   );
+  const backLabel = isCustomerCareView ? "Quay lại trang CSKH" : "Quay lại danh sách lớp";
+  const handleBack = () => {
+    if (isCustomerCareView) {
+      router.push("/staff/customer-care-detail");
+      return;
+    }
+
+    router.back();
+  };
 
   if (isProfileLoading) {
     return (
@@ -281,7 +300,7 @@ export default function StaffClassDetailPage() {
 
         <div className="mt-4 rounded-lg border border-border-default bg-bg-surface p-4">
           <div className="mb-4 h-5 w-56 animate-pulse rounded bg-bg-tertiary" />
-          <SessionHistoryTableSkeleton rows={1} entityMode="teacher" showActionsColumn />
+          <SessionHistoryTableSkeleton rows={1} entityMode="teacher" showActionsColumn={canManageSessions} />
         </div>
       </div>
     );
@@ -324,7 +343,7 @@ export default function StaffClassDetailPage() {
 
         <div className="mt-4 rounded-lg border border-border-default bg-bg-surface p-4">
           <div className="mb-4 h-5 w-56 animate-pulse rounded bg-bg-tertiary" />
-          <SessionHistoryTableSkeleton rows={1} entityMode="teacher" showActionsColumn />
+          <SessionHistoryTableSkeleton rows={1} entityMode="teacher" showActionsColumn={canManageSessions} />
         </div>
       </div>
     );
@@ -334,20 +353,22 @@ export default function StaffClassDetailPage() {
     const message = !id
       ? "Thiếu mã lớp học."
       : !canAccessClassWorkspace
-        ? "Tài khoản hiện tại không có quyền mở workspace lớp học."
-        : "Không tìm thấy lớp học hoặc bạn chưa được phân công lớp này.";
+        ? "Tài khoản hiện tại không có quyền mở chi tiết lớp trong staff shell."
+        : isCustomerCareView
+          ? "Không tìm thấy lớp học này trong danh sách học sinh bạn đang chăm sóc."
+          : "Không tìm thấy lớp học hoặc bạn chưa được phân công lớp này.";
 
     return (
       <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 sm:p-6">
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={handleBack}
           className="mb-4 inline-flex min-h-11 min-w-11 items-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-primary hover:text-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary sm:min-h-0 sm:min-w-0 sm:px-0"
         >
           <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          <span className="hidden sm:inline">Quay lại danh sách lớp</span>
+          <span className="hidden sm:inline">{backLabel}</span>
         </button>
         <div className="rounded-lg border border-error/30 bg-error/10 px-4 py-6 text-error" role="alert">
           <p>{message}</p>
@@ -365,13 +386,13 @@ export default function StaffClassDetailPage() {
     <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 sm:p-6">
       <button
         type="button"
-        onClick={() => router.back()}
+        onClick={handleBack}
         className="mb-4 inline-flex min-h-11 min-w-11 items-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-primary hover:text-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary sm:min-h-0 sm:min-w-0 sm:px-0"
       >
         <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
-        <span className="hidden sm:inline">Quay lại danh sách lớp</span>
+        <span className="hidden sm:inline">{backLabel}</span>
       </button>
 
       <header className="mb-5 flex flex-col gap-4 sm:mb-6">
@@ -396,11 +417,17 @@ export default function StaffClassDetailPage() {
                 {classDetail.name?.trim() || "Lớp học"}
               </h1>
               <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                {isAdmin ? "Staff Workspace" : "Teacher Workspace"}
+                {isCustomerCareView
+                  ? "Customer Care View"
+                  : isAdmin
+                    ? "Staff Workspace"
+                    : "Teacher Workspace"}
               </span>
             </div>
             <p className="mt-1 text-sm text-text-muted">
-              {isAdmin
+              {isCustomerCareView
+                ? "Bạn đang xem lớp này theo quyền CSKH vì có ít nhất một học sinh do chính bạn phụ trách trong lớp. Toàn bộ khung giờ, session và thao tác vận hành lớp đều bị khóa ở chế độ chỉ xem."
+                : isAdmin
                 ? "Admin đang xem route này theo chế độ teacher workspace. Bạn có thể hỗ trợ chỉnh khung giờ và thao tác buổi học, trong khi các trường về trợ cấp, học phí học sinh và cấu hình tài chính vẫn bị khóa."
                 : "Bạn có thể chỉnh khung giờ, thêm buổi học, cập nhật ngày giờ, ghi chú và điểm danh cho lớp này. Các trường về trợ cấp, học phí học sinh và cấu hình tài chính tiếp tục bị khóa."}
             </p>
@@ -611,7 +638,7 @@ export default function StaffClassDetailPage() {
             </div>
           </div>
 
-          {!canCreateSession ? (
+          {!canCreateSession && canManageSessions ? (
             <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
               {classStudents.length === 0
                 ? "Lớp chưa có học sinh nên chưa thể tạo buổi học."
@@ -620,7 +647,7 @@ export default function StaffClassDetailPage() {
           ) : null}
 
           {isSessionsLoading ? (
-            <SessionHistoryTableSkeleton rows={5} entityMode="teacher" showActionsColumn />
+            <SessionHistoryTableSkeleton rows={5} entityMode="teacher" showActionsColumn={canManageSessions} />
           ) : (
             <SessionHistoryTable
               sessions={sessions}
@@ -628,7 +655,7 @@ export default function StaffClassDetailPage() {
               statusMode="payment"
               emptyText={teacherScopedEmptyText}
               editorLayout="wide"
-              showActionsColumn
+              showActionsColumn={canManageSessions}
               teachers={popupTeachers}
               getClassStudents={getClassStudentsForEditor}
               allowTeacherSelection={false}

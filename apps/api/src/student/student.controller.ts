@@ -20,12 +20,13 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { StaffRole, UserRole } from 'generated/enums';
+import { AllowStaffRolesOnAdminRoutes } from 'src/auth/decorators/allow-staff-roles-on-admin.decorator';
 import {
   CurrentUser,
   type JwtPayload,
 } from 'src/auth/decorators/current-user.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
-import { UserRole } from 'generated/enums';
 import {
   CreateStudentDto,
   SearchAssignableStudentUsersDto,
@@ -292,11 +293,15 @@ export class StudentController {
   @ApiParam({ name: 'id', description: 'Student ID' })
   @ApiResponse({ status: 200, description: 'Student found.' })
   @ApiResponse({ status: 404, description: 'Student not found.' })
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.customer_care)
   async getStudentById(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
-    return this.studentService.getStudentById(id);
+    return this.studentService.getStudentById(id, {
+      userId: user.id,
+      roleType: user.roleType,
+    });
   }
 
   @Delete(':id')

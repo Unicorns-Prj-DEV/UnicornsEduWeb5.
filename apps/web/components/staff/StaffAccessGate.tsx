@@ -45,7 +45,9 @@ export default function StaffAccessGate({
   const isStaffClassesRoute = pathname.startsWith("/staff/classes");
   const isStaffClassDetailRoute = pathname.startsWith("/staff/classes/");
   const isStaffCostsRoute = pathname.startsWith("/staff/costs");
-  const isAssistantStudentsRoute = pathname.startsWith("/staff/students");
+  const isStaffStudentsRoute = pathname.startsWith("/staff/students");
+  const isStaffStudentsListRoute = pathname === "/staff/students";
+  const isStaffStudentDetailRoute = pathname.startsWith("/staff/students/");
   const isAssistantHistoryRoute = pathname.startsWith("/staff/history");
   const isNotesSubjectRoute = pathname.startsWith("/staff/notes-subject");
   const isRootStaffProfileRoute = isDashboardRoute || isProfileRoute;
@@ -67,7 +69,7 @@ export default function StaffAccessGate({
     isAssistantDashboardRoute ||
     isAssistantUsersRoute ||
     isAssistantStaffsRoute ||
-    isAssistantStudentsRoute ||
+    isStaffStudentsListRoute ||
     isAssistantHistoryRoute ||
     isCustomerCareAdminRoute ||
     isLessonPlanAdminDetailRoute;
@@ -76,7 +78,15 @@ export default function StaffAccessGate({
     : isStaffClassesRoute
       ? isAssistantStaff ||
         (hasStaffProfile && isStaffOrAdmin && isAccountant) ||
-        (roleType === "staff" && isTeacher && isStaffClassDetailRoute)
+        (isStaffClassDetailRoute &&
+          ((hasStaffProfile && roleType === "admin") ||
+            (hasStaffProfile && roleType === "staff" && (isTeacher || isCustomerCare))))
+    : isStaffStudentsRoute
+      ? isAssistantStaff ||
+        (isStaffStudentDetailRoute &&
+          hasStaffProfile &&
+          roleType === "staff" &&
+          isCustomerCare)
     : isStaffCostsRoute
       ? isAssistantStaff || (hasStaffProfile && isStaffOrAdmin && isAccountant)
     : isStaffLessonPlansHomeRoute
@@ -111,6 +121,8 @@ export default function StaffAccessGate({
     ? "Staff Profile Locked"
     : isStaffClassesRoute
       ? "Class Workspace Locked"
+    : isStaffStudentsRoute
+      ? "Student Detail Locked"
     : isStaffCostsRoute
       ? "Cost Workspace Locked"
     : isAssistantAdminLikeRoute
@@ -130,6 +142,8 @@ export default function StaffAccessGate({
     ? "Tài khoản này chưa mở được hồ sơ staff tự phục vụ."
     : isStaffClassesRoute
       ? "Tài khoản này không dùng được màn lớp học trong staff shell."
+    : isStaffStudentsRoute
+      ? "Tài khoản này không dùng được màn chi tiết học sinh trong staff shell."
     : isStaffCostsRoute
       ? "Tài khoản này không dùng được màn chi phí trong staff shell."
     : isAssistantAdminLikeRoute
@@ -152,7 +166,9 @@ export default function StaffAccessGate({
   const lockedDescription = isRootStaffProfileRoute || isNotesSubjectRoute
     ? "Route `/staff` hiện là hồ sơ của chính nhân sự đang đăng nhập. Nó chỉ mở khi tài khoản có liên kết staff record hợp lệ."
     : isStaffClassesRoute
-      ? "Route `/staff/classes` hiện mở cho `staff.assistant` và `staff.accountant`; riêng `staff.teacher` chỉ mở trực tiếp trang chi tiết lớp được phân công dưới `/staff/classes/[id]`."
+      ? "Route `/staff/classes` hiện mở danh sách cho `staff.assistant` và `staff.accountant`; riêng `staff.teacher`, `admin`, và `staff.customer_care` chỉ mở trực tiếp trang chi tiết `/staff/classes/[id]`. Với customer care, backend tiếp tục khóa theo các lớp có ít nhất một học sinh đang do chính staff đó phụ trách."
+    : isStaffStudentsRoute
+      ? "Route `/staff/students` hiện mở danh sách cho `staff.assistant`; riêng `staff.customer_care` chỉ mở trực tiếp trang chi tiết `/staff/students/[id]` và backend sẽ khóa học sinh vào đúng hồ sơ CSKH hiện tại."
     : isStaffCostsRoute
       ? "Route `/staff/costs` hiện mở cho `staff.assistant` và `staff.accountant`. Kế toán dùng admin-like cost workspace trong staff shell, nhưng các action tạo mới/xóa vẫn bị khóa theo policy accountant."
     : isAssistantAdminLikeRoute

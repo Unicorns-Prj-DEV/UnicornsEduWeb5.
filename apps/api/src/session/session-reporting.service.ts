@@ -73,24 +73,22 @@ export class SessionReportingService {
     month: string,
     year: string,
   ) {
-    const actor = await this.staffOperationsAccess.resolveActor(
+    const actor = await this.staffOperationsAccess.resolveClassViewerActor(
       userId,
       roleType,
     );
-
-    if (actor.roles.length > 0) {
-      await this.staffOperationsAccess.assertTeacherAssignedToClass(
-        actor.id,
+    const accessMode =
+      await this.staffOperationsAccess.resolveClassViewAccessMode(
+        actor,
         classId,
       );
-    }
 
     return this.prisma.session.findMany({
       where: this.buildSessionsByClassWhere(
         classId,
         month,
         year,
-        actor.roles.length > 0 ? actor.id : undefined,
+        accessMode === 'teacher' ? actor.id : undefined,
       ),
       include: {
         teacher: true,

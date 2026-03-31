@@ -62,6 +62,7 @@
 - `/staff/classes/[id]`
   - với `staff.assistant`, route này render class detail kiểu admin ngay trong staff shell
   - với teacher/admin còn lại, route giữ teacher workspace self-service như trước
+  - với `staff.customer_care`, route mở ở chế độ **chỉ xem** khi lớp có ít nhất một học sinh đang do chính staff đó phụ trách từ màn CSKH; các CTA sửa khung giờ, thêm buổi và sửa session đều bị khóa
   - section `Gia sư phụ trách` là chỉ đọc; bấm vào từng gia sư không dẫn sang `/admin/staffs/:id`
   - cho phép chỉnh `khung giờ học`
   - teacher chỉ thấy các session có `teacherId` đúng với hồ sơ staff hiện tại; admin vẫn thấy toàn bộ session của lớp trong tháng đang chọn
@@ -71,11 +72,15 @@
   - popup chỉnh `session` ở route này giữ cùng nhịp layout với form thêm buổi học: modal `wide`, phần cấu hình buổi học trải đều trước khi xuống block ghi chú và điểm danh
   - attendance `excused` và `absent` vẫn được lưu đầy đủ nhưng không tính học phí; chỉ `present` mới tạo charge ở backend
   - bảng lịch sử buổi học hiển thị `trạng thái thanh toán` của từng session ở dạng chỉ đọc
+- `/staff/students/[id]`
+  - với `staff.assistant`, route này giữ toàn bộ student detail kiểu admin ngay trong staff shell
+  - với `staff.customer_care`, route chỉ mở khi học sinh đó đang thuộc `customer_care_service` của chính staff hiện tại
+  - ở mode `customer_care`, trang đổi sang **chỉ xem**: khóa chỉnh hồ sơ, ví, danh sách lớp, gói học phí và các popup mutate; vẫn giữ deep-link sang chi tiết lớp của học sinh
 - `/staff/customer-care-detail`
   - tự động lấy `staffInfo.id` của user đang đăng nhập, không nhận `staffId` từ URL
   - dùng cùng dữ liệu với trang admin customer-care detail: 2 tab **Học sinh** và **Hoa hồng**
   - tab **Học sinh** hiển thị học sinh đang được giao chăm sóc (trạng thái, tên, số dư, tỉnh, lớp), sort theo số dư tăng dần
-  - nếu actor hiện tại đồng thời có role `teacher` hoặc là `admin`, tên lớp ở tab **Học sinh** mở sang `/staff/classes/[id]` để dùng tiếp teacher workspace; tên học sinh vẫn chỉ đọc
+  - ở tab **Học sinh**, tên học sinh mở trực tiếp `/staff/students/[id]` và tên lớp mở `/staff/classes/[id]`; cả hai route đều bị ép về policy read-only của `customer_care` và backend chỉ trả dữ liệu cho đúng học sinh/lớp thuộc hồ sơ CSKH hiện tại
   - tab **Hoa hồng** hiển thị tổng hoa hồng 30 ngày qua theo học sinh; trên desktop, hàng danh sách dùng cột `Tên` và `Tổng tiền hoa hồng` cố định để giữ số liệu thẳng cột khi mở rộng từng học sinh xem commission theo buổi
   - khi mở rộng từng học sinh, mỗi buổi học hiển thị theo đúng một hàng, có badge trạng thái thanh toán CSKH lấy từ `customerCarePaymentStatus`, kèm lớp, học phí, hệ số CSKH và số tiền commission của buổi
 - `/staff/customer-care-detail/[staffId]`
@@ -222,21 +227,25 @@
   - `DELETE /lesson-outputs/:id`
   - `GET /staff-ops/classes`
   - `GET /staff-ops/classes/:id`
+    - với `staff.customer_care`, backend chỉ trả lớp khi tồn tại ít nhất một `student_classes` row mà học sinh tương ứng đang map tới chính staff đó trong `customer_care_service`
   - `PATCH /staff-ops/classes/:id/schedule`
   - `GET /staff-ops/classes/:classId/sessions?month=&year=`
-    - với `staff.teacher`, backend chỉ trả các buổi trong lớp đó do chính teacher hiện tại phụ trách; `admin` vẫn thấy toàn bộ buổi của lớp
+    - với `staff.teacher`, backend chỉ trả các buổi trong lớp đó do chính teacher hiện tại phụ trách; `admin` và `staff.customer_care` thấy toàn bộ buổi của lớp, nhưng `customer_care` vẫn chỉ ở chế độ đọc
   - `POST /staff-ops/classes/:classId/sessions`
   - `PUT /staff-ops/sessions/:id`
   - `GET /customer-care/staff/:staffId/students`
   - `GET /customer-care/staff/:staffId/commissions?days=30`
   - `GET /customer-care/staff/:staffId/students/:studentId/session-commissions?days=30`
     - response chi tiết buổi hiện có thêm `paymentStatus` (map từ `attendance.customer_care_payment_status`, mặc định `pending` nếu DB trả `null`)
+  - `GET /student/:id`
+    - `staff.assistant` giữ quyền admin-like như cũ; `staff.customer_care` chỉ đọc được khi `customer_care_service.student_id` trỏ đúng về staff hiện tại
 - **Guard**
   - controller mở cho `UserRole.staff` và `UserRole.admin`
   - root `/staff` chỉ coi là hợp lệ khi actor có `staffInfo`
   - root `/staff` lấy `staffId` từ user đang đăng nhập, không nhận `id` từ URL
   - service layer filter theo `staff.teacher` khi actor là staff; admin được bypass filter role staff nhưng vẫn đi cùng contract UI
   - riêng customer-care endpoints: `admin` và `staff.assistant` đọc được mọi `staffId`; `UserRole.staff` còn lại chỉ được đọc khi staff hiện tại có role `customer_care` và `staffId` trùng hồ sơ của chính họ
+  - riêng `GET /student/:id`: `staff.assistant` đọc được như admin-like route; `staff.customer_care` chỉ đọc được khi học sinh đó đang thuộc `customer_care_service` của chính staff hiện tại
   - riêng lesson endpoints: backend mở `GET /lesson-overview`, `GET /lesson-work`, `GET /lesson-task-options`, `GET /lesson-tasks/:id`, `GET /lesson-outputs/:id`, `POST /lesson-outputs`, `PATCH /lesson-outputs/:id`, `POST /lesson-resources` cho `staff.lesson_plan`; service layer sẽ tự filter theo `StaffLessonTask`, khóa `staffId` về actor hiện tại, và chỉ cho tạo output/resource vào task mình tham gia
   - với `PATCH /lesson-outputs/:id`, participant chỉ được sửa field nội dung; backend chặn đổi `cost`, `paymentStatus`, `staffId` và `lessonTaskId`
   - các lesson endpoint còn lại (resource edit/delete/detail, task CRUD, output delete, bulk payment, staff/resource options quản trị, staff stats theo `staffId`) vẫn có guard phụ chỉ cho `staff.lesson_plan_head` hoặc `admin`
@@ -293,6 +302,7 @@
 - participant lesson workspace giữ cùng shared layout với head workspace, chỉ hiện task/resource được gán, cho tạo output/resource mới vào đúng task đang tham gia và mở popup detail output ở tab `Công việc` hoặc task detail với giới hạn phi tài chính
 - hồ sơ staff có role `lesson_plan_head` vào được `/staff/lesson-plans`, `/staff/lesson-plans/tasks/[taskId]`, `/staff/lesson-manage-details`
 - `/staff/customer-care-detail` chỉ hiển thị dữ liệu CSKH của user hiện tại
+- `staff.customer_care` bấm học sinh/lớp từ `/staff/customer-care-detail` mở được `/staff/students/[id]` và `/staff/classes/[id]` theo đúng phạm vi take-care của chính mình
 - sidebar staff chỉ hiện mục `CSKH của tôi` khi actor có role `customer_care`
 - sidebar staff hiện mục `Giáo Án` cho cả `lesson_plan` và `lesson_plan_head`, nhưng route đích khác nhau theo role
 - `/staff` route gốc render staff sidebar như các route staff khác

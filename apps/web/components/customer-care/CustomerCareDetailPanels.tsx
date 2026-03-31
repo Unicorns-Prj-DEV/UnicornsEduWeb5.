@@ -270,7 +270,12 @@ export default function CustomerCareDetailPanels({
                             {row.fullName || "—"}
                           </Link>
                         ) : (
-                          row.fullName || "—"
+                          <Link
+                            href={`/staff/students/${encodeURIComponent(row.id)}`}
+                            className="text-primary underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                          >
+                            {row.fullName || "—"}
+                          </Link>
                         )}
                       </td>
                       <td className="px-3 py-3 tabular-nums text-text-secondary">

@@ -16,6 +16,9 @@ describe('StaffOperationsAccessService', () => {
     staffInfo: {
       findFirst: jest.fn(),
     },
+    customerCareService: {
+      findFirst: jest.fn(),
+    },
     classTeacher: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
@@ -105,6 +108,23 @@ describe('StaffOperationsAccessService', () => {
     });
   });
 
+  it('returns customer care actor for class detail viewer routes', async () => {
+    mockPrisma.staffInfo.findFirst.mockResolvedValue({
+      id: 'staff-1',
+      roles: [StaffRole.customer_care],
+    });
+
+    await expect(
+      service.resolveClassViewerActor(
+        '51b8d7f4-8d43-4d0d-b4ef-9ed0f3c594db',
+        UserRole.staff,
+      ),
+    ).resolves.toEqual({
+      id: 'staff-1',
+      roles: [StaffRole.customer_care],
+    });
+  });
+
   it('throws when teacher is not assigned to the class', async () => {
     mockPrisma.classTeacher.findUnique.mockResolvedValue(null);
 
@@ -136,5 +156,22 @@ describe('StaffOperationsAccessService', () => {
         'Lớp phải có đúng 1 gia sư phụ trách trước khi Staff có thể tạo buổi học.',
       ),
     );
+  });
+
+  it('resolves class view mode as customer care when the class has a take-care student', async () => {
+    mockPrisma.classTeacher.findUnique.mockResolvedValue(null);
+    mockPrisma.customerCareService.findFirst.mockResolvedValue({
+      id: 'customer-care-1',
+    });
+
+    await expect(
+      service.resolveClassViewAccessMode(
+        {
+          id: 'staff-1',
+          roles: [StaffRole.customer_care],
+        },
+        'class-1',
+      ),
+    ).resolves.toBe('customer_care');
   });
 });

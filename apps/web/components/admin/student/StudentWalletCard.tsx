@@ -5,8 +5,8 @@ import { formatCurrency } from "@/lib/class.helpers";
 type Props = {
   balance: number;
   className?: string;
-  onTopUp: () => void;
-  onWithdraw: () => void;
+  onTopUp?: () => void;
+  onWithdraw?: () => void;
   onOpenHistory?: () => void;
 };
 
@@ -19,6 +19,7 @@ export default function StudentWalletCard({
 }: Props) {
   const isNegativeBalance = balance < 0;
   const amountClass = isNegativeBalance ? "text-error" : "text-text-primary";
+  const showActions = Boolean(onTopUp || onWithdraw);
 
   return (
     <StudentInfoCard title="Tài khoản hiện tại" className={className}>
@@ -54,28 +55,34 @@ export default function StudentWalletCard({
         ) : null}
       </div>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        <button
-          type="button"
-          onClick={onTopUp}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition-transform transition-colors duration-200 hover:-translate-y-0.5 hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-        >
-          <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v14m7-7H5" />
-          </svg>
-          Nạp tiền
-        </button>
-        <button
-          type="button"
-          onClick={onWithdraw}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition-transform transition-colors duration-200 hover:-translate-y-0.5 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-        >
-          <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H8m0 0 5-5m-5 5 5 5" />
-          </svg>
-          Rút tiền
-        </button>
-      </div>
+      {showActions ? (
+        <div className={`mt-4 grid gap-2 ${onTopUp && onWithdraw ? "sm:grid-cols-2" : ""}`}>
+          {onTopUp ? (
+            <button
+              type="button"
+              onClick={onTopUp}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition-transform transition-colors duration-200 hover:-translate-y-0.5 hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            >
+              <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v14m7-7H5" />
+              </svg>
+              Nạp tiền
+            </button>
+          ) : null}
+          {onWithdraw ? (
+            <button
+              type="button"
+              onClick={onWithdraw}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition-transform transition-colors duration-200 hover:-translate-y-0.5 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            >
+              <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H8m0 0 5-5m-5 5 5 5" />
+              </svg>
+              Rút tiền
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </StudentInfoCard>
   );
 }

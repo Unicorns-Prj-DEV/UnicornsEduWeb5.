@@ -20,6 +20,7 @@ import {
     buildAdminLikePath,
     resolveAdminLikeRouteBase,
 } from "@/lib/admin-shell-paths";
+import { getFullProfile } from "@/lib/apis/auth.api";
 import * as studentApi from "@/lib/apis/student.api";
 import { formatCurrency } from "@/lib/class.helpers";
 
@@ -101,6 +102,35 @@ export default function AdminStudentDetailPage() {
     const [walletHistoryOpen, setWalletHistoryOpen] = useState(false);
     const [editingPackageForClassId, setEditingPackageForClassId] = useState<string | null>(null);
     const queryClient = useQueryClient();
+    const { data: fullProfile } = useQuery({
+        queryKey: ["auth", "full-profile"],
+        queryFn: getFullProfile,
+        retry: false,
+        staleTime: 60_000,
+    });
+    const staffRoles = fullProfile?.staffInfo?.roles ?? [];
+    const isAssistantStaff =
+        routeBase === "/staff" &&
+        fullProfile?.roleType === "staff" &&
+        staffRoles.includes("assistant");
+    const isCustomerCareReadOnlyView =
+        routeBase === "/staff" &&
+        fullProfile?.roleType === "staff" &&
+        !isAssistantStaff &&
+        staffRoles.includes("customer_care");
+    const canManageStudent =
+        routeBase === "/admin" || fullProfile?.roleType === "admin" || isAssistantStaff;
+    const backLabel = isCustomerCareReadOnlyView
+        ? "Quay lại trang CSKH"
+        : "Quay lại danh sách học sinh";
+    const handleBack = () => {
+        if (isCustomerCareReadOnlyView) {
+            router.push("/staff/customer-care-detail");
+            return;
+        }
+
+        router.back();
+    };
 
     const {
         data: student,
@@ -211,13 +241,13 @@ export default function AdminStudentDetailPage() {
             <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 pb-8 sm:p-6">
                 <button
                     type="button"
-                    onClick={() => router.back()}
+                    onClick={handleBack}
                     className="mb-4 inline-flex min-h-11 items-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-primary hover:text-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary sm:px-0"
                 >
                     <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                     </svg>
-                    <span>Quay lại danh sách học sinh</span>
+                    <span>{backLabel}</span>
                 </button>
 
                 <div className="rounded-2xl border border-error/30 bg-error/10 px-4 py-6 text-error" role="alert">
@@ -237,42 +267,50 @@ export default function AdminStudentDetailPage() {
         <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-3 pb-8 sm:p-6">
             <button
                 type="button"
-                onClick={() => router.back()}
+                onClick={handleBack}
                 className="mb-3 inline-flex min-h-11 items-center gap-2 self-start rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-sm font-medium text-primary shadow-sm transition-colors hover:bg-bg-secondary hover:text-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary sm:mb-4 sm:rounded-md sm:border-0 sm:bg-transparent sm:px-0 sm:shadow-none"
             >
                 <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
-                <span>Quay lại danh sách học sinh</span>
+                <span>{backLabel}</span>
             </button>
 
-            <EditStudentPopup
-                key={`${student.id}-${student.updatedAt ?? "stable"}-${editPopupOpen ? "open" : "closed"}`}
-                open={editPopupOpen}
-                onClose={() => setEditPopupOpen(false)}
-                student={student}
-            />
-            <EditStudentClassesPopup
-                key={`${student.id}-${student.updatedAt ?? "stable"}-classes-${classesPopupOpen ? "open" : "closed"}`}
-                open={classesPopupOpen}
-                onClose={() => setClassesPopupOpen(false)}
-                student={student}
-            />
-            <StudentBalancePopup
-                key={`${student.id}-${student.updatedAt ?? "stable"}-balance-${balancePopupMode ?? "closed"}`}
-                open={balancePopupMode !== null}
-                mode={balancePopupMode ?? "topup"}
-                onClose={() => setBalancePopupMode(null)}
-                student={student}
-            />
-            <StudentWalletHistoryPopup
-                open={walletHistoryOpen}
-                onClose={() => setWalletHistoryOpen(false)}
-                studentId={student.id}
-                studentName={student.fullName?.trim() || "Học sinh"}
-                currentBalance={student.accountBalance ?? 0}
-            />
-            {editingPackageForClassId ? (() => {
+            {canManageStudent ? (
+                <EditStudentPopup
+                    key={`${student.id}-${student.updatedAt ?? "stable"}-${editPopupOpen ? "open" : "closed"}`}
+                    open={editPopupOpen}
+                    onClose={() => setEditPopupOpen(false)}
+                    student={student}
+                />
+            ) : null}
+            {canManageStudent ? (
+                <EditStudentClassesPopup
+                    key={`${student.id}-${student.updatedAt ?? "stable"}-classes-${classesPopupOpen ? "open" : "closed"}`}
+                    open={classesPopupOpen}
+                    onClose={() => setClassesPopupOpen(false)}
+                    student={student}
+                />
+            ) : null}
+            {canManageStudent ? (
+                <StudentBalancePopup
+                    key={`${student.id}-${student.updatedAt ?? "stable"}-balance-${balancePopupMode ?? "closed"}`}
+                    open={balancePopupMode !== null}
+                    mode={balancePopupMode ?? "topup"}
+                    onClose={() => setBalancePopupMode(null)}
+                    student={student}
+                />
+            ) : null}
+            {canManageStudent ? (
+                <StudentWalletHistoryPopup
+                    open={walletHistoryOpen}
+                    onClose={() => setWalletHistoryOpen(false)}
+                    studentId={student.id}
+                    studentName={student.fullName?.trim() || "Học sinh"}
+                    currentBalance={student.accountBalance ?? 0}
+                />
+            ) : null}
+            {canManageStudent && editingPackageForClassId ? (() => {
                 const item = classItemsWithTuition.find((classItem) => classItem.classId === editingPackageForClassId);
 
                 return (
@@ -318,17 +356,19 @@ export default function AdminStudentDetailPage() {
                                         <h1 className="min-w-0 text-2xl font-semibold leading-tight text-text-primary sm:truncate">
                                             {student.fullName?.trim() || "Học sinh"}
                                         </h1>
-                                        <button
-                                            type="button"
-                                            onClick={() => setEditPopupOpen(true)}
-                                            className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border-default bg-bg-surface text-text-muted transition hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface sm:size-8"
-                                            aria-label="Chỉnh sửa thông tin học sinh"
-                                            title="Chỉnh sửa"
-                                        >
-                                            <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586Z" />
-                                            </svg>
-                                        </button>
+                                        {canManageStudent ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => setEditPopupOpen(true)}
+                                                className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border-default bg-bg-surface text-text-muted transition hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface sm:size-8"
+                                                aria-label="Chỉnh sửa thông tin học sinh"
+                                                title="Chỉnh sửa"
+                                            >
+                                                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586Z" />
+                                                </svg>
+                                            </button>
+                                        ) : null}
                                     </div>
                                     <div className="flex flex-wrap gap-2">
                                         <span
@@ -339,6 +379,11 @@ export default function AdminStudentDetailPage() {
                                         <span className="inline-flex rounded-full bg-bg-tertiary px-2.5 py-1 text-xs font-medium text-text-secondary ring-1 ring-border-default">
                                             {GENDER_LABELS[normalizedGender]}
                                         </span>
+                                        {isCustomerCareReadOnlyView ? (
+                                            <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                                                CSKH · Chỉ xem
+                                            </span>
+                                        ) : null}
                                     </div>
                                 </div>
                                 <div className="mt-4 grid gap-2 sm:hidden">
@@ -407,9 +452,9 @@ export default function AdminStudentDetailPage() {
                             <div className="space-y-3.5 lg:col-span-2 xl:col-span-1 sm:space-y-4">
                                 <StudentWalletCard
                                     balance={student.accountBalance ?? 0}
-                                    onTopUp={handleTopUp}
-                                    onWithdraw={handleWithdraw}
-                                    onOpenHistory={() => setWalletHistoryOpen(true)}
+                                    onTopUp={canManageStudent ? handleTopUp : undefined}
+                                    onWithdraw={canManageStudent ? handleWithdraw : undefined}
+                                    onOpenHistory={canManageStudent ? () => setWalletHistoryOpen(true) : undefined}
                                 />
                                 <StudentExamCard key={student.id} studentId={student.id} />
                             </div>
@@ -417,6 +462,11 @@ export default function AdminStudentDetailPage() {
 
                         {/* <StudentInfoCard title="Phân bổ lớp học"> */}
                         <div className="rounded-[1.25rem] border border-border-default bg-bg-secondary/50 p-3.5 sm:rounded-2xl sm:p-4">
+                            {isCustomerCareReadOnlyView ? (
+                                <div className="mb-4 rounded-2xl border border-primary/15 bg-primary/5 px-4 py-3 text-sm leading-6 text-text-secondary">
+                                    Bạn đang xem hồ sơ theo quyền CSKH. Các thao tác chỉnh sửa hồ sơ, ví, gói học phí và danh sách lớp đều bị khóa; chỉ giữ quyền mở sang chi tiết lớp của học sinh mình đang phụ trách.
+                                </div>
+                            ) : null}
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                 <div>
                                     <h2
@@ -425,24 +475,26 @@ export default function AdminStudentDetailPage() {
                                         Danh sách lớp học
                                     </h2>
                                 </div>
-                                <div className="grid w-full gap-2 sm:flex sm:w-auto sm:flex-col sm:items-end">
-                                    <button
-                                        type="button"
-                                        onClick={() => setClassesPopupOpen(true)}
-                                        className="inline-flex min-h-11 min-w-11 w-full items-center justify-center rounded-xl bg-primary px-3 py-2.5 text-sm font-medium text-text-inverse transition-colors hover:bg-[var(--ue-primary-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:w-auto"
-                                        aria-label="Điều chỉnh lớp"
-                                        title="Điều chỉnh lớp"
-                                    >
-                                        <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M12 4v16m8-8H4"
-                                            />
-                                        </svg>
-                                    </button>
-                                </div>
+                                {canManageStudent ? (
+                                    <div className="grid w-full gap-2 sm:flex sm:w-auto sm:flex-col sm:items-end">
+                                        <button
+                                            type="button"
+                                            onClick={() => setClassesPopupOpen(true)}
+                                            className="inline-flex min-h-11 min-w-11 w-full items-center justify-center rounded-xl bg-primary px-3 py-2.5 text-sm font-medium text-text-inverse transition-colors hover:bg-[var(--ue-primary-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:w-auto"
+                                            aria-label="Điều chỉnh lớp"
+                                            title="Điều chỉnh lớp"
+                                        >
+                                            <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                                <path
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    strokeWidth={2}
+                                                    d="M12 4v16m8-8H4"
+                                                />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                ) : null}
                             </div>
 
                             {classItemsWithTuition.length > 0 ? (
@@ -474,21 +526,23 @@ export default function AdminStudentDetailPage() {
                                                 }}
                                                 className="group relative cursor-pointer rounded-[1.1rem] border border-border-default bg-bg-surface px-3.5 py-3 shadow-sm transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                                             >
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        void removeClassMutation.mutateAsync(item.classId);
-                                                    }}
-                                                    disabled={removeClassMutation.isPending}
-                                                    className="absolute right-2 top-2 inline-flex size-9 items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-error/10 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60"
-                                                    aria-label={`Gỡ lớp ${item.className}`}
-                                                    title="Gỡ lớp"
-                                                >
-                                                    <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16" />
-                                                    </svg>
-                                                </button>
+                                                {canManageStudent ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            void removeClassMutation.mutateAsync(item.classId);
+                                                        }}
+                                                        disabled={removeClassMutation.isPending}
+                                                        className="absolute right-2 top-2 inline-flex size-9 items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-error/10 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60"
+                                                        aria-label={`Gỡ lớp ${item.className}`}
+                                                        title="Gỡ lớp"
+                                                    >
+                                                        <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16" />
+                                                        </svg>
+                                                    </button>
+                                                ) : null}
                                                 <div className="flex flex-col gap-3">
                                                     <div className="min-w-0">
                                                         <div className="flex items-center gap-2">
@@ -505,26 +559,37 @@ export default function AdminStudentDetailPage() {
                                                             <p className="font-medium text-text-primary">{item.className}</p>
                                                         </div>
                                                         <div className="mt-2 flex flex-col gap-1.5 text-sm text-text-secondary">
-                                                            <button
-                                                                type="button"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setEditingPackageForClassId(item.classId);
-                                                                }}
-                                                                className="inline-flex w-full items-center gap-2 rounded-xl border border-border-default bg-secondary/20 px-3 py-2.5 text-left transition-colors duration-200 hover:border-primary/40 hover:bg-primary/10 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                                                                aria-label={`Chỉnh gói học phí: ${item.className}`}
-                                                                title="Chỉnh gói học phí"
-                                                            >
-                                                                <span className="min-w-0 flex-1">
-                                                                    <span className="text-text-secondary">Gói học phí: </span>
-                                                                    <span className="font-medium text-text-primary">
-                                                                        {item.tuitionPackageLabel}
+                                                            {canManageStudent ? (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setEditingPackageForClassId(item.classId);
+                                                                    }}
+                                                                    className="inline-flex w-full items-center gap-2 rounded-xl border border-border-default bg-secondary/20 px-3 py-2.5 text-left transition-colors duration-200 hover:border-primary/40 hover:bg-primary/10 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                                                    aria-label={`Chỉnh gói học phí: ${item.className}`}
+                                                                    title="Chỉnh gói học phí"
+                                                                >
+                                                                    <span className="min-w-0 flex-1">
+                                                                        <span className="text-text-secondary">Gói học phí: </span>
+                                                                        <span className="font-medium text-text-primary">
+                                                                            {item.tuitionPackageLabel}
+                                                                        </span>
+                                                                    </span>
+                                                                    <svg className="size-4 shrink-0 text-current opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                                    </svg>
+                                                                </button>
+                                                            ) : (
+                                                                <span className="inline-flex w-full items-center gap-2 rounded-xl border border-border-default bg-secondary/20 px-3 py-2.5 text-left">
+                                                                    <span className="min-w-0 flex-1">
+                                                                        <span className="text-text-secondary">Gói học phí: </span>
+                                                                        <span className="font-medium text-text-primary">
+                                                                            {item.tuitionPackageLabel}
+                                                                        </span>
                                                                     </span>
                                                                 </span>
-                                                                <svg className="size-4 shrink-0 text-current opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                                                </svg>
-                                                            </button>
+                                                            )}
                                                             <span>
                                                                 Học phí/buổi:{" "}
                                                                 <span className="font-medium text-text-primary tabular-nums">
@@ -565,9 +630,11 @@ export default function AdminStudentDetailPage() {
                                                     <th scope="col" className="px-4 py-3 font-medium text-text-primary tabular-nums">
                                                         Số buổi
                                                     </th>
-                                                    <th scope="col" className="w-12 px-2 py-3">
-                                                        <span className="sr-only">Gỡ lớp</span>
-                                                    </th>
+                                                    {canManageStudent ? (
+                                                        <th scope="col" className="w-12 px-2 py-3">
+                                                            <span className="sr-only">Gỡ lớp</span>
+                                                        </th>
+                                                    ) : null}
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -613,28 +680,41 @@ export default function AdminStudentDetailPage() {
                                                             </div>
                                                         </td>
                                                         <td className="px-4 py-3 text-text-secondary">
-                                                            <button
-                                                                type="button"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setEditingPackageForClassId(item.classId);
-                                                                }}
-                                                                className="inline-flex w-full max-w-full items-center gap-2 rounded-xl border border-border-default bg-secondary/20 py-2 pl-3 pr-2.5 text-left transition-colors duration-200 hover:border-primary/40 hover:bg-primary/10 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                                                                aria-label={`Chỉnh gói học phí: ${item.className}`}
-                                                                title="Chỉnh gói học phí"
-                                                            >
-                                                                <span className="min-w-0 flex-1 space-y-0.5">
-                                                                    <p className="truncate font-medium text-text-primary">{item.tuitionPackageLabel}</p>
-                                                                    {item.tuitionPackageSourceLabel ? (
-                                                                        <p className="text-xs font-medium text-text-muted">
-                                                                            {item.tuitionPackageSourceLabel}
-                                                                        </p>
-                                                                    ) : null}
-                                                                </span>
-                                                                <svg className="size-4 shrink-0 text-current opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                                                </svg>
-                                                            </button>
+                                                            {canManageStudent ? (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setEditingPackageForClassId(item.classId);
+                                                                    }}
+                                                                    className="inline-flex w-full max-w-full items-center gap-2 rounded-xl border border-border-default bg-secondary/20 py-2 pl-3 pr-2.5 text-left transition-colors duration-200 hover:border-primary/40 hover:bg-primary/10 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                                                    aria-label={`Chỉnh gói học phí: ${item.className}`}
+                                                                    title="Chỉnh gói học phí"
+                                                                >
+                                                                    <span className="min-w-0 flex-1 space-y-0.5">
+                                                                        <p className="truncate font-medium text-text-primary">{item.tuitionPackageLabel}</p>
+                                                                        {item.tuitionPackageSourceLabel ? (
+                                                                            <p className="text-xs font-medium text-text-muted">
+                                                                                {item.tuitionPackageSourceLabel}
+                                                                            </p>
+                                                                        ) : null}
+                                                                    </span>
+                                                                    <svg className="size-4 shrink-0 text-current opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                                    </svg>
+                                                                </button>
+                                                            ) : (
+                                                                <div className="inline-flex w-full max-w-full items-center gap-2 rounded-xl border border-border-default bg-secondary/20 py-2 pl-3 pr-2.5 text-left">
+                                                                    <span className="min-w-0 flex-1 space-y-0.5">
+                                                                        <p className="truncate font-medium text-text-primary">{item.tuitionPackageLabel}</p>
+                                                                        {item.tuitionPackageSourceLabel ? (
+                                                                            <p className="text-xs font-medium text-text-muted">
+                                                                                {item.tuitionPackageSourceLabel}
+                                                                            </p>
+                                                                        ) : null}
+                                                                    </span>
+                                                                </div>
+                                                            )}
                                                         </td>
                                                         <td className="px-4 py-3 tabular-nums font-semibold text-text-primary">
                                                             {item.tuitionPerSession != null ? formatCurrency(item.tuitionPerSession) : "—"}
@@ -642,23 +722,25 @@ export default function AdminStudentDetailPage() {
                                                         <td className="px-4 py-3 tabular-nums font-semibold text-text-primary">
                                                             {item.attendedSessions ?? "—"}
                                                         </td>
-                                                        <td className="px-2 py-3 text-right">
-                                                            <button
-                                                                type="button"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    void removeClassMutation.mutateAsync(item.classId);
-                                                                }}
-                                                                disabled={removeClassMutation.isPending}
-                                                                className="rounded p-1.5 text-text-muted opacity-0 transition-opacity duration-200 group-hover:opacity-100 hover:bg-error/10 hover:text-error focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60"
-                                                                aria-label={`Gỡ lớp ${item.className}`}
-                                                                title="Gỡ lớp"
-                                                            >
-                                                                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16" />
-                                                                </svg>
-                                                            </button>
-                                                        </td>
+                                                        {canManageStudent ? (
+                                                            <td className="px-2 py-3 text-right">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        void removeClassMutation.mutateAsync(item.classId);
+                                                                    }}
+                                                                    disabled={removeClassMutation.isPending}
+                                                                    className="rounded p-1.5 text-text-muted opacity-0 transition-opacity duration-200 group-hover:opacity-100 hover:bg-error/10 hover:text-error focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60"
+                                                                    aria-label={`Gỡ lớp ${item.className}`}
+                                                                    title="Gỡ lớp"
+                                                                >
+                                                                    <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16" />
+                                                                    </svg>
+                                                                </button>
+                                                            </td>
+                                                        ) : null}
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -668,7 +750,9 @@ export default function AdminStudentDetailPage() {
                             ) : (
                                 <div className="mt-4 rounded-2xl border border-dashed border-border-default bg-bg-surface px-4 py-4">
                                     <p className="text-sm text-text-muted">
-                                        Học sinh này chưa được gán lớp nào. Dùng nút phía trên để thêm lớp đầu tiên.
+                                        {canManageStudent
+                                            ? "Học sinh này chưa được gán lớp nào. Dùng nút phía trên để thêm lớp đầu tiên."
+                                            : "Học sinh này hiện chưa có lớp nào để theo dõi."}
                                     </p>
                                 </div>
                             )}

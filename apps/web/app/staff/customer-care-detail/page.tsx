@@ -16,9 +16,7 @@ export default function StaffCustomerCareDetailPage() {
   const isCustomerCare =
     (profile?.roleType === "staff" || profile?.roleType === "admin") &&
     (staffInfo?.roles ?? []).includes("customer_care");
-  const canOpenStaffClassDetail =
-    profile?.roleType === "admin" ||
-    (staffInfo?.roles ?? []).includes("teacher");
+  const canOpenStaffClassDetail = isCustomerCare;
 
   if (isLoading) {
     return (

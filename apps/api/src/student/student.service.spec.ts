@@ -5,7 +5,7 @@ jest.mock('../../generated/client', () => ({
   Prisma: {},
 }));
 
-import { StudentStatus, UserRole } from '../../generated/enums';
+import { StaffRole, StudentStatus, UserRole } from '../../generated/enums';
 import { StudentService } from './student.service';
 
 describe('StudentService', () => {
@@ -282,5 +282,63 @@ describe('StudentService', () => {
 
     expect(mockPrisma.walletTransactionsHistory.create).not.toHaveBeenCalled();
     expect(mockPrisma.studentInfo.update).not.toHaveBeenCalled();
+  });
+
+  it('allows customer care staff to read the detail of their assigned student', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      roles: [StaffRole.customer_care],
+    });
+    mockPrisma.customerCareService.findUnique.mockResolvedValue({
+      staffId: 'staff-1',
+    });
+    mockPrisma.studentInfo.findUnique.mockResolvedValue({
+      id: 'student-1',
+      fullName: 'Nguyen Van A',
+      email: 'student@example.com',
+      school: 'THPT Nguyen Du',
+      province: 'Hanoi',
+      birthYear: 2010,
+      parentName: 'Parent A',
+      parentPhone: '0900000000',
+      status: StudentStatus.active,
+      gender: 'male',
+      goal: 'Top 1',
+      accountBalance: 250000,
+      createdAt: new Date('2026-03-20T10:00:00.000Z'),
+      updatedAt: new Date('2026-03-21T10:00:00.000Z'),
+      dropOutDate: null,
+      customerCareServices: null,
+      studentClasses: [],
+    });
+
+    await expect(
+      service.getStudentById('student-1', {
+        userId: 'user-1',
+        roleType: UserRole.staff,
+      }),
+    ).resolves.toMatchObject({
+      id: 'student-1',
+      fullName: 'Nguyen Van A',
+    });
+  });
+
+  it('rejects customer care staff when the student is not assigned to them', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      roles: [StaffRole.customer_care],
+    });
+    mockPrisma.customerCareService.findUnique.mockResolvedValue({
+      staffId: 'staff-2',
+    });
+
+    await expect(
+      service.getStudentById('student-1', {
+        userId: 'user-1',
+        roleType: UserRole.staff,
+      }),
+    ).rejects.toThrow('Student not found');
+
+    expect(mockPrisma.studentInfo.findUnique).not.toHaveBeenCalled();
   });
 });

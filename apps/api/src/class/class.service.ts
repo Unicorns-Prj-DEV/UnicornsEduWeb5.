@@ -495,16 +495,11 @@ export class ClassService {
   }
 
   async getClassByIdForStaff(userId: string, roleType: UserRole, id: string) {
-    const actor = await this.staffOperationsAccess.resolveActor(
+    const actor = await this.staffOperationsAccess.resolveClassViewerActor(
       userId,
       roleType,
     );
-    if (this.isTeacherActor(actor.roles)) {
-      await this.staffOperationsAccess.assertTeacherAssignedToClass(
-        actor.id,
-        id,
-      );
-    }
+    await this.staffOperationsAccess.resolveClassViewAccessMode(actor, id);
 
     return this.getClassById(id);
   }

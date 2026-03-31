@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -221,6 +222,11 @@ function getPreferredUserFullName(user: {
 
 type StudentAuditClient = Prisma.TransactionClient | PrismaService;
 
+type StudentDetailAccess = {
+  userId: string;
+  roleType: UserRole;
+};
+
 @Injectable()
 export class StudentService {
   constructor(
@@ -413,6 +419,60 @@ export class StudentService {
     });
 
     return student ? this.serializeStudentDetail(student) : null;
+  }
+
+  private async assertCanAccessStudentDetail(
+    studentId: string,
+    access?: StudentDetailAccess,
+  ) {
+    if (!access) {
+      return;
+    }
+
+    if (access.roleType === UserRole.admin) {
+      return;
+    }
+
+    if (access.roleType !== UserRole.staff) {
+      throw new ForbiddenException(
+        'Only authorized roles can access this resource',
+      );
+    }
+
+    const staff = await this.prisma.staffInfo.findUnique({
+      where: { userId: access.userId },
+      select: {
+        id: true,
+        roles: true,
+      },
+    });
+
+    if (!staff) {
+      throw new ForbiddenException(
+        'Only authorized roles can access this resource',
+      );
+    }
+
+    if (staff.roles.includes(StaffRole.assistant)) {
+      return;
+    }
+
+    if (!staff.roles.includes(StaffRole.customer_care)) {
+      throw new ForbiddenException(
+        'Only authorized roles can access this resource',
+      );
+    }
+
+    const customerCareAssignment = await this.prisma.customerCareService.findUnique({
+      where: { studentId },
+      select: {
+        staffId: true,
+      },
+    });
+
+    if (!customerCareAssignment || customerCareAssignment.staffId !== staff.id) {
+      throw new NotFoundException('Student not found');
+    }
   }
 
   private buildUpdateData(dto: UpdateStudentBodyDto) {
@@ -694,7 +754,9 @@ export class StudentService {
     };
   }
 
-  async getStudentById(id: string) {
+  async getStudentById(id: string, access?: StudentDetailAccess) {
+    await this.assertCanAccessStudentDetail(id, access);
+
     const student = await this.prisma.studentInfo.findUnique({
       where: { id },
       include: studentDetailInclude,
