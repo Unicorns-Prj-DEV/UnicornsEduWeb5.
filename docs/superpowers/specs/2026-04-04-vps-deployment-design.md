@@ -1,0 +1,184 @@
+# VPS Deployment Design
+
+**Date:** 2026-04-04  
+**Project:** UnicornsEduWeb5 (pnpm + Turborepo monorepo)  
+**Approach:** Docker Compose (api + web + nginx) on VPS + Managed PostgreSQL
+
+---
+
+## 1. Architecture Overview
+
+```
+GitHub Repo
+    │
+    ▼ (push to main)
+GitHub Actions CI/CD
+    │  1. Build Docker images (api, web)
+    │  2. Push to GitHub Container Registry (ghcr.io)
+    │  3. SSH into VPS → docker compose pull + up -d
+    │  4. Run prisma migrate deploy
+    ▼
+┌─────────────── VPS (Ubuntu) ───────────────────┐
+│                                                  │
+│  ┌──────────┐   ┌──────────┐   ┌────────────┐  │
+│  │  Nginx   │──▶│  web     │   │   api      │  │
+│  │ :80/:443 │   │ Next.js  │   │  NestJS    │  │
+│  │  (proxy) │──▶│ :3000    │   │  :4000     │  │
+│  └──────────┘   └──────────┘   └────────────┘  │
+│                                      │           │
+└──────────────────────────────────────┼───────────┘
+                                       │ DATABASE_URL
+                                       ▼
+                              Managed PostgreSQL
+                         (Supabase / Neon / DO Managed)
+```
+
+- Nginx terminates TLS (Let's Encrypt via Certbot) and reverse-proxies traffic
+- `/api/*` and `/socket.io/*` → api:4000
+- `/*` → web:3000
+- All secrets injected at runtime via `/opt/unicorns-edu/.env` on VPS — never baked into images
+- `TRUST_PROXY=1` set in API env so NestJS throttler sees real client IPs through Nginx
+
+---
+
+## 2. File Structure
+
+```
+/
+├── apps/
+│   ├── api/
+│   │   └── Dockerfile
+│   └── web/
+│       └── Dockerfile
+├── docker-compose.prod.yml
+├── nginx/
+│   ├── nginx.conf
+│   └── conf.d/
+│       └── app.conf
+└── .github/
+    └── workflows/
+        └── deploy.yml
+```
+
+---
+
+## 3. Docker Setup
+
+### `apps/api/Dockerfile` (multi-stage)
+
+| Stage | Purpose |
+|-------|---------|
+| `builder` | Install all deps, run `nest build` |
+| `production` | Copy `dist/`, install prod-only deps, run `node dist/main` |
+
+### `apps/web/Dockerfile` (multi-stage)
+
+| Stage | Purpose |
+|-------|---------|
+| `builder` | Install deps, run `next build` with `output: 'standalone'` |
+| `production` | Copy `.next/standalone` + `.next/static`, run `node server.js` |
+
+`next.config.*` must have `output: 'standalone'` for a lean image.
+
+### `docker-compose.prod.yml`
+
+| Service | Image | Ports | Notes |
+|---------|-------|-------|-------|
+| `api` | ghcr.io/\<org\>/unicorns-api:latest | 4000 (internal) | env from `.env` |
+| `web` | ghcr.io/\<org\>/unicorns-web:latest | 3000 (internal) | env from `.env` |
+| `nginx` | nginx:alpine | 80, 443 (public) | mounts `nginx/conf.d/` and letsencrypt volume |
+
+No postgres service — `DATABASE_URL` in `.env` points to managed DB.
+
+---
+
+## 4. Nginx Configuration
+
+`nginx/conf.d/app.conf` routing:
+
+| Path | Upstream | Notes |
+|------|----------|-------|
+| `/api/*` | `http://api:4000` | Standard HTTP proxy |
+| `/socket.io/*` | `http://api:4000` | WebSocket upgrade headers |
+| `/*` | `http://web:3000` | Next.js frontend |
+
+Key directives:
+- `proxy_set_header Upgrade $http_upgrade` + `Connection "upgrade"` for Socket.io
+- `proxy_set_header X-Real-IP $remote_addr` + `X-Forwarded-For` for correct client IP
+- `client_max_body_size 20m` for file uploads
+- HTTP (port 80) → HTTPS redirect
+- SSL certs from `/etc/letsencrypt/` (Certbot volume mount)
+
+**TLS first-deploy flow:**
+1. Deploy with HTTP-only config first
+2. SSH into VPS, run `certbot --nginx -d yourdomain.com`
+3. Certbot edits nginx config + sets up auto-renewal cron
+
+---
+
+## 5. CI/CD Pipeline (GitHub Actions)
+
+**Trigger:** Push to `main`
+
+### Job 1: `build-and-push`
+1. Checkout code
+2. Set up Docker Buildx
+3. Login to `ghcr.io` via `GITHUB_TOKEN`
+4. Build & push `ghcr.io/<org>/unicorns-api:latest`
+5. Build & push `ghcr.io/<org>/unicorns-web:latest`
+
+### Job 2: `deploy` (depends on `build-and-push`)
+1. SSH into VPS
+2. `cd /opt/unicorns-edu`
+3. `docker compose -f docker-compose.prod.yml pull`
+4. `docker compose -f docker-compose.prod.yml up -d --remove-orphans`
+5. `docker compose exec api npx prisma migrate deploy`
+
+### Required GitHub Secrets
+
+| Secret | Description |
+|--------|-------------|
+| `VPS_HOST` | VPS IP address or domain |
+| `VPS_USER` | SSH user (e.g. `deploy`) |
+| `VPS_SSH_KEY` | Private SSH key (Ed25519 recommended) |
+
+`GITHUB_TOKEN` is automatically available for ghcr.io push.
+
+---
+
+## 6. VPS Bootstrap Checklist (one-time manual setup)
+
+- [ ] Provision Ubuntu 22.04+ VPS
+- [ ] Create `deploy` user with sudo, add SSH public key
+- [ ] Install Docker + Docker Compose plugin
+- [ ] `mkdir -p /opt/unicorns-edu && chown deploy:deploy /opt/unicorns-edu`
+- [ ] Create `/opt/unicorns-edu/.env` with all production secrets
+- [ ] Install Certbot: `snap install --classic certbot`
+- [ ] Open ports 80 and 443 in firewall (`ufw allow 80 && ufw allow 443`)
+- [ ] First deploy: run `docker compose up -d`, then run Certbot for TLS
+
+---
+
+## 7. Environment Variables (VPS `.env`)
+
+Based on `apps/api/.env.example`:
+
+```env
+DATABASE_URL=<managed-postgres-connection-string>
+PORT=4000
+BACKEND_URL=https://yourdomain.com
+FRONTEND_URL=https://yourdomain.com
+TRUST_PROXY=1
+JWT_SECRET=<secret>
+JWT_REFRESH_SECRET=<secret>
+SMTP_HOST=...
+SMTP_PORT=587
+SMTP_USER=...
+SMTP_PASS=...
+SMTP_SECURE=false
+THROTTLE_DEFAULT_LIMIT=300
+THROTTLE_DEFAULT_TTL_MS=60000
+THROTTLE_DEFAULT_BLOCK_DURATION_MS=60000
+```
+
+Next.js env vars (prefixed `NEXT_PUBLIC_` for client-side) go in the same `.env` or a separate `apps/web/.env.production`.
