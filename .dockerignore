@@ -1,0 +1,9 @@
+.git
+**/node_modules
+**/.env
+**/.env.local
+coverage
+**/*.log
+.next
+dist
+generated

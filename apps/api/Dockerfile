@@ -2,13 +2,14 @@
 FROM node:20-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
+RUN corepack enable && corepack prepare pnpm@10.27.0 --activate
 
 # ── Install all deps (including devDeps for build) ─────────────────────────────
 FROM base AS deps
 WORKDIR /app
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY apps/api/package.json ./apps/api/package.json
+COPY apps/web/package.json ./apps/web/package.json
 RUN pnpm install --frozen-lockfile
 
 # ── Build ──────────────────────────────────────────────────────────────────────
@@ -41,6 +42,9 @@ COPY --from=builder /app/apps/api/dist ./dist
 COPY --from=builder /app/apps/api/generated ./generated
 # Migrations (needed for prisma migrate deploy at runtime)
 COPY --from=builder /app/apps/api/prisma ./prisma
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
 
 EXPOSE 4000
 CMD ["node", "dist/main"]
