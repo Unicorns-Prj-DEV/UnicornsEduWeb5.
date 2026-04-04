@@ -46,3 +46,23 @@ model Document {
 
   @@map("documents")
 }
+
+model Notification {
+  id              String             @id @default(uuid())
+  title           String             @db.VarChar(160)
+  message         String             @db.Text
+  status          NotificationStatus @default(draft)
+  version         Int                @default(0)
+  pushCount       Int                @default(0) @map("push_count")
+  lastPushedAt    DateTime?          @map("last_pushed_at") @db.Timestamptz(6)
+  createdByUserId String?            @map("created_by_user_id")
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy       User?              @relation("NotificationCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([lastPushedAt])
+  @@index([updatedAt])
+  @@index([createdByUserId])
+  @@map("notifications")
+}

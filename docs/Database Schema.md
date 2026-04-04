@@ -48,6 +48,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `class_surveys`
 - `action_history`
 - `documents`
+- `notifications`
 
 ### Lesson
 - `staff_lesson_task`
@@ -73,6 +74,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - **ExtraAllowance → StaffInfo**: N-1.
 - **ClassSurvey → Class / StaffInfo**: optional FK, `onDelete: SetNull`.
 - **ActionHistory → User**: optional FK, `onDelete: SetNull`.
+- **Notification → User (createdBy)**: optional FK `created_by_user_id`, `onDelete: SetNull`.
 - **StaffLessonTask**: bảng giao giữa `staff_info` và `lesson_task`, unique `(staff_id, lesson_task_id)`; đây là nguồn assignment chính thức cho `nhân sự thực hiện task`, tách biệt với staff được gán ở từng `lesson_output`.
 - **LessonTask → LessonResource**: 1-N optional (`lesson_resources.lessonTaskId`, `onDelete: SetNull`).
 - **LessonTask → LessonOutput**: 1-N optional (`lesson_outputs.lesson_task_id`, `onDelete: SetNull`).
@@ -134,6 +136,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `class_surveys`: báo cáo/đánh giá lớp theo mốc test
 - `action_history`: audit log thay đổi dữ liệu (`before_value`, `after_value`, `changed_fields` là JSON)
 - `documents`: metadata tài liệu (`file_url`, `tags` JSON)
+- `notifications`: bản ghi thông báo admin gửi cho staff; lưu draft/published, version, số lần push và thời điểm push gần nhất
 
 ### 4.8.1 `action_history`
 - Dùng để lưu thao tác `create | update | delete` ở backend cho các entity nghiệp vụ.
@@ -155,6 +158,24 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - `entity_id`
   - `action_type`
   - `created_at`
+
+### 4.8.2 `notifications`
+- Lưu thông báo push từ admin cho staff, dùng chung cho REST feed và NestJS gateway `/notifications`
+- PK: `id` (UUID)
+- Trường chính:
+  - `title` (`VARCHAR(160)`)
+  - `message` (`TEXT`)
+  - `status` (`NotificationStatus`: `draft | published`)
+  - `version` (bản phát hiện tại; draft bắt đầu từ `0`, lần push đầu = `1`)
+  - `push_count` (tổng số lần đã push/re-push)
+  - `last_pushed_at` (nullable; chỉ có khi đã published)
+  - `created_by_user_id` (optional FK → `users.id`)
+  - `created_at`, `updated_at`
+- Index read path hiện có:
+  - `status`
+  - `last_pushed_at`
+  - `updated_at`
+  - `created_by_user_id`
 
 ### 4.9 Codeforces tutorial (`cf_problem_tutorials`)
 - Lưu nội dung tutorial cho từng bài trong contest Codeforces (group).
@@ -213,6 +234,9 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `LessonTaskStatus`: `pending | in_progress | completed | cancelled`
 - `LessonTaskPriority`: `low | medium | high`
 - `LessonOutputStatus`: `pending | completed | cancelled`
+
+### Notification
+- `NotificationStatus`: `draft | published`
 
 ---
 

@@ -1,6 +1,21 @@
 import { Type } from 'class-transformer';
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsIn, IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
+
+export const ADMIN_DASHBOARD_FINANCIAL_DETAIL_ROW_KEYS = [
+  'topup',
+  'revenue',
+  'prepaid',
+  'uncollected',
+  'pending-payroll',
+  'personnel-cost',
+  'other-cost',
+  'profit',
+  'total-in',
+] as const;
+
+export type AdminDashboardFinancialDetailRowKeyDto =
+  (typeof ADMIN_DASHBOARD_FINANCIAL_DETAIL_ROW_KEYS)[number];
 
 export class GetAdminDashboardQueryDto {
   @ApiPropertyOptional({
@@ -92,6 +107,47 @@ export class GetAdminStudentBalanceDetailsQueryDto {
   limit?: number;
 }
 
+export class GetAdminDashboardFinancialDetailQueryDto {
+  @ApiProperty({
+    description: 'Financial summary row key.',
+    enum: ADMIN_DASHBOARD_FINANCIAL_DETAIL_ROW_KEYS,
+    example: 'personnel-cost',
+  })
+  @IsIn(ADMIN_DASHBOARD_FINANCIAL_DETAIL_ROW_KEYS)
+  rowKey!: AdminDashboardFinancialDetailRowKeyDto;
+
+  @ApiPropertyOptional({
+    description: 'Month in 01-12 format. Defaults to current month.',
+    example: '03',
+  })
+  @IsOptional()
+  @Matches(/^(0[1-9]|1[0-2])$/, {
+    message: 'month must use 01-12 format.',
+  })
+  month?: string;
+
+  @ApiPropertyOptional({
+    description: 'Year in YYYY format. Defaults to current year.',
+    example: '2026',
+  })
+  @IsOptional()
+  @Matches(/^\d{4}$/, {
+    message: 'year must use YYYY format.',
+  })
+  year?: string;
+
+  @ApiPropertyOptional({
+    description: 'Maximum number of detail rows returned.',
+    example: 500,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(500)
+  limit?: number;
+}
+
 export interface AdminDashboardPeriodDto {
   month: string;
   year: string;
@@ -102,6 +158,7 @@ export interface AdminDashboardSummaryDto {
   activeClasses: number;
   activeStudents: number;
   monthlyTopupTotal: number;
+  totalLearnedTuition: number;
   monthlyRevenue: number;
   monthlyExpense: number;
   monthlyProfit: number;
@@ -185,6 +242,32 @@ export interface AdminDashboardStudentBalanceItemDto {
   balance: number;
 }
 
+export interface AdminDashboardFinancialDetailSourceDto {
+  key: string;
+  label: string;
+  amount: number;
+  note: string;
+  tone: 'positive' | 'negative' | 'neutral';
+}
+
+export interface AdminDashboardFinancialDetailItemDto {
+  id: string;
+  label: string;
+  secondaryLabel: string | null;
+  amount: number;
+  note: string | null;
+}
+
+export interface AdminDashboardFinancialDetailDto {
+  rowKey: AdminDashboardFinancialDetailRowKeyDto;
+  title: string;
+  description: string;
+  amount: number;
+  sources: AdminDashboardFinancialDetailSourceDto[];
+  items: AdminDashboardFinancialDetailItemDto[];
+  emptyState: string;
+}
+
 export interface AdminDashboardDto {
   period: AdminDashboardPeriodDto;
   summary: AdminDashboardSummaryDto;
@@ -193,4 +276,158 @@ export interface AdminDashboardDto {
   actionAlerts: AdminDashboardActionAlertDto[];
   classPerformance: AdminDashboardClassPerformanceDto[];
   yearlySummary: AdminDashboardYearlySummaryDto[];
+}
+
+export class GetStaffDashboardQueryDto {
+  @ApiPropertyOptional({
+    description: 'Month in 01-12 format. Defaults to current month.',
+    example: '03',
+  })
+  @IsOptional()
+  @Matches(/^(0[1-9]|1[0-2])$/, {
+    message: 'month must use 01-12 format.',
+  })
+  month?: string;
+
+  @ApiPropertyOptional({
+    description: 'Year in YYYY format. Defaults to current year.',
+    example: '2026',
+  })
+  @IsOptional()
+  @Matches(/^\d{4}$/, {
+    message: 'year must use YYYY format.',
+  })
+  year?: string;
+}
+
+export interface StaffDashboardClassItemDto {
+  id: string;
+  name: string;
+  studentCount: number;
+  scheduleCount: number;
+  surveyCount: number;
+}
+
+export interface StaffDashboardClassAlertItemDto {
+  classId: string;
+  className: string;
+  reason: string;
+  missingSchedule: boolean;
+  missingSurvey: boolean;
+  latestRequiredSurveyTestNumber: number | null;
+  latestClassSurveyTestNumber: number | null;
+}
+
+export interface StaffDashboardTodaySessionItemDto {
+  sessionId: string;
+  classId: string;
+  className: string;
+  startTime: string | null;
+  endTime: string | null;
+  attendanceCount: number;
+  teacherPaymentStatus: string | null;
+}
+
+export interface StaffDashboardTeacherSectionDto {
+  assignedClasses: StaffDashboardClassItemDto[];
+  missingScheduleOrSurvey: StaffDashboardClassAlertItemDto[];
+  todaySessions: StaffDashboardTodaySessionItemDto[];
+}
+
+export interface StaffDashboardTaskItemDto {
+  taskId: string;
+  title: string | null;
+  status: string;
+  priority: string;
+  dueDate: string | null;
+  responsibleName: string | null;
+  assigneeNames: string[];
+}
+
+export interface StaffDashboardLessonPlanSectionDto {
+  totalTaskCount: number;
+  completedTaskCount: number;
+  remainingTaskCount: number;
+  openTasks: StaffDashboardTaskItemDto[];
+}
+
+export interface StaffDashboardLessonPlanHeadTotalsDto {
+  totalOutputs: number;
+  newOutputsThisMonth: number;
+  newOutputsThisWeek: number;
+}
+
+export interface StaffDashboardLessonPlanHeadSectionDto {
+  incompleteTasks: StaffDashboardTaskItemDto[];
+  lessonOutputTotals: StaffDashboardLessonPlanHeadTotalsDto;
+}
+
+export interface StaffDashboardSystemSummaryDto {
+  activeClasses: number;
+  activeStudents: number;
+  activeTeachers: number;
+}
+
+export interface StaffDashboardCustomerCarePortfolioItemDto {
+  staffId: string;
+  staffName: string;
+  activeStudentCount: number;
+  learnedTuitionTotal: number;
+  topupTotal: number;
+}
+
+export interface StaffDashboardAssistantSectionDto {
+  actionAlerts: AdminDashboardActionAlertDto[];
+  systemSummary: StaffDashboardSystemSummaryDto;
+  customerCarePortfolios: StaffDashboardCustomerCarePortfolioItemDto[];
+}
+
+export interface StaffDashboardStudentAlertItemDto {
+  studentId: string;
+  studentName: string;
+  classNames: string;
+  accountBalance: number;
+  referenceTuition: number | null;
+  dueLabel: string;
+}
+
+export interface StaffDashboardCustomerCareSectionDto {
+  newStudentsThisMonth: number;
+  droppedStudentsThisMonth: number;
+  activeStudentsCount: number;
+  learnedTuitionTotal: number;
+  topupTotal: number;
+  lowBalanceStudents: StaffDashboardStudentAlertItemDto[];
+  debtStudents: StaffDashboardStudentAlertItemDto[];
+}
+
+export interface StaffDashboardUnpaidStaffItemDto {
+  staffId: string;
+  staffName: string;
+  sessionAmount: number;
+  bonusAmount: number;
+  customerCareAmount: number;
+  lessonAmount: number;
+  extraAllowanceAmount: number;
+  totalUnpaid: number;
+}
+
+export interface StaffDashboardFinancialOverviewDto {
+  period: AdminDashboardPeriodDto;
+  summary: AdminDashboardSummaryDto;
+  breakdown: AdminDashboardBreakdownItemDto[];
+}
+
+export interface StaffDashboardAccountantSectionDto {
+  unpaidStaff: StaffDashboardUnpaidStaffItemDto[];
+  financialOverview: StaffDashboardFinancialOverviewDto;
+}
+
+export interface StaffDashboardDto {
+  teacher?: StaffDashboardTeacherSectionDto;
+  lessonPlan?: StaffDashboardLessonPlanSectionDto;
+  lessonPlanHead?: StaffDashboardLessonPlanHeadSectionDto;
+  assistant?: StaffDashboardAssistantSectionDto;
+  customerCare?: StaffDashboardCustomerCareSectionDto;
+  accountant?: StaffDashboardAccountantSectionDto;
 }

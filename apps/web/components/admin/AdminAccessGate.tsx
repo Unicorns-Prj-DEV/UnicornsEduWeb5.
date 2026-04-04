@@ -11,9 +11,16 @@ import {
 } from "@/lib/admin-shell-access";
 
 const LESSON_MANAGEMENT_ROUTE_PREFIXES = ["/admin/lesson-plans", "/admin/lesson-manage-details", "/admin/lessons"];
+const STRICT_ADMIN_ROUTE_PREFIXES = ["/admin/notification"];
 
 function isLessonManagementRoute(pathname: string) {
   return LESSON_MANAGEMENT_ROUTE_PREFIXES.some((prefix) =>
+    pathname.startsWith(prefix),
+  );
+}
+
+function isStrictAdminRoute(pathname: string) {
+  return STRICT_ADMIN_ROUTE_PREFIXES.some((prefix) =>
     pathname.startsWith(prefix),
   );
 }
@@ -35,18 +42,23 @@ export default function AdminAccessGate({
   const { isAdmin, isAssistant, isAccountant, isLessonPlanHead } =
     resolveAdminShellAccess(data);
   const lessonManagementRoute = isLessonManagementRoute(pathname);
+  const strictAdminRoute = isStrictAdminRoute(pathname);
   const isAllowed =
-    isAdmin ||
-    isAssistant ||
-    (isAccountant && isAccountantAllowedAdminRoute(pathname)) ||
-    (isLessonPlanHead && lessonManagementRoute);
-  const fallbackHref = isAssistant
-    ? "/admin/dashboard"
-    : isAccountant
-      ? "/admin/classes"
-      : isLessonPlanHead
-        ? "/admin/lesson-plans"
-        : "/";
+    strictAdminRoute
+      ? isAdmin
+      : isAdmin ||
+        isAssistant ||
+        (isAccountant && isAccountantAllowedAdminRoute(pathname)) ||
+        (isLessonPlanHead && lessonManagementRoute);
+  const fallbackHref = strictAdminRoute && isAssistant
+    ? "/staff/notification"
+    : isAssistant
+      ? "/admin/dashboard"
+      : isAccountant
+        ? "/admin/classes"
+        : isLessonPlanHead
+          ? "/admin/lesson-plans"
+          : "/";
 
   useEffect(() => {
     if (!isLoading && !isAllowed) {
@@ -73,10 +85,14 @@ export default function AdminAccessGate({
   }
 
   if (isError || !isAllowed) {
-    const title = isLessonPlanHead
+    const title = strictAdminRoute
+      ? "Route này chỉ mở cho admin."
+      : isLessonPlanHead
       ? "Role Trưởng giáo án chỉ mở được module Giáo Án."
       : "Tài khoản này không mở được khu quản trị.";
-    const description = isLessonPlanHead
+    const description = strictAdminRoute
+      ? "Trang quản lý notification là nơi phát thông báo toàn hệ thống. Assistant và các staff role khác chỉ dùng `/staff/notification` để xem feed."
+      : isLessonPlanHead
       ? "Bạn có toàn quyền trên phần giáo án, nhưng các module admin khác vẫn bị khóa."
       : "Route này hiện chỉ mở cho admin, hoặc các staff role được cấp quyền riêng trên từng module admin.";
 
@@ -91,9 +107,13 @@ export default function AdminAccessGate({
           <div className="mt-5 flex flex-wrap gap-3">
             <Link
               href={fallbackHref}
-              className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-            >
-              {isLessonPlanHead ? "Đi tới Giáo Án" : "Về trang chủ"}
+            className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+          >
+              {strictAdminRoute
+                ? "Đi tới feed staff"
+                : isLessonPlanHead
+                  ? "Đi tới Giáo Án"
+                  : "Về trang chủ"}
             </Link>
             <Link
               href="/user-profile"

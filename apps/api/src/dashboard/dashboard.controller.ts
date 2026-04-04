@@ -17,10 +17,12 @@ import { AllowAssistantOnAdminRoutes } from 'src/auth/decorators/allow-assistant
 import { AllowStaffRolesOnAdminRoutes } from 'src/auth/decorators/allow-staff-roles-on-admin.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import {
+  type AdminDashboardFinancialDetailDto,
   type AdminDashboardTopupHistoryItemDto,
   type AdminDashboardStudentBalanceItemDto,
   type AdminDashboardDto,
   GetAdminDashboardQueryDto,
+  GetAdminDashboardFinancialDetailQueryDto,
   GetAdminStudentBalanceDetailsQueryDto,
   GetAdminTopupHistoryQueryDto,
 } from '../dtos/dashboard.dto';
@@ -138,5 +140,49 @@ export class DashboardController {
     @Query() query: GetAdminStudentBalanceDetailsQueryDto,
   ): Promise<AdminDashboardStudentBalanceItemDto[]> {
     return this.dashboardService.getAdminStudentBalanceDetails(query);
+  }
+
+  @Get('financial-detail')
+  @ApiOperation({
+    summary: 'Get financial summary detail popup payload',
+    description:
+      'Return authoritative detail rows and contributing sources for a financial summary row on the admin dashboard.',
+  })
+  @ApiQuery({
+    name: 'rowKey',
+    required: true,
+    type: String,
+    description: 'Financial summary row key to inspect in detail.',
+    example: 'personnel-cost',
+  })
+  @ApiQuery({
+    name: 'month',
+    required: false,
+    type: String,
+    description: 'Month in 01-12 format. Defaults to current month.',
+    example: '03',
+  })
+  @ApiQuery({
+    name: 'year',
+    required: false,
+    type: String,
+    description: 'Year in YYYY format. Defaults to current year.',
+    example: '2026',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Maximum number of detail rows returned.',
+    example: 500,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Financial detail payload for popup rendering.',
+  })
+  async getAdminFinancialDetail(
+    @Query() query: GetAdminDashboardFinancialDetailQueryDto,
+  ): Promise<AdminDashboardFinancialDetailDto> {
+    return this.dashboardService.getAdminFinancialDetail(query);
   }
 }

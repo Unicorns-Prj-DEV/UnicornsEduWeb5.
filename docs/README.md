@@ -7,7 +7,7 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
 | Thư mục / file | Mô tả |
 |----------------|--------|
 | `apps/web` | Next.js 16, React 19, App Router. Frontend: `app/` (routes), `lib/` (API client). |
-| `apps/api` | NestJS backend. `src/` (auth, `action-history/`, `cache/`, prisma, `session/` workflow services, `staff-ops/` access helpers, user/student/staff services, mail, …), `prisma/schema/`, `generated/` (Prisma Client), `dtos/`. Runtime hiện dùng bảng `dashboard_cache` của PostgreSQL cho dashboard read cache, auth identity cache in-memory TTL ngắn cho guard/profile lookups, và global HTTP rate limiting qua `@nestjs/throttler`. |
+| `apps/api` | NestJS backend. `src/` (auth, `action-history/`, `cache/`, `notification/`, prisma, `session/` workflow services, `staff-ops/` access helpers, user/student/staff services, mail, …), `prisma/schema/`, `generated/` (Prisma Client), `dtos/`. Runtime hiện dùng bảng `dashboard_cache` của PostgreSQL cho dashboard read cache, auth identity cache in-memory TTL ngắn cho guard/profile lookups, global HTTP rate limiting qua `@nestjs/throttler`, và gateway `/notifications` để push realtime notification cho staff. |
 | `packages/` | Shared packages (hiện chỉ có `.gitkeep`, chưa có package con). |
 | `archived/` | Bản lưu tham khảo (vd. `UniEdu-Web-3.9`). |
 | Root | `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `pnpm-lock.yaml`. |
@@ -33,10 +33,10 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
   - `/landing-page`
   - `/auth/login`, `/auth/register`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/setup-password`
   - `/student`
-  - `/staff` (dashboard gọn chung mọi staff có `staffInfo`; trợ lí thêm sidebar **Cá nhân** → `/staff/staffs/:id`), `/staff/dashboard` (trợ lí: redirect về `/staff`), `/staff/profile`
+  - `/staff` (dashboard phân quyền theo role của staff hiện tại; mọi staff có `staffInfo` đều thấy thu nhập tháng, các khối còn lại bật theo role), `/staff/dashboard` (trợ lí: redirect về `/staff`), `/staff/profile`, `/staff/notification`
   - `/staff/users`, `/staff/staffs`, `/staff/staffs/[id]`, `/staff/classes`, `/staff/classes/[id]`, `/staff/students`, `/staff/students/[id]`, `/staff/costs`, `/staff/history`
   - `/staff/notes-subject`, `/staff/customer-care-detail`, `/staff/customer-care-detail/[staffId]`, `/staff/assistant-detail`, `/staff/accountant-detail`, `/staff/communication-detail`, `/staff/lesson-plan-detail`, `/staff/lesson-plan-detail/[staffId]`, `/staff/lesson_plan_detail`, `/staff/lesson_plan_detail/[staffId]`, `/staff/lesson-plan-tasks`, `/staff/lesson-plan-tasks/[taskId]`, `/staff/lesson-plan-manage-details`, `/staff/lesson-plans`, `/staff/lesson-plans/tasks/[taskId]`, `/staff/lesson-manage-details`
-  - `/admin` (alias dashboard), `/admin/home`, `/admin/dashboard` (canonical dashboard route)
+  - `/admin` (alias dashboard), `/admin/home`, `/admin/dashboard` (canonical dashboard route), `/admin/notification`
   - `/admin/classes`, `/admin/classes/[id]`
   - `/admin/students`
   - `/admin/users` (danh sách user, tạo account mới theo payload register + gửi mail xác thực + gán ngay role_type, phân quyền role_type + staff roles, auto-create staff/student profile khi cần)
@@ -60,10 +60,11 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
   - từ `/student`, học sinh có thể tự cập nhật thông tin cơ bản của mình, xem liên hệ phụ huynh, lớp đang tham gia, mở popup để thêm/sửa/xóa lịch thi FE-local theo ngày + ghi chú và quản lý ví của chính mình
   - popup ví trên `/student` cho phép học sinh tự nạp tiền hoặc rút tiền; backend luôn khóa theo đúng hồ sơ hiện tại và chặn rút vượt số dư để không làm âm tài khoản
 - Route `/staff` hiện có staff shell với sidebar theo role:
-  - `/staff` là route gốc của staff shell: với `staff.assistant` nó hiển thị **Assistant Command Hub** kiểu admin-like, dùng các self-service summary để surfacing shortcut sang các mirror route `/staff/**`; với các role staff còn lại, root vẫn là dashboard staff gọn
+  - `/staff` là route gốc của staff shell: luôn hiển thị thẻ chung `Thu nhập tháng` từ self-service income summary, đồng thời bật các khối dashboard theo `staffInfo.roles` qua `GET /users/me/staff-dashboard`; `teacher` thấy lớp/cảnh báo lịch/lịch hôm nay, `lesson_plan` và `lesson_plan_head` thấy khối task giáo án, `assistant` thấy cảnh báo + summary vận hành + portfolio CSKH, `customer_care` thấy biến động học sinh và cảnh báo số dư, `accountant` thấy pending payroll + báo cáo tài chính rút gọn, còn `communication` hiện chưa có card riêng
   - `staff.assistant` có thêm cây route mirror trong staff shell: `/staff/dashboard`, `/staff/users`, `/staff/staffs`, `/staff/staffs/[id]`, `/staff/classes`, `/staff/students`, `/staff/students/[id]`, `/staff/costs`, `/staff/history`
   - `/staff/dashboard` (trợ lí) redirect về `/staff`; chi tiết nhân sự bản thân qua sidebar **Cá nhân** hoặc `/staff/staffs/:ownStaffId`
   - `/staff/profile` là **hồ sơ cá nhân** (nội dung cũ của `/staff`), bao gồm thống kê thu nhập, popup ghi cọc, lớp phụ trách, bonus, trợ cấp các role, lịch sử buổi học
+  - `/staff/notification` là feed chỉ đọc cho staff xem các thông báo admin đã push; khi đang online, staff còn nhận toast Sonner realtime qua websocket namespace `/notifications`
   - `/staff/notes-subject` với assistant sẽ mở full admin-like notes workspace ngay trong `/staff`; các staff role khác vẫn là bản chỉ đọc. Backend mở các API đọc của notes-subject (`GET /codeforces/*`, `GET /cf-problem-tutorial/:contestId/:problemIndex`) cho toàn bộ `UserRole.staff`, còn cập nhật tutorial vẫn giữ policy admin/assistant
   - Sidebar của assistant chuyển sang menu admin-like trong staff shell: **Dashboard**, **User**, **Nhân sự**, **Lớp học**, **Ghi chú môn học**, **Học sinh**, **Chi phí**, **Giáo Án**, **Lịch sử**
   - `/staff/profile` mở khi tài khoản đang đăng nhập có linked `staffInfo` hợp lệ; trang này lấy dữ liệu qua các self-service endpoints `/users/me/full`, `/users/me/staff-detail`, `/users/me/staff-income-summary`, `/users/me/staff-bonuses`, `/users/me/staff-sessions`
@@ -86,7 +87,8 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
 
 - **Nhân sự không có quyền xóa**: Mọi role staff đều bị chặn quyền xóa, ngoại trừ `assistant` khi đang dùng admin shell. Backend lesson DELETE endpoints (`lesson-resources`, `lesson-outputs`, `lesson-tasks`) cho phép `admin` và `staff.assistant`; các staff role khác vẫn bị chặn. Frontend ẩn nút xóa khi `workspacePolicy !== "admin"`.
 - **AdminAccessGate** mở rộng: `assistant` có full access `/admin/**`; `accountant` truy cập `/admin/dashboard`, `/admin/classes`, `/admin/classes/[id]`, `/admin/staffs`, `/admin/staffs/[id]`, `/admin/costs`, `/admin/lesson-plans`, `/admin/accountant_detail`, `/admin/assistant_detail`, `/admin/communication_detail`, `/admin/customer_care_detail/[staffId]`, `/admin/lesson_plan_detail/[staffId]`; `lesson_plan_head` truy cập `/admin/lesson-plans/**`.
-- **AdminSidebar** lọc menu items theo role: admin và assistant thấy tất cả; accountant thấy Dashboard, Nhân sự, Lớp học, Chi phí, Giáo Án; lesson_plan_head chỉ thấy Giáo Án. Các item của accountant đều trỏ vào trang đang được mở quyền thật, không surfacing link sang route bị chặn.
+- **AdminAccessGate** giữ `/admin/notification` là route strict-admin: assistant bị redirect sang `/staff/notification`, còn các staff role khác bị chặn như route admin-only thông thường.
+- **AdminSidebar** lọc menu items theo role: admin thấy thêm mục `Thông báo`; assistant không thấy link này dù vẫn giữ quyền ở các module admin khác; accountant thấy Dashboard, Nhân sự, Lớp học, Chi phí, Giáo Án; lesson_plan_head chỉ thấy Giáo Án. Các item của accountant đều trỏ vào trang đang được mở quyền thật, không surfacing link sang route bị chặn.
 - **Admin Dashboard**: assistant không được gọi dashboard aggregate API. Khi vào `/admin` hoặc `/admin/dashboard`, FE chuyển assistant sang `/admin/staffs/:ownStaffId`; item `Dashboard` trong sidebar cũng trỏ về staff detail của chính họ.
 - **Lesson Workspace Policy** (`workspacePolicy` prop trên `AdminLessonPlansWorkspace`):
   - `admin`: 3 tab, tạo/sửa/xóa tự do

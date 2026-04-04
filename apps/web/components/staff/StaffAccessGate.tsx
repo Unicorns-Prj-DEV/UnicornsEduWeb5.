@@ -46,6 +46,7 @@ export default function StaffAccessGate({
   const isStaffStudentsListRoute = pathname === "/staff/students";
   const isStaffStudentDetailRoute = pathname.startsWith("/staff/students/");
   const isAssistantHistoryRoute = pathname.startsWith("/staff/history");
+  const isStaffNotificationRoute = pathname.startsWith("/staff/notification");
   const isNotesSubjectRoute = pathname.startsWith("/staff/notes-subject");
   const isRootStaffProfileRoute = isDashboardRoute || isProfileRoute;
   const isCustomerCareSelfRoute = pathname.startsWith("/staff/customer-care-detail");
@@ -73,7 +74,7 @@ export default function StaffAccessGate({
     isAssistantHistoryRoute ||
     isCustomerCareAdminRoute ||
     isLessonPlanAdminDetailRoute;
-  const isAllowed = isDashboardRoute || isProfileRoute || isNotesSubjectRoute
+  const isAllowed = isDashboardRoute || isProfileRoute || isNotesSubjectRoute || isStaffNotificationRoute
     ? hasStaffProfile && isStaffOrAdmin
     : isStaffClassesRoute
       ? isAssistantStaff ||
@@ -117,7 +118,7 @@ export default function StaffAccessGate({
                       : isLessonPlanner || isAssistantStaff)
                   : roleType === "admin" || isAssistantStaff || (roleType === "staff" && isTeacher);
 
-  const lockedLabel = isRootStaffProfileRoute || isNotesSubjectRoute
+  const lockedLabel = isRootStaffProfileRoute || isNotesSubjectRoute || isStaffNotificationRoute
     ? "Staff Profile Locked"
     : isStaffClassesRoute
       ? "Class Workspace Locked"
@@ -138,6 +139,8 @@ export default function StaffAccessGate({
               : "Staff Ops Locked";
   const lockedTitle = isRootStaffProfileRoute || isNotesSubjectRoute
     ? "Tài khoản này chưa mở được hồ sơ staff tự phục vụ."
+    : isStaffNotificationRoute
+      ? "Tài khoản này không dùng được feed thông báo staff."
     : isStaffClassesRoute
       ? "Tài khoản này không dùng được màn lớp học trong staff shell."
     : isStaffStudentsRoute
@@ -165,6 +168,8 @@ export default function StaffAccessGate({
                   : "Tài khoản này không dùng được màn vận hành lớp học.";
   const lockedDescription = isRootStaffProfileRoute || isNotesSubjectRoute
     ? "Route `/staff` hiện là hồ sơ của chính nhân sự đang đăng nhập. Nó chỉ mở khi tài khoản có liên kết staff record hợp lệ."
+    : isStaffNotificationRoute
+      ? "Route `/staff/notification` chỉ mở khi tài khoản có linked staff profile hợp lệ. Đây là feed chỉ đọc dành cho nhân sự xem các thông báo admin đã push."
     : isStaffClassesRoute
       ? "Route `/staff/classes` hiện mở danh sách cho `staff.assistant` và `staff.accountant`; riêng `staff.teacher`, `admin`, và `staff.customer_care` chỉ mở trực tiếp trang chi tiết `/staff/classes/[id]`. Với customer care, backend tiếp tục khóa theo các lớp có ít nhất một học sinh đang do chính staff đó phụ trách."
     : isStaffStudentsRoute

@@ -11,6 +11,7 @@ import type {
     CreateMyBonusPayload,
     UpdateMyBonusPayload,
 } from '@/dtos/bonus.dto';
+import type { StaffDashboardDto } from '@/dtos/dashboard.dto';
 import type {
     CreateMyCommunicationExtraAllowancePayload,
     ExtraAllowanceListResponse,
@@ -149,6 +150,21 @@ export async function getMyStaffIncomeSummary(params: {
             ...(typeof params.days === 'number' ? { days: params.days } : {}),
         },
     });
+    return response.data;
+}
+
+/** Current linked staff dashboard payload, filtered by current staff roles. */
+export async function getMyStaffDashboard(params: {
+    month?: string;
+    year?: string;
+} = {}): Promise<StaffDashboardDto> {
+    const response = await api.get<StaffDashboardDto>('/users/me/staff-dashboard', {
+        params: {
+            ...(params.month ? { month: params.month } : {}),
+            ...(params.year ? { year: params.year } : {}),
+        },
+    });
+
     return response.data;
 }
 

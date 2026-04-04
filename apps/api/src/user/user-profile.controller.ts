@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -24,6 +25,10 @@ import { PaymentStatus } from 'generated/enums';
 import { ExtraAllowanceService } from 'src/extra-allowance/extra-allowance.service';
 import { LessonService } from 'src/lesson/lesson.service';
 import {
+  GetStaffDashboardQueryDto,
+  type StaffDashboardDto,
+} from 'src/dtos/dashboard.dto';
+import {
   StudentWalletHistoryQueryDto,
   UpdateMyStudentAccountBalanceDto,
 } from 'src/dtos/student.dto';
@@ -45,6 +50,7 @@ import {
 import { SessionService } from 'src/session/session.service';
 import { StaffService } from 'src/staff/staff.service';
 import { StudentService } from 'src/student/student.service';
+import { DashboardService } from 'src/dashboard/dashboard.service';
 import { UserService } from './user.service';
 
 @ApiTags('users')
@@ -59,6 +65,7 @@ export class UserProfileController {
     private readonly extraAllowanceService: ExtraAllowanceService,
     private readonly lessonService: LessonService,
     private readonly studentService: StudentService,
+    private readonly dashboardService: DashboardService,
   ) {}
 
   @Get('full')
@@ -143,6 +150,40 @@ export class UserProfileController {
       month,
       year,
       days: parsedDays,
+    });
+  }
+
+  @Get('staff-dashboard')
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
+  @ApiOperation({
+    summary: 'Get current staff dashboard payload',
+    description:
+      'Returns role-aware dashboard data for the current linked staff profile. Each section is included only when the current staff has the required role.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Role-aware dashboard data for current staff.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'User has no linked staff record.',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  async getMyStaffDashboard(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: GetStaffDashboardQueryDto,
+  ): Promise<StaffDashboardDto> {
+    const profile = await this.userService.getFullProfile(user.id);
+    const staffInfo = profile.staffInfo;
+
+    if (!staffInfo?.id) {
+      throw new BadRequestException('User has no linked staff record');
+    }
+
+    return this.dashboardService.getStaffDashboard({
+      staffId: staffInfo.id,
+      staffRoles: staffInfo.roles ?? [],
+      query,
     });
   }
 

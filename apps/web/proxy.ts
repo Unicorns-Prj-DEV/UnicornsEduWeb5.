@@ -9,6 +9,9 @@ export async function proxy(req: NextRequest) {
 
     const user = await getUser();
     const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
+    const isStrictAdminNotificationRoute =
+        pathname === "/admin/notification" ||
+        pathname.startsWith("/admin/notification/");
 
     if (isAdminRoute) {
         if (user?.roleType === "admin") {
@@ -33,6 +36,11 @@ export async function proxy(req: NextRequest) {
                         const roles = profile.staffInfo?.roles ?? [];
 
                         if (roles.includes("assistant")) {
+                            if (isStrictAdminNotificationRoute) {
+                                return NextResponse.redirect(
+                                    new URL("/staff/notification", req.url),
+                                );
+                            }
                             return NextResponse.next();
                         }
                     }

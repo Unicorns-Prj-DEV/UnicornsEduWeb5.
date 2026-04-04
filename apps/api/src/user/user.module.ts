@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ActionHistoryModule } from 'src/action-history/action-history.module';
 import { AuthModule } from 'src/auth/auth.module';
 import { BonusModule } from 'src/bonus/bonus.module';
+import { DashboardModule } from 'src/dashboard/dashboard.module';
 import { ExtraAllowanceModule } from 'src/extra-allowance/extra-allowance.module';
 import { LessonModule } from 'src/lesson/lesson.module';
 import { PrismaModule } from 'src/prisma/prisma.module';
@@ -19,6 +20,7 @@ import { UserService } from './user.service';
     AuthModule,
     StaffModule,
     BonusModule,
+    DashboardModule,
     SessionModule,
     ExtraAllowanceModule,
     LessonModule,

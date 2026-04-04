@@ -1,17 +1,21 @@
-# Admin – `/admin/dashboard`
+# Admin – `/admin/dashboard`, `/admin/notification`
 
 ## Route and role
 
 - **Path chính:** `/admin/dashboard`
 - **Alias tương thích:** `/admin` render cùng dashboard để tránh dev-runtime redirect error và giữ backward compatibility cho link cũ.
-- **Role:** `admin` only (guard must block other roles).
+- **Route bổ sung:** `/admin/notification`
+- **Role:** `admin` only (guard must block other roles). Với `/admin/notification`, `assistant` phải bị chặn ở cả sidebar lẫn access gate và được điều hướng sang `/staff/notification` nếu cố mở trực tiếp.
 - **Workplan owner:** Huy (Frontend – Product Flow).
 
 ## Features
 
-- **Dashboard:** route canonical là `/admin/dashboard`; `/admin` là alias render cùng nội dung để tránh lỗi dev runtime khi đo performance trên redirect page. Dashboard đồng bộ layout tối giản: thanh lọc thời gian + nút xuất, cụm KPI card ngang, bảng **Báo cáo tài chính** (card trắng, tiêu đề trái, bảng 3 cột **Danh mục / Giá trị / Ghi chú** với header chữ nhỏ xám xanh, dòng mỏng; chín dòng: Tổng nạp, Học phí đã học, Nợ học phí chưa dạy, Chưa thu, Chờ thanh toán trợ cấp, Chi phí nhân sự, Chi phí khác, Lợi nhuận, Tổng nhận), section **Cảnh báo & hành động** dạng card group, và section **Chế độ xem nhanh theo phân hệ** (tab Tài chính/Vận hành/Học viên + chọn năm). Dữ liệu lấy thật từ backend qua `GET /dashboard`; frontend dùng TanStack Query (`apps/web/lib/apis/dashboard.api.ts`) và chỉ render dữ liệu aggregate authoritative từ BE. Giá trị **Tổng nạp** và **Nợ học phí chưa dạy** hiển thị dạng link (màu xanh) và mở popup **Lịch sử nạp** / **Học sinh - Lớp - Số dư** tương ứng. Từ breakpoint mobile trở xuống, khối **Báo cáo tài chính** đổi sang danh sách card 1 cột để tránh scroll ngang; từ `md` trở lên giữ desktop table 3 cột.
+- **Dashboard:** route canonical là `/admin/dashboard`; `/admin` là alias render cùng nội dung để tránh lỗi dev runtime khi đo performance trên redirect page. Dashboard đồng bộ layout tối giản: thanh lọc thời gian + nút xuất, cụm KPI card ngang, bảng **Báo cáo tài chính** (card trắng, tiêu đề trái, bảng 3 cột **Danh mục / Giá trị / Ghi chú** với header chữ nhỏ xám xanh, dòng mỏng; chín dòng: Tổng nạp, Học phí đã học, Nợ học phí chưa dạy, Chưa thu, Chờ thanh toán trợ cấp, Chi phí nhân sự, Chi phí khác, Lợi nhuận, Tổng nhận), section **Cảnh báo & hành động** dạng card group, và section **Chế độ xem nhanh theo phân hệ** (tab Tài chính/Vận hành/Học viên + chọn năm). Dữ liệu lấy thật từ backend qua `GET /dashboard`; frontend dùng TanStack Query (`apps/web/lib/apis/dashboard.api.ts`) và chỉ render dữ liệu aggregate authoritative từ BE. Mọi giá trị tiền trong bảng tài chính hiển thị dạng link (màu xanh) để mở popup chi tiết theo đúng từng dòng. Từ breakpoint mobile trở xuống, khối **Báo cáo tài chính** đổi sang danh sách card 1 cột để tránh scroll ngang; từ `md` trở lên giữ desktop table 3 cột.
+  - Dòng **Học phí đã học** hiển thị số lũy kế của toàn bộ attendance `present` trên hệ thống; phần ghi chú nêu thêm số học phí của tháng đang xem để không mất ngữ cảnh bộ lọc thời gian.
+  - Mọi giá trị tiền trong bảng **Báo cáo tài chính** đều có thể bấm để mở popup chi tiết. Popup hiển thị tổng số, các nguồn cộng/trừ cấu thành con số đó và bảng detail rows tương ứng khi backend có dữ liệu drill-down.
   - Khối **Cảnh báo & hành động** được render đúng 4 thẻ theo backup: **Học sinh cần gia hạn**, **Chờ thanh toán trợ cấp**, **Lớp chưa báo cáo lần 4**, **Chưa thu học phí**; mỗi thẻ có màu riêng theo loại và mỗi dòng cảnh báo có thể bấm để mở trang chi tiết tương ứng: học sinh → `/admin/students/:id`, gia sư/nhân sự → `/admin/staffs/:id`, lớp → `/admin/classes/:id`.
 - **CRUD lớp:** List, create, edit, archive classes; fields aligned with `classes` + relations.
+- **Notification center:** route `/admin/notification` là màn quản trị notification của admin. Page cho phép tạo nháp, sửa nháp, xóa, push lần đầu và **Sửa & Push lại** trên cùng một bản ghi. Khi push, backend vừa lưu DB vừa broadcast qua NestJS gateway `/notifications`; staff online nhận toast Sonner tức thời. Với notification đã published, thao tác chỉnh sửa phải đi qua flow `Sửa & Push lại`, và toast realtime hiển thị title `Điều chỉnh thông báo`.
 - **Gán học sinh / giáo viên:** Manage `class_teachers`, `student_classes`; prevent duplicate N-N rows.
 - **Sessions và attendance:** Mở session, ghi nhận attendance (`present` / `excused` / `absent`) with financial impact per Workplan state machine.
 - **Route registry:** This route documented with auth mode, allowed role(s), and backend endpoint contract.
@@ -36,6 +40,16 @@
 - **Mock (Tuần 2–6):** Mock contract pack for admin: class list (empty + many students), permission denied, validation errors.
 - **De-mock (Tuần 7):** Replace mock with real API per endpoint; checklist per screen/endpoint.
 - **API (real):** `users`, `classes`, `sessions`, `attendance`, `class_teachers`, `student_classes`, dashboard/revenue endpoints.
+- **Notification endpoints (admin management + staff feed):**
+  - `GET /notifications?status=<draft|published>&limit=<1-300>` trả danh sách notification để admin quản trị tại `/admin/notification`
+  - `POST /notifications` tạo notification draft mới
+  - `PATCH /notifications/:id` chỉ cho phép cập nhật notification đang ở trạng thái `draft`
+  - `POST /notifications/:id/push` publish draft hoặc repush notification đã phát, có thể nhận body title/message mới để apply atomically với lần push
+  - `DELETE /notifications/:id` xóa draft hoặc notification đã phát; backend không phát realtime retract event
+  - `GET /notifications/feed?limit=<1-200>` dùng cho `/staff/notification`, chỉ trả notification đã published
+  - Websocket namespace `/notifications`, event `notification.pushed` payload `{ id, title, message, version, lastPushedAt, deliveryKind }`
+    - `deliveryKind = published` cho lần push đầu
+    - `deliveryKind = adjusted` cho flow `Sửa & Push lại`
 - **Dashboard aggregate endpoint (admin-only):**
   - `GET /dashboard?month=<01-12>&year=<YYYY>&alertLimit=<1-20>&topClassLimit=<1-20>` trả toàn bộ payload cho `/admin/dashboard`: `period`, `summary`, `revenueProfitTrend`, `breakdown`, `actionAlerts`, `classPerformance`, `yearlySummary`.
     - `actionAlerts` hiện có thêm `targetType` (`student|staff|class`) + `targetId` để FE điều hướng chi tiết khi bấm từng dòng.
@@ -44,8 +58,11 @@
     - Endpoint này cũng dùng `dashboard_cache` theo `month/year/limit`; dữ liệu authoritative vẫn đến từ PostgreSQL khi cache miss, row đã hết hạn hoặc thao tác cache lỗi.
   - `GET /dashboard/student-balance-details?limit=<1-500>` trả danh sách học sinh active thuộc lớp running có số dư dương (`account_balance > 0`), gồm `studentName`, `className`, `balance`; FE dùng cho popup chi tiết khi bấm vào số tiền **Học phí chưa dạy**.
     - Endpoint này dùng `dashboard_cache` theo `limit`; nếu row cache không tồn tại, hết hạn hoặc thao tác cache lỗi thì backend bỏ qua cache và query DB như cũ.
+  - `GET /dashboard/financial-detail?rowKey=<row-key>&month=<01-12>&year=<YYYY>&limit=<1-500>` trả payload popup detail cho từng dòng tài chính (`topup`, `revenue`, `prepaid`, `uncollected`, `pending-payroll`, `personnel-cost`, `other-cost`, `profit`, `total-in`), gồm `title`, `description`, `amount`, `sources[]`, `items[]`, `emptyState`.
+    - Endpoint này cũng dùng `dashboard_cache`; FE `/admin/dashboard` mở modal chung và fetch on-demand khi user bấm vào từng giá trị tiền trong bảng tài chính.
   - `summary.activeClasses` đếm `classes.status = running`; `summary.activeStudents` đếm học sinh active đang thuộc lớp running.
   - `summary.monthlyTopupTotal` lấy từ tổng `wallet_transactions_history.amount` của giao dịch `type = topup` phát sinh trong tháng đang xem.
+  - `summary.totalLearnedTuition` lấy từ tổng `attendance.tuition_fee` của toàn bộ attendance `status = present` trên hệ thống; FE dùng field này cho dòng **Học phí đã học**.
   - `summary.monthlyRevenue` và line chart doanh thu lấy từ tổng `attendance.tuition_fee` của attendance `status = present`, gom theo `sessions.date`.
   - `summary.monthlyExpense` và breakdown chi phí được cộng từ các nguồn authoritative ở DB: phụ cấp buổi dạy theo công thức session allowance, commission CSKH (`attendance.customer_care_coef`), `lesson_outputs.cost`, `bonuses.amount`, `extra_allowances.amount`, `cost_extend.amount`.
   - `summary.monthlyProfit = monthlyRevenue - monthlyExpense`; `pendingCollectionTotal` lấy từ tổng số dư âm của học sinh còn nợ; `pendingPayrollTotal` lấy từ tổng khoản pending của staff.

@@ -80,6 +80,11 @@ enum PaymentStatus {
   pending
 }
 
+enum NotificationStatus {
+  draft
+  published
+}
+
 enum SessionPaymentStatus {
   deposit
   paid

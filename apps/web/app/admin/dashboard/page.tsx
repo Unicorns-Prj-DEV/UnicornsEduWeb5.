@@ -9,8 +9,7 @@ import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   getAdminDashboard,
-  getAdminStudentBalanceDetails,
-  getAdminTopupHistory,
+  getAdminDashboardFinancialDetail,
 } from "@/lib/apis/dashboard.api";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import {
@@ -20,8 +19,9 @@ import {
 import type {
   AdminDashboardActionAlert,
   AdminDashboardDto,
-  AdminDashboardStudentBalanceItem,
-  AdminDashboardTopupHistoryItem,
+  AdminDashboardFinancialDetail,
+  AdminDashboardFinancialDetailRowKey,
+  AdminDashboardFinancialDetailSource,
 } from "@/dtos/dashboard.dto";
 
 function formatCurrency(value: number) {
@@ -171,20 +171,230 @@ function QuickViewCard({
   );
 }
 
+function formatFinancialSourceAmount(source: AdminDashboardFinancialDetailSource) {
+  if (source.tone === "negative" && source.amount !== 0) {
+    return `- ${formatCurrency(source.amount)}`;
+  }
+
+  if (source.tone === "positive" && source.amount !== 0) {
+    return `+ ${formatCurrency(source.amount)}`;
+  }
+
+  return formatCurrency(source.amount);
+}
+
+function getFinancialSourceAccentClasses(tone: AdminDashboardFinancialDetailSource["tone"]) {
+  if (tone === "positive") {
+    return {
+      card: "border-success/25 bg-success/5",
+      value: "text-success",
+    };
+  }
+
+  if (tone === "negative") {
+    return {
+      card: "border-error/20 bg-error/5",
+      value: "text-error",
+    };
+  }
+
+  return {
+    card: "border-border-default bg-bg-secondary/35",
+    value: "text-text-primary",
+  };
+}
+
+function FinancialDetailModal({
+  rowLabel,
+  detail,
+  isLoading,
+  error,
+  onClose,
+}: {
+  rowLabel: string;
+  detail?: AdminDashboardFinancialDetail;
+  isLoading: boolean;
+  error: unknown;
+  onClose: () => void;
+}) {
+  const dialogTitleId = useId();
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]"
+        aria-hidden
+        onClick={onClose}
+      />
+      <div className="fixed inset-0 z-50 p-3 sm:p-6">
+        <div className="mx-auto flex h-full w-full items-center max-w-6xl">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={dialogTitleId}
+            className="flex h-auto max-h-full w-full flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-surface shadow-2xl overscroll-contain"
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-border-default px-5 py-4">
+              <div>
+                <h2 id={dialogTitleId} className="text-xl font-semibold text-balance text-text-primary">
+                  {detail?.title ?? `Chi tiết ${rowLabel}`}
+                </h2>
+                <p className="mt-1 text-sm text-text-secondary">
+                  {detail?.description ?? "Đang tải chi tiết số liệu từ backend..."}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-lg p-2 text-text-muted transition-colors hover:bg-bg-secondary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                aria-label={`Đóng popup ${rowLabel}`}
+              >
+                <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="max-h-[72vh] overflow-auto px-4 py-4 sm:px-5">
+              {isLoading ? (
+                <div className="space-y-4">
+                  <Skeleton className="h-24 rounded-2xl" />
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {Array.from({ length: 3 }).map((_, idx) => (
+                      <Skeleton key={idx} className="h-28 rounded-xl" />
+                    ))}
+                  </div>
+                  <Skeleton className="h-64 rounded-xl" />
+                </div>
+              ) : error ? (
+                <Alert variant="destructive">
+                  <DashboardIcon path="M12 9v4m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
+                  <AlertTitle>Không tải được chi tiết số liệu</AlertTitle>
+                  <AlertDescription>{getErrorMessage(error)}</AlertDescription>
+                </Alert>
+              ) : detail ? (
+                <div className="space-y-4">
+                  <section className="rounded-2xl border border-primary/15 bg-[linear-gradient(135deg,rgba(37,99,235,0.10),rgba(255,255,255,0.96))] p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/80">
+                      Tổng hợp
+                    </p>
+                    <p className="mt-2 text-3xl font-semibold tabular-nums text-text-primary">
+                      {formatCurrency(detail.amount)}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-text-secondary">
+                      {detail.description}
+                    </p>
+                  </section>
+
+                  {detail.sources.length > 0 ? (
+                    <section className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <DashboardIcon path="M3 12h18M12 3v18" />
+                        <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-text-primary">
+                          Nguồn cộng trừ
+                        </h3>
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                        {detail.sources.map((source) => {
+                          const accent = getFinancialSourceAccentClasses(source.tone);
+                          return (
+                            <article
+                              key={source.key}
+                              className={`rounded-xl border p-4 shadow-sm ${accent.card}`}
+                            >
+                              <p className="text-sm font-semibold text-text-primary">{source.label}</p>
+                              <p className={`mt-2 text-xl font-semibold tabular-nums ${accent.value}`}>
+                                {formatFinancialSourceAmount(source)}
+                              </p>
+                              <p className="mt-2 text-sm leading-6 text-text-secondary">{source.note}</p>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  ) : null}
+
+                  <section className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <DashboardIcon path="M4 7h16M4 12h16M4 17h10" />
+                      <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-text-primary">
+                        Chi tiết đóng góp
+                      </h3>
+                    </div>
+
+                    {detail.items.length > 0 ? (
+                      <>
+                        <div className="space-y-3 md:hidden">
+                          {detail.items.map((item) => (
+                            <article key={item.id} className="rounded-xl border border-border-default bg-bg-surface p-4 shadow-sm">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-semibold text-text-primary">{item.label}</p>
+                                  {item.secondaryLabel ? (
+                                    <p className="mt-1 text-sm text-text-secondary">{item.secondaryLabel}</p>
+                                  ) : null}
+                                </div>
+                                <p className="text-right text-sm font-semibold tabular-nums text-text-primary">
+                                  {formatCurrency(item.amount)}
+                                </p>
+                              </div>
+                              {item.note ? (
+                                <p className="mt-3 border-t border-border-default pt-3 text-sm leading-6 text-text-secondary">
+                                  {item.note}
+                                </p>
+                              ) : null}
+                            </article>
+                          ))}
+                        </div>
+
+                        <div className="hidden overflow-x-auto rounded-xl border border-border-default md:block">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="border-border-default hover:bg-transparent">
+                                <TableHead className="min-w-[220px]">Nội dung</TableHead>
+                                <TableHead className="min-w-[180px]">Nguồn</TableHead>
+                                <TableHead className="min-w-[180px] text-right">Giá trị</TableHead>
+                                <TableHead className="min-w-[260px]">Ghi chú</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {detail.items.map((item) => (
+                                <TableRow key={item.id} className="border-border-default/80">
+                                  <TableCell className="align-top font-medium text-text-primary">{item.label}</TableCell>
+                                  <TableCell className="align-top text-text-secondary">
+                                    {item.secondaryLabel ?? "—"}
+                                  </TableCell>
+                                  <TableCell className="align-top text-right font-semibold tabular-nums text-text-primary">
+                                    {formatCurrency(item.amount)}
+                                  </TableCell>
+                                  <TableCell className="align-top text-text-secondary">
+                                    {item.note ?? "—"}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-border-default bg-bg-secondary/35 px-4 py-6 text-sm text-text-secondary">
+                        {detail.emptyState}
+                      </div>
+                    )}
+                  </section>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 function monthLabel(month: string, year: string) {
   const date = new Date(Number(year), Number(month) - 1, 1);
   return new Intl.DateTimeFormat("vi-VN", { month: "long", year: "numeric" }).format(date);
-}
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("vi-VN", {
-    hour: "2-digit",
-    hour12: false,
-    minute: "2-digit",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(value));
 }
 
 function stepMonth(month: string, year: string, delta: number) {
@@ -217,14 +427,11 @@ function exportCsv(filename: string, rows: Array<{ label: string; value: string;
 
 type QuickViewKey = "finance" | "ops" | "students";
 
-type FinancialRowDrilldown = "topup-history" | "student-balance";
-
 type FinancialSummaryRow = {
-  key: string;
+  key: AdminDashboardFinancialDetailRowKey;
   label: string;
   value: number;
   note: string;
-  drilldown?: FinancialRowDrilldown;
   emphasize?: boolean;
 };
 
@@ -348,8 +555,7 @@ export default function AdminDashboardTabPage() {
   const [month, setMonth] = useState(defaultPeriod.month);
   const [year, setYear] = useState(defaultPeriod.year);
   const [quickView, setQuickView] = useState<QuickViewKey>("finance");
-  const [isTopupHistoryOpen, setIsTopupHistoryOpen] = useState(false);
-  const [isStudentBalanceOpen, setIsStudentBalanceOpen] = useState(false);
+  const [selectedFinancialRowKey, setSelectedFinancialRowKey] = useState<AdminDashboardFinancialDetailRowKey | null>(null);
 
   const dashboardQuery = useQuery<AdminDashboardDto>({
     queryKey: ["dashboard", "admin", year, month],
@@ -364,17 +570,16 @@ export default function AdminDashboardTabPage() {
     staleTime: 30_000,
   });
 
-  const topupHistoryQuery = useQuery<AdminDashboardTopupHistoryItem[]>({
-    queryKey: ["dashboard", "admin", "topup-history", year, month],
-    queryFn: () => getAdminTopupHistory({ month, year, limit: 150 }),
-    enabled: fullProfileQuery.isSuccess && !isAssistantStaff && isTopupHistoryOpen,
-    staleTime: 20_000,
-  });
-
-  const studentBalanceQuery = useQuery<AdminDashboardStudentBalanceItem[]>({
-    queryKey: ["dashboard", "admin", "student-balance-details"],
-    queryFn: () => getAdminStudentBalanceDetails({ limit: 300 }),
-    enabled: fullProfileQuery.isSuccess && !isAssistantStaff && isStudentBalanceOpen,
+  const financialDetailQuery = useQuery({
+    queryKey: ["dashboard", "admin", "financial-detail", selectedFinancialRowKey, year, month],
+    queryFn: () =>
+      getAdminDashboardFinancialDetail({
+        rowKey: selectedFinancialRowKey!,
+        month,
+        year,
+        limit: 500,
+      }),
+    enabled: fullProfileQuery.isSuccess && !isAssistantStaff && selectedFinancialRowKey != null,
     staleTime: 20_000,
   });
 
@@ -442,20 +647,18 @@ export default function AdminDashboardTabPage() {
       label: "Tổng nạp",
       value: dashboard.summary.monthlyTopupTotal,
       note: "Tổng số tiền học sinh đã nạp",
-      drilldown: "topup-history",
     },
     {
       key: "revenue",
       label: "Học phí đã học",
-      value: dashboard.summary.monthlyRevenue,
-      note: "Tổng học phí các buổi đã học",
+      value: dashboard.summary.totalLearnedTuition,
+      note: `Tổng học phí các buổi đã học của tất cả học sinh. Riêng ${dashboard.period.monthLabel}: ${formatCurrency(dashboard.summary.monthlyRevenue)}.`,
     },
     {
       key: "prepaid",
       label: "Nợ học phí chưa dạy",
       value: dashboard.summary.prepaidTuitionTotal,
       note: "Tổng số dư hiện tại của tất cả học sinh",
-      drilldown: "student-balance",
     },
     {
       key: "uncollected",
@@ -502,6 +705,9 @@ export default function AdminDashboardTabPage() {
     value: formatCurrency(row.value),
     note: row.note,
   }));
+  const selectedFinancialRow = selectedFinancialRowKey
+    ? financialSummaryRows.find((row) => row.key === selectedFinancialRowKey) ?? null
+    : null;
   const yearlyRevenueTotal = dashboard.yearlySummary.reduce((sum, item) => sum + item.revenue, 0);
   const yearlyExpenseTotal = dashboard.yearlySummary.reduce((sum, item) => sum + item.expense, 0);
   const yearlyProfitTotal = dashboard.yearlySummary.reduce((sum, item) => sum + item.profit, 0);
@@ -526,42 +732,23 @@ export default function AdminDashboardTabPage() {
     router.push(buildAdminLikePath(routeBase, `classes/${alert.targetId}`));
   };
 
-  const openFinancialDrilldown = (drilldown?: FinancialRowDrilldown) => {
-    if (drilldown === "topup-history") {
-      setIsTopupHistoryOpen(true);
-      return;
-    }
-
-    if (drilldown === "student-balance") {
-      setIsStudentBalanceOpen(true);
-    }
+  const openFinancialDetail = (rowKey: AdminDashboardFinancialDetailRowKey) => {
+    setSelectedFinancialRowKey(rowKey);
   };
 
   const renderFinancialValue = (
     row: FinancialSummaryRow,
     className: string,
   ) => {
-    if (row.drilldown) {
-      return (
-        <button
-          type="button"
-          onClick={() => openFinancialDrilldown(row.drilldown)}
-          className={className}
-          aria-label={
-            row.drilldown === "topup-history"
-              ? "Mở lịch sử nạp theo tháng đang xem"
-              : "Mở chi tiết số dư học sinh"
-          }
-        >
-          {formatCurrency(row.value)}
-        </button>
-      );
-    }
-
     return (
-      <span className={className.replace("text-blue-600", "text-text-primary")}>
+      <button
+        type="button"
+        onClick={() => openFinancialDetail(row.key)}
+        className={className}
+        aria-label={`Mở chi tiết ${row.label}`}
+      >
         {formatCurrency(row.value)}
-      </span>
+      </button>
     );
   };
 
@@ -742,8 +929,8 @@ export default function AdminDashboardTabPage() {
           <div className="hidden overflow-x-auto border-t border-border-default md:block">
             <Table>
               <TableCaption className="sr-only">
-                Báo cáo tài chính theo tháng đang xem. Nhấp giá trị màu xanh ở Tổng nạp hoặc Nợ học phí chưa dạy để
-                xem chi tiết.
+                Báo cáo tài chính theo tháng đang xem. Nhấp giá trị màu xanh ở từng dòng để xem popup chi tiết số tiền
+                và các nguồn cộng trừ liên quan.
               </TableCaption>
               <TableHeader>
                 <TableRow className="border-border-default hover:bg-transparent">
@@ -861,178 +1048,14 @@ export default function AdminDashboardTabPage() {
               </div>
         </section>
 
-        {isTopupHistoryOpen ? (
-          <>
-            <div
-              className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]"
-              aria-hidden
-              onClick={() => setIsTopupHistoryOpen(false)}
-            />
-            <div className="fixed inset-0 z-50 p-3 sm:p-6">
-              <div className="mx-auto flex h-full w-full items-center max-w-6xl">
-                <div
-                  role="dialog"
-                  aria-modal="true"
-                  aria-labelledby="dashboard-topup-history-title"
-                  className="flex h-auto max-h-full w-full flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-surface shadow-2xl overscroll-contain"
-                >
-                  <div className="flex items-start justify-between gap-4 border-b border-border-default px-5 py-4">
-                    <div>
-                      <h2 id="dashboard-topup-history-title" className="text-xl font-semibold text-balance text-text-primary">
-                        Lịch sử nạp
-                      </h2>
-                      <p className="mt-1 text-sm text-text-secondary">
-                        Topup trong kỳ đang chọn, gồm thời điểm phát sinh, học sinh, số tiền và mức tích lũy trước/sau giao dịch.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setIsTopupHistoryOpen(false)}
-                      className="rounded-lg p-2 text-text-muted transition-colors hover:bg-bg-secondary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                      aria-label="Đóng popup lịch sử nạp"
-                    >
-                      <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                  <div className="max-h-[72vh] overflow-auto px-4 py-3">
-                    <Table>
-                <TableHeader>
-                  <TableRow>
-                          <TableHead className="whitespace-nowrap">Ngày giờ</TableHead>
-                          <TableHead className="whitespace-nowrap">Tên học sinh</TableHead>
-                          <TableHead className="whitespace-nowrap">Số tiền nạp</TableHead>
-                          <TableHead>Ghi chú</TableHead>
-                          <TableHead className="whitespace-nowrap text-right">Tổng nạp</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                        {topupHistoryQuery.isLoading ? (
-                          Array.from({ length: 6 }).map((_, idx) => (
-                            <TableRow key={`topup-loading-${idx}`}>
-                              <TableCell colSpan={5}>
-                                <Skeleton className="h-6 w-full rounded-md" />
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        ) : topupHistoryQuery.isError ? (
-                          <TableRow>
-                            <TableCell colSpan={5} className="py-6 text-center text-sm text-error">
-                              {getErrorMessage(topupHistoryQuery.error)}
-                            </TableCell>
-                          </TableRow>
-                        ) : topupHistoryQuery.data && topupHistoryQuery.data.length > 0 ? (
-                          topupHistoryQuery.data.map((item) => (
-                            <TableRow key={item.id}>
-                              <TableCell className="whitespace-nowrap text-text-secondary">{formatDateTime(item.dateTime)}</TableCell>
-                              <TableCell className="whitespace-nowrap font-medium text-text-primary">{item.studentName}</TableCell>
-                              <TableCell className="whitespace-nowrap font-semibold text-primary">{formatCurrency(item.amount)}</TableCell>
-                              <TableCell className="max-w-[340px] truncate text-text-secondary" title={item.note}>
-                                {item.note}
-                        </TableCell>
-                              <TableCell className="whitespace-nowrap text-right font-medium text-text-primary">
-                                {formatCurrency(item.cumulativeBefore)} {"\u2192"} {formatCurrency(item.cumulativeAfter)}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                  <TableRow>
-                            <TableCell colSpan={5} className="py-8 text-center text-sm text-text-muted">
-                              Chưa có giao dịch nạp trong kỳ này.
-                    </TableCell>
-                  </TableRow>
-                        )}
-                      </TableBody>
-              </Table>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </>
-        ) : null}
-
-        {isStudentBalanceOpen ? (
-          <>
-            <div
-              className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]"
-              aria-hidden
-              onClick={() => setIsStudentBalanceOpen(false)}
-            />
-            <div className="fixed inset-0 z-50 p-3 sm:p-6">
-              <div className="mx-auto flex h-full w-full items-center max-w-6xl">
-                <div
-                  role="dialog"
-                  aria-modal="true"
-                  aria-labelledby="dashboard-student-balance-title"
-                  className="flex h-auto max-h-full w-full flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-surface shadow-2xl overscroll-contain"
-                >
-                  <div className="flex items-start justify-between gap-4 border-b border-border-default px-5 py-4">
-                    <div>
-                      <h2 id="dashboard-student-balance-title" className="text-xl font-semibold text-balance text-text-primary">
-                        Chi tiết học phí chưa dạy
-                      </h2>
-                      <p className="mt-1 text-sm text-text-secondary">
-                        Snapshot số dư dương hiện tại của học sinh active thuộc lớp running.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setIsStudentBalanceOpen(false)}
-                      className="rounded-lg p-2 text-text-muted transition-colors hover:bg-bg-secondary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                      aria-label="Đóng popup chi tiết học phí chưa dạy"
-                    >
-                      <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                  <div className="max-h-[72vh] overflow-auto px-4 py-3">
-                    <Table>
-              <TableHeader>
-                <TableRow>
-                          <TableHead className="whitespace-nowrap">Học sinh</TableHead>
-                          <TableHead>Lớp</TableHead>
-                          <TableHead className="whitespace-nowrap text-right">Số dư</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                        {studentBalanceQuery.isLoading ? (
-                          Array.from({ length: 8 }).map((_, idx) => (
-                            <TableRow key={`student-balance-loading-${idx}`}>
-                              <TableCell colSpan={3}>
-                                <Skeleton className="h-6 w-full rounded-md" />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                        ) : studentBalanceQuery.isError ? (
-                          <TableRow>
-                            <TableCell colSpan={3} className="py-6 text-center text-sm text-error">
-                              {getErrorMessage(studentBalanceQuery.error)}
-                            </TableCell>
-                          </TableRow>
-                        ) : studentBalanceQuery.data && studentBalanceQuery.data.length > 0 ? (
-                          studentBalanceQuery.data.map((item) => (
-                            <TableRow key={item.studentId}>
-                              <TableCell className="font-medium text-text-primary">{item.studentName}</TableCell>
-                              <TableCell className="text-text-secondary">{item.className}</TableCell>
-                              <TableCell className="text-right font-semibold tabular-nums text-warning">{formatCurrency(item.balance)}</TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                <TableRow>
-                            <TableCell colSpan={3} className="py-8 text-center text-sm text-text-muted">
-                              Chưa có dữ liệu số dư học sinh.
-                  </TableCell>
-                </TableRow>
-                        )}
-                      </TableBody>
-            </Table>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </>
+        {selectedFinancialRow ? (
+          <FinancialDetailModal
+            rowLabel={selectedFinancialRow.label}
+            detail={financialDetailQuery.data}
+            isLoading={financialDetailQuery.isLoading}
+            error={financialDetailQuery.error}
+            onClose={() => setSelectedFinancialRowKey(null)}
+          />
         ) : null}
 
       </div>

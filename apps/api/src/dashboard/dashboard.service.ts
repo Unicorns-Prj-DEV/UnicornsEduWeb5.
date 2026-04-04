@@ -1,17 +1,45 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../generated/client';
 import {
+  AttendanceStatus,
+  ClassStatus,
+  LessonTaskStatus,
+  StaffRole,
+  StaffStatus,
+  WalletTransactionType,
+} from 'generated/enums';
+import {
   type AdminDashboardActionAlertDto,
   type AdminDashboardBreakdownItemDto,
   type AdminDashboardClassPerformanceDto,
   type AdminDashboardDto,
+  type AdminDashboardFinancialDetailDto,
+  type AdminDashboardFinancialDetailItemDto,
   type AdminDashboardStudentBalanceItemDto,
   type AdminDashboardTopupHistoryItemDto,
   type AdminDashboardTrendPointDto,
   type AdminDashboardYearlySummaryDto,
   GetAdminDashboardQueryDto,
+  GetAdminDashboardFinancialDetailQueryDto,
   GetAdminStudentBalanceDetailsQueryDto,
+  GetStaffDashboardQueryDto,
   GetAdminTopupHistoryQueryDto,
+  type StaffDashboardAccountantSectionDto,
+  type StaffDashboardAssistantSectionDto,
+  type StaffDashboardClassAlertItemDto,
+  type StaffDashboardClassItemDto,
+  type StaffDashboardCustomerCarePortfolioItemDto,
+  type StaffDashboardCustomerCareSectionDto,
+  type StaffDashboardDto,
+  type StaffDashboardFinancialOverviewDto,
+  type StaffDashboardLessonPlanHeadSectionDto,
+  type StaffDashboardLessonPlanSectionDto,
+  type StaffDashboardStudentAlertItemDto,
+  type StaffDashboardSystemSummaryDto,
+  type StaffDashboardTaskItemDto,
+  type StaffDashboardTeacherSectionDto,
+  type StaffDashboardTodaySessionItemDto,
+  type StaffDashboardUnpaidStaffItemDto,
 } from '../dtos/dashboard.dto';
 import { DashboardCacheService } from '../cache/dashboard-cache.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -60,6 +88,11 @@ type StaffUnpaidAlertSqlRow = {
   totalUnpaid: number | string | null;
   totalCount: number | string | null;
   totalAmount: number | string | null;
+  totalSessionAmount?: number | string | null;
+  totalBonusAmount?: number | string | null;
+  totalCustomerCareAmount?: number | string | null;
+  totalLessonAmount?: number | string | null;
+  totalExtraAllowanceAmount?: number | string | null;
 };
 
 type ClassPerformanceSqlRow = {
@@ -90,6 +123,14 @@ type StudentBalanceDetailSqlRow = {
   studentName: string;
   className: string;
   balance: number | string | null;
+};
+
+type LearnedTuitionByClassSqlRow = {
+  classId: string;
+  className: string;
+  totalAmount: number | string | null;
+  studentCount: number | string | null;
+  attendanceCount: number | string | null;
 };
 
 type MonthlyTrendNormalizedRow = {
@@ -152,6 +193,23 @@ function formatMonthLabel(month: string, year: string) {
   return `Tháng ${month} / ${year}`;
 }
 
+function formatCurrencyLabel(value: number) {
+  return `${value.toLocaleString('vi-VN')}đ`;
+}
+
+function formatDateTimeLabel(value: Date | string) {
+  const date = value instanceof Date ? value : new Date(value);
+  return new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    hour: '2-digit',
+    hour12: false,
+    minute: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date);
+}
+
 function formatDateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
     date.getDate(),
@@ -210,6 +268,69 @@ function buildCacheKey(scope: string, params: Record<string, number | string>) {
   return `dashboard:${scope}:${searchParams.toString()}`;
 }
 
+function buildTodayRange() {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+
+  return { start, end };
+}
+
+function buildWeekRange(anchorDate: Date) {
+  const start = new Date(anchorDate);
+  const day = start.getDay();
+  const diffToMonday = (day + 6) % 7;
+  start.setDate(start.getDate() - diffToMonday);
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(start);
+  end.setDate(end.getDate() + 7);
+
+  return { start, end };
+}
+
+function normalizeScheduleCount(schedule: Prisma.JsonValue | null | undefined) {
+  if (!Array.isArray(schedule)) {
+    return 0;
+  }
+
+  return schedule.filter(
+    (item) =>
+      typeof item === 'object' &&
+      item !== null &&
+      'from' in item &&
+      'to' in item &&
+      typeof item.from === 'string' &&
+      typeof item.to === 'string',
+  ).length;
+}
+
+function toIsoDate(value: Date | string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function toIsoTime(value: Date | string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  const hours = String(value.getHours()).padStart(2, '0');
+  const minutes = String(value.getMinutes()).padStart(2, '0');
+  const seconds = String(value.getSeconds()).padStart(2, '0');
+  return `${hours}:${minutes}:${seconds}`;
+}
+
 @Injectable()
 export class DashboardService {
   constructor(
@@ -259,6 +380,37 @@ export class DashboardService {
     );
 
     return normalizeMoneyAmount(row?.totalAmount);
+  }
+
+  private async getTotalLearnedTuition(): Promise<number> {
+    const [row] = await this.prisma.$queryRaw<AggregateMoneySqlRow[]>(
+      Prisma.sql`
+        SELECT
+          COALESCE(SUM(COALESCE(attendance.tuition_fee, 0)), 0) AS "totalAmount"
+        FROM attendance
+        WHERE attendance.status = 'present'
+      `,
+    );
+
+    return normalizeMoneyAmount(row?.totalAmount);
+  }
+
+  private async getLearnedTuitionByClass(limit: number) {
+    return this.prisma.$queryRaw<LearnedTuitionByClassSqlRow[]>(Prisma.sql`
+      SELECT
+        classes.id AS "classId",
+        classes.name AS "className",
+        COALESCE(SUM(COALESCE(attendance.tuition_fee, 0)), 0) AS "totalAmount",
+        COUNT(DISTINCT attendance.student_id) AS "studentCount",
+        COUNT(attendance.id) AS "attendanceCount"
+      FROM attendance
+      INNER JOIN sessions ON sessions.id = attendance.session_id
+      INNER JOIN classes ON classes.id = sessions.class_id
+      WHERE attendance.status = 'present'
+      GROUP BY classes.id, classes.name
+      ORDER BY "totalAmount" DESC, classes.name ASC
+      LIMIT ${limit}
+    `);
   }
 
   private async getPrepaidTuitionTotal(): Promise<number> {
@@ -486,6 +638,29 @@ export class DashboardService {
         profit: revenue - expense,
       };
     });
+  }
+
+  private resolveSelectedMonthTrend(
+    trendRows: MonthlyTrendNormalizedRow[],
+    range: ReturnType<typeof buildDashboardRange>,
+  ) {
+    return (
+      trendRows.find((item) => item.monthKey === range.monthKey) ??
+      ({
+        monthStart: range.monthStart,
+        monthKey: range.monthKey,
+        monthLabel: formatMonthShort(range.monthStart),
+        revenue: 0,
+        teacherCost: 0,
+        customerCareCost: 0,
+        lessonCost: 0,
+        bonusCost: 0,
+        extraAllowanceCost: 0,
+        operatingCost: 0,
+        expense: 0,
+        profit: 0,
+      } satisfies MonthlyTrendNormalizedRow)
+    );
   }
 
   private async getExpiringStudents(limit: number) {
@@ -785,7 +960,18 @@ export class DashboardService {
         SELECT
           *,
           COUNT(*) OVER() AS "totalCount",
-          COALESCE(SUM("totalUnpaid") OVER(), 0) AS "totalAmount"
+          COALESCE(SUM("totalUnpaid") OVER(), 0) AS "totalAmount",
+          COALESCE(SUM("sessionAmount") OVER(), 0) AS "totalSessionAmount",
+          COALESCE(SUM("bonusAmount") OVER(), 0) AS "totalBonusAmount",
+          COALESCE(
+            SUM("customerCareAmount") OVER(),
+            0
+          ) AS "totalCustomerCareAmount",
+          COALESCE(SUM("lessonAmount") OVER(), 0) AS "totalLessonAmount",
+          COALESCE(
+            SUM("extraAllowanceAmount") OVER(),
+            0
+          ) AS "totalExtraAllowanceAmount"
         FROM filtered
       )
       SELECT
@@ -798,7 +984,12 @@ export class DashboardService {
         "extraAllowanceAmount",
         "totalUnpaid",
         "totalCount",
-        "totalAmount"
+        "totalAmount",
+        "totalSessionAmount",
+        "totalBonusAmount",
+        "totalCustomerCareAmount",
+        "totalLessonAmount",
+        "totalExtraAllowanceAmount"
       FROM counted
       ORDER BY "totalUnpaid" DESC, "staffName" ASC
       LIMIT ${limit}
@@ -917,6 +1108,918 @@ export class DashboardService {
     `);
   }
 
+  private sortTaskItems(items: StaffDashboardTaskItemDto[]) {
+    return [...items].sort((left, right) => {
+      if (left.dueDate && right.dueDate) {
+        return left.dueDate.localeCompare(right.dueDate);
+      }
+
+      if (left.dueDate) {
+        return -1;
+      }
+
+      if (right.dueDate) {
+        return 1;
+      }
+
+      return (left.title ?? '').localeCompare(right.title ?? '');
+    });
+  }
+
+  private mapTaskItem(task: {
+    id: string;
+    title: string | null;
+    status: string;
+    priority: string;
+    dueDate: Date | null;
+    createdByStaff: { fullName: string } | null;
+    staffLessonTasks: Array<{ staff: { fullName: string } }>;
+  }): StaffDashboardTaskItemDto {
+    const assigneeNames = Array.from(
+      new Set(
+        task.staffLessonTasks
+          .map((assignment) => assignment.staff.fullName?.trim())
+          .filter((name): name is string => Boolean(name)),
+      ),
+    );
+
+    return {
+      taskId: task.id,
+      title: task.title,
+      status: task.status,
+      priority: task.priority,
+      dueDate: toIsoDate(task.dueDate),
+      responsibleName: task.createdByStaff?.fullName?.trim() || null,
+      assigneeNames,
+    };
+  }
+
+  private mapStudentAlertItem(row: StudentAlertSqlRow): StaffDashboardStudentAlertItemDto {
+    return {
+      studentId: row.studentId,
+      studentName: row.studentName,
+      classNames: row.classNames,
+      accountBalance: normalizeMoneyAmount(row.accountBalance),
+      referenceTuition:
+        normalizeMoneyAmount(row.referenceTuition) > 0
+          ? normalizeMoneyAmount(row.referenceTuition)
+          : null,
+      dueLabel:
+        normalizeMoneyAmount(row.debtAmount) > 0
+          ? formatDebtDue(row)
+          : formatStudentBalanceDue(row),
+    };
+  }
+
+  private async getTeacherSection(
+    staffId: string,
+    todayRange: { start: Date; end: Date },
+  ): Promise<StaffDashboardTeacherSectionDto> {
+    const [assignedClasses, latestSurveyAggregate, todaySessions] =
+      await Promise.all([
+        this.prisma.class.findMany({
+          where: {
+            status: ClassStatus.running,
+            teachers: {
+              some: {
+                teacherId: staffId,
+              },
+            },
+          },
+          select: {
+            id: true,
+            name: true,
+            schedule: true,
+            _count: {
+              select: {
+                surveys: true,
+                students: true,
+              },
+            },
+          },
+        }),
+        this.prisma.classSurvey.aggregate({
+          where: {
+            class: {
+              status: ClassStatus.running,
+            },
+          },
+          _max: {
+            testNumber: true,
+          },
+        }),
+        this.prisma.session.findMany({
+          where: {
+            teacherId: staffId,
+            date: {
+              gte: todayRange.start,
+              lt: todayRange.end,
+            },
+          },
+          select: {
+            id: true,
+            startTime: true,
+            endTime: true,
+            teacherPaymentStatus: true,
+            class: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            _count: {
+              select: {
+                attendance: true,
+              },
+            },
+          },
+          orderBy: [
+            { startTime: 'asc' },
+            { classId: 'asc' },
+          ],
+        }),
+      ]);
+
+    const assignedClassesIds = assignedClasses.map((item) => item.id);
+    const latestSurveyRows =
+      assignedClassesIds.length > 0
+        ? await this.prisma.classSurvey.groupBy({
+            by: ['classId'],
+            where: {
+              classId: {
+                in: assignedClassesIds,
+              },
+            },
+            _max: {
+              testNumber: true,
+            },
+          })
+        : [];
+
+    const latestRequiredSurveyTestNumber =
+      latestSurveyAggregate._max.testNumber ?? null;
+    const latestSurveyByClassId = new Map(
+      latestSurveyRows
+        .filter((row) => row.classId != null)
+        .map((row) => [row.classId as string, row._max.testNumber ?? null]),
+    );
+
+    const classItems: StaffDashboardClassItemDto[] = assignedClasses
+      .map((item) => ({
+        id: item.id,
+        name: item.name,
+        studentCount: item._count.students,
+        scheduleCount: normalizeScheduleCount(item.schedule),
+        surveyCount: item._count.surveys,
+      }))
+      .sort((left, right) => left.name.localeCompare(right.name));
+
+    const missingScheduleOrSurvey: StaffDashboardClassAlertItemDto[] = classItems
+      .map((item) => {
+        const latestClassSurveyTestNumber =
+          latestSurveyByClassId.get(item.id) ?? null;
+        const missingSchedule = item.scheduleCount === 0;
+        const missingSurvey =
+          (latestRequiredSurveyTestNumber ?? 0) > 0 &&
+          (latestClassSurveyTestNumber ?? 0) < (latestRequiredSurveyTestNumber ?? 0);
+
+        if (!missingSchedule && !missingSurvey) {
+          return null;
+        }
+
+        const reasons = [
+          missingSchedule ? 'Chưa điền lịch học' : null,
+          missingSurvey && latestRequiredSurveyTestNumber
+            ? `Chưa báo cáo khảo sát lần ${latestRequiredSurveyTestNumber}`
+            : null,
+        ].filter((value): value is string => value != null);
+
+        return {
+          classId: item.id,
+          className: item.name,
+          reason: reasons.join(' • '),
+          missingSchedule,
+          missingSurvey,
+          latestRequiredSurveyTestNumber,
+          latestClassSurveyTestNumber,
+        };
+      })
+      .filter((item): item is StaffDashboardClassAlertItemDto => item != null)
+      .sort((left, right) => left.className.localeCompare(right.className));
+
+    const todaySessionItems: StaffDashboardTodaySessionItemDto[] = todaySessions.map(
+      (session) => ({
+        sessionId: session.id,
+        classId: session.class.id,
+        className: session.class.name,
+        startTime: toIsoTime(session.startTime),
+        endTime: toIsoTime(session.endTime),
+        attendanceCount: session._count.attendance,
+        teacherPaymentStatus: session.teacherPaymentStatus,
+      }),
+    );
+
+    return {
+      assignedClasses: classItems,
+      missingScheduleOrSurvey,
+      todaySessions: todaySessionItems,
+    };
+  }
+
+  private async getLessonPlanSection(
+    staffId: string,
+  ): Promise<StaffDashboardLessonPlanSectionDto> {
+    const [totalTaskCount, completedTaskCount, remainingTaskCount, openTaskRecords] =
+      await Promise.all([
+        this.prisma.lessonTask.count({
+          where: {
+            staffLessonTasks: {
+              some: {
+                staffId,
+              },
+            },
+          },
+        }),
+        this.prisma.lessonTask.count({
+          where: {
+            staffLessonTasks: {
+              some: {
+                staffId,
+              },
+            },
+            status: LessonTaskStatus.completed,
+          },
+        }),
+        this.prisma.lessonTask.count({
+          where: {
+            staffLessonTasks: {
+              some: {
+                staffId,
+              },
+            },
+            status: {
+              in: [LessonTaskStatus.pending, LessonTaskStatus.in_progress],
+            },
+          },
+        }),
+        this.prisma.lessonTask.findMany({
+          where: {
+            staffLessonTasks: {
+              some: {
+                staffId,
+              },
+            },
+            status: {
+              in: [LessonTaskStatus.pending, LessonTaskStatus.in_progress],
+            },
+          },
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            priority: true,
+            dueDate: true,
+            createdByStaff: {
+              select: {
+                fullName: true,
+              },
+            },
+            staffLessonTasks: {
+              select: {
+                staff: {
+                  select: {
+                    fullName: true,
+                  },
+                },
+              },
+            },
+          },
+          take: 24,
+        }),
+      ]);
+
+    return {
+      totalTaskCount,
+      completedTaskCount,
+      remainingTaskCount,
+      openTasks: this.sortTaskItems(
+        openTaskRecords.map((task) => this.mapTaskItem(task)),
+      ).slice(0, 6),
+    };
+  }
+
+  private async getLessonPlanHeadSection(params: {
+    monthStart: Date;
+    monthEnd: Date;
+    weekStart: Date;
+    weekEnd: Date;
+  }): Promise<StaffDashboardLessonPlanHeadSectionDto> {
+    const [incompleteTaskRecords, totalOutputs, newOutputsThisMonth, newOutputsThisWeek] =
+      await Promise.all([
+        this.prisma.lessonTask.findMany({
+          where: {
+            status: {
+              in: [LessonTaskStatus.pending, LessonTaskStatus.in_progress],
+            },
+          },
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            priority: true,
+            dueDate: true,
+            createdByStaff: {
+              select: {
+                fullName: true,
+              },
+            },
+            staffLessonTasks: {
+              select: {
+                staff: {
+                  select: {
+                    fullName: true,
+                  },
+                },
+              },
+            },
+          },
+          take: 24,
+        }),
+        this.prisma.lessonOutput.count(),
+        this.prisma.lessonOutput.count({
+          where: {
+            createdAt: {
+              gte: params.monthStart,
+              lt: params.monthEnd,
+            },
+          },
+        }),
+        this.prisma.lessonOutput.count({
+          where: {
+            createdAt: {
+              gte: params.weekStart,
+              lt: params.weekEnd,
+            },
+          },
+        }),
+      ]);
+
+    return {
+      incompleteTasks: this.sortTaskItems(
+        incompleteTaskRecords.map((task) => this.mapTaskItem(task)),
+      ).slice(0, 8),
+      lessonOutputTotals: {
+        totalOutputs,
+        newOutputsThisMonth,
+        newOutputsThisWeek,
+      },
+    };
+  }
+
+  private async getActiveTeacherCount() {
+    return this.prisma.staffInfo.count({
+      where: {
+        status: StaffStatus.active,
+        roles: {
+          has: StaffRole.teacher,
+        },
+      },
+    });
+  }
+
+  private async getStudentAggregateMaps(studentIds: string[]) {
+    const normalizedStudentIds = Array.from(new Set(studentIds));
+
+    if (normalizedStudentIds.length === 0) {
+      return {
+        learnedTuitionByStudentId: new Map<string, number>(),
+        topupByStudentId: new Map<string, number>(),
+      };
+    }
+
+    const [learnedTuitionRows, topupRows] = await Promise.all([
+      this.prisma.attendance.groupBy({
+        by: ['studentId'],
+        where: {
+          studentId: {
+            in: normalizedStudentIds,
+          },
+          status: AttendanceStatus.present,
+        },
+        _sum: {
+          tuitionFee: true,
+        },
+      }),
+      this.prisma.walletTransactionsHistory.groupBy({
+        by: ['studentId'],
+        where: {
+          studentId: {
+            in: normalizedStudentIds,
+          },
+          type: WalletTransactionType.topup,
+        },
+        _sum: {
+          amount: true,
+        },
+      }),
+    ]);
+
+    return {
+      learnedTuitionByStudentId: new Map(
+        learnedTuitionRows.map((row) => [
+          row.studentId,
+          normalizeMoneyAmount(row._sum.tuitionFee),
+        ]),
+      ),
+      topupByStudentId: new Map(
+        topupRows.map((row) => [
+          row.studentId,
+          normalizeMoneyAmount(row._sum.amount),
+        ]),
+      ),
+    };
+  }
+
+  private async getCustomerCarePortfolios(
+    staffIds?: string[],
+  ): Promise<StaffDashboardCustomerCarePortfolioItemDto[]> {
+    const customerCareStaff = await this.prisma.staffInfo.findMany({
+      where: {
+        status: StaffStatus.active,
+        roles: {
+          has: StaffRole.customer_care,
+        },
+        ...(staffIds?.length
+          ? {
+              id: {
+                in: staffIds,
+              },
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        fullName: true,
+      },
+    });
+
+    if (customerCareStaff.length === 0) {
+      return [];
+    }
+
+    const assignments = await this.prisma.customerCareService.findMany({
+      where: {
+        staffId: {
+          in: customerCareStaff.map((staff) => staff.id),
+        },
+      },
+      select: {
+        staffId: true,
+        student: {
+          select: {
+            id: true,
+            status: true,
+          },
+        },
+      },
+    });
+
+    const { learnedTuitionByStudentId, topupByStudentId } =
+      await this.getStudentAggregateMaps(
+        assignments.map((assignment) => assignment.student.id),
+      );
+
+    const portfolioByStaffId = new Map(
+      customerCareStaff.map((staff) => [
+        staff.id,
+        {
+          staffId: staff.id,
+          staffName: staff.fullName,
+          activeStudentCount: 0,
+          learnedTuitionTotal: 0,
+          topupTotal: 0,
+        },
+      ]),
+    );
+
+    assignments.forEach((assignment) => {
+      const portfolio = portfolioByStaffId.get(assignment.staffId);
+      if (!portfolio) {
+        return;
+      }
+
+      if (assignment.student.status === 'active') {
+        portfolio.activeStudentCount += 1;
+      }
+
+      portfolio.learnedTuitionTotal +=
+        learnedTuitionByStudentId.get(assignment.student.id) ?? 0;
+      portfolio.topupTotal += topupByStudentId.get(assignment.student.id) ?? 0;
+    });
+
+    return Array.from(portfolioByStaffId.values())
+      .filter(
+        (item) =>
+          item.activeStudentCount > 0 ||
+          item.learnedTuitionTotal > 0 ||
+          item.topupTotal > 0,
+      )
+      .sort((left, right) => {
+        if (right.topupTotal !== left.topupTotal) {
+          return right.topupTotal - left.topupTotal;
+        }
+
+        if (right.learnedTuitionTotal !== left.learnedTuitionTotal) {
+          return right.learnedTuitionTotal - left.learnedTuitionTotal;
+        }
+
+        return left.staffName.localeCompare(right.staffName);
+      });
+  }
+
+  private async getExpiringStudentsByCustomerCareStaff(
+    staffId: string,
+    limit: number,
+  ) {
+    return this.prisma.$queryRaw<StudentAlertSqlRow[]>(Prisma.sql`
+      WITH student_financials AS (
+        SELECT
+          student_info.id AS "studentId",
+          student_info.full_name AS "studentName",
+          STRING_AGG(DISTINCT classes.name, ', ' ORDER BY classes.name) AS "classNames",
+          staff_info.full_name AS "ownerName",
+          COALESCE(student_info.account_balance, 0) AS "accountBalance",
+          MAX(
+            COALESCE(
+              student_classes.custom_student_tuition_per_session,
+              classes.student_tuition_per_session,
+              CASE
+                WHEN COALESCE(
+                  student_classes.custom_tuition_package_session,
+                  classes.tuition_package_session
+                ) > 0
+                  THEN ROUND(
+                    COALESCE(
+                      student_classes.custom_tuition_package_total,
+                      classes.tuition_package_total
+                    )::numeric /
+                    COALESCE(
+                      student_classes.custom_tuition_package_session,
+                      classes.tuition_package_session
+                    )
+                  )::int
+                ELSE NULL
+              END
+            )
+          ) AS "referenceTuition"
+        FROM customer_care_service
+        INNER JOIN student_info ON student_info.id = customer_care_service.student_id
+        INNER JOIN staff_info ON staff_info.id = customer_care_service.staff_id
+        INNER JOIN student_classes ON student_classes.student_id = student_info.id
+        INNER JOIN classes ON classes.id = student_classes.class_id
+        WHERE customer_care_service.staff_id = ${staffId}
+          AND classes.status = 'running'
+          AND student_info.status = 'active'
+        GROUP BY
+          student_info.id,
+          student_info.full_name,
+          student_info.account_balance,
+          staff_info.full_name
+      ),
+      eligible AS (
+        SELECT
+          "studentId",
+          "studentName",
+          "classNames",
+          "ownerName",
+          "accountBalance",
+          "referenceTuition",
+          FLOOR(
+            "accountBalance"::numeric /
+            NULLIF("referenceTuition", 0)
+          )::int AS "remainingSessions"
+        FROM student_financials
+        WHERE "referenceTuition" IS NOT NULL
+          AND "referenceTuition" > 0
+          AND "accountBalance" >= 0
+          AND "accountBalance" <= "referenceTuition" * 2
+      ),
+      counted AS (
+        SELECT
+          *,
+          COUNT(*) OVER() AS "totalCount",
+          COALESCE(SUM("accountBalance") OVER(), 0) AS "totalAmount"
+        FROM eligible
+      )
+      SELECT
+        "studentId",
+        "studentName",
+        "classNames",
+        "ownerName",
+        "accountBalance",
+        "referenceTuition",
+        "remainingSessions",
+        0 AS "debtAmount",
+        "totalCount",
+        "totalAmount"
+      FROM counted
+      ORDER BY "remainingSessions" ASC, "accountBalance" ASC, "studentName" ASC
+      LIMIT ${limit}
+    `);
+  }
+
+  private async getDebtStudentsByCustomerCareStaff(
+    staffId: string,
+    limit: number,
+  ) {
+    return this.prisma.$queryRaw<StudentAlertSqlRow[]>(Prisma.sql`
+      WITH student_financials AS (
+        SELECT
+          student_info.id AS "studentId",
+          student_info.full_name AS "studentName",
+          STRING_AGG(DISTINCT classes.name, ', ' ORDER BY classes.name) AS "classNames",
+          staff_info.full_name AS "ownerName",
+          COALESCE(student_info.account_balance, 0) AS "accountBalance",
+          MAX(
+            COALESCE(
+              student_classes.custom_student_tuition_per_session,
+              classes.student_tuition_per_session,
+              CASE
+                WHEN COALESCE(
+                  student_classes.custom_tuition_package_session,
+                  classes.tuition_package_session
+                ) > 0
+                  THEN ROUND(
+                    COALESCE(
+                      student_classes.custom_tuition_package_total,
+                      classes.tuition_package_total
+                    )::numeric /
+                    COALESCE(
+                      student_classes.custom_tuition_package_session,
+                      classes.tuition_package_session
+                    )
+                  )::int
+                ELSE NULL
+              END
+            )
+          ) AS "referenceTuition"
+        FROM customer_care_service
+        INNER JOIN student_info ON student_info.id = customer_care_service.student_id
+        INNER JOIN staff_info ON staff_info.id = customer_care_service.staff_id
+        INNER JOIN student_classes ON student_classes.student_id = student_info.id
+        INNER JOIN classes ON classes.id = student_classes.class_id
+        WHERE customer_care_service.staff_id = ${staffId}
+          AND classes.status = 'running'
+          AND student_info.status = 'active'
+        GROUP BY
+          student_info.id,
+          student_info.full_name,
+          student_info.account_balance,
+          staff_info.full_name
+      ),
+      eligible AS (
+        SELECT
+          "studentId",
+          "studentName",
+          "classNames",
+          "ownerName",
+          "accountBalance",
+          "referenceTuition",
+          ABS("accountBalance") AS "debtAmount"
+        FROM student_financials
+        WHERE "accountBalance" < 0
+      ),
+      counted AS (
+        SELECT
+          *,
+          COUNT(*) OVER() AS "totalCount",
+          COALESCE(SUM("debtAmount") OVER(), 0) AS "totalAmount"
+        FROM eligible
+      )
+      SELECT
+        "studentId",
+        "studentName",
+        "classNames",
+        "ownerName",
+        "accountBalance",
+        "referenceTuition",
+        NULL AS "remainingSessions",
+        "debtAmount",
+        "totalCount",
+        "totalAmount"
+      FROM counted
+      ORDER BY "debtAmount" DESC, "studentName" ASC
+      LIMIT ${limit}
+    `);
+  }
+
+  private async getCustomerCareSection(
+    staffId: string,
+    range: { monthStart: Date; monthEnd: Date },
+  ): Promise<StaffDashboardCustomerCareSectionDto> {
+    const assignments = await this.prisma.customerCareService.findMany({
+      where: {
+        staffId,
+      },
+      select: {
+        student: {
+          select: {
+            id: true,
+            status: true,
+            createdAt: true,
+            dropOutDate: true,
+          },
+        },
+      },
+    });
+
+    const assignedStudents = assignments.map((assignment) => assignment.student);
+    const { learnedTuitionByStudentId, topupByStudentId } =
+      await this.getStudentAggregateMaps(
+        assignedStudents.map((student) => student.id),
+      );
+
+    const [lowBalanceRows, debtRows] = await Promise.all([
+      this.getExpiringStudentsByCustomerCareStaff(staffId, 6),
+      this.getDebtStudentsByCustomerCareStaff(staffId, 6),
+    ]);
+
+    const learnedTuitionTotal = assignedStudents.reduce(
+      (sum, student) => sum + (learnedTuitionByStudentId.get(student.id) ?? 0),
+      0,
+    );
+    const topupTotal = assignedStudents.reduce(
+      (sum, student) => sum + (topupByStudentId.get(student.id) ?? 0),
+      0,
+    );
+
+    return {
+      newStudentsThisMonth: assignedStudents.filter(
+        (student) =>
+          student.createdAt >= range.monthStart &&
+          student.createdAt < range.monthEnd,
+      ).length,
+      droppedStudentsThisMonth: assignedStudents.filter(
+        (student) =>
+          student.dropOutDate != null &&
+          student.dropOutDate >= range.monthStart &&
+          student.dropOutDate < range.monthEnd,
+      ).length,
+      activeStudentsCount: assignedStudents.filter(
+        (student) => student.status === 'active',
+      ).length,
+      learnedTuitionTotal,
+      topupTotal,
+      lowBalanceStudents: lowBalanceRows.map((row) => this.mapStudentAlertItem(row)),
+      debtStudents: debtRows.map((row) => this.mapStudentAlertItem(row)),
+    };
+  }
+
+  private async getAssistantSection(
+    range: { month: string; year: string },
+  ): Promise<StaffDashboardAssistantSectionDto> {
+    const [adminDashboard, summaryCounts, activeTeachers, customerCarePortfolios] =
+      await Promise.all([
+        this.getAdminDashboard({
+          month: range.month,
+          year: range.year,
+          alertLimit: 6,
+          topClassLimit: 5,
+        }),
+        this.getSummaryCounts(),
+        this.getActiveTeacherCount(),
+        this.getCustomerCarePortfolios(),
+      ]);
+
+    const systemSummary: StaffDashboardSystemSummaryDto = {
+      activeClasses: normalizeInteger(summaryCounts.activeClasses),
+      activeStudents: normalizeInteger(summaryCounts.activeStudents),
+      activeTeachers,
+    };
+
+    return {
+      actionAlerts: adminDashboard.actionAlerts,
+      systemSummary,
+      customerCarePortfolios,
+    };
+  }
+
+  private async getAccountantSection(
+    range: { month: string; year: string },
+  ): Promise<StaffDashboardAccountantSectionDto> {
+    const [adminDashboard, unpaidRows] = await Promise.all([
+      this.getAdminDashboard({
+        month: range.month,
+        year: range.year,
+        alertLimit: 6,
+        topClassLimit: 5,
+      }),
+      this.getUnpaidStaff(6),
+    ]);
+
+    const financialOverview: StaffDashboardFinancialOverviewDto = {
+      period: adminDashboard.period,
+      summary: adminDashboard.summary,
+      breakdown: adminDashboard.breakdown,
+    };
+
+    const unpaidStaff: StaffDashboardUnpaidStaffItemDto[] = unpaidRows.map(
+      (row) => ({
+        staffId: row.staffId,
+        staffName: row.staffName,
+        sessionAmount: normalizeMoneyAmount(row.sessionAmount),
+        bonusAmount: normalizeMoneyAmount(row.bonusAmount),
+        customerCareAmount: normalizeMoneyAmount(row.customerCareAmount),
+        lessonAmount: normalizeMoneyAmount(row.lessonAmount),
+        extraAllowanceAmount: normalizeMoneyAmount(row.extraAllowanceAmount),
+        totalUnpaid: normalizeMoneyAmount(row.totalUnpaid),
+      }),
+    );
+
+    return {
+      unpaidStaff,
+      financialOverview,
+    };
+  }
+
+  async getStaffDashboard(params: {
+    staffId: string;
+    staffRoles: StaffRole[];
+    query: GetStaffDashboardQueryDto;
+  }): Promise<StaffDashboardDto> {
+    const normalizedRoles = Array.from(new Set(params.staffRoles));
+    const range = buildDashboardRange(params.query.month, params.query.year);
+    const todayRange = buildTodayRange();
+    const weekRange = buildWeekRange(todayRange.start);
+    const hasLessonPlanHead = normalizedRoles.includes(StaffRole.lesson_plan_head);
+    const hasLessonPlan =
+      normalizedRoles.includes(StaffRole.lesson_plan) && !hasLessonPlanHead;
+
+    return this.dashboardCacheService.wrapJson({
+      key: buildCacheKey('staff-self', {
+        staffId: params.staffId,
+        month: range.month,
+        year: range.year,
+        today: formatDateKey(todayRange.start),
+        roles: normalizedRoles.slice().sort().join(',') || 'none',
+      }),
+      cacheType: 'staff-self',
+      ttlSeconds: 60,
+      loader: async () => {
+        const [
+          teacher,
+          lessonPlan,
+          lessonPlanHead,
+          assistant,
+          customerCare,
+          accountant,
+        ] = await Promise.all([
+          normalizedRoles.includes(StaffRole.teacher)
+            ? this.getTeacherSection(params.staffId, todayRange)
+            : Promise.resolve(undefined),
+          hasLessonPlan
+            ? this.getLessonPlanSection(params.staffId)
+            : Promise.resolve(undefined),
+          hasLessonPlanHead
+            ? this.getLessonPlanHeadSection({
+                monthStart: range.monthStart,
+                monthEnd: range.monthEnd,
+                weekStart: weekRange.start,
+                weekEnd: weekRange.end,
+              })
+            : Promise.resolve(undefined),
+          normalizedRoles.includes(StaffRole.assistant)
+            ? this.getAssistantSection({
+                month: range.month,
+                year: range.year,
+              })
+            : Promise.resolve(undefined),
+          normalizedRoles.includes(StaffRole.customer_care)
+            ? this.getCustomerCareSection(params.staffId, {
+                monthStart: range.monthStart,
+                monthEnd: range.monthEnd,
+              })
+            : Promise.resolve(undefined),
+          normalizedRoles.includes(StaffRole.accountant)
+            ? this.getAccountantSection({
+                month: range.month,
+                year: range.year,
+              })
+            : Promise.resolve(undefined),
+        ]);
+
+        return {
+          ...(teacher ? { teacher } : {}),
+          ...(lessonPlan ? { lessonPlan } : {}),
+          ...(lessonPlanHead ? { lessonPlanHead } : {}),
+          ...(assistant ? { assistant } : {}),
+          ...(customerCare ? { customerCare } : {}),
+          ...(accountant ? { accountant } : {}),
+        };
+      },
+    });
+  }
+
   async getAdminDashboard(
     query: GetAdminDashboardQueryDto,
   ): Promise<AdminDashboardDto> {
@@ -938,6 +2041,7 @@ export class DashboardService {
         const [
           summaryCounts,
           monthlyTopupTotal,
+          totalLearnedTuition,
           trendRows,
           prepaidTuitionTotal,
           expiringStudents,
@@ -951,6 +2055,7 @@ export class DashboardService {
             monthStart: range.monthStart,
             monthEnd: range.monthEnd,
           }),
+          this.getTotalLearnedTuition(),
           this.getMonthlyTrend({
             yearStart: range.yearStart,
             yearEnd: range.yearEnd,
@@ -970,22 +2075,10 @@ export class DashboardService {
           }),
         ]);
 
-        const selectedMonthTrend =
-          trendRows.find((item) => item.monthKey === range.monthKey) ??
-          ({
-            monthStart: range.monthStart,
-            monthKey: range.monthKey,
-            monthLabel: formatMonthShort(range.monthStart),
-            revenue: 0,
-            teacherCost: 0,
-            customerCareCost: 0,
-            lessonCost: 0,
-            bonusCost: 0,
-            extraAllowanceCost: 0,
-            operatingCost: 0,
-            expense: 0,
-            profit: 0,
-          } satisfies MonthlyTrendNormalizedRow);
+        const selectedMonthTrend = this.resolveSelectedMonthTrend(
+          trendRows,
+          range,
+        );
 
         const expiringStudentsCount = normalizeInteger(
           expiringStudents[0]?.totalCount,
@@ -1157,6 +2250,7 @@ export class DashboardService {
             activeClasses: normalizeInteger(summaryCounts.activeClasses),
             activeStudents: normalizeInteger(summaryCounts.activeStudents),
             monthlyTopupTotal,
+            totalLearnedTuition,
             monthlyRevenue: selectedMonthTrend.revenue,
             monthlyExpense: selectedMonthTrend.expense,
             monthlyProfit: selectedMonthTrend.profit,
@@ -1175,6 +2269,450 @@ export class DashboardService {
           classPerformance,
           yearlySummary,
         };
+      },
+    });
+  }
+
+  async getAdminFinancialDetail(
+    query: GetAdminDashboardFinancialDetailQueryDto,
+  ): Promise<AdminDashboardFinancialDetailDto> {
+    const range = buildDashboardRange(query.month, query.year);
+    const limit = typeof query.limit === 'number' ? query.limit : 500;
+    const periodLabel = formatMonthLabel(range.month, range.year);
+
+    return this.dashboardCacheService.wrapJson({
+      key: buildCacheKey('financial-detail', {
+        limit,
+        month: range.month,
+        rowKey: query.rowKey,
+        year: range.year,
+      }),
+      cacheType: 'financial-detail',
+      loader: async () => {
+        switch (query.rowKey) {
+          case 'topup': {
+            const [amount, history] = await Promise.all([
+              this.getMonthlyTopupTotal({
+                monthStart: range.monthStart,
+                monthEnd: range.monthEnd,
+              }),
+              this.getAdminTopupHistory({
+                month: range.month,
+                year: range.year,
+                limit,
+              }),
+            ]);
+
+            return {
+              rowKey: query.rowKey,
+              title: 'Chi tiết Tổng nạp',
+              description: `Các giao dịch topup phát sinh trong ${periodLabel}.`,
+              amount,
+              sources: [
+                {
+                  key: 'topup-total',
+                  label: `Topup trong ${periodLabel}`,
+                  amount,
+                  note: `Tổng tiền học sinh đã nạp trong kỳ đang xem.`,
+                  tone: 'positive',
+                },
+              ],
+              items: history.map<AdminDashboardFinancialDetailItemDto>(
+                (item) => ({
+                  id: item.id,
+                  label: item.studentName,
+                  secondaryLabel: formatDateTimeLabel(item.dateTime),
+                  amount: item.amount,
+                  note: `${formatCurrencyLabel(item.cumulativeBefore)} -> ${formatCurrencyLabel(item.cumulativeAfter)}${item.note ? ` • ${item.note}` : ''}`,
+                }),
+              ),
+              emptyState: 'Chưa có giao dịch nạp trong kỳ này.',
+            };
+          }
+          case 'revenue': {
+            const [totalLearnedTuition, trendRows, classRows] =
+              await Promise.all([
+                this.getTotalLearnedTuition(),
+                this.getMonthlyTrend({
+                  yearStart: range.yearStart,
+                  yearEnd: range.yearEnd,
+                }),
+                this.getLearnedTuitionByClass(limit),
+              ]);
+            const selectedMonthTrend = this.resolveSelectedMonthTrend(
+              trendRows,
+              range,
+            );
+            const yearlyRevenue = trendRows.reduce(
+              (sum, row) => sum + row.revenue,
+              0,
+            );
+
+            return {
+              rowKey: query.rowKey,
+              title: 'Chi tiết Học phí đã học',
+              description:
+                'Tổng học phí đã ghi nhận từ toàn bộ attendance present của tất cả học sinh.',
+              amount: totalLearnedTuition,
+              sources: [
+                {
+                  key: 'learned-total',
+                  label: 'Lũy kế toàn hệ thống',
+                  amount: totalLearnedTuition,
+                  note: 'Tính từ tất cả buổi học có attendance present.',
+                  tone: 'positive',
+                },
+                {
+                  key: 'learned-month',
+                  label: `Riêng ${periodLabel}`,
+                  amount: selectedMonthTrend.revenue,
+                  note: 'Học phí đã ghi nhận trong tháng đang xem.',
+                  tone: 'neutral',
+                },
+                {
+                  key: 'learned-year',
+                  label: `Năm ${range.year}`,
+                  amount: yearlyRevenue,
+                  note: 'Tổng học phí đã ghi nhận trong năm đang xem.',
+                  tone: 'neutral',
+                },
+              ],
+              items: classRows.map<AdminDashboardFinancialDetailItemDto>(
+                (row) => ({
+                  id: row.classId,
+                  label: row.className,
+                  secondaryLabel: `${normalizeInteger(row.studentCount)} học sinh`,
+                  amount: normalizeMoneyAmount(row.totalAmount),
+                  note: `${normalizeInteger(row.attendanceCount)} lượt học present`,
+                }),
+              ),
+              emptyState: 'Chưa có dữ liệu học phí đã học.',
+            };
+          }
+          case 'prepaid': {
+            const [amount, rows] = await Promise.all([
+              this.getPrepaidTuitionTotal(),
+              this.getAdminStudentBalanceDetails({ limit }),
+            ]);
+
+            return {
+              rowKey: query.rowKey,
+              title: 'Chi tiết Nợ học phí chưa dạy',
+              description:
+                'Số dư dương hiện tại của học sinh active thuộc lớp running.',
+              amount,
+              sources: [
+                {
+                  key: 'prepaid-total',
+                  label: 'Số dư dương đang treo',
+                  amount,
+                  note: 'Chỉ tính học sinh active có ít nhất một lớp running.',
+                  tone: 'positive',
+                },
+              ],
+              items: rows.map<AdminDashboardFinancialDetailItemDto>((row) => ({
+                id: row.studentId,
+                label: row.studentName,
+                secondaryLabel: row.className,
+                amount: row.balance,
+                note: 'Số dư hiện tại chưa phân bổ vào các buổi học tương lai.',
+              })),
+              emptyState: 'Chưa có dữ liệu số dư học sinh.',
+            };
+          }
+          case 'uncollected': {
+            const rows = await this.getDebtStudents(limit);
+            const amount = normalizeMoneyAmount(rows[0]?.totalAmount);
+            const totalCount = normalizeInteger(rows[0]?.totalCount);
+
+            return {
+              rowKey: query.rowKey,
+              title: 'Chi tiết Chưa thu',
+              description:
+                'Các học sinh đang có số dư âm, cần theo dõi để thu thêm học phí.',
+              amount,
+              sources: [
+                {
+                  key: 'debt-total',
+                  label: 'Tổng số dư âm hiện tại',
+                  amount,
+                  note: `${totalCount} học sinh đang âm ví.`,
+                  tone: 'negative',
+                },
+              ],
+              items: rows.map<AdminDashboardFinancialDetailItemDto>((row) => ({
+                id: row.studentId,
+                label: row.studentName,
+                secondaryLabel: row.classNames,
+                amount: normalizeMoneyAmount(row.debtAmount),
+                note: row.ownerName
+                  ? `CSKH phụ trách: ${row.ownerName}`
+                  : 'Chưa gán CSKH phụ trách',
+              })),
+              emptyState: 'Chưa có học sinh nào nợ học phí.',
+            };
+          }
+          case 'pending-payroll': {
+            const rows = await this.getUnpaidStaff(limit);
+            const amount = normalizeMoneyAmount(rows[0]?.totalAmount);
+            const totalSessionAmount = normalizeMoneyAmount(
+              rows[0]?.totalSessionAmount,
+            );
+            const totalBonusAmount = normalizeMoneyAmount(
+              rows[0]?.totalBonusAmount,
+            );
+            const totalCustomerCareAmount = normalizeMoneyAmount(
+              rows[0]?.totalCustomerCareAmount,
+            );
+            const totalLessonAmount = normalizeMoneyAmount(
+              rows[0]?.totalLessonAmount,
+            );
+            const totalExtraAllowanceAmount = normalizeMoneyAmount(
+              rows[0]?.totalExtraAllowanceAmount,
+            );
+
+            return {
+              rowKey: query.rowKey,
+              title: 'Chi tiết Chờ thanh toán trợ cấp',
+              description:
+                'Tổng các khoản pending cần chi trả cho nhân sự active trên hệ thống.',
+              amount,
+              sources: [
+                {
+                  key: 'pending-session',
+                  label: 'Buổi dạy chưa thanh toán',
+                  amount: totalSessionAmount,
+                  note: 'Session teacher payment status = unpaid.',
+                  tone: 'negative',
+                },
+                {
+                  key: 'pending-customer-care',
+                  label: 'CSKH chưa thanh toán',
+                  amount: totalCustomerCareAmount,
+                  note: 'Commission customer care còn pending.',
+                  tone: 'negative',
+                },
+                {
+                  key: 'pending-lesson',
+                  label: 'Giáo án chưa thanh toán',
+                  amount: totalLessonAmount,
+                  note: 'Lesson output payment status = pending.',
+                  tone: 'negative',
+                },
+                {
+                  key: 'pending-bonus',
+                  label: 'Bonus chưa thanh toán',
+                  amount: totalBonusAmount,
+                  note: 'Bonus đang ở trạng thái pending.',
+                  tone: 'negative',
+                },
+                {
+                  key: 'pending-extra',
+                  label: 'Trợ cấp khác chưa thanh toán',
+                  amount: totalExtraAllowanceAmount,
+                  note: 'Extra allowance đang ở trạng thái pending.',
+                  tone: 'negative',
+                },
+              ],
+              items: rows.map<AdminDashboardFinancialDetailItemDto>((row) => {
+                const segments = [
+                  normalizeMoneyAmount(row.sessionAmount) > 0
+                    ? `Buổi dạy ${formatCurrencyLabel(normalizeMoneyAmount(row.sessionAmount))}`
+                    : null,
+                  normalizeMoneyAmount(row.customerCareAmount) > 0
+                    ? `CSKH ${formatCurrencyLabel(normalizeMoneyAmount(row.customerCareAmount))}`
+                    : null,
+                  normalizeMoneyAmount(row.lessonAmount) > 0
+                    ? `Giáo án ${formatCurrencyLabel(normalizeMoneyAmount(row.lessonAmount))}`
+                    : null,
+                  normalizeMoneyAmount(row.bonusAmount) > 0
+                    ? `Bonus ${formatCurrencyLabel(normalizeMoneyAmount(row.bonusAmount))}`
+                    : null,
+                  normalizeMoneyAmount(row.extraAllowanceAmount) > 0
+                    ? `Trợ cấp ${formatCurrencyLabel(normalizeMoneyAmount(row.extraAllowanceAmount))}`
+                    : null,
+                ].filter((value): value is string => value != null);
+
+                return {
+                  id: row.staffId,
+                  label: row.staffName,
+                  secondaryLabel: buildStaffUnpaidSourceLabel(row),
+                  amount: normalizeMoneyAmount(row.totalUnpaid),
+                  note:
+                    segments.length > 0
+                      ? segments.join(' • ')
+                      : 'Không có khoản pending chi tiết.',
+                };
+              }),
+              emptyState: 'Không có khoản thanh toán pending cho nhân sự.',
+            };
+          }
+          case 'personnel-cost':
+          case 'other-cost':
+          case 'profit':
+          case 'total-in': {
+            const [monthlyTopupTotal, trendRows] = await Promise.all([
+              this.getMonthlyTopupTotal({
+                monthStart: range.monthStart,
+                monthEnd: range.monthEnd,
+              }),
+              this.getMonthlyTrend({
+                yearStart: range.yearStart,
+                yearEnd: range.yearEnd,
+              }),
+            ]);
+            const selectedMonthTrend = this.resolveSelectedMonthTrend(
+              trendRows,
+              range,
+            );
+            const personnelCost =
+              selectedMonthTrend.teacherCost +
+              selectedMonthTrend.customerCareCost +
+              selectedMonthTrend.lessonCost +
+              selectedMonthTrend.bonusCost;
+            const otherCost =
+              selectedMonthTrend.operatingCost +
+              selectedMonthTrend.extraAllowanceCost;
+
+            if (query.rowKey === 'personnel-cost') {
+              return {
+                rowKey: query.rowKey,
+                title: 'Chi tiết Chi phí nhân sự',
+                description: `Các nguồn chi phí nhân sự ghi nhận trong ${periodLabel}.`,
+                amount: personnelCost,
+                sources: [
+                  {
+                    key: 'teacher-cost',
+                    label: 'Chi giảng dạy',
+                    amount: selectedMonthTrend.teacherCost,
+                    note: 'Phụ cấp buổi dạy của giáo viên.',
+                    tone: 'negative',
+                  },
+                  {
+                    key: 'customer-care-cost',
+                    label: 'Chi CSKH',
+                    amount: selectedMonthTrend.customerCareCost,
+                    note: 'Commission customer care theo attendance.',
+                    tone: 'negative',
+                  },
+                  {
+                    key: 'lesson-cost',
+                    label: 'Chi giáo án',
+                    amount: selectedMonthTrend.lessonCost,
+                    note: 'Chi phí lesson output phát sinh trong tháng.',
+                    tone: 'negative',
+                  },
+                  {
+                    key: 'bonus-cost',
+                    label: 'Bonus',
+                    amount: selectedMonthTrend.bonusCost,
+                    note: 'Các khoản thưởng đã ghi nhận trong tháng.',
+                    tone: 'negative',
+                  },
+                ],
+                items: [],
+                emptyState:
+                  'Không có thêm dòng chi tiết ngoài các nguồn chi phí trên.',
+              };
+            }
+
+            if (query.rowKey === 'other-cost') {
+              return {
+                rowKey: query.rowKey,
+                title: 'Chi tiết Chi phí khác',
+                description: `Các nguồn chi phí vận hành khác ghi nhận trong ${periodLabel}.`,
+                amount: otherCost,
+                sources: [
+                  {
+                    key: 'operating-cost',
+                    label: 'Chi phí mở rộng',
+                    amount: selectedMonthTrend.operatingCost,
+                    note: 'Các khoản cost_extend phát sinh trong tháng.',
+                    tone: 'negative',
+                  },
+                  {
+                    key: 'extra-allowance-cost',
+                    label: 'Trợ cấp khác',
+                    amount: selectedMonthTrend.extraAllowanceCost,
+                    note: 'Các khoản extra allowance đã ghi nhận.',
+                    tone: 'negative',
+                  },
+                ],
+                items: [],
+                emptyState:
+                  'Không có thêm dòng chi tiết ngoài các nguồn chi phí trên.',
+              };
+            }
+
+            if (query.rowKey === 'profit') {
+              return {
+                rowKey: query.rowKey,
+                title: 'Chi tiết Lợi nhuận',
+                description: `Lợi nhuận tháng được tính theo học phí đã học trừ toàn bộ chi phí ghi nhận trong ${periodLabel}.`,
+                amount: selectedMonthTrend.profit,
+                sources: [
+                  {
+                    key: 'profit-revenue',
+                    label: 'Học phí đã học',
+                    amount: selectedMonthTrend.revenue,
+                    note: 'Nguồn cộng vào lợi nhuận.',
+                    tone: 'positive',
+                  },
+                  {
+                    key: 'profit-personnel',
+                    label: 'Chi phí nhân sự',
+                    amount: personnelCost,
+                    note: 'Nguồn bị trừ khỏi lợi nhuận.',
+                    tone: 'negative',
+                  },
+                  {
+                    key: 'profit-other',
+                    label: 'Chi phí khác',
+                    amount: otherCost,
+                    note: 'Nguồn bị trừ khỏi lợi nhuận.',
+                    tone: 'negative',
+                  },
+                ],
+                items: [],
+                emptyState:
+                  'Lợi nhuận của tháng này chỉ gồm các nguồn cộng trừ ở trên.',
+              };
+            }
+
+            return {
+              rowKey: query.rowKey,
+              title: 'Chi tiết Tổng nhận',
+              description: `Tổng nhận tháng được tính từ dòng tiền nạp trừ các khoản chi đã ghi nhận trong ${periodLabel}.`,
+              amount: monthlyTopupTotal - personnelCost - otherCost,
+              sources: [
+                {
+                  key: 'total-in-topup',
+                  label: 'Tổng nạp',
+                  amount: monthlyTopupTotal,
+                  note: 'Nguồn tiền vào trong tháng đang xem.',
+                  tone: 'positive',
+                },
+                {
+                  key: 'total-in-personnel',
+                  label: 'Chi phí nhân sự',
+                  amount: personnelCost,
+                  note: 'Khoản trừ ra khỏi tổng nhận.',
+                  tone: 'negative',
+                },
+                {
+                  key: 'total-in-other',
+                  label: 'Chi phí khác',
+                  amount: otherCost,
+                  note: 'Khoản trừ ra khỏi tổng nhận.',
+                  tone: 'negative',
+                },
+              ],
+              items: [],
+              emptyState:
+                'Tổng nhận của tháng này chỉ gồm các nguồn cộng trừ ở trên.',
+            };
+          }
+        }
       },
     });
   }

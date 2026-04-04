@@ -16,6 +16,7 @@ model User {
   first_name      String?         @db.VarChar
   last_name       String?         @db.VarChar
   actionHistories ActionHistory[]
+  notificationsCreated Notification[] @relation("NotificationCreatedBy")
   staffInfo       StaffInfo?
   studentInfo     StudentInfo?
 
