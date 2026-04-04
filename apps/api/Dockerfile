@@ -27,7 +27,7 @@ RUN pnpm --filter api run build
 FROM base AS pruner
 WORKDIR /app
 COPY --from=builder /app .
-RUN pnpm deploy --filter api --prod /deploy/api
+RUN pnpm deploy --filter api --prod --legacy /deploy/api
 
 # ── Final image ────────────────────────────────────────────────────────────────
 FROM node:20-alpine AS production
