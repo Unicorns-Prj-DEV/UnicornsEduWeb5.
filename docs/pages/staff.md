@@ -87,13 +87,13 @@
 - `/staff/customer-care-detail`
   - tự động lấy `staffInfo.id` của user đang đăng nhập, không nhận `staffId` từ URL
   - dùng cùng dữ liệu với trang admin customer-care detail: 2 tab **Học sinh** và **Hoa hồng**
-  - tab **Học sinh** hiển thị học sinh đang được giao chăm sóc (trạng thái, tên, số dư, tỉnh, lớp), sort theo số dư tăng dần
+  - tab **Học sinh** hiển thị học sinh đang được giao chăm sóc (trạng thái, tên, số dư, tỉnh, lớp), sort theo số dư tăng dần; từ `lg` trở xuống dùng card list, từ `lg` trở lên giữ desktop table
   - ở tab **Học sinh**, tên học sinh mở trực tiếp `/staff/students/[id]` và tên lớp mở `/staff/classes/[id]`; cả hai route đều bị ép về policy read-only của `customer_care` và backend chỉ trả dữ liệu cho đúng học sinh/lớp thuộc hồ sơ CSKH hiện tại
   - tab **Hoa hồng** hiển thị tổng hoa hồng 30 ngày qua theo học sinh; trên desktop, hàng danh sách dùng cột `Tên` và `Tổng tiền hoa hồng` cố định để giữ số liệu thẳng cột khi mở rộng từng học sinh xem commission theo buổi
-  - khi mở rộng từng học sinh, mỗi buổi học hiển thị theo đúng một hàng, có badge trạng thái thanh toán CSKH lấy từ `customerCarePaymentStatus`, kèm lớp, học phí, hệ số CSKH và số tiền commission của buổi
+  - khi mở rộng từng học sinh, mỗi buổi học hiển thị theo đúng một hàng ở desktop và chuyển sang stacked cards ở mobile/tablet; cả hai layout đều có badge trạng thái thanh toán CSKH lấy từ `customerCarePaymentStatus`, kèm lớp, học phí, hệ số CSKH và số tiền commission của buổi
 - `/staff/customer-care-detail/[staffId]`
   - chỉ dành cho `staff.assistant`
-  - mirror admin customer-care detail và dùng `CustomerCareDetailPanels` ở `workspaceMode="admin"`, nhưng deep-link nội bộ tự đổi sang `/staff/students?...` và `/staff/classes/[id]`
+  - mirror admin customer-care detail và dùng `CustomerCareDetailPanels` ở `workspaceMode="admin"`, nhưng deep-link nội bộ tự đổi sang `/staff/students?...` và `/staff/classes/[id]`; responsive behavior giữ cùng dual layout của màn admin
 - `/staff/assistant-detail`, `/staff/accountant-detail`, `/staff/communication-detail`
   - dùng self-service endpoint đọc trợ cấp của chính staff hiện tại theo đúng role tương ứng
   - layout giữ cùng visual language với admin extra allowance detail; `assistant` và `accountant` không có create / bulk / edit; `communication` có **Thêm trợ cấp** và được bấm vào từng khoản của chính mình để **chỉnh sửa** `month / amount / note`

@@ -134,6 +134,69 @@ export default function CustomerCareDetailPanels({
   const toggleExpand = (studentId: string) => {
     setExpandedStudentId((prev) => (prev === studentId ? null : studentId));
   };
+
+  const buildStudentHref = (student: CustomerCareStudentItem) => {
+    if (isAdminWorkspace) {
+      return `${buildAdminLikePath(routeBase, "students")}?search=${encodeURIComponent(
+        student.fullName || "",
+      )}`;
+    }
+
+    return `/staff/students/${encodeURIComponent(student.id)}`;
+  };
+
+  const buildClassHref = (classId: string) => {
+    if (isAdminWorkspace) {
+      return buildAdminLikePath(
+        routeBase,
+        `classes/${encodeURIComponent(classId)}`,
+      );
+    }
+
+    if (!allowStaffClassNavigation) {
+      return null;
+    }
+
+    return `/staff/classes/${encodeURIComponent(classId)}`;
+  };
+
+  const renderClassLinks = (
+    classes: CustomerCareStudentItem["classes"] | undefined,
+  ) => {
+    if (!classes?.length) {
+      return <span className="text-sm text-text-muted">—</span>;
+    }
+
+    return (
+      <div className="flex flex-wrap gap-2">
+        {classes.map((classItem) => {
+          const href = buildClassHref(classItem.id);
+
+          if (!href) {
+            return (
+              <span
+                key={classItem.id}
+                className="inline-flex rounded-full border border-border-default bg-bg-secondary px-2.5 py-1 text-xs font-medium text-text-secondary"
+              >
+                {classItem.name}
+              </span>
+            );
+          }
+
+          return (
+            <Link
+              key={classItem.id}
+              href={href}
+              className="inline-flex rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:border-primary/35 hover:bg-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            >
+              {classItem.name}
+            </Link>
+          );
+        })}
+      </div>
+    );
+  };
+
   const indicatorTransition = prefersReducedMotion
     ? { duration: 0 }
     : TAB_INDICATOR_TRANSITION;
@@ -226,8 +289,66 @@ export default function CustomerCareDetailPanels({
             </div>
           )}
           {!studentsLoading && !studentsError && students.length > 0 && (
-            <div className="overflow-x-auto rounded-[1.5rem] border border-border-default bg-bg-surface shadow-sm">
-              <table className="w-full min-w-[320px] border-collapse text-left text-sm">
+            <div className="space-y-3">
+              <div className="space-y-3 lg:hidden">
+                {students.map((row: CustomerCareStudentItem) => (
+                  <article
+                    key={row.id}
+                    className="rounded-[1.5rem] border border-border-default bg-bg-surface p-4 shadow-sm"
+                  >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`inline-block size-2.5 rounded-full ${statusDotClass(
+                              row.status ?? "active",
+                            )}`}
+                            aria-hidden
+                          />
+                          <span className="text-xs font-medium uppercase tracking-[0.16em] text-text-muted">
+                            {STATUS_LABELS[row.status ?? "active"]}
+                          </span>
+                        </div>
+                        <Link
+                          href={buildStudentHref(row)}
+                          className="mt-3 inline-flex max-w-full text-base font-semibold text-primary underline-offset-4 transition-colors hover:text-primary-hover hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                        >
+                          <span className="truncate">{row.fullName || "—"}</span>
+                        </Link>
+                      </div>
+
+                      <div className="w-full rounded-[1.15rem] border border-border-default bg-bg-secondary/35 px-4 py-3 sm:w-auto sm:min-w-[11rem]">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                          Số dư
+                        </p>
+                        <p className="mt-1 text-lg font-semibold tabular-nums text-text-primary">
+                          {formatCurrency(row.accountBalance)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                          Tỉnh
+                        </p>
+                        <p className="mt-1 text-sm text-text-secondary">
+                          {row.province ?? "—"}
+                        </p>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                          Lớp
+                        </p>
+                        <div className="mt-2">{renderClassLinks(row.classes)}</div>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+
+              <div className="hidden overflow-x-auto rounded-[1.5rem] border border-border-default bg-bg-surface shadow-sm lg:block">
+                <table className="w-full min-w-[720px] border-collapse text-left text-sm">
                 <caption className="sr-only">Danh sách học sinh chăm sóc</caption>
                 <thead>
                   <tr className="border-b border-border-default bg-bg-secondary/80">
@@ -262,59 +383,25 @@ export default function CustomerCareDetailPanels({
                         />
                       </td>
                       <td className="px-3 py-3 font-medium text-text-primary">
-                        {isAdminWorkspace ? (
-                          <Link
-                            href={`${buildAdminLikePath(routeBase, "students")}?search=${encodeURIComponent(row.fullName || "")}`}
-                            className="text-primary underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                          >
-                            {row.fullName || "—"}
-                          </Link>
-                        ) : (
-                          <Link
-                            href={`/staff/students/${encodeURIComponent(row.id)}`}
-                            className="text-primary underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                          >
-                            {row.fullName || "—"}
-                          </Link>
-                        )}
+                        <Link
+                          href={buildStudentHref(row)}
+                          className="text-primary underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                        >
+                          {row.fullName || "—"}
+                        </Link>
                       </td>
                       <td className="px-3 py-3 tabular-nums text-text-secondary">
                         {formatCurrency(row.accountBalance)}
                       </td>
                       <td className="px-3 py-3 text-text-secondary">{row.province ?? "—"}</td>
                       <td className="px-3 py-3 text-text-secondary">
-                        {row.classes?.length
-                          ? row.classes.map((classItem, idx) => (
-                            <span key={classItem.id}>
-                              {idx > 0 ? ", " : ""}
-                              {isAdminWorkspace ? (
-                                <Link
-                                  href={buildAdminLikePath(
-                                    routeBase,
-                                    `classes/${encodeURIComponent(classItem.id)}`,
-                                  )}
-                                  className="text-primary underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                                >
-                                  {classItem.name}
-                                </Link>
-                              ) : allowStaffClassNavigation ? (
-                                <Link
-                                  href={`/staff/classes/${encodeURIComponent(classItem.id)}`}
-                                  className="text-primary underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                                >
-                                  {classItem.name}
-                                </Link>
-                              ) : (
-                                classItem.name
-                              )}
-                            </span>
-                          ))
-                          : "—"}
+                        {renderClassLinks(row.classes)}
                       </td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
             </div>
           )}
         </motion.section>
@@ -348,7 +435,7 @@ export default function CustomerCareDetailPanels({
           {!commissionsLoading && !commissionsError && commissions.length > 0 && (
             <div className="space-y-2">
               <div
-                className={`hidden items-center gap-3 rounded-[1.25rem] border border-border-default/80 bg-bg-secondary/80 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted md:grid ${COMMISSION_ROW_GRID_CLASS}`}
+                className={`hidden items-center gap-3 rounded-[1.25rem] border border-border-default/80 bg-bg-secondary/80 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted lg:grid ${COMMISSION_ROW_GRID_CLASS}`}
                 aria-hidden
               >
                 <span>Tên</span>
@@ -398,8 +485,72 @@ export default function CustomerCareDetailPanels({
                           Không có buổi học trong 30 ngày qua.
                         </p>
                       ) : (
-                        <div className="overflow-x-auto rounded-[1.1rem] border border-border-default bg-bg-surface">
-                          <div className="min-w-[46rem]">
+                        <div className="space-y-3">
+                          <div className="space-y-3 lg:hidden">
+                            {sessionCommissions.map(
+                              (
+                                session: CustomerCareSessionCommissionItem,
+                              ) => (
+                                <article
+                                  key={session.sessionId}
+                                  className="rounded-[1.15rem] border border-border-default bg-bg-surface px-4 py-3 shadow-sm"
+                                >
+                                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                    <div className="min-w-0">
+                                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                                        Buổi học
+                                      </p>
+                                      <p className="mt-1 text-sm font-semibold text-text-primary">
+                                        {formatDate(session.date)}
+                                      </p>
+                                      <p className="mt-1 break-words text-sm text-text-secondary">
+                                        {session.className ?? "Chưa gắn lớp"}
+                                      </p>
+                                    </div>
+                                    <span
+                                      className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${paymentStatusChipClass(
+                                        session.paymentStatus,
+                                      )}`}
+                                    >
+                                      {PAYMENT_STATUS_LABELS[
+                                        session.paymentStatus
+                                      ]}
+                                    </span>
+                                  </div>
+
+                                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                                    <div>
+                                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                                        Học phí
+                                      </p>
+                                      <p className="mt-1 text-sm tabular-nums text-text-secondary">
+                                        {formatCurrency(session.tuitionFee)}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                                        Hệ số CSKH
+                                      </p>
+                                      <p className="mt-1 text-sm tabular-nums text-text-secondary">
+                                        {session.customerCareCoef.toFixed(2)}
+                                      </p>
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                                        Hoa hồng
+                                      </p>
+                                      <p className="mt-1 text-base font-semibold tabular-nums text-primary">
+                                        {formatCurrency(session.commission)}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </article>
+                              ),
+                            )}
+                          </div>
+
+                          <div className="hidden overflow-x-auto rounded-[1.1rem] border border-border-default bg-bg-surface lg:block">
+                            <div className="min-w-[46rem]">
                             <div
                               className={`grid gap-3 border-b border-border-default bg-bg-secondary/75 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted ${SESSION_COMMISSION_GRID_CLASS}`}
                             >
@@ -441,6 +592,7 @@ export default function CustomerCareDetailPanels({
                                 </li>
                               ))}
                             </ul>
+                            </div>
                           </div>
                         </div>
                       )}

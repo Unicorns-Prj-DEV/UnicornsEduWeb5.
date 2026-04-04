@@ -526,6 +526,45 @@ export default function AdminDashboardTabPage() {
     router.push(buildAdminLikePath(routeBase, `classes/${alert.targetId}`));
   };
 
+  const openFinancialDrilldown = (drilldown?: FinancialRowDrilldown) => {
+    if (drilldown === "topup-history") {
+      setIsTopupHistoryOpen(true);
+      return;
+    }
+
+    if (drilldown === "student-balance") {
+      setIsStudentBalanceOpen(true);
+    }
+  };
+
+  const renderFinancialValue = (
+    row: FinancialSummaryRow,
+    className: string,
+  ) => {
+    if (row.drilldown) {
+      return (
+        <button
+          type="button"
+          onClick={() => openFinancialDrilldown(row.drilldown)}
+          className={className}
+          aria-label={
+            row.drilldown === "topup-history"
+              ? "Mở lịch sử nạp theo tháng đang xem"
+              : "Mở chi tiết số dư học sinh"
+          }
+        >
+          {formatCurrency(row.value)}
+        </button>
+      );
+    }
+
+    return (
+      <span className={className.replace("text-blue-600", "text-text-primary")}>
+        {formatCurrency(row.value)}
+      </span>
+    );
+  };
+
   const quickCards =
     quickView === "finance"
       ? [
@@ -657,7 +696,50 @@ export default function AdminDashboardTabPage() {
             </h2>
           </div>
 
-          <div className="overflow-x-auto border-t border-border-default">
+          <div className="space-y-3 border-t border-border-default p-4 md:hidden">
+            {financialSummaryRows.map((row) => (
+              <article
+                key={row.key}
+                className={`rounded-xl border px-4 py-3 shadow-sm ${
+                  row.emphasize
+                    ? "border-primary/15 bg-primary/5"
+                    : "border-border-default bg-bg-surface"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                      Danh mục
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-text-primary">
+                      {row.label}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                      Giá trị
+                    </p>
+                    <div className="mt-1">
+                      {renderFinancialValue(
+                        row,
+                        "text-right text-base font-semibold tabular-nums text-blue-600 underline-offset-2 transition-colors hover:text-blue-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus",
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 border-t border-border-default/70 pt-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                    Ghi chú
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-text-secondary">
+                    {row.note}
+                  </p>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="hidden overflow-x-auto border-t border-border-default md:block">
             <Table>
               <TableCaption className="sr-only">
                 Báo cáo tài chính theo tháng đang xem. Nhấp giá trị màu xanh ở Tổng nạp hoặc Nợ học phí chưa dạy để
@@ -686,29 +768,9 @@ export default function AdminDashboardTabPage() {
                       <p className="text-sm font-semibold text-text-primary">{row.label}</p>
                     </TableCell>
                     <TableCell className="py-4 align-top">
-                      {row.drilldown ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (row.drilldown === "topup-history") {
-                              setIsTopupHistoryOpen(true);
-                              return;
-                            }
-                            setIsStudentBalanceOpen(true);
-                          }}
-                          className="text-left text-sm font-semibold tabular-nums text-blue-600 underline-offset-2 transition-colors hover:text-blue-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                          aria-label={
-                            row.drilldown === "topup-history"
-                              ? "Mở lịch sử nạp theo tháng đang xem"
-                              : "Mở chi tiết số dư học sinh"
-                          }
-                        >
-                          {formatCurrency(row.value)}
-                        </button>
-                      ) : (
-                        <span className="text-sm font-semibold tabular-nums text-text-primary">
-                          {formatCurrency(row.value)}
-                        </span>
+                      {renderFinancialValue(
+                        row,
+                        "text-left text-sm font-semibold tabular-nums text-blue-600 underline-offset-2 transition-colors hover:text-blue-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus",
                       )}
                     </TableCell>
                     <TableCell className="whitespace-normal py-4 pr-5 align-top text-sm leading-relaxed text-text-muted sm:pr-6">
