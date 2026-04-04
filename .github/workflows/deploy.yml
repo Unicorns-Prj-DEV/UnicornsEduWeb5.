@@ -51,7 +51,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            NEXT_PUBLIC_BACKEND_URL=https://yourdomain.com/api
+            NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL }}
 
   deploy:
     name: Deploy to VPS
@@ -77,7 +77,7 @@ jobs:
 
             # Run pending Prisma migrations
             docker compose -f docker-compose.prod.yml exec -T api \
-              npx prisma migrate deploy --schema=./prisma/schema/
+              ./node_modules/.bin/prisma migrate deploy --schema=./prisma/schema/
 
             # Remove dangling images to save disk space
             docker image prune -f
