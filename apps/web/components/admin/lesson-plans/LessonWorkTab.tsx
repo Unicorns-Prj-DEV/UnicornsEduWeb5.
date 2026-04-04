@@ -74,6 +74,13 @@ function resolvePrimaryLink(output: LessonWorkOutputItem) {
   return output.link?.trim() || output.originalLink?.trim() || "";
 }
 
+function isNestedInteractiveElement(target: EventTarget | null) {
+  return (
+    target instanceof HTMLElement &&
+    Boolean(target.closest("button, a, input, textarea, select, summary"))
+  );
+}
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("vi-VN").format(value);
 }
@@ -197,7 +204,7 @@ function WorkPagination({
 function WorkTableSkeleton({ rows = 5 }: { rows?: number }) {
   return (
     <>
-      <div className="space-y-3 md:hidden">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:hidden">
         {Array.from({ length: rows }).map((_, index) => (
           <div
             key={`work-mobile-sk-${index}`}
@@ -233,7 +240,7 @@ function WorkTableSkeleton({ rows = 5 }: { rows?: number }) {
         ))}
       </div>
 
-      <div className="hidden overflow-hidden rounded-[1.35rem] border border-border-default bg-bg-surface shadow-sm md:block">
+      <div className="hidden overflow-hidden rounded-[1.35rem] border border-border-default bg-bg-surface shadow-sm xl:block">
         <div className="overflow-x-auto">
           <table className="w-full table-fixed border-collapse text-left">
             <colgroup>
@@ -810,7 +817,157 @@ export default function LessonWorkTab({
 
           {outputs.length > 0 ? (
             <div className="overflow-hidden rounded-xl border border-border-default">
-              <div className="overflow-x-auto">
+              <div className="grid grid-cols-1 gap-3 p-3 md:grid-cols-1 xl:hidden">
+                {outputs.map((output) => {
+                  const linkUrl = resolvePrimaryLink(output);
+                  const isSelected = selected.has(output.id);
+
+                  return (
+                    <article
+                      key={`${output.id}-card`}
+                      role={canOpenOutputPopup ? "button" : undefined}
+                      tabIndex={canOpenOutputPopup ? 0 : undefined}
+                      className={`rounded-[1.35rem] border bg-bg-surface p-4 text-left shadow-sm transition-colors ${canOpenOutputPopup
+                        ? "cursor-pointer hover:bg-bg-secondary/35 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
+                        : ""
+                        } ${isSelected
+                          ? "border-primary/30 bg-primary/5"
+                          : "border-border-default"
+                        }`}
+                      onClick={
+                        canOpenOutputPopup
+                          ? () => openOutputDetail(output.id)
+                          : undefined
+                      }
+                      onKeyDown={(event) => {
+                        if (
+                          !canOpenOutputPopup ||
+                          isNestedInteractiveElement(event.target)
+                        ) {
+                          return;
+                        }
+
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          openOutputDetail(output.id);
+                        }
+                      }}
+                      aria-label={
+                        canOpenOutputPopup
+                          ? `Mở popup chỉnh sửa bài ${output.lessonName}`
+                          : undefined
+                      }
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap gap-1.5">
+                            {output.tags.length > 0 ? (
+                              output.tags.map((tag) => (
+                                <span
+                                  key={`${output.id}-${tag}`}
+                                  className="rounded-full border border-border-default bg-bg-secondary px-2 py-0.5 text-[11px] font-medium text-text-secondary"
+                                >
+                                  {tag}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-sm text-text-muted">—</span>
+                            )}
+                          </div>
+                          <p className="mt-3 text-base font-semibold leading-6 text-text-primary">
+                            {output.lessonName}
+                          </p>
+                          {output.task?.title ? (
+                            <p className="mt-1 text-sm text-text-muted">
+                              Công việc: {output.task.title}
+                            </p>
+                          ) : null}
+                        </div>
+
+                        <div className="flex shrink-0 items-start gap-2">
+                          {canBulkEditPaymentStatus ? (
+                            <div onClick={(event) => event.stopPropagation()}>
+                              <SelectionCheckbox
+                                checked={isSelected}
+                                onChange={() => toggleOne(output.id)}
+                                disabled={bulkStatusMutation.isPending}
+                                ariaLabel={`Chọn ${output.lessonName}`}
+                              />
+                            </div>
+                          ) : null}
+                          <LevelPill level={output.level} />
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap items-center gap-2">
+                        <PaymentPill
+                          paymentStatus={output.paymentStatus}
+                          cost={output.cost}
+                        />
+                        <span className="rounded-full border border-border-default bg-bg-secondary/70 px-2.5 py-1 text-xs text-text-secondary">
+                          {output.contestUploaded?.trim() || "Chưa có contest"}
+                        </span>
+                      </div>
+
+                      <div className="mt-4 flex items-start justify-between gap-3">
+                        <p className="min-w-0 flex-1 text-sm leading-6 text-text-secondary">
+                          <span className="font-medium text-text-primary">
+                            Link:
+                          </span>{" "}
+                          <span className="break-words">
+                            {linkUrl || "Chưa có liên kết"}
+                          </span>
+                        </p>
+                        <div
+                          className="flex shrink-0 items-center gap-0.5"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            title="Sao chép liên kết"
+                            aria-label={`Sao chép liên kết của ${output.lessonName}`}
+                            disabled={!linkUrl}
+                            onClick={() => void copyText(linkUrl, "liên kết")}
+                            className="rounded-lg p-2 text-text-muted transition-colors hover:bg-bg-secondary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            title="Mở liên kết"
+                            aria-label={`Mở liên kết của ${output.lessonName}`}
+                            disabled={!linkUrl}
+                            onClick={() => openExternal(linkUrl)}
+                            className="rounded-lg p-2 text-text-muted transition-colors hover:bg-bg-secondary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </button>
+                          {canDeleteOutputs ? (
+                            <button
+                              type="button"
+                              title="Xóa"
+                              aria-label={`Xóa ${output.lessonName}`}
+                              disabled={deleteMutation.isPending}
+                              onClick={() => confirmDelete(output)}
+                              className="rounded-lg p-2 text-text-muted transition-colors hover:bg-error/15 hover:text-error disabled:opacity-50"
+                            >
+                              <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+
+              <div className="hidden overflow-x-auto xl:block">
                 <table className="w-full table-fixed border-collapse text-left">
                   <colgroup>
                     {canBulkEditPaymentStatus ? (

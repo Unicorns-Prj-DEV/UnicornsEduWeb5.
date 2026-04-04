@@ -38,11 +38,13 @@
 - `/staff/users`, `/staff/staffs`, `/staff/staffs/[id]`, `/staff/classes`, `/staff/students`, `/staff/students/[id]`, `/staff/costs`, `/staff/history`
   - là các mirror route của admin workspace nhưng chạy trong staff shell
   - internal link, pagination, search và các deep-link nội bộ đều giữ route-base `/staff`
+  - riêng `/staff/history` re-export trực tiếp page admin history nên giữ nguyên hành vi timeline, filter, lazy detail fetch và snapshot before/after có đồng bộ scroll theo cả trục dọc lẫn ngang
 - `/staff/profile`
   - là self-detail page đầy đủ của staff hiện tại và bám layout chính của `apps/web/app/admin/staffs/[id]/page.tsx`
   - header hiển thị avatar, trạng thái staff, staff roles và nút chỉnh sửa hồ sơ cơ bản
   - có popup tự sửa hồ sơ cơ bản bằng `PATCH /users/me/staff`
   - chỉ cho sửa: `full_name`, `birth_date`, `university`, `high_school`, `specialization`, `bank_account`, `bank_qr_link`
+  - trường `Mô tả chuyên môn` trong block `Thông tin cơ bản` giữ được newline từ textarea và cũng render được rich text HTML đã sanitize để self profile không lệch hành vi với admin detail
   - hiển thị QR thanh toán từ hồ sơ staff hiện tại và tái dùng popup self-edit để cập nhật
   - hiển thị đầy đủ các section cùng contract dữ liệu với admin detail:
     - `Thông tin cơ bản`
@@ -114,6 +116,8 @@
 - `/staff/lesson-plans`, `/staff/lesson-plans/tasks/[taskId]`, `/staff/lesson-manage-details`
   - dùng chung lesson workspace với admin nhưng route-base giữ trong nhóm `/staff`
   - `lesson_plan_head` thấy đủ 3 tab `Tổng quan`, `Công việc`, `Giáo Án`; có toàn quyền tạo/sửa `LessonResource`, `LessonTask`, `LessonOutput`, bulk update `paymentStatus`, mở popup detail, mở màn phóng to và vào trang task detail ngay trong staff shell
+  - layout responsive của workspace này có dải tablet riêng: trước desktop table, các tab sẽ hiển thị card grid 2 cột để không bị nén trong staff shell
+  - với `lesson_plan_head` và `assistant`, item tài nguyên trong tab `Tổng quan` cũng mở popup chỉnh sửa khi bấm trực tiếp vào card/dòng; link ngoài và nút xóa vẫn giữ hành vi riêng
   - `lesson_plan` dùng chính route `/staff/lesson-plans` ở `participantMode`; chỉ thấy 2 tab `Tổng quan` và `Công việc`
   - trong `participantMode`, tab `Tổng quan` chỉ hiển thị task mà backend xác nhận staff hiện tại đang tham gia qua `StaffLessonTask`; đây là assignment riêng của task, không suy ra từ `lesson_outputs.staff_id`
   - trong `participantMode`, tab `Tổng quan` vẫn có nút `Thêm tài nguyên`, nhưng popup tạo resource bắt buộc chọn một task thuộc assignment của chính mình trước khi lưu

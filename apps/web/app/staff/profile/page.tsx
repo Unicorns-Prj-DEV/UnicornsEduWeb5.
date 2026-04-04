@@ -733,7 +733,7 @@ export default function StaffSelfDetailPage() {
               />
               <StaffDetailRow
                 label="Mô tả chuyên môn"
-                value={staff.specialization?.trim()}
+                richTextValue={staff.specialization}
               />
             </dl>
           </StaffCard>

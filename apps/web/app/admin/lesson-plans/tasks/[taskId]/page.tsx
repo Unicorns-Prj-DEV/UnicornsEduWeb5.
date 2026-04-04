@@ -485,7 +485,7 @@ export function LessonTaskDetailPage({
           <>
             <section className="relative overflow-hidden rounded-[2rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
               <div
-                className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.14),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(14,165,233,0.12),_transparent_30%)]"
+                className="pointer-events-none absolute inset-0 "
                 aria-hidden
               />
 

@@ -62,6 +62,13 @@ function resolvePrimaryLink(output: LessonWorkOutputItem) {
   return output.link?.trim() || output.originalLink?.trim() || "";
 }
 
+function isNestedInteractiveElement(target: EventTarget | null) {
+  return (
+    target instanceof HTMLElement &&
+    Boolean(target.closest("button, a, input, textarea, select, summary"))
+  );
+}
+
 function formatTagsLine(output: LessonWorkOutputItem) {
   if (output.tags.length === 0) {
     return "—";
@@ -415,8 +422,8 @@ export default function LessonExercisesTab({
       aria-labelledby="lesson-tab-exercises"
       className="flex flex-col gap-4"
     >
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
-        <aside className="shrink-0 lg:w-52">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:gap-6">
+        <aside className="shrink-0 xl:w-52">
           <nav
             className="rounded-[1.45rem] border border-border-default bg-[linear-gradient(180deg,rgba(248,250,252,0.92),rgba(255,255,255,0.98))] p-2.5 shadow-sm"
             aria-label="Lọc theo level"
@@ -429,14 +436,14 @@ export default function LessonExercisesTab({
                 Lọc độ khó
               </p>
             </div>
-            <ul className="grid grid-cols-1 gap-1.5 pb-1 sm:grid-cols-1 lg:flex lg:flex-col lg:gap-1 lg:overflow-x-visible lg:pb-0">
+            <ul className="grid grid-cols-2 gap-1.5 pb-1 sm:grid-cols-3 lg:grid-cols-4 xl:flex xl:flex-col xl:gap-1 xl:overflow-x-visible xl:pb-0">
               {LEVEL_OPTIONS.map((opt) => {
                 const active =
                   opt.key === "all"
                     ? exLevel === "all"
                     : exLevel === opt.key;
                 return (
-                  <li key={opt.key} className=" lg:w-full">
+                  <li key={opt.key} className="xl:w-full">
                     <button
                       type="button"
                       onClick={() => setLevel(opt.key)}
@@ -513,10 +520,136 @@ export default function LessonExercisesTab({
               </button>
             </div>
 
-            <div className="mt-4 md:max-h-[min(32rem,70vh)] md:overflow-y-auto">
+            <div className="mt-4 xl:max-h-[min(32rem,70vh)] xl:overflow-y-auto">
               {outputs.length > 0 ? (
                 <div className="overflow-hidden rounded-xl border border-border-default">
-                  <div className="overflow-x-auto">
+                  <div className="grid grid-cols-1 gap-3 p-3 md:grid-cols-1 xl:hidden">
+                    {outputs.map((output) => {
+                      const linkUrl = resolvePrimaryLink(output);
+
+                      return (
+                        <article
+                          key={`${output.id}-card`}
+                          role={canManageOutputs ? "button" : undefined}
+                          tabIndex={canManageOutputs ? 0 : undefined}
+                          className={`rounded-[1.35rem] border border-border-default bg-bg-surface p-4 shadow-sm transition-colors ${canManageOutputs
+                            ? "cursor-pointer hover:bg-bg-secondary/35 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
+                            : ""
+                            }`}
+                          onClick={
+                            canManageOutputs
+                              ? () => openOutputDetail(output.id)
+                              : undefined
+                          }
+                          onKeyDown={(event) => {
+                            if (
+                              !canManageOutputs ||
+                              isNestedInteractiveElement(event.target)
+                            ) {
+                              return;
+                            }
+
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              openOutputDetail(output.id);
+                            }
+                          }}
+                          aria-label={
+                            canManageOutputs
+                              ? `Mở popup chỉnh sửa bài ${output.lessonName}`
+                              : undefined
+                          }
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
+                                Tag
+                              </p>
+                              <p className="mt-2 text-sm leading-6 text-text-secondary">
+                                {formatTagsLine(output)}
+                              </p>
+                            </div>
+                            <span className="rounded-full border border-border-default bg-primary/8 px-2.5 py-1 text-xs font-semibold text-primary">
+                              {output.level?.trim() ? output.level : "Level —"}
+                            </span>
+                          </div>
+
+                          <div className="mt-4 min-w-0">
+                            <p className="text-base font-semibold leading-6 text-text-primary">
+                              {output.lessonName}
+                            </p>
+                          </div>
+
+                          <div className="mt-4 flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
+                                Link
+                              </p>
+                              <p className="mt-2 break-words text-sm leading-6 text-text-secondary">
+                                {linkUrl || "Chưa có liên kết"}
+                              </p>
+                            </div>
+                            <div
+                              className="flex shrink-0 items-center gap-0.5"
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                title="Sao chép liên kết"
+                                aria-label={`Sao chép liên kết của ${output.lessonName}`}
+                                disabled={!linkUrl}
+                                onClick={() => void copyText(linkUrl, "liên kết")}
+                                className="rounded-lg p-2 text-text-muted transition-colors hover:bg-bg-secondary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                              </button>
+                              <button
+                                type="button"
+                                title="Mở liên kết"
+                                aria-label={`Mở liên kết của ${output.lessonName}`}
+                                disabled={!linkUrl}
+                                onClick={() => openExternal(linkUrl)}
+                                className="rounded-lg p-2 text-text-muted transition-colors hover:bg-bg-secondary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                              </button>
+                              {canManageOutputs ? (
+                                <button
+                                  type="button"
+                                  title="Xóa"
+                                  aria-label={`Xóa ${output.lessonName}`}
+                                  disabled={deleteMutation.isPending}
+                                  onClick={() => confirmDelete(output)}
+                                  className="rounded-lg p-2 text-text-muted transition-colors hover:bg-error/15 hover:text-error disabled:opacity-50"
+                                >
+                                  <svg
+                                    className="size-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                    aria-hidden
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                    />
+                                  </svg>
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+
+                  <div className="hidden overflow-x-auto xl:block">
                     <table className="w-full border-collapse text-left">
                       <thead className="sticky top-0 z-[1] bg-bg-secondary">
                         <tr className="text-xs font-semibold uppercase tracking-wide text-text-muted">

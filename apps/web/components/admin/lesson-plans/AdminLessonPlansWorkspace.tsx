@@ -78,6 +78,15 @@ function normalizePositiveInt(value: string | null, fallback = 1) {
   return Math.floor(parsed);
 }
 
+function isNestedInteractiveElement(target: EventTarget | null) {
+  return (
+    target instanceof HTMLElement &&
+    Boolean(
+      target.closest("a, button, input, textarea, select, summary"),
+    )
+  );
+}
+
 function getErrorMessage(error: unknown, fallback: string) {
   return (
     (error as { response?: { data?: { message?: string } } })?.response?.data
@@ -221,7 +230,7 @@ function ListTableSkeleton({
 }) {
   return (
     <>
-      <div className="space-y-3 md:hidden">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:hidden">
         {Array.from({ length: rows }).map((_, index) => (
           <div
             key={`mobile-${variant}-${index}`}
@@ -257,7 +266,7 @@ function ListTableSkeleton({
         ))}
       </div>
 
-      <div className="hidden overflow-hidden rounded-[1.4rem] border border-border-default md:block">
+      <div className="hidden overflow-hidden rounded-[1.4rem] border border-border-default xl:block">
         <div className="border-b border-border-default bg-bg-secondary px-4 py-3">
           <div className="grid grid-cols-4 gap-3">
             {Array.from({ length: 4 }).map((_, index) => (
@@ -586,6 +595,17 @@ export default function AdminLessonPlansWorkspace({
     setResourcePopupOpen(true);
   };
 
+  const handleResourceItemActivate = (
+    resource: LessonResourceItem,
+    target: EventTarget | null,
+  ) => {
+    if (!canManageWorkspace || isNestedInteractiveElement(target)) {
+      return;
+    }
+
+    openEditResource(resource);
+  };
+
   const openCreateTask = () => {
     setTaskMode("create");
     setSelectedTask(null);
@@ -816,11 +836,43 @@ export default function AdminLessonPlansWorkspace({
                         />
                       ) : (
                         <div className="overflow-hidden rounded-[1.4rem] border border-border-default">
-                          <div className="space-y-3 p-3 md:hidden">
+                          <div className="grid grid-cols-1 gap-3 p-3 md:grid-cols-1 xl:hidden">
                             {resources.map((resource) => (
                               <article
                                 key={resource.id}
-                                className="rounded-[1.35rem] border border-border-default bg-bg-surface p-4 shadow-sm"
+                                role={canManageWorkspace ? "button" : undefined}
+                                tabIndex={canManageWorkspace ? 0 : undefined}
+                                className={`rounded-[1.35rem] border border-border-default bg-bg-surface p-4 shadow-sm transition-colors ${canManageWorkspace
+                                  ? "cursor-pointer hover:bg-bg-secondary/35 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
+                                  : ""
+                                  }`}
+                                onClick={(event) =>
+                                  handleResourceItemActivate(
+                                    resource,
+                                    event.target,
+                                  )
+                                }
+                                onKeyDown={(event) => {
+                                  if (
+                                    !canManageWorkspace ||
+                                    isNestedInteractiveElement(event.target)
+                                  ) {
+                                    return;
+                                  }
+
+                                  if (
+                                    event.key === "Enter" ||
+                                    event.key === " "
+                                  ) {
+                                    event.preventDefault();
+                                    openEditResource(resource);
+                                  }
+                                }}
+                                aria-label={
+                                  canManageWorkspace
+                                    ? `Mở popup chỉnh sửa tài nguyên ${resource.title?.trim() || "tài nguyên chưa đặt tên"}`
+                                    : undefined
+                                }
                               >
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="min-w-0">
@@ -900,6 +952,9 @@ export default function AdminLessonPlansWorkspace({
                                       href={resource.resourceLink}
                                       target="_blank"
                                       rel="noreferrer"
+                                      onClick={(event) =>
+                                        event.stopPropagation()
+                                      }
                                       className="inline-flex max-w-full items-center gap-2 break-all text-sm text-primary underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                                     >
                                       {resource.resourceLink}
@@ -929,7 +984,7 @@ export default function AdminLessonPlansWorkspace({
                             ))}
                           </div>
 
-                          <div className="hidden overflow-x-auto md:block">
+                          <div className="hidden overflow-x-auto xl:block">
                             <table className="min-w-full border-collapse text-left">
                               <thead className="bg-bg-secondary">
                                 <tr className="text-sm text-text-secondary">
@@ -963,7 +1018,39 @@ export default function AdminLessonPlansWorkspace({
                                 {resources.map((resource) => (
                                   <tr
                                     key={resource.id}
-                                    className="group border-t border-border-default bg-bg-surface align-top transition-colors hover:bg-bg-secondary/50"
+                                    role={canManageWorkspace ? "button" : undefined}
+                                    tabIndex={canManageWorkspace ? 0 : undefined}
+                                    className={`group border-t border-border-default bg-bg-surface align-top transition-colors ${canManageWorkspace
+                                      ? "cursor-pointer hover:bg-bg-secondary/50 focus-within:bg-bg-secondary/50 focus:outline-none focus-visible:bg-bg-secondary/50"
+                                      : ""
+                                      }`}
+                                    onClick={(event) =>
+                                      handleResourceItemActivate(
+                                        resource,
+                                        event.target,
+                                      )
+                                    }
+                                    onKeyDown={(event) => {
+                                      if (
+                                        !canManageWorkspace ||
+                                        isNestedInteractiveElement(event.target)
+                                      ) {
+                                        return;
+                                      }
+
+                                      if (
+                                        event.key === "Enter" ||
+                                        event.key === " "
+                                      ) {
+                                        event.preventDefault();
+                                        openEditResource(resource);
+                                      }
+                                    }}
+                                    aria-label={
+                                      canManageWorkspace
+                                        ? `Mở popup chỉnh sửa tài nguyên ${resource.title?.trim() || "tài nguyên chưa đặt tên"}`
+                                        : undefined
+                                    }
                                   >
                                     <td className="px-4 py-4">
                                       <div className="min-w-[12rem]">
@@ -978,6 +1065,9 @@ export default function AdminLessonPlansWorkspace({
                                         href={resource.resourceLink}
                                         target="_blank"
                                         rel="noreferrer"
+                                        onClick={(event) =>
+                                          event.stopPropagation()
+                                        }
                                         className="inline-flex max-w-[18rem] items-center gap-2 text-sm text-primary underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                                       >
                                         <span className="truncate">
@@ -1150,7 +1240,7 @@ export default function AdminLessonPlansWorkspace({
                         )
                       ) : (
                         <div className="overflow-hidden rounded-[1.4rem] border border-border-default">
-                          <div className="space-y-3 p-3 md:hidden">
+                          <div className="grid grid-cols-1 gap-3 p-3 md:grid-cols-1 xl:hidden">
                             {tasks.map((task) => (
                               <article
                                 key={task.id}
@@ -1262,7 +1352,7 @@ export default function AdminLessonPlansWorkspace({
                             ))}
                           </div>
 
-                          <div className="hidden overflow-x-auto md:block">
+                          <div className="hidden overflow-x-auto xl:block">
                             <table className="min-w-full border-collapse text-left">
                               <thead className="bg-bg-secondary">
                                 <tr className="text-sm text-text-secondary">

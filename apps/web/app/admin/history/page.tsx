@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type UIEvent, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
@@ -315,55 +315,104 @@ function getActionTone(actionType: ActionHistoryActionType | null | undefined) {
   };
 }
 
-function OverviewStatCard({
-  eyebrow,
-  value,
-  caption,
-  accent = false,
-}: {
-  eyebrow: string;
-  value: string;
-  caption: string;
-  accent?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-xl border px-4 py-3 backdrop-blur-sm ${
-        accent
-          ? "border-primary/20 bg-primary/10"
-          : "border-border-default bg-bg-surface/85"
-      }`}
-    >
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
-        {eyebrow}
-      </p>
-      <p className="mt-1.5 text-lg font-semibold tracking-tight text-text-primary sm:text-xl">
-        {value}
-      </p>
-      <p className="mt-1 text-sm leading-6 text-text-secondary">{caption}</p>
-    </div>
-  );
+type SnapshotPaneName = "before" | "after";
+
+function syncScrollablePanePosition(source: HTMLElement, target: HTMLElement) {
+  const sourceVerticalRange = source.scrollHeight - source.clientHeight;
+  const targetVerticalRange = target.scrollHeight - target.clientHeight;
+  const sourceHorizontalRange = source.scrollWidth - source.clientWidth;
+  const targetHorizontalRange = target.scrollWidth - target.clientWidth;
+  const nextScrollTop =
+    sourceVerticalRange > 0
+      ? (source.scrollTop / sourceVerticalRange) * targetVerticalRange
+      : 0;
+  const nextScrollLeft =
+    sourceHorizontalRange > 0
+      ? (source.scrollLeft / sourceHorizontalRange) * targetHorizontalRange
+      : 0;
+
+  target.scrollTop = Number.isFinite(nextScrollTop) ? nextScrollTop : 0;
+  target.scrollLeft = Number.isFinite(nextScrollLeft) ? nextScrollLeft : 0;
 }
 
-function TimelineMetaRow({
-  label,
-  value,
-  mono = false,
+function SnapshotComparisonPanels({
+  beforeValue,
+  afterValue,
 }: {
-  label: string;
-  value: string;
-  mono?: boolean;
+  beforeValue: unknown;
+  afterValue: unknown;
 }) {
+  const beforeRef = useRef<HTMLPreElement>(null);
+  const afterRef = useRef<HTMLPreElement>(null);
+  const syncSourceRef = useRef<SnapshotPaneName | null>(null);
+
+  const handlePaneScroll =
+    (sourcePane: SnapshotPaneName) => (event: UIEvent<HTMLPreElement>) => {
+      if (syncSourceRef.current && syncSourceRef.current !== sourcePane) {
+        return;
+      }
+
+      const targetPane = sourcePane === "before" ? afterRef.current : beforeRef.current;
+      if (!targetPane) {
+        return;
+      }
+
+      syncSourceRef.current = sourcePane;
+      syncScrollablePanePosition(event.currentTarget, targetPane);
+
+      requestAnimationFrame(() => {
+        if (syncSourceRef.current === sourcePane) {
+          syncSourceRef.current = null;
+        }
+      });
+    };
+
   return (
-    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-      <span className="text-xs font-medium text-text-muted">{label}</span>
-      <span
-        className={`text-sm font-medium text-text-secondary ${
-          mono ? "break-all font-mono text-[13px] leading-5" : ""
-        }`}
-      >
-        {value}
-      </span>
+    <div className="mt-4">
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-medium text-text-primary">Snapshot trước / sau</p>
+        <p className="text-xs leading-5 text-text-muted">
+          Cuộn một khung để khung còn lại bám theo cùng vị trí.
+        </p>
+      </div>
+
+      <div className="grid gap-3 xl:grid-cols-2">
+        <section className="min-w-0 rounded-xl border border-border-default bg-bg-surface p-3.5">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-text-muted">
+              Trước khi thay đổi
+            </h3>
+            
+          </div>
+          <pre
+            ref={beforeRef}
+            tabIndex={0}
+            aria-label="Snapshot trước khi thay đổi"
+            onScroll={handlePaneScroll("before")}
+            className="mt-3 max-h-80 overflow-auto overscroll-contain rounded-xl bg-bg-secondary/45 p-3 text-[11px] leading-6 text-text-secondary outline-none transition focus-visible:ring-2 focus-visible:ring-border-focus"
+          >
+            {formatJsonBlock(beforeValue)}
+          </pre>
+        </section>
+
+        <section className="min-w-0 rounded-xl border border-border-default bg-bg-surface p-3.5">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-text-muted">
+              Sau khi thay đổi
+            </h3>
+            
+          </div>
+          <pre
+            ref={afterRef}
+            tabIndex={0}
+            aria-label="Snapshot sau khi thay đổi"
+            onScroll={handlePaneScroll("after")}
+            className="mt-3 max-h-80 overflow-auto overscroll-contain rounded-xl bg-bg-secondary/45 p-3 text-[11px] leading-6 text-text-primary outline-none transition focus-visible:ring-2 focus-visible:ring-border-focus"
+          >
+            {formatJsonBlock(afterValue)}
+          </pre>
+        </section>
+      </div>
     </div>
   );
 }
@@ -539,10 +588,6 @@ function TimelineItem({
             </div>
 
             <div className="mt-4">
-              <p className="mb-3 text-sm font-medium text-text-primary">
-                Snapshot trước / sau
-              </p>
-
               {detailQuery.isLoading ? (
                 <div className="grid gap-3 xl:grid-cols-2">
                   <div className="h-52 animate-pulse rounded-xl border border-border-default bg-bg-secondary" />
@@ -553,29 +598,10 @@ function TimelineItem({
                   {detailErrorMessage}
                 </div>
               ) : detailQuery.data ? (
-                <div className="grid gap-3 xl:grid-cols-2">
-                  <section className="rounded-xl border border-border-default bg-bg-surface p-3.5">
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-text-muted">
-                        Trước khi thay đổi
-                      </h3>
-                    </div>
-                    <pre className="mt-3 max-h-80 overflow-auto overscroll-contain rounded-xl bg-bg-secondary/45 p-3 text-[11px] leading-6 text-text-secondary">
-                      {formatJsonBlock(detailQuery.data.beforeValue)}
-                    </pre>
-                  </section>
-
-                  <section className="rounded-xl border border-border-default bg-bg-surface p-3.5">
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-text-muted">
-                        Sau khi thay đổi
-                      </h3>
-                    </div>
-                    <pre className="mt-3 max-h-80 overflow-auto overscroll-contain rounded-xl bg-bg-secondary/45 p-3 text-[11px] leading-6 text-text-primary">
-                      {formatJsonBlock(detailQuery.data.afterValue)}
-                    </pre>
-                  </section>
-                </div>
+                <SnapshotComparisonPanels
+                  beforeValue={detailQuery.data.beforeValue}
+                  afterValue={detailQuery.data.afterValue}
+                />
               ) : null}
             </div>
           </div>
@@ -825,10 +851,6 @@ export default function AdminHistoryPage() {
     startDate: defaultStartDate,
     endDate: defaultEndDate,
   });
-  const expandedEntryCount = historyEntries.filter((entry) =>
-    expandedEntryIds.includes(entry.id),
-  ).length;
-
   const applyFilters = (draft: HistoryFilterDraft) => {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("page", "1");
