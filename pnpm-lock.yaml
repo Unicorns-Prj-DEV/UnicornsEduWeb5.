@@ -104,6 +104,9 @@ importers:
       passport-jwt:
         specifier: ^4.0.1
         version: 4.0.1
+      pg:
+        specifier: ^8.20.0
+        version: 8.20.0
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -165,9 +168,6 @@ importers:
       jest:
         specifier: ^30.0.0
         version: 30.2.0(@types/node@22.19.13)(ts-node@10.9.2(@types/node@22.19.13)(typescript@5.9.3))
-      pg:
-        specifier: ^8.20.0
-        version: 8.20.0
       prettier:
         specifier: ^3.4.2
         version: 3.8.1
