@@ -391,7 +391,7 @@ export class DashboardService {
         SELECT
           COALESCE(SUM(COALESCE(attendance.tuition_fee, 0)), 0) AS "totalAmount"
         FROM attendance
-        WHERE attendance.status = 'present'
+        WHERE attendance.status IN ('present', 'excused')
       `,
     );
 
@@ -409,7 +409,7 @@ export class DashboardService {
       FROM attendance
       INNER JOIN sessions ON sessions.id = attendance.session_id
       INNER JOIN classes ON classes.id = sessions.class_id
-      WHERE attendance.status = 'present'
+      WHERE attendance.status IN ('present', 'excused')
       GROUP BY classes.id, classes.name
       ORDER BY "totalAmount" DESC, classes.name ASC
       LIMIT ${limit}
@@ -467,7 +467,7 @@ export class DashboardService {
         INNER JOIN sessions ON sessions.id = attendance.session_id
         WHERE sessions.date >= ${params.yearStart}
           AND sessions.date < ${params.yearEnd}
-          AND attendance.status = 'present'
+          AND attendance.status IN ('present', 'excused')
         GROUP BY 1
       ),
       session_allowances AS (
@@ -945,7 +945,7 @@ export class DashboardService {
           ) AS amount
         FROM attendance
         INNER JOIN active_staff ON active_staff.id = attendance.assistant_manager_staff_id
-        WHERE attendance.status = 'present'
+        WHERE attendance.status IN ('present', 'excused')
           AND COALESCE(attendance.assistant_payment_status::text, 'pending') = 'pending'
         GROUP BY attendance.assistant_manager_staff_id
       ),
@@ -1037,7 +1037,7 @@ export class DashboardService {
         INNER JOIN sessions ON sessions.id = attendance.session_id
         WHERE sessions.date >= ${params.monthStart}
           AND sessions.date < ${params.monthEnd}
-          AND attendance.status = 'present'
+          AND attendance.status IN ('present', 'excused')
         GROUP BY sessions.class_id
       ),
       class_allowances AS (
@@ -1531,7 +1531,9 @@ export class DashboardService {
           studentId: {
             in: normalizedStudentIds,
           },
-          status: AttendanceStatus.present,
+          status: {
+            in: [AttendanceStatus.present, AttendanceStatus.excused],
+          },
         },
         _sum: {
           tuitionFee: true,

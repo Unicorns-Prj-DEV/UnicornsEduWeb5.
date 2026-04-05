@@ -113,12 +113,19 @@ export class SessionValidationService {
     return this.normalizeAttendanceTuitionFee(defaultValue);
   }
 
+  isTuitionChargeableStatus(status: AttendanceStatus): boolean {
+    return (
+      status === AttendanceStatus.present ||
+      status === AttendanceStatus.excused
+    );
+  }
+
   resolveChargeableAttendanceTuitionFee(
     status: AttendanceStatus,
     overrideValue: number | string | null | undefined,
     defaultValue: number | null | undefined,
   ): number | null {
-    if (status !== AttendanceStatus.present) {
+    if (!this.isTuitionChargeableStatus(status)) {
       return null;
     }
 

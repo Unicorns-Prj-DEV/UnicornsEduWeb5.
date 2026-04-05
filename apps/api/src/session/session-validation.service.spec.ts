@@ -52,7 +52,17 @@ describe('SessionValidationService', () => {
     ).toBe(180000);
   });
 
-  it('drops tuition when attendance is not present', () => {
+  it('uses default tuition when excused attendance has no override', () => {
+    expect(
+      service.resolveChargeableAttendanceTuitionFee(
+        AttendanceStatus.excused,
+        undefined,
+        180000,
+      ),
+    ).toBe(180000);
+  });
+
+  it('drops tuition when attendance is absent', () => {
     expect(
       service.resolveChargeableAttendanceTuitionFee(
         AttendanceStatus.absent,
@@ -60,6 +70,18 @@ describe('SessionValidationService', () => {
         180000,
       ),
     ).toBeNull();
+  });
+
+  it('isTuitionChargeableStatus returns true for present and excused', () => {
+    expect(
+      service.isTuitionChargeableStatus(AttendanceStatus.present),
+    ).toBe(true);
+    expect(
+      service.isTuitionChargeableStatus(AttendanceStatus.excused),
+    ).toBe(true);
+    expect(
+      service.isTuitionChargeableStatus(AttendanceStatus.absent),
+    ).toBe(false);
   });
 
   it('clamps coefficient into supported range', () => {

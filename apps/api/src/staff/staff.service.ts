@@ -760,7 +760,7 @@ export class StaffService {
       FROM attendance
       INNER JOIN sessions ON sessions.id = attendance.session_id
       WHERE attendance.assistant_manager_staff_id = ${params.assistantStaffId}
-        AND attendance.status = 'present'
+        AND attendance.status IN ('present', 'excused')
         AND sessions.date >= ${params.start}
         AND sessions.date < ${params.end}
       GROUP BY attendance.assistant_payment_status
@@ -914,7 +914,7 @@ export class StaffService {
           ) AS amount
         FROM attendance
         INNER JOIN target_staff ON target_staff.id = attendance.assistant_manager_staff_id
-        WHERE attendance.status = 'present'
+        WHERE attendance.status IN ('present', 'excused')
           AND COALESCE(attendance.assistant_payment_status::text, 'pending') = 'pending'
         GROUP BY attendance.assistant_manager_staff_id
       ),

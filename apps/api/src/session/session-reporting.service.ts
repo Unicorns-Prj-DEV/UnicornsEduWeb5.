@@ -53,12 +53,20 @@ export class SessionReportingService {
     };
   }
 
+  private readonly attendanceInclude = {
+    include: {
+      student: {
+        select: { id: true, fullName: true },
+      },
+    },
+  } as const;
+
   async getSessionsByClassId(classId: string, month: string, year: string) {
     return this.prisma.session.findMany({
       where: this.buildSessionsByClassWhere(classId, month, year),
       include: {
         teacher: true,
-        attendance: true,
+        attendance: this.attendanceInclude,
       },
       orderBy: {
         date: 'desc',
@@ -92,7 +100,7 @@ export class SessionReportingService {
       ),
       include: {
         teacher: true,
-        attendance: true,
+        attendance: this.attendanceInclude,
       },
       orderBy: {
         date: 'desc',
@@ -113,7 +121,7 @@ export class SessionReportingService {
       },
       include: {
         class: true,
-        attendance: true,
+        attendance: this.attendanceInclude,
       },
       orderBy: {
         date: 'desc',

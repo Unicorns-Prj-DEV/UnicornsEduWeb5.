@@ -133,7 +133,7 @@ function isNonNegativeMoneyInput(value: string): boolean {
 }
 
 function isChargeableAttendanceStatus(status: SessionAttendanceStatus): boolean {
-  return status === "present";
+  return status === "present" || status === "excused";
 }
 
 function resolveAttendanceTuitionValue(item: AttendanceFormItem): number {

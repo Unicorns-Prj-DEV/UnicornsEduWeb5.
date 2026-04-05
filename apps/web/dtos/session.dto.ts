@@ -76,6 +76,7 @@ export interface SessionAttendanceRecord {
   status: SessionAttendanceStatus;
   notes?: string | null;
   tuitionFee?: number | null;
+  student?: { fullName?: string | null } | null;
 }
 
 export interface SessionItem {

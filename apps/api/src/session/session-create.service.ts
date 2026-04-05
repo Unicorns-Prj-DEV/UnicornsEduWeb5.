@@ -4,7 +4,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
-  AttendanceStatus,
   PaymentStatus,
   StaffRole,
   UserRole,
@@ -46,7 +45,9 @@ export class SessionCreateService {
         (attendanceItem) => attendanceItem.studentId,
       );
       const chargeableAttendanceStudentIds = data.attendance
-        .filter((item) => item.status === AttendanceStatus.present)
+        .filter((item) =>
+          this.sessionValidationService.isTuitionChargeableStatus(item.status),
+        )
         .map((attendanceItem) => attendanceItem.studentId);
 
       const classTeacher = await tx.classTeacher.findUnique({

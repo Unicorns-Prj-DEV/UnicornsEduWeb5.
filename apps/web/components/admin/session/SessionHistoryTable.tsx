@@ -8,8 +8,13 @@ import {
   SessionItem,
   SessionAttendanceStatus,
   SessionAttendanceItem,
+  SessionAttendanceRecord,
   SessionUpdatePayload,
 } from "@/dtos/session.dto";
+
+type SessionAttendanceRecordWithStudent = SessionAttendanceRecord & {
+  student?: { fullName?: string | null } | null;
+};
 import { ClassDetail } from "@/dtos/class.dto";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { formatCurrency } from "@/lib/class.helpers";
@@ -313,7 +318,7 @@ function isNonNegativeMoneyInput(value: string): boolean {
 function isChargeableAttendanceStatus(
   status: SessionAttendanceStatus,
 ): boolean {
-  return status === "present";
+  return status === "present" || status === "excused";
 }
 
 function resolveAttendanceTuitionValue(item: AttendanceFormItem): number {
@@ -724,9 +729,30 @@ export default function SessionHistoryTable({
       return;
     }
 
+    const paymentStatus = (session.teacherPaymentStatus ?? "").toLowerCase();
+    const isLockedSession = paymentStatus === "paid" || paymentStatus === "deposit";
+
     setAttendanceLoading(true);
     setAttendanceItems([]);
     const existingAttendance = session.attendance ?? [];
+
+    if (isLockedSession) {
+      const items: AttendanceFormItem[] = existingAttendance.map((attendanceItem) => ({
+        studentId: attendanceItem.studentId,
+        fullName: (attendanceItem as SessionAttendanceRecordWithStudent).student?.fullName?.trim() || "—",
+        status: (attendanceItem.status ?? "absent") as SessionAttendanceStatus,
+        notes: attendanceItem.notes ?? "",
+        tuitionFee:
+          normalizeMoneyValue(attendanceItem.tuitionFee) != null
+            ? String(normalizeMoneyValue(attendanceItem.tuitionFee))
+            : "",
+        defaultTuitionFee: normalizeMoneyValue(attendanceItem.tuitionFee),
+      }));
+      setAttendanceItems(items);
+      setAttendanceLoading(false);
+      return;
+    }
+
     void getClassStudents(session.classId)
       .then((students) => {
         const byStudentId = new Map(
