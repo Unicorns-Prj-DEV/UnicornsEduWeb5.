@@ -1,27 +1,27 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
+import type { RegulationAudience, RegulationItem } from "@/dtos/regulation.dto";
+import RegulationAudienceSelector from "./RegulationAudienceSelector";
 import NotesSubjectRichEditor from "./NotesSubjectRichEditor";
 
 export type RulePostFormValues = {
   title: string;
   description: string;
   content: string;
+  audiences: RegulationAudience[];
+  resourceLink: string;
+  resourceLinkLabel: string;
 };
 
-export type RulePostItem = {
-  id: string;
-  title: string;
-  description: string;
-  content: string;
-};
+export type RulePostItem = RegulationItem;
 
 type Props = {
   open: boolean;
   onClose: () => void;
   initialData?: RulePostItem | null;
-  onSubmit: (values: RulePostFormValues) => void;
+  onSubmit: (values: RulePostFormValues) => Promise<void> | void;
   /** Tiêu đề dialog (mặc định: thêm mới). */
   dialogTitle?: string;
 };
@@ -37,18 +37,39 @@ export default function RulePostFormPopup({
   dialogTitle = "Thêm bài quy định",
 }: Props) {
   const {
+    control,
     register,
     handleSubmit,
     setValue,
-    watch,
     reset,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<RulePostFormValues>({
-    defaultValues: { title: "", description: "", content: "" },
+    defaultValues: {
+      title: "",
+      description: "",
+      content: "",
+      audiences: [],
+      resourceLink: "",
+      resourceLinkLabel: "",
+    },
   });
 
-  const contentValue = watch("content");
+  const contentValue = useWatch({ control, name: "content" }) ?? "";
+  const audiencesValue = useWatch({ control, name: "audiences" }) ?? [];
   const initializedKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    register("content", {
+      validate: (value) =>
+        value.trim().length > 0 || "Nội dung là bắt buộc",
+    });
+    register("audiences", {
+      validate: (value) =>
+        (Array.isArray(value) && value.length > 0) ||
+        "Chọn ít nhất 1 đối tượng",
+    });
+  }, [register]);
 
   useEffect(() => {
     if (!open) return;
@@ -61,9 +82,22 @@ export default function RulePostFormPopup({
       title: initialData?.title ?? "",
       description: initialData?.description ?? "",
       content: initialData?.content ?? "",
+      audiences: initialData?.audiences ?? [],
+      resourceLink: initialData?.resourceLink ?? "",
+      resourceLinkLabel: initialData?.resourceLinkLabel ?? "",
     });
     initializedKeyRef.current = key;
-  }, [open, initialData?.id, initialData?.title, initialData?.description, initialData?.content, reset]);
+  }, [
+    open,
+    initialData?.id,
+    initialData?.title,
+    initialData?.description,
+    initialData?.content,
+    initialData?.audiences,
+    initialData?.resourceLink,
+    initialData?.resourceLinkLabel,
+    reset,
+  ]);
 
   useEffect(() => {
     if (!open) {
@@ -71,9 +105,8 @@ export default function RulePostFormPopup({
     }
   }, [open]);
 
-  const onFormSubmit = (values: RulePostFormValues) => {
-    onSubmit(values);
-    onClose();
+  const onFormSubmit = async (values: RulePostFormValues) => {
+    await onSubmit(values);
   };
 
   if (!open) return null;
@@ -144,11 +177,58 @@ export default function RulePostFormPopup({
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-sm text-text-secondary">
+          <div className="flex flex-col gap-1 text-sm text-text-secondary">
             <span>Nội dung</span>
             <NotesSubjectRichEditor
               value={contentValue}
-              onChange={(html) => setValue("content", html, { shouldDirty: true })}
+              onChange={(html) =>
+                setValue("content", html, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                })
+              }
+            />
+            {errors.content && (
+              <span className="text-sm text-danger">{errors.content.message}</span>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1 text-sm text-text-secondary">
+            <span>Role tag</span>
+            <RegulationAudienceSelector
+              value={audiencesValue}
+              onChange={(nextValue) => {
+                setValue("audiences", nextValue, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                });
+                if (nextValue.length > 0) {
+                  clearErrors("audiences");
+                }
+              }}
+            />
+            {errors.audiences && (
+              <span className="text-sm text-danger">{errors.audiences.message}</span>
+            )}
+          </div>
+
+          <label className="flex flex-col gap-1 text-sm text-text-secondary">
+            <span>Nhãn link tài nguyên</span>
+            <input
+              type="text"
+              {...register("resourceLinkLabel")}
+              placeholder="Ví dụ: Mở tài nguyên"
+              className={INPUT_CLASS}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm text-text-secondary">
+            <span>Link tài nguyên</span>
+            <input
+              type="url"
+              {...register("resourceLink")}
+              placeholder="https://..."
+              className={INPUT_CLASS}
             />
           </label>
 

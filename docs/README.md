@@ -65,7 +65,7 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
   - `/staff/dashboard` (trợ lí) redirect về `/staff`; chi tiết nhân sự bản thân qua sidebar **Cá nhân** hoặc `/staff/staffs/:ownStaffId`
   - `/staff/profile` là **hồ sơ cá nhân** (nội dung cũ của `/staff`), bao gồm thống kê thu nhập, popup ghi cọc, lớp phụ trách, bonus, trợ cấp các role, lịch sử buổi học
   - `/staff/notification` là feed chỉ đọc cho staff xem các thông báo admin đã push; khi đang online, staff còn nhận toast Sonner realtime qua websocket namespace `/notifications`
-  - `/staff/notes-subject` với assistant sẽ mở full admin-like notes workspace ngay trong `/staff`; các staff role khác vẫn là bản chỉ đọc. Backend mở các API đọc của notes-subject (`GET /codeforces/*`, `GET /cf-problem-tutorial/:contestId/:problemIndex`) cho toàn bộ `UserRole.staff`, còn cập nhật tutorial vẫn giữ policy admin/assistant
+  - `/staff/notes-subject` với assistant sẽ mở full admin-like notes workspace ngay trong `/staff`; các staff role khác vẫn là bản chỉ đọc. Tab `Quy định` đã bỏ mock và đọc từ `GET /regulations`, backend tự lọc theo audience tag (`all`, `student`, hoặc từng staff role); tab `Tài liệu` tiếp tục dùng `GET /codeforces/*` và `GET /cf-problem-tutorial/:contestId/:problemIndex`. Mutation quản trị quy định (`POST/PATCH /regulations`) và tutorial vẫn giữ policy admin/assistant
   - Sidebar của assistant chuyển sang menu admin-like trong staff shell: **Dashboard**, **User**, **Nhân sự**, **Lớp học**, **Ghi chú môn học**, **Học sinh**, **Chi phí**, **Giáo Án**, **Lịch sử**
   - `/staff/profile` mở khi tài khoản đang đăng nhập có linked `staffInfo` hợp lệ; trang này lấy dữ liệu qua các self-service endpoints `/users/me/full`, `/users/me/staff-detail`, `/users/me/staff-income-summary`, `/users/me/staff-bonuses`, `/users/me/staff-sessions`
   - từ `/staff/profile` staff chỉ được sửa thông tin cơ bản, ngân hàng và QR qua `PATCH /users/me/staff`; ngoài ra staff có thể tự thêm thưởng cho chính mình qua `POST /users/me/staff-bonuses`, nhưng backend luôn khóa bản ghi mới ở trạng thái `pending`
@@ -113,7 +113,6 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
 - Findings rủi ro cao từ review:
   - API chưa bật validation runtime toàn cục; riêng payload `sessions` đã chuyển sang DTO `class` + `ValidationPipe`, nhưng các controller khác vẫn cần được rà soát tương tự.
   - Refresh token rotation đang lưu hash vào DB nhưng luồng `refresh` chưa đối chiếu token đang dùng với hash đã lưu.
-  - `apps/web/app/admin/notes-subject/page.tsx` có `useEffect` đặt sau `return`, vi phạm Rules of Hooks.
 
 ## Dùng tài liệu khi implement
 

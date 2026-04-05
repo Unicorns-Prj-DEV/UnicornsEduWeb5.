@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AnimatePresence,
   motion,
@@ -8,29 +9,17 @@ import {
   type Transition,
 } from "framer-motion";
 import { toast } from "sonner";
+import type { CreateRegulationPayload } from "@/dtos/regulation.dto";
 import RulePostFormPopup, {
   type RulePostFormValues,
-  type RulePostItem,
 } from "@/components/admin/notes-subject/RulePostFormPopup";
 import RegulationsTabPanel from "@/components/admin/notes-subject/RegulationsTabPanel";
 import DocsTab from "@/components/admin/notes-subject/DocsTab";
-
-const INITIAL_MOCK_RULE_POSTS: RulePostItem[] = [
-  {
-    id: "1",
-    title: "Quy định nộp bài",
-    description: "Hướng dẫn và thời hạn nộp bài",
-    content:
-      "Học viên cần nộp bài **đúng thời hạn**. Bài nộp trễ sẽ bị trừ điểm.\n\nVí dụ: nếu bài được chấm theo thang điểm \\(10\\), nộp trễ 1 ngày trừ \\(1\\) điểm.",
-  },
-  {
-    id: "2",
-    title: "Quy định điểm danh",
-    description: "Cách thức điểm danh và vắng có phép",
-    content:
-      "Điểm danh trước **15 phút** sau giờ học. Vắng có phép cần báo trước *24h*.\n\nCông thức minh họa: $$\\text{Tỉ lệ chuyên cần} = \\frac{\\text{số buổi có mặt}}{\\text{tổng số buổi}} \\times 100\\%.$$",
-  },
-];
+import {
+  createRegulation,
+  getRegulations,
+  updateRegulation,
+} from "@/lib/apis/regulation.api";
 
 type TabId = "quy-dinh" | "tai-lieu";
 
@@ -50,10 +39,47 @@ const TAB_PANEL_TRANSITION: Transition = {
 };
 
 export default function AdminNotesSubjectPage() {
+  const queryClient = useQueryClient();
   const prefersReducedMotion = useReducedMotion();
   const [activeTab, setActiveTab] = useState<TabId>("quy-dinh");
-  const [rulePosts, setRulePosts] = useState<RulePostItem[]>(INITIAL_MOCK_RULE_POSTS);
   const [formPopupOpen, setFormPopupOpen] = useState(false);
+
+  const {
+    data: rulePosts = [],
+    isLoading: regulationsLoading,
+    isError: regulationsError,
+    refetch: refetchRegulations,
+  } = useQuery({
+    queryKey: ["regulations"],
+    queryFn: getRegulations,
+    staleTime: 60_000,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: createRegulation,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["regulations"] });
+    },
+    onError: () => {
+      toast.error("Không thêm được bài quy định");
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: CreateRegulationPayload;
+    }) => updateRegulation(id, payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["regulations"] });
+    },
+    onError: () => {
+      toast.error("Không cập nhật được quy định");
+    },
+  });
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -69,35 +95,20 @@ export default function AdminNotesSubjectPage() {
     document.head.appendChild(link);
   }, []);
 
-  const handleAddRulePost = useCallback((values: RulePostFormValues) => {
-    const newPost: RulePostItem = {
-      id: crypto.randomUUID(),
-      title: values.title,
-      description: values.description,
-      content: values.content,
-    };
-
-    setRulePosts((prev) => [newPost, ...prev]);
+  const handleAddRulePost = useCallback(async (values: RulePostFormValues) => {
+    await createMutation.mutateAsync(buildRegulationPayload(values));
     toast.success("Đã thêm bài quy định");
     setFormPopupOpen(false);
-  }, []);
+  }, [createMutation]);
 
   const handleUpdateRulePost = useCallback(
-    (id: string, values: RulePostFormValues) => {
-      setRulePosts((prev) =>
-        prev.map((p) =>
-          p.id === id
-            ? {
-                ...p,
-                title: values.title,
-                description: values.description,
-                content: values.content,
-              }
-            : p,
-        ),
-      );
+    async (id: string, values: RulePostFormValues) => {
+      await updateMutation.mutateAsync({
+        id,
+        payload: buildRegulationPayload(values),
+      });
     },
-    [],
+    [updateMutation],
   );
   const indicatorTransition = prefersReducedMotion
     ? { duration: 0 }
@@ -205,6 +216,9 @@ export default function AdminNotesSubjectPage() {
             >
               <RegulationsTabPanel
                 rulePosts={rulePosts}
+                isLoading={regulationsLoading}
+                isError={regulationsError}
+                onRetry={() => refetchRegulations()}
                 onUpdateRule={handleUpdateRulePost}
               />
             </motion.section>
@@ -234,4 +248,19 @@ export default function AdminNotesSubjectPage() {
       />
     </div>
   );
+}
+
+function buildRegulationPayload(values: RulePostFormValues): CreateRegulationPayload {
+  const description = values.description.trim();
+  const resourceLink = values.resourceLink.trim();
+  const resourceLinkLabel = values.resourceLinkLabel.trim();
+
+  return {
+    title: values.title.trim(),
+    description: description || null,
+    content: values.content,
+    audiences: values.audiences,
+    resourceLink: resourceLink || null,
+    resourceLinkLabel: resourceLinkLabel || null,
+  };
 }

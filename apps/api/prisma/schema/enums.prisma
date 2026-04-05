@@ -85,6 +85,19 @@ enum NotificationStatus {
   published
 }
 
+enum RegulationAudience {
+  all
+  student
+  staff_admin
+  staff_teacher
+  staff_assistant
+  staff_lesson_plan
+  staff_lesson_plan_head
+  staff_accountant
+  staff_communication
+  staff_customer_care
+}
+
 enum SessionPaymentStatus {
   deposit
   paid

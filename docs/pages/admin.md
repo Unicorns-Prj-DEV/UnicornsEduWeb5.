@@ -216,7 +216,10 @@
   - Mutation `extra_allowance` tiếp tục ghi `action_history`, nên `/admin/history` đọc được thay đổi trạng thái của khoản trợ cấp thêm.
 - **Ghi chú môn học (FE `/admin/notes-subject`):**
   - 2 tab: Quy định, Tài liệu.
-  - Tab Quy định: **bảng danh sách** (STT, tiêu đề, mô tả); **bấm dòng** (hoặc Enter/Space khi focus) để mở **bảng chỉnh sửa** ngay bên dưới (hàng Tiêu đề / Mô tả / Nội dung TipTap, nút Lưu / Huỷ chọn); nút **Thêm bài quy định** vẫn mở popup tạo mới; dữ liệu mock trong page, chưa gọi BE.
+  - Tab Quy định: dùng dữ liệu thật qua `GET /regulations`; admin và `staff.assistant` thấy toàn bộ list để quản trị.
+  - List quản trị là **bảng danh sách** (STT, tiêu đề, role tag, tài nguyên, mô tả); **bấm dòng** (hoặc Enter/Space khi focus) để mở **bảng chỉnh sửa** ngay bên dưới.
+  - Popup tạo mới và bảng chỉnh sửa inline đều có các field: `Tiêu đề`, `Mô tả`, `Nội dung TipTap`, `role tag` (multi-select audience), `nhãn link tài nguyên`, `link tài nguyên`.
+  - `POST /regulations` và `PATCH /regulations/:id` mở cho `admin` và `staff.assistant`; mutation tiếp tục ghi `action_history`.
   - Tab Tài liệu: chọn nhóm tài liệu (Luyện tập, Khảo sát, Thực chiến) → hiển thị list contest; bấm contest để mở rộng xem list bài (theo thứ tự Codeforces); bấm vào bài để xem tutorial, bấm nút `Chỉnh sửa` để vào mode chỉnh sửa tutorial. Dữ liệu từ API Codeforces qua BE proxy.
   - **Xem tutorial (read-only):** nội dung lưu từ TipTap dạng HTML được chuẩn hoá sang chuỗi markdown (bóc thẻ, giữ text và công thức `$...$` / `$$...$$`) rồi render bằng `react-markdown` + KaTeX — không đưa HTML thô vào pipeline markdown (tránh hiện literal `<p>` / `</p>`).
   - UI: Shadcn-style (Card, Form, Button), React Hook Form + Input Shadcn, TipTap (NotesSubjectRichEditor) cho nội dung rich text.

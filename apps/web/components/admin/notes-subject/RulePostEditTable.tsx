@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import type { RulePostFormValues, RulePostItem } from "./RulePostFormPopup";
+import RegulationAudienceBadges from "./RegulationAudienceBadges";
+import RegulationAudienceSelector from "./RegulationAudienceSelector";
 import NotesSubjectRichEditor from "./NotesSubjectRichEditor";
 
 const INPUT_CLASS =
@@ -10,7 +12,7 @@ const INPUT_CLASS =
 
 type Props = {
   rule: RulePostItem;
-  onSave: (values: RulePostFormValues) => void;
+  onSave: (values: RulePostFormValues) => Promise<void> | void;
   onDiscard: () => void;
 };
 
@@ -20,33 +22,64 @@ export default function RulePostEditTable({
   onDiscard,
 }: Props) {
   const {
+    control,
     register,
     handleSubmit,
     setValue,
-    watch,
     reset,
+    clearErrors,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<RulePostFormValues>({
     defaultValues: {
       title: rule.title,
-      description: rule.description,
+      description: rule.description ?? "",
       content: rule.content,
+      audiences: rule.audiences,
+      resourceLink: rule.resourceLink ?? "",
+      resourceLinkLabel: rule.resourceLinkLabel ?? "",
     },
   });
 
-  const contentValue = watch("content");
+  const contentValue = useWatch({ control, name: "content" }) ?? "";
+  const audiencesValue = useWatch({ control, name: "audiences" }) ?? [];
+
+  useEffect(() => {
+    register("content", {
+      validate: (value) =>
+        value.trim().length > 0 || "Nội dung là bắt buộc",
+    });
+    register("audiences", {
+      validate: (value) =>
+        (Array.isArray(value) && value.length > 0) ||
+        "Chọn ít nhất 1 đối tượng",
+    });
+  }, [register]);
 
   useEffect(() => {
     reset({
       title: rule.title,
-      description: rule.description,
+      description: rule.description ?? "",
       content: rule.content,
+      audiences: rule.audiences,
+      resourceLink: rule.resourceLink ?? "",
+      resourceLinkLabel: rule.resourceLinkLabel ?? "",
     });
-  }, [rule.id, rule.title, rule.description, rule.content, reset]);
+  }, [
+    rule.id,
+    rule.title,
+    rule.description,
+    rule.content,
+    rule.audiences,
+    rule.resourceLink,
+    rule.resourceLinkLabel,
+    reset,
+  ]);
 
   return (
     <form
-      onSubmit={handleSubmit((values) => onSave(values))}
+      onSubmit={handleSubmit(async (values) => {
+        await onSave(values);
+      })}
       className="overflow-hidden rounded-lg border border-border-default bg-bg-surface shadow-sm"
       aria-labelledby={`rule-edit-heading-${rule.id}`}
     >
@@ -119,8 +152,74 @@ export default function RulePostEditTable({
                 <NotesSubjectRichEditor
                   value={contentValue}
                   onChange={(html) =>
-                    setValue("content", html, { shouldDirty: true })
+                    setValue("content", html, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
                   }
+                />
+                {errors.content ? (
+                  <p className="mt-1 text-xs text-danger">
+                    {errors.content.message}
+                  </p>
+                ) : null}
+              </td>
+            </tr>
+            <tr className="border-b border-border-default">
+              <th
+                scope="row"
+                className="whitespace-nowrap bg-bg-secondary/30 px-3 py-3 text-left align-top text-xs font-medium uppercase tracking-wide text-text-muted sm:px-4"
+              >
+                Role tag
+              </th>
+              <td className="space-y-3 px-3 py-3 sm:px-4">
+                <RegulationAudienceBadges audiences={audiencesValue} />
+                <RegulationAudienceSelector
+                  value={audiencesValue}
+                  onChange={(nextValue) => {
+                    setValue("audiences", nextValue, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    });
+                    if (nextValue.length > 0) {
+                      clearErrors("audiences");
+                    }
+                  }}
+                />
+                {errors.audiences ? (
+                  <p className="text-xs text-danger">{errors.audiences.message}</p>
+                ) : null}
+              </td>
+            </tr>
+            <tr className="border-b border-border-default">
+              <th
+                scope="row"
+                className="whitespace-nowrap bg-bg-secondary/30 px-3 py-3 text-left align-top text-xs font-medium uppercase tracking-wide text-text-muted sm:px-4"
+              >
+                Nhãn link
+              </th>
+              <td className="px-3 py-2.5 sm:px-4">
+                <input
+                  type="text"
+                  {...register("resourceLinkLabel")}
+                  placeholder="Ví dụ: Mở tài nguyên"
+                  className={INPUT_CLASS}
+                />
+              </td>
+            </tr>
+            <tr>
+              <th
+                scope="row"
+                className="whitespace-nowrap bg-bg-secondary/30 px-3 py-3 text-left align-top text-xs font-medium uppercase tracking-wide text-text-muted sm:px-4"
+              >
+                Link tài nguyên
+              </th>
+              <td className="px-3 py-2.5 sm:px-4">
+                <input
+                  type="url"
+                  {...register("resourceLink")}
+                  placeholder="https://..."
+                  className={INPUT_CLASS}
                 />
               </td>
             </tr>

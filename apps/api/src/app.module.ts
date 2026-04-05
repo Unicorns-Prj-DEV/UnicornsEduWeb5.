@@ -22,6 +22,7 @@ import { LessonModule } from './lesson/lesson.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { NotificationModule } from './notification/notification.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { RegulationModule } from './regulation/regulation.module';
 
 function parsePositiveIntegerEnv(
   value: string | undefined,
@@ -67,6 +68,7 @@ function parsePositiveIntegerEnv(
     LessonModule,
     DashboardModule,
     NotificationModule,
+    RegulationModule,
     PrismaModule,
   ],
   controllers: [AppController],

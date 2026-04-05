@@ -49,6 +49,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `action_history`
 - `documents`
 - `notifications`
+- `regulations`
 
 ### Lesson
 - `staff_lesson_task`
@@ -75,6 +76,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - **ClassSurvey → Class / StaffInfo**: optional FK, `onDelete: SetNull`.
 - **ActionHistory → User**: optional FK, `onDelete: SetNull`.
 - **Notification → User (createdBy)**: optional FK `created_by_user_id`, `onDelete: SetNull`.
+- **Regulation → User (createdBy / updatedBy)**: optional FK `created_by_user_id`, `updated_by_user_id`, `onDelete: SetNull`.
 - **StaffLessonTask**: bảng giao giữa `staff_info` và `lesson_task`, unique `(staff_id, lesson_task_id)`; đây là nguồn assignment chính thức cho `nhân sự thực hiện task`, tách biệt với staff được gán ở từng `lesson_output`.
 - **LessonTask → LessonResource**: 1-N optional (`lesson_resources.lessonTaskId`, `onDelete: SetNull`).
 - **LessonTask → LessonOutput**: 1-N optional (`lesson_outputs.lesson_task_id`, `onDelete: SetNull`).
@@ -137,6 +139,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `action_history`: audit log thay đổi dữ liệu (`before_value`, `after_value`, `changed_fields` là JSON)
 - `documents`: metadata tài liệu (`file_url`, `tags` JSON)
 - `notifications`: bản ghi thông báo admin gửi cho staff; lưu draft/published, version, số lần push và thời điểm push gần nhất
+- `regulations`: bài quy định dùng cho tab `Quy định` ở `notes-subject`, có role/audience tag và optional resource link
 
 ### 4.8.1 `action_history`
 - Dùng để lưu thao tác `create | update | delete` ở backend cho các entity nghiệp vụ.
@@ -175,7 +178,24 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - `status`
   - `last_pushed_at`
   - `updated_at`
+- `created_by_user_id`
+
+### 4.8.3 `regulations`
+- Lưu bài quy định cho workspace `notes-subject`, thay mock data ở FE.
+- PK: `id` (UUID)
+- Trường chính:
+  - `title` (`VARCHAR(200)`)
+  - `description` (`TEXT`, nullable)
+  - `content` (`TEXT`, rich text HTML từ editor)
+  - `audiences` (`RegulationAudience[]`) để quyết định actor nào được thấy bài
+  - `resource_link` (`TEXT`, nullable)
+  - `resource_link_label` (`VARCHAR(160)`, nullable)
+  - `created_by_user_id`, `updated_by_user_id` (optional FK → `users.id`)
+  - `created_at`, `updated_at`
+- Index read path hiện có:
+  - `updated_at`
   - `created_by_user_id`
+  - `updated_by_user_id`
 
 ### 4.9 Codeforces tutorial (`cf_problem_tutorials`)
 - Lưu nội dung tutorial cho từng bài trong contest Codeforces (group).
@@ -237,6 +257,19 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 ### Notification
 - `NotificationStatus`: `draft | published`
+
+### Regulation
+- `RegulationAudience`:
+  - `all`
+  - `student`
+  - `staff_admin`
+  - `staff_teacher`
+  - `staff_assistant`
+  - `staff_lesson_plan`
+  - `staff_lesson_plan_head`
+  - `staff_accountant`
+  - `staff_communication`
+  - `staff_customer_care`
 
 ---
 

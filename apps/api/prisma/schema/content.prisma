@@ -66,3 +66,24 @@ model Notification {
   @@index([createdByUserId])
   @@map("notifications")
 }
+
+model Regulation {
+  id                String                @id @default(uuid())
+  title             String                @db.VarChar(200)
+  description       String?
+  content           String                @db.Text
+  audiences         RegulationAudience[]  @default([])
+  resourceLink      String?               @map("resource_link")
+  resourceLinkLabel String?               @map("resource_link_label") @db.VarChar(160)
+  createdByUserId   String?               @map("created_by_user_id")
+  updatedByUserId   String?               @map("updated_by_user_id")
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy         User?                 @relation("RegulationCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedBy         User?                 @relation("RegulationUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([updatedAt])
+  @@index([createdByUserId])
+  @@index([updatedByUserId])
+  @@map("regulations")
+}

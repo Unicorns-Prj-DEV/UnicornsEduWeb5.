@@ -113,9 +113,10 @@
   - nếu actor là `staff.assistant` và route có query `staffId`, trang sẽ chuyển sang admin-like detail của staff được chọn nhưng vẫn giữ staff shell
 - `/staff/notes-subject`
   - với `staff.assistant`, route render nguyên admin notes workspace ngay trong staff shell
-  - với các staff role khác, route giữ 2 tab `Quy định` + `Tài liệu`, trong đó `Quy định` vẫn mock local dạng bài đọc (card) còn `Tài liệu` là bản chỉ đọc của `DocsTab`; `assistant` dùng cùng UI admin (bảng + chỉnh sửa inline)
+  - với các staff role khác, route giữ 2 tab `Quy định` + `Tài liệu`, trong đó `Quy định` đọc dữ liệu thật từ `GET /regulations`; backend tự lọc theo `audiences` nên staff chỉ thấy bài dành cho role của mình hoặc `all`
+  - card quy định ở staff read-only hiển thị `role tag`, `link tài nguyên` ở phía trên mô tả, rồi đến nội dung rich text đã sanitize; `assistant` dùng cùng UI admin (bảng + chỉnh sửa inline)
   - backend mở toàn bộ API đọc mà route này dùng cho `UserRole.staff`: `GET /codeforces/doc-groups`, `GET /codeforces/contests`, `GET /codeforces/contests/:contestId/problems`, `GET /cf-problem-tutorial/:contestId/:problemIndex`
-  - `PATCH /cf-problem-tutorial/:contestId/:problemIndex` vẫn giữ policy admin/assistant để staff thường không sửa tutorial ngoài UI read-only hiện tại
+  - backend mở thêm `GET /regulations` cho `UserRole.staff`; `PATCH /cf-problem-tutorial/:contestId/:problemIndex` vẫn giữ policy admin/assistant để staff thường không sửa tutorial ngoài UI read-only hiện tại
 - `/staff/lesson-plan-detail`, `/staff/lesson_plan_detail`
   - dùng self-service endpoint đọc thống kê lesson output của chính staff hiện tại trong 30 ngày gần nhất
   - route gạch dưới là canonical self-detail mới khi bấm row `Giáo án` trong bảng `Công việc khác` của `/staff/profile`; route gạch nối tiếp tục alias sang cùng màn này
@@ -238,6 +239,7 @@
   - `GET /users/me/staff-dashboard?month=&year=`
   - `GET /notifications/feed?limit=`
   - Websocket namespace `/notifications`, event `notification.pushed`
+  - `GET /regulations`
   - `GET /users/me/staff-bonuses?page=&limit=&month=&status=`
   - `POST /users/me/staff-bonuses`
   - `PATCH /users/me/staff-bonuses`

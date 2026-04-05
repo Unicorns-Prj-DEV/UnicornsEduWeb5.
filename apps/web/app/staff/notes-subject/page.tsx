@@ -8,30 +8,13 @@ import {
   useReducedMotion,
   type Transition,
 } from "framer-motion";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
 import AdminNotesSubjectPage from "@/app/admin/notes-subject/page";
+import RegulationAudienceBadges from "@/components/admin/notes-subject/RegulationAudienceBadges";
+import RegulationResourceLink from "@/components/admin/notes-subject/RegulationResourceLink";
 import DocsTab from "@/components/admin/notes-subject/DocsTab";
 import { getFullProfile } from "@/lib/apis/auth.api";
-
-const MOCK_RULE_POSTS = [
-  {
-    id: "1",
-    title: "Quy định nộp bài",
-    description: "Hướng dẫn và thời hạn nộp bài",
-    content:
-      "Học viên cần nộp bài **đúng thời hạn**. Bài nộp trễ sẽ bị trừ điểm.\n\nVí dụ: nếu bài được chấm theo thang điểm \\(10\\), nộp trễ 1 ngày trừ \\(1\\) điểm.",
-  },
-  {
-    id: "2",
-    title: "Quy định điểm danh",
-    description: "Cách thức điểm danh và vắng có phép",
-    content:
-      "Điểm danh trước **15 phút** sau giờ học. Vắng có phép cần báo trước *24h*.\n\nCông thức minh họa: $$\\text{Tỉ lệ chuyên cần} = \\frac{\\text{số buổi có mặt}}{\\text{tổng số buổi}} \\times 100\\%.$$",
-  },
-];
+import { getRegulations } from "@/lib/apis/regulation.api";
+import { sanitizeRichTextContent } from "@/lib/sanitize";
 
 type TabId = "quy-dinh" | "tai-lieu";
 
@@ -55,6 +38,16 @@ export default function StaffNotesSubjectPage() {
     queryKey: ["auth", "full-profile"],
     queryFn: getFullProfile,
     retry: false,
+    staleTime: 60_000,
+  });
+  const {
+    data: regulations = [],
+    isLoading: regulationsLoading,
+    isError: regulationsError,
+    refetch: refetchRegulations,
+  } = useQuery({
+    queryKey: ["regulations"],
+    queryFn: getRegulations,
     staleTime: 60_000,
   });
   const prefersReducedMotion = useReducedMotion();
@@ -158,16 +151,39 @@ export default function StaffNotesSubjectPage() {
                 {...panelMotionProps}
               >
                 <div className="rounded-md border border-border-default bg-bg-secondary/60 px-3 py-2 text-sm text-text-secondary">
-                  {MOCK_RULE_POSTS.length} bài quy định
+                  {regulations.length} quy định
                 </div>
 
-                {MOCK_RULE_POSTS.length === 0 ? (
+                {regulationsLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((item) => (
+                      <div
+                        key={item}
+                        className="h-36 animate-pulse rounded-xl border border-border-default bg-bg-surface"
+                      />
+                    ))}
+                  </div>
+                ) : regulationsError ? (
+                  <div
+                    className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-5 text-danger"
+                    role="alert"
+                  >
+                    <p>Không tải được danh sách quy định.</p>
+                    <button
+                      type="button"
+                      onClick={() => refetchRegulations()}
+                      className="mt-3 inline-flex rounded-md border border-danger/30 bg-bg-surface px-3 py-2 text-sm font-medium text-danger transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    >
+                      Thử lại
+                    </button>
+                  </div>
+                ) : regulations.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-border-default bg-bg-surface py-16 text-center">
                     <p className="text-base font-medium text-text-primary">Chưa có bài quy định nào.</p>
                   </div>
                 ) : (
                   <div className="space-y-5">
-                    {MOCK_RULE_POSTS.map((post, index) => (
+                    {regulations.map((post, index) => (
                       <article
                         key={post.id}
                         className="rounded-xl border border-border-default bg-bg-surface p-4 shadow-sm transition-colors duration-200 hover:border-border-focus hover:bg-bg-elevated sm:p-5"
@@ -176,19 +192,24 @@ export default function StaffNotesSubjectPage() {
                           <span className="inline-flex rounded-full bg-bg-secondary px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-text-secondary ring-1 ring-border-default">
                             Bài {String(index + 1).padStart(2, "0")}
                           </span>
+                          <RegulationAudienceBadges audiences={post.audiences} />
                         </div>
                         <h2 className="mt-4 text-xl font-semibold text-text-primary">{post.title}</h2>
+                        <div className="mt-3">
+                          <RegulationResourceLink
+                            resourceLink={post.resourceLink}
+                            resourceLinkLabel={post.resourceLinkLabel}
+                          />
+                        </div>
                         {post.description ? (
                           <p className="mt-2 max-w-3xl text-sm leading-6 text-text-secondary">{post.description}</p>
                         ) : null}
-                        <div className="prose prose-sm mt-4 max-w-none text-text-secondary [&_.katex-display]:my-3 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-6">
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm, remarkMath]}
-                            rehypePlugins={[[rehypeKatex, { strict: "ignore" }]]}
-                          >
-                            {post.content}
-                          </ReactMarkdown>
-                        </div>
+                        <div
+                          className="prose prose-sm mt-4 max-w-none text-text-secondary [&_.katex-display]:my-3 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-6"
+                          dangerouslySetInnerHTML={{
+                            __html: sanitizeRichTextContent(post.content),
+                          }}
+                        />
                       </article>
                     ))}
                   </div>
