@@ -43,7 +43,9 @@ COPY --from=builder /app/apps/api/generated ./generated
 # Migrations (needed for prisma migrate deploy at runtime)
 COPY --from=builder /app/apps/api/prisma ./prisma
 
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
+  && chown -R appuser:appgroup /app
+
 USER appuser
 
 EXPOSE 4000

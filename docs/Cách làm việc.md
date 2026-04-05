@@ -267,4 +267,8 @@ Pipeline: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — 
 2. **Nâng RAM** hoặc tách DB sang host khác để VPS chỉ chạy stack app.
 3. Workflow đã bật `COMPOSE_PARALLEL_LIMIT=1`, `command_timeout: 30m`, `sleep` trước migrate và `NODE_OPTIONS=--max-old-space-size=384` cho bước Prisma để giảm spike; nếu vẫn 137, ưu tiên swap / RAM.
 
+### Lỗi Prisma `Can't write to ... @prisma/engines` (quyền ghi `node_modules`)
+
+Xảy ra khi container chạy user **không phải root** nhưng thư mục `/app` (đặc biệt `node_modules`) vẫn thuộc **root** sau bước `COPY` trong Dockerfile — Prisma có thể cần ghi dưới `@prisma/engines`. Image API/Web hiện gọi `chown -R appuser:appgroup /app` trước `USER appuser`. Nếu gặp lỗi trên image cũ: build lại image từ `apps/api/Dockerfile` / `apps/web/Dockerfile` mới và deploy lại.
+
 **Lưu ý:** Dòng log có prefix `err:` từ SSH action có thể chỉ là **stderr** của Docker (bình thường), không phải lỗi logic cho đến khi có exit code khác 0.

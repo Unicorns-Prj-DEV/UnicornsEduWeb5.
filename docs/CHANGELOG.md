@@ -131,6 +131,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - BE `sessions`: cập nhật DTO create/update theo shape attendance từ FE (không yêu cầu `sessionId`/`attendance.id` trong payload), parse/validate date-time rõ ràng hơn, và update attendance theo cơ chế sync (upsert + delete bản ghi không còn trong payload) thay vì xóa toàn bộ rồi tạo lại.
 
 ### Fixed
+- Docker API/Web: sau khi `COPY` vào image, chạy `chown -R appuser:appgroup /app` để tiến trình không-root ghi được dưới `node_modules` (Prisma cần ghi thư mục `@prisma/engines`). Tránh lỗi deploy `Can't write to ... @prisma/engines please make sure you install "prisma" with the right permissions`.
 - FE popup xem tutorial Codeforces (`ProblemTutorialPopup`): HTML từ TipTap được chuyển sang chuỗi markdown trước `react-markdown` + KaTeX (`lib/tutorial-markdown.ts`), không còn hiển thị literal thẻ `<p>` / `</p>` khi xem nội dung đã lưu dạng HTML.
 - FE `/admin/lesson-plans`: sửa type error của `LessonWorkQuickFilters`/output detail để `pnpm --filter web exec tsc --noEmit` pass lại; form chi tiết output giờ chỉnh sửa được cả output chưa gắn task; title cell ở tab **Công việc** và **Bài tập** trở thành link focus được bằng bàn phím; form **Thêm bài mới** hỗ trợ đủ Level `0`–`5`.
 - BE `GET /lesson-work`: gộp summary counts theo `groupBy(status)` thay cho nhiều lần `count` lặp lại; bổ sung index cho `lesson_outputs` theo `date`, `(status, date)`, `(staff_id, date)`, `updated_at`; `PATCH /lesson-outputs/:id` giờ chấp nhận `lessonTaskId: null` để detach output khỏi task.

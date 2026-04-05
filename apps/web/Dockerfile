@@ -40,6 +40,8 @@ COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 # Public assets
 COPY --from=builder /app/apps/web/public ./apps/web/public
 
+RUN chown -R appuser:appgroup /app
+
 USER appuser
 EXPOSE 3000
 ENV PORT=3000
