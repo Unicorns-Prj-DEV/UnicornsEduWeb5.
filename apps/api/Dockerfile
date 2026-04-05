@@ -1,5 +1,5 @@
 # apps/api/Dockerfile
-FROM node:20-alpine AS base
+FROM node:24-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable && corepack prepare pnpm@10.27.0 --activate
@@ -30,7 +30,7 @@ COPY --from=builder /app .
 RUN pnpm deploy --filter api --prod --legacy /deploy/api
 
 # ── Final image ────────────────────────────────────────────────────────────────
-FROM node:20-alpine AS production
+FROM node:24-alpine AS production
 WORKDIR /app
 ENV NODE_ENV=production
 

@@ -75,7 +75,7 @@ git commit -m "feat(web): enable Next.js standalone output for Docker"
 
 ```dockerfile
 # apps/api/Dockerfile
-FROM node:20-alpine AS base
+FROM node:24-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
@@ -105,7 +105,7 @@ COPY --from=builder /app .
 RUN pnpm deploy --filter api --prod /deploy/api
 
 # ── Final image ────────────────────────────────────────────────────────────────
-FROM node:20-alpine AS production
+FROM node:24-alpine AS production
 WORKDIR /app
 ENV NODE_ENV=production
 
@@ -165,7 +165,7 @@ git commit -m "feat(api): add multi-stage production Dockerfile"
 
 ```dockerfile
 # apps/web/Dockerfile
-FROM node:20-alpine AS base
+FROM node:24-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
@@ -191,7 +191,7 @@ ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
 RUN pnpm --filter web run build
 
 # ── Final image ────────────────────────────────────────────────────────────────
-FROM node:20-alpine AS production
+FROM node:24-alpine AS production
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
