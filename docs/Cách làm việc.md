@@ -252,3 +252,19 @@ pnpm --filter web add @unicorns/shared --workspace
 4. **Không commit `node_modules`** — Đã có trong `.gitignore`.
 5. **Không chỉnh sửa `pnpm-lock.yaml` bằng tay** — File này được tự động tạo bởi pnpm.
 6. **Kiểm tra types trước khi commit** — Từ root: `pnpm check-types`; với frontend nên chạy thêm `pnpm --filter web exec tsc --noEmit` vì `apps/web` hiện chưa khai báo script `check-types` riêng.
+
+## Deploy VPS (GitHub Actions)
+
+Pipeline: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — build image → push GHCR → SSH vào VPS → `docker compose pull` / `up` → `prisma migrate deploy`.
+
+### Lỗi `Process exited with status 137`
+
+**137** = tiến trình bị **SIGKILL**; trên VPS nhỏ (512MB–1GB RAM) nguyên nhân hay gặp nhất là **OOM** (kernel kill) khi Docker **pull/giải nén layer**, **recreate** `api` + `web` cùng lúc, hoặc khi chạy **`npx prisma migrate deploy`** ngay sau khi container vừa start.
+
+**Việc nên làm trên VPS:**
+
+1. **Thêm swap** (ví dụ 2G) nếu RAM &lt; 2G — giảm đột biến OOM khi deploy.
+2. **Nâng RAM** hoặc tách DB sang host khác để VPS chỉ chạy stack app.
+3. Workflow đã bật `COMPOSE_PARALLEL_LIMIT=1`, `command_timeout: 30m`, `sleep` trước migrate và `NODE_OPTIONS=--max-old-space-size=384` cho bước Prisma để giảm spike; nếu vẫn 137, ưu tiên swap / RAM.
+
+**Lưu ý:** Dòng log có prefix `err:` từ SSH action có thể chỉ là **stderr** của Docker (bình thường), không phải lỗi logic cho đến khi có exit code khác 0.

@@ -67,19 +67,24 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          # Default 10m is tight when pull + recreate + migrate on small VPS
+          command_timeout: 30m
           script: |
-            set -e
+            set -euo pipefail
             cd /root/UnicornsEdu
 
-            # Pull latest images
-            docker compose -f docker-compose.prod.yml pull
+            # Pull / recreate fewer layers in parallel (lowers RAM spikes on small VPS)
+            export COMPOSE_PARALLEL_LIMIT=1
 
-            # Restart containers with new images
+            docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
-            # Run pending Prisma migrations (requires prisma in api production deps)
-            docker compose -f docker-compose.prod.yml exec -T api \
-              npx prisma migrate deploy --schema=./prisma/schema/
+            # Let API process settle before migrate (avoids competing with boot + OOM / 137)
+            sleep 10
 
-            # Remove dangling images to save disk space
+            # Cap Node heap for prisma CLI on memory-constrained hosts
+            docker compose -f docker-compose.prod.yml exec -T \
+              -e NODE_OPTIONS=--max-old-space-size=384 \
+              api npx prisma migrate deploy --schema=./prisma/schema/
+
             docker image prune -f
