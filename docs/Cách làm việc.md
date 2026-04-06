@@ -285,6 +285,8 @@ docker compose -f docker-compose.prod.yml exec nginx nginx -s reload
 
 Khi verify routing, **đừng dùng `http://IP/api` để kết luận API còn sống**. Với Nginx chỉ có `location /api/`, path `/api` không có dấu `/` cuối sẽ rơi xuống `location /` và có thể trả HTML của Next.js. Repo hiện đã thêm exact-match redirect `location = /api { return 301 /api/; }` để normalize case này. Với cấu hình proxy đang strip prefix `/api`, cách test đúng là `curl -i http://IP/api/` và kỳ vọng backend trả `Hello World!`; nếu mở Swagger qua reverse proxy thì URL ngoài là `http://IP/api/api`.
 
+Lưu ý: khi `proxy_pass` dùng **biến hostname** để tránh stale Docker IP, **không** thêm URI `/` ở cuối kiểu `http://$upstream_api:4000/` trong block `location /api/`. Cách đó sẽ làm Nginx đẩy mọi request `/api/*` về `/` của backend. Repo hiện rewrite `^/api/(.*)` trước rồi `proxy_pass http://$upstream_api:4000` không kèm URI để giữ đúng path còn lại.
+
 Nếu log `web` hiển thị Next.js chạy ở `http://0.0.0.0:4000` thay vì `3000`, nguyên nhân thường là cả `api` và `web` cùng ăn chung `env_file: .env` và biến `PORT=4000` từ backend đã override frontend. `docker-compose.prod.yml` hiện đã pin lại `api.PORT=4000` và `web.PORT=3000` ở từng service; sau khi cập nhật file này trên VPS, chạy lại `docker compose -f docker-compose.prod.yml up -d --force-recreate web nginx`.
 
 ### Lỗi Prisma `The datasource.url property is required` khi `migrate deploy`
