@@ -13,6 +13,7 @@ import {
   resolveAdminLikeRouteBase,
 } from "@/lib/admin-shell-paths";
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
+import { createClientId } from "@/lib/client-id";
 import * as staffApi from "@/lib/apis/staff.api";
 import ExtraAllowanceFormPopup, {
   type ExtraAllowanceFormSubmitPayload,
@@ -456,23 +457,9 @@ export default function ExtraAllowanceRoleDetailPage({
       return;
     }
 
-    if (
-      typeof crypto === "undefined" ||
-      typeof crypto.randomUUID !== "function"
-    ) {
-      toast.error("Không thể tạo mã trợ cấp. Vui lòng thử lại.");
-      return;
-    }
-
-    const id = crypto.randomUUID();
-    if (!id) {
-      toast.error("Không thể tạo mã trợ cấp. Vui lòng thử lại.");
-      return;
-    }
-
     try {
       await createMutation.mutateAsync({
-        id,
+        id: createClientId(),
         staffId: payload.staffId,
         month: payload.month,
         amount: payload.amount,

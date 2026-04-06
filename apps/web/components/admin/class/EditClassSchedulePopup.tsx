@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import type { ClassDetail, ClassScheduleItem } from "@/dtos/class.dto";
 import * as classApi from "@/lib/apis/class.api";
 import { normalizeTimeOnly } from "@/lib/class.helpers";
+import { createClientId } from "@/lib/client-id";
 import {
   classEditorModalBodyClassName,
   classEditorModalClassName,
@@ -35,7 +36,7 @@ type Props = {
 
 function createScheduleRange(range?: Partial<Pick<ScheduleRangeForm, "from" | "to">>): ScheduleRangeForm {
   return {
-    id: crypto.randomUUID(),
+    id: createClientId(),
     from: range?.from ?? EMPTY_SCHEDULE_RANGE.from,
     to: range?.to ?? EMPTY_SCHEDULE_RANGE.to,
   };

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
+import { createClientId } from "@/lib/client-id";
 import type { StudentExamItem } from "./StudentExamCard";
 
 type Props = {
@@ -14,11 +15,7 @@ type Props = {
 };
 
 function createLocalId(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return createClientId();
 }
 
 function normalizeExamDate(value: string): string {

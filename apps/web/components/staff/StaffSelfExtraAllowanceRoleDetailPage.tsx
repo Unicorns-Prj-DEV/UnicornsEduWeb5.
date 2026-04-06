@@ -27,6 +27,7 @@ import {
   getMyStaffDetail,
   updateMyCommunicationExtraAllowance,
 } from "@/lib/apis/auth.api";
+import { createClientId } from "@/lib/client-id";
 
 const MAX_VISIBLE_ALLOWANCES = 20;
 
@@ -226,7 +227,7 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
   const createMutation = useMutation({
     mutationFn: async (payload: ExtraAllowanceFormSubmitPayload) => {
       await createMyCommunicationExtraAllowance({
-        id: crypto.randomUUID(),
+        id: createClientId(),
         month: payload.month,
         amount: payload.amount,
         note: payload.note,

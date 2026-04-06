@@ -20,6 +20,7 @@ import SelectionCheckbox from "@/components/ui/SelectionCheckbox";
 import { CostListItem, CostListResponse, CostStatus, CostUpsertMode } from "@/dtos/cost.dto";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
+import { createClientId } from "@/lib/client-id";
 
 const PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE_MS = 1000;
@@ -332,20 +333,9 @@ export default function AdminCostsPage() {
         return;
       }
 
-      if (typeof crypto === "undefined" || typeof crypto.randomUUID !== "function") {
-        toast.error("Không thể tạo mã chi phí. Vui lòng thử lại.");
-        return;
-      }
-
-      const id = crypto.randomUUID();
-      if (!id) {
-        toast.error("Không thể tạo mã chi phí. Vui lòng thử lại.");
-        return;
-      }
-
       try {
         await createMutation.mutateAsync({
-          id,
+          id: createClientId(),
           category: payload.category,
           month: payload.month,
           date: payload.date,

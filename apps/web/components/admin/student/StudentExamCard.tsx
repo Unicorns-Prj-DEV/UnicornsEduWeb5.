@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { createClientId } from "@/lib/client-id";
 import StudentExamSchedulePopup from "./StudentExamSchedulePopup";
 import StudentInfoCard from "./StudentInfoCard";
 
@@ -54,11 +55,7 @@ function formatDateOnly(iso: string): string {
 }
 
 function createLocalId(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return createClientId();
 }
 
 function normalizeExamDate(value: string): string {

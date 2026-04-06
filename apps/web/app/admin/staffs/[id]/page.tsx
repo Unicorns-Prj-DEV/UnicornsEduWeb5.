@@ -24,6 +24,7 @@ import {
 import { BonusListItem } from "@/dtos/bonus.dto";
 import { StaffDetail, StaffIncomeSummary, StaffStatus } from "@/dtos/staff.dto";
 import { formatCurrency } from "@/lib/class.helpers";
+import { createClientId } from "@/lib/client-id";
 import { ROLE_LABELS } from "@/lib/staff.constants";
 import {
   buildAdminLikePath,
@@ -471,17 +472,9 @@ export default function AdminStaffDetailPage({
         return;
       }
 
-      if (
-        typeof crypto === "undefined" ||
-        typeof crypto.randomUUID !== "function"
-      ) {
-        toast.error("Không thể tạo mã thưởng. Vui lòng thử lại.");
-        return;
-      }
-
       try {
         await createBonusMutation.mutateAsync({
-          id: crypto.randomUUID(),
+          id: createClientId(),
           staffId: id,
           workType,
           month: selectedMonth,

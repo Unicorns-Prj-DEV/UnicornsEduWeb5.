@@ -10,6 +10,7 @@ import type { StudentDetail, StudentGender, StudentStatus } from "@/dtos/student
 import type { CustomerCareStaffOption } from "@/dtos/staff.dto";
 import * as staffApi from "@/lib/apis/staff.api";
 import * as studentApi from "@/lib/apis/student.api";
+import { createClientId } from "@/lib/client-id";
 import {
   readStudentExamSchedule,
   saveStudentExamSchedule,
@@ -132,12 +133,7 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
   );
   const [debouncedCustomerCareSearch] = useDebounce(customerCareSearchInput.trim(), 250);
 
-  const createLocalId = () => {
-    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-      return crypto.randomUUID();
-    }
-    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  };
+  const createLocalId = () => createClientId();
 
   const normalizeExamDate = (value: string) => {
     const trimmed = value.trim();

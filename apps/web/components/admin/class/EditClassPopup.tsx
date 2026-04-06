@@ -10,6 +10,7 @@ import * as classApi from "@/lib/apis/class.api";
 import * as staffApi from "@/lib/apis/staff.api";
 import * as studentApi from "@/lib/apis/student.api";
 import { normalizeTimeOnly } from "@/lib/class.helpers";
+import { createClientId } from "@/lib/client-id";
 
 type ScheduleRangeForm = {
   id: string;
@@ -42,7 +43,7 @@ const TYPE_OPTIONS: { value: ClassType; label: string }[] = [
 
 function createScheduleRange(range?: Partial<Pick<ScheduleRangeForm, "from" | "to">>): ScheduleRangeForm {
   return {
-    id: crypto.randomUUID(),
+    id: createClientId(),
     from: range?.from ?? EMPTY_SCHEDULE_RANGE.from,
     to: range?.to ?? EMPTY_SCHEDULE_RANGE.to,
   };

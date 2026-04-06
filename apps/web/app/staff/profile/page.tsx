@@ -35,6 +35,7 @@ import {
   updateMyStaffBonus,
 } from "@/lib/apis/auth.api";
 import { formatCurrency } from "@/lib/class.helpers";
+import { createClientId } from "@/lib/client-id";
 import * as staffOpsApi from "@/lib/apis/staff-ops.api";
 import { ROLE_LABELS } from "@/lib/staff.constants";
 
@@ -478,17 +479,9 @@ export default function StaffSelfDetailPage() {
     }
 
     if (bonusFormMode === "create") {
-      if (
-        typeof crypto === "undefined" ||
-        typeof crypto.randomUUID !== "function"
-      ) {
-        toast.error("Không thể tạo mã thưởng. Vui lòng thử lại.");
-        return;
-      }
-
       try {
         await createBonusMutation.mutateAsync({
-          id: crypto.randomUUID(),
+          id: createClientId(),
           workType,
           month: selectedMonth,
           amount: Math.round(parsedAmount),

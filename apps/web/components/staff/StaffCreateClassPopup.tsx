@@ -8,6 +8,7 @@ import type { ClassScheduleItem, ClassStatus, ClassType } from "@/dtos/class.dto
 import type { StaffOpsCreateClassPayload } from "@/dtos/staff-ops.dto";
 import * as staffOpsApi from "@/lib/apis/staff-ops.api";
 import { normalizeTimeOnly } from "@/lib/class.helpers";
+import { createClientId } from "@/lib/client-id";
 import {
   classEditorModalBodyClassName,
   classEditorModalClassName,
@@ -47,7 +48,7 @@ function createScheduleRange(
   initial?: Partial<Pick<ScheduleRangeForm, "from" | "to">>,
 ): ScheduleRangeForm {
   return {
-    id: crypto.randomUUID(),
+    id: createClientId(),
     from: initial?.from ?? "",
     to: initial?.to ?? "",
   };
