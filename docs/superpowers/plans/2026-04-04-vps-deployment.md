@@ -256,6 +256,16 @@ services:
       - "4000"
     networks:
       - app-net
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:4000/').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
 
   web:
     image: ghcr.io/<YOUR_GITHUB_ORG>/unicorns-web:latest
@@ -265,6 +275,16 @@ services:
       - "3000"
     networks:
       - app-net
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:3000/api/healthcheck').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
 
   nginx:
     image: nginx:1.27-alpine
@@ -278,8 +298,12 @@ services:
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - /var/lib/letsencrypt:/var/lib/letsencrypt:ro
     depends_on:
-      - api
-      - web
+      api:
+        condition: service_healthy
+        restart: true
+      web:
+        condition: service_healthy
+        restart: true
     networks:
       - app-net
 
@@ -336,6 +360,9 @@ http {
     include       /etc/nginx/mime.types;
     default_type  application/octet-stream;
 
+    resolver 127.0.0.11 valid=5s ipv6=off;
+    resolver_timeout 5s;
+
     log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
                       '$status $body_bytes_sent "$http_referer" '
                       '"$http_user_agent" "$http_x_forwarded_for"';
@@ -357,23 +384,19 @@ http {
 
 ```nginx
 # nginx/conf.d/app.conf
-upstream api_backend {
-    server api:4000;
-}
-
-upstream web_frontend {
-    server web:3000;
-}
+# Docker Compose gives containers new IPs on recreate. Plain `upstream` blocks
+# resolve hostnames only at nginx start, so use variable `proxy_pass` instead.
 
 server {
     listen 80;
-    server_name yourdomain.com;   # ← replace with your actual domain
+    server_name _;   # catch-all for IP access and domains that may be added later
 
     client_max_body_size 20m;
 
     # ── Socket.io WebSocket ──────────────────────────────────────────────────
     location /socket.io/ {
-        proxy_pass         http://api_backend;
+        set $upstream_api api;
+        proxy_pass         http://$upstream_api:4000;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade    $http_upgrade;
         proxy_set_header   Connection "upgrade";
@@ -386,10 +409,15 @@ server {
     }
 
     # ── API (strip /api prefix) ──────────────────────────────────────────────
+    location = /api {
+        return 302 /api/;
+    }
+
     # Trailing slash on proxy_pass strips the /api prefix before forwarding.
     # e.g.  GET /api/auth/login  →  api:4000/auth/login
     location /api/ {
-        proxy_pass         http://api_backend/;
+        set $upstream_api api;
+        proxy_pass         http://$upstream_api:4000/;
         proxy_http_version 1.1;
         proxy_set_header   Host               $host;
         proxy_set_header   X-Real-IP          $remote_addr;
@@ -399,7 +427,8 @@ server {
 
     # ── Next.js frontend ─────────────────────────────────────────────────────
     location / {
-        proxy_pass         http://web_frontend;
+        set $upstream_web web;
+        proxy_pass         http://$upstream_web:3000;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade    $http_upgrade;
         proxy_set_header   Connection "upgrade";
@@ -413,7 +442,7 @@ server {
 
 - [ ] **Step 3: Replace `yourdomain.com` with your actual domain in app.conf**
 
-Open `nginx/conf.d/app.conf` and replace `yourdomain.com` with your real domain.
+Bạn có thể giữ `server_name _;` để accept cả IP trực tiếp lẫn domain. Nếu muốn pin về domain cụ thể sau khi TLS ổn định, thay lại ở bước hardening cuối.
 
 - [ ] **Step 4: Validate nginx config via Docker**
 
@@ -533,6 +562,43 @@ jobs:
 
             # Restart containers with new images
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            wait_for_healthy() {
+              service="$1"
+              container_id="$(docker compose -f docker-compose.prod.yml ps -q "$service")"
+
+              if [ -z "$container_id" ]; then
+                echo "No container found for service: $service"
+                exit 1
+              fi
+
+              for attempt in $(seq 1 40); do
+                status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container_id")"
+
+                if [ "$status" = "healthy" ]; then
+                  echo "Service $service is healthy"
+                  return 0
+                fi
+
+                if [ "$status" = "unhealthy" ]; then
+                  echo "Service $service is unhealthy"
+                  docker compose -f docker-compose.prod.yml logs --tail=100 "$service"
+                  exit 1
+                fi
+
+                sleep 3
+              done
+
+              echo "Timed out waiting for service: $service"
+              docker compose -f docker-compose.prod.yml logs --tail=100 "$service"
+              exit 1
+            }
+
+            wait_for_healthy api
+            wait_for_healthy web
+
+            docker compose -f docker-compose.prod.yml exec -T nginx nginx -t
+            docker compose -f docker-compose.prod.yml exec -T nginx nginx -s reload
 
             # Run pending Prisma migrations
             docker compose -f docker-compose.prod.yml exec -T api \

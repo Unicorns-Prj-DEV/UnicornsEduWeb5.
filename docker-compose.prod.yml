@@ -10,6 +10,16 @@ services:
       - "4000"
     networks:
       - app-net
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:4000/').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
 
   web:
     image: ghcr.io/hanguy21/unicorns-web:latest
@@ -22,6 +32,16 @@ services:
       - "3000"
     networks:
       - app-net
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:3000/api/healthcheck').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
 
   nginx:
     image: nginx:1.27-alpine
@@ -35,8 +55,12 @@ services:
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - /var/lib/letsencrypt:/var/lib/letsencrypt:ro
     depends_on:
-      - api
-      - web
+      api:
+        condition: service_healthy
+        restart: true
+      web:
+        condition: service_healthy
+        restart: true
     networks:
       - app-net
 

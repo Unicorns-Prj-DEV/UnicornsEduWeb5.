@@ -79,8 +79,44 @@ jobs:
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
-            # Let API process settle before migrate (avoids competing with boot + OOM / 137)
-            sleep 10
+            wait_for_healthy() {
+              service="$1"
+              container_id="$(docker compose -f docker-compose.prod.yml ps -q "$service")"
+
+              if [ -z "$container_id" ]; then
+                echo "No container found for service: $service"
+                exit 1
+              fi
+
+              for attempt in $(seq 1 40); do
+                status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container_id")"
+
+                if [ "$status" = "healthy" ]; then
+                  echo "Service $service is healthy"
+                  return 0
+                fi
+
+                if [ "$status" = "unhealthy" ]; then
+                  echo "Service $service is unhealthy"
+                  docker compose -f docker-compose.prod.yml logs --tail=100 "$service"
+                  exit 1
+                fi
+
+                sleep 3
+              done
+
+              echo "Timed out waiting for service: $service"
+              docker compose -f docker-compose.prod.yml logs --tail=100 "$service"
+              exit 1
+            }
+
+            wait_for_healthy api
+            wait_for_healthy web
+
+            # Reload nginx after upstream recreate so active workers immediately
+            # pick up current Docker DNS answers without a full container restart.
+            docker compose -f docker-compose.prod.yml exec -T nginx nginx -t
+            docker compose -f docker-compose.prod.yml exec -T nginx nginx -s reload
 
             # Cap Node heap for prisma CLI on memory-constrained hosts
             docker compose -f docker-compose.prod.yml exec -T \

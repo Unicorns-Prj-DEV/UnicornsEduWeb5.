@@ -265,11 +265,23 @@ Pipeline: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — 
 
 1. **Thêm swap** (ví dụ 2G) nếu RAM &lt; 2G — giảm đột biến OOM khi deploy.
 2. **Nâng RAM** hoặc tách DB sang host khác để VPS chỉ chạy stack app.
-3. Workflow đã bật `COMPOSE_PARALLEL_LIMIT=1`, `command_timeout: 30m`, `sleep` trước migrate và `NODE_OPTIONS=--max-old-space-size=384` cho bước Prisma để giảm spike; nếu vẫn 137, ưu tiên swap / RAM.
+3. Workflow đã bật `COMPOSE_PARALLEL_LIMIT=1`, `command_timeout: 30m`, chờ `api` / `web` healthy trước migrate và `NODE_OPTIONS=--max-old-space-size=384` cho bước Prisma để giảm spike; nếu vẫn 137, ưu tiên swap / RAM.
 
 ### Nginx 502 `Connection refused` tới `172.x.x.x:3000` sau khi `docker compose up`
 
-Nginx cũ có thể vẫn trỏ IP container **trước khi recreate**; `web`/`api` đổi IP trong mạng Docker → cần **reload/restart nginx** hoặc dùng config có `resolver 127.0.0.11` + `proxy_pass` qua biến (đã cập nhật trong repo tại `nginx/conf.d/app.conf`). Sau khi kéo config mới trên VPS: `docker compose -f docker-compose.prod.yml exec nginx nginx -t && docker compose -f docker-compose.prod.yml restart nginx`.
+Nginx có thể giữ upstream tới IP container **trước khi recreate**; `web`/`api` đổi IP trong mạng Docker sẽ gây 502 nếu proxy chỉ resolve hostname lúc start. Repo hiện đã chặn trường hợp này theo 3 lớp:
+
+1. `nginx/nginx.conf` khai báo Docker DNS `resolver 127.0.0.11` ở `http` scope để mọi server block (kể cả block TLS do Certbot thêm) đều re-resolve `api` / `web`.
+2. `nginx/conf.d/app.conf` dùng `proxy_pass` qua biến thay vì `upstream` tĩnh để Nginx hỏi lại Docker DNS khi container đổi IP.
+3. `docker-compose.prod.yml` thêm `healthcheck` cho `api` / `web`, còn workflow deploy sẽ đợi hai service healthy rồi chạy `nginx -t` + `nginx -s reload`, nên không còn phải restart cả container `nginx` bằng tay sau mỗi lần recreate upstream.
+
+Nếu VPS vẫn đang dùng config cũ, pull repo mới rồi chạy lại:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --remove-orphans
+docker compose -f docker-compose.prod.yml exec nginx nginx -t
+docker compose -f docker-compose.prod.yml exec nginx nginx -s reload
+```
 
 Khi verify routing, **đừng dùng `http://IP/api` để kết luận API còn sống**. Với Nginx chỉ có `location /api/`, path `/api` không có dấu `/` cuối sẽ rơi xuống `location /` và có thể trả HTML của Next.js. Repo hiện đã thêm exact-match redirect `location = /api { return 301 /api/; }` để normalize case này. Với cấu hình proxy đang strip prefix `/api`, cách test đúng là `curl -i http://IP/api/` và kỳ vọng backend trả `Hello World!`; nếu mở Swagger qua reverse proxy thì URL ngoài là `http://IP/api/api`.
 
