@@ -6,13 +6,13 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 ## 1) Công nghệ & nguồn schema
 
-| Thành phần | Giá trị |
-| --- | --- |
-| ORM | Prisma |
-| Database | PostgreSQL |
-| Entry schema | `apps/api/prisma/schema/schema.prisma` |
-| Mô hình dữ liệu | `apps/api/prisma/schema/{user,people,learning,finance,content,lesson,enums}.prisma` |
-| Prisma Client output | `apps/api/generated/` |
+| Thành phần           | Giá trị                                                                             |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| ORM                  | Prisma                                                                              |
+| Database             | PostgreSQL                                                                          |
+| Entry schema         | `apps/api/prisma/schema/schema.prisma`                                              |
+| Mô hình dữ liệu      | `apps/api/prisma/schema/{user,people,learning,finance,content,lesson,enums}.prisma` |
+| Prisma Client output | `apps/api/generated/`                                                               |
 
 > `datasource db` dùng `provider = "postgresql"`.
 
@@ -21,13 +21,16 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 ## 2) Danh sách bảng theo domain
 
 ### Auth
+
 - `users`
 
 ### People
+
 - `staff_info`
 - `student_info`
 
 ### Learning
+
 - `classes`
 - `class_teachers`
 - `student_classes`
@@ -36,6 +39,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `cf_problem_tutorials` (tutorial theo bài Codeforces)
 
 ### Finance
+
 - `bonuses`
 - `wallet_transactions_history`
 - `customer_care_service`
@@ -45,6 +49,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `cost_extend`
 
 ### Content / Audit
+
 - `class_surveys`
 - `action_history`
 - `documents`
@@ -52,6 +57,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `regulations`
 
 ### Lesson
+
 - `staff_lesson_task`
 - `lesson_task`
 - `lesson_resources`
@@ -87,6 +93,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 ## 4) Chi tiết model quan trọng
 
 ### 4.1 `users` (Auth core)
+
 - PK: `id` (UUID default)
 - Unique: `email`, `account_handle` (hai trường độc lập; login chấp nhận chuỗi tương ứng email hoặc account_handle, ưu tiên account_handle).
 - Trường chính: `password_hash`, `role_type`, `status`, `email_verified`, `phone_verified`, `refresh_token`
@@ -98,6 +105,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - Index: `email`, `phone`, `account_handle`, `link_id`, `role_type`, `status`
 
 ### 4.2 `staff_info`
+
 - Thông tin nhân sự: hồ sơ cá nhân, CCCD, ngân hàng, `roles` (`StaffRole[]` dạng Postgres enum array), `status`
 - CCCD:
   - `cccd_number` (`TEXT`, bắt buộc, unique): số CCCD 12 chữ số (rule validate ở BE/FE)
@@ -110,10 +118,12 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - Được tham chiếu bởi: `users`, `class_teachers`, `sessions`, `bonuses`, `lesson_outputs`, `customer_care_service`, `wallet_transactions_history` (customer care), `staff_monthly_stats`, `extra_allowances`, `class_surveys`, `staff_lesson_task`, `attendance` (assistant_manager)
 
 ### 4.3 `student_info`
+
 - Hồ sơ học viên: liên hệ phụ huynh, trạng thái, giới tính, mục tiêu
 - Được tham chiếu bởi: `users`, `student_classes`, `attendance`, `wallet_transactions_history`, `customer_care_service`
 
 ### 4.4 `classes`
+
 - Trường nghiệp vụ chính:
   - `type` (`ClassType`), `status` (`ClassStatus`)
   - `max_students`, `allowance_per_session_per_student`, `max_allowance_per_session`, `scale_amount`
@@ -122,6 +132,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - Quan hệ: teachers, students, sessions, surveys
 
 ### 4.5 `sessions`
+
 - Mỗi buổi học gắn với 1 lớp và 1 giáo viên
 - Trường chính: ngày học, start/end time, `coefficient`, `allowance_amount`, `teacher_payment_status`, `tuition_fee`
 - Quan hệ con: `attendance`
@@ -130,6 +141,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - composite cho read path nóng: `(class_id, date)`, `(teacher_id, date)`, `(teacher_id, teacher_payment_status, date)`
 
 ### 4.6 `attendance`
+
 - Điểm danh theo từng session & student
 - Unique composite: `(session_id, student_id)`
 - Trạng thái dùng enum `AttendanceStatus`
@@ -139,6 +151,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - Index: `(assistant_manager_staff_id, assistant_payment_status)` phục vụ aggregate unpaid
 
 ### 4.7 Finance models
+
 - `bonuses`: khoản thưởng theo staff/tháng/trạng thái thanh toán
 - `wallet_transactions_history`: lịch sử ví học viên + thông tin chia lợi nhuận CSKH
 - `customer_care_service`: map staff chăm sóc theo học viên + % profit
@@ -148,14 +161,16 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `cost_extend`: khoản chi mở rộng theo tháng/danh mục
 
 ### 4.8 Content & audit
+
 - `class_surveys`: báo cáo/đánh giá lớp theo mốc test
 - `action_history`: audit log thay đổi dữ liệu (`before_value`, `after_value`, `changed_fields` là JSON)
 - `documents`: metadata tài liệu (`file_url`, `tags` JSON)
-- `notifications`: bản ghi thông báo admin push cho feed nhân sự/học sinh; lưu draft/published, version, số lần push và thời điểm push gần nhất
+- `notifications`: bản ghi thông báo admin push cho feed admin/staff/student; lưu draft/published, audience target động, version, số lần push và thời điểm push gần nhất
 - `notification_reads`: đánh dấu đã đọc theo từng user (`user_id` + `notification_id`, unique)
 - `regulations`: bài quy định dùng cho tab `Quy định` ở `notes-subject`, có role/audience tag và optional resource link
 
 ### 4.8.1 `action_history`
+
 - Dùng để lưu thao tác `create | update | delete` ở backend cho các entity nghiệp vụ.
 - Actor: `user_id`, `user_email`
 - Phân loại: `entity_type`, `entity_id`, `action_type`
@@ -177,24 +192,36 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - `created_at`
 
 ### 4.8.2 `notifications`
-- Lưu thông báo push từ admin cho staff, dùng chung cho REST feed và NestJS gateway `/notifications`
+
+- Lưu thông báo push từ admin cho admin/staff/student, dùng chung cho REST feed và NestJS gateway `/notifications`
 - PK: `id` (UUID)
 - Trường chính:
   - `title` (`VARCHAR(160)`)
   - `message` (`TEXT`)
   - `status` (`NotificationStatus`: `draft | published`)
+  - `target_all` (`BOOLEAN`, default `true`) để broadcast cho toàn bộ audience đủ điều kiện
+  - `target_role_types` (`UserRole[]`) cho tag role_type như `@admin`, `@staff`, `@student`
+  - `target_staff_roles` (`StaffRole[]`) cho tag staff role như `@teacher`, `@assistant`, `@lesson_plan_head`
+  - `target_user_ids` (`TEXT[]`) cho direct user tag; feed/realtime sẽ match động theo `users.id` hiện tại
   - `version` (bản phát hiện tại; draft bắt đầu từ `0`, lần push đầu = `1`)
   - `push_count` (tổng số lần đã push/re-push)
   - `last_pushed_at` (nullable; chỉ có khi đã published)
   - `created_by_user_id` (optional FK → `users.id`)
   - `created_at`, `updated_at`
+- Hành vi audience:
+  - notification cũ/mặc định dùng `target_all = true`
+  - khi `target_all = false`, audience là **union** của `target_role_types`, `target_staff_roles`, `target_user_ids`
+  - audience được resolve **động** lúc load feed / websocket emit, không snapshot recipient tại thời điểm push
 - Index read path hiện có:
   - `status`
+  - `target_all`
   - `last_pushed_at`
   - `updated_at`
-- `created_by_user_id`
+  - `created_by_user_id`
+  - GIN: `target_role_types`, `target_staff_roles`, `target_user_ids`
 
 ### 4.8.3 `notification_reads`
+
 - Mỗi dòng = một user đã xác nhận đã đọc một thông báo đã published (feed).
 - PK: `id` (TEXT / UUID string)
 - FK: `user_id` → `users.id` (**ON DELETE CASCADE**), `notification_id` → `notifications.id` (**ON DELETE CASCADE**)
@@ -203,6 +230,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - Index: `user_id`, `notification_id`
 
 ### 4.8.4 `regulations`
+
 - Lưu bài quy định cho workspace `notes-subject`, thay mock data ở FE.
 - PK: `id` (UUID)
 - Trường chính:
@@ -220,12 +248,14 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - `updated_by_user_id`
 
 ### 4.9 Codeforces tutorial (`cf_problem_tutorials`)
+
 - Lưu nội dung tutorial cho từng bài trong contest Codeforces (group).
 - PK: `id` (UUID). Unique: `(contest_id, problem_index)`.
 - Trường: `contest_id` (Int), `problem_index` (String, vd. `"01"`, `"A"`), `tutorial` (Text, nullable).
 - Dùng cho Tab Tài liệu tại `/admin/notes-subject` khi admin chỉnh sửa tutorial cho bài.
 
 ### 4.10 Lesson models
+
 - `lesson_task`: task nội dung (status, priority, due date, created_at, updated_at)
   - quan hệ optional `created_by -> staff_info.id`
   - `created_by` được dùng cho `người chịu trách nhiệm`; danh sách `nhân sự thực hiện task` đi qua `staff_lesson_task`, còn `nhân sự thực hiện output` vẫn đi qua `lesson_outputs.staff_id`
@@ -256,6 +286,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 ## 5) Enums hiện có
 
 ### User & identity
+
 - `UserRole`: `admin | staff | student | guest`
 - `UserStatus`: `active | inactive | pending`
 - `StaffRole`: `admin | teacher | assistant | lesson_plan | lesson_plan_head | accountant | communication | customer_care`
@@ -264,23 +295,28 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `Gender`: `male | female`
 
 ### Learning
+
 - `ClassStatus`: `running | ended`
 - `ClassType`: `vip | basic | advance | hardcore`
 - `AttendanceStatus`: `present | excused | absent`
 
 ### Finance
+
 - `WalletTransactionType`: `topup | loan | repayment | extend`
 - `PaymentStatus`: `paid | pending`
 
 ### Lesson
+
 - `LessonTaskStatus`: `pending | in_progress | completed | cancelled`
 - `LessonTaskPriority`: `low | medium | high`
 - `LessonOutputStatus`: `pending | completed | cancelled`
 
 ### Notification
+
 - `NotificationStatus`: `draft | published`
 
 ### Regulation
+
 - `RegulationAudience`:
   - `all`
   - `student`
@@ -316,11 +352,11 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 Kết nối DB qua `DATABASE_URL` trong `apps/api/.env` (đọc từ `prisma.config.ts`). **Docker (API):** image production copy `prisma.config.ts` vào `/app` cùng thư mục `prisma/` — `migrate deploy` trong container cần file này để biết `datasource.url`. Các lệnh local chạy tại thư mục **`apps/api`**:
 
-| Việc | Lệnh |
-|------|------|
-| Generate Prisma Client | `npm run db:generate` hoặc `npx prisma generate --schema=./prisma/schema/` |
-| Áp dụng migration có sẵn (tạo/ cập nhật bảng) | `npx prisma migrate deploy --schema=./prisma/schema/` |
-| Tạo migration mới + áp dụng (khi đổi schema) | `npm run db:migrate` hoặc `npx prisma migrate dev --schema=./prisma/schema/` |
+| Việc                                          | Lệnh                                                                         |
+| --------------------------------------------- | ---------------------------------------------------------------------------- |
+| Generate Prisma Client                        | `npm run db:generate` hoặc `npx prisma generate --schema=./prisma/schema/`   |
+| Áp dụng migration có sẵn (tạo/ cập nhật bảng) | `npx prisma migrate deploy --schema=./prisma/schema/`                        |
+| Tạo migration mới + áp dụng (khi đổi schema)  | `npm run db:migrate` hoặc `npx prisma migrate dev --schema=./prisma/schema/` |
 
 **Tạo lại toàn bộ bảng trên DB (PostgreSQL/Supabase):**
 

@@ -1,10 +1,12 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { useMemo } from "react";
 import type { NotificationFeedItem } from "@/dtos/notification.dto";
 import {
   formatSidebarNotificationTime,
 } from "@/lib/format-sidebar-notification-time";
+import { sanitizeRichTextContent } from "@/lib/sanitize";
 
 export function NotificationFeedDetailModal({
   open,
@@ -16,6 +18,17 @@ export function NotificationFeedDetailModal({
   onClose: () => void;
 }) {
   const reduceMotion = useReducedMotion();
+  const contentTextLength = useMemo(() => {
+    const raw = item?.message ?? "";
+    return raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().length;
+  }, [item?.message]);
+
+  const dialogMaxWidth =
+    contentTextLength > 1100
+      ? "max-w-4xl"
+      : contentTextLength > 520
+        ? "max-w-3xl"
+        : "max-w-2xl";
 
   const transition = reduceMotion
     ? { duration: 0 }
@@ -52,12 +65,12 @@ export function NotificationFeedDetailModal({
                   : { opacity: 0, scale: 0.96, y: 10 }
               }
               transition={transition}
-              className="pointer-events-auto flex max-h-[min(92dvh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-surface shadow-2xl"
+              className={`pointer-events-auto flex w-full ${dialogMaxWidth} max-h-[92dvh] flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-surface shadow-2xl`}
             >
               <header className="flex shrink-0 items-start justify-between gap-3 border-b border-border-default px-4 py-3">
                 <h2
                   id="notif-detail-title"
-                  className="text-base font-semibold leading-snug text-text-primary"
+                  className="text-xl font-bold leading-snug tracking-tight text-text-primary sm:text-2xl"
                 >
                   {item.title}
                 </h2>
@@ -73,12 +86,20 @@ export function NotificationFeedDetailModal({
                 </button>
               </header>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
-                <p className="text-xs text-text-muted">
-                  {formatSidebarNotificationTime(item.lastPushedAt)}
-                </p>
-                <div className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">
-                  {item.message}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
+                    {item.version > 1 ? `Điều chỉnh v${item.version}` : "Thông báo mới"}
+                  </span>
+                  <p className="text-xs text-text-muted">
+                    {formatSidebarNotificationTime(item.lastPushedAt)}
+                  </p>
                 </div>
+                <div
+                  className="mt-3 text-sm leading-relaxed text-text-secondary [&_a]:text-primary [&_a]:underline [&_li]:ml-5 [&_ol]:list-decimal [&_ol]:pl-1 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-1"
+                  dangerouslySetInnerHTML={{
+                    __html: sanitizeRichTextContent(item.message),
+                  }}
+                />
               </div>
               <footer className="shrink-0 border-t border-border-default p-3">
                 <button

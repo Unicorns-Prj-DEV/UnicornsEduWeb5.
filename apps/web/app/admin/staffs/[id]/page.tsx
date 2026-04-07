@@ -135,6 +135,8 @@ export default function AdminStaffDetailPage({
     staleTime: 60_000,
   });
   const { isAccountant } = resolveAdminShellAccess(fullProfile);
+  const canViewBeforeDeduction =
+    fullProfile?.roleType === "admin" || isAccountant;
   const canCreateBonus = !isAccountant;
   const canDeleteBonus = !isAccountant;
 
@@ -724,163 +726,58 @@ export default function AdminStaffDetailPage({
               />
             </div>
           </div>
-          <div className="mt-3 space-y-3 md:hidden">
-            <div className="flex justify-between rounded-lg border border-border-default bg-bg-secondary/40 px-4 py-3">
-              <span className="text-sm text-text-primary">Tổng tháng</span>
-              <span className="tabular-nums text-sm font-semibold text-primary">
-                {formatCurrency(monthlyIncomeTotals.total)}
-              </span>
-            </div>
-            <div className="flex justify-between rounded-lg border border-border-default bg-bg-secondary/40 px-4 py-3">
-              <span className="text-sm text-text-primary">Chưa nhận</span>
-              <span className="tabular-nums text-sm font-semibold text-error">
-                {formatCurrency(monthlyIncomeTotals.unpaid)}
-              </span>
-            </div>
-            <div className="flex justify-between rounded-lg border border-border-default bg-bg-secondary/40 px-4 py-3">
-              <span className="text-sm text-text-primary">Đã nhận</span>
-              <span className="tabular-nums text-sm font-semibold text-success">
-                {formatCurrency(monthlyIncomeTotals.paid)}
-              </span>
-            </div>
-            <div className="flex justify-between rounded-lg border border-border-default bg-bg-secondary/40 px-4 py-3">
-              <span className="text-sm text-text-primary">Tổng năm</span>
-              <span className="tabular-nums text-sm font-semibold text-warning">
-                {formatCurrency(yearIncomeTotal)}
-              </span>
-            </div>
-            <div className="flex justify-between rounded-lg border border-border-default bg-bg-secondary/40 px-4 py-3">
-              <span className="text-sm text-text-primary">Ghi cọc</span>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-text-muted">Lương tổng tháng</p>
+              <p className="mt-1 tabular-nums text-lg font-semibold text-primary">{formatCurrency(monthlyIncomeTotals.total)}</p>
+            </article>
+            <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-text-muted">Chưa nhận</p>
+              <p className="mt-1 tabular-nums text-lg font-semibold text-error">{formatCurrency(monthlyIncomeTotals.unpaid)}</p>
+            </article>
+            <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-text-muted">Đã nhận</p>
+              <p className="mt-1 tabular-nums text-lg font-semibold text-success">{formatCurrency(monthlyIncomeTotals.paid)}</p>
+            </article>
+            <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-text-muted">Tổng năm</p>
+              <p className="mt-1 tabular-nums text-lg font-semibold text-warning">{formatCurrency(yearIncomeTotal)}</p>
+            </article>
+            <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-text-muted">Ghi cọc</p>
               {depositYearTotal > 0 ? (
                 <button
                   type="button"
                   onClick={() => setDepositPopupOpen(true)}
-                  className="tabular-nums text-sm font-semibold text-warning underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
+                  className="mt-1 tabular-nums text-lg font-semibold text-warning underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
                   aria-label="Xem danh sách buổi cọc theo lớp"
                 >
                   {formatCurrency(depositYearTotal)}
                 </button>
               ) : (
-                <span className="tabular-nums text-sm font-semibold text-text-muted">
-                  0
-                </span>
+                <p className="mt-1 tabular-nums text-lg font-semibold text-text-muted">0</p>
               )}
+            </article>
+          </div>
+          {canViewBeforeDeduction ? (
+            <div className="mt-3 rounded-xl border border-border-default bg-bg-tertiary/70 px-4 py-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Trước khấu trừ</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                <div className="rounded-lg border border-border-default/70 bg-bg-surface px-3 py-2">
+                  <p className="text-[11px] text-text-muted">Tổng tháng (cũ)</p>
+                  <p className="tabular-nums text-sm text-text-primary">0</p>
+                </div>
+                <div className="rounded-lg border border-border-default/70 bg-bg-surface px-3 py-2">
+                  <p className="text-[11px] text-text-muted">Chưa nhận (cũ)</p>
+                  <p className="tabular-nums text-sm text-text-primary">0</p>
+                </div>
+                <div className="rounded-lg border border-border-default/70 bg-bg-surface px-3 py-2">
+                  <p className="text-[11px] text-text-muted">Đã nhận (cũ)</p>
+                  <p className="tabular-nums text-sm text-text-primary">0</p>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="mt-3 hidden overflow-x-auto md:block">
-            <table className="w-full min-w-[400px] border-collapse text-left text-sm">
-              <caption className="sr-only">
-                Bảng thống kê thu nhập nhân sự
-              </caption>
-              <thead className="bg-bg-secondary/50">
-                <tr className="border-b border-border-default bg-bg-secondary/50">
-                  <th
-                    scope="col"
-                    className="px-4 py-3 font-medium tabular-nums text-text-primary"
-                  >
-                    Tổng tháng
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-4 py-3 font-medium tabular-nums text-text-primary"
-                  >
-                    Chưa nhận
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-4 py-3 font-medium tabular-nums text-text-primary"
-                  >
-                    Đã nhận
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-4 py-3 font-medium tabular-nums text-text-primary"
-                  >
-                    Tổng năm
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-4 py-3 font-medium tabular-nums text-text-primary"
-                  >
-                    Ghi cọc
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary">
-                  <td className="px-4 py-3 tabular-nums font-semibold text-primary">
-                    {formatCurrency(monthlyIncomeTotals.total)}
-                  </td>
-                  <td className="px-4 py-3 tabular-nums font-semibold text-error">
-                    {formatCurrency(monthlyIncomeTotals.unpaid)}
-                  </td>
-                  <td className="px-4 py-3 tabular-nums font-semibold text-success">
-                    {formatCurrency(monthlyIncomeTotals.paid)}
-                  </td>
-                  <td className="px-4 py-3 tabular-nums font-semibold text-warning">
-                    {formatCurrency(yearIncomeTotal)}
-                  </td>
-                  <td className="px-4 py-3 tabular-nums font-semibold text-warning">
-                    {depositYearTotal > 0 ? (
-                      <button
-                        type="button"
-                        onClick={() => setDepositPopupOpen(true)}
-                        className="underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
-                        aria-label="Xem danh sách buổi cọc theo lớp"
-                      >
-                        {formatCurrency(depositYearTotal)}
-                      </button>
-                    ) : (
-                      <span className="text-text-muted">0</span>
-                    )}
-                  </td>
-                </tr>
-                <tr className="border-b border-border-default bg-bg-tertiary">
-                  <td
-                    colSpan={5}
-                    className="py-2 pr-4 pl-4 text-xs font-medium uppercase tracking-wide text-text-muted"
-                  >
-                    Trước khấu trừ
-                  </td>
-                </tr>
-                <tr className="border-b border-border-default bg-bg-tertiary">
-                  <th
-                    scope="col"
-                    className="py-2 pr-4 text-left text-xs font-medium text-text-muted"
-                  >
-                    Tổng tháng (cũ)
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-4 py-2 text-left text-xs font-medium text-text-muted"
-                  >
-                    Chưa nhận (cũ)
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-4 py-2 text-left text-xs font-medium text-text-muted"
-                  >
-                    Đã nhận (cũ)
-                  </th>
-                  <th scope="col" className="px-4 py-2" />
-                  <th scope="col" className="px-4 py-2" />
-                </tr>
-                <tr className="border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary">
-                  <td className="px-4 py-3 tabular-nums text-text-primary">
-                    0
-                  </td>
-                  <td className="px-4 py-3 tabular-nums text-text-primary">
-                    0
-                  </td>
-                  <td className="px-4 py-3 tabular-nums text-text-primary">
-                    0
-                  </td>
-                  <td className="px-4 py-3 text-text-muted">—</td>
-                  <td className="px-4 py-3 text-text-muted">—</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          ) : null}
           {isIncomeSummaryError ? (
             <p className="mt-3 text-sm text-error" role="alert">
               Không tải được tổng hợp thu nhập từ backend.
@@ -889,7 +786,9 @@ export default function AdminStaffDetailPage({
           <p className="mt-3 text-xs text-text-muted" aria-live="polite">
             {isIncomeSummaryLoading && !incomeSummary
               ? "Đang tải tổng hợp thu nhập từ backend."
-              : 'Tổng tháng, chưa nhận và đã nhận đang lấy từ backend sau khi cộng cả session lẫn thưởng tháng. Dòng "Trước khấu trừ" vẫn đang phát triển.'}
+              : canViewBeforeDeduction
+                ? 'Tổng tháng, chưa nhận và đã nhận đang lấy từ backend sau khi cộng cả session lẫn thưởng tháng. Dòng "Trước khấu trừ" vẫn đang phát triển.'
+                : "Tổng tháng, chưa nhận và đã nhận đang lấy từ backend sau khi cộng cả session lẫn thưởng tháng."}
           </p>
         </section>
 

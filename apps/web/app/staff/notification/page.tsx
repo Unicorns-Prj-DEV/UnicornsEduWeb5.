@@ -5,6 +5,7 @@ import type { NotificationFeedItem } from "@/dtos/notification.dto";
 import { formatDateTime } from "@/lib/class.helpers";
 import * as notificationApi from "@/lib/apis/notification.api";
 import { NOTIFICATION_FEED_QUERY_KEY } from "@/lib/notification-feed-query";
+import { sanitizeRichTextContent } from "@/lib/sanitize";
 
 function resolveErrorMessage(error: unknown, fallback: string) {
   return (
@@ -43,9 +44,12 @@ function NotificationFeedCard({ item }: { item: NotificationFeedItem }) {
           <h2 className="mt-3 text-lg font-semibold text-text-primary">
             {item.title}
           </h2>
-          <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-text-secondary">
-            {item.message}
-          </p>
+          <div
+            className="mt-3 text-sm leading-6 text-text-secondary [&_a]:text-primary [&_a]:underline [&_li]:ml-5 [&_ol]:list-decimal [&_ol]:pl-1 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-1"
+            dangerouslySetInnerHTML={{
+              __html: sanitizeRichTextContent(item.message),
+            }}
+          />
         </div>
 
         <div className="grid shrink-0 gap-3 text-xs text-text-muted sm:min-w-[220px]">
@@ -102,8 +106,9 @@ export default function StaffNotificationPage() {
               Thông báo từ admin
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-text-secondary">
-              Mọi thông báo admin đã push sẽ được lưu trong feed này. Khi bạn đang online,
-              bản mới hoặc bản điều chỉnh còn xuất hiện ngay bằng toast Sonner ở góc màn hình.
+              Feed này chỉ hiển thị các thông báo admin đã push có audience khớp
+              với tài khoản hiện tại. Khi bạn đang online, bản mới hoặc bản điều
+              chỉnh còn xuất hiện ngay bằng toast Sonner ở góc màn hình.
             </p>
           </div>
 

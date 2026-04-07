@@ -21,6 +21,9 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Removed
+- BE/FE notifications: gỡ cấu hình người nhận lưu DB và API `GET /notifications/recipient-options`; push/feed không còn filter theo đối tượng. Trên `/admin/notification`, ô **Người nhận** chỉ còn **mock UI (demo)** trên FE (tag + user giả), không gửi lên server.
+
 ### Added
 - BE/FE: `notification_reads` (per-user đã đọc) + `GET /notifications/feed` trả `readStatus` + `PATCH /notifications/feed/:id/read`. Feed mở cho `student` (studentInfo active) và `admin` không bắt buộc staff profile. Sidebar `StaffSidebar` / `StudentSidebar`: `SidebarNotificationTray` (TanStack Query), panel phải + popup chi tiết giữa màn hình (Framer), auto mark read khi mở chi tiết; `@heroicons/react` `BellIcon`.
 - BE/FE: Trợ cấp trợ lí 3% học phí đã học. Trợ lí (`assistant` role) quản lí các CSKH: `staff_info.customer_care_managed_by_staff_id` FK mới; snapshot `assistant_manager_staff_id` + `assistant_payment_status` trên `attendance` tại thời điểm tạo/cập nhật buổi học. Thu nhập trợ lí aggregate bằng raw SQL `ROUND(tuition_fee * 0.03)` chỉ trên attendance `present`, wire vào `getIncomeSummary`, `getUnpaidTotalsByStaffIds`, và dashboard unpaid CTE. API: `GET /staff/assistant-options`, `PATCH /staff` nhận thêm `customer_care_managed_by_staff_id`; `GET /staff/:id` trả `customerCareManagedBy`. FE: dropdown trợ lí trong popup sửa nhân sự CSKH. Migration: `20260405120000_add_assistant_manager_fields`.
@@ -29,6 +32,15 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - API: `NotificationService` feed + mark-read không còn dùng `include.reads` / `prisma.notificationRead` (tránh lệch type khi Prisma client chưa generate đủ); feed query `notification_reads` bằng `$queryRaw` + `Prisma.join`, mark read bằng `$executeRaw` `ON CONFLICT DO NOTHING`.
 
 ### Changed
+- FE notifications (staff + student): realtime toast từ websocket chuyển sang bản tóm tắt; click toast hoặc action `Mở` sẽ mở trực tiếp popup chi tiết của đúng notification trong `SidebarNotificationTray` (giống click item trong panel), đồng thời mark-read nếu đang unread.
+- FE notifications UI: panel chuông cải tiến nhẹ (header có summary số mới, item dạng card với nhấn mạnh unread), modal chi tiết thêm badge trạng thái (`Thông báo mới` / `Điều chỉnh vN`).
+- FE `/admin/notification`: chuyển ô nội dung sang rich text editor (TipTap) để admin soạn thông báo có định dạng; validate submit dựa trên text thực (không chấp nhận nội dung rỗng chỉ có tag). Feed admin + modal chi tiết staff/student render HTML đã sanitize.
+- FE notification typography: tiêu đề thông báo được nhấn mạnh hơn (input tiêu đề trên `/admin/notification` dùng chữ to + đậm khi nhập; tiêu đề khi hiển thị ở list admin và popup chi tiết cũng tăng size/weight để nổi bật).
+- FE `/admin/notification` UI/UX tối giản thêm: lược bỏ note dài, thu gọn tiêu đề/copy, giảm padding và bo góc card, rút gọn trạng thái rỗng, và chuyển metadata item sang inline để màn hình gọn hơn.
+- FE `/admin/notification` actions chuyển sang icon-only đồng bộ style hệ thống (tạo nháp, sửa, push, push lại, xóa, làm mới, hủy); giữ `aria-label`/`title` để không mất khả dụng.
+- FE admin sidebar: thêm `SidebarNotificationTray` (icon chuông + panel/popup chi tiết) ở cụm action dưới cùng, đồng bộ trải nghiệm với staff/student.
+- FE popup chi tiết thông báo: co giãn bề rộng theo độ dài nội dung (max trong viewport) để đọc thông báo dài/ngắn tự nhiên hơn.
+- FE staff detail income stats (`/admin/staffs/[id]`, `/staff/profile`): đổi bảng số liệu sang card grid; block `Trước khấu trừ` chỉ hiển thị cho admin hoặc role kế toán.
 - FE `/admin/classes/[id]` và `/staff/classes/[id]` (teacher/CSKH/admin workspace): bỏ card **Thông tin cơ bản** và dòng mô tả “Chi tiết lớp học…” (admin); thông tin lớp gọn dưới tiêu đề (chip trạng thái/loại + gói, trợ cấp, sĩ số, …); staff giữ đoạn mô tả workspace **dưới** dòng meta.
 - FE: Popup thêm/sửa lớp (`AddClassPopup`, `EditClassPopup`, `EditClassBasicInfoPopup`) — học phí chỉ **Tổng gói** + **Số buổi**, không ô học phí/buổi; submit gửi `student_tuition_per_session` làm tròn; `compactTuitionPerSessionLine` chỉ hiện một dòng `…/buổi` khi nhập hợp lệ (thay cho gợi ý dài). UI tối giản: tiêu đề **Thêm lớp** / **Sửa lớp** / **Thông tin lớp**, section nhỏ (Gia sư, Học sinh, Học phí, Lịch), bỏ ghi chú trợ cấp/định dạng giờ dài.
 - FE: `StaffSidebar` bỏ mục menu **Thông báo** (đã có chuông + panel); học sinh vốn không có mục này trong `StudentSidebar`.

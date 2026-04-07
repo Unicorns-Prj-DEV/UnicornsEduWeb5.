@@ -40,13 +40,14 @@
   - `communication`: hiện chưa có khối riêng ngoài phần thu nhập tháng
   - **Trợ lí (`staff.assistant`):** sidebar có **Dashboard** (`/staff`), **Cá nhân** → `/staff/staffs/:ownStaffId` (trang chi tiết nhân sự mirror admin), rồi các mục mirror (`User`, `Nhân sự`, …); mục **Nhân sự** không highlight khi đang xem đúng trang của chính mình (tránh trùng với **Cá nhân**)
 - `/staff/notification`
-  - là feed chỉ đọc cho staff xem toàn bộ notification admin đã publish, sắp xếp mới nhất trước theo `lastPushedAt`
+  - là feed chỉ đọc cho staff xem các notification admin đã publish **và match audience hiện tại của staff đó**, sắp xếp mới nhất trước theo `lastPushedAt`
   - mỗi card hiển thị tiêu đề, nội dung, thời điểm push và badge `Điều chỉnh v{n}` khi notification đã được repush
   - thông báo trong staff shell chỉ qua **chuông** ở đáy sidebar (panel portal), **không** còn mục menu `Thông báo`; route `/staff/notification` (trang feed đầy đủ) vẫn mở được khi gõ URL hoặc bookmark
   - **Chuông + panel (API):** đáy `StaffSidebar`: chỉ **chuông** nằm trong sidebar; **panel danh sách + popup chi tiết** render qua **React Portal** vào `document.body` (tránh bị cắt bởi `aside` có `transform`/`overflow-hidden`). Mobile: panel **full viewport** (`inset-0`); từ `sm`: sheet phải `max-w-md`. Popup chi tiết z cao hơn panel. Cùng flow API feed + `PATCH .../read` như trên.
-  - khi staff đang online, frontend mở websocket namespace `/notifications` với cookie auth hiện tại; event `notification.pushed` sẽ invalidate query và hiển thị Sonner toast
-    - push đầu: toast title = chính `title` của notification
-    - repush: toast title = `Điều chỉnh thông báo`, description = `<title>: <message>`
+  - khi staff đang online, frontend mở websocket namespace `/notifications` với cookie auth hiện tại; event `notification.pushed` sẽ invalidate query và hiển thị Sonner toast dạng tóm tắt
+    - gateway chỉ emit cho room match audience (`@all`, `role_type`, `staff role`, direct `user_id`), nên staff không thấy toast/feed của notification không nhắm tới mình
+    - toast luôn gọn: title theo loại (`Thông báo mới từ admin` / `Thông báo được cập nhật`), description rút gọn `<title> · <message short>`
+    - bấm vào toast hoặc nút `Mở` sẽ mở thẳng popup chi tiết đúng notification tương ứng (cùng flow như bấm từng dòng trong panel), tự mark-read nếu đang unread
 - `/staff/dashboard`
   - chỉ dành cho `staff.assistant` (gate); **redirect client** về `/staff`
 - `/staff/users`, `/staff/staffs`, `/staff/staffs/[id]`, `/staff/classes`, `/staff/students`, `/staff/students/[id]`, `/staff/costs`, `/staff/history`
@@ -63,7 +64,8 @@
   - hiển thị đầy đủ các section cùng contract dữ liệu với admin detail:
     - Hàng đầu dùng `StaffIdentityOverview`: card đồng bộ style các section khác, QR minimal cùng hàng tiêu đề, khối thành tích nền phụ; đồng bộ với admin staff detail
     - `Thống kê thu nhập` theo tháng với `MonthNav` (toolbar chuyển tháng UI đồng bộ theo backup)
-      - giữ layout cũ; `Lương tổng tháng` lấy authoritative từ `monthlyIncomeTotals.total`, còn các số `Đã nhận` và `Chưa nhận` cũng lấy trực tiếp từ cùng response
+      - cụm số liệu hiển thị dạng card grid (Lương tổng tháng, Chưa nhận, Đã nhận, Tổng năm, Ghi cọc); `Lương tổng tháng` lấy authoritative từ `monthlyIncomeTotals.total`, còn các số `Đã nhận` và `Chưa nhận` cũng lấy trực tiếp từ cùng response
+      - block `Trước khấu trừ` chỉ hiển thị khi actor là `admin` hoặc có role `accountant`
     - popup `Buổi cọc theo lớp`
     - `Lớp phụ trách`
     - `Thưởng` của chính mình, cho phép tự thêm khoản thưởng mới và điều chỉnh nội dung khoản thưởng hiện có trong tháng đang xem

@@ -10,6 +10,10 @@ import {
   markNotificationFeedRead,
 } from "@/lib/apis/notification.api";
 import { NOTIFICATION_FEED_QUERY_KEY } from "@/lib/notification-feed-query";
+import {
+  OPEN_NOTIFICATION_DETAIL_EVENT,
+  type OpenNotificationDetailPayload,
+} from "@/lib/notification-tray-events";
 import { NotificationFeedDetailModal } from "./NotificationFeedDetailModal";
 import { SidebarNotificationBellButton } from "./SidebarNotificationBellButton";
 import { SidebarNotificationPanel } from "./SidebarNotificationPanel";
@@ -20,6 +24,8 @@ export function SidebarNotificationTray({ compact = false }: { compact?: boolean
   const [panelOpen, setPanelOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [ephemeralDetailItem, setEphemeralDetailItem] =
+    useState<NotificationFeedItem | null>(null);
 
   useEffect(() => {
     setPortalEl(document.body);
@@ -39,8 +45,11 @@ export function SidebarNotificationTray({ compact = false }: { compact?: boolean
   );
 
   const detailItem = useMemo(
-    () => (detailId ? items.find((n) => n.id === detailId) ?? null : null),
-    [detailId, items],
+    () =>
+      detailId
+        ? items.find((n) => n.id === detailId) ?? ephemeralDetailItem
+        : ephemeralDetailItem,
+    [detailId, items, ephemeralDetailItem],
   );
 
   const markReadMutation = useMutation({
@@ -77,8 +86,10 @@ export function SidebarNotificationTray({ compact = false }: { compact?: boolean
 
   const handleSelectItem = useCallback(
     (item: NotificationFeedItem) => {
+      setEphemeralDetailItem(null);
       setDetailId(item.id);
       setDetailOpen(true);
+      setPanelOpen(true);
       if (item.readStatus === "unread") {
         markReadMutation.mutate(item.id);
       }
@@ -89,6 +100,7 @@ export function SidebarNotificationTray({ compact = false }: { compact?: boolean
   const closeDetail = useCallback(() => {
     setDetailOpen(false);
     setDetailId(null);
+    setEphemeralDetailItem(null);
   }, []);
 
   const closePanel = useCallback(() => setPanelOpen(false), []);
@@ -116,6 +128,50 @@ export function SidebarNotificationTray({ compact = false }: { compact?: boolean
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [panelOpen, detailOpen, closeDetail, closePanel]);
+
+  useEffect(() => {
+    const openFromToast = async (event: Event) => {
+      const detail = (event as CustomEvent<OpenNotificationDetailPayload>).detail;
+      if (!detail?.id) return;
+
+      setPanelOpen(true);
+      const existing = items.find((item) => item.id === detail.id);
+      if (existing) {
+        handleSelectItem(existing);
+        return;
+      }
+
+      const refreshed = await feedQuery.refetch();
+      const latestItems = refreshed.data ?? [];
+      const fromRefetch = latestItems.find((item) => item.id === detail.id);
+      if (fromRefetch) {
+        handleSelectItem(fromRefetch);
+        return;
+      }
+
+      setEphemeralDetailItem({
+        id: detail.id,
+        title: detail.title,
+        message: detail.message,
+        status: "published",
+        readStatus: "unread",
+        version: detail.version,
+        pushCount: 1,
+        lastPushedAt: detail.lastPushedAt,
+        createdAt: detail.lastPushedAt,
+        updatedAt: detail.lastPushedAt,
+        createdBy: null,
+      });
+      setDetailId(detail.id);
+      setDetailOpen(true);
+      markReadMutation.mutate(detail.id);
+    };
+
+    window.addEventListener(OPEN_NOTIFICATION_DETAIL_EVENT, openFromToast);
+    return () => {
+      window.removeEventListener(OPEN_NOTIFICATION_DETAIL_EVENT, openFromToast);
+    };
+  }, [feedQuery, handleSelectItem, items, markReadMutation]);
 
   const overlays =
     portalEl != null

@@ -15,7 +15,17 @@
   - Mọi giá trị tiền trong bảng **Báo cáo tài chính** đều có thể bấm để mở popup chi tiết. Popup hiển thị tổng số, các nguồn cộng/trừ cấu thành con số đó và bảng detail rows tương ứng khi backend có dữ liệu drill-down.
   - Khối **Cảnh báo & hành động** được render đúng 4 thẻ theo backup: **Học sinh cần gia hạn**, **Chờ thanh toán trợ cấp**, **Lớp chưa báo cáo lần 4**, **Chưa thu học phí**; mỗi thẻ có màu riêng theo loại và mỗi dòng cảnh báo có thể bấm để mở trang chi tiết tương ứng: học sinh → `/admin/students/:id`, gia sư/nhân sự → `/admin/staffs/:id`, lớp → `/admin/classes/:id`.
 - **CRUD lớp:** List, create, edit, archive classes; fields aligned with `classes` + relations.
-- **Notification center:** route `/admin/notification` là màn quản trị notification của admin. Page cho phép tạo nháp, sửa nháp, xóa, push lần đầu và **Sửa & Push lại** trên cùng một bản ghi. Khi push, backend vừa lưu DB vừa broadcast qua NestJS gateway `/notifications`; staff online nhận toast Sonner tức thời. Với notification đã published, thao tác chỉnh sửa phải đi qua flow `Sửa & Push lại`, và toast realtime hiển thị title `Điều chỉnh thông báo`.
+- **Notification center:** route `/admin/notification` là màn quản trị notification của admin. Page cho phép tạo nháp, sửa nháp, xóa, push lần đầu và **Sửa & Push lại** trên cùng một bản ghi. Nội dung notification nhập bằng **rich text editor** (TipTap/HTML), frontend validate theo text thực trước khi submit, và list admin render preview đã sanitize. Khi push, backend vừa lưu DB vừa broadcast qua NestJS gateway `/notifications`; **admin/staff/student** online nhận toast Sonner tức thời nếu notification match audience hiện tại của họ.
+- UI `/admin/notification` được tối giản: rút gọn copy, giảm mật độ chữ, thu gọn card/padding và gom metadata item về dạng inline để thao tác nhanh hơn trên cả mobile và desktop.
+- Composer `/admin/notification` có block **Người nhận** ngay trên tiêu đề:
+  - tag hệ thống: `@all`
+  - tag theo role_type: `@admin`, `@staff`, `@student`
+  - tag theo staff role: `@teacher`, `@assistant`, `@accountant`, `@customer_care`, `@lesson_plan`, `@lesson_plan_head`, `@communication`
+  - tìm kiếm user thật theo họ tên/email/accountHandle và thêm tag từng người
+  - khi gõ `@`, dropdown gợi ý trộn cả preset tag và user thật; phần sau dấu `@` được dùng làm keyword chung cho cả hai nhóm
+  - audience rule là **union** của tất cả tag/user đã chọn; nếu giữ `@all` thì backend canonicalize về broadcast toàn bộ audience đủ điều kiện
+  - composer không còn mock recipient UI; toàn bộ state audience được lưu thật xuống backend và hydrate lại khi sửa nháp / repush
+- Popup chi tiết notification ở sidebar (staff/student) render HTML đã sanitize và tự scale width theo độ dài nội dung (ngắn → modal hẹp, dài → modal rộng hơn), luôn giới hạn trong viewport để không tràn màn hình.
 - **Gán học sinh / giáo viên:** Manage `class_teachers`, `student_classes`; prevent duplicate N-N rows.
 - **Sessions và attendance:** Mở session, ghi nhận attendance (`present` / `excused` / `absent`) with financial impact per Workplan state machine.
 - **Route registry:** This route documented with auth mode, allowed role(s), and backend endpoint contract.
@@ -42,15 +52,22 @@
 - **API (real):** `users`, `classes`, `sessions`, `attendance`, `class_teachers`, `student_classes`, dashboard/revenue endpoints.
 - **Notification endpoints (admin management + staff feed):**
   - `GET /notifications?status=<draft|published>&limit=<1-300>` trả danh sách notification để admin quản trị tại `/admin/notification`
+  - `GET /notifications/recipient-options?search=<text>&limit=<1-50>` trả autocomplete user đủ điều kiện nhận notification
   - `POST /notifications` tạo notification draft mới
+  - `POST /notifications`, `PATCH /notifications/:id`, `POST /notifications/:id/push` đều nhận thêm audience fields:
+    - `targetAll`
+    - `targetRoleTypes[]`
+    - `targetStaffRoles[]`
+    - `targetUserIds[]`
   - `PATCH /notifications/:id` chỉ cho phép cập nhật notification đang ở trạng thái `draft`
-  - `POST /notifications/:id/push` publish draft hoặc repush notification đã phát, có thể nhận body title/message mới để apply atomically với lần push
+  - `POST /notifications/:id/push` publish draft hoặc repush notification đã phát, có thể nhận body title/message/audience mới để apply atomically với lần push
   - `DELETE /notifications/:id` xóa draft hoặc notification đã phát; backend không phát realtime retract event
-  - `GET /notifications/feed?limit=<1-200>` — feed đã published cho **admin** (không cần staff/student profile), **staff** và **student** (cần profile active); mỗi item có `readStatus`
+  - `GET /notifications/feed?limit=<1-200>` — feed đã published cho **admin** (không cần staff/student profile), **staff** và **student** (cần profile active); chỉ trả item match audience hiện tại của actor; mỗi item có `readStatus`
   - `PATCH /notifications/feed/:notificationId/read` — ghi nhận đã đọc (user hiện tại)
   - Websocket namespace `/notifications`, event `notification.pushed` payload `{ id, title, message, version, lastPushedAt, deliveryKind }`
     - `deliveryKind = published` cho lần push đầu
     - `deliveryKind = adjusted` cho flow `Sửa & Push lại`
+    - gateway join room theo `role_type`, `staff role` và `user_id`; server-side emit chỉ tới union room match audience của notification
 - **Dashboard aggregate endpoint (admin-only):**
   - `GET /dashboard?month=<01-12>&year=<YYYY>&alertLimit=<1-20>&topClassLimit=<1-20>` trả toàn bộ payload cho `/admin/dashboard`: `period`, `summary`, `revenueProfitTrend`, `breakdown`, `actionAlerts`, `classPerformance`, `yearlySummary`.
     - `actionAlerts` hiện có thêm `targetType` (`student|staff|class`) + `targetId` để FE điều hướng chi tiết khi bấm từng dòng.
@@ -125,7 +142,9 @@
   - FE `/admin/staff/:id` card "Lịch sử buổi học" hỗ trợ chọn nhiều / chọn tất cả session của tháng đang xem để đổi nhanh trạng thái thanh toán (`unpaid` | `deposit` | `paid`) bằng mutation bulk; checkbox từng dòng/thẻ dùng cùng hit target với label, có state highlight cho các buổi đã chọn, và luôn hiện nút **Sửa trạng thái thanh toán**. Nút này sẽ bị disable khi chưa chọn session nào; khi bấm sẽ mở popup nhỏ với dropdown chọn trạng thái mới (mặc định `paid`) + nút `Hủy` / `Xác nhận`.
 - FE `/admin/staff/:id` và `/admin/classes/:id`: bulk action bar (thanh hành động chọn nhiều) giờ **chỉ hiện khi đã tick chọn ít nhất 1 buổi**; checkbox tick chuyển trạng thái được tối giản theo style minimal để đồng bộ UI/UX toàn hệ thống.
   - FE `/admin/staff/:id` phần Thống kê thu nhập dùng dữ liệu authoritative từ `GET /staff/:id/income-summary`; các số `Tổng tháng / Chưa nhận / Đã nhận` lấy từ field tổng hợp backend đã cộng session, thưởng, trợ cấp thêm, CSKH và giáo án trong tháng, FE không tự cộng thêm ở client.
-  - FE `/admin/staff/:id` thêm cột **Ghi cọc** cạnh **Tổng năm**. `Tổng năm` lấy từ `yearIncomeTotal` của `GET /staff/:id/income-summary`, còn `Ghi cọc` và popup chi tiết lấy trực tiếp từ `depositYearTotal` và `depositYearByClass`; tổng cọc và từng buổi cọc đều dùng cùng công thức trợ cấp authoritative từ BE, không lấy raw `sessions.allowance_amount`.
+  - FE `/admin/staff/:id` đổi cụm số liệu thu nhập từ bảng ngang sang **card grid** (Lương tổng tháng, Chưa nhận, Đã nhận, Tổng năm, Ghi cọc) để đọc nhanh hơn ở cả mobile/desktop.
+  - FE `/admin/staff/:id` block **Trước khấu trừ** chỉ hiển thị cho actor `admin` hoặc staff role `accountant`; các role khác ẩn block này.
+  - FE `/admin/staff/:id` giữ chỉ số **Ghi cọc** lấy từ `depositYearTotal`; popup chi tiết lấy từ `depositYearByClass`; tổng cọc và từng buổi cọc đều dùng cùng công thức trợ cấp authoritative từ BE, không lấy raw `sessions.allowance_amount`.
   - FE `/admin/staff/:id` bảng **Công việc khác** lấy số tổng hợp trực tiếp từ `GET /staff/:id/income-summary`; CSKH được cộng từ attendance commission theo `customer_care_payment_status`, giáo án được cộng từ `lesson_outputs.cost` + `lesson_outputs.payment_status`, assistant/communication/accountant được cộng từ `extra_allowances.amount` theo `roleType + status`; ngoài ra role `assistant` còn được cộng thêm 3% học phí đã học (attendance `present` hoặc `excused`) từ CSKH mà trợ lí quản lí, aggregate qua `assistant_manager_staff_id` + `assistant_payment_status` trên bảng attendance. Riêng role `communication`, row `Truyền thông` chỉ lấy từ `extra_allowances.role_type = communication`; bonus có `workType = Truyền thông` vẫn nằm riêng ở card **Thưởng**. Nếu request `income-summary` lỗi, section này hiển thị inline error thay vì empty state. Khi role là CSKH (`customer_care`), bấm vào dòng (desktop) hoặc thẻ (mobile) sẽ chuyển sang `/admin/customer_care_detail/:id` (cùng staff id); khi role là `lesson_plan` hoặc `lesson_plan_head`, sẽ chuyển sang `/admin/lesson_plan_detail/:id`; khi role là `assistant`, route đích là `/admin/assistant_detail?staffId=:id`; khi role là `accountant`, route đích là `/admin/accountant_detail?staffId=:id`; khi role là `communication`, route đích là `/admin/communication_detail?staffId=:id`.
 - **Customer-care detail (FE `/admin/customer_care_detail/[staffId]`):**
   - Route dùng khi xem chi tiết công việc CSKH từ trang chi tiết nhân sự (bấm dòng CSKH trong bảng Công việc khác).

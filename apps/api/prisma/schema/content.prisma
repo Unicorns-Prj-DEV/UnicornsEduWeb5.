@@ -48,20 +48,25 @@ model Document {
 }
 
 model Notification {
-  id              String             @id @default(uuid())
-  title           String             @db.VarChar(160)
-  message         String             @db.Text
-  status          NotificationStatus @default(draft)
-  version         Int                @default(0)
-  pushCount       Int                @default(0) @map("push_count")
-  lastPushedAt    DateTime?          @map("last_pushed_at") @db.Timestamptz(6)
-  createdByUserId String?            @map("created_by_user_id")
-  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
-  createdBy       User?              @relation("NotificationCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  reads           NotificationRead[]
+  id               String             @id @default(uuid())
+  title            String             @db.VarChar(160)
+  message          String
+  status           NotificationStatus @default(draft)
+  targetAll        Boolean            @default(true) @map("target_all")
+  targetRoleTypes  UserRole[]         @default([]) @map("target_role_types")
+  targetStaffRoles StaffRole[]        @default([]) @map("target_staff_roles")
+  targetUserIds    String[]           @default([]) @map("target_user_ids")
+  version          Int                @default(0)
+  pushCount        Int                @default(0) @map("push_count")
+  lastPushedAt     DateTime?          @map("last_pushed_at") @db.Timestamptz(6)
+  createdByUserId  String?            @map("created_by_user_id")
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  reads            NotificationRead[]
+  createdBy        User?              @relation("NotificationCreatedBy", fields: [createdByUserId], references: [id])
 
   @@index([status])
+  @@index([targetAll])
   @@index([lastPushedAt])
   @@index([updatedAt])
   @@index([createdByUserId])
@@ -73,8 +78,8 @@ model NotificationRead {
   userId         String       @map("user_id")
   notificationId String       @map("notification_id")
   readAt         DateTime     @default(now()) @map("read_at") @db.Timestamptz(6)
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, notificationId])
   @@index([userId])
@@ -83,19 +88,19 @@ model NotificationRead {
 }
 
 model Regulation {
-  id                String                @id @default(uuid())
-  title             String                @db.VarChar(200)
+  id                String               @id @default(uuid())
+  title             String               @db.VarChar(200)
   description       String?
-  content           String                @db.Text
-  audiences         RegulationAudience[]  @default([])
-  resourceLink      String?               @map("resource_link")
-  resourceLinkLabel String?               @map("resource_link_label") @db.VarChar(160)
-  createdByUserId   String?               @map("created_by_user_id")
-  updatedByUserId   String?               @map("updated_by_user_id")
-  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
-  createdBy         User?                 @relation("RegulationCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  updatedBy         User?                 @relation("RegulationUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  content           String
+  audiences         RegulationAudience[] @default([])
+  resourceLink      String?              @map("resource_link")
+  resourceLinkLabel String?              @map("resource_link_label") @db.VarChar(160)
+  createdByUserId   String?              @map("created_by_user_id")
+  updatedByUserId   String?              @map("updated_by_user_id")
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy         User?                @relation("RegulationCreatedBy", fields: [createdByUserId], references: [id])
+  updatedBy         User?                @relation("RegulationUpdatedBy", fields: [updatedByUserId], references: [id])
 
   @@index([updatedAt])
   @@index([createdByUserId])

@@ -29,7 +29,8 @@ export function formatSidebarNotificationTime(iso: string): string {
 }
 
 export function summarizeNotificationContent(content: string, maxLen = 120): string {
-  const oneLine = content.replace(/\s+/g, " ").trim();
+  const noHtml = content.replace(/<[^>]*>/g, " ");
+  const oneLine = noHtml.replace(/\s+/g, " ").trim();
   if (oneLine.length <= maxLen) return oneLine;
   return `${oneLine.slice(0, maxLen).trim()}…`;
 }
