@@ -1,8 +1,27 @@
 export type NotificationStatus = "draft" | "published";
 export type NotificationDeliveryKind = "published" | "adjusted";
+export type NotificationTargetUserRole = "admin" | "staff" | "student";
+export type NotificationTargetStaffRole =
+  | "admin"
+  | "teacher"
+  | "lesson_plan"
+  | "lesson_plan_head"
+  | "accountant"
+  | "communication"
+  | "customer_care"
+  | "assistant";
 
 export interface NotificationAuthor {
   userId: string | null;
+  accountHandle: string | null;
+  email: string | null;
+  displayName: string | null;
+}
+
+export interface NotificationRecipientOption {
+  userId: string;
+  roleType: NotificationTargetUserRole;
+  staffRoles: NotificationTargetStaffRole[];
   accountHandle: string | null;
   email: string | null;
   displayName: string | null;
@@ -13,6 +32,11 @@ export interface AdminNotificationItem {
   title: string;
   message: string;
   status: NotificationStatus;
+  targetAll: boolean;
+  targetRoleTypes: NotificationTargetUserRole[];
+  targetStaffRoles: NotificationTargetStaffRole[];
+  targetUserIds: string[];
+  targetUsers: NotificationRecipientOption[];
   version: number;
   pushCount: number;
   lastPushedAt: string | null;
@@ -40,17 +64,22 @@ export interface NotificationFeedItem {
 export interface CreateNotificationPayload {
   title: string;
   message: string;
+  targetAll?: boolean;
+  targetRoleTypes?: NotificationTargetUserRole[];
+  targetStaffRoles?: NotificationTargetStaffRole[];
+  targetUserIds?: string[];
 }
 
 export interface UpdateNotificationPayload {
   title?: string;
   message?: string;
+  targetAll?: boolean;
+  targetRoleTypes?: NotificationTargetUserRole[];
+  targetStaffRoles?: NotificationTargetStaffRole[];
+  targetUserIds?: string[];
 }
 
-export interface PushNotificationPayload {
-  title?: string;
-  message?: string;
-}
+export interface PushNotificationPayload extends UpdateNotificationPayload {}
 
 export interface NotificationPushEvent {
   id: string;

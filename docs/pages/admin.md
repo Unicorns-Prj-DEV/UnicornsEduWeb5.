@@ -15,13 +15,16 @@
   - Mọi giá trị tiền trong bảng **Báo cáo tài chính** đều có thể bấm để mở popup chi tiết. Popup hiển thị tổng số, các nguồn cộng/trừ cấu thành con số đó và bảng detail rows tương ứng khi backend có dữ liệu drill-down.
   - Khối **Cảnh báo & hành động** được render đúng 4 thẻ theo backup: **Học sinh cần gia hạn**, **Chờ thanh toán trợ cấp**, **Lớp chưa báo cáo lần 4**, **Chưa thu học phí**; mỗi thẻ có màu riêng theo loại và mỗi dòng cảnh báo có thể bấm để mở trang chi tiết tương ứng: học sinh → `/admin/students/:id`, gia sư/nhân sự → `/admin/staffs/:id`, lớp → `/admin/classes/:id`.
 - **CRUD lớp:** List, create, edit, archive classes; fields aligned with `classes` + relations.
-- **Notification center:** route `/admin/notification` là màn quản trị notification của admin. Page cho phép tạo nháp, sửa nháp, xóa, push lần đầu và **Sửa & Push lại** trên cùng một bản ghi. Nội dung notification nhập bằng **rich text editor** (TipTap/HTML), frontend validate theo text thực trước khi submit, và list admin render preview đã sanitize. Khi push, backend vừa lưu DB vừa broadcast qua NestJS gateway `/notifications`; staff/student online nhận toast Sonner tức thời ở dạng tóm tắt.
+- **Notification center:** route `/admin/notification` là màn quản trị notification của admin. Page cho phép tạo nháp, sửa nháp, xóa, push lần đầu và **Sửa & Push lại** trên cùng một bản ghi. Nội dung notification nhập bằng **rich text editor** (TipTap/HTML), frontend validate theo text thực trước khi submit, và list admin render preview đã sanitize. Khi push, backend vừa lưu DB vừa broadcast qua NestJS gateway `/notifications`; **admin/staff/student** online nhận toast Sonner tức thời nếu notification match audience hiện tại của họ.
 - UI `/admin/notification` được tối giản: rút gọn copy, giảm mật độ chữ, thu gọn card/padding và gom metadata item về dạng inline để thao tác nhanh hơn trên cả mobile và desktop.
 - Composer `/admin/notification` có block **Người nhận** ngay trên tiêu đề:
   - tag hệ thống: `@all`
   - tag theo role_type: `@admin`, `@staff`, `@student`
-  - tag theo staff role: `@teacher`, `@assistant`, `@accountant`, `@customer_care`, ...
-  - tìm kiếm user theo họ tên/email và thêm tag từng người.
+  - tag theo staff role: `@teacher`, `@assistant`, `@accountant`, `@customer_care`, `@lesson_plan`, `@lesson_plan_head`, `@communication`
+  - tìm kiếm user thật theo họ tên/email/accountHandle và thêm tag từng người
+  - khi gõ `@`, dropdown gợi ý trộn cả preset tag và user thật; phần sau dấu `@` được dùng làm keyword chung cho cả hai nhóm
+  - audience rule là **union** của tất cả tag/user đã chọn; nếu giữ `@all` thì backend canonicalize về broadcast toàn bộ audience đủ điều kiện
+  - composer không còn mock recipient UI; toàn bộ state audience được lưu thật xuống backend và hydrate lại khi sửa nháp / repush
 - Popup chi tiết notification ở sidebar (staff/student) render HTML đã sanitize và tự scale width theo độ dài nội dung (ngắn → modal hẹp, dài → modal rộng hơn), luôn giới hạn trong viewport để không tràn màn hình.
 - **Gán học sinh / giáo viên:** Manage `class_teachers`, `student_classes`; prevent duplicate N-N rows.
 - **Sessions và attendance:** Mở session, ghi nhận attendance (`present` / `excused` / `absent`) with financial impact per Workplan state machine.
@@ -49,15 +52,22 @@
 - **API (real):** `users`, `classes`, `sessions`, `attendance`, `class_teachers`, `student_classes`, dashboard/revenue endpoints.
 - **Notification endpoints (admin management + staff feed):**
   - `GET /notifications?status=<draft|published>&limit=<1-300>` trả danh sách notification để admin quản trị tại `/admin/notification`
+  - `GET /notifications/recipient-options?search=<text>&limit=<1-50>` trả autocomplete user đủ điều kiện nhận notification
   - `POST /notifications` tạo notification draft mới
+  - `POST /notifications`, `PATCH /notifications/:id`, `POST /notifications/:id/push` đều nhận thêm audience fields:
+    - `targetAll`
+    - `targetRoleTypes[]`
+    - `targetStaffRoles[]`
+    - `targetUserIds[]`
   - `PATCH /notifications/:id` chỉ cho phép cập nhật notification đang ở trạng thái `draft`
-  - `POST /notifications/:id/push` publish draft hoặc repush notification đã phát, có thể nhận body title/message mới để apply atomically với lần push
+  - `POST /notifications/:id/push` publish draft hoặc repush notification đã phát, có thể nhận body title/message/audience mới để apply atomically với lần push
   - `DELETE /notifications/:id` xóa draft hoặc notification đã phát; backend không phát realtime retract event
-  - `GET /notifications/feed?limit=<1-200>` — feed đã published cho **admin** (không cần staff/student profile), **staff** và **student** (cần profile active); mỗi item có `readStatus`
+  - `GET /notifications/feed?limit=<1-200>` — feed đã published cho **admin** (không cần staff/student profile), **staff** và **student** (cần profile active); chỉ trả item match audience hiện tại của actor; mỗi item có `readStatus`
   - `PATCH /notifications/feed/:notificationId/read` — ghi nhận đã đọc (user hiện tại)
   - Websocket namespace `/notifications`, event `notification.pushed` payload `{ id, title, message, version, lastPushedAt, deliveryKind }`
     - `deliveryKind = published` cho lần push đầu
     - `deliveryKind = adjusted` cho flow `Sửa & Push lại`
+    - gateway join room theo `role_type`, `staff role` và `user_id`; server-side emit chỉ tới union room match audience của notification
 - **Dashboard aggregate endpoint (admin-only):**
   - `GET /dashboard?month=<01-12>&year=<YYYY>&alertLimit=<1-20>&topClassLimit=<1-20>` trả toàn bộ payload cho `/admin/dashboard`: `period`, `summary`, `revenueProfitTrend`, `breakdown`, `actionAlerts`, `classPerformance`, `yearlySummary`.
     - `actionAlerts` hiện có thêm `targetType` (`student|staff|class`) + `targetId` để FE điều hướng chi tiết khi bấm từng dòng.

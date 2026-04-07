@@ -53,9 +53,15 @@ function ActionHistoryInvalidationBridge() {
       queryClient.invalidateQueries({ queryKey: ["action-history"] });
     };
 
-    window.addEventListener(ACTION_HISTORY_INVALIDATION_EVENT, handleInvalidate);
+    window.addEventListener(
+      ACTION_HISTORY_INVALIDATION_EVENT,
+      handleInvalidate,
+    );
     return () => {
-      window.removeEventListener(ACTION_HISTORY_INVALIDATION_EVENT, handleInvalidate);
+      window.removeEventListener(
+        ACTION_HISTORY_INVALIDATION_EVENT,
+        handleInvalidate,
+      );
     };
   }, [queryClient]);
 
@@ -88,28 +94,38 @@ function NotificationSocketBridge() {
   const { user, isAuthReady } = useAuth();
   const queryClient = useQueryClient();
   const recentNotificationKeysRef = useRef<string[]>([]);
-  const canLoadRealtimeProfile =
+  const canConnectRealtimeNotifications =
     isAuthReady &&
     hasAuthenticatedSession(user) &&
+    (user.roleType === Role.admin ||
+      user.roleType === Role.staff ||
+      user.roleType === Role.student);
+  const needsRealtimeProfile =
+    canConnectRealtimeNotifications &&
     (user.roleType === Role.staff || user.roleType === Role.student);
   const { data: fullProfile } = useQuery({
     queryKey: ["auth", "full-profile"],
     queryFn: getFullProfile,
-    enabled: canLoadRealtimeProfile,
+    enabled: needsRealtimeProfile,
     retry: false,
     staleTime: 60_000,
   });
 
   useEffect(() => {
-    if (!canLoadRealtimeProfile) {
+    if (!canConnectRealtimeNotifications) {
       return;
     }
 
+    const canOpenAdminChannel = user.roleType === Role.admin;
     const canOpenStaffChannel =
       user.roleType === Role.staff && Boolean(fullProfile?.staffInfo?.id);
     const canOpenStudentChannel =
       user.roleType === Role.student && Boolean(fullProfile?.studentInfo?.id);
-    if (!canOpenStaffChannel && !canOpenStudentChannel) {
+    if (
+      !canOpenAdminChannel &&
+      !canOpenStaffChannel &&
+      !canOpenStudentChannel
+    ) {
       return;
     }
 
@@ -139,7 +155,9 @@ function NotificationSocketBridge() {
       }
 
       void queryClient.invalidateQueries({ queryKey: ["notifications"] });
-      void queryClient.invalidateQueries({ queryKey: NOTIFICATION_FEED_QUERY_KEY });
+      void queryClient.invalidateQueries({
+        queryKey: NOTIFICATION_FEED_QUERY_KEY,
+      });
 
       const openNotificationDetail = () => {
         const payload: OpenNotificationDetailPayload = {
@@ -191,7 +209,7 @@ function NotificationSocketBridge() {
       socket.disconnect();
     };
   }, [
-    canLoadRealtimeProfile,
+    canConnectRealtimeNotifications,
     fullProfile?.staffInfo?.id,
     fullProfile?.studentInfo?.id,
     queryClient,
@@ -226,13 +244,7 @@ function AuthPasswordSetupGate() {
     router.replace(
       `${PASSWORD_SETUP_PATH}?next=${encodeURIComponent(safeNextPath)}`,
     );
-  }, [
-    pathname,
-    router,
-    search,
-    isAuthReady,
-    user,
-  ]);
+  }, [pathname, router, search, isAuthReady, user]);
 
   return null;
 }

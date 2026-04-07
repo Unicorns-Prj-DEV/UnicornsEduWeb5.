@@ -2,6 +2,7 @@ import type {
   AdminNotificationItem,
   CreateNotificationPayload,
   NotificationFeedItem,
+  NotificationRecipientOption,
   NotificationStatus,
   PushNotificationPayload,
   UpdateNotificationPayload,
@@ -25,7 +26,10 @@ export async function getAdminNotifications(params?: {
 export async function createNotificationDraft(
   payload: CreateNotificationPayload,
 ): Promise<AdminNotificationItem> {
-  const response = await api.post<AdminNotificationItem>("/notifications", payload);
+  const response = await api.post<AdminNotificationItem>(
+    "/notifications",
+    payload,
+  );
   return response.data;
 }
 
@@ -33,7 +37,10 @@ export async function updateNotificationDraft(
   id: string,
   payload: UpdateNotificationPayload,
 ): Promise<AdminNotificationItem> {
-  const response = await api.patch<AdminNotificationItem>(`/notifications/${id}`, payload);
+  const response = await api.patch<AdminNotificationItem>(
+    `/notifications/${id}`,
+    payload,
+  );
   return response.data;
 }
 
@@ -56,11 +63,31 @@ export async function deleteNotification(id: string): Promise<{ id: string }> {
 export async function getNotificationFeed(params?: {
   limit?: number;
 }): Promise<NotificationFeedItem[]> {
-  const response = await api.get<NotificationFeedItem[]>("/notifications/feed", {
-    params: {
-      ...(typeof params?.limit === "number" ? { limit: params.limit } : {}),
+  const response = await api.get<NotificationFeedItem[]>(
+    "/notifications/feed",
+    {
+      params: {
+        ...(typeof params?.limit === "number" ? { limit: params.limit } : {}),
+      },
     },
-  });
+  );
+
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function getNotificationRecipientOptions(params: {
+  search: string;
+  limit?: number;
+}): Promise<NotificationRecipientOption[]> {
+  const response = await api.get<NotificationRecipientOption[]>(
+    "/notifications/recipient-options",
+    {
+      params: {
+        search: params.search,
+        ...(typeof params.limit === "number" ? { limit: params.limit } : {}),
+      },
+    },
+  );
 
   return Array.isArray(response.data) ? response.data : [];
 }

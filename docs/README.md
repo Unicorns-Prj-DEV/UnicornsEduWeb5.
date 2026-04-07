@@ -4,27 +4,27 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
 
 ## Cấu trúc monorepo (thực tế)
 
-| Thư mục / file | Mô tả |
-|----------------|--------|
-| `apps/web` | Next.js 16, React 19, App Router. Frontend: `app/` (routes), `lib/` (API client). |
-| `apps/api` | NestJS backend. `src/` (auth, `action-history/`, `cache/`, `notification/`, prisma, `session/` workflow services, `staff-ops/` access helpers, user/student/staff services, mail, …), `prisma/schema/`, `generated/` (Prisma Client), `dtos/`. Runtime hiện dùng bảng `dashboard_cache` của PostgreSQL cho dashboard read cache, auth identity cache in-memory TTL ngắn cho guard/profile lookups, global HTTP rate limiting qua `@nestjs/throttler`, và gateway `/notifications` để push realtime notification cho staff. |
-| `packages/` | Shared packages (hiện chỉ có `.gitkeep`, chưa có package con). |
-| `archived/` | Bản lưu tham khảo (vd. `UniEdu-Web-3.9`). |
-| Root | `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `pnpm-lock.yaml`. |
+| Thư mục / file | Mô tả                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `apps/web`     | Next.js 16, React 19, App Router. Frontend: `app/` (routes), `lib/` (API client).                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `apps/api`     | NestJS backend. `src/` (auth, `action-history/`, `cache/`, `notification/`, prisma, `session/` workflow services, `staff-ops/` access helpers, user/student/staff services, mail, …), `prisma/schema/`, `generated/` (Prisma Client), `dtos/`. Runtime hiện dùng bảng `dashboard_cache` của PostgreSQL cho dashboard read cache, auth identity cache in-memory TTL ngắn cho guard/profile lookups, global HTTP rate limiting qua `@nestjs/throttler`, và gateway `/notifications` để push realtime notification theo audience cho admin/staff/student. |
+| `packages/`    | Shared packages (hiện chỉ có `.gitkeep`, chưa có package con).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `archived/`    | Bản lưu tham khảo (vd. `UniEdu-Web-3.9`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Root           | `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `pnpm-lock.yaml`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 **Không có** `apps/math-api` hay `apps/cp-api` — backend duy nhất là `apps/api`.
 
 ## Tài liệu trong `docs/`
 
-| File | Nội dung |
-|------|----------|
-| [Cách làm việc.md](Cách%20làm%20việc.md) | Turborepo, pnpm, cài đặt, lệnh thường dùng, tech stack frontend, quy tắc. **Bắt đầu từ đây.** |
-| [Workplan.md](Workplan.md) | Kế hoạch 8 tuần, phase, DoD, route-to-domain, risk, launch checklist. |
-| [UI-Schema.md](UI-Schema.md) | Design tokens, theme (light/dark/pink), semantic naming, component mapping. |
-| [Database Schema.md](Database%20Schema.md) | Prisma schema tại `apps/api/prisma/schema/`, bảng theo domain, quan hệ, source of truth. |
-| **pages/** | Spec từng route frontend (admin, student, mentor, assistant, landing, auth). |
-| [pages/README.md](pages/README.md) | Route index, workplan phase mapping, conventions. |
-| [pages/ARCHIVED-UI-CONTEXT.md](pages/ARCHIVED-UI-CONTEXT.md) | Map UI archived (UniEdu-Web-3.9) sang 5.0, file tham khảo, services, pattern. |
+| File                                                         | Nội dung                                                                                      |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| [Cách làm việc.md](Cách%20làm%20việc.md)                     | Turborepo, pnpm, cài đặt, lệnh thường dùng, tech stack frontend, quy tắc. **Bắt đầu từ đây.** |
+| [Workplan.md](Workplan.md)                                   | Kế hoạch 8 tuần, phase, DoD, route-to-domain, risk, launch checklist.                         |
+| [UI-Schema.md](UI-Schema.md)                                 | Design tokens, theme (light/dark/pink), semantic naming, component mapping.                   |
+| [Database Schema.md](Database%20Schema.md)                   | Prisma schema tại `apps/api/prisma/schema/`, bảng theo domain, quan hệ, source of truth.      |
+| **pages/**                                                   | Spec từng route frontend (admin, student, mentor, assistant, landing, auth).                  |
+| [pages/README.md](pages/README.md)                           | Route index, workplan phase mapping, conventions.                                             |
+| [pages/ARCHIVED-UI-CONTEXT.md](pages/ARCHIVED-UI-CONTEXT.md) | Map UI archived (UniEdu-Web-3.9) sang 5.0, file tham khảo, services, pattern.                 |
 
 ## Route frontend (`apps/web/app/`)
 
@@ -64,7 +64,7 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
   - `staff.assistant` có thêm cây route mirror trong staff shell: `/staff/dashboard`, `/staff/users`, `/staff/staffs`, `/staff/staffs/[id]`, `/staff/classes`, `/staff/students`, `/staff/students/[id]`, `/staff/costs`, `/staff/history`
   - `/staff/dashboard` (trợ lí) redirect về `/staff`; chi tiết nhân sự bản thân qua sidebar **Cá nhân** hoặc `/staff/staffs/:ownStaffId`
   - `/staff/profile` là **hồ sơ cá nhân** (nội dung cũ của `/staff`), bao gồm thống kê thu nhập, popup ghi cọc, lớp phụ trách, bonus, trợ cấp các role, lịch sử buổi học
-  - thông báo: **chuông** trên sidebar staff (panel + URL `/staff/notification` cho trang feed đầy đủ); không còn mục menu riêng. Staff + student khi online nhận toast Sonner realtime qua websocket `/notifications`; toast chỉ tóm tắt và bấm vào sẽ mở popup chi tiết đúng thông báo trong panel
+  - thông báo: **chuông** trên sidebar staff (panel + URL `/staff/notification` cho trang feed đầy đủ); không còn mục menu riêng. Admin/staff/student khi online nhận toast Sonner realtime qua websocket `/notifications` nếu notification match audience hiện tại; toast chỉ tóm tắt và bấm vào sẽ mở popup chi tiết đúng thông báo trong panel
   - `/staff/notes-subject` với assistant sẽ mở full admin-like notes workspace ngay trong `/staff`; các staff role khác vẫn là bản chỉ đọc. Tab `Quy định` đã bỏ mock và đọc từ `GET /regulations`, backend tự lọc theo audience tag (`all`, `student`, hoặc từng staff role); tab `Tài liệu` tiếp tục dùng `GET /codeforces/*` và `GET /cf-problem-tutorial/:contestId/:problemIndex`. Mutation quản trị quy định (`POST/PATCH /regulations`) và tutorial vẫn giữ policy admin/assistant
   - Sidebar của assistant chuyển sang menu admin-like trong staff shell: **Dashboard**, **User**, **Nhân sự**, **Lớp học**, **Ghi chú môn học**, **Học sinh**, **Chi phí**, **Giáo Án**, **Lịch sử**
   - `/staff/profile` mở khi tài khoản đang đăng nhập có linked `staffInfo` hợp lệ; trang này lấy dữ liệu qua các self-service endpoints `/users/me/full`, `/users/me/staff-detail`, `/users/me/staff-income-summary`, `/users/me/staff-bonuses`, `/users/me/staff-sessions`

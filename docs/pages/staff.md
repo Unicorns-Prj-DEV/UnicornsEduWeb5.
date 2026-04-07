@@ -40,11 +40,12 @@
   - `communication`: hiện chưa có khối riêng ngoài phần thu nhập tháng
   - **Trợ lí (`staff.assistant`):** sidebar có **Dashboard** (`/staff`), **Cá nhân** → `/staff/staffs/:ownStaffId` (trang chi tiết nhân sự mirror admin), rồi các mục mirror (`User`, `Nhân sự`, …); mục **Nhân sự** không highlight khi đang xem đúng trang của chính mình (tránh trùng với **Cá nhân**)
 - `/staff/notification`
-  - là feed chỉ đọc cho staff xem toàn bộ notification admin đã publish, sắp xếp mới nhất trước theo `lastPushedAt`
+  - là feed chỉ đọc cho staff xem các notification admin đã publish **và match audience hiện tại của staff đó**, sắp xếp mới nhất trước theo `lastPushedAt`
   - mỗi card hiển thị tiêu đề, nội dung, thời điểm push và badge `Điều chỉnh v{n}` khi notification đã được repush
   - thông báo trong staff shell chỉ qua **chuông** ở đáy sidebar (panel portal), **không** còn mục menu `Thông báo`; route `/staff/notification` (trang feed đầy đủ) vẫn mở được khi gõ URL hoặc bookmark
   - **Chuông + panel (API):** đáy `StaffSidebar`: chỉ **chuông** nằm trong sidebar; **panel danh sách + popup chi tiết** render qua **React Portal** vào `document.body` (tránh bị cắt bởi `aside` có `transform`/`overflow-hidden`). Mobile: panel **full viewport** (`inset-0`); từ `sm`: sheet phải `max-w-md`. Popup chi tiết z cao hơn panel. Cùng flow API feed + `PATCH .../read` như trên.
   - khi staff đang online, frontend mở websocket namespace `/notifications` với cookie auth hiện tại; event `notification.pushed` sẽ invalidate query và hiển thị Sonner toast dạng tóm tắt
+    - gateway chỉ emit cho room match audience (`@all`, `role_type`, `staff role`, direct `user_id`), nên staff không thấy toast/feed của notification không nhắm tới mình
     - toast luôn gọn: title theo loại (`Thông báo mới từ admin` / `Thông báo được cập nhật`), description rút gọn `<title> · <message short>`
     - bấm vào toast hoặc nút `Mở` sẽ mở thẳng popup chi tiết đúng notification tương ứng (cùng flow như bấm từng dòng trong panel), tự mark-read nếu đang unread
 - `/staff/dashboard`

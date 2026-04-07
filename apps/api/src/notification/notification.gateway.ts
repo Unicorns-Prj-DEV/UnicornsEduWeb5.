@@ -6,22 +6,37 @@ import {
 } from '@nestjs/websockets';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { AuthIdentityCacheService } from 'src/auth/auth-identity-cache.service';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { StaffStatus, UserRole } from 'generated/enums';
 import type { Server, Socket } from 'socket.io';
+import { AuthIdentityCacheService } from 'src/auth/auth-identity-cache.service';
+import type { NotificationTargetRoleTypeDto } from 'src/dtos/notification.dto';
 import type { NotificationPushEventDto } from 'src/dtos/notification.dto';
+import { PrismaService } from 'src/prisma/prisma.service';
+import {
+  StaffRole,
+  StaffStatus,
+  StudentStatus,
+  UserRole,
+  UserStatus,
+} from 'generated/enums';
 
 const ACCESS_TOKEN_COOKIE = 'access_token';
-const STAFF_NOTIFICATION_ROOM = 'staff:all';
+const NOTIFICATION_ALL_ROOM = 'notifications:all';
 
 interface AccessTokenPayload {
   id: string;
 }
 
+interface NotificationTargetingState {
+  targetAll: boolean;
+  targetRoleTypes: NotificationTargetRoleTypeDto[];
+  targetStaffRoles: StaffRole[];
+  targetUserIds: string[];
+}
+
 interface NotificationSocketAuthContext {
   userId: string;
-  staffId: string;
+  roleType: NotificationTargetRoleTypeDto;
+  staffRoles: StaffRole[];
 }
 
 type NotificationSocketData = {
@@ -63,6 +78,18 @@ function parseCookies(rawCookieHeader?: string): Record<string, string> {
     }, {});
 }
 
+function roleRoom(roleType: NotificationTargetRoleTypeDto) {
+  return `notifications:role:${roleType}`;
+}
+
+function userRoom(userId: string) {
+  return `notifications:user:${userId}`;
+}
+
+function staffRoleRoom(role: StaffRole) {
+  return `notifications:staff-role:${role}`;
+}
+
 @Injectable()
 @WebSocketGateway({
   namespace: '/notifications',
@@ -97,22 +124,29 @@ export class NotificationGateway implements OnGatewayInit, OnGatewayConnection {
   }
 
   handleConnection(client: Socket) {
-    if (!this.getAuthContext(client)) {
+    const authContext = this.getAuthContext(client);
+    if (!authContext) {
       client.disconnect(true);
       return;
     }
 
-    void client.join(STAFF_NOTIFICATION_ROOM);
+    void client.join(this.resolveRooms(authContext));
   }
 
-  emitNotificationPushed(payload: NotificationPushEventDto) {
+  emitNotificationPushed(
+    payload: NotificationPushEventDto,
+    targeting: NotificationTargetingState,
+  ) {
     if (!this.server) {
       return;
     }
 
-    this.server
-      .to(STAFF_NOTIFICATION_ROOM)
-      .emit('notification.pushed', payload);
+    const rooms = this.resolveTargetRooms(targeting);
+    if (rooms.length === 0) {
+      return;
+    }
+
+    this.server.to(rooms).emit('notification.pushed', payload);
   }
 
   private async authenticateSocket(
@@ -131,30 +165,96 @@ export class NotificationGateway implements OnGatewayInit, OnGatewayConnection {
       payload.id,
     );
 
-    if (!identity || identity.status !== 'active') {
+    if (!identity || identity.status !== UserStatus.active) {
       throw new UnauthorizedException('Inactive account');
     }
 
-    if (identity.roleType !== UserRole.staff) {
-      throw new UnauthorizedException('Only staff can receive notifications');
+    if (identity.roleType === UserRole.admin) {
+      return {
+        userId: identity.id,
+        roleType: UserRole.admin,
+        staffRoles: [],
+      };
     }
 
-    const staff = await this.prisma.staffInfo.findUnique({
-      where: { userId: identity.id },
-      select: {
-        id: true,
-        status: true,
-      },
+    if (identity.roleType === UserRole.staff) {
+      const staff = await this.prisma.staffInfo.findUnique({
+        where: { userId: identity.id },
+        select: {
+          status: true,
+          roles: true,
+        },
+      });
+
+      if (!staff || staff.status !== StaffStatus.active) {
+        throw new UnauthorizedException('Staff profile is not available');
+      }
+
+      return {
+        userId: identity.id,
+        roleType: UserRole.staff,
+        staffRoles: staff.roles ?? [],
+      };
+    }
+
+    if (identity.roleType === UserRole.student) {
+      const student = await this.prisma.studentInfo.findUnique({
+        where: { userId: identity.id },
+        select: {
+          status: true,
+        },
+      });
+
+      if (!student || student.status !== StudentStatus.active) {
+        throw new UnauthorizedException('Student profile is not available');
+      }
+
+      return {
+        userId: identity.id,
+        roleType: UserRole.student,
+        staffRoles: [],
+      };
+    }
+
+    throw new UnauthorizedException(
+      'Only eligible admin, staff, or student accounts can receive notifications',
+    );
+  }
+
+  private resolveRooms(authContext: NotificationSocketAuthContext) {
+    const rooms = [
+      NOTIFICATION_ALL_ROOM,
+      roleRoom(authContext.roleType),
+      userRoom(authContext.userId),
+    ];
+
+    if (authContext.roleType === UserRole.staff) {
+      authContext.staffRoles.forEach((role) => {
+        rooms.push(staffRoleRoom(role));
+      });
+    }
+
+    return rooms;
+  }
+
+  private resolveTargetRooms(targeting: NotificationTargetingState) {
+    if (targeting.targetAll) {
+      return [NOTIFICATION_ALL_ROOM];
+    }
+
+    const rooms = new Set<string>();
+
+    targeting.targetRoleTypes.forEach((roleType) => {
+      rooms.add(roleRoom(roleType));
+    });
+    targeting.targetStaffRoles.forEach((role) => {
+      rooms.add(staffRoleRoom(role));
+    });
+    targeting.targetUserIds.forEach((userId) => {
+      rooms.add(userRoom(userId));
     });
 
-    if (!staff || staff.status !== StaffStatus.active) {
-      throw new UnauthorizedException('Staff profile is not available');
-    }
-
-    return {
-      userId: identity.id,
-      staffId: staff.id,
-    };
+    return Array.from(rooms);
   }
 
   private setAuthContext(

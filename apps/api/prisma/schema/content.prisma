@@ -48,20 +48,25 @@ model Document {
 }
 
 model Notification {
-  id              String             @id @default(uuid())
-  title           String             @db.VarChar(160)
-  message         String
-  status          NotificationStatus @default(draft)
-  version         Int                @default(0)
-  pushCount       Int                @default(0) @map("push_count")
-  lastPushedAt    DateTime?          @map("last_pushed_at") @db.Timestamptz(6)
-  createdByUserId String?            @map("created_by_user_id")
-  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
-  reads           NotificationRead[]
-  createdBy       User?              @relation("NotificationCreatedBy", fields: [createdByUserId], references: [id])
+  id               String             @id @default(uuid())
+  title            String             @db.VarChar(160)
+  message          String
+  status           NotificationStatus @default(draft)
+  targetAll        Boolean            @default(true) @map("target_all")
+  targetRoleTypes  UserRole[]         @default([]) @map("target_role_types")
+  targetStaffRoles StaffRole[]        @default([]) @map("target_staff_roles")
+  targetUserIds    String[]           @default([]) @map("target_user_ids")
+  version          Int                @default(0)
+  pushCount        Int                @default(0) @map("push_count")
+  lastPushedAt     DateTime?          @map("last_pushed_at") @db.Timestamptz(6)
+  createdByUserId  String?            @map("created_by_user_id")
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  reads            NotificationRead[]
+  createdBy        User?              @relation("NotificationCreatedBy", fields: [createdByUserId], references: [id])
 
   @@index([status])
+  @@index([targetAll])
   @@index([lastPushedAt])
   @@index([updatedAt])
   @@index([createdByUserId])

@@ -32,9 +32,11 @@ import {
   type NotificationAdminItemDto,
   type NotificationFeedItemDto,
   type NotificationFeedMarkReadResponseDto,
+  type NotificationRecipientOptionDto,
   CreateNotificationDto,
   GetAdminNotificationsQueryDto,
   GetNotificationFeedQueryDto,
+  GetNotificationRecipientOptionsQueryDto,
   PushNotificationDto,
   UpdateNotificationDto,
 } from 'src/dtos/notification.dto';
@@ -105,6 +107,37 @@ export class NotificationController {
     });
   }
 
+  @Get('recipient-options')
+  @Roles(UserRole.admin)
+  @ApiOperation({
+    summary: 'Search eligible notification recipients for tagging',
+    description:
+      'Return active admin, staff, and student accounts that can receive notification feed items.',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Search by display name, email, or account handle.',
+    example: 'nguyen',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Maximum number of options returned.',
+    example: 20,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Recipient autocomplete options.',
+  })
+  async getNotificationRecipientOptions(
+    @Query() query: GetNotificationRecipientOptionsQueryDto,
+  ): Promise<NotificationRecipientOptionDto[]> {
+    return this.notificationService.searchNotificationRecipientOptions(query);
+  }
+
   @Patch('feed/:notificationId/read')
   @Roles(UserRole.admin, UserRole.staff, UserRole.student)
   @ApiOperation({
@@ -124,7 +157,10 @@ export class NotificationController {
     @CurrentUser() user: JwtPayload,
     @Param('notificationId', new ParseUUIDPipe()) notificationId: string,
   ): Promise<NotificationFeedMarkReadResponseDto> {
-    return this.notificationService.markFeedNotificationRead(user, notificationId);
+    return this.notificationService.markFeedNotificationRead(
+      user,
+      notificationId,
+    );
   }
 
   @Patch(':id')
@@ -161,9 +197,9 @@ export class NotificationController {
   @Post(':id/push')
   @Roles(UserRole.admin)
   @ApiOperation({
-    summary: 'Push a notification to all staff',
+    summary: 'Push a notification to its configured audience',
     description:
-      'Publish a draft or apply an adjusted re-push for an already published notification, then broadcast it via websocket.',
+      'Publish a draft or apply an adjusted re-push for an already published notification, then broadcast it via websocket to the matched audience.',
   })
   @ApiParam({
     name: 'id',
@@ -222,7 +258,7 @@ export class NotificationController {
   @ApiOperation({
     summary: 'Get the notification feed (staff, student, admin)',
     description:
-      'Return published notifications with per-user readStatus. Admin: không cần staff/student profile. Staff/student: cần profile active.',
+      'Return published notifications targeted to the current actor, with per-user readStatus. Admin: không cần staff/student profile. Staff/student: cần profile active.',
   })
   @ApiQuery({
     name: 'limit',
