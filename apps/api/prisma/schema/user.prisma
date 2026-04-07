@@ -1,25 +1,25 @@
 model User {
-  id                   String          @id @default(uuid())
-  email                String          @unique
+  id                   String             @id @default(uuid())
+  email                String             @unique
   phone                String?
-  passwordHash         String?         @map("password_hash")
-  roleType             UserRole        @map("role_type")
+  passwordHash         String?            @map("password_hash")
+  roleType             UserRole           @map("role_type")
   province             String?
-  status               UserStatus      @default(active)
-  linkId               String?         @map("link_id")
-  accountHandle        String          @unique @map("account_handle")
-  emailVerified        Boolean         @default(false) @map("email_verified")
-  phoneVerified        Boolean         @default(false) @map("phone_verified")
-  refreshToken         String?         @map("refresh_token")
-  createdAt            DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt            DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
-  first_name           String?         @db.VarChar
-  last_name            String?         @db.VarChar
+  status               UserStatus         @default(active)
+  linkId               String?            @map("link_id")
+  accountHandle        String             @unique @map("account_handle")
+  emailVerified        Boolean            @default(false) @map("email_verified")
+  phoneVerified        Boolean            @default(false) @map("phone_verified")
+  refreshToken         String?            @map("refresh_token")
+  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  first_name           String?            @db.VarChar
+  last_name            String?            @db.VarChar
   actionHistories      ActionHistory[]
-  notificationsCreated Notification[]   @relation("NotificationCreatedBy")
   notificationReads    NotificationRead[]
-  regulationsCreated   Regulation[]    @relation("RegulationCreatedBy")
-  regulationsUpdated   Regulation[]    @relation("RegulationUpdatedBy")
+  notificationsCreated Notification[]     @relation("NotificationCreatedBy")
+  regulationsCreated   Regulation[]       @relation("RegulationCreatedBy")
+  regulationsUpdated   Regulation[]       @relation("RegulationUpdatedBy")
   staffInfo            StaffInfo?
   studentInfo          StudentInfo?
 

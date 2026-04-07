@@ -1,9 +1,6 @@
 model StaffInfo {
   id                           String                @id @default(uuid())
   fullName                     String                @map("full_name")
-  cccdNumber                   String                @unique @map("cccd_number")
-  cccdIssuedDate               DateTime?             @map("cccd_issued_date") @db.Date
-  cccdIssuedPlace              String?               @map("cccd_issued_place")
   birthDate                    DateTime?             @map("birth_date") @db.Date
   university                   String?
   highSchool                   String?               @map("high_school")
@@ -16,8 +13,11 @@ model StaffInfo {
   userId                       String?               @unique @map("user_id")
   roles                        StaffRole[]           @default([])
   customerCareManagedByStaffId String?               @map("customer_care_managed_by_staff_id")
-  customerCareStudentSession   Attendance[]          @relation("AttendanceCustomerCare")
+  cccdNumber                   String                @unique @map("cccd_number")
+  cccdIssuedDate               DateTime?             @map("cccd_issued_date") @db.Date
+  cccdIssuedPlace              String?               @map("cccd_issued_place")
   assistantStudentSession      Attendance[]          @relation("AttendanceAssistant")
+  customerCareStudentSession   Attendance[]          @relation("AttendanceCustomerCare")
   bonuses                      Bonus[]
   classSurveys                 ClassSurvey[]
   classTeachers                ClassTeacher[]
@@ -26,11 +26,11 @@ model StaffInfo {
   lessonOutputs                LessonOutput[]
   tasksCreated                 LessonTask[]
   sessions                     Session[]
+  customerCareManagedBy        StaffInfo?            @relation("AssistantManagesCustomerCare", fields: [customerCareManagedByStaffId], references: [id])
+  managedCustomerCareStaff     StaffInfo[]           @relation("AssistantManagesCustomerCare")
   user                         User?                 @relation(fields: [userId], references: [id])
   staffLessonTasks             StaffLessonTask[]
   monthlyStats                 StaffMonthlyStat[]
-  customerCareManagedBy        StaffInfo?            @relation("AssistantManagesCustomerCare", fields: [customerCareManagedByStaffId], references: [id])
-  managedCustomerCareStaff     StaffInfo[]           @relation("AssistantManagesCustomerCare")
 
   @@index([customerCareManagedByStaffId])
   @@map("staff_info")

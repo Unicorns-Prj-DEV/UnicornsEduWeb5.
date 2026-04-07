@@ -85,12 +85,17 @@ export function SidebarNotificationPanel({
             className="fixed inset-0 z-[101] flex w-full flex-col bg-bg-surface shadow-2xl sm:inset-y-0 sm:left-auto sm:right-0 sm:max-w-md sm:border-l sm:border-border-default"
           >
             <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border-default px-4 py-3">
-              <h2
-                id="sidebar-notif-title"
-                className="text-base font-semibold text-text-primary"
-              >
-                Thông báo
-              </h2>
+              <div className="min-w-0">
+                <h2
+                  id="sidebar-notif-title"
+                  className="text-base font-semibold text-text-primary"
+                >
+                  Thông báo
+                </h2>
+                <p className="mt-0.5 text-xs text-text-muted">
+                  {newCount > 0 ? `${newCount} thông báo mới` : "Không có thông báo mới"}
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={onClose}
@@ -173,13 +178,13 @@ export function SidebarNotificationPanel({
                     : "Chưa có thông báo."}
                 </p>
               ) : (
-                <ul className="divide-y divide-border-default" role="list">
+                <ul className="space-y-2 p-2" role="list">
                   {filtered.map((item) => (
                     <li key={item.id}>
                       <button
                         type="button"
                         onClick={() => handleSelect(item)}
-                        className="flex w-full flex-col gap-1 px-4 py-3 text-left transition-colors hover:bg-bg-secondary/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-border-focus"
+                        className={`flex w-full flex-col gap-1.5 rounded-xl border px-3.5 py-3 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${item.readStatus === "unread" ? "border-primary/25 bg-primary/5 hover:bg-primary/10" : "border-border-default bg-bg-surface hover:bg-bg-secondary/80"}`}
                       >
                         <span className="flex items-start justify-between gap-2">
                           <span className="line-clamp-2 text-sm font-semibold text-text-primary">

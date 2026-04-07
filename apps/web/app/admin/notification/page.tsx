@@ -1,17 +1,76 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useMemo, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  ArrowPathIcon,
+  CheckIcon,
+  DocumentPlusIcon,
+  PaperAirplaneIcon,
+  PencilSquareIcon,
+  TrashIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
 import { toast } from "sonner";
-import type { AdminNotificationItem } from "@/dtos/notification.dto";
+import RichTextEditor from "@/components/ui/RichTextEditor";
+import type {
+  AdminNotificationItem,
+  UpdateNotificationPayload,
+} from "@/dtos/notification.dto";
 import { formatDateTime } from "@/lib/class.helpers";
 import * as notificationApi from "@/lib/apis/notification.api";
+import { sanitizeRichTextContent } from "@/lib/sanitize";
 
 type ComposerMode = "create" | "edit-draft" | "repush";
+
+/** UI-only demo state; not sent to the API. */
+type NotificationTargetUserRole = "admin" | "staff" | "student";
+type NotificationTargetStaffRole =
+  | "teacher"
+  | "assistant"
+  | "accountant"
+  | "customer_care"
+  | "lesson_plan"
+  | "communication";
+
+type DemoRecipientOption = {
+  userId: string;
+  displayName: string;
+  email: string | null;
+  accountHandle: string | null;
+};
+
+const DEMO_MOCK_USERS: DemoRecipientOption[] = [
+  {
+    userId: "demo-user-1",
+    displayName: "Nguyễn Minh An",
+    email: "minhan@example.com",
+    accountHandle: "minhan",
+  },
+  {
+    userId: "demo-user-2",
+    displayName: "Trần Thu Hà",
+    email: "thuha@example.com",
+    accountHandle: "thuha",
+  },
+  {
+    userId: "demo-user-3",
+    displayName: "Lê Quốc Bảo",
+    email: null,
+    accountHandle: "lqbao",
+  },
+];
 
 type NotificationFormState = {
   title: string;
   message: string;
+};
+
+type RecipientDemoState = {
+  targetAll: boolean;
+  targetUserIds: string[];
+  targetRoleTypes: NotificationTargetUserRole[];
+  targetStaffRoles: NotificationTargetStaffRole[];
 };
 
 const EMPTY_FORM: NotificationFormState = {
@@ -19,8 +78,37 @@ const EMPTY_FORM: NotificationFormState = {
   message: "",
 };
 
+const EMPTY_RECIPIENT_DEMO: RecipientDemoState = {
+  targetAll: true,
+  targetUserIds: [],
+  targetRoleTypes: [],
+  targetStaffRoles: [],
+};
+
+const PRESET_TARGET_TAGS = [
+  { key: "@all", label: "@all", kind: "all" as const },
+  { key: "@admin", label: "@admin", kind: "roleType" as const, value: "admin" as const },
+  { key: "@staff", label: "@staff", kind: "roleType" as const, value: "staff" as const },
+  { key: "@student", label: "@student", kind: "roleType" as const, value: "student" as const },
+  { key: "@teacher", label: "@teacher", kind: "staffRole" as const, value: "teacher" as const },
+  { key: "@assistant", label: "@assistant", kind: "staffRole" as const, value: "assistant" as const },
+  { key: "@accountant", label: "@accountant", kind: "staffRole" as const, value: "accountant" as const },
+  { key: "@customer_care", label: "@customer_care", kind: "staffRole" as const, value: "customer_care" as const },
+  { key: "@lesson_plan", label: "@lesson_plan", kind: "staffRole" as const, value: "lesson_plan" as const },
+  { key: "@communication", label: "@communication", kind: "staffRole" as const, value: "communication" as const },
+];
+
 const INPUT_CLASS =
   "min-h-11 w-full rounded-2xl border border-border-default bg-bg-surface px-4 py-3 text-sm text-text-primary shadow-sm transition-[border-color,box-shadow,background-color] duration-200 placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus/40";
+
+function hasMeaningfulNotificationContent(message: string): boolean {
+  const plainText = message
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return plainText.length > 0;
+}
 
 function resolveErrorMessage(error: unknown, fallback: string) {
   return (
@@ -43,29 +131,33 @@ function getComposerCopy(mode: ComposerMode) {
   switch (mode) {
     case "edit-draft":
       return {
-        eyebrow: "Đang sửa nháp",
-        title: "Cập nhật nội dung trước khi phát",
-        description:
-          "Bản nháp chỉ lưu trong hệ thống, staff chưa nhận toast cho đến khi bạn push.",
+        eyebrow: "Sửa nháp",
+        title: "Cập nhật bản nháp",
+        description: "Chỉ lưu nội bộ cho đến khi push.",
         submitLabel: "Lưu nháp",
       };
     case "repush":
       return {
-        eyebrow: "Điều chỉnh thông báo",
-        title: "Sửa nội dung và push lại ngay",
-        description:
-          "Khi lưu, staff đang online sẽ nhận toast `Điều chỉnh thông báo` theo nội dung mới nhất.",
+        eyebrow: "Push lại",
+        title: "Sửa và push lại",
+        description: "Gửi bản cập nhật ngay.",
         submitLabel: "Sửa & Push lại",
       };
     default:
       return {
         eyebrow: "Tạo thông báo",
-        title: "Soạn một thông báo mới cho staff",
-        description:
-          "Tạo ở trạng thái nháp trước, sau đó bạn có thể push khi nội dung đã sẵn sàng.",
+        title: "Soạn thông báo mới",
+        description: "Tạo nháp trước, push sau.",
         submitLabel: "Tạo nháp",
       };
   }
+}
+
+function getSubmitAriaLabel(mode: ComposerMode, isMutating: boolean) {
+  if (isMutating) return "Đang xử lý";
+  if (mode === "edit-draft") return "Lưu nháp";
+  if (mode === "repush") return "Sửa và push lại";
+  return "Tạo nháp";
 }
 
 function NotificationListCard({
@@ -86,7 +178,7 @@ function NotificationListCard({
   const isPublished = item.status === "published";
 
   return (
-    <article className="rounded-2xl border border-border-default bg-bg-surface p-4 shadow-sm">
+    <article className="rounded-xl border border-border-default bg-bg-surface p-3 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -103,12 +195,13 @@ function NotificationListCard({
             </span>
           </div>
 
-          <h2 className="mt-3 text-base font-semibold text-text-primary">
+          <h2 className="mt-3 text-xl font-bold leading-snug text-text-primary">
             {item.title}
           </h2>
-          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-text-secondary">
-            {item.message}
-          </p>
+          <div
+            className="mt-2 line-clamp-4 text-sm leading-6 text-text-secondary [&_p]:my-0 [&_ul]:my-1 [&_ol]:my-1"
+            dangerouslySetInnerHTML={{ __html: sanitizeRichTextContent(item.message) }}
+          />
         </div>
 
         <div className="flex shrink-0 flex-wrap gap-2">
@@ -117,9 +210,11 @@ function NotificationListCard({
               type="button"
               onClick={() => onRepush(item)}
               disabled={disabled}
-              className="min-h-10 rounded-xl bg-primary px-3.5 py-2 text-sm font-medium text-text-inverse transition hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label="Sửa và push lại"
+              title="Sửa và push lại"
+              className="inline-flex size-10 items-center justify-center rounded-xl bg-primary text-text-inverse transition hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Sửa & Push lại
+              <PaperAirplaneIcon className="size-5" />
             </button>
           ) : (
             <>
@@ -127,17 +222,21 @@ function NotificationListCard({
                 type="button"
                 onClick={() => onEditDraft(item)}
                 disabled={disabled}
-                className="min-h-10 rounded-xl border border-border-default bg-bg-surface px-3.5 py-2 text-sm font-medium text-text-primary transition hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label="Sửa nháp"
+                title="Sửa nháp"
+                className="inline-flex size-10 items-center justify-center rounded-xl border border-border-default bg-bg-surface text-text-primary transition hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Sửa
+                <PencilSquareIcon className="size-5" />
               </button>
               <button
                 type="button"
                 onClick={() => onPush(item)}
                 disabled={disabled}
-                className="min-h-10 rounded-xl bg-primary px-3.5 py-2 text-sm font-medium text-text-inverse transition hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label="Push thông báo"
+                title="Push thông báo"
+                className="inline-flex size-10 items-center justify-center rounded-xl bg-primary text-text-inverse transition hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Push
+                <PaperAirplaneIcon className="size-5" />
               </button>
             </>
           )}
@@ -145,38 +244,19 @@ function NotificationListCard({
             type="button"
             onClick={() => onDelete(item)}
             disabled={disabled}
-            className="min-h-10 rounded-xl border border-error/25 bg-error/10 px-3.5 py-2 text-sm font-medium text-error transition hover:bg-error/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-error/30 disabled:cursor-not-allowed disabled:opacity-60"
+            aria-label="Xóa thông báo"
+            title="Xóa thông báo"
+            className="inline-flex size-10 items-center justify-center rounded-xl border border-error/25 bg-error/10 text-error transition hover:bg-error/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-error/30 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Xóa
+            <TrashIcon className="size-5" />
           </button>
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 text-xs text-text-muted sm:grid-cols-3">
-        <div className="rounded-xl border border-border-default bg-bg-secondary/45 px-3 py-2">
-          <p className="font-semibold uppercase tracking-[0.18em] text-text-muted">
-            Người tạo
-          </p>
-          <p className="mt-1 text-sm font-medium text-text-primary">
-            {item.createdBy?.displayName ?? "Không rõ"}
-          </p>
-        </div>
-        <div className="rounded-xl border border-border-default bg-bg-secondary/45 px-3 py-2">
-          <p className="font-semibold uppercase tracking-[0.18em] text-text-muted">
-            Cập nhật
-          </p>
-          <p className="mt-1 text-sm font-medium text-text-primary">
-            {formatDateTime(item.updatedAt)}
-          </p>
-        </div>
-        <div className="rounded-xl border border-border-default bg-bg-secondary/45 px-3 py-2">
-          <p className="font-semibold uppercase tracking-[0.18em] text-text-muted">
-            Push gần nhất
-          </p>
-          <p className="mt-1 text-sm font-medium text-text-primary">
-            {formatDateTime(item.lastPushedAt)}
-          </p>
-        </div>
+      <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-text-muted">
+        <span>Người tạo: {item.createdBy?.displayName ?? "Không rõ"}</span>
+        <span>Cập nhật: {formatDateTime(item.updatedAt)}</span>
+        <span>Push: {formatDateTime(item.lastPushedAt)}</span>
       </div>
     </article>
   );
@@ -189,6 +269,10 @@ export default function AdminNotificationPage() {
     null,
   );
   const [form, setForm] = useState<NotificationFormState>(EMPTY_FORM);
+  const [recipientDemo, setRecipientDemo] =
+    useState<RecipientDemoState>(EMPTY_RECIPIENT_DEMO);
+  const [recipientSearch, setRecipientSearch] = useState("");
+  const recipientInputRef = useRef<HTMLInputElement | null>(null);
 
   const notificationsQuery = useQuery({
     queryKey: ["notifications", "admin"],
@@ -204,6 +288,7 @@ export default function AdminNotificationPage() {
     setComposerMode("create");
     setActiveNotificationId(null);
     setForm(EMPTY_FORM);
+    setRecipientDemo(EMPTY_RECIPIENT_DEMO);
   };
 
   const createMutation = useMutation({
@@ -224,7 +309,7 @@ export default function AdminNotificationPage() {
       payload,
     }: {
       id: string;
-      payload: NotificationFormState;
+      payload: UpdateNotificationPayload;
     }) => notificationApi.updateNotificationDraft(id, payload),
     onSuccess: async () => {
       await invalidateNotifications();
@@ -242,7 +327,7 @@ export default function AdminNotificationPage() {
       payload,
     }: {
       id: string;
-      payload?: Partial<NotificationFormState>;
+      payload?: UpdateNotificationPayload;
     }) => notificationApi.pushNotification(id, payload),
     onSuccess: async (notification) => {
       await invalidateNotifications();
@@ -293,6 +378,7 @@ export default function AdminNotificationPage() {
       title: item.title,
       message: item.message,
     });
+    setRecipientDemo(EMPTY_RECIPIENT_DEMO);
   };
 
   const handleRepush = (item: AdminNotificationItem) => {
@@ -302,6 +388,7 @@ export default function AdminNotificationPage() {
       title: item.title,
       message: item.message,
     });
+    setRecipientDemo(EMPTY_RECIPIENT_DEMO);
   };
 
   const handleQuickPush = (item: AdminNotificationItem) => {
@@ -328,13 +415,16 @@ export default function AdminNotificationPage() {
     const title = form.title.trim();
     const message = form.message.trim();
 
-    if (!title || !message) {
+    if (!title || !hasMeaningfulNotificationContent(message)) {
       toast.error("Vui lòng nhập đầy đủ tiêu đề và nội dung.");
       return;
     }
 
     if (composerMode === "create") {
-      createMutation.mutate({ title, message });
+      createMutation.mutate({
+        title,
+        message,
+      });
       return;
     }
 
@@ -346,67 +436,170 @@ export default function AdminNotificationPage() {
     if (composerMode === "edit-draft") {
       updateDraftMutation.mutate({
         id: activeNotificationId,
-        payload: { title, message },
+        payload: {
+          title,
+          message,
+        },
       });
       return;
     }
 
     pushMutation.mutate({
       id: activeNotificationId,
-      payload: { title, message },
+      payload: {
+        title,
+        message,
+      },
+    });
+  };
+
+  const filteredDemoUsers = useMemo(() => {
+    const q = recipientSearch.trim().toLowerCase();
+    if (!q || q.startsWith("@")) return [];
+    return DEMO_MOCK_USERS.filter(
+      (u) =>
+        u.displayName.toLowerCase().includes(q) ||
+        (u.email?.toLowerCase().includes(q) ?? false) ||
+        (u.accountHandle?.toLowerCase().includes(q) ?? false),
+    ).slice(0, 12);
+  }, [recipientSearch]);
+
+  const selectedUserOptions = useMemo(() => {
+    const map = new Map(DEMO_MOCK_USERS.map((option) => [option.userId, option]));
+    return recipientDemo.targetUserIds.map(
+      (userId) =>
+        map.get(userId) ?? {
+          userId,
+          displayName: userId,
+          email: null,
+          accountHandle: null,
+        },
+    );
+  }, [recipientDemo.targetUserIds]);
+
+  const selectedTargetTags = useMemo(() => {
+    const tags: string[] = [];
+    if (recipientDemo.targetAll) tags.push("@all");
+    recipientDemo.targetRoleTypes.forEach((roleType) => tags.push(`@${roleType}`));
+    recipientDemo.targetStaffRoles.forEach((role) => tags.push(`@${role}`));
+    return tags;
+  }, [recipientDemo.targetAll, recipientDemo.targetRoleTypes, recipientDemo.targetStaffRoles]);
+
+  const filteredPresetTags = useMemo(() => {
+    const keyword = recipientSearch.trim().toLowerCase();
+    if (!keyword.startsWith("@")) return [];
+    return PRESET_TARGET_TAGS.filter((tag) =>
+      tag.label.toLowerCase().includes(keyword),
+    );
+  }, [recipientSearch]);
+
+  const addRecipientUser = (userId: string) => {
+    setRecipientDemo((current) => ({
+      ...current,
+      targetAll: false,
+      targetUserIds: current.targetUserIds.includes(userId)
+        ? current.targetUserIds
+        : [...current.targetUserIds, userId],
+    }));
+    setRecipientSearch("");
+  };
+
+  const removeRecipientUser = (userId: string) => {
+    setRecipientDemo((current) => ({
+      ...current,
+      targetUserIds: current.targetUserIds.filter((id) => id !== userId),
+    }));
+  };
+
+  const removeTargetTag = (tagLabel: string) => {
+    setRecipientDemo((current) => {
+      if (tagLabel === "@all") {
+        return { ...current, targetAll: false };
+      }
+      if (tagLabel === "@admin" || tagLabel === "@staff" || tagLabel === "@student") {
+        return {
+          ...current,
+          targetRoleTypes: current.targetRoleTypes.filter(
+            (roleType) => `@${roleType}` !== tagLabel,
+          ),
+        };
+      }
+      return {
+        ...current,
+        targetStaffRoles: current.targetStaffRoles.filter(
+          (role) => `@${role}` !== tagLabel,
+        ),
+      };
+    });
+  };
+
+  const togglePresetTag = (tagKey: string) => {
+    const tag = PRESET_TARGET_TAGS.find((item) => item.key === tagKey);
+    if (!tag) return;
+    setRecipientDemo((current) => {
+      if (tag.kind === "all") {
+        return {
+          ...current,
+          targetAll: !current.targetAll,
+        };
+      }
+      if (tag.kind === "roleType") {
+        const exists = current.targetRoleTypes.includes(tag.value);
+        return {
+          ...current,
+          targetAll: false,
+          targetRoleTypes: exists
+            ? current.targetRoleTypes.filter((roleType) => roleType !== tag.value)
+            : [...current.targetRoleTypes, tag.value],
+        };
+      }
+      const exists = current.targetStaffRoles.includes(tag.value);
+      return {
+        ...current,
+        targetAll: false,
+        targetStaffRoles: exists
+          ? current.targetStaffRoles.filter((role) => role !== tag.value)
+          : [...current.targetStaffRoles, tag.value],
+      };
     });
   };
 
   return (
-    <div className="min-h-0 bg-bg-primary p-3 pb-8 sm:p-6">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4">
-        <section className="relative overflow-hidden rounded-3xl border border-border-default bg-gradient-to-br from-bg-secondary via-bg-surface to-bg-secondary/70 p-5 shadow-sm sm:p-6">
-          <div
-            className="pointer-events-none absolute -right-14 -top-14 size-36 rounded-full bg-primary/12 blur-3xl"
-            aria-hidden
-          />
-          <div
-            className="pointer-events-none absolute -bottom-14 left-12 size-32 rounded-full bg-warning/10 blur-3xl"
-            aria-hidden
-          />
-
-          <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+    <div className="min-h-0 bg-bg-primary p-3 pb-6 sm:p-5">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-3">
+        <section className="rounded-2xl border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
-                Push Notifications
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+                Notifications
               </p>
-              <h1 className="mt-3 text-2xl font-semibold text-text-primary sm:text-3xl">
-                Quản lý thông báo realtime cho staff
+              <h1 className="mt-2 text-xl font-semibold text-text-primary sm:text-2xl">
+                Quản lý thông báo
               </h1>
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-text-secondary">
-                Admin tạo nháp, chỉnh sửa, xóa và push thông báo từ đây. Khi push, hệ
-                thống vừa lưu vào database vừa broadcast qua websocket để toàn bộ staff
-                đang online nhận toast Sonner ngay lập tức.
-              </p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-border-default bg-bg-surface/85 px-4 py-3 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-text-muted">
-                  Tổng bản ghi
+              <div className="rounded-xl border border-border-default bg-bg-secondary/35 px-3 py-2.5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                  Tổng
                 </p>
-                <p className="mt-2 text-2xl font-semibold text-text-primary">
+                <p className="mt-1 text-xl font-semibold text-text-primary">
                   {notifications.length}
                 </p>
               </div>
-              <div className="rounded-2xl border border-border-default bg-bg-surface/85 px-4 py-3 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-text-muted">
-                  Bản nháp
+              <div className="rounded-xl border border-border-default bg-bg-secondary/35 px-3 py-2.5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                  Nháp
                 </p>
-                <p className="mt-2 text-2xl font-semibold text-text-primary">
+                <p className="mt-1 text-xl font-semibold text-text-primary">
                   {draftNotifications.length}
                 </p>
               </div>
-              <div className="rounded-2xl border border-border-default bg-bg-surface/85 px-4 py-3 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-text-muted">
+              <div className="rounded-xl border border-border-default bg-bg-secondary/35 px-3 py-2.5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
                   Đã phát
                 </p>
-                <p className="mt-2 text-2xl font-semibold text-text-primary">
+                <p className="mt-1 text-xl font-semibold text-text-primary">
                   {publishedNotifications.length}
                 </p>
               </div>
@@ -414,17 +607,17 @@ export default function AdminNotificationPage() {
           </div>
         </section>
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-          <section className="rounded-3xl border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+          <section className="rounded-2xl border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
                   {composerCopy.eyebrow}
                 </p>
-                <h2 className="mt-2 text-xl font-semibold text-text-primary">
+                <h2 className="mt-1 text-lg font-semibold text-text-primary">
                   {composerCopy.title}
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-text-secondary">
+                <p className="mt-1 text-xs leading-5 text-text-secondary">
                   {composerCopy.description}
                 </p>
               </div>
@@ -432,14 +625,136 @@ export default function AdminNotificationPage() {
                 <button
                   type="button"
                   onClick={resetComposer}
-                  className="min-h-10 shrink-0 rounded-xl border border-border-default bg-bg-surface px-3.5 py-2 text-sm font-medium text-text-primary transition hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  aria-label="Tạo thông báo mới"
+                  title="Tạo thông báo mới"
+                  className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-border-default bg-bg-surface text-text-primary transition hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 >
-                  Tạo thông báo mới
+                  <DocumentPlusIcon className="size-5" />
                 </button>
               )}
             </div>
 
-            <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
+            <form className="mt-4 space-y-3.5" onSubmit={handleSubmit}>
+              <label className="block">
+                <span className="mb-2 flex flex-wrap items-center gap-2 text-sm font-medium text-text-secondary">
+                  Người nhận
+                  <span className="rounded-full border border-dashed border-warning/40 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-warning">
+                    Demo
+                  </span>
+                  <span className="text-xs font-normal text-text-muted">
+                    Mock data — không gửi lên server
+                  </span>
+                </span>
+                <div className="rounded-2xl border border-border-default bg-bg-surface p-2">
+                  <div
+                    className="flex items-center gap-2 border-b border-border-default px-2 pb-2"
+                    onClick={(event) => {
+                      const target = event.target as HTMLElement;
+                      if (target.closest("button")) return;
+                      recipientInputRef.current?.focus();
+                    }}
+                  >
+                    <span className="text-sm font-medium text-text-secondary">To</span>
+                    <div className="flex min-h-9 flex-1 flex-wrap items-center gap-1.5">
+                    {selectedTargetTags.map((tagLabel) => (
+                      <span
+                        key={tagLabel}
+                        className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2 py-1 text-xs text-primary"
+                      >
+                        {tagLabel}
+                        <button
+                          type="button"
+                          onClick={() => removeTargetTag(tagLabel)}
+                          onMouseDown={(event) => event.stopPropagation()}
+                          className="text-primary/80 hover:text-primary"
+                          aria-label={`Bỏ ${tagLabel}`}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                    {selectedUserOptions.map((user) => (
+                      <span
+                        key={user.userId}
+                        className="inline-flex items-center gap-1 rounded-full border border-border-default bg-bg-secondary px-2 py-1 text-xs text-text-primary"
+                      >
+                        {user.displayName}
+                        <button
+                          type="button"
+                          onClick={() => removeRecipientUser(user.userId)}
+                          onMouseDown={(event) => event.stopPropagation()}
+                          className="text-text-muted hover:text-error"
+                          aria-label={`Bỏ ${user.displayName}`}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                      <input
+                        ref={recipientInputRef}
+                        value={recipientSearch}
+                        onChange={(event) => setRecipientSearch(event.target.value)}
+                        placeholder="Thử tìm mock (ví dụ: nguyễn) hoặc @..."
+                        className="min-h-8 min-w-[180px] flex-1 bg-transparent px-1 text-sm text-text-primary outline-none placeholder:text-text-muted"
+                      />
+                    </div>
+                  </div>
+                  <div className="h-2" />
+                  {recipientSearch.trim().startsWith("@") &&
+                    filteredPresetTags.length > 0 && (
+                    <div className="mt-2 max-h-48 overflow-y-auto rounded-xl border border-border-default bg-bg-surface p-1.5 shadow-sm">
+                      {filteredPresetTags.map((tag) => (
+                        <button
+                          key={tag.key}
+                          type="button"
+                          onClick={() => {
+                            togglePresetTag(tag.key);
+                            setRecipientSearch("");
+                          }}
+                          className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm hover:bg-bg-secondary"
+                        >
+                          <span className="truncate text-text-primary">
+                            {tag.label}
+                          </span>
+                          <span className="ml-2 text-xs text-text-muted">Tag</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {!recipientSearch.trim().startsWith("@") &&
+                    recipientSearch.trim().length > 0 && (
+                    <div className="mt-2 max-h-56 overflow-y-auto rounded-xl border border-border-default bg-bg-surface p-1.5 shadow-sm">
+                      {filteredDemoUsers.length === 0 ? (
+                        <div className="px-2.5 py-2 text-sm text-text-muted">
+                          Không có user mock phù hợp.
+                        </div>
+                      ) : (
+                        filteredDemoUsers.map((option) => (
+                          <button
+                            key={option.userId}
+                            type="button"
+                            onClick={() => addRecipientUser(option.userId)}
+                            className="flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-bg-secondary"
+                          >
+                            <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+                              {(option.displayName?.[0] ?? "?").toUpperCase()}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-medium text-text-primary">
+                                {option.displayName}
+                              </span>
+                              <span className="block truncate text-xs text-text-muted">
+                                {option.email ?? option.accountHandle}
+                              </span>
+                            </span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              </label>
+
               <label className="block">
                 <span className="mb-2 block text-sm font-medium text-text-secondary">
                   Tiêu đề
@@ -453,7 +768,7 @@ export default function AdminNotificationPage() {
                     }))
                   }
                   placeholder="Ví dụ: Điều chỉnh lịch họp đầu tuần"
-                  className={INPUT_CLASS}
+                  className={`${INPUT_CLASS} text-lg font-bold tracking-tight`}
                 />
               </label>
 
@@ -461,17 +776,15 @@ export default function AdminNotificationPage() {
                 <span className="mb-2 block text-sm font-medium text-text-secondary">
                   Nội dung
                 </span>
-                <textarea
+                <RichTextEditor
                   value={form.message}
-                  onChange={(event) =>
+                  onChange={(nextValue) =>
                     setForm((current) => ({
                       ...current,
-                      message: event.target.value,
+                      message: nextValue,
                     }))
                   }
-                  placeholder="Nhập nội dung staff sẽ thấy trong toast và feed."
-                  rows={8}
-                  className={`${INPUT_CLASS} min-h-[220px] resize-y py-3`}
+                  minHeight="min-h-[200px]"
                 />
               </label>
 
@@ -479,41 +792,57 @@ export default function AdminNotificationPage() {
                 <button
                   type="submit"
                   disabled={isMutating}
-                  className="min-h-11 rounded-2xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label={getSubmitAriaLabel(composerMode, isMutating)}
+                  title={getSubmitAriaLabel(composerMode, isMutating)}
+                  className="inline-flex size-11 items-center justify-center rounded-2xl bg-primary text-text-inverse transition hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isMutating ? "Đang xử lý..." : composerCopy.submitLabel}
+                  {isMutating ? (
+                    <ArrowPathIcon className="size-5 animate-spin" />
+                  ) : composerMode === "edit-draft" ? (
+                    <CheckIcon className="size-5" />
+                  ) : composerMode === "repush" ? (
+                    <PaperAirplaneIcon className="size-5" />
+                  ) : (
+                    <DocumentPlusIcon className="size-5" />
+                  )}
                 </button>
                 {composerMode !== "create" && (
                   <button
                     type="button"
                     onClick={resetComposer}
                     disabled={isMutating}
-                    className="min-h-11 rounded-2xl border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
+                    aria-label="Hủy chỉnh sửa"
+                    title="Hủy chỉnh sửa"
+                    className="inline-flex size-11 items-center justify-center rounded-2xl border border-border-default bg-bg-surface text-text-primary transition hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Hủy chỉnh sửa
+                    <XMarkIcon className="size-5" />
                   </button>
                 )}
               </div>
             </form>
           </section>
 
-          <section className="rounded-3xl border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
+          <section className="rounded-2xl border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-                  Danh sách thông báo
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
+                  Danh sách
                 </p>
-                <h2 className="mt-2 text-xl font-semibold text-text-primary">
-                  Draft và bản đã phát
+                <h2 className="mt-1 text-lg font-semibold text-text-primary">
+                  Nháp & đã phát
                 </h2>
               </div>
               <button
                 type="button"
                 onClick={() => notificationsQuery.refetch()}
                 disabled={notificationsQuery.isFetching}
-                className="min-h-10 rounded-xl border border-border-default bg-bg-surface px-3.5 py-2 text-sm font-medium text-text-primary transition hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label="Làm mới danh sách"
+                title="Làm mới danh sách"
+                className="inline-flex size-10 items-center justify-center rounded-xl border border-border-default bg-bg-surface text-text-primary transition hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Làm mới
+                <ArrowPathIcon
+                  className={`size-5 ${notificationsQuery.isFetching ? "animate-spin" : ""}`}
+                />
               </button>
             </div>
 
@@ -535,10 +864,10 @@ export default function AdminNotificationPage() {
               </div>
             ) : notifications.length === 0 ? (
               <div className="mt-5 rounded-2xl border border-dashed border-border-default bg-bg-secondary/35 px-4 py-10 text-center text-sm text-text-secondary">
-                Chưa có thông báo nào. Hãy tạo bản nháp đầu tiên ở khối bên trái.
+                Chưa có thông báo nào.
               </div>
             ) : (
-              <div className="mt-5 space-y-6">
+              <div className="mt-5 space-y-5">
                 <div>
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-text-muted">
@@ -551,7 +880,7 @@ export default function AdminNotificationPage() {
                   <div className="space-y-3">
                     {draftNotifications.length === 0 ? (
                       <div className="rounded-2xl border border-dashed border-border-default bg-bg-secondary/35 px-4 py-6 text-sm text-text-secondary">
-                        Không có bản nháp nào đang chờ push.
+                        Không có bản nháp.
                       </div>
                     ) : (
                       draftNotifications.map((item) => (
@@ -581,7 +910,7 @@ export default function AdminNotificationPage() {
                   <div className="space-y-3">
                     {publishedNotifications.length === 0 ? (
                       <div className="rounded-2xl border border-dashed border-border-default bg-bg-secondary/35 px-4 py-6 text-sm text-text-secondary">
-                        Chưa có thông báo nào được push tới staff.
+                        Chưa có thông báo đã phát.
                       </div>
                     ) : (
                       publishedNotifications.map((item) => (

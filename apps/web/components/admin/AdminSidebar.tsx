@@ -10,6 +10,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { Role } from "@/dtos/Auth.dto";
+import { SidebarNotificationTray } from "@/components/shell";
 import {
   ACCOUNTANT_VISIBLE_HREFS,
   resolveAdminShellAccess,
@@ -381,7 +382,7 @@ export default function AdminSidebar() {
               Trang chủ
             </span>
           </Link>
-          <div className="mt-2 flex items-center gap-2">
+          <div className={`mt-2 flex items-center gap-2 ${compact ? "flex-wrap justify-center" : ""}`}>
             <button
               type="button"
               onClick={openProfile}
@@ -393,6 +394,11 @@ export default function AdminSidebar() {
                 {profile?.accountHandle?.slice(0, 1).toUpperCase() ?? "?"}
               </span>
             </button>
+
+            <SidebarNotificationTray compact={compact} />
+
+            <div className={`min-w-0 flex-1 ${compact ? "hidden" : ""}`} aria-hidden />
+
             <button
               type="button"
               onClick={handleLogout}

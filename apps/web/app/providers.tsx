@@ -11,6 +11,12 @@ import { useAuth } from "@/context/AuthContext";
 import { Role, UserInfoDto } from "@/dtos/Auth.dto";
 import type { NotificationPushEvent } from "@/dtos/notification.dto";
 import { getFullProfile } from "@/lib/apis/auth.api";
+import { summarizeNotificationContent } from "@/lib/format-sidebar-notification-time";
+import { NOTIFICATION_FEED_QUERY_KEY } from "@/lib/notification-feed-query";
+import {
+  OPEN_NOTIFICATION_DETAIL_EVENT,
+  type OpenNotificationDetailPayload,
+} from "@/lib/notification-tray-events";
 import {
   QueryClient,
   QueryClientProvider,
@@ -81,20 +87,29 @@ function RateLimitToastBridge() {
 function NotificationSocketBridge() {
   const { user, isAuthReady } = useAuth();
   const queryClient = useQueryClient();
-  const router = useRouter();
   const recentNotificationKeysRef = useRef<string[]>([]);
-  const canLoadStaffProfile =
-    isAuthReady && hasAuthenticatedSession(user) && user.roleType === Role.staff;
+  const canLoadRealtimeProfile =
+    isAuthReady &&
+    hasAuthenticatedSession(user) &&
+    (user.roleType === Role.staff || user.roleType === Role.student);
   const { data: fullProfile } = useQuery({
     queryKey: ["auth", "full-profile"],
     queryFn: getFullProfile,
-    enabled: canLoadStaffProfile,
+    enabled: canLoadRealtimeProfile,
     retry: false,
     staleTime: 60_000,
   });
 
   useEffect(() => {
-    if (!canLoadStaffProfile || !fullProfile?.staffInfo?.id) {
+    if (!canLoadRealtimeProfile) {
+      return;
+    }
+
+    const canOpenStaffChannel =
+      user.roleType === Role.staff && Boolean(fullProfile?.staffInfo?.id);
+    const canOpenStudentChannel =
+      user.roleType === Role.student && Boolean(fullProfile?.studentInfo?.id);
+    if (!canOpenStaffChannel && !canOpenStudentChannel) {
       return;
     }
 
@@ -124,22 +139,48 @@ function NotificationSocketBridge() {
       }
 
       void queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      void queryClient.invalidateQueries({ queryKey: NOTIFICATION_FEED_QUERY_KEY });
 
-      toast(
-        event.deliveryKind === "adjusted"
-          ? "Điều chỉnh thông báo"
-          : event.title,
-        {
-          id: eventKey,
-          description:
-            event.deliveryKind === "adjusted"
-              ? `${event.title}: ${event.message}`
-              : event.message,
-          action: {
-            label: "Xem",
-            onClick: () => router.push("/staff/notification"),
-          },
-        },
+      const openNotificationDetail = () => {
+        const payload: OpenNotificationDetailPayload = {
+          id: event.id,
+          title: event.title,
+          message: event.message,
+          lastPushedAt: event.lastPushedAt,
+          deliveryKind: event.deliveryKind,
+          version: event.version,
+        };
+        window.dispatchEvent(
+          new CustomEvent<OpenNotificationDetailPayload>(
+            OPEN_NOTIFICATION_DETAIL_EVENT,
+            { detail: payload },
+          ),
+        );
+      };
+
+      const compactSummary = summarizeNotificationContent(event.message, 88);
+      toast.custom(
+        (toastId) => (
+          <button
+            type="button"
+            onClick={() => {
+              openNotificationDetail();
+              toast.dismiss(toastId);
+            }}
+            className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-left shadow-sm transition hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+          >
+            <p className="text-sm font-semibold text-text-primary">
+              {event.deliveryKind === "adjusted"
+                ? "Thông báo được cập nhật"
+                : "Thông báo mới từ admin"}
+            </p>
+            <p className="mt-1 text-xs text-text-secondary">
+              {event.title} · {compactSummary}
+            </p>
+            <p className="mt-1 text-[11px] text-primary">Bấm để mở chi tiết</p>
+          </button>
+        ),
+        { id: eventKey, duration: 10000 },
       );
     };
 
@@ -149,7 +190,13 @@ function NotificationSocketBridge() {
       socket.off("notification.pushed", handleNotificationPushed);
       socket.disconnect();
     };
-  }, [canLoadStaffProfile, fullProfile?.staffInfo?.id, queryClient, router]);
+  }, [
+    canLoadRealtimeProfile,
+    fullProfile?.staffInfo?.id,
+    fullProfile?.studentInfo?.id,
+    queryClient,
+    user.roleType,
+  ]);
 
   return null;
 }

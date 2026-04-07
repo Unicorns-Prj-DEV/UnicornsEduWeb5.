@@ -129,7 +129,6 @@ export interface NotificationFeedItemDto {
   title: string;
   message: string;
   status: 'published';
-  /** Per current user: có bản ghi trong `notification_reads` hay chưa */
   readStatus: NotificationFeedReadStatusDto;
   version: number;
   pushCount: number;
