@@ -6,6 +6,7 @@ import {
   IsInt,
   IsDateString,
   IsEnum,
+  Matches,
   IsOptional,
   IsString,
   IsUUID,
@@ -70,6 +71,24 @@ export class CreateStaffDto {
   @ApiProperty({ example: 'Nguyen Van B' })
   @IsString()
   full_name: string;
+
+  @ApiProperty({
+    example: '012345678901',
+    description: 'Số CCCD gồm đúng 12 chữ số',
+  })
+  @IsString()
+  @Matches(/^\d{12}$/, { message: 'Số CCCD phải gồm đúng 12 chữ số.' })
+  cccd_number: string;
+
+  @ApiPropertyOptional({ example: '2022-01-15' })
+  @IsOptional()
+  @IsDateString()
+  cccd_issued_date?: string;
+
+  @ApiPropertyOptional({ example: 'Cục CSQLHC về TTXH' })
+  @IsOptional()
+  @IsString()
+  cccd_issued_place?: string;
 
   @ApiPropertyOptional({ example: '1998-01-01' })
   @IsOptional()

@@ -34,6 +34,16 @@ const USER_STATUS_LABELS: Record<string, string> = {
   pending: "Đang chờ",
 };
 
+const STAFF_ROLE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "teacher", label: "Giáo viên" },
+  { value: "assistant", label: "Trợ lí" },
+  { value: "lesson_plan", label: "Giáo án" },
+  { value: "lesson_plan_head", label: "Trưởng giáo án" },
+  { value: "accountant", label: "Kế toán" },
+  { value: "communication", label: "Truyền thông" },
+  { value: "customer_care", label: "CSKH" },
+];
+
 function getSuggestedFullName(user: StaffAssignableUser | null): string {
   if (!user) return "";
   return user.fullName?.trim() || user.email.trim();
@@ -46,12 +56,18 @@ export default function AddTutorPopup({ open, onClose, onCreated }: Props) {
   const [searchEmail, setSearchEmail] = useState("");
   const [selectedUserId, setSelectedUserId] = useState("");
   const [fullName, setFullName] = useState("");
+  const [cccdNumber, setCccdNumber] = useState("");
+  const [cccdIssuedDateInput, setCccdIssuedDateInput] = useState("");
+  const [cccdIssuedPlace, setCccdIssuedPlace] = useState("");
   const [birthDateInput, setBirthDateInput] = useState("");
   const [university, setUniversity] = useState("");
   const [highSchool, setHighSchool] = useState("");
   const [specialization, setSpecialization] = useState("");
   const [bankAccount, setBankAccount] = useState("");
   const [bankQrLink, setBankQrLink] = useState("");
+  const [selectedRoles, setSelectedRoles] = useState<Set<string>>(
+    () => new Set(["teacher"]),
+  );
 
   useEffect(() => {
     if (!open) {
@@ -62,12 +78,16 @@ export default function AddTutorPopup({ open, onClose, onCreated }: Props) {
     setSearchEmail("");
     setSelectedUserId("");
     setFullName("");
+    setCccdNumber("");
+    setCccdIssuedDateInput("");
+    setCccdIssuedPlace("");
     setBirthDateInput("");
     setUniversity("");
     setHighSchool("");
     setSpecialization("");
     setBankAccount("");
     setBankQrLink("");
+    setSelectedRoles(new Set(["teacher"]));
   }, [open]);
 
   const {
@@ -134,6 +154,18 @@ export default function AddTutorPopup({ open, onClose, onCreated }: Props) {
     setFullName(getSuggestedFullName(user));
   };
 
+  const toggleRole = (role: string) => {
+    setSelectedRoles((prev) => {
+      const next = new Set(prev);
+      if (next.has(role)) {
+        next.delete(role);
+      } else {
+        next.add(role);
+      }
+      return next;
+    });
+  };
+
   const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -152,17 +184,29 @@ export default function AddTutorPopup({ open, onClose, onCreated }: Props) {
       toast.error("Họ và tên gia sư là bắt buộc.");
       return;
     }
+    const normalizedCccd = cccdNumber.trim();
+    if (!/^\d{12}$/.test(normalizedCccd)) {
+      toast.error("Số CCCD phải gồm đúng 12 chữ số.");
+      return;
+    }
+    if (selectedRoles.size === 0) {
+      toast.error("Vui lòng chọn ít nhất một vai trò nhân sự.");
+      return;
+    }
 
     try {
       await createMutation.mutateAsync({
         full_name: trimmedName,
+        cccd_number: normalizedCccd,
+        cccd_issued_date: cccdIssuedDateInput.trim() || undefined,
+        cccd_issued_place: cccdIssuedPlace.trim() || undefined,
         birth_date: birthDateInput.trim() || undefined,
         university: university.trim() || undefined,
         high_school: highSchool.trim() || undefined,
         specialization: specialization.trim() || undefined,
         bank_account: bankAccount.trim() || undefined,
         bank_qr_link: bankQrLink.trim() || undefined,
-        roles: ["teacher"],
+        roles: Array.from(selectedRoles),
         user_id: selectedUser.id,
       });
     } catch {
@@ -215,8 +259,9 @@ export default function AddTutorPopup({ open, onClose, onCreated }: Props) {
             </div>
 
             <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-                <section className="min-h-0 overflow-y-auto border-b border-border-default/70 bg-bg-secondary/35 px-4 py-4 sm:px-6 lg:border-b-0 lg:border-r">
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <div className="grid min-h-full gap-0 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+                  <section className="border-b border-border-default/70 bg-bg-secondary/35 px-4 py-4 sm:px-6 lg:border-b-0 lg:border-r">
                   <div className="rounded-[1.5rem] border border-primary/10 bg-bg-surface px-4 py-4 shadow-sm">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted">
                       Bước 1
@@ -291,13 +336,12 @@ export default function AddTutorPopup({ open, onClose, onCreated }: Props) {
                             type="button"
                             onClick={() => handleSelectUser(user)}
                             disabled={!user.isEligible}
-                            className={`w-full rounded-[1.4rem] border px-4 py-4 text-left transition-all duration-200 ${
-                              isSelected
+                            className={`w-full rounded-[1.4rem] border px-4 py-4 text-left transition-all duration-200 ${isSelected
                                 ? "border-primary bg-primary/5 shadow-[0_12px_32px_-20px_rgba(37,99,235,0.5)]"
                                 : user.isEligible
                                   ? "border-border-default bg-bg-surface hover:border-primary/35 hover:bg-bg-surface"
                                   : "border-border-default bg-bg-surface/65 opacity-75"
-                            }`}
+                              }`}
                           >
                             <div className="flex flex-wrap items-start justify-between gap-3">
                               <div className="min-w-0">
@@ -325,11 +369,10 @@ export default function AddTutorPopup({ open, onClose, onCreated }: Props) {
                                 Tỉnh: {user.province?.trim() || "Chưa cập nhật"}
                               </span>
                               <span
-                                className={`rounded-full px-2.5 py-1 ${
-                                  user.isEligible
+                                className={`rounded-full px-2.5 py-1 ${user.isEligible
                                     ? "bg-success/10 text-success"
                                     : "bg-warning/15 text-warning"
-                                }`}
+                                  }`}
                               >
                                 {user.isEligible ? "Có thể gán" : "Không thể gán"}
                               </span>
@@ -343,25 +386,25 @@ export default function AddTutorPopup({ open, onClose, onCreated }: Props) {
                       })
                     )}
                   </div>
-                </section>
+                  </section>
 
-                <section className="min-h-0 overflow-y-auto px-4 py-4 sm:px-6">
-                  <div className="rounded-[1.5rem] border border-border-default bg-bg-surface px-4 py-4 shadow-sm">
+                  <section className="px-4 py-4 sm:px-6">
+                    <div className="rounded-[1.5rem] border border-border-default bg-bg-surface px-4 py-4 shadow-sm">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted">
                           Bước 2
                         </p>
                         <h3 className="mt-2 text-base font-semibold text-text-primary">
-                          Hoàn thiện hồ sơ gia sư
+                          Hoàn thiện hồ sơ nhân sự
                         </h3>
                         <p className="mt-1 text-sm text-text-secondary">
-                          Role nhân sự sẽ được khóa là <span className="font-medium text-primary">teacher</span>.
+                          Chọn một hoặc nhiều vai trò nhân sự khi tạo hồ sơ.
                         </p>
                       </div>
 
                       <span className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
-                        Gia sư
+                        Staff
                       </span>
                     </div>
 
@@ -385,6 +428,30 @@ export default function AddTutorPopup({ open, onClose, onCreated }: Props) {
                     )}
 
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <div className="flex flex-col gap-2 text-sm text-text-secondary sm:col-span-2">
+                        <span>Vai trò nhân sự *</span>
+                        <div className="grid gap-2 rounded-xl border border-border-default bg-bg-secondary/40 p-3 sm:grid-cols-2">
+                          {STAFF_ROLE_OPTIONS.map((roleOption) => {
+                            const isSelected = selectedRoles.has(roleOption.value);
+                            return (
+                              <button
+                                key={roleOption.value}
+                                type="button"
+                                onClick={() => toggleRole(roleOption.value)}
+                                disabled={!selectedUser?.isEligible}
+                                className={`min-h-10 rounded-lg border px-3 py-2 text-left text-sm transition-colors duration-200 ${
+                                  isSelected
+                                    ? "border-primary bg-primary/10 text-primary"
+                                    : "border-border-default bg-bg-surface text-text-primary hover:bg-bg-secondary"
+                                } disabled:cursor-not-allowed disabled:opacity-60`}
+                              >
+                                {roleOption.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
                       <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
                         <span>Họ và tên hiển thị</span>
                         <input
@@ -394,6 +461,41 @@ export default function AddTutorPopup({ open, onClose, onCreated }: Props) {
                           placeholder="Ví dụ: Nguyễn Văn A"
                           className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:bg-bg-tertiary disabled:text-text-muted"
                           required
+                        />
+                      </label>
+
+                      <label className="flex flex-col gap-1 text-sm text-text-secondary">
+                        <span>Số CCCD *</span>
+                        <input
+                          value={cccdNumber}
+                          onChange={(event) => setCccdNumber(event.target.value)}
+                          disabled={!selectedUser?.isEligible}
+                          placeholder="012345678901"
+                          inputMode="numeric"
+                          className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:bg-bg-tertiary disabled:text-text-muted"
+                          required
+                        />
+                      </label>
+
+                      <label className="flex flex-col gap-1 text-sm text-text-secondary">
+                        <span>Ngày cấp CCCD</span>
+                        <input
+                          type="date"
+                          value={cccdIssuedDateInput}
+                          onChange={(event) => setCccdIssuedDateInput(event.target.value)}
+                          disabled={!selectedUser?.isEligible}
+                          className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:bg-bg-tertiary disabled:text-text-muted"
+                        />
+                      </label>
+
+                      <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
+                        <span>Nơi cấp CCCD</span>
+                        <input
+                          value={cccdIssuedPlace}
+                          onChange={(event) => setCccdIssuedPlace(event.target.value)}
+                          disabled={!selectedUser?.isEligible}
+                          placeholder="Ví dụ: Cục CSQLHC về TTXH"
+                          className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:bg-bg-tertiary disabled:text-text-muted"
                         />
                       </label>
 
@@ -465,8 +567,9 @@ export default function AddTutorPopup({ open, onClose, onCreated }: Props) {
                         />
                       </label>
                     </div>
-                  </div>
-                </section>
+                    </div>
+                  </section>
+                </div>
               </div>
 
               <div className="flex flex-col-reverse gap-2 border-t border-border-default bg-bg-surface px-4 py-4 sm:flex-row sm:justify-end sm:px-6">
@@ -482,7 +585,7 @@ export default function AddTutorPopup({ open, onClose, onCreated }: Props) {
                   disabled={!selectedUser?.isEligible || createMutation.isPending}
                   className="min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors duration-200 hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {createMutation.isPending ? "Đang tạo..." : "Tạo gia sư"}
+                  {createMutation.isPending ? "Đang tạo..." : "Tạo nhân sự"}
                 </button>
               </div>
             </form>

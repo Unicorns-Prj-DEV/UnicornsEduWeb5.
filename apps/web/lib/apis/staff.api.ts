@@ -95,6 +95,9 @@ export async function getStaffById(id: string): Promise<StaffDetail> {
 export async function updateStaff(payload: {
     id: string;
     full_name?: string;
+    cccd_number?: string;
+    cccd_issued_date?: string;
+    cccd_issued_place?: string;
     birth_date?: string;
     university?: string;
     high_school?: string;

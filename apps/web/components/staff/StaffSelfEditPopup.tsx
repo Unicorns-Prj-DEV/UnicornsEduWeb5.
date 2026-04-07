@@ -37,6 +37,13 @@ export default function StaffSelfEditPopup({
   const staffInfo = profile.staffInfo;
 
   const [fullName, setFullName] = useState(staffInfo?.fullName ?? "");
+  const [cccdNumber, setCccdNumber] = useState(staffInfo?.cccdNumber ?? "");
+  const [cccdIssuedDateInput, setCccdIssuedDateInput] = useState(
+    formatDateInput(staffInfo?.cccdIssuedDate),
+  );
+  const [cccdIssuedPlace, setCccdIssuedPlace] = useState(
+    staffInfo?.cccdIssuedPlace ?? "",
+  );
   const [birthDateInput, setBirthDateInput] = useState(
     formatDateInput(staffInfo?.birthDate),
   );
@@ -72,10 +79,18 @@ export default function StaffSelfEditPopup({
       toast.error("Họ và tên là bắt buộc.");
       return;
     }
+    const normalizedCccd = cccdNumber.trim();
+    if (!/^\d{12}$/.test(normalizedCccd)) {
+      toast.error("Số CCCD phải gồm đúng 12 chữ số.");
+      return;
+    }
 
     try {
       await updateMutation.mutateAsync({
         full_name: trimmedName,
+        cccd_number: normalizedCccd,
+        cccd_issued_date: cccdIssuedDateInput.trim() || undefined,
+        cccd_issued_place: cccdIssuedPlace.trim(),
         birth_date: birthDateInput.trim() || undefined,
         university: university.trim(),
         high_school: highSchool.trim(),
@@ -166,6 +181,48 @@ export default function StaffSelfEditPopup({
                   disabled={updateMutation.isPending}
                   className="rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   placeholder="Ví dụ: Nguyễn Văn A…"
+                />
+              </label>
+
+              <label className="flex flex-col gap-1 text-sm text-text-secondary">
+                <span>Số CCCD *</span>
+                <input
+                  name="cccdNumber"
+                  value={cccdNumber}
+                  onChange={(event) => setCccdNumber(event.target.value)}
+                  required
+                  inputMode="numeric"
+                  autoComplete="off"
+                  disabled={updateMutation.isPending}
+                  className="rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  placeholder="Ví dụ: 012345678901"
+                />
+              </label>
+
+              <label className="flex flex-col gap-1 text-sm text-text-secondary">
+                <span>Ngày cấp CCCD</span>
+                <input
+                  name="cccdIssuedDate"
+                  type="date"
+                  value={cccdIssuedDateInput}
+                  onChange={(event) => setCccdIssuedDateInput(event.target.value)}
+                  onClick={(event) => event.currentTarget.showPicker?.()}
+                  autoComplete="off"
+                  disabled={updateMutation.isPending}
+                  className="min-h-11 cursor-pointer rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                />
+              </label>
+
+              <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
+                <span>Nơi cấp CCCD</span>
+                <input
+                  name="cccdIssuedPlace"
+                  value={cccdIssuedPlace}
+                  onChange={(event) => setCccdIssuedPlace(event.target.value)}
+                  autoComplete="off"
+                  disabled={updateMutation.isPending}
+                  className="rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  placeholder="Ví dụ: Cục CSQLHC về TTXH"
                 />
               </label>
 

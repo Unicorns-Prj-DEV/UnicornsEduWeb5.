@@ -96,7 +96,11 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - Index: `email`, `phone`, `account_handle`, `link_id`, `role_type`, `status`
 
 ### 4.2 `staff_info`
-- Thông tin nhân sự: hồ sơ cá nhân, ngân hàng, `roles` (`StaffRole[]` dạng Postgres enum array), `status`
+- Thông tin nhân sự: hồ sơ cá nhân, CCCD, ngân hàng, `roles` (`StaffRole[]` dạng Postgres enum array), `status`
+- CCCD:
+  - `cccd_number` (`TEXT`, bắt buộc, unique): số CCCD 12 chữ số (rule validate ở BE/FE)
+  - `cccd_issued_date` (`DATE`, nullable): ngày cấp CCCD
+  - `cccd_issued_place` (`TEXT`, nullable): nơi cấp CCCD
 - `customer_care_managed_by_staff_id` (nullable FK → `staff_info.id`): trỏ tới trợ lí quản lí CSKH này; trợ lí được hưởng 3% học phí đã học của học sinh thuộc CSKH quản lí. Index: `(customer_care_managed_by_staff_id)`
 - Được tham chiếu bởi: `users`, `class_teachers`, `sessions`, `bonuses`, `lesson_outputs`, `customer_care_service`, `wallet_transactions_history` (customer care), `staff_monthly_stats`, `extra_allowances`, `class_surveys`, `staff_lesson_task`, `attendance` (assistant_manager)
 

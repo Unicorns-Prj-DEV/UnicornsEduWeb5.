@@ -54,6 +54,9 @@ export interface AssistantStaffOption {
 export interface StaffDetail {
     id: string;
     fullName: string;
+    cccdNumber: string;
+    cccdIssuedDate?: string | null;
+    cccdIssuedPlace?: string | null;
     birthDate?: string | null;
     university?: string | null;
     highSchool?: string | null;
@@ -135,6 +138,9 @@ export interface StaffIncomeSummary {
 
 export interface CreateStaffPayload {
     full_name: string;
+    cccd_number: string;
+    cccd_issued_date?: string;
+    cccd_issued_place?: string;
     birth_date?: string;
     university?: string;
     high_school?: string;

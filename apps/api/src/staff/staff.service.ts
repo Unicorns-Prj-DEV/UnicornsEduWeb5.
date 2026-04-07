@@ -196,6 +196,28 @@ export class StaffService {
     private readonly actionHistoryService: ActionHistoryService,
   ) {}
 
+  private isUniqueConstraintError(error: unknown) {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: string }).code === 'P2002'
+    );
+  }
+
+  private isCccdNumberUniqueConstraint(error: unknown) {
+    if (!this.isUniqueConstraintError(error)) {
+      return false;
+    }
+
+    const target = (error as { meta?: { target?: unknown } }).meta?.target;
+    if (Array.isArray(target)) {
+      return target.some((item) => String(item).includes('cccd_number'));
+    }
+
+    return typeof target === 'string' && target.includes('cccd_number');
+  }
+
   private getStaffAuditSnapshot(db: StaffAuditClient, staffId: string) {
     return db.staffInfo.findUnique({
       where: { id: staffId },
@@ -1475,6 +1497,12 @@ export class StaffService {
 
     const payload: Record<string, unknown> = {};
     if (data.full_name != null) payload.fullName = data.full_name;
+    if (data.cccd_number != null) payload.cccdNumber = data.cccd_number;
+    const cccdIssuedDateNorm = toDateOrNull(data.cccd_issued_date);
+    if (cccdIssuedDateNorm !== undefined)
+      payload.cccdIssuedDate = cccdIssuedDateNorm;
+    if (data.cccd_issued_place != null)
+      payload.cccdIssuedPlace = data.cccd_issued_place;
     const birthDateNorm = toDateOrNull(data.birth_date);
     if (birthDateNorm !== undefined) payload.birthDate = birthDateNorm;
     if (data.university != null) payload.university = data.university;
@@ -1491,50 +1519,57 @@ export class StaffService {
         data.customer_care_managed_by_staff_id ?? null;
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      if (
-        payload.customerCareManagedByStaffId !== undefined &&
-        payload.customerCareManagedByStaffId !== null
-      ) {
-        const manager = await tx.staffInfo.findUnique({
-          where: { id: payload.customerCareManagedByStaffId as string },
-          select: { roles: true, status: true },
-        });
-        if (!manager) {
-          throw new BadRequestException(
-            'Trợ lí được chỉ định không tồn tại.',
-          );
-        }
-        if (!manager.roles.includes(StaffRole.assistant)) {
-          throw new BadRequestException(
-            'Nhân sự được chỉ định phải có role trợ lí.',
-          );
-        }
-      }
-
-      const updatedStaff = await tx.staffInfo.update({
-        where: { id: data.id },
-        data: payload as Parameters<
-          typeof this.prisma.staffInfo.update
-        >[0]['data'],
-      });
-
-      if (auditActor) {
-        const afterValue = await this.getStaffAuditSnapshot(tx, data.id);
-        if (afterValue) {
-          await this.actionHistoryService.recordUpdate(tx, {
-            actor: auditActor,
-            entityType: 'staff',
-            entityId: data.id,
-            description: 'Cập nhật nhân sự',
-            beforeValue: existingStaff,
-            afterValue,
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        if (
+          payload.customerCareManagedByStaffId !== undefined &&
+          payload.customerCareManagedByStaffId !== null
+        ) {
+          const manager = await tx.staffInfo.findUnique({
+            where: { id: payload.customerCareManagedByStaffId as string },
+            select: { roles: true, status: true },
           });
+          if (!manager) {
+            throw new BadRequestException(
+              'Trợ lí được chỉ định không tồn tại.',
+            );
+          }
+          if (!manager.roles.includes(StaffRole.assistant)) {
+            throw new BadRequestException(
+              'Nhân sự được chỉ định phải có role trợ lí.',
+            );
+          }
         }
-      }
 
-      return updatedStaff;
-    });
+        const updatedStaff = await tx.staffInfo.update({
+          where: { id: data.id },
+          data: payload as Parameters<
+            typeof this.prisma.staffInfo.update
+          >[0]['data'],
+        });
+
+        if (auditActor) {
+          const afterValue = await this.getStaffAuditSnapshot(tx, data.id);
+          if (afterValue) {
+            await this.actionHistoryService.recordUpdate(tx, {
+              actor: auditActor,
+              entityType: 'staff',
+              entityId: data.id,
+              description: 'Cập nhật nhân sự',
+              beforeValue: existingStaff,
+              afterValue,
+            });
+          }
+        }
+
+        return updatedStaff;
+      });
+    } catch (error) {
+      if (this.isCccdNumberUniqueConstraint(error)) {
+        throw new BadRequestException('Số CCCD đã tồn tại trong hệ thống.');
+      }
+      throw error;
+    }
   }
 
   async deleteStaff(id: string, auditActor?: ActionHistoryActor) {
@@ -1599,25 +1634,28 @@ export class StaffService {
       throw new BadRequestException(eligibility.ineligibleReason);
     }
 
-    return await this.prisma.$transaction(async (tx) => {
-      if (
-        data.customer_care_managed_by_staff_id != null &&
-        data.customer_care_managed_by_staff_id.trim() !== ''
-      ) {
-        const manager = await tx.staffInfo.findUnique({
-          where: { id: data.customer_care_managed_by_staff_id },
-          select: { roles: true },
-        });
-        if (!manager || !manager.roles.includes(StaffRole.assistant)) {
-          throw new BadRequestException(
-            'Nhân sự được chỉ định phải có role trợ lí.',
-          );
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        if (
+          data.customer_care_managed_by_staff_id != null &&
+          data.customer_care_managed_by_staff_id.trim() !== ''
+        ) {
+          const manager = await tx.staffInfo.findUnique({
+            where: { id: data.customer_care_managed_by_staff_id },
+            select: { roles: true },
+          });
+          if (!manager || !manager.roles.includes(StaffRole.assistant)) {
+            throw new BadRequestException(
+              'Nhân sự được chỉ định phải có role trợ lí.',
+            );
+          }
         }
-      }
 
-      const createdStaff = await tx.staffInfo.create({
-        data: {
+        const createPayload: Record<string, unknown> = {
           fullName: data.full_name,
+          cccdNumber: data.cccd_number,
+          cccdIssuedDate: toDateOrNull(data.cccd_issued_date) ?? undefined,
+          cccdIssuedPlace: data.cccd_issued_place,
           birthDate: toDateOrNull(data.birth_date) ?? undefined,
           university: data.university,
           highSchool: data.high_school,
@@ -1626,39 +1664,48 @@ export class StaffService {
           bankQrLink: data.bank_qr_link,
           roles: data.roles,
           userId: data.user_id,
-          customerCareManagedByStaffId:
-            data.customer_care_managed_by_staff_id ?? null,
-        },
-      });
-
-      if (user.roleType !== UserRole.staff) {
-        await tx.user.update({
-          where: {
-            id: data.user_id,
-          },
-          data: {
-            roleType: UserRole.staff,
-          },
+          customerCareManagedByStaffId: data.customer_care_managed_by_staff_id ?? null,
+        };
+        const createdStaff = await tx.staffInfo.create({
+          data: createPayload as Parameters<
+            typeof this.prisma.staffInfo.create
+          >[0]['data'],
         });
-      }
 
-      if (auditActor) {
-        const afterValue = await this.getStaffAuditSnapshot(
-          tx,
-          createdStaff.id,
-        );
-        if (afterValue) {
-          await this.actionHistoryService.recordCreate(tx, {
-            actor: auditActor,
-            entityType: 'staff',
-            entityId: createdStaff.id,
-            description: 'Tạo nhân sự',
-            afterValue,
+        if (user.roleType !== UserRole.staff) {
+          await tx.user.update({
+            where: {
+              id: data.user_id,
+            },
+            data: {
+              roleType: UserRole.staff,
+            },
           });
         }
-      }
 
-      return createdStaff;
-    });
+        if (auditActor) {
+          const afterValue = await this.getStaffAuditSnapshot(
+            tx,
+            createdStaff.id,
+          );
+          if (afterValue) {
+            await this.actionHistoryService.recordCreate(tx, {
+              actor: auditActor,
+              entityType: 'staff',
+              entityId: createdStaff.id,
+              description: 'Tạo nhân sự',
+              afterValue,
+            });
+          }
+        }
+
+        return createdStaff;
+      });
+    } catch (error) {
+      if (this.isCccdNumberUniqueConstraint(error)) {
+        throw new BadRequestException('Số CCCD đã tồn tại trong hệ thống.');
+      }
+      throw error;
+    }
   }
 }

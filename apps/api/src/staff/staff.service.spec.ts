@@ -8,6 +8,7 @@ jest.mock('../../generated/client', () => ({
   },
 }));
 
+import { BadRequestException } from '@nestjs/common';
 import { PaymentStatus, StaffRole, UserRole } from '../../generated/enums';
 import { StaffService } from './staff.service';
 
@@ -113,6 +114,7 @@ describe('StaffService', () => {
     await service.createStaff(
       {
         full_name: 'Teacher A',
+        cccd_number: '012345678901',
         birth_date: '2000-01-01',
         university: 'HCMUS',
         high_school: 'LHP',
@@ -136,6 +138,27 @@ describe('StaffService', () => {
         entityId: 'staff-1',
       }),
     );
+  });
+
+  it('returns friendly error when cccd number is duplicated', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      roleType: UserRole.guest,
+      staffInfo: null,
+    });
+    mockPrisma.$transaction.mockRejectedValueOnce({
+      code: 'P2002',
+      meta: { target: ['staff_info_cccd_number_key'] },
+    });
+
+    await expect(
+      service.createStaff({
+        full_name: 'Teacher B',
+        cccd_number: '012345678901',
+        roles: [StaffRole.teacher],
+        user_id: 'user-1',
+      }),
+    ).rejects.toThrow(new BadRequestException('Số CCCD đã tồn tại trong hệ thống.'));
   });
 
   it('keeps bonuses separate from customer care and lesson output role summaries', async () => {

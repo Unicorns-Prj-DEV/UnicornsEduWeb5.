@@ -5,6 +5,9 @@ import type { StudentStatus, StudentGender } from './student.dto';
 export interface ProfileStaffInfoDto {
   id: string;
   fullName: string;
+  cccdNumber: string;
+  cccdIssuedDate?: string | null;
+  cccdIssuedPlace?: string | null;
   birthDate?: string | null;
   university?: string | null;
   highSchool?: string | null;
@@ -83,6 +86,9 @@ export interface UpdateMyProfileDto {
 /** Payload to update current user's staff: PATCH /auth/me/staff */
 export interface UpdateMyStaffProfileDto {
   full_name?: string;
+  cccd_number?: string;
+  cccd_issued_date?: string;
+  cccd_issued_place?: string;
   birth_date?: string;
   university?: string;
   high_school?: string;

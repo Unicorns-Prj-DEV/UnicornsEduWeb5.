@@ -3,6 +3,7 @@
 import { useState, type SyntheticEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type { StaffDetail } from "@/dtos/staff.dto";
 import * as staffApi from "@/lib/apis/staff.api";
 
@@ -47,6 +48,13 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
   const queryClient = useQueryClient();
 
   const [fullName, setFullName] = useState(staff.fullName ?? "");
+  const [cccdNumber, setCccdNumber] = useState(staff.cccdNumber ?? "");
+  const [cccdIssuedDateInput, setCccdIssuedDateInput] = useState(
+    formatDateInput(staff.cccdIssuedDate),
+  );
+  const [cccdIssuedPlace, setCccdIssuedPlace] = useState(
+    staff.cccdIssuedPlace ?? "",
+  );
   const [status, setStatus] = useState<StaffDetail["status"]>(staff.status ?? "active");
   const [birthDateInput, setBirthDateInput] = useState(formatDateInput(staff.birthDate));
   const [university, setUniversity] = useState(staff.university ?? "");
@@ -107,11 +115,19 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
       toast.error("Họ tên là bắt buộc.");
       return;
     }
+    const normalizedCccd = cccdNumber.trim();
+    if (!/^\d{12}$/.test(normalizedCccd)) {
+      toast.error("Số CCCD phải gồm đúng 12 chữ số.");
+      return;
+    }
 
     try {
       await updateMutation.mutateAsync({
         id: staff.id,
         full_name: trimmedName,
+        cccd_number: normalizedCccd,
+        cccd_issued_date: cccdIssuedDateInput.trim() || undefined,
+        cccd_issued_place: cccdIssuedPlace.trim() || undefined,
         status,
         birth_date: birthDateInput.trim() || undefined,
         university: university.trim() || undefined,
@@ -172,22 +188,56 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
                 />
               </label>
 
-              <label className="flex flex-col gap-1 text-sm text-text-secondary">
+              <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
                 <span>Trạng thái</span>
-                <select
+                <UpgradedSelect
+                  name="staff-status"
                   value={status}
-                  onChange={(e) => setStatus(e.target.value === "inactive" ? "inactive" : "active")}
-                  className="cursor-pointer rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                >
-                  {STATUS_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={(nextValue) =>
+                    setStatus(nextValue === "inactive" ? "inactive" : "active")
+                  }
+                  options={STATUS_OPTIONS.map((opt) => ({
+                    value: opt.value,
+                    label: opt.label,
+                  }))}
+                  buttonClassName="rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                />
                 <p className="text-xs text-text-muted">
                   {STATUS_OPTIONS.find((o) => o.value === status)?.hint ?? ""}
                 </p>
+              </label>
+
+              <label className="flex flex-col gap-1 text-sm text-text-secondary">
+                <span>Số CCCD *</span>
+                <input
+                  value={cccdNumber}
+                  onChange={(e) => setCccdNumber(e.target.value)}
+                  inputMode="numeric"
+                  className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  placeholder="012345678901"
+                  required
+                />
+              </label>
+
+              <label className="flex flex-col gap-1 text-sm text-text-secondary">
+                <span>Ngày cấp CCCD</span>
+                <input
+                  type="date"
+                  value={cccdIssuedDateInput}
+                  onChange={(e) => setCccdIssuedDateInput(e.target.value)}
+                  onClick={(e) => e.currentTarget.showPicker?.()}
+                  className="cursor-pointer rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                />
+              </label>
+
+              <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
+                <span>Nơi cấp CCCD</span>
+                <input
+                  value={cccdIssuedPlace}
+                  onChange={(e) => setCccdIssuedPlace(e.target.value)}
+                  className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  placeholder="Ví dụ: Cục CSQLHC về TTXH"
+                />
               </label>
 
               <label className="flex flex-col gap-1 text-sm text-text-secondary">

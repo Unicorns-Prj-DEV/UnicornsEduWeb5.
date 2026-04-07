@@ -89,6 +89,27 @@ export class UserService {
     );
   }
 
+  private async generateAutoStaffCccdNumber(tx: Prisma.TransactionClient) {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const candidate = `${Date.now().toString().slice(-10)}${Math.floor(
+        Math.random() * 100,
+      )
+        .toString()
+        .padStart(2, '0')}`;
+      const existing = await tx.staffInfo.findUnique({
+        where: { cccdNumber: candidate },
+        select: { id: true },
+      });
+      if (!existing) {
+        return candidate;
+      }
+    }
+
+    throw new InternalServerErrorException(
+      'Không thể tạo số CCCD mặc định cho hồ sơ nhân sự.',
+    );
+  }
+
   private getUserAuditSnapshot(db: UserAuditClient, userId: string) {
     return db.user.findUnique({
       where: { id: userId },
@@ -449,6 +470,7 @@ export class UserService {
             const createdStaff = await tx.staffInfo.create({
               data: {
                 fullName: this.getPreferredProfileFullName(updatedUser),
+                cccdNumber: await this.generateAutoStaffCccdNumber(tx),
                 roles: normalizedStaffRoles ?? [],
                 userId: data.id,
               },
