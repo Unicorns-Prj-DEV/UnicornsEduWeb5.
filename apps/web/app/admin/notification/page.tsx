@@ -802,14 +802,19 @@ export default function AdminNotificationPage() {
             </div>
 
             <form className="mt-4 space-y-3.5" onSubmit={handleSubmit}>
-              <label className="block">
-                <span className="mb-2 flex flex-wrap items-center gap-2 text-sm font-medium text-text-secondary">
+              {/* Not a <label>: multiple buttons + input inside would make clicks
+                  activate the first remove button (HTML label association). */}
+              <div className="block">
+                <div
+                  id="admin-notification-recipients-label"
+                  className="mb-2 flex flex-wrap items-center gap-2 text-sm font-medium text-text-secondary"
+                >
                   Người nhận
                   <span className="text-xs font-normal text-text-muted">
                     Gõ `@` để chọn audience tag, hoặc tìm user thật theo
                     tên/email/account.
                   </span>
-                </span>
+                </div>
                 <div className="rounded-2xl border border-border-default bg-bg-surface p-2">
                   <div
                     className="flex items-center gap-2 border-b border-border-default px-2 pb-2"
@@ -859,11 +864,13 @@ export default function AdminNotificationPage() {
                       ))}
                       <input
                         ref={recipientInputRef}
+                        id="admin-notification-recipients-input"
                         value={recipientSearch}
                         onChange={(event) =>
                           setRecipientSearch(event.target.value)
                         }
                         placeholder="Tìm user hoặc @..."
+                        aria-labelledby="admin-notification-recipients-label"
                         className="min-h-8 min-w-[180px] flex-1 bg-transparent px-1 text-sm text-text-primary outline-none placeholder:text-text-muted"
                       />
                     </div>
@@ -969,7 +976,7 @@ export default function AdminNotificationPage() {
                     </div>
                   )}
                 </div>
-              </label>
+              </div>
 
               <label className="block">
                 <span className="mb-2 block text-sm font-medium text-text-secondary">
