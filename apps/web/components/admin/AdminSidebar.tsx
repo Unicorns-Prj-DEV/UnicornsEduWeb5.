@@ -5,17 +5,17 @@ import { usePathname, useRouter } from "next/navigation";
 import { useRef, useState, useEffect, useSyncExternalStore } from "react";
 import { animate, stagger } from "animejs";
 import * as authApi from "@/lib/apis/auth.api";
-import AdminProfilePopup, { type AdminProfile } from "./AdminProfilePopup";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { Role } from "@/dtos/Auth.dto";
-import { SidebarNotificationTray } from "@/components/shell";
+import { SidebarNotificationTray, SidebarThemePicker } from "@/components/shell";
 import {
   ACCOUNTANT_VISIBLE_HREFS,
   resolveAdminShellAccess,
 } from "@/lib/admin-shell-access";
 import UserAvatar from "@/components/ui/UserAvatar";
+import { BrandLogoLockup } from "@/components/BrandLogoLockup";
 
 const MENU_ITEMS: {
   href: string;
@@ -151,8 +151,6 @@ export default function AdminSidebar() {
   const navListRef = useRef<HTMLUListElement>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [profile, setProfile] = useState<AdminProfile | null>(null);
   const isMobile = useMediaQuery("(max-width: 767px)");
   const prefersReducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const { setUser } = useAuth();
@@ -190,23 +188,6 @@ export default function AdminSidebar() {
     };
   }, [isMobile, mobileOpen]);
 
-  const openProfile = async () => {
-    try {
-      const data = (await authApi.getProfile()) as {
-        sub?: string;
-        accountHandle?: string;
-        roleType?: string;
-        role?: string;
-        avatarUrl?: string | null;
-      };
-      setProfile(data as AdminProfile);
-      setProfileOpen(true);
-    } catch {
-      setProfile(null);
-      setProfileOpen(true);
-    }
-  };
-
   useEffect(() => {
     if (!navListRef.current || prefersReducedMotion) return;
     const items = navListRef.current.querySelectorAll(".sidebar-item");
@@ -239,10 +220,8 @@ export default function AdminSidebar() {
       : "translateX(-100%)"
     : "translateX(0)";
   const avatarFallback =
-    fullProfile?.accountHandle?.slice(0, 1).toUpperCase() ??
-    profile?.accountHandle?.slice(0, 1).toUpperCase() ??
-    "?";
-  const avatarSrc = fullProfile?.avatarUrl ?? profile?.avatarUrl ?? null;
+    fullProfile?.accountHandle?.slice(0, 1).toUpperCase() ?? "?";
+  const avatarSrc = fullProfile?.avatarUrl ?? null;
 
   const logoutMutation = useMutation({
     mutationFn: authApi.logout,
@@ -296,12 +275,18 @@ export default function AdminSidebar() {
         className="fixed inset-y-0 left-0 z-50 flex h-dvh shrink-0 flex-col overflow-hidden border-r border-border-default bg-bg-secondary text-text-secondary md:sticky md:top-0 md:z-auto md:h-screen"
         aria-label="Menu admin"
       >
-        <div className="flex h-14 shrink-0 items-center justify-between border-b border-border-default px-3">
-          <span
-            className={`truncate font-semibold text-text-primary transition-[max-width,opacity,margin] duration-300 ease-out ${compact ? "ml-0 max-w-0 opacity-0" : "ml-1 max-w-[140px] opacity-100"}`}
+        <div className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border-default px-2.5 py-1.5 sm:px-3">
+          <div
+            className={`flex min-w-0 flex-1 items-center overflow-hidden transition-[justify-content] duration-300 ease-out ${compact ? "justify-center" : "justify-start"}`}
           >
-            Unicorns Edu
-          </span>
+            <BrandLogoLockup
+              variant="navbar"
+              showWordmark={!compact}
+              dense={compact}
+              className="w-full min-w-0 transition-all duration-300 ease-out"
+              wordmarkClassName="truncate"
+            />
+          </div>
           <button
             type="button"
             onClick={isMobile ? () => setMobileOpen(false) : toggleCollapse}
@@ -396,9 +381,9 @@ export default function AdminSidebar() {
             </span>
           </Link>
           <div className={`mt-2 flex items-center gap-2 ${compact ? "flex-wrap justify-center" : ""}`}>
-            <button
-              type="button"
-              onClick={openProfile}
+            <Link
+              href="/user-profile"
+              onClick={handleMobileClose}
               className="sidebar-item flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-tertiary text-text-primary transition-colors duration-200 hover:bg-primary hover:text-text-inverse focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary"
               aria-label="Thông tin cá nhân"
               title="Thông tin cá nhân"
@@ -406,11 +391,13 @@ export default function AdminSidebar() {
               <UserAvatar
                 src={avatarSrc}
                 fallback={avatarFallback}
-                alt={`Avatar của ${fullProfile?.accountHandle || profile?.accountHandle || "người dùng"}`}
+                alt={`Avatar của ${fullProfile?.accountHandle || "người dùng"}`}
                 className="size-full"
                 fallbackClassName="text-sm font-semibold"
               />
-            </button>
+            </Link>
+
+            <SidebarThemePicker compact={compact} onMobileClose={handleMobileClose} />
 
             <SidebarNotificationTray compact={compact} />
 
@@ -430,11 +417,6 @@ export default function AdminSidebar() {
           </div>
         </div>
       </aside>
-      <AdminProfilePopup
-        open={profileOpen}
-        onClose={() => setProfileOpen(false)}
-        profile={profile}
-      />
     </>
   );
 }

@@ -9,8 +9,9 @@ import { toast } from "sonner";
 import { Role } from "@/dtos/Auth.dto";
 import { useAuth } from "@/context/AuthContext";
 import * as authApi from "@/lib/apis/auth.api";
-import { SidebarNotificationTray } from "@/components/shell";
+import { SidebarNotificationTray, SidebarThemePicker } from "@/components/shell";
 import UserAvatar from "@/components/ui/UserAvatar";
+import { BrandLogoLockup } from "@/components/BrandLogoLockup";
 
 const SIDEBAR_WIDTH_EXPANDED = 224;
 const SIDEBAR_WIDTH_COLLAPSED = 60;
@@ -203,12 +204,18 @@ export default function StudentSidebar() {
         className="fixed inset-y-0 left-0 z-50 flex h-dvh shrink-0 flex-col overflow-hidden border-r border-border-default bg-bg-secondary text-text-secondary md:sticky md:top-0 md:z-auto md:h-screen"
         aria-label="Menu học sinh"
       >
-        <div className="flex h-14 shrink-0 items-center justify-between border-b border-border-default px-3">
-          <span
-            className={`truncate font-semibold text-text-primary transition-[max-width,opacity,margin] duration-300 ease-out ${compact ? "ml-0 max-w-0 opacity-0" : "ml-1 max-w-[140px] opacity-100"}`}
+        <div className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border-default px-2.5 py-1.5 sm:px-3">
+          <div
+            className={`flex min-w-0 flex-1 items-center overflow-hidden transition-[justify-content] duration-300 ease-out ${compact ? "justify-center" : "justify-start"}`}
           >
-            Unicorns Edu
-          </span>
+            <BrandLogoLockup
+              variant="navbar"
+              showWordmark={!compact}
+              dense={compact}
+              className="w-full min-w-0 transition-all duration-300 ease-out"
+              wordmarkClassName="truncate"
+            />
+          </div>
           <button
             type="button"
             onClick={isMobile ? () => setMobileOpen(false) : toggleCollapse}
@@ -293,6 +300,8 @@ export default function StudentSidebar() {
                 fallbackClassName="text-sm font-semibold"
               />
             </Link>
+
+            <SidebarThemePicker compact={compact} onMobileClose={handleMobileClose} />
 
             <SidebarNotificationTray compact={compact} />
 
