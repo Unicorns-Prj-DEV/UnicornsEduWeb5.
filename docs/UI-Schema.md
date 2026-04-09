@@ -16,6 +16,12 @@ Unicorns Edu 5.0 uses a tokenized color system built for product clarity, operat
 - **Primitive tokens** are raw color scales (`blue-500`, `neutral-700`, `pink-200`).
 - **Semantic tokens** map intent to UI meaning (`bg-surface`, `text-secondary`, `border-focus`, `primary-hover`).
 
+### Runtime theme (`data-theme`)
+
+- Người dùng chọn **Sáng** (`light`), **Tối** (`dark`), **Hoa anh đào** (`pink`) qua popup trên sidebar (icon palette). Popup được **portal** ra `document.body` để không bị cắt bởi `overflow` / `transform` của sidebar. Giá trị lưu `localStorage` key `ue-app-theme` (đồng bộ với `apps/web/dtos/theme.dto.ts` → `THEME_STORAGE_KEY`).
+- `BrandLogo` / `BrandLogoLockup` dùng lần lượt `logo_light.png`, `logo_dark.png`, `logo_hana.png` theo theme.
+- Token CSS cho `[data-theme="pink"]` trong `apps/web/app/globals.css` dùng tông **hoa anh đào / rose** (primary rose ~`#DB2777`), khác bảng primitive “Pink-Purple” bên dưới (tài liệu tham chiếu scale); khi đổi scale primitive cần rà lại semantic pink trong `globals.css`.
+
 ### Why semantic naming
 
 - Components consume semantic tokens, not raw hex, so themes can switch without component rewrites.
@@ -241,6 +247,7 @@ Unicorns Edu 5.0 uses a tokenized color system built for product clarity, operat
 | Component | Background | Text | Border | Hover/Active |
 | --- | --- | --- | --- | --- |
 | Navbar | `bg-surface` | `text-primary` | `border-default` (bottom) | Item hover: `bg-secondary`, active item: `primary` + `text-inverse` |
+| Brand | — | — | — | `BrandLogoLockup`: trang home và **sidebar mở rộng** dùng cùng variant `navbar` (flex, gap, cỡ mark, typography). Sidebar thu gọn: `dense` (chỉ mark nhỏ hơn). Đăng nhập: `auth`. Hover mark: opacity + contrast. |
 | Sidebar | `bg-secondary` | `text-secondary` | `border-default` (right) | Item hover: `bg-tertiary`; active: `primary` + `text-inverse` |
 | Cards | `bg-surface` | `text-primary` | `border-default` | Hover: elevate to `bg-elevated`, border to `border-focus` (subtle) |
 | Buttons (Primary) | `primary` | `text-inverse` | `primary` | Hover: `primary-hover`; active: `primary-active` |

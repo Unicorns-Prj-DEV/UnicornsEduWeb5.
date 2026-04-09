@@ -196,6 +196,8 @@ pnpm --filter web start
 
 Cấu trúc Next.js: App Router trong `apps/web/app/` (layout, page, route segments); components và styles trong `app/` hoặc thư mục con; shared logic trong `apps/web/lib/`.
 
+**Logo & favicon (tối ưu dung lượng):** Asset logo nằm trong `apps/web/image/logo/` (mọi `*.png`). Script `square-trim-logos.mjs` (`pnpm square:logos`): trim viền, **cắt khung vuông** căn giữa với margin trong suốt ~3px (`LOGO_PAD_PX`), tùy chọn giới hạn cạnh `LOGO_MAX_EDGE` (mặc định 1024; `0` = không scale). Sau khi đổi logo nên chạy `pnpm square:logos` rồi `pnpm favicon:ico` (hoặc gộp quy trình tương đương). `pnpm optimize:assets` gọi `optimize-ui-logo.mjs` + `png-to-favicon-ico.mjs` (master 512px, `favicon.ico` qua png2icons + `icon.png`, `apple-icon.png`). Chi tiết biến môi trường xem comment đầu từng script.
+
 ## Làm việc với NestJS (`apps/api`)
 
 ```bash

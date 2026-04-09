@@ -22,16 +22,26 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 ## [Unreleased]
 
 ### Removed
+- FE: component `AdminProfilePopup` (modal "Thông tin cá nhân" khi bấm avatar); export barrel `@/components/admin` không còn `AdminProfilePopup`. Thông tin cá nhân chỉ qua trang `/user-profile`.
 - BE/FE notifications: gỡ cấu hình người nhận lưu DB và API `GET /notifications/recipient-options`; push/feed không còn filter theo đối tượng. Trên `/admin/notification`, ô **Người nhận** chỉ còn **mock UI (demo)** trên FE (tag + user giả), không gửi lên server.
 
 ### Added
+- FE: `BrandLogoLockup` — khung mark + tách màu **Edu** (`text-primary`), khoảng cách chặt, hover lockup; Navbar / auth / sidebar (`dense` khi thu gọn).
 - BE/FE: `notification_reads` (per-user đã đọc) + `GET /notifications/feed` trả `readStatus` + `PATCH /notifications/feed/:id/read`. Feed mở cho `student` (studentInfo active) và `admin` không bắt buộc staff profile. Sidebar `StaffSidebar` / `StudentSidebar`: `SidebarNotificationTray` (TanStack Query), panel phải + popup chi tiết giữa màn hình (Framer), auto mark read khi mở chi tiết; `@heroicons/react` `BellIcon`.
 - BE/FE: Trợ cấp trợ lí 3% học phí đã học. Trợ lí (`assistant` role) quản lí các CSKH: `staff_info.customer_care_managed_by_staff_id` FK mới; snapshot `assistant_manager_staff_id` + `assistant_payment_status` trên `attendance` tại thời điểm tạo/cập nhật buổi học. Thu nhập trợ lí aggregate bằng raw SQL `ROUND(tuition_fee * 0.03)` chỉ trên attendance `present`, wire vào `getIncomeSummary`, `getUnpaidTotalsByStaffIds`, và dashboard unpaid CTE. API: `GET /staff/assistant-options`, `PATCH /staff` nhận thêm `customer_care_managed_by_staff_id`; `GET /staff/:id` trả `customerCareManagedBy`. FE: dropdown trợ lí trong popup sửa nhân sự CSKH. Migration: `20260405120000_add_assistant_manager_fields`.
 
 ### Fixed
+- FE: popup **Chọn giao diện** (`SidebarThemePicker`) render qua `createPortal` → `document.body` để không bị cắt bởi `overflow-hidden` / `transform` trên sidebar.
 - API: `NotificationService` feed + mark-read không còn dùng `include.reads` / `prisma.notificationRead` (tránh lệch type khi Prisma client chưa generate đủ); feed query `notification_reads` bằng `$queryRaw` + `Prisma.join`, mark read bằng `$executeRaw` `ON CONFLICT DO NOTHING`.
 
 ### Changed
+- FE: chọn giao diện 3 chế độ (Sáng / Tối / Hoa anh đào) — `data-theme` + `localStorage` (`ue-app-theme`), `ThemeProvider`, logo theo theme (`logo_light` / `logo_dark` / `logo_hana`), nút `SidebarThemePicker` (icon Swatch) cạnh avatar + chuông trên `AdminSidebar` / `StaffSidebar` / `StudentSidebar`; script `beforeInteractive` tránh flash; tinh chỉnh token `[data-theme="pink"]` (tông hồng / rose). Asset `logo_hana.png` đã chạy lại `square-trim-logos`.
+- FE `/user-profile`: icon xác minh email; khi chưa xác minh — nút «Xác minh email →→» (mutation + mock `mockResendVerificationEmail`, toast demo); mock `emailVerifiedWhenApiMissing` + `forceEmailUnverifiedForTest` trong `mocks/user-profile-verification.mock.ts`.
+- FE `/user-profile`: bố cục hai cột (trái: avatar tròn + đặt lại mật khẩu + file ảnh; phải: bảng nhãn/giá trị căn gutter, `hr` giữa khối); `max-w-5xl`, bỏ Card hero một khối.
+- FE: `AdminSidebar` / `StaffSidebar` — bấm avatar (menu mở rộng hoặc thu gọn, mobile drawer) điều hướng tới `/user-profile` thay vì mở `AdminProfilePopup` (đồng bộ với `StudentSidebar`).
+- FE: sidebar dùng cùng `BrandLogoLockup` variant **`navbar`** như trang home (flex, gap, cỡ mark, typography); bỏ variant `sidebar` / grid. Thu gọn menu: `dense` (mark ~`h-9`/`sm:h-10`).
+- Web: script `square-trim-logos.mjs` (`pnpm square:logos`) xử lý mọi PNG trong `image/logo/`: trim, canvas vuông, margin ~3px; `LOGO_MAX_EDGE` mặc định 1024. Sau đó nên chạy lại `favicon:ico`.
+- Web: tối ưu logo/favicon — script `optimize-ui-logo.mjs` nén `image/logo/logo_light.png` (cạnh dài tối đa 1600px); `png-to-favicon-ico.mjs` gọn pipeline Sharp, trần prep (`FAVICON_PREP_MAX`), PNG zlib tối đa, `apple-icon` 180px; thêm `pnpm optimize:assets` / `optimize:logo`. `next.config.ts`: ưu tiên định dạng AVIF/WebP cho `next/image`.
 - FE notifications (staff + student): realtime toast từ websocket chuyển sang bản tóm tắt; click toast hoặc action `Mở` sẽ mở trực tiếp popup chi tiết của đúng notification trong `SidebarNotificationTray` (giống click item trong panel), đồng thời mark-read nếu đang unread.
 - FE notifications UI: panel chuông cải tiến nhẹ (header có summary số mới, item dạng card với nhấn mạnh unread), modal chi tiết thêm badge trạng thái (`Thông báo mới` / `Điều chỉnh vN`).
 - FE `/admin/notification`: chuyển ô nội dung sang rich text editor (TipTap) để admin soạn thông báo có định dạng; validate submit dựa trên text thực (không chấp nhận nội dung rỗng chỉ có tag). Feed admin + modal chi tiết staff/student render HTML đã sanitize.
