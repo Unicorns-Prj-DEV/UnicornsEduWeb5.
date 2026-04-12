@@ -14,6 +14,7 @@ import {
   ClassScheduleEventDto,
   ClassScheduleFilterDto,
 } from '../dtos/class-schedule.dto';
+import { StaffRole } from 'generated/enums';
 
 export interface CalendarEvent {
   sessionId: string;
@@ -655,5 +656,103 @@ export class CalendarService {
     });
 
     return { success: true, data: entries };
+  }
+
+  async getStaffScheduleEvents(
+    staffId: string,
+    filters: ClassScheduleFilterDto,
+  ): Promise<{ success: boolean; data: ClassScheduleEventDto[]; total: number }> {
+    const { startDate, endDate, classId } = filters;
+
+    const startDt = this.parseDateOnly(startDate);
+    startDt.setHours(0, 0, 0, 0);
+    const endDt = this.parseDateOnly(endDate);
+    endDt.setHours(23, 59, 59, 999);
+
+    const where: Prisma.ClassWhereInput = {
+      teachers: {
+        some: {
+          teacherId: staffId,
+        },
+      },
+    };
+    if (classId) {
+      where.id = classId;
+    }
+
+    const classes = await this.prisma.class.findMany({
+      where,
+      include: {
+        teachers: {
+          where: {
+            teacherId: staffId,
+          },
+          include: {
+            teacher: {
+              include: {
+                user: {
+                  select: { first_name: true, last_name: true, email: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const events: ClassScheduleEventDto[] = [];
+
+    for (const cls of classes) {
+      const rawSchedule = this.getStoredClassScheduleEntries(cls.schedule);
+      for (const entry of rawSchedule) {
+        const dayOfWeek = entry.dayOfWeek;
+        if (dayOfWeek === undefined) continue;
+        const from = entry.from;
+        const end = entry.to || entry.end;
+        if (!from || !end) continue;
+
+        if (entry.teacherId && entry.teacherId !== staffId) {
+          continue;
+        }
+
+        const occurrenceDates = this.getOccurrencesInRange(startDt, endDt, dayOfWeek);
+        if (occurrenceDates.length === 0) continue;
+
+        const teacherName = cls.teachers.length > 0
+          ? (() => {
+              const t = cls.teachers[0].teacher.user;
+              return t
+                ? `${t.last_name || ''} ${t.first_name || ''}`.trim() || 'N/A'
+                : cls.teachers[0].teacher.fullName?.trim() || 'N/A';
+            })()
+          : 'N/A';
+
+        for (const occDate of occurrenceDates) {
+          const dateStr = this.formatDate(occDate) || '';
+          const entryId = entry.id || `${cls.id}-${dayOfWeek}-${from}-${dateStr}`;
+          const occurrenceId = `${cls.id}-${entryId}-${dateStr}`;
+          events.push({
+            occurrenceId,
+            classId: cls.id,
+            className: cls.name,
+            teacherIds: [staffId],
+            teacherNames: [teacherName],
+            date: dateStr,
+            startTime: from,
+            endTime: end,
+            patternEntryId: entry.id,
+          });
+        }
+      }
+    }
+
+    events.sort((a, b) => {
+      if (a.date !== b.date) {
+        return a.date.localeCompare(b.date);
+      }
+      return (a.startTime || '').localeCompare(b.startTime || '');
+    });
+
+    return { success: true, data: events, total: events.length };
   }
 }

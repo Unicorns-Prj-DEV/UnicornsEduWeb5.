@@ -11,6 +11,11 @@ import { CurrentUser, type JwtPayload } from '../auth/decorators/current-user.de
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CalendarService, type PaginatedResponse } from './calendar.service';
 import { PaginationQueryDto } from '../dtos/pagination.dto';
+import {
+  ClassScheduleEventDto,
+  ClassScheduleFilterDto,
+} from '../dtos/class-schedule.dto';
+import { StaffOperationsAccessService } from '../staff-ops/staff-operations-access.service';
 
 interface ClassItem {
   id: string;
@@ -27,7 +32,10 @@ interface TeacherItem {
 @ApiCookieAuth('access_token')
 @Roles(UserRole.admin, UserRole.staff)
 export class CalendarController {
-  constructor(private readonly calendarService: CalendarService) {}
+  constructor(
+    private readonly calendarService: CalendarService,
+    private readonly staffOperationsAccess: StaffOperationsAccessService,
+  ) {}
 
   @Get('classes')
   @ApiOperation({ summary: 'Lấy danh sách lớp học (cho dropdown filter)' })
@@ -120,5 +128,49 @@ export class CalendarController {
   ): Promise<PaginatedResponse<TeacherItem>> {
     const { page, limit } = pagination;
     return this.calendarService.getTeachers(page, limit);
+  }
+
+  @Get('staff/events')
+  @ApiOperation({ summary: 'Lấy lịch dạy của staff hiện tại (teacher role)' })
+  @ApiQuery({
+    name: 'startDate',
+    description: 'Ngày bắt đầu (YYYY-MM-DD)',
+    required: true,
+    example: '2026-04-01',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    description: 'Ngày kết thúc (YYYY-MM-DD)',
+    required: true,
+    example: '2026-04-30',
+  })
+  @ApiQuery({
+    name: 'classId',
+    description: 'Lọc theo class ID (UUID)',
+    required: false,
+    type: String,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Danh sách lịch dạy của staff',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/ClassScheduleEventDto' },
+        },
+        total: { type: 'number', example: 8 },
+      },
+    },
+  })
+  async getStaffEvents(
+    @CurrentUser() user: JwtPayload,
+    @Query() filters: ClassScheduleFilterDto,
+  ): Promise<{ success: boolean; data: ClassScheduleEventDto[]; total: number }> {
+    const actor = await this.staffOperationsAccess.resolveActor(user.id, user.roleType);
+    const result = await this.calendarService.getStaffScheduleEvents(actor.id, filters);
+    return result;
   }
 }
