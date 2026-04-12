@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -77,6 +78,15 @@ function hasCustomTuitionOverride(options: {
   );
 }
 
+type StoredClassScheduleEntry = {
+  id?: string;
+  dayOfWeek?: number;
+  from?: string;
+  to?: string;
+  end?: string;
+  teacherId?: string;
+};
+
 @Injectable()
 export class ClassService {
   constructor(
@@ -87,6 +97,82 @@ export class ClassService {
 
   private isTeacherActor(roles: string[]) {
     return roles.length > 0;
+  }
+
+  private getStoredClassScheduleEntries(
+    schedule: Prisma.JsonValue | null | undefined,
+  ): StoredClassScheduleEntry[] {
+    if (!Array.isArray(schedule)) {
+      return [];
+    }
+
+    return schedule
+      .filter(
+        (entry) =>
+          typeof entry === 'object' &&
+          entry !== null &&
+          !Array.isArray(entry),
+      )
+      .map((rawEntry) => {
+        const entry = rawEntry as Prisma.JsonObject;
+
+        return {
+          id: typeof entry.id === 'string' ? entry.id : undefined,
+          dayOfWeek:
+            typeof entry.dayOfWeek === 'number' ? entry.dayOfWeek : undefined,
+          from: typeof entry.from === 'string' ? entry.from : undefined,
+          to: typeof entry.to === 'string' ? entry.to : undefined,
+          end: typeof entry.end === 'string' ? entry.end : undefined,
+          teacherId:
+            typeof entry.teacherId === 'string' ? entry.teacherId : undefined,
+        };
+      });
+  }
+
+  private serializeStoredClassScheduleEntries(
+    entries: Array<{
+      id?: string;
+      dayOfWeek?: number;
+      from?: string;
+      to?: string;
+      teacherId?: string;
+    }>,
+  ): Prisma.InputJsonValue {
+    return entries.map((entry) => ({
+      ...(entry.id ? { id: entry.id } : {}),
+      ...(typeof entry.dayOfWeek === 'number'
+        ? { dayOfWeek: entry.dayOfWeek }
+        : {}),
+      ...(entry.from ? { from: entry.from } : {}),
+      ...(entry.to ? { to: entry.to } : {}),
+      ...(entry.teacherId ? { teacherId: entry.teacherId } : {}),
+    })) as Prisma.InputJsonValue;
+  }
+
+  private mergeScheduleEntriesWithExisting(
+    nextEntries: UpdateClassScheduleDto['schedule'],
+    existingSchedule: Prisma.JsonValue | null | undefined,
+  ) {
+    const existingById = new Map(
+      this.getStoredClassScheduleEntries(existingSchedule)
+        .filter((entry): entry is StoredClassScheduleEntry & { id: string } =>
+          typeof entry.id === 'string' && entry.id.length > 0,
+        )
+        .map((entry) => [entry.id, entry]),
+    );
+
+    return nextEntries.map((entry) => {
+      const existingEntry =
+        entry.id != null ? existingById.get(entry.id) : undefined;
+
+      return {
+        id: entry.id,
+        dayOfWeek: entry.dayOfWeek,
+        from: entry.from,
+        to: entry.to,
+        teacherId: entry.teacherId,
+      };
+    });
   }
 
   private async getClassAuditSnapshot(
@@ -870,13 +956,62 @@ export class ClassService {
   ) {
     const existing = await this.prisma.class.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, name: true, schedule: true },
     });
     if (!existing) {
       throw new NotFoundException('Class not found');
     }
 
-    const schedule = dto.schedule as unknown as Prisma.InputJsonValue;
+    const normalizedScheduleEntries = this.mergeScheduleEntriesWithExisting(
+      dto.schedule,
+      existing.schedule,
+    );
+    const teacherIds = Array.from(
+      new Set(
+        normalizedScheduleEntries
+          .map((entry) => entry.teacherId)
+          .filter((teacherId): teacherId is string => !!teacherId),
+      ),
+    );
+
+    if (normalizedScheduleEntries.some((entry) => !entry.teacherId)) {
+      throw new BadRequestException(
+        'Mỗi khung giờ học phải chọn đúng 1 gia sư chịu trách nhiệm.',
+      );
+    }
+
+    const classTeachers = await this.prisma.classTeacher.findMany({
+      where: { classId: id },
+      select: {
+        teacherId: true,
+        teacher: {
+          select: {
+            user: {
+              select: {
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const classTeacherIds = new Set(
+      classTeachers.map((teacherRecord) => teacherRecord.teacherId),
+    );
+    const invalidTeacherId = teacherIds.find(
+      (teacherId) => !classTeacherIds.has(teacherId),
+    );
+    if (invalidTeacherId) {
+      throw new BadRequestException(
+        'Gia sư chịu trách nhiệm phải thuộc danh sách gia sư hiện có của lớp.',
+      );
+    }
+
+    const schedule = this.serializeStoredClassScheduleEntries(
+      normalizedScheduleEntries,
+    );
+
     return this.prisma.$transaction(async (tx) => {
       const beforeValue = auditActor
         ? await this.getClassAuditSnapshot(tx, id)

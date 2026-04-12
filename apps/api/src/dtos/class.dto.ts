@@ -179,9 +179,12 @@ export class UpdateClassTeachersDto {
 
 /** Schedule slot for UpdateClassScheduleDto */
 export class ScheduleSlotDto {
-  @ApiPropertyOptional({ description: 'Google Calendar event ID', example: 'abc123' })
+  @ApiPropertyOptional({
+    description: 'Unique identifier for this schedule slot',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
   @IsOptional()
-  @IsString()
+  @IsUUID()
   id?: string;
 
   @ApiProperty({ description: 'Day of week (0-6, 0=Chủ Nhật, 1=Thứ Hai, ...)', example: 1 })
@@ -196,6 +199,15 @@ export class ScheduleSlotDto {
   @ApiProperty({ description: 'End time HH:mm:ss', example: '21:00:00' })
   @IsString()
   to: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Responsible tutor for this schedule slot. PATCH /class/:id/schedule requires this field and it must belong to the class teachers.',
+    example: '660e8400-e29b-41d4-a716-446655440001',
+  })
+  @IsOptional()
+  @IsUUID()
+  teacherId?: string;
 }
 
 /** DTO for PATCH /class/:id/schedule – replace schedule */

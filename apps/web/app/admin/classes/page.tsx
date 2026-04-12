@@ -82,7 +82,6 @@ type ClassRow = {
   status: ClassStatus;
   studentCount: number | null;
   maxStudents: number | null;
-  teacherNames: string;
 };
 
 export default function AdminClassesPage() {
@@ -168,12 +167,6 @@ export default function AdminClassesPage() {
       status: item.status,
       studentCount: normalizeSeatValue(item.studentCount),
       maxStudents: normalizeSeatValue(item.maxStudents),
-      teacherNames:
-        item.teachers && item.teachers.length > 0
-          ? item.teachers
-            .map((teacher) => teacher.fullName?.trim() || teacher.id)
-            .join(", ")
-          : "—",
     }));
   }, [classListResponse]);
 
@@ -468,15 +461,13 @@ export default function AdminClassesPage() {
                           {formatSeatSummary(row.studentCount, row.maxStudents)}
                         </span>
                       </span>
-                      <span className="text-text-muted">Gia sư</span>
-                      <span className="line-clamp-2 text-text-secondary">{row.teacherNames || "—"}</span>
                     </div>
                   </article>
                 ))}
               </div>
 
               <div className="hidden overflow-x-auto sm:block">
-                <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+                <table className="w-full min-w-[620px] border-collapse text-left text-sm">
                   <caption className="sr-only">Danh sách lớp học</caption>
                   <thead>
                     <tr className="border-b border-border-default bg-bg-secondary/80">
@@ -489,9 +480,6 @@ export default function AdminClassesPage() {
                       </th>
                       <th scope="col" className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         Sĩ số / tối đa
-                      </th>
-                      <th scope="col" className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
-                        Gia sư
                       </th>
                       <th scope="col" className="w-16 px-4 py-3">
                         <span className="sr-only">Xóa</span>
@@ -537,9 +525,6 @@ export default function AdminClassesPage() {
                           >
                             {formatSeatSummary(row.studentCount, row.maxStudents)}
                           </span>
-                        </td>
-                        <td className="px-4 py-3 text-text-secondary">
-                          {row.teacherNames || "—"}
                         </td>
                         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">

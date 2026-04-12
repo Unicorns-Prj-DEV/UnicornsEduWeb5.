@@ -12,12 +12,6 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CalendarService, type PaginatedResponse } from './calendar.service';
 import { PaginationQueryDto } from '../dtos/pagination.dto';
 
-interface SyncStatusResponse {
-  googleCalendarConfigured: boolean;
-  connectionStatus: 'connected' | 'disconnected' | 'error';
-  lastCheck: string;
-}
-
 interface ClassItem {
   id: string;
   name: string;
@@ -49,6 +43,12 @@ export class CalendarController {
     required: false,
     type: Number,
   })
+  @ApiQuery({
+    name: 'search',
+    description: 'Tìm lớp theo tên (contains, không phân biệt hoa thường)',
+    required: false,
+    type: String,
+  })
   @ApiResponse({
     status: 200,
     description: 'Danh sách lớp học',
@@ -73,9 +73,10 @@ export class CalendarController {
   })
   async getClasses(
     @Query() pagination: PaginationQueryDto,
+    @Query('search') search?: string,
   ): Promise<PaginatedResponse<ClassItem>> {
     const { page, limit } = pagination;
-    return this.calendarService.getClasses(page, limit);
+    return this.calendarService.getClasses(page, limit, search);
   }
 
   @Get('teachers')
@@ -119,15 +120,5 @@ export class CalendarController {
   ): Promise<PaginatedResponse<TeacherItem>> {
     const { page, limit } = pagination;
     return this.calendarService.getTeachers(page, limit);
-  }
-
-  @Get('sync/status')
-  @ApiOperation({ summary: 'Kiểm tra trạng thái đồng bộ Google Calendar' })
-  @ApiResponse({
-    status: 200,
-    description: 'Trạng thái kết nối Google Calendar',
-  })
-  async getSyncStatus() {
-    return this.calendarService.getGoogleCalendarStatus();
   }
 }

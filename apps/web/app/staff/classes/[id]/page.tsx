@@ -167,6 +167,13 @@ export default function StaffClassDetailPage() {
     id: teacher.id,
     fullName: teacher.fullName,
   }));
+  const teacherNameById = useMemo(
+    () =>
+      new Map(
+        (classDetail?.teachers ?? []).map((teacher) => [teacher.id, teacher.fullName]),
+      ),
+    [classDetail?.teachers],
+  );
   const popupStudents = classStudents.map((student) => ({
     id: student.id,
     fullName: student.fullName,
@@ -195,6 +202,11 @@ export default function StaffClassDetailPage() {
     classStudents.length > 0 &&
     (hasTeacherSelfServiceAccess ? true : teacherCount === 1);
   const defaultTeacherId = hasTeacherSelfServiceAccess
+    ? actorStaffId
+    : teacherCount === 1
+      ? classDetail?.teachers?.[0]?.id ?? ""
+      : "";
+  const defaultScheduleTeacherId = hasTeacherSelfServiceAccess
     ? actorStaffId
     : teacherCount === 1
       ? classDetail?.teachers?.[0]?.id ?? ""
@@ -474,6 +486,9 @@ export default function StaffClassDetailPage() {
         open={schedulePopupOpen}
         onClose={() => setSchedulePopupOpen(false)}
         classDetail={classDetail}
+        teachers={popupTeachers}
+        allowTeacherSelection={false}
+        defaultTeacherId={defaultScheduleTeacherId}
         onSubmitSchedule={handleScheduleSubmit}
       />
 
@@ -528,6 +543,13 @@ export default function StaffClassDetailPage() {
                     from={item.from}
                     to={item.to}
                     dayOfWeek={item.dayOfWeek}
+                    teacherName={
+                      item.teacherId
+                        ? teacherNameById.get(item.teacherId)
+                        : defaultScheduleTeacherId
+                          ? teacherNameById.get(defaultScheduleTeacherId)
+                          : null
+                    }
                   />
                 ))}
               </div>

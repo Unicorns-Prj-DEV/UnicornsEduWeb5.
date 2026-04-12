@@ -162,7 +162,7 @@ export class ClassController {
   @ApiOperation({
     summary: 'Update class schedule',
     description:
-      'Replace the class schedule (array of { from, to } in HH:mm:ss).',
+      'Replace the class schedule (array of { dayOfWeek, from, to, teacherId } in HH:mm:ss).',
   })
   @ApiParam({ name: 'id', description: 'Class id' })
   @ApiBody({ type: UpdateClassScheduleDto })

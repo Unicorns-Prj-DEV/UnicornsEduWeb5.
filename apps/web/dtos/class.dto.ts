@@ -9,6 +9,7 @@ export interface ClassScheduleItem {
     dayOfWeek: number;
     from: string;
     to: string;
+    teacherId?: string;
 }
 
 export interface ClassListItem {

@@ -134,7 +134,9 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
       "dayOfWeek": "number (0=Sunday, 6=Saturday)",
       "from": "string in HH:mm format (e.g., '19:00')",
       "to": "string in HH:mm format (e.g., '20:30')",
-      "calendarEventId": "string? (optional, stores Google Calendar recurring event ID)"
+      "teacherId": "string? (UUID of the responsible tutor for this slot)",
+      "calendarEventId": "string? (optional, stores Google Calendar recurring event ID)",
+      "meetLink": "string? (optional, stores Google Meet link returned when recurring event is synced)"
     }
     ```
     Mảng này định nghĩa mẫu lịch học lặp lại hàng tuần. Calendar admin có thể expand pattern này thành các occurrence để render lịch trong một khoảng ngày, và có thể đồng bộ từng entry thành recurring event trên Google Calendar.
@@ -142,6 +144,8 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - Mối quan hệ: teachers, students, sessions, surveys
 - Ghi chú:
   - `calendarEventId` trong schedule được điền sau khi đồng bộ lên Google Calendar; dùng để cập nhật recurring event ở các lần sync sau.
+  - `meetLink` trong schedule được điền cùng lúc với `calendarEventId` sau khi sync; API occurrence của `/admin/calendar/class-schedule` đọc lại field này để popup lịch mở được link lớp ngay sau khi refetch.
+  - `teacherId` lưu gia sư chịu trách nhiệm của từng khung giờ. Từ luồng chỉnh lịch lớp, mỗi entry mới/cập nhật phải có `teacherId` và ID này phải thuộc `class_teachers` của chính lớp đó.
   - Khi API `PUT /admin/calendar/classes/:classId/schedule` nhận payload, mỗi entry dùng field `end`; backend sẽ map thành `to` trước khi lưu JSONB.
 
 ### 4.5 `sessions`

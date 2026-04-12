@@ -62,6 +62,17 @@ describe('SessionValidationService', () => {
     ).toBe(180000);
   });
 
+  it('derives default tuition from class package when class per-session fee is unset', () => {
+    expect(
+      service.resolveDefaultStudentTuitionPerSession({
+        customTuitionPerSession: null,
+        classTuitionPerSession: null,
+        classTuitionPackageTotal: 3600000,
+        classTuitionPackageSession: 12,
+      }),
+    ).toBe(300000);
+  });
+
   it('drops tuition when attendance is absent', () => {
     expect(
       service.resolveChargeableAttendanceTuitionFee(

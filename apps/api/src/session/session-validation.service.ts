@@ -1,6 +1,31 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { AttendanceStatus } from '../../generated/enums';
 
+function normalizeNullableMoney(value: number | null | undefined): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return null;
+  }
+
+  return Math.floor(value);
+}
+
+function resolveDerivedTuitionPerSession(
+  packageTotal: number | null | undefined,
+  packageSession: number | null | undefined,
+): number | null {
+  if (
+    typeof packageTotal !== 'number' ||
+    !Number.isFinite(packageTotal) ||
+    typeof packageSession !== 'number' ||
+    !Number.isFinite(packageSession) ||
+    packageSession <= 0
+  ) {
+    return null;
+  }
+
+  return Math.round(packageTotal / packageSession);
+}
+
 @Injectable()
 export class SessionValidationService {
   parseSessionDate(date: string) {
@@ -98,6 +123,22 @@ export class SessionValidationService {
     }
 
     return Math.floor(normalizedValue);
+  }
+
+  resolveDefaultStudentTuitionPerSession(options: {
+    customTuitionPerSession?: number | null;
+    classTuitionPerSession?: number | null;
+    classTuitionPackageTotal?: number | null;
+    classTuitionPackageSession?: number | null;
+  }): number | null {
+    return (
+      normalizeNullableMoney(options.customTuitionPerSession) ??
+      normalizeNullableMoney(options.classTuitionPerSession) ??
+      resolveDerivedTuitionPerSession(
+        options.classTuitionPackageTotal,
+        options.classTuitionPackageSession,
+      )
+    );
   }
 
   resolveAttendanceTuitionFee(

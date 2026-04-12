@@ -344,13 +344,31 @@ export class SessionUpdateService {
           select: {
             studentId: true,
             customStudentTuitionPerSession: true,
+            class: {
+              select: {
+                studentTuitionPerSession: true,
+                tuitionPackageTotal: true,
+                tuitionPackageSession: true,
+              },
+            },
           },
         });
 
         studentClasses.forEach((studentClass) => {
           studentTuitionFeeByStudentId.set(
             studentClass.studentId,
-            studentClass.customStudentTuitionPerSession ?? null,
+            this.sessionValidationService.resolveDefaultStudentTuitionPerSession(
+              {
+                customTuitionPerSession:
+                  studentClass.customStudentTuitionPerSession,
+                classTuitionPerSession:
+                  studentClass.class?.studentTuitionPerSession,
+                classTuitionPackageTotal:
+                  studentClass.class?.tuitionPackageTotal,
+                classTuitionPackageSession:
+                  studentClass.class?.tuitionPackageSession,
+              },
+            ),
           );
         });
 

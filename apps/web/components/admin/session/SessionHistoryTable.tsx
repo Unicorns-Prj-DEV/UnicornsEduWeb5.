@@ -35,6 +35,7 @@ export type SessionTeacherOption = {
 type Props = {
   sessions: SessionItem[];
   entityMode?: SessionEntityMode;
+  hideTeacherDisplay?: boolean;
   statusMode?: SessionStatusMode;
   variant?: SessionTableVariant;
   emptyText?: string;
@@ -591,6 +592,7 @@ function renderCoefficientLabel(raw: unknown): string {
 export default function SessionHistoryTable({
   sessions,
   entityMode = "none",
+  hideTeacherDisplay = false,
   statusMode = "payment",
   variant = "default",
   emptyText = "Chưa có buổi học nào.",
@@ -616,6 +618,9 @@ export default function SessionHistoryTable({
   const isWideEditor = editorLayout === "wide";
   const showActionsColumn = showActionsColumnProp ?? Boolean(onSessionUpdated);
   const showDeleteAction = showActionsColumn && allowDeleteSession;
+  const isTeacherDisplayHidden = hideTeacherDisplay && entityMode === "teacher";
+  const isClassDetailTeacherLayout =
+    variant === "classDetail" && entityMode === "teacher";
   const showBulkPaymentStatusBar =
     enableBulkPaymentStatusEdit &&
     statusMode === "payment" &&
@@ -1085,7 +1090,7 @@ export default function SessionHistoryTable({
     });
   };
 
-  const shouldShowEntity = entityMode !== "none";
+  const shouldShowEntity = entityMode !== "none" && !isTeacherDisplayHidden;
   const resolvedEditSessionTuition =
     editingSession == null
       ? (sessionTuitionTotal ?? 0)
@@ -1279,12 +1284,12 @@ export default function SessionHistoryTable({
                 role={showActionsColumn ? "button" : undefined}
                 tabIndex={showActionsColumn ? 0 : undefined}
                 onClick={
-                  showActionsColumn && variant === "classDetail" && entityMode === "teacher"
+                  showActionsColumn && isClassDetailTeacherLayout
                     ? () => openEdit(session)
                     : undefined
                 }
                 onKeyDown={
-                  showActionsColumn && variant === "classDetail" && entityMode === "teacher"
+                  showActionsColumn && isClassDetailTeacherLayout
                     ? (event) => {
                       if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
@@ -1297,7 +1302,7 @@ export default function SessionHistoryTable({
                   visibleSelectedSessionIds.has(session.id)
                   ? "border-primary/35 bg-primary/5"
                   : "border-border-default bg-bg-surface"
-                  } ${showActionsColumn && variant === "classDetail" && entityMode === "teacher" ? "cursor-pointer" : ""}`}
+                  } ${showActionsColumn && isClassDetailTeacherLayout ? "cursor-pointer" : ""}`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="space-y-1">
@@ -1342,7 +1347,7 @@ export default function SessionHistoryTable({
                     >
                       {status.label}
                     </span>
-                    {variant === "classDetail" && entityMode === "teacher" ? (
+                    {isClassDetailTeacherLayout ? (
                       <div className="flex flex-col items-end gap-1 text-xs text-text-muted">
                         <div className="inline-flex items-center gap-1">
                           <span className="text-text-muted">Σ</span>
@@ -1450,7 +1455,7 @@ export default function SessionHistoryTable({
 
       {/* Desktop / tablet layout: table */}
       <div className={`hidden overflow-x-auto md:block ${className}`}>
-        {variant === "classDetail" && entityMode === "teacher" ? (
+        {isClassDetailTeacherLayout ? (
           <table className="w-full min-w-[880px] border-collapse text-left text-sm">
             <caption className="sr-only">Lịch sử buổi học</caption>
             <colgroup>
@@ -1558,25 +1563,27 @@ export default function SessionHistoryTable({
                       </td>
                       <td className="px-4 py-3 align-top">
                         <div className="flex flex-col items-start gap-2">
-                          <div className="inline-flex items-center gap-2 text-text-primary">
-                            <svg
-                              className="size-4 text-text-muted"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                              aria-hidden
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2m10-10a4 4 0 11-8 0 4 4 0 018 0zm10 10v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"
-                              />
-                            </svg>
-                            <span className="truncate text-sm font-medium">
-                              {session.teacher?.fullName?.trim() || "—"}
-                            </span>
-                          </div>
+                          {!isTeacherDisplayHidden ? (
+                            <div className="inline-flex items-center gap-2 text-text-primary">
+                              <svg
+                                className="size-4 text-text-muted"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                aria-hidden
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2m10-10a4 4 0 11-8 0 4 4 0 018 0zm10 10v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"
+                                />
+                              </svg>
+                              <span className="truncate text-sm font-medium">
+                                {session.teacher?.fullName?.trim() || "—"}
+                              </span>
+                            </div>
+                          ) : null}
 
                           <span
                             className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium ${status.className}`}

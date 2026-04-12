@@ -11,7 +11,7 @@ export interface ClassScheduleEntry {
   dayOfWeek: number; // 0=Sunday, 1=Monday, ..., 6=Saturday
   from: string; // HH:mm:ss format
   to: string; // HH:mm:ss format
-  calendarEventId?: string; // Google Calendar event ID if synced
+  teacherId?: string; // Responsible tutor for this recurring slot
 }
 
 /**
@@ -26,9 +26,6 @@ export interface ClassScheduleEvent {
   date: string; // YYYY-MM-DD format
   startTime?: string; // HH:mm:ss format (optional if full day)
   endTime?: string; // HH:mm:ss format
-  meetLink?: string;
-  calendarEventId?: string; // Google Calendar event ID if synced
-  calendarEventUrl?: string; // Google Calendar event URL
   patternEntryId?: string; // Reference to the ClassScheduleEntry that generated this
 }
 
@@ -40,13 +37,4 @@ export interface ClassScheduleFilter {
   teacherId?: string;
   startDate: string; // YYYY-MM-DD
   endDate: string; // YYYY-MM-DD
-}
-
-/**
- * Response from syncing class schedule to Google Calendar
- */
-export interface ClassSyncResponse {
-  success: boolean;
-  entriesSynced?: number;
-  error?: string;
 }

@@ -1,9 +1,13 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { SessionValidationService } from './session-validation.service';
 
 @Injectable()
 export class SessionRosterService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sessionValidationService: SessionValidationService,
+  ) {}
 
   async assertAttendanceStudentsBelongToClass(
     classId: string,
@@ -24,6 +28,13 @@ export class SessionRosterService {
       select: {
         studentId: true,
         customStudentTuitionPerSession: true,
+        class: {
+          select: {
+            studentTuitionPerSession: true,
+            tuitionPackageTotal: true,
+            tuitionPackageSession: true,
+          },
+        },
       },
     });
 
@@ -36,7 +47,12 @@ export class SessionRosterService {
     return new Map(
       studentRows.map((studentRow) => [
         studentRow.studentId,
-        studentRow.customStudentTuitionPerSession ?? null,
+        this.sessionValidationService.resolveDefaultStudentTuitionPerSession({
+          customTuitionPerSession: studentRow.customStudentTuitionPerSession,
+          classTuitionPerSession: studentRow.class?.studentTuitionPerSession,
+          classTuitionPackageTotal: studentRow.class?.tuitionPackageTotal,
+          classTuitionPackageSession: studentRow.class?.tuitionPackageSession,
+        }),
       ]),
     );
   }

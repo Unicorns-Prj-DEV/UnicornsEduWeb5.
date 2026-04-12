@@ -1,7 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsArray,
-  IsBoolean,
   IsInt,
   IsIn,
   IsOptional,
@@ -49,13 +48,12 @@ export class ClassScheduleEntryDto {
   end: string;
 
   @ApiPropertyOptional({
-    description:
-      'Google Calendar recurring event ID for this pattern entry',
-    example: 'recurring123@google.com',
+    description: 'Responsible tutor for this weekly schedule entry',
+    example: '660e8400-e29b-41d4-a716-446655440001',
   })
   @IsOptional()
-  @IsString()
-  calendarEventId?: string;
+  @IsUUID()
+  teacherId?: string;
 }
 
 export class ClassSchedulePatternDto {
@@ -140,23 +138,6 @@ export class ClassScheduleEventDto {
   endTime?: string;
 
   @ApiPropertyOptional({
-    description: 'Google Meet link',
-    example: 'https://meet.google.com/abc-defg-hij',
-  })
-  @IsOptional()
-  @IsString()
-  meetLink?: string;
-
-  @ApiPropertyOptional({
-    description:
-      'Google Calendar event ID for the recurring event',
-    example: 'abc123def456@google.com',
-  })
-  @IsOptional()
-  @IsString()
-  calendarEventId?: string;
-
-  @ApiPropertyOptional({
     description:
       'ID of the pattern entry this occurrence derives from',
     example: 'entry-uuid',
@@ -202,37 +183,3 @@ export class ClassScheduleFilterDto {
   endDate: string;
 }
 
-export class ClassSyncResponseDto {
-  @ApiProperty({
-    description: 'Whether the sync operation succeeded',
-    example: true,
-  })
-  @IsBoolean()
-  success: boolean;
-
-  @ApiPropertyOptional({
-    description: 'Number of entries synced',
-    example: 5,
-  })
-  @IsOptional()
-  @IsInt()
-  entriesSynced?: number;
-
-  @ApiPropertyOptional({
-    description: 'Error message if sync failed',
-    example: 'Teacher email missing',
-  })
-  @IsOptional()
-  @IsString()
-  error?: string;
-
-  @ApiPropertyOptional({
-    description: 'Detailed entry-level errors when a partial sync fails',
-    example: ['Entry monday-19:00-20:30: Teacher email missing'],
-    type: [String],
-  })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  errors?: string[];
-}

@@ -183,6 +183,13 @@ export default function AdminClassDetailPage() {
       })),
     [classDetail?.teachers],
   );
+  const teacherNameById = useMemo(
+    () =>
+      new Map(
+        (classDetail?.teachers ?? []).map((teacher) => [teacher.id, teacher.fullName]),
+      ),
+    [classDetail?.teachers],
+  );
   const currentClassTeacherId = popupTeachers.length === 1 ? popupTeachers[0]?.id : undefined;
   const addSessionTeacherMode = popupTeachers.length === 1 ? "readOnly" : "select";
 
@@ -235,7 +242,7 @@ export default function AdminClassDetailPage() {
 
         <div className="mt-4 rounded-lg border border-border-default bg-bg-surface p-4">
           <div className="mb-4 h-5 w-56 animate-pulse rounded bg-bg-tertiary" />
-          <SessionHistoryTableSkeleton rows={1} entityMode="teacher" showActionsColumn />
+          <SessionHistoryTableSkeleton rows={1} entityMode="none" showActionsColumn />
         </div>
       </div>
     );
@@ -368,6 +375,8 @@ export default function AdminClassDetailPage() {
         open={schedulePopupOpen}
         onClose={() => setSchedulePopupOpen(false)}
         classDetail={classDetail}
+        teachers={popupTeachers}
+        defaultTeacherId={currentClassTeacherId}
       />
       <EditClassStudentsPopup
         open={studentsPopupOpen}
@@ -426,6 +435,7 @@ export default function AdminClassDetailPage() {
                     from={item.from}
                     to={item.to}
                     dayOfWeek={item.dayOfWeek}
+                    teacherName={item.teacherId ? teacherNameById.get(item.teacherId) : null}
                   />
                 ))}
               </div>
@@ -724,11 +734,12 @@ export default function AdminClassDetailPage() {
               {...panelMotionProps}
             >
               {isSessionsLoading ? (
-                <SessionHistoryTableSkeleton rows={5} entityMode="teacher" showActionsColumn />
+                <SessionHistoryTableSkeleton rows={5} entityMode="none" showActionsColumn />
               ) : (
                 <SessionHistoryTable
                   sessions={sessionsInMonth}
                   entityMode="teacher"
+                  hideTeacherDisplay
                   variant="classDetail"
                   emptyText="Không có buổi học trong tháng này."
                   editorLayout="wide"

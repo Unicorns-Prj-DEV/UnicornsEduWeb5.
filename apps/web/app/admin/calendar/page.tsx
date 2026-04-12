@@ -55,7 +55,7 @@ const getCurrentWeekRange = (today: Date = new Date()): CurrentWeekRange => {
 
 /**
  * Admin Calendar Page
- * Displays calendar of sessions with filtering by class and teacher
+ * Displays calendar of sessions with filtering by class and tutor
  * Integrates with Google Calendar for syncing
  */
 export default function AdminCalendarPage() {
@@ -135,19 +135,22 @@ export default function AdminCalendarPage() {
   }, []);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-3 sm:p-6">
-      <div className="flex min-w-0 flex-1 flex-col rounded-xl border border-border-default bg-bg-surface p-3 shadow-sm sm:rounded-lg sm:p-5">
+    <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-2 sm:p-4 lg:p-6">
+      <div className="flex min-w-0 flex-1 flex-col rounded-2xl border border-border-default bg-bg-surface p-2.5 shadow-sm sm:p-4 lg:rounded-[1.75rem] lg:p-5">
         {/* Header Section */}
-        <section className="relative mb-4 overflow-visible rounded-2xl border border-border-default bg-gradient-to-br from-bg-secondary via-bg-surface to-bg-secondary/70 p-4 sm:p-5">
+        <section className="relative mb-3 overflow-visible rounded-[1.5rem] border border-border-default bg-gradient-to-br from-bg-secondary via-bg-surface to-bg-secondary/70 p-4 sm:mb-4 sm:p-5">
           <div className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full bg-primary/10 blur-2xl" aria-hidden />
           <div className="pointer-events-none absolute -bottom-10 left-10 size-28 rounded-full bg-warning/10 blur-2xl" aria-hidden />
 
           <div className="relative flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <h1 className="text-xl font-semibold text-text-primary sm:text-2xl">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-primary/80">
+                Weekly Teaching Board
+              </p>
+              <h1 className="mt-2 text-xl font-semibold text-text-primary sm:text-2xl">
                 Lịch Dạy
               </h1>
-              <p className="mt-1 text-sm text-text-secondary">
+              <p className="mt-1 max-w-2xl text-sm text-text-secondary">
                 Hiển thị toàn bộ lịch học trong tuần hiện tại theo dạng lịch tuần.
               </p>
             </div>
@@ -155,7 +158,7 @@ export default function AdminCalendarPage() {
         </section>
 
         {/* Filter Bar */}
-        <section className="mb-4">
+        <section className="mb-3 sm:mb-4">
           <FilterBar
             filters={filters}
             weekLabel={weekRange.label}
@@ -164,7 +167,7 @@ export default function AdminCalendarPage() {
         </section>
 
         {/* Calendar View */}
-        <section className="min-w-0 flex-1 overflow-auto px-0.5 py-1">
+        <section className="min-w-0 flex-1 overflow-hidden px-0.5 py-1">
           {isLoading ? (
             <div className="flex items-center justify-center py-16">
               <div className="space-y-3 text-center">
@@ -228,7 +231,7 @@ export default function AdminCalendarPage() {
                   : "Chưa có lịch học nào trong tuần hiện tại."}
               </p>
               <p className="text-xs">
-                Thử thay đổi bộ lọc lớp học hoặc giáo viên.
+                Thử thay đổi bộ lọc lớp học hoặc gia sư.
               </p>
             </div>
           ) : (

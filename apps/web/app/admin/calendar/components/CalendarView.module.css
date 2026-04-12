@@ -1,3 +1,7 @@
+.calendarScroller {
+  min-width: 860px;
+}
+
 .calendarShell :global(.fc) {
   --fc-border-color: color-mix(in srgb, var(--ue-border-default) 82%, transparent);
   --fc-page-bg-color: transparent;
@@ -73,34 +77,61 @@
   border-bottom-color: var(--ue-danger);
 }
 
+.calendarShell :global(.fc-timegrid-event-harness .fc-timegrid-event) {
+  height: 100%;
+}
+
 .calendarShell :global(.fc-timegrid-event) {
-  border: 0;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--ue-calendar-event-ring, transparent);
   border-radius: 14px;
   padding: 0;
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--ue-primary) 18%, transparent);
-}
-
-.calendarShell :global(.fc-timegrid-event.is-synced) {
   background:
     linear-gradient(
       180deg,
-      color-mix(in srgb, var(--ue-primary) 92%, white 8%) 0%,
-      color-mix(in srgb, var(--ue-primary-active) 92%, black 8%) 100%
+      var(--ue-calendar-event-start, var(--ue-primary)) 0%,
+      var(--ue-calendar-event-end, var(--ue-primary-active)) 100%
     );
+  box-shadow: 0 12px 28px var(--ue-calendar-event-shadow, color-mix(in srgb, var(--ue-primary) 18%, transparent));
 }
 
-.calendarShell :global(.fc-timegrid-event.is-unsynced) {
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--ue-info) 85%, white 15%) 0%,
-      color-mix(in srgb, var(--ue-primary) 78%, white 22%) 100%
-    );
+.calendarShell :global(.fc-timegrid-event::before) {
+  content: "";
+  position: absolute;
+  inset: 8px 8px auto auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--ue-calendar-event-accent, rgba(255, 255, 255, 0.72));
+  box-shadow: 0 0 0 4px color-mix(in srgb, black 10%, transparent);
+  opacity: 0.95;
+}
+
+.calendarShell :global(.fc-timegrid-event::after) {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px var(--ue-calendar-event-sync-style, solid) color-mix(in srgb, var(--ue-calendar-event-ring, transparent) 92%, white 8%);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.calendarShell :global(.fc-timegrid-event.is-unsynced::before) {
+  border-radius: 2px;
+  width: 10px;
+  background: color-mix(in srgb, var(--ue-calendar-event-accent, white) 80%, white 20%);
+}
+
+.calendarShell :global(.fc-timegrid-event .fc-event-main),
+.calendarShell :global(.fc-timegrid-event .fc-event-main-frame) {
+  height: 100%;
 }
 
 .calendarShell :global(.fc-timegrid-event .fc-event-main) {
+  display: flex;
   padding: 8px 10px;
-  color: var(--ue-text-inverse);
+  color: var(--ue-calendar-event-text, var(--ue-text-inverse));
 }
 
 .calendarShell :global(.fc-day-today .fc-col-header-cell-cushion) {
@@ -109,4 +140,45 @@
 
 .calendarShell :global(.fc .fc-timegrid-col.fc-day-today) {
   background: color-mix(in srgb, var(--ue-primary) 8%, transparent);
+}
+
+@media (min-width: 640px) {
+  .calendarScroller {
+    min-width: 980px;
+  }
+
+  .calendarShell :global(.fc-timegrid-slot) {
+    height: 4.4rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .calendarScroller {
+    min-width: 0;
+  }
+
+  .calendarShell :global(.fc-timegrid-slot) {
+    height: 4.9rem;
+  }
+}
+
+@media (max-width: 639px) {
+  .calendarShell :global(.fc-col-header-cell-cushion) {
+    padding: 10px 4px;
+    font-size: 0.72rem;
+    letter-spacing: 0.02em;
+  }
+
+  .calendarShell :global(.fc-timegrid-axis-cushion),
+  .calendarShell :global(.fc-timegrid-slot-label-cushion) {
+    font-size: 0.68rem;
+  }
+
+  .calendarShell :global(.fc-timegrid-event) {
+    border-radius: 12px;
+  }
+
+  .calendarShell :global(.fc-timegrid-event .fc-event-main) {
+    padding: 7px 8px;
+  }
 }

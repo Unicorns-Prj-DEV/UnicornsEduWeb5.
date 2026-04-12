@@ -56,7 +56,7 @@ export class MailService {
     }
     const frontendUrl =
       this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
-    const forgotPasswordLink = `${frontendUrl}/reset-password?token=${encodeURIComponent(token)}`;
+    const forgotPasswordLink = `${frontendUrl}/auth/reset-password?token=${encodeURIComponent(token)}`;
 
     await this.transporter.sendMail({
       from: this.mailFrom,

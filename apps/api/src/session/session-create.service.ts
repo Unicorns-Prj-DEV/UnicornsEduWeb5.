@@ -88,6 +88,13 @@ export class SessionCreateService {
         select: {
           studentId: true,
           customStudentTuitionPerSession: true,
+          class: {
+            select: {
+              studentTuitionPerSession: true,
+              tuitionPackageTotal: true,
+              tuitionPackageSession: true,
+            },
+          },
           student: true,
         },
       });
@@ -169,8 +176,22 @@ export class SessionCreateService {
             this.sessionValidationService.resolveChargeableAttendanceTuitionFee(
               attendanceItem.status,
               attendanceItem.tuitionFee,
-              studentClassByStudentId.get(attendanceItem.studentId)
-                ?.customStudentTuitionPerSession,
+              this.sessionValidationService.resolveDefaultStudentTuitionPerSession(
+                {
+                  customTuitionPerSession:
+                    studentClassByStudentId.get(attendanceItem.studentId)
+                      ?.customStudentTuitionPerSession,
+                  classTuitionPerSession:
+                    studentClassByStudentId.get(attendanceItem.studentId)?.class
+                      ?.studentTuitionPerSession,
+                  classTuitionPackageTotal:
+                    studentClassByStudentId.get(attendanceItem.studentId)?.class
+                      ?.tuitionPackageTotal,
+                  classTuitionPackageSession:
+                    studentClassByStudentId.get(attendanceItem.studentId)?.class
+                      ?.tuitionPackageSession,
+                },
+              ),
             ),
           accountBalance: studentAccountBalanceByStudentId.get(
             attendanceItem.studentId,

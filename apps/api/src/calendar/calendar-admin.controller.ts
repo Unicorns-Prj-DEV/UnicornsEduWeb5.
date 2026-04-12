@@ -33,7 +33,6 @@ import {
   ClassScheduleEventDto,
   ClassScheduleFilterDto,
   ClassSchedulePatternDto,
-  ClassSyncResponseDto,
 } from '../dtos/class-schedule.dto';
 
 @Controller('admin/calendar')
@@ -172,30 +171,6 @@ export class CalendarAdminController {
       classId,
       dto.schedule,
     );
-  }
-
-  @Post('classes/:classId/schedule/sync')
-  @ApiOperation({ summary: 'Đồng bộ class schedule pattern lên Google Calendar' })
-  @ApiParam({ name: 'classId', description: 'Class ID (UUID)' })
-  @ApiResponse({
-    status: 200,
-    description: 'Kết quả đồng bộ class schedule',
-    schema: {
-      type: 'object',
-      properties: {
-        success: { type: 'boolean', example: true },
-        data: { $ref: '#/components/schemas/ClassSyncResponseDto' },
-      },
-    },
-  })
-  @ApiResponse({ status: 404, description: 'Class không tồn tại' })
-  async syncClassSchedule(
-    @Param('classId', new ParseUUIDPipe()) classId: string,
-  ): Promise<{ success: boolean; data: ClassSyncResponseDto }> {
-    return {
-      success: true,
-      data: await this.calendarService.syncClassScheduleToGoogle(classId),
-    };
   }
 
   @Post('events')

@@ -3,7 +3,6 @@ import {
   ClassScheduleEntry,
   ClassScheduleEvent,
   ClassScheduleFilter,
-  ClassSyncResponse,
 } from "@/dtos/class-schedule.dto";
 
 /**
@@ -43,7 +42,7 @@ export async function getClassSchedulePattern(
       dayOfWeek: number;
       from: string;
       end: string;
-      calendarEventId?: string;
+      teacherId?: string;
     }>;
   }>(
     `/admin/calendar/classes/${encodeURIComponent(classId)}/schedule`
@@ -54,7 +53,7 @@ export async function getClassSchedulePattern(
       dayOfWeek: entry.dayOfWeek,
       from: entry.from,
       to: entry.end,
-      calendarEventId: entry.calendarEventId,
+      teacherId: entry.teacherId,
     })),
   };
 }
@@ -72,7 +71,7 @@ export async function updateClassSchedulePattern(
       dayOfWeek: number;
       from: string;
       end: string;
-      calendarEventId?: string;
+      teacherId?: string;
     }>;
   }>(
     `/admin/calendar/classes/${encodeURIComponent(classId)}/schedule`,
@@ -82,7 +81,7 @@ export async function updateClassSchedulePattern(
         dayOfWeek: entry.dayOfWeek,
         from: entry.from,
         end: entry.to,
-        calendarEventId: entry.calendarEventId,
+        teacherId: entry.teacherId,
       })),
     }
   );
@@ -92,32 +91,38 @@ export async function updateClassSchedulePattern(
       dayOfWeek: entry.dayOfWeek,
       from: entry.from,
       to: entry.end,
-      calendarEventId: entry.calendarEventId,
+      teacherId: entry.teacherId,
     })),
   };
-}
-
-/**
- * Sync a class's schedule to Google Calendar (generates events for all occurrences in date range)
- */
-export async function syncClassSchedule(
-  classId: string
-): Promise<ClassSyncResponse> {
-  const response = await api.post<{ data: ClassSyncResponse }>(
-    `/admin/calendar/classes/${encodeURIComponent(classId)}/schedule/sync`
-  );
-  return response.data.data;
 }
 
 /**
  * Fetch all running classes for filter dropdown
  * Reuses existing class API endpoint
  */
-export async function getClassesForFilter(limit: number = 100): Promise<{ data: Array<{ id: string; name: string }> }> {
-  const response = await api.get<{ data: Array<{ id: string; name: string }> }>("/calendar/classes", {
-    params: { status: "running", limit },
+export async function getClassesForFilter(params: {
+  limit?: number;
+  search?: string;
+} = {}): Promise<{ data: Array<{ id: string; name: string }>; total: number }> {
+  const { limit = 12, search } = params;
+  const response = await api.get<{
+    data: Array<{ id: string; name: string }>;
+    total?: number;
+  }>("/calendar/classes", {
+    params: {
+      limit,
+      ...(search?.trim() ? { search: search.trim() } : {}),
+    },
   });
-  return response.data;
+  return {
+    data: Array.isArray(response.data?.data) ? response.data.data : [],
+    total:
+      typeof response.data?.total === "number"
+        ? response.data.total
+        : Array.isArray(response.data?.data)
+          ? response.data.data.length
+          : 0,
+  };
 }
 
 /**

@@ -9,9 +9,16 @@ type Props = {
   to?: string | null;
   index: number;
   dayOfWeek?: number;
+  teacherName?: string | null;
 };
 
-export default function ScheduleTimeCard({ from, to, index, dayOfWeek }: Props) {
+export default function ScheduleTimeCard({
+  from,
+  to,
+  index,
+  dayOfWeek,
+  teacherName,
+}: Props) {
   const startTime = normalizeTimeOnly(from);
   const endTime = normalizeTimeOnly(to);
   const slotLabel = String(index).padStart(2, "0");
@@ -46,6 +53,9 @@ export default function ScheduleTimeCard({ from, to, index, dayOfWeek }: Props) 
             </span>
             <span className="font-mono text-sm font-semibold text-text-primary">{compactEndTime}</span>
           </div>
+          <p className="mt-1 text-xs text-text-secondary">
+            {teacherName?.trim() || "Chưa phân công gia sư"}
+          </p>
         </div>
       </div>
 
@@ -80,6 +90,14 @@ export default function ScheduleTimeCard({ from, to, index, dayOfWeek }: Props) 
             <p className="text-[11px] uppercase tracking-[0.2em] text-text-muted">Kết thúc</p>
             <p className="mt-1 font-mono text-lg font-semibold text-text-primary">{endTime || "--:--:--"}</p>
           </div>
+        </div>
+        <div className="mt-3 rounded-lg border border-border-default bg-bg-surface px-4 py-3">
+          <p className="text-[11px] uppercase tracking-[0.2em] text-text-muted">
+            Gia sư chịu trách nhiệm
+          </p>
+          <p className="mt-1 text-sm font-medium text-text-primary">
+            {teacherName?.trim() || "Chưa phân công gia sư"}
+          </p>
         </div>
       </div>
     </>

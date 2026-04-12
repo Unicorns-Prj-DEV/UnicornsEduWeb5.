@@ -5,7 +5,6 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '../../generated/client';
-import { GoogleCalendarService } from '../google-calendar/google-calendar.service';
 import {
   CalendarEventFilterDto,
   ResyncResponseDto,
@@ -14,7 +13,6 @@ import {
   ClassScheduleEntryDto,
   ClassScheduleEventDto,
   ClassScheduleFilterDto,
-  ClassSyncResponseDto,
 } from '../dtos/class-schedule.dto';
 
 export interface CalendarEvent {
@@ -49,7 +47,7 @@ interface StoredClassScheduleEntry {
   from?: string;
   to?: string;
   end?: string;
-  calendarEventId?: string;
+  teacherId?: string;
 }
 
 @Injectable()
@@ -58,7 +56,6 @@ export class CalendarService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly googleCalendarService: GoogleCalendarService,
   ) {}
 
   private getStoredClassScheduleEntries(
@@ -79,16 +76,14 @@ export class CalendarService {
         const entry = rawEntry as Prisma.JsonObject;
 
         return {
-        id: typeof entry.id === 'string' ? entry.id : undefined,
-        dayOfWeek:
-          typeof entry.dayOfWeek === 'number' ? entry.dayOfWeek : undefined,
-        from: typeof entry.from === 'string' ? entry.from : undefined,
-        to: typeof entry.to === 'string' ? entry.to : undefined,
-        end: typeof entry.end === 'string' ? entry.end : undefined,
-        calendarEventId:
-          typeof entry.calendarEventId === 'string'
-            ? entry.calendarEventId
-            : undefined,
+          id: typeof entry.id === 'string' ? entry.id : undefined,
+          dayOfWeek:
+            typeof entry.dayOfWeek === 'number' ? entry.dayOfWeek : undefined,
+          from: typeof entry.from === 'string' ? entry.from : undefined,
+          to: typeof entry.to === 'string' ? entry.to : undefined,
+          end: typeof entry.end === 'string' ? entry.end : undefined,
+          teacherId:
+            typeof entry.teacherId === 'string' ? entry.teacherId : undefined,
         };
       });
   }
@@ -99,7 +94,7 @@ export class CalendarService {
       dayOfWeek?: number;
       from?: string;
       to?: string;
-      calendarEventId?: string;
+      teacherId?: string;
     }>,
   ): Prisma.InputJsonValue {
     return entries.map((entry) => ({
@@ -109,9 +104,7 @@ export class CalendarService {
         : {}),
       ...(entry.from ? { from: entry.from } : {}),
       ...(entry.to ? { to: entry.to } : {}),
-      ...(entry.calendarEventId
-        ? { calendarEventId: entry.calendarEventId }
-        : {}),
+      ...(entry.teacherId ? { teacherId: entry.teacherId } : {}),
     })) as Prisma.InputJsonValue;
   }
 
@@ -298,38 +291,17 @@ export class CalendarService {
       },
     });
 
-    if (session.googleCalendarEventId) {
-      try {
-        await this.googleCalendarService.resyncSessionCalendar(sessionId);
-      } catch (error) {
-        this.logger.error(`Failed to resync calendar event for session ${sessionId}:`, error);
-      }
-    }
-
     return this.mapSessionToCalendarEvent(updatedSession);
   }
 
   async deleteSessionAndCalendar(sessionId: string): Promise<void> {
     const session = await this.prisma.session.findUnique({
       where: { id: sessionId },
-      select: { googleCalendarEventId: true },
+      select: { id: true },
     });
 
     if (!session) {
       throw new NotFoundException(`Session not found: ${sessionId}`);
-    }
-
-    if (session.googleCalendarEventId) {
-      try {
-        await this.googleCalendarService.deleteCalendarEvent(
-          session.googleCalendarEventId,
-        );
-      } catch (error) {
-        this.logger.warn(
-          `Failed to delete Google Calendar event ${session.googleCalendarEventId} for session ${sessionId}:`,
-          error,
-        );
-      }
     }
 
     await this.prisma.session.delete({
@@ -338,25 +310,22 @@ export class CalendarService {
   }
 
   async syncEvent(sessionId: string): Promise<ResyncResponseDto> {
-    try {
-      await this.googleCalendarService.resyncSessionCalendar(sessionId);
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+      select: { id: true, googleMeetLink: true },
+    });
 
-      const session = await this.prisma.session.findUnique({
-        where: { id: sessionId },
-        select: { googleMeetLink: true },
-      });
-
-      return {
-        success: true,
-        meetLink: session?.googleMeetLink || undefined,
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+    if (!session) {
       return {
         success: false,
-        error: message,
+        error: 'Session not found',
       };
     }
+
+    return {
+      success: true,
+      meetLink: session.googleMeetLink || undefined,
+    };
   }
 
   async bulkSync(
@@ -368,61 +337,54 @@ export class CalendarService {
 
     const sessions = await this.prisma.session.findMany({
       where: { id: { in: sessionIds } },
-      select: { id: true },
+      select: { id: true, googleMeetLink: true },
     });
 
-    const foundIds = new Set(sessions.map((s) => s.id));
-    const missingIds = sessionIds.filter((id) => !foundIds.has(id));
+    const foundSessions = new Map(sessions.map((s) => [s.id, s.googleMeetLink]));
 
-    const results: ResyncResponseDto[] = missingIds.map((id) => ({
-      success: false,
-      error: 'Session not found',
-    }));
-
-    const validSessionIds = sessions.map((s) => s.id);
-
-    await Promise.allSettled(
-      validSessionIds.map(async (sessionId) => {
-        try {
-          await this.googleCalendarService.resyncSessionCalendar(sessionId);
-
-          const session = await this.prisma.session.findUnique({
-            where: { id: sessionId },
-            select: { googleMeetLink: true },
-          });
-
-          results.push({
-            success: true,
-            meetLink: session?.googleMeetLink || undefined,
-          });
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          results.push({
-            success: false,
-            error: message,
-          });
-        }
-      }),
-    );
-
-    return results;
+    return sessionIds.map((id) => {
+      const meetLink = foundSessions.get(id);
+      if (meetLink !== undefined) {
+        return {
+          success: true,
+          meetLink: meetLink || undefined,
+        };
+      }
+      return {
+        success: false,
+        error: 'Session not found',
+      };
+    });
   }
 
   async getClasses(
     page: number = 1,
     limit: number = 50,
+    search?: string,
   ): Promise<PaginatedResponse<{ id: string; name: string }>> {
+    const trimmedSearch = search?.trim();
     const skip = (page - 1) * limit;
+    const where: Prisma.ClassWhereInput = {
+      status: 'running',
+      ...(trimmedSearch
+        ? {
+            name: {
+              contains: trimmedSearch,
+              mode: 'insensitive',
+            },
+          }
+        : {}),
+    };
 
     const [classes, total] = await Promise.all([
       this.prisma.class.findMany({
-        where: { status: 'running' },
+        where,
         select: { id: true, name: true },
         skip,
         take: limit,
         orderBy: { name: 'asc' },
       }),
-      this.prisma.class.count({ where: { status: 'running' } }),
+      this.prisma.class.count({ where }),
     ]);
 
     return {
@@ -441,7 +403,16 @@ export class CalendarService {
 
     const [staffInfos, total] = await Promise.all([
       this.prisma.staffInfo.findMany({
-        where: { status: 'active' },
+        where: {
+          status: 'active',
+          classTeachers: {
+            some: {
+              class: {
+                status: 'running',
+              },
+            },
+          },
+        },
         include: {
           user: {
             select: { first_name: true, last_name: true },
@@ -455,7 +426,18 @@ export class CalendarService {
           },
         },
       }),
-      this.prisma.staffInfo.count({ where: { status: 'active' } }),
+      this.prisma.staffInfo.count({
+        where: {
+          status: 'active',
+          classTeachers: {
+            some: {
+              class: {
+                status: 'running',
+              },
+            },
+          },
+        },
+      }),
     ]);
 
     const teachers = staffInfos.map((staff) => {
@@ -474,28 +456,6 @@ export class CalendarService {
       page,
       limit,
     };
-  }
-
-  async getGoogleCalendarStatus():
-    Promise<{
-      googleCalendarConfigured: boolean;
-      connectionStatus: 'connected' | 'disconnected' | 'error';
-      lastCheck: string;
-    }> {
-    try {
-      const connected = await this.googleCalendarService.testConnection();
-      return {
-        googleCalendarConfigured: true,
-        connectionStatus: connected ? 'connected' : 'disconnected',
-        lastCheck: new Date().toISOString(),
-      };
-    } catch {
-      return {
-        googleCalendarConfigured: false,
-        connectionStatus: 'error',
-        lastCheck: new Date().toISOString(),
-      };
-    }
   }
 
   private getNextDateForDay(date: Date, dayOfWeek: number): Date {
@@ -563,27 +523,6 @@ export class CalendarService {
     const events: ClassScheduleEventDto[] = [];
 
     for (const cls of classes) {
-      const targetTeachers = teacherId
-        ? cls.teachers.filter(
-            (teacherRecord) => teacherRecord.teacherId === teacherId,
-          )
-        : cls.teachers;
-      if (teacherId && targetTeachers.length === 0) continue;
-
-      const teacherNames = Array.from(
-        new Set(
-          targetTeachers.map((teacherRecord) => {
-            const user = teacherRecord.teacher.user;
-            return user
-              ? `${user.last_name || ''} ${user.first_name || ''}`.trim() || 'N/A'
-              : 'N/A';
-          }),
-        ),
-      );
-      const teacherIds = Array.from(
-        new Set(targetTeachers.map((teacherRecord) => teacherRecord.teacherId)),
-      );
-
       const rawSchedule = this.getStoredClassScheduleEntries(cls.schedule);
       for (const entry of rawSchedule) {
         const dayOfWeek = entry.dayOfWeek;
@@ -591,6 +530,49 @@ export class CalendarService {
         const from = entry.from;
         const end = entry.to || entry.end;
         if (!from || !end) continue;
+
+        const targetTeachers = entry.teacherId
+          ? cls.teachers.filter(
+              (teacherRecord) => teacherRecord.teacherId === entry.teacherId,
+            )
+          : teacherId
+            ? cls.teachers.filter(
+                (teacherRecord) => teacherRecord.teacherId === teacherId,
+              )
+            : cls.teachers;
+
+        if (teacherId && entry.teacherId && entry.teacherId !== teacherId) {
+          continue;
+        }
+
+        if (teacherId && targetTeachers.length === 0) continue;
+
+        const teacherIds =
+          targetTeachers.length > 0
+            ? Array.from(
+                new Set(
+                  targetTeachers.map((teacherRecord) => teacherRecord.teacherId),
+                ),
+              )
+            : entry.teacherId
+              ? [entry.teacherId]
+              : [];
+        const teacherNames =
+          targetTeachers.length > 0
+            ? Array.from(
+                new Set(
+                  targetTeachers.map((teacherRecord) => {
+                    const user = teacherRecord.teacher.user;
+                    return user
+                      ? `${user.last_name || ''} ${user.first_name || ''}`.trim() ||
+                          'N/A'
+                      : teacherRecord.teacher.fullName?.trim() || 'N/A';
+                  }),
+                ),
+              )
+            : teacherIds.length > 0
+              ? ['N/A']
+              : [];
 
         const occurrenceDates = this.getOccurrencesInRange(startDt, endDt, dayOfWeek);
         if (occurrenceDates.length === 0) continue;
@@ -608,8 +590,6 @@ export class CalendarService {
             date: dateStr,
             startTime: from,
             endTime: end,
-            meetLink: undefined,
-            calendarEventId: entry.calendarEventId,
             patternEntryId: entry.id,
           });
         }
@@ -643,7 +623,7 @@ export class CalendarService {
       dayOfWeek: entry.dayOfWeek ?? 0,
       from: entry.from ?? '',
       end: entry.to || entry.end || '',
-      calendarEventId: entry.calendarEventId,
+      teacherId: entry.teacherId,
     }));
     return { success: true, data: entries };
   }
@@ -665,7 +645,7 @@ export class CalendarService {
         dayOfWeek: entry.dayOfWeek,
         from: entry.from,
         to: entry.end,
-        calendarEventId: entry.calendarEventId,
+        teacherId: entry.teacherId,
       })),
     );
 
@@ -675,119 +655,5 @@ export class CalendarService {
     });
 
     return { success: true, data: entries };
-  }
-
-  async syncClassScheduleToGoogle(
-    classId: string,
-  ): Promise<ClassSyncResponseDto> {
-    const cls = await this.prisma.class.findUnique({
-      where: { id: classId },
-      select: {
-        id: true,
-        name: true,
-        schedule: true,
-        teachers: {
-          include: {
-            teacher: {
-              include: {
-                user: {
-                  select: { email: true },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!cls) {
-      throw new NotFoundException(`Class not found: ${classId}`);
-    }
-
-    const teacherEmails = Array.from(
-      new Set(
-        cls.teachers
-          .map((teacherRecord) => teacherRecord.teacher.user?.email?.trim())
-          .filter(
-            (email): email is string =>
-              typeof email === 'string' && email.length > 0,
-          ),
-      ),
-    );
-    const scheduleEntries = this.getStoredClassScheduleEntries(cls.schedule).map(
-      (entry) => ({
-        id: entry.id,
-        dayOfWeek: entry.dayOfWeek,
-        from: entry.from,
-        to: entry.to || entry.end,
-        calendarEventId: entry.calendarEventId,
-      }),
-    );
-
-    if (scheduleEntries.length === 0) {
-      return { success: true, entriesSynced: 0 };
-    }
-
-    if (teacherEmails.length === 0) {
-      return {
-        success: false,
-        entriesSynced: 0,
-        errors: [`Class ${classId} has no teacher emails to invite.`],
-      };
-    }
-
-    const errors: string[] = [];
-    let entriesSynced = 0;
-
-    for (const entry of scheduleEntries) {
-      const entryLabel =
-        entry.id ||
-        `${entry.dayOfWeek ?? 'unknown'}-${entry.from ?? 'unknown'}-${entry.to ?? 'unknown'}`;
-
-      if (
-        entry.dayOfWeek === undefined ||
-        !entry.from ||
-        !entry.to
-      ) {
-        errors.push(`Entry ${entryLabel}: missing dayOfWeek/from/to.`);
-        continue;
-      }
-
-      try {
-        const result =
-          await this.googleCalendarService.createOrUpdateClassScheduleRecurringEvent(
-            {
-              classId: cls.id,
-              className: cls.name,
-              entryId: entry.id,
-              calendarEventId: entry.calendarEventId,
-              dayOfWeek: entry.dayOfWeek,
-              from: entry.from,
-              end: entry.to,
-              teacherEmails,
-            },
-          );
-
-        entry.calendarEventId = result.eventId;
-        entriesSynced += 1;
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : String(error);
-        errors.push(`Entry ${entryLabel}: ${message}`);
-      }
-    }
-
-    await this.prisma.class.update({
-      where: { id: classId },
-      data: {
-        schedule: this.serializeStoredClassScheduleEntries(scheduleEntries),
-      },
-    });
-
-    return {
-      success: errors.length === 0,
-      entriesSynced,
-      ...(errors.length > 0 ? { errors } : {}),
-    };
   }
 }

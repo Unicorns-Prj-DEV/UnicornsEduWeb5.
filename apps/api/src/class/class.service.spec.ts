@@ -18,6 +18,9 @@ import { ClassService } from './class.service';
 
 describe('ClassService.updateClassTeachers', () => {
   const mockTx = {
+    class: {
+      update: jest.fn(),
+    },
     classTeacher: {
       deleteMany: jest.fn(),
       createMany: jest.fn(),
@@ -27,6 +30,9 @@ describe('ClassService.updateClassTeachers', () => {
   const mockPrisma = {
     class: {
       findUnique: jest.fn(),
+    },
+    classTeacher: {
+      findMany: jest.fn(),
     },
     $transaction: jest.fn(),
   };
@@ -43,14 +49,18 @@ describe('ClassService.updateClassTeachers', () => {
 
     mockPrisma.class.findUnique.mockResolvedValue({
       id: 'class-1',
+      name: 'Math 10A',
+      schedule: [],
       allowancePerSessionPerStudent: 120000,
     });
     mockPrisma.$transaction.mockImplementation(
       async (callback: (tx: typeof mockTx) => Promise<unknown>) =>
         callback(mockTx),
     );
+    mockTx.class.update.mockResolvedValue({ id: 'class-1' });
     mockTx.classTeacher.deleteMany.mockResolvedValue({ count: 1 });
     mockTx.classTeacher.createMany.mockResolvedValue({ count: 1 });
+    mockPrisma.classTeacher.findMany.mockResolvedValue([]);
 
     service = new ClassService(
       mockPrisma as never,
@@ -77,5 +87,25 @@ describe('ClassService.updateClassTeachers', () => {
         },
       ],
     });
+  });
+
+  it('rejects schedule slots whose responsible tutor is not assigned to the class', async () => {
+    await expect(
+      service.updateClassSchedule('class-1', {
+        schedule: [
+          {
+            id: 'slot-1',
+            dayOfWeek: 1,
+            from: '19:00:00',
+            to: '20:30:00',
+            teacherId: 'teacher-99',
+          },
+        ],
+      }),
+    ).rejects.toThrow(
+      'Gia sư chịu trách nhiệm phải thuộc danh sách gia sư hiện có của lớp.',
+    );
+
+    expect(mockTx.class.update).not.toHaveBeenCalled();
   });
 });
