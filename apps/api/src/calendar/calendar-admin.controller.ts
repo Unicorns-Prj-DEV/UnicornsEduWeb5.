@@ -167,10 +167,14 @@ export class CalendarAdminController {
     @Param('classId', new ParseUUIDPipe()) classId: string,
     @Body() dto: ClassSchedulePatternDto,
   ) {
-    return this.calendarService.updateClassSchedulePattern(
+    console.log(`[Calendar Admin PUT] Received PUT for class ${classId}, schedule entries: ${dto.schedule.length}`);
+    console.log(`[Calendar Admin PUT] Entries: ${JSON.stringify(dto.schedule, null, 2)}`);
+    const result = await this.calendarService.updateClassSchedulePattern(
       classId,
       dto.schedule,
     );
+    console.log(`[Calendar Admin PUT] PUT completed for class ${classId}, result: ${JSON.stringify(result)}`);
+    return result;
   }
 
   @Post('events')

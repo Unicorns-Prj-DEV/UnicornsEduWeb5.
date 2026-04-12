@@ -167,9 +167,96 @@ Staff có role `teacher` có thể xem lịch dạy cá nhân tại `/staff/cale
 - **Frontend:** Read-only calendar view, reuse `CalendarView` và `EventPopup` từ admin calendar. Filter duy nhất là `classId` (không có filter `teacherId` vì đã auto-filter theo staff).
 - **Access:** Yêu cầu `roleType=staff` và có role `teacher` trong `staffInfo.roles`. Staff không có role teacher sẽ bị từ chối.
 
+### 3.6 Recurring Weekly Events cho Schedule
+
+Mỗi schedule entry trong `Class.schedule` được đồng bộ thành một **Google Calendar recurring weekly event** (lặp lại hàng tuần):
+
+- **Tạo event:** `GoogleCalendarService.createOrUpdateClassScheduleRecurringEvent()` tạo recurring event với `RRULE:FREQ=WEEKLY;BYDAY=MO,TU,...` kèm Google Meet link. Event bắt đầu từ occurrence gần nhất và lặp vô hạn.
+- **Đồng bộ tự động:** Khi gọi `PUT /admin/calendar/classes/:classId/schedule` để cập nhật schedule pattern, hệ thống:
+  1. Xóa Google Calendar events cho các schedule entry bị xóa
+  2. Tạo/cập nhật Google Calendar events cho các schedule entry hiện tại
+  3. Lưu `googleCalendarEventId` + `meetLink` vào schedule JSON của class
+- **Enrich Meet link:** `CalendarService.enrichEventsWithMeetLinks()` lấy meetLink từ schedule entry (ưu tiên) hoặc session thực tế (fallback) để gán vào `ClassScheduleEventDto`.
+- **Frontend EventPopup:** Hiển thị:
+  - **Thứ** (Thứ Hai, Thứ Ba...) + ngày cụ thể
+  - **Giờ** (từ ... đến ...)
+  - **Gia sư phụ trách**
+  - Nút **"Vào Google Meet"** (mở tab mới) nếu có meetLink; ngược lại hiển thị thông báo "Chưa có link Google Meet"
+
+### 3.7 Session-level Calendar Sync
+
+Ngoài recurring events cho schedule, mỗi session thực tế cũng được sync riêng:
+
+- Khi tạo session mới (`SessionCreateService.createSession()`), hệ thống tự động gọi `resyncSessionCalendar()` để tạo/cập nhật Google Calendar event với Meet link.
+- Khi cập nhật session (`SessionUpdateService.updateSession()`) với thay đổi ngày/giờ, cũng gọi `resyncSessionCalendar()`.
+- Meet link từ session được lưu vào `session.googleMeetLink` và có thể được enrich vào calendar events.
+
 ---
 
-## 4) Error Handling
+## 4) Debug Logging
+
+Service ghi log chi tiết cho toàn bộ vòng đời CRUD với prefix `[Calendar CRUD:*]`:
+
+| Prefix Log | Khi nào xuất hiện |
+|------------|-------------------|
+| `[Calendar Startup]` | Khi app khởi động, hiển thị auth method nào được dùng |
+| `[ClassService]` | Khi `ClassService.updateClassSchedule()` gọi sync — 2 dòng: trước và sau sync |
+| `[Calendar CRUD:PUT]` | Khi gọi `PUT /admin/calendar/classes/:classId/schedule` |
+| `[Calendar CRUD:sync]` | Khi `syncScheduleWithCalendar` được gọi — log từng entry create/update/delete |
+| `[Calendar CRUD:GET]` | Khi gọi `GET /admin/calendar/class-schedule` hoặc `getEvent` |
+| `[Calendar CRUD:CREATE]` | Khi tạo Google Calendar event cho session |
+| `[Calendar CRUD:UPDATE]` | Khi cập nhật Google Calendar event cho session |
+| `[Calendar CRUD:DELETE]` | Khi xóa Google Calendar event |
+| `[Calendar]` (legacy) | Các log từ `resyncSessionCalendar`, `enrichEventsWithMeetLinks`, recurring event |
+
+**Flow sync schedule (từ cả 2 endpoint):**
+
+- **`PATCH /classes/:id/schedule`** — FE dùng `EditClassSchedulePopup` → `classApi.updateClassSchedule()` → `ClassService.updateClassSchedule()` → save DB → `calendarService.syncScheduleWithCalendar(id)`
+- **`PUT /admin/calendar/classes/:classId/schedule`** — `CalendarService.updateClassSchedulePattern()` → save DB → `syncScheduleWithCalendar(id)` trực tiếp
+
+**Log flow khi update schedule (qua PATCH classes):**
+```
+[ClassService] Calling syncScheduleWithCalendar for class {id} after schedule update
+[Calendar CRUD:sync] START syncScheduleWithCalendar for class {id}
+[Calendar CRUD:sync] Class "..." has N schedule entries in DB
+[Calendar CRUD:sync] PROCESS entry {id}: dayOfWeek=X, from=HH:mm, end=HH:mm, teacherEmails=[...], existingEventId=NEW|xxx
+  → [Calendar] Creating recurring event... (trong google-calendar.service)
+  → [Calendar] Google API response event.id: xxx, conferenceData: true/false
+[Calendar CRUD:sync] Entry {id} synced OK: eventId=xxx, meetLink=https://meet.google.com/...
+[Calendar CRUD:sync] Saving updated schedule back to DB...
+[Calendar CRUD:sync] DB save complete
+[ClassService] syncScheduleWithCalendar completed for class {id}
+```
+
+**Log flow khi update schedule (qua PUT calendar):**
+```
+[Calendar Admin PUT] Received PUT for class {id}, schedule entries: N
+[Calendar CRUD] === UPDATE CLASS SCHEDULE PATTERN START ===
+[Calendar CRUD] Incoming entries: [...]
+[Calendar CRUD] Old schedule has N entries: [...]
+[Calendar CRUD] Deleted entry IDs: [...]
+[Calendar CRUD] Deleting Google Calendar event for removed entry {id}: eventId=xxx
+[Calendar CRUD] Successfully deleted event xxx  (hoặc FAIL)
+[Calendar CRUD] Entries with IDs: [...]
+[Calendar CRUD] Saving schedule to DB...
+[Calendar CRUD] DB update complete
+[Calendar CRUD] Calling syncScheduleWithCalendar...
+[Calendar CRUD:sync] START syncScheduleWithCalendar for class {id}
+[Calendar CRUD:sync] Class "..." has N schedule entries in DB
+[Calendar CRUD:sync] Teacher map: emails={...}
+[Calendar CRUD:sync] PROCESS entry {id}: dayOfWeek=X, from=HH:mm, end=HH:mm, teacherEmails=[...], existingEventId=NEW|xxx
+  → [Calendar] Creating recurring event... (trong google-calendar.service)
+  → [Calendar] Google API response event.id: xxx, conferenceData: true/false
+[Calendar CRUD:sync] Entry {id} synced OK: eventId=xxx, meetLink=https://meet.google.com/...
+[Calendar CRUD:sync] Saving updated schedule back to DB...
+[Calendar CRUD:sync] DB save complete
+[Calendar CRUD] syncScheduleWithCalendar completed
+[Calendar Admin PUT] PUT completed, result: {...}
+```
+
+---
+
+## 5) Error Handling
 
 Service throws các custom error:
 
@@ -184,7 +271,7 @@ Service throws các custom error:
 
 ---
 
-## 5) Integration with Session Module
+## 6) Integration with Session Module
 
 Để tích hợp với session的生命cycle:
 
@@ -213,7 +300,7 @@ if (session.calendarEventId) {
 
 ---
 
-## 6) Testing
+## 7) Testing
 
 ### Unit Test
 
@@ -285,7 +372,7 @@ const mockCalendar = {
 
 ---
 
-## 7) Troubleshooting
+## 8) Troubleshooting
 
 | Issue | Solution |
 |-------|----------|
@@ -297,7 +384,7 @@ const mockCalendar = {
 
 ---
 
-## 8) Security Considerations
+## 9) Security Considerations
 
 - **Service Account Key** phải được bảo mật tuyệt đối (base64 encoding chỉ che giấu, không phải encryption)
 - Dùng secret management (ví dụ: Supabase Secrets, Railway Variables) cho production
@@ -306,7 +393,7 @@ const mockCalendar = {
 
 ---
 
-## 9) Performance Notes
+## 10) Performance Notes
 
 - API calls đến Google Calendar là synchronous, có thể gây latency
 - Nên xử lý async với background job nếu cần (ví dụ: Bull queue)
@@ -315,7 +402,7 @@ const mockCalendar = {
 
 ---
 
-## 10) Module Structure
+## 11) Module Structure
 
 ```
 apps/api/src/google-calendar/
@@ -330,7 +417,7 @@ apps/api/src/google-calendar/
 
 ---
 
-## 11) Future Enhancements
+## 12) Future Enhancements
 
 - [ ] Webhook để sync thay đổi từ Google Calendar về hệ thống
 - [ ] Chia sẻ calendar theo class với nhiều teachers

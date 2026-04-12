@@ -54,6 +54,22 @@ export class ClassScheduleEntryDto {
   @IsOptional()
   @IsUUID()
   teacherId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Google Calendar recurring event ID (auto-synced)',
+    example: 'abc123 recurring event id from google',
+  })
+  @IsOptional()
+  @IsString()
+  googleCalendarEventId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Google Meet link for this recurring schedule (auto-synced)',
+    example: 'https://meet.google.com/xxx-yyy-zzz',
+  })
+  @IsOptional()
+  @IsString()
+  meetLink?: string;
 }
 
 export class ClassSchedulePatternDto {
@@ -145,6 +161,14 @@ export class ClassScheduleEventDto {
   @IsOptional()
   @IsString()
   patternEntryId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Google Meet link from the corresponding session (if exists)',
+    example: 'https://meet.google.com/xxx-yyy-zzz',
+  })
+  @IsOptional()
+  @IsString()
+  meetLink?: string;
 }
 
 export class ClassScheduleFilterDto {

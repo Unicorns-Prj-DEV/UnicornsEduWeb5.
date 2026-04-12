@@ -7,9 +7,19 @@ interface EventPopupProps {
   onClose: () => void;
 }
 
+const DAY_NAMES = [
+  "Chủ Nhật",
+  "Thứ Hai",
+  "Thứ Ba",
+  "Thứ Tư",
+  "Thứ Năm",
+  "Thứ Sáu",
+  "Thứ Bảy",
+];
+
 /**
  * EventPopup component displays class details when a calendar event is clicked
- * Shows class name, date, time, and teacher information
+ * Shows day of week, time range, responsible teacher, and Google Meet link
  */
 export default function EventPopup({ event, onClose }: EventPopupProps) {
   const formatTime = (time?: string) => {
@@ -17,13 +27,17 @@ export default function EventPopup({ event, onClose }: EventPopupProps) {
     return time.slice(0, 5);
   };
 
+  const getDayOfWeek = (dateStr: string) => {
+    const date = new Date(dateStr + "T00:00:00");
+    return DAY_NAMES[date.getDay()] || "";
+  };
+
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr + "T00:00:00");
     return date.toLocaleDateString("vi-VN", {
-      weekday: "long",
+      day: "2-digit",
+      month: "2-digit",
       year: "numeric",
-      month: "long",
-      day: "numeric",
     });
   };
 
@@ -75,26 +89,55 @@ export default function EventPopup({ event, onClose }: EventPopupProps) {
 
           {/* Event Details */}
           <div className="mt-4 space-y-3">
-            {/* Date & Time */}
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className="rounded-lg border border-border-default bg-bg-secondary p-3">
-                <p className="text-xs font-medium uppercase text-text-muted">Ngày</p>
-                <p className="mt-1 text-sm text-text-primary">{formatDate(event.date)}</p>
-              </div>
-              <div className="rounded-lg border border-border-default bg-bg-secondary p-3">
-                <p className="text-xs font-medium uppercase text-text-muted">Thời gian</p>
-                <p className="mt-1 text-sm text-text-primary">
-                  {formatTime(event.startTime)} - {formatTime(event.endTime)}
-                </p>
-              </div>
+            {/* Day & Date */}
+            <div className="rounded-lg border border-border-default bg-bg-secondary p-3">
+              <p className="text-xs font-medium uppercase text-text-muted">Thứ</p>
+              <p className="mt-1 text-sm font-medium text-text-primary">
+                {getDayOfWeek(event.date)}
+                <span className="ml-2 text-text-secondary">({formatDate(event.date)})</span>
+              </p>
             </div>
 
-            {/* Teachers */}
+            {/* Time */}
+            <div className="rounded-lg border border-border-default bg-bg-secondary p-3">
+              <p className="text-xs font-medium uppercase text-text-muted">Giờ</p>
+              <p className="mt-1 text-sm text-text-primary">
+                {formatTime(event.startTime)} - {formatTime(event.endTime)}
+              </p>
+            </div>
+
+            {/* Teacher */}
             {event.teacherNames.length > 0 && (
               <div className="rounded-lg border border-border-default bg-bg-secondary p-3">
-                <p className="text-xs font-medium uppercase text-text-muted">Gia sư</p>
+                <p className="text-xs font-medium uppercase text-text-muted">Gia sư phụ trách</p>
                 <p className="mt-1 text-sm text-text-primary">
                   {event.teacherNames.join(", ")}
+                </p>
+              </div>
+            )}
+
+            {/* Google Meet Link */}
+            {event.meetLink ? (
+              <a
+                href={event.meetLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 rounded-lg border border-blue-400/40 bg-blue-500/10 px-4 py-3 text-sm font-semibold text-blue-500 transition-colors hover:bg-blue-500/20 focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+              >
+                <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+                Vào Google Meet
+              </a>
+            ) : (
+              <div className="rounded-lg border border-border-default bg-bg-secondary p-3 text-center">
+                <p className="text-sm text-text-muted">
+                  Chưa có link Google Meet cho buổi học này
                 </p>
               </div>
             )}

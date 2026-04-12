@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleInit, Scope } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { v4 as uuidv4 } from 'uuid';
-import { JWT } from 'google-auth-library';
+import { JWT, OAuth2Client } from 'google-auth-library';
 import { calendar_v3, google } from 'googleapis';
 
 import {
@@ -82,11 +82,22 @@ export class GoogleCalendarService implements OnModuleInit {
     const timeZone =
       this.configService.get<string>('GOOGLE_TIME_ZONE') || this.DEFAULT_TIME_ZONE;
 
+    // OAuth2 user credentials (preferred for Google Meet support)
+    const googleClientId =
+      this.configService.get<string>('GOOGLE_OAUTH_CLIENT_ID');
+    const googleClientSecret =
+      this.configService.get<string>('GOOGLE_OAUTH_CLIENT_SECRET');
+    const googleRefreshToken =
+      this.configService.get<string>('GOOGLE_REFRESH_TOKEN');
+
     return {
       serviceAccountKeyBase64,
       serviceAccountJsonPath,
       calendarId,
       timeZone,
+      googleClientId,
+      googleClientSecret,
+      googleRefreshToken,
     };
   }
 
@@ -122,39 +133,76 @@ export class GoogleCalendarService implements OnModuleInit {
   }
 
   private async initializeCalendar(): Promise<void> {
-    if (!this.config.serviceAccountKeyBase64 && !this.config.serviceAccountJsonPath) {
-      this.logger.warn(
-        'Google Calendar not configured: Missing GOOGLE_SERVICE_ACCOUNT_KEY or GOOGLE_SERVICE_ACCOUNT_JSON_PATH',
-      );
+    const { googleClientId, googleClientSecret, googleRefreshToken, serviceAccountKeyBase64, serviceAccountJsonPath } = this.config;
+
+    this.logger.log(`[Calendar Startup] Initializing Google Calendar...`);
+    this.logger.log(`[Calendar Startup] OAuth: clientId=${!!googleClientId}, clientSecret=${!!googleClientSecret}, refreshToken=${!!googleRefreshToken}`);
+    this.logger.log(`[Calendar Startup] ServiceAccount: keyBase64=${!!serviceAccountKeyBase64}, jsonPath=${!!serviceAccountJsonPath}`);
+
+    // Prefer OAuth2 user authentication (supports Google Meet)
+    if (googleRefreshToken && googleClientId && googleClientSecret) {
+      try {
+        this.logger.log(`[Calendar Startup] Attempting OAuth2 authentication...`);
+        const oauth2Client = new OAuth2Client(googleClientId, googleClientSecret);
+        oauth2Client.setCredentials({ refresh_token: googleRefreshToken });
+
+        // Force token refresh to verify credentials are valid
+        const tokenInfo = await oauth2Client.getAccessToken();
+        if (!tokenInfo.token) {
+          throw new Error('Failed to obtain access token from refresh token');
+        }
+
+        this.logger.log(`[Calendar Startup] OAuth2 token obtained successfully`);
+
+        this.calendar = google.calendar({
+          version: 'v3',
+          auth: oauth2Client,
+        }) as calendar_v3.Calendar;
+
+        this.logger.log(`[Calendar Startup] Google Calendar initialized via OAuth2 user credentials`);
+        return;
+      } catch (error) {
+        this.logger.error(`[Calendar Startup] OAuth2 authentication failed: ${error}`);
+        throw new GoogleCalendarAuthError(`OAuth2 authentication failed: ${error}`);
+      }
+    }
+
+    this.logger.log(`[Calendar Startup] OAuth2 not configured, falling back to service account`);
+
+    // Fallback to service account (no Meet support)
+    if (serviceAccountKeyBase64 || serviceAccountJsonPath) {
+      const credentials = await this.getServiceAccountCredentials();
+      if (!credentials) {
+        throw new GoogleCalendarInvalidConfigurationError(
+          'Failed to load service account credentials',
+        );
+      }
+
+      try {
+        const auth = new JWT({
+          email: credentials.client_email,
+          key: credentials.private_key,
+          scopes: [this.GOOGLE_CALENDAR_SCOPE],
+        });
+
+        const authClient = await auth.authorize() as CalendarAuthClient;
+
+        this.calendar = google.calendar({
+          version: 'v3',
+          auth: authClient.accessToken,
+        }) as calendar_v3.Calendar;
+
+        this.logger.log(`[Calendar Startup] Google Calendar initialized via service account (${credentials.client_email})`);
+      } catch (error) {
+        this.logger.error(`[Calendar Startup] Service account authorization failed: ${error}`);
+        throw new GoogleCalendarAuthError(`Authentication failed: ${error}`);
+      }
       return;
     }
 
-    const credentials = await this.getServiceAccountCredentials();
-    if (!credentials) {
-      throw new GoogleCalendarInvalidConfigurationError(
-        'Failed to load service account credentials',
-      );
-    }
-
-    try {
-      const auth = new JWT({
-        email: credentials.client_email,
-        key: credentials.private_key,
-        scopes: [this.GOOGLE_CALENDAR_SCOPE],
-      });
-
-      const authClient = await auth.authorize() as CalendarAuthClient;
-
-      this.calendar = google.calendar({
-        version: 'v3',
-        auth: authClient.accessToken,
-      }) as calendar_v3.Calendar;
-
-      this.logger.log('Google Calendar client initialized successfully');
-    } catch (error) {
-      this.logger.error(`Failed to authorize Google Calendar: ${error}`);
-      throw new GoogleCalendarAuthError(`Authentication failed: ${error}`);
-    }
+    this.logger.warn(
+      `[Calendar Startup] Google Calendar NOT configured: No OAuth2 credentials or service account found`,
+    );
   }
 
   private checkCalendarInitialized(): void {
@@ -183,38 +231,33 @@ export class GoogleCalendarService implements OnModuleInit {
   ): GoogleCalendarEventData {
     const timeZone = this.config.timeZone || this.DEFAULT_TIME_ZONE;
 
-    // Combine date with time
+    // Format session date and time directly as strings (no Date manipulation)
     const sessionDate = new Date(session.date);
-    let startDateTime: Date;
-    let endDateTime: Date;
+    const dateStr = `${sessionDate.getFullYear()}-${String(sessionDate.getMonth() + 1).padStart(2, '0')}-${String(sessionDate.getDate()).padStart(2, '0')}`;
+
+    let startDateTimeStr: string;
+    let endDateTimeStr: string;
 
     if (session.startTime) {
-      startDateTime = new Date(session.startTime);
-      startDateTime.setFullYear(
-        sessionDate.getFullYear(),
-        sessionDate.getMonth(),
-        sessionDate.getDate(),
-      );
+      const startTime = new Date(session.startTime);
+      startDateTimeStr = `${dateStr}T${String(startTime.getHours()).padStart(2, '0')}:${String(startTime.getMinutes()).padStart(2, '0')}:${String(startTime.getSeconds()).padStart(2, '0')}`;
     } else {
-      startDateTime = new Date(sessionDate);
-      startDateTime.setHours(14, 0, 0, 0);
+      startDateTimeStr = `${dateStr}T14:00:00`;
     }
 
     if (session.endTime) {
-      endDateTime = new Date(session.endTime);
-      endDateTime.setFullYear(
-        sessionDate.getFullYear(),
-        sessionDate.getMonth(),
-        sessionDate.getDate(),
-      );
+      const endTime = new Date(session.endTime);
+      endDateTimeStr = `${dateStr}T${String(endTime.getHours()).padStart(2, '0')}:${String(endTime.getMinutes()).padStart(2, '0')}:${String(endTime.getSeconds()).padStart(2, '0')}`;
     } else {
-      endDateTime = new Date(startDateTime);
-      endDateTime.setHours(endDateTime.getHours() + 2);
+      const startParts = startDateTimeStr.split('T')[1].split(':').map(Number);
+      const endHours = (startParts[0] ?? 14) + 2;
+      endDateTimeStr = `${dateStr}T${String(endHours).padStart(2, '0')}:${String(startParts[1] ?? 0).padStart(2, '0')}:00`;
     }
 
-    if (endDateTime <= startDateTime) {
-      endDateTime = new Date(startDateTime);
-      endDateTime.setHours(endDateTime.getHours() + 2);
+    if (endDateTimeStr <= startDateTimeStr) {
+      const startParts = startDateTimeStr.split('T')[1].split(':').map(Number);
+      const endHours = (startParts[0] ?? 14) + 2;
+      endDateTimeStr = `${dateStr}T${String(endHours).padStart(2, '0')}:${String(startParts[1] ?? 0).padStart(2, '0')}:00`;
     }
 
     const summary = `[Class] ${className} - Session ${session.id.slice(0, 8)}`;
@@ -223,8 +266,8 @@ export class GoogleCalendarService implements OnModuleInit {
     return {
       summary,
       description,
-      startDateTime,
-      endDateTime,
+      startDateTimeStr,
+      endDateTimeStr,
       timeZone,
       attendees: [
         {
@@ -270,6 +313,7 @@ export class GoogleCalendarService implements OnModuleInit {
     teacherEmail: string,
     className: string,
   ): Promise<CreateCalendarEventResult> {
+    this.logger.log(`[Calendar CRUD:CREATE] createCalendarEvent: sessionId=${sessionId}, teacherEmail=${teacherEmail}, className=${className}`);
     this.checkCalendarInitialized();
 
     const session = await this.prisma.session.findUnique({
@@ -305,8 +349,10 @@ export class GoogleCalendarService implements OnModuleInit {
       effectiveTeacherEmail,
       className || session.class.name,
     );
+    this.logger.log(`[Calendar CRUD:CREATE] Event data: summary=${eventData.summary}, start=${eventData.startDateTimeStr}, end=${eventData.endDateTimeStr}`);
 
     const requestId = uuidv4();
+    this.logger.log(`[Calendar CRUD:CREATE] conferenceData.createRequest requestId=${requestId}`);
 
     try {
       const response = await this.calendar.events.insert({
@@ -315,11 +361,11 @@ export class GoogleCalendarService implements OnModuleInit {
           summary: eventData.summary,
           description: eventData.description,
           start: {
-            dateTime: eventData.startDateTime.toISOString(),
+            dateTime: eventData.startDateTimeStr,
             timeZone: eventData.timeZone,
           },
           end: {
-            dateTime: eventData.endDateTime.toISOString(),
+            dateTime: eventData.endDateTimeStr,
             timeZone: eventData.timeZone,
           },
           attendees: eventData.attendees,
@@ -337,15 +383,16 @@ export class GoogleCalendarService implements OnModuleInit {
         (ep) => ep.entryPointType === 'video',
       )?.uri || '';
 
-      this.logger.log(
-        `Created Google Calendar event: ${event.id} for session ${sessionId}`,
-      );
+      this.logger.log(`[Calendar CRUD:CREATE] API response: eventId=${event.id}, conferenceData=${!!event.conferenceData}, meetLink=${meetLink || '(none)'}`);
+      this.logger.log(`[Calendar CRUD:CREATE] Created Google Calendar event: ${event.id} for session ${sessionId}`);
 
       return {
         eventId: event.id,
         meetLink: meetLink,
       };
     } catch (error) {
+      const stack = error instanceof Error ? error.stack : String(error);
+      this.logger.error(`[Calendar CRUD:CREATE] Failed to create event for session ${sessionId}: ${stack}`);
       this.handleApiError(error, 'Failed to create calendar event');
       throw new GoogleCalendarApiError(
         `Failed to create calendar event for session ${sessionId}`,
@@ -358,6 +405,7 @@ export class GoogleCalendarService implements OnModuleInit {
     eventId: string,
     sessionId: string,
   ): Promise<CreateCalendarEventResult> {
+    this.logger.log(`[Calendar CRUD:UPDATE] updateCalendarEvent: eventId=${eventId}, sessionId=${sessionId}`);
     this.checkCalendarInitialized();
 
     const existingEvent = await this.getEvent(eventId);
@@ -392,6 +440,7 @@ export class GoogleCalendarService implements OnModuleInit {
       teacherEmail,
       session.class.name,
     );
+    this.logger.log(`[Calendar CRUD:UPDATE] Updating event: summary=${eventData.summary}, start=${eventData.startDateTimeStr}, end=${eventData.endDateTimeStr}`);
 
     try {
       const response = await this.calendar.events.update({
@@ -401,11 +450,11 @@ export class GoogleCalendarService implements OnModuleInit {
           summary: eventData.summary,
           description: eventData.description,
           start: {
-            dateTime: eventData.startDateTime.toISOString(),
+            dateTime: eventData.startDateTimeStr,
             timeZone: eventData.timeZone,
           },
           end: {
-            dateTime: eventData.endDateTime.toISOString(),
+            dateTime: eventData.endDateTimeStr,
             timeZone: eventData.timeZone,
           },
           attendees:
@@ -421,15 +470,16 @@ export class GoogleCalendarService implements OnModuleInit {
         (ep) => ep.entryPointType === 'video',
       )?.uri || '';
 
-      this.logger.log(
-        `Updated Google Calendar event: ${eventId} for session ${sessionId}`,
-      );
+      this.logger.log(`[Calendar CRUD:UPDATE] API response: eventId=${event.id}, conferenceData=${!!event.conferenceData}, meetLink=${meetLink || '(none)'}`);
+      this.logger.log(`[Calendar CRUD:UPDATE] Updated Google Calendar event: ${eventId} for session ${sessionId}`);
 
       return {
         eventId: event.id,
         meetLink: meetLink,
       };
     } catch (error) {
+      const stack = error instanceof Error ? error.stack : String(error);
+      this.logger.error(`[Calendar CRUD:UPDATE] Failed to update event ${eventId} for session ${sessionId}: ${stack}`);
       this.handleApiError(error, 'Failed to update calendar event');
       throw new GoogleCalendarApiError(
         `Failed to update calendar event ${eventId}`,
@@ -439,9 +489,16 @@ export class GoogleCalendarService implements OnModuleInit {
   }
 
   async resyncSessionCalendar(sessionId: string): Promise<void> {
-    if (!this.config.serviceAccountKeyBase64 && !this.config.serviceAccountJsonPath) {
+    // Check if any calendar credentials are configured (OAuth2 or service account)
+    const hasOAuth2 = !!(this.config.googleRefreshToken && this.config.googleClientId && this.config.googleClientSecret);
+    const hasServiceAccount = !!(this.config.serviceAccountKeyBase64 || this.config.serviceAccountJsonPath);
+
+    if (!hasOAuth2 && !hasServiceAccount) {
+      this.logger.log(`[Calendar] resyncSessionCalendar(${sessionId}): No Google Calendar credentials configured, skipping`);
       return;
     }
+
+    this.logger.log(`[Calendar] resyncSessionCalendar(${sessionId}): Starting calendar sync, auth method: ${hasOAuth2 ? 'OAuth2' : 'Service Account'}`);
 
     this.checkCalendarInitialized();
 
@@ -456,10 +513,12 @@ export class GoogleCalendarService implements OnModuleInit {
 
     try {
       if (session.googleCalendarEventId) {
+        this.logger.log(`[Calendar] resyncSessionCalendar(${sessionId}): Updating existing event ${session.googleCalendarEventId}`);
         const result = await this.updateCalendarEvent(
           session.googleCalendarEventId,
           sessionId,
         );
+        this.logger.log(`[Calendar] resyncSessionCalendar(${sessionId}): Updated event, meetLink=${result.meetLink || '(none)'}`);
         await this.prisma.session.update({
           where: { id: sessionId },
           data: {
@@ -471,7 +530,9 @@ export class GoogleCalendarService implements OnModuleInit {
         return;
       }
 
+      this.logger.log(`[Calendar] resyncSessionCalendar(${sessionId}): Creating new calendar event`);
       const result = await this.createCalendarEvent(sessionId, '', '');
+      this.logger.log(`[Calendar] resyncSessionCalendar(${sessionId}): Created event ${result.eventId}, meetLink=${result.meetLink || '(none)'}`);
       await this.prisma.session.update({
         where: { id: sessionId },
         data: {
@@ -483,6 +544,7 @@ export class GoogleCalendarService implements OnModuleInit {
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(`[Calendar] resyncSessionCalendar(${sessionId}): Error: ${message}`);
       await this.prisma.session
         .update({
           where: { id: sessionId },
@@ -494,6 +556,7 @@ export class GoogleCalendarService implements OnModuleInit {
   }
 
   async deleteCalendarEvent(eventId: string): Promise<void> {
+    this.logger.log(`[Calendar CRUD:DELETE] Deleting Google Calendar event: eventId=${eventId}`);
     this.checkCalendarInitialized();
 
     try {
@@ -502,16 +565,18 @@ export class GoogleCalendarService implements OnModuleInit {
         eventId,
       });
 
-      this.logger.log(`Deleted Google Calendar event: ${eventId}`);
+      this.logger.log(`[Calendar CRUD:DELETE] Successfully deleted event ${eventId}`);
     } catch (error: unknown) {
       if (
         error instanceof Error &&
         error.message?.includes('not found')
       ) {
-        this.logger.warn(`Event ${eventId} not found during delete, treating as success`);
+        this.logger.warn(`[Calendar CRUD:DELETE] Event ${eventId} not found during delete, treating as success`);
         return;
       }
 
+      const stack = error instanceof Error ? error.stack : String(error);
+      this.logger.error(`[Calendar CRUD:DELETE] Failed to delete event ${eventId}: ${stack}`);
       this.handleApiError(error, 'Failed to delete calendar event');
       throw new GoogleCalendarApiError(
         `Failed to delete calendar event ${eventId}`,
@@ -521,6 +586,7 @@ export class GoogleCalendarService implements OnModuleInit {
   }
 
   async getEvent(eventId: string): Promise<GoogleCalendarEvent> {
+    this.logger.log(`[Calendar CRUD:GET] getEvent: eventId=${eventId}`);
     this.checkCalendarInitialized();
 
     try {
@@ -529,6 +595,7 @@ export class GoogleCalendarService implements OnModuleInit {
         eventId,
       });
 
+      this.logger.log(`[Calendar CRUD:GET] Got event ${eventId}: summary=${response.data.summary || '(none)'}, conferenceData=${!!response.data.conferenceData}`);
       return response.data as GoogleCalendarEvent;
     } catch (error) {
       this.handleApiError(error, 'Failed to get calendar event');
@@ -591,6 +658,10 @@ export class GoogleCalendarService implements OnModuleInit {
       end,
     } = params;
 
+    this.logger.log(`[Calendar] Creating recurring event for class "${className}" (${classId}), entry ${entryId}`);
+    this.logger.log(`[Calendar] dayOfWeek=${dayOfWeek}, from=${from}, end=${end}, teacherEmails=${JSON.stringify(teacherEmails)}`);
+    this.logger.log(`[Calendar] calendarId=${this.config.calendarId || 'primary'}, calendarEventId=${calendarEventId || 'new'}`);
+
     const dayMap: Record<number, string> = {
       0: 'SU',
       1: 'MO',
@@ -605,31 +676,25 @@ export class GoogleCalendarService implements OnModuleInit {
       throw new Error(`Invalid dayOfWeek: ${dayOfWeek}`);
     }
 
-    const today = new Date();
+    // Calculate first occurrence date (next date matching dayOfWeek)
+    const vnTimeZone = this.config.timeZone || this.DEFAULT_TIME_ZONE;
+    const nowInVN = new Date(new Date().toLocaleString('en-US', { timeZone: vnTimeZone }));
+    const today = new Date(nowInVN);
     today.setHours(0, 0, 0, 0);
     const currentDay = today.getDay();
     const diff = (dayOfWeek - currentDay + 7) % 7;
     const firstOccurrence = new Date(today);
     firstOccurrence.setDate(today.getDate() + diff);
 
-    const parseTime = (timeStr: string) => {
-      const parts = timeStr.split(':').map(Number);
-      const hours = parts[0] ?? 0;
-      const minutes = parts[1] ?? 0;
-      const seconds = parts[2] ?? 0;
-      return { hours, minutes, seconds };
-    };
+    // Format date string directly (no Date manipulation — exact time from schedule)
+    const dateStr = `${firstOccurrence.getFullYear()}-${String(firstOccurrence.getMonth() + 1).padStart(2, '0')}-${String(firstOccurrence.getDate()).padStart(2, '0')}`;
+    const startDateTimeStr = `${dateStr}T${from}`;
+    const endDateTimeStr = `${dateStr}T${end}`;
 
-    const { hours: startHours, minutes: startMinutes, seconds: startSeconds } = parseTime(from);
-    const { hours: endHours, minutes: endMinutes, seconds: endSeconds } = parseTime(end);
+    this.logger.log(`[Calendar] First occurrence (VN): ${dateStr}, time: ${from}-${end}, dateTime: ${startDateTimeStr}`);
 
-    const startDateTime = new Date(firstOccurrence);
-    startDateTime.setHours(startHours, startMinutes, startSeconds, 0);
-
-    const endDateTime = new Date(firstOccurrence);
-    endDateTime.setHours(endHours, endMinutes, endSeconds, 0);
-
-    if (endDateTime <= startDateTime) {
+    // Validate time range by comparing the time strings directly
+    if (end <= from) {
       throw new Error(
         `Invalid time range for class ${classId}: ${from} - ${end}`,
       );
@@ -662,11 +727,11 @@ export class GoogleCalendarService implements OnModuleInit {
       summary,
       description,
       start: {
-        dateTime: startDateTime.toISOString(),
+        dateTime: startDateTimeStr,
         timeZone: this.config.timeZone || this.DEFAULT_TIME_ZONE,
       },
       end: {
-        dateTime: endDateTime.toISOString(),
+        dateTime: endDateTimeStr,
         timeZone: this.config.timeZone || this.DEFAULT_TIME_ZONE,
       },
       recurrence: [`RRULE:FREQ=WEEKLY;BYDAY=${byday}`],
@@ -681,8 +746,15 @@ export class GoogleCalendarService implements OnModuleInit {
       },
     };
 
+    this.logger.log(`[Calendar] Event body summary: ${summary}`);
+    this.logger.log(`[Calendar] conferenceData.createRequest present: true`);
+    this.logger.log(`[Calendar] Conference data version will be set to 1`);
+
     try {
       let response;
+      const action = existingEventId ? 'update' : 'create';
+      this.logger.log(`[Calendar] ${action === 'update' ? 'Updating' : 'Creating'} recurring event on Google Calendar...`);
+
       if (existingEventId) {
         response = await this.calendar.events.update({
           calendarId: this.config.calendarId || 'primary',
@@ -699,7 +771,12 @@ export class GoogleCalendarService implements OnModuleInit {
       }
 
       const event = response.data as GoogleCalendarEvent;
+      this.logger.log(`[Calendar] Google API response event.id: ${event.id}`);
+      this.logger.log(`[Calendar] conferenceData present: ${!!event.conferenceData}`);
+      this.logger.log(`[Calendar] conferenceData raw: ${JSON.stringify(event.conferenceData, null, 2)}`);
+
       if (!event.id) {
+        this.logger.error(`[Calendar] Google Calendar did not return an event id for class ${className}`);
         throw new GoogleCalendarApiError(
           `Google Calendar did not return an event id for class ${className}`,
         );
@@ -709,12 +786,17 @@ export class GoogleCalendarService implements OnModuleInit {
           (ep) => ep.entryPointType === 'video',
         )?.uri || '';
 
-      this.logger.log(
-        `Created/updated Google Calendar event: ${event.id} for class ${className}`,
-      );
+      if (meetLink) {
+        this.logger.log(`[Calendar] Meet link created: ${meetLink}`);
+      } else {
+        this.logger.warn(`[Calendar] WARNING: No Meet link in response for class ${className}. This may indicate OAuth2 user credentials are not configured or conferenceData.createRequest was not processed.`);
+      }
+
+      this.logger.log(`[Calendar] ${action === 'update' ? 'Updated' : 'Created'} Google Calendar recurring event: ${event.id} for class ${className}, meetLink=${meetLink || '(none)'}`);
 
       return { eventId: event.id, meetLink: meetLink || undefined };
     } catch (error) {
+      this.logger.error(`[Calendar] Error creating/updating recurring event:`, error);
       this.handleApiError(
         error,
         'Failed to create/update class schedule recurring event',

@@ -12,6 +12,8 @@ export interface ClassScheduleEntry {
   from: string; // HH:mm:ss format
   to: string; // HH:mm:ss format
   teacherId?: string; // Responsible tutor for this recurring slot
+  googleCalendarEventId?: string; // Google Calendar recurring event ID
+  meetLink?: string; // Google Meet link for this recurring schedule
 }
 
 /**
@@ -27,6 +29,7 @@ export interface ClassScheduleEvent {
   startTime?: string; // HH:mm:ss format (optional if full day)
   endTime?: string; // HH:mm:ss format
   patternEntryId?: string; // Reference to the ClassScheduleEntry that generated this
+  meetLink?: string; // Google Meet link from the corresponding session/schedule
 }
 
 /**

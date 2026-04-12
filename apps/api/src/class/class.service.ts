@@ -22,6 +22,8 @@ import {
 import { Prisma } from '../../generated/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StaffOperationsAccessService } from 'src/staff-ops/staff-operations-access.service';
+import { CalendarService } from 'src/calendar/calendar.service';
+import { Logger } from '@nestjs/common';
 
 function normalizeNullableMoney(
   value: number | null | undefined,
@@ -85,6 +87,8 @@ type StoredClassScheduleEntry = {
   to?: string;
   end?: string;
   teacherId?: string;
+  googleCalendarEventId?: string;
+  meetLink?: string;
 };
 
 @Injectable()
@@ -93,7 +97,10 @@ export class ClassService {
     private readonly prisma: PrismaService,
     private readonly staffOperationsAccess: StaffOperationsAccessService,
     private readonly actionHistoryService: ActionHistoryService,
+    private readonly calendarService: CalendarService,
   ) {}
+
+  private readonly logger = new Logger(ClassService.name);
 
   private isTeacherActor(roles: string[]) {
     return roles.length > 0;
@@ -125,6 +132,12 @@ export class ClassService {
           end: typeof entry.end === 'string' ? entry.end : undefined,
           teacherId:
             typeof entry.teacherId === 'string' ? entry.teacherId : undefined,
+          googleCalendarEventId:
+            typeof entry.googleCalendarEventId === 'string'
+              ? entry.googleCalendarEventId
+              : undefined,
+          meetLink:
+            typeof entry.meetLink === 'string' ? entry.meetLink : undefined,
         };
       });
   }
@@ -136,6 +149,8 @@ export class ClassService {
       from?: string;
       to?: string;
       teacherId?: string;
+      googleCalendarEventId?: string;
+      meetLink?: string;
     }>,
   ): Prisma.InputJsonValue {
     return entries.map((entry) => ({
@@ -146,6 +161,10 @@ export class ClassService {
       ...(entry.from ? { from: entry.from } : {}),
       ...(entry.to ? { to: entry.to } : {}),
       ...(entry.teacherId ? { teacherId: entry.teacherId } : {}),
+      ...(entry.googleCalendarEventId
+        ? { googleCalendarEventId: entry.googleCalendarEventId }
+        : {}),
+      ...(entry.meetLink ? { meetLink: entry.meetLink } : {}),
     })) as Prisma.InputJsonValue;
   }
 
@@ -171,6 +190,8 @@ export class ClassService {
         from: entry.from,
         to: entry.to,
         teacherId: entry.teacherId,
+        googleCalendarEventId: existingEntry?.googleCalendarEventId,
+        meetLink: existingEntry?.meetLink,
       };
     });
   }
@@ -966,6 +987,7 @@ export class ClassService {
       dto.schedule,
       existing.schedule,
     );
+
     const teacherIds = Array.from(
       new Set(
         normalizedScheduleEntries
@@ -1012,7 +1034,7 @@ export class ClassService {
       normalizedScheduleEntries,
     );
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const beforeValue = auditActor
         ? await this.getClassAuditSnapshot(tx, id)
         : null;
@@ -1039,6 +1061,21 @@ export class ClassService {
 
       return afterValue;
     });
+
+    // Sync with Google Calendar after schedule change
+    // Pass old schedule so sync can delete old events before creating new ones
+    try {
+      const oldSchedule = this.getStoredClassScheduleEntries(existing.schedule);
+      this.logger.log(`[ClassService] Calling syncScheduleWithCalendar for class ${id} after schedule update, oldSchedule entries: ${oldSchedule.length}`);
+      await this.calendarService.syncScheduleWithCalendar(id, oldSchedule);
+      this.logger.log(`[ClassService] syncScheduleWithCalendar completed for class ${id}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(`[ClassService] Failed to sync schedule with Google Calendar for class ${id}: ${message}`);
+      // Do not fail the schedule update if calendar sync fails
+    }
+
+    return result;
   }
 
   async updateClassStudents(

@@ -5,9 +5,10 @@ import { CalendarEventsController } from './calendar-events.controller';
 import { CalendarController } from './calendar.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { StaffOperationsModule } from '../staff-ops/staff-operations.module';
+import { GoogleCalendarModule } from '../google-calendar/google-calendar.module';
 
 @Module({
-  imports: [PrismaModule, StaffOperationsModule],
+  imports: [PrismaModule, StaffOperationsModule, GoogleCalendarModule],
   controllers: [
     CalendarAdminController,
     CalendarEventsController,

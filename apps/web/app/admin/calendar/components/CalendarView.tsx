@@ -161,6 +161,7 @@ export default function CalendarView({
             patternEntryId: event.patternEntryId,
             startTime: event.startTime,
             endTime: event.endTime,
+            meetLink: event.meetLink,
             palette,
           },
         };
@@ -220,6 +221,7 @@ export default function CalendarView({
       startTime?: string;
       endTime?: string;
       patternEntryId?: string;
+      meetLink?: string;
     };
 
     // Build our ClassScheduleEvent DTO
@@ -239,6 +241,7 @@ export default function CalendarView({
       startTime: extendedProps.startTime,
       endTime: extendedProps.endTime,
       patternEntryId: extendedProps.patternEntryId,
+      meetLink: extendedProps.meetLink,
     };
 
     onEventClick(classScheduleEvent);

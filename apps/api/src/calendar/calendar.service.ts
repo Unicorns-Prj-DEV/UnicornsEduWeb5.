@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '../../generated/client';
+import { GoogleCalendarService } from '../google-calendar/google-calendar.service';
 import {
   CalendarEventFilterDto,
   ResyncResponseDto,
@@ -15,6 +16,7 @@ import {
   ClassScheduleFilterDto,
 } from '../dtos/class-schedule.dto';
 import { StaffRole } from 'generated/enums';
+import { v4 as uuidv4 } from 'uuid';
 
 export interface CalendarEvent {
   sessionId: string;
@@ -49,6 +51,8 @@ interface StoredClassScheduleEntry {
   to?: string;
   end?: string;
   teacherId?: string;
+  googleCalendarEventId?: string;
+  meetLink?: string;
 }
 
 @Injectable()
@@ -57,6 +61,7 @@ export class CalendarService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly googleCalendarService: GoogleCalendarService,
   ) {}
 
   private getStoredClassScheduleEntries(
@@ -85,6 +90,14 @@ export class CalendarService {
           end: typeof entry.end === 'string' ? entry.end : undefined,
           teacherId:
             typeof entry.teacherId === 'string' ? entry.teacherId : undefined,
+          googleCalendarEventId:
+            typeof entry.googleCalendarEventId === 'string'
+              ? entry.googleCalendarEventId
+              : undefined,
+          meetLink:
+            typeof entry.meetLink === 'string'
+              ? entry.meetLink
+              : undefined,
         };
       });
   }
@@ -96,6 +109,8 @@ export class CalendarService {
       from?: string;
       to?: string;
       teacherId?: string;
+      googleCalendarEventId?: string;
+      meetLink?: string;
     }>,
   ): Prisma.InputJsonValue {
     return entries.map((entry) => ({
@@ -106,6 +121,10 @@ export class CalendarService {
       ...(entry.from ? { from: entry.from } : {}),
       ...(entry.to ? { to: entry.to } : {}),
       ...(entry.teacherId ? { teacherId: entry.teacherId } : {}),
+      ...(entry.googleCalendarEventId
+        ? { googleCalendarEventId: entry.googleCalendarEventId }
+        : {}),
+      ...(entry.meetLink ? { meetLink: entry.meetLink } : {}),
     })) as Prisma.InputJsonValue;
   }
 
@@ -486,6 +505,7 @@ export class CalendarService {
     filters: ClassScheduleFilterDto,
   ): Promise<{ success: boolean; data: ClassScheduleEventDto[]; total: number }> {
     const { startDate, endDate, classId, teacherId } = filters;
+    this.logger.log(`[Calendar CRUD:GET] getClassScheduleEvents: startDate=${startDate}, endDate=${endDate}, classId=${classId || '(all)'}, teacherId=${teacherId || '(all)'}`);
 
     const startDt = this.parseDateOnly(startDate);
     startDt.setHours(0, 0, 0, 0);
@@ -520,11 +540,13 @@ export class CalendarService {
         },
       },
     });
+    this.logger.log(`[Calendar CRUD:GET] Found ${classes.length} classes matching filters`);
 
     const events: ClassScheduleEventDto[] = [];
 
     for (const cls of classes) {
       const rawSchedule = this.getStoredClassScheduleEntries(cls.schedule);
+      this.logger.log(`[Calendar CRUD:GET] Class "${cls.name}" has ${rawSchedule.length} schedule entries`);
       for (const entry of rawSchedule) {
         const dayOfWeek = entry.dayOfWeek;
         if (dayOfWeek === undefined) continue;
@@ -604,7 +626,9 @@ export class CalendarService {
       return (a.startTime || '').localeCompare(b.startTime || '');
     });
 
-    return { success: true, data: events, total: events.length };
+    const enrichedEvents = await this.enrichEventsWithMeetLinks(events);
+
+    return { success: true, data: enrichedEvents, total: enrichedEvents.length };
   }
 
   async getClassSchedulePattern(
@@ -633,6 +657,9 @@ export class CalendarService {
     classId: string,
     entries: ClassScheduleEntryDto[],
   ): Promise<{ success: boolean; data: ClassScheduleEntryDto[] }> {
+    this.logger.log(`[Calendar CRUD] === UPDATE CLASS SCHEDULE PATTERN START === classId=${classId}, entries=${entries.length}`);
+    this.logger.log(`[Calendar CRUD] Incoming entries: ${JSON.stringify(entries, null, 2)}`);
+
     const cls = await this.prisma.class.findUnique({
       where: { id: classId },
     });
@@ -640,8 +667,23 @@ export class CalendarService {
       throw new NotFoundException(`Class not found: ${classId}`);
     }
 
+    // Capture old schedule entries before update (to detect deletions)
+    const oldSchedule = this.getStoredClassScheduleEntries(cls.schedule);
+    this.logger.log(`[Calendar CRUD] Old schedule has ${oldSchedule.length} entries: ${JSON.stringify(oldSchedule.map(e => ({ id: e.id, googleCalendarEventId: e.googleCalendarEventId })))}`);
+
+    // Assign UUIDs to new entries that don't have IDs yet
+    const entriesWithIds = entries.map((entry) => {
+      const newId = entry.id || uuidv4();
+      if (!entry.id) {
+        this.logger.log(`[Calendar CRUD] Assigned new UUID ${newId} to entry without id (dayOfWeek=${entry.dayOfWeek}, from=${entry.from})`);
+      }
+      return { ...entry, id: newId };
+    });
+    this.logger.log(`[Calendar CRUD] Entries with IDs: ${JSON.stringify(entriesWithIds.map(e => ({ id: e.id, dayOfWeek: e.dayOfWeek, from: e.from, end: e.end })))}`);
+
+    // Save schedule WITHOUT eventId/meetLink (will be populated by sync)
     const storageEntries = this.serializeStoredClassScheduleEntries(
-      entries.map((entry) => ({
+      entriesWithIds.map((entry) => ({
         id: entry.id,
         dayOfWeek: entry.dayOfWeek,
         from: entry.from,
@@ -649,13 +691,267 @@ export class CalendarService {
         teacherId: entry.teacherId,
       })),
     );
+    this.logger.log(`[Calendar CRUD] Saving schedule to DB (without eventId/meetLink yet), entries: ${JSON.stringify(storageEntries)}`);
 
     await this.prisma.class.update({
       where: { id: classId },
       data: { schedule: storageEntries },
     });
+    this.logger.log(`[Calendar CRUD] DB update complete for class ${classId}`);
 
-    return { success: true, data: entries };
+    // Sync with Google Calendar after schedule change
+    // Pass oldSchedule eventIds so sync can delete them before creating new ones
+    this.logger.log(`[Calendar CRUD] Calling syncScheduleWithCalendar for class ${classId}...`);
+    await this.syncScheduleWithCalendar(classId, oldSchedule);
+    this.logger.log(`[Calendar CRUD] syncScheduleWithCalendar completed for class ${classId}`);
+
+    return { success: true, data: entriesWithIds };
+  }
+
+  async syncScheduleWithCalendar(classId: string, oldSchedule?: StoredClassScheduleEntry[]): Promise<void> {
+    this.logger.log(`[Calendar CRUD:sync] START syncScheduleWithCalendar for class ${classId}`);
+
+    const cls = await this.prisma.class.findUnique({
+      where: { id: classId },
+      include: {
+        teachers: {
+          include: {
+            teacher: {
+              include: {
+                user: {
+                  select: { email: true, first_name: true, last_name: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!cls) {
+      throw new NotFoundException(`Class not found: ${classId}`);
+    }
+
+    const currentSchedule = this.getStoredClassScheduleEntries(cls.schedule);
+    this.logger.log(`[Calendar CRUD:sync] Class "${cls.name}" has ${currentSchedule.length} schedule entries in DB`);
+
+    // Step 1: Delete ALL existing Google Calendar events from old schedule
+    const entriesToDelete = oldSchedule || currentSchedule;
+    this.logger.log(`[Calendar CRUD:sync] Deleting ${entriesToDelete.length} old calendar events...`);
+    for (const entry of entriesToDelete) {
+      const existingEventId = (entry as any).googleCalendarEventId;
+      if (existingEventId) {
+        this.logger.log(`[Calendar CRUD:sync] Deleting old event for entry ${entry.id}: eventId=${existingEventId}`);
+        try {
+          await this.googleCalendarService.deleteCalendarEvent(existingEventId);
+          this.logger.log(`[Calendar CRUD:sync] Successfully deleted event ${existingEventId}`);
+        } catch (err) {
+          const stack = err instanceof Error ? err.stack : String(err);
+          this.logger.error(`[Calendar CRUD:sync] Failed to delete event for entry ${entry.id}: ${stack}`);
+        }
+      }
+    }
+
+    // Clear old event IDs from schedule
+    for (const entry of currentSchedule) {
+      (entry as any).googleCalendarEventId = undefined;
+      (entry as any).meetLink = undefined;
+    }
+
+    // Build a map of teacherId -> email and name
+    const teacherEmailMap = new Map<string, string>();
+    const teacherNameMap = new Map<string, string>();
+    for (const teacherRecord of cls.teachers) {
+      const teacher = teacherRecord.teacher;
+      const email = teacher.user?.email;
+      if (email) {
+        teacherEmailMap.set(teacher.id, email);
+      }
+      const fullName = teacher.user
+        ? `${teacher.user.last_name || ''} ${teacher.user.first_name || ''}`.trim()
+        : teacher.fullName?.trim() || '';
+      if (fullName) {
+        teacherNameMap.set(teacher.id, fullName);
+      }
+    }
+
+    this.logger.log(`[Calendar CRUD:sync] Teacher map: emails=${JSON.stringify(Object.fromEntries(teacherEmailMap))}, names=${JSON.stringify(Object.fromEntries(teacherNameMap))}`);
+
+    // Step 2: Create NEW Google Calendar events for all current schedule entries
+    for (const entry of currentSchedule) {
+      const dayOfWeek = entry.dayOfWeek;
+      if (dayOfWeek === undefined) {
+        this.logger.log(`[Calendar CRUD:sync] SKIP entry ${entry.id}: missing dayOfWeek`);
+        continue;
+      }
+      const from = entry.from;
+      const end = entry.to || entry.end;
+      if (!from || !end) {
+        this.logger.log(`[Calendar CRUD:sync] SKIP entry ${entry.id}: missing time (from=${from}, end=${end})`);
+        continue;
+      }
+
+      const entryId = entry.id;
+      if (!entryId) {
+        this.logger.warn(`[Calendar CRUD:sync] SKIP entry: missing entryId`);
+        continue;
+      }
+
+      // Collect teacher emails for this entry
+      const teacherEmails: string[] = [];
+      if (entry.teacherId) {
+        const email = teacherEmailMap.get(entry.teacherId);
+        if (email) teacherEmails.push(email);
+      } else {
+        for (const teacherRecord of cls.teachers) {
+          const email = teacherRecord.teacher.user?.email;
+          if (email) teacherEmails.push(email);
+        }
+      }
+
+      this.logger.log(`[Calendar CRUD:sync] CREATE new event for entry ${entryId}: dayOfWeek=${dayOfWeek}, from=${from}, end=${end}, teacherEmails=[${teacherEmails}]`);
+
+      try {
+        const result = await this.googleCalendarService.createOrUpdateClassScheduleRecurringEvent({
+          classId: cls.id,
+          className: cls.name,
+          entryId,
+          calendarEventId: undefined, // Always create new event
+          teacherEmails,
+          dayOfWeek,
+          from,
+          end,
+        });
+
+        this.logger.log(`[Calendar CRUD:sync] Entry ${entryId} created OK: eventId=${result.eventId}, meetLink=${result.meetLink || '(none)'}`);
+
+        // Update the schedule entry with the new eventId and meetLink
+        (entry as any).googleCalendarEventId = result.eventId;
+        (entry as any).meetLink = result.meetLink || undefined;
+      } catch (err) {
+        const stack = err instanceof Error ? err.stack : String(err);
+        this.logger.error(`[Calendar CRUD:sync] FAIL entry ${entryId} for class ${classId}: ${stack}`);
+      }
+    }
+
+    // Save updated schedule with eventId and meetLink
+    this.logger.log(`[Calendar CRUD:sync] Saving updated schedule back to DB with eventId/meetLink...`);
+    const updatedStorageEntries = this.serializeStoredClassScheduleEntries(
+      currentSchedule.map((entry) => ({
+        id: entry.id,
+        dayOfWeek: entry.dayOfWeek,
+        from: entry.from,
+        to: entry.to || entry.end,
+        teacherId: entry.teacherId,
+        googleCalendarEventId: (entry as any).googleCalendarEventId,
+        meetLink: (entry as any).meetLink,
+      })),
+    );
+    this.logger.log(`[Calendar CRUD:sync] Data to save: ${JSON.stringify(updatedStorageEntries)}`);
+
+    await this.prisma.class.update({
+      where: { id: classId },
+      data: { schedule: updatedStorageEntries },
+    });
+    this.logger.log(`[Calendar CRUD:sync] DB save complete for class ${classId}`);
+  }
+
+  private async enrichEventsWithMeetLinks(
+    events: ClassScheduleEventDto[],
+  ): Promise<ClassScheduleEventDto[]> {
+    if (events.length === 0) return events;
+
+    this.logger.log(`[Calendar] enrichEventsWithMeetLinks: enriching ${events.length} events`);
+
+    const meetLinkMap = new Map<string, string>();
+
+    // 1. Collect meetLinks from schedule entries (Class.schedule stores meetLink per entry)
+    const uniqueClassIds = [...new Set(events.map((e) => e.classId))];
+    this.logger.log(`[Calendar] enrichEventsWithMeetLinks: unique classIds = ${JSON.stringify(uniqueClassIds)}`);
+
+    for (const classId of uniqueClassIds) {
+      const cls = await this.prisma.class.findUnique({
+        where: { id: classId },
+        select: { schedule: true },
+      });
+      if (cls?.schedule && Array.isArray(cls.schedule)) {
+        for (const rawEntry of cls.schedule) {
+          const entry = rawEntry as Prisma.JsonObject;
+          const entryId = typeof entry.id === 'string' ? entry.id : undefined;
+          const entryMeetLink = typeof entry.meetLink === 'string' ? entry.meetLink : undefined;
+          this.logger.log(`[Calendar] Schedule entry ${entryId}: meetLink=${entryMeetLink || '(none)'}`);
+          if (entryId && entryMeetLink) {
+            meetLinkMap.set(`${classId}::${entryId}`, entryMeetLink);
+          }
+        }
+      } else {
+        this.logger.log(`[Calendar] Class ${classId} has no schedule entries or schedule is not an array`);
+      }
+    }
+
+    this.logger.log(`[Calendar] enrichEventsWithMeetLinks: meetLinkMap size = ${meetLinkMap.size}, keys = ${JSON.stringify([...meetLinkMap.keys()])}`);
+
+    // 2. Also collect meetLinks from actual sessions (for sessions that exist)
+    const uniqueKeys = new Map<string, { classId: string; date: Date }>();
+    for (const event of events) {
+      const key = `${event.classId}::${event.date}`;
+      if (!uniqueKeys.has(key)) {
+        uniqueKeys.set(key, {
+          classId: event.classId,
+          date: new Date(event.date + 'T00:00:00'),
+        });
+      }
+    }
+
+    const whereConditions = Array.from(uniqueKeys.values());
+    if (whereConditions.length > 0) {
+      const batchSize = 100;
+      for (let i = 0; i < whereConditions.length; i += batchSize) {
+        const batch = whereConditions.slice(i, i + batchSize);
+        const sessions = await this.prisma.session.findMany({
+          where: {
+            OR: batch.map(({ classId, date }) => ({ classId, date })),
+          },
+          select: {
+            id: true,
+            classId: true,
+            date: true,
+            googleMeetLink: true,
+          },
+        });
+
+        for (const session of sessions) {
+          if (session.googleMeetLink) {
+            const key = `${session.classId}::${this.formatDate(session.date)}`;
+            meetLinkMap.set(key, session.googleMeetLink);
+          }
+        }
+      }
+    }
+
+    // Enrich events with meet links - prefer schedule entry meetLink, fallback to session meetLink
+    const enrichedEvents = events.map((event) => {
+      // Try patternEntryId first (schedule entry meetLink)
+      if (event.patternEntryId) {
+        const entryKey = `${event.classId}::${event.patternEntryId}`;
+        const entryMeetLink = meetLinkMap.get(entryKey);
+        if (entryMeetLink) {
+          return { ...event, meetLink: entryMeetLink };
+        }
+      }
+      // Fallback to session meetLink
+      const dateKey = `${event.classId}::${event.date}`;
+      const sessionMeetLink = meetLinkMap.get(dateKey);
+      if (sessionMeetLink) {
+        return { ...event, meetLink: sessionMeetLink };
+      }
+      return event;
+    });
+
+    const enrichedCount = enrichedEvents.filter((e) => e.meetLink).length;
+    this.logger.log(`[Calendar] enrichEventsWithMeetLinks: ${enrichedCount}/${enrichedEvents.length} events enriched with meetLink`);
+
+    return enrichedEvents;
   }
 
   async getStaffScheduleEvents(
@@ -753,6 +1049,8 @@ export class CalendarService {
       return (a.startTime || '').localeCompare(b.startTime || '');
     });
 
-    return { success: true, data: events, total: events.length };
+    const enrichedEvents = await this.enrichEventsWithMeetLinks(events);
+
+    return { success: true, data: enrichedEvents, total: enrichedEvents.length };
   }
 }

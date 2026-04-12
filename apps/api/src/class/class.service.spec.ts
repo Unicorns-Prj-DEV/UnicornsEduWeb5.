@@ -10,6 +10,10 @@ jest.mock('../action-history/action-history.service', () => ({
   ActionHistoryService: class ActionHistoryServiceMock {},
 }));
 
+jest.mock('../calendar/calendar.service', () => ({
+  CalendarService: class CalendarServiceMock {},
+}));
+
 jest.mock('../../generated/client', () => ({
   Prisma: {},
 }));
@@ -41,6 +45,9 @@ describe('ClassService.updateClassTeachers', () => {
   const mockActionHistoryService = {
     recordUpdate: jest.fn(),
   };
+  const mockCalendarService = {
+    syncScheduleWithCalendar: jest.fn().mockResolvedValue(undefined),
+  };
 
   let service: ClassService;
 
@@ -66,6 +73,7 @@ describe('ClassService.updateClassTeachers', () => {
       mockPrisma as never,
       mockStaffOperationsAccess as never,
       mockActionHistoryService as never,
+      mockCalendarService as never,
     );
     (service as any).getClassAuditSnapshot = jest.fn().mockResolvedValue({
       id: 'class-1',

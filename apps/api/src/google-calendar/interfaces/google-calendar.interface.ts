@@ -4,11 +4,26 @@ export interface GoogleCalendarEventAttendee {
   role?: 'CO_HOST' | 'ATTENDEE';
 }
 
+/**
+ * Represents a schedule entry for Google Calendar event creation
+ */
+export interface ScheduleEntryEventData {
+  classId: string;
+  className: string;
+  entryId: string;
+  dayOfWeek: number; // 0=Sunday, 1=Monday, ..., 6=Saturday
+  startTime: string; // HH:mm or HH:mm:ss
+  endTime: string; // HH:mm or HH:mm:ss
+  teacherEmail?: string;
+  teacherName?: string;
+  timeZone?: string;
+}
+
 export interface GoogleCalendarEventData {
   summary: string;
   description?: string;
-  startDateTime: Date;
-  endDateTime: Date;
+  startDateTimeStr: string;
+  endDateTimeStr: string;
   timeZone?: string;
   attendees?: GoogleCalendarEventAttendee[];
 }
@@ -41,6 +56,7 @@ export interface GoogleCalendarEvent {
       uri: string;
     }>;
   };
+  recurrence?: string[];
   htmlLink: string;
 }
 
@@ -49,4 +65,8 @@ export interface GoogleCalendarConfig {
   serviceAccountJsonPath?: string;
   calendarId?: string;
   timeZone?: string;
+  // OAuth2 user credentials (preferred for Google Meet support)
+  googleClientId?: string;
+  googleClientSecret?: string;
+  googleRefreshToken?: string;
 }
