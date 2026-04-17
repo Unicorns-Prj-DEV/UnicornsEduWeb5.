@@ -5,6 +5,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import CccdImageUploadFields from "@/components/staff/CccdImageUploadFields";
 import type { FullProfileDto } from "@/dtos/profile.dto";
+import {
+  resolveCanonicalUserName,
+  splitCanonicalUserName,
+} from "@/dtos/user-name.dto";
 import * as authApi from "@/lib/apis/auth.api";
 
 type Props = {
@@ -37,7 +41,9 @@ export default function StaffSelfEditPopup({
   const queryClient = useQueryClient();
   const staffInfo = profile.staffInfo;
 
-  const [fullName, setFullName] = useState(staffInfo?.fullName ?? "");
+  const [fullName, setFullName] = useState(
+    resolveCanonicalUserName(profile, staffInfo?.fullName),
+  );
   const [cccdNumber, setCccdNumber] = useState(staffInfo?.cccdNumber ?? "");
   const [cccdIssuedDateInput, setCccdIssuedDateInput] = useState(
     formatDateInput(staffInfo?.cccdIssuedDate),
@@ -58,12 +64,20 @@ export default function StaffSelfEditPopup({
   const [frontImage, setFrontImage] = useState<File | null>(null);
   const [backImage, setBackImage] = useState<File | null>(null);
 
-  const updateMutation = useMutation({
-    mutationFn: authApi.updateMyStaffProfile,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["auth", "full-profile"] });
-      await onSuccess?.();
+  const updateNameMutation = useMutation({
+    mutationFn: authApi.updateMyProfile,
+    onError: (error: unknown) => {
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ??
+        (error as Error)?.message ??
+        "Không thể cập nhật tên hiển thị.";
+      toast.error(message);
     },
+  });
+
+  const updateStaffMutation = useMutation({
+    mutationFn: authApi.updateMyStaffProfile,
     onError: (error: unknown) => {
       const message =
         (error as { response?: { data?: { message?: string } } })?.response?.data
@@ -77,6 +91,11 @@ export default function StaffSelfEditPopup({
   const uploadCccdMutation = useMutation({
     mutationFn: authApi.uploadMyStaffCccdImages,
   });
+
+  const isSaving =
+    updateNameMutation.isPending ||
+    updateStaffMutation.isPending ||
+    uploadCccdMutation.isPending;
 
   const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -93,8 +112,9 @@ export default function StaffSelfEditPopup({
     }
 
     try {
-      await updateMutation.mutateAsync({
-        full_name: trimmedName,
+      await updateNameMutation.mutateAsync(splitCanonicalUserName(trimmedName));
+
+      await updateStaffMutation.mutateAsync({
         cccd_number: normalizedCccd,
         cccd_issued_date: cccdIssuedDateInput.trim() || undefined,
         cccd_issued_place: cccdIssuedPlace.trim(),
@@ -111,8 +131,15 @@ export default function StaffSelfEditPopup({
           frontImage,
           backImage,
         });
-        await queryClient.invalidateQueries({ queryKey: ["auth", "full-profile"] });
       }
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["auth", "full-profile"] }),
+        queryClient.invalidateQueries({ queryKey: ["profile", "full"] }),
+        queryClient.invalidateQueries({ queryKey: ["staff", "self", "detail"] }),
+        queryClient.invalidateQueries({ queryKey: ["users", "me", "staff-detail"] }),
+      ]);
+      await onSuccess?.();
 
       toast.success("Đã lưu hồ sơ cơ bản.");
       onClose();
@@ -129,14 +156,14 @@ export default function StaffSelfEditPopup({
         className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[1px]"
         aria-hidden
         onClick={() => {
-          if (!updateMutation.isPending) onClose();
+          if (!isSaving) onClose();
         }}
       />
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="staff-self-edit-title"
-        aria-busy={updateMutation.isPending}
+        aria-busy={isSaving}
         className="fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden overscroll-contain rounded-[1.4rem] border border-border-default bg-bg-surface p-5 shadow-2xl"
       >
         <div className="mb-4 flex items-center justify-between gap-3 border-b border-border-default pb-4">
@@ -156,11 +183,11 @@ export default function StaffSelfEditPopup({
           <button
             type="button"
             onClick={() => {
-              if (!updateMutation.isPending) onClose();
+              if (!isSaving) onClose();
             }}
             className="inline-flex size-10 touch-manipulation items-center justify-center rounded-xl text-text-muted transition-colors duration-200 hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
             aria-label="Đóng"
-            disabled={updateMutation.isPending}
+            disabled={isSaving}
           >
             <svg
               className="size-5"
@@ -186,7 +213,7 @@ export default function StaffSelfEditPopup({
           <section className="rounded-[1.15rem] border border-border-default bg-bg-secondary/40 p-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
-                <span>Họ và tên</span>
+                <span>Họ và tên hiển thị</span>
                 <input
                   name="fullName"
                   value={fullName}
@@ -194,10 +221,13 @@ export default function StaffSelfEditPopup({
                   required
                   autoComplete="name"
                   autoCapitalize="words"
-                  disabled={updateMutation.isPending}
+                  disabled={isSaving}
                   className="rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   placeholder="Ví dụ: Nguyễn Văn A…"
                 />
+                <span className="text-xs leading-relaxed text-text-muted">
+                  Tên này được lưu ở hồ sơ tài khoản và đồng bộ sang hồ sơ staff.
+                </span>
               </label>
 
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
@@ -209,7 +239,7 @@ export default function StaffSelfEditPopup({
                   required
                   inputMode="numeric"
                   autoComplete="off"
-                  disabled={updateMutation.isPending}
+                  disabled={isSaving}
                   className="rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   placeholder="Ví dụ: 012345678901"
                 />
@@ -224,7 +254,7 @@ export default function StaffSelfEditPopup({
                   onChange={(event) => setCccdIssuedDateInput(event.target.value)}
                   onClick={(event) => event.currentTarget.showPicker?.()}
                   autoComplete="off"
-                  disabled={updateMutation.isPending}
+                  disabled={isSaving}
                   className="min-h-11 cursor-pointer rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />
               </label>
@@ -236,7 +266,7 @@ export default function StaffSelfEditPopup({
                   value={cccdIssuedPlace}
                   onChange={(event) => setCccdIssuedPlace(event.target.value)}
                   autoComplete="off"
-                  disabled={updateMutation.isPending}
+                  disabled={isSaving}
                   className="rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   placeholder="Ví dụ: Cục CSQLHC về TTXH"
                 />
@@ -251,7 +281,7 @@ export default function StaffSelfEditPopup({
                   onChange={(event) => setBirthDateInput(event.target.value)}
                   onClick={(event) => event.currentTarget.showPicker?.()}
                   autoComplete="bday"
-                  disabled={updateMutation.isPending}
+                  disabled={isSaving}
                   className="min-h-11 cursor-pointer rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />
               </label>
@@ -278,7 +308,7 @@ export default function StaffSelfEditPopup({
                   value={university}
                   onChange={(event) => setUniversity(event.target.value)}
                   autoComplete="organization"
-                  disabled={updateMutation.isPending}
+                  disabled={isSaving}
                   className="rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   placeholder="Ví dụ: ĐH Bách Khoa…"
                 />
@@ -291,7 +321,7 @@ export default function StaffSelfEditPopup({
                   value={highSchool}
                   onChange={(event) => setHighSchool(event.target.value)}
                   autoComplete="organization"
-                  disabled={updateMutation.isPending}
+                  disabled={isSaving}
                   className="rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   placeholder="Ví dụ: THPT Lê Hồng Phong…"
                 />
@@ -305,7 +335,7 @@ export default function StaffSelfEditPopup({
                   onChange={(event) => setSpecialization(event.target.value)}
                   rows={3}
                   autoComplete="off"
-                  disabled={updateMutation.isPending}
+                  disabled={isSaving}
                   className="resize-none rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   placeholder="Ví dụ: Toán, Lý, luyện thi, chăm sóc học viên…"
                 />
@@ -320,7 +350,7 @@ export default function StaffSelfEditPopup({
                   autoComplete="off"
                   inputMode="numeric"
                   spellCheck={false}
-                  disabled={updateMutation.isPending}
+                  disabled={isSaving}
                   className="rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   placeholder="Ví dụ: 1234567890…"
                 />
@@ -335,7 +365,7 @@ export default function StaffSelfEditPopup({
                   onChange={(event) => setBankQrLink(event.target.value)}
                   autoComplete="url"
                   spellCheck={false}
-                  disabled={updateMutation.isPending}
+                  disabled={isSaving}
                   className="rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   placeholder="https://…"
                 />
@@ -349,7 +379,7 @@ export default function StaffSelfEditPopup({
                   backPath={staffInfo.cccdBackPath}
                   frontUrl={staffInfo.cccdFrontUrl}
                   backUrl={staffInfo.cccdBackUrl}
-                  disabled={updateMutation.isPending}
+                  disabled={isSaving}
                   isUploading={uploadCccdMutation.isPending}
                   onFrontImageChange={setFrontImage}
                   onBackImageChange={setBackImage}
@@ -362,19 +392,19 @@ export default function StaffSelfEditPopup({
             <button
               type="button"
               onClick={() => {
-                if (!updateMutation.isPending) onClose();
+                if (!isSaving) onClose();
               }}
-              disabled={updateMutation.isPending}
+              disabled={isSaving}
               className="min-h-11 touch-manipulation rounded-xl border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
             >
               Hủy
             </button>
             <button
               type="submit"
-              disabled={updateMutation.isPending || uploadCccdMutation.isPending}
+              disabled={isSaving}
               className="min-h-11 touch-manipulation rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition-colors duration-200 hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {updateMutation.isPending || uploadCccdMutation.isPending
+              {isSaving
                 ? "Đang lưu…"
                 : "Lưu thông tin"}
             </button>

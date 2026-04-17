@@ -19,6 +19,7 @@ import {
   UpdateStaffTaxDeductionOverrideDto,
 } from '../dtos/deduction-settings.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { getUserFullNameFromParts } from '../common/user-name.util';
 
 type RoleTaxRateRow = {
   id: string;
@@ -100,6 +101,12 @@ export class DeductionSettingsService {
     private readonly actionHistoryService: ActionHistoryService,
   ) {}
 
+  private buildStaffDisplayName(staff: {
+    user?: { first_name: string | null; last_name: string | null } | null;
+  } | null) {
+    return getUserFullNameFromParts(staff?.user);
+  }
+
   async getTaxDeductionSettings(query: TaxDeductionSettingsQueryDto) {
     const asOfDate = parseAsOfDateOrThrow(query.asOfDate);
     const normalizedRoleType = query.roleType ?? null;
@@ -146,13 +153,23 @@ export class DeductionSettingsService {
           SELECT
             overrides.id,
             overrides.staff_id AS "staffId",
-            staff_info.full_name AS "staffName",
+            NULLIF(
+              TRIM(
+                CONCAT(
+                  COALESCE(staff_user.first_name, ''),
+                  ' ',
+                  COALESCE(staff_user.last_name, '')
+                )
+              ),
+              ''
+            ) AS "staffName",
             overrides.role_type AS "roleType",
             overrides.rate_percent AS "ratePercent",
             overrides.effective_from AS "effectiveFrom",
             overrides.created_at AS "createdAt"
           FROM staff_tax_deduction_overrides overrides
           INNER JOIN staff_info ON staff_info.id = overrides.staff_id
+          INNER JOIN users staff_user ON staff_user.id = staff_info.user_id
           WHERE 1 = 1
             ${roleTypeFilterSql}
             ${staffIdFilterSql}
@@ -166,13 +183,23 @@ export class DeductionSettingsService {
           SELECT DISTINCT ON (overrides.staff_id, overrides.role_type)
             overrides.id,
             overrides.staff_id AS "staffId",
-            staff_info.full_name AS "staffName",
+            NULLIF(
+              TRIM(
+                CONCAT(
+                  COALESCE(staff_user.first_name, ''),
+                  ' ',
+                  COALESCE(staff_user.last_name, '')
+                )
+              ),
+              ''
+            ) AS "staffName",
             overrides.role_type AS "roleType",
             overrides.rate_percent AS "ratePercent",
             overrides.effective_from AS "effectiveFrom",
             overrides.created_at AS "createdAt"
           FROM staff_tax_deduction_overrides overrides
           INNER JOIN staff_info ON staff_info.id = overrides.staff_id
+          INNER JOIN users staff_user ON staff_user.id = staff_info.user_id
           WHERE overrides.effective_from <= ${asOfDate}
             ${roleTypeFilterSql}
             ${staffIdFilterSql}
@@ -404,7 +431,12 @@ export class DeductionSettingsService {
           include: {
             staff: {
               select: {
-                fullName: true,
+                user: {
+                  select: {
+                    first_name: true,
+                    last_name: true,
+                  },
+                },
               },
             },
           },
@@ -419,7 +451,7 @@ export class DeductionSettingsService {
         const beforeValue = this.mapStaffTaxOverrideRow({
           id: existing.id,
           staffId: existing.staffId,
-          staffName: existing.staff?.fullName ?? null,
+          staffName: this.buildStaffDisplayName(existing.staff),
           roleType: existing.roleType,
           ratePercent: existing.ratePercent,
           effectiveFrom: existing.effectiveFrom,
@@ -435,7 +467,12 @@ export class DeductionSettingsService {
           include: {
             staff: {
               select: {
-                fullName: true,
+                user: {
+                  select: {
+                    first_name: true,
+                    last_name: true,
+                  },
+                },
               },
             },
           },
@@ -444,7 +481,7 @@ export class DeductionSettingsService {
         const afterValue = this.mapStaffTaxOverrideRow({
           id: row.id,
           staffId: row.staffId,
-          staffName: row.staff?.fullName ?? null,
+          staffName: this.buildStaffDisplayName(row.staff),
           roleType: row.roleType,
           ratePercent: row.ratePercent,
           effectiveFrom: row.effectiveFrom,
@@ -515,7 +552,16 @@ export class DeductionSettingsService {
                 staffId: normalizedStaffId,
               },
               include: {
-                staff: { select: { fullName: true } },
+                staff: {
+                  select: {
+                    user: {
+                      select: {
+                        first_name: true,
+                        last_name: true,
+                      },
+                    },
+                  },
+                },
               },
             })
           : [];
@@ -538,7 +584,7 @@ export class DeductionSettingsService {
             const beforeValue = this.mapStaffTaxOverrideRow({
               id: existing.id,
               staffId: existing.staffId,
-              staffName: existing.staff?.fullName ?? null,
+              staffName: this.buildStaffDisplayName(existing.staff),
               roleType: existing.roleType,
               ratePercent: existing.ratePercent,
               effectiveFrom: existing.effectiveFrom,
@@ -553,14 +599,23 @@ export class DeductionSettingsService {
                 effectiveFrom: item.effectiveFrom,
               },
               include: {
-                staff: { select: { fullName: true } },
+                staff: {
+                  select: {
+                    user: {
+                      select: {
+                        first_name: true,
+                        last_name: true,
+                      },
+                    },
+                  },
+                },
               },
             });
 
             const afterValue = this.mapStaffTaxOverrideRow({
               id: updated.id,
               staffId: updated.staffId,
-              staffName: updated.staff?.fullName ?? null,
+              staffName: this.buildStaffDisplayName(updated.staff),
               roleType: updated.roleType,
               ratePercent: updated.ratePercent,
               effectiveFrom: updated.effectiveFrom,
@@ -591,14 +646,23 @@ export class DeductionSettingsService {
               effectiveFrom: item.effectiveFrom,
             },
             include: {
-              staff: { select: { fullName: true } },
+              staff: {
+                select: {
+                  user: {
+                    select: {
+                      first_name: true,
+                      last_name: true,
+                    },
+                  },
+                },
+              },
             },
           });
 
           const createdValue = this.mapStaffTaxOverrideRow({
             id: created.id,
             staffId: created.staffId,
-            staffName: created.staff?.fullName ?? null,
+            staffName: this.buildStaffDisplayName(created.staff),
             roleType: created.roleType,
             ratePercent: created.ratePercent,
             effectiveFrom: created.effectiveFrom,

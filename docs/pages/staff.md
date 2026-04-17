@@ -62,8 +62,9 @@
 - `/staff/profile`
   - là self-detail page đầy đủ của staff hiện tại và bám layout chính của `apps/web/app/admin/staffs/[id]/page.tsx`
   - header hiển thị avatar, trạng thái staff, staff roles và nút chỉnh sửa hồ sơ cơ bản
-  - có popup tự sửa hồ sơ cơ bản bằng `PATCH /users/me/staff`
-  - chỉ cho sửa: `full_name`, `birth_date`, `university`, `high_school`, `specialization`, `bank_account`, `bank_qr_link`
+  - tên staff canonical luôn đọc từ `User` (`first_name` + `last_name`) qua `GET /users/me/full`; `staff.fullName` / `staffInfo.fullName` chỉ còn là fallback derived trong giai đoạn rollout
+  - popup tự sửa hồ sơ cơ bản tách cập nhật: tên hiển thị đi qua `PATCH /users/me`, còn phần hồ sơ staff đi qua `PATCH /users/me/staff`
+  - chỉ cho sửa trong popup: tên canonical, `birth_date`, `university`, `high_school`, `specialization`, `bank_account`, `bank_qr_link`, `cccd_*`
   - `bank_qr_link` self-service chỉ nhận URL `http/https` (trim trước khi lưu); link schema khác (`javascript:`, `data:`, ...) bị backend từ chối
   - trường `Mô tả chuyên môn` trong block `Thông tin cơ bản` giữ được newline từ textarea và cũng render được rich text HTML đã sanitize để self profile không lệch hành vi với admin detail
   - hiển thị QR thanh toán từ hồ sơ staff hiện tại và tái dùng popup self-edit để cập nhật
@@ -248,7 +249,8 @@
 - **Frontend API client (notifications):** `apps/web/lib/apis/notification.api.ts`
 - **Backend routes đang dùng**
   - `GET /users/me/full`
-  - `PATCH /users/me/staff` (self-service validate `bank_qr_link` chỉ `http/https`)
+  - `PATCH /users/me` (self-service dùng để cập nhật tên staff canonical trên popup/profile)
+  - `PATCH /users/me/staff` (self-service validate `bank_qr_link` chỉ `http/https`; không dùng để đổi tên canonical)
   - `GET /users/me/staff-detail`
   - `GET /users/me/staff-income-summary?month=&year=&days=` (net-first; có thêm breakdown gross/tax theo tháng/năm; nếu backend đã rollout đầy đủ thì có thêm operating/total deduction breakdown; thuế tính trên tổng thu nhập của từng nguồn trong kỳ và không áp dụng bonus; riêng gia sư tính thuế trên phần sau vận hành, còn class/deposit/unpaid views là sau vận hành, trước thuế)
   - `GET /deduction-settings/tax?asOfDate=&roleType=&staffId=` (đọc cấu hình khấu trừ thuế đang hiệu lực + lịch sử)

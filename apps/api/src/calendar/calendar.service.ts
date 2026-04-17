@@ -13,6 +13,7 @@ import {
 } from '../dtos/class-schedule.dto';
 import { StaffRole } from 'generated/enums';
 import { v4 as uuidv4 } from 'uuid';
+import { getUserFullNameFromParts } from '../common/user-name.util';
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -118,6 +119,12 @@ export class CalendarService {
     return `${year}-${month}-${day}`;
   }
 
+  private buildStaffDisplayName(staff: {
+    user?: { first_name: string | null; last_name: string | null } | null;
+  }) {
+    return getUserFullNameFromParts(staff.user) ?? '';
+  }
+
   async getClasses(
     page: number = 1,
     limit: number = 50,
@@ -202,9 +209,7 @@ export class CalendarService {
     ]);
 
     const teachers = staffInfos.map((staff) => {
-      const fullName = staff.user
-        ? `${staff.user.last_name || ''} ${staff.user.first_name || ''}`.trim()
-        : 'N/A';
+      const fullName = this.buildStaffDisplayName(staff) || 'N/A';
       return {
         id: staff.id,
         name: fullName,
@@ -326,11 +331,7 @@ export class CalendarService {
             ? Array.from(
                 new Set(
                   targetTeachers.map((teacherRecord) => {
-                    const user = teacherRecord.teacher.user;
-                    return user
-                      ? `${user.last_name || ''} ${user.first_name || ''}`.trim() ||
-                          'N/A'
-                      : teacherRecord.teacher.fullName?.trim() || 'N/A';
+                    return this.buildStaffDisplayName(teacherRecord.teacher) || 'N/A';
                   }),
                 ),
               )
@@ -510,7 +511,7 @@ export class CalendarService {
       }
       const fullName = teacher.user
         ? `${teacher.user.last_name || ''} ${teacher.user.first_name || ''}`.trim()
-        : teacher.fullName?.trim() || '';
+        : '';
       if (fullName) {
         teacherNameMap.set(teacher.id, fullName);
       }
@@ -712,10 +713,7 @@ export class CalendarService {
 
         const teacherName = cls.teachers.length > 0
           ? (() => {
-              const t = cls.teachers[0].teacher.user;
-              return t
-                ? `${t.last_name || ''} ${t.first_name || ''}`.trim() || 'N/A'
-                : cls.teachers[0].teacher.fullName?.trim() || 'N/A';
+              return this.buildStaffDisplayName(cls.teachers[0].teacher) || 'N/A';
             })()
           : 'N/A';
 

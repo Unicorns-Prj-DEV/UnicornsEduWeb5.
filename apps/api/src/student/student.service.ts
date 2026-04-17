@@ -27,6 +27,7 @@ import {
   UpdateStudentDto,
 } from 'src/dtos/student.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { getUserFullNameFromParts } from 'src/common/user-name.util';
 
 const studentClassDetailInclude = {
   include: {
@@ -50,7 +51,12 @@ const studentDetailInclude = {
       staff: {
         select: {
           id: true,
-          fullName: true,
+          user: {
+            select: {
+              first_name: true,
+              last_name: true,
+            },
+          },
           roles: true,
           status: true,
         },
@@ -359,7 +365,10 @@ export class StudentService {
         ? {
             staff: {
               id: student.customerCareServices.staff.id,
-              fullName: student.customerCareServices.staff.fullName,
+              fullName:
+                getUserFullNameFromParts(
+                  student.customerCareServices.staff.user,
+                ) ?? '',
               roles: student.customerCareServices.staff.roles,
               status: student.customerCareServices.staff.status,
             },

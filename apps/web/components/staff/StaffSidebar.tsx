@@ -7,6 +7,7 @@ import { animate, stagger } from "animejs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Role } from "@/dtos/Auth.dto";
+import { resolveCanonicalUserName } from "@/dtos/user-name.dto";
 import { useAuth } from "@/context/AuthContext";
 import * as authApi from "@/lib/apis/auth.api";
 import { resolveStaffLessonWorkspace } from "@/lib/staff-lesson-workspace";
@@ -495,9 +496,13 @@ export default function StaffSidebar() {
     await logoutMutation.mutateAsync();
   };
 
+  const resolvedStaffName = resolveCanonicalUserName(
+    fullProfile,
+    fullProfile?.staffInfo?.fullName,
+  );
   const avatarInitial =
-    fullProfile?.staffInfo?.fullName?.trim()?.charAt(0)?.toUpperCase() ??
-    fullProfile?.accountHandle?.slice(0, 1).toUpperCase() ??
+    resolvedStaffName.trim().charAt(0).toUpperCase() ||
+    fullProfile?.accountHandle?.slice(0, 1).toUpperCase() ||
     "?";
   const avatarSrc = fullProfile?.avatarUrl ?? null;
 

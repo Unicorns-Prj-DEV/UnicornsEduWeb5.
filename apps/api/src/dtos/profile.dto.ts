@@ -46,7 +46,27 @@ export class UpdateMyProfileDto {
 
 /** Update current user's staff record (self). No id. */
 export class UpdateMyStaffProfileDto {
-  @ApiPropertyOptional({ example: 'Nguyen Van B' })
+  @ApiPropertyOptional({
+    example: 'Nguyen',
+    description: 'Staff first name stored on user.first_name.',
+  })
+  @IsOptional()
+  @IsString()
+  first_name?: string;
+
+  @ApiPropertyOptional({
+    example: 'Van B',
+    description: 'Staff last name stored on user.last_name.',
+  })
+  @IsOptional()
+  @IsString()
+  last_name?: string;
+
+  @ApiPropertyOptional({
+    example: 'Nguyen Van B',
+    description:
+      'Deprecated compatibility field. Backend will split this into user first_name/last_name.',
+  })
   @IsOptional()
   @IsString()
   full_name?: string;

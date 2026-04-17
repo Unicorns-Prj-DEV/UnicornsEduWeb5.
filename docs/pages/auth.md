@@ -109,8 +109,9 @@ export default async function SomePage() {
 Các endpoint xem/sửa hồ sơ hiện tại nằm trong **user module** (không phải auth):
 
 - `GET /users/me/full` — hồ sơ đầy đủ: user + `staffInfo` + `studentInfo` (nếu có). Yêu cầu cookie `access_token`.
+- Trong rollout hiện tại, tên staff canonical nằm ở `User` (`first_name`, `last_name`; frontend có thể nhận thêm `fullName` nếu backend expose). `staffInfo.fullName` vẫn có thể xuất hiện trong response nhưng chỉ là giá trị derived để tương thích ngược.
 - `PATCH /users/me` — cập nhật thông tin tài khoản (first_name, last_name, email, phone, province, accountHandle). Body: `UpdateMyProfileDto`. Nếu đổi email, backend tự reset `emailVerified=false` để bắt buộc xác minh lại email mới. Trả về full profile.
-- `PATCH /users/me/staff` — cập nhật hồ sơ nhân sự (full_name, birth_date, university, high_school, …). Body: `UpdateMyStaffProfileDto`. `bank_qr_link` chỉ chấp nhận URL `http/https` (được trim trước khi lưu). 400 nếu user không có staff.
+- `PATCH /users/me/staff` — cập nhật hồ sơ nhân sự (`cccd_*`, `birth_date`, `university`, `high_school`, `specialization`, `bank_account`, `bank_qr_link`). Body: `UpdateMyStaffProfileDto`. Không dùng endpoint này để đổi tên staff canonical. `bank_qr_link` chỉ chấp nhận URL `http/https` (được trim trước khi lưu). 400 nếu user không có staff.
 - `PATCH /users/me/student` — cập nhật hồ sơ học viên (full_name, email, school, …). Body: `UpdateMyStudentProfileDto` (self-service không cho cập nhật `status`). 400 nếu user không có student.
 - `POST /users/me/avatar` — upload ảnh đại diện, chỉ nhận JPEG/PNG/WEBP, tối đa 5MB (controller-level filter + service-level validation).
 - `POST /users/me/staff/cccd-images` — upload ảnh CCCD mặt trước/sau, chỉ nhận JPEG/PNG/WEBP, tối đa 5MB mỗi file (controller-level filter + service-level validation).
@@ -125,7 +126,8 @@ DTO: `apps/web/dtos/profile.dto.ts` và `apps/api/src/dtos/profile.dto.ts`.
 - **Path:** `/user-profile`.
 - **Mục đích:** Hiển thị và cho phép chỉnh sửa thông tin user, staff (nếu có), student (nếu có).
 - **UI/UX:** Bố cục hai cột từ `lg` (`max-w-5xl`): **cột trái** (~1/4) — avatar tròn, tên, nút pill «Đặt lại mật khẩu» (`/auth/forgot-password`), upload/xoá ảnh đại diện; **cột phải** — các khối «Thông tin chung», «Nhân sự», «Học viên» với danh sách **nhãn căn phải / giá trị căn trái** (`DetailRows`), phân nhóm bằng `hr`. Điều hướng mục bằng dòng link + %; gợi ý bổ sung (nếu có) phía trên lưới.
-- **Data:** `useQuery` với `getFullProfile()` (GET /users/me/full). Cập nhật qua `updateMyProfile`, `updateMyStaffProfile`, `updateMyStudentProfile` với TanStack Query mutation; toast Sonner cho thành công/lỗi.
+- **Tên staff canonical:** hiển thị và chỉnh ở khối «Thông tin chung» vì nguồn chuẩn nằm trên `User`; khối «Nhân sự» chỉ còn hiển thị read-only tên đã đồng bộ và cho sửa các field staff-specific.
+- **Data:** `useQuery` với `getFullProfile()` (GET /users/me/full). Cập nhật qua `updateMyProfile`, `updateMyStaffProfile`, `updateMyStudentProfile` với TanStack Query mutation; riêng tên staff canonical ở `/user-profile` đi qua `updateMyProfile`, không đi qua `updateMyStaffProfile`; toast Sonner cho thành công/lỗi.
 - **Xác minh email:** Dòng Email hiển thị icon đã xác minh / chưa (`EmailVerificationInline`, Heroicons). Khi **chưa** xác minh: nút pill «Xác minh email →→» gọi `mockResendVerificationEmail` + toast Sonner (demo; thay bằng API khi có endpoint). Mock trong `apps/web/mocks/user-profile-verification.mock.ts`: `forceEmailUnverifiedForTest` ép luôn chưa xác minh (test UI); `emailVerifiedWhenApiMissing` khi API thiếu field và không bật force. Email học viên: chỉ coi là đã xác minh khi trùng email tài khoản và tài khoản đã xác minh.
 - **Bảo vệ:** Nếu 401 (chưa đăng nhập), trang gợi ý đăng nhập và link tới `/auth/login`.
 - **Role gates:** `AdminAccessGate`, `StudentAccessGate` và `StaffAccessGate` dùng lightweight auth session (`useAuth()` bootstrap từ `GET /auth/session`) để kiểm tra `roleType`, `staffRoles`, `hasStaffProfile`, `hasStudentProfile`; không cần refetch `GET /users/me/full` chỉ để gate shell access.

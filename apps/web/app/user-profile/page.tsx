@@ -24,6 +24,7 @@ import type {
   UpdateMyStudentProfileDto,
 } from "@/dtos/profile.dto";
 import { Role } from "@/dtos/Auth.dto";
+import { resolveCanonicalUserName } from "@/dtos/user-name.dto";
 
 type Tone = "primary" | "success" | "warning" | "neutral";
 
@@ -88,10 +89,12 @@ function formatDate(iso: string | null | undefined): string {
 }
 
 function displayName(profile: FullProfileDto): string {
-  const first = profile.first_name?.trim() ?? "";
-  const last = profile.last_name?.trim() ?? "";
-  if (first || last) return `${first} ${last}`.trim();
-  return profile.accountHandle ?? profile.email ?? "—";
+  return (
+    resolveCanonicalUserName(profile, profile.staffInfo?.fullName) ||
+    profile.accountHandle ||
+    profile.email ||
+    "—"
+  );
 }
 
 function getInitials(profile: FullProfileDto): string {
@@ -586,7 +589,6 @@ export default function UserProfilePage() {
     e.preventDefault();
     const form = e.currentTarget;
     const payload: UpdateMyStaffProfileDto = {
-      full_name: getFieldValue(form, "full_name"),
       birth_date: getFieldValue(form, "birth_date"),
       university: getFieldValue(form, "university"),
       high_school: getFieldValue(form, "high_school"),
@@ -666,7 +668,7 @@ export default function UserProfilePage() {
 
   const staffCompletion = profile.staffInfo
     ? getCompletionStats([
-      profile.staffInfo.fullName,
+      displayName(profile),
       profile.staffInfo.birthDate,
       profile.staffInfo.university,
       profile.staffInfo.highSchool,
@@ -705,7 +707,7 @@ export default function UserProfilePage() {
 
   if (profile.staffInfo) {
     allProfileValues.push(
-      profile.staffInfo.fullName,
+      displayName(profile),
       profile.staffInfo.birthDate,
       profile.staffInfo.university,
       profile.staffInfo.highSchool,
@@ -845,7 +847,11 @@ export default function UserProfilePage() {
 
   const staffDetails: DetailItem[] | null = profile.staffInfo
     ? [
-      { label: "Họ tên", value: profile.staffInfo.fullName ?? "—" },
+      {
+        label: "Họ tên tài khoản",
+        value: displayName(profile),
+        hint: "Tên chính thức của nhân sự được đồng bộ từ hồ sơ tài khoản.",
+      },
       { label: "Ngày sinh", value: formatDate(profile.staffInfo.birthDate) },
       { label: "Trường đại học", value: profile.staffInfo.university ?? "—" },
       { label: "Trường THPT", value: profile.staffInfo.highSchool ?? "—" },
@@ -1114,13 +1120,11 @@ export default function UserProfilePage() {
               >
                 {editStaff ? (
                   <form onSubmit={handleSubmitStaff} className="space-y-6">
+                    <div className="rounded-lg border border-border-default bg-bg-secondary/50 px-4 py-3 text-sm text-text-secondary">
+                      Tên nhân sự hiện lấy từ mục <span className="font-medium text-text-primary">Thông tin chung</span>.
+                      Nếu cần đổi tên hiển thị, hãy cập nhật `Tên` và `Họ và tên đệm` ở phần đó.
+                    </div>
                     <div className="grid gap-4 sm:grid-cols-2">
-                      <TextField
-                        id="staff-full_name"
-                        name="full_name"
-                        label="Họ tên đầy đủ"
-                        defaultValue={profile.staffInfo.fullName ?? ""}
-                      />
                       <TextField
                         id="staff-birth_date"
                         name="birth_date"

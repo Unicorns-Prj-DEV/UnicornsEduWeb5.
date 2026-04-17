@@ -43,6 +43,7 @@ import {
 } from '../dtos/dashboard.dto';
 import { DashboardCacheService } from '../cache/dashboard-cache.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { getUserFullNameFromParts } from '../common/user-name.util';
 
 type SummaryCountRow = {
   activeClasses: number | string | null;
@@ -673,7 +674,16 @@ export class DashboardService {
           student_info.id AS "studentId",
           student_info.full_name AS "studentName",
           STRING_AGG(DISTINCT classes.name, ', ' ORDER BY classes.name) AS "classNames",
-          staff_info.full_name AS "ownerName",
+          NULLIF(
+            TRIM(
+              CONCAT(
+                COALESCE(owner_user.first_name, ''),
+                ' ',
+                COALESCE(owner_user.last_name, '')
+              )
+            ),
+            ''
+          ) AS "ownerName",
           COALESCE(student_info.account_balance, 0) AS "accountBalance",
           MAX(
             COALESCE(
@@ -703,13 +713,15 @@ export class DashboardService {
         INNER JOIN student_info ON student_info.id = student_classes.student_id
         LEFT JOIN customer_care_service ON customer_care_service.student_id = student_info.id
         LEFT JOIN staff_info ON staff_info.id = customer_care_service.staff_id
+        LEFT JOIN users owner_user ON owner_user.id = staff_info.user_id
         WHERE classes.status = 'running'
           AND student_info.status = 'active'
         GROUP BY
           student_info.id,
           student_info.full_name,
           student_info.account_balance,
-          staff_info.full_name
+          owner_user.last_name,
+          owner_user.first_name
       ),
       eligible AS (
         SELECT
@@ -760,7 +772,16 @@ export class DashboardService {
           student_info.id AS "studentId",
           student_info.full_name AS "studentName",
           STRING_AGG(DISTINCT classes.name, ', ' ORDER BY classes.name) AS "classNames",
-          staff_info.full_name AS "ownerName",
+          NULLIF(
+            TRIM(
+              CONCAT(
+                COALESCE(owner_user.first_name, ''),
+                ' ',
+                COALESCE(owner_user.last_name, '')
+              )
+            ),
+            ''
+          ) AS "ownerName",
           COALESCE(student_info.account_balance, 0) AS "accountBalance",
           MAX(
             COALESCE(
@@ -790,13 +811,15 @@ export class DashboardService {
         INNER JOIN student_info ON student_info.id = student_classes.student_id
         LEFT JOIN customer_care_service ON customer_care_service.student_id = student_info.id
         LEFT JOIN staff_info ON staff_info.id = customer_care_service.staff_id
+        LEFT JOIN users owner_user ON owner_user.id = staff_info.user_id
         WHERE classes.status = 'running'
           AND student_info.status = 'active'
         GROUP BY
           student_info.id,
           student_info.full_name,
           student_info.account_balance,
-          staff_info.full_name
+          owner_user.last_name,
+          owner_user.first_name
       ),
       eligible AS (
         SELECT
@@ -837,8 +860,20 @@ export class DashboardService {
   private async getUnpaidStaff(limit: number) {
     return this.prisma.$queryRaw<StaffUnpaidAlertSqlRow[]>(Prisma.sql`
       WITH active_staff AS (
-        SELECT id, full_name
+        SELECT
+          staff_info.id,
+          NULLIF(
+            TRIM(
+              CONCAT(
+                COALESCE(staff_user.first_name, ''),
+                ' ',
+                COALESCE(staff_user.last_name, '')
+              )
+            ),
+            ''
+          ) AS full_name
         FROM staff_info
+        INNER JOIN users staff_user ON staff_user.id = staff_info.user_id
         WHERE status = 'active'
       ),
       session_allowances AS (
@@ -1159,13 +1194,23 @@ export class DashboardService {
     status: string;
     priority: string;
     dueDate: Date | null;
-    createdByStaff: { fullName: string } | null;
-    staffLessonTasks: Array<{ staff: { fullName: string } }>;
+    createdByStaff:
+      | {
+          user: { first_name: string | null; last_name: string | null } | null;
+        }
+      | null;
+    staffLessonTasks: Array<{
+      staff: {
+        user: { first_name: string | null; last_name: string | null } | null;
+      };
+    }>;
   }): StaffDashboardTaskItemDto {
     const assigneeNames = Array.from(
       new Set(
         task.staffLessonTasks
-          .map((assignment) => assignment.staff.fullName?.trim())
+          .map((assignment) =>
+            getUserFullNameFromParts(assignment.staff.user)?.trim(),
+          )
           .filter((name): name is string => Boolean(name)),
       ),
     );
@@ -1176,7 +1221,8 @@ export class DashboardService {
       status: task.status,
       priority: task.priority,
       dueDate: toIsoDate(task.dueDate),
-      responsibleName: task.createdByStaff?.fullName?.trim() || null,
+      responsibleName:
+        getUserFullNameFromParts(task.createdByStaff?.user)?.trim() || null,
       assigneeNames,
     };
   }
@@ -1408,14 +1454,24 @@ export class DashboardService {
             dueDate: true,
             createdByStaff: {
               select: {
-                fullName: true,
+                user: {
+                  select: {
+                    first_name: true,
+                    last_name: true,
+                  },
+                },
               },
             },
             staffLessonTasks: {
               select: {
                 staff: {
                   select: {
-                    fullName: true,
+                    user: {
+                      select: {
+                        first_name: true,
+                        last_name: true,
+                      },
+                    },
                   },
                 },
               },
@@ -1457,14 +1513,24 @@ export class DashboardService {
             dueDate: true,
             createdByStaff: {
               select: {
-                fullName: true,
+                user: {
+                  select: {
+                    first_name: true,
+                    last_name: true,
+                  },
+                },
               },
             },
             staffLessonTasks: {
               select: {
                 staff: {
                   select: {
-                    fullName: true,
+                    user: {
+                      select: {
+                        first_name: true,
+                        last_name: true,
+                      },
+                    },
                   },
                 },
               },
@@ -1588,7 +1654,12 @@ export class DashboardService {
       },
       select: {
         id: true,
-        fullName: true,
+        user: {
+          select: {
+            first_name: true,
+            last_name: true,
+          },
+        },
       },
     });
 
@@ -1623,7 +1694,7 @@ export class DashboardService {
         staff.id,
         {
           staffId: staff.id,
-          staffName: staff.fullName,
+          staffName: getUserFullNameFromParts(staff.user) ?? '',
           activeStudentCount: 0,
           learnedTuitionTotal: 0,
           topupTotal: 0,
@@ -1676,7 +1747,16 @@ export class DashboardService {
           student_info.id AS "studentId",
           student_info.full_name AS "studentName",
           STRING_AGG(DISTINCT classes.name, ', ' ORDER BY classes.name) AS "classNames",
-          staff_info.full_name AS "ownerName",
+          NULLIF(
+            TRIM(
+              CONCAT(
+                COALESCE(owner_user.first_name, ''),
+                ' ',
+                COALESCE(owner_user.last_name, '')
+              )
+            ),
+            ''
+          ) AS "ownerName",
           COALESCE(student_info.account_balance, 0) AS "accountBalance",
           MAX(
             COALESCE(
@@ -1704,6 +1784,7 @@ export class DashboardService {
         FROM customer_care_service
         INNER JOIN student_info ON student_info.id = customer_care_service.student_id
         INNER JOIN staff_info ON staff_info.id = customer_care_service.staff_id
+        INNER JOIN users owner_user ON owner_user.id = staff_info.user_id
         INNER JOIN student_classes ON student_classes.student_id = student_info.id
         INNER JOIN classes ON classes.id = student_classes.class_id
         WHERE customer_care_service.staff_id = ${staffId}
@@ -1713,7 +1794,8 @@ export class DashboardService {
           student_info.id,
           student_info.full_name,
           student_info.account_balance,
-          staff_info.full_name
+          owner_user.last_name,
+          owner_user.first_name
       ),
       eligible AS (
         SELECT
@@ -1767,7 +1849,16 @@ export class DashboardService {
           student_info.id AS "studentId",
           student_info.full_name AS "studentName",
           STRING_AGG(DISTINCT classes.name, ', ' ORDER BY classes.name) AS "classNames",
-          staff_info.full_name AS "ownerName",
+          NULLIF(
+            TRIM(
+              CONCAT(
+                COALESCE(owner_user.first_name, ''),
+                ' ',
+                COALESCE(owner_user.last_name, '')
+              )
+            ),
+            ''
+          ) AS "ownerName",
           COALESCE(student_info.account_balance, 0) AS "accountBalance",
           MAX(
             COALESCE(
@@ -1795,6 +1886,7 @@ export class DashboardService {
         FROM customer_care_service
         INNER JOIN student_info ON student_info.id = customer_care_service.student_id
         INNER JOIN staff_info ON staff_info.id = customer_care_service.staff_id
+        INNER JOIN users owner_user ON owner_user.id = staff_info.user_id
         INNER JOIN student_classes ON student_classes.student_id = student_info.id
         INNER JOIN classes ON classes.id = student_classes.class_id
         WHERE customer_care_service.staff_id = ${staffId}
@@ -1804,7 +1896,8 @@ export class DashboardService {
           student_info.id,
           student_info.full_name,
           student_info.account_balance,
-          staff_info.full_name
+          owner_user.last_name,
+          owner_user.first_name
       ),
       eligible AS (
         SELECT

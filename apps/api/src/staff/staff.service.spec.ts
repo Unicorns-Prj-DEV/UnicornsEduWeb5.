@@ -1254,7 +1254,15 @@ describe('StaffService', () => {
     expect(mockPrisma.staffInfo.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         include: {
-          user: { select: { province: true } },
+          user: {
+            select: {
+              province: true,
+              first_name: true,
+              last_name: true,
+              accountHandle: true,
+              email: true,
+            },
+          },
           classTeachers: {
             include: { class: { select: { id: true, name: true } } },
           },

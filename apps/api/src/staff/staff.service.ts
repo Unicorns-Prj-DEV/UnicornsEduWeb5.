@@ -44,6 +44,10 @@ import {
   validateImageFile,
 } from 'src/storage/supabase-storage';
 import {
+  getPreferredUserFullName,
+  splitFullName,
+} from 'src/common/user-name.util';
+import {
   normalizePercent,
   resolveTaxDeductionRate,
   roundMoney,
@@ -61,24 +65,52 @@ function toDateOrNull(
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
-function getPreferredUserFullName(user: {
-  first_name: string | null;
-  last_name: string | null;
-  accountHandle: string;
-  email: string;
-}) {
-  const fullName = `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim();
-  if (fullName) {
-    return fullName;
+function buildNameSearchWhere(search?: string): Prisma.StaffInfoWhereInput {
+  const tokens = (search ?? '')
+    .trim()
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+
+  if (tokens.length === 0) {
+    return {};
   }
 
-  const handle = user.accountHandle?.trim();
-  if (handle) {
-    return handle;
-  }
-
-  return user.email;
+  return {
+    AND: tokens.map((token) => ({
+      OR: [
+        {
+          user: {
+            first_name: {
+              contains: token,
+              mode: 'insensitive',
+            },
+          },
+        },
+        {
+          user: {
+            last_name: {
+              contains: token,
+              mode: 'insensitive',
+            },
+          },
+        },
+      ],
+    })),
+  };
 }
+
+const STAFF_NAME_USER_SELECT = {
+  first_name: true,
+  last_name: true,
+  accountHandle: true,
+  email: true,
+} satisfies Prisma.UserSelect;
+
+type StaffNameUser = Prisma.UserGetPayload<{
+  select: typeof STAFF_NAME_USER_SELECT;
+}>;
 
 const STAFF_ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
@@ -575,36 +607,103 @@ export class StaffService {
     });
   }
 
+  private resolveStaffFullName(user?: StaffNameUser | null) {
+    return getPreferredUserFullName(user) ?? '';
+  }
+
+  private attachDerivedStaffFullName<
+    T extends {
+      user?: (StaffNameUser & Record<string, unknown>) | null;
+    },
+  >(staff: T) {
+    const fullName = this.resolveStaffFullName(staff.user);
+
+    return {
+      ...staff,
+      fullName,
+      user: staff.user
+        ? {
+            ...staff.user,
+            fullName,
+          }
+        : staff.user,
+    };
+  }
+
+  private normalizeStaffUserNameInput(data: {
+    first_name?: string;
+    last_name?: string;
+    full_name?: string;
+  }) {
+    if (data.full_name !== undefined) {
+      const normalizedFullName = data.full_name.trim();
+      if (!normalizedFullName) {
+        throw new BadRequestException('Tên nhân sự không được để trống.');
+      }
+
+      return splitFullName(normalizedFullName);
+    }
+
+    const payload: {
+      first_name?: string;
+      last_name?: string | null;
+    } = {};
+
+    if (data.first_name !== undefined) {
+      const firstName = data.first_name.trim();
+      if (!firstName) {
+        throw new BadRequestException('first_name không được để trống.');
+      }
+      payload.first_name = firstName;
+    }
+
+    if (data.last_name !== undefined) {
+      const lastName = data.last_name.trim();
+      payload.last_name = lastName || null;
+    }
+
+    return payload;
+  }
+
   async searchCustomerCareStaff(query: SearchCustomerCareStaffDto) {
     const limit =
       Number.isInteger(query.limit) && (query.limit as number) >= 1
         ? Math.min(query.limit as number, 50)
         : 20;
-    const trimmedSearch = query.search?.trim();
+    const nameSearchWhere = buildNameSearchWhere(query.search);
 
-    return this.prisma.staffInfo.findMany({
+    const rows = await this.prisma.staffInfo.findMany({
       where: {
         roles: {
           hasSome: [StaffRole.customer_care],
         },
-        ...(trimmedSearch
-          ? {
-              fullName: {
-                contains: trimmedSearch,
-                mode: 'insensitive' as const,
-              },
-            }
-          : {}),
+        ...nameSearchWhere,
       },
       select: {
         id: true,
-        fullName: true,
         status: true,
         roles: true,
+        user: {
+          select: {
+            first_name: true,
+            last_name: true,
+            accountHandle: true,
+            email: true,
+          },
+        },
       },
-      orderBy: [{ status: 'asc' }, { fullName: 'asc' }],
+      orderBy: [
+        { status: 'asc' },
+        { user: { first_name: 'asc' } },
+        { user: { last_name: 'asc' } },
+      ],
       take: limit,
     });
+
+    return rows.map(({ user, ...staff }) => ({
+      ...staff,
+      fullName: this.resolveStaffFullName(user),
+    }));
   }
 
   async searchAssistantStaff(query: SearchCustomerCareStaffDto) {
@@ -612,32 +711,37 @@ export class StaffService {
       Number.isInteger(query.limit) && (query.limit as number) >= 1
         ? Math.min(query.limit as number, 50)
         : 20;
-    const trimmedSearch = query.search?.trim();
+    const nameSearchWhere = buildNameSearchWhere(query.search);
 
-    return this.prisma.staffInfo.findMany({
+    const rows = await this.prisma.staffInfo.findMany({
       where: {
         roles: {
           hasSome: [StaffRole.assistant],
         },
         status: StaffStatus.active,
-        ...(trimmedSearch
-          ? {
-              fullName: {
-                contains: trimmedSearch,
-                mode: 'insensitive' as const,
-              },
-            }
-          : {}),
+        ...nameSearchWhere,
       },
       select: {
         id: true,
-        fullName: true,
         status: true,
         roles: true,
+        user: {
+          select: {
+            first_name: true,
+            last_name: true,
+            accountHandle: true,
+            email: true,
+          },
+        },
       },
-      orderBy: [{ fullName: 'asc' }],
+      orderBy: [{ user: { first_name: 'asc' } }, { user: { last_name: 'asc' } }],
       take: limit,
     });
+
+    return rows.map(({ user, ...staff }) => ({
+      ...staff,
+      fullName: this.resolveStaffFullName(user),
+    }));
   }
 
   private getUserEligibilityForStaffAssignment(user: {
@@ -749,7 +853,6 @@ export class StaffService {
       Number.isInteger(parsedLimit) && parsedLimit >= 1
         ? Math.min(parsedLimit, 100)
         : 20;
-    const trimmedSearch = query.search?.trim();
     const normalizedStatus = query.status?.trim();
     const trimmedClassId = query.classId?.trim();
     const trimmedClassName = query.className?.trim();
@@ -770,14 +873,7 @@ export class StaffService {
       : undefined;
 
     const where: Prisma.StaffInfoWhereInput = {
-      ...(trimmedSearch
-        ? {
-            fullName: {
-              contains: trimmedSearch,
-              mode: 'insensitive' as const,
-            },
-          }
-        : {}),
+      ...buildNameSearchWhere(query.search),
       ...(trimmedUniversity
         ? {
             university: {
@@ -851,11 +947,26 @@ export class StaffService {
           status: 'asc',
         },
         {
-          fullName: 'asc',
+          user: {
+            first_name: 'asc',
+          },
+        },
+        {
+          user: {
+            last_name: 'asc',
+          },
         },
       ],
       include: {
-        user: { select: { province: true } },
+        user: {
+          select: {
+            province: true,
+            first_name: true,
+            last_name: true,
+            accountHandle: true,
+            email: true,
+          },
+        },
         classTeachers: {
           include: { class: { select: { id: true, name: true } } },
         },
@@ -868,6 +979,7 @@ export class StaffService {
     return {
       data: data.map((staff) => ({
         ...staff,
+        fullName: this.resolveStaffFullName(staff.user),
         unpaidAmountTotal: unpaidTotalsByStaffId.get(staff.id) ?? 0,
       })),
       meta: {
@@ -879,30 +991,34 @@ export class StaffService {
   }
 
   async searchStaffOptions(query: { search?: string; limit?: number }) {
-    const trimmedSearch = query.search?.trim();
     const limit =
       typeof query.limit === 'number'
         ? Math.min(Math.max(query.limit, 1), 50)
         : 20;
 
-    return this.prisma.staffInfo.findMany({
-      where: trimmedSearch
-        ? {
-            fullName: {
-              contains: trimmedSearch,
-              mode: 'insensitive',
-            },
-          }
-        : undefined,
+    const rows = await this.prisma.staffInfo.findMany({
+      where: buildNameSearchWhere(query.search),
       take: limit,
-      orderBy: [{ fullName: 'asc' }],
+      orderBy: [{ user: { first_name: 'asc' } }, { user: { last_name: 'asc' } }],
       select: {
         id: true,
-        fullName: true,
         roles: true,
         status: true,
+        user: {
+          select: {
+            first_name: true,
+            last_name: true,
+            accountHandle: true,
+            email: true,
+          },
+        },
       },
     });
+
+    return rows.map(({ user, ...staff }) => ({
+      ...staff,
+      fullName: this.resolveStaffFullName(user),
+    }));
   }
 
   private buildTeacherSessionAllowanceCte(params: {
@@ -1889,13 +2005,28 @@ export class StaffService {
         teacher: {
           select: {
             id: true,
-            fullName: true,
+            user: {
+              select: STAFF_NAME_USER_SELECT,
+            },
           },
         },
       },
     });
 
-    return new Map(sessions.map((session) => [session.id, session]));
+    return new Map(
+      sessions.map((session) => [
+        session.id,
+        {
+          ...session,
+          teacher: session.teacher
+            ? {
+                ...session.teacher,
+                fullName: this.resolveStaffFullName(session.teacher.user),
+              }
+            : session.teacher,
+        },
+      ]),
+    );
   }
 
   private async getBonusSnapshots(
@@ -1938,15 +2069,30 @@ export class StaffService {
         staff: {
           select: {
             id: true,
-            fullName: true,
             roles: true,
             status: true,
+            user: {
+              select: STAFF_NAME_USER_SELECT,
+            },
           },
         },
       },
     });
 
-    return new Map(allowances.map((allowance) => [allowance.id, allowance]));
+    return new Map(
+      allowances.map((allowance) => [
+        allowance.id,
+        {
+          ...allowance,
+          staff: allowance.staff
+            ? {
+                ...allowance.staff,
+                fullName: this.resolveStaffFullName(allowance.staff.user),
+              }
+            : allowance.staff,
+        },
+      ]),
+    );
   }
 
   private async getLessonOutputSnapshots(
@@ -1974,13 +2120,28 @@ export class StaffService {
         staff: {
           select: {
             id: true,
-            fullName: true,
+            user: {
+              select: STAFF_NAME_USER_SELECT,
+            },
           },
         },
       },
     });
 
-    return new Map(outputs.map((output) => [output.id, output]));
+    return new Map(
+      outputs.map((output) => [
+        output.id,
+        {
+          ...output,
+          staff: output.staff
+            ? {
+                ...output.staff,
+                fullName: this.resolveStaffFullName(output.staff.user),
+              }
+            : output.staff,
+        },
+      ]),
+    );
   }
 
   private async getAttendancePaymentSnapshots(
@@ -3360,7 +3521,12 @@ export class StaffService {
           id,
         },
         include: {
-          user: { select: { province: true } },
+          user: {
+            select: {
+              ...STAFF_NAME_USER_SELECT,
+              province: true,
+            },
+          },
           classTeachers: {
             include: { class: { select: { id: true, name: true } } },
           },
@@ -3370,7 +3536,12 @@ export class StaffService {
             select: { totalUnpaidAll: true },
           },
           customerCareManagedBy: {
-            select: { id: true, fullName: true },
+            select: {
+              id: true,
+              user: {
+                select: STAFF_NAME_USER_SELECT,
+              },
+            },
           },
         },
       });
@@ -3438,7 +3609,13 @@ export class StaffService {
       `;
 
       return {
-        ...staff,
+        ...this.attachDerivedStaffFullName(staff),
+        customerCareManagedBy: staff.customerCareManagedBy
+          ? {
+              id: staff.customerCareManagedBy.id,
+              fullName: this.resolveStaffFullName(staff.customerCareManagedBy.user),
+            }
+          : null,
         classAllowance,
       };
     });
@@ -3456,8 +3633,8 @@ export class StaffService {
       throw new NotFoundException('Staff not found');
     }
 
+    const userNamePayload = this.normalizeStaffUserNameInput(data);
     const payload: Record<string, unknown> = {};
-    if (data.full_name != null) payload.fullName = data.full_name;
     if (data.cccd_number != null) payload.cccdNumber = data.cccd_number;
     const cccdIssuedDateNorm = toDateOrNull(data.cccd_issued_date);
     if (cccdIssuedDateNorm !== undefined)
@@ -3481,7 +3658,38 @@ export class StaffService {
     }
 
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      const updatedStaffId = await this.prisma.$transaction(async (tx) => {
+        const targetUserId = data.user_id ?? existingStaff.userId;
+
+        if (data.user_id != null) {
+          const targetUser = await tx.user.findUnique({
+            where: { id: data.user_id },
+            select: {
+              id: true,
+              roleType: true,
+              staffInfo: {
+                select: {
+                  id: true,
+                },
+              },
+            },
+          });
+          if (!targetUser) {
+            throw new NotFoundException('User not found');
+          }
+          if (targetUser.staffInfo && targetUser.staffInfo.id !== data.id) {
+            throw new BadRequestException('User này đã có hồ sơ nhân sự.');
+          }
+          if (
+            targetUser.roleType !== UserRole.guest &&
+            targetUser.roleType !== UserRole.staff
+          ) {
+            throw new BadRequestException(
+              'Chỉ có thể gán gia sư cho user đang có role guest hoặc staff.',
+            );
+          }
+        }
+
         if (
           payload.customerCareManagedByStaffId !== undefined &&
           payload.customerCareManagedByStaffId !== null
@@ -3502,7 +3710,20 @@ export class StaffService {
           }
         }
 
-        const updatedStaff = await tx.staffInfo.update({
+        if (Object.keys(userNamePayload).length > 0) {
+          if (!targetUserId) {
+            throw new BadRequestException(
+              'Không thể cập nhật tên cho nhân sự chưa liên kết user.',
+            );
+          }
+
+          await tx.user.update({
+            where: { id: targetUserId },
+            data: userNamePayload,
+          });
+        }
+
+        await tx.staffInfo.update({
           where: { id: data.id },
           data: payload as Parameters<
             typeof this.prisma.staffInfo.update
@@ -3523,8 +3744,10 @@ export class StaffService {
           }
         }
 
-        return updatedStaff;
+        return data.id;
       });
+
+      return this.getStaffById(updatedStaffId);
     } catch (error) {
       if (this.isCccdNumberUniqueConstraint(error)) {
         throw new BadRequestException('Số CCCD đã tồn tại trong hệ thống.');
@@ -3579,6 +3802,10 @@ export class StaffService {
       select: {
         id: true,
         roleType: true,
+        first_name: true,
+        last_name: true,
+        accountHandle: true,
+        email: true,
         staffInfo: {
           select: {
             id: true,
@@ -3595,8 +3822,18 @@ export class StaffService {
       throw new BadRequestException(eligibility.ineligibleReason);
     }
 
+    const userNamePayload = this.normalizeStaffUserNameInput(data);
+    if (
+      Object.keys(userNamePayload).length === 0 &&
+      !getPreferredUserFullName(user)
+    ) {
+      throw new BadRequestException(
+        'Thiếu tên nhân sự. Hãy gửi first_name/last_name hoặc full_name.',
+      );
+    }
+
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      const createdStaffId = await this.prisma.$transaction(async (tx) => {
         if (
           data.customer_care_managed_by_staff_id != null &&
           data.customer_care_managed_by_staff_id.trim() !== ''
@@ -3613,7 +3850,6 @@ export class StaffService {
         }
 
         const createPayload: Record<string, unknown> = {
-          fullName: data.full_name,
           cccdNumber: data.cccd_number,
           cccdIssuedDate: toDateOrNull(data.cccd_issued_date) ?? undefined,
           cccdIssuedPlace: data.cccd_issued_place,
@@ -3627,22 +3863,29 @@ export class StaffService {
           userId: data.user_id,
           customerCareManagedByStaffId: data.customer_care_managed_by_staff_id ?? null,
         };
-        const createdStaff = await tx.staffInfo.create({
-          data: createPayload as Parameters<
-            typeof this.prisma.staffInfo.create
-          >[0]['data'],
-        });
 
-        if (user.roleType !== UserRole.staff) {
+        if (
+          Object.keys(userNamePayload).length > 0 ||
+          user.roleType !== UserRole.staff
+        ) {
           await tx.user.update({
             where: {
               id: data.user_id,
             },
             data: {
-              roleType: UserRole.staff,
+              ...(Object.keys(userNamePayload).length > 0 ? userNamePayload : {}),
+              ...(user.roleType !== UserRole.staff
+                ? { roleType: UserRole.staff }
+                : {}),
             },
           });
         }
+
+        const createdStaff = await tx.staffInfo.create({
+          data: createPayload as Parameters<
+            typeof this.prisma.staffInfo.create
+          >[0]['data'],
+        });
 
         if (auditActor) {
           const afterValue = await this.getStaffAuditSnapshot(
@@ -3660,8 +3903,10 @@ export class StaffService {
           }
         }
 
-        return createdStaff;
+        return createdStaff.id;
       });
+
+      return this.getStaffById(createdStaffId);
     } catch (error) {
       if (this.isCccdNumberUniqueConstraint(error)) {
         throw new BadRequestException('Số CCCD đã tồn tại trong hệ thống.');

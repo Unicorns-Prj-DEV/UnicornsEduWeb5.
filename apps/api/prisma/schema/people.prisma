@@ -1,6 +1,5 @@
 model StaffInfo {
   id                           String                @id @default(uuid())
-  fullName                     String                @map("full_name")
   cccdNumber                   String                @unique @map("cccd_number")
   cccdIssuedDate               DateTime?             @map("cccd_issued_date") @db.Date
   cccdIssuedPlace              String?               @map("cccd_issued_place")

@@ -20,6 +20,7 @@ import MonthNav from "@/components/admin/MonthNav";
 import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable";
 import StaffSelfEditPopup from "@/components/staff/StaffSelfEditPopup";
 import { BonusListItem } from "@/dtos/bonus.dto";
+import { resolveCanonicalUserName } from "@/dtos/user-name.dto";
 import {
   SessionItem,
   SessionUpdatePayload,
@@ -629,6 +630,10 @@ export default function StaffSelfDetailPage() {
   const depositByClass = incomeSummary?.depositYearByClass ?? [];
   const bonusTotals = incomeSummary?.bonusMonthlyTotals ?? EMPTY_AMOUNT_SUMMARY;
   const otherRoleSummaries = incomeSummary?.otherRoleSummaries ?? [];
+  const staffDisplayName =
+    resolveCanonicalUserName(profile, staff.user?.fullName || staff.fullName) ||
+    profile.email ||
+    "Nhân sự";
   const beforeDeductionCards = (() => {
     const cards = [
       {
@@ -692,7 +697,7 @@ export default function StaffSelfDetailPage() {
 
     return cards;
   })();
-  const avatarLabel = (staff.fullName?.trim() || profile.email || "?")
+  const avatarLabel = (staffDisplayName || "?")
     .charAt(0)
     .toUpperCase();
 
@@ -739,7 +744,7 @@ export default function StaffSelfDetailPage() {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-2">
               <h1 className="min-w-0 truncate text-lg font-semibold text-text-primary sm:text-xl">
-                {staff.fullName?.trim() || "Nhân sự"}
+                {staffDisplayName}
               </h1>
               <button
                 type="button"

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AddStudentPopup, StudentListTableSkeleton } from "@/components/admin/student";
+import { StudentListTableSkeleton } from "@/components/admin/student";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import {
   StudentGender,
@@ -106,7 +106,6 @@ export default function AdminStudentsPage() {
 
   const [searchInput, setSearchInput] = useState(search);
   const [filterPopupOpen, setFilterPopupOpen] = useState(false);
-  const [addStudentOpen, setAddStudentOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<{ id: string; name: string } | null>(null);
   const [filterDraft, setFilterDraft] = useState<FilterDraft>({
@@ -299,16 +298,6 @@ export default function AdminStudentsPage() {
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setAddStudentOpen(true)}
-                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse shadow-[0_14px_35px_-18px_rgba(37,99,235,0.7)] transition-all duration-200 hover:bg-primary-hover hover:shadow-[0_18px_40px_-18px_rgba(37,99,235,0.8)] focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-              >
-                <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Thêm học sinh
-              </button>
             </div>
 
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -509,18 +498,6 @@ export default function AdminStudentsPage() {
                   ? "Không có học sinh phù hợp bộ lọc."
                   : "Chưa có học sinh nào."}
               </p>
-              {!search && !hasActiveFilter ? (
-                <button
-                  type="button"
-                  onClick={() => setAddStudentOpen(true)}
-                  className="mt-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition-colors duration-200 hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                >
-                  <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v14m-7-7h14" />
-                  </svg>
-                  Tạo học sinh đầu tiên
-                </button>
-              ) : null}
             </div>
           ) : (
             <>
@@ -743,10 +720,6 @@ export default function AdminStudentsPage() {
           )}
         </div>
       </div>
-
-      {addStudentOpen ? (
-        <AddStudentPopup open={addStudentOpen} onClose={() => setAddStudentOpen(false)} />
-      ) : null}
 
       {deleteConfirmOpen && studentToDelete && (
         <>

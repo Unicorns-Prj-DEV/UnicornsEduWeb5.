@@ -19,6 +19,7 @@ import {
   type StaffDashboardTeacherSection,
   type StaffDashboardUnpaidStaffItem,
 } from "@/dtos/dashboard.dto";
+import { resolveCanonicalUserName } from "@/dtos/user-name.dto";
 import { formatCurrency, normalizeTimeOnly } from "@/lib/class.helpers";
 import { ROLE_LABELS } from "@/lib/staff.constants";
 
@@ -988,7 +989,9 @@ export default function StaffDashboardPage() {
   }
 
   const staffName =
-    profile.staffInfo.fullName?.trim() || profile.email || "Nhân sự";
+    resolveCanonicalUserName(profile, profile.staffInfo.fullName) ||
+    profile.email ||
+    "Nhân sự";
   const incomeSummary = incomeQuery.data;
   const monthlyTotals = incomeSummary?.monthlyIncomeTotals ?? {
     total: 0,

@@ -4,6 +4,7 @@ import { UserRole } from '../../generated/enums';
 import { SessionUnpaidSummaryItem } from '../dtos/session.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { StaffOperationsAccessService } from '../staff-ops/staff-operations-access.service';
+import { getUserFullNameFromParts } from '../common/user-name.util';
 
 @Injectable()
 export class SessionReportingService {
@@ -61,17 +62,49 @@ export class SessionReportingService {
     },
   } as const;
 
+  private withDerivedTeacherFullName<
+    T extends {
+      teacher:
+        | {
+            id: string;
+            user: { first_name: string | null; last_name: string | null } | null;
+          }
+        | null;
+    },
+  >(session: T) {
+    return {
+      ...session,
+      teacher: session.teacher
+        ? {
+            ...session.teacher,
+            fullName: getUserFullNameFromParts(session.teacher.user) ?? '',
+          }
+        : null,
+    };
+  }
+
   async getSessionsByClassId(classId: string, month: string, year: string) {
-    return this.prisma.session.findMany({
+    const sessions = await this.prisma.session.findMany({
       where: this.buildSessionsByClassWhere(classId, month, year),
       include: {
-        teacher: true,
+        teacher: {
+          include: {
+            user: {
+              select: {
+                first_name: true,
+                last_name: true,
+              },
+            },
+          },
+        },
         attendance: this.attendanceInclude,
       },
       orderBy: {
         date: 'desc',
       },
     });
+
+    return sessions.map((session) => this.withDerivedTeacherFullName(session));
   }
 
   async getSessionsByClassIdForStaff(
@@ -91,7 +124,7 @@ export class SessionReportingService {
         classId,
       );
 
-    return this.prisma.session.findMany({
+    const sessions = await this.prisma.session.findMany({
       where: this.buildSessionsByClassWhere(
         classId,
         month,
@@ -99,19 +132,30 @@ export class SessionReportingService {
         accessMode === 'teacher' ? actor.id : undefined,
       ),
       include: {
-        teacher: true,
+        teacher: {
+          include: {
+            user: {
+              select: {
+                first_name: true,
+                last_name: true,
+              },
+            },
+          },
+        },
         attendance: this.attendanceInclude,
       },
       orderBy: {
         date: 'desc',
       },
     });
+
+    return sessions.map((session) => this.withDerivedTeacherFullName(session));
   }
 
   async getSessionsByTeacherId(teacherId: string, month: string, year: string) {
     const range = this.buildMonthRange(month, year);
 
-    return this.prisma.session.findMany({
+    const sessions = await this.prisma.session.findMany({
       where: {
         teacherId,
         date: {
@@ -122,11 +166,23 @@ export class SessionReportingService {
       include: {
         class: true,
         attendance: this.attendanceInclude,
+        teacher: {
+          include: {
+            user: {
+              select: {
+                first_name: true,
+                last_name: true,
+              },
+            },
+          },
+        },
       },
       orderBy: {
         date: 'desc',
       },
     });
+
+    return sessions.map((session) => this.withDerivedTeacherFullName(session));
   }
 
   async getUnpaidSessionsByTeacherId(

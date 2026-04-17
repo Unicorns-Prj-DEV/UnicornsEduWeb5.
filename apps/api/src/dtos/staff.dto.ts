@@ -70,9 +70,31 @@ export class SearchStaffOptionsDto {
 }
 
 export class CreateStaffDto {
-  @ApiProperty({ example: 'Nguyen Van B' })
+  @ApiPropertyOptional({
+    example: 'Nguyen',
+    description:
+      'Staff first name. Preferred over full_name; required when full_name is omitted.',
+  })
+  @IsOptional()
   @IsString()
-  full_name: string;
+  first_name?: string;
+
+  @ApiPropertyOptional({
+    example: 'Van B',
+    description: 'Staff last name.',
+  })
+  @IsOptional()
+  @IsString()
+  last_name?: string;
+
+  @ApiPropertyOptional({
+    example: 'Nguyen Van B',
+    description:
+      'Deprecated compatibility field. Backend will split this into user first_name/last_name.',
+  })
+  @IsOptional()
+  @IsString()
+  full_name?: string;
 
   @ApiProperty({
     example: '012345678901',

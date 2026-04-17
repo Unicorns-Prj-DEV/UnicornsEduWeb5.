@@ -304,10 +304,10 @@
   - API lesson mới:
     - `GET /lesson-overview?resourcePage=&resourceLimit=&taskPage=&taskLimit=` trả `{ summary, resources, resourcesMeta, tasks, tasksMeta }`
     - `GET /lesson-work` — query: `page`, `limit`, `year`+`month` (lọc theo tháng theo `date`), hoặc `dateFrom`+`dateTo` (YYYY-MM-DD, **thay** lọc tháng khi cả hai hợp lệ), thêm `search` (tên bài / contest), `tag` (substring), `staffId`, `outputStatus` (`all` \| `pending` \| `completed` \| `cancelled`), `level` (`0`…`5` — khớp `Level {n}` hoặc chuỗi số). Trả `{ summary, outputs, outputsMeta }`; mỗi output có `tags`, `level`, `link`, `originalLink`, `cost`, `paymentStatus`, …
-    - `GET /lesson-task-staff-options?search=&limit=` trả option nhân sự gọn cho popup chọn cả `người chịu trách nhiệm` lẫn `nhân sự thực hiện task`; hiện giới hạn tối đa `6` kết quả mỗi lần, search theo `fullName`, và chỉ trả staff có role `lesson_plan` hoặc `lesson_plan_head`
+    - `GET /lesson-task-staff-options?search=&limit=` trả option nhân sự gọn cho popup chọn cả `người chịu trách nhiệm` lẫn `nhân sự thực hiện task`; hiện giới hạn tối đa `6` kết quả mỗi lần, search theo tên canonical trên `users.first_name` + `users.last_name`, response vẫn giữ `fullName` dạng derived để FE tương thích, và chỉ trả staff có role `lesson_plan` hoặc `lesson_plan_head`
     - `GET /lesson-task-options?search=&limit=` trả option task gọn cho flow đổi task gốc của lesson output; search theo `title`, mặc định trả các task cập nhật gần nhất, response chỉ gồm metadata nhẹ (`id`, `title`, `status`, `priority`, `dueDate`)
     - `GET /lesson-resource-options?search=&limit=&excludeTaskId=` trả option resource gọn lấy từ bảng `LessonResources` cho flow đính kèm tài nguyên có sẵn vào task; search theo `title` hoặc `resourceLink`, mặc định recent-first, vẫn giữ các resource chưa gắn task và chỉ loại đúng resource đã thuộc task hiện tại; response chỉ gồm metadata nhẹ (`id`, `title`, `resourceLink`, `tags`, `lessonTaskId`, `lessonTaskTitle`)
-    - `GET /lesson-output-staff-options?search=&limit=` trả option nhân sự gọn cho form lesson output; search theo `fullName`
+    - `GET /lesson-output-staff-options?search=&limit=` trả option nhân sự gọn cho form lesson output; search theo tên canonical trên `users.first_name` + `users.last_name`, response vẫn giữ `fullName` dạng derived
     - `GET /lesson-tasks/:id`
     - `GET /lesson-outputs/:id`
     - `GET /lesson-resources/:id`

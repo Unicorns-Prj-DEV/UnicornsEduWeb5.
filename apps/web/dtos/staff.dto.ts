@@ -14,10 +14,16 @@ export interface StaffListResponse {
 
 export interface StaffListItem {
     id: string;
+    /** Derived from linked User during rollout. Read nested user name fields as canonical when present. */
     fullName: string;
     status: StaffStatus;
     roles?: string[];
-    user?: { province?: string | null } | null;
+    user?: {
+        province?: string | null;
+        fullName?: string | null;
+        first_name?: string | null;
+        last_name?: string | null;
+    } | null;
     classTeachers?: Array<{ class: { id: string; name: string } }>;
     monthlyStats?: Array<{ totalUnpaidAll?: number | null }>;
     unpaidAmountTotal?: number | null;
@@ -53,6 +59,7 @@ export interface AssistantStaffOption {
 
 export interface StaffDetail {
     id: string;
+    /** Derived from linked User during rollout. Read nested user name fields as canonical when present. */
     fullName: string;
     cccdNumber: string;
     cccdIssuedDate?: string | null;
@@ -76,6 +83,9 @@ export interface StaffDetail {
         id: string;
         email: string;
         province?: string | null;
+        fullName?: string | null;
+        first_name?: string | null;
+        last_name?: string | null;
     } | null;
     classTeachers?: Array<{ class: { id: string; name: string } }>;
     monthlyStats?: Array<{ month: string; totalUnpaidAll?: number | null }>;
@@ -91,6 +101,9 @@ export interface StaffAssignableUser {
     province?: string | null;
     roleType: string;
     status: string;
+    first_name?: string | null;
+    last_name?: string | null;
+    /** Derived from linked User during rollout. Prefer first_name/last_name when present. */
     fullName?: string | null;
     hasStaffProfile: boolean;
     staffId?: string | null;

@@ -4,6 +4,7 @@ import type { StudentStatus, StudentGender } from './student.dto';
 /** Staff record as returned in full profile (camelCase from API). */
 export interface ProfileStaffInfoDto {
   id: string;
+  /** Derived from linked User during rollout. Read User name fields as canonical. */
   fullName: string;
   cccdNumber: string;
   cccdIssuedDate?: string | null;
@@ -51,6 +52,7 @@ export interface ProfileUserDto {
   status?: string;
   accountHandle: string;
   avatarUrl?: string | null;
+  fullName?: string | null;
   first_name?: string | null;
   last_name?: string | null;
   province?: string | null;
@@ -69,6 +71,7 @@ export interface FullProfileDto {
   status?: string;
   accountHandle: string;
   avatarUrl?: string | null;
+  fullName?: string | null;
   first_name?: string | null;
   last_name?: string | null;
   province?: string | null;
@@ -90,9 +93,8 @@ export interface UpdateMyProfileDto {
   accountHandle?: string;
 }
 
-/** Payload to update current user's staff: PATCH /auth/me/staff */
+/** Payload to update current user's staff: PATCH /users/me/staff */
 export interface UpdateMyStaffProfileDto {
-  full_name?: string;
   cccd_number?: string;
   cccd_issued_date?: string;
   cccd_issued_place?: string;

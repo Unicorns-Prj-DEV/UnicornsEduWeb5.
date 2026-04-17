@@ -16,6 +16,20 @@ import {
 import { LessonService } from './lesson.service';
 
 describe('LessonService', () => {
+  const lessonStaffUserSelect = {
+    first_name: true,
+    last_name: true,
+  } as const;
+
+  const lessonStaffSelect = {
+    id: true,
+    user: {
+      select: lessonStaffUserSelect,
+    },
+    roles: true,
+    status: true,
+  } as const;
+
   const mockPrisma = {
     lessonResource: {
       count: jest.fn(),
@@ -56,6 +70,12 @@ describe('LessonService', () => {
       findFirst: jest.fn(),
       findMany: jest.fn(),
     },
+    roleTaxDeductionRate: {
+      findFirst: jest.fn(),
+    },
+    staffTaxDeductionOverride: {
+      findFirst: jest.fn(),
+    },
     $transaction: jest.fn(),
   };
 
@@ -69,6 +89,8 @@ describe('LessonService', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
+    mockPrisma.roleTaxDeductionRate.findFirst.mockResolvedValue(null);
+    mockPrisma.staffTaxDeductionOverride.findFirst.mockResolvedValue(null);
     mockPrisma.$transaction.mockImplementation(
       <T>(
         input: Array<Promise<T>> | ((db: typeof mockPrisma) => T | Promise<T>),
@@ -240,12 +262,7 @@ describe('LessonService', () => {
       select: {
         lessonTaskId: true,
         staff: {
-          select: {
-            id: true,
-            fullName: true,
-            roles: true,
-            status: true,
-          },
+          select: lessonStaffSelect,
         },
       },
     });
@@ -262,12 +279,7 @@ describe('LessonService', () => {
         lessonTaskId: true,
         staffId: true,
         staff: {
-          select: {
-            id: true,
-            fullName: true,
-            roles: true,
-            status: true,
-          },
+          select: lessonStaffSelect,
         },
       },
       distinct: ['lessonTaskId', 'staffId'],
@@ -657,14 +669,10 @@ describe('LessonService', () => {
       skip: 0,
       take: 6,
       orderBy: [{ updatedAt: 'desc' }, { date: 'desc' }, { lessonName: 'asc' }],
+      where: undefined,
       include: {
         staff: {
-          select: {
-            id: true,
-            fullName: true,
-            roles: true,
-            status: true,
-          },
+          select: lessonStaffSelect,
         },
         lessonTask: {
           select: {
@@ -734,12 +742,7 @@ describe('LessonService', () => {
       orderBy: [{ updatedAt: 'desc' }, { date: 'desc' }, { lessonName: 'asc' }],
       include: {
         staff: {
-          select: {
-            id: true,
-            fullName: true,
-            roles: true,
-            status: true,
-          },
+          select: lessonStaffSelect,
         },
         lessonTask: {
           select: {
@@ -802,12 +805,7 @@ describe('LessonService', () => {
       orderBy: [{ updatedAt: 'desc' }, { date: 'desc' }, { lessonName: 'asc' }],
       include: {
         staff: {
-          select: {
-            id: true,
-            fullName: true,
-            roles: true,
-            status: true,
-          },
+          select: lessonStaffSelect,
         },
         lessonTask: {
           select: {
@@ -927,8 +925,8 @@ describe('LessonService', () => {
         where: {
           staffId: 'staff-owner',
           date: {
-            gte: new Date('2026-02-22T00:00:00.000Z'),
-            lt: new Date('2026-03-24T00:00:00.000Z'),
+            gte: new Date('2026-02-21T17:00:00.000Z'),
+            lt: new Date('2026-03-23T17:00:00.000Z'),
           },
         },
       });
@@ -936,8 +934,8 @@ describe('LessonService', () => {
         where: {
           staffId: 'staff-owner',
           date: {
-            gte: new Date('2026-02-22T00:00:00.000Z'),
-            lt: new Date('2026-03-24T00:00:00.000Z'),
+            gte: new Date('2026-02-21T17:00:00.000Z'),
+            lt: new Date('2026-03-23T17:00:00.000Z'),
           },
         },
         orderBy: [
@@ -947,12 +945,7 @@ describe('LessonService', () => {
         ],
         include: {
           staff: {
-            select: {
-              id: true,
-              fullName: true,
-              roles: true,
-              status: true,
-            },
+            select: lessonStaffSelect,
           },
           lessonTask: {
             select: {
@@ -968,8 +961,8 @@ describe('LessonService', () => {
         where: {
           staffId: 'staff-owner',
           date: {
-            gte: new Date('2026-02-22T00:00:00.000Z'),
-            lt: new Date('2026-03-24T00:00:00.000Z'),
+            gte: new Date('2026-02-21T17:00:00.000Z'),
+            lt: new Date('2026-03-23T17:00:00.000Z'),
           },
           paymentStatus: PaymentStatus.pending,
         },
@@ -1050,12 +1043,7 @@ describe('LessonService', () => {
       orderBy: [{ updatedAt: 'desc' }, { date: 'desc' }, { lessonName: 'asc' }],
       include: {
         staff: {
-          select: {
-            id: true,
-            fullName: true,
-            roles: true,
-            status: true,
-          },
+          select: lessonStaffSelect,
         },
         lessonTask: {
           select: {
@@ -1191,18 +1179,38 @@ describe('LessonService', () => {
         roles: {
           hasSome: ['lesson_plan', 'lesson_plan_head'],
         },
-        fullName: {
-          contains: 'planner',
-          mode: 'insensitive',
-        },
+        OR: [
+          {
+            user: {
+              first_name: {
+                contains: 'planner',
+                mode: 'insensitive',
+              },
+            },
+          },
+          {
+            user: {
+              last_name: {
+                contains: 'planner',
+                mode: 'insensitive',
+              },
+            },
+          },
+        ],
       },
       select: {
         id: true,
-        fullName: true,
+        user: {
+          select: lessonStaffUserSelect,
+        },
         roles: true,
         status: true,
       },
-      orderBy: [{ status: 'asc' }, { fullName: 'asc' }],
+      orderBy: [
+        { status: 'asc' },
+        { user: { last_name: 'asc' } },
+        { user: { first_name: 'asc' } },
+      ],
       take: 3,
     });
   });
@@ -1702,7 +1710,9 @@ describe('LessonService', () => {
           contestUploaded: 'Vĩnh Phúc HSG 2024',
           link: 'https://example.com/final-output',
           staffId: 'staff-output-1',
+          roleType: null,
           status: LessonOutputStatus.pending,
+          taxDeductionRatePercent: 0,
         },
       }),
     );
@@ -1798,7 +1808,9 @@ describe('LessonService', () => {
           contestUploaded: null,
           link: null,
           staffId: null,
+          roleType: null,
           status: LessonOutputStatus.pending,
+          taxDeductionRatePercent: 0,
         },
       }),
     );
@@ -1905,15 +1917,12 @@ describe('LessonService', () => {
         lessonTask: {
           disconnect: true,
         },
+        roleType: null,
+        taxDeductionRatePercent: 0,
       },
       include: {
         staff: {
-          select: {
-            id: true,
-            fullName: true,
-            roles: true,
-            status: true,
-          },
+          select: lessonStaffSelect,
         },
         lessonTask: {
           select: {
@@ -1985,12 +1994,7 @@ describe('LessonService', () => {
       },
       include: {
         staff: {
-          select: {
-            id: true,
-            fullName: true,
-            roles: true,
-            status: true,
-          },
+          select: lessonStaffSelect,
         },
         lessonTask: {
           select: {
@@ -2082,12 +2086,7 @@ describe('LessonService', () => {
       where: { id: 'output-mixed-1' },
       include: {
         staff: {
-          select: {
-            id: true,
-            fullName: true,
-            roles: true,
-            status: true,
-          },
+          select: lessonStaffSelect,
         },
         lessonTask: {
           select: {
@@ -2196,16 +2195,13 @@ describe('LessonService', () => {
         lessonName: 'Bài mới participant',
         contestUploaded: 'ABC 222',
         link: 'https://example.com/new-output',
+        roleType: 'lesson_plan',
         status: LessonOutputStatus.completed,
+        taxDeductionRatePercent: 0,
       },
       include: {
         staff: {
-          select: {
-            id: true,
-            fullName: true,
-            roles: true,
-            status: true,
-          },
+          select: lessonStaffSelect,
         },
         lessonTask: {
           select: {
@@ -2308,12 +2304,7 @@ describe('LessonService', () => {
       where: { id: 'output-mixed-update' },
       include: {
         staff: {
-          select: {
-            id: true,
-            fullName: true,
-            roles: true,
-            status: true,
-          },
+          select: lessonStaffSelect,
         },
         lessonTask: {
           select: {
@@ -2330,15 +2321,12 @@ describe('LessonService', () => {
       data: {
         cost: 230000,
         paymentStatus: PaymentStatus.paid,
+        roleType: 'lesson_plan',
+        taxDeductionRatePercent: 0,
       },
       include: {
         staff: {
-          select: {
-            id: true,
-            fullName: true,
-            roles: true,
-            status: true,
-          },
+          select: lessonStaffSelect,
         },
         lessonTask: {
           select: {

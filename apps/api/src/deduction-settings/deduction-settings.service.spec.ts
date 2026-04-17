@@ -100,7 +100,10 @@ describe('DeductionSettingsService', () => {
       effectiveFrom: new Date('2026-04-01T00:00:00.000Z'),
       createdAt: new Date('2026-03-20T00:00:00.000Z'),
       staff: {
-        fullName: 'Nguyen Van A',
+        user: {
+          first_name: 'Nguyen',
+          last_name: 'Van A',
+        },
       },
     });
     mockPrisma.staffTaxDeductionOverride.update.mockResolvedValue({
@@ -111,7 +114,10 @@ describe('DeductionSettingsService', () => {
       effectiveFrom: new Date('2026-04-18T00:00:00.000Z'),
       createdAt: new Date('2026-03-20T00:00:00.000Z'),
       staff: {
-        fullName: 'Nguyen Van A',
+        user: {
+          first_name: 'Nguyen',
+          last_name: 'Van A',
+        },
       },
     });
 
@@ -137,7 +143,12 @@ describe('DeductionSettingsService', () => {
       include: {
         staff: {
           select: {
-            fullName: true,
+            user: {
+              select: {
+                first_name: true,
+                last_name: true,
+              },
+            },
           },
         },
       },

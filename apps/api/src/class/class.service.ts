@@ -24,6 +24,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { StaffOperationsAccessService } from 'src/staff-ops/staff-operations-access.service';
 import { CalendarService } from 'src/calendar/calendar.service';
 import { Logger } from '@nestjs/common';
+import { getUserFullNameFromParts } from 'src/common/user-name.util';
 
 function normalizeNullableMoney(
   value: number | null | undefined,
@@ -119,7 +120,10 @@ type TeacherAssignmentRecord = {
   operatingDeductionRatePercent: Prisma.Decimal | number | string | null;
   teacher: {
     id: string;
-    fullName: string;
+    user: {
+      first_name: string | null;
+      last_name: string | null;
+    } | null;
     status: string | null;
   };
 };
@@ -135,13 +139,24 @@ export class ClassService {
 
   private readonly logger = new Logger(ClassService.name);
 
+  private buildStaffDisplayName(staff: {
+    user: {
+      first_name: string | null;
+      last_name: string | null;
+    } | null;
+  }) {
+    return getUserFullNameFromParts(staff.user) ?? '';
+  }
+
   private mapTeacherAssignment(record: TeacherAssignmentRecord) {
     const operatingDeductionRatePercent = normalizeRatePercent(
       record.operatingDeductionRatePercent,
     );
 
     return {
-      ...record.teacher,
+      id: record.teacher.id,
+      fullName: this.buildStaffDisplayName(record.teacher),
+      status: record.teacher.status,
       customAllowance: record.customAllowance,
       operatingDeductionRatePercent,
       taxRatePercent: operatingDeductionRatePercent,
@@ -311,7 +326,12 @@ export class ClassService {
         teacher: {
           select: {
             id: true,
-            fullName: true,
+            user: {
+              select: {
+                first_name: true,
+                last_name: true,
+              },
+            },
             status: true,
           },
         },
@@ -485,7 +505,12 @@ export class ClassService {
               teacher: {
                 select: {
                   id: true,
-                  fullName: true,
+                  user: {
+                    select: {
+                      first_name: true,
+                      last_name: true,
+                    },
+                  },
                   status: true,
                 },
               },
@@ -559,7 +584,12 @@ export class ClassService {
         teacher: {
           select: {
             id: true,
-            fullName: true,
+            user: {
+              select: {
+                first_name: true,
+                last_name: true,
+              },
+            },
             status: true,
           },
         },
@@ -817,7 +847,12 @@ export class ClassService {
           teacher: {
             select: {
               id: true,
-              fullName: true,
+              user: {
+                select: {
+                  first_name: true,
+                  last_name: true,
+                },
+              },
               status: true,
             },
           },
@@ -959,7 +994,12 @@ export class ClassService {
           teacher: {
             select: {
               id: true,
-              fullName: true,
+              user: {
+                select: {
+                  first_name: true,
+                  last_name: true,
+                },
+              },
               status: true,
             },
           },

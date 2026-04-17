@@ -100,6 +100,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - PK: `id` (UUID default)
 - Unique: `email`, `account_handle` (hai trường độc lập; login chấp nhận chuỗi tương ứng email hoặc account_handle, ưu tiên account_handle).
 - Trường chính: `password_hash`, `role_type`, `status`, `email_verified`, `phone_verified`, `refresh_token`
+- Trường tên canonical cho actor dạng staff: `first_name`, `last_name` (nullable). FE/BE dùng cặp này làm nguồn chuẩn để hiển thị tên staff trong rollout bỏ `staff_info.full_name`.
 - Avatar:
   - `avatar_path` (`TEXT`, nullable): object path avatar trong bucket `avatars` theo format `users/{userId}/avatar`
 - FK optional:
@@ -110,6 +111,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 ### 4.2 `staff_info`
 
 - Thông tin nhân sự: hồ sơ cá nhân, CCCD, ngân hàng, `roles` (`StaffRole[]` dạng Postgres enum array), `status`
+- Không còn lưu cột tên riêng trong `staff_info` (đã bỏ `full_name`); tên staff canonical được đọc từ `users.first_name` + `users.last_name`. Một số API vẫn có thể trả `staffInfo.fullName` dưới dạng derived field để tương thích ngược.
 - CCCD:
   - `cccd_number` (`TEXT`, bắt buộc, unique): số CCCD 12 chữ số (rule validate ở BE/FE)
   - `cccd_issued_date` (`DATE`, nullable): ngày cấp CCCD

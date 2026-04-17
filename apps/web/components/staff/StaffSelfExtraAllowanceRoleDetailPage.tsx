@@ -21,6 +21,7 @@ import type {
   ExtraAllowanceStatus,
 } from "@/dtos/extra-allowance.dto";
 import type { StaffOption } from "@/dtos/staff.dto";
+import { resolveCanonicalUserName } from "@/dtos/user-name.dto";
 import {
   createMyCommunicationExtraAllowance,
   getMyStaffExtraAllowances,
@@ -184,7 +185,8 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
   const lockedStaffOption: StaffOption | null = meStaff
     ? {
       id: meStaff.id,
-      fullName: meStaff.fullName,
+      fullName:
+        resolveCanonicalUserName(meStaff.user, meStaff.fullName) || "Nhân sự",
       status: meStaff.status,
       roles: Array.isArray(meStaff.roles) ? meStaff.roles : [],
     }

@@ -316,7 +316,6 @@ describe('UserService', () => {
 
     expect(mockPrisma.staffInfo.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        fullName: 'New User',
         roles: ['teacher'],
         userId: 'user-1',
       }),
@@ -499,6 +498,30 @@ describe('UserService', () => {
         bank_qr_link: 'javascript:alert(1)',
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('updates canonical staff name on user during self staff update', async () => {
+    jest.spyOn(service, 'getFullProfile').mockResolvedValue({} as never);
+    mockPrisma.staffInfo.findFirst.mockResolvedValue({ id: 'staff-1' });
+
+    await service.updateMyStaffProfile('user-1', {
+      full_name: 'Teacher A',
+    });
+
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: {
+        first_name: 'Teacher',
+        last_name: 'A',
+      },
+    });
+    expect(mockPrisma.staffInfo.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          fullName: expect.anything(),
+        }),
+      }),
+    );
   });
 
   it('does not persist student status through self student profile updates', async () => {

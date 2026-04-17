@@ -32,6 +32,10 @@ import {
   type UploadableFile,
   validateImageFile,
 } from 'src/storage/supabase-storage';
+import {
+  getPreferredUserFullName,
+  splitFullName,
+} from 'src/common/user-name.util';
 
 type UserAuditClient = Prisma.TransactionClient | PrismaService;
 const AVATAR_STORAGE_BUCKET = 'avatars';
@@ -71,12 +75,17 @@ export class UserService {
   private async attachProfileMediaUrls<
     T extends {
       avatarPath?: string | null;
+      first_name?: string | null;
+      last_name?: string | null;
+      accountHandle?: string | null;
+      email?: string | null;
       staffInfo?: {
         cccdFrontPath?: string | null;
         cccdBackPath?: string | null;
       } | null;
     },
   >(profile: T) {
+    const fullName = getPreferredUserFullName(profile) ?? null;
     const [avatarUrl, staffInfo] = await Promise.all([
       this.createAvatarSignedUrl(profile.avatarPath),
       profile.staffInfo
@@ -86,8 +95,14 @@ export class UserService {
 
     return {
       ...profile,
+      fullName,
       avatarUrl,
-      staffInfo,
+      staffInfo: staffInfo
+        ? {
+            ...staffInfo,
+            fullName: fullName ?? '',
+          }
+        : staffInfo,
     };
   }
 
@@ -104,6 +119,10 @@ export class UserService {
     T extends {
       passwordHash: string | null;
       refreshToken: string | null;
+      accountHandle: string;
+      email: string;
+      first_name?: string | null;
+      last_name?: string | null;
       staffInfo?: { id: string; roles?: StaffRole[] | null } | null;
       studentInfo?: { id: string } | null;
     },
@@ -112,6 +131,7 @@ export class UserService {
 
     return {
       ...sanitized,
+      fullName: getPreferredUserFullName(sanitized) ?? null,
       staffInfo: user.staffInfo
         ? {
             id: user.staffInfo.id,
@@ -189,17 +209,38 @@ export class UserService {
     accountHandle: string;
     email: string;
   }) {
-    const fullName = `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim();
-    if (fullName) {
-      return fullName;
+    return getPreferredUserFullName(user) ?? user.email;
+  }
+
+  private normalizeSelfStaffNameInput(dto: UpdateMyStaffProfileDto) {
+    if (dto.full_name !== undefined) {
+      const normalizedFullName = dto.full_name.trim();
+      if (!normalizedFullName) {
+        throw new BadRequestException('Tên nhân sự không được để trống.');
+      }
+
+      return splitFullName(normalizedFullName);
     }
 
-    const accountHandle = normalizeOptionalText(user.accountHandle);
-    if (accountHandle) {
-      return accountHandle;
+    const payload: {
+      first_name?: string;
+      last_name?: string | null;
+    } = {};
+
+    if (dto.first_name !== undefined) {
+      const firstName = dto.first_name.trim();
+      if (!firstName) {
+        throw new BadRequestException('first_name không được để trống.');
+      }
+      payload.first_name = firstName;
     }
 
-    return user.email;
+    if (dto.last_name !== undefined) {
+      const lastName = dto.last_name.trim();
+      payload.last_name = lastName || null;
+    }
+
+    return payload;
   }
 
   private normalizeStaffRoles(staffRoles?: StaffRole[]) {
@@ -295,7 +336,10 @@ export class UserService {
     });
 
     return {
-      data: users.map((user) => this.sanitizeUser(user)),
+      data: users.map((user) => ({
+        ...this.sanitizeUser(user),
+        fullName: getPreferredUserFullName(user) ?? null,
+      })),
       meta: { total, page: safePage, limit },
     };
   }
@@ -520,7 +564,6 @@ export class UserService {
           if (!existingUser.staffInfo) {
             const createdStaff = await tx.staffInfo.create({
               data: {
-                fullName: this.getPreferredProfileFullName(updatedUser),
                 cccdNumber: await this.generateAutoStaffCccdNumber(tx),
                 roles: normalizedStaffRoles ?? [],
                 userId: data.id,
@@ -913,8 +956,8 @@ export class UserService {
     if (!staff) {
       throw new BadRequestException('User has no linked staff record');
     }
+    const userNameData = this.normalizeSelfStaffNameInput(dto);
     const data: Record<string, unknown> = {};
-    if (dto.full_name !== undefined) data.fullName = dto.full_name;
     if (dto.cccd_number !== undefined) data.cccdNumber = dto.cccd_number;
     if (dto.cccd_issued_date !== undefined) {
       const cccdIssuedDate = new Date(dto.cccd_issued_date);
@@ -939,35 +982,71 @@ export class UserService {
         'Link QR ngân hàng',
       );
     }
-    if (Object.keys(data).length === 0) {
+    if (Object.keys(data).length === 0 && Object.keys(userNameData).length === 0) {
       return this.getFullProfile(userId);
     }
-    const beforeValue = auditActor
+    const beforeStaffValue = auditActor
       ? await this.getStaffAuditSnapshot(this.prisma, staff.id)
+      : null;
+    const beforeUserValue = auditActor
+      ? await this.getUserAuditSnapshot(this.prisma, userId)
       : null;
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.staffInfo.update({
-        where: { id: staff.id },
-        data: data as Parameters<
-          typeof this.prisma.staffInfo.update
-        >[0]['data'],
-      });
+      if (Object.keys(userNameData).length > 0) {
+        await tx.user.update({
+          where: { id: userId },
+          data: userNameData,
+        });
+      }
+
+      if (Object.keys(data).length > 0) {
+        await tx.staffInfo.update({
+          where: { id: staff.id },
+          data: data as Parameters<
+            typeof this.prisma.staffInfo.update
+          >[0]['data'],
+        });
+      }
 
       if (auditActor) {
-        const afterValue = await this.getStaffAuditSnapshot(tx, staff.id);
-        if (beforeValue && afterValue) {
+        const afterUserValue = await this.getUserAuditSnapshot(tx, userId);
+        if (
+          beforeUserValue &&
+          afterUserValue &&
+          Object.keys(userNameData).length > 0
+        ) {
+          await this.actionHistoryService.recordUpdate(tx, {
+            actor: auditActor,
+            entityType: 'user',
+            entityId: userId,
+            description: 'Cập nhật tên nhân sự từ hồ sơ tự phục vụ',
+            beforeValue: beforeUserValue,
+            afterValue: afterUserValue,
+          });
+        }
+
+        const afterStaffValue = await this.getStaffAuditSnapshot(tx, staff.id);
+        if (
+          beforeStaffValue &&
+          afterStaffValue &&
+          Object.keys(data).length > 0
+        ) {
           await this.actionHistoryService.recordUpdate(tx, {
             actor: auditActor,
             entityType: 'staff',
             entityId: staff.id,
             description: 'Cập nhật hồ sơ nhân sự',
-            beforeValue,
-            afterValue,
+            beforeValue: beforeStaffValue,
+            afterValue: afterStaffValue,
           });
         }
       }
     });
+
+    if (Object.keys(userNameData).length > 0) {
+      this.authService.invalidateAuthIdentityCache(userId);
+    }
 
     return this.getFullProfile(userId);
   }

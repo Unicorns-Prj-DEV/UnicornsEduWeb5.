@@ -207,6 +207,7 @@ function EditClassScheduleDialog({
         queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
         Promise.resolve(onScheduleSaved?.()),
       ]);
+      toast.success("Đã lưu khung giờ học.");
     },
     onError: (err: unknown) => {
       const msg =
@@ -217,7 +218,7 @@ function EditClassScheduleDialog({
     },
   });
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     let schedulePayload: ClassScheduleItem[];
     try {
       schedulePayload = buildSchedulePayload(scheduleRanges);
@@ -225,13 +226,8 @@ function EditClassScheduleDialog({
       toast.error((error as Error).message || "Không thể lưu lịch học.");
       return;
     }
-    try {
-      await updateMutation.mutateAsync({ schedule: schedulePayload });
-      toast.success("Đã lưu khung giờ học.");
-      onClose();
-    } catch {
-      // handled in onError
-    }
+    onClose();
+    updateMutation.mutate({ schedule: schedulePayload });
   };
 
   const handleAddRange = () => {
