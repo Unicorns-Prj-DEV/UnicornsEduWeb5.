@@ -57,6 +57,12 @@ GOOGLE_OAUTH_CLIENT_SECRET="..."
 GOOGLE_REFRESH_TOKEN="..."
 ```
 
+Hành vi runtime hiện tại:
+
+- Nếu dùng `GOOGLE_OAUTH_CLIENT_ID` + `GOOGLE_OAUTH_CLIENT_SECRET` + `GOOGLE_REFRESH_TOKEN`, backend giữ `OAuth2Client` sống trong runtime để Google client library tự refresh access token khi cần.
+- Nếu dùng `GOOGLE_SERVICE_ACCOUNT_KEY` hoặc `GOOGLE_SERVICE_ACCOUNT_JSON_PATH`, backend giữ `JWT` auth client thay vì chỉ giữ access token lấy lúc boot, nên service-account access token cũng được refresh tự động.
+- Nếu một request tới Google Calendar gặp lỗi auth/token hết hạn (`401`, `invalid_grant`, `invalid credentials`), service sẽ tự khởi tạo lại auth client và retry đúng 1 lần trước khi fail.
+
 ### 2.4 Module Registration
 
 `GoogleCalendarModule` được import bởi `CalendarModule` để phục vụ sync recurring event của `Class.schedule`.
@@ -161,6 +167,7 @@ Các log còn ý nghĩa cho feature này:
 | Prefix Log | Khi nào xuất hiện |
 |------------|-------------------|
 | `[Calendar Startup]` | Khi app khởi động và khởi tạo Google Calendar client |
+| `[Calendar Auth]` | Khi request bị lỗi auth/token, service tự re-init client và retry một lần |
 | `[ClassService]` | Khi cập nhật schedule lớp qua class workflow rồi gọi sync recurring event |
 | `[Calendar CRUD:GET]` | Khi đọc occurrence của class schedule |
 | `[Calendar CRUD:sync]` | Khi xóa/tạo recurring event cho `Class.schedule` |
@@ -186,6 +193,7 @@ Session CRUD không còn log vòng đời sync Google Calendar nữa.
 | Vấn đề | Kiểm tra |
 |-------|----------|
 | Không sync được recurring event | Kiểm tra `GOOGLE_SERVICE_ACCOUNT_KEY` hoặc `GOOGLE_SERVICE_ACCOUNT_JSON_PATH` |
+| Token/access token bị expire | Hệ thống sẽ tự refresh và retry 1 lần; nếu vẫn lỗi, kiểm tra `GOOGLE_REFRESH_TOKEN` hoặc quyền service account/key hiện tại còn hợp lệ |
 | Không có Meet link | Kiểm tra auth method Google, quyền conference/invite, và log response của Google API |
 | Gia sư không nhận invite recurring event | Kiểm tra email tutor đúng, calendar được share đúng, và slot có `teacherId` hợp lệ |
 | Tạo session nhưng Google Calendar không đổi | Đây là hành vi đúng từ 2026-04-14; session không còn sync calendar |

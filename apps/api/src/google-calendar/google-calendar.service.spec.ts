@@ -29,6 +29,22 @@ const mockJWT = {
   }),
 };
 
+const mockServiceAccountKey = Buffer.from(
+  JSON.stringify({
+    type: 'service_account',
+    project_id: 'test-project',
+    private_key_id: 'test-private-key-id',
+    private_key: '-----BEGIN PRIVATE KEY-----\nmock\n-----END PRIVATE KEY-----\n',
+    client_email: 'calendar-bot@test-project.iam.gserviceaccount.com',
+    client_id: '1234567890',
+    auth_uri: 'https://accounts.google.com/o/oauth2/auth',
+    token_uri: 'https://oauth2.googleapis.com/token',
+    auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs',
+    client_x509_cert_url:
+      'https://www.googleapis.com/robot/v1/metadata/x509/calendar-bot%40test-project.iam.gserviceaccount.com',
+  }),
+).toString('base64');
+
 jest.mock('googleapis', () => ({
   google: mockGoogle,
 }));
@@ -53,7 +69,7 @@ describe('GoogleCalendarService', () => {
           useValue: {
             get: jest.fn((key: string) => {
               const env: Record<string, string> = {
-                GOOGLE_SERVICE_ACCOUNT_KEY: 'mock-key',
+                GOOGLE_SERVICE_ACCOUNT_KEY: mockServiceAccountKey,
                 GOOGLE_CALENDAR_ID: 'test-calendar@group.calendar.google.com',
                 GOOGLE_TIME_ZONE: 'Asia/Ho_Chi_Minh',
               };
@@ -159,6 +175,41 @@ describe('GoogleCalendarService', () => {
         }),
       );
     });
+
+    it('reinitializes the client and retries once when Google returns an auth error', async () => {
+      mockCalendar.events.insert
+        .mockRejectedValueOnce(
+          Object.assign(new Error('Request failed with status code 401'), {
+            code: 401,
+          }),
+        )
+        .mockResolvedValueOnce({
+          data: {
+            id: 'event-retried',
+            conferenceData: {
+              entryPoints: [],
+            },
+          },
+        });
+
+      const result = await service.createOrUpdateClassScheduleRecurringEvent({
+        classId: 'class-123',
+        className: 'Math 10A',
+        entryId: 'entry-1',
+        teacherEmails: ['teacher@example.com'],
+        dayOfWeek: 2,
+        from: '19:00:00',
+        end: '20:30:00',
+      });
+
+      expect(result).toEqual({
+        eventId: 'event-retried',
+        meetLink: undefined,
+      });
+      expect(mockJWT.authorize).toHaveBeenCalledTimes(1);
+      expect(mockGoogle.calendar).toHaveBeenCalledTimes(1);
+      expect(mockCalendar.events.insert).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('deleteCalendarEvent', () => {
@@ -190,6 +241,25 @@ describe('GoogleCalendarService', () => {
   });
 
   describe('testConnection', () => {
+    it('initializes the calendar with JWT auth so service-account tokens can auto-refresh', async () => {
+      (
+        service as unknown as { calendar: typeof mockCalendar | null }
+      ).calendar = null;
+      mockCalendar.calendarList.list.mockResolvedValue({
+        data: { items: [{ id: 'primary' }] },
+      });
+
+      await expect(service.testConnection()).resolves.toBe(true);
+
+      expect(mockJWT.authorize).toHaveBeenCalledTimes(1);
+      expect(mockGoogle.calendar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          version: 'v3',
+          auth: mockJWT,
+        }),
+      );
+    });
+
     it('returns true when connection succeeds', async () => {
       mockCalendar.calendarList.list.mockResolvedValue({
         data: { items: [{ id: 'primary' }] },

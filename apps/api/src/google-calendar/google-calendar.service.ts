@@ -28,19 +28,14 @@ interface ServiceAccountCredentials {
   universe_domain?: string;
 }
 
-type CalendarAuthClient = {
-  accessToken: string;
-  tokenType: string;
-  keys: string[];
-};
-
 @Injectable({
   scope: Scope.DEFAULT,
 })
 export class GoogleCalendarService implements OnModuleInit {
   private readonly logger = new Logger(GoogleCalendarService.name);
-  private calendar!: calendar_v3.Calendar;
+  private calendar: calendar_v3.Calendar | null = null;
   private config!: GoogleCalendarConfig;
+  private initializationPromise: Promise<void> | null = null;
   private readonly DEFAULT_TIME_ZONE = 'Asia/Ho_Chi_Minh';
   private readonly GOOGLE_CALENDAR_SCOPE =
     'https://www.googleapis.com/auth/calendar';
@@ -50,8 +45,7 @@ export class GoogleCalendarService implements OnModuleInit {
   }
 
   onModuleInit(): void {
-    // Initialize calendar if configured, otherwise log warning
-    this.initializeCalendar().catch((error) => {
+    void this.ensureCalendarInitialized().catch((error) => {
       this.logger.error(
         `Failed to initialize Google Calendar on module init: ${error}`,
       );
@@ -118,6 +112,32 @@ export class GoogleCalendarService implements OnModuleInit {
     return null;
   }
 
+  private async ensureCalendarInitialized(forceReinitialize = false): Promise<void> {
+    if (forceReinitialize) {
+      this.calendar = null;
+    } else if (this.calendar) {
+      return;
+    }
+
+    if (this.initializationPromise) {
+      await this.initializationPromise;
+      if (!forceReinitialize || this.calendar) {
+        return;
+      }
+    }
+
+    const initializationPromise = this.initializeCalendar();
+    this.initializationPromise = initializationPromise;
+
+    try {
+      await initializationPromise;
+    } finally {
+      if (this.initializationPromise === initializationPromise) {
+        this.initializationPromise = null;
+      }
+    }
+  }
+
   private async initializeCalendar(): Promise<void> {
     const { googleClientId, googleClientSecret, googleRefreshToken, serviceAccountKeyBase64, serviceAccountJsonPath } = this.config;
 
@@ -171,11 +191,11 @@ export class GoogleCalendarService implements OnModuleInit {
           scopes: [this.GOOGLE_CALENDAR_SCOPE],
         });
 
-        const authClient = await auth.authorize() as CalendarAuthClient;
+        await auth.authorize();
 
         this.calendar = google.calendar({
           version: 'v3',
-          auth: authClient.accessToken,
+          auth,
         }) as calendar_v3.Calendar;
 
         this.logger.log(`[Calendar Startup] Google Calendar initialized via service account (${credentials.client_email})`);
@@ -191,23 +211,83 @@ export class GoogleCalendarService implements OnModuleInit {
     );
   }
 
-  private checkCalendarInitialized(): void {
+  private requireCalendar(): calendar_v3.Calendar {
     if (!this.calendar) {
       throw new GoogleCalendarAuthError(
-        'Google Calendar client not initialized. Check service account configuration.',
+        'Google Calendar client not initialized. Check Google Calendar auth configuration.',
       );
+    }
+
+    return this.calendar;
+  }
+
+  private isRetryableAuthError(error: unknown): boolean {
+    const err = error as {
+      code?: number | string;
+      message?: string;
+      response?: { status?: number };
+      errors?: Array<{ reason?: string }>;
+    };
+
+    const numericCode =
+      typeof err.code === 'number'
+        ? err.code
+        : typeof err.code === 'string'
+          ? Number.parseInt(err.code, 10)
+          : undefined;
+    const status = err.response?.status ?? numericCode;
+    const message = err.message?.toLowerCase() ?? '';
+    const reasons = (err.errors ?? [])
+      .map((item) => item.reason?.toLowerCase() ?? '')
+      .filter(Boolean);
+
+    return (
+      status === 401 ||
+      message.includes('invalid_grant') ||
+      message.includes('invalid credentials') ||
+      message.includes('unauthorized') ||
+      reasons.includes('autherror') ||
+      reasons.includes('invalidcredentials')
+    );
+  }
+
+  private async executeCalendarRequest<T>(
+    context: string,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    await this.ensureCalendarInitialized();
+    this.requireCalendar();
+
+    try {
+      return await operation();
+    } catch (error) {
+      if (!this.isRetryableAuthError(error)) {
+        throw error;
+      }
+
+      this.logger.warn(
+        `[Calendar Auth] ${context} failed because Google token/auth expired or was rejected. Reinitializing client and retrying once.`,
+      );
+
+      await this.ensureCalendarInitialized(true);
+      this.requireCalendar();
+
+      return operation();
     }
   }
 
   async deleteCalendarEvent(eventId: string): Promise<void> {
     this.logger.log(`[Calendar CRUD:DELETE] Deleting Google Calendar event: eventId=${eventId}`);
-    this.checkCalendarInitialized();
 
     try {
-      await this.calendar.events.delete({
-        calendarId: this.config.calendarId || 'primary',
-        eventId,
-      });
+      await this.executeCalendarRequest(
+        `delete event ${eventId}`,
+        async () =>
+          this.calendar!.events.delete({
+            calendarId: this.config.calendarId || 'primary',
+            eventId,
+          }),
+      );
 
       this.logger.log(`[Calendar CRUD:DELETE] Successfully deleted event ${eventId}`);
     } catch (error: unknown) {
@@ -231,11 +311,13 @@ export class GoogleCalendarService implements OnModuleInit {
 
   async testConnection(): Promise<boolean> {
     try {
-      this.checkCalendarInitialized();
-
-      const response = await this.calendar.calendarList.list({
-        maxResults: 1,
-      });
+      const response = await this.executeCalendarRequest(
+        'test Google Calendar connection',
+        async () =>
+          this.calendar!.calendarList.list({
+            maxResults: 1,
+          }),
+      );
 
       this.logger.log(
         `Google Calendar connection test successful. Found ${response.data.items?.length || 0} calendars`,
@@ -271,8 +353,6 @@ export class GoogleCalendarService implements OnModuleInit {
     from: string;
     end: string;
   }): Promise<{ eventId: string; meetLink?: string }> {
-    this.checkCalendarInitialized();
-
     const {
       classId,
       className,
@@ -377,24 +457,29 @@ export class GoogleCalendarService implements OnModuleInit {
     this.logger.log(`[Calendar] Conference data version will be set to 1`);
 
     try {
-      let response;
       const action = existingEventId ? 'update' : 'create';
+      let response;
       this.logger.log(`[Calendar] ${action === 'update' ? 'Updating' : 'Creating'} recurring event on Google Calendar...`);
 
-      if (existingEventId) {
-        response = await this.calendar.events.update({
-          calendarId: this.config.calendarId || 'primary',
-          eventId: existingEventId,
-          requestBody: eventBody,
-          conferenceDataVersion: 1,
-        });
-      } else {
-        response = await this.calendar.events.insert({
-          calendarId: this.config.calendarId || 'primary',
-          requestBody: eventBody,
-          conferenceDataVersion: 1,
-        });
-      }
+      response = await this.executeCalendarRequest(
+        `${action} recurring event for class ${classId}`,
+        async () => {
+          if (existingEventId) {
+            return this.calendar!.events.update({
+              calendarId: this.config.calendarId || 'primary',
+              eventId: existingEventId,
+              requestBody: eventBody,
+              conferenceDataVersion: 1,
+            });
+          }
+
+          return this.calendar!.events.insert({
+            calendarId: this.config.calendarId || 'primary',
+            requestBody: eventBody,
+            conferenceDataVersion: 1,
+          });
+        },
+      );
 
       const event = response.data as GoogleCalendarEvent;
       this.logger.log(`[Calendar] Google API response event.id: ${event.id}`);
