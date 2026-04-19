@@ -9,6 +9,7 @@ import {
   NotFoundException,
   Patch,
   Post,
+  Put,
   Query,
   UploadedFile,
   UploadedFiles,
@@ -36,7 +37,9 @@ import {
   type StaffDashboardDto,
 } from 'src/dtos/dashboard.dto';
 import {
+  StudentExamScheduleItemDto,
   StudentWalletHistoryQueryDto,
+  UpdateStudentExamSchedulesDto,
   UpdateMyStudentAccountBalanceDto,
 } from 'src/dtos/student.dto';
 import {
@@ -587,6 +590,50 @@ export class UserProfileController {
   ) {
     const studentId = await this.userService.getLinkedStudentId(user.id);
     return this.studentService.getStudentSelfWalletHistory(studentId, query);
+  }
+
+  @Get('student-exam-schedules')
+  @ApiOperation({
+    summary: 'Get current student exam schedules',
+    description:
+      'Returns authoritative exam schedule rows for the current linked student profile.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Exam schedule list for current student.',
+    type: [StudentExamScheduleItemDto],
+  })
+  @ApiResponse({ status: 400, description: 'User has no student record.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  async getMyStudentExamSchedules(@CurrentUser() user: JwtPayload) {
+    const studentId = await this.userService.getLinkedStudentId(user.id);
+    return this.studentService.getStudentSelfExamSchedules(studentId);
+  }
+
+  @Put('student-exam-schedules')
+  @ApiOperation({
+    summary: 'Replace current student exam schedules',
+    description:
+      'Replaces the authoritative exam schedule list for the current linked student profile.',
+  })
+  @ApiBody({ type: UpdateStudentExamSchedulesDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Updated exam schedule list for current student.',
+    type: [StudentExamScheduleItemDto],
+  })
+  @ApiResponse({ status: 400, description: 'User has no student record.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  async updateMyStudentExamSchedules(
+    @CurrentUser() user: JwtPayload,
+    @Body() body: UpdateStudentExamSchedulesDto,
+  ) {
+    const studentId = await this.userService.getLinkedStudentId(user.id);
+    return this.studentService.updateStudentExamSchedules(studentId, body.items, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Patch('student-account-balance')

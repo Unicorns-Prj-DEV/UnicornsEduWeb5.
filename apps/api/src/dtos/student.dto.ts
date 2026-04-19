@@ -13,6 +13,7 @@ import {
   Max,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
 import { Gender, StudentStatus } from 'generated/enums';
 import { PaginationQueryDto } from './pagination.dto';
@@ -276,4 +277,78 @@ export class UpdateStudentClassesDto {
   @IsArray()
   @IsUUID('4', { each: true })
   class_ids: string[];
+}
+
+export class StudentExamScheduleItemDto {
+  @ApiProperty({
+    description: 'Exam schedule id',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @IsUUID()
+  id: string;
+
+  @ApiProperty({
+    description: 'Exam date in YYYY-MM-DD format',
+    example: '2026-05-03',
+  })
+  @IsDateString()
+  examDate: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional note for this exam schedule',
+    example: 'Thi cuối kỳ môn Toán',
+  })
+  @IsOptional()
+  @IsString()
+  note?: string | null;
+
+  @ApiProperty({
+    description: 'Creation timestamp',
+    example: '2026-04-19T08:30:00.000Z',
+  })
+  @IsDateString()
+  createdAt: string;
+
+  @ApiProperty({
+    description: 'Update timestamp',
+    example: '2026-04-19T08:30:00.000Z',
+  })
+  @IsDateString()
+  updatedAt: string;
+}
+
+export class StudentExamScheduleUpsertItemDto {
+  @ApiPropertyOptional({
+    description: 'Exam schedule id. Optional for new rows.',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+
+  @ApiProperty({
+    description: 'Exam date in YYYY-MM-DD format',
+    example: '2026-05-03',
+  })
+  @IsDateString()
+  examDate: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional note for this exam schedule',
+    example: 'Thi cuối kỳ môn Toán',
+  })
+  @IsOptional()
+  @IsString()
+  note?: string | null;
+}
+
+export class UpdateStudentExamSchedulesDto {
+  @ApiProperty({
+    description: 'Replace-all payload for a student exam schedule list.',
+    type: [StudentExamScheduleUpsertItemDto],
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => StudentExamScheduleUpsertItemDto)
+  items: StudentExamScheduleUpsertItemDto[];
 }

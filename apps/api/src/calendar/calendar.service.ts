@@ -1,17 +1,20 @@
 import {
+  BadRequestException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '../../generated/client';
+import { PrismaService } from '../prisma/prisma.service';
 import { GoogleCalendarService } from '../google-calendar/google-calendar.service';
 import {
   ClassScheduleEntryDto,
   ClassScheduleEventDto,
   ClassScheduleFilterDto,
+  CreateMakeupScheduleEventDto,
+  MakeupScheduleEventDto,
+  UpdateMakeupScheduleEventDto,
 } from '../dtos/class-schedule.dto';
-import { StaffRole } from 'generated/enums';
 import { v4 as uuidv4 } from 'uuid';
 import { getUserFullNameFromParts } from '../common/user-name.util';
 
@@ -32,6 +35,28 @@ interface StoredClassScheduleEntry {
   googleCalendarEventId?: string;
   meetLink?: string;
 }
+
+type CalendarScope = {
+  teacherId?: string;
+};
+
+type StudentOption = {
+  id: string;
+  fullName: string;
+};
+
+type MakeupScheduleEventWithRelations = Prisma.MakeupScheduleEventGetPayload<{
+  include: {
+    class: true;
+    teacher: {
+      include: {
+        user: {
+          select: { first_name: true; last_name: true; email: true };
+        };
+      };
+    };
+  };
+}>;
 
 @Injectable()
 export class CalendarService {
@@ -107,12 +132,70 @@ export class CalendarService {
   }
 
   private parseDateOnly(dateValue: string): Date {
-    const [year, month, day] = dateValue.split('-').map(Number);
-    return new Date(year, (month || 1) - 1, day || 1);
+    const parsedDate = new Date(dateValue);
+    if (Number.isNaN(parsedDate.getTime())) {
+      throw new BadRequestException('date không hợp lệ.');
+    }
+
+    return parsedDate;
   }
 
-  private formatDate(date: Date | null | undefined): string | undefined {
-    if (!date) return undefined;
+  private parseTimeOnly(
+    timeValue: string,
+    field: 'startTime' | 'endTime',
+  ): Date {
+    const timeMatch = /^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/.exec(
+      timeValue,
+    );
+    if (!timeMatch) {
+      throw new BadRequestException(`${field} không hợp lệ.`);
+    }
+
+    const hours = Number.parseInt(timeMatch[1], 10);
+    const minutes = Number.parseInt(timeMatch[2], 10);
+    const seconds =
+      timeMatch[3] !== undefined ? Number.parseInt(timeMatch[3], 10) : 0;
+
+    return new Date(
+      `1970-01-01T${String(hours).padStart(2, '0')}:${String(minutes).padStart(
+        2,
+        '0',
+      )}:${String(seconds).padStart(2, '0')}`,
+    );
+  }
+
+  private normalizeTimeValue(
+    value: Date | string | null | undefined,
+  ): string | undefined {
+    if (!value) {
+      return undefined;
+    }
+
+    if (typeof value === 'string') {
+      const match = /^(\d{2}:\d{2})(?::(\d{2}))?$/.exec(value.trim());
+      if (!match) {
+        return undefined;
+      }
+
+      return `${match[1]}:${match[2] ?? '00'}`;
+    }
+
+    const hours = String(value.getHours()).padStart(2, '0');
+    const minutes = String(value.getMinutes()).padStart(2, '0');
+    const seconds = String(value.getSeconds()).padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+  }
+
+  private formatDate(value: Date | string | null | undefined): string | undefined {
+    if (!value) {
+      return undefined;
+    }
+
+    const date = typeof value === 'string' ? new Date(value) : value;
+    if (Number.isNaN(date.getTime())) {
+      return undefined;
+    }
+
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
@@ -125,15 +208,467 @@ export class CalendarService {
     return getUserFullNameFromParts(staff.user) ?? '';
   }
 
+  private getNextDateForDay(date: Date, dayOfWeek: number): Date {
+    const result = new Date(date);
+    const currentDay = result.getDay();
+    const diff = (dayOfWeek - currentDay + 7) % 7;
+    result.setDate(result.getDate() + diff);
+    result.setHours(0, 0, 0, 0);
+    return result;
+  }
+
+  private getOccurrencesInRange(
+    start: Date,
+    end: Date,
+    dayOfWeek: number,
+  ): Date[] {
+    const first = this.getNextDateForDay(start, dayOfWeek);
+    if (first > end) {
+      return [];
+    }
+
+    const occurrences: Date[] = [];
+    let current = new Date(first);
+    while (current <= end) {
+      occurrences.push(new Date(current));
+      current.setDate(current.getDate() + 7);
+    }
+    return occurrences;
+  }
+
+  private buildCalendarClassWhere(
+    filters: ClassScheduleFilterDto,
+    scope: CalendarScope = {},
+  ): Prisma.ClassWhereInput {
+    const teacherId = scope.teacherId ?? filters.teacherId;
+
+    return {
+      status: 'running',
+      ...(filters.classId ? { id: filters.classId } : {}),
+      ...(teacherId
+        ? {
+            teachers: {
+              some: {
+                teacherId,
+              },
+            },
+          }
+        : {}),
+      ...(filters.studentId
+        ? {
+            students: {
+              some: {
+                studentId: filters.studentId,
+              },
+            },
+          }
+        : {}),
+    };
+  }
+
+  private buildStudentExamWhere(
+    filters: ClassScheduleFilterDto,
+    scope: CalendarScope = {},
+  ): Prisma.StudentExamScheduleWhereInput {
+    const teacherId = scope.teacherId ?? filters.teacherId;
+    const parsedStartDate = this.parseDateOnly(filters.startDate);
+    const parsedEndDate = this.parseDateOnly(filters.endDate);
+
+    return {
+      examDate: {
+        gte: parsedStartDate,
+        lte: parsedEndDate,
+      },
+      ...(filters.studentId ? { studentId: filters.studentId } : {}),
+      student: {
+        ...(!filters.studentId
+          ? {
+              studentClasses: {
+                some: {
+                  class: {
+                    status: 'running',
+                    ...(filters.classId ? { id: filters.classId } : {}),
+                    ...(teacherId
+                      ? {
+                          teachers: {
+                            some: {
+                              teacherId,
+                            },
+                          },
+                        }
+                      : {}),
+                  },
+                },
+              },
+            }
+          : {}),
+        ...(filters.studentId && (filters.classId || teacherId)
+          ? {
+              studentClasses: {
+                some: {
+                  ...(filters.classId ? { classId: filters.classId } : {}),
+                  class: {
+                    ...(teacherId
+                      ? {
+                          teachers: {
+                            some: {
+                              teacherId,
+                            },
+                          },
+                        }
+                      : {}),
+                  },
+                },
+              },
+            }
+          : {}),
+      },
+    };
+  }
+
+  private buildFixedScheduleEvents(
+    classes: Array<
+      Prisma.ClassGetPayload<{
+        include: {
+          teachers: {
+            include: {
+              teacher: {
+                include: {
+                  user: {
+                    select: { first_name: true; last_name: true; email: true };
+                  };
+                };
+              };
+            };
+          };
+        };
+      }>
+    >,
+    filters: ClassScheduleFilterDto,
+    scope: CalendarScope = {},
+  ): ClassScheduleEventDto[] {
+    const startDt = this.parseDateOnly(filters.startDate);
+    startDt.setHours(0, 0, 0, 0);
+    const endDt = this.parseDateOnly(filters.endDate);
+    endDt.setHours(23, 59, 59, 999);
+    const effectiveTeacherId = scope.teacherId ?? filters.teacherId;
+    const events: ClassScheduleEventDto[] = [];
+
+    for (const cls of classes) {
+      const rawSchedule = this.getStoredClassScheduleEntries(cls.schedule);
+
+      for (const entry of rawSchedule) {
+        const dayOfWeek = entry.dayOfWeek;
+        const startTime = this.normalizeTimeValue(entry.from);
+        const endTime = this.normalizeTimeValue(entry.to || entry.end);
+
+        if (
+          dayOfWeek === undefined ||
+          !startTime ||
+          !endTime ||
+          (effectiveTeacherId &&
+            entry.teacherId &&
+            entry.teacherId !== effectiveTeacherId)
+        ) {
+          continue;
+        }
+
+        const targetTeachers = entry.teacherId
+          ? cls.teachers.filter(
+              (teacherRecord) => teacherRecord.teacherId === entry.teacherId,
+            )
+          : effectiveTeacherId
+            ? cls.teachers.filter(
+                (teacherRecord) =>
+                  teacherRecord.teacherId === effectiveTeacherId,
+              )
+            : cls.teachers;
+
+        if (effectiveTeacherId && targetTeachers.length === 0) {
+          continue;
+        }
+
+        const teacherIds = Array.from(
+          new Set(targetTeachers.map((item) => item.teacherId)),
+        );
+        const teacherNames = Array.from(
+          new Set(
+            targetTeachers
+              .map((item) => this.buildStaffDisplayName(item.teacher) || 'N/A')
+              .filter(Boolean),
+          ),
+        );
+
+        const occurrenceDates = this.getOccurrencesInRange(
+          startDt,
+          endDt,
+          dayOfWeek,
+        );
+        for (const occurrenceDate of occurrenceDates) {
+          const date = this.formatDate(occurrenceDate) ?? '';
+          const entryId = entry.id ?? `${cls.id}-${dayOfWeek}-${startTime}`;
+          events.push({
+            occurrenceId: `fixed:${cls.id}:${entryId}:${date}`,
+            sourceId: entryId,
+            type: 'fixed',
+            title: cls.name,
+            classId: cls.id,
+            classIds: [cls.id],
+            className: cls.name,
+            classNames: [cls.name],
+            teacherIds,
+            teacherNames,
+            date,
+            startTime,
+            endTime,
+            allDay: false,
+            patternEntryId: entry.id,
+            meetLink: entry.meetLink,
+          });
+        }
+      }
+    }
+
+    return events;
+  }
+
+  private serializeMakeupScheduleEvent(
+    event: MakeupScheduleEventWithRelations,
+  ): MakeupScheduleEventDto {
+    return {
+      id: event.id,
+      classId: event.classId,
+      teacherId: event.teacherId,
+      linkedSessionId: event.linkedSessionId,
+      date: this.formatDate(event.date) ?? '',
+      startTime: this.normalizeTimeValue(event.startTime),
+      endTime: this.normalizeTimeValue(event.endTime),
+      title: event.title ?? undefined,
+      note: event.note ?? undefined,
+      className: event.class.name,
+      teacherName: this.buildStaffDisplayName(event.teacher) || undefined,
+      googleMeetLink: event.googleMeetLink,
+      googleCalendarEventId: event.googleCalendarEventId,
+      calendarSyncedAt: event.calendarSyncedAt?.toISOString() ?? null,
+      calendarSyncError: event.calendarSyncError,
+    };
+  }
+
+  private toCalendarMakeupEvent(
+    event: Prisma.MakeupScheduleEventGetPayload<{
+      include: {
+        class: true;
+        teacher: {
+          include: {
+            user: {
+              select: { first_name: true; last_name: true; email: true };
+            };
+          };
+        };
+      };
+    }>,
+  ): ClassScheduleEventDto {
+    const teacherName = this.buildStaffDisplayName(event.teacher) || 'N/A';
+    const className = event.class.name;
+    const title = event.title?.trim() || `Lịch dạy bù - ${className}`;
+
+    return {
+      occurrenceId: `makeup:${event.id}`,
+      sourceId: event.id,
+      type: 'makeup',
+      title,
+      classId: event.classId,
+      classIds: [event.classId],
+      className,
+      classNames: [className],
+      teacherIds: [event.teacherId],
+      teacherNames: [teacherName],
+      date: this.formatDate(event.date) ?? '',
+      startTime: this.normalizeTimeValue(event.startTime),
+      endTime: this.normalizeTimeValue(event.endTime),
+      allDay: false,
+      meetLink: event.googleMeetLink ?? undefined,
+      note: event.note ?? undefined,
+    };
+  }
+
+  private toCalendarExamEvent(
+    event: Prisma.StudentExamScheduleGetPayload<{
+      include: {
+        student: {
+          include: {
+            studentClasses: {
+              include: {
+                class: true;
+              };
+            };
+          };
+        };
+      };
+    }>,
+  ): ClassScheduleEventDto {
+    const relatedClasses = event.student.studentClasses
+      .map((studentClass) => studentClass.class)
+      .filter(Boolean);
+
+    return {
+      occurrenceId: `exam:${event.id}`,
+      sourceId: event.id,
+      type: 'exam',
+      title: `Lịch thi - ${event.student.fullName}`,
+      classId: relatedClasses[0]?.id,
+      classIds: relatedClasses.map((item) => item.id),
+      className: relatedClasses[0]?.name,
+      classNames: relatedClasses.map((item) => item.name),
+      teacherIds: [],
+      teacherNames: [],
+      studentId: event.studentId,
+      studentName: event.student.fullName,
+      date: this.formatDate(event.examDate) ?? '',
+      allDay: true,
+      note: event.note ?? undefined,
+    };
+  }
+
+  private sortCalendarEvents(events: ClassScheduleEventDto[]): ClassScheduleEventDto[] {
+    return [...events].sort((a, b) => {
+      if (a.date !== b.date) {
+        return a.date.localeCompare(b.date);
+      }
+
+      if (a.allDay !== b.allDay) {
+        return a.allDay ? -1 : 1;
+      }
+
+      const startCompare = (a.startTime ?? '').localeCompare(b.startTime ?? '');
+      if (startCompare !== 0) {
+        return startCompare;
+      }
+
+      return a.title.localeCompare(b.title, 'vi');
+    });
+  }
+
+  private async buildCalendarEvents(
+    filters: ClassScheduleFilterDto,
+    scope: CalendarScope = {},
+  ): Promise<ClassScheduleEventDto[]> {
+    const classWhere = this.buildCalendarClassWhere(filters, scope);
+    const effectiveTeacherId = scope.teacherId ?? filters.teacherId;
+
+    const [classes, makeupEvents, examEvents] = await Promise.all([
+      this.prisma.class.findMany({
+        where: classWhere,
+        include: {
+          teachers: {
+            include: {
+              teacher: {
+                include: {
+                  user: {
+                    select: { first_name: true, last_name: true, email: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.makeupScheduleEvent.findMany({
+        where: {
+          date: {
+            gte: this.parseDateOnly(filters.startDate),
+            lte: this.parseDateOnly(filters.endDate),
+          },
+          ...(filters.classId ? { classId: filters.classId } : {}),
+          ...(effectiveTeacherId ? { teacherId: effectiveTeacherId } : {}),
+          ...(filters.studentId
+            ? {
+                class: {
+                  students: {
+                    some: {
+                      studentId: filters.studentId,
+                    },
+                  },
+                },
+              }
+            : {}),
+        },
+        include: {
+          class: true,
+          teacher: {
+            include: {
+              user: {
+                select: { first_name: true, last_name: true, email: true },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.studentExamSchedule.findMany({
+        where: this.buildStudentExamWhere(filters, scope),
+        include: {
+          student: {
+            include: {
+              studentClasses: {
+                where: {
+                  ...(filters.classId ? { classId: filters.classId } : {}),
+                  class: {
+                    status: 'running',
+                    ...(effectiveTeacherId
+                      ? {
+                          teachers: {
+                            some: {
+                              teacherId: effectiveTeacherId,
+                            },
+                          },
+                        }
+                      : {}),
+                  },
+                },
+                include: {
+                  class: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const fixedEvents = this.buildFixedScheduleEvents(classes, filters, scope);
+    const calendarMakeupEvents = makeupEvents.map((item) =>
+      this.toCalendarMakeupEvent(item),
+    );
+    const calendarExamEvents = examEvents.map((item) =>
+      this.toCalendarExamEvent(item),
+    );
+
+    return this.sortCalendarEvents([
+      ...fixedEvents,
+      ...calendarMakeupEvents,
+      ...calendarExamEvents,
+    ]);
+  }
+
   async getClasses(
-    page: number = 1,
-    limit: number = 50,
+    page = 1,
+    limit = 50,
     search?: string,
+    teacherId?: string,
   ): Promise<PaginatedResponse<{ id: string; name: string }>> {
     const trimmedSearch = search?.trim();
     const skip = (page - 1) * limit;
     const where: Prisma.ClassWhereInput = {
       status: 'running',
+      ...(teacherId
+        ? {
+            teachers: {
+              some: {
+                teacherId,
+              },
+            },
+          }
+        : {}),
       ...(trimmedSearch
         ? {
             name: {
@@ -155,17 +690,12 @@ export class CalendarService {
       this.prisma.class.count({ where }),
     ]);
 
-    return {
-      data: classes,
-      total,
-      page,
-      limit,
-    };
+    return { data: classes, total, page, limit };
   }
 
   async getTeachers(
-    page: number = 1,
-    limit: number = 50,
+    page = 1,
+    limit = 50,
   ): Promise<PaginatedResponse<{ id: string; name: string }>> {
     const skip = (page - 1) * limit;
 
@@ -208,70 +738,97 @@ export class CalendarService {
       }),
     ]);
 
-    const teachers = staffInfos.map((staff) => {
-      const fullName = this.buildStaffDisplayName(staff) || 'N/A';
-      return {
-        id: staff.id,
-        name: fullName,
-      };
-    });
-
     return {
-      data: teachers,
+      data: staffInfos.map((staff) => ({
+        id: staff.id,
+        name: this.buildStaffDisplayName(staff) || 'N/A',
+      })),
       total,
       page,
       limit,
     };
   }
 
-  private getNextDateForDay(date: Date, dayOfWeek: number): Date {
-    const result = new Date(date);
-    const currentDay = result.getDay();
-    const diff = (dayOfWeek - currentDay + 7) % 7;
-    result.setDate(result.getDate() + diff);
-    result.setHours(0, 0, 0, 0);
-    return result;
+  async getStudentsForCalendar(
+    page = 1,
+    limit = 50,
+    search?: string,
+    teacherId?: string,
+  ): Promise<PaginatedResponse<StudentOption>> {
+    const trimmedSearch = search?.trim();
+    const skip = (page - 1) * limit;
+    const where: Prisma.StudentInfoWhereInput = {
+      ...(trimmedSearch
+        ? {
+            fullName: {
+              contains: trimmedSearch,
+              mode: 'insensitive',
+            },
+          }
+        : {}),
+      studentClasses: {
+        some: {
+          class: {
+            status: 'running',
+            ...(teacherId
+              ? {
+                  teachers: {
+                    some: {
+                      teacherId,
+                    },
+                  },
+                }
+              : {}),
+          },
+        },
+      },
+    };
+
+    const [students, total] = await Promise.all([
+      this.prisma.studentInfo.findMany({
+        where,
+        select: {
+          id: true,
+          fullName: true,
+        },
+        skip,
+        take: limit,
+        orderBy: [{ fullName: 'asc' }, { id: 'asc' }],
+      }),
+      this.prisma.studentInfo.count({ where }),
+    ]);
+
+    return {
+      data: students.map((student) => ({
+        id: student.id,
+        fullName: student.fullName,
+      })),
+      total,
+      page,
+      limit,
+    };
   }
 
-  private getOccurrencesInRange(start: Date, end: Date, dayOfWeek: number): Date[] {
-    const first = this.getNextDateForDay(start, dayOfWeek);
-    if (first > end) {
-      return [];
-    }
-    const occurrences: Date[] = [];
-    let current = new Date(first);
-    while (current <= end) {
-      occurrences.push(new Date(current));
-      current.setDate(current.getDate() + 7);
-    }
-    return occurrences;
+  async getAdminCalendarEvents(
+    filters: ClassScheduleFilterDto,
+  ): Promise<{ success: boolean; data: ClassScheduleEventDto[]; total: number }> {
+    const events = await this.buildCalendarEvents(filters);
+    return { success: true, data: events, total: events.length };
+  }
+
+  async getStaffScheduleEvents(
+    staffId: string,
+    filters: ClassScheduleFilterDto,
+  ): Promise<{ success: boolean; data: ClassScheduleEventDto[]; total: number }> {
+    const events = await this.buildCalendarEvents(filters, { teacherId: staffId });
+    return { success: true, data: events, total: events.length };
   }
 
   async getClassScheduleEvents(
     filters: ClassScheduleFilterDto,
   ): Promise<{ success: boolean; data: ClassScheduleEventDto[]; total: number }> {
-    const { startDate, endDate, classId, teacherId } = filters;
-    this.logger.log(`[Calendar CRUD:GET] getClassScheduleEvents: startDate=${startDate}, endDate=${endDate}, classId=${classId || '(all)'}, teacherId=${teacherId || '(all)'}`);
-
-    const startDt = this.parseDateOnly(startDate);
-    startDt.setHours(0, 0, 0, 0);
-    const endDt = this.parseDateOnly(endDate);
-    endDt.setHours(23, 59, 59, 999);
-
-    const where: Prisma.ClassWhereInput = {};
-    if (classId) {
-      where.id = classId;
-    }
-    if (teacherId) {
-      where.teachers = {
-        some: {
-          teacherId,
-        },
-      };
-    }
-
     const classes = await this.prisma.class.findMany({
-      where,
+      where: this.buildCalendarClassWhere(filters),
       include: {
         teachers: {
           include: {
@@ -286,91 +843,11 @@ export class CalendarService {
         },
       },
     });
-    this.logger.log(`[Calendar CRUD:GET] Found ${classes.length} classes matching filters`);
 
-    const events: ClassScheduleEventDto[] = [];
-
-    for (const cls of classes) {
-      const rawSchedule = this.getStoredClassScheduleEntries(cls.schedule);
-      this.logger.log(`[Calendar CRUD:GET] Class "${cls.name}" has ${rawSchedule.length} schedule entries`);
-      for (const entry of rawSchedule) {
-        const dayOfWeek = entry.dayOfWeek;
-        if (dayOfWeek === undefined) continue;
-        const from = entry.from;
-        const end = entry.to || entry.end;
-        if (!from || !end) continue;
-
-        const targetTeachers = entry.teacherId
-          ? cls.teachers.filter(
-              (teacherRecord) => teacherRecord.teacherId === entry.teacherId,
-            )
-          : teacherId
-            ? cls.teachers.filter(
-                (teacherRecord) => teacherRecord.teacherId === teacherId,
-              )
-            : cls.teachers;
-
-        if (teacherId && entry.teacherId && entry.teacherId !== teacherId) {
-          continue;
-        }
-
-        if (teacherId && targetTeachers.length === 0) continue;
-
-        const teacherIds =
-          targetTeachers.length > 0
-            ? Array.from(
-                new Set(
-                  targetTeachers.map((teacherRecord) => teacherRecord.teacherId),
-                ),
-              )
-            : entry.teacherId
-              ? [entry.teacherId]
-              : [];
-        const teacherNames =
-          targetTeachers.length > 0
-            ? Array.from(
-                new Set(
-                  targetTeachers.map((teacherRecord) => {
-                    return this.buildStaffDisplayName(teacherRecord.teacher) || 'N/A';
-                  }),
-                ),
-              )
-            : teacherIds.length > 0
-              ? ['N/A']
-              : [];
-
-        const occurrenceDates = this.getOccurrencesInRange(startDt, endDt, dayOfWeek);
-        if (occurrenceDates.length === 0) continue;
-
-        for (const occDate of occurrenceDates) {
-          const dateStr = this.formatDate(occDate) || '';
-          const entryId = entry.id || `${cls.id}-${dayOfWeek}-${from}-${dateStr}`;
-          const occurrenceId = `${cls.id}-${entryId}-${dateStr}`;
-          events.push({
-            occurrenceId,
-            classId: cls.id,
-            className: cls.name,
-            teacherIds,
-            teacherNames,
-            date: dateStr,
-            startTime: from,
-            endTime: end,
-            patternEntryId: entry.id,
-          });
-        }
-      }
-    }
-
-    events.sort((a, b) => {
-      if (a.date !== b.date) {
-        return a.date.localeCompare(b.date);
-      }
-      return (a.startTime || '').localeCompare(b.startTime || '');
-    });
-
-    const enrichedEvents = await this.enrichEventsWithMeetLinks(events);
-
-    return { success: true, data: enrichedEvents, total: enrichedEvents.length };
+    const events = this.sortCalendarEvents(
+      this.buildFixedScheduleEvents(classes, filters),
+    );
+    return { success: true, data: events, total: events.length };
   }
 
   async getClassSchedulePattern(
@@ -383,15 +860,17 @@ export class CalendarService {
     if (!cls) {
       throw new NotFoundException(`Class not found: ${classId}`);
     }
-    const entries: ClassScheduleEntryDto[] = this.getStoredClassScheduleEntries(
-      cls.schedule,
-    ).map((entry) => ({
-      id: entry.id,
-      dayOfWeek: entry.dayOfWeek ?? 0,
-      from: entry.from ?? '',
-      end: entry.to || entry.end || '',
-      teacherId: entry.teacherId,
-    }));
+
+    const entries = this.getStoredClassScheduleEntries(cls.schedule).map(
+      (entry) => ({
+        id: entry.id,
+        dayOfWeek: entry.dayOfWeek ?? 0,
+        from: entry.from ?? '',
+        end: this.normalizeTimeValue(entry.to || entry.end) ?? '',
+        teacherId: entry.teacherId,
+      }),
+    );
+
     return { success: true, data: entries };
   }
 
@@ -399,9 +878,6 @@ export class CalendarService {
     classId: string,
     entries: ClassScheduleEntryDto[],
   ): Promise<{ success: boolean; data: ClassScheduleEntryDto[] }> {
-    this.logger.log(`[Calendar CRUD] === UPDATE CLASS SCHEDULE PATTERN START === classId=${classId}, entries=${entries.length}`);
-    this.logger.log(`[Calendar CRUD] Incoming entries: ${JSON.stringify(entries, null, 2)}`);
-
     const cls = await this.prisma.class.findUnique({
       where: { id: classId },
     });
@@ -409,50 +885,36 @@ export class CalendarService {
       throw new NotFoundException(`Class not found: ${classId}`);
     }
 
-    // Capture old schedule entries before update (to detect deletions)
     const oldSchedule = this.getStoredClassScheduleEntries(cls.schedule);
-    this.logger.log(`[Calendar CRUD] Old schedule has ${oldSchedule.length} entries: ${JSON.stringify(oldSchedule.map(e => ({ id: e.id, googleCalendarEventId: e.googleCalendarEventId })))}`);
+    const entriesWithIds = entries.map((entry) => ({
+      ...entry,
+      id: entry.id || uuidv4(),
+    }));
 
-    // Assign UUIDs to new entries that don't have IDs yet
-    const entriesWithIds = entries.map((entry) => {
-      const newId = entry.id || uuidv4();
-      if (!entry.id) {
-        this.logger.log(`[Calendar CRUD] Assigned new UUID ${newId} to entry without id (dayOfWeek=${entry.dayOfWeek}, from=${entry.from})`);
-      }
-      return { ...entry, id: newId };
-    });
-    this.logger.log(`[Calendar CRUD] Entries with IDs: ${JSON.stringify(entriesWithIds.map(e => ({ id: e.id, dayOfWeek: e.dayOfWeek, from: e.from, end: e.end })))}`);
-
-    // Save schedule WITHOUT eventId/meetLink (will be populated by sync)
     const storageEntries = this.serializeStoredClassScheduleEntries(
       entriesWithIds.map((entry) => ({
         id: entry.id,
         dayOfWeek: entry.dayOfWeek,
-        from: entry.from,
-        to: entry.end,
+        from: this.normalizeTimeValue(entry.from),
+        to: this.normalizeTimeValue(entry.end),
         teacherId: entry.teacherId,
       })),
     );
-    this.logger.log(`[Calendar CRUD] Saving schedule to DB (without eventId/meetLink yet), entries: ${JSON.stringify(storageEntries)}`);
 
     await this.prisma.class.update({
       where: { id: classId },
       data: { schedule: storageEntries },
     });
-    this.logger.log(`[Calendar CRUD] DB update complete for class ${classId}`);
 
-    // Sync with Google Calendar after schedule change
-    // Pass oldSchedule eventIds so sync can delete them before creating new ones
-    this.logger.log(`[Calendar CRUD] Calling syncScheduleWithCalendar for class ${classId}...`);
     await this.syncScheduleWithCalendar(classId, oldSchedule);
-    this.logger.log(`[Calendar CRUD] syncScheduleWithCalendar completed for class ${classId}`);
 
     return { success: true, data: entriesWithIds };
   }
 
-  async syncScheduleWithCalendar(classId: string, oldSchedule?: StoredClassScheduleEntry[]): Promise<void> {
-    this.logger.log(`[Calendar CRUD:sync] START syncScheduleWithCalendar for class ${classId}`);
-
+  async syncScheduleWithCalendar(
+    classId: string,
+    oldSchedule?: StoredClassScheduleEntry[],
+  ): Promise<void> {
     const cls = await this.prisma.class.findUnique({
       where: { id: classId },
       include: {
@@ -475,276 +937,416 @@ export class CalendarService {
     }
 
     const currentSchedule = this.getStoredClassScheduleEntries(cls.schedule);
-    this.logger.log(`[Calendar CRUD:sync] Class "${cls.name}" has ${currentSchedule.length} schedule entries in DB`);
-
-    // Step 1: Delete ALL existing Google Calendar events from old schedule
     const entriesToDelete = oldSchedule || currentSchedule;
-    this.logger.log(`[Calendar CRUD:sync] Deleting ${entriesToDelete.length} old calendar events...`);
+
     for (const entry of entriesToDelete) {
-      const existingEventId = (entry as any).googleCalendarEventId;
-      if (existingEventId) {
-        this.logger.log(`[Calendar CRUD:sync] Deleting old event for entry ${entry.id}: eventId=${existingEventId}`);
+      if (entry.googleCalendarEventId) {
         try {
-          await this.googleCalendarService.deleteCalendarEvent(existingEventId);
-          this.logger.log(`[Calendar CRUD:sync] Successfully deleted event ${existingEventId}`);
-        } catch (err) {
-          const stack = err instanceof Error ? err.stack : String(err);
-          this.logger.error(`[Calendar CRUD:sync] Failed to delete event for entry ${entry.id}: ${stack}`);
+          await this.googleCalendarService.deleteCalendarEvent(
+            entry.googleCalendarEventId,
+          );
+        } catch (error) {
+          this.logger.error(
+            `[Calendar CRUD:sync] Failed to delete recurring event ${entry.googleCalendarEventId}: ${String(error)}`,
+          );
         }
       }
     }
 
-    // Clear old event IDs from schedule
-    for (const entry of currentSchedule) {
-      (entry as any).googleCalendarEventId = undefined;
-      (entry as any).meetLink = undefined;
-    }
-
-    // Build a map of teacherId -> email and name
     const teacherEmailMap = new Map<string, string>();
-    const teacherNameMap = new Map<string, string>();
     for (const teacherRecord of cls.teachers) {
-      const teacher = teacherRecord.teacher;
-      const email = teacher.user?.email;
+      const email = teacherRecord.teacher.user?.email?.trim();
       if (email) {
-        teacherEmailMap.set(teacher.id, email);
-      }
-      const fullName = teacher.user
-        ? `${teacher.user.last_name || ''} ${teacher.user.first_name || ''}`.trim()
-        : '';
-      if (fullName) {
-        teacherNameMap.set(teacher.id, fullName);
+        teacherEmailMap.set(teacherRecord.teacher.id, email);
       }
     }
 
-    this.logger.log(`[Calendar CRUD:sync] Teacher map: emails=${JSON.stringify(Object.fromEntries(teacherEmailMap))}, names=${JSON.stringify(Object.fromEntries(teacherNameMap))}`);
-
-    // Step 2: Create NEW Google Calendar events for all current schedule entries
     for (const entry of currentSchedule) {
+      entry.googleCalendarEventId = undefined;
+      entry.meetLink = undefined;
+
       const dayOfWeek = entry.dayOfWeek;
-      if (dayOfWeek === undefined) {
-        this.logger.log(`[Calendar CRUD:sync] SKIP entry ${entry.id}: missing dayOfWeek`);
-        continue;
-      }
-      const from = entry.from;
-      const end = entry.to || entry.end;
-      if (!from || !end) {
-        this.logger.log(`[Calendar CRUD:sync] SKIP entry ${entry.id}: missing time (from=${from}, end=${end})`);
-        continue;
-      }
-
+      const from = this.normalizeTimeValue(entry.from);
+      const end = this.normalizeTimeValue(entry.to || entry.end);
       const entryId = entry.id;
-      if (!entryId) {
-        this.logger.warn(`[Calendar CRUD:sync] SKIP entry: missing entryId`);
+
+      if (
+        dayOfWeek === undefined ||
+        !from ||
+        !end ||
+        !entryId
+      ) {
         continue;
       }
 
-      // Collect teacher emails for this entry
-      const teacherEmails: string[] = [];
-      if (entry.teacherId) {
-        const email = teacherEmailMap.get(entry.teacherId);
-        if (email) teacherEmails.push(email);
-      } else {
-        for (const teacherRecord of cls.teachers) {
-          const email = teacherRecord.teacher.user?.email;
-          if (email) teacherEmails.push(email);
-        }
-      }
-
-      this.logger.log(`[Calendar CRUD:sync] CREATE new event for entry ${entryId}: dayOfWeek=${dayOfWeek}, from=${from}, end=${end}, teacherEmails=[${teacherEmails}]`);
+      const teacherEmails = entry.teacherId
+        ? [teacherEmailMap.get(entry.teacherId)].filter(
+            (email): email is string => Boolean(email),
+          )
+        : cls.teachers
+            .map((teacherRecord) => teacherEmailMap.get(teacherRecord.teacher.id))
+            .filter((email): email is string => Boolean(email));
 
       try {
-        const result = await this.googleCalendarService.createOrUpdateClassScheduleRecurringEvent({
-          classId: cls.id,
-          className: cls.name,
-          entryId,
-          calendarEventId: undefined, // Always create new event
-          teacherEmails,
-          dayOfWeek,
-          from,
-          end,
-        });
+        const result =
+          await this.googleCalendarService.createOrUpdateClassScheduleRecurringEvent(
+            {
+              classId: cls.id,
+              className: cls.name,
+              entryId,
+              teacherEmails,
+              dayOfWeek,
+              from,
+              end,
+            },
+          );
 
-        this.logger.log(`[Calendar CRUD:sync] Entry ${entryId} created OK: eventId=${result.eventId}, meetLink=${result.meetLink || '(none)'}`);
-
-        // Update the schedule entry with the new eventId and meetLink
-        (entry as any).googleCalendarEventId = result.eventId;
-        (entry as any).meetLink = result.meetLink || undefined;
-      } catch (err) {
-        const stack = err instanceof Error ? err.stack : String(err);
-        this.logger.error(`[Calendar CRUD:sync] FAIL entry ${entryId} for class ${classId}: ${stack}`);
+        entry.googleCalendarEventId = result.eventId;
+        entry.meetLink = result.meetLink;
+      } catch (error) {
+        this.logger.error(
+          `[Calendar CRUD:sync] Failed to sync recurring event for class ${cls.id}, entry ${entryId}: ${String(error)}`,
+        );
       }
     }
-
-    // Save updated schedule with eventId and meetLink
-    this.logger.log(`[Calendar CRUD:sync] Saving updated schedule back to DB with eventId/meetLink...`);
-    const updatedStorageEntries = this.serializeStoredClassScheduleEntries(
-      currentSchedule.map((entry) => ({
-        id: entry.id,
-        dayOfWeek: entry.dayOfWeek,
-        from: entry.from,
-        to: entry.to || entry.end,
-        teacherId: entry.teacherId,
-        googleCalendarEventId: (entry as any).googleCalendarEventId,
-        meetLink: (entry as any).meetLink,
-      })),
-    );
-    this.logger.log(`[Calendar CRUD:sync] Data to save: ${JSON.stringify(updatedStorageEntries)}`);
 
     await this.prisma.class.update({
       where: { id: classId },
-      data: { schedule: updatedStorageEntries },
-    });
-    this.logger.log(`[Calendar CRUD:sync] DB save complete for class ${classId}`);
-  }
-
-  private async enrichEventsWithMeetLinks(
-    events: ClassScheduleEventDto[],
-  ): Promise<ClassScheduleEventDto[]> {
-    if (events.length === 0) return events;
-
-    this.logger.log(`[Calendar] enrichEventsWithMeetLinks: enriching ${events.length} events`);
-
-    const meetLinkMap = new Map<string, string>();
-
-    // 1. Collect meetLinks from schedule entries (Class.schedule stores meetLink per entry)
-    const uniqueClassIds = [...new Set(events.map((e) => e.classId))];
-    this.logger.log(`[Calendar] enrichEventsWithMeetLinks: unique classIds = ${JSON.stringify(uniqueClassIds)}`);
-
-    for (const classId of uniqueClassIds) {
-      const cls = await this.prisma.class.findUnique({
-        where: { id: classId },
-        select: { schedule: true },
-      });
-      if (cls?.schedule && Array.isArray(cls.schedule)) {
-        for (const rawEntry of cls.schedule) {
-          const entry = rawEntry as Prisma.JsonObject;
-          const entryId = typeof entry.id === 'string' ? entry.id : undefined;
-          const entryMeetLink = typeof entry.meetLink === 'string' ? entry.meetLink : undefined;
-          this.logger.log(`[Calendar] Schedule entry ${entryId}: meetLink=${entryMeetLink || '(none)'}`);
-          if (entryId && entryMeetLink) {
-            meetLinkMap.set(`${classId}::${entryId}`, entryMeetLink);
-          }
-        }
-      } else {
-        this.logger.log(`[Calendar] Class ${classId} has no schedule entries or schedule is not an array`);
-      }
-    }
-
-    this.logger.log(`[Calendar] enrichEventsWithMeetLinks: meetLinkMap size = ${meetLinkMap.size}, keys = ${JSON.stringify([...meetLinkMap.keys()])}`);
-
-    // Enrich events with meet links from the schedule pattern only.
-    const enrichedEvents = events.map((event) => {
-      if (event.patternEntryId) {
-        const entryKey = `${event.classId}::${event.patternEntryId}`;
-        const entryMeetLink = meetLinkMap.get(entryKey);
-        if (entryMeetLink) {
-          return { ...event, meetLink: entryMeetLink };
-        }
-      }
-      return event;
-    });
-
-    const enrichedCount = enrichedEvents.filter((e) => e.meetLink).length;
-    this.logger.log(`[Calendar] enrichEventsWithMeetLinks: ${enrichedCount}/${enrichedEvents.length} events enriched with meetLink`);
-
-    return enrichedEvents;
-  }
-
-  async getStaffScheduleEvents(
-    staffId: string,
-    filters: ClassScheduleFilterDto,
-  ): Promise<{ success: boolean; data: ClassScheduleEventDto[]; total: number }> {
-    const { startDate, endDate, classId } = filters;
-
-    const startDt = this.parseDateOnly(startDate);
-    startDt.setHours(0, 0, 0, 0);
-    const endDt = this.parseDateOnly(endDate);
-    endDt.setHours(23, 59, 59, 999);
-
-    const where: Prisma.ClassWhereInput = {
-      teachers: {
-        some: {
-          teacherId: staffId,
-        },
+      data: {
+        schedule: this.serializeStoredClassScheduleEntries(
+          currentSchedule.map((entry) => ({
+            id: entry.id,
+            dayOfWeek: entry.dayOfWeek,
+            from: this.normalizeTimeValue(entry.from),
+            to: this.normalizeTimeValue(entry.to || entry.end),
+            teacherId: entry.teacherId,
+            googleCalendarEventId: entry.googleCalendarEventId,
+            meetLink: entry.meetLink,
+          })),
+        ),
       },
-    };
-    if (classId) {
-      where.id = classId;
-    }
+    });
+  }
 
-    const classes = await this.prisma.class.findMany({
-      where,
-      include: {
-        teachers: {
-          where: {
-            teacherId: staffId,
-          },
-          include: {
-            teacher: {
-              include: {
-                user: {
-                  select: { first_name: true, last_name: true, email: true },
+  async listMakeupScheduleEvents(
+    filters: ClassScheduleFilterDto,
+  ): Promise<{ success: boolean; data: MakeupScheduleEventDto[]; total: number }> {
+    const where = {
+      date: {
+        gte: this.parseDateOnly(filters.startDate),
+        lte: this.parseDateOnly(filters.endDate),
+      },
+      ...(filters.classId ? { classId: filters.classId } : {}),
+      ...(filters.teacherId ? { teacherId: filters.teacherId } : {}),
+      ...(filters.studentId
+        ? {
+            class: {
+              students: {
+                some: {
+                  studentId: filters.studentId,
                 },
               },
+            },
+          }
+        : {}),
+    } satisfies Prisma.MakeupScheduleEventWhereInput;
+    const page = filters.page && filters.page > 0 ? filters.page : 1;
+    const limit = filters.limit && filters.limit > 0 ? filters.limit : undefined;
+    const skip = limit ? (page - 1) * limit : undefined;
+    const [items, total] = await Promise.all([
+      this.prisma.makeupScheduleEvent.findMany({
+        where,
+        include: {
+          class: true,
+          teacher: {
+            include: {
+              user: {
+                select: { email: true, first_name: true, last_name: true },
+              },
+            },
+          },
+        },
+        orderBy: [{ date: 'desc' }, { startTime: 'desc' }, { createdAt: 'desc' }],
+        ...(typeof skip === 'number' ? { skip } : {}),
+        ...(typeof limit === 'number' ? { take: limit } : {}),
+      }),
+      this.prisma.makeupScheduleEvent.count({ where }),
+    ]);
+
+    return {
+      success: true,
+      data: items.map((item) => this.serializeMakeupScheduleEvent(item)),
+      total,
+    };
+  }
+
+  async listMakeupScheduleEventsForClass(
+    classId: string,
+    filters: ClassScheduleFilterDto,
+  ): Promise<{ success: boolean; data: MakeupScheduleEventDto[]; total: number }> {
+    return this.listMakeupScheduleEvents({
+      ...filters,
+      classId,
+    });
+  }
+
+  private async syncMakeupScheduleEventWithCalendar(
+    makeupEventId: string,
+  ): Promise<void> {
+    const event = await this.prisma.makeupScheduleEvent.findUnique({
+      where: { id: makeupEventId },
+      include: {
+        class: true,
+        teacher: {
+          include: {
+            user: {
+              select: { email: true, first_name: true, last_name: true },
             },
           },
         },
       },
     });
 
-    const events: ClassScheduleEventDto[] = [];
+    if (!event) {
+      throw new NotFoundException('Makeup schedule event not found');
+    }
 
-    for (const cls of classes) {
-      const rawSchedule = this.getStoredClassScheduleEntries(cls.schedule);
-      for (const entry of rawSchedule) {
-        const dayOfWeek = entry.dayOfWeek;
-        if (dayOfWeek === undefined) continue;
-        const from = entry.from;
-        const end = entry.to || entry.end;
-        if (!from || !end) continue;
+    const teacherEmails = event.teacher.user?.email
+      ? [event.teacher.user.email]
+      : [];
 
-        if (entry.teacherId && entry.teacherId !== staffId) {
-          continue;
-        }
+    try {
+      const result =
+        await this.googleCalendarService.createOrUpdateMakeupScheduleEvent({
+          classId: event.classId,
+          className: event.class.name,
+          makeupEventId: event.id,
+          calendarEventId: event.googleCalendarEventId ?? undefined,
+          teacherEmails,
+          date: this.formatDate(event.date) ?? '',
+          startTime: this.normalizeTimeValue(event.startTime) ?? '00:00:00',
+          endTime: this.normalizeTimeValue(event.endTime) ?? '00:00:00',
+          title: event.title ?? undefined,
+          note: event.note ?? undefined,
+        });
 
-        const occurrenceDates = this.getOccurrencesInRange(startDt, endDt, dayOfWeek);
-        if (occurrenceDates.length === 0) continue;
+      await this.prisma.makeupScheduleEvent.update({
+        where: { id: event.id },
+        data: {
+          googleCalendarEventId: result.eventId,
+          googleMeetLink: result.meetLink ?? null,
+          calendarSyncedAt: new Date(),
+          calendarSyncError: null,
+        },
+      });
+    } catch (error) {
+      await this.prisma.makeupScheduleEvent.update({
+        where: { id: event.id },
+        data: {
+          calendarSyncError:
+            error instanceof Error ? error.message : String(error),
+        },
+      });
+      this.logger.error(
+        `[Calendar Makeup] Failed to sync makeup event ${event.id}: ${String(error)}`,
+      );
+    }
+  }
 
-        const teacherName = cls.teachers.length > 0
-          ? (() => {
-              return this.buildStaffDisplayName(cls.teachers[0].teacher) || 'N/A';
-            })()
-          : 'N/A';
+  async createMakeupScheduleEvent(
+    dto: CreateMakeupScheduleEventDto,
+  ): Promise<{ success: boolean; data: MakeupScheduleEventDto }> {
+    const classTeacher = await this.prisma.classTeacher.findUnique({
+      where: {
+        classId_teacherId: {
+          classId: dto.classId,
+          teacherId: dto.teacherId,
+        },
+      },
+      select: { classId: true },
+    });
 
-        for (const occDate of occurrenceDates) {
-          const dateStr = this.formatDate(occDate) || '';
-          const entryId = entry.id || `${cls.id}-${dayOfWeek}-${from}-${dateStr}`;
-          const occurrenceId = `${cls.id}-${entryId}-${dateStr}`;
-          events.push({
-            occurrenceId,
-            classId: cls.id,
-            className: cls.name,
-            teacherIds: [staffId],
-            teacherNames: [teacherName],
-            date: dateStr,
-            startTime: from,
-            endTime: end,
-            patternEntryId: entry.id,
-          });
-        }
+    if (!classTeacher) {
+      throw new BadRequestException(
+        'Gia sư chịu trách nhiệm phải thuộc danh sách gia sư của lớp.',
+      );
+    }
+
+    const created = await this.prisma.makeupScheduleEvent.create({
+      data: {
+        classId: dto.classId,
+        teacherId: dto.teacherId,
+        date: this.parseDateOnly(dto.date),
+        startTime: this.parseTimeOnly(dto.startTime, 'startTime'),
+        endTime: this.parseTimeOnly(dto.endTime, 'endTime'),
+        title: dto.title?.trim() || null,
+        note: dto.note?.trim() || null,
+      },
+    });
+
+    await this.syncMakeupScheduleEventWithCalendar(created.id);
+    const refreshed = await this.prisma.makeupScheduleEvent.findUniqueOrThrow({
+      where: { id: created.id },
+      include: {
+        class: true,
+        teacher: {
+          include: {
+            user: {
+              select: { email: true, first_name: true, last_name: true },
+            },
+          },
+        },
+      },
+    });
+
+    return {
+      success: true,
+      data: this.serializeMakeupScheduleEvent(refreshed),
+    };
+  }
+
+  async createMakeupScheduleEventForClass(
+    classId: string,
+    dto: Omit<CreateMakeupScheduleEventDto, 'classId'>,
+  ): Promise<{ success: boolean; data: MakeupScheduleEventDto }> {
+    return this.createMakeupScheduleEvent({
+      ...dto,
+      classId,
+    });
+  }
+
+  async updateMakeupScheduleEvent(
+    id: string,
+    dto: UpdateMakeupScheduleEventDto,
+  ): Promise<{ success: boolean; data: MakeupScheduleEventDto }> {
+    const existing = await this.prisma.makeupScheduleEvent.findUnique({
+      where: { id },
+    });
+    if (!existing) {
+      throw new NotFoundException('Makeup schedule event not found');
+    }
+
+    const nextClassId = dto.classId ?? existing.classId;
+    const nextTeacherId = dto.teacherId ?? existing.teacherId;
+    const classTeacher = await this.prisma.classTeacher.findUnique({
+      where: {
+        classId_teacherId: {
+          classId: nextClassId,
+          teacherId: nextTeacherId,
+        },
+      },
+      select: { classId: true },
+    });
+    if (!classTeacher) {
+      throw new BadRequestException(
+        'Gia sư chịu trách nhiệm phải thuộc danh sách gia sư của lớp.',
+      );
+    }
+
+    const updated = await this.prisma.makeupScheduleEvent.update({
+      where: { id },
+      data: {
+        ...(dto.classId ? { classId: dto.classId } : {}),
+        ...(dto.teacherId ? { teacherId: dto.teacherId } : {}),
+        ...(dto.date ? { date: this.parseDateOnly(dto.date) } : {}),
+        ...(dto.startTime
+          ? { startTime: this.parseTimeOnly(dto.startTime, 'startTime') }
+          : {}),
+        ...(dto.endTime
+          ? { endTime: this.parseTimeOnly(dto.endTime, 'endTime') }
+          : {}),
+        ...(dto.title !== undefined ? { title: dto.title?.trim() || null } : {}),
+        ...(dto.note !== undefined ? { note: dto.note?.trim() || null } : {}),
+      },
+    });
+
+    await this.syncMakeupScheduleEventWithCalendar(updated.id);
+    const refreshed = await this.prisma.makeupScheduleEvent.findUniqueOrThrow({
+      where: { id: updated.id },
+      include: {
+        class: true,
+        teacher: {
+          include: {
+            user: {
+              select: { email: true, first_name: true, last_name: true },
+            },
+          },
+        },
+      },
+    });
+
+    return {
+      success: true,
+      data: this.serializeMakeupScheduleEvent(refreshed),
+    };
+  }
+
+  async updateMakeupScheduleEventForClass(
+    classId: string,
+    id: string,
+    dto: Omit<UpdateMakeupScheduleEventDto, 'classId'>,
+  ): Promise<{ success: boolean; data: MakeupScheduleEventDto }> {
+    const existing = await this.prisma.makeupScheduleEvent.findUnique({
+      where: { id },
+      select: { classId: true },
+    });
+
+    if (!existing || existing.classId !== classId) {
+      throw new NotFoundException('Makeup schedule event not found');
+    }
+
+    return this.updateMakeupScheduleEvent(id, {
+      ...dto,
+      classId,
+    });
+  }
+
+  async deleteMakeupScheduleEvent(
+    id: string,
+  ): Promise<{ success: boolean }> {
+    const existing = await this.prisma.makeupScheduleEvent.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        googleCalendarEventId: true,
+      },
+    });
+    if (!existing) {
+      throw new NotFoundException('Makeup schedule event not found');
+    }
+
+    if (existing.googleCalendarEventId) {
+      try {
+        await this.googleCalendarService.deleteCalendarEvent(
+          existing.googleCalendarEventId,
+        );
+      } catch (error) {
+        this.logger.error(
+          `[Calendar Makeup] Failed to delete Google event ${existing.googleCalendarEventId}: ${String(error)}`,
+        );
       }
     }
 
-    events.sort((a, b) => {
-      if (a.date !== b.date) {
-        return a.date.localeCompare(b.date);
-      }
-      return (a.startTime || '').localeCompare(b.startTime || '');
+    await this.prisma.makeupScheduleEvent.delete({
+      where: { id },
     });
 
-    const enrichedEvents = await this.enrichEventsWithMeetLinks(events);
+    return { success: true };
+  }
 
-    return { success: true, data: enrichedEvents, total: enrichedEvents.length };
+  async deleteMakeupScheduleEventForClass(
+    classId: string,
+    id: string,
+  ): Promise<{ success: boolean }> {
+    const existing = await this.prisma.makeupScheduleEvent.findUnique({
+      where: { id },
+      select: { classId: true },
+    });
+
+    if (!existing || existing.classId !== classId) {
+      throw new NotFoundException('Makeup schedule event not found');
+    }
+
+    return this.deleteMakeupScheduleEvent(id);
   }
 }

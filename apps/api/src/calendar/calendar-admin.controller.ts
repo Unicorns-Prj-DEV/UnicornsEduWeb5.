@@ -1,9 +1,14 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
+  Post,
   Put,
   Query,
 } from '@nestjs/common';
@@ -24,6 +29,9 @@ import {
   ClassScheduleEventDto,
   ClassScheduleFilterDto,
   ClassSchedulePatternDto,
+  CreateMakeupScheduleEventDto,
+  MakeupScheduleEventDto,
+  UpdateMakeupScheduleEventDto,
 } from '../dtos/class-schedule.dto';
 
 @Controller('admin/calendar')
@@ -33,6 +41,46 @@ import {
 @Roles(UserRole.admin)
 export class CalendarAdminController {
   constructor(private readonly calendarService: CalendarService) {}
+
+  @Get('events')
+  @ApiOperation({
+    summary: 'Lấy calendar feed tổng hợp theo khoảng ngày',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Danh sách event tổng hợp (fixed/makeup/exam)',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/ClassScheduleEventDto' },
+        },
+        total: { type: 'number', example: 12 },
+        meta: {
+          type: 'object',
+          properties: {
+            total: { type: 'number', example: 12 },
+          },
+        },
+      },
+    },
+  })
+  async getCalendarEvents(
+    @Query() filters: ClassScheduleFilterDto,
+  ): Promise<{
+    success: boolean;
+    data: ClassScheduleEventDto[];
+    total: number;
+    meta: { total: number };
+  }> {
+    const result = await this.calendarService.getAdminCalendarEvents(filters);
+    return {
+      ...result,
+      meta: { total: result.total },
+    };
+  }
 
   @Get('class-schedule')
   @ApiOperation({
@@ -110,5 +158,108 @@ export class CalendarAdminController {
       classId,
       dto.schedule,
     );
+  }
+
+  @Get('makeup-events')
+  @ApiOperation({
+    summary: 'Lấy danh sách lịch dạy bù theo khoảng ngày',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Danh sách lịch dạy bù',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/MakeupScheduleEventDto' },
+        },
+        total: { type: 'number', example: 3 },
+      },
+    },
+  })
+  async listMakeupEvents(
+    @Query() filters: ClassScheduleFilterDto,
+  ): Promise<{
+    success: boolean;
+    data: MakeupScheduleEventDto[];
+    total: number;
+  }> {
+    return this.calendarService.listMakeupScheduleEvents(filters);
+  }
+
+  @Post('makeup-events')
+  @ApiOperation({
+    summary: 'Tạo lịch dạy bù một lần',
+  })
+  @ApiBody({
+    description: 'Payload tạo lịch dạy bù',
+    type: CreateMakeupScheduleEventDto,
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Lịch dạy bù đã được tạo',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: { $ref: '#/components/schemas/MakeupScheduleEventDto' },
+      },
+    },
+  })
+  async createMakeupEvent(
+    @Body() dto: CreateMakeupScheduleEventDto,
+  ): Promise<{ success: boolean; data: MakeupScheduleEventDto }> {
+    return this.calendarService.createMakeupScheduleEvent(dto);
+  }
+
+  @Patch('makeup-events/:id')
+  @ApiOperation({
+    summary: 'Cập nhật lịch dạy bù',
+  })
+  @ApiParam({ name: 'id', description: 'Makeup event ID (UUID)' })
+  @ApiBody({
+    description: 'Payload cập nhật lịch dạy bù',
+    type: UpdateMakeupScheduleEventDto,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lịch dạy bù đã được cập nhật',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: { $ref: '#/components/schemas/MakeupScheduleEventDto' },
+      },
+    },
+  })
+  async updateMakeupEvent(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateMakeupScheduleEventDto,
+  ): Promise<{ success: boolean; data: MakeupScheduleEventDto }> {
+    return this.calendarService.updateMakeupScheduleEvent(id, dto);
+  }
+
+  @Delete('makeup-events/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Xóa lịch dạy bù',
+  })
+  @ApiParam({ name: 'id', description: 'Makeup event ID (UUID)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lịch dạy bù đã được xóa',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+      },
+    },
+  })
+  async deleteMakeupEvent(
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<{ success: boolean }> {
+    return this.calendarService.deleteMakeupScheduleEvent(id);
   }
 }

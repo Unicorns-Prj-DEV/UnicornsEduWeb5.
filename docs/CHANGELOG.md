@@ -22,11 +22,14 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 ## [Unreleased]
 
 ### Fixed
+- BE/FE calendar exam schedules: feed `/admin/calendar/events` và `/calendar/staff/events` không còn làm rơi lịch thi chỉ vì `student_info.status = inactive`; miễn học sinh còn gắn với lớp `running` thì event `exam` vẫn hiển thị trên calendar. Dropdown filter học sinh của calendar cũng đổi sang cùng tiêu chí này.
 - FE: `ThemeProvider` không còn đọc `localStorage` trong `useState` initializer — tránh hydration mismatch (logo `BrandLogo` / `next/image` khác `src` và kích thước giữa server và client khi user đã lưu theme tối hoặc pink).
 - FE `/auth/login`: toast lỗi hiển thị message từ Nest khi **400** / **401** / **429**; ô mật khẩu có `minLength={6}` + placeholder gợi ý để khớp validation `POST /auth/login` (tránh 400 chỉ vì mật khẩu quá ngắn).
 - FE `/staff/calendar` và `/admin/calendar`: thêm switch **Calendar / Schedule**, bộ lọc lớp hỗ trợ **multi-select** (admin giữ thêm lọc gia sư); chế độ Schedule chỉ hiển thị ngày có lịch (ẩn ngày trống); dùng chung `CalendarScheduleList` + palette lớp; card có badge trạng thái `Đã dạy / Đang diễn ra / Sắp tới`.
 
 ### Changed
+- BE/FE calendar: chuyển sang aggregate feed hợp nhất `fixed` + `makeup` + `exam`, hỗ trợ filter học sinh, toggle **Tuần này / Tuần sau**, popup/list render lịch thi như event all-day kiểu ngày lễ; route admin/staff calendar giữ read-only cho `makeup`.
+- FE `/admin/classes/[id]` và `/staff/classes/[id]`: quản lý **Lịch dạy bù** trực tiếp trong trang chi tiết lớp, có phân trang, sắp xếp buổi gần nhất trước, copy tiếng Việt đầy đủ; admin/trợ lí chọn gia sư phụ trách, teacher tạo buổi bù với chính mình là người phụ trách.
 - FE `AddSessionPopup` + dialog **Chỉnh sửa buổi học** trong `SessionHistoryTable`: layout một cột (`max-w-3xl`), header có số tiền (success), nhóm thời gian có mũi tên + thời lượng, điểm danh cột **Trạng thái** trước (nút icon Học/Phép/Vắng), tổng điểm danh dạng một dòng màu; module dùng chung `session-form-ui.tsx`. Truyền `classPricing` từ chi tiết lớp để hiển thị ước lượng trợ cấp (công thức `min(max_allowance, (base × có_mặt + scale) × hệ_số)`).
 - FE `/admin/classes/[id]` và `/staff/classes/[id]`: dòng meta lớp (trạng thái, loại, gói, trợ cấp, sĩ số, …) chỉ hiển thị cho **admin**, **trợ lí**, **kế toán**, **CSKH**; gia sư thuần `teacher` trên staff workspace không thấy dải thông tin đó.
 - FE `/admin/staffs/:id` (và mirror staff): **Thống kê thu nhập** thêm lại khối **Trước khấu trừ** (gross/thuế/khấu trừ chi tiết) cho người xem **admin** hoặc **kế toán**, đồng bộ với logic `/staff/profile`.
@@ -43,6 +46,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - BE/FE notifications: gỡ cấu hình người nhận lưu DB và API `GET /notifications/recipient-options`; push/feed không còn filter theo đối tượng. Trên `/admin/notification`, ô **Người nhận** chỉ còn **mock UI (demo)** trên FE (tag + user giả), không gửi lên server.
 
 ### Added
+- BE/FE student exams + Google Calendar: thêm persistence `student_exam_schedules`, popup/card chỉnh lịch thi học sinh, aggregate calendar event type `exam`, và sync all-day event lên Google Calendar theo `studentId + examScheduleId`.
+- BE/FE makeup schedules: thêm bảng `makeup_schedule_events`, API CRUD theo lớp cho admin/staff workspace, render one-off event `makeup` trong aggregate calendar và sync riêng lên Google Calendar.
 - BE schema/migration: thêm `class_teachers.tax_rate_percent` (default `0`) và `sessions.teacher_tax_rate_percent` (default `0`) để cấu hình thuế theo từng cặp gia sư-lớp và snapshot mức thuế tại thời điểm tạo/cập nhật buổi học.
 - BE/FE class teachers: payload cập nhật gia sư lớp nhận thêm tỷ lệ khấu trừ vận hành; FE chuyển sang key semantic `operating_deduction_rate_percent` và vẫn gửi kèm key tương thích `tax_rate_percent` trong giai đoạn migration contract.
 - FE admin/staff: thêm màn `Khấu trừ` tại `/admin/deductions` và mirror `/staff/deductions` để quản lý khấu trừ thuế theo role (effective-date), kèm wire sidebar + access gate cho admin/assistant/accountant theo policy shell; chỉnh riêng từng staff được thực hiện tại trang chi tiết nhân sự.

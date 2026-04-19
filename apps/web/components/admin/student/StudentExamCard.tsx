@@ -1,45 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { createClientId } from "@/lib/client-id";
+import type { StudentExamScheduleItem } from "@/dtos/student.dto";
+import * as authApi from "@/lib/apis/auth.api";
+import * as studentApi from "@/lib/apis/student.api";
 import StudentExamSchedulePopup from "./StudentExamSchedulePopup";
 import StudentInfoCard from "./StudentInfoCard";
 
-export type StudentExamItem = {
-  id: string;
-  examDate: string;
-  note: string;
-  createdAt: string;
-};
+export type StudentExamItem = StudentExamScheduleItem;
 
 type Props = {
   studentId: string;
   className?: string;
   editable?: boolean;
+  selfService?: boolean;
 };
-
-const STORAGE_PREFIX = "ue.student.examSchedule.";
-
-export function readStudentExamSchedule(studentId: string): StudentExamItem[] {
-  if (!studentId) return [];
-  try {
-    const raw = localStorage.getItem(`${STORAGE_PREFIX}${studentId}`);
-    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
-    return Array.isArray(parsed) ? (parsed as StudentExamItem[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveStudentExamSchedule(studentId: string, items: StudentExamItem[]) {
-  if (!studentId) return;
-  try {
-    localStorage.setItem(`${STORAGE_PREFIX}${studentId}`, JSON.stringify(items.slice(0, 200)));
-  } catch {
-    // ignore storage errors
-  }
-}
 
 function formatDateOnly(iso: string): string {
   if (!iso) return "—";
@@ -54,10 +31,6 @@ function formatDateOnly(iso: string): string {
   }
 }
 
-function createLocalId(): string {
-  return createClientId();
-}
-
 function normalizeExamDate(value: string): string {
   const trimmed = value.trim();
   if (!trimmed) return "";
@@ -70,15 +43,67 @@ export default function StudentExamCard({
   studentId,
   className = "",
   editable = false,
+  selfService = false,
 }: Props) {
-  const [items, setItems] = useState<StudentExamItem[]>(() => readStudentExamSchedule(studentId));
+  const queryClient = useQueryClient();
   const [editorItems, setEditorItems] = useState<StudentExamItem[]>([]);
   const [editorOpen, setEditorOpen] = useState(false);
 
-  const syncItems = (nextItems: StudentExamItem[]) => {
-    setItems(nextItems);
-    saveStudentExamSchedule(studentId, nextItems);
-  };
+  const queryKey = selfService
+    ? ["student", "self", "exam-schedules"]
+    : ["student", "exam-schedules", studentId];
+
+  const {
+    data: items = [],
+    isLoading,
+    isError,
+    error,
+  } = useQuery<StudentExamItem[], Error>({
+    queryKey,
+    queryFn: () =>
+      selfService
+        ? authApi.getMyStudentExamSchedules()
+        : studentApi.getStudentExamSchedules(studentId),
+    enabled: selfService || Boolean(studentId),
+    staleTime: 60_000,
+  });
+
+  useEffect(() => {
+    if (isError && error) {
+      toast.error(error.message || "Không thể tải lịch thi.");
+    }
+  }, [error, isError]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (nextItems: StudentExamItem[]) => {
+      const payload = {
+        items: nextItems.map((item) => ({
+          ...(item.id ? { id: item.id } : {}),
+          examDate: item.examDate,
+          note: item.note?.trim() || undefined,
+        })),
+      };
+
+      return selfService
+        ? authApi.updateMyStudentExamSchedules(payload)
+        : studentApi.updateStudentExamSchedules(studentId, payload);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey }),
+        queryClient.invalidateQueries({ queryKey: ["student", "detail", studentId] }),
+        queryClient.invalidateQueries({ queryKey: ["student", "self", "detail"] }),
+        queryClient.invalidateQueries({ queryKey: ["classScheduleEvents"] }),
+        queryClient.invalidateQueries({ queryKey: ["staffCalendarEvents"] }),
+      ]);
+      window.dispatchEvent(new Event("calendar:refetch"));
+      toast.success("Đã lưu lịch thi.");
+      setEditorOpen(false);
+    },
+    onError: (mutationError: Error) => {
+      toast.error(mutationError.message || "Không lưu được lịch thi.");
+    },
+  });
 
   const openEditor = () => {
     setEditorItems(items.map((item) => ({ ...item })));
@@ -89,14 +114,12 @@ export default function StudentExamCard({
     const normalizedItems = nextItems.map((item) => ({
       ...item,
       examDate: normalizeExamDate(item.examDate),
-      note: item.note.trim(),
+      note: item.note?.trim() || "",
       createdAt: item.createdAt || new Date().toISOString(),
-      id: item.id || createLocalId(),
+      updatedAt: item.updatedAt || new Date().toISOString(),
     }));
 
-    syncItems(normalizedItems);
-    setEditorOpen(false);
-    toast.success("Đã lưu lịch thi.");
+    saveMutation.mutate(normalizedItems);
   };
 
   const sorted = useMemo(() => {
@@ -116,7 +139,11 @@ export default function StudentExamCard({
     <StudentInfoCard title="Lịch thi" className={className}>
       <StudentExamSchedulePopup
         open={editorOpen}
-        onClose={() => setEditorOpen(false)}
+        onClose={() => {
+          if (!saveMutation.isPending) {
+            setEditorOpen(false);
+          }
+        }}
         items={editorItems}
         onItemsChange={setEditorItems}
         onSave={handleSaveEditor}
@@ -124,23 +151,32 @@ export default function StudentExamCard({
 
       {editable ? (
         <div className="mb-4 flex flex-col items gap-3">
-
           <div className="flex justify-end">
             <button
               type="button"
               onClick={openEditor}
-              className={`inline-flex min-h-11 items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium text-text-inverse transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${sorted.length > 0
-                ? "bg-primary hover:bg-primary-hover"
-                : "bg-info hover:brightness-95"
-                }`}
+              disabled={isLoading || saveMutation.isPending}
+              className={`inline-flex min-h-11 items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium text-text-inverse transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60 ${
+                sorted.length > 0
+                  ? "bg-primary hover:bg-primary-hover"
+                  : "bg-info hover:brightness-95"
+              }`}
             >
-              {sorted.length > 0 ? "Điều chỉnh lịch thi" : "Thêm lịch thi"}
+              {isLoading
+                ? "Đang tải lịch thi…"
+                : sorted.length > 0
+                  ? "Điều chỉnh lịch thi"
+                  : "Thêm lịch thi"}
             </button>
           </div>
         </div>
       ) : null}
 
-      {sorted.length === 0 ? (
+      {isLoading ? (
+        <div className="rounded-xl border border-border-default bg-bg-secondary/40 px-3.5 py-4 text-sm text-text-muted">
+          Đang tải lịch thi…
+        </div>
+      ) : sorted.length === 0 ? (
         <div className="rounded-xl border border-border-default bg-bg-secondary/40 px-3.5 py-4 text-sm text-text-muted">
           {editable
             ? "Chưa có lịch thi. Mở popup để tạo lịch thi đầu tiên."
@@ -149,7 +185,10 @@ export default function StudentExamCard({
       ) : (
         <div className="space-y-2">
           {sorted.map((item) => (
-            <div key={item.id} className="rounded-xl border border-border-default bg-bg-surface px-3.5 py-3">
+            <div
+              key={item.id}
+              className="rounded-xl border border-border-default bg-bg-surface px-3.5 py-3"
+            >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-text-primary">
@@ -163,7 +202,8 @@ export default function StudentExamCard({
                   <button
                     type="button"
                     onClick={openEditor}
-                    className="inline-flex shrink-0 items-center justify-center rounded-lg border border-border-default px-2.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    disabled={saveMutation.isPending}
+                    className="inline-flex shrink-0 items-center justify-center rounded-lg border border-border-default px-2.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Sửa
                   </button>

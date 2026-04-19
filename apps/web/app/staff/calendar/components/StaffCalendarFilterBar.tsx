@@ -5,14 +5,17 @@ import { useQuery } from "@tanstack/react-query";
 import { useDebounce } from "use-debounce";
 import * as staffCalendarApi from "@/lib/apis/staff-calendar.api";
 import { cn } from "@/lib/utils";
+import { CalendarWeekVariant } from "@/dtos/class-schedule.dto";
 
 interface StaffCalendarFilterBarProps {
   filters: {
     classIds: string[];
   };
   viewMode: "calendar" | "schedule";
+  weekVariant: CalendarWeekVariant;
   weekLabel: string;
   onViewModeChange: (mode: "calendar" | "schedule") => void;
+  onWeekVariantChange: (weekVariant: CalendarWeekVariant) => void;
   onFiltersChange: (filters: { classIds: string[] }) => void;
 }
 
@@ -26,8 +29,10 @@ const CLASS_QUERY_LIMIT = 12;
 export default function StaffCalendarFilterBar({
   filters,
   viewMode,
+  weekVariant,
   weekLabel,
   onViewModeChange,
+  onWeekVariantChange,
   onFiltersChange,
 }: StaffCalendarFilterBarProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -115,25 +120,53 @@ export default function StaffCalendarFilterBar({
       className="relative overflow-visible rounded-xl border border-border-default bg-bg-secondary/35 p-3 sm:p-4"
       title="Chọn một hoặc nhiều lớp để lọc lịch. Calendar = lưới giờ, Schedule = danh sách theo ngày có lịch."
     >
-      <div className="relative flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-sm font-semibold text-text-primary">Bộ lọc</h2>
+      <div className="relative flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-text-primary">Bộ lọc</h2>
+          <div className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-border-default bg-bg-surface px-2.5 py-1 text-[11px] font-medium text-text-secondary">
+            <svg
+              className="size-3.5 shrink-0 text-primary"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+            <span className="truncate">{weekLabel}</span>
+          </div>
+        </div>
 
-        <div className="inline-flex max-w-full items-center gap-1.5 self-start rounded-full border border-border-default bg-bg-surface px-2.5 py-1 text-[11px] font-medium text-text-secondary sm:self-auto">
-          <svg
-            className="size-3.5 shrink-0 text-primary"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden
+        <div className="inline-flex rounded-lg border border-border-default bg-bg-surface p-0.5">
+          <button
+            type="button"
+            onClick={() => onWeekVariantChange("current")}
+            className={cn(
+              "inline-flex items-center justify-center rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
+              weekVariant === "current"
+                ? "bg-primary text-text-inverse"
+                : "text-text-secondary hover:bg-bg-secondary hover:text-text-primary",
+            )}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-            />
-          </svg>
-          <span className="truncate">{weekLabel}</span>
+            Tuần này
+          </button>
+          <button
+            type="button"
+            onClick={() => onWeekVariantChange("next")}
+            className={cn(
+              "inline-flex items-center justify-center rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
+              weekVariant === "next"
+                ? "bg-primary text-text-inverse"
+                : "text-text-secondary hover:bg-bg-secondary hover:text-text-primary",
+            )}
+          >
+            Tuần sau
+          </button>
         </div>
       </div>
 

@@ -15,7 +15,7 @@
 - **Ví học viên:** Hiển thị số dư hiện tại, popup lịch sử ví authoritative, cho phép **nạp tiền** và **rút tiền** trên chính tài khoản của mình.
 - **Ràng buộc rút tiền:** Backend chặn rút vượt số dư; self-service không được phép làm âm ví.
 - **Lớp học:** Hiển thị danh sách lớp đang liên kết + học phí đang áp dụng + số buổi đã vào học; không có thao tác đổi lớp/gỡ lớp hoặc sửa học phí.
-- **Lịch thi:** Reuse card `StudentExamCard` để xem và quản lý lịch thi FE-local theo đúng `studentId` qua popup form; mỗi bản ghi gồm 1 ngày thi và 1 ghi chú ngắn, có thể thêm, sửa hoặc xóa trên thiết bị hiện tại.
+- **Lịch thi:** Reuse card `StudentExamCard` để xem và quản lý lịch thi authoritative theo đúng `studentId` qua popup form; mỗi bản ghi gồm 1 ngày thi và 1 ghi chú ngắn, có thể thêm, sửa hoặc xóa và dữ liệu được lưu ở backend.
 - **Data scope:** All data scoped to current student; backend enforces by identity.
 
 ## UI-Schema tokens and components
@@ -36,10 +36,12 @@
   - `PATCH /users/me/student`
   - `GET /users/me/student-wallet-history?limit=`
   - `PATCH /users/me/student-account-balance` body `{ amount }`
+  - `GET /users/me/student-exam-schedules`
+  - `PUT /users/me/student-exam-schedules` body `{ items: [{ id?, examDate, note? }] }`
 - **Self-edit scope:** Chỉ cho cập nhật thông tin cơ bản như họ tên, email liên hệ, trường, tỉnh/thành, năm sinh, liên hệ phụ huynh, giới tính, mục tiêu; không cho tự chỉnh học phí, trạng thái hoặc phân lớp.
 - **Balance semantics:** `amount > 0` = nạp tiền, `amount < 0` = rút tiền; backend ghi `wallet_transactions_history` và tự chặn số dư âm ở self-service route.
 - **Frontend data layer:** TanStack Query + `apps/web/lib/apis/auth.api.ts`; DTO student self-service nằm trong `apps/web/dtos/student.dto.ts`.
-- **Exam schedule persistence:** Lịch thi ở `/student` hiện lưu FE-local theo `localStorage` của trình duyệt hiện tại, giống pattern đã dùng ở flow admin student edit.
+- **Exam schedule persistence:** Lịch thi ở `/student` lưu authoritative ở backend qua `student_exam_schedules`; admin/student cùng đọc một nguồn dữ liệu và calendar aggregate có thể render `exam` event trực tiếp từ đó.
 
 ## Runtime status
 

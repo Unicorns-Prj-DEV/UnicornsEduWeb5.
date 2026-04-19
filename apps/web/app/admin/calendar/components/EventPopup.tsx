@@ -2,6 +2,7 @@
 
 import { toast } from "sonner";
 import { ClassScheduleEvent } from "@/dtos/class-schedule.dto";
+import { getCalendarEventTypeLabel } from "./calendar-event-palette";
 
 interface EventPopupProps {
   event: ClassScheduleEvent;
@@ -24,6 +25,11 @@ const DAY_NAMES = [
  */
 export default function EventPopup({ event, onClose }: EventPopupProps) {
   const meetLink = event.meetLink?.trim() ?? "";
+  const eventTypeLabel = getCalendarEventTypeLabel(event.eventType);
+  const headline = event.title?.trim() || event.className;
+  const isExamEvent = event.eventType === "exam";
+  const classSummary =
+    event.classNames?.filter(Boolean).join(", ") || event.className || "";
 
   const formatTime = (time?: string) => {
     if (!time) return "—";
@@ -84,8 +90,18 @@ export default function EventPopup({ event, onClose }: EventPopupProps) {
                 id="event-popup-title"
                 className="text-lg font-semibold text-text-primary line-clamp-2"
               >
-                {event.className}
+                {headline}
               </h3>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+                  {eventTypeLabel}
+                </span>
+                {event.allDay ? (
+                  <span className="rounded-full bg-bg-secondary px-2.5 py-1 text-[11px] font-semibold text-text-secondary">
+                    Cả ngày
+                  </span>
+                ) : null}
+              </div>
             </div>
             <button
               type="button"
@@ -119,12 +135,23 @@ export default function EventPopup({ event, onClose }: EventPopupProps) {
             <div className="rounded-lg border border-border-default bg-bg-secondary p-3">
               <p className="text-xs font-medium uppercase text-text-muted">Giờ</p>
               <p className="mt-1 text-sm text-text-primary">
-                {formatTime(event.startTime)} - {formatTime(event.endTime)}
+                {event.allDay
+                  ? isExamEvent
+                    ? "Cả ngày (hiển thị như ngày lễ)"
+                    : "Cả ngày"
+                  : `${formatTime(event.startTime)} - ${formatTime(event.endTime)}`}
               </p>
             </div>
 
+            {classSummary ? (
+              <div className="rounded-lg border border-border-default bg-bg-secondary p-3">
+                <p className="text-xs font-medium uppercase text-text-muted">Lớp học</p>
+                <p className="mt-1 text-sm text-text-primary">{classSummary}</p>
+              </div>
+            ) : null}
+
             {/* Teacher */}
-            {event.teacherNames.length > 0 && (
+            {event.teacherNames.length > 0 && !isExamEvent && (
               <div className="rounded-lg border border-border-default bg-bg-secondary p-3">
                 <p className="text-xs font-medium uppercase text-text-muted">Gia sư phụ trách</p>
                 <p className="mt-1 text-sm text-text-primary">
@@ -133,8 +160,26 @@ export default function EventPopup({ event, onClose }: EventPopupProps) {
               </div>
             )}
 
+            {event.studentNames?.length ? (
+              <div className="rounded-lg border border-border-default bg-bg-secondary p-3">
+                <p className="text-xs font-medium uppercase text-text-muted">Học sinh</p>
+                <p className="mt-1 text-sm text-text-primary">
+                  {event.studentNames.join(", ")}
+                </p>
+              </div>
+            ) : null}
+
+            {event.note || event.description ? (
+              <div className="rounded-lg border border-border-default bg-bg-secondary p-3">
+                <p className="text-xs font-medium uppercase text-text-muted">Ghi chú</p>
+                <p className="mt-1 text-sm text-text-primary">
+                  {event.note ?? event.description}
+                </p>
+              </div>
+            ) : null}
+
             {/* Google Meet Link */}
-            {meetLink ? (
+            {meetLink && !isExamEvent ? (
               <div className="flex items-stretch gap-2">
                 <a
                   href={meetLink}
@@ -170,13 +215,13 @@ export default function EventPopup({ event, onClose }: EventPopupProps) {
                   <span className="sr-only">Copy link Google Meet</span>
                 </button>
               </div>
-            ) : (
+            ) : !isExamEvent ? (
               <div className="rounded-lg border border-border-default bg-bg-secondary p-3 text-center">
                 <p className="text-sm text-text-muted">
                   Chưa có link Google Meet cho buổi học này
                 </p>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       </div>

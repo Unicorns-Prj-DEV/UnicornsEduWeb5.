@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -28,6 +29,7 @@ import {
 } from 'src/dtos/student.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { getUserFullNameFromParts } from 'src/common/user-name.util';
+import { GoogleCalendarService } from 'src/google-calendar/google-calendar.service';
 
 const studentClassDetailInclude = {
   include: {
@@ -46,6 +48,9 @@ const studentClassDetailInclude = {
 
 const studentDetailInclude = {
   studentClasses: studentClassDetailInclude,
+  examSchedules: {
+    orderBy: [{ examDate: 'asc' }, { createdAt: 'asc' }],
+  },
   customerCareServices: {
     include: {
       staff: {
@@ -235,9 +240,12 @@ type StudentDetailAccess = {
 
 @Injectable()
 export class StudentService {
+  private readonly logger = new Logger(StudentService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly actionHistoryService: ActionHistoryService,
+    private readonly googleCalendarService: GoogleCalendarService,
   ) {}
 
   private formatVND(amount: number) {
@@ -383,6 +391,41 @@ export class StudentService {
     };
   }
 
+  private serializeStudentExamScheduleItem(
+    item: StudentDetailEntity['examSchedules'][number],
+  ) {
+    return {
+      id: item.id,
+      examDate: item.examDate.toISOString().slice(0, 10),
+      note: item.note,
+      createdAt: item.createdAt.toISOString(),
+      updatedAt: item.updatedAt.toISOString(),
+    };
+  }
+
+  private serializeStudentExamScheduleList(student: StudentDetailEntity) {
+    return student.examSchedules.map((item) =>
+      this.serializeStudentExamScheduleItem(item),
+    );
+  }
+
+  private async syncStudentExamSchedulesWithCalendar(
+    student: StudentDetailEntity,
+  ) {
+    await this.googleCalendarService.syncStudentExamScheduleEvents({
+      studentId: student.id,
+      studentName: student.fullName,
+      classNames: student.studentClasses
+        .map((studentClass) => studentClass.class?.name)
+        .filter((value): value is string => Boolean(value)),
+      items: student.examSchedules.map((item) => ({
+        id: item.id,
+        examDate: item.examDate.toISOString().slice(0, 10),
+        note: item.note,
+      })),
+    });
+  }
+
   private serializeStudentSelfDetail(student: StudentDetailEntity) {
     return {
       id: student.id,
@@ -427,7 +470,12 @@ export class StudentService {
       include: studentDetailInclude,
     });
 
-    return student ? this.serializeStudentDetail(student) : null;
+    return student
+      ? {
+          ...this.serializeStudentDetail(student),
+          examSchedules: this.serializeStudentExamScheduleList(student),
+        }
+      : null;
   }
 
   private async assertCanAccessStudentDetail(
@@ -833,6 +881,113 @@ export class StudentService {
     query: StudentWalletHistoryQueryDto,
   ) {
     return this.getStudentWalletHistory(id, query);
+  }
+
+  async getStudentExamSchedules(id: string, access?: StudentDetailAccess) {
+    await this.assertCanAccessStudentDetail(id, access);
+
+    const student = await this.prisma.studentInfo.findUnique({
+      where: { id },
+      include: studentDetailInclude,
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    return this.serializeStudentExamScheduleList(student);
+  }
+
+  async getStudentSelfExamSchedules(id: string) {
+    return this.getStudentExamSchedules(id);
+  }
+
+  async updateStudentExamSchedules(
+    id: string,
+    items: Array<{
+      id?: string;
+      examDate: string;
+      note?: string | null;
+    }>,
+    auditActor?: ActionHistoryActor,
+  ) {
+    const student = await this.prisma.studentInfo.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    const normalizedItems = items.map((item) => {
+      const examDate = toDateOrNull(item.examDate);
+      if (!(examDate instanceof Date) || Number.isNaN(examDate.getTime())) {
+        throw new BadRequestException('examDate không hợp lệ.');
+      }
+
+      return {
+        id: item.id,
+        examDate,
+        note: item.note?.trim() || null,
+      };
+    });
+
+    const afterStudent = await this.prisma.$transaction(async (tx) => {
+      const beforeValue = auditActor
+        ? await this.getStudentAuditSnapshot(tx, id)
+        : null;
+
+      await tx.studentExamSchedule.deleteMany({
+        where: { studentId: id },
+      });
+
+      if (normalizedItems.length > 0) {
+        await tx.studentExamSchedule.createMany({
+          data: normalizedItems.map((item) => ({
+            ...(item.id ? { id: item.id } : {}),
+            studentId: id,
+            examDate: item.examDate,
+            note: item.note,
+          })),
+        });
+      }
+
+      const afterStudent = await tx.studentInfo.findUnique({
+        where: { id },
+        include: studentDetailInclude,
+      });
+
+      if (!afterStudent) {
+        throw new NotFoundException('Student not found');
+      }
+
+      if (auditActor) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor: auditActor,
+          entityType: 'student',
+          entityId: id,
+          description: 'Cập nhật lịch thi học sinh',
+          beforeValue,
+          afterValue: {
+            ...this.serializeStudentDetail(afterStudent),
+            examSchedules: this.serializeStudentExamScheduleList(afterStudent),
+          },
+        });
+      }
+
+      return afterStudent;
+    });
+
+    try {
+      await this.syncStudentExamSchedulesWithCalendar(afterStudent);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to sync student exam schedules to Google Calendar for student ${id}: ${String(error)}`,
+      );
+    }
+
+    return this.serializeStudentExamScheduleList(afterStudent);
   }
 
   private async applyStudentAccountBalanceChange(

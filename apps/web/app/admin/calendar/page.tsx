@@ -5,7 +5,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ACTION_HISTORY_INVALIDATION_EVENT } from "@/lib/client";
 import * as classScheduleApi from "@/lib/apis/class-schedule.api";
-import { ClassScheduleEvent, ClassScheduleFilter } from "@/dtos/class-schedule.dto";
+import {
+  CalendarWeekVariant,
+  ClassScheduleEvent,
+  ClassScheduleFilter,
+} from "@/dtos/class-schedule.dto";
 import FilterBar from "./components/FilterBar";
 import CalendarView from "./components/CalendarView";
 import CalendarScheduleList from "./components/CalendarScheduleList";
@@ -14,6 +18,7 @@ import EventPopup from "./components/EventPopup";
 type CalendarFilterState = {
   classIds: string[];
   teacherId?: string;
+  studentId?: string;
 };
 type CalendarViewMode = "calendar" | "schedule";
 
@@ -32,19 +37,26 @@ const formatLocalDate = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
-const formatWeekLabel = (start: Date, end: Date): string => {
+const formatWeekLabel = (start: Date, end: Date, weekVariant: CalendarWeekVariant): string => {
   const formatter = new Intl.DateTimeFormat("vi-VN", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   });
-  return `Tuần hiện tại: CN ${formatter.format(start)} - T7 ${formatter.format(end)}`;
+  const prefix = weekVariant === "next" ? "Tuần sau" : "Tuần này";
+  return `${prefix}: CN ${formatter.format(start)} - T7 ${formatter.format(end)}`;
 };
 
-const getCurrentWeekRange = (today: Date = new Date()): CurrentWeekRange => {
+const getWeekRange = (
+  weekVariant: CalendarWeekVariant,
+  today: Date = new Date(),
+): CurrentWeekRange => {
   const anchor = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const start = new Date(anchor);
   start.setDate(anchor.getDate() - anchor.getDay());
+  if (weekVariant === "next") {
+    start.setDate(start.getDate() + 7);
+  }
 
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
@@ -54,7 +66,7 @@ const getCurrentWeekRange = (today: Date = new Date()): CurrentWeekRange => {
     end,
     startDate: formatLocalDate(start),
     endDate: formatLocalDate(end),
-    label: formatWeekLabel(start, end),
+    label: formatWeekLabel(start, end, weekVariant),
   };
 };
 
@@ -65,17 +77,19 @@ const getCurrentWeekRange = (today: Date = new Date()): CurrentWeekRange => {
  */
 export default function AdminCalendarPage() {
   const queryClient = useQueryClient();
-  const weekRange = useMemo(() => getCurrentWeekRange(), []);
 
   const [filters, setFilters] = useState<CalendarFilterState>({ classIds: [] });
   const [viewMode, setViewMode] = useState<CalendarViewMode>("calendar");
+  const [weekVariant, setWeekVariant] = useState<CalendarWeekVariant>("current");
+  const weekRange = useMemo(() => getWeekRange(weekVariant), [weekVariant]);
   const queryFilters = useMemo<ClassScheduleFilter>(
     () => ({
       startDate: weekRange.startDate,
       endDate: weekRange.endDate,
       ...(filters.teacherId ? { teacherId: filters.teacherId } : {}),
+      ...(filters.studentId ? { studentId: filters.studentId } : {}),
     }),
-    [filters.teacherId, weekRange],
+    [filters.studentId, filters.teacherId, weekRange],
   );
 
   // Selected event for popup
@@ -116,14 +130,26 @@ export default function AdminCalendarPage() {
     refetchOnWindowFocus: true,
   });
 
-  const events = eventsResponse?.data ?? [];
+  const events = useMemo(() => eventsResponse?.data ?? [], [eventsResponse?.data]);
   const visibleEvents = useMemo(() => {
-    if (filters.classIds.length === 0) {
-      return events;
+    let nextEvents = events;
+
+    if (filters.classIds.length > 0) {
+      const selected = new Set(filters.classIds);
+      nextEvents = nextEvents.filter((event) =>
+        event.classIds?.some((classId) => selected.has(classId)) ?? selected.has(event.classId),
+      );
     }
-    const selected = new Set(filters.classIds);
-    return events.filter((event) => selected.has(event.classId));
-  }, [events, filters.classIds]);
+
+    if (filters.studentId) {
+      nextEvents = nextEvents.filter((event) =>
+        event.studentId === filters.studentId ||
+        event.studentIds?.includes(filters.studentId ?? ""),
+      );
+    }
+
+    return nextEvents;
+  }, [events, filters.classIds, filters.studentId]);
 
   // Error handling with Sonner toast
   useEffect(() => {
@@ -155,17 +181,17 @@ export default function AdminCalendarPage() {
           <div className="flex flex-wrap items-end justify-between gap-2 gap-y-1">
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/85">
-                Weekly Teaching Board
+                Weekly Calendar Board
               </p>
               <h1 className="mt-0.5 text-lg font-semibold leading-tight text-text-primary sm:text-xl">
-                Lịch Dạy
+                Lịch Dạy Và Lịch Thi
               </h1>
             </div>
             <p
               className="max-w-md text-right text-[11px] leading-snug text-text-muted sm:text-left sm:text-xs"
-              title="Calendar: lưới theo giờ. Schedule: danh sách theo ngày có lịch."
+              title="Calendar: lưới theo giờ và hàng cả ngày. Schedule: danh sách theo ngày có lịch."
             >
-              Calendar · lưới giờ · Schedule · theo ngày
+              Calendar · lưới giờ + cả ngày · Schedule · theo ngày
             </p>
           </div>
         </section>
@@ -175,9 +201,11 @@ export default function AdminCalendarPage() {
           <FilterBar
             filters={filters}
             viewMode={viewMode}
+            weekVariant={weekVariant}
             weekLabel={weekRange.label}
             onFiltersChange={handleFiltersChange}
             onViewModeChange={setViewMode}
+            onWeekVariantChange={setWeekVariant}
           />
         </section>
 
@@ -243,10 +271,12 @@ export default function AdminCalendarPage() {
               <p className="text-sm">
                 {filters.teacherId
                   ? "Không có lịch học nào phù hợp với gia sư đã chọn."
-                  : "Chưa có lịch học nào trong tuần hiện tại."}
+                  : weekVariant === "next"
+                    ? "Chưa có lịch học nào trong tuần sau."
+                    : "Chưa có lịch học nào trong tuần này."}
               </p>
               <p className="text-xs">
-                Thử thay đổi bộ lọc lớp học hoặc gia sư.
+                Thử thay đổi bộ lọc lớp học, gia sư hoặc học sinh.
               </p>
             </div>
           ) : visibleEvents.length === 0 ? (
@@ -268,7 +298,9 @@ export default function AdminCalendarPage() {
               <p className="text-sm">
                 {filters.classIds.length > 0
                   ? "Không có lịch học nào phù hợp với các lớp đã chọn."
-                  : "Không có dữ liệu hiển thị."}
+                  : filters.studentId
+                    ? "Không có lịch học nào phù hợp với học sinh đã chọn."
+                    : "Không có dữ liệu hiển thị."}
               </p>
             </div>
           ) : (

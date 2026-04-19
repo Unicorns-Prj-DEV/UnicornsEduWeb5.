@@ -756,7 +756,12 @@ export default function StudentSelfPage() {
                                     onWithdraw={() => setBalancePopupMode("withdraw")}
                                     onOpenHistory={() => setWalletHistoryOpen(true)}
                                 />
-                                <StudentExamCard key={student.id} studentId={student.id} editable />
+                                <StudentExamCard
+                                    key={student.id}
+                                    studentId={student.id}
+                                    editable
+                                    selfService
+                                />
                             </div>
                         </div>
 

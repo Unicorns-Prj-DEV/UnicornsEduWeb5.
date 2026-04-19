@@ -89,6 +89,14 @@ export interface StudentWalletTransaction {
   createdAt: string;
 }
 
+export interface StudentExamScheduleItem {
+  id: string;
+  examDate: string;
+  note?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type StudentSelfClassItem = StudentClassItem;
 
 export interface StudentSelfDetail {
@@ -147,6 +155,14 @@ export interface UpdateStudentAccountBalancePayload {
 
 export interface UpdateStudentClassesPayload {
   class_ids: string[];
+}
+
+export interface UpdateStudentExamSchedulesPayload {
+  items: Array<{
+    id?: string;
+    examDate: string;
+    note?: string | null;
+  }>;
 }
 
 export interface UpdateMyStudentAccountBalancePayload {

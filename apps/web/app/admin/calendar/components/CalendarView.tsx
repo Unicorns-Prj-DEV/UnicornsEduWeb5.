@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
+import dayGridPlugin from "@fullcalendar/daygrid";
 import {
   EventClickArg,
   EventContentArg,
@@ -12,7 +13,8 @@ import {
 import { ClassScheduleEvent } from "@/dtos/class-schedule.dto";
 import {
   CalendarEventPalette,
-  getClassEventPalette,
+  getCalendarEventPalette,
+  getCalendarEventTypeLabel,
 } from "./calendar-event-palette";
 import styles from "./CalendarView.module.css";
 
@@ -27,6 +29,13 @@ const addDays = (date: Date, days: number) => {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
   return next;
+};
+
+const formatLocalDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 };
 
 const parseTimeToMinutes = (value?: string) => {
@@ -55,28 +64,39 @@ export default function CalendarView({
   weekEnd,
   onEventClick,
 }: CalendarViewProps) {
+  const calendarKey = useMemo(
+    () => `${formatLocalDate(weekStart)}-${formatLocalDate(weekEnd)}`,
+    [weekEnd, weekStart],
+  );
   const calendarEvents = useMemo(
     () =>
       events.map((event) => {
-        const palette = getClassEventPalette(event.classId);
+        const palette = getCalendarEventPalette(event);
+        const title =
+          event.eventType === "exam"
+            ? event.title || event.className || "Lịch thi"
+            : event.className;
 
         return {
           id: event.occurrenceId,
-          title: event.className,
-          start: `${event.date}T${event.startTime ?? "00:00:00"}`,
-          end: `${event.date}T${event.endTime ?? event.startTime ?? "00:00:00"}`,
+          title,
+          start: event.allDay
+            ? event.date
+            : `${event.date}T${event.startTime ?? "00:00:00"}`,
+          end: event.allDay
+            ? formatLocalDate(addDays(new Date(`${event.date}T00:00:00`), 1))
+            : `${event.date}T${event.endTime ?? event.startTime ?? "00:00:00"}`,
+          allDay: event.allDay ?? false,
           backgroundColor: palette.start,
           borderColor: palette.ring,
           textColor: palette.text,
+          classNames: [
+            event.eventType === "makeup" ? "is-makeup" : "",
+            event.eventType === "exam" ? "is-exam" : "",
+            event.allDay ? "is-all-day" : "",
+          ].filter(Boolean),
           extendedProps: {
-            occurrenceId: event.occurrenceId,
-            classId: event.classId,
-            teacherIds: event.teacherIds,
-            teacherNames: event.teacherNames,
-            patternEntryId: event.patternEntryId,
-            startTime: event.startTime,
-            endTime: event.endTime,
-            meetLink: event.meetLink,
+            ...event,
             palette,
           },
         };
@@ -140,48 +160,40 @@ export default function CalendarView({
 
   const renderEventContent = (eventInfo: EventContentArg) => {
     const { event } = eventInfo;
+    const sourceEvent = event.extendedProps as ClassScheduleEvent & {
+      palette?: CalendarEventPalette;
+    };
+    const eventTypeLabel = getCalendarEventTypeLabel(sourceEvent.eventType ?? "fixed");
+    const timeLabel = sourceEvent.allDay ? "Cả ngày" : eventInfo.timeText;
+    const secondaryLabel =
+      sourceEvent.eventType === "exam"
+        ? sourceEvent.classNames?.length
+          ? `Lớp: ${sourceEvent.classNames.join(", ")}`
+          : null
+        : sourceEvent.studentNames?.length
+          ? sourceEvent.studentNames.join(", ")
+          : null;
 
     return (
       <div className="flex min-h-full flex-col gap-1">
-        <span className="truncate text-[11px] font-semibold">{eventInfo.timeText}</span>
+        <div className="flex items-start justify-between gap-2">
+          <span className="truncate text-[11px] font-semibold">{timeLabel}</span>
+          <span className="shrink-0 rounded-full bg-black/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]">
+            {eventTypeLabel}
+          </span>
+        </div>
         <span className="truncate text-xs font-semibold">{event.title}</span>
+        {secondaryLabel ? (
+          <span className="truncate text-[11px] opacity-85">
+            {secondaryLabel}
+          </span>
+        ) : null}
       </div>
     );
   };
 
   const handleEventClick = (clickInfo: EventClickArg) => {
-    const extendedProps = clickInfo.event.extendedProps as {
-      occurrenceId: string;
-      classId: string;
-      teacherIds: string[];
-      teacherNames: string[];
-      startTime?: string;
-      endTime?: string;
-      patternEntryId?: string;
-      meetLink?: string;
-    };
-
-    // Build our ClassScheduleEvent DTO
-    const classScheduleEvent: ClassScheduleEvent = {
-      occurrenceId: extendedProps.occurrenceId,
-      classId: extendedProps.classId,
-      teacherIds: extendedProps.teacherIds,
-      className: clickInfo.event.title,
-      teacherNames: extendedProps.teacherNames,
-      date: clickInfo.event.start
-        ? [
-            clickInfo.event.start.getFullYear(),
-            String(clickInfo.event.start.getMonth() + 1).padStart(2, "0"),
-            String(clickInfo.event.start.getDate()).padStart(2, "0"),
-          ].join("-")
-        : "",
-      startTime: extendedProps.startTime,
-      endTime: extendedProps.endTime,
-      patternEntryId: extendedProps.patternEntryId,
-      meetLink: extendedProps.meetLink,
-    };
-
-    onEventClick(classScheduleEvent);
+    onEventClick(clickInfo.event.extendedProps as ClassScheduleEvent);
   };
 
   const handleEventDidMount = (mountInfo: EventMountArg) => {
@@ -230,7 +242,8 @@ export default function CalendarView({
       <div className="overflow-x-auto overscroll-x-contain pb-1">
         <div className={styles.calendarScroller}>
           <FullCalendar
-            plugins={[timeGridPlugin, interactionPlugin]}
+            key={calendarKey}
+            plugins={[timeGridPlugin, interactionPlugin, dayGridPlugin]}
             initialView="timeGridWeek"
             initialDate={weekStart}
             headerToolbar={false}
@@ -253,7 +266,8 @@ export default function CalendarView({
             locale="vi"
             weekends={true}
             weekNumbers={false}
-            allDaySlot={false}
+            allDaySlot={true}
+            allDayText="Cả ngày"
             noEventsText="Không có sự kiện nào"
             dayHeaderFormat={{
               weekday: "short",

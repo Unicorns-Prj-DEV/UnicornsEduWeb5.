@@ -2,6 +2,7 @@ import type {
   CreateStudentPayload,
   StudentAssignableUser,
   StudentDetail,
+  StudentExamScheduleItem,
   StudentGender,
   StudentListItem,
   StudentListResponse,
@@ -9,6 +10,7 @@ import type {
   StudentWalletTransaction,
   UpdateStudentAccountBalancePayload,
   UpdateStudentClassesPayload,
+  UpdateStudentExamSchedulesPayload,
   UpdateStudentPayload,
 } from "@/dtos/student.dto";
 import { api } from "../client";
@@ -109,6 +111,16 @@ export async function getStudentWalletHistory(
   return Array.isArray(response.data) ? response.data : [];
 }
 
+export async function getStudentExamSchedules(
+  id: string,
+): Promise<StudentExamScheduleItem[]> {
+  const safeId = encodeURIComponent(id);
+  const response = await api.get<StudentExamScheduleItem[]>(
+    `/student/${safeId}/exam-schedules`,
+  );
+  return Array.isArray(response.data) ? response.data : [];
+}
+
 export async function createStudent(payload: CreateStudentPayload): Promise<StudentDetail> {
   const response = await api.post<StudentDetail>("/student", payload);
   return response.data;
@@ -124,6 +136,18 @@ export async function updateStudentById(
   const safeId = encodeURIComponent(id);
   const response = await api.patch<StudentDetail>(`/student/${safeId}`, payload);
   return response.data;
+}
+
+export async function updateStudentExamSchedules(
+  id: string,
+  payload: UpdateStudentExamSchedulesPayload,
+): Promise<StudentExamScheduleItem[]> {
+  const safeId = encodeURIComponent(id);
+  const response = await api.put<StudentExamScheduleItem[]>(
+    `/student/${safeId}/exam-schedules`,
+    payload,
+  );
+  return Array.isArray(response.data) ? response.data : [];
 }
 
 /**

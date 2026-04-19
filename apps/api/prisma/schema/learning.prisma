@@ -16,6 +16,7 @@ model Class {
   surveys                       ClassSurvey[]
   teachers                      ClassTeacher[]
   teacherOperatingDeductionRates ClassTeacherOperatingDeductionRate[]
+  makeupScheduleEvents          MakeupScheduleEvent[]
   sessions                      Session[]
   students                      StudentClass[]
 
@@ -78,6 +79,7 @@ model Session {
   updatedAt                           DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
   attendance                          Attendance[]
   class                               Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  makeupScheduleEvent                 MakeupScheduleEvent?
   teacher                             StaffInfo    @relation(fields: [teacherId], references: [id])
 
   @@index([teacherId])
@@ -88,6 +90,35 @@ model Session {
   @@index([teacherId, teacherPaymentStatus, date])
   @@index([googleCalendarEventId])
   @@map("sessions")
+}
+
+model MakeupScheduleEvent {
+  id                    String      @id @default(uuid()) @db.Text
+  classId               String      @map("class_id") @db.Text
+  teacherId             String      @map("teacher_id") @db.Text
+  linkedSessionId       String?     @unique @map("linked_session_id") @db.Text
+  date                  DateTime    @db.Date
+  startTime             DateTime?   @map("start_time") @db.Time(6)
+  endTime               DateTime?   @map("end_time") @db.Time(6)
+  title                 String?
+  note                  String?
+  googleMeetLink        String?     @map("google_meet_link")
+  googleCalendarEventId String?     @map("google_calendar_event_id")
+  calendarSyncedAt      DateTime?   @map("calendar_synced_at") @db.Timestamptz(6)
+  calendarSyncError     String?     @map("calendar_sync_error")
+  createdAt             DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  class                 Class       @relation(fields: [classId], references: [id], onDelete: Cascade)
+  linkedSession         Session?    @relation(fields: [linkedSessionId], references: [id], onDelete: SetNull)
+  teacher               StaffInfo   @relation(fields: [teacherId], references: [id])
+
+  @@index([classId])
+  @@index([teacherId])
+  @@index([date])
+  @@index([classId, date])
+  @@index([teacherId, date])
+  @@index([googleCalendarEventId])
+  @@map("makeup_schedule_events")
 }
 
 model Attendance {

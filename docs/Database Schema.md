@@ -120,12 +120,28 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - `cccd_back_path` (`TEXT`, nullable): object path ảnh CCCD mặt sau trong bucket `id-cards` theo format `${userId}-back`
   - `cccd_verified_at` (`TIMESTAMPTZ`, nullable): thời điểm xác minh CCCD (dành cho flow verify sau này)
 - `customer_care_managed_by_staff_id` (nullable FK → `staff_info.id`): trỏ tới trợ lí quản lí CSKH này; trợ lí được hưởng 3% học phí đã học của học sinh thuộc CSKH quản lí. Index: `(customer_care_managed_by_staff_id)`
-- Được tham chiếu bởi: `users`, `class_teachers`, `sessions`, `bonuses`, `lesson_outputs`, `customer_care_service`, `wallet_transactions_history` (customer care), `staff_monthly_stats`, `extra_allowances`, `class_surveys`, `staff_lesson_task`, `attendance` (assistant_manager)
+- Được tham chiếu bởi: `users`, `class_teachers`, `sessions`, `makeup_schedule_events`, `bonuses`, `lesson_outputs`, `customer_care_service`, `wallet_transactions_history` (customer care), `staff_monthly_stats`, `extra_allowances`, `class_surveys`, `staff_lesson_task`, `attendance` (assistant_manager)
 
 ### 4.3 `student_info`
 
 - Hồ sơ học viên: liên hệ phụ huynh, trạng thái, giới tính, mục tiêu
-- Được tham chiếu bởi: `users`, `student_classes`, `attendance`, `wallet_transactions_history`, `customer_care_service`
+- Được tham chiếu bởi: `users`, `student_classes`, `attendance`, `wallet_transactions_history`, `customer_care_service`, `student_exam_schedules`
+
+### 4.3.1 `student_exam_schedules`
+
+- Lịch thi của từng học sinh; là nguồn authoritative cho event type `exam` trong aggregate calendar feed.
+- Trường chính:
+  - `student_id` (FK → `student_info.id`)
+  - `exam_date` (`DATE`)
+  - `note` (`TEXT`, nullable)
+  - `created_at`, `updated_at`
+- Index/constraint:
+  - index trên `student_id`
+  - index trên `exam_date`
+- Ghi chú:
+  - Mỗi record là 1 event all-day, không có `start/end time`
+  - Admin và chính học sinh cập nhật qua các endpoint replace-all exam schedule list
+  - Calendar aggregate có thể lọc theo `studentId` và map record này thành `type = exam`
 
 ### 4.4 `classes`
 
@@ -146,7 +162,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
     ```
     Mảng này định nghĩa mẫu lịch học lặp lại hàng tuần. Calendar admin có thể expand pattern này thành các occurrence để render lịch trong một khoảng ngày, và có thể đồng bộ từng entry thành recurring event trên Google Calendar.
   - Các trường học phí theo session/package
-- Mối quan hệ: teachers, students, sessions, surveys
+- Mối quan hệ: teachers, students, sessions, makeupScheduleEvents, surveys
 - Bảng liên kết `class_teachers` (Class ↔ StaffInfo) ngoài `custom_allowance` còn có:
   - `tax_rate_percent` (`DECIMAL(5,2)`, default `0`, Prisma field `operatingDeductionRatePercent`): % **khấu trừ vận hành** của gia sư theo từng lớp.
   - FE đang dùng semantic `operating_deduction_rate_percent`; backend vẫn map về cột `tax_rate_percent` để tương thích dữ liệu hiện có.
@@ -155,6 +171,30 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - `meetLink` trong schedule được điền cùng lúc với `calendarEventId` sau khi sync; API occurrence của `/admin/calendar/class-schedule` đọc lại field này để popup lịch mở được link lớp ngay sau khi refetch.
   - `teacherId` lưu gia sư chịu trách nhiệm của từng khung giờ. Từ luồng chỉnh lịch lớp, mỗi entry mới/cập nhật phải có `teacherId` và ID này phải thuộc `class_teachers` của chính lớp đó.
   - Khi API `PUT /admin/calendar/classes/:classId/schedule` nhận payload, mỗi entry dùng field `end`; backend sẽ map thành `to` trước khi lưu JSONB.
+
+### 4.4.1 `makeup_schedule_events`
+
+- Buổi dạy bù được tạo thủ công từ trang chi tiết lớp; mỗi record là **một buổi duy nhất**, không lặp lại.
+- Trường chính:
+  - `class_id` (FK → `classes.id`)
+  - `teacher_id` (FK → `staff_info.id`)
+  - `linked_session_id` (nullable FK → `sessions.id`) để back-reference nếu về sau có session thực hiện buổi bù
+  - `date` (`DATE`)
+  - `start_time`, `end_time` (`TIME`)
+  - `title` (`TEXT`, nullable)
+  - `note` (`TEXT`, nullable)
+  - `google_meet_link` (`TEXT`, nullable)
+  - `google_calendar_event_id` (`TEXT`, nullable)
+  - `calendar_synced_at` (`TIMESTAMPTZ`, nullable)
+  - `calendar_sync_error` (`TEXT`, nullable)
+- Quan hệ:
+  - thuộc `classes`
+  - thuộc `staff_info`
+  - có thể liên kết ngược tới `sessions`
+- Ghi chú:
+  - Buổi bù không thay thế recurring slot trong `Class.schedule`; nó chỉ bổ sung thêm vào feed lịch.
+  - FE hiện quản lý CRUD buổi bù theo từng lớp tại `/admin/classes/:id` và `/staff/classes/:id`; calendar chỉ còn hiển thị aggregate event.
+  - Backend sync one-off event này lên Google Calendar riêng, độc lập với recurring event của `Class.schedule`.
 
 ### 4.5 `sessions`
 
@@ -170,7 +210,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - composite cho read path nóng: `(class_id, date)`, `(teacher_id, date)`, `(teacher_id, teacher_payment_status, date)`
 - Trường Google Calendar/Meet legacy (tùy chọn): `google_meet_link` (TEXT), `google_calendar_event_id` (TEXT), `calendar_synced_at` (TIMESTAMPTZ), `calendar_sync_error` (TEXT)
   - Các field này được giữ để tương thích dữ liệu cũ đã từng sync session lên Google Calendar.
-  - Từ `2026-04-14`, workflow `create/update/delete session` không còn auto-populate hay mutate các field này nữa; Google Calendar chỉ còn gắn với recurring entry trong `Class.schedule`.
+  - Từ `2026-04-14`, workflow `create/update/delete session` không còn auto-populate hay mutate các field này nữa; Google Calendar chỉ còn gắn với recurring entry trong `Class.schedule` và record one-off của `makeup_schedule_events`.
 - Index legacy: `sessions_googleCalendarEventId_idx` trên `google_calendar_event_id`
 
 ### 4.6 `attendance`

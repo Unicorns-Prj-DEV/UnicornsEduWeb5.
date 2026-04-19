@@ -5,7 +5,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ACTION_HISTORY_INVALIDATION_EVENT } from "@/lib/client";
 import * as staffCalendarApi from "@/lib/apis/staff-calendar.api";
-import { ClassScheduleEvent, ClassScheduleFilter } from "@/dtos/class-schedule.dto";
+import {
+  CalendarWeekVariant,
+  ClassScheduleEvent,
+  ClassScheduleFilter,
+} from "@/dtos/class-schedule.dto";
 import CalendarView from "@/app/admin/calendar/components/CalendarView";
 import EventPopup from "@/app/admin/calendar/components/EventPopup";
 import StaffCalendarFilterBar from "./components/StaffCalendarFilterBar";
@@ -31,19 +35,26 @@ const formatLocalDate = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
-const formatWeekLabel = (start: Date, end: Date): string => {
+const formatWeekLabel = (start: Date, end: Date, weekVariant: CalendarWeekVariant): string => {
   const formatter = new Intl.DateTimeFormat("vi-VN", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   });
-  return `Tuần hiện tại: CN ${formatter.format(start)} - T7 ${formatter.format(end)}`;
+  const prefix = weekVariant === "next" ? "Tuần sau" : "Tuần này";
+  return `${prefix}: CN ${formatter.format(start)} - T7 ${formatter.format(end)}`;
 };
 
-const getCurrentWeekRange = (today: Date = new Date()): CurrentWeekRange => {
+const getWeekRange = (
+  weekVariant: CalendarWeekVariant,
+  today: Date = new Date(),
+): CurrentWeekRange => {
   const anchor = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const start = new Date(anchor);
   start.setDate(anchor.getDate() - anchor.getDay());
+  if (weekVariant === "next") {
+    start.setDate(start.getDate() + 7);
+  }
 
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
@@ -53,16 +64,17 @@ const getCurrentWeekRange = (today: Date = new Date()): CurrentWeekRange => {
     end,
     startDate: formatLocalDate(start),
     endDate: formatLocalDate(end),
-    label: formatWeekLabel(start, end),
+    label: formatWeekLabel(start, end, weekVariant),
   };
 };
 
 export default function StaffCalendarPage() {
   const queryClient = useQueryClient();
-  const weekRange = useMemo(() => getCurrentWeekRange(), []);
 
   const [filters, setFilters] = useState<CalendarFilterState>({ classIds: [] });
   const [viewMode, setViewMode] = useState<CalendarViewMode>("calendar");
+  const [weekVariant, setWeekVariant] = useState<CalendarWeekVariant>("current");
+  const weekRange = useMemo(() => getWeekRange(weekVariant), [weekVariant]);
   const queryFilters = useMemo<ClassScheduleFilter>(
     () => ({
       startDate: weekRange.startDate,
@@ -106,13 +118,16 @@ export default function StaffCalendarPage() {
     refetchOnWindowFocus: true,
   });
 
-  const events = eventsResponse?.data ?? [];
+  const events = useMemo(() => eventsResponse?.data ?? [], [eventsResponse?.data]);
   const visibleEvents = useMemo(() => {
     if (filters.classIds.length === 0) {
       return events;
     }
     const selectedClassIds = new Set(filters.classIds);
-    return events.filter((event) => selectedClassIds.has(event.classId));
+    return events.filter((event) =>
+      event.classIds?.some((classId) => selectedClassIds.has(classId)) ??
+      selectedClassIds.has(event.classId),
+    );
   }, [events, filters.classIds]);
 
   useEffect(() => {
@@ -140,17 +155,17 @@ export default function StaffCalendarPage() {
           <div className="flex flex-wrap items-end justify-between gap-2 gap-y-1">
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/85">
-                Lịch Dạy Cá Nhân
+                Lịch Cá Nhân
               </p>
               <h1 className="mt-0.5 text-lg font-semibold leading-tight text-text-primary sm:text-xl">
-                Lịch Học
+                Lịch Dạy Và Lịch Thi
               </h1>
             </div>
             <p
               className="max-w-md text-right text-[11px] leading-snug text-text-muted sm:text-left sm:text-xs"
-              title="Lịch các lớp bạn phụ trách trong tuần hiện tại."
+              title="Lịch các lớp bạn phụ trách, gồm lịch dạy, buổi bù và lịch thi của học sinh."
             >
-              Tuần hiện tại · lớp bạn phụ trách
+              Tuần hiện tại · lớp bạn phụ trách · có lịch thi
             </p>
           </div>
         </section>
@@ -159,9 +174,11 @@ export default function StaffCalendarPage() {
           <StaffCalendarFilterBar
             filters={filters}
             viewMode={viewMode}
+            weekVariant={weekVariant}
             weekLabel={weekRange.label}
             onFiltersChange={handleFiltersChange}
             onViewModeChange={setViewMode}
+            onWeekVariantChange={setWeekVariant}
           />
         </section>
 
@@ -226,7 +243,9 @@ export default function StaffCalendarPage() {
               <p className="text-sm">
                 {filters.classIds.length > 0
                   ? "Không có lịch học nào phù hợp với bộ lọc."
-                  : "Chưa có lịch học nào trong tuần hiện tại."}
+                  : weekVariant === "next"
+                    ? "Chưa có lịch học nào trong tuần sau."
+                    : "Chưa có lịch học nào trong tuần này."}
               </p>
             </div>
           ) : (

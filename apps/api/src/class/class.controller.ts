@@ -34,6 +34,13 @@ import {
   UpdateClassStudentsDto,
   UpdateClassTeachersDto,
 } from 'src/dtos/class.dto';
+import {
+  ClassScheduleFilterDto,
+  CreateClassScopedMakeupScheduleEventDto,
+  MakeupScheduleEventDto,
+  UpdateClassScopedMakeupScheduleEventDto,
+} from 'src/dtos/class-schedule.dto';
+import { CalendarService } from 'src/calendar/calendar.service';
 import { ClassService } from './class.service';
 
 @Controller('class')
@@ -42,7 +49,10 @@ import { ClassService } from './class.service';
 @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.accountant)
 @Roles(UserRole.admin)
 export class ClassController {
-  constructor(private readonly classService: ClassService) {}
+  constructor(
+    private readonly classService: ClassService,
+    private readonly calendarService: CalendarService,
+  ) {}
 
   @Get()
   @ApiOperation({
@@ -203,6 +213,40 @@ export class ClassController {
     });
   }
 
+  @Get(':id/makeup-events')
+  @ApiOperation({
+    summary: 'List class makeup schedule events',
+    description: 'Read one-off makeup schedule events for a class.',
+  })
+  @ApiParam({ name: 'id', description: 'Class id' })
+  @ApiQuery({ name: 'startDate', required: true, type: String })
+  @ApiQuery({ name: 'endDate', required: true, type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'List of makeup schedule events for the class.',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/MakeupScheduleEventDto' },
+        },
+        total: { type: 'number', example: 2 },
+      },
+    },
+  })
+  async listMakeupEventsByClassId(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query() filters: ClassScheduleFilterDto,
+  ): Promise<{
+    success: boolean;
+    data: MakeupScheduleEventDto[];
+    total: number;
+  }> {
+    return this.calendarService.listMakeupScheduleEventsForClass(id, filters);
+  }
+
   @Get(':id')
   @ApiOperation({
     summary: 'Get class by id',
@@ -236,6 +280,32 @@ export class ClassController {
     });
   }
 
+  @Post(':id/makeup-events')
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @ApiOperation({
+    summary: 'Create class makeup schedule event',
+    description: 'Create one makeup event for the specified class.',
+  })
+  @ApiParam({ name: 'id', description: 'Class id' })
+  @ApiBody({ type: CreateClassScopedMakeupScheduleEventDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Makeup schedule event created.',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: { $ref: '#/components/schemas/MakeupScheduleEventDto' },
+      },
+    },
+  })
+  async createMakeupEventByClassId(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: CreateClassScopedMakeupScheduleEventDto,
+  ): Promise<{ success: boolean; data: MakeupScheduleEventDto }> {
+    return this.calendarService.createMakeupScheduleEventForClass(id, dto);
+  }
+
   @Patch()
   @ApiOperation({
     summary: 'Update class',
@@ -260,6 +330,38 @@ export class ClassController {
     });
   }
 
+  @Patch(':id/makeup-events/:eventId')
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @ApiOperation({
+    summary: 'Update class makeup schedule event',
+    description: 'Update one makeup event that belongs to the specified class.',
+  })
+  @ApiParam({ name: 'id', description: 'Class id' })
+  @ApiParam({ name: 'eventId', description: 'Makeup event id' })
+  @ApiBody({ type: UpdateClassScopedMakeupScheduleEventDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Makeup schedule event updated.',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: { $ref: '#/components/schemas/MakeupScheduleEventDto' },
+      },
+    },
+  })
+  async updateMakeupEventByClassId(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('eventId', new ParseUUIDPipe()) eventId: string,
+    @Body() dto: UpdateClassScopedMakeupScheduleEventDto,
+  ): Promise<{ success: boolean; data: MakeupScheduleEventDto }> {
+    return this.calendarService.updateMakeupScheduleEventForClass(
+      id,
+      eventId,
+      dto,
+    );
+  }
+
   @Delete(':id')
   @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   @ApiOperation({
@@ -278,5 +380,30 @@ export class ClassController {
       userEmail: user.email,
       roleType: user.roleType,
     });
+  }
+
+  @Delete(':id/makeup-events/:eventId')
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @ApiOperation({
+    summary: 'Delete class makeup schedule event',
+    description: 'Delete one makeup event that belongs to the specified class.',
+  })
+  @ApiParam({ name: 'id', description: 'Class id' })
+  @ApiParam({ name: 'eventId', description: 'Makeup event id' })
+  @ApiResponse({
+    status: 200,
+    description: 'Makeup schedule event deleted.',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+      },
+    },
+  })
+  async deleteMakeupEventByClassId(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('eventId', new ParseUUIDPipe()) eventId: string,
+  ): Promise<{ success: boolean }> {
+    return this.calendarService.deleteMakeupScheduleEventForClass(id, eventId);
   }
 }
