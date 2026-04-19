@@ -1,8 +1,16 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  PartialType,
+  OmitType,
+  ApiProperty,
+  ApiPropertyOptional,
+} from '@nestjs/swagger';
 import {
   IsArray,
-  IsInt,
+  IsBoolean,
   IsIn,
+  IsInt,
+  Max,
+  Min,
   IsOptional,
   IsString,
   IsUUID,
@@ -10,6 +18,8 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+
+const CALENDAR_EVENT_TYPES = ['fixed', 'makeup', 'exam'] as const;
 
 export class ClassScheduleEntryDto {
   @ApiPropertyOptional({
@@ -76,10 +86,6 @@ export class ClassSchedulePatternDto {
   @ApiProperty({
     description: 'Class schedule entries (weekly recurrence pattern)',
     type: [ClassScheduleEntryDto],
-    example: [
-      { dayOfWeek: 1, from: '19:00', end: '20:30' },
-      { dayOfWeek: 3, from: '19:00', end: '20:30' },
-    ],
   })
   @IsArray()
   @ValidateNested({ each: true })
@@ -89,25 +95,71 @@ export class ClassSchedulePatternDto {
 
 export class ClassScheduleEventDto {
   @ApiProperty({
-    description: 'Unique occurrence ID (e.g., classId + entryId + date)',
-    example: 'classId-entryId-2026-04-15',
+    description: 'Unique occurrence ID to render this calendar item',
+    example: 'fixed:class-id:entry-id:2026-04-19',
   })
   @IsString()
   occurrenceId: string;
 
   @ApiProperty({
-    description: 'Class ID (UUID)',
+    description: 'Underlying source record id',
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
-  @IsUUID()
-  classId: string;
-
-  @ApiProperty({ description: 'Class name', example: 'Lớp Toán 10A' })
   @IsString()
-  className: string;
+  sourceId: string;
 
   @ApiProperty({
-    description: 'Teacher IDs assigned to this class schedule occurrence',
+    description: 'Calendar event type',
+    enum: CALENDAR_EVENT_TYPES,
+    example: 'makeup',
+  })
+  @IsString()
+  @IsIn(CALENDAR_EVENT_TYPES)
+  type: (typeof CALENDAR_EVENT_TYPES)[number];
+
+  @ApiProperty({
+    description: 'Display title for the calendar event',
+    example: 'Lịch dạy bù - Lớp Toán 10A',
+  })
+  @IsString()
+  title: string;
+
+  @ApiPropertyOptional({
+    description: 'Primary class id for this event if available',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @IsOptional()
+  @IsUUID()
+  classId?: string;
+
+  @ApiProperty({
+    description: 'Related class ids for filter matching',
+    type: [String],
+    example: ['550e8400-e29b-41d4-a716-446655440000'],
+  })
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  classIds: string[];
+
+  @ApiPropertyOptional({
+    description: 'Primary class name for this event if available',
+    example: 'Lớp Toán 10A',
+  })
+  @IsOptional()
+  @IsString()
+  className?: string;
+
+  @ApiProperty({
+    description: 'Related class names for display/filter context',
+    type: [String],
+    example: ['Lớp Toán 10A'],
+  })
+  @IsArray()
+  @IsString({ each: true })
+  classNames: string[];
+
+  @ApiProperty({
+    description: 'Teacher IDs assigned to this event',
     example: ['660e8400-e29b-41d4-a716-446655440001'],
     type: [String],
   })
@@ -116,13 +168,29 @@ export class ClassScheduleEventDto {
   teacherIds: string[];
 
   @ApiProperty({
-    description: 'Teacher full names assigned to this class schedule occurrence',
+    description: 'Teacher full names assigned to this event',
     example: ['Nguyễn Văn An'],
     type: [String],
   })
   @IsArray()
   @IsString({ each: true })
   teacherNames: string[];
+
+  @ApiPropertyOptional({
+    description: 'Student ID for exam events',
+    example: '770e8400-e29b-41d4-a716-446655440001',
+  })
+  @IsOptional()
+  @IsUUID()
+  studentId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Student name for exam events',
+    example: 'Nguyễn Minh Anh',
+  })
+  @IsOptional()
+  @IsString()
+  studentName?: string;
 
   @ApiProperty({
     description: 'Session date in YYYY-MM-DD format',
@@ -139,7 +207,7 @@ export class ClassScheduleEventDto {
   })
   @IsOptional()
   @Matches(/^\d{2}:\d{2}(:\d{2})?$/, {
-    message: 'startTime must be in HH:mm:ss format',
+    message: 'startTime must be in HH:mm or HH:mm:ss format',
   })
   startTime?: string;
 
@@ -149,13 +217,19 @@ export class ClassScheduleEventDto {
   })
   @IsOptional()
   @Matches(/^\d{2}:\d{2}(:\d{2})?$/, {
-    message: 'endTime must be in HH:mm:ss format',
+    message: 'endTime must be in HH:mm or HH:mm:ss format',
   })
   endTime?: string;
 
+  @ApiProperty({
+    description: 'Whether this event should render as all-day',
+    example: false,
+  })
+  @IsBoolean()
+  allDay: boolean;
+
   @ApiPropertyOptional({
-    description:
-      'ID of the pattern entry this occurrence derives from',
+    description: 'ID of the recurring pattern entry this occurrence derives from',
     example: 'entry-uuid',
   })
   @IsOptional()
@@ -163,12 +237,20 @@ export class ClassScheduleEventDto {
   patternEntryId?: string;
 
   @ApiPropertyOptional({
-    description: 'Google Meet link from the corresponding session (if exists)',
+    description: 'Google Meet link for the event',
     example: 'https://meet.google.com/xxx-yyy-zzz',
   })
   @IsOptional()
   @IsString()
   meetLink?: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional event note',
+    example: 'Học bù do nghỉ lễ',
+  })
+  @IsOptional()
+  @IsString()
+  note?: string;
 }
 
 export class ClassScheduleFilterDto {
@@ -188,6 +270,14 @@ export class ClassScheduleFilterDto {
   @IsUUID()
   teacherId?: string;
 
+  @ApiPropertyOptional({
+    description: 'Filter by student ID (UUID)',
+    example: '770e8400-e29b-41d4-a716-446655440001',
+  })
+  @IsOptional()
+  @IsUUID()
+  studentId?: string;
+
   @ApiProperty({
     description: 'Start date in YYYY-MM-DD format',
     example: '2026-04-01',
@@ -205,5 +295,221 @@ export class ClassScheduleFilterDto {
     message: 'endDate must use YYYY-MM-DD format',
   })
   endDate: string;
+
+  @ApiPropertyOptional({
+    description: 'Page number for paginated list endpoints',
+    example: 1,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({
+    description: 'Items per page for paginated list endpoints',
+    example: 5,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
 }
 
+export class MakeupScheduleEventDto {
+  @ApiProperty({
+    description: 'Makeup schedule event id',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @IsUUID()
+  id: string;
+
+  @ApiProperty({
+    description: 'Class id',
+    example: '660e8400-e29b-41d4-a716-446655440000',
+  })
+  @IsUUID()
+  classId: string;
+
+  @ApiProperty({
+    description: 'Teacher id',
+    example: '770e8400-e29b-41d4-a716-446655440000',
+  })
+  @IsUUID()
+  teacherId: string;
+
+  @ApiPropertyOptional({
+    description: 'Linked session id if this makeup event has been fulfilled by a session',
+    example: '880e8400-e29b-41d4-a716-446655440000',
+  })
+  @IsOptional()
+  @IsUUID()
+  linkedSessionId?: string | null;
+
+  @ApiProperty({
+    description: 'Makeup date in YYYY-MM-DD format',
+    example: '2026-04-24',
+  })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'date must use YYYY-MM-DD format',
+  })
+  date: string;
+
+  @ApiPropertyOptional({
+    description: 'Start time in HH:mm or HH:mm:ss format',
+    example: '19:00:00',
+  })
+  @IsOptional()
+  @Matches(/^\d{2}:\d{2}(:\d{2})?$/, {
+    message: 'startTime must be in HH:mm or HH:mm:ss format',
+  })
+  startTime?: string;
+
+  @ApiPropertyOptional({
+    description: 'End time in HH:mm or HH:mm:ss format',
+    example: '20:30:00',
+  })
+  @IsOptional()
+  @Matches(/^\d{2}:\d{2}(:\d{2})?$/, {
+    message: 'endTime must be in HH:mm or HH:mm:ss format',
+  })
+  endTime?: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional admin title override',
+    example: 'Dạy bù tuần nghỉ lễ',
+  })
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional note',
+    example: 'Học bù do lớp nghỉ lễ 30/4.',
+  })
+  @IsOptional()
+  @IsString()
+  note?: string;
+
+  @ApiPropertyOptional({
+    description: 'Class name',
+    example: 'Lớp Toán 10A',
+  })
+  @IsOptional()
+  @IsString()
+  className?: string;
+
+  @ApiPropertyOptional({
+    description: 'Teacher full name',
+    example: 'Nguyễn Văn An',
+  })
+  @IsOptional()
+  @IsString()
+  teacherName?: string;
+
+  @ApiPropertyOptional({
+    description: 'Google Meet link if synced',
+    example: 'https://meet.google.com/xxx-yyy-zzz',
+  })
+  @IsOptional()
+  @IsString()
+  googleMeetLink?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Google Calendar event id if synced',
+    example: 'event-123',
+  })
+  @IsOptional()
+  @IsString()
+  googleCalendarEventId?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Timestamp of last successful calendar sync',
+    example: '2026-04-19T08:30:00.000Z',
+  })
+  @IsOptional()
+  @IsString()
+  calendarSyncedAt?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Last calendar sync error',
+    example: 'Google Calendar auth expired',
+  })
+  @IsOptional()
+  @IsString()
+  calendarSyncError?: string | null;
+}
+
+export class CreateMakeupScheduleEventDto {
+  @ApiProperty({
+    description: 'Class id',
+    example: '660e8400-e29b-41d4-a716-446655440000',
+  })
+  @IsUUID()
+  classId: string;
+
+  @ApiProperty({
+    description: 'Teacher id',
+    example: '770e8400-e29b-41d4-a716-446655440000',
+  })
+  @IsUUID()
+  teacherId: string;
+
+  @ApiProperty({
+    description: 'Makeup date in YYYY-MM-DD format',
+    example: '2026-04-24',
+  })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'date must use YYYY-MM-DD format',
+  })
+  date: string;
+
+  @ApiProperty({
+    description: 'Start time in HH:mm or HH:mm:ss format',
+    example: '19:00:00',
+  })
+  @Matches(/^\d{2}:\d{2}(:\d{2})?$/, {
+    message: 'startTime must be in HH:mm or HH:mm:ss format',
+  })
+  startTime: string;
+
+  @ApiProperty({
+    description: 'End time in HH:mm or HH:mm:ss format',
+    example: '20:30:00',
+  })
+  @Matches(/^\d{2}:\d{2}(:\d{2})?$/, {
+    message: 'endTime must be in HH:mm or HH:mm:ss format',
+  })
+  endTime: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional admin title override',
+    example: 'Dạy bù tuần nghỉ lễ',
+  })
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional note',
+    example: 'Học bù do lớp nghỉ lễ 30/4.',
+  })
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+export class UpdateMakeupScheduleEventDto extends PartialType(
+  CreateMakeupScheduleEventDto,
+) {}
+
+export class CreateClassScopedMakeupScheduleEventDto extends OmitType(
+  CreateMakeupScheduleEventDto,
+  ['classId'] as const,
+) {}
+
+export class UpdateClassScopedMakeupScheduleEventDto extends PartialType(
+  CreateClassScopedMakeupScheduleEventDto,
+) {}

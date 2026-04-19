@@ -20,6 +20,7 @@ import {
   EditClassSchedulePopup,
   EditClassStudentsPopup,
   EditClassTeachersPopup,
+  MakeupScheduleCard,
   ScheduleTimeCard,
   SessionHistoryTableSkeleton,
   TutorCard,
@@ -120,6 +121,7 @@ export default function AdminClassDetailPage() {
     adminAccess.isCustomerCare;
   const canCreateSession = !isAccountant;
   const canOpenStudentDetails = !isAccountant;
+  const canManageMakeupSchedule = adminAccess.isAdmin || adminAccess.isAssistant;
 
   const surveysInMonth = useMemo(() => {
     return MOCK_SURVEYS.filter((s) => s.date.startsWith(selectedMonth));
@@ -198,6 +200,12 @@ export default function AdminClassDetailPage() {
   );
   const currentClassTeacherId = popupTeachers.length === 1 ? popupTeachers[0]?.id : undefined;
   const addSessionTeacherMode = popupTeachers.length === 1 ? "readOnly" : "select";
+  const canCreateMakeupSchedule =
+    canManageMakeupSchedule && popupTeachers.length > 0;
+  const makeupScheduleDisabledMessage =
+    canManageMakeupSchedule && popupTeachers.length === 0
+      ? "Lop chua co gia su phu trach nen chua the tao buoi bu."
+      : undefined;
 
   const popupStudents = useMemo(
     () =>
@@ -658,6 +666,22 @@ export default function AdminClassDetailPage() {
             </table>
           </div>
         </ClassCard>
+
+        <MakeupScheduleCard
+          classId={id}
+          teachers={popupTeachers}
+          defaultTeacherId={currentClassTeacherId}
+          teacherMode="select"
+          canCreate={canCreateMakeupSchedule}
+          canEdit={canManageMakeupSchedule}
+          canDelete={canManageMakeupSchedule}
+          disabledCreateMessage={makeupScheduleDisabledMessage}
+          queryKeyPrefix={["class", "detail", id]}
+          listFn={classApi.getClassMakeupEvents}
+          createFn={classApi.createClassMakeupEvent}
+          updateFn={classApi.updateClassMakeupEvent}
+          deleteFn={classApi.deleteClassMakeupEvent}
+        />
 
         {/* Row 3: Lịch sử buổi học và khảo sát – 2 tab */}
         <ClassCard title="Lịch sử & Khảo sát" className="w-full">

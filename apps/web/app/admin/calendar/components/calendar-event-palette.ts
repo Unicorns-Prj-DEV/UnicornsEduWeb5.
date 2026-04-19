@@ -1,5 +1,7 @@
 "use client";
 
+import { ClassScheduleEvent } from "@/dtos/class-schedule.dto";
+
 export type CalendarEventPalette = {
   start: string;
   end: string;
@@ -88,3 +90,48 @@ const hashString = (value: string) => {
 
 export const getClassEventPalette = (classId: string) =>
   CLASS_EVENT_PALETTES[hashString(classId) % CLASS_EVENT_PALETTES.length];
+
+const MAKEUP_EVENT_PALETTE: CalendarEventPalette = {
+  start: "#C2410C",
+  end: "#EA580C",
+  text: "#FFF7ED",
+  shadow: "rgba(194, 65, 12, 0.26)",
+  ring: "rgba(254, 215, 170, 0.88)",
+  accent: "#FED7AA",
+};
+
+const EXAM_EVENT_PALETTE: CalendarEventPalette = {
+  start: "#BE123C",
+  end: "#E11D48",
+  text: "#FFF1F2",
+  shadow: "rgba(225, 29, 72, 0.24)",
+  ring: "rgba(251, 207, 232, 0.88)",
+  accent: "#FBCFE8",
+};
+
+export const getCalendarEventPalette = (
+  event: Pick<ClassScheduleEvent, "eventType" | "classId">,
+) => {
+  if (event.eventType === "makeup") {
+    return MAKEUP_EVENT_PALETTE;
+  }
+
+  if (event.eventType === "exam") {
+    return EXAM_EVENT_PALETTE;
+  }
+
+  return getClassEventPalette(event.classId);
+};
+
+export const getCalendarEventTypeLabel = (
+  eventType: ClassScheduleEvent["eventType"],
+) => {
+  switch (eventType) {
+    case "makeup":
+      return "Buổi bù";
+    case "exam":
+      return "Lịch thi";
+    default:
+      return "Lịch cố định";
+  }
+};

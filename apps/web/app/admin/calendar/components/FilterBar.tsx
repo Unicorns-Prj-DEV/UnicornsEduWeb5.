@@ -6,21 +6,30 @@ import { useDebounce } from "use-debounce";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import * as classScheduleApi from "@/lib/apis/class-schedule.api";
 import { cn } from "@/lib/utils";
+import { CalendarWeekVariant } from "@/dtos/class-schedule.dto";
 
 export type AdminCalendarFilterState = {
   classIds: string[];
   teacherId?: string;
+  studentId?: string;
 };
 
 interface FilterBarProps {
   filters: AdminCalendarFilterState;
   viewMode: "calendar" | "schedule";
+  weekVariant: CalendarWeekVariant;
   weekLabel: string;
   onViewModeChange: (mode: "calendar" | "schedule") => void;
+  onWeekVariantChange: (weekVariant: CalendarWeekVariant) => void;
   onFiltersChange: (filters: AdminCalendarFilterState) => void;
 }
 
 type ClassFilterOption = {
+  id: string;
+  name: string;
+};
+
+type StudentFilterOption = {
   id: string;
   name: string;
 };
@@ -34,16 +43,24 @@ const CLASS_QUERY_LIMIT = 12;
 export default function FilterBar({
   filters,
   viewMode,
+  weekVariant,
   weekLabel,
   onViewModeChange,
+  onWeekVariantChange,
   onFiltersChange,
 }: FilterBarProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const classContainerRef = useRef<HTMLDivElement>(null);
+  const studentContainerRef = useRef<HTMLDivElement>(null);
   const [searchInput, setSearchInput] = useState("");
+  const [studentSearchInput, setStudentSearchInput] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isStudentSearchFocused, setIsStudentSearchFocused] = useState(false);
   const [selectedClassSnapshot, setSelectedClassSnapshot] =
     useState<ClassFilterOption | null>(null);
+  const [selectedStudentSnapshot, setSelectedStudentSnapshot] =
+    useState<StudentFilterOption | null>(null);
   const [debouncedSearch] = useDebounce(searchInput.trim(), 250);
+  const [debouncedStudentSearch] = useDebounce(studentSearchInput.trim(), 250);
 
   const { data: classListResponse, isLoading: isLoadingClasses, isFetching } = useQuery({
     queryKey: ["calendar", "classes", "filter", debouncedSearch],
@@ -57,6 +74,15 @@ export default function FilterBar({
   const { data: teacherListResponse, isLoading: isLoadingTeachers } = useQuery({
     queryKey: ["calendar", "teachers", "filter"],
     queryFn: () => classScheduleApi.getTeachersForFilter(100),
+    staleTime: 5 * 60 * 1000,
+  });
+  const { data: studentListResponse, isLoading: isLoadingStudents, isFetching: isFetchingStudents } = useQuery({
+    queryKey: ["calendar", "students", "filter", debouncedStudentSearch],
+    queryFn: async () =>
+      classScheduleApi.getStudentsForCalendarFilter({
+        limit: 12,
+        search: debouncedStudentSearch || undefined,
+      }),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -77,11 +103,22 @@ export default function FilterBar({
     ],
     [teacherListResponse],
   );
+  const studentOptions = useMemo<StudentFilterOption[]>(
+    () =>
+      (studentListResponse?.data ?? []).map((student) => ({
+        id: student.id,
+        name: student.fullName || "—",
+      })),
+    [studentListResponse],
+  );
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
-      if (!containerRef.current?.contains(event.target as Node)) {
+      if (!classContainerRef.current?.contains(event.target as Node)) {
         setIsSearchFocused(false);
+      }
+      if (!studentContainerRef.current?.contains(event.target as Node)) {
+        setIsStudentSearchFocused(false);
       }
     };
 
@@ -107,6 +144,19 @@ export default function FilterBar({
         .filter((option): option is ClassFilterOption => Boolean(option)),
     [filters.classIds, selectedClassMap],
   );
+  const selectedStudentMap = useMemo(() => {
+    const map = new Map<string, StudentFilterOption>();
+    for (const option of studentOptions) {
+      map.set(option.id, option);
+    }
+    if (selectedStudentSnapshot) {
+      map.set(selectedStudentSnapshot.id, selectedStudentSnapshot);
+    }
+    return map;
+  }, [studentOptions, selectedStudentSnapshot]);
+  const selectedStudent = filters.studentId
+    ? selectedStudentMap.get(filters.studentId) ?? null
+    : null;
 
   const handleClassToggle = useCallback(
     (nextClass: ClassFilterOption) => {
@@ -134,7 +184,7 @@ export default function FilterBar({
   );
 
   const handleClearFilters = useCallback(() => {
-    onFiltersChange({ classIds: [], teacherId: undefined });
+    onFiltersChange({ classIds: [], teacherId: undefined, studentId: undefined });
   }, [onFiltersChange]);
 
   const handleTeacherChange = useCallback(
@@ -146,41 +196,94 @@ export default function FilterBar({
     },
     [filters, onFiltersChange],
   );
+  const handleStudentSelect = useCallback(
+    (student: StudentFilterOption) => {
+      setSelectedStudentSnapshot(student);
+      setStudentSearchInput(student.name);
+      setIsStudentSearchFocused(false);
+      onFiltersChange({
+        ...filters,
+        studentId: student.id,
+      });
+    },
+    [filters, onFiltersChange],
+  );
+  const handleClearStudent = useCallback(() => {
+    setStudentSearchInput("");
+    setSelectedStudentSnapshot(null);
+    onFiltersChange({
+      ...filters,
+      studentId: undefined,
+    });
+  }, [filters, onFiltersChange]);
 
   const listboxId = "admin-calendar-class-filter-options";
+  const studentListboxId = "admin-calendar-student-filter-options";
   const hasSearchText = searchInput.trim().length > 0;
+  const hasStudentSearchText = studentSearchInput.trim().length > 0;
   const shouldShowDropdown = isSearchFocused;
+  const shouldShowStudentDropdown = isStudentSearchFocused;
   const hasAnyFilter =
-    filters.classIds.length > 0 || Boolean(filters.teacherId);
+    filters.classIds.length > 0 || Boolean(filters.teacherId) || Boolean(filters.studentId);
 
   return (
     <section
       className="relative overflow-visible rounded-xl border border-border-default bg-bg-secondary/35 p-3 sm:p-4"
       title="Chọn lớp (nhiều lớp được), lọc gia sư; Calendar = lưới giờ, Schedule = danh sách theo ngày có lịch."
     >
-      <div className="relative flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-sm font-semibold text-text-primary">Bộ lọc</h2>
+      <div className="relative flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-text-primary">Bộ lọc</h2>
+          <div className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-border-default bg-bg-surface px-2.5 py-1 text-[11px] font-medium text-text-secondary">
+            <svg
+              className="size-3.5 shrink-0 text-primary"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+            <span className="truncate">{weekLabel}</span>
+          </div>
+        </div>
 
-        <div className="inline-flex max-w-full items-center gap-1.5 self-start rounded-full border border-border-default bg-bg-surface px-2.5 py-1 text-[11px] font-medium text-text-secondary sm:self-auto">
-          <svg
-            className="size-3.5 shrink-0 text-primary"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-            />
-          </svg>
-          <span className="truncate">{weekLabel}</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex rounded-lg border border-border-default bg-bg-surface p-0.5">
+            <button
+              type="button"
+              onClick={() => onWeekVariantChange("current")}
+              className={cn(
+                "inline-flex items-center justify-center rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
+                weekVariant === "current"
+                  ? "bg-primary text-text-inverse"
+                  : "text-text-secondary hover:bg-bg-secondary hover:text-text-primary",
+              )}
+            >
+              Tuần này
+            </button>
+            <button
+              type="button"
+              onClick={() => onWeekVariantChange("next")}
+              className={cn(
+                "inline-flex items-center justify-center rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
+                weekVariant === "next"
+                  ? "bg-primary text-text-inverse"
+                  : "text-text-secondary hover:bg-bg-secondary hover:text-text-primary",
+              )}
+            >
+              Tuần sau
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="relative mt-3 grid grid-cols-1 gap-2 sm:gap-2.5 xl:grid-cols-[minmax(0,1fr)_minmax(16rem,18rem)_auto_auto] xl:items-end">
+      <div className="relative mt-3 grid grid-cols-1 gap-2 sm:gap-2.5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(16rem,18rem)_auto_auto] xl:items-end">
         <div>
           <label htmlFor="class-filter-search" className="block text-xs font-medium text-text-secondary">
             Lớp học
@@ -209,7 +312,7 @@ export default function FilterBar({
               </div>
             ) : null}
 
-            <div className="relative" ref={containerRef}>
+            <div className="relative" ref={classContainerRef}>
               <div
                 className={cn(
                   "flex min-h-10 items-center rounded-lg border bg-bg-surface px-2.5 shadow-sm transition-[border-color,box-shadow,background-color] duration-200",
@@ -295,6 +398,142 @@ export default function FilterBar({
                           role="option"
                           aria-selected={isSelected}
                           onClick={() => handleClassToggle(option)}
+                          className={cn(
+                            "flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-border-focus/40",
+                            isSelected
+                              ? "bg-primary/10 text-primary"
+                              : "text-text-primary hover:bg-bg-tertiary focus:bg-bg-tertiary",
+                          )}
+                        >
+                          <span className="truncate">{option.name}</span>
+                          {isSelected ? (
+                            <span className="shrink-0 text-xs font-semibold">Đang lọc</span>
+                          ) : null}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label htmlFor="student-filter-search" className="block text-xs font-medium text-text-secondary">
+            Học sinh
+          </label>
+          <div className="mt-1">
+            {selectedStudent ? (
+              <div className="mb-1.5 inline-flex max-w-full items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary">
+                <span className="truncate">{selectedStudent.name}</span>
+                <button
+                  type="button"
+                  onClick={handleClearStudent}
+                  className="rounded-full p-0.5 text-primary/80 transition-colors hover:bg-primary/10 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  aria-label={`Bỏ lọc học sinh ${selectedStudent.name}`}
+                >
+                  <svg className="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ) : null}
+
+            <div className="relative" ref={studentContainerRef}>
+              <div
+                className={cn(
+                  "flex min-h-10 items-center rounded-lg border bg-bg-surface px-2.5 shadow-sm transition-[border-color,box-shadow,background-color] duration-200",
+                  isStudentSearchFocused
+                    ? "border-border-focus ring-2 ring-border-focus/30"
+                    : "border-border-default",
+                )}
+              >
+                <svg
+                  className="size-4 shrink-0 text-text-muted"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  aria-hidden
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="m21 21-4.35-4.35m1.85-5.15a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
+                  />
+                </svg>
+                <input
+                  id="student-filter-search"
+                  name="student_filter_search"
+                  type="text"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={studentSearchInput}
+                  onChange={(event) => {
+                    setStudentSearchInput(event.target.value);
+                    if (selectedStudent && event.target.value !== selectedStudent.name) {
+                      onFiltersChange({
+                        ...filters,
+                        studentId: undefined,
+                      });
+                    }
+                  }}
+                  onFocus={() => setIsStudentSearchFocused(true)}
+                  role="combobox"
+                  aria-haspopup="listbox"
+                  aria-expanded={shouldShowStudentDropdown}
+                  aria-controls={shouldShowStudentDropdown ? studentListboxId : undefined}
+                  aria-autocomplete="list"
+                  placeholder={
+                    selectedStudent
+                      ? "Đổi học sinh…"
+                      : isLoadingStudents
+                        ? "Đang tải danh sách học sinh…"
+                        : "Tìm học sinh theo tên…"
+                  }
+                  className="min-w-0 flex-1 bg-transparent px-1.5 py-2 text-sm text-text-primary outline-none placeholder:text-text-muted"
+                />
+                {hasStudentSearchText ? (
+                  <button
+                    type="button"
+                    onClick={handleClearStudent}
+                    className="rounded-full p-1 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    aria-label="Xóa từ khóa tìm học sinh"
+                  >
+                    <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                ) : null}
+              </div>
+
+              {shouldShowStudentDropdown ? (
+                <div
+                  id={studentListboxId}
+                  role="listbox"
+                  className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-xl border border-border-default bg-bg-surface py-1 shadow-[0_18px_40px_rgba(15,23,42,0.14)]"
+                >
+                  {isFetchingStudents ? (
+                    <p className="px-3 py-2 text-sm text-text-muted" aria-live="polite">
+                      Đang tìm học sinh…
+                    </p>
+                  ) : studentOptions.length === 0 ? (
+                    <p className="px-3 py-2 text-sm text-text-muted">
+                      {hasStudentSearchText
+                        ? "Không tìm thấy học sinh phù hợp."
+                        : "Chưa có học sinh nào để lọc."}
+                    </p>
+                  ) : (
+                    studentOptions.map((option) => {
+                      const isSelected = filters.studentId === option.id;
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          role="option"
+                          aria-selected={isSelected}
+                          onClick={() => handleStudentSelect(option)}
                           className={cn(
                             "flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-border-focus/40",
                             isSelected

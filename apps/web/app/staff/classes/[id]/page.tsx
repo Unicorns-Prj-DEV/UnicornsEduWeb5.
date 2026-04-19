@@ -11,6 +11,7 @@ import {
 import {
   ClassCard,
   EditClassSchedulePopup,
+  MakeupScheduleCard,
   ScheduleTimeCard,
   SessionHistoryTableSkeleton,
   TutorCard,
@@ -213,6 +214,21 @@ export default function StaffClassDetailPage() {
     : teacherCount === 1
       ? classDetail?.teachers?.[0]?.id ?? ""
       : "";
+  const canManageMakeupSchedule = isAdmin;
+  const canCreateMakeupSchedule =
+    (isAdmin && teacherCount > 0) || (hasTeacherSelfServiceAccess && teacherAssignedToClass);
+  const makeupTeacherMode = hasTeacherSelfServiceAccess ? "readOnly" : "select";
+  const defaultMakeupTeacherId = hasTeacherSelfServiceAccess
+    ? actorStaffId
+    : teacherCount === 1
+      ? classDetail?.teachers?.[0]?.id ?? ""
+      : "";
+  const makeupScheduleDisabledMessage =
+    isAdmin && teacherCount === 0
+      ? "Lop chua co gia su phu trach nen chua the tao buoi bu."
+      : !isAdmin && !hasTeacherSelfServiceAccess
+        ? "Tai khoan hien tai chi co quyen xem lich day bu cua lop."
+        : undefined;
 
   const invalidateClassOpsQueries = useCallback(async () => {
     await Promise.all([
@@ -674,6 +690,22 @@ export default function StaffClassDetailPage() {
             </table>
           </div>
         </ClassCard>
+
+        <MakeupScheduleCard
+          classId={id}
+          teachers={popupTeachers}
+          defaultTeacherId={defaultMakeupTeacherId}
+          teacherMode={makeupTeacherMode}
+          canCreate={canCreateMakeupSchedule}
+          canEdit={canManageMakeupSchedule}
+          canDelete={canManageMakeupSchedule}
+          disabledCreateMessage={makeupScheduleDisabledMessage}
+          queryKeyPrefix={["staff-ops", "class", "detail", id]}
+          listFn={staffOpsApi.getClassMakeupEvents}
+          createFn={staffOpsApi.createClassMakeupEvent}
+          updateFn={staffOpsApi.updateClassMakeupEvent}
+          deleteFn={staffOpsApi.deleteClassMakeupEvent}
+        />
 
         <ClassCard title={teacherScopedHistoryTitle} className="w-full">
           <div className="mb-3 flex flex-col gap-3">

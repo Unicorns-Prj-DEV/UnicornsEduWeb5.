@@ -123,6 +123,27 @@
   background: color-mix(in srgb, var(--ue-calendar-event-accent, white) 80%, white 20%);
 }
 
+.calendarShell :global(.fc-daygrid-event) {
+  border: 1px solid var(--ue-calendar-event-ring, transparent);
+  border-radius: 14px;
+  padding: 2px 4px;
+  background:
+    linear-gradient(
+      180deg,
+      var(--ue-calendar-event-start, var(--ue-primary)) 0%,
+      var(--ue-calendar-event-end, var(--ue-primary-active)) 100%
+    );
+  box-shadow: 0 10px 24px var(--ue-calendar-event-shadow, color-mix(in srgb, var(--ue-primary) 18%, transparent));
+}
+
+.calendarShell :global(.fc-daygrid-event .fc-event-main) {
+  color: var(--ue-calendar-event-text, var(--ue-text-inverse));
+}
+
+.calendarShell :global(.fc-daygrid-day-events) {
+  min-height: 2.3rem;
+}
+
 .calendarShell :global(.fc-timegrid-event .fc-event-main),
 .calendarShell :global(.fc-timegrid-event .fc-event-main-frame) {
   height: 100%;

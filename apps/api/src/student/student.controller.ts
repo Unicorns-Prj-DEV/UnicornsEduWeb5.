@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import {
@@ -30,9 +31,11 @@ import {
   SearchAssignableStudentUsersDto,
   StudentWalletHistoryQueryDto,
   StudentListQueryDto,
+  StudentExamScheduleItemDto,
   UpdateStudentAccountBalanceCreateDto,
   UpdateStudentBodyDto,
   UpdateStudentClassesDto,
+  UpdateStudentExamSchedulesDto,
   UpdateStudentDto,
 } from 'src/dtos/student.dto';
 import { StudentService } from './student.service';
@@ -297,6 +300,59 @@ export class StudentController {
   ) {
     return this.studentService.getStudentById(id, {
       userId: user.id,
+      roleType: user.roleType,
+    });
+  }
+
+  @Get(':id/exam-schedules')
+  @ApiOperation({
+    summary: 'Get exam schedules for a student',
+    description: 'Returns authoritative exam schedule rows for the student.',
+  })
+  @ApiParam({ name: 'id', description: 'Student ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Student exam schedules found.',
+    type: [StudentExamScheduleItemDto],
+  })
+  @ApiResponse({ status: 404, description: 'Student not found.' })
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.customer_care)
+  async getStudentExamSchedules(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.studentService.getStudentExamSchedules(id, {
+      userId: user.id,
+      roleType: user.roleType,
+    });
+  }
+
+  @Put(':id/exam-schedules')
+  @ApiOperation({
+    summary: 'Replace exam schedules for a student',
+    description:
+      'Replace the authoritative exam schedule list for the student.',
+  })
+  @ApiParam({ name: 'id', description: 'Student ID' })
+  @ApiBody({
+    type: UpdateStudentExamSchedulesDto,
+    description: 'Replace-all exam schedule payload',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Student exam schedules updated.',
+    type: [StudentExamScheduleItemDto],
+  })
+  @ApiResponse({ status: 404, description: 'Student not found.' })
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  async updateStudentExamSchedules(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: UpdateStudentExamSchedulesDto,
+  ) {
+    return this.studentService.updateStudentExamSchedules(id, body.items, {
+      userId: user.id,
+      userEmail: user.email,
       roleType: user.roleType,
     });
   }

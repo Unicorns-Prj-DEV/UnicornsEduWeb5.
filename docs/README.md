@@ -34,10 +34,10 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
   - `/auth/login`, `/auth/register`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/setup-password`, `/verify-email`
   - `/student`
   - `/staff` (dashboard phân quyền theo role của staff hiện tại; mọi staff có `staffInfo` đều thấy thu nhập tháng, các khối còn lại bật theo role), `/staff/dashboard` (trợ lí: redirect về `/staff`), `/staff/profile`, `/staff/notification`
-  - `/staff/users`, `/staff/staffs`, `/staff/staffs/[id]`, `/staff/classes`, `/staff/classes/[id]`, `/staff/students`, `/staff/students/[id]`, `/staff/costs`, `/staff/history`
+  - `/staff/users`, `/staff/staffs`, `/staff/staffs/[id]`, `/staff/classes`, `/staff/classes/[id]`, `/staff/students`, `/staff/students/[id]`, `/staff/calendar`, `/staff/costs`, `/staff/history`
   - `/staff/notes-subject`, `/staff/customer-care-detail`, `/staff/customer-care-detail/[staffId]`, `/staff/assistant-detail`, `/staff/accountant-detail`, `/staff/communication-detail`, `/staff/lesson-plan-detail`, `/staff/lesson-plan-detail/[staffId]`, `/staff/lesson_plan_detail`, `/staff/lesson_plan_detail/[staffId]`, `/staff/lesson-plan-tasks`, `/staff/lesson-plan-tasks/[taskId]`, `/staff/lesson-plan-manage-details`, `/staff/lesson-plans`, `/staff/lesson-plans/tasks/[taskId]`, `/staff/lesson-manage-details`
   - `/admin` (alias dashboard), `/admin/home`, `/admin/dashboard` (canonical dashboard route), `/admin/notification`
-  - `/admin/classes`, `/admin/classes/[id]`
+  - `/admin/classes`, `/admin/classes/[id]`, `/admin/calendar`
   - `/admin/students`
   - `/admin/users` (danh sách user, tạo account mới theo payload register + gửi mail xác thực + gán ngay role_type; nhánh tạo `student` hỗ trợ nhập hồ sơ học sinh đầy đủ + gán lớp ngay khi tạo qua endpoint chuyên biệt; phân quyền role_type + staff roles, auto-create staff/student profile khi cần)
   - `/admin/staffs`, `/admin/staffs/[id]`
@@ -56,8 +56,8 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
   - `/api/healthcheck`
 - Chưa có route runtime riêng cho `/assistant`, `/mentor`; các page plan tương ứng vẫn nằm trong `docs/pages/`.
 - Route `/student` hiện là self-service page của chính học sinh đang đăng nhập, bám layout của `/admin/students/[id]`, cho phép tự cập nhật thông tin cơ bản; học phí/gói học phí theo lớp được mở ở chế độ chỉ đọc, còn các control tài chính nhạy cảm vẫn bị ẩn.
-  - `/student` mở khi tài khoản có linked `studentInfo` hợp lệ và lấy dữ liệu qua `/users/me/student-detail`, `/users/me/student`, `/users/me/student-wallet-history`, `/users/me/student-account-balance`
-  - từ `/student`, học sinh có thể tự cập nhật thông tin cơ bản của mình, xem liên hệ phụ huynh, lớp đang tham gia, mở popup để thêm/sửa/xóa lịch thi FE-local theo ngày + ghi chú và quản lý ví của chính mình
+  - `/student` mở khi tài khoản có linked `studentInfo` hợp lệ và lấy dữ liệu qua `/users/me/student-detail`, `/users/me/student`, `/users/me/student-wallet-history`, `/users/me/student-account-balance`, `/users/me/student-exam-schedules`
+  - từ `/student`, học sinh có thể tự cập nhật thông tin cơ bản của mình, xem liên hệ phụ huynh, lớp đang tham gia, mở popup để thêm/sửa/xóa lịch thi authoritative theo ngày + ghi chú và quản lý ví của chính mình
   - popup ví trên `/student` cho phép học sinh tự nạp tiền hoặc rút tiền; backend luôn khóa theo đúng hồ sơ hiện tại và chặn rút vượt số dư để không làm âm tài khoản
 - Route `/staff` hiện có staff shell với sidebar theo role:
   - `/staff` là route gốc của staff shell: luôn hiển thị thẻ chung `Thu nhập tháng` từ self-service income summary, đồng thời bật các khối dashboard theo `staffInfo.roles` qua `GET /users/me/staff-dashboard`; `teacher` thấy lớp/cảnh báo lịch/lịch hôm nay, `lesson_plan` và `lesson_plan_head` thấy khối task giáo án, `assistant` thấy cảnh báo + summary vận hành + portfolio CSKH, `customer_care` thấy biến động học sinh và cảnh báo số dư, `accountant` thấy pending payroll + báo cáo tài chính rút gọn, còn `communication` hiện chưa có card riêng

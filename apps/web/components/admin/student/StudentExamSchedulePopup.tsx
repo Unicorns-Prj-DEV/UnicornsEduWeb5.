@@ -49,13 +49,15 @@ export default function StudentExamSchedulePopup({
   if (!open) return null;
 
   const handleCreateExam = () => {
+    const timestamp = new Date().toISOString();
     onItemsChange([
       ...items,
       {
         id: createLocalId(),
         examDate: "",
         note: "",
-        createdAt: new Date().toISOString(),
+        createdAt: timestamp,
+        updatedAt: timestamp,
       },
     ]);
   };
@@ -64,7 +66,7 @@ export default function StudentExamSchedulePopup({
     const normalizedItems = items.map((item) => ({
       ...item,
       examDate: normalizeExamDate(item.examDate),
-      note: item.note.trim(),
+      note: item.note?.trim() || "",
     }));
 
     const hasInvalidItem = normalizedItems.some(
@@ -183,7 +185,7 @@ export default function StudentExamSchedulePopup({
                         Ghi chú kỳ thi
                       </span>
                       <input
-                        value={item.note}
+                        value={item.note ?? ""}
                         onChange={(event) =>
                           onItemsChange(
                             items.map((exam) =>

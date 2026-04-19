@@ -32,7 +32,9 @@ import type { SessionItem } from '@/dtos/session.dto';
 import type { StaffDetail, StaffIncomeSummary } from '@/dtos/staff.dto';
 import type {
     StudentSelfDetail,
+    StudentExamScheduleItem,
     StudentWalletTransaction,
+    UpdateStudentExamSchedulesPayload,
     UpdateMyStudentAccountBalancePayload,
 } from '@/dtos/student.dto';
 import { api } from '../client';
@@ -162,6 +164,21 @@ export async function getMyStudentWalletHistory(params?: {
         },
     });
 
+    return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function getMyStudentExamSchedules(): Promise<StudentExamScheduleItem[]> {
+    const response = await api.get<StudentExamScheduleItem[]>('/users/me/student-exam-schedules');
+    return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function updateMyStudentExamSchedules(
+    payload: UpdateStudentExamSchedulesPayload,
+): Promise<StudentExamScheduleItem[]> {
+    const response = await api.put<StudentExamScheduleItem[]>(
+        '/users/me/student-exam-schedules',
+        payload,
+    );
     return Array.isArray(response.data) ? response.data : [];
 }
 

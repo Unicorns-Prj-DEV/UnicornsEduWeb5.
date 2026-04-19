@@ -6,14 +6,24 @@ Tài liệu này mô tả hành vi Google Calendar hiện tại trong hệ thố
 
 ## 1) Tổng quan
 
-Google Calendar hiện chỉ gắn với **lịch học định kỳ của lớp** (`Class.schedule`).
+Google Calendar hiện gắn với:
+
+- **lịch học định kỳ của lớp** (`Class.schedule`)
+- **lịch dạy bù một lần** (`makeup_schedule_events`)
+- **lịch thi của học sinh** (`student_exam_schedules`)
 
 - Mỗi entry trong `Class.schedule` có thể được sync thành một recurring event trên Google Calendar.
 - Event recurring này có thể kèm Google Meet link và được lưu ngược vào chính schedule JSON của lớp.
-- Các màn `/admin/calendar` và `/staff/calendar` chỉ đọc dữ liệu từ schedule pattern đã expand thành occurrence.
+- Mỗi makeup event có thể được sync thành 1 event riêng trên Google Calendar, lưu `googleCalendarEventId`, `googleMeetLink`, `calendarSyncedAt`, `calendarSyncError` ngay trên record makeup.
+- Mỗi exam schedule của học sinh được sync thành **all-day one-off event** trên Google Calendar theo kiểu “ngày lễ”; backend reconcile theo `studentId + examScheduleId` bằng `extendedProperties.private`, nên không cần thêm cột `googleCalendarEventId` vào bảng `student_exam_schedules`.
+- Các màn `/admin/calendar` và `/staff/calendar` hiện render từ **aggregate calendar feed** ở frontend. Feed này gộp:
+  - `fixed`: slot cố định expand từ `Class.schedule`
+  - `makeup`: buổi bù tạo thủ công từ trang chi tiết lớp
+  - `exam`: lịch thi all-day
+- Trong workspace FE hiện tại, client vẫn fallback về contract schedule-only cũ nếu backend aggregate feed chưa có.
 - **Session CRUD không còn sync Google Calendar.** Từ ngày **2026-04-14**, tạo/sửa/xóa `session` không được phép tạo, cập nhật, hay xóa Google Calendar event nữa.
 
-Nói ngắn gọn: Google Calendar là tính năng của **lịch lớp theo tuần**, không phải tính năng của **buổi học session**.
+Nói ngắn gọn: Google Calendar là tính năng của **lịch lớp theo tuần**, **buổi bù thủ công**, và **lịch thi all-day của học sinh**; nó không phải tính năng của **buổi học session**.
 
 ---
 
@@ -65,7 +75,7 @@ Hành vi runtime hiện tại:
 
 ### 2.4 Module Registration
 
-`GoogleCalendarModule` được import bởi `CalendarModule` để phục vụ sync recurring event của `Class.schedule`.
+`GoogleCalendarModule` được import bởi `CalendarModule` và `StudentModule` để phục vụ sync recurring event của `Class.schedule`, event one-off của `makeup_schedule_events`, và all-day exam event của `student_exam_schedules`.
 
 ---
 
@@ -77,12 +87,22 @@ Hành vi runtime hiện tại:
 
 | Method | Path | Mô tả |
 |--------|------|-------|
-| `GET` | `/admin/calendar/class-schedule` | Expand `Class.schedule` thành danh sách occurrence trong khoảng `startDate` → `endDate`; hỗ trợ filter `classId`, `teacherId` |
+| `GET` | `/admin/calendar/events` | Aggregate calendar feed cho admin; hỗ trợ `startDate`, `endDate`, `teacherId`, `studentId`; trả event types `fixed` / `makeup` / `exam` |
+| `GET` | `/admin/calendar/class-schedule` | Contract cũ chỉ chứa fixed occurrence từ `Class.schedule`; FE dùng làm fallback tương thích |
 | `GET` | `/admin/calendar/classes/:classId/schedule` | Lấy raw weekly schedule pattern của một lớp |
 | `PUT` | `/admin/calendar/classes/:classId/schedule` | Cập nhật weekly schedule pattern của lớp và sync recurring event lên Google Calendar |
-| `GET` | `/calendar/staff/events` | Staff calendar: chỉ lấy lịch dạy của chính staff (teacher role) từ schedule pattern |
+| `GET` | `/class/:classId/makeup-events` | Admin-like class workspace đọc danh sách buổi bù của lớp theo khoảng ngày |
+| `POST` | `/class/:classId/makeup-events` | Admin hoặc assistant tạo buổi bù từ trang chi tiết lớp |
+| `PATCH` | `/class/:classId/makeup-events/:id` | Admin hoặc assistant chỉnh sửa buổi bù từ trang chi tiết lớp |
+| `DELETE` | `/class/:classId/makeup-events/:id` | Admin hoặc assistant xoá buổi bù từ trang chi tiết lớp |
+| `GET` | `/staff-ops/classes/:classId/makeup-events` | Staff workspace đọc danh sách buổi bù của lớp theo khoảng ngày |
+| `POST` | `/staff-ops/classes/:classId/makeup-events` | Teacher được phân công lớp tạo buổi bù với chính mình là người phụ trách; admin cũng tạo được qua route này |
+| `PATCH` | `/staff-ops/classes/:classId/makeup-events/:id` | Chỉ admin chỉnh sửa buổi bù trong staff workspace |
+| `DELETE` | `/staff-ops/classes/:classId/makeup-events/:id` | Chỉ admin xoá buổi bù trong staff workspace |
+| `GET` | `/calendar/staff/events` | Staff calendar aggregate feed read-only của chính staff (teacher role) |
 | `GET` | `/calendar/classes` | Danh sách lớp running cho filter |
 | `GET` | `/calendar/teachers` | Danh sách gia sư active cho filter |
+| `GET` | `/calendar/students` | Danh sách học sinh còn gắn với lớp đang chạy cho filter calendar; staff chỉ thấy học sinh thuộc lớp mình phụ trách |
 
 ### 3.2 Các endpoint đã retire
 
@@ -94,26 +114,45 @@ Các route session-oriented như `/admin/calendar/events/*` và `/calendar/event
 
 ### 3.3 Admin Calendar (`/admin/calendar`)
 
-Trang `/admin/calendar` dùng trực tiếp `GET /admin/calendar/class-schedule` làm source of truth từ `Class.schedule`.
+Trang `/admin/calendar` ưu tiên dùng `GET /admin/calendar/events` làm source of truth cho feed tổng hợp.
 
 - Route mở cho `admin` và `staff.assistant`.
-- Chỉ hiển thị **tuần hiện tại**, cố định từ **Chủ Nhật đến Thứ Bảy**.
-- Filter gồm `classId` và `teacherId`.
-- UI là week-view kiểu Google Calendar.
-- Mỗi slot lịch render theo **schedule occurrence của lớp**, không render theo session thực tế.
-- Popup event chỉ dùng `meetLink` đến từ schedule entry đã sync recurring event, với CTA mở link và icon copy nhỏ để sao chép nhanh.
+- FE hiện ưu tiên aggregate feed `/admin/calendar/events`, chỉ fallback về `/admin/calendar/class-schedule` để tương thích contract cũ khi cần.
+- Có toggle **Tuần này / Tuần sau**, luôn giữ khung **Chủ Nhật đến Thứ Bảy**.
+- Filter gồm multi-select lớp (client-side), `teacherId`, và `studentId`; riêng `teacherId` / `studentId` được gửi thẳng lên aggregate API.
+- UI có 2 mode:
+  - `Calendar`: week-view kiểu Google Calendar, bật all-day row để render `exam`
+  - `Schedule`: list theo ngày, chỉ hiển thị ngày có event
+- `exam` render all-day trong calendar/list/popup, theo ngữ nghĩa kiểu ngày lễ: card/list hiển thị lớp liên quan và popup không hiện CTA Google Meet.
+- `/admin/calendar` chỉ còn vai trò read-only: popup event không còn CTA CRUD cho `makeup`.
+- CRUD buổi bù đã chuyển sang card **Lịch dạy bù** trong trang chi tiết lớp.
+- Popup event vẫn hiển thị `meetLink` nếu có, với CTA mở link và icon copy nhanh.
+
+### 3.3.1 Makeup event sync
+
+- Service dùng: `GoogleCalendarService.createOrUpdateMakeupScheduleEvent()`
+- Khi tạo/sửa `makeup_schedule_events`, backend sẽ:
+  1. validate `teacherId` thuộc lớp tương ứng
+  2. lưu record makeup event
+  3. sync một event one-off lên Google Calendar
+  4. lưu lại `googleCalendarEventId`, `googleMeetLink`, `calendarSyncedAt`, `calendarSyncError`
+- Khi xoá makeup event, backend sẽ cố xóa luôn Google Calendar event liên kết nếu có `googleCalendarEventId`.
 
 ### 3.4 Staff Calendar (`/staff/calendar`)
 
 Staff có role `teacher` có thể xem lịch dạy cá nhân tại `/staff/calendar`.
 
 - Backend tự resolve staff ID từ JWT.
-- Chỉ expand những class mà staff đó phụ trách.
-- Đây là màn read-only, không điều khiển sync Google Calendar cho session; popup vẫn cho mở và sao chép `meetLink` của occurrence khi có.
+- Staff page dùng cùng aggregate feed read-only và cùng toggle **Tuần này / Tuần sau**.
+- Chỉ hiển thị những class mà staff đó phụ trách.
+- Staff vẫn read-only: không có CTA tạo/sửa/xoá buổi bù.
+- Popup vẫn cho mở và sao chép `meetLink` khi event có link họp; riêng `exam` hiển thị như event all-day và không có CTA Meet.
 
 ---
 
-## 4) Sync Recurring Event Cho `Class.schedule`
+## 4) Sync Event Cho Calendar
+
+### 4.1 Recurring event cho `Class.schedule`
 
 Mỗi schedule entry trong `Class.schedule` có thể được đồng bộ thành một recurring weekly event:
 
@@ -132,6 +171,26 @@ Khi gọi `PUT /admin/calendar/classes/:classId/schedule`, hệ thống sẽ:
 `CalendarService.enrichEventsWithMeetLinks()` chỉ đọc `meetLink` từ schedule entry đã sync để đổ vào `ClassScheduleEventDto`.
 
 ---
+
+### 4.2 One-off event cho `makeup_schedule_events`
+
+- Mỗi makeup event là **một buổi độc lập, không lặp lại**.
+- Record makeup không sinh `session` tự động; nó chỉ là nguồn event cho in-app calendar và Google Calendar.
+- FE aggregate feed map record này thành event type `makeup`.
+
+### 4.3 All-day event cho `student_exam_schedules`
+
+- Mỗi lịch thi của học sinh được sync thành **all-day event** trên Google Calendar, hiển thị như một entry kiểu “ngày lễ”.
+- Event dùng `start.date = examDate` và `end.date = examDate + 1 day`, không có giờ bắt đầu/kết thúc, không tạo Google Meet.
+- Backend không lưu `googleCalendarEventId` cho lịch thi; thay vào đó, event được gắn `extendedProperties.private` với:
+  - `unicornsType=studentExam`
+  - `unicornsStudentId=<studentId>`
+  - `unicornsStudentExamScheduleId=<examScheduleId>`
+- Khi replace-all lịch thi của học sinh:
+  1. backend cập nhật DB authoritative trước
+  2. list toàn bộ Google event exam hiện có của học sinh theo marker ở trên
+  3. create/update các exam row còn tồn tại
+  4. xoá các Google event exam không còn trong danh sách mới
 
 ## 5) Session Và Google Calendar
 
@@ -182,9 +241,10 @@ Session CRUD không còn log vòng đời sync Google Calendar nữa.
 
 1. Cập nhật schedule lớp qua `PUT /admin/calendar/classes/:classId/schedule`.
 2. Kiểm tra Google Calendar có recurring event mới.
-3. Mở `/admin/calendar` hoặc `/staff/calendar` và xác nhận popup event có `meetLink` từ schedule.
-4. Tạo/sửa/xóa một session từ màn lớp hoặc staff profile.
-5. Xác nhận không có log/session side effect nào gọi Google Calendar.
+3. Tạo/sửa/xóa một makeup event từ trang chi tiết lớp (`/admin/classes/:id` hoặc `/staff/classes/:id`) và xác nhận Google Calendar có event one-off tương ứng.
+4. Mở `/admin/calendar` hoặc `/staff/calendar` và xác nhận popup event có `meetLink` từ recurring slot hoặc makeup event nếu sync thành công.
+5. Tạo/sửa/xóa một session từ màn lớp hoặc staff profile.
+6. Xác nhận không có log/session side effect nào gọi Google Calendar.
 
 ---
 

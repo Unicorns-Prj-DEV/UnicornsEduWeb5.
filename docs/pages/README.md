@@ -11,9 +11,11 @@ Page-level specs for `apps/web`, aligned with [Workplan](../Workplan.md) and [UI
 | Route | Status | Role | Owner (Workplan) | Plan file |
 | --- | --- | --- | --- | --- |
 | `/admin` | Implemented | `admin`, `staff.assistant` | Huy | [admin.md](admin.md) |
+| `/admin/calendar` | Implemented | `admin`, `staff.assistant` | Huy | [admin.md](admin.md) |
 | `/admin/notification` | Implemented | `admin` | Huy | [admin.md](admin.md) |
 | `/admin/users` | Implemented | Admin | — | Danh sách user, thêm account mới theo register + mail verify + gán role ngay; nhánh `student` hỗ trợ điền hồ sơ học sinh đầy đủ + gán lớp tại lúc tạo, staff roles chi tiết, auto-create profile liên kết |
 | `/staff` | Implemented | linked `staffInfo`, `admin` | Huy | [staff.md](staff.md) |
+| `/staff/calendar` | Implemented | `staff.teacher`, `admin`, `staff.assistant` | Huy | [staff.md](staff.md) |
 | `/staff/notification` | Implemented | linked `staffInfo` | Huy | [staff.md](staff.md) |
 | `/staff/dashboard` | Implemented | `staff.assistant` (redirect → `/staff`) | Huy | [staff.md](staff.md) |
 | `/staff/users` | Implemented | `staff.assistant` | Huy | [staff.md](staff.md) |
@@ -45,7 +47,7 @@ Page-level specs for `apps/web`, aligned with [Workplan](../Workplan.md) and [UI
 - **Runtime bổ sung:** `/staff` hiện phục vụ 5 flow: assistant admin-mirror workspace (`/staff/users`, `/staff/staffs*`, `/staff/classes`, `/staff/students*`, `/staff/costs`, `/staff/history`; dashboard gốc `/staff` chung mọi staff; `/staff/dashboard` redirect `/staff`; **Cá nhân** trợ lí → `/staff/staffs/:ownStaffId`), teacher workspace cho `staff.teacher` (admin có thể vào để theo dõi/hỗ trợ), self-service customer-care detail tại `/staff/customer-care-detail` cho `staff.customer_care`, lesson workspace dùng chung tại `/staff/lesson-plans*` cho `staff.lesson_plan`, `staff.lesson_plan_head`, `staff.accountant`, `staff.assistant` và `admin`, cùng các route legacy `/staff/lesson-plan-tasks*` chỉ còn redirect về workspace mới.
 - **Tuần 3:** `/mentor` (lớp, session, điểm danh, lesson notes, payroll/bonus view).
 - **Tuần 4:** `/assistant` (thu phí, status, tasks).
-- **Tuần 5:** `/student` (hồ sơ cá nhân, ví tự phục vụ, lớp đang học, lịch thi; dữ liệu luôn khóa theo tài khoản hiện tại).
+- **Tuần 5:** `/student` (hồ sơ cá nhân, ví tự phục vụ, lớp đang học, lịch thi authoritative; dữ liệu luôn khóa theo tài khoản hiện tại).
 - **Tuần 6:** `/landing-page` polish (UI hierarchy + micro-animation + reduced-motion), migration rehearsal.
 - **Tuần 7:** De-mock all routes; integration and UAT.
 - **Tuần 8:** Launch checklist; no new page scope.

@@ -1,4 +1,9 @@
 import type { ClassDetail, ClassListResponse } from "@/dtos/class.dto";
+import type {
+  ClassScopedMakeupScheduleEventPayload,
+  ClassScopedMakeupScheduleEventUpdatePayload,
+  MakeupScheduleEventRecord,
+} from "@/dtos/class-schedule.dto";
 import type { SessionItem } from "@/dtos/session.dto";
 import type {
   StaffOpsCreateClassPayload,
@@ -7,6 +12,10 @@ import type {
   StaffOpsUpdateClassSchedulePayload,
   StaffOpsUpdateSessionPayload,
 } from "@/dtos/staff-ops.dto";
+import {
+  normalizeMakeupScheduleEvent,
+  normalizeMakeupScheduleFeedResponse,
+} from "./class-schedule.api";
 import { api } from "../client";
 
 export async function getClasses(params: {
@@ -86,4 +95,51 @@ export async function updateSession(
   const safeId = encodeURIComponent(id);
   const response = await api.put(`/staff-ops/sessions/${safeId}`, data);
   return response.data as SessionItem;
+}
+
+export async function getClassMakeupEvents(
+  classId: string,
+  params: { startDate: string; endDate: string; page?: number; limit?: number },
+): Promise<{ data: MakeupScheduleEventRecord[]; total: number }> {
+  const safeId = encodeURIComponent(classId);
+  const response = await api.get<{ data?: unknown[]; total?: number }>(
+    `/staff-ops/classes/${safeId}/makeup-events`,
+    { params },
+  );
+  return normalizeMakeupScheduleFeedResponse(response.data);
+}
+
+export async function createClassMakeupEvent(
+  classId: string,
+  data: ClassScopedMakeupScheduleEventPayload,
+): Promise<MakeupScheduleEventRecord> {
+  const safeId = encodeURIComponent(classId);
+  const response = await api.post<{ data?: unknown }>(
+    `/staff-ops/classes/${safeId}/makeup-events`,
+    data,
+  );
+  return normalizeMakeupScheduleEvent((response.data?.data ?? response.data) as Record<string, unknown>);
+}
+
+export async function updateClassMakeupEvent(
+  classId: string,
+  eventId: string,
+  data: ClassScopedMakeupScheduleEventUpdatePayload,
+): Promise<MakeupScheduleEventRecord> {
+  const safeClassId = encodeURIComponent(classId);
+  const safeEventId = encodeURIComponent(eventId);
+  const response = await api.patch<{ data?: unknown }>(
+    `/staff-ops/classes/${safeClassId}/makeup-events/${safeEventId}`,
+    data,
+  );
+  return normalizeMakeupScheduleEvent((response.data?.data ?? response.data) as Record<string, unknown>);
+}
+
+export async function deleteClassMakeupEvent(
+  classId: string,
+  eventId: string,
+): Promise<void> {
+  const safeClassId = encodeURIComponent(classId);
+  const safeEventId = encodeURIComponent(eventId);
+  await api.delete(`/staff-ops/classes/${safeClassId}/makeup-events/${safeEventId}`);
 }

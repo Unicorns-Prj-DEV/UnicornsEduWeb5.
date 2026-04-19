@@ -348,7 +348,7 @@ export class DashboardService {
         (
           SELECT COUNT(*)
           FROM classes
-          WHERE status = 'running'
+          WHERE classes.status = 'running'
         ) AS "activeClasses",
         (
           SELECT COUNT(DISTINCT student_classes.student_id)
@@ -874,7 +874,7 @@ export class DashboardService {
           ) AS full_name
         FROM staff_info
         INNER JOIN users staff_user ON staff_user.id = staff_info.user_id
-        WHERE status = 'active'
+        WHERE staff_info.status = 'active'
       ),
       session_allowances AS (
         SELECT

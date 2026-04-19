@@ -27,6 +27,11 @@ interface TeacherItem {
   name: string;
 }
 
+interface StudentItem {
+  id: string;
+  fullName: string;
+}
+
 @Controller('calendar')
 @ApiTags('calendar')
 @ApiCookieAuth('access_token')
@@ -80,11 +85,25 @@ export class CalendarController {
     },
   })
   async getClasses(
+    @CurrentUser() user: JwtPayload,
     @Query() pagination: PaginationQueryDto,
     @Query('search') search?: string,
   ): Promise<PaginatedResponse<ClassItem>> {
     const { page, limit } = pagination;
-    return this.calendarService.getClasses(page, limit, search);
+    let actorId: string | undefined;
+    if (user.roleType === UserRole.staff) {
+      try {
+        const actor = await this.staffOperationsAccess.resolveActor(
+          user.id,
+          user.roleType,
+        );
+        actorId = actor.id;
+      } catch {
+        actorId = undefined;
+      }
+    }
+
+    return this.calendarService.getClasses(page, limit, search, actorId);
   }
 
   @Get('teachers')
@@ -128,6 +147,75 @@ export class CalendarController {
   ): Promise<PaginatedResponse<TeacherItem>> {
     const { page, limit } = pagination;
     return this.calendarService.getTeachers(page, limit);
+  }
+
+  @Get('students')
+  @ApiOperation({ summary: 'Lấy danh sách học sinh (cho dropdown filter)' })
+  @ApiQuery({
+    name: 'page',
+    description: 'Số trang',
+    required: false,
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'limit',
+    description: 'Số item mỗi trang',
+    required: false,
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'search',
+    description: 'Tìm học sinh theo tên',
+    required: false,
+    type: String,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Danh sách học sinh',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', example: 'uuid' },
+              fullName: { type: 'string', example: 'Nguyễn Minh Anh' },
+            },
+          },
+        },
+        total: { type: 'number', example: 10 },
+        page: { type: 'number', example: 1 },
+        limit: { type: 'number', example: 50 },
+      },
+    },
+  })
+  async getStudentsForFilter(
+    @CurrentUser() user: JwtPayload,
+    @Query() pagination: PaginationQueryDto,
+    @Query('search') search?: string,
+  ): Promise<PaginatedResponse<StudentItem>> {
+    const { page, limit } = pagination;
+    let actorId: string | undefined;
+    if (user.roleType === UserRole.staff) {
+      try {
+        const actor = await this.staffOperationsAccess.resolveActor(
+          user.id,
+          user.roleType,
+        );
+        actorId = actor.id;
+      } catch {
+        actorId = undefined;
+      }
+    }
+
+    return this.calendarService.getStudentsForCalendar(
+      page,
+      limit,
+      search,
+      actorId,
+    );
   }
 
   @Get('staff/events')

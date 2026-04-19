@@ -3,7 +3,10 @@
 import { useMemo } from "react";
 import { ClassScheduleEvent } from "@/dtos/class-schedule.dto";
 import { cn } from "@/lib/utils";
-import { getClassEventPalette } from "./calendar-event-palette";
+import {
+  getCalendarEventPalette,
+  getCalendarEventTypeLabel,
+} from "./calendar-event-palette";
 
 type CalendarScheduleListProps = {
   events: ClassScheduleEvent[];
@@ -25,13 +28,31 @@ const buildDateFromEvent = (event: ClassScheduleEvent, timeValue?: string) => {
 
 const getEventRuntimeStatus = (event: ClassScheduleEvent): EventRuntimeStatus => {
   const now = new Date();
-  const start = buildDateFromEvent(event, event.startTime);
-  const end = buildDateFromEvent(event, event.endTime ?? event.startTime);
+  const start = buildDateFromEvent(event, event.allDay ? "00:00:00" : event.startTime);
+  const end = buildDateFromEvent(
+    event,
+    event.allDay ? "23:59:59" : event.endTime ?? event.startTime,
+  );
 
   if (!start || !end) return "upcoming";
   if (end.getTime() <= now.getTime()) return "past";
   if (start.getTime() <= now.getTime() && now.getTime() < end.getTime()) return "ongoing";
   return "upcoming";
+};
+
+const getEventRuntimeLabel = (
+  event: ClassScheduleEvent,
+  runtimeStatus: EventRuntimeStatus,
+) => {
+  if (event.eventType === "exam") {
+    if (runtimeStatus === "ongoing") return "Đang diễn ra";
+    if (runtimeStatus === "upcoming") return "Sắp tới";
+    return "Đã diễn ra";
+  }
+
+  if (runtimeStatus === "ongoing") return "Đang diễn ra";
+  if (runtimeStatus === "upcoming") return "Sắp tới";
+  return "Đã dạy";
 };
 
 const formatTimeRange = (startTime?: string, endTime?: string) => {
@@ -105,8 +126,22 @@ export default function CalendarScheduleList({
 
           <div className="divide-y divide-border-default">
             {group.events.map((event) => {
-              const palette = getClassEventPalette(event.classId);
+              const palette = getCalendarEventPalette(event);
               const runtimeStatus = getEventRuntimeStatus(event);
+              const runtimeLabel = getEventRuntimeLabel(event, runtimeStatus);
+              const eventTypeLabel = getCalendarEventTypeLabel(event.eventType);
+              const title =
+                event.eventType === "exam"
+                  ? event.title || event.className || "Lịch thi"
+                  : event.className;
+              const metaLine =
+                event.eventType === "exam"
+                  ? event.classNames?.length
+                    ? `Lớp: ${event.classNames.join(", ")}`
+                    : null
+                  : event.teacherNames.length > 0
+                    ? event.teacherNames.join(", ")
+                    : null;
 
               return (
                 <button
@@ -120,7 +155,9 @@ export default function CalendarScheduleList({
                 >
                   <div className="min-w-[88px] shrink-0 rounded-lg border border-border-default bg-bg-secondary px-2 py-1.5">
                     <p className="text-xs font-semibold text-text-primary">
-                      {formatTimeRange(event.startTime, event.endTime)}
+                      {event.allDay
+                        ? "Cả ngày"
+                        : formatTimeRange(event.startTime, event.endTime)}
                     </p>
                   </div>
 
@@ -141,13 +178,23 @@ export default function CalendarScheduleList({
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-text-primary">
-                          {event.className}
+                          {title}
                         </p>
-                        <p className="mt-1 truncate text-xs text-text-secondary">
-                          {event.teacherNames.length > 0
-                            ? event.teacherNames.join(", ")
-                            : "Chưa có gia sư phụ trách"}
-                        </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          <span className="rounded-full bg-bg-secondary px-2 py-0.5 text-[11px] font-semibold text-text-secondary">
+                            {eventTypeLabel}
+                          </span>
+                          {metaLine ? (
+                            <p className="truncate text-xs text-text-secondary">
+                              {metaLine}
+                            </p>
+                          ) : null}
+                          {event.studentNames?.length ? (
+                            <p className="truncate text-xs text-text-secondary">
+                              Học sinh: {event.studentNames.join(", ")}
+                            </p>
+                          ) : null}
+                        </div>
                       </div>
                       <span
                         className={cn(
@@ -159,16 +206,26 @@ export default function CalendarScheduleList({
                           runtimeStatus === "past" && "bg-bg-tertiary text-text-secondary",
                         )}
                       >
-                        {runtimeStatus === "ongoing"
-                          ? "Đang diễn ra"
-                          : runtimeStatus === "upcoming"
-                            ? "Sắp tới"
-                            : "Đã dạy"}
+                        {runtimeLabel}
                       </span>
                     </div>
-                    {event.meetLink ? (
+                    {event.eventType === "exam" ? (
+                      event.note ? (
+                        <p className="mt-1 line-clamp-2 text-xs text-text-secondary">
+                          {event.note}
+                        </p>
+                      ) : (
+                        <p className="mt-1 truncate text-xs text-text-secondary">
+                          Sự kiện cả ngày trong lịch.
+                        </p>
+                      )
+                    ) : event.meetLink ? (
                       <p className="mt-1 truncate text-xs text-primary">
                         Link họp đã sẵn sàng
+                      </p>
+                    ) : event.note ? (
+                      <p className="mt-1 line-clamp-2 text-xs text-text-secondary">
+                        {event.note}
                       </p>
                     ) : null}
                   </div>

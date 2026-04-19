@@ -6,16 +6,16 @@ import { useEffect, useLayoutEffect, useRef, useState, type SyntheticEvent } fro
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
-import type { StudentDetail, StudentGender, StudentStatus } from "@/dtos/student.dto";
+import type {
+  StudentDetail,
+  StudentExamScheduleItem,
+  StudentGender,
+  StudentStatus,
+} from "@/dtos/student.dto";
 import type { CustomerCareStaffOption } from "@/dtos/staff.dto";
 import * as staffApi from "@/lib/apis/staff.api";
 import * as studentApi from "@/lib/apis/student.api";
 import { createClientId } from "@/lib/client-id";
-import {
-  readStudentExamSchedule,
-  saveStudentExamSchedule,
-  type StudentExamItem,
-} from "./StudentExamCard";
 
 type DropdownRect = { top: number; left: number; width: number; maxHeight: number };
 
@@ -128,9 +128,7 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
   );
   const [customerCareSearchInput, setCustomerCareSearchInput] = useState("");
   const [customerCareSearchFocused, setCustomerCareSearchFocused] = useState(false);
-  const [examItems, setExamItems] = useState<StudentExamItem[]>(() =>
-    readStudentExamSchedule(student.id),
-  );
+  const [examDraftItems, setExamDraftItems] = useState<StudentExamScheduleItem[] | null>(null);
   const [debouncedCustomerCareSearch] = useDebounce(customerCareSearchInput.trim(), 250);
 
   const createLocalId = () => createClientId();
@@ -183,6 +181,13 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
       }),
     enabled: open,
   });
+  const { data: loadedExamSchedules = [], isLoading: isLoadingExamSchedules } = useQuery({
+    queryKey: ["student", "exam-schedules", student.id],
+    queryFn: () => studentApi.getStudentExamSchedules(student.id),
+    enabled: open,
+    staleTime: 60_000,
+  });
+  const examItems = examDraftItems ?? loadedExamSchedules;
 
   const availableCustomerCareOptions = customerCareOptions.filter(
     (option) => option.id !== selectedCustomerCare?.id,
@@ -209,19 +214,28 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
   const updateMutation = useMutation({
     mutationFn: (payload: Parameters<typeof studentApi.updateStudentById>[1]) =>
       studentApi.updateStudentById(student.id, payload),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["student", "detail", student.id] }),
-        queryClient.invalidateQueries({ queryKey: ["student", "list"] }),
-        queryClient.invalidateQueries({ queryKey: ["customer-care"] }),
-      ]);
-      await onSuccess?.();
-    },
     onError: (err: unknown) => {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         (err as Error)?.message ??
         "Không thể cập nhật thông tin học sinh.";
+      toast.error(msg);
+    },
+  });
+  const updateExamSchedulesMutation = useMutation({
+    mutationFn: (items: StudentExamScheduleItem[]) =>
+      studentApi.updateStudentExamSchedules(student.id, {
+        items: items.map((item) => ({
+          ...(item.id ? { id: item.id } : {}),
+          examDate: item.examDate,
+          note: item.note?.trim() || undefined,
+        })),
+      }),
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (err as Error)?.message ??
+        "Không thể cập nhật lịch thi.";
       toast.error(msg);
     },
   });
@@ -284,6 +298,14 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
     }
 
     try {
+      const normalizedExamItems = examItems
+        .map((item) => ({
+          ...item,
+          examDate: normalizeExamDate(item.examDate),
+          note: item.note ?? "",
+        }))
+        .filter((item) => item.examDate);
+
       await updateMutation.mutateAsync({
         full_name: trimmedName,
         email: email.trim() || undefined,
@@ -301,14 +323,18 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
           ? parsedCustomerCareProfitPercent
           : null,
       });
-      const normalizedExamItems = examItems
-        .map((item) => ({
-          ...item,
-          examDate: normalizeExamDate(item.examDate),
-          note: item.note ?? "",
-        }))
-        .filter((item) => item.examDate);
-      saveStudentExamSchedule(student.id, normalizedExamItems);
+      await updateExamSchedulesMutation.mutateAsync(normalizedExamItems);
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["student", "detail", student.id] }),
+        queryClient.invalidateQueries({ queryKey: ["student", "list"] }),
+        queryClient.invalidateQueries({ queryKey: ["customer-care"] }),
+        queryClient.invalidateQueries({ queryKey: ["student", "exam-schedules", student.id] }),
+        queryClient.invalidateQueries({ queryKey: ["classScheduleEvents"] }),
+        queryClient.invalidateQueries({ queryKey: ["staffCalendarEvents"] }),
+      ]);
+      window.dispatchEvent(new Event("calendar:refetch"));
+      await onSuccess?.();
       toast.success("Đã lưu thông tin học sinh.");
       onClose();
     } catch {
@@ -658,11 +684,18 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
                 <button
                   type="button"
                   onClick={() => {
-                    setExamItems((prev) => [
-                      ...prev,
-                      { id: createLocalId(), examDate: "", note: "", createdAt: new Date().toISOString() },
+                    setExamDraftItems((prev) => [
+                      ...(prev ?? loadedExamSchedules),
+                      {
+                        id: createLocalId(),
+                        examDate: "",
+                        note: "",
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                      },
                     ]);
                   }}
+                  disabled={isLoadingExamSchedules}
                   className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   aria-label="Thêm ngày thi"
                   title="Thêm ngày thi"
@@ -673,7 +706,11 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
                 </button>
               </div>
 
-              {examItems.length === 0 ? (
+              {isLoadingExamSchedules ? (
+                <div className="mt-4 rounded-xl border border-border-default bg-bg-surface px-4 py-4 text-sm text-text-muted">
+                  Đang tải lịch thi…
+                </div>
+              ) : examItems.length === 0 ? (
                 <div className="mt-4 rounded-xl border border-dashed border-border-default bg-bg-surface px-4 py-4 text-sm text-text-muted">
                   Chưa có lịch thi.
                 </div>
@@ -687,7 +724,11 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
                         </p>
                         <button
                           type="button"
-                          onClick={() => setExamItems((prev) => prev.filter((x) => x.id !== item.id))}
+                          onClick={() =>
+                            setExamDraftItems((prev) =>
+                              (prev ?? loadedExamSchedules).filter((x) => x.id !== item.id),
+                            )
+                          }
                           className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-error/10 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                           aria-label="Xóa lịch thi"
                           title="Xóa"
@@ -707,8 +748,10 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
                             type="date"
                             value={item.examDate}
                             onChange={(e) =>
-                              setExamItems((prev) =>
-                                prev.map((x) => (x.id === item.id ? { ...x, examDate: e.target.value } : x)),
+                              setExamDraftItems((prev) =>
+                                (prev ?? loadedExamSchedules).map((x) =>
+                                  x.id === item.id ? { ...x, examDate: e.target.value } : x,
+                                ),
                               )
                             }
                             className="rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
@@ -720,10 +763,12 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
                           <input
                             name={`exam_note_${index + 1}`}
                             autoComplete="off"
-                            value={item.note}
+                            value={item.note ?? ""}
                             onChange={(e) =>
-                              setExamItems((prev) =>
-                                prev.map((x) => (x.id === item.id ? { ...x, note: e.target.value } : x)),
+                              setExamDraftItems((prev) =>
+                                (prev ?? loadedExamSchedules).map((x) =>
+                                  x.id === item.id ? { ...x, note: e.target.value } : x,
+                                ),
                               )
                             }
                             placeholder="Ví dụ: Thi cuối kỳ / Thi chứng chỉ / Thi HSG…"
@@ -750,10 +795,12 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
           <button
             type="submit"
             form="edit-student-form"
-            disabled={updateMutation.isPending}
+            disabled={updateMutation.isPending || updateExamSchedulesMutation.isPending}
             className="rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition-colors hover:bg-[var(--ue-primary-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60"
           >
-            {updateMutation.isPending ? "Đang lưu…" : "Lưu thay đổi"}
+            {updateMutation.isPending || updateExamSchedulesMutation.isPending
+              ? "Đang lưu…"
+              : "Lưu thay đổi"}
           </button>
         </div>
       </div>

@@ -24,10 +24,12 @@
   - `/staff/lesson-plans`: entrypoint lesson workspace dùng chung cho `admin`, `staff.assistant`, `staff.lesson_plan_head`, `staff.lesson_plan`, và `staff.accountant`
   - `/staff/lesson-plans/tasks/[taskId]`: mở cho `admin`, `staff.assistant`, `staff.lesson_plan_head`, `staff.lesson_plan`; `staff.accountant` không vào route này
   - `/staff/lesson-manage-details`: chỉ mở cho `admin`, `staff.assistant`, `staff.lesson_plan_head`
-- `/staff/calendar`: `roleType=staff` có role `teacher`; hiển thị lịch dạy của chính staff trong tuần hiện tại với 2 chế độ (cùng UX compact với `/admin/calendar` ở phần Calendar/Schedule + multi-select lớp; staff không có filter gia sư):
-  - `Calendar`: lưới tuần kiểu Google Calendar; khung giờ tự co theo buổi (ưu tiên không bơm thêm dải 0–6h khi mọi buổi bắt đầu từ 6h).
+- `/staff/calendar`: `roleType=staff` có role `teacher`; hiển thị lịch dạy read-only của chính staff với aggregate event feed và 2 chế độ (cùng UX compact với `/admin/calendar` ở phần Calendar/Schedule + multi-select lớp; staff không có filter gia sư hay quyền CRUD buổi bù):
+  - Có toggle **Tuần này / Tuần sau**.
+  - `Calendar`: lưới tuần kiểu Google Calendar; khung giờ tự co theo buổi (ưu tiên không bơm thêm dải 0–6h khi mọi buổi bắt đầu từ 6h) và có all-day row để render `exam`.
   - `Schedule`: danh sách dọc nhóm theo ngày, chỉ render ngày có lịch dạy (bỏ ngày trống / ngày lễ không có lớp).
-  - filter lớp hỗ trợ multi-select (chọn nhiều lớp cùng lúc), không hiển thị lớp của teacher khác; popup sự kiện giữ CTA vào Google Meet và thêm icon copy nhỏ để sao chép nhanh meet link khi có.
+  - Feed gồm `fixed`, `makeup`, `exam`; popup sự kiện hiển thị badge loại event, `exam` được render như event all-day kiểu ngày lễ và không hiện CTA Google Meet, còn các event có link họp vẫn giữ CTA mở/copy Meet.
+  - filter lớp hỗ trợ multi-select (chọn nhiều lớp cùng lúc), không hiển thị lớp của teacher khác.
 - **Scope hiện tại:** dashboard gốc `/staff` là dashboard phân quyền theo role của staff hiện tại; sidebar trợ lí có thêm **Cá nhân** → `/staff/staffs/:ownStaffId` (chi tiết nhân sự mirror admin); assistant admin-mirror tree trong `/staff/**`; self-service chỉnh hồ sơ nhẹ tại `/staff/profile`; teacher workflow cho lớp học; lesson workspace dùng chung dưới `/staff/lesson-plans*` với tab/route khóa theo role
 
 ## Features
@@ -97,6 +99,9 @@
   - với teacher/admin còn lại, route giữ teacher workspace self-service như trước
   - nếu một staff đồng thời có `teacher` và `accountant`, route này ưu tiên teacher workspace self-service để vẫn thêm/sửa session của lớp mình
   - với `staff.customer_care`, route mở ở chế độ **chỉ xem** khi lớp có ít nhất một học sinh đang do chính staff đó phụ trách từ màn CSKH; các CTA sửa khung giờ, thêm buổi và sửa session đều bị khóa
+  - card **Lịch dạy bù** xuất hiện ngay trên khu vực lịch sử buổi học; danh sách được sắp theo buổi gần nhất trước và có phân trang ngay trong card
+  - `teacher` được phân công lớp có thể tạo buổi bù mới trực tiếp từ `/staff/classes/[id]`, nhưng `gia su phu trach` bị khóa cứng về staff hiện tại
+  - `admin` ở staff shell có thể tạo/sửa/xóa buổi bù từ cùng card; `customer_care` chỉ xem, không có CTA mutate
   - section `Gia sư phụ trách` là chỉ đọc; bấm vào từng gia sư không dẫn sang `/admin/staffs/:id`
   - cho phép chỉnh `khung giờ học`
   - teacher chỉ thấy các session có `teacherId` đúng với hồ sơ staff hiện tại; admin vẫn thấy toàn bộ session của lớp trong tháng đang chọn

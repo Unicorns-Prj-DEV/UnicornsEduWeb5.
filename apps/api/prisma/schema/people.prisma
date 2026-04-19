@@ -27,6 +27,7 @@ model StaffInfo {
   customerCareServices         CustomerCareService[]
   extraAllowances              ExtraAllowance[]
   lessonOutputs                LessonOutput[]
+  makeupScheduleEvents         MakeupScheduleEvent[]
   staffTaxDeductionOverrides   StaffTaxDeductionOverride[]
   tasksCreated                 LessonTask[]
   sessions                     Session[]
@@ -59,9 +60,24 @@ model StudentInfo {
   accountBalance       Int?                        @default(0) @map("account_balance")
   attendanceRecords    Attendance[]
   customerCareServices CustomerCareService?
+  examSchedules        StudentExamSchedule[]
   studentClasses       StudentClass[]
   user                 User?                       @relation(fields: [userId], references: [id])
   walletTransactions   WalletTransactionsHistory[]
 
   @@map("student_info")
+}
+
+model StudentExamSchedule {
+  id        String      @id @default(uuid()) @db.Text
+  studentId String      @map("student_id") @db.Text
+  examDate  DateTime    @map("exam_date") @db.Date
+  note      String?
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  student   StudentInfo @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([examDate])
+  @@map("student_exam_schedules")
 }
