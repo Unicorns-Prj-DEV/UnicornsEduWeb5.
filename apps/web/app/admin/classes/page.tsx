@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -14,7 +14,6 @@ import {
   resolveAdminLikeRouteBase,
 } from "@/lib/admin-shell-paths";
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
-import { normalizeClassType } from "@/lib/class.helpers";
 
 const SEARCH_DEBOUNCE_MS = 1000;
 const PAGE_SIZE = 20;
@@ -24,14 +23,6 @@ function normalizePage(rawPage: string | null): number {
   if (!Number.isFinite(parsed) || parsed < 1) return 1;
   return Math.floor(parsed);
 }
-
-const TYPE_OPTIONS: { value: "" | ClassType; label: string }[] = [
-  { value: "", label: "Tất cả loại" },
-  { value: "basic", label: "Basic" },
-  { value: "vip", label: "VIP" },
-  { value: "advance", label: "Advance" },
-  { value: "hardcore", label: "Hardcore" },
-];
 
 const TYPE_LABELS: Record<ClassType, string> = {
   basic: "Basic",
@@ -92,15 +83,12 @@ export default function AdminClassesPage() {
   const routeBase = resolveAdminLikeRouteBase(pathname);
 
   const page = normalizePage(searchParams.get("page"));
-  const typeFilter = normalizeClassType(searchParams.get("type"));
   const search = searchParams.get("search") ?? "";
 
   const [searchInput, setSearchInput] = useState(search);
   const [addPopupOpen, setAddPopupOpen] = useState(false);
-  const [typeMenuOpen, setTypeMenuOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [classToDelete, setClassToDelete] = useState<{ id: string; name: string } | null>(null);
-  const typeMenuRef = useRef<HTMLDivElement | null>(null);
   const { data: fullProfile } = useQuery({
     queryKey: ["auth", "full-profile"],
     queryFn: getFullProfile,
@@ -130,32 +118,18 @@ export default function AdminClassesPage() {
     applySearchToUrl(value, searchParams?.toString() ?? "", pathname);
   };
 
-  const handleFilterChange = (next: { type?: "" | ClassType }) => {
-    const params = new URLSearchParams(searchParams?.toString() ?? "");
-    if (next.type !== undefined) {
-      params.set("type", next.type);
-      params.set("page", "1");
-    }
-    router.replace(`${pathname}?${params.toString()}`);
-  };
-
-  const selectedTypeLabel = useMemo(() => {
-    return TYPE_OPTIONS.find((opt) => opt.value === typeFilter)?.label ?? "Tất cả loại";
-  }, [typeFilter]);
-
   const {
     data: classListResponse,
     isLoading,
     isError,
     error,
   } = useQuery<ClassListResponse>({
-    queryKey: ["class", "list", page, PAGE_SIZE, search, typeFilter],
+    queryKey: ["class", "list", page, PAGE_SIZE, search],
     queryFn: () =>
       classApi.getClasses({
         page,
         limit: PAGE_SIZE,
         search: search.trim() || undefined,
-        type: typeFilter,
       }),
   });
 
@@ -200,11 +174,6 @@ export default function AdminClassesPage() {
     router.replace(`${pathname}?${params.toString()}`);
   };
 
-  const handleSelectType = (nextType: "" | ClassType) => {
-    handleFilterChange({ type: nextType });
-    setTypeMenuOpen(false);
-  };
-
   const deleteMutation = useMutation({
     mutationFn: ({ id }: { id: string }) => classApi.deleteClassById(id),
     onSuccess: async () => {
@@ -243,30 +212,6 @@ export default function AdminClassesPage() {
     }
   };
 
-  useEffect(() => {
-    if (!typeMenuOpen) return;
-
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!typeMenuRef.current?.contains(event.target as Node)) {
-        setTypeMenuOpen(false);
-      }
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setTypeMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleEscape);
-
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [typeMenuOpen]);
-
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-3 sm:p-6">
       <div className="flex min-w-0 flex-1 flex-col rounded-xl border border-border-default bg-bg-surface p-3 shadow-sm sm:rounded-lg sm:p-5">
@@ -297,7 +242,7 @@ export default function AdminClassesPage() {
             ) : null}
           </div>
 
-          <div className="relative mt-4 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-end">
+          <div className="relative mt-4">
             <label className="block min-w-0" htmlFor="class-search-input">
               <span className="text-sm font-medium text-text-secondary">Tìm kiếm</span>
               <div className="mt-1 flex items-center rounded-md border border-border-default bg-bg-surface/90 px-3 focus-within:border-border-focus focus-within:ring-2 focus-within:ring-border-focus">
@@ -315,62 +260,6 @@ export default function AdminClassesPage() {
                 />
               </div>
             </label>
-
-            <div className="block" ref={typeMenuRef}>
-              <span className="text-sm font-medium text-text-secondary">Loại lớp</span>
-              <button
-                type="button"
-                className="mt-1 flex w-full items-center justify-between rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-sm text-text-primary transition-colors duration-200 hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
-                onClick={() => setTypeMenuOpen((prev) => !prev)}
-                aria-haspopup="listbox"
-                aria-expanded={typeMenuOpen}
-                aria-label="Lọc theo loại lớp"
-              >
-                <span className="truncate">{selectedTypeLabel}</span>
-                <svg
-                  className={`ml-2 size-4 shrink-0 text-text-muted transition-transform duration-200 ${typeMenuOpen ? "rotate-180" : ""}`}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  aria-hidden
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m6 9 6 6 6-6" />
-                </svg>
-              </button>
-              {typeMenuOpen && (
-                <div className="relative">
-                  <div
-                    role="listbox"
-                    aria-label="Danh sách loại lớp"
-                    className=" absolute z-999 mt-1 max-h-64 w-full overflow-auto rounded-md border border-border-default bg-bg-surface p-1 shadow-lg"
-                  >
-                    {TYPE_OPTIONS.map((opt) => {
-                      const isActive = opt.value === typeFilter;
-                      return (
-                        <button
-                          key={opt.value || "all"}
-                          type="button"
-                          role="option"
-                          aria-selected={isActive}
-                          className={`flex w-full items-center justify-between rounded px-2 py-2 text-left text-sm transition-colors duration-150 ${isActive
-                            ? "bg-primary/10 font-medium text-text-primary"
-                            : "text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
-                            }`}
-                          onClick={() => handleSelectType(opt.value)}
-                        >
-                          <span>{opt.label}</span>
-                          {isActive ? (
-                            <svg className="size-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m5 12 5 5L20 7" />
-                            </svg>
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
         </section>
 
@@ -388,8 +277,8 @@ export default function AdminClassesPage() {
           ) : list.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-text-muted" aria-live="polite">
               <p className="text-sm">
-                {search || typeFilter
-                  ? "Không có kết quả phù hợp bộ lọc."
+                {search
+                  ? "Không có lớp nào phù hợp với từ khóa tìm kiếm."
                   : "Chưa có lớp học nào."}
               </p>
             </div>

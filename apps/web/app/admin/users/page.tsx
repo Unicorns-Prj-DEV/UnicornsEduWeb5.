@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { useDebouncedCallback } from "use-debounce";
+import { useDebounce, useDebouncedCallback } from "use-debounce";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
@@ -23,6 +23,8 @@ import { ROLE_LABELS } from "@/lib/staff.constants";
 
 const PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE_MS = 1000;
+const STUDENT_CLASS_SEARCH_DEBOUNCE_MS = 250;
+const STUDENT_CLASS_SEARCH_LIMIT = 20;
 const ROLE_TYPE_OPTIONS: Array<{ value: UserRoleType; label: string }> = [
   { value: "guest", label: USER_ROLE_LABELS.guest },
   { value: "staff", label: USER_ROLE_LABELS.staff },
@@ -419,6 +421,13 @@ export default function AdminUsersPage() {
   const [assignModalUser, setAssignModalUser] =
     useState<UserDetailWithStaff | null>(null);
   const [studentClassSearch, setStudentClassSearch] = useState("");
+  const [selectedStudentClassLabels, setSelectedStudentClassLabels] = useState<
+    Record<string, string>
+  >({});
+  const [debouncedStudentClassSearch] = useDebounce(
+    studentClassSearch.trim(),
+    STUDENT_CLASS_SEARCH_DEBOUNCE_MS,
+  );
 
   useEffect(() => {
     setSearchInput(search);
@@ -441,6 +450,7 @@ export default function AdminUsersPage() {
     setCreateUserForm(EMPTY_CREATE_USER_FORM);
     setCreateUserErrors({});
     setStudentClassSearch("");
+    setSelectedStudentClassLabels({});
   };
 
   const focusFirstCreateUserError = (errors: CreateUserFormErrors) => {
@@ -470,6 +480,58 @@ export default function AdminUsersPage() {
       delete next[field];
       return next;
     });
+  };
+
+  const clearCreateUserClassError = () => {
+    setCreateUserErrors((prev) => {
+      if (!prev.class_ids) return prev;
+      const next = { ...prev };
+      delete next.class_ids;
+      return next;
+    });
+  };
+
+  const toggleCreateUserClass = (classId: string, classLabel: string) => {
+    setCreateUserForm((prev) => {
+      const isSelected = prev.class_ids.includes(classId);
+
+      setSelectedStudentClassLabels((prevLabels) => {
+        if (isSelected) {
+          if (!(classId in prevLabels)) return prevLabels;
+          const nextLabels = { ...prevLabels };
+          delete nextLabels[classId];
+          return nextLabels;
+        }
+
+        if (prevLabels[classId] === classLabel) return prevLabels;
+        return {
+          ...prevLabels,
+          [classId]: classLabel,
+        };
+      });
+
+      return {
+        ...prev,
+        class_ids: isSelected
+          ? prev.class_ids.filter((id) => id !== classId)
+          : [...prev.class_ids, classId],
+      };
+    });
+    clearCreateUserClassError();
+  };
+
+  const removeCreateUserClass = (classId: string) => {
+    setCreateUserForm((prev) => ({
+      ...prev,
+      class_ids: prev.class_ids.filter((id) => id !== classId),
+    }));
+    setSelectedStudentClassLabels((prev) => {
+      if (!(classId in prev)) return prev;
+      const next = { ...prev };
+      delete next[classId];
+      return next;
+    });
+    clearCreateUserClassError();
   };
 
   const setCreateUserRoleType = (value: UserRoleType) => {
@@ -645,28 +707,48 @@ export default function AdminUsersPage() {
     ? STAFF_ROLES.filter((role) => role !== "admin")
     : STAFF_ROLES;
   const showCreateUserStudentFields = createUserForm.roleType === "student";
-  const { data: classOptionsResponse } = useQuery({
-    queryKey: ["class", "create-student-options"],
+  const {
+    data: classOptionsResponse,
+    isLoading: isStudentClassOptionsLoading,
+    isFetching: isStudentClassOptionsFetching,
+    isError: isStudentClassOptionsError,
+    refetch: refetchStudentClassOptions,
+  } = useQuery({
+    queryKey: [
+      "class",
+      "create-student-options",
+      debouncedStudentClassSearch,
+      isCreatePanelOpen,
+      createUserForm.roleType,
+    ],
     queryFn: () =>
       classApi.getClasses({
         page: 1,
-        limit: 200,
-        status: "running",
+        limit: STUDENT_CLASS_SEARCH_LIMIT,
+        search: debouncedStudentClassSearch || undefined,
       }),
+    enabled: isCreatePanelOpen && showCreateUserStudentFields,
   });
   const classOptions = (classOptionsResponse?.data ?? []).map((item) => ({
     value: item.id,
     label: item.name,
   }));
-  const normalizedStudentClassSearch = studentClassSearch.trim().toLowerCase();
-  const filteredClassOptions = classOptions.filter((item) =>
-    normalizedStudentClassSearch
-      ? item.label.toLowerCase().includes(normalizedStudentClassSearch)
-      : true,
-  );
-  const selectedClassOptions = classOptions.filter((item) =>
-    createUserForm.class_ids.includes(item.value),
-  );
+  const classOptionLookup = new Map<string, string>();
+  for (const item of classOptions) {
+    classOptionLookup.set(item.value, item.label);
+  }
+  for (const [id, label] of Object.entries(selectedStudentClassLabels)) {
+    classOptionLookup.set(id, label);
+  }
+  const selectedClassOptions = createUserForm.class_ids.map((id) => ({
+    value: id,
+    label: classOptionLookup.get(id) ?? "Lớp đã chọn",
+  }));
+  const hasStudentClassSearch = debouncedStudentClassSearch.length > 0;
+  const shouldShowStudentClassEmptyState =
+    !isStudentClassOptionsError &&
+    !isStudentClassOptionsLoading &&
+    classOptions.length === 0;
 
   useEffect(() => {
     if (currentPage === page) return;
@@ -1326,6 +1408,9 @@ export default function AdminUsersPage() {
                                 Tìm lớp theo tên
                               </span>
                               <input
+                                ref={(node) => {
+                                  createUserFieldRefs.current.class_ids = node;
+                                }}
                                 id="create-student-class-search"
                                 type="search"
                                 value={studentClassSearch}
@@ -1340,22 +1425,39 @@ export default function AdminUsersPage() {
                             </label>
 
                             <div className="mt-3 max-h-56 space-y-1 overflow-y-auto rounded-lg border border-border-default bg-bg-secondary/40 p-2">
-                              {filteredClassOptions.length === 0 ? (
+                              {isStudentClassOptionsLoading ? (
                                 <p className="px-2 py-1.5 text-sm text-text-muted">
-                                  Không tìm thấy lớp phù hợp.
+                                  Đang tải danh sách lớp...
+                                </p>
+                              ) : isStudentClassOptionsError ? (
+                                <div className="space-y-2 px-2 py-1.5 text-sm text-error">
+                                  <p>Không tải được danh sách lớp. Vui lòng thử lại.</p>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      void refetchStudentClassOptions();
+                                    }}
+                                    className="inline-flex min-h-9 items-center rounded-lg border border-error/20 bg-error/10 px-3 py-1.5 text-sm font-medium text-error transition hover:bg-error/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                  >
+                                    Tải lại
+                                  </button>
+                                </div>
+                              ) : shouldShowStudentClassEmptyState ? (
+                                <p className="px-2 py-1.5 text-sm text-text-muted">
+                                  {hasStudentClassSearch
+                                    ? "Không tìm thấy lớp phù hợp với từ khóa này."
+                                    : "Chưa có lớp nào để gán."}
                                 </p>
                               ) : (
-                                filteredClassOptions.map((classItem) => (
+                                classOptions.map((classItem) => (
                                   <button
                                     key={classItem.value}
                                     type="button"
                                     onClick={() =>
-                                      setCreateUserForm((prev) => ({
-                                        ...prev,
-                                        class_ids: prev.class_ids.includes(classItem.value)
-                                          ? prev.class_ids.filter((id) => id !== classItem.value)
-                                          : [...prev.class_ids, classItem.value],
-                                      }))
+                                      toggleCreateUserClass(
+                                        classItem.value,
+                                        classItem.label,
+                                      )
                                     }
                                     className={`flex w-full items-center justify-between rounded-md px-2 py-2 text-left text-sm transition-colors ${createUserForm.class_ids.includes(classItem.value)
                                       ? "bg-primary/10 text-primary"
@@ -1372,6 +1474,12 @@ export default function AdminUsersPage() {
                                 ))
                               )}
                             </div>
+                            {isStudentClassOptionsFetching &&
+                            !isStudentClassOptionsLoading ? (
+                              <p className="mt-2 text-xs text-text-muted">
+                                Đang cập nhật kết quả lớp...
+                              </p>
+                            ) : null}
 
                             {selectedClassOptions.length > 0 ? (
                               <div className="mt-3 flex flex-wrap gap-2">
@@ -1379,14 +1487,7 @@ export default function AdminUsersPage() {
                                   <button
                                     key={item.value}
                                     type="button"
-                                    onClick={() =>
-                                      setCreateUserForm((prev) => ({
-                                        ...prev,
-                                        class_ids: prev.class_ids.filter(
-                                          (id) => id !== item.value,
-                                        ),
-                                      }))
-                                    }
+                                    onClick={() => removeCreateUserClass(item.value)}
                                     className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
                                   >
                                     {item.label}
