@@ -12,6 +12,7 @@ const ACCESS_TOKEN_COOKIE = 'access_token';
 interface AccessTokenPayload {
   id: string;
   email: string;
+  emailVerified?: boolean;
   accountHandle: string;
   roleType: UserRole;
 }
@@ -50,6 +51,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     return {
       id: user.id,
       email: user.email,
+      emailVerified: user.emailVerified,
       accountHandle: user.accountHandle,
       roleType: user.roleType,
     };

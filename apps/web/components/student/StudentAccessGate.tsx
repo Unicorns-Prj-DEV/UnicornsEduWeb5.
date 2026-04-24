@@ -4,6 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import {
+  isRestrictedByEmailVerification,
+  OPEN_EMAIL_VERIFICATION_MODAL_EVENT,
+} from "@/lib/email-verification-access";
 
 export default function StudentAccessGate({
   children,
@@ -12,15 +16,22 @@ export default function StudentAccessGate({
 }) {
   const router = useRouter();
   const { user, isAuthReady } = useAuth();
+  const restrictedByEmailVerification = isRestrictedByEmailVerification(user);
 
   const hasStudentProfile = Boolean(user.hasStudentProfile);
   const isAllowed = user.roleType === "student" && hasStudentProfile;
 
   useEffect(() => {
+    if (isAuthReady && restrictedByEmailVerification) {
+      window.dispatchEvent(new Event(OPEN_EMAIL_VERIFICATION_MODAL_EVENT));
+      router.replace("/");
+      return;
+    }
+
     if (isAuthReady && !isAllowed) {
       router.replace(user.roleType === "student" ? "/user-profile" : "/");
     }
-  }, [isAllowed, isAuthReady, router, user.roleType]);
+  }, [isAllowed, isAuthReady, restrictedByEmailVerification, router, user.roleType]);
 
   if (!isAuthReady) {
     return (
@@ -38,6 +49,10 @@ export default function StudentAccessGate({
         </div>
       </div>
     );
+  }
+
+  if (restrictedByEmailVerification) {
+    return null;
   }
 
   if (!isAllowed) {

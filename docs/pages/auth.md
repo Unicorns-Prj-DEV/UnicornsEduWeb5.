@@ -6,7 +6,7 @@
 - **State layer:** TanStack Query (`useMutation`) cho toàn bộ submit flow auth.
 - **Global providers:** `QueryClientProvider` + Sonner `Toaster` được mount tại `apps/web/app/providers.tsx`.
 - **Auth gate:** `apps/web/app/providers.tsx` có `AuthPasswordSetupGate`; nếu user có session hợp lệ (`id` + `accountHandle`) và `requiresPasswordSetup=true` thì mọi route client sẽ bị đẩy về `/auth/setup-password`, kể cả khi `roleType` hiện tại vẫn là `guest`.
-- **Auth API contract:** `GET /auth/session` là contract auth nhẹ dùng cho SSR, `proxy.ts`, bootstrap client và redirect sau login/setup-password. `GET /auth/profile` giữ backward compatibility nhưng delegate cùng session resolver. Cả hai trả về `id`, `accountHandle`, `roleType`, `requiresPasswordSetup`, `avatarUrl`, `staffRoles`, `hasStaffProfile`, `hasStudentProfile`.
+- **Auth API contract:** `GET /auth/session` là contract auth nhẹ dùng cho SSR, `proxy.ts`, bootstrap client và redirect sau login/setup-password. `GET /auth/profile` giữ backward compatibility nhưng delegate cùng session resolver. Cả hai trả về `id`, `email`, `emailVerified`, `canAccessRestrictedRoutes`, `accountHandle`, `roleType`, `requiresPasswordSetup`, `avatarUrl`, `staffRoles`, `hasStaffProfile`, `hasStudentProfile`.
 - **Cookie policy:** backend set `access_token` và `refresh_token` với `secure=true` + `SameSite=Strict` khi `NODE_ENV=production`; ở `test` và các môi trường non-production thì dùng `secure=false` + `SameSite=Lax`.
 
 ## UI feedback chuẩn hoá
@@ -19,6 +19,7 @@
 ## Redirect rules
 
 - Login thành công:
+  - nếu `canAccessRestrictedRoutes=false` (chưa verify email), frontend giữ user ở Home (`/`) và bật popup xác minh khi truy cập trang cá nhân/role routes
   - `admin -> /admin`
   - `staff -> /staff` chỉ khi session contract xác nhận `hasStaffProfile=true`; nếu chưa có profile thì fallback `/user-profile`
   - `student -> /student` chỉ khi session contract xác nhận `hasStudentProfile=true`; nếu chưa có profile thì fallback `/user-profile`
@@ -34,6 +35,10 @@
 - Reset password thành công: toast success, delay 2s rồi redirect `/auth/login`.
 - Forgot password thành công: luôn trả generic success message, không redirect, không tiết lộ email có tồn tại hay chưa.
 - Verify email thành công: `/verify-email?token=...` tự gọi backend `GET /auth/verify`, hiển thị success/error và CTA quay về login.
+- Khi user đang đăng nhập nhưng chưa verify email:
+  - chỉ được ở Home (`/`)
+  - bấm avatar hoặc vào route cá nhân/role route sẽ mở popup “Vui lòng xác minh email”
+  - popup hỗ trợ 2 case: chưa có email thì nhập email mới; đã có email thì hiển thị email masked và gửi lại mail xác minh.
 
 ## Lấy user trong Server Component
 
@@ -83,9 +88,13 @@ export default async function SomePage() {
   - `POST /auth/refresh` dùng `refresh_token` cookie
     - backend verify chữ ký refresh JWT **và** đối chiếu hash token đang trình bày với `user.refreshToken` đã lưu; refresh token cũ/đã rotate sẽ bị từ chối.
     - rate limit: `120` request / `1 phút` / IP.
-  - `GET /auth/session` — contract auth nhẹ cho frontend/server (`id`, `accountHandle`, `roleType`, `requiresPasswordSetup`, `avatarUrl`, `staffRoles`, `hasStaffProfile`, `hasStudentProfile`); guest trả về object cùng shape với default rỗng.
+- `GET /auth/session` — contract auth nhẹ cho frontend/server (`id`, `email`, `emailVerified`, `canAccessRestrictedRoutes`, `accountHandle`, `roleType`, `requiresPasswordSetup`, `avatarUrl`, `staffRoles`, `hasStaffProfile`, `hasStudentProfile`); guest trả về object cùng shape với default rỗng.
   - `GET /auth/profile` — backward-compatible alias của session resolver.
   - `GET /auth/me` — thông tin auth hiện tại từ DB theo `access_token`, trả cùng session shape.
+- `POST /auth/resend-verification` (cần đăng nhập)
+  - body optional: `{ email?: string }`
+  - không truyền email: gửi lại email xác minh tới email hiện tại
+  - có truyền email: cập nhật email tài khoản hiện tại, reset `emailVerified=false`, rồi gửi mail xác minh tới email mới
   - `GET /auth/verify?token=...`
     - rate limit: `30` request / `1 giờ` / IP.
   - `POST /auth/forgot-password` body: `{ email }`
@@ -132,6 +141,7 @@ DTO: `apps/web/dtos/profile.dto.ts` và `apps/api/src/dtos/profile.dto.ts`.
 - **Xác minh email:** Dòng Email hiển thị icon đã xác minh / chưa (`EmailVerificationInline`, Heroicons). Khi **chưa** xác minh: nút pill «Xác minh email →→» gọi `mockResendVerificationEmail` + toast Sonner (demo; thay bằng API khi có endpoint). Mock trong `apps/web/mocks/user-profile-verification.mock.ts`: `forceEmailUnverifiedForTest` ép luôn chưa xác minh (test UI); `emailVerifiedWhenApiMissing` khi API thiếu field và không bật force. Email học viên: chỉ coi là đã xác minh khi trùng email tài khoản và tài khoản đã xác minh.
 - **Bảo vệ:** Nếu 401 (chưa đăng nhập), trang gợi ý đăng nhập và link tới `/auth/login`.
 - **Role gates:** `AdminAccessGate`, `StudentAccessGate` và `StaffAccessGate` dùng lightweight auth session (`useAuth()` bootstrap từ `GET /auth/session`) để kiểm tra `roleType`, `staffRoles`, `hasStaffProfile`, `hasStudentProfile`; không cần refetch `GET /users/me/full` chỉ để gate shell access.
+- **Email verification gate:** Với session `canAccessRestrictedRoutes=false`, frontend chặn các route cá nhân/role routes bằng popup xác minh và giữ user ở Home; backend tiếp tục chặn `users/me/*` bằng guard để tránh lộ dữ liệu cá nhân qua API trực tiếp.
 
 ## Tài liệu chi tiết theo trang
 

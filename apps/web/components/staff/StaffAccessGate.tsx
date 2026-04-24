@@ -5,6 +5,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { resolveStaffLessonWorkspace } from "@/lib/staff-lesson-workspace";
+import {
+  isRestrictedByEmailVerification,
+  OPEN_EMAIL_VERIFICATION_MODAL_EVENT,
+} from "@/lib/email-verification-access";
 
 export default function StaffAccessGate({
   children,
@@ -14,6 +18,7 @@ export default function StaffAccessGate({
   const pathname = usePathname();
   const router = useRouter();
   const { user, isAuthReady } = useAuth();
+  const restrictedByEmailVerification = isRestrictedByEmailVerification(user);
 
   const roleType = user.roleType;
   const staffRoles = user.staffRoles ?? [];
@@ -200,10 +205,16 @@ export default function StaffAccessGate({
                   : "Màn này hiện mở cho `admin` hoặc `staff.teacher`. Teacher dùng nó để xem lớp phụ trách và thao tác buổi học; admin có thể truy cập để theo dõi hoặc hỗ trợ vận hành.";
 
   useEffect(() => {
+    if (isAuthReady && restrictedByEmailVerification) {
+      window.dispatchEvent(new Event(OPEN_EMAIL_VERIFICATION_MODAL_EVENT));
+      router.replace("/");
+      return;
+    }
+
     if (isAuthReady && !isAllowed) {
       router.replace(isAssistantStaff ? "/staff" : isStaffOrAdmin ? "/user-profile" : "/");
     }
-  }, [isAllowed, isAssistantStaff, isAuthReady, isStaffOrAdmin, router]);
+  }, [isAllowed, isAssistantStaff, isAuthReady, isStaffOrAdmin, restrictedByEmailVerification, router]);
 
   if (!isAuthReady) {
     return (
@@ -221,6 +232,10 @@ export default function StaffAccessGate({
         </div>
       </div>
     );
+  }
+
+  if (restrictedByEmailVerification) {
+    return null;
   }
 
   if (!isAllowed) {

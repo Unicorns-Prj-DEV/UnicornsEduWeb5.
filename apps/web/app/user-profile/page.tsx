@@ -25,6 +25,7 @@ import type {
 } from "@/dtos/profile.dto";
 import { Role } from "@/dtos/Auth.dto";
 import { resolveCanonicalUserName } from "@/dtos/user-name.dto";
+import { OPEN_EMAIL_VERIFICATION_MODAL_EVENT } from "@/lib/email-verification-access";
 
 type Tone = "primary" | "success" | "warning" | "neutral";
 
@@ -404,6 +405,7 @@ function LoadingSkeleton() {
 
 function ErrorState({ status }: { status?: number }) {
   const needAuth = status === 401;
+  const needsVerifiedEmail = status === 403;
 
   return (
     <div className="min-h-screen overflow-hidden bg-bg-primary">
@@ -411,22 +413,51 @@ function ErrorState({ status }: { status?: number }) {
         <div
           className={`${surfaceCardClassName} motion-fade-up w-full p-6 sm:p-8`}
         >
-          <Tag label={needAuth ? "Yêu cầu đăng nhập" : "Không thể tải dữ liệu"} tone={needAuth ? "warning" : "neutral"} />
+          <Tag
+            label={
+              needAuth
+                ? "Yêu cầu đăng nhập"
+                : needsVerifiedEmail
+                  ? "Yêu cầu xác minh email"
+                  : "Không thể tải dữ liệu"
+            }
+            tone={needAuth || needsVerifiedEmail ? "warning" : "neutral"}
+          />
           <h1 className="mt-5 text-3xl font-semibold tracking-[-0.05em] text-text-primary">
-            {needAuth ? "Bạn cần đăng nhập để xem hồ sơ." : "Trang hồ sơ hiện chưa khả dụng."}
+            {needAuth
+              ? "Bạn cần đăng nhập để xem hồ sơ."
+              : needsVerifiedEmail
+                ? "Bạn cần xác minh email để mở hồ sơ."
+                : "Trang hồ sơ hiện chưa khả dụng."}
           </h1>
           <p className="mt-4 max-w-xl text-base leading-7 text-text-secondary">
             {needAuth
               ? "Phiên truy cập hiện tại không hợp lệ hoặc đã hết hạn. Đăng nhập lại để tiếp tục chỉnh sửa thông tin cá nhân."
-              : "Có lỗi xảy ra khi lấy dữ liệu hồ sơ từ hệ thống. Bạn có thể quay lại trang chủ hoặc thử tải lại sau."}
+              : needsVerifiedEmail
+                ? "Tài khoản của bạn đã đăng nhập thành công nhưng chưa xác minh email. Vui lòng xác minh email để truy cập trang hồ sơ và các dữ liệu cá nhân."
+                : "Có lỗi xảy ra khi lấy dữ liệu hồ sơ từ hệ thống. Bạn có thể quay lại trang chủ hoặc thử tải lại sau."}
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link
-              href={needAuth ? "/auth/login" : "/"}
-              className={primaryButtonClassName}
-            >
-              {needAuth ? "Đăng nhập" : "Về trang chủ"}
-            </Link>
+            {needsVerifiedEmail ? (
+              <button
+                type="button"
+                onClick={() =>
+                  window.dispatchEvent(
+                    new Event(OPEN_EMAIL_VERIFICATION_MODAL_EVENT),
+                  )
+                }
+                className={primaryButtonClassName}
+              >
+                Xác minh email
+              </button>
+            ) : (
+              <Link
+                href={needAuth ? "/auth/login" : "/"}
+                className={primaryButtonClassName}
+              >
+                {needAuth ? "Đăng nhập" : "Về trang chủ"}
+              </Link>
+            )}
             <Link href="/" className={ghostButtonClassName}>
               Quay lại hệ thống
             </Link>

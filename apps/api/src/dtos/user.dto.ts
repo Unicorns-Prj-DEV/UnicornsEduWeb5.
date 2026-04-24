@@ -255,6 +255,17 @@ export class SetupPasswordDto {
   password: string;
 }
 
+export class ResendVerificationDto {
+  @ApiPropertyOptional({
+    example: 'user@example.com',
+    description:
+      'Optional replacement email. When omitted, backend uses current account email.',
+  })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+}
+
 export interface RefreshUserDto {
   id: string;
   accountHandle: string;

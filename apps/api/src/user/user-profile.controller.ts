@@ -13,6 +13,7 @@ import {
   Query,
   UploadedFile,
   UploadedFiles,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import {
@@ -66,10 +67,12 @@ import {
   DEFAULT_MAX_IMAGE_BYTES,
 } from 'src/storage/supabase-storage';
 import { UserService } from './user.service';
+import { VerifiedEmailGuard } from 'src/auth/guards/verified-email.guard';
 
 @ApiTags('users')
 @Controller('users/me')
 @ApiCookieAuth('access_token')
+@UseGuards(VerifiedEmailGuard)
 export class UserProfileController {
   constructor(
     private readonly userService: UserService,

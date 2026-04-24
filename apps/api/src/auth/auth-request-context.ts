@@ -8,6 +8,7 @@ import type {
 export interface CachedAuthIdentity {
   id: string;
   email: string;
+  emailVerified?: boolean;
   accountHandle: string;
   roleType: UserRole;
   status: string;

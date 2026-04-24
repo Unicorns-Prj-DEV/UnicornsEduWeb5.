@@ -27,6 +27,7 @@ import {
   CreateUserDto,
   ChangePasswordDto,
   ForgotPasswordDto,
+  ResendVerificationDto,
   ResetPasswordDto,
   SetupPasswordDto,
   UserAuthDto,
@@ -80,6 +81,9 @@ export class AuthController {
   private getGuestProfile() {
     return {
       id: '',
+      email: '',
+      emailVerified: false,
+      canAccessRestrictedRoutes: false,
       accountHandle: '',
       roleType: UserRole.guest,
       requiresPasswordSetup: false,
@@ -466,6 +470,31 @@ export class AuthController {
     return {
       message: 'Logged out successfully',
     };
+  }
+
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  @ApiCookieAuth('access_token')
+  @ApiOperation({
+    summary: 'Resend verification email',
+    description:
+      'Resends email verification for the current authenticated user. Optionally accepts a new email and resets verification state.',
+  })
+  @ApiBody({ type: ResendVerificationDto, required: false })
+  @ApiResponse({
+    status: 200,
+    description: 'Verification email has been queued for delivery.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid email payload or email already in use.',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  async resendVerification(
+    @CurrentUser() user: JwtPayload,
+    @Body() body: ResendVerificationDto,
+  ) {
+    return this.authService.resendVerificationEmail(user.id, body.email);
   }
 
   @Public()

@@ -35,6 +35,9 @@ export async function getUser(cookieHeader?: string): Promise<UserInfoDto> {
 
     const data = (await res.json()) as {
       id?: string;
+      email?: string;
+      emailVerified?: boolean;
+      canAccessRestrictedRoutes?: boolean;
       accountHandle?: string;
       roleType?: string;
       requiresPasswordSetup?: boolean;
@@ -51,6 +54,12 @@ export async function getUser(cookieHeader?: string): Promise<UserInfoDto> {
 
     return {
       id: data.id ?? "",
+      email: data.email ?? "",
+      emailVerified: Boolean(data.emailVerified),
+      canAccessRestrictedRoutes:
+        typeof data.canAccessRestrictedRoutes === "boolean"
+          ? data.canAccessRestrictedRoutes
+          : false,
       accountHandle: data.accountHandle ?? "",
       roleType,
       requiresPasswordSetup:

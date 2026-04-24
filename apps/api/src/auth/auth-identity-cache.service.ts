@@ -77,6 +77,7 @@ export class AuthIdentityCacheService {
       select: {
         id: true,
         email: true,
+        emailVerified: true,
         accountHandle: true,
         roleType: true,
         status: true,
@@ -89,6 +90,7 @@ export class AuthIdentityCacheService {
       ? {
           id: user.id,
           email: user.email,
+          emailVerified: user.emailVerified,
           accountHandle: user.accountHandle,
           roleType: user.roleType,
           status: user.status,

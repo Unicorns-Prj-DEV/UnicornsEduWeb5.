@@ -8,6 +8,10 @@ import {
   isAccountantAllowedAdminRoute,
   resolveAdminShellAccess,
 } from "@/lib/admin-shell-access";
+import {
+  isRestrictedByEmailVerification,
+  OPEN_EMAIL_VERIFICATION_MODAL_EVENT,
+} from "@/lib/email-verification-access";
 
 const LESSON_MANAGEMENT_ROUTE_PREFIXES = ["/admin/lesson-plans", "/admin/lesson-manage-details", "/admin/lessons"];
 const STRICT_ADMIN_ROUTE_PREFIXES = ["/admin/notification"];
@@ -35,6 +39,7 @@ export default function AdminAccessGate({
 
   const { isAdmin, isAssistant, isAccountant, isLessonPlanHead } =
     resolveAdminShellAccess(user);
+  const restrictedByEmailVerification = isRestrictedByEmailVerification(user);
   const lessonManagementRoute = isLessonManagementRoute(pathname);
   const strictAdminRoute = isStrictAdminRoute(pathname);
   const isAllowed =
@@ -55,10 +60,16 @@ export default function AdminAccessGate({
           : "/";
 
   useEffect(() => {
+    if (isAuthReady && restrictedByEmailVerification) {
+      window.dispatchEvent(new Event(OPEN_EMAIL_VERIFICATION_MODAL_EVENT));
+      router.replace("/");
+      return;
+    }
+
     if (isAuthReady && !isAllowed) {
       router.replace(fallbackHref);
     }
-  }, [fallbackHref, isAllowed, isAuthReady, router]);
+  }, [fallbackHref, isAllowed, isAuthReady, restrictedByEmailVerification, router]);
 
   if (!isAuthReady) {
     return (
@@ -76,6 +87,10 @@ export default function AdminAccessGate({
         </div>
       </div>
     );
+  }
+
+  if (restrictedByEmailVerification) {
+    return null;
   }
 
   if (!isAllowed) {

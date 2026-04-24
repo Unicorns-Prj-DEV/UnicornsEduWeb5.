@@ -3,6 +3,9 @@ import { TokenPair } from 'src/auth/auth.service';
 
 export interface AuthProfileDto {
   id: string;
+  email: string;
+  emailVerified: boolean;
+  canAccessRestrictedRoutes: boolean;
   accountHandle: string;
   roleType: UserRole;
   requiresPasswordSetup: boolean;

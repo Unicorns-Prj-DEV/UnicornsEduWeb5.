@@ -273,6 +273,7 @@ describe('AuthService', () => {
     authIdentityCacheService.getAuthIdentity.mockResolvedValue({
       id: 'user-1',
       email: 'google-user@example.com',
+      emailVerified: false,
       accountHandle: 'google-user',
       roleType: UserRole.guest,
       status: 'active',
@@ -281,6 +282,9 @@ describe('AuthService', () => {
 
     await expect(service.getAuthProfile('user-1')).resolves.toEqual({
       id: 'user-1',
+      email: 'google-user@example.com',
+      emailVerified: false,
+      canAccessRestrictedRoutes: false,
       accountHandle: 'google-user',
       roleType: UserRole.guest,
       requiresPasswordSetup: true,
@@ -375,6 +379,39 @@ describe('AuthService', () => {
     );
     expect(authIdentityCacheService.invalidateUser).toHaveBeenCalledWith(
       'user-1',
+    );
+  });
+
+  it('resends verification email and updates email when provided', async () => {
+    mockPrisma.user.findUnique
+      .mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'old@example.com',
+      })
+      .mockResolvedValueOnce(null);
+    mockPrisma.user.update.mockResolvedValue({
+      id: 'user-1',
+      email: 'new@example.com',
+      emailVerified: false,
+    });
+
+    await expect(
+      service.resendVerificationEmail('user-1', 'new@example.com'),
+    ).resolves.toEqual({
+      message: 'Verification email sent successfully.',
+      email: 'new@example.com',
+    });
+
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: {
+        email: 'new@example.com',
+        emailVerified: false,
+      },
+    });
+    expect(mailService.sendVerificationEmail).toHaveBeenCalledWith(
+      'new@example.com',
+      'token',
     );
   });
 });

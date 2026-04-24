@@ -51,6 +51,9 @@ describe('StudentService', () => {
     recordUpdate: jest.fn(),
     recordDelete: jest.fn(),
   };
+  const googleCalendarService = {
+    syncStudentExamScheduleEvents: jest.fn(),
+  };
 
   let service: StudentService;
 
@@ -62,6 +65,7 @@ describe('StudentService', () => {
     service = new StudentService(
       mockPrisma as never,
       actionHistoryService as never,
+      googleCalendarService as never,
     );
   });
 

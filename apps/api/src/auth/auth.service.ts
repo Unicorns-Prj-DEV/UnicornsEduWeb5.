@@ -189,10 +189,6 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (!user.emailVerified) {
-      throw new UnauthorizedException('Please verify your email before login');
-    }
-
     return {
       roleType: user.roleType,
       accountHandle: user.accountHandle,
@@ -265,6 +261,9 @@ export class AuthService {
 
     return {
       id: user.id,
+      email: user.email,
+      emailVerified: Boolean(user.emailVerified),
+      canAccessRestrictedRoutes: Boolean(user.emailVerified),
       accountHandle: user.accountHandle,
       roleType: user.roleType,
       requiresPasswordSetup: user.requiresPasswordSetup,
@@ -272,6 +271,68 @@ export class AuthService {
       staffRoles,
       hasStaffProfile: Boolean(profileLinks?.staffInfo?.id),
       hasStudentProfile: Boolean(profileLinks?.studentInfo?.id),
+    };
+  }
+
+  async resendVerificationEmail(
+    userId: string,
+    nextEmail?: string,
+  ): Promise<{ message: string; email: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const normalizedNextEmail = nextEmail?.trim().toLowerCase();
+    const targetEmail = normalizedNextEmail || user.email.trim().toLowerCase();
+    if (!targetEmail) {
+      throw new BadRequestException('Email is required for verification');
+    }
+
+    if (normalizedNextEmail && normalizedNextEmail !== user.email.toLowerCase()) {
+      const existingEmail = await this.prisma.user.findUnique({
+        where: { email: normalizedNextEmail },
+        select: { id: true },
+      });
+      if (existingEmail && existingEmail.id !== userId) {
+        throw new BadRequestException('Email already exists');
+      }
+    }
+
+    if (targetEmail !== user.email.toLowerCase()) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          email: targetEmail,
+          emailVerified: false,
+        },
+      });
+      this.invalidateAuthIdentityCache(userId);
+    }
+
+    const verificationToken = await this.generateEmailVerificationToken(
+      targetEmail,
+      'email-verify',
+    );
+
+    try {
+      await this.mailService.sendVerificationEmail(targetEmail, verificationToken);
+    } catch {
+      throw new InternalServerErrorException(
+        'Không gửi được email xác thực. Vui lòng thử lại hoặc liên hệ quản trị viên.',
+      );
+    }
+
+    return {
+      message: 'Verification email sent successfully.',
+      email: targetEmail,
     };
   }
 

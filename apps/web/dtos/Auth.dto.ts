@@ -32,6 +32,9 @@ export interface ResetPasswordDto {
 
 export interface UserInfoDto {
     id: string
+    email?: string;
+    emailVerified?: boolean;
+    canAccessRestrictedRoutes?: boolean;
     accountHandle: string;
     roleType: Role;
     requiresPasswordSetup: boolean;
@@ -44,6 +47,9 @@ export interface UserInfoDto {
 export function createGuestUser(): UserInfoDto {
     return {
         id: "",
+        email: "",
+        emailVerified: false,
+        canAccessRestrictedRoutes: false,
         accountHandle: "",
         roleType: Role.guest,
         requiresPasswordSetup: false,

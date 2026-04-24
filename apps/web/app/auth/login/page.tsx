@@ -22,6 +22,10 @@ const ROLE_REDIRECT: Record<string, string> = {
 function resolvePostLoginRedirect(
   session: UserInfoDto,
 ): string {
+  if (session.canAccessRestrictedRoutes === false) {
+    return "/";
+  }
+
   if (session.roleType === "admin") {
     return ROLE_REDIRECT.admin;
   }
@@ -112,6 +116,9 @@ function LoginPageContent() {
 
       let session: UserInfoDto = {
         id: loginResponse.id,
+        email: "",
+        emailVerified: false,
+        canAccessRestrictedRoutes: false,
         accountHandle: loginResponse.accountHandle,
         roleType: loginResponse.roleType,
         requiresPasswordSetup: false,

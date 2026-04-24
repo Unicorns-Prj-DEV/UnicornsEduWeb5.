@@ -65,6 +65,11 @@ export async function verifyEmail(token: string) {
     return response.data;
 }
 
+export async function resendVerificationEmail(dto?: { email?: string }) {
+    const response = await api.post('/auth/resend-verification', dto ?? {});
+    return response.data as { message: string; email: string };
+}
+
 export async function getSession(): Promise<UserInfoDto> {
     const response = await api.get<UserInfoDto>('/auth/session');
     return response.data ?? createGuestUser();
