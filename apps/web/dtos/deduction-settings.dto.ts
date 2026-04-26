@@ -5,7 +5,8 @@ export type StaffRoleType =
   | "customer_care"
   | "lesson_plan"
   | "lesson_plan_head"
-  | "communication";
+  | "communication"
+  | "technical";
 
 export interface TaxDeductionSettingsQuery {
   asOfDate?: string;

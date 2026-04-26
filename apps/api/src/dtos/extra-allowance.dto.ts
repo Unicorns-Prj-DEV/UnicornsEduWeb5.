@@ -7,6 +7,7 @@ import {
   ArrayUnique,
   IsArray,
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -101,11 +102,25 @@ export interface ExtraAllowanceBulkStatusUpdateResult {
   updatedCount: number;
 }
 
-/** Self-service: staff with role `communication` creates their own communication allowance (always pending). */
-export class CreateMyCommunicationExtraAllowanceDto {
+const SELF_MANAGED_EXTRA_ALLOWANCE_ROLES = [
+  StaffRole.communication,
+  StaffRole.technical,
+] as const;
+
+/** Self-service: supported staff roles create their own pending allowance. */
+export class CreateMyStaffExtraAllowanceDto {
   @ApiProperty({ description: 'Client-generated UUID for the new record' })
   @IsUUID()
   id: string;
+
+  @ApiProperty({
+    description: 'Self-managed staff role this allowance belongs to.',
+    enum: SELF_MANAGED_EXTRA_ALLOWANCE_ROLES,
+    example: StaffRole.communication,
+  })
+  @IsEnum(StaffRole)
+  @IsIn(SELF_MANAGED_EXTRA_ALLOWANCE_ROLES)
+  roleType: StaffRole;
 
   @ApiProperty({
     description: 'Month key in format YYYY-MM',
@@ -131,11 +146,20 @@ export class CreateMyCommunicationExtraAllowanceDto {
   note?: string;
 }
 
-/** Self-service: staff with role `communication` may edit their own allowance details, but not payment status. */
-export class UpdateMyCommunicationExtraAllowanceDto extends PartialType(
-  CreateMyCommunicationExtraAllowanceDto,
+/** Self-service: supported staff roles may edit their own allowance details, but not payment status. */
+export class UpdateMyStaffExtraAllowanceDto extends PartialType(
+  CreateMyStaffExtraAllowanceDto,
 ) {
   @ApiProperty({ description: 'Existing extra allowance id' })
   @IsUUID()
   id: string;
+
+  @ApiProperty({
+    description: 'Self-managed staff role this allowance belongs to.',
+    enum: SELF_MANAGED_EXTRA_ALLOWANCE_ROLES,
+    example: StaffRole.communication,
+  })
+  @IsEnum(StaffRole)
+  @IsIn(SELF_MANAGED_EXTRA_ALLOWANCE_ROLES)
+  roleType: StaffRole;
 }

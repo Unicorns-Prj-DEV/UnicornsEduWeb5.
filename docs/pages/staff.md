@@ -2,7 +2,7 @@
 
 ## Route and role
 
-- **Paths:** `/staff`, `/staff/dashboard`, `/staff/profile`, `/staff/notification`, `/staff/users`, `/staff/staffs`, `/staff/staffs/[id]`, `/staff/classes`, `/staff/classes/[id]`, `/staff/students`, `/staff/students/[id]`, `/staff/deductions`, `/staff/costs`, `/staff/history`, `/staff/customer-care-detail`, `/staff/customer-care-detail/[staffId]`, `/staff/assistant-detail`, `/staff/accountant-detail`, `/staff/communication-detail`, `/staff/lesson-plan-detail`, `/staff/lesson-plan-detail/[staffId]`, `/staff/lesson_plan_detail`, `/staff/lesson_plan_detail/[staffId]`, `/staff/lesson-plan-tasks`, `/staff/lesson-plan-tasks/[taskId]`, `/staff/lesson-plan-manage-details`, `/staff/lesson-plans`, `/staff/lesson-plans/tasks/[taskId]`, `/staff/lesson-manage-details`, `/staff/calendar`
+- **Paths:** `/staff`, `/staff/dashboard`, `/staff/profile`, `/staff/notification`, `/staff/users`, `/staff/staffs`, `/staff/staffs/[id]`, `/staff/classes`, `/staff/classes/[id]`, `/staff/students`, `/staff/students/[id]`, `/staff/deductions`, `/staff/costs`, `/staff/history`, `/staff/customer-care-detail`, `/staff/customer-care-detail/[staffId]`, `/staff/assistant-detail`, `/staff/accountant-detail`, `/staff/communication-detail`, `/staff/technical-detail`, `/staff/lesson-plan-detail`, `/staff/lesson-plan-detail/[staffId]`, `/staff/lesson_plan_detail`, `/staff/lesson_plan_detail/[staffId]`, `/staff/lesson-plan-tasks`, `/staff/lesson-plan-tasks/[taskId]`, `/staff/lesson-plan-manage-details`, `/staff/lesson-plans`, `/staff/lesson-plans/tasks/[taskId]`, `/staff/lesson-manage-details`, `/staff/calendar`
 - **Runtime access hiện tại:**
   - mọi gate trong nhóm `/staff` đều resolve bằng `GET /users/me/full`, nên frontend check cả `roleType` lẫn linked `staffInfo` / `staffInfo.roles`
   - `/staff`: tài khoản hiện tại phải có linked `staffInfo`; dashboard luôn có thẻ chung `Thu nhập tháng` từ `GET /users/me/staff-income-summary`, còn các khối còn lại được bật theo `staffInfo.roles` qua `GET /users/me/staff-dashboard`; trợ lí có link “Xem chi tiết” thu nhập trỏ `/staff/staffs/:ownStaffId` thay vì `/staff/profile`
@@ -18,6 +18,7 @@
   - `/staff/assistant-detail`: hồ sơ staff hiện tại có role `assistant`
   - `/staff/accountant-detail`: hồ sơ staff hiện tại có role `accountant`; `staff.assistant` cũng mở được route này khi truyền `?staffId=...` để xem admin-like detail
   - `/staff/communication-detail`: hồ sơ staff hiện tại có role `communication`; `staff.assistant` cũng mở được route này khi truyền `?staffId=...` để xem admin-like detail
+  - `/staff/technical-detail`: hồ sơ staff hiện tại có role `technical`; `staff.assistant` cũng mở được route này khi truyền `?staffId=...` để xem admin-like detail
   - `/staff/lesson-plan-detail` và `/staff/lesson_plan_detail`: hồ sơ staff hiện tại có role `lesson_plan` hoặc `lesson_plan_head`; route gạch dưới là entrypoint mới từ bảng `Công việc khác`, route gạch nối giữ vai trò alias tương thích
   - `/staff/lesson-plan-detail/[staffId]` và `/staff/lesson_plan_detail/[staffId]`: chỉ mở cho `roleType=staff` có role `assistant`
   - `/staff/lesson-plan-tasks`, `/staff/lesson-plan-tasks/[taskId]`, `/staff/lesson-plan-manage-details`: route legacy; hiện redirect về nhóm `/staff/lesson-plans*`
@@ -44,7 +45,7 @@
   - `assistant`: thêm cảnh báo hành động kiểu admin, summary vận hành (`lớp`, `học sinh`, `giáo viên`) và danh sách nhân sự `customer_care` thuộc phạm vi theo dõi kèm `tổng học phí đã học` và `tổng doanh thu đã nạp`
   - `customer_care`: thêm số học sinh mới/nghỉ trong tháng, số học sinh đang chăm sóc, tổng học phí, tổng doanh thu, danh sách học sinh số dư thấp và học sinh nợ tiền
   - `accountant`: thêm danh sách nhân sự còn khoản pending và khối báo cáo tài chính rút gọn cùng nguồn aggregate với admin dashboard
-  - `communication`: hiện chưa có khối riêng ngoài phần thu nhập tháng
+  - `communication` và `technical`: hiện chưa có khối riêng ngoài phần thu nhập tháng
   - **Trợ lí (`staff.assistant`):** sidebar có **Dashboard** (`/staff`), **Cá nhân** → `/staff/staffs/:ownStaffId` (trang chi tiết nhân sự mirror admin), rồi các mục mirror (`User`, `Nhân sự`, …); mục **Nhân sự** không highlight khi đang xem đúng trang của chính mình (tránh trùng với **Cá nhân**)
 - `/staff/notification`
   - là feed chỉ đọc cho staff xem các notification admin đã publish **và match audience hiện tại của staff đó**, sắp xếp mới nhất trước theo `lastPushedAt`
@@ -90,7 +91,7 @@
   - từ bảng `Lịch sử buổi học` trên `/staff/profile`, staff có thể bấm toàn bộ dòng/card buổi học để mở form chỉnh sửa buổi học, cập nhật lại ngày giờ, `coefficient`, ghi chú và điểm danh; header popup chỉnh sửa cũng hiển thị **Học phí** theo policy role như trên và **Trợ cấp gia sư** cho mọi role. Popup này vẫn không cho chỉnh trợ cấp hay học phí
   - nếu actor có role `teacher` hoặc là `admin`, các dòng trong section `Lớp phụ trách` mở sang `/staff/classes/[id]`
   - nếu actor có role `customer_care`, dòng `customer_care` trong section `Công việc khác` mở sang `/staff/customer-care-detail`
-  - các role `assistant`, `accountant`, `communication` mở sang self route để xem chi tiết trợ cấp của chính mình; riêng `communication` có thêm tạo mới (pending) trên `/staff/communication-detail`
+  - các role `assistant`, `accountant`, `communication`, `technical` mở sang self route để xem chi tiết trợ cấp của chính mình; riêng `communication` và `technical` có thêm tạo mới (pending) trên `/staff/communication-detail` và `/staff/technical-detail`
   - các role `lesson_plan` và `lesson_plan_head` mở row tương ứng trong `Công việc khác` sang self detail `/staff/lesson_plan_detail`; sidebar `Giáo Án` vẫn tiếp tục đi vào workspace `/staff/lesson-plans`
 - `/staff/classes/[id]`
   - header lớp: tên + badge workspace; **dòng meta** (trạng thái, loại, gói học phí, trợ cấp, sĩ số, số học sinh, số gia sư, buổi trong tháng/scoped, scales) **chỉ hiển thị** khi actor là `admin`, `accountant`, hoặc `customer_care` (gia sư thuần `teacher` không thấy dòng này); không còn card **Thông tin cơ bản**; không còn đoạn ghi chú mô tả quyền dưới header

@@ -30,6 +30,7 @@ const ACCOUNTANT_ALLOWED_ROUTE_PATTERNS = [
   /^\/admin\/accountant_detail$/,
   /^\/admin\/assistant_detail$/,
   /^\/admin\/communication_detail$/,
+  /^\/admin\/technical_detail$/,
   /^\/admin\/customer_care_detail\/[^/]+$/,
   /^\/admin\/lesson_plan_detail\/[^/]+$/,
 ] as const;

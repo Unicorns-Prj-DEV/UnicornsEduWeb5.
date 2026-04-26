@@ -120,6 +120,7 @@ const STAFF_ROLE_LABELS: Record<string, string> = {
   lesson_plan_head: 'Trưởng giáo án',
   accountant: 'Kế toán',
   communication: 'Truyền thông',
+  technical: 'Kỹ thuật',
   customer_care: 'CSKH',
 };
 
@@ -127,6 +128,7 @@ const EXTRA_ALLOWANCE_BACKED_OTHER_ROLES = new Set<StaffRole>([
   StaffRole.assistant,
   StaffRole.accountant,
   StaffRole.communication,
+  StaffRole.technical,
 ]);
 
 const DEPOSIT_PAYMENT_STATUSES = ['deposit', 'deposite', 'coc', 'cọc'] as const;

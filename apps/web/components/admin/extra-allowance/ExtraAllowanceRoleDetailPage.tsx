@@ -41,7 +41,7 @@ const EMPTY_ALLOWANCES: ExtraAllowanceListItem[] = [];
 
 type SupportedRoleType = Extract<
   ExtraAllowanceRoleType,
-  "assistant" | "communication" | "accountant"
+  "assistant" | "communication" | "technical" | "accountant"
 >;
 
 type RoleTheme = {
@@ -79,6 +79,18 @@ const ROLE_THEMES: Record<SupportedRoleType, RoleTheme> = {
     activeRowClassName:
       "border-error/15 bg-error/5 hover:bg-error/8",
     popupGlowClassName: "bg-error/10",
+  },
+  technical: {
+    listGradientClassName:
+      "bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92),rgba(14,165,233,0.10))]",
+    listGlowTopClassName: "bg-info/12",
+    listGlowBottomClassName: "bg-primary/10",
+    selectionBadgeClassName: "border-info/15 bg-info/8 text-info",
+    activeCardClassName:
+      "border-info/35 bg-info/5 shadow-[0_20px_36px_-26px_rgba(14,165,233,0.40)]",
+    activeRowClassName:
+      "border-info/15 bg-info/5 hover:bg-info/8",
+    popupGlowClassName: "bg-info/10",
   },
   accountant: {
     listGradientClassName:

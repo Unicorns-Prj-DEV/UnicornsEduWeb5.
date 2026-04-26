@@ -25,6 +25,7 @@ const STAFF_ROLE_AUDIENCE_MAP: Record<StaffRole, RegulationAudience> = {
   lesson_plan_head: RegulationAudience.staff_lesson_plan_head,
   accountant: RegulationAudience.staff_accountant,
   communication: RegulationAudience.staff_communication,
+  technical: RegulationAudience.staff_technical,
   customer_care: RegulationAudience.staff_customer_care,
 };
 const REGULATION_AUTHOR_SELECT = {

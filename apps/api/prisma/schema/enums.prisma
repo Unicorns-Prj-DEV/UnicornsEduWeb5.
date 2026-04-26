@@ -18,6 +18,7 @@ enum StaffRole {
   lesson_plan_head
   accountant
   communication
+  technical
   customer_care
   assistant
 }
@@ -95,6 +96,7 @@ enum RegulationAudience {
   staff_lesson_plan_head
   staff_accountant
   staff_communication
+  staff_technical
   staff_customer_care
 }
 

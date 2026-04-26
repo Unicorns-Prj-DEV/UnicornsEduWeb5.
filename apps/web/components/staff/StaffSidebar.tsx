@@ -22,6 +22,7 @@ type MenuVisibility = {
   canAccessLessonPlanWorkspace: boolean;
   isAccountant: boolean;
   isCommunication: boolean;
+  isTechnical: boolean;
 };
 
 type MenuItem = {
@@ -126,6 +127,13 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
       icon: <IconCommunication />,
       isActive: (pathname) => pathname.startsWith("/staff/communication-detail"),
       isVisible: ({ isCommunication }) => isCommunication,
+    },
+    {
+      href: "/staff/technical-detail",
+      label: "Kỹ thuật",
+      icon: <IconCommunication />,
+      isActive: (pathname) => pathname.startsWith("/staff/technical-detail"),
+      isVisible: ({ isTechnical }) => isTechnical,
     },
     {
       href: "/staff/notes-subject",
@@ -415,6 +423,7 @@ export default function StaffSidebar() {
   const canAccessLessonPlanWorkspace = lessonWorkspace.canAccessWorkspace;
   const isAccountant = staffRoles.includes("accountant");
   const isCommunication = staffRoles.includes("communication");
+  const isTechnical = staffRoles.includes("technical");
   const menuItems = (isAssistant
     ? buildAssistantMenuItems(fullProfile?.staffInfo?.id ?? "")
     : DEFAULT_MENU_ITEMS
@@ -426,6 +435,7 @@ export default function StaffSidebar() {
       canAccessLessonPlanWorkspace,
       isAccountant,
       isCommunication,
+      isTechnical,
     }),
   );
   const activeMenuHref = resolveActiveMenuHref(pathname, menuItems);

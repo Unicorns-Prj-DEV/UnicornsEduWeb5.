@@ -38,6 +38,7 @@ const STAFF_ROLES: StaffRole[] = [
   "lesson_plan_head",
   "accountant",
   "communication",
+  "technical",
   "customer_care",
 ];
 

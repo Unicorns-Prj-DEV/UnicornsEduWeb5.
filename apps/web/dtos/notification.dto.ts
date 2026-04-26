@@ -8,6 +8,7 @@ export type NotificationTargetStaffRole =
   | "lesson_plan_head"
   | "accountant"
   | "communication"
+  | "technical"
   | "customer_care"
   | "assistant";
 

@@ -15,11 +15,11 @@ import type {
 } from '@/dtos/bonus.dto';
 import type { StaffDashboardDto } from '@/dtos/dashboard.dto';
 import type {
-    CreateMyCommunicationExtraAllowancePayload,
+    CreateMyStaffExtraAllowancePayload,
     ExtraAllowanceListResponse,
     ExtraAllowanceRoleType,
     ExtraAllowanceStatus,
-    UpdateMyCommunicationExtraAllowancePayload,
+    UpdateMyStaffExtraAllowancePayload,
 } from '@/dtos/extra-allowance.dto';
 import type { LessonOutputStaffStatsResponse } from '@/dtos/lesson.dto';
 import type {
@@ -316,17 +316,17 @@ export async function getMyStaffExtraAllowances(params: {
     };
 }
 
-/** Self-service: staff with role `communication` creates a pending extra allowance for themselves. */
-export async function createMyCommunicationExtraAllowance(
-    dto: CreateMyCommunicationExtraAllowancePayload,
+/** Self-service: supported staff roles create a pending extra allowance for themselves. */
+export async function createMyStaffExtraAllowance(
+    dto: CreateMyStaffExtraAllowancePayload,
 ): Promise<unknown> {
     const response = await api.post('/users/me/staff-extra-allowances', dto);
     return response.data;
 }
 
-/** Self-service: staff with role `communication` updates their own allowance details. */
-export async function updateMyCommunicationExtraAllowance(
-    dto: UpdateMyCommunicationExtraAllowancePayload,
+/** Self-service: supported staff roles update their own allowance details. */
+export async function updateMyStaffExtraAllowance(
+    dto: UpdateMyStaffExtraAllowancePayload,
 ): Promise<unknown> {
     const response = await api.patch('/users/me/staff-extra-allowances', dto);
     return response.data;

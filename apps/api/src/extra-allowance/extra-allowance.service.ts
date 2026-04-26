@@ -13,9 +13,9 @@ import {
 import {
   ExtraAllowanceBulkStatusUpdateResult,
   CreateExtraAllowanceDto,
-  CreateMyCommunicationExtraAllowanceDto,
-  UpdateMyCommunicationExtraAllowanceDto,
+  CreateMyStaffExtraAllowanceDto,
   UpdateExtraAllowanceDto,
+  UpdateMyStaffExtraAllowanceDto,
 } from '../dtos/extra-allowance.dto';
 import { PaginationQueryDto } from '../dtos/pagination.dto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -27,6 +27,11 @@ import { getUserFullNameFromParts } from '../common/user-name.util';
 
 @Injectable()
 export class ExtraAllowanceService {
+  private static readonly SELF_MANAGED_EXTRA_ALLOWANCE_ROLES = new Set<StaffRole>([
+    StaffRole.communication,
+    StaffRole.technical,
+  ]);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly actionHistoryService: ActionHistoryService,
@@ -235,19 +240,40 @@ export class ExtraAllowanceService {
     return this.withDerivedStaffFullName(allowance);
   }
 
+  private getSelfManagedRoleLabel(roleType: StaffRole) {
+    switch (roleType) {
+      case StaffRole.communication:
+        return 'Truyền thông';
+      case StaffRole.technical:
+        return 'Kỹ thuật';
+      default:
+        return roleType;
+    }
+  }
+
+  private ensureSelfManagedRole(roleType: StaffRole) {
+    if (
+      !ExtraAllowanceService.SELF_MANAGED_EXTRA_ALLOWANCE_ROLES.has(roleType)
+    ) {
+      throw new ForbiddenException('Role này không được tự quản lý trợ cấp.');
+    }
+  }
+
   /**
-   * Staff self-service: only users with linked staff that includes `communication`
-   * may create an extra allowance for themselves, role fixed to communication, status pending.
+   * Staff self-service: only supported linked staff roles may create their own
+   * pending extra allowance.
    */
-  async createMyCommunicationExtraAllowance(
+  async createMyStaffExtraAllowance(
     user: { id: string; email: string; roleType: UserRole },
-    data: CreateMyCommunicationExtraAllowanceDto,
+    data: CreateMyStaffExtraAllowanceDto,
   ) {
     if (user.roleType !== UserRole.staff) {
       throw new ForbiddenException(
-        'Chỉ tài khoản nhân sự mới được tự tạo trợ cấp truyền thông.',
+        'Chỉ tài khoản nhân sự mới được tự tạo trợ cấp này.',
       );
     }
+
+    this.ensureSelfManagedRole(data.roleType);
 
     const staff = await this.prisma.staffInfo.findFirst({
       where: { userId: user.id },
@@ -258,9 +284,11 @@ export class ExtraAllowanceService {
       throw new BadRequestException('User has no linked staff record');
     }
 
-    if (!staff.roles.includes(StaffRole.communication)) {
+    if (!staff.roles.includes(data.roleType)) {
       throw new ForbiddenException(
-        'Chỉ nhân sự có role Truyền thông mới được tự thêm trợ cấp này.',
+        `Chỉ nhân sự có role ${this.getSelfManagedRoleLabel(
+          data.roleType,
+        )} mới được tự thêm trợ cấp này.`,
       );
     }
 
@@ -272,7 +300,7 @@ export class ExtraAllowanceService {
         amount: data.amount ?? 0,
         status: PaymentStatus.pending,
         note: data.note,
-        roleType: StaffRole.communication,
+        roleType: data.roleType,
       },
       {
         userId: user.id,
@@ -282,15 +310,17 @@ export class ExtraAllowanceService {
     );
   }
 
-  async updateMyCommunicationExtraAllowance(
+  async updateMyStaffExtraAllowance(
     user: { id: string; email: string; roleType: UserRole },
-    data: UpdateMyCommunicationExtraAllowanceDto,
+    data: UpdateMyStaffExtraAllowanceDto,
   ) {
     if (user.roleType !== UserRole.staff) {
       throw new ForbiddenException(
-        'Chỉ tài khoản nhân sự mới được tự chỉnh trợ cấp truyền thông.',
+        'Chỉ tài khoản nhân sự mới được tự chỉnh trợ cấp này.',
       );
     }
+
+    this.ensureSelfManagedRole(data.roleType);
 
     const staff = await this.prisma.staffInfo.findFirst({
       where: { userId: user.id },
@@ -301,9 +331,11 @@ export class ExtraAllowanceService {
       throw new BadRequestException('User has no linked staff record');
     }
 
-    if (!staff.roles.includes(StaffRole.communication)) {
+    if (!staff.roles.includes(data.roleType)) {
       throw new ForbiddenException(
-        'Chỉ nhân sự có role Truyền thông mới được tự chỉnh trợ cấp này.',
+        `Chỉ nhân sự có role ${this.getSelfManagedRoleLabel(
+          data.roleType,
+        )} mới được tự chỉnh trợ cấp này.`,
       );
     }
 
@@ -312,7 +344,7 @@ export class ExtraAllowanceService {
     if (
       !existingAllowance ||
       existingAllowance.staffId !== staff.id ||
-      existingAllowance.roleType !== StaffRole.communication
+      existingAllowance.roleType !== data.roleType
     ) {
       throw new NotFoundException('Extra allowance not found');
     }

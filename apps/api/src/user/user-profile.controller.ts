@@ -48,8 +48,8 @@ import {
 } from 'src/auth/decorators/current-user.decorator';
 import { CreateMyBonusDto, UpdateMyBonusDto } from 'src/dtos/bonus.dto';
 import {
-  CreateMyCommunicationExtraAllowanceDto,
-  UpdateMyCommunicationExtraAllowanceDto,
+  CreateMyStaffExtraAllowanceDto,
+  UpdateMyStaffExtraAllowanceDto,
 } from 'src/dtos/extra-allowance.dto';
 import { PaginationQueryDto } from 'src/dtos/pagination.dto';
 import {
@@ -454,11 +454,11 @@ export class UserProfileController {
   @Post('staff-extra-allowances')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
-    summary: 'Create communication extra allowance (self)',
+    summary: 'Create staff extra allowance (self)',
     description:
-      'Staff with role `communication` may create one pending extra allowance for themselves per request; amount and month are supplied; admin confirms payment separately.',
+      'Staff with self-managed extra-allowance roles may create one pending extra allowance for themselves per request; amount, month, and role type are supplied; admin confirms payment separately.',
   })
-  @ApiBody({ type: CreateMyCommunicationExtraAllowanceDto })
+  @ApiBody({ type: CreateMyStaffExtraAllowanceDto })
   @ApiResponse({
     status: 201,
     description: 'Extra allowance created in pending status.',
@@ -470,25 +470,22 @@ export class UserProfileController {
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   @ApiResponse({
     status: 403,
-    description: 'Not staff or staff lacks communication role.',
+    description: 'Not staff or staff lacks the requested self-managed role.',
   })
-  async createMyCommunicationExtraAllowance(
+  async createMyStaffExtraAllowance(
     @CurrentUser() user: JwtPayload,
-    @Body() body: CreateMyCommunicationExtraAllowanceDto,
+    @Body() body: CreateMyStaffExtraAllowanceDto,
   ) {
-    return this.extraAllowanceService.createMyCommunicationExtraAllowance(
-      user,
-      body,
-    );
+    return this.extraAllowanceService.createMyStaffExtraAllowance(user, body);
   }
 
   @Patch('staff-extra-allowances')
   @ApiOperation({
-    summary: 'Update communication extra allowance (self)',
+    summary: 'Update staff extra allowance (self)',
     description:
-      'Staff with role `communication` may update month, amount, and note of their own communication allowance. Payment status remains admin-managed.',
+      'Staff with self-managed extra-allowance roles may update month, amount, and note of their own allowance. Payment status remains admin-managed.',
   })
-  @ApiBody({ type: UpdateMyCommunicationExtraAllowanceDto })
+  @ApiBody({ type: UpdateMyStaffExtraAllowanceDto })
   @ApiResponse({
     status: 200,
     description: 'Extra allowance updated for current staff.',
@@ -500,20 +497,17 @@ export class UserProfileController {
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   @ApiResponse({
     status: 403,
-    description: 'Not staff or staff lacks communication role.',
+    description: 'Not staff or staff lacks the requested self-managed role.',
   })
   @ApiResponse({
     status: 404,
     description: 'Extra allowance not found for current staff.',
   })
-  async updateMyCommunicationExtraAllowance(
+  async updateMyStaffExtraAllowance(
     @CurrentUser() user: JwtPayload,
-    @Body() body: UpdateMyCommunicationExtraAllowanceDto,
+    @Body() body: UpdateMyStaffExtraAllowanceDto,
   ) {
-    return this.extraAllowanceService.updateMyCommunicationExtraAllowance(
-      user,
-      body,
-    );
+    return this.extraAllowanceService.updateMyStaffExtraAllowance(user, body);
   }
 
   @Get('staff-lesson-output-stats')
