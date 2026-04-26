@@ -46,6 +46,75 @@ describe('ExtraAllowanceService', () => {
     );
   });
 
+  it('creates admin extra allowances without requiring a client-provided id', async () => {
+    mockPrisma.extraAllowance.create.mockResolvedValue({
+      id: 'allowance-db-1',
+      staffId: 'staff-1',
+      amount: 200000,
+      status: PaymentStatus.pending,
+      note: 'Admin tạo trợ cấp',
+      month: '2026-04',
+      roleType: StaffRole.assistant,
+      taxDeductionRatePercent: 7.5,
+    });
+    mockPrisma.extraAllowance.findUnique.mockResolvedValue({
+      id: 'allowance-db-1',
+      staffId: 'staff-1',
+      amount: 200000,
+      status: PaymentStatus.pending,
+      note: 'Admin tạo trợ cấp',
+      month: '2026-04',
+      roleType: StaffRole.assistant,
+      taxDeductionRatePercent: 7.5,
+      staff: {
+        id: 'staff-1',
+        fullName: 'Assistant A',
+        roles: [StaffRole.assistant],
+        status: 'active',
+      },
+    });
+
+    const result = await service.createExtraAllowance(
+      {
+        staffId: 'staff-1',
+        month: '2026-04',
+        amount: 200000,
+        status: PaymentStatus.pending,
+        note: 'Admin tạo trợ cấp',
+        roleType: StaffRole.assistant,
+      },
+      {
+        userId: 'admin-1',
+        userEmail: 'admin@example.com',
+        roleType: UserRole.admin,
+      },
+    );
+
+    const adminCreateCall = mockPrisma.extraAllowance.create.mock.calls[0]?.[0];
+    expect(adminCreateCall?.data).not.toHaveProperty('id');
+    expect(adminCreateCall).toEqual({
+      data: {
+        staffId: 'staff-1',
+        month: '2026-04',
+        amount: 200000,
+        status: PaymentStatus.pending,
+        note: 'Admin tạo trợ cấp',
+        roleType: StaffRole.assistant,
+        taxDeductionRatePercent: 7.5,
+      },
+    });
+    expect(result).toEqual({
+      id: 'allowance-db-1',
+      staffId: 'staff-1',
+      amount: 200000,
+      status: PaymentStatus.pending,
+      note: 'Admin tạo trợ cấp',
+      month: '2026-04',
+      roleType: StaffRole.assistant,
+      taxDeductionRatePercent: 7.5,
+    });
+  });
+
   it('allows technical staff to create their own pending extra allowance with role-aware tax snapshot', async () => {
     mockPrisma.staffInfo.findFirst.mockResolvedValue({
       id: 'staff-1',
@@ -85,7 +154,6 @@ describe('ExtraAllowanceService', () => {
         roleType: UserRole.staff,
       },
       {
-        id: 'allowance-1',
         roleType: StaffRole.technical,
         month: '2026-04',
         amount: 175000,
@@ -93,9 +161,10 @@ describe('ExtraAllowanceService', () => {
       },
     );
 
-    expect(mockPrisma.extraAllowance.create).toHaveBeenCalledWith({
+    const selfCreateCall = mockPrisma.extraAllowance.create.mock.calls[0]?.[0];
+    expect(selfCreateCall?.data).not.toHaveProperty('id');
+    expect(selfCreateCall).toEqual({
       data: {
-        id: 'allowance-1',
         staffId: 'staff-1',
         month: '2026-04',
         amount: 175000,
@@ -242,7 +311,6 @@ describe('ExtraAllowanceService', () => {
           roleType: UserRole.staff,
         },
         {
-          id: 'allowance-2',
           roleType: StaffRole.technical,
           month: '2026-04',
         },
@@ -284,6 +352,14 @@ describe('ExtraAllowanceService', () => {
           amount: 250000,
         },
       ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('rejects admin updates when id is missing', async () => {
+    await expect(
+      service.updateExtraAllowance({
+        month: '2026-04',
+      } as never),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

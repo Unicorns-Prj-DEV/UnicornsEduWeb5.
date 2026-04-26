@@ -44,7 +44,6 @@ export type SelfManagedExtraAllowanceRoleType = Extract<
 
 /** POST /users/me/staff-extra-allowances — self-service for communication/technical */
 export interface CreateMyStaffExtraAllowancePayload {
-  id: string;
   roleType: SelfManagedExtraAllowanceRoleType;
   month: string;
   amount?: number;
@@ -61,7 +60,6 @@ export interface UpdateMyStaffExtraAllowancePayload {
 }
 
 export interface CreateExtraAllowancePayload {
-  id: string;
   staffId: string;
   month: string;
   amount?: number;

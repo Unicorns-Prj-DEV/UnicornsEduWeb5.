@@ -282,8 +282,8 @@
   - `PATCH /users/me/staff-bonuses`
   - `GET /users/me/staff-sessions?month=&year=`
   - `GET /users/me/staff-extra-allowances?page=&limit=&year=&month=&roleType=&status=`
-  - `POST /users/me/staff-extra-allowances` — staff có role `communication` tự tạo khoản trợ cấp truyền thông cho chính mình (body: `id` UUID client, `month` YYYY-MM, optional `amount`, `note`; luôn `pending`)
-  - `PATCH /users/me/staff-extra-allowances` — staff có role `communication` tự chỉnh khoản trợ cấp truyền thông của chính mình (body: `id`, optional `month`, `amount`, `note`; không đổi `payment status`)
+  - `POST /users/me/staff-extra-allowances` — staff có role `communication` hoặc `technical` tự tạo khoản trợ cấp của chính mình (body: `roleType`, `month` YYYY-MM, optional `amount`, `note`; luôn `pending`, `id` do backend tự sinh)
+  - `PATCH /users/me/staff-extra-allowances` — staff có role `communication` hoặc `technical` tự chỉnh khoản trợ cấp của chính mình (body: `id`, `roleType`, optional `month`, `amount`, `note`; không đổi `payment status`)
   - `GET /users/me/staff-lesson-output-stats?days=`
   - `GET /lesson-overview?resourcePage=&resourceLimit=&taskPage=&taskLimit=`
   - `GET /lesson-work`

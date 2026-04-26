@@ -19,10 +19,6 @@ import {
 const MONTH_KEY_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 export class CreateExtraAllowanceDto {
-  @ApiProperty({ description: 'Extra allowance id' })
-  @IsUUID()
-  id: string;
-
   @ApiProperty({ description: 'Staff id' })
   @IsUUID()
   staffId: string;
@@ -109,10 +105,6 @@ const SELF_MANAGED_EXTRA_ALLOWANCE_ROLES = [
 
 /** Self-service: supported staff roles create their own pending allowance. */
 export class CreateMyStaffExtraAllowanceDto {
-  @ApiProperty({ description: 'Client-generated UUID for the new record' })
-  @IsUUID()
-  id: string;
-
   @ApiProperty({
     description: 'Self-managed staff role this allowance belongs to.',
     enum: SELF_MANAGED_EXTRA_ALLOWANCE_ROLES,

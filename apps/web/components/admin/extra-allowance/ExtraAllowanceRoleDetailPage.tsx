@@ -13,7 +13,6 @@ import {
   resolveAdminLikeRouteBase,
 } from "@/lib/admin-shell-paths";
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
-import { createClientId } from "@/lib/client-id";
 import * as staffApi from "@/lib/apis/staff.api";
 import ExtraAllowanceFormPopup, {
   type ExtraAllowanceFormSubmitPayload,
@@ -471,7 +470,6 @@ export default function ExtraAllowanceRoleDetailPage({
 
     try {
       await createMutation.mutateAsync({
-        id: createClientId(),
         staffId: payload.staffId,
         month: payload.month,
         amount: payload.amount,

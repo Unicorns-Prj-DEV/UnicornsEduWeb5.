@@ -272,7 +272,7 @@
   - API mới:
     - `GET /extra-allowance?page=&limit=&search=&year=&month=&roleType=&staffId=&status=` trả `{ data, meta }`; filter tháng dùng trực tiếp cột indexed `month = YYYY-MM`, không ép filter qua FE.
     - `GET /extra-allowance/:id`
-    - `POST /extra-allowance` (payload bắt buộc `id`, `staffId`, `month`, `roleType`)
+    - `POST /extra-allowance` (payload bắt buộc `staffId`, `month`, `roleType`; `id` do backend tự sinh)
     - `PATCH /extra-allowance` (payload bắt buộc `id`)
     - `PATCH /extra-allowance/status/bulk` với payload `{ allowanceIds, status }`, trả `{ requestedCount, updatedCount }`
     - `DELETE /extra-allowance/:id`

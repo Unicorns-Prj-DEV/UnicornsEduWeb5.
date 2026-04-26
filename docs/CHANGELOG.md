@@ -22,6 +22,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 ## [Unreleased]
 
 ### Fixed
+- BE/FE extra allowance create flow: `POST /extra-allowance` và `POST /users/me/staff-extra-allowances` không còn yêu cầu FE gửi `id`; backend để Prisma/DB tự sinh UUID, trong khi các flow `PATCH` tương ứng vẫn giữ `id` bắt buộc. Admin detail page và self-service `communication`/`technical` đã bỏ `createClientId()` khi tạo trợ cấp mới.
 - BE/FE calendar exam schedules: feed `/admin/calendar/events` và `/calendar/staff/events` không còn làm rơi lịch thi chỉ vì `student_info.status = inactive`; miễn học sinh còn gắn với lớp `running` thì event `exam` vẫn hiển thị trên calendar. Dropdown filter học sinh của calendar cũng đổi sang cùng tiêu chí này.
 - FE: `ThemeProvider` không còn đọc `localStorage` trong `useState` initializer — tránh hydration mismatch (logo `BrandLogo` / `next/image` khác `src` và kích thước giữa server và client khi user đã lưu theme tối hoặc pink).
 - FE `/auth/login`: toast lỗi hiển thị message từ Nest khi **400** / **401** / **429**; ô mật khẩu có `minLength={6}` + placeholder gợi ý để khớp validation `POST /auth/login` (tránh 400 chỉ vì mật khẩu quá ngắn).

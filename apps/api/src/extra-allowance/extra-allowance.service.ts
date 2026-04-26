@@ -294,7 +294,6 @@ export class ExtraAllowanceService {
 
     return this.createExtraAllowance(
       {
-        id: data.id,
         staffId: staff.id,
         month: data.month,
         amount: data.amount ?? 0,
@@ -376,7 +375,6 @@ export class ExtraAllowanceService {
       });
       const createdAllowance = await tx.extraAllowance.create({
         data: {
-          id: data.id,
           staffId: data.staffId,
           month: data.month,
           amount: data.amount ?? 0,

@@ -29,7 +29,6 @@ import {
   getMyStaffDetail,
   updateMyStaffExtraAllowance,
 } from "@/lib/apis/auth.api";
-import { createClientId } from "@/lib/client-id";
 
 const MAX_VISIBLE_ALLOWANCES = 20;
 
@@ -243,7 +242,6 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
       }
 
       await createMyStaffExtraAllowance({
-        id: createClientId(),
         roleType: selfManagedRoleType,
         month: payload.month,
         amount: payload.amount,
