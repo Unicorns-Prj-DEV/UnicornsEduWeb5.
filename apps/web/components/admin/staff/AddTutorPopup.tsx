@@ -41,6 +41,7 @@ const STAFF_ROLE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "lesson_plan_head", label: "Trưởng giáo án" },
   { value: "accountant", label: "Kế toán" },
   { value: "communication", label: "Truyền thông" },
+  { value: "technical", label: "Kỹ thuật" },
   { value: "customer_care", label: "CSKH" },
 ];
 

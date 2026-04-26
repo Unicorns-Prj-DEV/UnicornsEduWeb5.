@@ -10,6 +10,7 @@ export type StaffRole =
   | "lesson_plan_head"
   | "accountant"
   | "communication"
+  | "technical"
   | "customer_care";
 
 export interface CreateUserPayload {

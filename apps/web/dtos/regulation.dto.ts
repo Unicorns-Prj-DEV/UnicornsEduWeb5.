@@ -8,6 +8,7 @@ export type RegulationAudience =
   | "staff_lesson_plan_head"
   | "staff_accountant"
   | "staff_communication"
+  | "staff_technical"
   | "staff_customer_care";
 
 export interface RegulationAuthor {

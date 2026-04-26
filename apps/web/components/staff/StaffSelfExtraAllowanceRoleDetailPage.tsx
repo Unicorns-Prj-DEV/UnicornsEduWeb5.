@@ -19,14 +19,15 @@ import type {
   ExtraAllowanceListResponse,
   ExtraAllowanceRoleType,
   ExtraAllowanceStatus,
+  SelfManagedExtraAllowanceRoleType,
 } from "@/dtos/extra-allowance.dto";
 import type { StaffOption } from "@/dtos/staff.dto";
 import { resolveCanonicalUserName } from "@/dtos/user-name.dto";
 import {
-  createMyCommunicationExtraAllowance,
+  createMyStaffExtraAllowance,
   getMyStaffExtraAllowances,
   getMyStaffDetail,
-  updateMyCommunicationExtraAllowance,
+  updateMyStaffExtraAllowance,
 } from "@/lib/apis/auth.api";
 import { createClientId } from "@/lib/client-id";
 
@@ -34,7 +35,7 @@ const MAX_VISIBLE_ALLOWANCES = 20;
 
 type SupportedRoleType = Extract<
   ExtraAllowanceRoleType,
-  "assistant" | "communication" | "accountant"
+  "assistant" | "communication" | "technical" | "accountant"
 >;
 
 type RoleTheme = {
@@ -54,6 +55,12 @@ const ROLE_THEMES: Record<SupportedRoleType, RoleTheme> = {
     listGradientClassName:
       "bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92),rgba(239,68,68,0.09))]",
     listGlowTopClassName: "bg-error/12",
+    listGlowBottomClassName: "bg-primary/10",
+  },
+  technical: {
+    listGradientClassName:
+      "bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92),rgba(14,165,233,0.10))]",
+    listGlowTopClassName: "bg-info/12",
     listGlowBottomClassName: "bg-primary/10",
   },
   accountant: {
@@ -159,14 +166,17 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
   allowCreate = false,
 }: {
   roleType: SupportedRoleType;
-  /** Chỉ dùng cho Truyền thông: tự thêm khoản trợ cấp (pending), backend kiểm tra role. */
+  /** Cho các role self-service được backend cho phép tự thêm trợ cấp pending. */
   allowCreate?: boolean;
 }) {
   const router = useRouter();
   const theme = ROLE_THEMES[roleType];
   const roleLabel = getExtraAllowanceRoleLabel(roleType);
-  const canSelfCreateAllowance = Boolean(allowCreate) && roleType === "communication";
-  const canSelfEditAllowance = roleType === "communication";
+  const canSelfCreateAllowance = Boolean(allowCreate);
+  const canSelfEditAllowance =
+    roleType === "communication" || roleType === "technical";
+  const selfManagedRoleType: SelfManagedExtraAllowanceRoleType | null =
+    roleType === "communication" || roleType === "technical" ? roleType : null;
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [createFormKey, setCreateFormKey] = useState(0);
@@ -191,11 +201,11 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
       roles: Array.isArray(meStaff.roles) ? meStaff.roles : [],
     }
     : null;
-  const lockedCommunicationContext = lockedStaffOption
+  const lockedRoleContext = lockedStaffOption
     ? {
-      staff: lockedStaffOption,
-      roleType: "communication" as const,
-    }
+        staff: lockedStaffOption,
+        roleType,
+      }
     : null;
   const editPopupInitialData: ExtraAllowanceBaseFields | null =
     editingAllowance && lockedStaffOption
@@ -205,7 +215,7 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
         amount: editingAllowance.amount ?? 0,
         status: editingAllowance.status ?? "pending",
         note: editingAllowance.note ?? "",
-        roleType: "communication",
+        roleType,
         staff: {
           id: lockedStaffOption.id,
           fullName: lockedStaffOption.fullName,
@@ -228,8 +238,13 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
 
   const createMutation = useMutation({
     mutationFn: async (payload: ExtraAllowanceFormSubmitPayload) => {
-      await createMyCommunicationExtraAllowance({
+      if (!selfManagedRoleType) {
+        throw new Error("Role này không hỗ trợ tự tạo trợ cấp.");
+      }
+
+      await createMyStaffExtraAllowance({
         id: createClientId(),
+        roleType: selfManagedRoleType,
         month: payload.month,
         amount: payload.amount,
         note: payload.note,
@@ -252,8 +267,13 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
       id: string;
       form: ExtraAllowanceFormSubmitPayload;
     }) => {
-      await updateMyCommunicationExtraAllowance({
+      if (!selfManagedRoleType) {
+        throw new Error("Role này không hỗ trợ tự chỉnh trợ cấp.");
+      }
+
+      await updateMyStaffExtraAllowance({
         id: payload.id,
+        roleType: selfManagedRoleType,
         month: payload.form.month,
         amount: payload.form.amount,
         note: payload.form.note,
@@ -302,8 +322,8 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
     (allowance) => allowance.status === "pending",
   ).length;
   const totalAvailable = data?.meta.total ?? totalAllowances;
-  const canManageOwnCommunicationAllowances = Boolean(
-    canSelfEditAllowance && lockedCommunicationContext,
+  const canManageOwnAllowances = Boolean(
+    canSelfEditAllowance && lockedRoleContext,
   );
   const visibilityNote =
     totalAvailable > totalAllowances
@@ -323,7 +343,7 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
 
   const openEditAllowance = (allowance: ExtraAllowanceListItem) => {
     if (
-      !canManageOwnCommunicationAllowances ||
+      !canManageOwnAllowances ||
       updateMutation.isPending ||
       createMutation.isPending
     ) {
@@ -452,7 +472,7 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
                   <span className="inline-flex rounded-full border border-border-default bg-bg-secondary px-2.5 py-1 text-xs font-semibold text-text-secondary">
                     Chỉ xem dữ liệu của bạn
                   </span>
-                  {canManageOwnCommunicationAllowances ? (
+                  {canManageOwnAllowances ? (
                     <span className="inline-flex rounded-full border border-error/20 bg-error/8 px-2.5 py-1 text-xs font-semibold text-error">
                       Chạm vào khoản để chỉnh sửa
                     </span>
@@ -518,7 +538,7 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
                 <>
                   <div className="mt-5 space-y-3 lg:hidden">
                     {allowances.map((allowance) => {
-                      const isInteractive = canManageOwnCommunicationAllowances;
+                      const isInteractive = canManageOwnAllowances;
 
                       return (
                         <article
@@ -606,7 +626,7 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
                         </thead>
                         <tbody>
                           {allowances.map((allowance) => {
-                            const isInteractive = canManageOwnCommunicationAllowances;
+                            const isInteractive = canManageOwnAllowances;
 
                             return (
                               <tr
@@ -670,7 +690,7 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
               open={createOpen}
               mode="create"
               onClose={() => setCreateOpen(false)}
-              lockedContext={lockedCommunicationContext}
+              lockedContext={lockedRoleContext}
               lockStatusToPending
               isSubmitting={createMutation.isPending}
               onSubmit={async (payload) => {
@@ -681,7 +701,7 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
 
           {editOpen &&
             editingAllowance &&
-            lockedCommunicationContext &&
+            lockedRoleContext &&
             editPopupInitialData ? (
             <ExtraAllowanceFormPopup
               key={`self-extra-allowance-edit-${editingAllowance.id}-${editFormKey}`}
@@ -689,7 +709,7 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
               mode="edit"
               onClose={closeEditPopup}
               initialData={editPopupInitialData}
-              lockedContext={lockedCommunicationContext}
+              lockedContext={lockedRoleContext}
               lockedStatus={editingAllowance.status ?? "pending"}
               isSubmitting={updateMutation.isPending}
               onSubmit={async (payload) => {

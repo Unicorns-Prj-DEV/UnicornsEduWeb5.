@@ -37,17 +37,24 @@ export interface ExtraAllowanceListItem extends ExtraAllowanceBaseFields {
 
 export type ExtraAllowanceDetailResponse = ExtraAllowanceListItem;
 
-/** POST /users/me/staff-extra-allowances — communication role self-service */
-export interface CreateMyCommunicationExtraAllowancePayload {
+export type SelfManagedExtraAllowanceRoleType = Extract<
+  ExtraAllowanceRoleType,
+  "communication" | "technical"
+>;
+
+/** POST /users/me/staff-extra-allowances — self-service for communication/technical */
+export interface CreateMyStaffExtraAllowancePayload {
   id: string;
+  roleType: SelfManagedExtraAllowanceRoleType;
   month: string;
   amount?: number;
   note?: string;
 }
 
-/** PATCH /users/me/staff-extra-allowances — communication role self-service */
-export interface UpdateMyCommunicationExtraAllowancePayload {
+/** PATCH /users/me/staff-extra-allowances — self-service for communication/technical */
+export interface UpdateMyStaffExtraAllowancePayload {
   id: string;
+  roleType: SelfManagedExtraAllowanceRoleType;
   month?: string;
   amount?: number;
   note?: string;

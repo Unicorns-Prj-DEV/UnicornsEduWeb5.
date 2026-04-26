@@ -17,6 +17,7 @@ export type LessonStaffRole =
   | "lesson_plan_head"
   | "accountant"
   | "communication"
+  | "technical"
   | "customer_care";
 
 export interface LessonOverviewSummary {

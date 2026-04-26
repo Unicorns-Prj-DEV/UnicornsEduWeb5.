@@ -644,6 +644,113 @@ describe('StaffService', () => {
     ]);
   });
 
+  it('aggregates technical allowances as tax-only role without operating deductions and keeps communication on the same extra-allowance flow', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      roles: [StaffRole.technical, StaffRole.communication],
+      classTeachers: [],
+    });
+    mockEmptyTeacherIncome();
+    mockPrisma.bonus.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    mockPrisma.extraAllowance.findMany
+      .mockResolvedValueOnce([
+        {
+          roleType: StaffRole.technical,
+          status: PaymentStatus.paid,
+          amount: 100,
+          taxDeductionRatePercent: 10,
+        },
+        {
+          roleType: StaffRole.technical,
+          status: PaymentStatus.pending,
+          amount: 50,
+          taxDeductionRatePercent: 10,
+        },
+        {
+          roleType: StaffRole.communication,
+          status: PaymentStatus.pending,
+          amount: 100,
+          taxDeductionRatePercent: 5,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          roleType: StaffRole.technical,
+          status: PaymentStatus.paid,
+          amount: 100,
+          taxDeductionRatePercent: 10,
+        },
+        {
+          roleType: StaffRole.technical,
+          status: PaymentStatus.pending,
+          amount: 50,
+          taxDeductionRatePercent: 10,
+        },
+        {
+          roleType: StaffRole.communication,
+          status: PaymentStatus.pending,
+          amount: 100,
+          taxDeductionRatePercent: 5,
+        },
+        {
+          roleType: StaffRole.technical,
+          status: PaymentStatus.paid,
+          amount: 20,
+          taxDeductionRatePercent: 10,
+        },
+        {
+          roleType: StaffRole.communication,
+          status: PaymentStatus.paid,
+          amount: 20,
+          taxDeductionRatePercent: 5,
+        },
+      ]);
+
+    const result = await service.getIncomeSummary('staff-1', {
+      month: '03',
+      year: '2026',
+      days: 14,
+    });
+
+    expect(result.monthlyGrossTotals).toEqual({
+      total: 250,
+      paid: 100,
+      unpaid: 150,
+    });
+    expect(result.monthlyTaxTotals).toEqual({
+      total: 20,
+      paid: 10,
+      unpaid: 10,
+    });
+    expect(result.monthlyOperatingDeductionTotals).toEqual({
+      total: 0,
+      paid: 0,
+      unpaid: 0,
+    });
+    expect(result.monthlyIncomeTotals).toEqual({
+      total: 230,
+      paid: 90,
+      unpaid: 140,
+    });
+    expect(result.yearIncomeTotal).toBe(267);
+    expect(result.otherRoleSummaries).toEqual([
+      {
+        role: StaffRole.technical,
+        label: 'Kỹ thuật',
+        total: 135,
+        paid: 90,
+        unpaid: 45,
+      },
+      {
+        role: StaffRole.communication,
+        label: 'Truyền thông',
+        total: 95,
+        paid: 0,
+        unpaid: 95,
+      },
+    ]);
+  });
+
   it('includes assistant 3% tuition share in income summary for assistant role', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-1',

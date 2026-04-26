@@ -373,7 +373,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 - `UserRole`: `admin | staff | student | guest`
 - `UserStatus`: `active | inactive | pending`
-- `StaffRole`: `admin | teacher | assistant | lesson_plan | lesson_plan_head | accountant | communication | customer_care`
+- `StaffRole`: `admin | teacher | assistant | lesson_plan | lesson_plan_head | accountant | communication | technical | customer_care`
 - `StaffStatus`: `active | inactive`
 - `StudentStatus`: `active | inactive`
 - `Gender`: `male | female`
@@ -411,6 +411,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - `staff_lesson_plan_head`
   - `staff_accountant`
   - `staff_communication`
+  - `staff_technical`
   - `staff_customer_care`
 
 ---

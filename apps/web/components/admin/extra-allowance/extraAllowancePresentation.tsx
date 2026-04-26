@@ -73,6 +73,12 @@ export const EXTRA_ALLOWANCE_ROLE_META = {
     pillClassName:
       "border border-error/20 bg-error/10 text-error shadow-[inset_0_1px_0_rgba(255,255,255,0.3)]",
   },
+  technical: {
+    label: ROLE_LABELS.technical,
+    badgeClassName: "bg-info/15 text-info ring-1 ring-info/25",
+    pillClassName:
+      "border border-info/25 bg-info/10 text-info shadow-[inset_0_1px_0_rgba(255,255,255,0.3)]",
+  },
   customer_care: {
     label: ROLE_LABELS.customer_care,
     badgeClassName: "bg-primary/10 text-primary ring-1 ring-primary/15",
@@ -155,6 +161,10 @@ export const EXTRA_ALLOWANCE_ROLE_OPTIONS = (
     {
       value: "communication",
       label: renderExtraAllowanceRoleOptionLabel("communication"),
+    },
+    {
+      value: "technical",
+      label: renderExtraAllowanceRoleOptionLabel("technical"),
     },
     {
       value: "customer_care",

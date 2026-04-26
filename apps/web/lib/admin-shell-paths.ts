@@ -38,6 +38,10 @@ export function buildStaffRoleDetailHref(
       return `/staff/communication-detail?staffId=${normalizedStaffId}`;
     }
 
+    if (role === "technical") {
+      return `/staff/technical-detail?staffId=${normalizedStaffId}`;
+    }
+
     if (role === "lesson_plan" || role === "lesson_plan_head") {
       return `/staff/lesson-plan-detail/${normalizedStaffId}`;
     }
@@ -59,6 +63,10 @@ export function buildStaffRoleDetailHref(
 
   if (role === "communication") {
     return `/admin/communication_detail?staffId=${normalizedStaffId}`;
+  }
+
+  if (role === "technical") {
+    return `/admin/technical_detail?staffId=${normalizedStaffId}`;
   }
 
   if (role === "lesson_plan" || role === "lesson_plan_head") {

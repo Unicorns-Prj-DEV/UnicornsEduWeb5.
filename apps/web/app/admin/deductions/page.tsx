@@ -27,6 +27,7 @@ const STAFF_ROLE_OPTIONS: { value: StaffRoleType; label: string }[] = [
   { value: "lesson_plan", label: ROLE_LABELS.lesson_plan },
   { value: "lesson_plan_head", label: ROLE_LABELS.lesson_plan_head },
   { value: "communication", label: ROLE_LABELS.communication },
+  { value: "technical", label: ROLE_LABELS.technical },
 ];
 
 function formatDateTime(value: string): string {
@@ -114,7 +115,6 @@ export default function AdminDeductionsPage() {
 
   const {
     data: settings,
-    isLoading: isSettingsLoading,
     isError: isSettingsError,
   } = useQuery({
     queryKey: ["deduction-settings", "tax", asOfDate],
@@ -204,7 +204,6 @@ export default function AdminDeductionsPage() {
       .catch(() => undefined);
   };
 
-  const roleDefaultCurrent = settings?.roleDefaults.current ?? [];
   const roleDefaultHistory = settings?.roleDefaults.history ?? [];
   const isRoleDefaultSubmitting =
     appendRoleDefaultMutation.isPending || updateRoleDefaultMutation.isPending;
