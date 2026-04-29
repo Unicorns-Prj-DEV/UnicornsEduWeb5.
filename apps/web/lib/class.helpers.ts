@@ -21,6 +21,32 @@ export function formatCurrency(value: number | null | undefined): string {
   }).format(value);
 }
 
+/** `0` và `null` đều là không giới hạn (đồng bộ backend). */
+export function maxAllowanceInputInitialFromServer(value: number | null | undefined): string {
+  if (value == null || value === 0) return "";
+  return String(value);
+}
+
+/**
+ * Chuỗi rỗng → `null`; số `0` → `null` (không giới hạn); parse lỗi → `undefined`.
+ */
+export function parseMaxAllowancePerSessionInput(
+  trimmedInput: string,
+  parseOptionalInt: (value: string) => number | undefined,
+): number | null | undefined {
+  if (trimmedInput === "") return null;
+  const parsed = parseOptionalInt(trimmedInput);
+  if (parsed === undefined) return undefined;
+  if (parsed === 0) return null;
+  return parsed;
+}
+
+export function normalizeMaxAllowanceForCompare(value: number | null | undefined): number | null {
+  if (value == null || value === 0) return null;
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return Math.floor(value);
+}
+
 export function formatDateTime(iso?: string | null): string {
   if (!iso) return "—";
   try {

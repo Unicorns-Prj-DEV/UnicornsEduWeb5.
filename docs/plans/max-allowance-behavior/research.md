@@ -47,7 +47,7 @@ Tuy nhiên ở frontend, một số form class đang dùng sentinel `100_000_000
 - `max_allowance_per_session` không phải field snapshot trên session; nó được join từ bảng `classes` trong các truy vấn aggregate/report.
 - `SessionReportingService` áp dụng:
   - `base = coefficient * (allowance_amount * attended_count + scale_amount)`
-  - `gross = LEAST(COALESCE(max_allowance_per_session, base), base)`
+  - `gross = LEAST(COALESCE(NULLIF(max_allowance_per_session, 0), base), base)` (0 và `null` đều không cap)
   - sau đó trừ khấu trừ vận hành/tax snapshot để ra total theo truy vấn (`apps/api/src/session/session-reporting.service.ts`).
 - `StaffService` dùng cùng pattern trong CTE `teacher_session_gross` và các aggregate income/unpaid (`apps/api/src/staff/staff.service.ts`).
 - `DashboardService` cũng dùng cùng pattern cho teacher cost/profit trong dashboard (`apps/api/src/dashboard/dashboard.service.ts`).
@@ -60,16 +60,12 @@ Tuy nhiên ở frontend, một số form class đang dùng sentinel `100_000_000
   - `LEAST(base, base)` => không cap.
   - Nghĩa là lớp không có `max_allowance` hiện tại được hiểu là **không có giới hạn max allowance**.
 - **`0`**:
-  - DTO cho phép `0`.
-  - `LEAST(0, base)` => gross allowance về `0` trong các aggregate dùng công thức này.
+  - Được coi như **không giới hạn** giống `null`: aggregate SQL dùng `NULLIF(max_allowance_per_session, 0)` trước `COALESCE`; API chuẩn hóa `0` → `null` khi tạo/cập nhật lớp.
 
 ### 5) Frontend behavior liên quan
-- `EditClassBasicInfoPopup` có hằng `UNLIMITED_MAX_ALLOWANCE_VND = 100_000_000`; khi input trống thì payload gửi `max_allowance_per_session` bằng sentinel này (`apps/web/components/admin/class/EditClassBasicInfoPopup.tsx`).
-- `AddSessionPopup` preview expected teacher allowance cap chỉ khi:
-  - `maxAllowancePerSession != null`
-  - `maxAllowancePerSession > 0`
-  - và không phải sentinel unlimited (`apps/web/components/admin/class/AddSessionPopup.tsx`).
-- Tức là frontend đang có convention riêng cho "không giới hạn", trong khi backend SQL hiện tại cho phép biểu diễn "không giới hạn" tự nhiên bằng `null`.
+- Form lớp map input trống hoặc `0` → `null` (helpers trong `apps/web/lib/class.helpers.ts`).
+- `AddSessionPopup` chỉ áp cap khi `maxAllowancePerSession` là số dương (`> 0`).
+- `SessionHistoryTable` vẫn có sentinel legacy `UNLIMITED_MAX_ALLOWANCE_VND` cho một số path preview cũ; điều kiện `> 0` đảm bảo `0` từ API không bị cap.
 
 ## Code References
 - `apps/api/prisma/schema/learning.prisma` - định nghĩa `maxAllowancePerSession Int?` và mapping cột DB.
@@ -79,8 +75,8 @@ Tuy nhiên ở frontend, một số form class đang dùng sentinel `100_000_000
 - `apps/api/src/session/session-reporting.service.ts` - SQL aggregate dùng `LEAST(COALESCE(max_allowance_per_session, base), base)`.
 - `apps/api/src/staff/staff.service.ts` - CTE `teacher_session_gross` dùng cùng công thức cap.
 - `apps/api/src/dashboard/dashboard.service.ts` - dashboard teacher cost/profit dùng cùng công thức cap.
-- `apps/web/components/admin/class/EditClassBasicInfoPopup.tsx` - sentinel unlimited `100_000_000`.
-- `apps/web/components/admin/class/AddSessionPopup.tsx` - UI preview công thức cap với điều kiện `> 0` và không sentinel.
+- `apps/web/lib/class.helpers.ts` - `parseMaxAllowancePerSessionInput` / `maxAllowanceInputInitialFromServer`.
+- `apps/web/components/admin/class/AddSessionPopup.tsx` - preview cap khi `maxAllowancePerSession > 0`.
 
 ## Architecture Documentation
 - Nguồn dữ liệu lớp/teacher-class: `classes` + `class_teachers`.

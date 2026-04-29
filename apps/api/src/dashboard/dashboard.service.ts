@@ -477,7 +477,7 @@ export class DashboardService {
           sessions.id AS session_id,
           LEAST(
             COALESCE(
-              classes.max_allowance_per_session,
+              NULLIF(classes.max_allowance_per_session, 0),
               (
                 (
                   COALESCE(sessions.allowance_amount, 0) *
@@ -687,20 +687,20 @@ export class DashboardService {
           COALESCE(student_info.account_balance, 0) AS "accountBalance",
           MAX(
             COALESCE(
-              student_classes.custom_student_tuition_per_session,
+              NULLIF(student_classes.custom_student_tuition_per_session, 0),
               classes.student_tuition_per_session,
               CASE
                 WHEN COALESCE(
-                  student_classes.custom_tuition_package_session,
+                  NULLIF(student_classes.custom_tuition_package_session, 0),
                   classes.tuition_package_session
                 ) > 0
                   THEN ROUND(
                     COALESCE(
-                      student_classes.custom_tuition_package_total,
+                      NULLIF(student_classes.custom_tuition_package_total, 0),
                       classes.tuition_package_total
                     )::numeric /
                     COALESCE(
-                      student_classes.custom_tuition_package_session,
+                      NULLIF(student_classes.custom_tuition_package_session, 0),
                       classes.tuition_package_session
                     )
                   )::int
@@ -785,20 +785,20 @@ export class DashboardService {
           COALESCE(student_info.account_balance, 0) AS "accountBalance",
           MAX(
             COALESCE(
-              student_classes.custom_student_tuition_per_session,
+              NULLIF(student_classes.custom_student_tuition_per_session, 0),
               classes.student_tuition_per_session,
               CASE
                 WHEN COALESCE(
-                  student_classes.custom_tuition_package_session,
+                  NULLIF(student_classes.custom_tuition_package_session, 0),
                   classes.tuition_package_session
                 ) > 0
                   THEN ROUND(
                     COALESCE(
-                      student_classes.custom_tuition_package_total,
+                      NULLIF(student_classes.custom_tuition_package_total, 0),
                       classes.tuition_package_total
                     )::numeric /
                     COALESCE(
-                      student_classes.custom_tuition_package_session,
+                      NULLIF(student_classes.custom_tuition_package_session, 0),
                       classes.tuition_package_session
                     )
                   )::int
@@ -882,7 +882,7 @@ export class DashboardService {
           sessions.id AS session_id,
           LEAST(
             COALESCE(
-              classes.max_allowance_per_session,
+              NULLIF(classes.max_allowance_per_session, 0),
               (
                 (
                   COALESCE(sessions.allowance_amount, 0) *
@@ -1081,7 +1081,7 @@ export class DashboardService {
           sessions.id AS session_id,
           LEAST(
             COALESCE(
-              classes.max_allowance_per_session,
+              NULLIF(classes.max_allowance_per_session, 0),
               (
                 (
                   COALESCE(sessions.allowance_amount, 0) *
@@ -1760,20 +1760,20 @@ export class DashboardService {
           COALESCE(student_info.account_balance, 0) AS "accountBalance",
           MAX(
             COALESCE(
-              student_classes.custom_student_tuition_per_session,
+              NULLIF(student_classes.custom_student_tuition_per_session, 0),
               classes.student_tuition_per_session,
               CASE
                 WHEN COALESCE(
-                  student_classes.custom_tuition_package_session,
+                  NULLIF(student_classes.custom_tuition_package_session, 0),
                   classes.tuition_package_session
                 ) > 0
                   THEN ROUND(
                     COALESCE(
-                      student_classes.custom_tuition_package_total,
+                      NULLIF(student_classes.custom_tuition_package_total, 0),
                       classes.tuition_package_total
                     )::numeric /
                     COALESCE(
-                      student_classes.custom_tuition_package_session,
+                      NULLIF(student_classes.custom_tuition_package_session, 0),
                       classes.tuition_package_session
                     )
                   )::int
@@ -1862,20 +1862,20 @@ export class DashboardService {
           COALESCE(student_info.account_balance, 0) AS "accountBalance",
           MAX(
             COALESCE(
-              student_classes.custom_student_tuition_per_session,
+              NULLIF(student_classes.custom_student_tuition_per_session, 0),
               classes.student_tuition_per_session,
               CASE
                 WHEN COALESCE(
-                  student_classes.custom_tuition_package_session,
+                  NULLIF(student_classes.custom_tuition_package_session, 0),
                   classes.tuition_package_session
                 ) > 0
                   THEN ROUND(
                     COALESCE(
-                      student_classes.custom_tuition_package_total,
+                      NULLIF(student_classes.custom_tuition_package_total, 0),
                       classes.tuition_package_total
                     )::numeric /
                     COALESCE(
-                      student_classes.custom_tuition_package_session,
+                      NULLIF(student_classes.custom_tuition_package_session, 0),
                       classes.tuition_package_session
                     )
                   )::int

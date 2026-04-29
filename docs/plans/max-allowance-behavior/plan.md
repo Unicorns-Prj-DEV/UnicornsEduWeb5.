@@ -13,10 +13,10 @@ Ngoài ra, công thức allowance aggregate hiện đã lặp ở nhiều servic
 ## Desired End State
 
 - FE gửi/nhận `max_allowance_per_session` theo semantics chuẩn:
-  - `null`/empty = không giới hạn
-  - `0` hoặc số dương = cap hữu hạn
-- BE vẫn giữ rule aggregate hiện tại:
-  - gross = `LEAST(COALESCE(max_allowance_per_session, base), base)`
+  - `null`/empty/`0` = không giới hạn (`0` được lưu thành `null` ở API)
+  - số nguyên dương = cap hữu hạn
+- BE aggregate:
+  - gross = `LEAST(COALESCE(NULLIF(max_allowance_per_session, 0), base), base)`
   - không thêm snapshot `max_allowance_per_session` vào `sessions`
 - Không còn sentinel `100_000_000` trong code path class/session liên quan.
 - Docs mô tả rõ semantics `null` và behavior historical.
@@ -24,7 +24,7 @@ Ngoài ra, công thức allowance aggregate hiện đã lặp ở nhiều servic
 ### Key Discoveries:
 - `Class.maxAllowancePerSession` đã là nullable ở schema (`apps/api/prisma/schema/learning.prisma`), phù hợp semantics unlimited bằng `null`.
 - DTO class backend hiện cho phép optional + `@Min(0)` (`apps/api/src/dtos/class.dto.ts`), không chặn `null/undefined` tại boundary update.
-- Aggregate SQL ở `apps/api/src/staff/staff.service.ts`, `apps/api/src/dashboard/dashboard.service.ts`, `apps/api/src/session/session-reporting.service.ts` đều đang dùng `LEAST(COALESCE(max_allowance_per_session, base), base)`.
+- Aggregate SQL ở `apps/api/src/staff/staff.service.ts`, `apps/api/src/dashboard/dashboard.service.ts`, `apps/api/src/session/session-reporting.service.ts` dùng `NULLIF(max_allowance_per_session, 0)` trong nhánh cap để `0` đồng nghĩa không giới hạn.
 - FE còn sentinel trong `apps/web/components/admin/class/EditClassBasicInfoPopup.tsx` và `apps/web/components/admin/class/AddSessionPopup.tsx`.
 
 ## What We're NOT Doing
@@ -80,7 +80,7 @@ return hasCap ? Math.min(floored, maxAllowancePerSession) : floored;
 
 #### Manual Verification:
 - [ ] Edit class: để trống max allowance, save và reload vẫn hiển thị trống.
-- [ ] Edit class: nhập `0`, save thành công và hiển thị đúng `0`.
+- [ ] Edit class: nhập `0`, save thành công và hiển thị trống (unlimited), DB `null`.
 - [ ] Add session popup: preview allowance không cap khi class max allowance là `null`.
 - [ ] Add session popup: preview allowance cap đúng khi max allowance là số hữu hạn.
 
@@ -126,7 +126,7 @@ return hasCap ? Math.min(floored, maxAllowancePerSession) : floored;
 #### Manual Verification:
 - [ ] Gọi API update class basic-info với `max_allowance_per_session: null` -> DB lưu `null`.
 - [ ] Staff income summary và dashboard không thay đổi logic/công thức sau refactor cleanup.
-- [ ] Case `max_allowance_per_session = 0` vẫn cho gross cap về `0` như behavior hiện tại.
+- [ ] Case `max_allowance_per_session = 0` (DB hoặc payload) được xử lý như không giới hạn, đồng bộ SQL `NULLIF` và API normalize.
 
 **Implementation Note**: Sau khi hoàn thành Phase 2 và pass verify tự động, dừng để xác nhận manual test trước khi qua Phase 3.
 

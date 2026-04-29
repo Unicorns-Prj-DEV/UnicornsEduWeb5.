@@ -1,30 +1,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { AttendanceStatus } from '../../generated/enums';
-
-function normalizeNullableMoney(value: number | null | undefined): number | null {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    return null;
-  }
-
-  return Math.floor(value);
-}
-
-function resolveDerivedTuitionPerSession(
-  packageTotal: number | null | undefined,
-  packageSession: number | null | undefined,
-): number | null {
-  if (
-    typeof packageTotal !== 'number' ||
-    !Number.isFinite(packageTotal) ||
-    typeof packageSession !== 'number' ||
-    !Number.isFinite(packageSession) ||
-    packageSession <= 0
-  ) {
-    return null;
-  }
-
-  return Math.round(packageTotal / packageSession);
-}
+import {
+  normalizeNullableMoney,
+  normalizeStudentClassCustomTuitionMoney,
+  resolveDerivedTuitionPerSession,
+} from 'src/common/student-class-tuition.util';
 
 @Injectable()
 export class SessionValidationService {
@@ -132,7 +112,7 @@ export class SessionValidationService {
     classTuitionPackageSession?: number | null;
   }): number | null {
     return (
-      normalizeNullableMoney(options.customTuitionPerSession) ??
+      normalizeStudentClassCustomTuitionMoney(options.customTuitionPerSession) ??
       normalizeNullableMoney(options.classTuitionPerSession) ??
       resolveDerivedTuitionPerSession(
         options.classTuitionPackageTotal,

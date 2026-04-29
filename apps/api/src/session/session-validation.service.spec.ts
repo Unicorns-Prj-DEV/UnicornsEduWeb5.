@@ -73,6 +73,17 @@ describe('SessionValidationService', () => {
     ).toBe(300000);
   });
 
+  it('treats custom per-session 0 as inherit (falls back to class tuition)', () => {
+    expect(
+      service.resolveDefaultStudentTuitionPerSession({
+        customTuitionPerSession: 0,
+        classTuitionPerSession: 180000,
+        classTuitionPackageTotal: null,
+        classTuitionPackageSession: null,
+      }),
+    ).toBe(180000);
+  });
+
   it('drops tuition when attendance is absent', () => {
     expect(
       service.resolveChargeableAttendanceTuitionFee(

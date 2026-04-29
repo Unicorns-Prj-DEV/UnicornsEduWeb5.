@@ -167,7 +167,7 @@ function computeExpectedTeacherAllowanceVnd(options: {
   const { presentCount, coefficient, basePerSession, scaleAmount, maxAllowancePerSession } = options;
   const inner = (basePerSession * presentCount + scaleAmount) * coefficient;
   const floored = Math.floor(inner);
-  if (maxAllowancePerSession != null && maxAllowancePerSession >= 0) {
+  if (maxAllowancePerSession != null && maxAllowancePerSession > 0) {
     return Math.min(floored, maxAllowancePerSession);
   }
   return floored;
@@ -672,7 +672,7 @@ export default function AddSessionPopup({
                             {formatCurrency(classPricing.scaleAmount ?? 0)}) ×{" "}
                             {coefficientNumber.toLocaleString("vi-VN")}
                             {classPricing.maxAllowancePerSession != null &&
-                            classPricing.maxAllowancePerSession >= 0
+                            classPricing.maxAllowancePerSession > 0
                               ? `, tối đa ${formatCurrency(classPricing.maxAllowancePerSession)}`
                               : ""}
                             . Giá trị hiện tại:{" "}
@@ -698,7 +698,7 @@ export default function AddSessionPopup({
                             Công thức: ({formatCurrency(resolvedTeacherAllowanceBase)} × {chargeableAttendanceCount} +{" "}
                             {formatCurrency(classPricing.scaleAmount ?? 0)}) × {coefficientNumber.toLocaleString("vi-VN")}
                             {classPricing.maxAllowancePerSession != null &&
-                            classPricing.maxAllowancePerSession >= 0
+                            classPricing.maxAllowancePerSession > 0
                               ? `, tối đa ${formatCurrency(classPricing.maxAllowancePerSession)}`
                               : ""}
                           </p>

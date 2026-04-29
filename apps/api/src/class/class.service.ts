@@ -25,15 +25,28 @@ import { StaffOperationsAccessService } from 'src/staff-ops/staff-operations-acc
 import { CalendarService } from 'src/calendar/calendar.service';
 import { Logger } from '@nestjs/common';
 import { getUserFullNameFromParts } from 'src/common/user-name.util';
+import {
+  hasCustomTuitionOverride,
+  normalizeNullableMoney,
+  normalizeStudentClassCustomTuitionMoney,
+  resolveDerivedTuitionPerSession,
+  resolveEffectiveTuitionPerSession,
+} from 'src/common/student-class-tuition.util';
 
-function normalizeNullableMoney(
+/** `0` is stored as unlimited (same semantics as `null`) across SQL aggregates. */
+function normalizeMaxAllowancePerSessionWrite(
   value: number | null | undefined,
-): number | null {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
+): number | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === null) {
     return null;
   }
-
-  return Math.floor(value);
+  if (value === 0) {
+    return null;
+  }
+  return value;
 }
 
 function normalizeRatePercent(
@@ -50,51 +63,6 @@ function normalizeRatePercent(
 function toDateOnly(value = new Date()) {
   return new Date(
     Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()),
-  );
-}
-
-function resolveDerivedTuitionPerSession(
-  packageTotal: number | null | undefined,
-  packageSession: number | null | undefined,
-): number | null {
-  if (
-    typeof packageTotal !== 'number' ||
-    !Number.isFinite(packageTotal) ||
-    typeof packageSession !== 'number' ||
-    !Number.isFinite(packageSession) ||
-    packageSession <= 0
-  ) {
-    return null;
-  }
-
-  return Math.round(packageTotal / packageSession);
-}
-
-function resolveEffectiveTuitionPerSession(options: {
-  customTuitionPerSession?: number | null;
-  classTuitionPerSession?: number | null;
-  effectivePackageTotal?: number | null;
-  effectivePackageSession?: number | null;
-}) {
-  return (
-    normalizeNullableMoney(options.customTuitionPerSession) ??
-    normalizeNullableMoney(options.classTuitionPerSession) ??
-    resolveDerivedTuitionPerSession(
-      options.effectivePackageTotal,
-      options.effectivePackageSession,
-    )
-  );
-}
-
-function hasCustomTuitionOverride(options: {
-  customTuitionPerSession?: number | null;
-  customTuitionPackageTotal?: number | null;
-  customTuitionPackageSession?: number | null;
-}) {
-  return (
-    normalizeNullableMoney(options.customTuitionPerSession) != null ||
-    normalizeNullableMoney(options.customTuitionPackageTotal) != null ||
-    normalizeNullableMoney(options.customTuitionPackageSession) != null
   );
 }
 
@@ -352,13 +320,13 @@ export class ClassService {
     });
 
     const students = classStudents.map((student) => {
-      const customTuitionPerSession = normalizeNullableMoney(
+      const customTuitionPerSession = normalizeStudentClassCustomTuitionMoney(
         student.customStudentTuitionPerSession,
       );
-      const customTuitionPackageTotal = normalizeNullableMoney(
+      const customTuitionPackageTotal = normalizeStudentClassCustomTuitionMoney(
         student.customTuitionPackageTotal,
       );
-      const customTuitionPackageSession = normalizeNullableMoney(
+      const customTuitionPackageSession = normalizeStudentClassCustomTuitionMoney(
         student.customTuitionPackageSession,
       );
       const effectiveTuitionPackageTotal =
@@ -611,13 +579,13 @@ export class ClassService {
     });
 
     const students = classStudents.map((student) => {
-      const customTuitionPerSession = normalizeNullableMoney(
+      const customTuitionPerSession = normalizeStudentClassCustomTuitionMoney(
         student.customStudentTuitionPerSession,
       );
-      const customTuitionPackageTotal = normalizeNullableMoney(
+      const customTuitionPackageTotal = normalizeStudentClassCustomTuitionMoney(
         student.customTuitionPackageTotal,
       );
-      const customTuitionPackageSession = normalizeNullableMoney(
+      const customTuitionPackageSession = normalizeStudentClassCustomTuitionMoney(
         student.customTuitionPackageSession,
       );
       const effectiveTuitionPackageTotal =
@@ -799,7 +767,9 @@ export class ClassService {
           status: data.status,
           maxStudents: data.max_students,
           allowancePerSessionPerStudent: data.allowance_per_session_per_student,
-          maxAllowancePerSession: data.max_allowance_per_session,
+          maxAllowancePerSession: normalizeMaxAllowancePerSessionWrite(
+            data.max_allowance_per_session,
+          ),
           scaleAmount: data.scale_amount,
           schedule: data.schedule as Prisma.InputJsonValue | undefined,
           studentTuitionPerSession: data.student_tuition_per_session,
@@ -977,7 +947,9 @@ export class ClassService {
           status: data.status,
           maxStudents: data.max_students,
           allowancePerSessionPerStudent: data.allowance_per_session_per_student,
-          maxAllowancePerSession: data.max_allowance_per_session,
+          maxAllowancePerSession: normalizeMaxAllowancePerSessionWrite(
+            data.max_allowance_per_session,
+          ),
           scaleAmount: data.scale_amount,
           schedule: data.schedule as Prisma.InputJsonValue | undefined,
           studentTuitionPerSession: data.student_tuition_per_session,
@@ -1050,7 +1022,9 @@ export class ClassService {
         dto.allowance_per_session_per_student;
     }
     if (dto.max_allowance_per_session !== undefined) {
-      data.maxAllowancePerSession = dto.max_allowance_per_session;
+      data.maxAllowancePerSession = normalizeMaxAllowancePerSessionWrite(
+        dto.max_allowance_per_session,
+      );
     }
     if (dto.scale_amount !== undefined) data.scaleAmount = dto.scale_amount;
     if (dto.student_tuition_per_session !== undefined) {
@@ -1325,17 +1299,26 @@ export class ClassService {
       });
       if (deduplicatedStudents.length > 0) {
         await tx.studentClass.createMany({
-          data: deduplicatedStudents.map((student) => ({
-            classId: id,
-            studentId: student.id,
-            customStudentTuitionPerSession:
-              resolveDerivedTuitionPerSession(
-                student.custom_tuition_package_total,
-                student.custom_tuition_package_session,
-              ) ?? student.custom_tuition_per_session,
-            customTuitionPackageTotal: student.custom_tuition_package_total,
-            customTuitionPackageSession: student.custom_tuition_package_session,
-          })),
+          data: deduplicatedStudents.map((student) => {
+            const pkgTotal = normalizeStudentClassCustomTuitionMoney(
+              student.custom_tuition_package_total,
+            );
+            const pkgSession = normalizeStudentClassCustomTuitionMoney(
+              student.custom_tuition_package_session,
+            );
+            const perSession = normalizeStudentClassCustomTuitionMoney(
+              student.custom_tuition_per_session,
+            );
+            return {
+              classId: id,
+              studentId: student.id,
+              customStudentTuitionPerSession:
+                resolveDerivedTuitionPerSession(pkgTotal, pkgSession) ??
+                perSession,
+              customTuitionPackageTotal: pkgTotal,
+              customTuitionPackageSession: pkgSession,
+            };
+          }),
         });
       }
 

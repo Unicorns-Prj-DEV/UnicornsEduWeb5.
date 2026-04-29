@@ -1128,7 +1128,7 @@ export class StaffService {
           attended_student_count * 10 as attendance,
           LEAST(
             COALESCE(
-              max_allowance_per_session,
+              NULLIF(max_allowance_per_session, 0),
               ((allowance_per_student * attended_student_count) + scale_amount) *
                 coefficient
             ),
@@ -2787,7 +2787,7 @@ export class StaffService {
           COALESCE(sessions.teacher_tax_deduction_rate_percent, 0) AS tax_rate_percent,
           LEAST(
             COALESCE(
-              classes.max_allowance_per_session,
+              NULLIF(classes.max_allowance_per_session, 0),
               (
                 (COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (WHERE attendance.status IN ('present', 'excused'))) +
                 COALESCE(classes.scale_amount, 0)
@@ -2802,7 +2802,7 @@ export class StaffService {
             (
               LEAST(
                 COALESCE(
-                  classes.max_allowance_per_session,
+                  NULLIF(classes.max_allowance_per_session, 0),
                   (
                     (COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (WHERE attendance.status IN ('present', 'excused'))) +
                     COALESCE(classes.scale_amount, 0)
@@ -2818,7 +2818,7 @@ export class StaffService {
           ) AS operating_amount,
           LEAST(
             COALESCE(
-              classes.max_allowance_per_session,
+              NULLIF(classes.max_allowance_per_session, 0),
               (
                 (COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (WHERE attendance.status IN ('present', 'excused'))) +
                 COALESCE(classes.scale_amount, 0)
@@ -2833,7 +2833,7 @@ export class StaffService {
             (
               LEAST(
                 COALESCE(
-                  classes.max_allowance_per_session,
+                  NULLIF(classes.max_allowance_per_session, 0),
                   (
                     (COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (WHERE attendance.status IN ('present', 'excused'))) +
                     COALESCE(classes.scale_amount, 0)
@@ -3591,7 +3591,7 @@ export class StaffService {
           sessions.teacher_payment_status,
           LEAST(
             COALESCE(
-              classes.max_allowance_per_session,
+              NULLIF(classes.max_allowance_per_session, 0),
               (
                 COALESCE(sessions.coefficient, 1) * (
                   COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (WHERE attendance.status IN ('present', 'excused')) + COALESCE(classes.scale_amount, 0)
@@ -3612,7 +3612,7 @@ export class StaffService {
               (
                 LEAST(
                   COALESCE(
-                    classes.max_allowance_per_session,
+                    NULLIF(classes.max_allowance_per_session, 0),
                     (
                       COALESCE(sessions.coefficient, 1) * (
                         COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (WHERE attendance.status IN ('present', 'excused')) + COALESCE(classes.scale_amount, 0)

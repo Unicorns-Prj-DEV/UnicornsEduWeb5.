@@ -100,7 +100,8 @@ export class CreateClassDto {
     example: 200000,
     minimum: 0,
     nullable: true,
-    description: 'Maximum teacher allowance per session. Use null for unlimited.',
+    description:
+      'Maximum teacher allowance per session. null or 0 means unlimited (0 is stored as null).',
   })
   @IsOptional()
   @Type(() => Number)

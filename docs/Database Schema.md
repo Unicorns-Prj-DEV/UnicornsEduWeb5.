@@ -149,8 +149,8 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - `type` (`ClassType`), `status` (`ClassStatus`)
   - `max_students`, `allowance_per_session_per_student`, `max_allowance_per_session`, `scale_amount`
   - `max_allowance_per_session` là nullable:
-    - `null` = không giới hạn trần trợ cấp theo buổi
-    - `0` hoặc số dương = áp trần đúng theo giá trị
+    - `null` hoặc `0` = không giới hạn trần trợ cấp theo buổi (aggregate SQL dùng `NULLIF(..., 0)`; API lưu `0` thành `null`)
+    - số nguyên dương = áp trần đúng theo giá trị
   - `schedule` (JSONB): mảng các entry lịch học định kỳ theo tuần. Dữ liệu lưu DB đang giữ backward compatibility với key `to`; ở lớp DTO/API admin, field đầu ra dùng `end` nhưng khi persist vẫn map về `to`. Mỗi entry có cấu trúc lưu trữ:
     ```json
     {
@@ -174,6 +174,15 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - `meetLink` trong schedule được điền cùng lúc với `calendarEventId` sau khi sync; API occurrence của `/admin/calendar/class-schedule` đọc lại field này để popup lịch mở được link lớp ngay sau khi refetch.
   - `teacherId` lưu gia sư chịu trách nhiệm của từng khung giờ. Từ luồng chỉnh lịch lớp, mỗi entry mới/cập nhật phải có `teacherId` và ID này phải thuộc `class_teachers` của chính lớp đó.
   - Khi API `PUT /admin/calendar/classes/:classId/schedule` nhận payload, mỗi entry dùng field `end`; backend sẽ map thành `to` trước khi lưu JSONB.
+
+### 4.4.0 `student_classes` (Class ↔ StudentInfo)
+
+- Bảng N-N: mỗi hàng là một học sinh thuộc một lớp.
+- Các cột override học phí (nullable int):
+  - `custom_student_tuition_per_session`
+  - `custom_tuition_package_total`
+  - `custom_tuition_package_session`
+- **Semantics thống nhất với backend:** giá trị `0` trên các cột override được xử lý như **không override** (kế thừa học phí/gói từ `classes`), tương đương `null` trong logic tính `effective*` và trong SQL aggregate dashboard (`NULLIF(..., 0)` trên các cột custom). Khi cập nhật danh sách học sinh lớp, API chuẩn hóa `0` → lưu `null` để tránh bản ghi “0” legacy chặn fallback.
 
 ### 4.4.1 `makeup_schedule_events`
 

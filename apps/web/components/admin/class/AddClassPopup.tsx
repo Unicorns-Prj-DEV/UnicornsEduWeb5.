@@ -15,6 +15,7 @@ import {
   computeStudentTuitionPerSessionFromPackage,
   normalizeDayOfWeek,
   normalizeTimeOnly,
+  parseMaxAllowancePerSessionInput,
   parseTuitionPackageInputs,
 } from "@/lib/class.helpers";
 import { createClientId } from "@/lib/client-id";
@@ -269,7 +270,10 @@ function AddClassDialog({ onClose }: Omit<Props, "open">) {
       status,
       max_students: parseOptionalInt(maxStudentsInput),
       allowance_per_session_per_student: parseOptionalInt(allowancePerSessionInput),
-      max_allowance_per_session: parseOptionalInt(maxAllowancePerSessionInput),
+      max_allowance_per_session: parseMaxAllowancePerSessionInput(
+        maxAllowancePerSessionInput.trim(),
+        parseOptionalInt,
+      ),
       scale_amount: parseOptionalInt(scaleAmountInput),
       student_tuition_per_session: studentTuitionPerSession,
       tuition_package_total: tuitionPkg.mode === "empty" ? undefined : tuitionPkg.total,

@@ -22,8 +22,11 @@ import {
   CLASS_SCHEDULE_DAY_OPTIONS,
   compactTuitionPerSessionLine,
   computeStudentTuitionPerSessionFromPackage,
+  maxAllowanceInputInitialFromServer,
   normalizeDayOfWeek,
+  normalizeMaxAllowanceForCompare,
   normalizeTimeOnly,
+  parseMaxAllowancePerSessionInput,
   parseTuitionPackageInputs,
 } from "@/lib/class.helpers";
 import { createClientId } from "@/lib/client-id";
@@ -293,9 +296,7 @@ function EditClassDialog({ onClose, classDetail }: Omit<Props, "open">) {
     String(classDetail.allowancePerSessionPerStudent ?? ""),
   );
   const [maxAllowancePerSessionInput, setMaxAllowancePerSessionInput] = useState(
-    classDetail.maxAllowancePerSession == null
-      ? ""
-      : String(classDetail.maxAllowancePerSession),
+    maxAllowanceInputInitialFromServer(classDetail.maxAllowancePerSession),
   );
   const [scaleAmountInput, setScaleAmountInput] = useState(
     classDetail.scaleAmount == null ? "" : String(classDetail.scaleAmount),
@@ -459,10 +460,10 @@ function EditClassDialog({ onClose, classDetail }: Omit<Props, "open">) {
         ? undefined
         : computeStudentTuitionPerSessionFromPackage(tuitionPkg.total, tuitionPkg.sessions);
     const allowancePerSessionPerStudent = parseOptionalInt(allowancePerSessionInput);
-    const maxAllowancePerSession =
-      maxAllowancePerSessionInput.trim() === ""
-        ? null
-        : parseOptionalInt(maxAllowancePerSessionInput);
+    const maxAllowancePerSession = parseMaxAllowancePerSessionInput(
+      maxAllowancePerSessionInput.trim(),
+      parseOptionalInt,
+    );
     const scaleAmount = parseOptionalInt(scaleAmountInput);
     const teacherPayload: UpdateClassTeachersPayload["teachers"] = selectedTeachers.map((teacher) => ({
       teacher_id: teacher.id,
@@ -484,10 +485,9 @@ function EditClassDialog({ onClose, classDetail }: Omit<Props, "open">) {
       allowance_per_session_per_student: normalizeOptionalInteger(
         classDetail.allowancePerSessionPerStudent,
       ),
-      max_allowance_per_session:
-        classDetail.maxAllowancePerSession == null
-          ? null
-          : normalizeOptionalInteger(classDetail.maxAllowancePerSession),
+      max_allowance_per_session: normalizeMaxAllowanceForCompare(
+        classDetail.maxAllowancePerSession,
+      ),
       scale_amount: normalizeOptionalInteger(classDetail.scaleAmount),
       student_tuition_per_session: normalizeOptionalInteger(classDetail.studentTuitionPerSession),
       tuition_package_total: normalizeOptionalInteger(classDetail.tuitionPackageTotal),

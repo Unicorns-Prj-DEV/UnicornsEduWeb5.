@@ -204,7 +204,7 @@ export class SessionReportingService {
           COALESCE(classes.scale_amount, 0) AS scale_amount,
           LEAST(
             COALESCE(
-              classes.max_allowance_per_session,
+              NULLIF(classes.max_allowance_per_session, 0),
               COALESCE(sessions.coefficient, 1) * (
                 COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (
                   WHERE attendance.status IN ('present', 'excused')
@@ -221,7 +221,7 @@ export class SessionReportingService {
             (
               LEAST(
                 COALESCE(
-                  classes.max_allowance_per_session,
+                  NULLIF(classes.max_allowance_per_session, 0),
                   COALESCE(sessions.coefficient, 1) * (
                     COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (
                       WHERE attendance.status IN ('present', 'excused')
