@@ -355,7 +355,9 @@ export class StudentService {
   }
 
   private serializeStudentExamScheduleList(student: StudentDetailEntity) {
-    return student.examSchedules.map((item) =>
+    // Defensive: some queries/mocks may omit examSchedules, so normalize to [].
+    const schedules = student.examSchedules ?? [];
+    return schedules.map((item) =>
       this.serializeStudentExamScheduleItem(item),
     );
   }
@@ -363,13 +365,14 @@ export class StudentService {
   private async syncStudentExamSchedulesWithCalendar(
     student: StudentDetailEntity,
   ) {
+    const schedules = student.examSchedules ?? [];
     await this.googleCalendarService.syncStudentExamScheduleEvents({
       studentId: student.id,
       studentName: student.fullName,
       classNames: student.studentClasses
         .map((studentClass) => studentClass.class?.name)
         .filter((value): value is string => Boolean(value)),
-      items: student.examSchedules.map((item) => ({
+      items: schedules.map((item) => ({
         id: item.id,
         examDate: item.examDate.toISOString().slice(0, 10),
         note: item.note,
