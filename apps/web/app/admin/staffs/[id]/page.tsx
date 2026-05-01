@@ -504,6 +504,7 @@ export default function AdminStaffDetailPage({
   console.log("classMonthlySummaries", classMonthlySummaries);
   const monthlyIncomeTotals =
     incomeSummary?.monthlyIncomeTotals ?? EMPTY_AMOUNT_SUMMARY;
+  const snapshotUnpaidTotal = incomeSummary?.snapshotUnpaidTotal ?? monthlyIncomeTotals.unpaid;
   const yearIncomeTotal = incomeSummary?.yearIncomeTotal ?? 0;
   const depositYearTotal = incomeSummary?.depositYearTotal ?? 0;
   const depositByClass = incomeSummary?.depositYearByClass ?? [];
@@ -1352,7 +1353,7 @@ export default function AdminStaffDetailPage({
             </article>
             <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
               <p className="text-xs uppercase tracking-wide text-text-muted">Chưa nhận</p>
-              <p className="mt-1 tabular-nums text-lg font-semibold text-error">{formatCurrency(monthlyIncomeTotals.unpaid)}</p>
+              <p className="mt-1 tabular-nums text-lg font-semibold text-error">{formatCurrency(snapshotUnpaidTotal)}</p>
             </article>
             <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
               <p className="text-xs uppercase tracking-wide text-text-muted">Đã nhận</p>
@@ -1971,13 +1972,20 @@ export default function AdminStaffDetailPage({
                     id="staff-payment-preview-title"
                     className="mt-1 text-lg font-semibold text-text-primary sm:text-xl"
                   >
-                    {staff.fullName?.trim() || "Nhân sự"} · {selectedMonthLabel}
+                    {staff.fullName?.trim() || "Nhân sự"} · Thanh toán hàng loạt
                   </h2>
                   <p className="mt-1 text-sm text-text-muted">
-                    Thuế trong popup được tính theo mức hiện hành của nhân sự tại{" "}
-                    {paymentPreviewTaxAsOfDate}. Bonus được tách thành section
-                    riêng và các buổi đang ở trạng thái ghi cọc không nằm trong
-                    đợt thanh toán này.
+                    <span className="font-medium text-text-secondary">
+                      Buổi dạy (GV):
+                    </span>{" "}
+                    tất cả buổi chưa thanh toán, mọi tháng.{" "}
+                    <span className="font-medium text-text-secondary">
+                      Các khoản khác
+                    </span>{" "}
+                    (thưởng, trợ cấp, bài giáo án, hoa hồng CSKH, chia trợ lí…)
+                    theo {selectedMonthLabel}. Thuế trong popup theo mức hiện
+                    hành tại {paymentPreviewTaxAsOfDate}. Buổi ghi cọc không nằm
+                    trong đợt này.
                   </p>
                 </div>
                 <button
@@ -2331,7 +2339,8 @@ export default function AdminStaffDetailPage({
                 </div>
               ) : (
                 <div className="rounded-xl border border-border-default bg-bg-secondary/40 px-4 py-6 text-sm text-text-secondary">
-                  Không có khoản nào cần thanh toán trong tháng này.
+                  Không có buổi dạy chưa thanh toán và không có khoản pending
+                  nào trong {selectedMonthLabel}.
                 </div>
               )}
             </div>
@@ -2340,8 +2349,8 @@ export default function AdminStaffDetailPage({
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-text-muted">
                   {paymentPreviewSummary?.itemCount
-                    ? `Sẽ chuyển ${paymentPreviewSummary.itemCount} khoản được liệt kê sang trạng thái đã thanh toán.`
-                    : "Popup chỉ liệt kê các khoản pending của tháng đang xem."}
+                    ? `Sẽ chuyển ${paymentPreviewSummary.itemCount} khoản được liệt kê sang trạng thái đã thanh toán (gồm mọi buổi GV chưa thanh toán và các khoản pending của ${selectedMonthLabel}).`
+                    : `Chưa có khoản nào: mọi buổi GV đã thanh toán hoặc không có pending trong ${selectedMonthLabel}.`}
                 </p>
                 <div className="flex flex-col-reverse gap-2 sm:flex-row">
                   <button

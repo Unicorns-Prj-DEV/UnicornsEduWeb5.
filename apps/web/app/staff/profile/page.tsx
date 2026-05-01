@@ -616,6 +616,7 @@ export default function StaffSelfDetailPage() {
   const classMonthlySummaries = incomeSummary?.classMonthlySummaries ?? [];
   const monthlyIncomeTotals =
     incomeSummary?.monthlyIncomeTotals ?? EMPTY_AMOUNT_SUMMARY;
+  const snapshotUnpaidTotal = incomeSummary?.snapshotUnpaidTotal ?? monthlyIncomeTotals.unpaid;
   const monthlyGrossTotals =
     incomeSummary?.monthlyGrossTotals ?? EMPTY_AMOUNT_SUMMARY;
   const monthlyTaxTotals =
@@ -832,7 +833,7 @@ export default function StaffSelfDetailPage() {
             </article>
             <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
               <p className="text-xs uppercase tracking-wide text-text-muted">Chưa nhận</p>
-              <p className="mt-1 tabular-nums text-lg font-semibold text-error">{formatCurrency(monthlyIncomeTotals.unpaid)}</p>
+              <p className="mt-1 tabular-nums text-lg font-semibold text-error">{formatCurrency(snapshotUnpaidTotal)}</p>
             </article>
             <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
               <p className="text-xs uppercase tracking-wide text-text-muted">Đã nhận</p>

@@ -13,6 +13,10 @@ import { getFullProfile } from "@/lib/apis/auth.api";
 import * as sessionApi from "@/lib/apis/session.api";
 import { formatCurrency } from "@/lib/class.helpers";
 import {
+  computeSessionAllowanceRawBaseVnd,
+  computeTeacherSessionAllowanceGrossPreviewVnd,
+} from "@/lib/session-allowance.helpers";
+import {
   AttendanceInlineSummary,
   AttendanceStatusQuickPick,
   formatVnSessionDuration,
@@ -157,22 +161,6 @@ function resolveSelectedTeacherId(options: {
   return "";
 }
 
-function computeExpectedTeacherAllowanceVnd(options: {
-  presentCount: number;
-  coefficient: number;
-  basePerSession: number;
-  scaleAmount: number;
-  maxAllowancePerSession: number | null | undefined;
-}): number {
-  const { presentCount, coefficient, basePerSession, scaleAmount, maxAllowancePerSession } = options;
-  const inner = (basePerSession * presentCount + scaleAmount) * coefficient;
-  const floored = Math.floor(inner);
-  if (maxAllowancePerSession != null && maxAllowancePerSession > 0) {
-    return Math.min(floored, maxAllowancePerSession);
-  }
-  return floored;
-}
-
 export default function AddSessionPopup({
   open,
   classId,
@@ -273,14 +261,6 @@ export default function AddSessionPopup({
     [teachers, selectedTeacherId],
   );
 
-  const chargeableAttendanceCount = useMemo(
-    () =>
-      attendanceItems.filter((item) =>
-        isChargeableAttendanceStatus(item.status),
-      ).length,
-    [attendanceItems],
-  );
-
   const resolvedTeacherAllowanceBase = useMemo(() => {
     if (!classPricing) return 0;
     if (!selectedTeacherId) return classPricing.allowancePerSessionPerStudent;
@@ -289,25 +269,40 @@ export default function AddSessionPopup({
     return classPricing.allowancePerSessionPerStudent;
   }, [classPricing, selectedTeacherId]);
 
-  const coefficientNumber = useMemo(() => {
-    const c = Number.parseFloat(coefficient.trim() || "1");
-    return Number.isFinite(c) && c >= 0.1 && c <= 9.9 ? c : 1;
-  }, [coefficient]);
+  const chargeableAttendanceCount = useMemo(
+    () =>
+      attendanceItems.filter((item) => isChargeableAttendanceStatus(item.status))
+        .length,
+    [attendanceItems],
+  );
 
-  const expectedAllowancePreview = useMemo(() => {
+  const allowanceRawBasePreview = useMemo(() => {
     if (!classPricing) return null;
-    return computeExpectedTeacherAllowanceVnd({
-      presentCount: chargeableAttendanceCount,
-      coefficient: coefficientNumber,
-      basePerSession: resolvedTeacherAllowanceBase,
-      scaleAmount: classPricing.scaleAmount ?? 0,
+    return computeSessionAllowanceRawBaseVnd({
+      allowancePerStudent: resolvedTeacherAllowanceBase,
+      chargeableStudentCount: chargeableAttendanceCount,
+      scaleAmount: classPricing.scaleAmount,
+    });
+  }, [classPricing, resolvedTeacherAllowanceBase, chargeableAttendanceCount]);
+
+  const coefficientForPreview = useMemo(() => {
+    if (!canEditCoefficient) return 1;
+    const n = Number(coefficient.trim());
+    if (Number.isFinite(n) && n >= 0.1 && n <= 9.9) return n;
+    return 1;
+  }, [canEditCoefficient, coefficient]);
+
+  const expectedAllowanceGrossPreview = useMemo(() => {
+    if (allowanceRawBasePreview == null || !classPricing) return null;
+    return computeTeacherSessionAllowanceGrossPreviewVnd({
+      rawBase: allowanceRawBasePreview,
+      coefficient: coefficientForPreview,
       maxAllowancePerSession: classPricing.maxAllowancePerSession,
     });
   }, [
+    allowanceRawBasePreview,
     classPricing,
-    chargeableAttendanceCount,
-    coefficientNumber,
-    resolvedTeacherAllowanceBase,
+    coefficientForPreview,
   ]);
 
   const durationLabel = useMemo(
@@ -329,14 +324,14 @@ export default function AddSessionPopup({
         return `Trợ cấp gia sư: ${formatCurrency(Math.floor(n))}`;
       }
     }
-    if (expectedAllowancePreview != null && classPricing) {
-      return `Trợ cấp gia sư: ${formatCurrency(expectedAllowancePreview)}`;
+    if (expectedAllowanceGrossPreview != null && classPricing) {
+      return `Trợ cấp gia sư: ${formatCurrency(expectedAllowanceGrossPreview)}`;
     }
     return null;
   }, [
     canEditAllowance,
     allowanceAmount,
-    expectedAllowancePreview,
+    expectedAllowanceGrossPreview,
     classPricing,
   ]);
 
@@ -462,8 +457,8 @@ export default function AddSessionPopup({
     const allowanceStr = canEditAllowance ? allowanceAmount.trim() : "";
     const coeffNum = coeffStr ? Number(coefficient) : 1;
     const computedAllowanceNum =
-      canEditAllowance && allowanceStr === "" && expectedAllowancePreview != null
-        ? expectedAllowancePreview
+      canEditAllowance && allowanceStr === "" && allowanceRawBasePreview != null
+        ? allowanceRawBasePreview
         : undefined;
     const allowanceNum =
       allowanceStr !== ""
@@ -664,20 +659,13 @@ export default function AddSessionPopup({
                           placeholder="Để trống = theo cấu hình lớp/gia sư"
                         />
                         <span className="text-xs font-normal text-text-muted">
-                          Để trống để tự điền theo công thức từ cấu hình lớp/gia sư.
+                          Để trống để tự điền: (trợ cấp/HS × số HS học hoặc phép) + scale lớp (lưu vào buổi; hệ số và trần max áp khi tính lương).
                         </span>
                         {classPricing ? (
                           <span className="text-xs font-normal text-text-muted">
-                            Công thức: ({formatCurrency(resolvedTeacherAllowanceBase)} × {chargeableAttendanceCount} +{" "}
-                            {formatCurrency(classPricing.scaleAmount ?? 0)}) ×{" "}
-                            {coefficientNumber.toLocaleString("vi-VN")}
-                            {classPricing.maxAllowancePerSession != null &&
-                            classPricing.maxAllowancePerSession > 0
-                              ? `, tối đa ${formatCurrency(classPricing.maxAllowancePerSession)}`
-                              : ""}
-                            . Giá trị hiện tại:{" "}
+                            Gốc lưu buổi (ước tính):{" "}
                             <span className="font-medium text-text-primary">
-                              {formatCurrency(expectedAllowancePreview ?? 0)}
+                              {formatCurrency(allowanceRawBasePreview ?? 0)}
                             </span>
                             .
                           </span>
@@ -687,21 +675,10 @@ export default function AddSessionPopup({
                       <div className="rounded-lg border border-border-default bg-bg-secondary/40 px-3 py-3">
                         <p className="text-sm font-medium text-text-primary">Trợ cấp giáo viên (ước tính)</p>
                         <p className="mt-2 text-lg font-semibold tabular-nums text-primary">
-                          {formatCurrency(expectedAllowancePreview ?? 0)}
+                          {formatCurrency(expectedAllowanceGrossPreview ?? 0)}
                         </p>
                         <div className="mt-2 space-y-1 text-xs text-text-muted">
-                          <p>
-                            Học sinh tính trợ cấp: {chargeableAttendanceCount} × hệ số{" "}
-                            {coefficientNumber.toLocaleString("vi-VN")}
-                          </p>
-                          <p>
-                            Công thức: ({formatCurrency(resolvedTeacherAllowanceBase)} × {chargeableAttendanceCount} +{" "}
-                            {formatCurrency(classPricing.scaleAmount ?? 0)}) × {coefficientNumber.toLocaleString("vi-VN")}
-                            {classPricing.maxAllowancePerSession != null &&
-                            classPricing.maxAllowancePerSession > 0
-                              ? `, tối đa ${formatCurrency(classPricing.maxAllowancePerSession)}`
-                              : ""}
-                          </p>
+                          <p>Lấy trực tiếp từ allowance của buổi học (theo cấu hình gia sư/lớp).</p>
                         </div>
                       </div>
                     ) : isCoefficientOnlyMode ? (

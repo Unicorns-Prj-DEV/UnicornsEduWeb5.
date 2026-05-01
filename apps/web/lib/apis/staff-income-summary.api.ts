@@ -116,6 +116,7 @@ export function normalizeStaffIncomeSummary(
 
   return {
     recentUnpaidDays: toNumber(source.recentUnpaidDays),
+    snapshotUnpaidTotal: toNumber(source.snapshotUnpaidTotal),
     monthlyIncomeTotals: normalizeAmountSummary(source.monthlyIncomeTotals),
     monthlyGrossTotals: normalizeAmountSummary(source.monthlyGrossTotals),
     monthlyTaxTotals: normalizeAmountSummary(source.monthlyTaxTotals),

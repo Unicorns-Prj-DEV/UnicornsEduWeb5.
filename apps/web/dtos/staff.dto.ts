@@ -143,6 +143,7 @@ export interface StaffIncomeDepositClassSummary {
 
 export interface StaffIncomeSummary {
     recentUnpaidDays: number;
+    snapshotUnpaidTotal: number;
     monthlyIncomeTotals: StaffIncomeAmountSummary;
     monthlyGrossTotals: StaffIncomeAmountSummary;
     monthlyTaxTotals: StaffIncomeAmountSummary;
