@@ -123,14 +123,15 @@ Key directives:
 
 **Trigger:** Push to `main`
 
-### Job 1: `build-and-push`
+### Job 1a / 1b: `build-api` and `build-web` (parallel)
+Two independent jobs start together on separate runners:
 1. Checkout code
 2. Set up Docker Buildx
 3. Login to `ghcr.io` via `GITHUB_TOKEN`
-4. Build & push `ghcr.io/<org>/unicorns-api:latest`
-5. Build & push `ghcr.io/<org>/unicorns-web:latest`
+4. `build-api`: build & push `ghcr.io/<org>/unicorns-api:latest` (GHA cache scope `api`)
+5. `build-web`: build & push `ghcr.io/<org>/unicorns-web:latest` with `NEXT_PUBLIC_BACKEND_URL` build-arg (GHA cache scope `web`)
 
-### Job 2: `deploy` (depends on `build-and-push`)
+### Job 2: `deploy` (depends on both `build-api` and `build-web`)
 1. SSH into VPS
 2. `cd /root/UnicornsEdu`
 3. `git pull --ff-only origin main` on VPS so `docker-compose.prod.yml` and `nginx/*` are updated before recreate

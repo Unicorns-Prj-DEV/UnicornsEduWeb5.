@@ -264,7 +264,7 @@ pnpm --filter web add @unicorns/shared --workspace
 
 ## Deploy VPS (GitHub Actions)
 
-Pipeline: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — build image → push GHCR → SSH vào VPS → `git pull --ff-only` để sync compose/nginx/workflow-side config → `docker compose pull` / `up` → probe readiness thật từ trong container → `prisma migrate deploy`.
+Pipeline: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — **hai job build** (`build-api`, `build-web`) chạy **song song** trên GitHub runners, mỗi job push một image lên GHCR (cache BuildKit `type=gha` tách `scope=api` / `scope=web`) → job `deploy` chỉ chạy khi cả hai build xong → SSH vào VPS → `git pull --ff-only` để sync compose/nginx/workflow-side config → `docker compose pull` / `up` → probe readiness thật từ trong container → `prisma migrate deploy`.
 
 ### Lỗi `Process exited with status 137`
 
