@@ -88,6 +88,11 @@ function getStudentEffectiveTuitionPerSession(student: ClassStudent): number {
     : 0;
 }
 
+function isClassStudentActive(student: ClassStudent): boolean {
+  const status = (student.status ?? "active").toLowerCase();
+  return status === "active";
+}
+
 export default function AdminClassDetailPage() {
   const params = useParams();
   const id = typeof params?.id === "string" ? params.id : "";
@@ -176,11 +181,19 @@ export default function AdminClassDetailPage() {
     });
   }, [queryClient, id, selectedYear, selectedMonthValue]);
 
-  const scheduleItems = Array.isArray(classDetail?.schedule)
-    ? classDetail.schedule.filter((item) => item?.from && item?.to)
-    : [];
+  const scheduleItems = (classDetail?.schedule ?? []).filter(
+    (item) => item?.from && item?.to,
+  );
 
   const classStudents = useMemo(() => classDetail?.students ?? [], [classDetail?.students]);
+  const activeClassStudents = useMemo(
+    () => classStudents.filter((student) => isClassStudentActive(student)),
+    [classStudents],
+  );
+  const inactiveClassStudents = useMemo(
+    () => classStudents.filter((student) => !isClassStudentActive(student)),
+    [classStudents],
+  );
   const totalSessionTuition = classDetail?.sessionTuitionTotal ?? 0;
 
   const popupTeachers = useMemo(
@@ -209,24 +222,24 @@ export default function AdminClassDetailPage() {
 
   const popupStudents = useMemo(
     () =>
-      classStudents.map((student) => ({
+      activeClassStudents.map((student) => ({
         id: student.id,
         fullName: student.fullName,
         tuitionFee: getStudentEffectiveTuitionPerSession(student),
       })),
-    [classStudents],
+    [activeClassStudents],
   );
 
   const getClassStudents = useCallback(
     async (classId: string) => {
       if (classId !== id) return [];
-      return classStudents.map((student) => ({
+      return activeClassStudents.map((student) => ({
         id: student.id,
         fullName: student.fullName,
         tuitionFee: getStudentEffectiveTuitionPerSession(student),
       }));
     },
-    [id, classStudents],
+    [id, activeClassStudents],
   );
 
   if (isLoading) {
@@ -503,12 +516,12 @@ export default function AdminClassDetailPage() {
           <div className="overflow-x-auto">
             {/* Mobile: danh sách học sinh dạng thẻ */}
             <div className="space-y-2 md:hidden">
-              {classStudents.length === 0 ? (
+              {activeClassStudents.length === 0 ? (
                 <p className="py-3 text-center text-xs text-text-muted">
-                  Lớp chưa có học sinh.
+                  Lớp chưa có học sinh đang học.
                 </p>
               ) : (
-                classStudents.map((student) => {
+                activeClassStudents.map((student) => {
                   const studentStatus = student.status ?? "active";
                   const isActive = studentStatus === "active";
                   const statusLabel = isActive ? "Đang học" : "Ngưng học";
@@ -592,14 +605,14 @@ export default function AdminClassDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {classStudents.length === 0 ? (
+                {activeClassStudents.length === 0 ? (
                   <tr className="border-b border-border-default bg-bg-surface">
                     <td className="px-3 py-4 text-center text-xs text-text-muted" colSpan={3}>
-                      Lớp chưa có học sinh.
+                      Lớp chưa có học sinh đang học.
                     </td>
                   </tr>
                 ) : (
-                  classStudents.map((student) => {
+                  activeClassStudents.map((student) => {
                     const studentStatus = student.status ?? "active";
                     const isActive = studentStatus === "active";
                     const statusLabel = isActive ? "Đang học" : "Ngưng học";
@@ -664,6 +677,61 @@ export default function AdminClassDetailPage() {
                 )}
               </tbody>
             </table>
+
+            {inactiveClassStudents.length > 0 ? (
+              <div className="mt-3 rounded-lg border border-border-default bg-bg-secondary/40 p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                  Học sinh đã nghỉ ({inactiveClassStudents.length})
+                </p>
+                <div className="space-y-1.5 md:hidden">
+                  {inactiveClassStudents.map((student) => (
+                    <button
+                      key={`inactive-${student.id}`}
+                      type="button"
+                      onClick={
+                        canOpenStudentDetails
+                          ? () =>
+                              router.push(
+                                buildAdminLikePath(
+                                  routeBase,
+                                  `students/${encodeURIComponent(student.id)}`,
+                                ),
+                              )
+                          : undefined
+                      }
+                      className={`w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-left text-sm ${canOpenStudentDetails ? "transition hover:bg-bg-secondary" : ""}`}
+                    >
+                      <span className="font-medium text-text-primary">{student.fullName}</span>
+                      <span className="ml-2 rounded-full bg-error/15 px-2 py-0.5 text-[11px] font-medium text-error">
+                        Đã nghỉ
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <div className="hidden flex-wrap gap-2 md:flex">
+                  {inactiveClassStudents.map((student) => (
+                    <button
+                      key={`inactive-chip-${student.id}`}
+                      type="button"
+                      onClick={
+                        canOpenStudentDetails
+                          ? () =>
+                              router.push(
+                                buildAdminLikePath(
+                                  routeBase,
+                                  `students/${encodeURIComponent(student.id)}`,
+                                ),
+                              )
+                          : undefined
+                      }
+                      className={`inline-flex items-center rounded-full border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary ${canOpenStudentDetails ? "transition hover:bg-bg-secondary" : ""}`}
+                    >
+                      {student.fullName}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         </ClassCard>
 

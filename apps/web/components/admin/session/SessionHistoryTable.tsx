@@ -792,7 +792,26 @@ export default function SessionHistoryTable({
           };
         });
 
-        setAttendanceItems(merged);
+        const missingExistingItems: AttendanceFormItem[] = existingAttendance
+          .filter(
+            (attendanceItem) =>
+              !merged.some((row) => row.studentId === attendanceItem.studentId),
+          )
+          .map((attendanceItem) => {
+            const student = (attendanceItem as SessionAttendanceRecordWithStudent).student;
+            const existingTuitionFee = normalizeMoneyValue(attendanceItem.tuitionFee);
+            return {
+              studentId: attendanceItem.studentId,
+              fullName: student?.fullName?.trim() || "—",
+              status: (attendanceItem.status ?? "absent") as SessionAttendanceStatus,
+              notes: attendanceItem.notes ?? "",
+              tuitionFee:
+                existingTuitionFee != null ? String(existingTuitionFee) : "",
+              defaultTuitionFee: existingTuitionFee,
+            };
+          });
+
+        setAttendanceItems([...merged, ...missingExistingItems]);
       })
       .catch(() => setAttendanceItems([]))
       .finally(() => setAttendanceLoading(false));
@@ -1220,19 +1239,20 @@ export default function SessionHistoryTable({
         : simpleAllowancePreview == null
           ? "Công thức trợ cấp: chưa đủ dữ liệu để tính."
           : `Preview trợ cấp cơ bản: ${formatCurrency(previewAllowanceAmount)} × ${previewCoefficient?.toFixed(1) ?? "?"} = ${formatCurrency(simpleAllowancePreview)}.`;
+  const editingSessionAttendance = editingSession?.attendance;
   const chargeableAttendanceCount = useMemo(() => {
     if (attendanceItems.length > 0) {
       return attendanceItems.filter((item) =>
         isChargeableAttendanceStatus(item.status),
       ).length;
     }
-    if (editingSession?.attendance && Array.isArray(editingSession.attendance)) {
-      return editingSession.attendance.filter((item) =>
+    if (editingSessionAttendance && Array.isArray(editingSessionAttendance)) {
+      return editingSessionAttendance.filter((item) =>
         isChargeableAttendanceStatus((item?.status ?? "absent") as SessionAttendanceStatus),
       ).length;
     }
     return 0;
-  }, [attendanceItems, editingSession?.attendance]);
+  }, [attendanceItems, editingSessionAttendance]);
   const classScaleAmount = normalizeMoneyValue(editingClassDetail?.scaleAmount) ?? 0;
   const classMaxAllowancePerSession = normalizeMoneyValue(
     editingClassDetail?.maxAllowancePerSession,

@@ -88,7 +88,7 @@
     - `Lịch sử buổi học` của chính mình, kèm điều hướng sang lớp phụ trách để tạo buổi học mới
   - popup thưởng trên `/staff/profile` dùng cùng bố cục/form với popup add bonus ở admin staff detail: `loại công việc` dạng dropdown có search, `số tiền`, `trạng thái thanh toán` dạng chỉ đọc, `ghi chú`; ở self-service bản ghi tạo ra vẫn luôn được backend khóa về `pending` và khi chỉnh sửa cũng không được tự đổi `payment status`
   - từ section `Lớp phụ trách` trên `/staff/profile`, teacher/admin đi vào `/staff/classes/[id]`; route chi tiết lớp là nơi mở `AddSessionPopup` để thêm buổi học
-  - popup thêm buổi học chỉ còn nằm ở `/staff/classes/[id]`, tiếp tục dùng flow `staff-ops` với các field ngày học, giờ học, `coefficient`, ghi chú, điểm danh (mặc định trạng thái điểm danh khởi tạo là `vắng`); header popup hiển thị đồng thời **Học phí** (màu xanh, chỉ hiện với `admin`/`accountant`) và **Trợ cấp gia sư** (màu text chính, hiện với mọi role); các field tài chính còn lại như `allowanceAmount`, học phí override và mọi khả năng chỉnh `custom allowance` / `operating_deduction_rate_percent` vẫn bị khóa
+  - popup thêm buổi học chỉ còn nằm ở `/staff/classes/[id]`, tiếp tục dùng flow `staff-ops` với các field ngày học, giờ học, `coefficient`, ghi chú, điểm danh (mặc định trạng thái điểm danh khởi tạo là `vắng`); roster khi tạo buổi mới chỉ lấy học sinh trạng thái `active`; header popup hiển thị đồng thời **Học phí** (màu xanh, chỉ hiện với `admin`/`accountant`) và **Trợ cấp gia sư** (màu text chính, hiện với mọi role); các field tài chính còn lại như `allowanceAmount`, học phí override và mọi khả năng chỉnh `custom allowance` / `operating_deduction_rate_percent` vẫn bị khóa
   - từ bảng `Lịch sử buổi học` trên `/staff/profile`, staff có thể bấm toàn bộ dòng/card buổi học để mở form chỉnh sửa buổi học, cập nhật lại ngày giờ, `coefficient`, ghi chú và điểm danh; header popup chỉnh sửa cũng hiển thị **Học phí** theo policy role như trên và **Trợ cấp gia sư** cho mọi role. Popup này vẫn không cho chỉnh trợ cấp hay học phí
   - nếu actor có role `teacher` hoặc là `admin`, các dòng trong section `Lớp phụ trách` mở sang `/staff/classes/[id]`
   - nếu actor có role `customer_care`, dòng `customer_care` trong section `Công việc khác` mở sang `/staff/customer-care-detail`
@@ -105,10 +105,11 @@
   - `teacher` được phân công lớp có thể tạo buổi bù mới trực tiếp từ `/staff/classes/[id]`, nhưng `gia su phu trach` bị khóa cứng về staff hiện tại
   - `admin` ở staff shell có thể tạo/sửa/xóa buổi bù từ cùng card; `customer_care` chỉ xem, không có CTA mutate
   - section `Gia sư phụ trách` là chỉ đọc; bấm vào từng gia sư không dẫn sang `/admin/staffs/:id`
+  - card `Danh sách học sinh` tách thành 2 phần: danh sách học sinh **đang học** và block riêng **Học sinh đã nghỉ** để tránh lẫn trạng thái
   - cho phép chỉnh `khung giờ học`
   - teacher chỉ thấy các session có `teacherId` đúng với hồ sơ staff hiện tại; admin vẫn thấy toàn bộ session của lớp trong tháng đang chọn
   - cho phép thêm `session` với ngày học, giờ học, `coefficient`, note buổi học và điểm danh
-  - cho phép chỉnh `session` gồm ngày học, giờ học, `coefficient`, note buổi học và điểm danh
+  - cho phép chỉnh `session` gồm ngày học, giờ học, `coefficient`, note buổi học và điểm danh; khi mở session cũ, danh sách điểm danh luôn giữ các học sinh đã có attendance của buổi đó kể cả khi hiện tại đã nghỉ
   - form chỉnh `session` vẫn hiển thị tên gia sư phụ trách ở chế độ chỉ đọc khi self-service không được đổi gia sư
   - popup chỉnh `session` ở route này giữ cùng nhịp layout với form thêm buổi học: modal `wide`, phần cấu hình buổi học trải đều trước khi xuống block ghi chú và điểm danh
   - attendance `present` và `excused` đều tính học phí (trừ ví học sinh); chỉ `absent` không tạo charge ở backend

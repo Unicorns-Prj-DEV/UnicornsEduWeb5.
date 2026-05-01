@@ -43,6 +43,10 @@ const TYPE_LABELS: Record<ClassType, string> = {
   hardcore: "Hardcore",
 };
 
+function isClassStudentActive(status?: string | null): boolean {
+  return (status ?? "active").toLowerCase() === "active";
+}
+
 function getCurrentMonthValue() {
   const today = new Date();
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
@@ -166,6 +170,12 @@ export default function StaffClassDetailPage() {
     : [];
 
   const classStudents = classDetail?.students ?? [];
+  const activeClassStudents = classStudents.filter((student) =>
+    isClassStudentActive(student.status),
+  );
+  const inactiveClassStudents = classStudents.filter(
+    (student) => !isClassStudentActive(student.status),
+  );
   const popupTeachers = (classDetail?.teachers ?? []).map((teacher) => ({
     id: teacher.id,
     fullName: teacher.fullName,
@@ -177,7 +187,7 @@ export default function StaffClassDetailPage() {
       ),
     [classDetail?.teachers],
   );
-  const popupStudents = classStudents.map((student) => ({
+  const popupStudents = activeClassStudents.map((student) => ({
     id: student.id,
     fullName: student.fullName,
     tuitionFee: student.effectiveTuitionPerSession ?? null,
@@ -241,13 +251,10 @@ export default function StaffClassDetailPage() {
     await queryClient.invalidateQueries({ queryKey: sessionsQueryKey });
   }, [queryClient, sessionsQueryKey]);
 
-  const getClassStudentsForEditor = useCallback(
-    async (classId: string) => {
-      if (classId !== id) return [];
-      return popupStudents;
-    },
-    [id, popupStudents],
-  );
+  const getClassStudentsForEditor = async (classId: string) => {
+    if (classId !== id) return [];
+    return popupStudents;
+  };
 
   const updateScheduleMutation = useMutation({
     mutationKey: staffOpsKeys.updateSchedule(id),
@@ -609,10 +616,10 @@ export default function StaffClassDetailPage() {
         <ClassCard title="Danh sách học sinh" className="w-full">
           <div className="overflow-x-auto">
             <div className="space-y-2 md:hidden">
-              {classStudents.length === 0 ? (
-                <p className="py-3 text-center text-xs text-text-muted">Lớp chưa có học sinh.</p>
+              {activeClassStudents.length === 0 ? (
+                <p className="py-3 text-center text-xs text-text-muted">Lớp chưa có học sinh đang học.</p>
               ) : (
-                classStudents.map((student) => {
+                activeClassStudents.map((student) => {
                   const studentStatus = student.status ?? "active";
                   const isActive = studentStatus === "active";
                   const statusLabel = isActive ? "Đang học" : "Ngưng học";
@@ -654,14 +661,14 @@ export default function StaffClassDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {classStudents.length === 0 ? (
+                {activeClassStudents.length === 0 ? (
                   <tr className="border-b border-border-default bg-bg-surface">
                     <td className="px-3 py-4 text-center text-xs text-text-muted" colSpan={2}>
-                      Lớp chưa có học sinh.
+                      Lớp chưa có học sinh đang học.
                     </td>
                   </tr>
                 ) : (
-                  classStudents.map((student) => {
+                  activeClassStudents.map((student) => {
                     const studentStatus = student.status ?? "active";
                     const isActive = studentStatus === "active";
                     const statusLabel = isActive ? "Đang học" : "Ngưng học";
@@ -688,6 +695,24 @@ export default function StaffClassDetailPage() {
                 )}
               </tbody>
             </table>
+
+            {inactiveClassStudents.length > 0 ? (
+              <div className="mt-3 rounded-lg border border-border-default bg-bg-secondary/40 p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                  Học sinh đã nghỉ ({inactiveClassStudents.length})
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {inactiveClassStudents.map((student) => (
+                    <span
+                      key={`inactive-${student.id}`}
+                      className="inline-flex items-center rounded-full border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary"
+                    >
+                      {student.fullName}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         </ClassCard>
 
