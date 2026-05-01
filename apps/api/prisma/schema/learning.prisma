@@ -54,6 +54,8 @@ model StudentClass {
 
   @@index([studentId])
   @@index([classId])
+  @@index([classId, studentId])
+  @@index([studentId, classId])
   @@map("student_classes")
 }
 

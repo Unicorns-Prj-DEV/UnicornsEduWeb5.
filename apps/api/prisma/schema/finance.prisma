@@ -12,6 +12,7 @@ model Bonus {
 
   @@index([staffId])
   @@index([month])
+  @@index([staffId, month, status])
   @@map("bonuses")
 }
 
@@ -73,6 +74,7 @@ model WalletTransactionsHistory {
   student                       StudentInfo           @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@index([studentId])
+  @@index([studentId, createdAt])
   @@map("wallet_transactions_history")
 }
 
@@ -154,5 +156,6 @@ model ExtraAllowance {
   @@index([staffId])
   @@index([month])
   @@index([roleType])
+  @@index([staffId, month, status])
   @@map("extra_allowances")
 }

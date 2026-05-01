@@ -33,6 +33,9 @@ model ActionHistory {
   @@index([entityId])
   @@index([actionType])
   @@index([createdAt])
+  @@index([entityType, entityId, createdAt])
+  @@index([entityType, actionType, createdAt])
+  @@index([userId, createdAt])
   @@map("action_history")
 }
 
