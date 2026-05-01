@@ -1126,15 +1126,23 @@ export class StaffService {
           teacher_operating_deduction_rate_percent,
           max_allowance_per_session,
           attended_student_count * 10 as attendance,
-          LEAST(
-            COALESCE(
-              NULLIF(max_allowance_per_session, 0),
+          CASE
+            WHEN LOWER(COALESCE(teacher_payment_status, '')) IN (${Prisma.join(
+              NORMALIZED_DEPOSIT_PAYMENT_STATUSES,
+            )}) THEN
               ((allowance_per_student * attended_student_count) + scale_amount) *
                 coefficient
-            ),
-            ((allowance_per_student * attended_student_count) + scale_amount) *
-              coefficient
-          ) AS teacher_gross_total
+            ELSE
+              LEAST(
+                COALESCE(
+                  NULLIF(max_allowance_per_session, 0),
+                  ((allowance_per_student * attended_student_count) + scale_amount) *
+                    coefficient
+                ),
+                ((allowance_per_student * attended_student_count) + scale_amount) *
+                  coefficient
+              )
+          END AS teacher_gross_total
         FROM session_attendance_allowances
       ),
       teacher_session_allowances AS (
