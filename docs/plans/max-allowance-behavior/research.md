@@ -40,17 +40,15 @@ Tuy nhiên ở frontend, một số form class đang dùng sentinel `100_000_000
 
 ### 2) Quan hệ với teacher-class allowance
 - Quan hệ teacher-class lưu tại `class_teachers.custom_allowance` (allowance theo giáo viên cho lớp), fallback từ `classes.allowance_per_session_per_student` khi update danh sách giáo viên (`apps/api/src/class/class.service.ts`).
-- Khi tạo session, `sessions.allowance_amount` lấy từ payload `allowanceAmount` nếu có, nếu không fallback về `classTeacher.customAllowance` (`apps/api/src/session/session-create.service.ts`).
-- Khi update session và đổi class/teacher, allowance lại được resolve theo cùng nguyên tắc trên (`apps/api/src/session/session-update.service.ts`).
+- Khi tạo/cập nhật session, nếu payload có `allowanceAmount` thì dùng giá trị đó; nếu không thì backend tính `computeDefaultSessionAllowanceAmountVnd` (per-student × sĩ số present/excused + `classes.scale_amount`) (`session-allowance.util.ts`, `session-create.service.ts`, `session-update.service.ts` khi đổi lớp/gia sư).
 
 ### 3) Nơi `max_allowance_per_session` được áp vào công thức
 - `max_allowance_per_session` không phải field snapshot trên session; nó được join từ bảng `classes` trong các truy vấn aggregate/report.
-- `SessionReportingService` áp dụng:
-  - `base = coefficient * (allowance_amount * attended_count + scale_amount)`
+- `sessions.allowance_amount` lưu **gốc đã gồm scale lớp** (per-student × present/excused + `scale_amount`); SQL **không** cộng `classes.scale_amount` thêm lần nữa.
+- `SessionReportingService` / `StaffService` (CTE `teacher_session_gross`) / `DashboardService` áp dụng:
+  - `base = coefficient * allowance_amount`
   - `gross = LEAST(COALESCE(NULLIF(max_allowance_per_session, 0), base), base)` (0 và `null` đều không cap)
-  - sau đó trừ khấu trừ vận hành/tax snapshot để ra total theo truy vấn (`apps/api/src/session/session-reporting.service.ts`).
-- `StaffService` dùng cùng pattern trong CTE `teacher_session_gross` và các aggregate income/unpaid (`apps/api/src/staff/staff.service.ts`).
-- `DashboardService` cũng dùng cùng pattern cho teacher cost/profit trong dashboard (`apps/api/src/dashboard/dashboard.service.ts`).
+  - sau đó trừ khấu trừ vận hành/tax snapshot để ra total theo truy vấn.
 
 ### 4) Behavior hiện tại theo từng giá trị `max_allowance_per_session`
 - **`undefined` (request không gửi field)**:
@@ -64,19 +62,19 @@ Tuy nhiên ở frontend, một số form class đang dùng sentinel `100_000_000
 
 ### 5) Frontend behavior liên quan
 - Form lớp map input trống hoặc `0` → `null` (helpers trong `apps/web/lib/class.helpers.ts`).
-- `AddSessionPopup` chỉ áp cap khi `maxAllowancePerSession` là số dương (`> 0`).
-- `SessionHistoryTable` vẫn có sentinel legacy `UNLIMITED_MAX_ALLOWANCE_VND` cho một số path preview cũ; điều kiện `> 0` đảm bảo `0` từ API không bị cap.
+- `AddSessionPopup` / `SessionHistoryTable`: preview gross dùng `apps/web/lib/session-allowance.helpers.ts`; chỉ áp trần khi `maxAllowancePerSession > 0`.
 
 ## Code References
 - `apps/api/prisma/schema/learning.prisma` - định nghĩa `maxAllowancePerSession Int?` và mapping cột DB.
 - `apps/api/src/class/class.service.ts` - update class basic info (`dto.max_allowance_per_session !== undefined`) và fallback `customAllowance`.
-- `apps/api/src/session/session-create.service.ts` - resolve `allowanceAmount` từ payload hoặc `classTeacher.customAllowance`.
-- `apps/api/src/session/session-update.service.ts` - resolve lại allowance khi đổi class/teacher.
+- `apps/api/src/session/session-allowance.util.ts` - công thức default allowance snapshot.
+- `apps/api/src/session/session-create.service.ts` / `session-update.service.ts` - ghi `allowance_amount` từ payload hoặc util.
 - `apps/api/src/session/session-reporting.service.ts` - SQL aggregate dùng `LEAST(COALESCE(max_allowance_per_session, base), base)`.
 - `apps/api/src/staff/staff.service.ts` - CTE `teacher_session_gross` dùng cùng công thức cap.
 - `apps/api/src/dashboard/dashboard.service.ts` - dashboard teacher cost/profit dùng cùng công thức cap.
 - `apps/web/lib/class.helpers.ts` - `parseMaxAllowancePerSessionInput` / `maxAllowanceInputInitialFromServer`.
-- `apps/web/components/admin/class/AddSessionPopup.tsx` - preview cap khi `maxAllowancePerSession > 0`.
+- `apps/web/lib/session-allowance.helpers.ts` - gốc lưu buổi + preview gross (hệ số + trần).
+- `apps/web/components/admin/class/AddSessionPopup.tsx` - form tạo buổi + preview.
 
 ## Architecture Documentation
 - Nguồn dữ liệu lớp/teacher-class: `classes` + `class_teachers`.

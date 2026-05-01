@@ -183,6 +183,11 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - `custom_tuition_package_total`
   - `custom_tuition_package_session`
 - **Semantics thống nhất với backend:** giá trị `0` trên các cột override được xử lý như **không override** (kế thừa học phí/gói từ `classes`), tương đương `null` trong logic tính `effective*` và trong SQL aggregate dashboard (`NULLIF(..., 0)` trên các cột custom). Khi cập nhật danh sách học sinh lớp, API chuẩn hóa `0` → lưu `null` để tránh bản ghi “0” legacy chặn fallback.
+- Index read path:
+  - `student_id`
+  - `class_id`
+  - composite `(class_id, student_id)` (hot path cho validate roster/session update)
+  - composite `(student_id, class_id)` (hot path cho membership lookups theo học sinh)
 
 ### 4.4.1 `makeup_schedule_events`
 
@@ -212,6 +217,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 - Mỗi buổi học gắn với 1 lớp và 1 giáo viên
 - Trường chính: ngày học, start/end time, `coefficient`, `allowance_amount`, `teacher_payment_status`, `tuition_fee`
+- `allowance_amount`: snapshot **trước hệ số** = tổng `(trợ cấp mỗi học sinh theo cặp gia sư–lớp × số bản ghi điểm danh present/excused) + scale_amount của lớp` tại thời điểm tạo/cập nhật buổi (làm tròn VND theo logic API). Các truy vấn payroll **không** cộng thêm `classes.scale_amount` vào `allowance_amount`.
 - `max_allowance_per_session` không snapshot tại `sessions`; các aggregate payroll/report đọc động từ `classes.max_allowance_per_session` tại thời điểm query, nên thay đổi cấu hình lớp có thể ảnh hưởng kết quả historical aggregate.
 - Snapshot khấu trừ theo buổi:
   - `teacher_tax_rate_percent` (`DECIMAL(5,2)`, default `0`, Prisma field `teacherOperatingDeductionRatePercent`): snapshot mức **khấu trừ vận hành** effective của cặp gia sư-lớp tại thời điểm tạo/cập nhật session.
@@ -251,6 +257,10 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `customer_care_service`: map staff chăm sóc theo học viên + % profit
 - `staff_monthly_stats`: số liệu tổng hợp lương/việc theo tháng
 - `extra_allowances`: khoản trợ cấp bổ sung theo staff/tháng/role, có `amount`, `status`, `note`, `month`, `role_type`, và snapshot `tax_deduction_rate_percent`
+- Index read path mới cho finance:
+  - `bonuses`: composite `(staff_id, month, status)` cho payroll preview/listing theo nhân sự-tháng-trạng thái
+  - `wallet_transactions_history`: composite `(student_id, created_at)` cho feed lịch sử ví theo học sinh
+  - `extra_allowances`: composite `(staff_id, month, status)` cho payroll preview/listing theo nhân sự-tháng-trạng thái
 - Payroll semantics:
   - thuế áp dụng cho mọi staff nhưng **không áp dụng cho bonus**
   - tax base được aggregate theo **từng nguồn thu nhập trong kỳ** và tách bucket theo snapshot rate đang effective
@@ -288,6 +298,9 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - `entity_id`
   - `action_type`
   - `created_at`
+  - composite `(entity_type, entity_id, created_at)`
+  - composite `(entity_type, action_type, created_at)`
+  - composite `(user_id, created_at)`
 
 ### 4.8.2 `notifications`
 
