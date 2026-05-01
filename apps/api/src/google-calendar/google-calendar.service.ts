@@ -435,8 +435,10 @@ export class GoogleCalendarService implements OnModuleInit {
         .filter(
           (
             entry,
-          ): entry is readonly [string, NonNullable<typeof existingEvents>[number]] =>
-            Boolean(entry),
+          ): entry is readonly [
+            string,
+            NonNullable<typeof existingEvents>[number],
+          ] => Boolean(entry),
         ),
     );
 
@@ -823,7 +825,10 @@ export class GoogleCalendarService implements OnModuleInit {
 
       return { eventId: event.id, meetLink: meetLink || undefined };
     } catch (error) {
-      this.handleApiError(error, 'Failed to create/update makeup schedule event');
+      this.handleApiError(
+        error,
+        'Failed to create/update makeup schedule event',
+      );
       throw new GoogleCalendarApiError(
         `Failed to create/update makeup schedule event ${makeupEventId}`,
         error as Error & { errors?: unknown[] },

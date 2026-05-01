@@ -128,7 +128,9 @@ describe('ClassService', () => {
           },
         ],
       });
-      expect(mockTx.classTeacherOperatingDeductionRate.upsert).toHaveBeenCalledWith({
+      expect(
+        mockTx.classTeacherOperatingDeductionRate.upsert,
+      ).toHaveBeenCalledWith({
         where: {
           classId_teacherId_effectiveFrom: {
             classId: 'class-1',
@@ -147,7 +149,6 @@ describe('ClassService', () => {
         },
       });
     });
-
   });
 
   describe('updateClassSchedule', () => {

@@ -34,7 +34,8 @@ const mockServiceAccountKey = Buffer.from(
     type: 'service_account',
     project_id: 'test-project',
     private_key_id: 'test-private-key-id',
-    private_key: '-----BEGIN PRIVATE KEY-----\nmock\n-----END PRIVATE KEY-----\n',
+    private_key:
+      '-----BEGIN PRIVATE KEY-----\nmock\n-----END PRIVATE KEY-----\n',
     client_email: 'calendar-bot@test-project.iam.gserviceaccount.com',
     client_id: '1234567890',
     auth_uri: 'https://accounts.google.com/o/oauth2/auth',

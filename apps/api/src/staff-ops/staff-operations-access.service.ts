@@ -18,7 +18,9 @@ export type StaffClassViewAccessMode = 'admin' | 'teacher' | 'customer_care';
 export class StaffOperationsAccessService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async resolveStaffActor(userId: string): Promise<StaffOperationsActor> {
+  private async resolveStaffActor(
+    userId: string,
+  ): Promise<StaffOperationsActor> {
     const staff = await this.prisma.staffInfo.findFirst({
       where: { userId },
       select: {
@@ -143,21 +145,22 @@ export class StaffOperationsAccessService {
     }
 
     if (actor.roles.includes(StaffRole.customer_care)) {
-      const customerCareAssignment = await this.prisma.customerCareService.findFirst({
-        where: {
-          staffId: actor.id,
-          student: {
-            studentClasses: {
-              some: {
-                classId,
+      const customerCareAssignment =
+        await this.prisma.customerCareService.findFirst({
+          where: {
+            staffId: actor.id,
+            student: {
+              studentClasses: {
+                some: {
+                  classId,
+                },
               },
             },
           },
-        },
-        select: {
-          id: true,
-        },
-      });
+          select: {
+            id: true,
+          },
+        });
 
       if (customerCareAssignment) {
         return 'customer_care';

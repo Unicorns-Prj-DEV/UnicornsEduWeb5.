@@ -172,7 +172,10 @@ export class StaffOpsClassController {
     );
 
     if (actor.roles.includes(StaffRole.teacher)) {
-      await this.staffOperationsAccess.assertTeacherAssignedToClass(actor.id, id);
+      await this.staffOperationsAccess.assertTeacherAssignedToClass(
+        actor.id,
+        id,
+      );
       if (dto.teacherId !== actor.id) {
         throw new ForbiddenException(
           'Teacher chỉ được tạo buổi bù với chính mình là người phụ trách.',

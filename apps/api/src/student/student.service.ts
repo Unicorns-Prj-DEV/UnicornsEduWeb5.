@@ -223,7 +223,10 @@ export class StudentService {
       };
     }
 
-    if (user.roleType !== UserRole.guest && user.roleType !== UserRole.student) {
+    if (
+      user.roleType !== UserRole.guest &&
+      user.roleType !== UserRole.student
+    ) {
       return {
         isEligible: false,
         ineligibleReason:
@@ -304,8 +307,9 @@ export class StudentService {
         ? 'custom'
         : effectiveTuitionPackageTotal != null ||
             effectiveTuitionPackageSession != null ||
-            normalizeNullableMoney(studentClass.class.studentTuitionPerSession) !=
-              null
+            normalizeNullableMoney(
+              studentClass.class.studentTuitionPerSession,
+            ) != null
           ? 'class'
           : 'unset',
       totalAttendedSession: studentClass.totalAttendedSession,
@@ -357,9 +361,7 @@ export class StudentService {
   private serializeStudentExamScheduleList(student: StudentDetailEntity) {
     // Defensive: some queries/mocks may omit examSchedules, so normalize to [].
     const schedules = student.examSchedules ?? [];
-    return schedules.map((item) =>
-      this.serializeStudentExamScheduleItem(item),
-    );
+    return schedules.map((item) => this.serializeStudentExamScheduleItem(item));
   }
 
   private async syncStudentExamSchedulesWithCalendar(
@@ -474,14 +476,18 @@ export class StudentService {
       );
     }
 
-    const customerCareAssignment = await this.prisma.customerCareService.findUnique({
-      where: { studentId },
-      select: {
-        staffId: true,
-      },
-    });
+    const customerCareAssignment =
+      await this.prisma.customerCareService.findUnique({
+        where: { studentId },
+        select: {
+          staffId: true,
+        },
+      });
 
-    if (!customerCareAssignment || customerCareAssignment.staffId !== staff.id) {
+    if (
+      !customerCareAssignment ||
+      customerCareAssignment.staffId !== staff.id
+    ) {
       throw new NotFoundException('Student not found');
     }
   }

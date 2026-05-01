@@ -101,9 +101,11 @@ export class DeductionSettingsService {
     private readonly actionHistoryService: ActionHistoryService,
   ) {}
 
-  private buildStaffDisplayName(staff: {
-    user?: { first_name: string | null; last_name: string | null } | null;
-  } | null) {
+  private buildStaffDisplayName(
+    staff: {
+      user?: { first_name: string | null; last_name: string | null } | null;
+    } | null,
+  ) {
     return getUserFullNameFromParts(staff?.user);
   }
 
@@ -119,9 +121,8 @@ export class DeductionSettingsService {
       ? Prisma.sql`AND staff_id = ${normalizedStaffId}`
       : Prisma.empty;
 
-    const [roleDefaultHistoryRows, roleDefaultCurrentRows] =
-      await Promise.all([
-        this.prisma.$queryRaw<RoleTaxRateRow[]>(Prisma.sql`
+    const [roleDefaultHistoryRows, roleDefaultCurrentRows] = await Promise.all([
+      this.prisma.$queryRaw<RoleTaxRateRow[]>(Prisma.sql`
           SELECT
             id,
             role_type AS "roleType",
@@ -133,7 +134,7 @@ export class DeductionSettingsService {
             ${roleTypeFilterSql}
           ORDER BY role_type ASC, effective_from DESC, created_at DESC
         `),
-        this.prisma.$queryRaw<RoleTaxRateRow[]>(Prisma.sql`
+      this.prisma.$queryRaw<RoleTaxRateRow[]>(Prisma.sql`
           SELECT DISTINCT ON (role_type)
             id,
             role_type AS "roleType",
@@ -145,7 +146,7 @@ export class DeductionSettingsService {
             ${roleTypeFilterSql}
           ORDER BY role_type ASC, effective_from DESC, created_at DESC
         `),
-      ]);
+    ]);
 
     const [staffOverrideHistoryRows, staffOverrideCurrentRows] =
       await Promise.all([

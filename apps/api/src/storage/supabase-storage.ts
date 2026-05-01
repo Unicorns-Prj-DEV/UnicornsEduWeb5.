@@ -20,7 +20,10 @@ type MulterLikeFile = {
   mimetype?: string;
 };
 
-type MulterFileFilterCallback = (error: Error | null, acceptFile: boolean) => void;
+type MulterFileFilterCallback = (
+  error: Error | null,
+  acceptFile: boolean,
+) => void;
 
 export function tryGetSupabaseAdminClient() {
   const supabaseUrl = process.env.SUPABASE_URL?.trim();
@@ -112,7 +115,7 @@ export function buildImageUploadFileFilter(options?: {
     callback: MulterFileFilterCallback,
   ) => {
     const fieldLabel = file.fieldname
-      ? labelsByFieldName[file.fieldname] ?? defaultFieldLabel
+      ? (labelsByFieldName[file.fieldname] ?? defaultFieldLabel)
       : defaultFieldLabel;
 
     if (!file.mimetype || !ALLOWED_IMAGE_MIME_TYPES.has(file.mimetype)) {

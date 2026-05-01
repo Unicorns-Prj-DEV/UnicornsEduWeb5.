@@ -61,7 +61,9 @@ describe('CalendarController', () => {
 
   it('rejects non-teacher staff from class filters instead of falling back to unscoped data', async () => {
     staffOperationsAccess.resolveActor.mockRejectedValue(
-      new ForbiddenException('Màn /staff hiện chỉ mở cho staff có role teacher.'),
+      new ForbiddenException(
+        'Màn /staff hiện chỉ mở cho staff có role teacher.',
+      ),
     );
 
     await expect(
@@ -79,7 +81,9 @@ describe('CalendarController', () => {
 
   it('rejects non-teacher staff from student filters instead of falling back to unscoped data', async () => {
     staffOperationsAccess.resolveActor.mockRejectedValue(
-      new ForbiddenException('Màn /staff hiện chỉ mở cho staff có role teacher.'),
+      new ForbiddenException(
+        'Màn /staff hiện chỉ mở cho staff có role teacher.',
+      ),
     );
 
     await expect(

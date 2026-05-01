@@ -229,7 +229,8 @@ export class ClassScheduleEventDto {
   allDay: boolean;
 
   @ApiPropertyOptional({
-    description: 'ID of the recurring pattern entry this occurrence derives from',
+    description:
+      'ID of the recurring pattern entry this occurrence derives from',
     example: 'entry-uuid',
   })
   @IsOptional()
@@ -341,7 +342,8 @@ export class MakeupScheduleEventDto {
   teacherId: string;
 
   @ApiPropertyOptional({
-    description: 'Linked session id if this makeup event has been fulfilled by a session',
+    description:
+      'Linked session id if this makeup event has been fulfilled by a session',
     example: '880e8400-e29b-41d4-a716-446655440000',
   })
   @IsOptional()

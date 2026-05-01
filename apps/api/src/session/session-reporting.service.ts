@@ -27,8 +27,8 @@ export class SessionReportingService {
     }
 
     const monthIndex = monthValue - 1;
-    const start = new Date(yearValue, monthIndex, 1);
-    const end = new Date(yearValue, monthIndex + 1, 1);
+    const start = new Date(Date.UTC(yearValue, monthIndex, 1));
+    const end = new Date(Date.UTC(yearValue, monthIndex + 1, 1));
 
     return {
       start,
@@ -64,12 +64,10 @@ export class SessionReportingService {
 
   private withDerivedTeacherFullName<
     T extends {
-      teacher:
-        | {
-            id: string;
-            user: { first_name: string | null; last_name: string | null } | null;
-          }
-        | null;
+      teacher: {
+        id: string;
+        user: { first_name: string | null; last_name: string | null } | null;
+      } | null;
     },
   >(session: T) {
     return {
@@ -200,39 +198,25 @@ export class SessionReportingService {
         SELECT
           attendance.session_id,
           sessions.class_id,
-          COALESCE(sessions.allowance_amount, 0) AS allowance_amount,
-          COALESCE(classes.scale_amount, 0) AS scale_amount,
           LEAST(
             COALESCE(
               NULLIF(classes.max_allowance_per_session, 0),
-              COALESCE(sessions.coefficient, 1) * (
-                COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (
-                  WHERE attendance.status IN ('present', 'excused')
-                ) + COALESCE(classes.scale_amount, 0)
-              )
+              COALESCE(sessions.coefficient, 1) *
+                COALESCE(sessions.allowance_amount, 0)
             ),
-            COALESCE(sessions.coefficient, 1) * (
-              COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (
-              WHERE attendance.status IN ('present', 'excused')
-            ) + COALESCE(classes.scale_amount, 0)
-            )
+            COALESCE(sessions.coefficient, 1) *
+              COALESCE(sessions.allowance_amount, 0)
           ) -
           ROUND(
             (
               LEAST(
                 COALESCE(
                   NULLIF(classes.max_allowance_per_session, 0),
-                  COALESCE(sessions.coefficient, 1) * (
-                    COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (
-                      WHERE attendance.status IN ('present', 'excused')
-                    ) + COALESCE(classes.scale_amount, 0)
-                  )
+                  COALESCE(sessions.coefficient, 1) *
+                    COALESCE(sessions.allowance_amount, 0)
                 ),
-                COALESCE(sessions.coefficient, 1) * (
-                  COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (
-                    WHERE attendance.status IN ('present', 'excused')
-                  ) + COALESCE(classes.scale_amount, 0)
-                )
+                COALESCE(sessions.coefficient, 1) *
+                  COALESCE(sessions.allowance_amount, 0)
               ) * COALESCE(sessions.teacher_tax_rate_percent, 0)
             ) / 100.0,
             0
@@ -248,9 +232,9 @@ export class SessionReportingService {
           sessions.class_id,
           attendance.session_id,
           sessions.allowance_amount,
-          classes.scale_amount,
           classes.max_allowance_per_session,
-          sessions.coefficient
+          sessions.coefficient,
+          sessions.teacher_tax_rate_percent
       ) AS tab
       JOIN classes ON classes.id = tab.class_id
       GROUP BY tab.class_id, classes.name

@@ -64,8 +64,9 @@ export function hasCustomTuitionOverride(options: {
   return (
     normalizeStudentClassCustomTuitionMoney(options.customTuitionPerSession) !=
       null ||
-    normalizeStudentClassCustomTuitionMoney(options.customTuitionPackageTotal) !=
-      null ||
+    normalizeStudentClassCustomTuitionMoney(
+      options.customTuitionPackageTotal,
+    ) != null ||
     normalizeStudentClassCustomTuitionMoney(
       options.customTuitionPackageSession,
     ) != null

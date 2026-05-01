@@ -77,9 +77,8 @@ export class AuthService {
     this.forgotPasswordSecret = this.configService.getOrThrow<string>(
       'JWT_FORGOT_PASSWORD_SECRET',
     );
-    this.refreshTokenSecret = this.configService.getOrThrow<string>(
-      'JWT_REFRESH_SECRET',
-    );
+    this.refreshTokenSecret =
+      this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
     this.forgotPasswordTokenOptions = {
       expiresIn: this.forgotPasswordTokenExpiresIn,
       secret: this.forgotPasswordSecret,
@@ -296,7 +295,10 @@ export class AuthService {
       throw new BadRequestException('Email is required for verification');
     }
 
-    if (normalizedNextEmail && normalizedNextEmail !== user.email.toLowerCase()) {
+    if (
+      normalizedNextEmail &&
+      normalizedNextEmail !== user.email.toLowerCase()
+    ) {
       const existingEmail = await this.prisma.user.findUnique({
         where: { email: normalizedNextEmail },
         select: { id: true },
@@ -323,7 +325,10 @@ export class AuthService {
     );
 
     try {
-      await this.mailService.sendVerificationEmail(targetEmail, verificationToken);
+      await this.mailService.sendVerificationEmail(
+        targetEmail,
+        verificationToken,
+      );
     } catch {
       throw new InternalServerErrorException(
         'Không gửi được email xác thực. Vui lòng thử lại hoặc liên hệ quản trị viên.',
@@ -350,7 +355,10 @@ export class AuthService {
       select: { refreshToken: true },
     });
 
-    this.assertRefreshTokenMatchesHash(user?.refreshToken ?? null, refreshToken);
+    this.assertRefreshTokenMatchesHash(
+      user?.refreshToken ?? null,
+      refreshToken,
+    );
 
     return this.getAuthProfile(payload.id, request);
   }
@@ -848,7 +856,9 @@ export class AuthService {
   }): Promise<string | null> {
     if (params.refreshToken) {
       try {
-        const refreshPayload = await this.verifyRefreshToken(params.refreshToken);
+        const refreshPayload = await this.verifyRefreshToken(
+          params.refreshToken,
+        );
         return refreshPayload.id;
       } catch {
         // Ignore invalid refresh cookies and fall back to access token logout.

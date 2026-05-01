@@ -454,10 +454,7 @@ export class AuthController {
       'Clear access and refresh token cookies. Requires authentication.',
   })
   @ApiResponse({ status: 200, description: 'Logged out successfully.' })
-  async logout(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     await this.authService.revokeRefreshTokenBySession({
       refreshToken: readCookie(req, 'refresh_token'),
       accessToken: readCookie(req, 'access_token'),

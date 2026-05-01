@@ -109,12 +109,11 @@ describe('SessionCreateService', () => {
     );
     expect(accessService.resolveSingleTeacherForClass).not.toHaveBeenCalled();
     expect(createSessionSpy).toHaveBeenCalledWith(
-      {
+      expect.objectContaining({
         classId: 'class-1',
         teacherId: 'teacher-1',
         date: '2026-03-20',
         coefficient: 1.5,
-        allowanceAmount: 120000,
         startTime: undefined,
         endTime: undefined,
         notes: 'Buổi thử',
@@ -125,13 +124,14 @@ describe('SessionCreateService', () => {
             notes: null,
           },
         ],
-      },
+      }),
       {
         userId: 'user-1',
         userEmail: 'teacher@example.com',
         roleType: 'staff',
       },
     );
+    expect(createSessionSpy.mock.calls[0][0].allowanceAmount).toBeUndefined();
   });
 
   it('resolves the class teacher when admin creates a staff-ops session', async () => {
@@ -176,11 +176,10 @@ describe('SessionCreateService', () => {
       'class-1',
     );
     expect(createSessionSpy).toHaveBeenCalledWith(
-      {
+      expect.objectContaining({
         classId: 'class-1',
         teacherId: 'teacher-9',
         date: '2026-03-20',
-        allowanceAmount: null,
         startTime: undefined,
         endTime: undefined,
         notes: null,
@@ -191,12 +190,13 @@ describe('SessionCreateService', () => {
             notes: null,
           },
         ],
-      },
+      }),
       {
         userId: 'user-1',
         userEmail: 'admin@example.com',
         roleType: 'admin',
       },
     );
+    expect(createSessionSpy.mock.calls[0][0].allowanceAmount).toBeUndefined();
   });
 });

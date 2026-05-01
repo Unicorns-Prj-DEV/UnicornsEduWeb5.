@@ -186,16 +186,20 @@ export class LessonService {
     private readonly actionHistoryService: ActionHistoryService,
   ) {}
 
-  private buildStaffDisplayName(staff: {
-    user?: {
-      first_name: string | null;
-      last_name: string | null;
-      accountHandle?: string | null;
-      email?: string | null;
-    } | null;
-    fullName?: string | null;
-  } | null) {
-    return getPreferredUserFullName(staff?.user) ?? staff?.fullName?.trim() ?? '';
+  private buildStaffDisplayName(
+    staff: {
+      user?: {
+        first_name: string | null;
+        last_name: string | null;
+        accountHandle?: string | null;
+        email?: string | null;
+      } | null;
+      fullName?: string | null;
+    } | null,
+  ) {
+    return (
+      getPreferredUserFullName(staff?.user) ?? staff?.fullName?.trim() ?? ''
+    );
   }
 
   private async resolveLessonOutputDeductionSnapshot(
@@ -261,7 +265,9 @@ export class LessonService {
     const participantAccess = accessMode === 'participant' ? access : null;
 
     if (participantAccess) {
-      const taskWhere = this.buildParticipantTaskWhere(participantAccess.staffId);
+      const taskWhere = this.buildParticipantTaskWhere(
+        participantAccess.staffId,
+      );
       const resourceWhere = this.buildParticipantResourceWhere(
         participantAccess.staffId,
       );
@@ -420,10 +426,9 @@ export class LessonService {
     const participantScopedAccess =
       accessMode === 'participant' ? access : null;
     const workWhere = this.buildWorkWhere(query, participantScopedAccess);
-    const taskWhere =
-      participantScopedAccess
-        ? this.buildParticipantTaskWhere(participantScopedAccess.staffId)
-        : undefined;
+    const taskWhere = participantScopedAccess
+      ? this.buildParticipantTaskWhere(participantScopedAccess.staffId)
+      : undefined;
 
     const [taskCount, rawOutputGroups] = await this.prisma.$transaction([
       this.prisma.lessonTask.count({
@@ -630,8 +635,8 @@ export class LessonService {
           tags,
           lessonTask: lessonTaskId
             ? {
-              connect: { id: lessonTaskId },
-            }
+                connect: { id: lessonTaskId },
+              }
             : undefined,
           createdBy: auditActor?.userId ?? null,
         },
@@ -688,11 +693,11 @@ export class LessonService {
       );
       updateData.lessonTask = lessonTaskId
         ? {
-          connect: { id: lessonTaskId },
-        }
+            connect: { id: lessonTaskId },
+          }
         : {
-          disconnect: true,
-        };
+            disconnect: true,
+          };
     }
 
     if (data.tags !== undefined) {
@@ -861,11 +866,11 @@ export class LessonService {
       if (createdByStaffId !== undefined) {
         updateData.createdByStaff = createdByStaffId
           ? {
-            connect: { id: createdByStaffId },
-          }
+              connect: { id: createdByStaffId },
+            }
           : {
-            disconnect: true,
-          };
+              disconnect: true,
+            };
       }
 
       await tx.lessonTask.update({
@@ -956,7 +961,7 @@ export class LessonService {
     const paymentStatus =
       access?.canParticipate && !access.canManage
         ? PaymentStatus.pending
-        : data.paymentStatus ?? PaymentStatus.pending;
+        : (data.paymentStatus ?? PaymentStatus.pending);
     const date = this.requireDateOnly(data.date, 'date');
     const contestUploaded = toTrimmedString(data.contestUploaded);
     const link = toTrimmedString(data.link);
@@ -1060,11 +1065,11 @@ export class LessonService {
       } else {
         updateData.lessonTask = lessonTaskId
           ? {
-            connect: { id: lessonTaskId },
-          }
+              connect: { id: lessonTaskId },
+            }
           : {
-            disconnect: true,
-          };
+              disconnect: true,
+            };
       }
     }
 
@@ -1139,11 +1144,11 @@ export class LessonService {
 
       updateData.staff = nextStaffId
         ? {
-          connect: { id: nextStaffId },
-        }
+            connect: { id: nextStaffId },
+          }
         : {
-          disconnect: true,
-        };
+            disconnect: true,
+          };
     }
 
     if (data.status !== undefined) {
@@ -1254,10 +1259,10 @@ export class LessonService {
 
       const beforeValueByOutputId = auditActor
         ? new Map(
-          Array.from(
-            (await this.getOutputSnapshots(tx, changedOutputIds)).entries(),
-          ).map(([outputId, output]) => [outputId, this.mapOutput(output)]),
-        )
+            Array.from(
+              (await this.getOutputSnapshots(tx, changedOutputIds)).entries(),
+            ).map(([outputId, output]) => [outputId, this.mapOutput(output)]),
+          )
         : new Map<string, LessonOutputResponseDto>();
 
       await tx.lessonOutput.updateMany({
@@ -2148,11 +2153,11 @@ export class LessonService {
       dueDate: task.dueDate ? task.dueDate.toISOString().slice(0, 10) : null,
       createdByStaff: task.createdByStaff
         ? {
-          id: task.createdByStaff.id,
-          fullName: task.createdByStaff.fullName,
-          roles: task.createdByStaff.roles,
-          status: task.createdByStaff.status,
-        }
+            id: task.createdByStaff.id,
+            fullName: task.createdByStaff.fullName,
+            roles: task.createdByStaff.roles,
+            status: task.createdByStaff.status,
+          }
         : null,
       assignees: task.assignees.map((assignee) => ({
         id: assignee.id,

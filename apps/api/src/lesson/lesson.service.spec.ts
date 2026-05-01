@@ -2478,8 +2478,12 @@ describe('LessonService', () => {
       id: 'staff-participant',
       roles: ['lesson_plan'],
     });
-    mockPrisma.lessonTask.findUnique.mockResolvedValue({ id: 'task-participant-1' });
-    mockPrisma.lessonTask.findFirst.mockResolvedValue({ id: 'task-participant-1' });
+    mockPrisma.lessonTask.findUnique.mockResolvedValue({
+      id: 'task-participant-1',
+    });
+    mockPrisma.lessonTask.findFirst.mockResolvedValue({
+      id: 'task-participant-1',
+    });
     mockPrisma.lessonResource.create.mockResolvedValue({
       id: 'resource-participant-1',
       title: 'Bộ note participant',

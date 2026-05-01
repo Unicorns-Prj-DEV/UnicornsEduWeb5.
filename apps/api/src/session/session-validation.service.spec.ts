@@ -95,15 +95,15 @@ describe('SessionValidationService', () => {
   });
 
   it('isTuitionChargeableStatus returns true for present and excused', () => {
-    expect(
-      service.isTuitionChargeableStatus(AttendanceStatus.present),
-    ).toBe(true);
-    expect(
-      service.isTuitionChargeableStatus(AttendanceStatus.excused),
-    ).toBe(true);
-    expect(
-      service.isTuitionChargeableStatus(AttendanceStatus.absent),
-    ).toBe(false);
+    expect(service.isTuitionChargeableStatus(AttendanceStatus.present)).toBe(
+      true,
+    );
+    expect(service.isTuitionChargeableStatus(AttendanceStatus.excused)).toBe(
+      true,
+    );
+    expect(service.isTuitionChargeableStatus(AttendanceStatus.absent)).toBe(
+      false,
+    );
   });
 
   it('clamps coefficient into supported range', () => {
@@ -114,6 +114,17 @@ describe('SessionValidationService', () => {
 
   it('rejects invalid session date strings', () => {
     expect(() => service.parseSessionDate('2026-13-40')).toThrow(
+      new BadRequestException('date không hợp lệ.'),
+    );
+  });
+
+  it('parses valid date-only input as UTC midnight', () => {
+    const parsed = service.parseSessionDate('2026-05-01');
+    expect(parsed.toISOString()).toBe('2026-05-01T00:00:00.000Z');
+  });
+
+  it('rejects datetime strings (session date must be YYYY-MM-DD)', () => {
+    expect(() => service.parseSessionDate('2026-05-01T09:00:00.000Z')).toThrow(
       new BadRequestException('date không hợp lệ.'),
     );
   });

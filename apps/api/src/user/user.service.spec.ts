@@ -528,14 +528,11 @@ describe('UserService', () => {
     jest.spyOn(service, 'getFullProfile').mockResolvedValue({} as never);
     mockPrisma.studentInfo.findFirst.mockResolvedValue({ id: 'student-1' });
 
-    await service.updateMyStudentProfile(
-      'user-1',
-      {
-        full_name: 'Student Name',
-        goal: 'Đạt IELTS 7.0',
-        status: 'inactive',
-      } as never,
-    );
+    await service.updateMyStudentProfile('user-1', {
+      full_name: 'Student Name',
+      goal: 'Đạt IELTS 7.0',
+      status: 'inactive',
+    } as never);
 
     expect(mockPrisma.studentInfo.update).toHaveBeenCalledWith({
       where: { id: 'student-1' },

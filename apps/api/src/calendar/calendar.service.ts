@@ -77,9 +77,7 @@ export class CalendarService {
     return schedule
       .filter(
         (entry) =>
-          typeof entry === 'object' &&
-          entry !== null &&
-          !Array.isArray(entry),
+          typeof entry === 'object' && entry !== null && !Array.isArray(entry),
       )
       .map((rawEntry) => {
         const entry = rawEntry as Prisma.JsonObject;
@@ -98,9 +96,7 @@ export class CalendarService {
               ? entry.googleCalendarEventId
               : undefined,
           meetLink:
-            typeof entry.meetLink === 'string'
-              ? entry.meetLink
-              : undefined,
+            typeof entry.meetLink === 'string' ? entry.meetLink : undefined,
         };
       });
   }
@@ -186,7 +182,9 @@ export class CalendarService {
     return `${hours}:${minutes}:${seconds}`;
   }
 
-  private formatDate(value: Date | string | null | undefined): string | undefined {
+  private formatDate(
+    value: Date | string | null | undefined,
+  ): string | undefined {
     if (!value) {
       return undefined;
     }
@@ -228,7 +226,7 @@ export class CalendarService {
     }
 
     const occurrences: Date[] = [];
-    let current = new Date(first);
+    const current = new Date(first);
     while (current <= end) {
       occurrences.push(new Date(current));
       current.setDate(current.getDate() + 7);
@@ -530,7 +528,9 @@ export class CalendarService {
     };
   }
 
-  private sortCalendarEvents(events: ClassScheduleEventDto[]): ClassScheduleEventDto[] {
+  private sortCalendarEvents(
+    events: ClassScheduleEventDto[],
+  ): ClassScheduleEventDto[] {
     return [...events].sort((a, b) => {
       if (a.date !== b.date) {
         return a.date.localeCompare(b.date);
@@ -809,9 +809,11 @@ export class CalendarService {
     };
   }
 
-  async getAdminCalendarEvents(
-    filters: ClassScheduleFilterDto,
-  ): Promise<{ success: boolean; data: ClassScheduleEventDto[]; total: number }> {
+  async getAdminCalendarEvents(filters: ClassScheduleFilterDto): Promise<{
+    success: boolean;
+    data: ClassScheduleEventDto[];
+    total: number;
+  }> {
     const events = await this.buildCalendarEvents(filters);
     return { success: true, data: events, total: events.length };
   }
@@ -819,14 +821,22 @@ export class CalendarService {
   async getStaffScheduleEvents(
     staffId: string,
     filters: ClassScheduleFilterDto,
-  ): Promise<{ success: boolean; data: ClassScheduleEventDto[]; total: number }> {
-    const events = await this.buildCalendarEvents(filters, { teacherId: staffId });
+  ): Promise<{
+    success: boolean;
+    data: ClassScheduleEventDto[];
+    total: number;
+  }> {
+    const events = await this.buildCalendarEvents(filters, {
+      teacherId: staffId,
+    });
     return { success: true, data: events, total: events.length };
   }
 
-  async getClassScheduleEvents(
-    filters: ClassScheduleFilterDto,
-  ): Promise<{ success: boolean; data: ClassScheduleEventDto[]; total: number }> {
+  async getClassScheduleEvents(filters: ClassScheduleFilterDto): Promise<{
+    success: boolean;
+    data: ClassScheduleEventDto[];
+    total: number;
+  }> {
     const classes = await this.prisma.class.findMany({
       where: this.buildCalendarClassWhere(filters),
       include: {
@@ -970,12 +980,7 @@ export class CalendarService {
       const end = this.normalizeTimeValue(entry.to || entry.end);
       const entryId = entry.id;
 
-      if (
-        dayOfWeek === undefined ||
-        !from ||
-        !end ||
-        !entryId
-      ) {
+      if (dayOfWeek === undefined || !from || !end || !entryId) {
         continue;
       }
 
@@ -984,7 +989,9 @@ export class CalendarService {
             (email): email is string => Boolean(email),
           )
         : cls.teachers
-            .map((teacherRecord) => teacherEmailMap.get(teacherRecord.teacher.id))
+            .map((teacherRecord) =>
+              teacherEmailMap.get(teacherRecord.teacher.id),
+            )
             .filter((email): email is string => Boolean(email));
 
       try {
@@ -1028,9 +1035,11 @@ export class CalendarService {
     });
   }
 
-  async listMakeupScheduleEvents(
-    filters: ClassScheduleFilterDto,
-  ): Promise<{ success: boolean; data: MakeupScheduleEventDto[]; total: number }> {
+  async listMakeupScheduleEvents(filters: ClassScheduleFilterDto): Promise<{
+    success: boolean;
+    data: MakeupScheduleEventDto[];
+    total: number;
+  }> {
     const where = {
       date: {
         gte: this.parseDateOnly(filters.startDate),
@@ -1051,7 +1060,8 @@ export class CalendarService {
         : {}),
     } satisfies Prisma.MakeupScheduleEventWhereInput;
     const page = filters.page && filters.page > 0 ? filters.page : 1;
-    const limit = filters.limit && filters.limit > 0 ? filters.limit : undefined;
+    const limit =
+      filters.limit && filters.limit > 0 ? filters.limit : undefined;
     const skip = limit ? (page - 1) * limit : undefined;
     const [items, total] = await Promise.all([
       this.prisma.makeupScheduleEvent.findMany({
@@ -1066,7 +1076,11 @@ export class CalendarService {
             },
           },
         },
-        orderBy: [{ date: 'desc' }, { startTime: 'desc' }, { createdAt: 'desc' }],
+        orderBy: [
+          { date: 'desc' },
+          { startTime: 'desc' },
+          { createdAt: 'desc' },
+        ],
         ...(typeof skip === 'number' ? { skip } : {}),
         ...(typeof limit === 'number' ? { take: limit } : {}),
       }),
@@ -1083,7 +1097,11 @@ export class CalendarService {
   async listMakeupScheduleEventsForClass(
     classId: string,
     filters: ClassScheduleFilterDto,
-  ): Promise<{ success: boolean; data: MakeupScheduleEventDto[]; total: number }> {
+  ): Promise<{
+    success: boolean;
+    data: MakeupScheduleEventDto[];
+    total: number;
+  }> {
     return this.listMakeupScheduleEvents({
       ...filters,
       classId,
@@ -1255,7 +1273,9 @@ export class CalendarService {
         ...(dto.endTime
           ? { endTime: this.parseTimeOnly(dto.endTime, 'endTime') }
           : {}),
-        ...(dto.title !== undefined ? { title: dto.title?.trim() || null } : {}),
+        ...(dto.title !== undefined
+          ? { title: dto.title?.trim() || null }
+          : {}),
         ...(dto.note !== undefined ? { note: dto.note?.trim() || null } : {}),
       },
     });
@@ -1301,9 +1321,7 @@ export class CalendarService {
     });
   }
 
-  async deleteMakeupScheduleEvent(
-    id: string,
-  ): Promise<{ success: boolean }> {
+  async deleteMakeupScheduleEvent(id: string): Promise<{ success: boolean }> {
     const existing = await this.prisma.makeupScheduleEvent.findUnique({
       where: { id },
       select: {

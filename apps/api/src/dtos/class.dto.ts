@@ -237,7 +237,10 @@ export class ScheduleSlotDto {
   @IsUUID()
   id?: string;
 
-  @ApiProperty({ description: 'Day of week (0-6, 0=Chủ Nhật, 1=Thứ Hai, ...)', example: 1 })
+  @ApiProperty({
+    description: 'Day of week (0-6, 0=Chủ Nhật, 1=Thứ Hai, ...)',
+    example: 1,
+  })
   @IsInt()
   @IsIn([0, 1, 2, 3, 4, 5, 6])
   dayOfWeek: number;

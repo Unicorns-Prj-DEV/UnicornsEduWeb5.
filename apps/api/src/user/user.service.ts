@@ -435,7 +435,10 @@ export class UserService {
 
     try {
       await this.prisma.$transaction(async (tx) => {
-        const beforeUserValue = await this.getUserAuditSnapshot(tx, createdUser.id);
+        const beforeUserValue = await this.getUserAuditSnapshot(
+          tx,
+          createdUser.id,
+        );
         if (!beforeUserValue) {
           throw new NotFoundException('User not found');
         }
@@ -478,12 +481,18 @@ export class UserService {
         await tx.studentClass.deleteMany({ where: { studentId: student.id } });
         if (classIds.length > 0) {
           await tx.studentClass.createMany({
-            data: classIds.map((classId) => ({ classId, studentId: student.id })),
+            data: classIds.map((classId) => ({
+              classId,
+              studentId: student.id,
+            })),
           });
         }
 
         if (auditActor) {
-          const afterUserValue = await this.getUserAuditSnapshot(tx, createdUser.id);
+          const afterUserValue = await this.getUserAuditSnapshot(
+            tx,
+            createdUser.id,
+          );
           if (afterUserValue) {
             await this.actionHistoryService.recordUpdate(tx, {
               actor: auditActor,
@@ -495,7 +504,10 @@ export class UserService {
             });
           }
 
-          const afterStudentValue = await this.getStudentAuditSnapshot(tx, student.id);
+          const afterStudentValue = await this.getStudentAuditSnapshot(
+            tx,
+            student.id,
+          );
           if (afterStudentValue) {
             if (createdUser.studentInfo && beforeStudentValue) {
               await this.actionHistoryService.recordUpdate(tx, {
@@ -982,7 +994,10 @@ export class UserService {
         'Link QR ngân hàng',
       );
     }
-    if (Object.keys(data).length === 0 && Object.keys(userNameData).length === 0) {
+    if (
+      Object.keys(data).length === 0 &&
+      Object.keys(userNameData).length === 0
+    ) {
       return this.getFullProfile(userId);
     }
     const beforeStaffValue = auditActor

@@ -6,9 +6,9 @@ import {
 
 describe('supabase-storage helpers', () => {
   it('normalizes http/https URLs and rejects unsupported protocols', () => {
-    expect(
-      normalizeHttpHttpsUrl(' https://example.com/qr ', 'QR link'),
-    ).toBe('https://example.com/qr');
+    expect(normalizeHttpHttpsUrl(' https://example.com/qr ', 'QR link')).toBe(
+      'https://example.com/qr',
+    );
     expect(normalizeHttpHttpsUrl('   ', 'QR link')).toBeNull();
     expect(normalizeHttpHttpsUrl(undefined, 'QR link')).toBeUndefined();
 

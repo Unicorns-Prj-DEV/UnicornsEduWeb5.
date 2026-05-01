@@ -66,7 +66,8 @@ describe('CalendarService', () => {
       endDate: '2026-05-31',
     } as never);
 
-    const examQuery = mockPrisma.studentExamSchedule.findMany.mock.calls[0]?.[0];
+    const examQuery =
+      mockPrisma.studentExamSchedule.findMany.mock.calls[0]?.[0];
 
     expect(examQuery.where).toMatchObject({
       examDate: {
@@ -88,7 +89,9 @@ describe('CalendarService', () => {
         },
       },
     });
-    expect(examQuery.include.student.include.studentClasses.where).toMatchObject({
+    expect(
+      examQuery.include.student.include.studentClasses.where,
+    ).toMatchObject({
       class: {
         status: 'running',
         teachers: {
@@ -127,7 +130,8 @@ describe('CalendarService', () => {
       classId: 'class-7',
     } as never);
 
-    const examQuery = mockPrisma.studentExamSchedule.findMany.mock.calls[0]?.[0];
+    const examQuery =
+      mockPrisma.studentExamSchedule.findMany.mock.calls[0]?.[0];
 
     expect(examQuery.where).toMatchObject({
       student: {
@@ -145,7 +149,9 @@ describe('CalendarService', () => {
         },
       },
     });
-    expect(examQuery.include.student.include.studentClasses.where).toMatchObject({
+    expect(
+      examQuery.include.student.include.studentClasses.where,
+    ).toMatchObject({
       classId: 'class-7',
       class: {
         teachers: {

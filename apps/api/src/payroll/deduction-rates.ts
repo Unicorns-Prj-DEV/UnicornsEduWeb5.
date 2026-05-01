@@ -91,6 +91,30 @@ export async function resolveTaxDeductionRate(
   return normalizePercent(roleDefault?.ratePercent);
 }
 
+/**
+ * Dedupes concurrent in-flight lookups (e.g. Promise.all over attendance rows sharing the same staff).
+ * Each distinct (staffId, roleType) triggers at most one resolveTaxDeductionRate chain per resolver instance.
+ */
+export function createMemoizedTaxDeductionResolver(
+  prisma: PrismaLike,
+  effectiveDate: Date,
+) {
+  const pendingByKey = new Map<string, Promise<number>>();
+  return (staffId: string, roleType: StaffRole): Promise<number> => {
+    const key = `${staffId}:${roleType}`;
+    let pending = pendingByKey.get(key);
+    if (!pending) {
+      pending = resolveTaxDeductionRate(prisma, {
+        staffId,
+        roleType,
+        effectiveDate,
+      });
+      pendingByKey.set(key, pending);
+    }
+    return pending;
+  };
+}
+
 export async function resolveOperatingDeductionRate(
   prisma: PrismaLike,
   params: {

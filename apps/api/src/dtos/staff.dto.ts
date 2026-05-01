@@ -205,6 +205,7 @@ export interface StaffIncomeDepositClassSummaryDto {
 
 export interface StaffIncomeSummaryDto {
   recentUnpaidDays: number;
+  snapshotUnpaidTotal: number;
   monthlyIncomeTotals: StaffIncomeAmountSummaryDto;
   monthlyGrossTotals: StaffIncomeAmountSummaryDto;
   monthlyTaxTotals: StaffIncomeAmountSummaryDto;
@@ -280,15 +281,13 @@ export interface StaffPaymentPreviewItemDto {
   netAmount: number;
 }
 
-export interface StaffPaymentPreviewSourceDto
-  extends StaffPaymentPreviewTotalsDto {
+export interface StaffPaymentPreviewSourceDto extends StaffPaymentPreviewTotalsDto {
   sourceType: string;
   sourceLabel: string;
   items: StaffPaymentPreviewItemDto[];
 }
 
-export interface StaffPaymentPreviewSectionDto
-  extends StaffPaymentPreviewTotalsDto {
+export interface StaffPaymentPreviewSectionDto extends StaffPaymentPreviewTotalsDto {
   role: StaffRole | null;
   label: string;
   sources: StaffPaymentPreviewSourceDto[];
@@ -335,8 +334,7 @@ export interface StaffDepositPaymentPreviewSessionDto {
   netAmount: number;
 }
 
-export interface StaffDepositPaymentPreviewClassDto
-  extends StaffDepositPaymentPreviewTotalsDto {
+export interface StaffDepositPaymentPreviewClassDto extends StaffDepositPaymentPreviewTotalsDto {
   classId: string;
   className: string;
   sessions: StaffDepositPaymentPreviewSessionDto[];

@@ -24,7 +24,9 @@ const actionHistoryListSelect = {
   description: true,
 } satisfies Prisma.ActionHistorySelect;
 
-function computeUserFullName(user?: { first_name?: string | null; last_name?: string | null } | null) {
+function computeUserFullName(
+  user?: { first_name?: string | null; last_name?: string | null } | null,
+) {
   const first = user?.first_name?.trim() ?? '';
   const last = user?.last_name?.trim() ?? '';
   return `${last} ${first}`.trim() || null;

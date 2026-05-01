@@ -27,19 +27,19 @@ import { getUserFullNameFromParts } from '../common/user-name.util';
 
 @Injectable()
 export class ExtraAllowanceService {
-  private static readonly SELF_MANAGED_EXTRA_ALLOWANCE_ROLES = new Set<StaffRole>([
-    StaffRole.communication,
-    StaffRole.technical,
-  ]);
+  private static readonly SELF_MANAGED_EXTRA_ALLOWANCE_ROLES =
+    new Set<StaffRole>([StaffRole.communication, StaffRole.technical]);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly actionHistoryService: ActionHistoryService,
   ) {}
 
-  private buildStaffDisplayName(staff: {
-    user?: { first_name: string | null; last_name: string | null } | null;
-  } | null) {
+  private buildStaffDisplayName(
+    staff: {
+      user?: { first_name: string | null; last_name: string | null } | null;
+    } | null,
+  ) {
     return getUserFullNameFromParts(staff?.user) ?? '';
   }
 

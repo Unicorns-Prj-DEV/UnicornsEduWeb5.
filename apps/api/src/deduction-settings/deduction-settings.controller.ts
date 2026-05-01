@@ -236,7 +236,8 @@ export class DeductionSettingsController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Validation error, duplicate role entries, or staff not found.',
+    description:
+      'Validation error, duplicate role entries, or staff not found.',
   })
   async bulkUpsertStaffTaxDeductionOverrides(
     @CurrentUser() user: JwtPayload,

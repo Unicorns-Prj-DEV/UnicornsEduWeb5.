@@ -26,9 +26,14 @@ import { SessionSnapshotService } from './session-snapshot.service';
 import { SessionStudentBalanceService } from './session-student-balance.service';
 import { SessionValidationService } from './session-validation.service';
 import {
+  createMemoizedTaxDeductionResolver,
   resolveOperatingDeductionRate,
   resolveTaxDeductionRate,
 } from '../payroll/deduction-rates';
+import { computeDefaultSessionAllowanceAmountVnd } from './session-allowance.util';
+
+const SESSION_UPDATE_TRANSACTION_MAX_WAIT_MS = 10_000;
+const SESSION_UPDATE_TRANSACTION_TIMEOUT_MS = 20_000;
 
 function normalizeSessionPaymentStatus(
   value?: string | null,
@@ -77,91 +82,97 @@ export class SessionUpdateService {
       throw new BadRequestException('sessionIds must contain at least one id.');
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const existingSessions = await tx.session.findMany({
-        where: {
-          id: {
-            in: uniqueSessionIds,
+    return this.prisma.$transaction(
+      async (tx) => {
+        const existingSessions = await tx.session.findMany({
+          where: {
+            id: {
+              in: uniqueSessionIds,
+            },
           },
-        },
-        select: {
-          id: true,
-          teacherPaymentStatus: true,
-        },
-      });
-
-      if (existingSessions.length !== uniqueSessionIds.length) {
-        const existingIds = new Set(
-          existingSessions.map((session) => session.id),
-        );
-        const missingSessionId = uniqueSessionIds.find(
-          (sessionId) => !existingIds.has(sessionId),
-        );
-
-        throw new NotFoundException(
-          missingSessionId
-            ? `Session not found: ${missingSessionId}`
-            : 'Session not found',
-        );
-      }
-
-      const changedSessionIds = existingSessions
-        .filter(
-          (session) =>
-            normalizeSessionPaymentStatus(session.teacherPaymentStatus) !==
-            teacherPaymentStatus,
-        )
-        .map((session) => session.id);
-
-      if (changedSessionIds.length === 0) {
-        return {
-          requestedCount: uniqueSessionIds.length,
-          updatedCount: 0,
-        };
-      }
-
-      const beforeValueBySessionId = actor
-        ? await this.sessionSnapshotService.getSessionAuditSnapshots(
-            tx,
-            changedSessionIds,
-          )
-        : new Map<string, unknown>();
-
-      await tx.session.updateMany({
-        where: {
-          id: {
-            in: changedSessionIds,
+          select: {
+            id: true,
+            teacherPaymentStatus: true,
           },
-        },
-        data: {
-          teacherPaymentStatus,
-        },
-      });
+        });
 
-      if (actor) {
-        const afterValueBySessionId =
-          await this.sessionSnapshotService.getSessionAuditSnapshots(
-            tx,
-            changedSessionIds,
+        if (existingSessions.length !== uniqueSessionIds.length) {
+          const existingIds = new Set(
+            existingSessions.map((session) => session.id),
+          );
+          const missingSessionId = uniqueSessionIds.find(
+            (sessionId) => !existingIds.has(sessionId),
           );
 
-        for (const sessionId of changedSessionIds) {
-          await this.actionHistoryService.recordUpdate(tx, {
-            actor,
-            entityType: 'session',
-            entityId: sessionId,
-            description: 'Cập nhật trạng thái thanh toán buổi học',
-            beforeValue: beforeValueBySessionId.get(sessionId) ?? null,
-            afterValue: afterValueBySessionId.get(sessionId) ?? null,
-          });
+          throw new NotFoundException(
+            missingSessionId
+              ? `Session not found: ${missingSessionId}`
+              : 'Session not found',
+          );
         }
-      }
 
-      return {
-        requestedCount: uniqueSessionIds.length,
-        updatedCount: changedSessionIds.length,
-      };
-    });
+        const changedSessionIds = existingSessions
+          .filter(
+            (session) =>
+              normalizeSessionPaymentStatus(session.teacherPaymentStatus) !==
+              teacherPaymentStatus,
+          )
+          .map((session) => session.id);
+
+        if (changedSessionIds.length === 0) {
+          return {
+            requestedCount: uniqueSessionIds.length,
+            updatedCount: 0,
+          };
+        }
+
+        const beforeValueBySessionId = actor
+          ? await this.sessionSnapshotService.getSessionAuditSnapshots(
+              tx,
+              changedSessionIds,
+            )
+          : new Map<string, unknown>();
+
+        await tx.session.updateMany({
+          where: {
+            id: {
+              in: changedSessionIds,
+            },
+          },
+          data: {
+            teacherPaymentStatus,
+          },
+        });
+
+        if (actor) {
+          const afterValueBySessionId =
+            await this.sessionSnapshotService.getSessionAuditSnapshots(
+              tx,
+              changedSessionIds,
+            );
+
+          for (const sessionId of changedSessionIds) {
+            await this.actionHistoryService.recordUpdate(tx, {
+              actor,
+              entityType: 'session',
+              entityId: sessionId,
+              description: 'Cập nhật trạng thái thanh toán buổi học',
+              beforeValue: beforeValueBySessionId.get(sessionId) ?? null,
+              afterValue: afterValueBySessionId.get(sessionId) ?? null,
+            });
+          }
+        }
+
+        return {
+          requestedCount: uniqueSessionIds.length,
+          updatedCount: changedSessionIds.length,
+        };
+      },
+      {
+        maxWait: SESSION_UPDATE_TRANSACTION_MAX_WAIT_MS,
+        timeout: SESSION_UPDATE_TRANSACTION_TIMEOUT_MS,
+      },
+    );
   }
 
   async updateSession(data: SessionUpdateDto, actor?: ActionHistoryActor) {
@@ -175,637 +186,464 @@ export class SessionUpdateService {
 
     const sessionId = data.id;
 
-    const updatedSession = await this.prisma.$transaction(async (tx) => {
-      const beforeValue = actor
-        ? await this.sessionSnapshotService.getSessionAuditSnapshot(
-            tx,
-            sessionId,
-          )
-        : null;
-      const existingSession = await tx.session.findUnique({
-        where: { id: sessionId },
-        select: {
-          id: true,
-          classId: true,
-          teacherId: true,
-          date: true,
-          class: {
-            select: {
-              name: true,
-            },
-          },
-          attendance: {
-            select: {
-              id: true,
-              studentId: true,
-              status: true,
-              notes: true,
-              tuitionFee: true,
-              customerCareCoef: true,
-              customerCareStaffId: true,
-              customerCarePaymentStatus: true,
-              assistantManagerStaffId: true,
-              assistantPaymentStatus: true,
-              transactionId: true,
-              transaction: {
-                select: {
-                  id: true,
-                  amount: true,
-                },
-              },
-              student: {
-                select: {
-                  accountBalance: true,
-                },
-              },
-            },
-          },
-        },
-      });
-
-      if (!existingSession) {
-        throw new NotFoundException('Session not found');
-      }
-
-      const nextClassId = data.classId ?? existingSession.classId;
-      const nextTeacherId = data.teacherId ?? existingSession.teacherId;
-      const hasClassOrTeacherChange =
-        nextClassId !== existingSession.classId ||
-        nextTeacherId !== existingSession.teacherId;
-
-      const hasDateChange = data.date !== undefined;
-
-      const shouldRefreshAttendanceAssignments =
-        data.attendance !== undefined ||
-        nextClassId !== existingSession.classId;
-      const shouldRebuildAttendanceState =
-        shouldRefreshAttendanceAssignments || hasDateChange;
-
-      const existingAttendanceByStudentId = new Map(
-        existingSession.attendance.map((attendanceItem) => [
-          attendanceItem.studentId,
-          attendanceItem,
-        ]),
-      );
-
-      const sessionDate =
-        data.date !== undefined
-          ? this.sessionValidationService.parseSessionDate(data.date)
-          : undefined;
-      const sessionStartTime =
-        data.startTime !== undefined
-          ? this.sessionValidationService.parseSessionTime(
-              data.startTime,
-              'startTime',
+    const updatedSession = await this.prisma.$transaction(
+      async (tx) => {
+        const beforeValue = actor
+          ? await this.sessionSnapshotService.getSessionAuditSnapshot(
+              tx,
+              sessionId,
             )
-          : undefined;
-      const sessionEndTime =
-        data.endTime !== undefined
-          ? this.sessionValidationService.parseSessionTime(
-              data.endTime,
-              'endTime',
-            )
-          : undefined;
-
-      const coefficientUpdate =
-        this.sessionValidationService.normalizeCoefficient(data.coefficient);
-
-      let allowanceAmountUpdate: number | null | undefined;
-      let teacherOperatingDeductionRatePercentUpdate: number | undefined;
-      let teacherTaxDeductionRatePercentUpdate: number | undefined;
-      let nextClassName = existingSession.class.name;
-      const effectiveSessionDate = sessionDate ?? existingSession.date;
-      if (hasClassOrTeacherChange || hasDateChange) {
-        const classTeacher = await tx.classTeacher.findUnique({
-          where: {
-            classId_teacherId: {
-              classId: nextClassId,
-              teacherId: nextTeacherId,
-            },
-          },
+          : null;
+        const existingSession = await tx.session.findUnique({
+          where: { id: sessionId },
           select: {
-            customAllowance: true,
-            operatingDeductionRatePercent: true,
+            id: true,
+            classId: true,
+            teacherId: true,
+            date: true,
             class: {
               select: {
                 name: true,
               },
             },
-          },
-        });
-
-        if (!classTeacher) {
-          throw new NotFoundException(
-            'Class teacher not found for this class and teacher.',
-          );
-        }
-
-        nextClassName = classTeacher.class.name;
-        if (hasClassOrTeacherChange) {
-          allowanceAmountUpdate =
-            data.allowanceAmount !== undefined
-              ? data.allowanceAmount
-              : classTeacher.customAllowance;
-        }
-        const currentTeacherOperatingDeductionRatePercent = Number(
-          classTeacher.operatingDeductionRatePercent ?? 0,
-        );
-        const resolvedTeacherOperatingDeductionRatePercent =
-          await resolveOperatingDeductionRate(tx, {
-            classId: nextClassId,
-            teacherId: nextTeacherId,
-            effectiveDate: effectiveSessionDate,
-          });
-        teacherOperatingDeductionRatePercentUpdate =
-          resolvedTeacherOperatingDeductionRatePercent > 0
-            ? resolvedTeacherOperatingDeductionRatePercent
-            : Number.isFinite(currentTeacherOperatingDeductionRatePercent)
-              ? Math.round(
-                  currentTeacherOperatingDeductionRatePercent * 100,
-                ) / 100
-              : 0;
-        teacherTaxDeductionRatePercentUpdate = await resolveTaxDeductionRate(
-          tx,
-          {
-            staffId: nextTeacherId,
-            roleType: StaffRole.teacher,
-            effectiveDate: effectiveSessionDate,
-          },
-        );
-      } else if (data.allowanceAmount !== undefined) {
-        allowanceAmountUpdate = data.allowanceAmount;
-      }
-
-      const attendanceSource =
-        data.attendance ??
-        existingSession.attendance.map((attendanceItem) => ({
-          studentId: attendanceItem.studentId,
-          status: attendanceItem.status,
-          notes: attendanceItem.notes ?? null,
-          tuitionFee: attendanceItem.tuitionFee ?? null,
-        }));
-
-      const nextAttendanceStudentIds = attendanceSource.map(
-        (attendanceItem) => attendanceItem.studentId,
-      );
-      const chargeableAttendanceStudentIds = attendanceSource
-        .filter((item) =>
-          this.sessionValidationService.isTuitionChargeableStatus(item.status),
-        )
-        .map((attendanceItem) => attendanceItem.studentId);
-
-      const studentTuitionFeeByStudentId = new Map<string, number | null>();
-      if (shouldRebuildAttendanceState && nextAttendanceStudentIds.length > 0) {
-        const studentClasses = await tx.studentClass.findMany({
-          where: {
-            classId: nextClassId,
-            studentId: {
-              in: nextAttendanceStudentIds,
-            },
-          },
-          select: {
-            studentId: true,
-            customStudentTuitionPerSession: true,
-            class: {
+            attendance: {
               select: {
-                studentTuitionPerSession: true,
-                tuitionPackageTotal: true,
-                tuitionPackageSession: true,
+                id: true,
+                studentId: true,
+                status: true,
+                notes: true,
+                tuitionFee: true,
+                customerCareCoef: true,
+                customerCareStaffId: true,
+                customerCarePaymentStatus: true,
+                assistantManagerStaffId: true,
+                assistantPaymentStatus: true,
+                transactionId: true,
+                transaction: {
+                  select: {
+                    id: true,
+                    amount: true,
+                  },
+                },
+                student: {
+                  select: {
+                    accountBalance: true,
+                  },
+                },
               },
             },
           },
         });
 
-        studentClasses.forEach((studentClass) => {
-          studentTuitionFeeByStudentId.set(
-            studentClass.studentId,
-            this.sessionValidationService.resolveDefaultStudentTuitionPerSession(
-              {
-                customTuitionPerSession:
-                  studentClass.customStudentTuitionPerSession,
-                classTuitionPerSession:
-                  studentClass.class?.studentTuitionPerSession,
-                classTuitionPackageTotal:
-                  studentClass.class?.tuitionPackageTotal,
-                classTuitionPackageSession:
-                  studentClass.class?.tuitionPackageSession,
+        if (!existingSession) {
+          throw new NotFoundException('Session not found');
+        }
+
+        const nextClassId = data.classId ?? existingSession.classId;
+        const nextTeacherId = data.teacherId ?? existingSession.teacherId;
+        const hasClassOrTeacherChange =
+          nextClassId !== existingSession.classId ||
+          nextTeacherId !== existingSession.teacherId;
+
+        const hasDateChange = data.date !== undefined;
+
+        const shouldRefreshAttendanceAssignments =
+          data.attendance !== undefined ||
+          nextClassId !== existingSession.classId;
+        const shouldRebuildAttendanceState =
+          shouldRefreshAttendanceAssignments || hasDateChange;
+
+        const existingAttendanceByStudentId = new Map(
+          existingSession.attendance.map((attendanceItem) => [
+            attendanceItem.studentId,
+            attendanceItem,
+          ]),
+        );
+
+        const sessionDate =
+          data.date !== undefined
+            ? this.sessionValidationService.parseSessionDate(data.date)
+            : undefined;
+        const sessionStartTime =
+          data.startTime !== undefined
+            ? this.sessionValidationService.parseSessionTime(
+                data.startTime,
+                'startTime',
+              )
+            : undefined;
+        const sessionEndTime =
+          data.endTime !== undefined
+            ? this.sessionValidationService.parseSessionTime(
+                data.endTime,
+                'endTime',
+              )
+            : undefined;
+
+        const coefficientUpdate =
+          this.sessionValidationService.normalizeCoefficient(data.coefficient);
+
+        let allowanceAmountUpdate: number | null | undefined;
+        let classTeacherForAllowance: {
+          customAllowance: number | null;
+          class: {
+            name: string;
+            allowancePerSessionPerStudent: number;
+            scaleAmount: number | null;
+          };
+        } | null = null;
+        let teacherOperatingDeductionRatePercentUpdate: number | undefined;
+        let teacherTaxDeductionRatePercentUpdate: number | undefined;
+        let nextClassName = existingSession.class.name;
+        const effectiveSessionDate = sessionDate ?? existingSession.date;
+        if (hasClassOrTeacherChange || hasDateChange) {
+          const classTeacher = await tx.classTeacher.findUnique({
+            where: {
+              classId_teacherId: {
+                classId: nextClassId,
+                teacherId: nextTeacherId,
               },
-            ),
-          );
-        });
-
-        const uniqueAttendanceStudentIds = new Set(nextAttendanceStudentIds);
-        if (studentClasses.length !== uniqueAttendanceStudentIds.size) {
-          throw new BadRequestException(
-            'attendance chỉ được phép chứa học sinh thuộc lớp học hiện tại.',
-          );
-        }
-      }
-
-      const customerCareByStudentId = new Map<
-        string,
-        { profitPercent: number | null; staffId: string | null }
-      >();
-      if (
-        shouldRefreshAttendanceAssignments &&
-        chargeableAttendanceStudentIds.length > 0
-      ) {
-        const studentCustomerCare = await tx.customerCareService.findMany({
-          where: {
-            studentId: {
-              in: chargeableAttendanceStudentIds,
             },
-          },
-          select: {
-            studentId: true,
-            profitPercent: true,
-            staffId: true,
-          },
-        });
-
-        studentCustomerCare.forEach((customerCare) => {
-          customerCareByStudentId.set(customerCare.studentId, {
-            profitPercent:
-              customerCare.profitPercent === null
-                ? null
-                : Number(customerCare.profitPercent),
-            staffId: customerCare.staffId ?? null,
+            select: {
+              customAllowance: true,
+              operatingDeductionRatePercent: true,
+              class: {
+                select: {
+                  name: true,
+                  allowancePerSessionPerStudent: true,
+                  scaleAmount: true,
+                },
+              },
+            },
           });
-        });
-      }
 
-      const assistantManagerByStaffId = new Map<string, string | null>();
-      if (shouldRefreshAttendanceAssignments) {
-        const uniqueCareStaffIds = [
-          ...new Set(
-            [...customerCareByStudentId.values()]
-              .map((cc) => cc.staffId)
-              .filter((id): id is string => !!id),
-          ),
-        ];
-        if (uniqueCareStaffIds.length > 0) {
-          const careStaff = await tx.staffInfo.findMany({
-            where: { id: { in: uniqueCareStaffIds } },
-            select: { id: true, customerCareManagedByStaffId: true },
-          });
-          careStaff.forEach((s) =>
-            assistantManagerByStaffId.set(
-              s.id,
-              s.customerCareManagedByStaffId,
-            ),
-          );
-        }
-      }
-
-      const nextAttendanceState = shouldRebuildAttendanceState
-        ? attendanceSource.map((attendanceItem) => {
-            const existingAttendance = existingAttendanceByStudentId.get(
-              attendanceItem.studentId,
+          if (!classTeacher) {
+            throw new NotFoundException(
+              'Class teacher not found for this class and teacher.',
             );
-            const defaultTuitionFee =
-              studentTuitionFeeByStudentId.get(attendanceItem.studentId) ??
-              null;
-            const resolvedTuitionFee =
-              data.attendance !== undefined
-                ? this.sessionValidationService.resolveChargeableAttendanceTuitionFee(
-                    attendanceItem.status,
-                    attendanceItem.tuitionFee,
-                    defaultTuitionFee,
-                  )
-                : nextClassId !== existingSession.classId
+          }
+
+          nextClassName = classTeacher.class.name;
+          classTeacherForAllowance = classTeacher;
+          const currentTeacherOperatingDeductionRatePercent = Number(
+            classTeacher.operatingDeductionRatePercent ?? 0,
+          );
+          const resolvedTeacherOperatingDeductionRatePercent =
+            await resolveOperatingDeductionRate(tx, {
+              classId: nextClassId,
+              teacherId: nextTeacherId,
+              effectiveDate: effectiveSessionDate,
+            });
+          teacherOperatingDeductionRatePercentUpdate =
+            resolvedTeacherOperatingDeductionRatePercent > 0
+              ? resolvedTeacherOperatingDeductionRatePercent
+              : Number.isFinite(currentTeacherOperatingDeductionRatePercent)
+                ? Math.round(
+                    currentTeacherOperatingDeductionRatePercent * 100,
+                  ) / 100
+                : 0;
+          teacherTaxDeductionRatePercentUpdate = await resolveTaxDeductionRate(
+            tx,
+            {
+              staffId: nextTeacherId,
+              roleType: StaffRole.teacher,
+              effectiveDate: effectiveSessionDate,
+            },
+          );
+        }
+
+        const attendanceSource =
+          data.attendance ??
+          existingSession.attendance.map((attendanceItem) => ({
+            studentId: attendanceItem.studentId,
+            status: attendanceItem.status,
+            notes: attendanceItem.notes ?? null,
+            tuitionFee: attendanceItem.tuitionFee ?? null,
+          }));
+
+        const nextAttendanceStudentIds = attendanceSource.map(
+          (attendanceItem) => attendanceItem.studentId,
+        );
+        const chargeableAttendanceStudentIds = attendanceSource
+          .filter((item) =>
+            this.sessionValidationService.isTuitionChargeableStatus(
+              item.status,
+            ),
+          )
+          .map((attendanceItem) => attendanceItem.studentId);
+
+        if (
+          data.allowanceAmount !== undefined &&
+          data.allowanceAmount !== null
+        ) {
+          allowanceAmountUpdate = Math.floor(Number(data.allowanceAmount));
+        } else if (hasClassOrTeacherChange && classTeacherForAllowance) {
+          allowanceAmountUpdate = computeDefaultSessionAllowanceAmountVnd({
+            perStudentAllowance: classTeacherForAllowance.customAllowance,
+            classDefaultPerStudent:
+              classTeacherForAllowance.class.allowancePerSessionPerStudent,
+            scaleAmount: classTeacherForAllowance.class.scaleAmount,
+            chargeableStudentCount: chargeableAttendanceStudentIds.length,
+          });
+        }
+
+        const studentTuitionFeeByStudentId = new Map<string, number | null>();
+        if (
+          shouldRebuildAttendanceState &&
+          nextAttendanceStudentIds.length > 0
+        ) {
+          const studentClasses = await tx.studentClass.findMany({
+            where: {
+              classId: nextClassId,
+              studentId: {
+                in: nextAttendanceStudentIds,
+              },
+            },
+            select: {
+              studentId: true,
+              customStudentTuitionPerSession: true,
+              class: {
+                select: {
+                  studentTuitionPerSession: true,
+                  tuitionPackageTotal: true,
+                  tuitionPackageSession: true,
+                },
+              },
+            },
+          });
+
+          studentClasses.forEach((studentClass) => {
+            studentTuitionFeeByStudentId.set(
+              studentClass.studentId,
+              this.sessionValidationService.resolveDefaultStudentTuitionPerSession(
+                {
+                  customTuitionPerSession:
+                    studentClass.customStudentTuitionPerSession,
+                  classTuitionPerSession:
+                    studentClass.class?.studentTuitionPerSession,
+                  classTuitionPackageTotal:
+                    studentClass.class?.tuitionPackageTotal,
+                  classTuitionPackageSession:
+                    studentClass.class?.tuitionPackageSession,
+                },
+              ),
+            );
+          });
+
+          const uniqueAttendanceStudentIds = new Set(nextAttendanceStudentIds);
+          if (studentClasses.length !== uniqueAttendanceStudentIds.size) {
+            throw new BadRequestException(
+              'attendance chỉ được phép chứa học sinh thuộc lớp học hiện tại.',
+            );
+          }
+        }
+
+        const customerCareByStudentId = new Map<
+          string,
+          { profitPercent: number | null; staffId: string | null }
+        >();
+        if (
+          shouldRefreshAttendanceAssignments &&
+          chargeableAttendanceStudentIds.length > 0
+        ) {
+          const studentCustomerCare = await tx.customerCareService.findMany({
+            where: {
+              studentId: {
+                in: chargeableAttendanceStudentIds,
+              },
+            },
+            select: {
+              studentId: true,
+              profitPercent: true,
+              staffId: true,
+            },
+          });
+
+          studentCustomerCare.forEach((customerCare) => {
+            customerCareByStudentId.set(customerCare.studentId, {
+              profitPercent:
+                customerCare.profitPercent === null
+                  ? null
+                  : Number(customerCare.profitPercent),
+              staffId: customerCare.staffId ?? null,
+            });
+          });
+        }
+
+        const assistantManagerByStaffId = new Map<string, string | null>();
+        if (shouldRefreshAttendanceAssignments) {
+          const uniqueCareStaffIds = [
+            ...new Set(
+              [...customerCareByStudentId.values()]
+                .map((cc) => cc.staffId)
+                .filter((id): id is string => !!id),
+            ),
+          ];
+          if (uniqueCareStaffIds.length > 0) {
+            const careStaff = await tx.staffInfo.findMany({
+              where: { id: { in: uniqueCareStaffIds } },
+              select: { id: true, customerCareManagedByStaffId: true },
+            });
+            careStaff.forEach((s) =>
+              assistantManagerByStaffId.set(
+                s.id,
+                s.customerCareManagedByStaffId,
+              ),
+            );
+          }
+        }
+
+        const nextAttendanceState = shouldRebuildAttendanceState
+          ? attendanceSource.map((attendanceItem) => {
+              const existingAttendance = existingAttendanceByStudentId.get(
+                attendanceItem.studentId,
+              );
+              const defaultTuitionFee =
+                studentTuitionFeeByStudentId.get(attendanceItem.studentId) ??
+                null;
+              const resolvedTuitionFee =
+                data.attendance !== undefined
                   ? this.sessionValidationService.resolveChargeableAttendanceTuitionFee(
                       attendanceItem.status,
-                      undefined,
+                      attendanceItem.tuitionFee,
                       defaultTuitionFee,
                     )
-                  : this.sessionValidationService.resolveChargeableAttendanceTuitionFee(
-                      attendanceItem.status,
-                      existingAttendance?.tuitionFee ?? null,
-                      null,
-                    );
+                  : nextClassId !== existingSession.classId
+                    ? this.sessionValidationService.resolveChargeableAttendanceTuitionFee(
+                        attendanceItem.status,
+                        undefined,
+                        defaultTuitionFee,
+                      )
+                    : this.sessionValidationService.resolveChargeableAttendanceTuitionFee(
+                        attendanceItem.status,
+                        existingAttendance?.tuitionFee ?? null,
+                        null,
+                      );
 
-            const resolvedCareStaffId =
-              shouldRefreshAttendanceAssignments
+              const resolvedCareStaffId = shouldRefreshAttendanceAssignments
                 ? (customerCareByStudentId.get(attendanceItem.studentId)
                     ?.staffId ?? null)
                 : (existingAttendance?.customerCareStaffId ?? null);
 
-            const resolvedAssistantId =
-              shouldRefreshAttendanceAssignments
-                ? (resolvedCareStaffId
-                    ? (assistantManagerByStaffId.get(resolvedCareStaffId) ??
-                      null)
-                    : null)
+              const resolvedAssistantId = shouldRefreshAttendanceAssignments
+                ? resolvedCareStaffId
+                  ? (assistantManagerByStaffId.get(resolvedCareStaffId) ?? null)
+                  : null
                 : (existingAttendance?.assistantManagerStaffId ?? null);
 
-            return {
-              studentId: attendanceItem.studentId,
-              status: attendanceItem.status,
-              notes: attendanceItem.notes ?? null,
-              tuitionFee: resolvedTuitionFee,
-              customerCareCoef:
-                shouldRefreshAttendanceAssignments
+              return {
+                studentId: attendanceItem.studentId,
+                status: attendanceItem.status,
+                notes: attendanceItem.notes ?? null,
+                tuitionFee: resolvedTuitionFee,
+                customerCareCoef: shouldRefreshAttendanceAssignments
                   ? (customerCareByStudentId.get(attendanceItem.studentId)
                       ?.profitPercent ?? null)
                   : (existingAttendance?.customerCareCoef ?? null),
-              customerCareStaffId: resolvedCareStaffId,
-              assistantManagerStaffId: resolvedAssistantId,
-              existingAttendanceId: existingAttendance?.id ?? null,
-              existingTransactionId: existingAttendance?.transactionId ?? null,
-              existingCustomerCarePaymentStatus:
-                existingAttendance?.customerCarePaymentStatus ?? null,
-              existingAssistantPaymentStatus:
-                existingAttendance?.assistantPaymentStatus ?? null,
-            };
-          })
-        : [];
+                customerCareStaffId: resolvedCareStaffId,
+                assistantManagerStaffId: resolvedAssistantId,
+                existingAttendanceId: existingAttendance?.id ?? null,
+                existingTransactionId:
+                  existingAttendance?.transactionId ?? null,
+                existingCustomerCarePaymentStatus:
+                  existingAttendance?.customerCarePaymentStatus ?? null,
+                existingAssistantPaymentStatus:
+                  existingAttendance?.assistantPaymentStatus ?? null,
+              };
+            })
+          : [];
 
-      const nextAttendanceStateByStudentId = new Map(
-        nextAttendanceState.map((attendanceItem) => [
-          attendanceItem.studentId,
-          attendanceItem,
-        ]),
-      );
-      const sessionTuitionFeeUpdate = shouldRebuildAttendanceState
-        ? nextAttendanceState.reduce(
-            (sum, attendanceItem) => sum + (attendanceItem.tuitionFee ?? 0),
-            0,
-          )
-        : undefined;
+        const nextAttendanceStateByStudentId = new Map(
+          nextAttendanceState.map((attendanceItem) => [
+            attendanceItem.studentId,
+            attendanceItem,
+          ]),
+        );
+        const sessionTuitionFeeUpdate = shouldRebuildAttendanceState
+          ? nextAttendanceState.reduce(
+              (sum, attendanceItem) => sum + (attendanceItem.tuitionFee ?? 0),
+              0,
+            )
+          : undefined;
 
-      const balanceStudentIds = Array.from(
-        new Set([
-          ...existingSession.attendance.map(
-            (attendanceItem) => attendanceItem.studentId,
-          ),
-          ...nextAttendanceStudentIds,
-        ]),
-      );
-      const studentBalanceByStudentId = new Map<string, number | null>();
-      if (balanceStudentIds.length > 0) {
-        const students = await tx.studentInfo.findMany({
-          where: {
-            id: {
-              in: balanceStudentIds,
+        const balanceStudentIds = Array.from(
+          new Set([
+            ...existingSession.attendance.map(
+              (attendanceItem) => attendanceItem.studentId,
+            ),
+            ...nextAttendanceStudentIds,
+          ]),
+        );
+        const studentBalanceByStudentId = new Map<string, number | null>();
+        if (balanceStudentIds.length > 0) {
+          const students = await tx.studentInfo.findMany({
+            where: {
+              id: {
+                in: balanceStudentIds,
+              },
             },
-          },
-          select: {
-            id: true,
-            accountBalance: true,
-          },
-        });
-
-        students.forEach((student) => {
-          studentBalanceByStudentId.set(student.id, student.accountBalance);
-        });
-      }
-
-      const getCurrentStudentBalance = (studentId: string) =>
-        studentBalanceByStudentId.get(studentId) ?? 0;
-
-      const oldSessionDateLabel = existingSession.date
-        .toISOString()
-        .slice(0, 10);
-      const nextSessionDateLabel = (sessionDate ?? existingSession.date)
-        .toISOString()
-        .slice(0, 10);
-
-      const refundHistoryItems: Array<{
-        studentId: string;
-        amount: number;
-        balanceBefore: number;
-        className: string;
-        dateLabel: string;
-      }> = [];
-      const chargeHistoryItems: Array<{
-        studentId: string;
-        amount: number;
-        balanceBefore: number;
-        className: string;
-        dateLabel: string;
-      }> = [];
-      const attendanceIdsToDelete: string[] = [];
-
-      if (shouldRebuildAttendanceState) {
-        existingSession.attendance.forEach((attendanceItem) => {
-          if (nextAttendanceStateByStudentId.has(attendanceItem.studentId)) {
-            return;
-          }
-
-          attendanceIdsToDelete.push(attendanceItem.id);
-
-          const oldChargeAmount =
-            this.sessionLedgerService.getAttendanceChargeAmount(attendanceItem);
-          if (oldChargeAmount <= 0) {
-            return;
-          }
-
-          refundHistoryItems.push({
-            studentId: attendanceItem.studentId,
-            amount: oldChargeAmount,
-            balanceBefore: getCurrentStudentBalance(attendanceItem.studentId),
-            className: existingSession.class.name,
-            dateLabel: oldSessionDateLabel,
+            select: {
+              id: true,
+              accountBalance: true,
+            },
           });
-        });
 
-        nextAttendanceState.forEach((attendanceItem) => {
-          const existingAttendance = existingAttendanceByStudentId.get(
-            attendanceItem.studentId,
-          );
-          const oldChargeAmount =
-            this.sessionLedgerService.getAttendanceChargeAmount(
-              existingAttendance,
-            );
-          const newChargeAmount =
-            this.sessionLedgerService.getAttendanceChargeAmount(attendanceItem);
-          const balanceBefore = getCurrentStudentBalance(
-            attendanceItem.studentId,
-          );
+          students.forEach((student) => {
+            studentBalanceByStudentId.set(student.id, student.accountBalance);
+          });
+        }
 
-          if (existingAttendance && oldChargeAmount !== newChargeAmount) {
-            if (oldChargeAmount > 0) {
-              refundHistoryItems.push({
-                studentId: attendanceItem.studentId,
-                amount: oldChargeAmount,
-                balanceBefore,
-                className: existingSession.class.name,
-                dateLabel: oldSessionDateLabel,
-              });
+        const getCurrentStudentBalance = (studentId: string) =>
+          studentBalanceByStudentId.get(studentId) ?? 0;
+
+        const oldSessionDateLabel = existingSession.date
+          .toISOString()
+          .slice(0, 10);
+        const nextSessionDateLabel = (sessionDate ?? existingSession.date)
+          .toISOString()
+          .slice(0, 10);
+
+        const refundHistoryItems: Array<{
+          studentId: string;
+          amount: number;
+          balanceBefore: number;
+          className: string;
+          dateLabel: string;
+        }> = [];
+        const chargeHistoryItems: Array<{
+          studentId: string;
+          amount: number;
+          balanceBefore: number;
+          className: string;
+          dateLabel: string;
+        }> = [];
+        const attendanceIdsToDelete: string[] = [];
+
+        if (shouldRebuildAttendanceState) {
+          existingSession.attendance.forEach((attendanceItem) => {
+            if (nextAttendanceStateByStudentId.has(attendanceItem.studentId)) {
+              return;
             }
 
-            if (newChargeAmount > 0) {
-              chargeHistoryItems.push({
-                studentId: attendanceItem.studentId,
-                amount: newChargeAmount,
-                balanceBefore: balanceBefore + oldChargeAmount,
-                className: nextClassName,
-                dateLabel: nextSessionDateLabel,
-              });
+            attendanceIdsToDelete.push(attendanceItem.id);
+
+            const oldChargeAmount =
+              this.sessionLedgerService.getAttendanceChargeAmount(
+                attendanceItem,
+              );
+            if (oldChargeAmount <= 0) {
+              return;
             }
 
-            return;
-          }
-
-          if (!existingAttendance && newChargeAmount > 0) {
-            chargeHistoryItems.push({
+            refundHistoryItems.push({
               studentId: attendanceItem.studentId,
-              amount: newChargeAmount,
-              balanceBefore,
-              className: nextClassName,
-              dateLabel: nextSessionDateLabel,
+              amount: oldChargeAmount,
+              balanceBefore: getCurrentStudentBalance(attendanceItem.studentId),
+              className: existingSession.class.name,
+              dateLabel: oldSessionDateLabel,
             });
-          }
-        });
-      }
-
-      const studentBalanceDeltaByStudentId = new Map<string, number>();
-      refundHistoryItems.forEach((refundItem) => {
-        studentBalanceDeltaByStudentId.set(
-          refundItem.studentId,
-          (studentBalanceDeltaByStudentId.get(refundItem.studentId) ?? 0) +
-            refundItem.amount,
-        );
-      });
-      chargeHistoryItems.forEach((chargeItem) => {
-        studentBalanceDeltaByStudentId.set(
-          chargeItem.studentId,
-          (studentBalanceDeltaByStudentId.get(chargeItem.studentId) ?? 0) -
-            chargeItem.amount,
-        );
-      });
-
-      await tx.session.update({
-        where: { id: sessionId },
-        data: {
-          ...(data.classId !== undefined && { classId: data.classId }),
-          ...(data.teacherId !== undefined && { teacherId: data.teacherId }),
-          ...(sessionDate !== undefined && { date: sessionDate }),
-          ...(sessionStartTime !== undefined && {
-            startTime: sessionStartTime,
-          }),
-          ...(sessionEndTime !== undefined && { endTime: sessionEndTime }),
-          ...(data.notes !== undefined && { notes: data.notes ?? null }),
-          ...(data.teacherPaymentStatus !== undefined && {
-            teacherPaymentStatus: data.teacherPaymentStatus ?? 'unpaid',
-          }),
-          ...(coefficientUpdate !== undefined && {
-            coefficient: coefficientUpdate,
-          }),
-          ...(allowanceAmountUpdate !== undefined && {
-            allowanceAmount: allowanceAmountUpdate,
-          }),
-          ...(teacherOperatingDeductionRatePercentUpdate !== undefined && {
-            teacherOperatingDeductionRatePercent:
-              teacherOperatingDeductionRatePercentUpdate,
-          }),
-          ...(teacherTaxDeductionRatePercentUpdate !== undefined && {
-            teacherTaxDeductionRatePercent: teacherTaxDeductionRatePercentUpdate,
-          }),
-          ...(sessionTuitionFeeUpdate !== undefined && {
-            tuitionFee: sessionTuitionFeeUpdate,
-          }),
-        },
-      });
-
-      const balanceChanges = Array.from(
-        studentBalanceDeltaByStudentId.entries(),
-      )
-        .map(([studentId, change]) => ({
-          studentId,
-          change,
-        }))
-        .filter((balanceChange) => balanceChange.change !== 0);
-      await this.sessionStudentBalanceService.applyBalanceChanges(
-        tx,
-        balanceChanges,
-      );
-
-      if (refundHistoryItems.length > 0) {
-        await tx.walletTransactionsHistory.createMany({
-          data: refundHistoryItems.map((refundItem) => ({
-            studentId: refundItem.studentId,
-            type: WalletTransactionType.topup,
-            amount: refundItem.amount,
-            note: this.sessionLedgerService.buildRefundNote(refundItem),
-          })),
-        });
-      }
-
-      const nextChargeTransactionIdByStudentId = new Map<string, string>();
-      if (chargeHistoryItems.length > 0) {
-        const chargeTransactions =
-          await tx.walletTransactionsHistory.createManyAndReturn({
-            data: chargeHistoryItems.map((chargeItem) => ({
-              studentId: chargeItem.studentId,
-              amount: chargeItem.amount,
-              type: WalletTransactionType.repayment,
-              note: this.sessionLedgerService.buildChargeNote(chargeItem),
-            })),
           });
 
-        chargeTransactions.forEach((transaction) => {
-          nextChargeTransactionIdByStudentId.set(
-            transaction.studentId,
-            transaction.id,
-          );
-        });
-      }
-
-      if (attendanceIdsToDelete.length > 0) {
-        await tx.attendance.deleteMany({
-          where: {
-            id: {
-              in: attendanceIdsToDelete,
-            },
-          },
-        });
-      }
-
-      if (shouldRebuildAttendanceState) {
-        const customerCareTaxRateByStaffId = new Map<string, number>();
-        const assistantTaxRateByStaffId = new Map<string, number>();
-
-        const resolveCustomerCareTaxRate = async (staffId?: string | null) => {
-          if (!staffId) {
-            return 0;
-          }
-
-          if (!customerCareTaxRateByStaffId.has(staffId)) {
-            customerCareTaxRateByStaffId.set(
-              staffId,
-              await resolveTaxDeductionRate(tx, {
-                staffId,
-                roleType: StaffRole.customer_care,
-                effectiveDate: effectiveSessionDate,
-              }),
-            );
-          }
-
-          return customerCareTaxRateByStaffId.get(staffId) ?? 0;
-        };
-
-        const resolveAssistantTaxRate = async (staffId?: string | null) => {
-          if (!staffId) {
-            return 0;
-          }
-
-          if (!assistantTaxRateByStaffId.has(staffId)) {
-            assistantTaxRateByStaffId.set(
-              staffId,
-              await resolveTaxDeductionRate(tx, {
-                staffId,
-                roleType: StaffRole.assistant,
-                effectiveDate: effectiveSessionDate,
-              }),
-            );
-          }
-
-          return assistantTaxRateByStaffId.get(staffId) ?? 0;
-        };
-
-        await Promise.all(
-          nextAttendanceState.map(async (attendanceItem) => {
+          nextAttendanceState.forEach((attendanceItem) => {
             const existingAttendance = existingAttendanceByStudentId.get(
               attendanceItem.studentId,
             );
@@ -817,120 +655,292 @@ export class SessionUpdateService {
               this.sessionLedgerService.getAttendanceChargeAmount(
                 attendanceItem,
               );
-            const transactionId =
-              oldChargeAmount === newChargeAmount
-                ? (existingAttendance?.transactionId ?? null)
-                : (nextChargeTransactionIdByStudentId.get(
-                    attendanceItem.studentId,
-                  ) ?? null);
+            const balanceBefore = getCurrentStudentBalance(
+              attendanceItem.studentId,
+            );
 
-            return tx.attendance.upsert({
-              where: {
-                sessionId_studentId: {
-                  sessionId,
+            if (existingAttendance && oldChargeAmount !== newChargeAmount) {
+              if (oldChargeAmount > 0) {
+                refundHistoryItems.push({
                   studentId: attendanceItem.studentId,
-                },
-              },
-              create: {
-                sessionId,
+                  amount: oldChargeAmount,
+                  balanceBefore,
+                  className: existingSession.class.name,
+                  dateLabel: oldSessionDateLabel,
+                });
+              }
+
+              if (newChargeAmount > 0) {
+                chargeHistoryItems.push({
+                  studentId: attendanceItem.studentId,
+                  amount: newChargeAmount,
+                  balanceBefore: balanceBefore + oldChargeAmount,
+                  className: nextClassName,
+                  dateLabel: nextSessionDateLabel,
+                });
+              }
+
+              return;
+            }
+
+            if (!existingAttendance && newChargeAmount > 0) {
+              chargeHistoryItems.push({
                 studentId: attendanceItem.studentId,
-                status: attendanceItem.status,
-                notes: attendanceItem.notes,
-                customerCareCoef: attendanceItem.customerCareCoef,
-                customerCareStaffId: attendanceItem.customerCareStaffId,
-                customerCarePaymentStatus: attendanceItem.customerCareStaffId
-                  ? PaymentStatus.pending
-                  : null,
-                customerCareTaxDeductionRatePercent:
-                  await resolveCustomerCareTaxRate(
-                    attendanceItem.customerCareStaffId,
-                  ),
-                tuitionFee: attendanceItem.tuitionFee,
-                transactionId,
-                assistantManagerStaffId:
-                  attendanceItem.assistantManagerStaffId,
-                assistantPaymentStatus:
-                  attendanceItem.assistantManagerStaffId
-                    ? PaymentStatus.pending
-                    : null,
-                assistantTaxDeductionRatePercent:
-                  await resolveAssistantTaxRate(
-                    attendanceItem.assistantManagerStaffId,
-                  ),
-              },
-              update: {
-                status: attendanceItem.status,
-                notes: attendanceItem.notes,
-                customerCareCoef:
-                  shouldRefreshAttendanceAssignments
-                    ? attendanceItem.customerCareCoef
-                    : undefined,
-                customerCareStaffId:
-                  shouldRefreshAttendanceAssignments
-                    ? attendanceItem.customerCareStaffId
-                    : undefined,
-                customerCarePaymentStatus:
-                  shouldRefreshAttendanceAssignments
-                    ? (attendanceItem.customerCareStaffId
-                        ? (attendanceItem.existingCustomerCarePaymentStatus ??
-                            PaymentStatus.pending)
-                        : null)
-                    : undefined,
-                customerCareTaxDeductionRatePercent:
-                  await resolveCustomerCareTaxRate(
-                    attendanceItem.customerCareStaffId,
-                  ),
-                tuitionFee: attendanceItem.tuitionFee,
-                transactionId,
-                assistantManagerStaffId:
-                  shouldRefreshAttendanceAssignments
-                    ? attendanceItem.assistantManagerStaffId
-                    : undefined,
-                assistantPaymentStatus:
-                  shouldRefreshAttendanceAssignments
-                    ? (attendanceItem.assistantManagerStaffId
-                        ? (attendanceItem.existingAssistantPaymentStatus ??
-                            PaymentStatus.pending)
-                        : null)
-                    : undefined,
-                assistantTaxDeductionRatePercent:
-                  await resolveAssistantTaxRate(
-                    attendanceItem.assistantManagerStaffId,
-                  ),
-              },
-            });
-          }),
+                amount: newChargeAmount,
+                balanceBefore,
+                className: nextClassName,
+                dateLabel: nextSessionDateLabel,
+              });
+            }
+          });
+        }
+
+        const studentBalanceDeltaByStudentId = new Map<string, number>();
+        refundHistoryItems.forEach((refundItem) => {
+          studentBalanceDeltaByStudentId.set(
+            refundItem.studentId,
+            (studentBalanceDeltaByStudentId.get(refundItem.studentId) ?? 0) +
+              refundItem.amount,
+          );
+        });
+        chargeHistoryItems.forEach((chargeItem) => {
+          studentBalanceDeltaByStudentId.set(
+            chargeItem.studentId,
+            (studentBalanceDeltaByStudentId.get(chargeItem.studentId) ?? 0) -
+              chargeItem.amount,
+          );
+        });
+
+        await tx.session.update({
+          where: { id: sessionId },
+          data: {
+            ...(data.classId !== undefined && { classId: data.classId }),
+            ...(data.teacherId !== undefined && { teacherId: data.teacherId }),
+            ...(sessionDate !== undefined && { date: sessionDate }),
+            ...(sessionStartTime !== undefined && {
+              startTime: sessionStartTime,
+            }),
+            ...(sessionEndTime !== undefined && { endTime: sessionEndTime }),
+            ...(data.notes !== undefined && { notes: data.notes ?? null }),
+            ...(data.teacherPaymentStatus !== undefined && {
+              teacherPaymentStatus: data.teacherPaymentStatus ?? 'unpaid',
+            }),
+            ...(coefficientUpdate !== undefined && {
+              coefficient: coefficientUpdate,
+            }),
+            ...(allowanceAmountUpdate !== undefined && {
+              allowanceAmount: allowanceAmountUpdate,
+            }),
+            ...(teacherOperatingDeductionRatePercentUpdate !== undefined && {
+              teacherOperatingDeductionRatePercent:
+                teacherOperatingDeductionRatePercentUpdate,
+            }),
+            ...(teacherTaxDeductionRatePercentUpdate !== undefined && {
+              teacherTaxDeductionRatePercent:
+                teacherTaxDeductionRatePercentUpdate,
+            }),
+            ...(sessionTuitionFeeUpdate !== undefined && {
+              tuitionFee: sessionTuitionFeeUpdate,
+            }),
+          },
+        });
+
+        const balanceChanges = Array.from(
+          studentBalanceDeltaByStudentId.entries(),
+        )
+          .map(([studentId, change]) => ({
+            studentId,
+            change,
+          }))
+          .filter((balanceChange) => balanceChange.change !== 0);
+        await this.sessionStudentBalanceService.applyBalanceChanges(
+          tx,
+          balanceChanges,
         );
-      }
 
-      const updatedSession = await tx.session.findUnique({
-        where: { id: sessionId },
-        include: { attendance: true },
-      });
+        if (refundHistoryItems.length > 0) {
+          await tx.walletTransactionsHistory.createMany({
+            data: refundHistoryItems.map((refundItem) => ({
+              studentId: refundItem.studentId,
+              type: WalletTransactionType.topup,
+              amount: refundItem.amount,
+              note: this.sessionLedgerService.buildRefundNote(refundItem),
+            })),
+          });
+        }
 
-      if (!updatedSession) {
-        throw new NotFoundException('Session not found');
-      }
+        const nextChargeTransactionIdByStudentId = new Map<string, string>();
+        if (chargeHistoryItems.length > 0) {
+          const chargeTransactions =
+            await tx.walletTransactionsHistory.createManyAndReturn({
+              data: chargeHistoryItems.map((chargeItem) => ({
+                studentId: chargeItem.studentId,
+                amount: chargeItem.amount,
+                type: WalletTransactionType.repayment,
+                note: this.sessionLedgerService.buildChargeNote(chargeItem),
+              })),
+            });
 
-      if (actor) {
-        const afterValue =
-          await this.sessionSnapshotService.getSessionAuditSnapshot(
+          chargeTransactions.forEach((transaction) => {
+            nextChargeTransactionIdByStudentId.set(
+              transaction.studentId,
+              transaction.id,
+            );
+          });
+        }
+
+        if (attendanceIdsToDelete.length > 0) {
+          await tx.attendance.deleteMany({
+            where: {
+              id: {
+                in: attendanceIdsToDelete,
+              },
+            },
+          });
+        }
+
+        if (shouldRebuildAttendanceState) {
+          const getTaxRate = createMemoizedTaxDeductionResolver(
             tx,
-            sessionId,
+            effectiveSessionDate,
           );
 
-        await this.actionHistoryService.recordUpdate(tx, {
-          actor,
-          entityType: 'session',
-          entityId: sessionId,
-          description: 'Cập nhật buổi học',
-          beforeValue,
-          afterValue,
-        });
-      }
+          const resolveCustomerCareTaxRate = (staffId?: string | null) =>
+            staffId
+              ? getTaxRate(staffId, StaffRole.customer_care)
+              : Promise.resolve(0);
 
-      return updatedSession;
-    });
+          const resolveAssistantTaxRate = (staffId?: string | null) =>
+            staffId
+              ? getTaxRate(staffId, StaffRole.assistant)
+              : Promise.resolve(0);
+
+          await Promise.all(
+            nextAttendanceState.map(async (attendanceItem) => {
+              const existingAttendance = existingAttendanceByStudentId.get(
+                attendanceItem.studentId,
+              );
+              const oldChargeAmount =
+                this.sessionLedgerService.getAttendanceChargeAmount(
+                  existingAttendance,
+                );
+              const newChargeAmount =
+                this.sessionLedgerService.getAttendanceChargeAmount(
+                  attendanceItem,
+                );
+              const transactionId =
+                oldChargeAmount === newChargeAmount
+                  ? (existingAttendance?.transactionId ?? null)
+                  : (nextChargeTransactionIdByStudentId.get(
+                      attendanceItem.studentId,
+                    ) ?? null);
+
+              return tx.attendance.upsert({
+                where: {
+                  sessionId_studentId: {
+                    sessionId,
+                    studentId: attendanceItem.studentId,
+                  },
+                },
+                create: {
+                  sessionId,
+                  studentId: attendanceItem.studentId,
+                  status: attendanceItem.status,
+                  notes: attendanceItem.notes,
+                  customerCareCoef: attendanceItem.customerCareCoef,
+                  customerCareStaffId: attendanceItem.customerCareStaffId,
+                  customerCarePaymentStatus: attendanceItem.customerCareStaffId
+                    ? PaymentStatus.pending
+                    : null,
+                  customerCareTaxDeductionRatePercent:
+                    await resolveCustomerCareTaxRate(
+                      attendanceItem.customerCareStaffId,
+                    ),
+                  tuitionFee: attendanceItem.tuitionFee,
+                  transactionId,
+                  assistantManagerStaffId:
+                    attendanceItem.assistantManagerStaffId,
+                  assistantPaymentStatus: attendanceItem.assistantManagerStaffId
+                    ? PaymentStatus.pending
+                    : null,
+                  assistantTaxDeductionRatePercent:
+                    await resolveAssistantTaxRate(
+                      attendanceItem.assistantManagerStaffId,
+                    ),
+                },
+                update: {
+                  status: attendanceItem.status,
+                  notes: attendanceItem.notes,
+                  customerCareCoef: shouldRefreshAttendanceAssignments
+                    ? attendanceItem.customerCareCoef
+                    : undefined,
+                  customerCareStaffId: shouldRefreshAttendanceAssignments
+                    ? attendanceItem.customerCareStaffId
+                    : undefined,
+                  customerCarePaymentStatus: shouldRefreshAttendanceAssignments
+                    ? attendanceItem.customerCareStaffId
+                      ? (attendanceItem.existingCustomerCarePaymentStatus ??
+                        PaymentStatus.pending)
+                      : null
+                    : undefined,
+                  customerCareTaxDeductionRatePercent:
+                    await resolveCustomerCareTaxRate(
+                      attendanceItem.customerCareStaffId,
+                    ),
+                  tuitionFee: attendanceItem.tuitionFee,
+                  transactionId,
+                  assistantManagerStaffId: shouldRefreshAttendanceAssignments
+                    ? attendanceItem.assistantManagerStaffId
+                    : undefined,
+                  assistantPaymentStatus: shouldRefreshAttendanceAssignments
+                    ? attendanceItem.assistantManagerStaffId
+                      ? (attendanceItem.existingAssistantPaymentStatus ??
+                        PaymentStatus.pending)
+                      : null
+                    : undefined,
+                  assistantTaxDeductionRatePercent:
+                    await resolveAssistantTaxRate(
+                      attendanceItem.assistantManagerStaffId,
+                    ),
+                },
+              });
+            }),
+          );
+        }
+
+        const updatedSession = await tx.session.findUnique({
+          where: { id: sessionId },
+          include: { attendance: true },
+        });
+
+        if (!updatedSession) {
+          throw new NotFoundException('Session not found');
+        }
+
+        if (actor) {
+          const afterValue =
+            await this.sessionSnapshotService.getSessionAuditSnapshot(
+              tx,
+              sessionId,
+            );
+
+          await this.actionHistoryService.recordUpdate(tx, {
+            actor,
+            entityType: 'session',
+            entityId: sessionId,
+            description: 'Cập nhật buổi học',
+            beforeValue,
+            afterValue,
+          });
+        }
+
+        return updatedSession;
+      },
+      {
+        maxWait: SESSION_UPDATE_TRANSACTION_MAX_WAIT_MS,
+        timeout: SESSION_UPDATE_TRANSACTION_TIMEOUT_MS,
+      },
+    );
 
     return updatedSession;
   }

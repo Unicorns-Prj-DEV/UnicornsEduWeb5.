@@ -9,10 +9,25 @@ import {
 @Injectable()
 export class SessionValidationService {
   parseSessionDate(date: string) {
-    const parsedDate = new Date(date);
-    if (Number.isNaN(parsedDate.getTime())) {
+    const normalized = String(date ?? '').trim();
+    const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(normalized);
+    if (!dateMatch) {
       throw new BadRequestException('date không hợp lệ.');
     }
+
+    const year = Number.parseInt(dateMatch[1], 10);
+    const monthIndex = Number.parseInt(dateMatch[2], 10) - 1;
+    const day = Number.parseInt(dateMatch[3], 10);
+
+    const parsedDate = new Date(Date.UTC(year, monthIndex, day));
+    if (
+      parsedDate.getUTCFullYear() !== year ||
+      parsedDate.getUTCMonth() !== monthIndex ||
+      parsedDate.getUTCDate() !== day
+    ) {
+      throw new BadRequestException('date không hợp lệ.');
+    }
+
     return parsedDate;
   }
 
@@ -112,7 +127,9 @@ export class SessionValidationService {
     classTuitionPackageSession?: number | null;
   }): number | null {
     return (
-      normalizeStudentClassCustomTuitionMoney(options.customTuitionPerSession) ??
+      normalizeStudentClassCustomTuitionMoney(
+        options.customTuitionPerSession,
+      ) ??
       normalizeNullableMoney(options.classTuitionPerSession) ??
       resolveDerivedTuitionPerSession(
         options.classTuitionPackageTotal,
@@ -136,8 +153,7 @@ export class SessionValidationService {
 
   isTuitionChargeableStatus(status: AttendanceStatus): boolean {
     return (
-      status === AttendanceStatus.present ||
-      status === AttendanceStatus.excused
+      status === AttendanceStatus.present || status === AttendanceStatus.excused
     );
   }
 

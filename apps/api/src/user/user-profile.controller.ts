@@ -626,11 +626,15 @@ export class UserProfileController {
     @Body() body: UpdateStudentExamSchedulesDto,
   ) {
     const studentId = await this.userService.getLinkedStudentId(user.id);
-    return this.studentService.updateStudentExamSchedules(studentId, body.items, {
-      userId: user.id,
-      userEmail: user.email,
-      roleType: user.roleType,
-    });
+    return this.studentService.updateStudentExamSchedules(
+      studentId,
+      body.items,
+      {
+        userId: user.id,
+        userEmail: user.email,
+        roleType: user.roleType,
+      },
+    );
   }
 
   @Patch('student-account-balance')

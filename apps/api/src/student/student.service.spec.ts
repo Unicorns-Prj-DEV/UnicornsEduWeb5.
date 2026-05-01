@@ -178,7 +178,9 @@ describe('StudentService', () => {
         full_name: 'Nguyen Van A',
         user_id: 'user-1',
       }),
-    ).rejects.toThrow('User này đang có hồ sơ nhân sự nên không thể gán làm học sinh.');
+    ).rejects.toThrow(
+      'User này đang có hồ sơ nhân sự nên không thể gán làm học sinh.',
+    );
 
     expect(mockPrisma.studentInfo.create).not.toHaveBeenCalled();
     expect(mockPrisma.user.update).not.toHaveBeenCalled();

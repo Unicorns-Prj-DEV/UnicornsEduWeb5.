@@ -137,6 +137,7 @@ const NORMALIZED_DEPOSIT_PAYMENT_STATUSES = Array.from(
     DEPOSIT_PAYMENT_STATUSES.map((status) => status.trim().toLowerCase()),
   ),
 );
+const RECENT_UNPAID_SESSION_STATUSES = ['unpaid', 'pending'] as const;
 
 function isDepositPaymentStatus(status: string | null | undefined) {
   const normalized = String(status ?? '')
@@ -167,22 +168,6 @@ function mergeAmountSummary(
     paid: summary.paid + addition.paid,
     unpaid: summary.unpaid + addition.unpaid,
   };
-}
-
-function summarizePaymentRows<T extends { paymentStatus: string | null }>(
-  rows: T[],
-  getAmount: (row: T) => number,
-): StaffIncomeAmountSummaryDto {
-  return rows.reduce<StaffIncomeAmountSummaryDto>((summary, row) => {
-    const amount = getAmount(row);
-    const isPaid = String(row.paymentStatus ?? '').toLowerCase() === 'paid';
-
-    return {
-      total: summary.total + amount,
-      paid: summary.paid + (isPaid ? amount : 0),
-      unpaid: summary.unpaid + (isPaid ? 0 : amount),
-    };
-  }, makeAmountSummary());
 }
 
 function addAmountToSummary(
@@ -270,15 +255,15 @@ function buildMonthRange(month: string, year: string) {
 
   const parsedYear = Number(year);
   const parsedMonthIndex = Number(month) - 1;
-  const start = new Date(parsedYear, parsedMonthIndex, 1);
-  const end = new Date(parsedYear, parsedMonthIndex + 1, 1);
+  const start = new Date(Date.UTC(parsedYear, parsedMonthIndex, 1));
+  const end = new Date(Date.UTC(parsedYear, parsedMonthIndex + 1, 1));
 
   return {
     monthKey: `${year}-${month}`,
     start,
     end,
-    yearStart: new Date(parsedYear, 0, 1),
-    yearEnd: new Date(parsedYear + 1, 0, 1),
+    yearStart: new Date(Date.UTC(parsedYear, 0, 1)),
+    yearEnd: new Date(Date.UTC(parsedYear + 1, 0, 1)),
   };
 }
 
@@ -291,20 +276,25 @@ function buildYearRange(year: string) {
 
   return {
     yearKey: year,
-    start: new Date(parsedYear, 0, 1),
-    end: new Date(parsedYear + 1, 0, 1),
+    start: new Date(Date.UTC(parsedYear, 0, 1)),
+    end: new Date(Date.UTC(parsedYear + 1, 0, 1)),
   };
 }
 
 function buildRecentWindow(days?: number) {
   const safeDays =
     Number.isInteger(days) && (days as number) > 0 ? (days as number) : 14;
-  const end = new Date();
-  end.setDate(end.getDate() + 1);
-  end.setHours(0, 0, 0, 0);
-
-  const start = new Date(end);
-  start.setDate(start.getDate() - safeDays);
+  const now = new Date();
+  const end = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
+  );
+  const start = new Date(
+    Date.UTC(
+      end.getUTCFullYear(),
+      end.getUTCMonth(),
+      end.getUTCDate() - safeDays,
+    ),
+  );
 
   return {
     days: safeDays,
@@ -1037,16 +1027,20 @@ export class StaffService {
 
   private buildTeacherSessionAllowanceCte(params: {
     teacherId: string;
-    start: Date;
-    end: Date;
+    start?: Date;
+    end?: Date;
     teacherPaymentStatuses?: string[];
     sessionIds?: string[];
   }) {
     const whereClauses: Prisma.Sql[] = [
       Prisma.sql`sessions.teacher_id = ${params.teacherId}`,
-      Prisma.sql`sessions.date >= ${params.start}`,
-      Prisma.sql`sessions.date < ${params.end}`,
     ];
+    if (params.start != null && params.end != null) {
+      whereClauses.push(
+        Prisma.sql`sessions.date >= ${params.start}`,
+        Prisma.sql`sessions.date < ${params.end}`,
+      );
+    }
 
     const normalizedPaymentStatuses = (params.teacherPaymentStatuses ?? [])
       .map((status) => status.trim().toLowerCase())
@@ -1080,7 +1074,7 @@ export class StaffService {
           sessions.date AS session_date,
           sessions.teacher_payment_status,
           classes.name AS class_name,
-          COALESCE(sessions.allowance_amount, 0) AS allowance_per_student,
+          COALESCE(sessions.allowance_amount, 0) AS allowance_per_session,
           CASE
             WHEN LOWER(COALESCE(sessions.teacher_payment_status, '')) IN (${Prisma.join(
               NORMALIZED_DEPOSIT_PAYMENT_STATUSES,
@@ -1093,7 +1087,6 @@ export class StaffService {
             )}) THEN 0
             ELSE COALESCE(sessions.teacher_tax_rate_percent, 0)
           END AS teacher_operating_deduction_rate_percent,
-          COALESCE(classes.scale_amount, 0) AS scale_amount,
           classes.max_allowance_per_session,
           COALESCE(sessions.coefficient, 1) AS coefficient,
           COUNT(*) FILTER (
@@ -1111,7 +1104,6 @@ export class StaffService {
           classes.name,
           sessions.allowance_amount,
           sessions.teacher_tax_rate_percent,
-          classes.scale_amount,
           classes.max_allowance_per_session,
           sessions.coefficient
       ),
@@ -1125,22 +1117,18 @@ export class StaffService {
           teacher_tax_deduction_rate_percent,
           teacher_operating_deduction_rate_percent,
           max_allowance_per_session,
-          attended_student_count * 10 as attendance,
           CASE
             WHEN LOWER(COALESCE(teacher_payment_status, '')) IN (${Prisma.join(
               NORMALIZED_DEPOSIT_PAYMENT_STATUSES,
             )}) THEN
-              ((allowance_per_student * attended_student_count) + scale_amount) *
-                coefficient
+              allowance_per_session * coefficient
             ELSE
               LEAST(
                 COALESCE(
                   NULLIF(max_allowance_per_session, 0),
-                  ((allowance_per_student * attended_student_count) + scale_amount) *
-                    coefficient
+                  allowance_per_session * coefficient
                 ),
-                ((allowance_per_student * attended_student_count) + scale_amount) *
-                  coefficient
+                allowance_per_session * coefficient
               )
           END AS teacher_gross_total
         FROM session_attendance_allowances
@@ -1378,8 +1366,8 @@ export class StaffService {
     db: StaffPaymentClient,
     params: {
       teacherId: string;
-      start: Date;
-      end: Date;
+      start?: Date;
+      end?: Date;
     },
   ): Promise<TeacherPaymentPreviewRow[]> {
     return db.$queryRaw<TeacherPaymentPreviewRow[]>(Prisma.sql`
@@ -1438,8 +1426,8 @@ export class StaffService {
     db: StaffPaymentClient,
     params: {
       teacherId: string;
-      start: Date;
-      end: Date;
+      start?: Date;
+      end?: Date;
     },
   ): Promise<StaffPaymentPreviewDraftRecord[]> {
     const rows = await this.getTeacherPaymentPreviewRows(db, params);
@@ -1783,13 +1771,16 @@ export class StaffService {
     taxRateByRole: Map<StaffRole, number>,
   ): StaffPaymentPreviewRecord[] {
     return records.map((record) => {
-      const { taxableBaseAmount: _taxableBaseAmount, ...baseRecord } = record;
+      const { taxableBaseAmount, ...baseRecord } = record;
       const taxRatePercent =
         record.role == null ? 0 : (taxRateByRole.get(record.role) ?? 0);
-      const taxableBaseAmount = normalizeMoneyAmount(
-        record.taxableBaseAmount ?? record.grossAmount,
+      const normalizedTaxableBaseAmount = normalizeMoneyAmount(
+        taxableBaseAmount ?? record.grossAmount,
       );
-      const taxAmount = calculateTaxAmount(taxableBaseAmount, taxRatePercent);
+      const taxAmount = calculateTaxAmount(
+        normalizedTaxableBaseAmount,
+        taxRatePercent,
+      );
 
       return {
         ...baseRecord,
@@ -1839,8 +1830,6 @@ export class StaffService {
     ] = await Promise.all([
       this.getTeacherPaymentPreviewRecords(db, {
         teacherId: id,
-        start: range.start,
-        end: range.end,
       }),
       this.getCustomerCarePaymentPreviewRecords(db, {
         staffId: id,
@@ -2770,7 +2759,10 @@ export class StaffService {
     });
   }
 
-  private async getUnpaidTotalsByStaffIds(staffIds: string[]) {
+  private async getUnpaidTotalsByStaffIds(
+    staffIds: string[],
+    recentWindow: { start: Date; end: Date } = buildRecentWindow(),
+  ) {
     const normalizedStaffIds = Array.from(
       new Set(
         staffIds
@@ -2792,106 +2784,36 @@ export class StaffService {
       teacher_session_rows AS (
         SELECT
           sessions.teacher_id AS staff_id,
-          COALESCE(sessions.teacher_tax_deduction_rate_percent, 0) AS tax_rate_percent,
           LEAST(
             COALESCE(
               NULLIF(classes.max_allowance_per_session, 0),
-              (
-                (COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (WHERE attendance.status IN ('present', 'excused'))) +
-                COALESCE(classes.scale_amount, 0)
-              ) * COALESCE(sessions.coefficient, 1)
+              COALESCE(sessions.allowance_amount, 0) *
+                COALESCE(sessions.coefficient, 1)
             ),
-            (
-              (COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (WHERE attendance.status IN ('present', 'excused'))) +
-              COALESCE(classes.scale_amount, 0)
-            ) * COALESCE(sessions.coefficient, 1)
-          ) AS gross_amount,
-          ROUND(
-            (
-              LEAST(
-                COALESCE(
-                  NULLIF(classes.max_allowance_per_session, 0),
-                  (
-                    (COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (WHERE attendance.status IN ('present', 'excused'))) +
-                    COALESCE(classes.scale_amount, 0)
-                  ) * COALESCE(sessions.coefficient, 1)
-                ),
-                (
-                  (COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (WHERE attendance.status IN ('present', 'excused'))) +
-                  COALESCE(classes.scale_amount, 0)
-                ) * COALESCE(sessions.coefficient, 1)
-              ) * COALESCE(sessions.teacher_tax_rate_percent, 0)
-            ) / 100.0,
-            0
-          ) AS operating_amount,
-          LEAST(
-            COALESCE(
-              NULLIF(classes.max_allowance_per_session, 0),
-              (
-                (COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (WHERE attendance.status IN ('present', 'excused'))) +
-                COALESCE(classes.scale_amount, 0)
-              ) * COALESCE(sessions.coefficient, 1)
-            ),
-            (
-              (COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (WHERE attendance.status IN ('present', 'excused'))) +
-              COALESCE(classes.scale_amount, 0)
-            ) * COALESCE(sessions.coefficient, 1)
-          ) -
-          ROUND(
-            (
-              LEAST(
-                COALESCE(
-                  NULLIF(classes.max_allowance_per_session, 0),
-                  (
-                    (COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (WHERE attendance.status IN ('present', 'excused'))) +
-                    COALESCE(classes.scale_amount, 0)
-                  ) * COALESCE(sessions.coefficient, 1)
-                ),
-                (
-                  (COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (WHERE attendance.status IN ('present', 'excused'))) +
-                  COALESCE(classes.scale_amount, 0)
-                ) * COALESCE(sessions.coefficient, 1)
-              ) * COALESCE(sessions.teacher_tax_rate_percent, 0)
-            ) / 100.0,
-            0
-          ) AS taxable_base_amount
+            COALESCE(sessions.allowance_amount, 0) *
+              COALESCE(sessions.coefficient, 1)
+          ) AS gross_amount
         FROM attendance
         INNER JOIN sessions ON attendance.session_id = sessions.id
         INNER JOIN classes ON classes.id = sessions.class_id
         INNER JOIN target_staff ON target_staff.id = sessions.teacher_id
-        WHERE LOWER(COALESCE(sessions.teacher_payment_status, '')) = 'unpaid'
+        WHERE LOWER(COALESCE(sessions.teacher_payment_status, '')) IN (${Prisma.join(
+          Array.from(RECENT_UNPAID_SESSION_STATUSES),
+        )})
+          AND sessions.date >= ${recentWindow.start}
+          AND sessions.date < ${recentWindow.end}
         GROUP BY
           sessions.teacher_id,
           sessions.id,
           sessions.allowance_amount,
-          sessions.teacher_tax_deduction_rate_percent,
-          sessions.teacher_tax_rate_percent,
-          classes.scale_amount,
           classes.max_allowance_per_session,
           sessions.coefficient
-      ),
-      session_unpaid_buckets AS (
-        SELECT
-          staff_id,
-          tax_rate_percent,
-          COALESCE(SUM(gross_amount), 0) AS gross_amount,
-          COALESCE(SUM(operating_amount), 0) AS operating_amount,
-          COALESCE(SUM(taxable_base_amount), 0) AS taxable_base_amount
-        FROM teacher_session_rows
-        GROUP BY staff_id, tax_rate_percent
       ),
       session_unpaid AS (
         SELECT
           staff_id,
-          COALESCE(
-            SUM(
-              gross_amount -
-              operating_amount -
-              ROUND((taxable_base_amount * tax_rate_percent) / 100.0, 0)
-            ),
-            0
-          ) AS amount
-        FROM session_unpaid_buckets
+          COALESCE(SUM(gross_amount), 0) AS amount
+        FROM teacher_session_rows
         GROUP BY staff_id
       ),
       bonus_unpaid AS (
@@ -2906,7 +2828,6 @@ export class StaffService {
       customer_care_unpaid_rows AS (
         SELECT
           attendance.customer_care_staff_id AS staff_id,
-          COALESCE(attendance.customer_care_tax_deduction_rate_percent, 0) AS tax_rate_percent,
           ROUND(
             (COALESCE(attendance.tuition_fee, 0) * COALESCE(attendance.customer_care_coef, 0))::numeric,
             0
@@ -2915,116 +2836,57 @@ export class StaffService {
         INNER JOIN target_staff ON target_staff.id = attendance.customer_care_staff_id
         WHERE COALESCE(attendance.customer_care_payment_status::text, 'pending') = 'pending'
       ),
-      customer_care_unpaid_buckets AS (
-        SELECT
-          staff_id,
-          tax_rate_percent,
-          COALESCE(SUM(gross_amount), 0) AS gross_amount
-        FROM customer_care_unpaid_rows
-        GROUP BY staff_id, tax_rate_percent
-      ),
       customer_care_unpaid AS (
         SELECT
           staff_id,
-          COALESCE(
-            SUM(
-              gross_amount -
-              ROUND((gross_amount * tax_rate_percent) / 100.0, 0)
-            ),
-            0
-          ) AS amount
-        FROM customer_care_unpaid_buckets
+          COALESCE(SUM(gross_amount), 0) AS amount
+        FROM customer_care_unpaid_rows
         GROUP BY staff_id
       ),
       lesson_output_unpaid_rows AS (
         SELECT
           lesson_outputs.staff_id AS staff_id,
-          COALESCE(lesson_outputs.tax_deduction_rate_percent, 0) AS tax_rate_percent,
           COALESCE(lesson_outputs.cost, 0) AS gross_amount
         FROM lesson_outputs
         INNER JOIN target_staff ON target_staff.id = lesson_outputs.staff_id
         WHERE lesson_outputs.payment_status::text = 'pending'
       ),
-      lesson_output_unpaid_buckets AS (
-        SELECT
-          staff_id,
-          tax_rate_percent,
-          COALESCE(SUM(gross_amount), 0) AS gross_amount
-        FROM lesson_output_unpaid_rows
-        GROUP BY staff_id, tax_rate_percent
-      ),
       lesson_output_unpaid AS (
         SELECT
           staff_id,
-          COALESCE(
-            SUM(
-              gross_amount -
-              ROUND((gross_amount * tax_rate_percent) / 100.0, 0)
-            ),
-            0
-          ) AS amount
-        FROM lesson_output_unpaid_buckets
+          COALESCE(SUM(gross_amount), 0) AS amount
+        FROM lesson_output_unpaid_rows
         GROUP BY staff_id
       ),
       assistant_unpaid_rows AS (
         SELECT
           attendance.assistant_manager_staff_id AS staff_id,
-          COALESCE(attendance.assistant_tax_deduction_rate_percent, 0) AS tax_rate_percent,
           ROUND((COALESCE(attendance.tuition_fee, 0) * 0.03)::numeric, 0) AS gross_amount
         FROM attendance
         INNER JOIN target_staff ON target_staff.id = attendance.assistant_manager_staff_id
         WHERE attendance.status IN ('present', 'excused')
           AND COALESCE(attendance.assistant_payment_status::text, 'pending') = 'pending'
       ),
-      assistant_unpaid_buckets AS (
-        SELECT
-          staff_id,
-          tax_rate_percent,
-          COALESCE(SUM(gross_amount), 0) AS gross_amount
-        FROM assistant_unpaid_rows
-        GROUP BY staff_id, tax_rate_percent
-      ),
       assistant_unpaid AS (
         SELECT
           staff_id,
-          COALESCE(
-            SUM(
-              gross_amount -
-              ROUND((gross_amount * tax_rate_percent) / 100.0, 0)
-            ),
-            0
-          ) AS amount
-        FROM assistant_unpaid_buckets
+          COALESCE(SUM(gross_amount), 0) AS amount
+        FROM assistant_unpaid_rows
         GROUP BY staff_id
       ),
       extra_allowance_unpaid_rows AS (
         SELECT
           extra_allowances.staff_id AS staff_id,
-          COALESCE(extra_allowances.tax_deduction_rate_percent, 0) AS tax_rate_percent,
           COALESCE(extra_allowances.amount, 0) AS gross_amount
         FROM extra_allowances
         INNER JOIN target_staff ON target_staff.id = extra_allowances.staff_id
         WHERE extra_allowances.status::text = 'pending'
       ),
-      extra_allowance_unpaid_buckets AS (
-        SELECT
-          staff_id,
-          tax_rate_percent,
-          COALESCE(SUM(gross_amount), 0) AS gross_amount
-        FROM extra_allowance_unpaid_rows
-        GROUP BY staff_id, tax_rate_percent
-      ),
       extra_allowance_unpaid AS (
         SELECT
           staff_id,
-          COALESCE(
-            SUM(
-              gross_amount -
-              ROUND((gross_amount * tax_rate_percent) / 100.0, 0)
-            ),
-            0
-          ) AS amount
-        FROM extra_allowance_unpaid_buckets
+          COALESCE(SUM(gross_amount), 0) AS amount
+        FROM extra_allowance_unpaid_rows
         GROUP BY staff_id
       ),
       all_unpaid AS (
@@ -3107,6 +2969,7 @@ export class StaffService {
       lessonOutputYearRows,
       assistantShareMonthlyRows,
       assistantShareYearRows,
+      unpaidSnapshotTotalsByStaffId,
     ] = await Promise.all([
       this.getTeacherAllowanceSourceRowsByStatusAndTaxBucket({
         teacherId: id,
@@ -3132,7 +2995,7 @@ export class StaffService {
         teacherId: id,
         start: recentWindow.start,
         end: recentWindow.end,
-        teacherPaymentStatuses: ['unpaid'],
+        teacherPaymentStatuses: [...RECENT_UNPAID_SESSION_STATUSES],
       }),
       this.prisma.bonus.findMany({
         where: {
@@ -3214,6 +3077,7 @@ export class StaffService {
             end: range.yearEnd,
           })
         : Promise.resolve<SourcePaymentTaxBucketRow[]>([]),
+      this.getUnpaidTotalsByStaffIds([id], recentWindow),
     ]);
 
     const sessionMonthlySummary = summarizeSourceBucketRows(
@@ -3271,14 +3135,14 @@ export class StaffService {
         className: row.className?.trim() || 'Lớp chưa đặt tên',
         ...makeAmountSummary(),
       };
-      const amount = normalizeMoneyAmount(row.totalAllowance);
+      const monthlyGrossAmount = normalizeMoneyAmount(row.grossAllowance);
       const isPaid =
         String(row.teacherPaymentStatus ?? '').toLowerCase() === 'paid';
 
       classSummaryById.set(classId, {
         ...current,
-        total: current.total + amount,
-        paid: current.paid + (isPaid ? amount : 0),
+        total: current.total + monthlyGrossAmount,
+        paid: current.paid + (isPaid ? monthlyGrossAmount : 0),
       });
     });
 
@@ -3294,7 +3158,7 @@ export class StaffService {
 
       classSummaryById.set(classId, {
         ...current,
-        unpaid: current.unpaid + normalizeMoneyAmount(row.totalAllowance),
+        unpaid: current.unpaid + normalizeMoneyAmount(row.grossAllowance),
       });
     });
 
@@ -3340,6 +3204,7 @@ export class StaffService {
       lessonOutputMonthlyTotals,
       assistantShareMonthlyTotals,
     ].reduce(mergeAmountSummary, makeAmountSummary());
+    const snapshotUnpaidTotal = unpaidSnapshotTotalsByStaffId.get(id) ?? 0;
 
     const monthlyGrossTotals = [
       sessionMonthlyGrossTotals,
@@ -3526,6 +3391,7 @@ export class StaffService {
 
     return {
       recentUnpaidDays: recentWindow.days,
+      snapshotUnpaidTotal,
       monthlyIncomeTotals,
       monthlyGrossTotals,
       monthlyTaxTotals,
@@ -3595,22 +3461,15 @@ export class StaffService {
           attendance.session_id,
           sessions.class_id,
           COALESCE(sessions.allowance_amount, 0) AS allowance_amount,
-          COALESCE(classes.scale_amount, 0) AS scale_amount,
           sessions.teacher_payment_status,
           LEAST(
             COALESCE(
               NULLIF(classes.max_allowance_per_session, 0),
-              (
-                COALESCE(sessions.coefficient, 1) * (
-                  COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (WHERE attendance.status IN ('present', 'excused')) + COALESCE(classes.scale_amount, 0)
-                )
-              )
+              COALESCE(sessions.coefficient, 1) *
+                COALESCE(sessions.allowance_amount, 0)
             ),
-            (
-              COALESCE(sessions.coefficient, 1) * (
-                COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (WHERE attendance.status IN ('present', 'excused')) + COALESCE(classes.scale_amount, 0)
-              )
-            )
+            COALESCE(sessions.coefficient, 1) *
+              COALESCE(sessions.allowance_amount, 0)
           ) -
           CASE
             WHEN LOWER(COALESCE(sessions.teacher_payment_status, '')) IN (${Prisma.join(
@@ -3621,17 +3480,11 @@ export class StaffService {
                 LEAST(
                   COALESCE(
                     NULLIF(classes.max_allowance_per_session, 0),
-                    (
-                      COALESCE(sessions.coefficient, 1) * (
-                        COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (WHERE attendance.status IN ('present', 'excused')) + COALESCE(classes.scale_amount, 0)
-                      )
-                    )
+                    COALESCE(sessions.coefficient, 1) *
+                      COALESCE(sessions.allowance_amount, 0)
                   ),
-                  (
-                    COALESCE(sessions.coefficient, 1) * (
-                      COALESCE(sessions.allowance_amount, 0) * COUNT(*) FILTER (WHERE attendance.status IN ('present', 'excused')) + COALESCE(classes.scale_amount, 0)
-                    )
-                  )
+                  COALESCE(sessions.coefficient, 1) *
+                    COALESCE(sessions.allowance_amount, 0)
                 ) * COALESCE(sessions.teacher_tax_rate_percent, 0)
               ) / 100.0,
               0
@@ -3641,7 +3494,7 @@ export class StaffService {
         join sessions on attendance.session_id = sessions.id
         join classes on classes.id = sessions.class_id
         where sessions.teacher_id=${id}
-        group by sessions.class_id, attendance.session_id, sessions.allowance_amount, classes.scale_amount, sessions.teacher_payment_status, classes.max_allowance_per_session, sessions.coefficient, sessions.teacher_tax_rate_percent) as tab
+        group by sessions.class_id, attendance.session_id, sessions.allowance_amount, sessions.teacher_payment_status, classes.max_allowance_per_session, sessions.coefficient, sessions.teacher_tax_rate_percent) as tab
       join classes on classes.id = class_id
       group by tab.class_id, teacher_payment_status , classes.name
       `;

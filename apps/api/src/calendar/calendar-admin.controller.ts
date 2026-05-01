@@ -67,9 +67,7 @@ export class CalendarAdminController {
       },
     },
   })
-  async getCalendarEvents(
-    @Query() filters: ClassScheduleFilterDto,
-  ): Promise<{
+  async getCalendarEvents(@Query() filters: ClassScheduleFilterDto): Promise<{
     success: boolean;
     data: ClassScheduleEventDto[];
     total: number;
@@ -179,9 +177,7 @@ export class CalendarAdminController {
       },
     },
   })
-  async listMakeupEvents(
-    @Query() filters: ClassScheduleFilterDto,
-  ): Promise<{
+  async listMakeupEvents(@Query() filters: ClassScheduleFilterDto): Promise<{
     success: boolean;
     data: MakeupScheduleEventDto[];
     total: number;

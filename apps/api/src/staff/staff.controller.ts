@@ -61,7 +61,7 @@ import { StaffService } from './staff.service';
 @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.accountant)
 @Roles(UserRole.admin)
 export class StaffController {
-  constructor(private readonly staffService: StaffService) { }
+  constructor(private readonly staffService: StaffService) {}
 
   @Get('assignable-users')
   @ApiOperation({
@@ -138,9 +138,7 @@ export class StaffController {
     status: 200,
     description: 'Matching assistant staff options.',
   })
-  async searchAssistantStaffOptions(
-    @Query() query: SearchStaffOptionsDto,
-  ) {
+  async searchAssistantStaffOptions(@Query() query: SearchStaffOptionsDto) {
     return this.staffService.searchAssistantStaff(query);
   }
 
@@ -328,7 +326,7 @@ export class StaffController {
   @ApiOperation({
     summary: 'Get staff payment preview',
     description:
-      'Get backend-authoritative payable items grouped by role/source for the selected month. Teacher tax is recalculated from the current teacher rate on the post-operating amount, while other roles keep their current per-role tax behavior.',
+      'Get backend-authoritative payable items grouped by role/source. Teacher sessions (`unpaid`) include every unpaid teaching session for the staff, not limited to the selected month; other sources (bonus, extra allowance, lesson outputs, CSKH/assistant shares on attendance, etc.) are scoped to the selected month/year. Teacher tax is recalculated from the current teacher rate on the post-operating amount, while other roles keep their current per-role tax behavior.',
   })
   @ApiParam({ name: 'id', description: 'Staff id' })
   @ApiQuery({
@@ -389,12 +387,13 @@ export class StaffController {
   @ApiOperation({
     summary: 'Pay all listed staff payments',
     description:
-      'Refresh each listed item tax snapshot before marking the selected month paid. For teacher sessions, tax is applied on the post-operating amount; other roles keep their current per-role tax behavior. Teacher deposit sessions are excluded.',
+      'Refresh each listed item tax snapshot before marking items paid. Teacher sessions: every current `unpaid` session for the staff (any date). Other payable sources are recomputed for the requested month/year. For teacher sessions, tax is applied on the post-operating amount; other roles keep their current per-role tax behavior. Teacher deposit sessions are excluded.',
   })
   @ApiParam({ name: 'id', description: 'Staff id' })
   @ApiBody({
     type: StaffPayAllPaymentsDto,
-    description: 'Selected month payload',
+    description:
+      'Month/year for non-teacher-session sources; teacher sessions are always all unpaid regardless of month.',
   })
   @ApiResponse({
     status: 200,
@@ -407,15 +406,11 @@ export class StaffController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() data: StaffPayAllPaymentsDto,
   ): Promise<StaffPayAllPaymentsResultDto> {
-    return this.staffService.payAllPayments(
-      id,
-      data,
-      {
-        userId: user.id,
-        userEmail: user.email,
-        roleType: user.roleType,
-      },
-    );
+    return this.staffService.payAllPayments(id, data, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Patch(':id/payment-status/pay-deposit')
@@ -440,15 +435,11 @@ export class StaffController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() data: StaffPayDepositSessionsDto,
   ): Promise<StaffPayDepositSessionsResultDto> {
-    return this.staffService.payDepositSessions(
-      id,
-      data,
-      {
-        userId: user.id,
-        userEmail: user.email,
-        roleType: user.roleType,
-      },
-    );
+    return this.staffService.payDepositSessions(id, data, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Get(':id')

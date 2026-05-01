@@ -148,9 +148,7 @@ describe('NotificationService', () => {
           roleType: UserRole.admin,
         },
       ),
-    ).rejects.toThrow(
-      new BadRequestException('message must not be empty.'),
-    );
+    ).rejects.toThrow(new BadRequestException('message must not be empty.'));
   });
 
   it('filters staff feed by dynamic audience including staff roles', async () => {

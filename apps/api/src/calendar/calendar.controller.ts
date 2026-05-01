@@ -7,7 +7,10 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { UserRole } from 'generated/enums';
-import { CurrentUser, type JwtPayload } from '../auth/decorators/current-user.decorator';
+import {
+  CurrentUser,
+  type JwtPayload,
+} from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CalendarService, type PaginatedResponse } from './calendar.service';
 import { PaginationQueryDto } from '../dtos/pagination.dto';
@@ -100,7 +103,8 @@ export class CalendarController {
   })
   @ApiResponse({
     status: 403,
-    description: 'Staff không có role teacher không được dùng filter calendar này.',
+    description:
+      'Staff không có role teacher không được dùng filter calendar này.',
   })
   async getClasses(
     @CurrentUser() user: JwtPayload,
@@ -200,7 +204,8 @@ export class CalendarController {
   })
   @ApiResponse({
     status: 403,
-    description: 'Staff không có role teacher không được dùng filter calendar này.',
+    description:
+      'Staff không có role teacher không được dùng filter calendar này.',
   })
   async getStudentsForFilter(
     @CurrentUser() user: JwtPayload,
@@ -256,9 +261,19 @@ export class CalendarController {
   async getStaffEvents(
     @CurrentUser() user: JwtPayload,
     @Query() filters: ClassScheduleFilterDto,
-  ): Promise<{ success: boolean; data: ClassScheduleEventDto[]; total: number }> {
-    const actor = await this.staffOperationsAccess.resolveActor(user.id, user.roleType);
-    const result = await this.calendarService.getStaffScheduleEvents(actor.id, filters);
+  ): Promise<{
+    success: boolean;
+    data: ClassScheduleEventDto[];
+    total: number;
+  }> {
+    const actor = await this.staffOperationsAccess.resolveActor(
+      user.id,
+      user.roleType,
+    );
+    const result = await this.calendarService.getStaffScheduleEvents(
+      actor.id,
+      filters,
+    );
     return result;
   }
 }

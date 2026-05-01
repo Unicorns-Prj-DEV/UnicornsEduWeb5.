@@ -195,9 +195,7 @@ export class ClassService {
     return schedule
       .filter(
         (entry) =>
-          typeof entry === 'object' &&
-          entry !== null &&
-          !Array.isArray(entry),
+          typeof entry === 'object' && entry !== null && !Array.isArray(entry),
       )
       .map((rawEntry) => {
         const entry = rawEntry as Prisma.JsonObject;
@@ -253,8 +251,9 @@ export class ClassService {
   ) {
     const existingById = new Map(
       this.getStoredClassScheduleEntries(existingSchedule)
-        .filter((entry): entry is StoredClassScheduleEntry & { id: string } =>
-          typeof entry.id === 'string' && entry.id.length > 0,
+        .filter(
+          (entry): entry is StoredClassScheduleEntry & { id: string } =>
+            typeof entry.id === 'string' && entry.id.length > 0,
         )
         .map((entry) => [entry.id, entry]),
     );
@@ -336,9 +335,10 @@ export class ClassService {
       const customTuitionPackageTotal = normalizeStudentClassCustomTuitionMoney(
         student.customTuitionPackageTotal,
       );
-      const customTuitionPackageSession = normalizeStudentClassCustomTuitionMoney(
-        student.customTuitionPackageSession,
-      );
+      const customTuitionPackageSession =
+        normalizeStudentClassCustomTuitionMoney(
+          student.customTuitionPackageSession,
+        );
       const effectiveTuitionPackageTotal =
         customTuitionPackageTotal ??
         normalizeNullableMoney(classInfo.tuitionPackageTotal);
@@ -595,9 +595,10 @@ export class ClassService {
       const customTuitionPackageTotal = normalizeStudentClassCustomTuitionMoney(
         student.customTuitionPackageTotal,
       );
-      const customTuitionPackageSession = normalizeStudentClassCustomTuitionMoney(
-        student.customTuitionPackageSession,
-      );
+      const customTuitionPackageSession =
+        normalizeStudentClassCustomTuitionMoney(
+          student.customTuitionPackageSession,
+        );
       const effectiveTuitionPackageTotal =
         customTuitionPackageTotal ??
         normalizeNullableMoney(classInfo.tuitionPackageTotal);
@@ -857,7 +858,9 @@ export class ClassService {
 
       return {
         ...createdClass,
-        teachers: classRecord.map((record) => this.mapTeacherAssignment(record)),
+        teachers: classRecord.map((record) =>
+          this.mapTeacherAssignment(record),
+        ),
       };
     });
   }
@@ -1004,7 +1007,9 @@ export class ClassService {
 
       return {
         ...updatedClass,
-        teachers: classRecord.map((record) => this.mapTeacherAssignment(record)),
+        teachers: classRecord.map((record) =>
+          this.mapTeacherAssignment(record),
+        ),
       };
     });
   }
@@ -1271,12 +1276,18 @@ export class ClassService {
     // Pass old schedule so sync can delete old events before creating new ones
     try {
       const oldSchedule = this.getStoredClassScheduleEntries(existing.schedule);
-      this.logger.log(`[ClassService] Calling syncScheduleWithCalendar for class ${id} after schedule update, oldSchedule entries: ${oldSchedule.length}`);
+      this.logger.log(
+        `[ClassService] Calling syncScheduleWithCalendar for class ${id} after schedule update, oldSchedule entries: ${oldSchedule.length}`,
+      );
       await this.calendarService.syncScheduleWithCalendar(id, oldSchedule);
-      this.logger.log(`[ClassService] syncScheduleWithCalendar completed for class ${id}`);
+      this.logger.log(
+        `[ClassService] syncScheduleWithCalendar completed for class ${id}`,
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      this.logger.error(`[ClassService] Failed to sync schedule with Google Calendar for class ${id}: ${message}`);
+      this.logger.error(
+        `[ClassService] Failed to sync schedule with Google Calendar for class ${id}: ${message}`,
+      );
       // Do not fail the schedule update if calendar sync fails
     }
 

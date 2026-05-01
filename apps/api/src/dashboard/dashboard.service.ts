@@ -478,21 +478,11 @@ export class DashboardService {
           LEAST(
             COALESCE(
               NULLIF(classes.max_allowance_per_session, 0),
-              (
-                (
-                  COALESCE(sessions.allowance_amount, 0) *
-                  COUNT(*) FILTER (WHERE attendance.status IN ('present', 'excused'))
-                ) +
-                COALESCE(classes.scale_amount, 0)
-              ) * COALESCE(sessions.coefficient, 1)
+              COALESCE(sessions.allowance_amount, 0) *
+                COALESCE(sessions.coefficient, 1)
             ),
-            (
-              (
-                COALESCE(sessions.allowance_amount, 0) *
-                COUNT(*) FILTER (WHERE attendance.status IN ('present', 'excused'))
-              ) +
-              COALESCE(classes.scale_amount, 0)
-            ) * COALESCE(sessions.coefficient, 1)
+            COALESCE(sessions.allowance_amount, 0) *
+              COALESCE(sessions.coefficient, 1)
           ) AS teacher_allowance_total
         FROM attendance
         INNER JOIN sessions ON sessions.id = attendance.session_id
@@ -503,7 +493,6 @@ export class DashboardService {
           1,
           sessions.id,
           sessions.allowance_amount,
-          classes.scale_amount,
           classes.max_allowance_per_session,
           sessions.coefficient
       ),
@@ -883,21 +872,11 @@ export class DashboardService {
           LEAST(
             COALESCE(
               NULLIF(classes.max_allowance_per_session, 0),
-              (
-                (
-                  COALESCE(sessions.allowance_amount, 0) *
-                  COUNT(*) FILTER (WHERE attendance.status IN ('present', 'excused'))
-                ) +
-                COALESCE(classes.scale_amount, 0)
-              ) * COALESCE(sessions.coefficient, 1)
+              COALESCE(sessions.allowance_amount, 0) *
+                COALESCE(sessions.coefficient, 1)
             ),
-            (
-              (
-                COALESCE(sessions.allowance_amount, 0) *
-                COUNT(*) FILTER (WHERE attendance.status IN ('present', 'excused'))
-              ) +
-              COALESCE(classes.scale_amount, 0)
-            ) * COALESCE(sessions.coefficient, 1)
+            COALESCE(sessions.allowance_amount, 0) *
+              COALESCE(sessions.coefficient, 1)
           ) AS amount
         FROM attendance
         INNER JOIN sessions ON sessions.id = attendance.session_id
@@ -908,7 +887,6 @@ export class DashboardService {
           sessions.teacher_id,
           sessions.id,
           sessions.allowance_amount,
-          classes.scale_amount,
           classes.max_allowance_per_session,
           sessions.coefficient
       ),
@@ -1082,21 +1060,11 @@ export class DashboardService {
           LEAST(
             COALESCE(
               NULLIF(classes.max_allowance_per_session, 0),
-              (
-                (
-                  COALESCE(sessions.allowance_amount, 0) *
-                  COUNT(*) FILTER (WHERE attendance.status IN ('present', 'excused'))
-                ) +
-                COALESCE(classes.scale_amount, 0)
-              ) * COALESCE(sessions.coefficient, 1)
+              COALESCE(sessions.allowance_amount, 0) *
+                COALESCE(sessions.coefficient, 1)
             ),
-            (
-              (
-                COALESCE(sessions.allowance_amount, 0) *
-                COUNT(*) FILTER (WHERE attendance.status IN ('present', 'excused'))
-              ) +
-              COALESCE(classes.scale_amount, 0)
-            ) * COALESCE(sessions.coefficient, 1)
+            COALESCE(sessions.allowance_amount, 0) *
+              COALESCE(sessions.coefficient, 1)
           ) AS teacher_allowance_total
         FROM attendance
         INNER JOIN sessions ON sessions.id = attendance.session_id
@@ -1107,7 +1075,6 @@ export class DashboardService {
           sessions.class_id,
           sessions.id,
           sessions.allowance_amount,
-          classes.scale_amount,
           classes.max_allowance_per_session,
           sessions.coefficient
       ),
@@ -1194,11 +1161,9 @@ export class DashboardService {
     status: string;
     priority: string;
     dueDate: Date | null;
-    createdByStaff:
-      | {
-          user: { first_name: string | null; last_name: string | null } | null;
-        }
-      | null;
+    createdByStaff: {
+      user: { first_name: string | null; last_name: string | null } | null;
+    } | null;
     staffLessonTasks: Array<{
       staff: {
         user: { first_name: string | null; last_name: string | null } | null;
@@ -1227,7 +1192,9 @@ export class DashboardService {
     };
   }
 
-  private mapStudentAlertItem(row: StudentAlertSqlRow): StaffDashboardStudentAlertItemDto {
+  private mapStudentAlertItem(
+    row: StudentAlertSqlRow,
+  ): StaffDashboardStudentAlertItemDto {
     return {
       studentId: row.studentId,
       studentName: row.studentName,
@@ -1306,10 +1273,7 @@ export class DashboardService {
               },
             },
           },
-          orderBy: [
-            { startTime: 'asc' },
-            { classId: 'asc' },
-          ],
+          orderBy: [{ startTime: 'asc' }, { classId: 'asc' }],
         }),
       ]);
 
@@ -1347,41 +1311,43 @@ export class DashboardService {
       }))
       .sort((left, right) => left.name.localeCompare(right.name));
 
-    const missingScheduleOrSurvey: StaffDashboardClassAlertItemDto[] = classItems
-      .map((item) => {
-        const latestClassSurveyTestNumber =
-          latestSurveyByClassId.get(item.id) ?? null;
-        const missingSchedule = item.scheduleCount === 0;
-        const missingSurvey =
-          (latestRequiredSurveyTestNumber ?? 0) > 0 &&
-          (latestClassSurveyTestNumber ?? 0) < (latestRequiredSurveyTestNumber ?? 0);
+    const missingScheduleOrSurvey: StaffDashboardClassAlertItemDto[] =
+      classItems
+        .map((item) => {
+          const latestClassSurveyTestNumber =
+            latestSurveyByClassId.get(item.id) ?? null;
+          const missingSchedule = item.scheduleCount === 0;
+          const missingSurvey =
+            (latestRequiredSurveyTestNumber ?? 0) > 0 &&
+            (latestClassSurveyTestNumber ?? 0) <
+              (latestRequiredSurveyTestNumber ?? 0);
 
-        if (!missingSchedule && !missingSurvey) {
-          return null;
-        }
+          if (!missingSchedule && !missingSurvey) {
+            return null;
+          }
 
-        const reasons = [
-          missingSchedule ? 'Chưa điền lịch học' : null,
-          missingSurvey && latestRequiredSurveyTestNumber
-            ? `Chưa báo cáo khảo sát lần ${latestRequiredSurveyTestNumber}`
-            : null,
-        ].filter((value): value is string => value != null);
+          const reasons = [
+            missingSchedule ? 'Chưa điền lịch học' : null,
+            missingSurvey && latestRequiredSurveyTestNumber
+              ? `Chưa báo cáo khảo sát lần ${latestRequiredSurveyTestNumber}`
+              : null,
+          ].filter((value): value is string => value != null);
 
-        return {
-          classId: item.id,
-          className: item.name,
-          reason: reasons.join(' • '),
-          missingSchedule,
-          missingSurvey,
-          latestRequiredSurveyTestNumber,
-          latestClassSurveyTestNumber,
-        };
-      })
-      .filter((item): item is StaffDashboardClassAlertItemDto => item != null)
-      .sort((left, right) => left.className.localeCompare(right.className));
+          return {
+            classId: item.id,
+            className: item.name,
+            reason: reasons.join(' • '),
+            missingSchedule,
+            missingSurvey,
+            latestRequiredSurveyTestNumber,
+            latestClassSurveyTestNumber,
+          };
+        })
+        .filter((item): item is StaffDashboardClassAlertItemDto => item != null)
+        .sort((left, right) => left.className.localeCompare(right.className));
 
-    const todaySessionItems: StaffDashboardTodaySessionItemDto[] = todaySessions.map(
-      (session) => ({
+    const todaySessionItems: StaffDashboardTodaySessionItemDto[] =
+      todaySessions.map((session) => ({
         sessionId: session.id,
         classId: session.class.id,
         className: session.class.name,
@@ -1389,8 +1355,7 @@ export class DashboardService {
         endTime: toIsoTime(session.endTime),
         attendanceCount: session._count.attendance,
         teacherPaymentStatus: session.teacherPaymentStatus,
-      }),
-    );
+      }));
 
     return {
       assignedClasses: classItems,
@@ -1402,84 +1367,88 @@ export class DashboardService {
   private async getLessonPlanSection(
     staffId: string,
   ): Promise<StaffDashboardLessonPlanSectionDto> {
-    const [totalTaskCount, completedTaskCount, remainingTaskCount, openTaskRecords] =
-      await Promise.all([
-        this.prisma.lessonTask.count({
-          where: {
-            staffLessonTasks: {
-              some: {
-                staffId,
-              },
+    const [
+      totalTaskCount,
+      completedTaskCount,
+      remainingTaskCount,
+      openTaskRecords,
+    ] = await Promise.all([
+      this.prisma.lessonTask.count({
+        where: {
+          staffLessonTasks: {
+            some: {
+              staffId,
             },
           },
-        }),
-        this.prisma.lessonTask.count({
-          where: {
-            staffLessonTasks: {
-              some: {
-                staffId,
-              },
-            },
-            status: LessonTaskStatus.completed,
-          },
-        }),
-        this.prisma.lessonTask.count({
-          where: {
-            staffLessonTasks: {
-              some: {
-                staffId,
-              },
-            },
-            status: {
-              in: [LessonTaskStatus.pending, LessonTaskStatus.in_progress],
+        },
+      }),
+      this.prisma.lessonTask.count({
+        where: {
+          staffLessonTasks: {
+            some: {
+              staffId,
             },
           },
-        }),
-        this.prisma.lessonTask.findMany({
-          where: {
-            staffLessonTasks: {
-              some: {
-                staffId,
-              },
-            },
-            status: {
-              in: [LessonTaskStatus.pending, LessonTaskStatus.in_progress],
+          status: LessonTaskStatus.completed,
+        },
+      }),
+      this.prisma.lessonTask.count({
+        where: {
+          staffLessonTasks: {
+            some: {
+              staffId,
             },
           },
-          select: {
-            id: true,
-            title: true,
-            status: true,
-            priority: true,
-            dueDate: true,
-            createdByStaff: {
-              select: {
-                user: {
-                  select: {
-                    first_name: true,
-                    last_name: true,
-                  },
+          status: {
+            in: [LessonTaskStatus.pending, LessonTaskStatus.in_progress],
+          },
+        },
+      }),
+      this.prisma.lessonTask.findMany({
+        where: {
+          staffLessonTasks: {
+            some: {
+              staffId,
+            },
+          },
+          status: {
+            in: [LessonTaskStatus.pending, LessonTaskStatus.in_progress],
+          },
+        },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          priority: true,
+          dueDate: true,
+          createdByStaff: {
+            select: {
+              user: {
+                select: {
+                  first_name: true,
+                  last_name: true,
                 },
               },
             },
-            staffLessonTasks: {
-              select: {
-                staff: {
-                  select: {
-                    user: {
-                      select: {
-                        first_name: true,
-                        last_name: true,
-                      },
+          },
+          staffLessonTasks: {
+            select: {
+              staff: {
+                select: {
+                  user: {
+                    select: {
+                      first_name: true,
+                      last_name: true,
                     },
                   },
                 },
               },
             },
           },
-          take: 24,
-        }),
-      ]);
+        },
+        take: 24,
+      }),
+    ]);
 
     return {
       totalTaskCount,
@@ -1497,65 +1466,69 @@ export class DashboardService {
     weekStart: Date;
     weekEnd: Date;
   }): Promise<StaffDashboardLessonPlanHeadSectionDto> {
-    const [incompleteTaskRecords, totalOutputs, newOutputsThisMonth, newOutputsThisWeek] =
-      await Promise.all([
-        this.prisma.lessonTask.findMany({
-          where: {
-            status: {
-              in: [LessonTaskStatus.pending, LessonTaskStatus.in_progress],
-            },
+    const [
+      incompleteTaskRecords,
+      totalOutputs,
+      newOutputsThisMonth,
+      newOutputsThisWeek,
+    ] = await Promise.all([
+      this.prisma.lessonTask.findMany({
+        where: {
+          status: {
+            in: [LessonTaskStatus.pending, LessonTaskStatus.in_progress],
           },
-          select: {
-            id: true,
-            title: true,
-            status: true,
-            priority: true,
-            dueDate: true,
-            createdByStaff: {
-              select: {
-                user: {
-                  select: {
-                    first_name: true,
-                    last_name: true,
-                  },
+        },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          priority: true,
+          dueDate: true,
+          createdByStaff: {
+            select: {
+              user: {
+                select: {
+                  first_name: true,
+                  last_name: true,
                 },
               },
             },
-            staffLessonTasks: {
-              select: {
-                staff: {
-                  select: {
-                    user: {
-                      select: {
-                        first_name: true,
-                        last_name: true,
-                      },
+          },
+          staffLessonTasks: {
+            select: {
+              staff: {
+                select: {
+                  user: {
+                    select: {
+                      first_name: true,
+                      last_name: true,
                     },
                   },
                 },
               },
             },
           },
-          take: 24,
-        }),
-        this.prisma.lessonOutput.count(),
-        this.prisma.lessonOutput.count({
-          where: {
-            createdAt: {
-              gte: params.monthStart,
-              lt: params.monthEnd,
-            },
+        },
+        take: 24,
+      }),
+      this.prisma.lessonOutput.count(),
+      this.prisma.lessonOutput.count({
+        where: {
+          createdAt: {
+            gte: params.monthStart,
+            lt: params.monthEnd,
           },
-        }),
-        this.prisma.lessonOutput.count({
-          where: {
-            createdAt: {
-              gte: params.weekStart,
-              lt: params.weekEnd,
-            },
+        },
+      }),
+      this.prisma.lessonOutput.count({
+        where: {
+          createdAt: {
+            gte: params.weekStart,
+            lt: params.weekEnd,
           },
-        }),
-      ]);
+        },
+      }),
+    ]);
 
     return {
       incompleteTasks: this.sortTaskItems(
@@ -1955,7 +1928,9 @@ export class DashboardService {
       },
     });
 
-    const assignedStudents = assignments.map((assignment) => assignment.student);
+    const assignedStudents = assignments.map(
+      (assignment) => assignment.student,
+    );
     const { learnedTuitionByStudentId, topupByStudentId } =
       await this.getStudentAggregateMaps(
         assignedStudents.map((student) => student.id),
@@ -1992,26 +1967,33 @@ export class DashboardService {
       ).length,
       learnedTuitionTotal,
       topupTotal,
-      lowBalanceStudents: lowBalanceRows.map((row) => this.mapStudentAlertItem(row)),
+      lowBalanceStudents: lowBalanceRows.map((row) =>
+        this.mapStudentAlertItem(row),
+      ),
       debtStudents: debtRows.map((row) => this.mapStudentAlertItem(row)),
     };
   }
 
-  private async getAssistantSection(
-    range: { month: string; year: string },
-  ): Promise<StaffDashboardAssistantSectionDto> {
-    const [adminDashboard, summaryCounts, activeTeachers, customerCarePortfolios] =
-      await Promise.all([
-        this.getAdminDashboard({
-          month: range.month,
-          year: range.year,
-          alertLimit: 6,
-          topClassLimit: 5,
-        }),
-        this.getSummaryCounts(),
-        this.getActiveTeacherCount(),
-        this.getCustomerCarePortfolios(),
-      ]);
+  private async getAssistantSection(range: {
+    month: string;
+    year: string;
+  }): Promise<StaffDashboardAssistantSectionDto> {
+    const [
+      adminDashboard,
+      summaryCounts,
+      activeTeachers,
+      customerCarePortfolios,
+    ] = await Promise.all([
+      this.getAdminDashboard({
+        month: range.month,
+        year: range.year,
+        alertLimit: 6,
+        topClassLimit: 5,
+      }),
+      this.getSummaryCounts(),
+      this.getActiveTeacherCount(),
+      this.getCustomerCarePortfolios(),
+    ]);
 
     const systemSummary: StaffDashboardSystemSummaryDto = {
       activeClasses: normalizeInteger(summaryCounts.activeClasses),
@@ -2026,9 +2008,10 @@ export class DashboardService {
     };
   }
 
-  private async getAccountantSection(
-    range: { month: string; year: string },
-  ): Promise<StaffDashboardAccountantSectionDto> {
+  private async getAccountantSection(range: {
+    month: string;
+    year: string;
+  }): Promise<StaffDashboardAccountantSectionDto> {
     const [adminDashboard, unpaidRows] = await Promise.all([
       this.getAdminDashboard({
         month: range.month,
@@ -2073,7 +2056,9 @@ export class DashboardService {
     const range = buildDashboardRange(params.query.month, params.query.year);
     const todayRange = buildTodayRange();
     const weekRange = buildWeekRange(todayRange.start);
-    const hasLessonPlanHead = normalizedRoles.includes(StaffRole.lesson_plan_head);
+    const hasLessonPlanHead = normalizedRoles.includes(
+      StaffRole.lesson_plan_head,
+    );
     const hasLessonPlan =
       normalizedRoles.includes(StaffRole.lesson_plan) && !hasLessonPlanHead;
 
