@@ -79,7 +79,9 @@ function getDropdownRect(el: HTMLElement | null): DropdownRect | null {
 
 function getInitialSelectedStudents(classDetail: ClassDetail): SelectedStudent[] {
   return (classDetail.students ?? [])
-    .filter((student) => student?.id)
+    .filter(
+      (student) => student?.id && (student.status ?? "").toLowerCase() === "active",
+    )
     .map((student) => ({
       id: student.id,
       name: student.fullName?.trim() ?? "—",

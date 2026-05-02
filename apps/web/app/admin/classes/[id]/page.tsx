@@ -89,8 +89,7 @@ function getStudentEffectiveTuitionPerSession(student: ClassStudent): number {
 }
 
 function isClassStudentActive(student: ClassStudent): boolean {
-  const status = (student.status ?? "active").toLowerCase();
-  return status === "active";
+  return (student.status ?? "").toLowerCase() === "active";
 }
 
 export default function AdminClassDetailPage() {

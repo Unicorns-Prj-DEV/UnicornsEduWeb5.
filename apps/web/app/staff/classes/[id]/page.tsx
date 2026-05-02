@@ -44,7 +44,7 @@ const TYPE_LABELS: Record<ClassType, string> = {
 };
 
 function isClassStudentActive(status?: string | null): boolean {
-  return (status ?? "active").toLowerCase() === "active";
+  return (status ?? "").toLowerCase() === "active";
 }
 
 function getCurrentMonthValue() {
@@ -212,7 +212,7 @@ export default function StaffClassDetailPage() {
     : "Không có buổi học trong tháng này.";
   const canCreateSession =
     canManageSessions &&
-    classStudents.length > 0 &&
+    activeClassStudents.length > 0 &&
     (hasTeacherSelfServiceAccess ? true : teacherCount === 1);
   const defaultTeacherId = hasTeacherSelfServiceAccess
     ? actorStaffId

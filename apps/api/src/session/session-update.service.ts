@@ -7,6 +7,7 @@ import {
   PaymentStatus,
   SessionPaymentStatus,
   StaffRole,
+  StudentClassStatus,
   UserRole,
   WalletTransactionType,
 } from '../../generated/enums';
@@ -394,6 +395,7 @@ export class SessionUpdateService {
           const studentClasses = await tx.studentClass.findMany({
             where: {
               classId: nextClassId,
+              status: StudentClassStatus.active,
               studentId: {
                 in: nextAttendanceStudentIds,
               },

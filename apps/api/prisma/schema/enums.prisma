@@ -33,6 +33,11 @@ enum StudentStatus {
   inactive
 }
 
+enum StudentClassStatus {
+  active
+  inactive
+}
+
 enum Gender {
   male
   female
