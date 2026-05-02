@@ -7,7 +7,6 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
-import * as crypto from 'node:crypto';
 import type { Prisma } from '../../generated/client';
 import { StaffRole, UserRole } from 'generated/enums';
 import {
@@ -204,7 +203,7 @@ export class AuthService {
 
   async refreshTokens(
     userId: string,
-    usedRefreshToken: string,
+    _usedRefreshToken: string,
     rememberMe = false,
   ): Promise<TokenPair> {
     const user = await this.prisma.user.findUnique({
@@ -213,15 +212,12 @@ export class AuthService {
         id: true,
         accountHandle: true,
         roleType: true,
-        refreshToken: true,
       },
     });
 
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
-
-    this.assertRefreshTokenMatchesHash(user.refreshToken, usedRefreshToken);
 
     return this.generateTokenPairAndSave(
       user.id,
@@ -350,15 +346,6 @@ export class AuthService {
     }
 
     const payload = await this.verifyRefreshToken(refreshToken);
-    const user = await this.prisma.user.findUnique({
-      where: { id: payload.id },
-      select: { refreshToken: true },
-    });
-
-    this.assertRefreshTokenMatchesHash(
-      user?.refreshToken ?? null,
-      refreshToken,
-    );
 
     return this.getAuthProfile(payload.id, request);
   }
@@ -613,11 +600,6 @@ export class AuthService {
       this.jwtService.signAsync(payload, this.accessTokenOptions),
       this.jwtService.signAsync(payload, refreshTokenOptions),
     ]);
-    const refreshTokenHash = this.hashToken(refreshToken);
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { refreshToken: refreshTokenHash },
-    });
     return {
       accessToken,
       refreshToken,
@@ -812,10 +794,6 @@ export class AuthService {
     return token;
   }
 
-  private hashToken(token: string): string {
-    return crypto.createHash('sha256').update(token).digest('hex');
-  }
-
   private async verifyRefreshToken(refreshToken: string) {
     try {
       return await this.jwtService.verifyAsync<{
@@ -826,26 +804,6 @@ export class AuthService {
         secret: this.refreshTokenSecret,
       });
     } catch {
-      throw new UnauthorizedException('Invalid or expired refresh token');
-    }
-  }
-
-  private assertRefreshTokenMatchesHash(
-    storedTokenHash: string | null,
-    presentedRefreshToken: string,
-  ) {
-    if (!storedTokenHash || !presentedRefreshToken) {
-      throw new UnauthorizedException('Invalid or expired refresh token');
-    }
-
-    const presentedHash = this.hashToken(presentedRefreshToken);
-    const storedHashBuffer = Buffer.from(storedTokenHash, 'utf8');
-    const presentedHashBuffer = Buffer.from(presentedHash, 'utf8');
-
-    if (
-      storedHashBuffer.length !== presentedHashBuffer.length ||
-      !crypto.timingSafeEqual(storedHashBuffer, presentedHashBuffer)
-    ) {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
   }
