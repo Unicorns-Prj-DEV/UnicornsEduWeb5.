@@ -588,7 +588,7 @@ export default function AdminStaffDetailPage({
       });
     }
 
-    return cards;
+    return cards.filter((card) => card.value > 0);
   }, [incomeSummary]);
   const paymentPreviewSummary = paymentPreview?.summary ?? null;
   const paymentPreviewSections = paymentPreview?.sections ?? [];
@@ -1383,7 +1383,7 @@ export default function AdminStaffDetailPage({
               )}
             </article>
           </div>
-          {canViewBeforeDeduction ? (
+          {canViewBeforeDeduction && beforeDeductionCards.length > 0 ? (
             <div className="mt-3 rounded-xl border border-border-default bg-bg-tertiary/70 px-4 py-3">
               <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
                 Trước khấu trừ
