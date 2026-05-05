@@ -75,6 +75,8 @@ Dùng làm context khi implement hoặc review code frontend; giúp model chọn
 - Logout flow ở shell/navbar phải dùng scoped cleanup (`apps/web/lib/query-invalidation.ts`) thay vì `queryClient.invalidateQueries()` toàn cục để tránh request burst.
 - Với calendar pages (`/admin/calendar`, `/staff/calendar`), ưu tiên trigger `calendar:refetch` hoặc invalidation theo calendar key-scope; tránh nghe global mutation event không liên quan.
 - Notification feed dùng `apps/web/lib/notification-feed-query.ts` (factory `notificationFeedQueryKey`) để đồng bộ key giữa tray/page/socket bridge.
+- Auth guard ở `apps/web/proxy.ts` phải dùng `matcher` giới hạn vào route cần bảo vệ (`/admin`, `/staff`, `/student`, `/user-profile`) để tránh gọi lặp `/auth/session` cho static/public requests.
+- Axios refresh interceptor trong `apps/web/lib/client.ts` chỉ được refresh cho business APIs; mọi endpoint `/auth/*` (bao gồm `/auth/session`) phải bỏ qua để tránh vòng lặp refresh khi auth endpoint trả `401`.
 
 ## Yêu cầu hệ thống
 
@@ -264,7 +266,7 @@ pnpm --filter web add @unicorns/shared --workspace
 
 ## Deploy VPS (GitHub Actions)
 
-Pipeline: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — **hai job build** (`build-api`, `build-web`) chạy **song song** trên GitHub runners, mỗi job push một image lên GHCR (cache BuildKit `type=gha` tách `scope=api` / `scope=web`) → job `deploy` chỉ chạy khi cả hai build xong → SSH vào VPS → `git pull --ff-only` để sync compose/nginx/workflow-side config → `docker compose pull` / `up` → probe readiness thật từ trong container → **nếu có Certbot trên host:** `certbot renew --quiet` → `nginx -t` + reload → **kiểm tra HTTPS** (nếu có hostname — xem `VPS_PUBLIC_HOST` bên dưới): `curl` với `--resolve` tới `127.0.0.1`, endpoint `/api/` → `prisma migrate deploy`.
+Pipeline: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — **hai job build** (`build-api`, `build-web`) chạy **song song** trên GitHub runners, mỗi job push một image lên GHCR (cache BuildKit `type=gha` tách `scope=api` / `scope=web`) → job `deploy` chỉ chạy khi cả hai build xong → SSH vào VPS → `git pull --ff-only` để sync compose/nginx/workflow-side config → `docker compose pull` / `up` → probe readiness thật từ trong container → **nếu có Certbot trên host:** `certbot renew --quiet` → `wait_for_nginx_running` + retry wrapper cho `nginx -t`/`nginx -s reload` (giảm lỗi race `OCI runtime exec ... setns`) → **kiểm tra HTTPS** (nếu có hostname — xem `VPS_PUBLIC_HOST` bên dưới): `curl` với `--resolve` tới `127.0.0.1`, endpoint `/api/` → `prisma migrate deploy`.
 
 **`VPS_PUBLIC_HOST` (smoke test HTTPS):** đặt một trong các cách — **Secret** `VPS_PUBLIC_HOST` (ưu tiên) hoặc **Repository variable** `VPS_PUBLIC_HOST`, hoặc trong file **`.env` trên VPS** (cùng thư mục compose, ví dụ `/root/UnicornsEdu/.env`). Script deploy đọc theo thứ tự: giá trị GitHub Actions truyền SSH → nếu trống thì đọc dòng `VPS_PUBLIC_HOST=…` trong `.env`. Nếu vẫn trống, **bỏ qua** bước `curl` (deploy không fail vì thiếu domain). Khớp `server_name` / chứng chỉ trong nginx.
 
@@ -334,6 +336,8 @@ Truy cập bằng **IP** vẫn dùng khối `listen 80 default_server` (không r
 **Miền khác:** dùng mẫu `nginx/conf.d/https-vhost.conf.example`, sao chép/sửa thành file `.conf` riêng hoặc chỉnh `server_name` và đường dẫn `ssl_certificate` cho khớp `-d` khi chạy Certbot.
 
 **GitHub Actions:** job `deploy` trong [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) sau khi `api`/`web` sẵn sàng sẽ gọi `certbot renew --quiet` trên VPS (bỏ qua nếu chưa cài Certbot), rồi `nginx -t` + `nginx -s reload`. Hostname cho smoke test HTTPS lấy theo thứ tự: **Secret** `VPS_PUBLIC_HOST` → **Repository variable** `VPS_PUBLIC_HOST` → dòng **`VPS_PUBLIC_HOST`** trong `.env` trên VPS (không có scheme). Nếu có hostname và có `curl`, chạy `curl` tới `https://…/api/` qua `--resolve` tới `127.0.0.1`. Nếu **không** có hostname → **bỏ qua** smoke test (deploy vẫn thành công). Khi có hostname nhưng TLS/route lỗi, deploy **fail** tại `curl`. Biến mẫu: [.env.production.example](../.env.production.example).
+
+Nếu gặp lỗi `OCI runtime exec failed: ... setns process`, đây thường là race ngay sau lúc container `nginx` vừa recreate hoặc đang restart. Workflow đã thêm `wait_for_nginx_running` + retry `docker compose exec -T nginx ...` trước khi test/reload; nếu vẫn fail sẽ in `docker compose ps` và `logs --tail=200 nginx` để chẩn đoán trực tiếp nguyên nhân root (thiếu cert, lỗi syntax config, crash loop...).
 
 ### Lỗi Prisma `The datasource.url property is required` khi `migrate deploy`
 

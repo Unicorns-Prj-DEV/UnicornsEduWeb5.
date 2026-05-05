@@ -174,8 +174,8 @@ const shouldAttemptRefresh = (config?: AxiosRequestConfig): boolean => {
 
     const url = config.url.toString();
 
-    // Do not ever try to refresh for the refresh endpoint itself
-    if (url.includes("/auth/refresh")) {
+    // Never refresh recursively on auth endpoints; only business APIs should trigger refresh.
+    if (url.includes("/auth/")) {
         return false;
     }
 
