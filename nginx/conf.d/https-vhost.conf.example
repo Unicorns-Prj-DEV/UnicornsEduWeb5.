@@ -1,0 +1,40 @@
+# Bản sao file này thành `https-vhost.conf` trên VPS sau khi đã có chứng chỉ.
+#
+# 1) Trỏ DNS A/AAAA của YOUR_DOMAIN (và www nếu dùng) về IP VPS.
+# 2) Cấp chứng chỉ (trên host VPS, từ thư mục deploy chứa nginx/certbot/www):
+#    sudo certbot certonly --webroot \
+#      -w "$(pwd)/nginx/certbot/www" \
+#      -d YOUR_DOMAIN -d www.YOUR_DOMAIN
+# 3) Sao chép file này → https-vhost.conf, thay toàn bộ YOUR_DOMAIN bằng tên miền thật.
+# 4) nginx -t && nginx -s reload (hoặc docker compose exec nginx ...)
+#
+# Không commit `https-vhost.conf` nếu team không muốn lộ tên miền trong git;
+# có thể chỉ tạo file đó trực tiếp trên server.
+
+server {
+    listen 80;
+    server_name YOUR_DOMAIN www.YOUR_DOMAIN;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name YOUR_DOMAIN www.YOUR_DOMAIN;
+
+    ssl_certificate     /etc/letsencrypt/live/YOUR_DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/YOUR_DOMAIN/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+
+    client_max_body_size 20m;
+
+    include /etc/nginx/conf.d/snippets/proxy-locations.conf;
+}

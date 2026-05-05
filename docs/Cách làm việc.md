@@ -264,7 +264,7 @@ pnpm --filter web add @unicorns/shared --workspace
 
 ## Deploy VPS (GitHub Actions)
 
-Pipeline: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — **hai job build** (`build-api`, `build-web`) chạy **song song** trên GitHub runners, mỗi job push một image lên GHCR (cache BuildKit `type=gha` tách `scope=api` / `scope=web`) → job `deploy` chỉ chạy khi cả hai build xong → SSH vào VPS → `git pull --ff-only` để sync compose/nginx/workflow-side config → `docker compose pull` / `up` → probe readiness thật từ trong container → `prisma migrate deploy`.
+Pipeline: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — **hai job build** (`build-api`, `build-web`) chạy **song song** trên GitHub runners, mỗi job push một image lên GHCR (cache BuildKit `type=gha` tách `scope=api` / `scope=web`) → job `deploy` chỉ chạy khi cả hai build xong → SSH vào VPS → `git pull --ff-only` để sync compose/nginx/workflow-side config → `docker compose pull` / `up` → probe readiness thật từ trong container → **nếu có Certbot trên host:** `certbot renew --quiet` → `nginx -t` + reload → **kiểm tra HTTPS** (`curl` với `--resolve` tới `127.0.0.1` theo biến job `VPS_PUBLIC_HOST`, mặc định `unicorn.sunnydev.qzz.io`, endpoint `/api/`) → `prisma migrate deploy`.
 
 ### Lỗi `Process exited with status 137`
 
@@ -297,6 +297,39 @@ Khi verify routing, **đừng dùng `http://IP/api` để kết luận API còn 
 Lưu ý: khi `proxy_pass` dùng **biến hostname** để tránh stale Docker IP, **không** thêm URI `/` ở cuối kiểu `http://$upstream_api:4000/` trong block `location /api/`. Cách đó sẽ làm Nginx đẩy mọi request `/api/*` về `/` của backend. Repo hiện rewrite `^/api/(.*)` trước rồi `proxy_pass http://$upstream_api:4000` không kèm URI để giữ đúng path còn lại.
 
 Nếu log `web` hiển thị Next.js chạy ở `http://0.0.0.0:4000` thay vì `3000`, nguyên nhân thường là cả `api` và `web` cùng ăn chung `env_file: .env` và biến `PORT=4000` từ backend đã override frontend. `docker-compose.prod.yml` hiện đã pin lại `api.PORT=4000` và `web.PORT=3000` ở từng service; sau khi cập nhật file này trên VPS, chạy lại `docker compose -f docker-compose.prod.yml up -d --force-recreate web nginx`.
+
+### HTTPS (Let’s Encrypt) với Nginx trong Docker
+
+Stack prod map **80/443** và mount **`/etc/letsencrypt`** (chứng chỉ trên host) vào container `nginx`. Repo có **`nginx/conf.d/https-vhost.conf`** cho môi trường prod **unicorn.sunnydev.qzz.io** (redirect HTTP→HTTPS + TLS). Container `nginx` **chỉ start/`nginx -t` thành công** khi đã tồn tại `/etc/letsencrypt/live/unicorn.sunnydev.qzz.io/` trên host — nếu chưa có chứng chỉ, **tạm đổi tên** file (ví dụ `https-vhost.conf.bak`), chạy Certbot xong rồi đặt lại tên và reload.
+
+**Lưu ý:** `certbot --nginx` trên host không chỉnh được file cấu hình Nginx **bên trong container**. Dùng **HTTP-01 + webroot** (đã có `location /.well-known/acme-challenge/` và volume `./nginx/certbot/www`).
+
+1. Mở firewall: `ufw allow 80` và `ufw allow 443` (nếu dùng UFW).
+2. Đảm bảo DNS **A/AAAA** của `unicorn.sunnydev.qzz.io` trỏ về IP VPS; compose đã chạy và Nginx lắng nghe port 80 (khối `default_server` trong `app.conf` vẫn phục vụ challenge qua `/var/www/certbot`).
+3. Cài Certbot trên **host** VPS (ví dụ `snap install --classic certbot` hoặc gói distro).
+4. Từ thư mục deploy (nơi có `nginx/certbot/www`), cấp chứng chỉ:
+
+   ```bash
+   sudo certbot certonly --webroot \
+     -w "$(pwd)/nginx/certbot/www" \
+     -d unicorn.sunnydev.qzz.io
+   ```
+
+   Certbot ghi file challenge vào `nginx/certbot/www` trên host; container `nginx` đọc cùng đường dẫn qua mount tại `/var/www/certbot`.
+
+5. Đảm bảo `nginx/conf.d/https-vhost.conf` có trong deploy (repo đã khai báo sẵn cho tên miền trên). Nếu trước đó đã đổi tên file để tránh lỗi thiếu cert, đặt lại `https-vhost.conf`.
+6. Kiểm tra và nạp lại:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml exec nginx nginx -t
+   docker compose -f docker-compose.prod.yml exec nginx nginx -s reload
+   ```
+
+7. Gia hạn: `sudo certbot renew` (cron/systemd timer). Sau renew có thể cần `nginx -s reload` nếu dùng `reload-hook`; Certbot thường cấu hình sẵn.
+
+Truy cập bằng **IP** vẫn dùng khối `listen 80 default_server` (không redirect HTTPS). Truy cập **https://unicorn.sunnydev.qzz.io/** sau khi có cert: HTTP (port 80) cho hostname đó redirect 301 sang HTTPS; HTTPS phục vụ app.
+
+**Miền khác:** dùng mẫu `nginx/conf.d/https-vhost.conf.example`, sao chép/sửa thành file `.conf` riêng hoặc chỉnh `server_name` và đường dẫn `ssl_certificate` cho khớp `-d` khi chạy Certbot.
 
 ### Lỗi Prisma `The datasource.url property is required` khi `migrate deploy`
 

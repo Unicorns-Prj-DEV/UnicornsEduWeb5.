@@ -83,6 +83,9 @@ jobs:
     name: Deploy to VPS
     runs-on: ubuntu-latest
     needs: [build-api, build-web]
+    # Public hostname for HTTPS smoke test over loopback (SNI). Đổi nếu đổi domain prod.
+    env:
+      VPS_PUBLIC_HOST: unicorn.sunnydev.qzz.io
 
     steps:
       - name: Deploy via SSH
@@ -91,6 +94,8 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          # Forward hostname for post-deploy curl --resolve (see envs in ssh-action README)
+          envs: VPS_PUBLIC_HOST
           # Default 10m is tight when pull + recreate + migrate on small VPS
           command_timeout: 30m
           script: |
@@ -139,10 +144,23 @@ jobs:
             wait_for_http api http://127.0.0.1:4000/
             wait_for_http web http://127.0.0.1:3000/api/healthcheck
 
+            # Let's Encrypt: renew if due (requires Certbot on VPS host). No-op when not installed.
+            if command -v certbot >/dev/null 2>&1; then
+              certbot renew --quiet
+            fi
+
             # Reload nginx after upstream recreate so active workers immediately
             # pick up current Docker DNS answers without a full container restart.
             docker compose -f docker-compose.prod.yml exec -T nginx nginx -t
             docker compose -f docker-compose.prod.yml exec -T nginx nginx -s reload
+
+            # HTTPS smoke test: SNI to loopback matches nginx ssl server_name + certs in compose mount.
+            HOST="${VPS_PUBLIC_HOST:-unicorn.sunnydev.qzz.io}"
+            if command -v curl >/dev/null 2>&1; then
+              curl -sfS --max-time 25 --resolve "${HOST}:443:127.0.0.1" \
+                "https://${HOST}/api/" >/dev/null
+              echo "HTTPS OK for https://${HOST}/api/"
+            fi
 
             # Cap Node heap for prisma CLI on memory-constrained hosts
             docker compose -f docker-compose.prod.yml exec -T \

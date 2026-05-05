@@ -44,6 +44,8 @@ services:
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # HTTP-01 challenges (certbot --webroot). Host path must match -w khi chạy certbot.
+      - ./nginx/certbot/www:/var/www/certbot:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - /var/lib/letsencrypt:/var/lib/letsencrypt:ro
     depends_on:
