@@ -653,17 +653,19 @@ export default function AdminStaffPage() {
                       <div className="mt-2 flex flex-col gap-1 text-sm text-text-secondary">
                         <span className="truncate">Tỉnh: {province}</span>
                         {classItems.length > 0 ? (
-                          <span className="flex flex-wrap items-center gap-1">
-                            Lớp:
-                            {classItems.map((c) => (
-                              <span
-                                key={c.id}
-                                className="inline-flex shrink-0 rounded-full bg-bg-tertiary px-2 py-0.5 text-xs font-medium text-text-secondary"
-                              >
-                                {c.name}
-                              </span>
-                            ))}
-                          </span>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-sm text-text-secondary">Lớp:</span>
+                            <div className="flex flex-col gap-1">
+                              {classItems.map((c) => (
+                                <span
+                                  key={c.id}
+                                  className="block w-full min-w-0 max-w-full whitespace-normal wrap-anywhere rounded-full bg-bg-tertiary px-2 py-0.5 text-left text-xs font-medium text-text-secondary"
+                                >
+                                  {c.name}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
                         ) : null}
                       </div>
 
@@ -751,12 +753,12 @@ export default function AdminStaffPage() {
                             <span className="block truncate">{province}</span>
                           </td>
                           <td className="w-[16%] min-w-0 px-4 py-3 text-text-secondary align-middle">
-                            <div className="flex flex-wrap gap-1">
+                            <div className="flex min-w-0 flex-col gap-1">
                               {classItems.length > 0 ? (
                                 classItems.map((c) => (
                                   <span
                                     key={c.id}
-                                    className="inline-flex shrink-0 rounded-full bg-bg-tertiary px-2 py-0.5 text-xs font-medium text-text-secondary"
+                                    className="block w-full min-w-0 max-w-full whitespace-normal wrap-anywhere rounded-full bg-bg-tertiary px-2 py-0.5 text-left text-xs font-medium text-text-secondary"
                                   >
                                     {c.name}
                                   </span>
