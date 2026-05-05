@@ -289,6 +289,25 @@ function buildCalendarPeriodStrings(anchorMonthKey: string) {
   };
 }
 
+/**
+ * Inlined DATE / month-key literals for $queryRaw: Prisma/pg may bind ISO-like parameters as DATE,
+ * which breaks expressions PostgreSQL resolves to substring(text, int, int) on the wire.
+ * Values are always composed server-side from validated dashboard month/year inputs.
+ */
+function prismaSqlDateLiteral(isoDate: string): Prisma.Sql {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
+    throw new Error(`Invalid dashboard SQL date literal: ${isoDate}`);
+  }
+  return Prisma.raw(`DATE '${isoDate}'`);
+}
+
+function prismaSqlMonthKeyTextLiteral(monthKey: string): Prisma.Sql {
+  if (!/^\d{4}-\d{2}$/.test(monthKey)) {
+    throw new Error(`Invalid dashboard SQL month key literal: ${monthKey}`);
+  }
+  return Prisma.raw(`'${monthKey}'`);
+}
+
 function formatMonthLabel(month: string, year: string) {
   return `Tháng ${month} / ${year}`;
 }
@@ -555,11 +574,18 @@ export class DashboardService {
       yearEndMonthKeyExclusive,
     } = buildCalendarPeriodStrings(params.anchorMonthKey);
 
+    const periodStartDate = prismaSqlDateLiteral(periodStartStr);
+    const periodEndExclusiveDate = prismaSqlDateLiteral(periodEndExclusiveStr);
+    const yearStartKey = prismaSqlMonthKeyTextLiteral(yearStartMonthKey);
+    const yearEndKeyExclusive = prismaSqlMonthKeyTextLiteral(
+      yearEndMonthKeyExclusive,
+    );
+
     const rows = await this.prisma.$queryRaw<MonthlyTrendSqlRow[]>(Prisma.sql`
       WITH month_series AS (
         SELECT generate_series(
-          ${periodStartStr}::date,
-          (${periodEndExclusiveStr}::date - INTERVAL '1 month')::date,
+          ${periodStartDate},
+          (${periodEndExclusiveDate} - INTERVAL '1 month')::date,
           INTERVAL '1 month'
         )::date AS month_start
       ),
@@ -569,8 +595,8 @@ export class DashboardService {
           COALESCE(SUM(COALESCE(attendance.tuition_fee, 0)), 0) AS revenue
         FROM attendance
         INNER JOIN sessions ON sessions.id = attendance.session_id
-        WHERE sessions.date >= ${periodStartStr}::date
-          AND sessions.date < ${periodEndExclusiveStr}::date
+        WHERE sessions.date >= ${periodStartDate}
+          AND sessions.date < ${periodEndExclusiveDate}
           AND attendance.status IN ('present', 'excused')
         GROUP BY 1
       ),
@@ -590,8 +616,8 @@ export class DashboardService {
         FROM attendance
         INNER JOIN sessions ON sessions.id = attendance.session_id
         INNER JOIN classes ON classes.id = sessions.class_id
-        WHERE sessions.date >= ${periodStartStr}::date
-          AND sessions.date < ${periodEndExclusiveStr}::date
+        WHERE sessions.date >= ${periodStartDate}
+          AND sessions.date < ${periodEndExclusiveDate}
         GROUP BY
           1,
           sessions.id,
@@ -623,8 +649,8 @@ export class DashboardService {
           ) AS amount
         FROM attendance
         INNER JOIN sessions ON sessions.id = attendance.session_id
-        WHERE sessions.date >= ${periodStartStr}::date
-          AND sessions.date < ${periodEndExclusiveStr}::date
+        WHERE sessions.date >= ${periodStartDate}
+          AND sessions.date < ${periodEndExclusiveDate}
         GROUP BY 1
       ),
       monthly_lesson_cost AS (
@@ -632,17 +658,17 @@ export class DashboardService {
           date_trunc('month', lesson_outputs.date)::date AS month_start,
           COALESCE(SUM(COALESCE(lesson_outputs.cost, 0)), 0) AS amount
         FROM lesson_outputs
-        WHERE lesson_outputs.date >= ${periodStartStr}::date
-          AND lesson_outputs.date < ${periodEndExclusiveStr}::date
+        WHERE lesson_outputs.date >= ${periodStartDate}
+          AND lesson_outputs.date < ${periodEndExclusiveDate}
         GROUP BY 1
       ),
       monthly_bonus_cost AS (
         SELECT
-          TO_DATE(CONCAT(bonuses.month, '-01'), 'YYYY-MM-DD') AS month_start,
+          date_trunc('month', bonuses.date)::date AS month_start,
           COALESCE(SUM(COALESCE(bonuses.amount, 0)), 0) AS amount
         FROM bonuses
-        WHERE bonuses.month >= ${yearStartMonthKey}
-          AND bonuses.month < ${yearEndMonthKeyExclusive}
+        WHERE bonuses.date >= ${periodStartDate}
+          AND bonuses.date < ${periodEndExclusiveDate}
         GROUP BY 1
       ),
       monthly_extra_allowance_cost AS (
@@ -650,8 +676,8 @@ export class DashboardService {
           TO_DATE(CONCAT(extra_allowances.month, '-01'), 'YYYY-MM-DD') AS month_start,
           COALESCE(SUM(COALESCE(extra_allowances.amount, 0)), 0) AS amount
         FROM extra_allowances
-        WHERE extra_allowances.month >= ${yearStartMonthKey}
-          AND extra_allowances.month < ${yearEndMonthKeyExclusive}
+        WHERE extra_allowances.month::text >= ${yearStartKey}
+          AND extra_allowances.month::text < ${yearEndKeyExclusive}
         GROUP BY 1
       ),
       monthly_operating_cost AS (
@@ -659,7 +685,7 @@ export class DashboardService {
           TO_DATE(
             CONCAT(
               COALESCE(
-                NULLIF(cost_extend.month, ''),
+                NULLIF(BTRIM(cost_extend.month::text), ''),
                 TO_CHAR(cost_extend.date, 'YYYY-MM')
               ),
               '-01'
@@ -670,12 +696,13 @@ export class DashboardService {
         FROM cost_extend
         WHERE (
           cost_extend.month IS NOT NULL
-          AND cost_extend.month >= ${yearStartMonthKey}
-          AND cost_extend.month < ${yearEndMonthKeyExclusive}
+          AND BTRIM(cost_extend.month::text) <> ''
+          AND cost_extend.month::text >= ${yearStartKey}
+          AND cost_extend.month::text < ${yearEndKeyExclusive}
         ) OR (
           cost_extend.date IS NOT NULL
-          AND cost_extend.date >= ${periodStartStr}::date
-          AND cost_extend.date < ${periodEndExclusiveStr}::date
+          AND cost_extend.date >= ${periodStartDate}
+          AND cost_extend.date < ${periodEndExclusiveDate}
         )
         GROUP BY 1
       )
