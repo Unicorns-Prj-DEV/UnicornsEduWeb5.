@@ -175,8 +175,14 @@ jobs:
             fi
 
             if [ -n "$DEPLOY_HOST" ] && command -v curl >/dev/null 2>&1; then
-              curl -sfS --max-time 25 --resolve "${DEPLOY_HOST}:443:127.0.0.1" \
-                "https://${DEPLOY_HOST}/api/" >/dev/null
+              # Some VPS/curl/nginx combos intermittently fail HTTP/2 with
+              # "Error in the HTTP2 framing layer" even when TLS routing is fine.
+              # Fall back to HTTP/1.1 so we only fail on real HTTPS issues.
+              if ! curl -sfS --max-time 25 --resolve "${DEPLOY_HOST}:443:127.0.0.1" \
+                "https://${DEPLOY_HOST}/api/" >/dev/null; then
+                curl -sfS --http1.1 --max-time 25 --resolve "${DEPLOY_HOST}:443:127.0.0.1" \
+                  "https://${DEPLOY_HOST}/api/" >/dev/null
+              fi
               echo "HTTPS OK for https://${DEPLOY_HOST}/api/"
             else
               echo "Skipping HTTPS smoke test (set VPS_PUBLIC_HOST in GitHub Variables/Secrets and/or VPS .env)"
