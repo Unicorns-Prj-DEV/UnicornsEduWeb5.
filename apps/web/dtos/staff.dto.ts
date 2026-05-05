@@ -24,7 +24,10 @@ export interface StaffListItem {
         first_name?: string | null;
         last_name?: string | null;
     } | null;
-    classTeachers?: Array<{ class: { id: string; name: string } }>;
+    classTeachers?: Array<{
+        operatingDeductionRatePercent?: number | string | null;
+        class: { id: string; name: string };
+    }>;
     monthlyStats?: Array<{ totalUnpaidAll?: number | null }>;
     unpaidAmountTotal?: number | null;
 }
@@ -87,7 +90,10 @@ export interface StaffDetail {
         first_name?: string | null;
         last_name?: string | null;
     } | null;
-    classTeachers?: Array<{ class: { id: string; name: string } }>;
+    classTeachers?: Array<{
+        operatingDeductionRatePercent?: number | string | null;
+        class: { id: string; name: string };
+    }>;
     monthlyStats?: Array<{ month: string; totalUnpaidAll?: number | null }>;
     classAllowance?: StaffClassAllowanceItem[];
     customerCareManagedByStaffId?: string | null;

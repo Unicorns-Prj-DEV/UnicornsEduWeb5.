@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -35,6 +36,7 @@ import {
   type StaffIncomeRoleSummaryDto,
   type StaffIncomeSummaryDto,
   UpdateStaffDto,
+  PatchStaffClassTeacherOperatingDeductionDto,
 } from 'src/dtos/staff.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
@@ -3432,7 +3434,10 @@ export class StaffService {
             },
           },
           classTeachers: {
-            include: { class: { select: { id: true, name: true } } },
+            select: {
+              operatingDeductionRatePercent: true,
+              class: { select: { id: true, name: true } },
+            },
           },
           monthlyStats: {
             orderBy: { month: 'desc' },
@@ -3514,6 +3519,51 @@ export class StaffService {
     });
 
     return this.attachCccdImageUrls(tx);
+  }
+
+  async patchStaffClassTeacherOperatingDeduction(
+    staffId: string,
+    classId: string,
+    dto: PatchStaffClassTeacherOperatingDeductionDto,
+    actor: { roleType: UserRole },
+  ) {
+    if (actor.roleType !== UserRole.admin) {
+      throw new ForbiddenException(
+        'Chỉ admin được chỉnh % khấu trừ vận hành theo lớp.',
+      );
+    }
+
+    const ratePercent = normalizePercent(dto.operating_deduction_rate_percent);
+
+    const assignment = await this.prisma.classTeacher.findUnique({
+      where: {
+        classId_teacherId: {
+          classId,
+          teacherId: staffId,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException(
+        'Không tìm thấy phân công gia sư cho lớp này.',
+      );
+    }
+
+    await this.prisma.classTeacher.update({
+      where: {
+        classId_teacherId: {
+          classId,
+          teacherId: staffId,
+        },
+      },
+      data: {
+        operatingDeductionRatePercent: ratePercent,
+      },
+    });
+
+    return this.getStaffById(staffId);
   }
 
   async updateStaff(data: UpdateStaffDto, auditActor?: ActionHistoryActor) {

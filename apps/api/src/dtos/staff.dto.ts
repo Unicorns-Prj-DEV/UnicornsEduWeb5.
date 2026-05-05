@@ -8,6 +8,7 @@ import {
   IsInt,
   IsDateString,
   IsEnum,
+  IsNumber,
   Matches,
   IsOptional,
   IsString,
@@ -171,6 +172,24 @@ export class UpdateStaffDto extends PartialType(CreateStaffDto) {
   @IsOptional()
   @IsEnum(StaffStatus)
   status?: StaffStatus;
+}
+
+export class PatchStaffClassTeacherOperatingDeductionDto {
+  @ApiProperty({
+    description:
+      '% khấu trừ vận hành (cột `class_teachers.tax_rate_percent` / Prisma `operatingDeductionRatePercent`)',
+    example: 7.5,
+    minimum: 0,
+    maximum: 100,
+  })
+  @Type(() => Number)
+  @IsNumber(
+    { maxDecimalPlaces: 2 },
+    { message: 'operating_deduction_rate_percent phải là số 0–100 tối đa 2 chữ số thập phân.' },
+  )
+  @Min(0)
+  @Max(100)
+  operating_deduction_rate_percent: number;
 }
 
 export interface StaffIncomeAmountSummaryDto {

@@ -99,6 +99,21 @@ export async function getStaffById(id: string): Promise<StaffDetail> {
     return response.data;
 }
 
+/** % khấu trừ vận hành theo lớp (class_teachers.tax_rate_percent). Chỉ admin (backend). */
+export async function patchStaffClassTeacherOperatingDeduction(
+    staffId: string,
+    classId: string,
+    payload: { operating_deduction_rate_percent: number },
+): Promise<StaffDetail> {
+    const safeStaff = encodeURIComponent(staffId);
+    const safeClass = encodeURIComponent(classId);
+    const response = await api.patch(
+        `/staff/${safeStaff}/class-teachers/${safeClass}/operating-deduction`,
+        payload,
+    );
+    return response.data as StaffDetail;
+}
+
 /** Cập nhật thông tin nhân sự: PATCH /staff */
 export async function updateStaff(payload: {
     id: string;
