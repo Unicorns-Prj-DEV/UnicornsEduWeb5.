@@ -7,6 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
+  IMAGE_TAG: ${{ github.sha }}
 
 jobs:
   build-api:
@@ -39,7 +40,9 @@ jobs:
           context: .
           file: apps/api/Dockerfile
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/unicorns-api:latest
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/unicorns-api:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/unicorns-api:${{ env.IMAGE_TAG }}
           cache-from: type=gha,scope=api
           cache-to: type=gha,mode=max,scope=api
 
@@ -73,7 +76,9 @@ jobs:
           context: .
           file: apps/web/Dockerfile
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/unicorns-web:latest
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/unicorns-web:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/unicorns-web:${{ env.IMAGE_TAG }}
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
           build-args: |
@@ -86,18 +91,22 @@ jobs:
     # HTTPS smoke test hostname (optional). Ưu tiên: Secret VPS_PUBLIC_HOST → Variable VPS_PUBLIC_HOST → VPS `.env`.
     env:
       VPS_PUBLIC_HOST: ${{ secrets.VPS_PUBLIC_HOST || vars.VPS_PUBLIC_HOST }}
+      IMAGE_OWNER: ${{ github.repository_owner }}
+      IMAGE_TAG: ${{ github.sha }}
 
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         env:
           VPS_PUBLIC_HOST: ${{ env.VPS_PUBLIC_HOST }}
+          IMAGE_OWNER: ${{ env.IMAGE_OWNER }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           # Forward hostname for post-deploy curl --resolve (see envs in ssh-action README)
-          envs: VPS_PUBLIC_HOST
+          envs: VPS_PUBLIC_HOST,IMAGE_OWNER,IMAGE_TAG
           # Default 10m is tight when pull + recreate + migrate on small VPS
           command_timeout: 30m
           script: |
@@ -114,6 +123,8 @@ jobs:
 
             # Pull / recreate fewer layers in parallel (lowers RAM spikes on small VPS)
             export COMPOSE_PARALLEL_LIMIT=1
+            export IMAGE_OWNER="$(printf '%s' "${IMAGE_OWNER}" | tr '[:upper:]' '[:lower:]')"
+            export IMAGE_TAG="${IMAGE_TAG}"
 
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
