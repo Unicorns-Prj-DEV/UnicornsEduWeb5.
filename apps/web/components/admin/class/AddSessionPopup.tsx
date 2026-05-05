@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type SyntheticEvent } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   SessionAttendanceItem,
@@ -25,6 +25,7 @@ import {
 } from "@/components/admin/session/session-form-ui";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
+import { runBackgroundSave } from "@/lib/mutation-feedback";
 
 export interface SessionStudentItem {
   id: string;
@@ -335,19 +336,6 @@ export default function AddSessionPopup({
     classPricing,
   ]);
 
-  const createSessionMutation = useMutation({
-    mutationFn: (payload: SessionCreatePayload) => createSessionFn(payload),
-    onSuccess: async (createdSession) => {
-      await queryClient.invalidateQueries({ queryKey: ["sessions", "class", classId] });
-      toast.success("Đã thêm buổi học.");
-      onCreated?.(createdSession);
-      onClose();
-    },
-    onError: () => {
-      toast.error("Không thể thêm buổi học. Vui lòng thử lại.");
-    },
-  });
-
   const handleAttendanceStatusChange = (
     studentId: string,
     status: SessionAttendanceStatus,
@@ -390,7 +378,7 @@ export default function AddSessionPopup({
     );
   };
 
-  const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
     setNotesError("");
 
@@ -499,11 +487,17 @@ export default function AddSessionPopup({
       ),
     };
 
-    try {
-      await createSessionMutation.mutateAsync(payload);
-    } catch {
-      // handled in onError
-    }
+    onClose();
+    runBackgroundSave({
+      loadingMessage: "Đang thêm buổi học...",
+      successMessage: "Đã thêm buổi học.",
+      errorMessage: "Không thể thêm buổi học. Vui lòng thử lại.",
+      action: () => createSessionFn(payload),
+      onSuccess: async (createdSession) => {
+        await queryClient.invalidateQueries({ queryKey: ["sessions", "class", classId] });
+        onCreated?.(createdSession);
+      },
+    });
   };
 
   if (!open) {
@@ -930,10 +924,9 @@ export default function AddSessionPopup({
                 </button>
                 <button
                   type="submit"
-                  disabled={createSessionMutation.isPending}
-                  className="min-h-11 rounded-xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50"
+                  className="min-h-11 rounded-xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 >
-                  {createSessionMutation.isPending ? "Đang lưu…" : "Thêm buổi học"}
+                  Thêm buổi học
                 </button>
               </div>
             </form>

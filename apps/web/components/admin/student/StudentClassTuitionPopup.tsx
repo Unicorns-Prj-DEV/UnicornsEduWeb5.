@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, type SyntheticEvent } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as classApi from "@/lib/apis/class.api";
 import { formatCurrency } from "@/lib/class.helpers";
+import { runBackgroundSave } from "@/lib/mutation-feedback";
 
 type Props = {
   open: boolean;
@@ -49,54 +50,6 @@ function StudentClassTuitionPopupContent({
     () => (initialTuitionPerSession != null ? String(initialTuitionPerSession) : ""),
   );
 
-  const updateMutation = useMutation({
-    mutationFn: async () => {
-      const classDetail = await classApi.getClassById(classId);
-      const existingStudents = (classDetail.students ?? []).map((s) => ({
-        id: s.id,
-        ...(s.customTuitionPerSession != null
-          ? { custom_tuition_per_session: s.customTuitionPerSession }
-          : {}),
-        ...(s.customTuitionPackageTotal != null
-          ? { custom_tuition_package_total: s.customTuitionPackageTotal }
-          : {}),
-        ...(s.customTuitionPackageSession != null
-          ? { custom_tuition_package_session: s.customTuitionPackageSession }
-          : {}),
-      }));
-      const totalNum = toNum(packageTotal.trim());
-      const sessionNum = toNum(packageSession.trim());
-      const perSessionNum = toNum(tuitionPerSession.trim());
-
-      const nextStudents = existingStudents.map((stu) => {
-        if (stu.id !== studentId) return stu;
-        return {
-          id: stu.id,
-          ...(totalNum != null ? { custom_tuition_package_total: totalNum } : {}),
-          ...(sessionNum != null ? { custom_tuition_package_session: sessionNum } : {}),
-          ...(perSessionNum != null ? { custom_tuition_per_session: perSessionNum } : {}),
-        };
-      });
-
-      await classApi.updateClassStudents(classId, { students: nextStudents });
-    },
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["student", "detail", studentId] }),
-        queryClient.invalidateQueries({ queryKey: ["student", "list"] }),
-        queryClient.invalidateQueries({ queryKey: ["class", "detail", classId] }),
-      ]);
-      await onSuccess?.();
-    },
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        (err as Error)?.message ??
-        "Không thể cập nhật gói học phí.";
-      toast.error(msg);
-    },
-  });
-
   const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     const totalNum = toNum(packageTotal.trim());
@@ -114,10 +67,48 @@ function StudentClassTuitionPopupContent({
       toast.error("Học phí/buổi không được âm.");
       return;
     }
-    updateMutation.mutate(undefined, {
-      onSuccess: () => {
-        toast.success("Đã lưu gói học phí.");
-        onClose();
+    onClose();
+    runBackgroundSave({
+      loadingMessage: "Đang lưu gói học phí...",
+      successMessage: "Đã lưu gói học phí.",
+      errorMessage: "Không thể cập nhật gói học phí.",
+      action: async () => {
+        const classDetail = await classApi.getClassById(classId);
+        const existingStudents = (classDetail.students ?? []).map((s) => ({
+          id: s.id,
+          ...(s.customTuitionPerSession != null
+            ? { custom_tuition_per_session: s.customTuitionPerSession }
+            : {}),
+          ...(s.customTuitionPackageTotal != null
+            ? { custom_tuition_package_total: s.customTuitionPackageTotal }
+            : {}),
+          ...(s.customTuitionPackageSession != null
+            ? { custom_tuition_package_session: s.customTuitionPackageSession }
+            : {}),
+        }));
+        const totalNum = toNum(packageTotal.trim());
+        const sessionNum = toNum(packageSession.trim());
+        const perSessionNum = toNum(tuitionPerSession.trim());
+
+        const nextStudents = existingStudents.map((stu) => {
+          if (stu.id !== studentId) return stu;
+          return {
+            id: stu.id,
+            ...(totalNum != null ? { custom_tuition_package_total: totalNum } : {}),
+            ...(sessionNum != null ? { custom_tuition_package_session: sessionNum } : {}),
+            ...(perSessionNum != null ? { custom_tuition_per_session: perSessionNum } : {}),
+          };
+        });
+
+        await classApi.updateClassStudents(classId, { students: nextStudents });
+      },
+      onSuccess: async () => {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["student", "detail", studentId] }),
+          queryClient.invalidateQueries({ queryKey: ["student", "list"] }),
+          queryClient.invalidateQueries({ queryKey: ["class", "detail", classId] }),
+        ]);
+        await onSuccess?.();
       },
     });
   };
@@ -211,10 +202,9 @@ function StudentClassTuitionPopupContent({
                 </button>
                 <button
                   type="submit"
-                  disabled={updateMutation.isPending}
-                  className="min-h-11 flex-1 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60"
+                  className="min-h-11 flex-1 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 >
-                  {updateMutation.isPending ? "Đang lưu…" : "Lưu"}
+                  Lưu
                 </button>
               </div>
             </form>

@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState, type SyntheticEvent } from "react";
-import { useMutation, useQueryClient, type QueryKey } from "@tanstack/react-query";
+import { useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as studentApi from "@/lib/apis/student.api";
 import { formatCurrency } from "@/lib/class.helpers";
+import { runBackgroundSave } from "@/lib/mutation-feedback";
 
 type BalanceMode = "topup" | "withdraw";
 
@@ -59,14 +60,6 @@ const MODE_COPY: Record<BalanceMode, BalanceModeCopy> = {
     chipLabel: "Trừ khỏi số dư",
   },
 };
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  return (
-    (error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-    (error as Error)?.message ??
-    fallback
-  );
-}
 
 function balanceClassName(value: number): string {
   return value < 0 ? "text-error" : "text-text-primary";
@@ -133,41 +126,11 @@ export default function StudentBalancePopup({
     [currentBalance, hasValidAmount, mode, modeCopy.deltaPrefix, nextBalance, normalizedAmount],
   );
 
-  const balanceMutation = useMutation({
-    mutationFn: (amount: number) =>
-      submitBalanceChange
-        ? submitBalanceChange(amount)
-        : studentApi.updateStudentAccountBalance({
-            student_id: student.id,
-            amount,
-          }),
-    onSuccess: async () => {
-      await Promise.all(
-        queryKeysToInvalidate.map((queryKey) =>
-          queryClient.invalidateQueries({ queryKey }),
-        ),
-      );
-      await onSuccess?.();
-    },
-    onError: (error: unknown) => {
-      toast.error(
-        getErrorMessage(
-          error,
-          errorMessages?.[mode] ??
-            (mode === "topup"
-              ? "Không thể nạp tiền cho học sinh."
-              : "Không thể rút tiền khỏi tài khoản học sinh."),
-        ),
-      );
-    },
-  });
-
   const handleClose = () => {
-    if (balanceMutation.isPending) return;
     onClose();
   };
 
-  const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!hasValidAmount) {
@@ -180,17 +143,34 @@ export default function StudentBalancePopup({
       return;
     }
 
-    try {
-      await balanceMutation.mutateAsync(deltaAmount);
-      toast.success(
+    onClose();
+    runBackgroundSave({
+      loadingMessage: mode === "topup" ? "Đang nạp tiền..." : "Đang rút tiền...",
+      successMessage:
         mode === "topup"
           ? `Đã nạp ${formatCurrency(normalizedAmount)} cho ${successTargetLabel ?? studentName}.`
           : `Đã rút ${formatCurrency(normalizedAmount)} khỏi ${successTargetLabel ?? `tài khoản của ${studentName}`}.`,
-      );
-      handleClose();
-    } catch {
-      // toast lỗi đã được xử lý trong onError
-    }
+      errorMessage:
+        errorMessages?.[mode] ??
+        (mode === "topup"
+          ? "Không thể nạp tiền cho học sinh."
+          : "Không thể rút tiền khỏi tài khoản học sinh."),
+      action: () =>
+        submitBalanceChange
+          ? submitBalanceChange(deltaAmount)
+          : studentApi.updateStudentAccountBalance({
+              student_id: student.id,
+              amount: deltaAmount,
+            }),
+      onSuccess: async () => {
+        await Promise.all(
+          queryKeysToInvalidate.map((queryKey) =>
+            queryClient.invalidateQueries({ queryKey }),
+          ),
+        );
+        await onSuccess?.();
+      },
+    });
   };
 
   if (!open) return null;
@@ -284,17 +264,15 @@ export default function StudentBalancePopup({
             <button
               type="button"
               onClick={handleClose}
-              disabled={balanceMutation.isPending}
-              className="min-h-11 rounded-md border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-11 rounded-md border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
             >
               Hủy
             </button>
             <button
               type="submit"
-              disabled={balanceMutation.isPending}
-              className="min-h-11 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition hover:bg-[var(--ue-primary-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-11 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition hover:bg-[var(--ue-primary-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
             >
-              {balanceMutation.isPending ? "Đang lưu..." : modeCopy.submitLabel}
+              {modeCopy.submitLabel}
             </button>
           </div>
         </form>

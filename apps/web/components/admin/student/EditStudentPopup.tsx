@@ -3,7 +3,7 @@
 import { createPortal } from "react-dom";
 import { useDebounce } from "use-debounce";
 import { useEffect, useLayoutEffect, useRef, useState, type SyntheticEvent } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type {
@@ -16,6 +16,7 @@ import type { CustomerCareStaffOption } from "@/dtos/staff.dto";
 import * as staffApi from "@/lib/apis/staff.api";
 import * as studentApi from "@/lib/apis/student.api";
 import { createClientId } from "@/lib/client-id";
+import { runBackgroundSave } from "@/lib/mutation-feedback";
 
 type DropdownRect = { top: number; left: number; width: number; maxHeight: number };
 
@@ -211,36 +212,7 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
     setDropdownRect(null);
   };
 
-  const updateMutation = useMutation({
-    mutationFn: (payload: Parameters<typeof studentApi.updateStudentById>[1]) =>
-      studentApi.updateStudentById(student.id, payload),
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        (err as Error)?.message ??
-        "Không thể cập nhật thông tin học sinh.";
-      toast.error(msg);
-    },
-  });
-  const updateExamSchedulesMutation = useMutation({
-    mutationFn: (items: StudentExamScheduleItem[]) =>
-      studentApi.updateStudentExamSchedules(student.id, {
-        items: items.map((item) => ({
-          ...(item.id && !item.id.startsWith("local-exam-") ? { id: item.id } : {}),
-          examDate: item.examDate,
-          note: item.note?.trim() || undefined,
-        })),
-      }),
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        (err as Error)?.message ??
-        "Không thể cập nhật lịch thi.";
-      toast.error(msg);
-    },
-  });
-
-  const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const trimmedName = fullName.trim();
@@ -297,49 +269,58 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
       return;
     }
 
-    try {
-      const normalizedExamItems = examItems
-        .map((item) => ({
-          ...item,
-          examDate: normalizeExamDate(item.examDate),
-          note: item.note ?? "",
-        }))
-        .filter((item) => item.examDate);
+    const normalizedExamItems = examItems
+      .map((item) => ({
+        ...item,
+        examDate: normalizeExamDate(item.examDate),
+        note: item.note ?? "",
+      }))
+      .filter((item) => item.examDate);
 
-      await updateMutation.mutateAsync({
-        full_name: trimmedName,
-        email: email.trim() || undefined,
-        school: school.trim() || undefined,
-        province: province.trim() || undefined,
-        birth_year: parsedBirthYear,
-        parent_name: parentName.trim() || undefined,
-        parent_phone: parentPhone.trim() || undefined,
-        gender,
-        status,
-        goal: goal.trim() || undefined,
-        drop_out_date: dropOutDate.trim() || undefined,
-        customer_care_staff_id: selectedCustomerCare?.id ?? null,
-        customer_care_profit_percent: selectedCustomerCare
-          ? parsedCustomerCareProfitPercent
-          : null,
-      });
-      await updateExamSchedulesMutation.mutateAsync(normalizedExamItems);
-
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["student", "detail", student.id] }),
-        queryClient.invalidateQueries({ queryKey: ["student", "list"] }),
-        queryClient.invalidateQueries({ queryKey: ["customer-care"] }),
-        queryClient.invalidateQueries({ queryKey: ["student", "exam-schedules", student.id] }),
-        queryClient.invalidateQueries({ queryKey: ["classScheduleEvents"] }),
-        queryClient.invalidateQueries({ queryKey: ["staffCalendarEvents"] }),
-      ]);
-      window.dispatchEvent(new Event("calendar:refetch"));
-      await onSuccess?.();
-      toast.success("Đã lưu thông tin học sinh.");
-      onClose();
-    } catch {
-      // toast lỗi đã được xử lý trong onError
-    }
+    onClose();
+    runBackgroundSave({
+      loadingMessage: "Đang lưu thông tin học sinh...",
+      successMessage: "Đã lưu thông tin học sinh.",
+      errorMessage: "Không thể cập nhật thông tin học sinh.",
+      action: async () => {
+        await studentApi.updateStudentById(student.id, {
+          full_name: trimmedName,
+          email: email.trim() || undefined,
+          school: school.trim() || undefined,
+          province: province.trim() || undefined,
+          birth_year: parsedBirthYear,
+          parent_name: parentName.trim() || undefined,
+          parent_phone: parentPhone.trim() || undefined,
+          gender,
+          status,
+          goal: goal.trim() || undefined,
+          drop_out_date: dropOutDate.trim() || undefined,
+          customer_care_staff_id: selectedCustomerCare?.id ?? null,
+          customer_care_profit_percent: selectedCustomerCare
+            ? parsedCustomerCareProfitPercent
+            : null,
+        });
+        await studentApi.updateStudentExamSchedules(student.id, {
+          items: normalizedExamItems.map((item) => ({
+            ...(item.id && !item.id.startsWith("local-exam-") ? { id: item.id } : {}),
+            examDate: item.examDate,
+            note: item.note?.trim() || undefined,
+          })),
+        });
+      },
+      onSuccess: async () => {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["student", "detail", student.id] }),
+          queryClient.invalidateQueries({ queryKey: ["student", "list"] }),
+          queryClient.invalidateQueries({ queryKey: ["customer-care"] }),
+          queryClient.invalidateQueries({ queryKey: ["student", "exam-schedules", student.id] }),
+          queryClient.invalidateQueries({ queryKey: ["classScheduleEvents"] }),
+          queryClient.invalidateQueries({ queryKey: ["staffCalendarEvents"] }),
+        ]);
+        window.dispatchEvent(new Event("calendar:refetch"));
+        await onSuccess?.();
+      },
+    });
   };
 
   if (!open) return null;
@@ -795,12 +776,9 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
           <button
             type="submit"
             form="edit-student-form"
-            disabled={updateMutation.isPending || updateExamSchedulesMutation.isPending}
-            className="rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition-colors hover:bg-[var(--ue-primary-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60"
+            className="rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition-colors hover:bg-[var(--ue-primary-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
           >
-            {updateMutation.isPending || updateExamSchedulesMutation.isPending
-              ? "Đang lưu…"
-              : "Lưu thay đổi"}
+            Lưu thay đổi
           </button>
         </div>
       </div>

@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, type SyntheticEvent } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import CccdImageUploadFields from "@/components/staff/CccdImageUploadFields";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type { StaffDetail } from "@/dtos/staff.dto";
 import * as staffApi from "@/lib/apis/staff.api";
+import { runBackgroundSave } from "@/lib/mutation-feedback";
 
 type Props = {
   open: boolean;
@@ -82,32 +83,6 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
     staleTime: 60_000,
   });
 
-  const updateMutation = useMutation({
-    mutationFn: staffApi.updateStaff,
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["staff", "detail", staff.id] }),
-        queryClient.invalidateQueries({ queryKey: ["staff", "list"] }),
-      ]);
-      await onSuccess?.();
-    },
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        (err as Error)?.message ??
-        "Không thể cập nhật thông tin nhân sự.";
-      toast.error(msg);
-    },
-  });
-
-  const uploadCccdMutation = useMutation({
-    mutationFn: (params: {
-      userId: string;
-      frontImage?: File | null;
-      backImage?: File | null;
-    }) => staffApi.uploadStaffCccdImages(params),
-  });
-
   const toggleRole = (role: string) => {
     setSelectedRoles((prev) => {
       const next = new Set(prev);
@@ -120,7 +95,7 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
     });
   };
 
-  const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmedName = fullName.trim();
     if (!trimmedName) {
@@ -133,43 +108,47 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
       return;
     }
 
-    try {
-      await updateMutation.mutateAsync({
-        id: staff.id,
-        full_name: trimmedName,
-        cccd_number: normalizedCccd,
-        cccd_issued_date: cccdIssuedDateInput.trim() || undefined,
-        cccd_issued_place: cccdIssuedPlace.trim() || undefined,
-        status,
-        birth_date: birthDateInput.trim() || undefined,
-        university: university.trim() || undefined,
-        high_school: highSchool.trim() || undefined,
-        specialization: specialization.trim() || undefined,
-        bank_account: bankAccount.trim() || undefined,
-        bank_qr_link: bankQrLink.trim() || undefined,
-        roles: Array.from(selectedRoles),
-        customer_care_managed_by_staff_id: hasCustomerCareRole
-          ? (managedByStaffId || null)
-          : null,
-      });
-
-      if ((frontImage || backImage) && staff.user?.id) {
-        await uploadCccdMutation.mutateAsync({
-          userId: staff.user.id,
-          frontImage,
-          backImage,
+    onClose();
+    runBackgroundSave({
+      loadingMessage: "Đang lưu thông tin nhân sự...",
+      successMessage: "Đã lưu thông tin nhân sự.",
+      errorMessage: "Không thể cập nhật thông tin nhân sự.",
+      action: async () => {
+        await staffApi.updateStaff({
+          id: staff.id,
+          full_name: trimmedName,
+          cccd_number: normalizedCccd,
+          cccd_issued_date: cccdIssuedDateInput.trim() || undefined,
+          cccd_issued_place: cccdIssuedPlace.trim() || undefined,
+          status,
+          birth_date: birthDateInput.trim() || undefined,
+          university: university.trim() || undefined,
+          high_school: highSchool.trim() || undefined,
+          specialization: specialization.trim() || undefined,
+          bank_account: bankAccount.trim() || undefined,
+          bank_qr_link: bankQrLink.trim() || undefined,
+          roles: Array.from(selectedRoles),
+          customer_care_managed_by_staff_id: hasCustomerCareRole
+            ? (managedByStaffId || null)
+            : null,
         });
+
+        if ((frontImage || backImage) && staff.user?.id) {
+          await staffApi.uploadStaffCccdImages({
+            userId: staff.user.id,
+            frontImage,
+            backImage,
+          });
+        }
+      },
+      onSuccess: async () => {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["staff", "detail", staff.id] }),
           queryClient.invalidateQueries({ queryKey: ["staff", "list"] }),
         ]);
-      }
-
-      toast.success("Đã lưu thông tin nhân sự.");
-      onClose();
-    } catch {
-      // lỗi đã được xử lý trong onError
-    }
+        await onSuccess?.();
+      },
+    });
   };
 
   if (!open) return null;
@@ -402,7 +381,7 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
                   frontUrl={staff.cccdFrontUrl}
                   backUrl={staff.cccdBackUrl}
                   disabled={!staff.user?.id}
-                  isUploading={uploadCccdMutation.isPending}
+                  isUploading={false}
                   onFrontImageChange={setFrontImage}
                   onBackImageChange={setBackImage}
                 />
@@ -420,12 +399,9 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
             </button>
             <button
               type="submit"
-              disabled={updateMutation.isPending || uploadCccdMutation.isPending}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors duration-200 hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60"
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors duration-200 hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
             >
-              {updateMutation.isPending || uploadCccdMutation.isPending
-                ? "Đang lưu…"
-                : "Lưu thông tin"}
+              Lưu thông tin
             </button>
           </div>
         </form>

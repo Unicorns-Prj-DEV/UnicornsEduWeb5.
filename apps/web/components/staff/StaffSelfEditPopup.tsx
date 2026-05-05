@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type SyntheticEvent } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import CccdImageUploadFields from "@/components/staff/CccdImageUploadFields";
 import type { FullProfileDto } from "@/dtos/profile.dto";
@@ -10,6 +10,7 @@ import {
   splitCanonicalUserName,
 } from "@/dtos/user-name.dto";
 import * as authApi from "@/lib/apis/auth.api";
+import { runBackgroundSave } from "@/lib/mutation-feedback";
 
 type Props = {
   open: boolean;
@@ -64,40 +65,9 @@ export default function StaffSelfEditPopup({
   const [frontImage, setFrontImage] = useState<File | null>(null);
   const [backImage, setBackImage] = useState<File | null>(null);
 
-  const updateNameMutation = useMutation({
-    mutationFn: authApi.updateMyProfile,
-    onError: (error: unknown) => {
-      const message =
-        (error as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message ??
-        (error as Error)?.message ??
-        "Không thể cập nhật tên hiển thị.";
-      toast.error(message);
-    },
-  });
+  const isSaving = false;
 
-  const updateStaffMutation = useMutation({
-    mutationFn: authApi.updateMyStaffProfile,
-    onError: (error: unknown) => {
-      const message =
-        (error as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message ??
-        (error as Error)?.message ??
-        "Không thể cập nhật hồ sơ staff.";
-      toast.error(message);
-    },
-  });
-
-  const uploadCccdMutation = useMutation({
-    mutationFn: authApi.uploadMyStaffCccdImages,
-  });
-
-  const isSaving =
-    updateNameMutation.isPending ||
-    updateStaffMutation.isPending ||
-    uploadCccdMutation.isPending;
-
-  const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const trimmedName = fullName.trim();
@@ -111,41 +81,42 @@ export default function StaffSelfEditPopup({
       return;
     }
 
-    try {
-      await updateNameMutation.mutateAsync(splitCanonicalUserName(trimmedName));
-
-      await updateStaffMutation.mutateAsync({
-        cccd_number: normalizedCccd,
-        cccd_issued_date: cccdIssuedDateInput.trim() || undefined,
-        cccd_issued_place: cccdIssuedPlace.trim(),
-        birth_date: birthDateInput.trim() || undefined,
-        university: university.trim(),
-        high_school: highSchool.trim(),
-        specialization: specialization.trim(),
-        bank_account: bankAccount.trim(),
-        bank_qr_link: bankQrLink.trim(),
-      });
-
-      if (frontImage || backImage) {
-        await uploadCccdMutation.mutateAsync({
-          frontImage,
-          backImage,
+    onClose();
+    runBackgroundSave({
+      loadingMessage: "Đang lưu hồ sơ cơ bản...",
+      successMessage: "Đã lưu hồ sơ cơ bản.",
+      errorMessage: "Không thể cập nhật hồ sơ staff.",
+      action: async () => {
+        await authApi.updateMyProfile(splitCanonicalUserName(trimmedName));
+        await authApi.updateMyStaffProfile({
+          cccd_number: normalizedCccd,
+          cccd_issued_date: cccdIssuedDateInput.trim() || undefined,
+          cccd_issued_place: cccdIssuedPlace.trim(),
+          birth_date: birthDateInput.trim() || undefined,
+          university: university.trim(),
+          high_school: highSchool.trim(),
+          specialization: specialization.trim(),
+          bank_account: bankAccount.trim(),
+          bank_qr_link: bankQrLink.trim(),
         });
-      }
 
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["auth", "full-profile"] }),
-        queryClient.invalidateQueries({ queryKey: ["profile", "full"] }),
-        queryClient.invalidateQueries({ queryKey: ["staff", "self", "detail"] }),
-        queryClient.invalidateQueries({ queryKey: ["users", "me", "staff-detail"] }),
-      ]);
-      await onSuccess?.();
-
-      toast.success("Đã lưu hồ sơ cơ bản.");
-      onClose();
-    } catch {
-      // toast lỗi đã xử lý trong onError
-    }
+        if (frontImage || backImage) {
+          await authApi.uploadMyStaffCccdImages({
+            frontImage,
+            backImage,
+          });
+        }
+      },
+      onSuccess: async () => {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["auth", "full-profile"] }),
+          queryClient.invalidateQueries({ queryKey: ["profile", "full"] }),
+          queryClient.invalidateQueries({ queryKey: ["staff", "self", "detail"] }),
+          queryClient.invalidateQueries({ queryKey: ["users", "me", "staff-detail"] }),
+        ]);
+        await onSuccess?.();
+      },
+    });
   };
 
   if (!open || !staffInfo) return null;
@@ -380,7 +351,7 @@ export default function StaffSelfEditPopup({
                   frontUrl={staffInfo.cccdFrontUrl}
                   backUrl={staffInfo.cccdBackUrl}
                   disabled={isSaving}
-                  isUploading={uploadCccdMutation.isPending}
+                  isUploading={false}
                   onFrontImageChange={setFrontImage}
                   onBackImageChange={setBackImage}
                 />

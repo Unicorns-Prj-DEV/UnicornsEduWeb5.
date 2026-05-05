@@ -3,12 +3,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useDebounce } from "use-debounce";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ClassDetail, UpdateClassStudentsPayload } from "@/dtos/class.dto";
 import * as classApi from "@/lib/apis/class.api";
 import * as studentApi from "@/lib/apis/student.api";
 import { formatCurrency } from "@/lib/class.helpers";
+import { runBackgroundSave } from "@/lib/mutation-feedback";
 import {
   classEditorModalCloseButtonClassName,
   classEditorModalFooterClassName,
@@ -178,24 +178,6 @@ function EditClassStudentsDialog({ onClose, classDetail }: Omit<Props, "open">) 
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const updateMutation = useMutation({
-    mutationFn: (data: UpdateClassStudentsPayload) =>
-      classApi.updateClassStudents(classDetail.id, data),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["class", "detail", classDetail.id] }),
-        queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
-      ]);
-    },
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        (err as Error)?.message ??
-        "Không thể cập nhật danh sách học sinh.";
-      toast.error(msg);
-    },
-  });
-
   const handleTuitionFieldChange = (
     studentId: string,
     field: TuitionFieldKey,
@@ -211,16 +193,22 @@ function EditClassStudentsDialog({ onClose, classDetail }: Omit<Props, "open">) 
     );
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     const students = selectedStudents.map(toStudentPayload);
 
-    try {
-      await updateMutation.mutateAsync({ students });
-      toast.success("Đã lưu danh sách học sinh.");
-      onClose();
-    } catch {
-      // handled in onError
-    }
+    onClose();
+    runBackgroundSave({
+      loadingMessage: "Đang lưu danh sách học sinh...",
+      successMessage: "Đã lưu danh sách học sinh.",
+      errorMessage: "Không thể cập nhật danh sách học sinh.",
+      action: () => classApi.updateClassStudents(classDetail.id, { students }),
+      onSuccess: async () => {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["class", "detail", classDetail.id] }),
+          queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
+        ]);
+      },
+    });
   };
 
   const defaultTuitionCards = [
@@ -475,10 +463,9 @@ function EditClassStudentsDialog({ onClose, classDetail }: Omit<Props, "open">) 
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={updateMutation.isPending}
             className={classEditorModalPrimaryButtonClassName}
           >
-            {updateMutation.isPending ? "Đang lưu…" : "Lưu"}
+            Lưu
           </button>
         </div>
       </div>

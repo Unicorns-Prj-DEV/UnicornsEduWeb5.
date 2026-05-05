@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { useDebounce } from "use-debounce";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { ClassStatus, ClassType, CreateClassPayload } from "@/dtos/class.dto";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import * as classApi from "@/lib/apis/class.api";
 import * as staffApi from "@/lib/apis/staff.api";
 import * as studentApi from "@/lib/apis/student.api";
+import { runBackgroundSave } from "@/lib/mutation-feedback";
 import {
   CLASS_SCHEDULE_DAY_OPTIONS,
   compactTuitionPerSessionLine,
@@ -161,42 +162,6 @@ function AddClassDialog({ onClose }: Omit<Props, "open">) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const resetForm = () => {
-    setName("");
-    setType("basic");
-    setStatus("running");
-    setMaxStudentsInput("");
-    setAllowancePerSessionInput("");
-    setMaxAllowancePerSessionInput("");
-    setScaleAmountInput("");
-    setTuitionPackageTotalInput("");
-    setTuitionPackageSessionInput("");
-    setScheduleRanges([createScheduleRange()]);
-    setSelectedTeachers([]);
-    setTeacherSearchInput("");
-    setTeacherSearchFocused(false);
-    setSelectedStudents([]);
-    setStudentSearchInput("");
-    setStudentSearchFocused(false);
-  };
-
-  const createMutation = useMutation({
-    mutationFn: classApi.createClass,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["class", "list"] });
-      toast.success("Đã thêm lớp học.");
-      resetForm();
-      onClose();
-    },
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        (err as Error)?.message ??
-        "Không thể tạo lớp học.";
-      toast.error(msg);
-    },
-  });
-
   const handleAddRange = () => {
     setScheduleRanges((prev) => [...prev, createScheduleRange()]);
   };
@@ -289,11 +254,16 @@ function AddClassDialog({ onClose }: Omit<Props, "open">) {
       student_ids: selectedStudents.map((s) => s.id),
     };
 
-    try {
-      await createMutation.mutateAsync(payload);
-    } catch {
-      // lỗi đã được xử lý trong onError
-    }
+    onClose();
+    runBackgroundSave({
+      loadingMessage: "Đang tạo lớp học...",
+      successMessage: "Đã thêm lớp học.",
+      errorMessage: "Không thể tạo lớp học.",
+      action: () => classApi.createClass(payload),
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: ["class", "list"] });
+      },
+    });
   };
 
   const tuitionBrief = compactTuitionPerSessionLine(tuitionPackageTotalInput, tuitionPackageSessionInput);
@@ -751,10 +721,9 @@ function AddClassDialog({ onClose }: Omit<Props, "open">) {
             </button>
             <button
               type="submit"
-              disabled={createMutation.isPending}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors duration-200 hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60"
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors duration-200 hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
             >
-              {createMutation.isPending ? "Đang lưu…" : "Thêm lớp"}
+              Thêm lớp
             </button>
           </div>
         </form>

@@ -36,6 +36,7 @@
 
 ## Features
 
+- **Save/refetch UX cho staff mirror + self-service:** các flow **Save** không destructive ở route mirror `/staff/classes`, `/staff/staffs`, `/staff/students` và self route như `/staff/profile` dùng fast-close UX: pass validate là đóng popup/thoát edit mode ngay, hiện `toast.loading`, rồi mutation tiếp tục chạy nền và resolve success/error bằng chính toast đó; lỗi chỉ hiện toast, không tự mở lại form. Khi query refetch mà đã có dữ liệu cũ, section giữ nguyên nội dung, dim nhẹ và hiện refresh strip/skeleton mảnh thay vì loading toàn trang.
 - `/staff`
   - luôn dùng chung staff shell; dashboard gốc là **role-aware dashboard**, trong đó mọi staff có `staffInfo` đều thấy thẻ chung `Thu nhập tháng`, còn các khối còn lại lấy authoritative từ `GET /users/me/staff-dashboard?month=&year=`
   - **UI dashboard:** layout compact (padding/gap/line-height nhỏ hơn, bo góc vừa phải), bớt dòng mô tả trùng tiêu đề; hành vi dữ liệu và API giữ nguyên

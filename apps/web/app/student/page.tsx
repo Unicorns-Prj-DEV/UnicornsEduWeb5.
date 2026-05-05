@@ -4,7 +4,7 @@ import UpgradedSelect, { type UpgradedSelectOption } from "@/components/ui/Upgra
 import type { UpdateMyStudentProfileDto } from "@/dtos/profile.dto";
 import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
     StudentBalancePopup,
@@ -14,6 +14,7 @@ import {
     StudentWalletCard,
     StudentWalletHistoryPopup,
 } from "@/components/admin/student";
+import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import type {
     StudentGender,
     StudentSelfClassItem,
@@ -27,6 +28,8 @@ import {
     updateMyStudentProfile,
 } from "@/lib/apis/auth.api";
 import { formatCurrency } from "@/lib/class.helpers";
+import { runBackgroundSave } from "@/lib/mutation-feedback";
+import { cn } from "@/lib/utils";
 
 const STATUS_LABELS: Record<StudentStatus, string> = {
     active: "Đang học",
@@ -228,6 +231,7 @@ export default function StudentSelfPage() {
     const {
         data: student,
         isLoading,
+        isFetching: isStudentFetching,
         isError,
         error,
     } = useQuery<StudentSelfDetail>({
@@ -244,45 +248,6 @@ export default function StudentSelfPage() {
             ),
         [student],
     );
-
-    const updateStudentProfileMutation = useMutation({
-        mutationFn: updateMyStudentProfile,
-        onSuccess: (profile) => {
-            queryClient.setQueryData(["profile", "full"], profile);
-            queryClient.setQueryData(
-                ["student", "self", "detail"],
-                (current: StudentSelfDetail | undefined) => {
-                    if (!current || !profile.studentInfo) {
-                        return current;
-                    }
-
-                    return {
-                        ...current,
-                        fullName: profile.studentInfo.fullName,
-                        email: profile.studentInfo.email,
-                        school: profile.studentInfo.school,
-                        province: profile.studentInfo.province,
-                        birthYear: profile.studentInfo.birthYear,
-                        parentName: profile.studentInfo.parentName,
-                        parentPhone: profile.studentInfo.parentPhone,
-                        status: profile.studentInfo.status,
-                        gender: profile.studentInfo.gender,
-                        goal: profile.studentInfo.goal,
-                        updatedAt: profile.studentInfo.updatedAt ?? current.updatedAt,
-                    };
-                },
-            );
-            void queryClient.invalidateQueries({ queryKey: ["student", "self", "detail"] });
-            setIsEditingProfile(false);
-            toast.success("Đã cập nhật thông tin cơ bản của bạn.");
-        },
-        onError: (err: unknown) => {
-            const message =
-                (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-                "Không thể cập nhật thông tin học sinh.";
-            toast.error(message);
-        },
-    });
 
     if (isLoading) {
         return (
@@ -337,6 +302,7 @@ export default function StudentSelfPage() {
     const initials = (student.fullName?.trim() || student.email || "?").charAt(0).toUpperCase();
     const contactEmail = student.email?.trim() || "Chưa có email";
     const profileDirty = isStudentProfileDirty(student, profileDraft);
+    const isSavingProfile = false;
 
     const handleStartProfileEdit = () => {
         setProfileDraft(buildStudentProfileDraft(student));
@@ -372,7 +338,19 @@ export default function StudentSelfPage() {
             }
         }
 
-        updateStudentProfileMutation.mutate(buildStudentProfilePayload(profileDraft));
+        setIsEditingProfile(false);
+        runBackgroundSave({
+            loadingMessage: "Đang lưu thông tin của bạn...",
+            successMessage: "Đã cập nhật thông tin cơ bản của bạn.",
+            errorMessage: "Không thể cập nhật thông tin học sinh.",
+            action: () => updateMyStudentProfile(buildStudentProfilePayload(profileDraft)),
+            onSuccess: async () => {
+                await Promise.all([
+                    queryClient.invalidateQueries({ queryKey: ["profile", "full"] }),
+                    queryClient.invalidateQueries({ queryKey: ["student", "self", "detail"] }),
+                ]);
+            },
+        });
     };
 
     return (
@@ -429,7 +407,6 @@ export default function StudentSelfPage() {
                             <button
                                 type="button"
                                 onClick={handleCancelProfileEdit}
-                                disabled={updateStudentProfileMutation.isPending}
                                 className={ghostButtonClassName}
                             >
                                 Hủy
@@ -437,10 +414,10 @@ export default function StudentSelfPage() {
                             <button
                                 type="submit"
                                 form={STUDENT_PROFILE_FORM_ID}
-                                disabled={updateStudentProfileMutation.isPending || !profileDirty}
+                                disabled={isSavingProfile || !profileDirty}
                                 className={primaryButtonClassName}
                             >
-                                {updateStudentProfileMutation.isPending ? "Đang lưu..." : "Lưu thông tin"}
+                                Lưu thông tin
                             </button>
                         </>
                     ) : (
@@ -461,7 +438,17 @@ export default function StudentSelfPage() {
                 </div>
             </div>
 
-            <section className="relative overflow-hidden rounded-[1.5rem] border border-border-default bg-bg-surface p-3.5 shadow-sm sm:rounded-[1.75rem] sm:p-5">
+            <QueryRefreshStrip
+                active={isStudentFetching}
+                label="Đang cập nhật hồ sơ của bạn..."
+                className="mb-3"
+            />
+            <section
+                className={cn(
+                    "relative overflow-hidden rounded-[1.5rem] border border-border-default bg-bg-surface p-3.5 shadow-sm transition-opacity duration-200 sm:rounded-[1.75rem] sm:p-5",
+                    isStudentFetching && "opacity-70",
+                )}
+            >
                 <div className="pointer-events-none absolute -left-16 top-6 size-40 rounded-full bg-primary/10 blur-3xl" aria-hidden />
                 <div className="pointer-events-none absolute bottom-0 right-0 size-52 rounded-full bg-info/10 blur-3xl" aria-hidden />
 
@@ -547,7 +534,7 @@ export default function StudentSelfPage() {
                                                         className={inputClassName}
                                                         placeholder="Ví dụ: Nguyễn Văn A"
                                                         required
-                                                        disabled={updateStudentProfileMutation.isPending}
+                                                        disabled={isSavingProfile}
                                                     />
                                                 </EditableField>
 
@@ -566,7 +553,7 @@ export default function StudentSelfPage() {
                                                         }
                                                         className={inputClassName}
                                                         placeholder="student@example.com"
-                                                        disabled={updateStudentProfileMutation.isPending}
+                                                        disabled={isSavingProfile}
                                                     />
                                                 </EditableField>
 
@@ -586,7 +573,7 @@ export default function StudentSelfPage() {
                                                         }
                                                         className={inputClassName}
                                                         placeholder="2010"
-                                                        disabled={updateStudentProfileMutation.isPending}
+                                                        disabled={isSavingProfile}
                                                     />
                                                 </EditableField>
 
@@ -603,7 +590,7 @@ export default function StudentSelfPage() {
                                                         }
                                                         className={inputClassName}
                                                         placeholder="THPT ABC"
-                                                        disabled={updateStudentProfileMutation.isPending}
+                                                        disabled={isSavingProfile}
                                                     />
                                                 </EditableField>
 
@@ -620,7 +607,7 @@ export default function StudentSelfPage() {
                                                         }
                                                         className={inputClassName}
                                                         placeholder="Hà Nội"
-                                                        disabled={updateStudentProfileMutation.isPending}
+                                                        disabled={isSavingProfile}
                                                     />
                                                 </EditableField>
 
@@ -634,7 +621,7 @@ export default function StudentSelfPage() {
                                                             }))
                                                         }
                                                         options={GENDER_OPTIONS}
-                                                        disabled={updateStudentProfileMutation.isPending}
+                                                        disabled={isSavingProfile}
                                                         buttonClassName={inputClassName}
                                                     />
                                                 </EditableField>
@@ -652,7 +639,7 @@ export default function StudentSelfPage() {
                                                         }
                                                         className={textareaClassName}
                                                         placeholder="Ví dụ: Thủ khoa đầu vào chuyên tin, Giải nhất HSGQG môn Tin"
-                                                        disabled={updateStudentProfileMutation.isPending}
+                                                        disabled={isSavingProfile}
                                                     />
                                                 </EditableField>
                                             </div>
@@ -675,7 +662,7 @@ export default function StudentSelfPage() {
                                                         }
                                                         className={inputClassName}
                                                         placeholder="Nguyễn Thị B"
-                                                        disabled={updateStudentProfileMutation.isPending}
+                                                        disabled={isSavingProfile}
                                                     />
                                                 </EditableField>
 
@@ -693,7 +680,7 @@ export default function StudentSelfPage() {
                                                         }
                                                         className={inputClassName}
                                                         placeholder="0912345678"
-                                                        disabled={updateStudentProfileMutation.isPending}
+                                                        disabled={isSavingProfile}
                                                     />
                                                 </EditableField>
                                             </div>

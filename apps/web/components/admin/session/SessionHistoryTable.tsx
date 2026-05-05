@@ -34,6 +34,7 @@ import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as classApi from "@/lib/apis/class.api";
 import * as sessionApi from "@/lib/apis/session.api";
+import { runBackgroundSave } from "@/lib/mutation-feedback";
 
 type SessionEntityMode = "teacher" | "class" | "none";
 type SessionStatusMode = "payment" | "timeline";
@@ -945,50 +946,6 @@ export default function SessionHistoryTable({
     }
   };
 
-  const updateMutation = useMutation({
-    mutationFn: (payload: {
-      id: string;
-      date: string;
-      teacherId?: string;
-      startTime?: string;
-      endTime?: string;
-      notes: string | null;
-      teacherPaymentStatus?: string;
-      coefficient?: number;
-      allowanceAmount?: number | null;
-      attendance?: SessionAttendanceItem[];
-    }) => {
-      const data: Parameters<typeof sessionApi.updateSession>[1] = {
-        date: payload.date,
-        notes: payload.notes,
-      };
-      if (payload.teacherPaymentStatus !== undefined) {
-        data.teacherPaymentStatus = payload.teacherPaymentStatus;
-      }
-      if (payload.teacherId) data.teacherId = payload.teacherId;
-      if (payload.startTime) data.startTime = payload.startTime;
-      if (payload.endTime) data.endTime = payload.endTime;
-      if (payload.coefficient !== undefined)
-        data.coefficient = payload.coefficient;
-      if (payload.allowanceAmount !== undefined)
-        data.allowanceAmount = payload.allowanceAmount;
-      if (payload.attendance != null) {
-        data.attendance = payload.attendance as SessionAttendanceItem[];
-      }
-      return updateSessionFn(payload.id, data);
-    },
-    onSuccess: () => {
-      toast.success("Đã cập nhật buổi học.");
-      setEditingSession(null);
-      onSessionUpdated?.();
-    },
-    onError: () => {
-      toast.error(
-        "Không thể cập nhật buổi học thông tin điểm danh do buổi học đã thanh toán. Vui lòng liên hệ lại ban quản lí.",
-      );
-    },
-  });
-
   const openEdit = (session: SessionItem) => {
     setEditingSession(session);
     setEditDate(toDateInputValue(session.date));
@@ -1086,8 +1043,7 @@ export default function SessionHistoryTable({
       Number.isFinite(coeffNum) &&
       coeffNum >= 0.1 &&
       coeffNum <= 9.9;
-
-    updateMutation.mutate({
+    const payload = {
       id: editingSession.id,
       date: editDate.trim(),
       ...(allowTeacherSelection &&
@@ -1107,6 +1063,39 @@ export default function SessionHistoryTable({
         ? { allowanceAmount: allowanceNum }
         : {}),
       ...(attendancePayload.length > 0 && { attendance: attendancePayload }),
+    };
+
+    closeEdit();
+    runBackgroundSave({
+      loadingMessage: "Đang lưu buổi học...",
+      successMessage: "Đã cập nhật buổi học.",
+      errorMessage:
+        "Không thể cập nhật buổi học thông tin điểm danh do buổi học đã thanh toán. Vui lòng liên hệ lại ban quản lí.",
+      action: async () => {
+        const data: Parameters<typeof sessionApi.updateSession>[1] = {
+          date: payload.date,
+          notes: payload.notes,
+        };
+        if (payload.teacherPaymentStatus !== undefined) {
+          data.teacherPaymentStatus = payload.teacherPaymentStatus;
+        }
+        if (payload.teacherId) data.teacherId = payload.teacherId;
+        if (payload.startTime) data.startTime = payload.startTime;
+        if (payload.endTime) data.endTime = payload.endTime;
+        if (payload.coefficient !== undefined) {
+          data.coefficient = payload.coefficient;
+        }
+        if (payload.allowanceAmount !== undefined) {
+          data.allowanceAmount = payload.allowanceAmount;
+        }
+        if (payload.attendance != null) {
+          data.attendance = payload.attendance as SessionAttendanceItem[];
+        }
+        return updateSessionFn(payload.id, data);
+      },
+      onSuccess: () => {
+        onSessionUpdated?.();
+      },
     });
   };
 
@@ -2650,10 +2639,9 @@ export default function SessionHistoryTable({
                   <button
                     type="button"
                     onClick={handleSaveEdit}
-                    disabled={updateMutation.isPending}
-                    className="min-h-11 rounded-xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50"
+                    className="min-h-11 rounded-xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   >
-                    {updateMutation.isPending ? "Đang lưu…" : "Lưu"}
+                    Lưu
                   </button>
                 </div>
               </div>

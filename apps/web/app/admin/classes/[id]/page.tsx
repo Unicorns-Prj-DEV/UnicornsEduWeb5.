@@ -8,7 +8,7 @@ import {
 } from "framer-motion";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { useState, useMemo, useCallback } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as classApi from "@/lib/apis/class.api";
@@ -28,6 +28,7 @@ import {
 import AddSessionPopup from "@/components/admin/class/AddSessionPopup";
 import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable";
 import MonthNav from "@/components/admin/MonthNav";
+import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import { ClassStatus, ClassType, ClassDetail, ClassStudent } from "@/dtos/class.dto";
 import { SessionItem } from "@/dtos/session.dto";
 import {
@@ -35,6 +36,7 @@ import {
   resolveAdminLikeRouteBase,
 } from "@/lib/admin-shell-paths";
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
+import { cn } from "@/lib/utils";
 
 /** Mock surveys – nhiều tháng để test chuyển tháng */
 const MOCK_SURVEYS = [
@@ -152,6 +154,7 @@ export default function AdminClassDetailPage() {
   const {
     data: classDetail,
     isLoading,
+    isFetching: isClassDetailFetching,
     isError,
   } = useQuery<ClassDetail>({
     queryKey: ["class", "detail", id],
@@ -163,6 +166,7 @@ export default function AdminClassDetailPage() {
   const {
     data: sessionsInMonth = [],
     isLoading: isSessionsLoading,
+    isFetching: isSessionsFetching,
     isError: isSessionsError,
   } = useQuery<SessionItem[]>({
     queryKey: ["sessions", "class", id, selectedYear, selectedMonthValue],
@@ -172,6 +176,7 @@ export default function AdminClassDetailPage() {
         year: selectedYear,
       }),
     enabled: !!id,
+    placeholderData: keepPreviousData,
   });
 
   const handleSessionUpdated = useCallback(() => {
@@ -449,8 +454,17 @@ export default function AdminClassDetailPage() {
       ) : null}
 
       <div className="flex flex-col gap-3">
+        <QueryRefreshStrip
+          active={isClassDetailFetching}
+          label="Đang cập nhật dữ liệu lớp..."
+        />
         {/* Row 1: Gia sư phụ trách (trái) | Khung giờ học (phải) */}
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div
+          className={cn(
+            "grid gap-3 transition-opacity lg:grid-cols-2",
+            isClassDetailFetching && "opacity-70",
+          )}
+        >
           <TutorCard
             teachers={classDetail.teachers}
             className="flex-1"
@@ -844,6 +858,11 @@ export default function AdminClassDetailPage() {
               />
             </div>
           </div>
+          <QueryRefreshStrip
+            active={isSessionsFetching && !isSessionsLoading}
+            label="Đang tải lại lịch sử buổi học..."
+            className="mb-3"
+          />
 
           <AnimatePresence mode="wait" initial={false}>
             {activeTab === "sessions" ? (

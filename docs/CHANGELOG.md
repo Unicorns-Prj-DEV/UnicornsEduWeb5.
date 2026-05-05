@@ -21,7 +21,11 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Added
+- FE `/admin/staffs/[id]` (shell `/admin`) — card **Lớp phụ trách**: cột **KH vận hành** (%) và chỉnh sửa inline (blur để lưu) cho **admin**; cập nhật `class_teachers.tax_rate_percent` qua `PATCH /staff/:id/class-teachers/:classId/operating-deduction`. `GET /staff/:id` trả thêm `operatingDeductionRatePercent` trên từng `classTeachers`.
+
 ### Changed
+- FE admin/staff/student CRUD save UX: các form save không-destructive cho lớp, nhân sự, học sinh, session, học phí, ví và self-profile nay đóng popup/thoát edit mode ngay sau client validation, hiện `toast.loading`, rồi resolve success/error khi mutation nền hoàn tất; section đang refetch vẫn giữ dữ liệu cũ, dim nhẹ và hiện refresh strip/skeleton mảnh thay vì thay cả vùng bằng loading state.
 - Staff **Thanh toán** (payment-preview + pay-all): buổi dạy giáo viên trong preview và khi xác nhận pay-all là **mọi session `unpaid`** của nhân sự, không còn giới hạn theo tháng đang xem; thưởng, trợ cấp, lesson output, CSKH, trợ lí… vẫn chỉ lấy pending của đúng tháng/năm trong query/body. Cập nhật copy popup admin/staff detail và Swagger mô tả endpoint.
 - BE session create/update: memo hoá `resolveTaxDeductionRate` theo `(staffId, roleType)` với `createMemoizedTaxDeductionResolver` — tránh N lần query trùng khi `Promise.all` trên nhiều dòng điểm danh cùng CSKH / assistant; `studentClass` khi tạo buổi chỉ `select` `student.account_balance` thay vì cả `student_info`.
 - CI: `.github/workflows/deploy.yml` tách build Docker **API** và **Web** thành hai job chạy song song (`build-api`, `build-web`); `deploy` chờ cả hai; cache BuildKit `gha` dùng `scope` riêng để tránh xung đột khi push cache đồng thời.
