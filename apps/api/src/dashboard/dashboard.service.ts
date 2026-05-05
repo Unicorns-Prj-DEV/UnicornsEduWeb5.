@@ -151,6 +151,28 @@ type MonthlyTrendNormalizedRow = {
   profit: number;
 };
 
+type DateRangeFinancialTotals = {
+  revenue: number;
+  teacherCost: number;
+  customerCareCost: number;
+  lessonCost: number;
+  bonusCost: number;
+  extraAllowanceCost: number;
+  operatingCost: number;
+  expense: number;
+  profit: number;
+};
+
+type DateRangeFinancialTotalsSqlRow = {
+  revenue: number | string | null;
+  teacherCost: number | string | null;
+  customerCareCost: number | string | null;
+  lessonCost: number | string | null;
+  bonusCost: number | string | null;
+  extraAllowanceCost: number | string | null;
+  operatingCost: number | string | null;
+};
+
 function normalizeMoneyAmount(value: number | string | null | undefined) {
   const amount = typeof value === 'number' ? value : Number(value ?? 0);
   return Number.isFinite(amount) ? Math.round(amount) : 0;
@@ -176,15 +198,68 @@ function buildDashboardRange(month?: string, year?: string) {
   const yearStart = new Date(Date.UTC(parsedYear, 0, 1));
   const yearEnd = new Date(Date.UTC(parsedYear + 1, 0, 1));
 
+  // For month-key-based fields (bonuses, extra_allowances): single-month range
+  const fromMonthKey = `${parsedYear}-${normalizedMonth}`;
+  const nextParsedMonth = parsedMonth === 12 ? 1 : parsedMonth + 1;
+  const nextParsedYear = parsedMonth === 12 ? parsedYear + 1 : parsedYear;
+  const toMonthKeyExclusive = `${nextParsedYear}-${String(nextParsedMonth).padStart(2, '0')}`;
+
   return {
+    isDateRange: false as const,
     month: normalizedMonth,
     year: normalizedYear,
     monthKey: `${parsedYear}-${normalizedMonth}`,
     monthStart,
     monthEnd,
+    fromMonthKey,
+    toMonthKeyExclusive,
     yearStart,
     yearEnd,
   };
+}
+
+/**
+ * Build an arbitrary date-range period for financial calculations.
+ * dateFrom and dateTo are YYYY-MM-DD strings (dateTo is inclusive).
+ */
+function buildDateRangePeriod(dateFrom: string, dateTo: string) {
+  const periodStart = new Date(dateFrom + 'T00:00:00.000Z');
+  const periodEnd = new Date(dateTo + 'T00:00:00.000Z');
+  // exclusive end = dateTo + 1 day
+  periodEnd.setUTCDate(periodEnd.getUTCDate() + 1);
+
+  // For YYYY-MM key based fields (bonuses, extra_allowances)
+  const fromMonthKey = dateFrom.slice(0, 7); // 'YYYY-MM'
+  const [toYStr, toMStr] = dateTo.slice(0, 7).split('-');
+  const toY = Number(toYStr);
+  const toM = Number(toMStr);
+  const nextM = toM === 12 ? 1 : toM + 1;
+  const nextY = toM === 12 ? toY + 1 : toY;
+  const toMonthKeyExclusive = `${nextY}-${String(nextM).padStart(2, '0')}`;
+
+  return {
+    isDateRange: true as const,
+    dateFrom,
+    dateTo,
+    monthStart: periodStart,
+    monthEnd: periodEnd,
+    fromMonthKey,
+    toMonthKeyExclusive,
+    periodLabel: `${dateFrom} – ${dateTo}`,
+  };
+}
+
+/** Resolve period from query params: prefer dateFrom/dateTo, fallback to month/year. */
+function resolveFinancialPeriod(params: {
+  month?: string;
+  year?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}) {
+  if (params.dateFrom && params.dateTo) {
+    return buildDateRangePeriod(params.dateFrom, params.dateTo);
+  }
+  return buildDashboardRange(params.month, params.year);
 }
 
 /** Calendar month key for SQL/FE; use UTC so PG DATE rows parse consistently across server TZ. */
@@ -585,7 +660,7 @@ export class DashboardService {
             CONCAT(
               COALESCE(
                 NULLIF(cost_extend.month, ''),
-                SUBSTRING(cost_extend.date FROM 1 FOR 7)
+                TO_CHAR(cost_extend.date, 'YYYY-MM')
               ),
               '-01'
             ),
@@ -599,8 +674,8 @@ export class DashboardService {
           AND cost_extend.month < ${yearEndMonthKeyExclusive}
         ) OR (
           cost_extend.date IS NOT NULL
-          AND cost_extend.date::date >= ${periodStartStr}::date
-          AND cost_extend.date::date < ${periodEndExclusiveStr}::date
+          AND cost_extend.date >= ${periodStartStr}::date
+          AND cost_extend.date < ${periodEndExclusiveStr}::date
         )
         GROUP BY 1
       )
@@ -682,6 +757,155 @@ export class DashboardService {
         profit: 0,
       } satisfies MonthlyTrendNormalizedRow)
     );
+  }
+
+  /**
+   * Compute all financial totals for an arbitrary date range in a single query.
+   * Used in date-range mode instead of getMonthlyTrend + resolveSelectedMonthTrend.
+   */
+  private async getDateRangeFinancialTotals(params: {
+    monthStart: Date;
+    monthEnd: Date;
+    fromMonthKey: string;
+    toMonthKeyExclusive: string;
+  }): Promise<DateRangeFinancialTotals> {
+    const [row] = await this.prisma.$queryRaw<DateRangeFinancialTotalsSqlRow[]>(
+      Prisma.sql`
+        WITH range_revenue AS (
+          SELECT
+            COALESCE(SUM(COALESCE(attendance.tuition_fee, 0)), 0) AS revenue
+          FROM attendance
+          INNER JOIN sessions ON sessions.id = attendance.session_id
+          WHERE attendance.status IN ('present', 'excused')
+            AND sessions.date >= ${params.monthStart}
+            AND sessions.date < ${params.monthEnd}
+        ),
+        session_allowances AS (
+          SELECT
+            sessions.id AS session_id,
+            LEAST(
+              COALESCE(
+                NULLIF(classes.max_allowance_per_session, 0),
+                COALESCE(sessions.allowance_amount, 0) * COALESCE(sessions.coefficient, 1)
+              ),
+              COALESCE(sessions.allowance_amount, 0) * COALESCE(sessions.coefficient, 1)
+            ) AS teacher_allowance_total
+          FROM attendance
+          INNER JOIN sessions ON sessions.id = attendance.session_id
+          INNER JOIN classes ON classes.id = sessions.class_id
+          WHERE sessions.date >= ${params.monthStart}
+            AND sessions.date < ${params.monthEnd}
+          GROUP BY
+            sessions.id,
+            sessions.allowance_amount,
+            classes.max_allowance_per_session,
+            sessions.coefficient
+        ),
+        range_teacher_cost AS (
+          SELECT COALESCE(SUM(teacher_allowance_total), 0) AS "teacherCost"
+          FROM session_allowances
+        ),
+        range_customer_care_cost AS (
+          SELECT
+            COALESCE(
+              SUM(
+                ROUND(
+                  (
+                    COALESCE(attendance.tuition_fee, 0) *
+                    COALESCE(attendance.customer_care_coef, 0)
+                  )::numeric,
+                  0
+                )
+              ),
+              0
+            ) AS "customerCareCost"
+          FROM attendance
+          INNER JOIN sessions ON sessions.id = attendance.session_id
+          WHERE sessions.date >= ${params.monthStart}
+            AND sessions.date < ${params.monthEnd}
+        ),
+        range_lesson_cost AS (
+          SELECT
+            COALESCE(SUM(COALESCE(lesson_outputs.cost, 0)), 0) AS "lessonCost"
+          FROM lesson_outputs
+          WHERE lesson_outputs.date >= ${params.monthStart}
+            AND lesson_outputs.date < ${params.monthEnd}
+        ),
+        range_bonus_cost AS (
+          SELECT
+            COALESCE(SUM(COALESCE(bonuses.amount, 0)), 0) AS "bonusCost"
+          FROM bonuses
+          WHERE bonuses.month >= ${params.fromMonthKey}
+            AND bonuses.month < ${params.toMonthKeyExclusive}
+        ),
+        range_extra_allowance_cost AS (
+          SELECT
+            COALESCE(SUM(COALESCE(extra_allowances.amount, 0)), 0) AS "extraAllowanceCost"
+          FROM extra_allowances
+          WHERE extra_allowances.month >= ${params.fromMonthKey}
+            AND extra_allowances.month < ${params.toMonthKeyExclusive}
+        ),
+        range_operating_cost AS (
+          SELECT
+            COALESCE(SUM(COALESCE(cost_extend.amount, 0)), 0) AS "operatingCost"
+          FROM cost_extend
+          WHERE (
+            cost_extend.month IS NOT NULL
+            AND cost_extend.month <> ''
+            AND cost_extend.month >= ${params.fromMonthKey}
+            AND cost_extend.month < ${params.toMonthKeyExclusive}
+          ) OR (
+            (cost_extend.month IS NULL OR cost_extend.month = '')
+            AND cost_extend.date IS NOT NULL
+            AND cost_extend.date::date >= ${params.monthStart}
+            AND cost_extend.date::date < ${params.monthEnd}
+          )
+        )
+        SELECT
+          range_revenue.revenue,
+          range_teacher_cost."teacherCost",
+          range_customer_care_cost."customerCareCost",
+          range_lesson_cost."lessonCost",
+          range_bonus_cost."bonusCost",
+          range_extra_allowance_cost."extraAllowanceCost",
+          range_operating_cost."operatingCost"
+        FROM
+          range_revenue,
+          range_teacher_cost,
+          range_customer_care_cost,
+          range_lesson_cost,
+          range_bonus_cost,
+          range_extra_allowance_cost,
+          range_operating_cost
+      `,
+    );
+
+    const revenue = normalizeMoneyAmount(row?.revenue);
+    const teacherCost = normalizeMoneyAmount(row?.teacherCost);
+    const customerCareCost = normalizeMoneyAmount(row?.customerCareCost);
+    const lessonCost = normalizeMoneyAmount(row?.lessonCost);
+    const bonusCost = normalizeMoneyAmount(row?.bonusCost);
+    const extraAllowanceCost = normalizeMoneyAmount(row?.extraAllowanceCost);
+    const operatingCost = normalizeMoneyAmount(row?.operatingCost);
+    const expense =
+      teacherCost +
+      customerCareCost +
+      lessonCost +
+      bonusCost +
+      extraAllowanceCost +
+      operatingCost;
+
+    return {
+      revenue,
+      teacherCost,
+      customerCareCost,
+      lessonCost,
+      bonusCost,
+      extraAllowanceCost,
+      operatingCost,
+      expense,
+      profit: revenue - expense,
+    };
   }
 
   private async getExpiringStudents(
@@ -898,7 +1122,12 @@ export class DashboardService {
 
   private async getUnpaidStaff(
     limit: number,
-    period: { monthStart: Date; monthEnd: Date; monthKey: string },
+    period: {
+      monthStart: Date;
+      monthEnd: Date;
+      fromMonthKey: string;
+      toMonthKeyExclusive: string;
+    },
   ) {
     return this.prisma.$queryRaw<StaffUnpaidAlertSqlRow[]>(Prisma.sql`
       WITH active_staff AS (
@@ -959,7 +1188,8 @@ export class DashboardService {
         FROM bonuses
         INNER JOIN active_staff ON active_staff.id = bonuses.staff_id
         WHERE bonuses.status::text = 'pending'
-          AND bonuses.month = ${period.monthKey}
+          AND bonuses.month >= ${period.fromMonthKey}
+          AND bonuses.month < ${period.toMonthKeyExclusive}
         GROUP BY bonuses.staff_id
       ),
       customer_care_unpaid AS (
@@ -1003,7 +1233,8 @@ export class DashboardService {
         FROM extra_allowances
         INNER JOIN active_staff ON active_staff.id = extra_allowances.staff_id
         WHERE extra_allowances.status::text = 'pending'
-          AND extra_allowances.month = ${period.monthKey}
+          AND extra_allowances.month >= ${period.fromMonthKey}
+          AND extra_allowances.month < ${period.toMonthKeyExclusive}
         GROUP BY extra_allowances.staff_id
       ),
       assistant_unpaid AS (
@@ -2081,7 +2312,8 @@ export class DashboardService {
     const dashboardMonthPeriod = {
       monthStart: builtRange.monthStart,
       monthEnd: builtRange.monthEnd,
-      monthKey: builtRange.monthKey,
+      fromMonthKey: builtRange.fromMonthKey,
+      toMonthKeyExclusive: builtRange.toMonthKeyExclusive,
     };
     const [adminDashboard, unpaidRows] = await Promise.all([
       this.getAdminDashboard({
@@ -2205,23 +2437,230 @@ export class DashboardService {
       typeof query.alertLimit === 'number' ? query.alertLimit : 6;
     const topClassLimit =
       typeof query.topClassLimit === 'number' ? query.topClassLimit : 5;
-    const range = buildDashboardRange(query.month, query.year);
+    const period = resolveFinancialPeriod(query);
+
+    const cacheKey = period.isDateRange
+      ? buildCacheKey('aggregate', {
+          alertLimit,
+          dateFrom: period.dateFrom,
+          dateTo: period.dateTo,
+          topClassLimit,
+        })
+      : buildCacheKey('aggregate', {
+          alertLimit,
+          month: period.month,
+          topClassLimit,
+          year: period.year,
+        });
 
     return this.dashboardCacheService.wrapJson({
-      key: buildCacheKey('aggregate', {
-        alertLimit,
-        month: range.month,
-        topClassLimit,
-        year: range.year,
-      }),
+      key: cacheKey,
       cacheType: 'aggregate',
       loader: async () => {
-        const dashboardMonthPeriod = {
-          monthStart: range.monthStart,
-          monthEnd: range.monthEnd,
-          monthKey: range.monthKey,
+        const dashboardPeriod = {
+          monthStart: period.monthStart,
+          monthEnd: period.monthEnd,
+          fromMonthKey: period.fromMonthKey,
+          toMonthKeyExclusive: period.toMonthKeyExclusive,
         };
 
+        if (period.isDateRange) {
+          // Date-range mode: financial data for the selected range only.
+          // Trend / yearly summary are not applicable and return empty.
+          const [
+            summaryCounts,
+            monthlyTopupTotal,
+            rangeTotals,
+            prepaidTuitionTotal,
+            expiringStudents,
+            debtStudents,
+            unpaidStaff,
+            topClasses,
+          ] = await Promise.all([
+            this.getSummaryCounts(),
+            this.getMonthlyTopupTotal({
+              monthStart: period.monthStart,
+              monthEnd: period.monthEnd,
+            }),
+            this.getDateRangeFinancialTotals(dashboardPeriod),
+            this.getPrepaidTuitionTotal({
+              monthStart: period.monthStart,
+              monthEnd: period.monthEnd,
+            }),
+            this.getExpiringStudents(alertLimit, dashboardPeriod),
+            this.getDebtStudents(alertLimit, dashboardPeriod),
+            this.getUnpaidStaff(alertLimit, dashboardPeriod),
+            this.getTopClasses({
+              monthStart: period.monthStart,
+              monthEnd: period.monthEnd,
+              limit: topClassLimit,
+            }),
+          ]);
+
+          const expiringStudentsCount = normalizeInteger(
+            expiringStudents[0]?.totalCount,
+          );
+          const debtStudentsCount = normalizeInteger(
+            debtStudents[0]?.totalCount,
+          );
+          const unpaidStaffCount = normalizeInteger(unpaidStaff[0]?.totalCount);
+          const pendingCollectionTotal = normalizeMoneyAmount(
+            debtStudents[0]?.totalAmount,
+          );
+          const pendingPayrollTotal = normalizeMoneyAmount(
+            unpaidStaff[0]?.totalAmount,
+          );
+
+          const breakdown: AdminDashboardBreakdownItemDto[] = [
+            {
+              key: 'revenue',
+              label: 'Học phí ghi nhận',
+              kind: 'revenue',
+              amount: rangeTotals.revenue,
+            },
+            {
+              key: 'teacherCost',
+              label: 'Chi giảng dạy',
+              kind: 'expense',
+              amount: rangeTotals.teacherCost,
+            },
+            {
+              key: 'customerCareCost',
+              label: 'Chi CSKH',
+              kind: 'expense',
+              amount: rangeTotals.customerCareCost,
+            },
+            {
+              key: 'lessonCost',
+              label: 'Chi giáo án',
+              kind: 'expense',
+              amount: rangeTotals.lessonCost,
+            },
+            {
+              key: 'bonusCost',
+              label: 'Bonus',
+              kind: 'expense',
+              amount: rangeTotals.bonusCost,
+            },
+            {
+              key: 'extraAllowanceCost',
+              label: 'Trợ cấp khác',
+              kind: 'expense',
+              amount: rangeTotals.extraAllowanceCost,
+            },
+            {
+              key: 'operatingCost',
+              label: 'Chi phí mở rộng',
+              kind: 'expense',
+              amount: rangeTotals.operatingCost,
+            },
+          ];
+
+          const actionAlerts: AdminDashboardActionAlertDto[] = [
+            ...expiringStudents.map((row) => ({
+              type: 'Sắp hết tiền' as const,
+              subject: `${row.studentName} · ${row.classNames}`,
+              owner: row.ownerName,
+              due: formatStudentBalanceDue(row),
+              amount: normalizeMoneyAmount(row.accountBalance),
+              severity: 'warning' as const,
+              targetType: 'student' as const,
+              targetId: row.studentId,
+            })),
+            ...debtStudents.map((row) => ({
+              type: 'Chưa thu' as const,
+              subject: `${row.studentName} · ${row.classNames}`,
+              owner: row.ownerName,
+              due: formatDebtDue(row),
+              amount: normalizeMoneyAmount(row.debtAmount),
+              severity: 'destructive' as const,
+              targetType: 'student' as const,
+              targetId: row.studentId,
+            })),
+            ...unpaidStaff.map((row) => ({
+              type: 'Nhân sự chưa thanh toán' as const,
+              subject: `${row.staffName} · ${buildStaffUnpaidSourceLabel(row)}`,
+              owner: 'Kế toán',
+              due: `${
+                [
+                  normalizeMoneyAmount(row.sessionAmount) > 0
+                    ? 'buổi dạy'
+                    : null,
+                  normalizeMoneyAmount(row.bonusAmount) > 0 ? 'bonus' : null,
+                  normalizeMoneyAmount(row.customerCareAmount) > 0
+                    ? 'CSKH'
+                    : null,
+                  normalizeMoneyAmount(row.lessonAmount) > 0 ? 'giáo án' : null,
+                  normalizeMoneyAmount(row.extraAllowanceAmount) > 0
+                    ? 'trợ cấp'
+                    : null,
+                ].filter(Boolean).length
+              } nguồn pending`,
+              amount: normalizeMoneyAmount(row.totalUnpaid),
+              severity: 'info' as const,
+              targetType: 'staff' as const,
+              targetId: row.staffId,
+            })),
+            ...topClasses
+              .filter((row) => normalizeMoneyAmount(row.balanceRisk) > 0)
+              .slice(0, alertLimit)
+              .map((row) => ({
+                type: 'Lớp cảnh báo' as const,
+                subject: row.name,
+                owner: 'Vận hành',
+                due: 'Có rủi ro công nợ',
+                amount: normalizeMoneyAmount(row.balanceRisk),
+                severity: 'warning' as const,
+                targetType: 'class' as const,
+                targetId: row.classId,
+              })),
+          ];
+
+          const classPerformance: AdminDashboardClassPerformanceDto[] =
+            topClasses.map((row) => ({
+              classId: row.classId,
+              name: row.name,
+              students: normalizeInteger(row.students),
+              revenue: normalizeMoneyAmount(row.revenue),
+              profit: normalizeMoneyAmount(row.profit),
+              balanceRisk: normalizeMoneyAmount(row.balanceRisk),
+            }));
+
+          return {
+            period: {
+              month: '',
+              year: '',
+              monthLabel: period.periodLabel,
+              viewMode: 'range' as const,
+              dateFrom: period.dateFrom,
+              dateTo: period.dateTo,
+            },
+            summary: {
+              activeClasses: normalizeInteger(summaryCounts.activeClasses),
+              activeStudents: normalizeInteger(summaryCounts.activeStudents),
+              monthlyTopupTotal,
+              totalLearnedTuition: rangeTotals.revenue,
+              monthlyRevenue: rangeTotals.revenue,
+              monthlyExpense: rangeTotals.expense,
+              monthlyProfit: rangeTotals.profit,
+              prepaidTuitionTotal,
+              pendingCollectionTotal,
+              pendingPayrollTotal,
+              expiringStudentsCount,
+              debtStudentsCount,
+              unpaidStaffCount,
+              totalAlerts:
+                expiringStudentsCount + debtStudentsCount + unpaidStaffCount,
+            },
+            revenueProfitTrend: [],
+            breakdown,
+            actionAlerts,
+            classPerformance,
+            yearlySummary: [],
+          };
+        }
+
+        // Month mode (default)
         const [
           summaryCounts,
           monthlyTopupTotal,
@@ -2235,33 +2674,33 @@ export class DashboardService {
         ] = await Promise.all([
           this.getSummaryCounts(),
           this.getMonthlyTopupTotal({
-            monthStart: range.monthStart,
-            monthEnd: range.monthEnd,
+            monthStart: period.monthStart,
+            monthEnd: period.monthEnd,
           }),
           this.getMonthlyTrend({
-            anchorMonthKey: range.monthKey,
+            anchorMonthKey: period.monthKey,
           }),
           this.getPrepaidTuitionTotal({
-            monthStart: range.monthStart,
-            monthEnd: range.monthEnd,
+            monthStart: period.monthStart,
+            monthEnd: period.monthEnd,
           }),
-          this.getExpiringStudents(alertLimit, dashboardMonthPeriod),
-          this.getDebtStudents(alertLimit, dashboardMonthPeriod),
-          this.getUnpaidStaff(alertLimit, dashboardMonthPeriod),
+          this.getExpiringStudents(alertLimit, dashboardPeriod),
+          this.getDebtStudents(alertLimit, dashboardPeriod),
+          this.getUnpaidStaff(alertLimit, dashboardPeriod),
           this.getTopClasses({
-            monthStart: range.monthStart,
-            monthEnd: range.monthEnd,
+            monthStart: period.monthStart,
+            monthEnd: period.monthEnd,
             limit: topClassLimit,
           }),
           this.getQuarterClassCounts({
-            monthStart: range.monthStart,
-            monthEnd: range.monthEnd,
+            monthStart: period.monthStart,
+            monthEnd: period.monthEnd,
           }),
         ]);
 
         const selectedMonthTrend = this.resolveSelectedMonthTrend(
           trendRows,
-          range,
+          period,
         );
         const totalLearnedTuition = selectedMonthTrend.revenue;
 
@@ -2427,9 +2866,10 @@ export class DashboardService {
 
         return {
           period: {
-            month: range.month,
-            year: range.year,
-            monthLabel: formatMonthLabel(range.month, range.year),
+            month: period.month,
+            year: period.year,
+            monthLabel: formatMonthLabel(period.month, period.year),
+            viewMode: 'month' as const,
           },
           summary: {
             activeClasses: normalizeInteger(summaryCounts.activeClasses),
@@ -2461,37 +2901,57 @@ export class DashboardService {
   async getAdminFinancialDetail(
     query: GetAdminDashboardFinancialDetailQueryDto,
   ): Promise<AdminDashboardFinancialDetailDto> {
-    const range = buildDashboardRange(query.month, query.year);
+    const period = resolveFinancialPeriod(query);
     const limit = typeof query.limit === 'number' ? query.limit : 500;
-    const periodLabel = formatMonthLabel(range.month, range.year);
+    const periodLabel = period.isDateRange
+      ? period.periodLabel
+      : formatMonthLabel(period.month, period.year);
+
+    const cacheKey = period.isDateRange
+      ? buildCacheKey('financial-detail', {
+          limit,
+          dateFrom: period.dateFrom,
+          dateTo: period.dateTo,
+          rowKey: query.rowKey,
+        })
+      : buildCacheKey('financial-detail', {
+          limit,
+          month: period.month,
+          rowKey: query.rowKey,
+          year: period.year,
+        });
 
     return this.dashboardCacheService.wrapJson({
-      key: buildCacheKey('financial-detail', {
-        limit,
-        month: range.month,
-        rowKey: query.rowKey,
-        year: range.year,
-      }),
+      key: cacheKey,
       cacheType: 'financial-detail',
       loader: async () => {
-        const dashboardMonthPeriod = {
-          monthStart: range.monthStart,
-          monthEnd: range.monthEnd,
-          monthKey: range.monthKey,
+        const dashboardPeriod = {
+          monthStart: period.monthStart,
+          monthEnd: period.monthEnd,
+          fromMonthKey: period.fromMonthKey,
+          toMonthKeyExclusive: period.toMonthKeyExclusive,
         };
 
         switch (query.rowKey) {
           case 'topup': {
+            const topupQuery = period.isDateRange
+              ? this.getAdminTopupHistory({
+                  dateFrom: period.dateFrom,
+                  dateTo: period.dateTo,
+                  limit,
+                })
+              : this.getAdminTopupHistory({
+                  month: period.month,
+                  year: period.year,
+                  limit,
+                });
+
             const [amount, history] = await Promise.all([
               this.getMonthlyTopupTotal({
-                monthStart: range.monthStart,
-                monthEnd: range.monthEnd,
+                monthStart: period.monthStart,
+                monthEnd: period.monthEnd,
               }),
-              this.getAdminTopupHistory({
-                month: range.month,
-                year: range.year,
-                limit,
-              }),
+              topupQuery,
             ]);
 
             return {
@@ -2521,33 +2981,35 @@ export class DashboardService {
             };
           }
           case 'revenue': {
-            const [trendRows, classRows] = await Promise.all([
-              this.getMonthlyTrend({
-                anchorMonthKey: range.monthKey,
-              }),
+            const [revenueTotal, classRows] = await Promise.all([
+              period.isDateRange
+                ? this.getDateRangeFinancialTotals(dashboardPeriod).then(
+                    (t) => t.revenue,
+                  )
+                : this.getMonthlyTrend({
+                    anchorMonthKey: period.monthKey,
+                  }).then(
+                    (rows) =>
+                      this.resolveSelectedMonthTrend(rows, period).revenue,
+                  ),
               this.getLearnedTuitionByClassForMonth({
-                monthStart: range.monthStart,
-                monthEnd: range.monthEnd,
+                monthStart: period.monthStart,
+                monthEnd: period.monthEnd,
                 limit,
               }),
             ]);
-            const selectedMonthTrend = this.resolveSelectedMonthTrend(
-              trendRows,
-              range,
-            );
-            const monthLearnedTotal = selectedMonthTrend.revenue;
 
             return {
               rowKey: query.rowKey,
               title: 'Chi tiết Học phí đã học',
               description: `Tổng học phí đã ghi nhận trong ${periodLabel} (attendance present/excused).`,
-              amount: monthLearnedTotal,
+              amount: revenueTotal,
               sources: [
                 {
                   key: 'learned-month',
                   label: `Học phí đã học · ${periodLabel}`,
-                  amount: monthLearnedTotal,
-                  note: 'Tính từ attendance present/excused có sessions.date trong tháng đang xem.',
+                  amount: revenueTotal,
+                  note: 'Tính từ attendance present/excused có sessions.date trong kỳ đang xem.',
                   tone: 'positive',
                 },
               ],
@@ -2564,30 +3026,38 @@ export class DashboardService {
             };
           }
           case 'prepaid': {
+            const prepaidQuery = period.isDateRange
+              ? this.getAdminStudentBalanceDetails({
+                  limit,
+                  dateFrom: period.dateFrom,
+                  dateTo: period.dateTo,
+                })
+              : this.getAdminStudentBalanceDetails({
+                  limit,
+                  month: period.month,
+                  year: period.year,
+                });
+
             const [amount, rows] = await Promise.all([
               this.getPrepaidTuitionTotal({
-                monthStart: range.monthStart,
-                monthEnd: range.monthEnd,
+                monthStart: period.monthStart,
+                monthEnd: period.monthEnd,
               }),
-              this.getAdminStudentBalanceDetails({
-                limit,
-                month: range.month,
-                year: range.year,
-              }),
+              prepaidQuery,
             ]);
 
             return {
               rowKey: query.rowKey,
               title: 'Chi tiết Nợ học phí chưa dạy',
               description:
-                'Số dư dương hiện tại của học sinh active (lớp running) có phát sinh buổi học trong tháng đang xem.',
+                'Số dư dương hiện tại của học sinh active (lớp running) có phát sinh buổi học trong kỳ đang xem.',
               amount,
               sources: [
                 {
                   key: 'prepaid-total',
                   label: 'Số dư dương đang treo',
                   amount,
-                  note: 'Chỉ học sinh có ít nhất một session trong tháng đang xem.',
+                  note: 'Chỉ học sinh có ít nhất một session trong kỳ đang xem.',
                   tone: 'positive',
                 },
               ],
@@ -2602,10 +3072,7 @@ export class DashboardService {
             };
           }
           case 'uncollected': {
-            const rows = await this.getDebtStudents(
-              limit,
-              dashboardMonthPeriod,
-            );
+            const rows = await this.getDebtStudents(limit, dashboardPeriod);
             const amount = normalizeMoneyAmount(rows[0]?.totalAmount);
             const totalCount = normalizeInteger(rows[0]?.totalCount);
 
@@ -2637,7 +3104,7 @@ export class DashboardService {
             };
           }
           case 'pending-payroll': {
-            const rows = await this.getUnpaidStaff(limit, dashboardMonthPeriod);
+            const rows = await this.getUnpaidStaff(limit, dashboardPeriod);
             const amount = normalizeMoneyAmount(rows[0]?.totalAmount);
             const totalSessionAmount = normalizeMoneyAmount(
               rows[0]?.totalSessionAmount,
@@ -2659,7 +3126,7 @@ export class DashboardService {
               rowKey: query.rowKey,
               title: 'Chi tiết Chờ thanh toán trợ cấp',
               description:
-                'Các khoản pending gắn với buổi học / giáo án / tháng record trong tháng đang xem.',
+                'Các khoản pending gắn với buổi học / giáo án / tháng record trong kỳ đang xem.',
               amount,
               sources: [
                 {
@@ -2735,19 +3202,20 @@ export class DashboardService {
           case 'other-cost':
           case 'profit':
           case 'total-in': {
-            const [monthlyTopupTotal, trendRows] = await Promise.all([
+            const [monthlyTopupTotal, financialTotals] = await Promise.all([
               this.getMonthlyTopupTotal({
-                monthStart: range.monthStart,
-                monthEnd: range.monthEnd,
+                monthStart: period.monthStart,
+                monthEnd: period.monthEnd,
               }),
-              this.getMonthlyTrend({
-                anchorMonthKey: range.monthKey,
-              }),
+              period.isDateRange
+                ? this.getDateRangeFinancialTotals(dashboardPeriod)
+                : this.getMonthlyTrend({
+                    anchorMonthKey: period.monthKey,
+                  }).then((rows) =>
+                    this.resolveSelectedMonthTrend(rows, period),
+                  ),
             ]);
-            const selectedMonthTrend = this.resolveSelectedMonthTrend(
-              trendRows,
-              range,
-            );
+            const selectedMonthTrend = financialTotals;
             const personnelCost =
               selectedMonthTrend.teacherCost +
               selectedMonthTrend.customerCareCost +
@@ -2903,15 +3371,23 @@ export class DashboardService {
   async getAdminTopupHistory(
     query: GetAdminTopupHistoryQueryDto,
   ): Promise<AdminDashboardTopupHistoryItemDto[]> {
-    const range = buildDashboardRange(query.month, query.year);
+    const period = resolveFinancialPeriod(query);
     const limit = typeof query.limit === 'number' ? query.limit : 120;
 
+    const cacheKey = period.isDateRange
+      ? buildCacheKey('topup-history', {
+          limit,
+          dateFrom: period.dateFrom,
+          dateTo: period.dateTo,
+        })
+      : buildCacheKey('topup-history', {
+          limit,
+          month: period.month,
+          year: period.year,
+        });
+
     return this.dashboardCacheService.wrapJson({
-      key: buildCacheKey('topup-history', {
-        limit,
-        month: range.month,
-        year: range.year,
-      }),
+      key: cacheKey,
       cacheType: 'topup-history',
       loader: async () => {
         const rows = await this.prisma.$queryRaw<
@@ -2941,8 +3417,8 @@ export class DashboardService {
             note,
             "cumulativeAfter"
           FROM topup_rows
-          WHERE "dateTime" >= ${range.monthStart}
-            AND "dateTime" < ${range.monthEnd}
+          WHERE "dateTime" >= ${period.monthStart}
+            AND "dateTime" < ${period.monthEnd}
           ORDER BY "dateTime" DESC, id DESC
           LIMIT ${limit}
         `);
@@ -2976,16 +3452,22 @@ export class DashboardService {
     query: GetAdminStudentBalanceDetailsQueryDto,
   ): Promise<AdminDashboardStudentBalanceItemDto[]> {
     const limit = typeof query.limit === 'number' ? query.limit : 250;
-    const monthFilter = query.month;
-    const yearFilter = query.year;
-    const range = buildDashboardRange(monthFilter, yearFilter);
+    const period = resolveFinancialPeriod(query);
+
+    const cacheKey = period.isDateRange
+      ? buildCacheKey('student-balance-details', {
+          limit,
+          dateFrom: period.dateFrom,
+          dateTo: period.dateTo,
+        })
+      : buildCacheKey('student-balance-details', {
+          limit,
+          month: period.month,
+          year: period.year,
+        });
 
     return this.dashboardCacheService.wrapJson({
-      key: buildCacheKey('student-balance-details', {
-        limit,
-        month: range.month,
-        year: range.year,
-      }),
+      key: cacheKey,
       cacheType: 'student-balance-details',
       loader: async () => {
         const rows = await this.prisma.$queryRaw<
@@ -3007,8 +3489,8 @@ export class DashboardService {
               FROM attendance att_scope
               INNER JOIN sessions sess_scope ON sess_scope.id = att_scope.session_id
               WHERE att_scope.student_id = student_info.id
-                AND sess_scope.date >= ${range.monthStart}
-                AND sess_scope.date < ${range.monthEnd}
+                AND sess_scope.date >= ${period.monthStart}
+                AND sess_scope.date < ${period.monthEnd}
             )
           GROUP BY
             student_info.id,

@@ -59,6 +59,28 @@ export class GetAdminDashboardQueryDto {
   @Min(1)
   @Max(20)
   topClassLimit?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Date range start in YYYY-MM-DD format. When provided together with dateTo, overrides month/year and activates date-range mode for financial calculations.',
+    example: '2026-04-01',
+  })
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'dateFrom must use YYYY-MM-DD format.',
+  })
+  dateFrom?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Date range end (inclusive) in YYYY-MM-DD format. Must be used together with dateFrom.',
+    example: '2026-04-30',
+  })
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'dateTo must use YYYY-MM-DD format.',
+  })
+  dateTo?: string;
 }
 
 export class GetAdminTopupHistoryQueryDto {
@@ -92,6 +114,26 @@ export class GetAdminTopupHistoryQueryDto {
   @Min(1)
   @Max(300)
   limit?: number;
+
+  @ApiPropertyOptional({
+    description: 'Date range start in YYYY-MM-DD format.',
+    example: '2026-04-01',
+  })
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'dateFrom must use YYYY-MM-DD format.',
+  })
+  dateFrom?: string;
+
+  @ApiPropertyOptional({
+    description: 'Date range end (inclusive) in YYYY-MM-DD format.',
+    example: '2026-04-30',
+  })
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'dateTo must use YYYY-MM-DD format.',
+  })
+  dateTo?: string;
 }
 
 export class GetAdminStudentBalanceDetailsQueryDto {
@@ -127,6 +169,26 @@ export class GetAdminStudentBalanceDetailsQueryDto {
     message: 'year must use YYYY format.',
   })
   year?: string;
+
+  @ApiPropertyOptional({
+    description: 'Date range start in YYYY-MM-DD format.',
+    example: '2026-04-01',
+  })
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'dateFrom must use YYYY-MM-DD format.',
+  })
+  dateFrom?: string;
+
+  @ApiPropertyOptional({
+    description: 'Date range end (inclusive) in YYYY-MM-DD format.',
+    example: '2026-04-30',
+  })
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'dateTo must use YYYY-MM-DD format.',
+  })
+  dateTo?: string;
 }
 
 export class GetAdminDashboardFinancialDetailQueryDto {
@@ -168,12 +230,38 @@ export class GetAdminDashboardFinancialDetailQueryDto {
   @Min(1)
   @Max(500)
   limit?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Date range start in YYYY-MM-DD format. When provided together with dateTo, activates date-range mode for this popup.',
+    example: '2026-04-01',
+  })
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'dateFrom must use YYYY-MM-DD format.',
+  })
+  dateFrom?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Date range end (inclusive) in YYYY-MM-DD format. Must be used together with dateFrom.',
+    example: '2026-04-30',
+  })
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'dateTo must use YYYY-MM-DD format.',
+  })
+  dateTo?: string;
 }
 
 export interface AdminDashboardPeriodDto {
   month: string;
   year: string;
+  /** Human-readable period label; may be a date range string in date-range mode. */
   monthLabel: string;
+  viewMode: 'month' | 'range';
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 export interface AdminDashboardSummaryDto {
