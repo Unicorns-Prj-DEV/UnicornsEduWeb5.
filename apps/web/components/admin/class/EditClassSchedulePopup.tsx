@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { ClassDetail, ClassScheduleItem } from "@/dtos/class.dto";
 import * as classApi from "@/lib/apis/class.api";
@@ -22,6 +22,7 @@ import {
   classEditorModalTitleClassName,
 } from "./classEditorModalStyles";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
+import { runBackgroundSave } from "@/lib/mutation-feedback";
 
 type ScheduleRangeForm = {
   id: string;
@@ -198,28 +199,6 @@ function EditClassScheduleDialog({
     teachers.find((teacher) => teacher.id === teacherId)?.fullName?.trim() ||
     (teacherId ? "Không còn trong danh sách gia sư của lớp" : "Chưa phân công");
 
-  const updateMutation = useMutation({
-    mutationFn: (data: { schedule: ClassScheduleItem[] }) =>
-      onSubmitSchedule
-        ? onSubmitSchedule(data)
-        : classApi.updateClassSchedule(classDetail.id, data),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["class", "detail", classDetail.id] }),
-        queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
-        Promise.resolve(onScheduleSaved?.()),
-      ]);
-      toast.success("Đã lưu khung giờ học.");
-    },
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        (err as Error)?.message ??
-        "Không thể cập nhật lịch học.";
-      toast.error(msg);
-    },
-  });
-
   const handleSubmit = () => {
     let schedulePayload: ClassScheduleItem[];
     try {
@@ -229,7 +208,24 @@ function EditClassScheduleDialog({
       return;
     }
     onClose();
-    updateMutation.mutate({ schedule: schedulePayload });
+    runBackgroundSave({
+      loadingMessage: "Đang lưu khung giờ học...",
+      successMessage: "Đã lưu khung giờ học.",
+      errorMessage: "Không thể cập nhật lịch học.",
+      action: () =>
+        onSubmitSchedule
+          ? onSubmitSchedule({ schedule: schedulePayload })
+          : classApi.updateClassSchedule(classDetail.id, {
+              schedule: schedulePayload,
+            }),
+      onSuccess: async () => {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["class", "detail", classDetail.id] }),
+          queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
+          Promise.resolve(onScheduleSaved?.()),
+        ]);
+      },
+    });
   };
 
   const handleAddRange = () => {
@@ -417,10 +413,9 @@ function EditClassScheduleDialog({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={updateMutation.isPending}
             className={classEditorModalPrimaryButtonClassName}
           >
-            {updateMutation.isPending ? "Đang lưu…" : "Lưu"}
+            Lưu
           </button>
         </div>
       </div>

@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDebounce } from "use-debounce";
-import { toast } from "sonner";
 import type { ClassListItem, ClassStatus, ClassType } from "@/dtos/class.dto";
 import type { StudentDetail } from "@/dtos/student.dto";
 import * as classApi from "@/lib/apis/class.api";
 import * as studentApi from "@/lib/apis/student.api";
+import { runBackgroundSave } from "@/lib/mutation-feedback";
 
 type Props = {
   open: boolean;
@@ -170,40 +170,6 @@ export default function EditStudentClassesPopup({
     [classesToAdd, classOptionMetaById],
   );
 
-  const updateMutation = useMutation({
-    mutationFn: async () => {
-      const nextClassIds = selectedClasses.map((item) => item.id);
-      const nextClassIdSet = new Set(nextClassIds);
-      const changedClassIds = Array.from(
-        new Set([...currentClassIds, ...nextClassIds]),
-      ).filter((classId) => currentClassIds.has(classId) !== nextClassIdSet.has(classId));
-
-      await studentApi.updateStudentClasses(student.id, {
-        class_ids: nextClassIds,
-      });
-
-      return changedClassIds;
-    },
-    onSuccess: async (changedClassIds) => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["student", "detail", student.id] }),
-        queryClient.invalidateQueries({ queryKey: ["student", "list"] }),
-        queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
-        ...changedClassIds.map((classId) =>
-          queryClient.invalidateQueries({ queryKey: ["class", "detail", classId] }),
-        ),
-      ]);
-      await onSuccess?.();
-    },
-    onError: (err: unknown) => {
-      const message =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        (err as Error)?.message ??
-        "Không thể cập nhật danh sách lớp học cho học sinh.";
-      toast.error(message);
-    },
-  });
-
   const handleAddClass = (classItem: ClassListItem) => {
     setSelectedClasses((prev) => {
       if (prev.some((item) => item.id === classItem.id)) return prev;
@@ -216,19 +182,40 @@ export default function EditStudentClassesPopup({
     setSelectedClasses((prev) => prev.filter((item) => item.id !== classId));
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!hasChanges) {
       onClose();
       return;
     }
+    const nextClassIds = selectedClasses.map((item) => item.id);
+    const nextClassIdSet = new Set(nextClassIds);
+    const changedClassIds = Array.from(
+      new Set([...currentClassIds, ...nextClassIds]),
+    ).filter((classId) => currentClassIds.has(classId) !== nextClassIdSet.has(classId));
 
-    try {
-      await updateMutation.mutateAsync();
-      toast.success("Đã cập nhật phân bổ lớp học cho học sinh.");
-      onClose();
-    } catch {
-      // handled in onError
-    }
+    onClose();
+    runBackgroundSave({
+      loadingMessage: "Đang đồng bộ danh sách lớp...",
+      successMessage: "Đã cập nhật phân bổ lớp học cho học sinh.",
+      errorMessage: "Không thể cập nhật danh sách lớp học cho học sinh.",
+      action: async () => {
+        await studentApi.updateStudentClasses(student.id, {
+          class_ids: nextClassIds,
+        });
+        return changedClassIds;
+      },
+      onSuccess: async (updatedClassIds) => {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["student", "detail", student.id] }),
+          queryClient.invalidateQueries({ queryKey: ["student", "list"] }),
+          queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
+          ...updatedClassIds.map((classId) =>
+            queryClient.invalidateQueries({ queryKey: ["class", "detail", classId] }),
+          ),
+        ]);
+        await onSuccess?.();
+      },
+    });
   };
 
   if (!open) return null;
@@ -512,10 +499,9 @@ export default function EditStudentClassesPopup({
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={updateMutation.isPending}
-              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
             >
-              {updateMutation.isPending ? "Đang đồng bộ…" : "Lưu danh sách lớp"}
+              Lưu danh sách lớp
             </button>
           </div>
         </div>

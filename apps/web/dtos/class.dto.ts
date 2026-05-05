@@ -54,7 +54,7 @@ export interface ClassTeacher {
     taxRatePercent?: number | null;
 }
 
-export type ClassStudentStatus = "active" | "inactive" | "drop_out" | string;
+export type ClassStudentStatus = "active" | "inactive" | string;
 
 export interface ClassStudent {
     id: string;

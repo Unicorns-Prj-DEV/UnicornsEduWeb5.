@@ -15,6 +15,7 @@ import {
     StudentWalletCard,
     StudentClassTuitionPopup,
 } from "@/components/admin/student";
+import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import type { StudentDetail, StudentGender, StudentStatus } from "@/dtos/student.dto";
 import {
     buildAdminLikePath,
@@ -23,6 +24,7 @@ import {
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as studentApi from "@/lib/apis/student.api";
 import { formatCurrency } from "@/lib/class.helpers";
+import { cn } from "@/lib/utils";
 
 const STATUS_LABELS: Record<StudentStatus, string> = {
     active: "Đang học",
@@ -135,6 +137,7 @@ export default function AdminStudentDetailPage() {
     const {
         data: student,
         isLoading,
+        isFetching: isStudentFetching,
         isError,
         error,
     } = useQuery<StudentDetail>({
@@ -333,7 +336,12 @@ export default function AdminStudentDetailPage() {
                 <div className="pointer-events-none absolute -left-16 top-6 size-40 rounded-full bg-primary/10 blur-3xl" aria-hidden />
                 <div className="pointer-events-none absolute bottom-0 right-0 size-52 rounded-full bg-warning/10 blur-3xl" aria-hidden />
 
-                <div className="relative">
+                <div className={cn("relative transition-opacity", isStudentFetching && "opacity-70")}>
+                    <QueryRefreshStrip
+                        active={isStudentFetching}
+                        label="Đang cập nhật hồ sơ học sinh..."
+                        className="mb-4"
+                    />
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div className="flex min-w-0 flex-1 items-start gap-3.5 sm:gap-4">
                             <div className="relative shrink-0">

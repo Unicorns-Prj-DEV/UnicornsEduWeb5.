@@ -3,11 +3,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useDebounce } from "use-debounce";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { ClassDetail } from "@/dtos/class.dto";
 import * as classApi from "@/lib/apis/class.api";
 import * as staffApi from "@/lib/apis/staff.api";
+import { runBackgroundSave } from "@/lib/mutation-feedback";
 import { cn } from "@/lib/utils";
 import {
   classEditorModalClassName,
@@ -152,30 +153,7 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const updateMutation = useMutation({
-    mutationFn: (data: {
-      teachers: {
-        teacher_id: string;
-        custom_allowance?: number;
-        operating_deduction_rate_percent: number;
-      }[];
-    }) => classApi.updateClassTeachers(classDetail.id, data),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["class", "detail", classDetail.id] }),
-        queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
-      ]);
-    },
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        (err as Error)?.message ??
-        "Không thể cập nhật danh sách gia sư.";
-      toast.error(msg);
-    },
-  });
-
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     const teachers = selectedTeachers.map((t) => ({
       teacher_id: t.id,
       ...(t.customAllowance != null
@@ -187,13 +165,19 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
         t.operatingDeductionRatePercent,
       ),
     }));
-    try {
-      await updateMutation.mutateAsync({ teachers });
-      toast.success("Đã lưu danh sách gia sư.");
-      onClose();
-    } catch {
-      // handled in onError
-    }
+    onClose();
+    runBackgroundSave({
+      loadingMessage: "Đang lưu danh sách gia sư...",
+      successMessage: "Đã lưu danh sách gia sư.",
+      errorMessage: "Không thể cập nhật danh sách gia sư.",
+      action: () => classApi.updateClassTeachers(classDetail.id, { teachers }),
+      onSuccess: async () => {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["class", "detail", classDetail.id] }),
+          queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
+        ]);
+      },
+    });
   };
 
   const staffList = staffSearchResult?.data ?? [];
@@ -452,10 +436,9 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={updateMutation.isPending}
             className={classEditorModalPrimaryButtonClassName}
           >
-            {updateMutation.isPending ? "Đang lưu…" : "Lưu"}
+            Lưu
           </button>
         </div>
       </div>

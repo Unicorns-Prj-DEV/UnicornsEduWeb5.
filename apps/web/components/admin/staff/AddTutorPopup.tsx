@@ -6,7 +6,7 @@ import {
   type KeyboardEvent,
   type SyntheticEvent,
 } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import CccdImageUploadFields from "@/components/staff/CccdImageUploadFields";
 import type {
@@ -14,6 +14,7 @@ import type {
   StaffDetail,
 } from "@/dtos/staff.dto";
 import * as staffApi from "@/lib/apis/staff.api";
+import { runBackgroundSave } from "@/lib/mutation-feedback";
 
 type Props = {
   open: boolean;
@@ -89,28 +90,6 @@ function AddTutorPopupContent({ open, onClose, onCreated }: Props) {
     [assignableUsers, selectedUserId],
   );
 
-  const createMutation = useMutation({
-    mutationFn: staffApi.createStaff,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["staff", "list"] });
-    },
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        (err as Error)?.message ??
-        "Không thể tạo hồ sơ gia sư.";
-      toast.error(msg);
-    },
-  });
-
-  const uploadCccdMutation = useMutation({
-    mutationFn: (params: {
-      userId: string;
-      frontImage?: File | null;
-      backImage?: File | null;
-    }) => staffApi.uploadStaffCccdImages(params),
-  });
-
   const handleSearch = () => {
     const trimmedEmail = emailInput.trim();
     if (trimmedEmail.length < 2) {
@@ -153,7 +132,7 @@ function AddTutorPopupContent({ open, onClose, onCreated }: Props) {
     });
   };
 
-  const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!selectedUser) {
@@ -181,36 +160,42 @@ function AddTutorPopupContent({ open, onClose, onCreated }: Props) {
       return;
     }
 
-    try {
-      const createdStaff = await createMutation.mutateAsync({
-        full_name: trimmedName,
-        cccd_number: normalizedCccd,
-        cccd_issued_date: cccdIssuedDateInput.trim() || undefined,
-        cccd_issued_place: cccdIssuedPlace.trim() || undefined,
-        birth_date: birthDateInput.trim() || undefined,
-        university: university.trim() || undefined,
-        high_school: highSchool.trim() || undefined,
-        specialization: specialization.trim() || undefined,
-        bank_account: bankAccount.trim() || undefined,
-        bank_qr_link: bankQrLink.trim() || undefined,
-        roles: Array.from(selectedRoles),
-        user_id: selectedUser.id,
-      });
-
-      if (frontImage || backImage) {
-        await uploadCccdMutation.mutateAsync({
-          userId: selectedUser.id,
-          frontImage,
-          backImage,
+    onClose();
+    runBackgroundSave({
+      loadingMessage: "Đang tạo hồ sơ nhân sự...",
+      successMessage: "Đã tạo hồ sơ gia sư.",
+      errorMessage: "Không thể tạo hồ sơ gia sư.",
+      action: async () => {
+        const createdStaff = await staffApi.createStaff({
+          full_name: trimmedName,
+          cccd_number: normalizedCccd,
+          cccd_issued_date: cccdIssuedDateInput.trim() || undefined,
+          cccd_issued_place: cccdIssuedPlace.trim() || undefined,
+          birth_date: birthDateInput.trim() || undefined,
+          university: university.trim() || undefined,
+          high_school: highSchool.trim() || undefined,
+          specialization: specialization.trim() || undefined,
+          bank_account: bankAccount.trim() || undefined,
+          bank_qr_link: bankQrLink.trim() || undefined,
+          roles: Array.from(selectedRoles),
+          user_id: selectedUser.id,
         });
-      }
 
-      await onCreated?.(createdStaff);
-      toast.success("Đã tạo hồ sơ gia sư.");
-      onClose();
-    } catch {
-      // handled in onError
-    }
+        if (frontImage || backImage) {
+          await staffApi.uploadStaffCccdImages({
+            userId: selectedUser.id,
+            frontImage,
+            backImage,
+          });
+        }
+
+        return createdStaff;
+      },
+      onSuccess: async (createdStaff) => {
+        await queryClient.invalidateQueries({ queryKey: ["staff", "list"] });
+        await onCreated?.(createdStaff);
+      },
+    });
   };
 
   return (
@@ -569,7 +554,7 @@ function AddTutorPopupContent({ open, onClose, onCreated }: Props) {
                           frontImage={frontImage}
                           backImage={backImage}
                           disabled={!selectedUser?.isEligible}
-                          isUploading={uploadCccdMutation.isPending}
+                          isUploading={false}
                           onFrontImageChange={setFrontImage}
                           onBackImageChange={setBackImage}
                         />
@@ -590,16 +575,10 @@ function AddTutorPopupContent({ open, onClose, onCreated }: Props) {
                 </button>
                 <button
                   type="submit"
-                  disabled={
-                    !selectedUser?.isEligible ||
-                    createMutation.isPending ||
-                    uploadCccdMutation.isPending
-                  }
+                  disabled={!selectedUser?.isEligible}
                   className="min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors duration-200 hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {createMutation.isPending || uploadCccdMutation.isPending
-                    ? "Đang lưu..."
-                    : "Tạo nhân sự"}
+                  Tạo nhân sự
                 </button>
               </div>
             </form>

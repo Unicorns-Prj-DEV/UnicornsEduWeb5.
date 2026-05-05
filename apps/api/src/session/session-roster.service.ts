@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { StudentClassStatus } from 'generated/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { SessionValidationService } from './session-validation.service';
 
@@ -21,6 +22,7 @@ export class SessionRosterService {
     const studentRows = await this.prisma.studentClass.findMany({
       where: {
         classId,
+        status: StudentClassStatus.active,
         studentId: {
           in: uniqueStudentIds,
         },

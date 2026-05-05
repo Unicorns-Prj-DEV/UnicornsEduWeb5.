@@ -44,6 +44,7 @@ model StudentClass {
   id                             String      @id @default(uuid())
   studentId                      String      @map("student_id")
   classId                        String      @map("class_id")
+  status                         StudentClassStatus?
   customStudentTuitionPerSession Int?        @map("custom_student_tuition_per_session")
   customTuitionPackageTotal      Int?        @map("custom_tuition_package_total")
   customTuitionPackageSession    Int?        @map("custom_tuition_package_session")

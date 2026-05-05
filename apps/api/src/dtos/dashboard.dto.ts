@@ -105,6 +105,28 @@ export class GetAdminStudentBalanceDetailsQueryDto {
   @Min(1)
   @Max(500)
   limit?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Month in 01-12 format. Defaults to current month; scopes prepaid drill-down to students with session activity in this month.',
+    example: '03',
+  })
+  @IsOptional()
+  @Matches(/^(0[1-9]|1[0-2])$/, {
+    message: 'month must use 01-12 format.',
+  })
+  month?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Year in YYYY format. Defaults to current year; pairs with month.',
+    example: '2026',
+  })
+  @IsOptional()
+  @Matches(/^\d{4}$/, {
+    message: 'year must use YYYY format.',
+  })
+  year?: string;
 }
 
 export class GetAdminDashboardFinancialDetailQueryDto {

@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, type SyntheticEvent } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type { ClassDetail, ClassStatus, ClassType, UpdateClassBasicInfoPayload } from "@/dtos/class.dto";
 import * as classApi from "@/lib/apis/class.api";
+import { runBackgroundSave } from "@/lib/mutation-feedback";
 import {
   compactTuitionPerSessionLine,
   computeStudentTuitionPerSessionFromPackage,
@@ -79,24 +80,6 @@ function EditClassBasicInfoDialog({ onClose, classDetail }: Omit<Props, "open">)
     classDetail.tuitionPackageSession == null ? "" : String(classDetail.tuitionPackageSession),
   );
 
-  const updateMutation = useMutation({
-    mutationFn: (payload: UpdateClassBasicInfoPayload) =>
-      classApi.updateClassBasicInfo(classDetail.id, payload),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["class", "detail", classDetail.id] }),
-        queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
-      ]);
-    },
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        (err as Error)?.message ??
-        "Không thể cập nhật thông tin lớp.";
-      toast.error(msg);
-    },
-  });
-
   const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmedName = name.trim();
@@ -134,13 +117,19 @@ function EditClassBasicInfoDialog({ onClose, classDetail }: Omit<Props, "open">)
       tuition_package_total: tuitionPkg.mode === "empty" ? undefined : tuitionPkg.total,
       tuition_package_session: tuitionPkg.mode === "empty" ? undefined : tuitionPkg.sessions,
     };
-    try {
-      await updateMutation.mutateAsync(payload);
-      toast.success("Đã lưu.");
-      onClose();
-    } catch {
-      // handled in onError
-    }
+    onClose();
+    runBackgroundSave({
+      loadingMessage: "Đang lưu thông tin lớp...",
+      successMessage: "Đã lưu thông tin lớp.",
+      errorMessage: "Không thể cập nhật thông tin lớp.",
+      action: () => classApi.updateClassBasicInfo(classDetail.id, payload),
+      onSuccess: async () => {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["class", "detail", classDetail.id] }),
+          queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
+        ]);
+      },
+    });
   };
 
   const tuitionBrief = compactTuitionPerSessionLine(tuitionPackageTotalInput, tuitionPackageSessionInput);
@@ -285,10 +274,9 @@ function EditClassBasicInfoDialog({ onClose, classDetail }: Omit<Props, "open">)
           <button
             type="submit"
             form={formId}
-            disabled={updateMutation.isPending}
             className={classEditorModalPrimaryButtonClassName}
           >
-            {updateMutation.isPending ? "Đang lưu…" : "Lưu"}
+            Lưu
           </button>
         </div>
       </div>

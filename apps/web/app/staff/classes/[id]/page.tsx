@@ -20,6 +20,7 @@ import AdminClassDetailPage from "@/app/admin/classes/[id]/page";
 import AddSessionPopup from "@/components/admin/class/AddSessionPopup";
 import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable";
 import MonthNav from "@/components/admin/MonthNav";
+import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import type {
   ClassDetail,
   ClassScheduleItem,
@@ -30,6 +31,7 @@ import type { SessionCreatePayload, SessionItem, SessionUpdatePayload } from "@/
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as staffOpsApi from "@/lib/apis/staff-ops.api";
 import { formatCurrency } from "@/lib/class.helpers";
+import { cn } from "@/lib/utils";
 
 const STATUS_LABELS: Record<ClassStatus, string> = {
   running: "Đang chạy",
@@ -44,7 +46,7 @@ const TYPE_LABELS: Record<ClassType, string> = {
 };
 
 function isClassStudentActive(status?: string | null): boolean {
-  return (status ?? "active").toLowerCase() === "active";
+  return (status ?? "").toLowerCase() === "active";
 }
 
 function getCurrentMonthValue() {
@@ -140,6 +142,7 @@ export default function StaffClassDetailPage() {
   const {
     data: classDetail,
     isLoading,
+    isFetching: isClassDetailFetching,
     isError,
   } = useQuery<ClassDetail>({
     queryKey: classDetailQueryKey,
@@ -152,6 +155,7 @@ export default function StaffClassDetailPage() {
   const {
     data: sessions = [],
     isLoading: isSessionsLoading,
+    isFetching: isSessionsFetching,
     isError: isSessionsError,
   } = useQuery<SessionItem[]>({
     queryKey: sessionsQueryKey,
@@ -212,7 +216,7 @@ export default function StaffClassDetailPage() {
     : "Không có buổi học trong tháng này.";
   const canCreateSession =
     canManageSessions &&
-    classStudents.length > 0 &&
+    activeClassStudents.length > 0 &&
     (hasTeacherSelfServiceAccess ? true : teacherCount === 1);
   const defaultTeacherId = hasTeacherSelfServiceAccess
     ? actorStaffId
@@ -560,6 +564,10 @@ export default function StaffClassDetailPage() {
       ) : null}
 
       <div className="flex flex-col gap-3">
+        <QueryRefreshStrip
+          active={isClassDetailFetching}
+          label="Đang cập nhật dữ liệu lớp..."
+        />
         <div className="grid gap-3 lg:grid-cols-2">
           <TutorCard
             teachers={classDetail.teachers}
@@ -760,6 +768,11 @@ export default function StaffClassDetailPage() {
               />
             </div>
           </div>
+          <QueryRefreshStrip
+            active={isSessionsFetching && !isSessionsLoading}
+            label="Đang tải lại lịch sử buổi học..."
+            className="mb-3"
+          />
 
           {!canCreateSession && canManageSessions ? (
             <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
@@ -774,22 +787,24 @@ export default function StaffClassDetailPage() {
           {isSessionsLoading ? (
             <SessionHistoryTableSkeleton rows={5} entityMode="teacher" showActionsColumn={canManageSessions} />
           ) : (
-            <SessionHistoryTable
-              sessions={sessions}
-              entityMode="teacher"
-              statusMode="payment"
-              emptyText={teacherScopedEmptyText}
-              editorLayout="wide"
-              showActionsColumn={canManageSessions}
-              teachers={popupTeachers}
-              getClassStudents={getClassStudentsForEditor}
-              allowTeacherSelection={false}
-              allowFinancialEdits={false}
-              allowCoefficientEdit
-              allowPaymentStatusEdit={false}
-              allowDeleteSession={false}
-              updateSessionFn={handleUpdateSession}
-            />
+            <div className={cn("transition-opacity", isSessionsFetching && "opacity-70")}>
+              <SessionHistoryTable
+                sessions={sessions}
+                entityMode="teacher"
+                statusMode="payment"
+                emptyText={teacherScopedEmptyText}
+                editorLayout="wide"
+                showActionsColumn={canManageSessions}
+                teachers={popupTeachers}
+                getClassStudents={getClassStudentsForEditor}
+                allowTeacherSelection={false}
+                allowFinancialEdits={false}
+                allowCoefficientEdit
+                allowPaymentStatusEdit={false}
+                allowDeleteSession={false}
+                updateSessionFn={handleUpdateSession}
+              />
+            </div>
           )}
           {isSessionsError ? (
             <p className="mt-3 text-sm text-error">Không tải được lịch sử buổi học.</p>

@@ -164,19 +164,22 @@ function normalizeInteger(value: number | string | null | undefined) {
 function buildDashboardRange(month?: string, year?: string) {
   const now = new Date();
   const normalizedYear = year ?? String(now.getFullYear());
-  const normalizedMonth = month ?? String(now.getMonth() + 1).padStart(2, '0');
+  const normalizedMonth = (month ?? String(now.getMonth() + 1)).padStart(
+    2,
+    '0',
+  );
   const parsedYear = Number(normalizedYear);
   const parsedMonth = Number(normalizedMonth);
 
-  const monthStart = new Date(parsedYear, parsedMonth - 1, 1);
-  const monthEnd = new Date(parsedYear, parsedMonth, 1);
-  const yearStart = new Date(parsedYear, 0, 1);
-  const yearEnd = new Date(parsedYear + 1, 0, 1);
+  const monthStart = new Date(Date.UTC(parsedYear, parsedMonth - 1, 1));
+  const monthEnd = new Date(Date.UTC(parsedYear, parsedMonth, 1));
+  const yearStart = new Date(Date.UTC(parsedYear, 0, 1));
+  const yearEnd = new Date(Date.UTC(parsedYear + 1, 0, 1));
 
   return {
     month: normalizedMonth,
     year: normalizedYear,
-    monthKey: `${normalizedYear}-${normalizedMonth}`,
+    monthKey: `${parsedYear}-${normalizedMonth}`,
     monthStart,
     monthEnd,
     yearStart,
@@ -184,12 +187,31 @@ function buildDashboardRange(month?: string, year?: string) {
   };
 }
 
+/** Calendar month key for SQL/FE; use UTC so PG DATE rows parse consistently across server TZ. */
 function formatMonthKey(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
 function formatMonthShort(date: Date) {
-  return `T${String(date.getMonth() + 1).padStart(2, '0')}`;
+  return `T${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+/** Inclusive calendar start and exclusive end as YYYY-MM-DD for raw SQL (timezone-safe DATE bounds). */
+function buildCalendarPeriodStrings(anchorMonthKey: string) {
+  const [yStr, mStr] = anchorMonthKey.split('-');
+  const y = Number(yStr);
+  const m = Number(mStr);
+  const periodStartStr = `${yStr}-${mStr}-01`;
+  const nextY = m === 12 ? y + 1 : y;
+  const nextM = m === 12 ? 1 : m + 1;
+  const periodEndExclusiveStr = `${nextY}-${String(nextM).padStart(2, '0')}-01`;
+  const yearEndMonthKeyExclusive = `${nextY}-${String(nextM).padStart(2, '0')}`;
+  return {
+    periodStartStr,
+    periodEndExclusiveStr,
+    yearStartMonthKey: anchorMonthKey,
+    yearEndMonthKeyExclusive,
+  };
 }
 
 function formatMonthLabel(month: string, year: string) {
@@ -386,20 +408,11 @@ export class DashboardService {
     return normalizeMoneyAmount(row?.totalAmount);
   }
 
-  private async getTotalLearnedTuition(): Promise<number> {
-    const [row] = await this.prisma.$queryRaw<AggregateMoneySqlRow[]>(
-      Prisma.sql`
-        SELECT
-          COALESCE(SUM(COALESCE(attendance.tuition_fee, 0)), 0) AS "totalAmount"
-        FROM attendance
-        WHERE attendance.status IN ('present', 'excused')
-      `,
-    );
-
-    return normalizeMoneyAmount(row?.totalAmount);
-  }
-
-  private async getLearnedTuitionByClass(limit: number) {
+  private async getLearnedTuitionByClassForMonth(params: {
+    monthStart: Date;
+    monthEnd: Date;
+    limit: number;
+  }) {
     return this.prisma.$queryRaw<LearnedTuitionByClassSqlRow[]>(Prisma.sql`
       SELECT
         classes.id AS "classId",
@@ -411,13 +424,18 @@ export class DashboardService {
       INNER JOIN sessions ON sessions.id = attendance.session_id
       INNER JOIN classes ON classes.id = sessions.class_id
       WHERE attendance.status IN ('present', 'excused')
+        AND sessions.date >= ${params.monthStart}
+        AND sessions.date < ${params.monthEnd}
       GROUP BY classes.id, classes.name
       ORDER BY "totalAmount" DESC, classes.name ASC
-      LIMIT ${limit}
+      LIMIT ${params.limit}
     `);
   }
 
-  private async getPrepaidTuitionTotal(): Promise<number> {
+  private async getPrepaidTuitionTotal(period: {
+    monthStart: Date;
+    monthEnd: Date;
+  }): Promise<number> {
     const [row] = await this.prisma.$queryRaw<AggregateMoneySqlRow[]>(
       Prisma.sql`
         WITH eligible_students AS (
@@ -434,6 +452,14 @@ export class DashboardService {
               WHERE student_classes.student_id = student_info.id
                 AND classes.status = 'running'
             )
+            AND EXISTS (
+              SELECT 1
+              FROM attendance att_scope
+              INNER JOIN sessions sess_scope ON sess_scope.id = att_scope.session_id
+              WHERE att_scope.student_id = student_info.id
+                AND sess_scope.date >= ${period.monthStart}
+                AND sess_scope.date < ${period.monthEnd}
+            )
         )
         SELECT COALESCE(SUM(balance), 0) AS "totalAmount"
         FROM eligible_students
@@ -444,19 +470,21 @@ export class DashboardService {
   }
 
   private async getMonthlyTrend(params: {
-    yearStart: Date;
-    yearEnd: Date;
+    /** YYYY-MM for the viewed month; drives DATE bounds without TZ drift vs generate_series. */
+    anchorMonthKey: string;
   }): Promise<MonthlyTrendNormalizedRow[]> {
-    const yearStartMonthKey = formatMonthKey(params.yearStart);
-    const yearEndMonthKeyExclusive = formatMonthKey(params.yearEnd);
-    const yearStartDateKey = formatDateKey(params.yearStart);
-    const yearEndDateKey = formatDateKey(params.yearEnd);
+    const {
+      periodStartStr,
+      periodEndExclusiveStr,
+      yearStartMonthKey,
+      yearEndMonthKeyExclusive,
+    } = buildCalendarPeriodStrings(params.anchorMonthKey);
 
     const rows = await this.prisma.$queryRaw<MonthlyTrendSqlRow[]>(Prisma.sql`
       WITH month_series AS (
         SELECT generate_series(
-          ${params.yearStart}::date,
-          (${params.yearEnd}::date - INTERVAL '1 month')::date,
+          ${periodStartStr}::date,
+          (${periodEndExclusiveStr}::date - INTERVAL '1 month')::date,
           INTERVAL '1 month'
         )::date AS month_start
       ),
@@ -466,8 +494,8 @@ export class DashboardService {
           COALESCE(SUM(COALESCE(attendance.tuition_fee, 0)), 0) AS revenue
         FROM attendance
         INNER JOIN sessions ON sessions.id = attendance.session_id
-        WHERE sessions.date >= ${params.yearStart}
-          AND sessions.date < ${params.yearEnd}
+        WHERE sessions.date >= ${periodStartStr}::date
+          AND sessions.date < ${periodEndExclusiveStr}::date
           AND attendance.status IN ('present', 'excused')
         GROUP BY 1
       ),
@@ -487,8 +515,8 @@ export class DashboardService {
         FROM attendance
         INNER JOIN sessions ON sessions.id = attendance.session_id
         INNER JOIN classes ON classes.id = sessions.class_id
-        WHERE sessions.date >= ${params.yearStart}
-          AND sessions.date < ${params.yearEnd}
+        WHERE sessions.date >= ${periodStartStr}::date
+          AND sessions.date < ${periodEndExclusiveStr}::date
         GROUP BY
           1,
           sessions.id,
@@ -520,8 +548,8 @@ export class DashboardService {
           ) AS amount
         FROM attendance
         INNER JOIN sessions ON sessions.id = attendance.session_id
-        WHERE sessions.date >= ${params.yearStart}
-          AND sessions.date < ${params.yearEnd}
+        WHERE sessions.date >= ${periodStartStr}::date
+          AND sessions.date < ${periodEndExclusiveStr}::date
         GROUP BY 1
       ),
       monthly_lesson_cost AS (
@@ -529,8 +557,8 @@ export class DashboardService {
           date_trunc('month', lesson_outputs.date)::date AS month_start,
           COALESCE(SUM(COALESCE(lesson_outputs.cost, 0)), 0) AS amount
         FROM lesson_outputs
-        WHERE lesson_outputs.date >= ${params.yearStart}
-          AND lesson_outputs.date < ${params.yearEnd}
+        WHERE lesson_outputs.date >= ${periodStartStr}::date
+          AND lesson_outputs.date < ${periodEndExclusiveStr}::date
         GROUP BY 1
       ),
       monthly_bonus_cost AS (
@@ -571,8 +599,8 @@ export class DashboardService {
           AND cost_extend.month < ${yearEndMonthKeyExclusive}
         ) OR (
           cost_extend.date IS NOT NULL
-          AND cost_extend.date >= ${yearStartDateKey}
-          AND cost_extend.date < ${yearEndDateKey}
+          AND cost_extend.date::date >= ${periodStartStr}::date
+          AND cost_extend.date::date < ${periodEndExclusiveStr}::date
         )
         GROUP BY 1
       )
@@ -656,7 +684,10 @@ export class DashboardService {
     );
   }
 
-  private async getExpiringStudents(limit: number) {
+  private async getExpiringStudents(
+    limit: number,
+    period: { monthStart: Date; monthEnd: Date },
+  ) {
     return this.prisma.$queryRaw<StudentAlertSqlRow[]>(Prisma.sql`
       WITH student_financials AS (
         SELECT
@@ -705,6 +736,14 @@ export class DashboardService {
         LEFT JOIN users owner_user ON owner_user.id = staff_info.user_id
         WHERE classes.status = 'running'
           AND student_info.status = 'active'
+          AND EXISTS (
+            SELECT 1
+            FROM attendance att_scope
+            INNER JOIN sessions sess_scope ON sess_scope.id = att_scope.session_id
+            WHERE att_scope.student_id = student_info.id
+              AND sess_scope.date >= ${period.monthStart}
+              AND sess_scope.date < ${period.monthEnd}
+          )
         GROUP BY
           student_info.id,
           student_info.full_name,
@@ -754,7 +793,10 @@ export class DashboardService {
     `);
   }
 
-  private async getDebtStudents(limit: number) {
+  private async getDebtStudents(
+    limit: number,
+    period: { monthStart: Date; monthEnd: Date },
+  ) {
     return this.prisma.$queryRaw<StudentAlertSqlRow[]>(Prisma.sql`
       WITH student_financials AS (
         SELECT
@@ -803,6 +845,14 @@ export class DashboardService {
         LEFT JOIN users owner_user ON owner_user.id = staff_info.user_id
         WHERE classes.status = 'running'
           AND student_info.status = 'active'
+          AND EXISTS (
+            SELECT 1
+            FROM attendance att_scope
+            INNER JOIN sessions sess_scope ON sess_scope.id = att_scope.session_id
+            WHERE att_scope.student_id = student_info.id
+              AND sess_scope.date >= ${period.monthStart}
+              AND sess_scope.date < ${period.monthEnd}
+          )
         GROUP BY
           student_info.id,
           student_info.full_name,
@@ -846,7 +896,10 @@ export class DashboardService {
     `);
   }
 
-  private async getUnpaidStaff(limit: number) {
+  private async getUnpaidStaff(
+    limit: number,
+    period: { monthStart: Date; monthEnd: Date; monthKey: string },
+  ) {
     return this.prisma.$queryRaw<StaffUnpaidAlertSqlRow[]>(Prisma.sql`
       WITH active_staff AS (
         SELECT
@@ -883,6 +936,8 @@ export class DashboardService {
         INNER JOIN classes ON classes.id = sessions.class_id
         INNER JOIN active_staff ON active_staff.id = sessions.teacher_id
         WHERE LOWER(COALESCE(sessions.teacher_payment_status, '')) = 'unpaid'
+          AND sessions.date >= ${period.monthStart}
+          AND sessions.date < ${period.monthEnd}
         GROUP BY
           sessions.teacher_id,
           sessions.id,
@@ -904,6 +959,7 @@ export class DashboardService {
         FROM bonuses
         INNER JOIN active_staff ON active_staff.id = bonuses.staff_id
         WHERE bonuses.status::text = 'pending'
+          AND bonuses.month = ${period.monthKey}
         GROUP BY bonuses.staff_id
       ),
       customer_care_unpaid AS (
@@ -922,8 +978,11 @@ export class DashboardService {
             0
           ) AS amount
         FROM attendance
+        INNER JOIN sessions ON sessions.id = attendance.session_id
         INNER JOIN active_staff ON active_staff.id = attendance.customer_care_staff_id
         WHERE COALESCE(attendance.customer_care_payment_status::text, 'pending') = 'pending'
+          AND sessions.date >= ${period.monthStart}
+          AND sessions.date < ${period.monthEnd}
         GROUP BY attendance.customer_care_staff_id
       ),
       lesson_output_unpaid AS (
@@ -933,6 +992,8 @@ export class DashboardService {
         FROM lesson_outputs
         INNER JOIN active_staff ON active_staff.id = lesson_outputs.staff_id
         WHERE lesson_outputs.payment_status::text = 'pending'
+          AND lesson_outputs.date >= ${period.monthStart}
+          AND lesson_outputs.date < ${period.monthEnd}
         GROUP BY lesson_outputs.staff_id
       ),
       extra_allowance_unpaid AS (
@@ -942,6 +1003,7 @@ export class DashboardService {
         FROM extra_allowances
         INNER JOIN active_staff ON active_staff.id = extra_allowances.staff_id
         WHERE extra_allowances.status::text = 'pending'
+          AND extra_allowances.month = ${period.monthKey}
         GROUP BY extra_allowances.staff_id
       ),
       assistant_unpaid AS (
@@ -957,9 +1019,12 @@ export class DashboardService {
             0
           ) AS amount
         FROM attendance
+        INNER JOIN sessions ON sessions.id = attendance.session_id
         INNER JOIN active_staff ON active_staff.id = attendance.assistant_manager_staff_id
         WHERE attendance.status IN ('present', 'excused')
           AND COALESCE(attendance.assistant_payment_status::text, 'pending') = 'pending'
+          AND sessions.date >= ${period.monthStart}
+          AND sessions.date < ${period.monthEnd}
         GROUP BY attendance.assistant_manager_staff_id
       ),
       combined AS (
@@ -1123,16 +1188,16 @@ export class DashboardService {
   }
 
   private async getQuarterClassCounts(params: {
-    yearStart: Date;
-    yearEnd: Date;
+    monthStart: Date;
+    monthEnd: Date;
   }) {
     return this.prisma.$queryRaw<QuarterClassCountSqlRow[]>(Prisma.sql`
       SELECT
         EXTRACT(QUARTER FROM sessions.date)::int AS "quarterNumber",
         COUNT(DISTINCT sessions.class_id) AS "classCount"
       FROM sessions
-      WHERE sessions.date >= ${params.yearStart}
-        AND sessions.date < ${params.yearEnd}
+      WHERE sessions.date >= ${params.monthStart}
+        AND sessions.date < ${params.monthEnd}
       GROUP BY 1
     `);
   }
@@ -2012,6 +2077,12 @@ export class DashboardService {
     month: string;
     year: string;
   }): Promise<StaffDashboardAccountantSectionDto> {
+    const builtRange = buildDashboardRange(range.month, range.year);
+    const dashboardMonthPeriod = {
+      monthStart: builtRange.monthStart,
+      monthEnd: builtRange.monthEnd,
+      monthKey: builtRange.monthKey,
+    };
     const [adminDashboard, unpaidRows] = await Promise.all([
       this.getAdminDashboard({
         month: range.month,
@@ -2019,7 +2090,7 @@ export class DashboardService {
         alertLimit: 6,
         topClassLimit: 5,
       }),
-      this.getUnpaidStaff(6),
+      this.getUnpaidStaff(6, dashboardMonthPeriod),
     ]);
 
     const financialOverview: StaffDashboardFinancialOverviewDto = {
@@ -2145,10 +2216,15 @@ export class DashboardService {
       }),
       cacheType: 'aggregate',
       loader: async () => {
+        const dashboardMonthPeriod = {
+          monthStart: range.monthStart,
+          monthEnd: range.monthEnd,
+          monthKey: range.monthKey,
+        };
+
         const [
           summaryCounts,
           monthlyTopupTotal,
-          totalLearnedTuition,
           trendRows,
           prepaidTuitionTotal,
           expiringStudents,
@@ -2162,23 +2238,24 @@ export class DashboardService {
             monthStart: range.monthStart,
             monthEnd: range.monthEnd,
           }),
-          this.getTotalLearnedTuition(),
           this.getMonthlyTrend({
-            yearStart: range.yearStart,
-            yearEnd: range.yearEnd,
+            anchorMonthKey: range.monthKey,
           }),
-          this.getPrepaidTuitionTotal(),
-          this.getExpiringStudents(alertLimit),
-          this.getDebtStudents(alertLimit),
-          this.getUnpaidStaff(alertLimit),
+          this.getPrepaidTuitionTotal({
+            monthStart: range.monthStart,
+            monthEnd: range.monthEnd,
+          }),
+          this.getExpiringStudents(alertLimit, dashboardMonthPeriod),
+          this.getDebtStudents(alertLimit, dashboardMonthPeriod),
+          this.getUnpaidStaff(alertLimit, dashboardMonthPeriod),
           this.getTopClasses({
             monthStart: range.monthStart,
             monthEnd: range.monthEnd,
             limit: topClassLimit,
           }),
           this.getQuarterClassCounts({
-            yearStart: range.yearStart,
-            yearEnd: range.yearEnd,
+            monthStart: range.monthStart,
+            monthEnd: range.monthEnd,
           }),
         ]);
 
@@ -2186,6 +2263,7 @@ export class DashboardService {
           trendRows,
           range,
         );
+        const totalLearnedTuition = selectedMonthTrend.revenue;
 
         const expiringStudentsCount = normalizeInteger(
           expiringStudents[0]?.totalCount,
@@ -2396,6 +2474,12 @@ export class DashboardService {
       }),
       cacheType: 'financial-detail',
       loader: async () => {
+        const dashboardMonthPeriod = {
+          monthStart: range.monthStart,
+          monthEnd: range.monthEnd,
+          monthKey: range.monthKey,
+        };
+
         switch (query.rowKey) {
           case 'topup': {
             const [amount, history] = await Promise.all([
@@ -2437,51 +2521,34 @@ export class DashboardService {
             };
           }
           case 'revenue': {
-            const [totalLearnedTuition, trendRows, classRows] =
-              await Promise.all([
-                this.getTotalLearnedTuition(),
-                this.getMonthlyTrend({
-                  yearStart: range.yearStart,
-                  yearEnd: range.yearEnd,
-                }),
-                this.getLearnedTuitionByClass(limit),
-              ]);
+            const [trendRows, classRows] = await Promise.all([
+              this.getMonthlyTrend({
+                anchorMonthKey: range.monthKey,
+              }),
+              this.getLearnedTuitionByClassForMonth({
+                monthStart: range.monthStart,
+                monthEnd: range.monthEnd,
+                limit,
+              }),
+            ]);
             const selectedMonthTrend = this.resolveSelectedMonthTrend(
               trendRows,
               range,
             );
-            const yearlyRevenue = trendRows.reduce(
-              (sum, row) => sum + row.revenue,
-              0,
-            );
+            const monthLearnedTotal = selectedMonthTrend.revenue;
 
             return {
               rowKey: query.rowKey,
               title: 'Chi tiết Học phí đã học',
-              description:
-                'Tổng học phí đã ghi nhận từ toàn bộ attendance present của tất cả học sinh.',
-              amount: totalLearnedTuition,
+              description: `Tổng học phí đã ghi nhận trong ${periodLabel} (attendance present/excused).`,
+              amount: monthLearnedTotal,
               sources: [
                 {
-                  key: 'learned-total',
-                  label: 'Lũy kế toàn hệ thống',
-                  amount: totalLearnedTuition,
-                  note: 'Tính từ tất cả buổi học có attendance present.',
-                  tone: 'positive',
-                },
-                {
                   key: 'learned-month',
-                  label: `Riêng ${periodLabel}`,
-                  amount: selectedMonthTrend.revenue,
-                  note: 'Học phí đã ghi nhận trong tháng đang xem.',
-                  tone: 'neutral',
-                },
-                {
-                  key: 'learned-year',
-                  label: `Năm ${range.year}`,
-                  amount: yearlyRevenue,
-                  note: 'Tổng học phí đã ghi nhận trong năm đang xem.',
-                  tone: 'neutral',
+                  label: `Học phí đã học · ${periodLabel}`,
+                  amount: monthLearnedTotal,
+                  note: 'Tính từ attendance present/excused có sessions.date trong tháng đang xem.',
+                  tone: 'positive',
                 },
               ],
               items: classRows.map<AdminDashboardFinancialDetailItemDto>(
@@ -2498,22 +2565,29 @@ export class DashboardService {
           }
           case 'prepaid': {
             const [amount, rows] = await Promise.all([
-              this.getPrepaidTuitionTotal(),
-              this.getAdminStudentBalanceDetails({ limit }),
+              this.getPrepaidTuitionTotal({
+                monthStart: range.monthStart,
+                monthEnd: range.monthEnd,
+              }),
+              this.getAdminStudentBalanceDetails({
+                limit,
+                month: range.month,
+                year: range.year,
+              }),
             ]);
 
             return {
               rowKey: query.rowKey,
               title: 'Chi tiết Nợ học phí chưa dạy',
               description:
-                'Số dư dương hiện tại của học sinh active thuộc lớp running.',
+                'Số dư dương hiện tại của học sinh active (lớp running) có phát sinh buổi học trong tháng đang xem.',
               amount,
               sources: [
                 {
                   key: 'prepaid-total',
                   label: 'Số dư dương đang treo',
                   amount,
-                  note: 'Chỉ tính học sinh active có ít nhất một lớp running.',
+                  note: 'Chỉ học sinh có ít nhất một session trong tháng đang xem.',
                   tone: 'positive',
                 },
               ],
@@ -2528,7 +2602,10 @@ export class DashboardService {
             };
           }
           case 'uncollected': {
-            const rows = await this.getDebtStudents(limit);
+            const rows = await this.getDebtStudents(
+              limit,
+              dashboardMonthPeriod,
+            );
             const amount = normalizeMoneyAmount(rows[0]?.totalAmount);
             const totalCount = normalizeInteger(rows[0]?.totalCount);
 
@@ -2560,7 +2637,7 @@ export class DashboardService {
             };
           }
           case 'pending-payroll': {
-            const rows = await this.getUnpaidStaff(limit);
+            const rows = await this.getUnpaidStaff(limit, dashboardMonthPeriod);
             const amount = normalizeMoneyAmount(rows[0]?.totalAmount);
             const totalSessionAmount = normalizeMoneyAmount(
               rows[0]?.totalSessionAmount,
@@ -2582,7 +2659,7 @@ export class DashboardService {
               rowKey: query.rowKey,
               title: 'Chi tiết Chờ thanh toán trợ cấp',
               description:
-                'Tổng các khoản pending cần chi trả cho nhân sự active trên hệ thống.',
+                'Các khoản pending gắn với buổi học / giáo án / tháng record trong tháng đang xem.',
               amount,
               sources: [
                 {
@@ -2664,8 +2741,7 @@ export class DashboardService {
                 monthEnd: range.monthEnd,
               }),
               this.getMonthlyTrend({
-                yearStart: range.yearStart,
-                yearEnd: range.yearEnd,
+                anchorMonthKey: range.monthKey,
               }),
             ]);
             const selectedMonthTrend = this.resolveSelectedMonthTrend(
@@ -2900,9 +2976,16 @@ export class DashboardService {
     query: GetAdminStudentBalanceDetailsQueryDto,
   ): Promise<AdminDashboardStudentBalanceItemDto[]> {
     const limit = typeof query.limit === 'number' ? query.limit : 250;
+    const monthFilter = query.month;
+    const yearFilter = query.year;
+    const range = buildDashboardRange(monthFilter, yearFilter);
 
     return this.dashboardCacheService.wrapJson({
-      key: buildCacheKey('student-balance-details', { limit }),
+      key: buildCacheKey('student-balance-details', {
+        limit,
+        month: range.month,
+        year: range.year,
+      }),
       cacheType: 'student-balance-details',
       loader: async () => {
         const rows = await this.prisma.$queryRaw<
@@ -2919,6 +3002,14 @@ export class DashboardService {
           WHERE student_info.status = 'active'
             AND classes.status = 'running'
             AND COALESCE(student_info.account_balance, 0) > 0
+            AND EXISTS (
+              SELECT 1
+              FROM attendance att_scope
+              INNER JOIN sessions sess_scope ON sess_scope.id = att_scope.session_id
+              WHERE att_scope.student_id = student_info.id
+                AND sess_scope.date >= ${range.monthStart}
+                AND sess_scope.date < ${range.monthEnd}
+            )
           GROUP BY
             student_info.id,
             student_info.full_name,

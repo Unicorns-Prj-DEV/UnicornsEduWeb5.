@@ -3,17 +3,19 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useDebouncedCallback } from "use-debounce";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as classApi from "@/lib/apis/class.api";
 import { AddClassPopup, ClassListTableSkeleton } from "@/components/admin/class";
+import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import { ClassListResponse, ClassStatus, ClassType } from "@/dtos/class.dto";
 import {
   buildAdminLikePath,
   resolveAdminLikeRouteBase,
 } from "@/lib/admin-shell-paths";
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
+import { cn } from "@/lib/utils";
 
 const SEARCH_DEBOUNCE_MS = 1000;
 const PAGE_SIZE = 20;
@@ -121,6 +123,7 @@ export default function AdminClassesPage() {
   const {
     data: classListResponse,
     isLoading,
+    isFetching,
     isError,
     error,
   } = useQuery<ClassListResponse>({
@@ -131,6 +134,7 @@ export default function AdminClassesPage() {
         limit: PAGE_SIZE,
         search: search.trim() || undefined,
       }),
+    placeholderData: keepPreviousData,
   });
 
   const list = useMemo<ClassRow[]>(() => {
@@ -264,6 +268,11 @@ export default function AdminClassesPage() {
         </section>
 
         <div className="min-w-0 flex-1 overflow-auto px-0.5 py-1">
+          <QueryRefreshStrip
+            active={isFetching && !isLoading && list.length > 0}
+            label="Đang tải lại danh sách lớp..."
+            className="mb-3"
+          />
           {isLoading ? (
             <ClassListTableSkeleton rows={6} />
           ) : isError ? (
@@ -284,7 +293,13 @@ export default function AdminClassesPage() {
             </div>
           ) : (
             <>
-              <div className="space-y-3 sm:hidden">
+              <div
+                className={cn(
+                  "space-y-3 transition-opacity",
+                  isFetching && list.length > 0 && "opacity-70",
+                )}
+              >
+                <div className="space-y-3 sm:hidden">
                 {list.map((row) => (
                   <article
                     key={row.id}
@@ -353,10 +368,10 @@ export default function AdminClassesPage() {
                     </div>
                   </article>
                 ))}
-              </div>
+                </div>
 
-              <div className="hidden overflow-x-auto sm:block">
-                <table className="w-full min-w-[620px] border-collapse text-left text-sm">
+                <div className="hidden overflow-x-auto sm:block">
+                  <table className="w-full min-w-[620px] border-collapse text-left text-sm">
                   <caption className="sr-only">Danh sách lớp học</caption>
                   <thead>
                     <tr className="border-b border-border-default bg-bg-secondary/80">
@@ -444,42 +459,43 @@ export default function AdminClassesPage() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                  </table>
+                </div>
 
-              {totalPages > 1 && (
-                <nav
-                  className="mt-4 flex flex-col gap-3 border-t border-border-default pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between"
-                  aria-label="Phân trang"
-                >
-                  <p className="text-sm text-text-muted" aria-live="polite">
-                    Hiển thị {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, total)} trong {total} lớp học
-                  </p>
-                  <div className="grid grid-cols-3 items-center gap-2 sm:flex sm:items-center">
-                    <button
-                      type="button"
-                      className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-                      disabled={currentPage <= 1}
-                      aria-label="Trang trước"
-                      onClick={handlePreviousPage}
-                    >
-                      Trước
-                    </button>
-                    <span className="text-center tabular-nums text-sm text-text-secondary">
-                      {currentPage}/{totalPages}
-                    </span>
-                    <button
-                      type="button"
-                      className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-                      disabled={currentPage >= totalPages}
-                      aria-label="Trang sau"
-                      onClick={handleNextPage}
-                    >
-                      Sau
-                    </button>
-                  </div>
-                </nav>
-              )}
+                {totalPages > 1 && (
+                  <nav
+                    className="mt-4 flex flex-col gap-3 border-t border-border-default pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between"
+                    aria-label="Phân trang"
+                  >
+                    <p className="text-sm text-text-muted" aria-live="polite">
+                      Hiển thị {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, total)} trong {total} lớp học
+                    </p>
+                    <div className="grid grid-cols-3 items-center gap-2 sm:flex sm:items-center">
+                      <button
+                        type="button"
+                        className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={currentPage <= 1}
+                        aria-label="Trang trước"
+                        onClick={handlePreviousPage}
+                      >
+                        Trước
+                      </button>
+                      <span className="text-center tabular-nums text-sm text-text-secondary">
+                        {currentPage}/{totalPages}
+                      </span>
+                      <button
+                        type="button"
+                        className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={currentPage >= totalPages}
+                        aria-label="Trang sau"
+                        onClick={handleNextPage}
+                      >
+                        Sau
+                      </button>
+                    </div>
+                  </nav>
+                )}
+              </div>
             </>
           )}
         </div>

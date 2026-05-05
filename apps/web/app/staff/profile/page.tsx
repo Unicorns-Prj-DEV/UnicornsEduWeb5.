@@ -697,7 +697,7 @@ export default function StaffSelfDetailPage() {
       });
     }
 
-    return cards;
+    return cards.filter((card) => card.value > 0);
   })();
   const avatarLabel = (staffDisplayName || "?")
     .charAt(0)
@@ -859,7 +859,7 @@ export default function StaffSelfDetailPage() {
               )}
             </article>
           </div>
-          {canViewBeforeDeduction ? (
+          {canViewBeforeDeduction && beforeDeductionCards.length > 0 ? (
             <div className="mt-3 rounded-xl border border-border-default bg-bg-tertiary/70 px-4 py-3">
               <p className="text-xs font-medium uppercase tracking-wide text-text-muted">Trước khấu trừ</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">

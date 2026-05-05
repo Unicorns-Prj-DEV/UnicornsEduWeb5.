@@ -178,6 +178,9 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 ### 4.4.0 `student_classes` (Class ↔ StudentInfo)
 
 - Bảng N-N: mỗi hàng là một học sinh thuộc một lớp.
+- `status` (`StudentClassStatus`, nullable): trạng thái tham gia lớp của học sinh (`active | inactive`).
+  - Runtime rule hiện tại: `null` được xử lý như `inactive` trong các luồng vận hành lớp (danh sách học sinh đang học, sĩ số, tạo buổi mới, validate attendance).
+  - Khi thêm/tái thêm học sinh vào lớp qua API quản trị, backend luôn ghi `status = active`; khi bỏ khỏi danh sách lớp, backend chuyển `status = inactive` thay vì xóa bản ghi membership.
 - Các cột override học phí (nullable int):
   - `custom_student_tuition_per_session`
   - `custom_tuition_package_total`
@@ -414,6 +417,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 - `ClassStatus`: `running | ended`
 - `ClassType`: `vip | basic | advance | hardcore`
+- `StudentClassStatus`: `active | inactive`
 - `AttendanceStatus`: `present | excused | absent`
 
 ### Finance

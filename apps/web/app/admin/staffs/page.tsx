@@ -9,12 +9,14 @@ import { getFullProfile } from "@/lib/apis/auth.api";
 import * as staffApi from "@/lib/apis/staff.api";
 import { ROLE_LABELS } from "@/lib/staff.constants";
 import { StaffListTableSkeleton } from "@/components/admin/staff";
+import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import { StaffListResponse, StaffStatus } from "@/dtos/staff.dto";
 import {
   buildAdminLikePath,
   resolveAdminLikeRouteBase,
 } from "@/lib/admin-shell-paths";
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
+import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE_MS = 1000;
@@ -176,6 +178,7 @@ export default function AdminStaffPage() {
   const {
     data: staffListResponse,
     isLoading,
+    isFetching,
     isError,
     error,
   } = useQuery<StaffListResponse>({
@@ -538,6 +541,11 @@ export default function AdminStaffPage() {
         ) : null}
 
         <div className="min-w-0 flex-1 overflow-auto">
+          <QueryRefreshStrip
+            active={isFetching && !isLoading && staffRows.length > 0}
+            label="Đang tải lại danh sách nhân sự..."
+            className="mb-3"
+          />
           {isLoading ? (
             <StaffListTableSkeleton rows={5} />
           ) : isError ? (
@@ -558,7 +566,13 @@ export default function AdminStaffPage() {
             </div>
           ) : (
             <>
-              <div className="block space-y-3 md:hidden" role="list" aria-label="Danh sách nhân sự">
+              <div
+                className={cn(
+                  "transition-opacity",
+                  isFetching && staffRows.length > 0 && "opacity-70",
+                )}
+              >
+                <div className="block space-y-3 md:hidden" role="list" aria-label="Danh sách nhân sự">
                 {staffRows.map((row) => {
                   const unpaid = row.unpaidAmountTotal ?? 0;
                   const hasUnpaid = unpaid > 0;
@@ -639,17 +653,19 @@ export default function AdminStaffPage() {
                       <div className="mt-2 flex flex-col gap-1 text-sm text-text-secondary">
                         <span className="truncate">Tỉnh: {province}</span>
                         {classItems.length > 0 ? (
-                          <span className="flex flex-wrap items-center gap-1">
-                            Lớp:
-                            {classItems.map((c) => (
-                              <span
-                                key={c.id}
-                                className="inline-flex shrink-0 rounded-full bg-bg-tertiary px-2 py-0.5 text-xs font-medium text-text-secondary"
-                              >
-                                {c.name}
-                              </span>
-                            ))}
-                          </span>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-sm text-text-secondary">Lớp:</span>
+                            <div className="flex flex-col gap-1">
+                              {classItems.map((c) => (
+                                <span
+                                  key={c.id}
+                                  className="block w-full min-w-0 max-w-full whitespace-normal wrap-anywhere rounded-full bg-bg-tertiary px-2 py-0.5 text-left text-xs font-medium text-text-secondary"
+                                >
+                                  {c.name}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
                         ) : null}
                       </div>
 
@@ -659,10 +675,10 @@ export default function AdminStaffPage() {
                     </article>
                   );
                 })}
-              </div>
+                </div>
 
-              <div className="hidden overflow-x-auto md:block">
-                <table className="w-full min-w-[520px] table-fixed border-collapse text-left text-sm">
+                <div className="hidden overflow-x-auto md:block">
+                  <table className="w-full min-w-[520px] table-fixed border-collapse text-left text-sm">
                   <caption className="sr-only">Danh sách nhân sự (staff_info)</caption>
                   <thead>
                     <tr className="border-b border-border-default bg-bg-secondary/80">
@@ -737,12 +753,12 @@ export default function AdminStaffPage() {
                             <span className="block truncate">{province}</span>
                           </td>
                           <td className="w-[16%] min-w-0 px-4 py-3 text-text-secondary align-middle">
-                            <div className="flex flex-wrap gap-1">
+                            <div className="flex min-w-0 flex-col gap-1">
                               {classItems.length > 0 ? (
                                 classItems.map((c) => (
                                   <span
                                     key={c.id}
-                                    className="inline-flex shrink-0 rounded-full bg-bg-tertiary px-2 py-0.5 text-xs font-medium text-text-secondary"
+                                    className="block w-full min-w-0 max-w-full whitespace-normal wrap-anywhere rounded-full bg-bg-tertiary px-2 py-0.5 text-left text-xs font-medium text-text-secondary"
                                   >
                                     {c.name}
                                   </span>
@@ -785,40 +801,41 @@ export default function AdminStaffPage() {
                       );
                     })}
                   </tbody>
-                </table>
-              </div>
+                  </table>
+                </div>
 
-              {totalPages > 1 ? (
-                <nav
-                  className="mt-4 flex flex-col gap-3 border-t border-border-default pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between"
-                  aria-label="Phân trang"
-                >
-                  <p className="text-sm text-text-muted" aria-live="polite">
-                    Hiển thị {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, total)} trong {total} nhân sự
-                  </p>
-                  <div className="grid grid-cols-3 items-center gap-2 sm:flex sm:items-center">
-                    <button
-                      type="button"
-                      className="min-h-11 rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50 sm:py-2"
-                      disabled={currentPage <= 1}
-                      aria-label="Trang trước"
-                      onClick={handlePreviousPage}
-                    >
-                      Trước
-                    </button>
-                    <span className="text-center tabular-nums text-sm text-text-secondary">{currentPage}/{totalPages}</span>
-                    <button
-                      type="button"
-                      className="min-h-11 rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50 sm:py-2"
-                      disabled={currentPage >= totalPages}
-                      aria-label="Trang sau"
-                      onClick={handleNextPage}
-                    >
-                      Sau
-                    </button>
-                  </div>
-                </nav>
-              ) : null}
+                {totalPages > 1 ? (
+                  <nav
+                    className="mt-4 flex flex-col gap-3 border-t border-border-default pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between"
+                    aria-label="Phân trang"
+                  >
+                    <p className="text-sm text-text-muted" aria-live="polite">
+                      Hiển thị {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, total)} trong {total} nhân sự
+                    </p>
+                    <div className="grid grid-cols-3 items-center gap-2 sm:flex sm:items-center">
+                      <button
+                        type="button"
+                        className="min-h-11 rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50 sm:py-2"
+                        disabled={currentPage <= 1}
+                        aria-label="Trang trước"
+                        onClick={handlePreviousPage}
+                      >
+                        Trước
+                      </button>
+                      <span className="text-center tabular-nums text-sm text-text-secondary">{currentPage}/{totalPages}</span>
+                      <button
+                        type="button"
+                        className="min-h-11 rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50 sm:py-2"
+                        disabled={currentPage >= totalPages}
+                        aria-label="Trang sau"
+                        onClick={handleNextPage}
+                      >
+                        Sau
+                      </button>
+                    </div>
+                  </nav>
+                ) : null}
+              </div>
             </>
           )}
         </div>

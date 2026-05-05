@@ -36,6 +36,7 @@
 
 ## Features
 
+- **Save/refetch UX cho staff mirror + self-service:** các flow **Save** không destructive ở route mirror `/staff/classes`, `/staff/staffs`, `/staff/students` và self route như `/staff/profile` dùng fast-close UX: pass validate là đóng popup/thoát edit mode ngay, hiện `toast.loading`, rồi mutation tiếp tục chạy nền và resolve success/error bằng chính toast đó; lỗi chỉ hiện toast, không tự mở lại form. Khi query refetch mà đã có dữ liệu cũ, section giữ nguyên nội dung, dim nhẹ và hiện refresh strip/skeleton mảnh thay vì loading toàn trang.
 - `/staff`
   - luôn dùng chung staff shell; dashboard gốc là **role-aware dashboard**, trong đó mọi staff có `staffInfo` đều thấy thẻ chung `Thu nhập tháng`, còn các khối còn lại lấy authoritative từ `GET /users/me/staff-dashboard?month=&year=`
   - **UI dashboard:** layout compact (padding/gap/line-height nhỏ hơn, bo góc vừa phải), bớt dòng mô tả trùng tiêu đề; hành vi dữ liệu và API giữ nguyên
@@ -80,7 +81,7 @@
     - Hàng đầu dùng `StaffIdentityOverview`: card đồng bộ style các section khác, QR minimal cùng hàng tiêu đề, khối thành tích nền phụ; đồng bộ với admin staff detail
     - `Thống kê thu nhập` theo tháng với `MonthNav` (toolbar chuyển tháng UI đồng bộ theo backup)
       - cụm số liệu hiển thị dạng card grid (Thực nhận tháng, Chưa nhận, Đã nhận, Tổng năm, Ghi cọc); `Thực nhận tháng` lấy authoritative từ `monthlyIncomeTotals.total` (net), `Đã nhận` lấy `monthlyIncomeTotals.paid`, còn `Chưa nhận` lấy `snapshotUnpaidTotal` (snapshot before-tax)
-      - block `Trước khấu trừ` chỉ hiển thị khi actor là `admin` hoặc có role `accountant`; dữ liệu lấy từ các field gross/tax backend trả về (`monthlyGrossTotals`, `monthlyTaxTotals`, `yearGrossIncomeTotal`, `yearTaxTotal`) và tự mở rộng thêm `monthlyOperatingDeductionTotals` / `monthlyTotalDeductionTotals` / `yearOperatingDeductionTotal` / `yearTotalDeductionTotal` nếu backend đã expose. Thuế được tính trên tổng thu nhập của từng nguồn trong kỳ; riêng nguồn giáo viên tính thuế trên phần sau vận hành; bonus không chịu thuế.
+      - block `Trước khấu trừ` chỉ hiển thị khi actor là `admin` hoặc có role `accountant` **và** còn ít nhất một chỉ số con có giá trị > 0; từng ô con (gross/chưa nhận/đã nhận, thuế, vận hành, tổng khấu trừ khi backend trả về) chỉ render khi số tương ứng > 0. Dữ liệu lấy từ các field gross/tax backend (`monthlyGrossTotals`, `monthlyTaxTotals`, `yearGrossIncomeTotal`, `yearTaxTotal`) và tự mở rộng thêm `monthlyOperatingDeductionTotals` / `monthlyTotalDeductionTotals` / `yearOperatingDeductionTotal` / `yearTotalDeductionTotal` nếu backend đã expose. Thuế được tính trên tổng thu nhập của từng nguồn trong kỳ; riêng nguồn giáo viên tính thuế trên phần sau vận hành; bonus không chịu thuế.
     - popup `Buổi cọc theo lớp` ở self profile vẫn là read-only; chỉ route mirror `/staff/staffs/[id]` mới mở quyền **Thanh toán cọc**
     - `Lớp phụ trách`: bảng cột `Tổng / Chưa nhận / Đã nhận`; `Tổng` và `Đã nhận` lấy theo **tháng đang chọn** (gross trước thuế), còn `Chưa nhận` là snapshot buổi dạy `unpaid` trong `days` gần nhất (gross trước thuế), không tính cọc
     - `Thưởng` của chính mình, cho phép tự thêm khoản thưởng mới và điều chỉnh nội dung khoản thưởng hiện có trong tháng đang xem

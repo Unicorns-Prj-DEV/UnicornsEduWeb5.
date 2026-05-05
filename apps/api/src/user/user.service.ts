@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { Prisma } from '../../generated/client';
-import { StaffRole, UserRole } from 'generated/enums';
+import { StaffRole, StudentClassStatus, UserRole } from 'generated/enums';
 import {
   ActionHistoryActor,
   ActionHistoryService,
@@ -478,12 +478,56 @@ export class UserService {
               data: profileData,
             });
 
-        await tx.studentClass.deleteMany({ where: { studentId: student.id } });
-        if (classIds.length > 0) {
+        const existingMemberships = await tx.studentClass.findMany({
+          where: { studentId: student.id },
+          select: { classId: true },
+        });
+        const existingClassIdSet = new Set(
+          existingMemberships.map((membership) => membership.classId),
+        );
+        const normalizedClassIds = Array.from(new Set(classIds));
+        const nextClassIdSet = new Set(normalizedClassIds);
+        const classIdsToInactive = existingMemberships
+          .map((membership) => membership.classId)
+          .filter((classId) => !nextClassIdSet.has(classId));
+        const classIdsToActivate = normalizedClassIds.filter((classId) =>
+          existingClassIdSet.has(classId),
+        );
+        const classIdsToCreate = normalizedClassIds.filter(
+          (classId) => !existingClassIdSet.has(classId),
+        );
+
+        if (classIdsToInactive.length > 0) {
+          await tx.studentClass.updateMany({
+            where: {
+              studentId: student.id,
+              classId: { in: classIdsToInactive },
+            },
+            data: { status: StudentClassStatus.inactive },
+          });
+        }
+
+        if (classIdsToActivate.length > 0) {
+          await tx.studentClass.updateMany({
+            where: {
+              studentId: student.id,
+              classId: { in: classIdsToActivate },
+            },
+            data: {
+              status: StudentClassStatus.active,
+              customStudentTuitionPerSession: null,
+              customTuitionPackageTotal: null,
+              customTuitionPackageSession: null,
+            },
+          });
+        }
+
+        if (classIdsToCreate.length > 0) {
           await tx.studentClass.createMany({
-            data: classIds.map((classId) => ({
+            data: classIdsToCreate.map((classId) => ({
               classId,
               studentId: student.id,
+              status: StudentClassStatus.active,
             })),
           });
         }

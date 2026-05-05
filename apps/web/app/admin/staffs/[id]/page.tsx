@@ -80,6 +80,14 @@ function formatRatePercent(ratePercent?: number | null): string {
   return `${normalized.toFixed(2)}%`;
 }
 
+function parseOperatingPercentInput(raw: string): number | null {
+  const trimmed = raw.trim().replace(",", ".");
+  if (trimmed === "") return null;
+  const n = Number(trimmed);
+  if (!Number.isFinite(n) || n < 0 || n > 100) return null;
+  return Math.round(n * 100) / 100;
+}
+
 function getPaymentStatusLabel(status?: string | null): string {
   const normalized = status?.trim().toLowerCase();
 
@@ -263,6 +271,9 @@ export default function AdminStaffDetailPage({
   const [taxBulkDrafts, setTaxBulkDrafts] = useState<
     Partial<Record<StaffRoleType, TaxBulkDraftItem>>
   >({});
+  const [classOperatingDraft, setClassOperatingDraft] = useState<
+    Record<string, string>
+  >({});
   const workTypeMenuRef = useRef<HTMLDivElement | null>(null);
   const statusMenuRef = useRef<HTMLDivElement | null>(null);
   const { data: fullProfile } = useQuery({
@@ -283,6 +294,7 @@ export default function AdminStaffDetailPage({
     data: staff,
     isLoading,
     isError,
+    refetch: refetchStaff,
   } = useQuery<StaffDetail>({
     queryKey: ["staff", "detail", id],
     queryFn: () => staffApi.getStaffById(id),
@@ -313,8 +325,6 @@ export default function AdminStaffDetailPage({
     enabled: !!id,
     placeholderData: keepPreviousData,
   });
-  console.log("sessionsInCurrentMonth", sessionsInCurrentMonth);
-  
   const {
     data: incomeSummary,
     isError: isIncomeSummaryError,
@@ -500,8 +510,143 @@ export default function AdminStaffDetailPage({
   }, [staff]);
 
   const province = staff?.user?.province || "—";
-  const classMonthlySummaries = incomeSummary?.classMonthlySummaries ?? [];
-  console.log("classMonthlySummaries", classMonthlySummaries);
+  const classMonthlySummaries = useMemo(
+    () => incomeSummary?.classMonthlySummaries ?? [],
+    [incomeSummary?.classMonthlySummaries],
+  );
+  const showClassOperatingColumn = routeBase === "/admin";
+  const canEditClassOperatingDeduction = isAdmin && routeBase === "/admin";
+  const operatingPercentByClassId = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const row of staff?.classTeachers ?? []) {
+      const cid = row.class?.id;
+      if (!cid) continue;
+      const raw = row.operatingDeductionRatePercent;
+      const n = typeof raw === "number" ? raw : Number(raw ?? 0);
+      m.set(cid, Number.isFinite(n) ? Math.round(n * 100) / 100 : 0);
+    }
+    return m;
+  }, [staff?.classTeachers]);
+
+  const saveClassOperatingCardMutation = useMutation({
+    mutationFn: async (draftSnapshot: Record<string, string>) => {
+      if (!canEditClassOperatingDeduction || !id) return undefined;
+      const detail = queryClient.getQueryData<StaffDetail>([
+        "staff",
+        "detail",
+        id,
+      ]);
+      if (!detail) return undefined;
+
+      const baselineForClass = (classId: string) => {
+        const row = detail.classTeachers?.find(
+          (ct) => ct.class?.id === classId,
+        );
+        const raw = row?.operatingDeductionRatePercent;
+        const n = typeof raw === "number" ? raw : Number(raw ?? 0);
+        return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
+      };
+
+      const toPatch: {
+        classId: string;
+        operating_deduction_rate_percent: number;
+      }[] = [];
+
+      for (const item of classMonthlySummaries) {
+        const classId = item.classId;
+        const hasRow = detail.classTeachers?.some(
+          (ct) => ct.class?.id === classId,
+        );
+        if (!hasRow) continue;
+
+        const baseline = baselineForClass(classId);
+        const draft = draftSnapshot[classId];
+        const inputStr =
+          draft !== undefined
+            ? draft
+            : Number.isFinite(baseline)
+              ? String(baseline.toFixed(2))
+              : "0";
+        const parsed = parseOperatingPercentInput(inputStr);
+        if (parsed === null) {
+          throw new Error("VALIDATION");
+        }
+        if (Math.abs(parsed - baseline) >= 0.0001) {
+          toPatch.push({
+            classId,
+            operating_deduction_rate_percent: parsed,
+          });
+        }
+      }
+
+      if (toPatch.length === 0) return undefined;
+
+      let last: StaffDetail | undefined;
+      for (const row of toPatch) {
+        last = await staffApi.patchStaffClassTeacherOperatingDeduction(
+          id,
+          row.classId,
+          {
+            operating_deduction_rate_percent:
+              row.operating_deduction_rate_percent,
+          },
+        );
+      }
+      return last;
+    },
+    onSuccess: (data) => {
+      if (!data) return;
+      queryClient.setQueryData(["staff", "detail", id], data);
+      setClassOperatingDraft({});
+      toast.success("Đã cập nhật % khấu trừ vận hành theo lớp.");
+    },
+    onError: (err: unknown) => {
+      if (err instanceof Error && err.message === "VALIDATION") {
+        toast.error("Nhập % từ 0 đến 100.");
+        return;
+      }
+      toast.error("Không lưu được tỷ lệ khấu trừ vận hành.");
+    },
+  });
+
+  const isClassOperatingDirty = useMemo(() => {
+    if (!canEditClassOperatingDeduction || !staff) return false;
+    for (const item of classMonthlySummaries) {
+      const classId = item.classId;
+      const hasRow = staff.classTeachers?.some(
+        (ct) => ct.class?.id === classId,
+      );
+      if (!hasRow) continue;
+      const baseline = operatingPercentByClassId.get(classId) ?? 0;
+      const draft = classOperatingDraft[classId];
+      const inputStr =
+        draft !== undefined
+          ? draft
+          : Number.isFinite(baseline)
+            ? String(baseline.toFixed(2))
+            : "0";
+      const parsed = parseOperatingPercentInput(inputStr);
+      if (parsed === null) return true;
+      if (Math.abs(parsed - baseline) >= 0.0001) return true;
+    }
+    return false;
+  }, [
+    canEditClassOperatingDeduction,
+    staff,
+    classMonthlySummaries,
+    operatingPercentByClassId,
+    classOperatingDraft,
+  ]);
+
+  const handleClassOperatingDiscard = useCallback(async () => {
+    setClassOperatingDraft({});
+    try {
+      await refetchStaff();
+    } catch {
+      toast.error("Không tải lại được dữ liệu nhân sự.");
+    }
+  }, [refetchStaff]);
+
   const monthlyIncomeTotals =
     incomeSummary?.monthlyIncomeTotals ?? EMPTY_AMOUNT_SUMMARY;
   const snapshotUnpaidTotal = incomeSummary?.snapshotUnpaidTotal ?? monthlyIncomeTotals.unpaid;
@@ -588,7 +733,7 @@ export default function AdminStaffDetailPage({
       });
     }
 
-    return cards;
+    return cards.filter((card) => card.value > 0);
   }, [incomeSummary]);
   const paymentPreviewSummary = paymentPreview?.summary ?? null;
   const paymentPreviewSections = paymentPreview?.sections ?? [];
@@ -1383,7 +1528,7 @@ export default function AdminStaffDetailPage({
               )}
             </article>
           </div>
-          {canViewBeforeDeduction ? (
+          {canViewBeforeDeduction && beforeDeductionCards.length > 0 ? (
             <div className="mt-3 rounded-xl border border-border-default bg-bg-tertiary/70 px-4 py-3">
               <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
                 Trước khấu trừ
@@ -1421,137 +1566,303 @@ export default function AdminStaffDetailPage({
               <p className="text-text-muted">Chưa gán lớp nào.</p>
             ) : (
               <>
-                <div className="space-y-3 md:hidden">
-                  {classMonthlySummaries.map((item) => {
-                    return (
-                      <div
-                        key={item.classId}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() =>
-                          router.push(
-                            buildAdminLikePath(
-                              routeBase,
-                              `classes/${encodeURIComponent(item.classId)}`,
-                            ),
-                          )
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            router.push(
-                              buildAdminLikePath(
-                                routeBase,
-                                `classes/${encodeURIComponent(item.classId)}`,
-                              ),
-                            );
-                          }
-                        }}
-                        className="cursor-pointer rounded-lg border border-border-default bg-bg-secondary px-4 py-3 transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                      >
-                        <p className="font-medium text-text-primary">
-                          {item.className}
-                        </p>
-                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-secondary">
-                          <span>
-                            Tổng:{" "}
-                            <span className="font-semibold text-primary">
-                              {formatCurrency(item.total)}
-                            </span>
-                          </span>
-                          <span>
-                            Chưa nhận:{" "}
-                            <span className="font-semibold text-error">
-                              {formatCurrency(item.unpaid)}
-                            </span>
-                          </span>
-                          <span>
-                            Đã nhận:{" "}
-                            <span className="font-semibold text-success">
-                              {formatCurrency(item.paid)}
-                            </span>
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="hidden overflow-x-auto md:block">
-                  <table className="w-full min-w-[480px] border-collapse text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-border-default bg-bg-secondary">
-                        <th
-                          scope="col"
-                          className="px-4 py-3 font-medium text-text-primary"
-                        >
-                          Lớp
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-4 py-3 font-medium text-text-primary tabular-nums"
-                        >
-                          Tổng
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-4 py-3 font-medium text-text-primary tabular-nums"
-                        >
-                          Chưa nhận
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-4 py-3 font-medium text-text-primary tabular-nums"
-                        >
-                          Đã nhận
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                {saveClassOperatingCardMutation.isPending ? (
+                  <div
+                    className="space-y-4"
+                    aria-busy="true"
+                    aria-live="polite"
+                  >
+                    <p className="text-xs text-text-muted">
+                      Đang lưu thay đổi…
+                    </p>
+                    <div className="space-y-3 md:hidden">
+                      {Array.from({
+                        length: Math.min(3, classMonthlySummaries.length),
+                      }).map((_, i) => (
+                        <div
+                          key={i}
+                          className="h-28 animate-pulse rounded-lg bg-bg-secondary"
+                        />
+                      ))}
+                    </div>
+                    <div className="hidden md:block">
+                      <div className="h-48 animate-pulse rounded-lg bg-bg-secondary" />
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-3 md:hidden">
                       {classMonthlySummaries.map((item) => {
+                        const hasClassTeacherRow = staff?.classTeachers?.some(
+                          (ct) => ct.class?.id === item.classId,
+                        );
+                        const opValue =
+                          operatingPercentByClassId.get(item.classId);
                         return (
-                          <tr
+                          <div
                             key={item.classId}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() =>
-                              router.push(
-                                buildAdminLikePath(
-                                  routeBase,
-                                  `classes/${encodeURIComponent(item.classId)}`,
-                                ),
-                              )
-                            }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
+                            className="rounded-lg border border-border-default bg-bg-secondary px-4 py-3"
+                          >
+                            <button
+                              type="button"
+                              onClick={() =>
                                 router.push(
                                   buildAdminLikePath(
                                     routeBase,
                                     `classes/${encodeURIComponent(item.classId)}`,
                                   ),
-                                );
+                                )
                               }
-                            }}
-                            className="cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                          >
-                            <td className="px-4 py-3 text-text-primary">
+                              className="text-left font-medium text-text-primary underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                            >
                               {item.className}
-                            </td>
-                            <td className="px-4 py-3 tabular-nums font-semibold text-primary">
-                              {formatCurrency(item.total)}
-                            </td>
-                            <td className="px-4 py-3 tabular-nums font-semibold text-error">
-                              {formatCurrency(item.unpaid)}
-                            </td>
-                            <td className="px-4 py-3 tabular-nums font-semibold text-success">
-                              {formatCurrency(item.paid)}
-                            </td>
-                          </tr>
+                            </button>
+                            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-secondary">
+                              <span>
+                                Tổng:{" "}
+                                <span className="font-semibold text-primary">
+                                  {formatCurrency(item.total)}
+                                </span>
+                              </span>
+                              <span>
+                                Chưa nhận:{" "}
+                                <span className="font-semibold text-error">
+                                  {formatCurrency(item.unpaid)}
+                                </span>
+                              </span>
+                              <span>
+                                Đã nhận:{" "}
+                                <span className="font-semibold text-success">
+                                  {formatCurrency(item.paid)}
+                                </span>
+                              </span>
+                            </div>
+                            {showClassOperatingColumn ? (
+                              <div
+                                className="mt-3 border-t border-border-default pt-3"
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => e.stopPropagation()}
+                              >
+                                <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                                  KH vận hành (%)
+                                </p>
+                                {canEditClassOperatingDeduction &&
+                                hasClassTeacherRow ? (
+                                  <div className="mt-1 flex min-w-0 max-w-full items-center gap-1.5">
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      max={100}
+                                      step="0.01"
+                                      disabled={
+                                        saveClassOperatingCardMutation.isPending
+                                      }
+                                      value={
+                                        classOperatingDraft[item.classId] ??
+                                        (opValue !== undefined
+                                          ? String(opValue.toFixed(2))
+                                          : "")
+                                      }
+                                      onChange={(e) =>
+                                        setClassOperatingDraft((p) => ({
+                                          ...p,
+                                          [item.classId]: e.target.value,
+                                        }))
+                                      }
+                                      className="h-9 min-w-0 flex-1 rounded-md border border-border-default bg-bg-surface px-2 text-right tabular-nums text-sm font-semibold text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:max-w-28 sm:flex-none"
+                                      aria-label={`Khấu trừ vận hành % cho lớp ${item.className}`}
+                                    />
+                                    <span
+                                      className="shrink-0 text-sm font-semibold text-text-muted"
+                                      aria-hidden
+                                    >
+                                      %
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <p className="mt-1 tabular-nums text-sm font-semibold text-text-primary">
+                                    {hasClassTeacherRow && opValue !== undefined
+                                      ? formatRatePercent(opValue)
+                                      : "—"}
+                                  </p>
+                                )}
+                              </div>
+                            ) : null}
+                          </div>
                         );
                       })}
-                    </tbody>
-                  </table>
-                </div>
+                    </div>
+                    <div className="hidden overflow-x-auto md:block">
+                      <table
+                        className={`w-full border-collapse text-left text-sm ${showClassOperatingColumn ? "min-w-[680px]" : "min-w-[480px]"}`}
+                      >
+                        <thead>
+                          <tr className="border-b border-border-default bg-bg-secondary">
+                            <th
+                              scope="col"
+                              className="px-4 py-3 font-medium text-text-primary"
+                            >
+                              Lớp
+                            </th>
+                            <th
+                              scope="col"
+                              className="px-4 py-3 font-medium text-text-primary tabular-nums"
+                            >
+                              Tổng
+                            </th>
+                            <th
+                              scope="col"
+                              className="px-4 py-3 font-medium text-text-primary tabular-nums"
+                            >
+                              Chưa nhận
+                            </th>
+                            <th
+                              scope="col"
+                              className="px-4 py-3 font-medium text-text-primary tabular-nums"
+                            >
+                              Đã nhận
+                            </th>
+                            {showClassOperatingColumn ? (
+                              <th
+                                scope="col"
+                                className="px-4 py-3 font-medium text-text-primary tabular-nums"
+                              >
+                                KH vận hành
+                              </th>
+                            ) : null}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {classMonthlySummaries.map((item) => {
+                            const hasClassTeacherRow =
+                              staff?.classTeachers?.some(
+                                (ct) => ct.class?.id === item.classId,
+                              );
+                            const opValue =
+                              operatingPercentByClassId.get(item.classId);
+                            return (
+                              <tr
+                                key={item.classId}
+                                role="button"
+                                tabIndex={0}
+                                onClick={() =>
+                                  router.push(
+                                    buildAdminLikePath(
+                                      routeBase,
+                                      `classes/${encodeURIComponent(item.classId)}`,
+                                    ),
+                                  )
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    router.push(
+                                      buildAdminLikePath(
+                                        routeBase,
+                                        `classes/${encodeURIComponent(item.classId)}`,
+                                      ),
+                                    );
+                                  }
+                                }}
+                                className="cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                              >
+                                <td className="px-4 py-3 text-text-primary">
+                                  {item.className}
+                                </td>
+                                <td className="px-4 py-3 tabular-nums font-semibold text-primary">
+                                  {formatCurrency(item.total)}
+                                </td>
+                                <td className="px-4 py-3 tabular-nums font-semibold text-error">
+                                  {formatCurrency(item.unpaid)}
+                                </td>
+                                <td className="px-4 py-3 tabular-nums font-semibold text-success">
+                                  {formatCurrency(item.paid)}
+                                </td>
+                                {showClassOperatingColumn ? (
+                                  <td
+                                    className="px-4 py-3 tabular-nums text-text-primary"
+                                    onClick={(e) => e.stopPropagation()}
+                                    onKeyDown={(e) => e.stopPropagation()}
+                                  >
+                                    {canEditClassOperatingDeduction &&
+                                    hasClassTeacherRow ? (
+                                      <div className="flex items-center justify-end gap-1.5">
+                                        <input
+                                          type="number"
+                                          min={0}
+                                          max={100}
+                                          step="0.01"
+                                          disabled={
+                                            saveClassOperatingCardMutation.isPending
+                                          }
+                                          value={
+                                            classOperatingDraft[item.classId] ??
+                                            (opValue !== undefined
+                                              ? String(opValue.toFixed(2))
+                                              : "")
+                                          }
+                                          onChange={(e) =>
+                                            setClassOperatingDraft((p) => ({
+                                              ...p,
+                                              [item.classId]: e.target.value,
+                                            }))
+                                          }
+                                          className="h-9 w-24 shrink-0 rounded-md border border-border-default bg-bg-surface px-2 text-right text-sm font-semibold focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                          aria-label={`Khấu trừ vận hành % cho lớp ${item.className}`}
+                                        />
+                                        <span
+                                          className="shrink-0 text-sm font-semibold text-text-muted"
+                                          aria-hidden
+                                        >
+                                          %
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <span className="font-semibold">
+                                        {hasClassTeacherRow &&
+                                        opValue !== undefined
+                                          ? formatRatePercent(opValue)
+                                          : "—"}
+                                      </span>
+                                    )}
+                                  </td>
+                                ) : null}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+                {showClassOperatingColumn &&
+                canEditClassOperatingDeduction &&
+                isClassOperatingDirty ? (
+                  <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-border-default pt-4">
+                    <button
+                      type="button"
+                      onClick={() => void handleClassOperatingDiscard()}
+                      disabled={saveClassOperatingCardMutation.isPending}
+                      className="inline-flex min-h-10 items-center justify-center rounded-lg border border-border-default px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-bg-secondary disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Huỷ bỏ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        saveClassOperatingCardMutation.mutate(
+                          classOperatingDraft,
+                        )
+                      }
+                      disabled={saveClassOperatingCardMutation.isPending}
+                      className="inline-flex min-h-10 items-center justify-center rounded-lg bg-primary px-3 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {saveClassOperatingCardMutation.isPending
+                        ? "Đang lưu…"
+                        : "Lưu"}
+                    </button>
+                  </div>
+                ) : null}
               </>
             )}
           </StaffCard>
@@ -2262,7 +2573,7 @@ export default function AdminStaffDetailPage({
                                           <th className="px-4 py-3 font-medium text-text-primary">
                                             Ngày
                                           </th>
-                                          <th className="px-4 py-3 font-medium text-text-primary">
+                                          <th className="px-4 py-3 text-center font-medium text-text-primary">
                                             Trạng thái
                                           </th>
                                           <th className="px-4 py-3 font-medium text-text-primary tabular-nums">
@@ -2298,7 +2609,7 @@ export default function AdminStaffDetailPage({
                                             <td className="px-4 py-3 text-text-secondary">
                                               {formatCompactDate(item.date)}
                                             </td>
-                                            <td className="px-4 py-3">
+                                            <td className="px-4 py-3 text-center">
                                               <span
                                                 className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getPaymentStatusBadgeClass(
                                                   item.currentStatus,

@@ -47,6 +47,7 @@ import {
   SearchAssignableStaffUsersDto,
   SearchStaffOptionsDto,
   UpdateStaffDto,
+  PatchStaffClassTeacherOperatingDeductionDto,
 } from 'src/dtos/staff.dto';
 import {
   buildImageUploadFileFilter,
@@ -440,6 +441,36 @@ export class StaffController {
       userEmail: user.email,
       roleType: user.roleType,
     });
+  }
+
+  @Patch(':id/class-teachers/:classId/operating-deduction')
+  @ApiOperation({
+    summary: 'Update operating deduction rate for a staff-class assignment',
+    description:
+      'Updates `class_teachers.tax_rate_percent` (operating deduction on session allowance). Restricted to admin users.',
+  })
+  @ApiParam({ name: 'id', description: 'Staff id (teacher)' })
+  @ApiParam({ name: 'classId', description: 'Class id' })
+  @ApiBody({ type: PatchStaffClassTeacherOperatingDeductionDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Full staff profile after update (same shape as GET /staff/:id).',
+  })
+  @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({ status: 403, description: 'Not admin.' })
+  @ApiResponse({ status: 404, description: 'Staff or class–teacher row not found.' })
+  async patchStaffClassTeacherOperatingDeduction(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('classId', new ParseUUIDPipe()) classId: string,
+    @Body() body: PatchStaffClassTeacherOperatingDeductionDto,
+  ) {
+    return this.staffService.patchStaffClassTeacherOperatingDeduction(
+      id,
+      classId,
+      body,
+      { roleType: user.roleType },
+    );
   }
 
   @Get(':id')

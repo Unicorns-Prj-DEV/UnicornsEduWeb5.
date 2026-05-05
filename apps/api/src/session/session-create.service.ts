@@ -6,6 +6,7 @@ import {
 import {
   PaymentStatus,
   StaffRole,
+  StudentClassStatus,
   UserRole,
   WalletTransactionType,
 } from '../../generated/enums';
@@ -105,6 +106,7 @@ export class SessionCreateService {
               in: attendanceStudentIds,
             },
             classId: data.classId,
+            status: StudentClassStatus.active,
           },
           select: {
             studentId: true,

@@ -12,6 +12,7 @@ import {
 import {
   Gender,
   StaffRole,
+  StudentClassStatus,
   StudentStatus,
   UserRole,
   WalletTransactionType,
@@ -1171,7 +1172,7 @@ export class StudentService {
 
     const existingMemberships = await this.prisma.studentClass.findMany({
       where: { studentId: id },
-      select: { classId: true },
+      select: { classId: true, status: true },
     });
     const existingClassIds = new Set(
       existingMemberships.map((membership) => membership.classId),
@@ -1179,6 +1180,9 @@ export class StudentService {
     const classIdsToRemove = existingMemberships
       .map((membership) => membership.classId)
       .filter((classId) => !classIds.includes(classId));
+    const classIdsToActivate = classIds.filter((classId) =>
+      existingClassIds.has(classId),
+    );
     const classIdsToAdd = classIds.filter(
       (classId) => !existingClassIds.has(classId),
     );
@@ -1189,12 +1193,15 @@ export class StudentService {
 
     const updatedStudent = await this.prisma.$transaction(async (tx) => {
       if (classIdsToRemove.length > 0) {
-        await tx.studentClass.deleteMany({
+        await tx.studentClass.updateMany({
           where: {
             studentId: id,
             classId: {
               in: classIdsToRemove,
             },
+          },
+          data: {
+            status: StudentClassStatus.inactive,
           },
         });
       }
@@ -1223,11 +1230,29 @@ export class StudentService {
         return nextStudent;
       }
 
+      if (classIdsToActivate.length > 0) {
+        await tx.studentClass.updateMany({
+          where: {
+            studentId: id,
+            classId: {
+              in: classIdsToActivate,
+            },
+          },
+          data: {
+            status: StudentClassStatus.active,
+            customStudentTuitionPerSession: null,
+            customTuitionPackageTotal: null,
+            customTuitionPackageSession: null,
+          },
+        });
+      }
+
       if (classIdsToAdd.length > 0) {
         await tx.studentClass.createMany({
           data: classIdsToAdd.map((classId) => ({
             classId,
             studentId: id,
+            status: StudentClassStatus.active,
           })),
         });
       }

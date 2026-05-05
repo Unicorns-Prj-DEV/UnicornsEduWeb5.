@@ -6,7 +6,7 @@ import {
   type KeyboardEvent,
   type SyntheticEvent,
 } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type {
@@ -16,6 +16,7 @@ import type {
   StudentStatus,
 } from "@/dtos/student.dto";
 import * as studentApi from "@/lib/apis/student.api";
+import { runBackgroundSave } from "@/lib/mutation-feedback";
 
 type Props = {
   open: boolean;
@@ -51,22 +52,6 @@ function getSuggestedFullName(user: StudentAssignableUser | null): string {
   return user.fullName?.trim() || user.email.trim();
 }
 
-function toErrorMessage(error: unknown, fallback: string) {
-  const responseMessage = (
-    error as { response?: { data?: { message?: string | string[] } } }
-  )?.response?.data?.message;
-
-  if (Array.isArray(responseMessage)) {
-    return responseMessage.join(", ");
-  }
-
-  if (typeof responseMessage === "string" && responseMessage.trim()) {
-    return responseMessage;
-  }
-
-  return (error as Error)?.message ?? fallback;
-}
-
 export default function AddStudentPopup({ open, onClose, onCreated }: Props) {
   const queryClient = useQueryClient();
 
@@ -100,19 +85,6 @@ export default function AddStudentPopup({ open, onClose, onCreated }: Props) {
     () => assignableUsers.find((user) => user.id === selectedUserId) ?? null,
     [assignableUsers, selectedUserId],
   );
-
-  const createMutation = useMutation({
-    mutationFn: studentApi.createStudent,
-    onSuccess: async (createdStudent) => {
-      await queryClient.invalidateQueries({ queryKey: ["student", "list"] });
-      await onCreated?.(createdStudent);
-      toast.success("Đã tạo hồ sơ học sinh.");
-      onClose();
-    },
-    onError: (error: unknown) => {
-      toast.error(toErrorMessage(error, "Không thể tạo hồ sơ học sinh."));
-    },
-  });
 
   const handleSearch = () => {
     const trimmedEmail = emailInput.trim();
@@ -162,7 +134,7 @@ export default function AddStudentPopup({ open, onClose, onCreated }: Props) {
     setGoal("");
   };
 
-  const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!selectedUser) {
@@ -194,28 +166,35 @@ export default function AddStudentPopup({ open, onClose, onCreated }: Props) {
       }
     }
 
-    try {
-      await createMutation.mutateAsync({
-        full_name: trimmedName,
-        email: email.trim() || undefined,
-        province: province.trim() || undefined,
-        school: school.trim() || undefined,
-        birth_year: parsedBirthYear,
-        parent_name: parentName.trim() || undefined,
-        parent_phone: parentPhone.trim() || undefined,
-        gender,
-        status,
-        goal: goal.trim() || undefined,
-        user_id: selectedUser.id,
-      });
-    } catch {
-      // handled in onError
-    }
+    onClose();
+    runBackgroundSave({
+      loadingMessage: "Đang tạo hồ sơ học sinh...",
+      successMessage: "Đã tạo hồ sơ học sinh.",
+      errorMessage: "Không thể tạo hồ sơ học sinh.",
+      action: () =>
+        studentApi.createStudent({
+          full_name: trimmedName,
+          email: email.trim() || undefined,
+          province: province.trim() || undefined,
+          school: school.trim() || undefined,
+          birth_year: parsedBirthYear,
+          parent_name: parentName.trim() || undefined,
+          parent_phone: parentPhone.trim() || undefined,
+          gender,
+          status,
+          goal: goal.trim() || undefined,
+          user_id: selectedUser.id,
+        }),
+      onSuccess: async (createdStudent) => {
+        await queryClient.invalidateQueries({ queryKey: ["student", "list"] });
+        await onCreated?.(createdStudent);
+      },
+    });
   };
 
   if (!open) return null;
 
-  const formDisabled = !selectedUser?.isEligible || createMutation.isPending;
+  const formDisabled = !selectedUser?.isEligible;
 
   return (
     <>
@@ -318,7 +297,10 @@ export default function AddStudentPopup({ open, onClose, onCreated }: Props) {
                       </div>
                     ) : isSearchError ? (
                       <div className="rounded-[1.4rem] border border-error/30 bg-error/10 px-4 py-4 text-sm text-error">
-                        {toErrorMessage(searchError, "Không tìm được user theo email.")}
+                        {((searchError as { response?: { data?: { message?: string } } })?.response?.data
+                          ?.message ??
+                          (searchError as Error)?.message ??
+                          "Không tìm được user theo email.")}
                       </div>
                     ) : assignableUsers.length === 0 ? (
                       <div className="rounded-[1.4rem] border border-dashed border-border-default bg-bg-surface/80 px-4 py-6 text-sm text-text-muted">
@@ -567,7 +549,7 @@ export default function AddStudentPopup({ open, onClose, onCreated }: Props) {
                   disabled={formDisabled}
                   className="min-h-11 rounded-xl bg-success px-4 py-2 text-sm font-medium text-text-inverse transition-colors duration-200 hover:brightness-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {createMutation.isPending ? "Đang tạo..." : "Tạo học sinh"}
+                  Tạo học sinh
                 </button>
               </div>
             </form>

@@ -652,25 +652,25 @@ export default function AdminDashboardTabPage() {
       key: "revenue",
       label: "Học phí đã học",
       value: dashboard.summary.totalLearnedTuition,
-      note: `Tổng học phí các buổi đã học của tất cả học sinh. Riêng ${dashboard.period.monthLabel}: ${formatCurrency(dashboard.summary.monthlyRevenue)}.`,
+      note: `Học phí attendance present/excused có sessions.date trong ${dashboard.period.monthLabel}.`,
     },
     {
       key: "prepaid",
       label: "Nợ học phí chưa dạy",
       value: dashboard.summary.prepaidTuitionTotal,
-      note: "Tổng số dư hiện tại của tất cả học sinh",
+      note: "Tổng số dư dương (ví) của học sinh có phát sinh buổi học trong tháng đang xem.",
     },
     {
       key: "uncollected",
       label: "Chưa thu",
       value: dashboard.summary.pendingCollectionTotal,
-      note: "Tổng nợ học phí của học sinh",
+      note: "Học sinh âm ví có ít nhất một buổi học trong tháng đang xem.",
     },
     {
       key: "pending-payroll",
       label: "Chờ Thanh Toán Trợ Cấp",
       value: dashboard.summary.pendingPayrollTotal,
-      note: payrollNoteDetail,
+      note: `${payrollNoteDetail} · Pending gắn với tháng đang xem.`,
     },
     {
       key: "personnel-cost",
@@ -758,19 +758,23 @@ export default function AdminDashboardTabPage() {
         {
           label: "Tổng doanh thu",
           value: formatCurrency(yearlyRevenueTotal),
-          description: "Học phí đã ghi nhận của toàn bộ các quý trong năm.",
+          description: "Học phí đã học (present/excused) trong tháng đang xem — phân bổ theo quý trên lịch.",
         },
         {
           label: "Tổng chi phí",
           value: formatCurrency(yearlyExpenseTotal),
-          description: "Nhân sự và vận hành đã ghi nhận trong năm đang xem.",
+          description: "Chi phí nhân sự và vận hành đã ghi nhận trong tháng đang xem.",
         },
         {
           label: "Lợi nhuận ròng",
           value: formatCurrency(yearlyProfitTotal),
-          description: "Doanh thu trừ chi phí của toàn bộ năm đang xem.",
+          description: "Doanh thu trừ chi phí trong tháng đang xem.",
         },
-        { label: "Quý hiệu quả nhất", value: bestQuarter.quarter, description: `${formatCurrency(bestQuarter.profit)} lợi nhuận` },
+        {
+          label: "Quý trên lịch",
+          value: bestQuarter.quarter,
+          description: `${formatCurrency(bestQuarter.profit)} lợi nhuận (quý chứa tháng đang xem; các quý khác có thể là 0).`,
+        },
       ]
       : quickView === "ops"
         ? [
@@ -865,7 +869,7 @@ export default function AdminDashboardTabPage() {
           <KpiCard
             title="Học phí chưa dạy"
             value={formatCurrency(dashboard.summary.prepaidTuitionTotal)}
-            note="Số dư dương còn treo trên ví học sinh"
+            note="Với học sinh có buổi học trong tháng đang xem"
             tone="warning"
           />
           <KpiCard

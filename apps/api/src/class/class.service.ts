@@ -5,7 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { ClassStatus, ClassType, UserRole } from 'generated/enums';
+import {
+  ClassStatus,
+  ClassType,
+  StudentClassStatus,
+  UserRole,
+} from 'generated/enums';
 import {
   ActionHistoryActor,
   ActionHistoryService,
@@ -59,6 +64,12 @@ function normalizeRatePercent(
   }
 
   return Math.min(100, Math.round(parsed * 100) / 100);
+}
+
+function isStudentClassActiveStatus(
+  status: StudentClassStatus | null | undefined,
+): boolean {
+  return status === StudentClassStatus.active;
 }
 
 function toDateOnly(value = new Date()) {
@@ -354,6 +365,7 @@ export class ClassService {
 
       return {
         ...student.student,
+        status: student.status,
         customTuitionPerSession,
         customTuitionPackageTotal,
         customTuitionPackageSession,
@@ -380,7 +392,11 @@ export class ClassService {
       teachers,
       students,
       sessionTuitionTotal: students.reduce(
-        (sum, student) => sum + (student.effectiveTuitionPerSession ?? 0),
+        (sum, student) =>
+          sum +
+          (isStudentClassActiveStatus(student.status)
+            ? (student.effectiveTuitionPerSession ?? 0)
+            : 0),
         0,
       ),
     };
@@ -514,6 +530,7 @@ export class ClassService {
               classId: {
                 in: classIds,
               },
+              status: StudentClassStatus.active,
             },
             _count: {
               _all: true,
@@ -614,6 +631,7 @@ export class ClassService {
 
       return {
         ...student.student,
+        status: student.status,
         customTuitionPerSession,
         customTuitionPackageTotal,
         customTuitionPackageSession,
@@ -640,7 +658,11 @@ export class ClassService {
       teachers,
       students,
       sessionTuitionTotal: students.reduce(
-        (sum, student) => sum + (student.effectiveTuitionPerSession ?? 0),
+        (sum, student) =>
+          sum +
+          (isStudentClassActiveStatus(student.status)
+            ? (student.effectiveTuitionPerSession ?? 0)
+            : 0),
         0,
       ),
     };
@@ -685,7 +707,7 @@ export class ClassService {
     }
 
     const classStudents = await this.prisma.studentClass.findMany({
-      where: { classId },
+      where: { classId, status: StudentClassStatus.active },
       include: {
         student: true,
       },
@@ -816,6 +838,7 @@ export class ClassService {
           data: data.student_ids.map((studentId) => ({
             classId: createdClass.id,
             studentId,
+            status: StudentClassStatus.active,
           })),
         });
       }
@@ -938,17 +961,68 @@ export class ClassService {
       }
 
       if (data.student_ids !== undefined) {
-        await tx.studentClass.deleteMany({
+        const normalizedStudentIds = Array.from(new Set(data.student_ids));
+        const existingStudentClasses = await tx.studentClass.findMany({
           where: { classId: data.id },
+          select: { studentId: true },
         });
 
-        if (data.student_ids.length > 0) {
-          await tx.studentClass.createMany({
-            data: data.student_ids.map((studentId) => ({
+        const existingStudentIdSet = new Set(
+          existingStudentClasses.map((item) => item.studentId),
+        );
+        const incomingStudentIdSet = new Set(normalizedStudentIds);
+        const studentIdsToInactive = existingStudentClasses
+          .map((item) => item.studentId)
+          .filter((studentId) => !incomingStudentIdSet.has(studentId));
+
+        if (studentIdsToInactive.length > 0) {
+          await tx.studentClass.updateMany({
+            where: {
               classId: data.id,
-              studentId,
-            })),
+              studentId: { in: studentIdsToInactive },
+            },
+            data: {
+              status: StudentClassStatus.inactive,
+            },
           });
+        }
+
+        if (normalizedStudentIds.length > 0) {
+          const studentIdsToActivate = normalizedStudentIds.filter(
+            (studentId) => existingStudentIdSet.has(studentId),
+          );
+          const studentIdsToCreate = normalizedStudentIds.filter(
+            (studentId) => !existingStudentIdSet.has(studentId),
+          );
+
+          if (studentIdsToActivate.length > 0) {
+            await Promise.all(
+              studentIdsToActivate.map((studentId) =>
+                tx.studentClass.updateMany({
+                  where: {
+                    classId: data.id,
+                    studentId,
+                  },
+                  data: {
+                    status: StudentClassStatus.active,
+                    customStudentTuitionPerSession: null,
+                    customTuitionPackageTotal: null,
+                    customTuitionPackageSession: null,
+                  },
+                }),
+              ),
+            );
+          }
+
+          if (studentIdsToCreate.length > 0) {
+            await tx.studentClass.createMany({
+              data: studentIdsToCreate.map((studentId) => ({
+                classId: data.id,
+                studentId,
+                status: StudentClassStatus.active,
+              })),
+            });
+          }
         }
       }
 
@@ -1310,17 +1384,41 @@ export class ClassService {
     const deduplicatedStudents = Array.from(
       new Map(dto.students.map((student) => [student.id, student])).values(),
     );
+    const normalizedStudentIds = deduplicatedStudents.map(
+      (student) => student.id,
+    );
 
     return this.prisma.$transaction(async (tx) => {
       const beforeValue = auditActor
         ? await this.getClassAuditSnapshot(tx, id)
         : null;
-      await tx.studentClass.deleteMany({
+      const existingStudentClasses = await tx.studentClass.findMany({
         where: { classId: id },
+        select: { studentId: true },
       });
+      const existingStudentIdSet = new Set(
+        existingStudentClasses.map((item) => item.studentId),
+      );
+      const incomingStudentIdSet = new Set(normalizedStudentIds);
+      const studentIdsToInactive = existingStudentClasses
+        .map((item) => item.studentId)
+        .filter((studentId) => !incomingStudentIdSet.has(studentId));
+
+      if (studentIdsToInactive.length > 0) {
+        await tx.studentClass.updateMany({
+          where: {
+            classId: id,
+            studentId: { in: studentIdsToInactive },
+          },
+          data: {
+            status: StudentClassStatus.inactive,
+          },
+        });
+      }
+
       if (deduplicatedStudents.length > 0) {
-        await tx.studentClass.createMany({
-          data: deduplicatedStudents.map((student) => {
+        await Promise.all(
+          deduplicatedStudents.map((student) => {
             const pkgTotal = normalizeStudentClassCustomTuitionMoney(
               student.custom_tuition_package_total,
             );
@@ -1330,17 +1428,35 @@ export class ClassService {
             const perSession = normalizeStudentClassCustomTuitionMoney(
               student.custom_tuition_per_session,
             );
-            return {
-              classId: id,
-              studentId: student.id,
+
+            const data = {
+              status: StudentClassStatus.active,
               customStudentTuitionPerSession:
                 resolveDerivedTuitionPerSession(pkgTotal, pkgSession) ??
                 perSession,
               customTuitionPackageTotal: pkgTotal,
               customTuitionPackageSession: pkgSession,
             };
+
+            if (existingStudentIdSet.has(student.id)) {
+              return tx.studentClass.updateMany({
+                where: {
+                  classId: id,
+                  studentId: student.id,
+                },
+                data,
+              });
+            }
+
+            return tx.studentClass.create({
+              data: {
+                classId: id,
+                studentId: student.id,
+                ...data,
+              },
+            });
           }),
-        });
+        );
       }
 
       const afterValue = await this.getClassAuditSnapshot(tx, id);
