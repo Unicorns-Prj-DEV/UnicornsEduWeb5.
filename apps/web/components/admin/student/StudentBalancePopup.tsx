@@ -84,7 +84,10 @@ export default function StudentBalancePopup({
 
   const currentBalance = student.accountBalance ?? 0;
   const rawAmount = amountInput.trim() === "" ? Number.NaN : Number(amountInput.trim());
-  const normalizedAmount = Number.isFinite(rawAmount) && rawAmount > 0 ? Math.round(rawAmount) : 0;
+  const normalizedAmount =
+    Number.isFinite(rawAmount) && Number.isInteger(rawAmount) && rawAmount > 0
+      ? rawAmount
+      : 0;
   const hasValidAmount = normalizedAmount > 0;
   const deltaAmount = mode === "topup" ? normalizedAmount : -normalizedAmount;
   const nextBalance = currentBalance + deltaAmount;
@@ -134,7 +137,7 @@ export default function StudentBalancePopup({
     event.preventDefault();
 
     if (!hasValidAmount) {
-      toast.error("Vui lòng nhập số tiền lớn hơn 0.");
+      toast.error("Vui lòng nhập số nguyên lớn hơn 0.");
       return;
     }
 
@@ -240,7 +243,7 @@ export default function StudentBalancePopup({
                   name="amount"
                   type="number"
                   min={0}
-                  step={1000}
+                  step={1}
                   inputMode="numeric"
                   autoComplete="off"
                   value={amountInput}
