@@ -43,10 +43,14 @@ export async function getAdminTopupHistory(params?: {
 
 export async function getAdminStudentBalanceDetails(params?: {
   limit?: number;
+  month?: string;
+  year?: string;
 }): Promise<AdminDashboardStudentBalanceItem[]> {
   const response = await api.get<AdminDashboardStudentBalanceItem[]>("/dashboard/student-balance-details", {
     params: {
       ...(typeof params?.limit === "number" ? { limit: params.limit } : {}),
+      ...(params?.month ? { month: params.month } : {}),
+      ...(params?.year ? { year: params.year } : {}),
     },
   });
 
