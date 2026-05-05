@@ -270,6 +270,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - khấu trừ vận hành chỉ áp dụng cho gia sư theo `class_teacher_operating_deduction_rates`
 - `dashboard_cache`: cache JSON theo key/type + `expires_at`; hiện được backend dùng làm server-side response cache cho các read endpoint nặng của admin dashboard
 - `cost_extend`: khoản chi mở rộng theo tháng/danh mục
+  - `date`: dùng kiểu `DATE` (Prisma `DateTime? @db.Date`) để đồng bộ với các luồng hiển thị/lọc theo ngày
 
 ### 4.8 Content & audit
 

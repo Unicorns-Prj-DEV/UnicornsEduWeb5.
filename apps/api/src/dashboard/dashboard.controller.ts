@@ -35,7 +35,7 @@ export class DashboardController {
   @ApiOperation({
     summary: 'Get admin dashboard aggregate',
     description:
-      'Return authoritative admin dashboard data aggregated directly from database records.',
+      'Return authoritative admin dashboard data aggregated directly from database records. Supports month mode (month+year) and date-range mode (dateFrom+dateTo).',
   })
   @ApiQuery({
     name: 'month',
@@ -64,6 +64,22 @@ export class DashboardController {
     type: Number,
     description: 'Maximum number of classes returned in the top classes table.',
     example: 5,
+  })
+  @ApiQuery({
+    name: 'dateFrom',
+    required: false,
+    type: String,
+    description:
+      'Date range start in YYYY-MM-DD format. When provided together with dateTo, overrides month/year for financial calculations.',
+    example: '2026-04-01',
+  })
+  @ApiQuery({
+    name: 'dateTo',
+    required: false,
+    type: String,
+    description:
+      'Date range end (inclusive) in YYYY-MM-DD format. Must be used together with dateFrom.',
+    example: '2026-04-30',
   })
   @ApiResponse({
     status: 200,
@@ -154,7 +170,7 @@ export class DashboardController {
   @ApiOperation({
     summary: 'Get financial summary detail popup payload',
     description:
-      'Return authoritative detail rows and contributing sources for a financial summary row on the admin dashboard.',
+      'Return authoritative detail rows and contributing sources for a financial summary row on the admin dashboard. Supports month mode (month+year) and date-range mode (dateFrom+dateTo).',
   })
   @ApiQuery({
     name: 'rowKey',
@@ -183,6 +199,22 @@ export class DashboardController {
     type: Number,
     description: 'Maximum number of detail rows returned.',
     example: 500,
+  })
+  @ApiQuery({
+    name: 'dateFrom',
+    required: false,
+    type: String,
+    description:
+      'Date range start in YYYY-MM-DD format. When provided together with dateTo, activates date-range mode for this popup.',
+    example: '2026-04-01',
+  })
+  @ApiQuery({
+    name: 'dateTo',
+    required: false,
+    type: String,
+    description:
+      'Date range end (inclusive) in YYYY-MM-DD format. Must be used together with dateFrom.',
+    example: '2026-04-30',
   })
   @ApiResponse({
     status: 200,

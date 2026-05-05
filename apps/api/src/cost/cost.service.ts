@@ -14,6 +14,7 @@ import {
   CreateCostDto,
   UpdateCostDto,
 } from '../dtos/cost.dto';
+import { Prisma } from '../../generated/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -44,11 +45,23 @@ export class CostService {
     const month = query.month?.trim();
     const hasMonthFilter =
       year && month && /^\d{4}$/.test(year) && /^(0?[1-9]|1[0-2])$/.test(month);
-    const monthPrefix = hasMonthFilter
-      ? `${year}-${month.length === 1 ? `0${month}` : month}`
+    const normalizedMonth = hasMonthFilter
+      ? month.length === 1
+        ? `0${month}`
+        : month
       : null;
+    const monthStart =
+      hasMonthFilter && year && normalizedMonth
+        ? new Date(Date.UTC(Number(year), Number(normalizedMonth) - 1, 1))
+        : null;
+    const nextMonthStart =
+      monthStart != null
+        ? new Date(
+            Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 1),
+          )
+        : null;
 
-    const where = {
+    const where: Prisma.CostExtendWhereInput = {
       ...(trimmedSearch
         ? {
             category: {
@@ -57,7 +70,14 @@ export class CostService {
             },
           }
         : {}),
-      ...(monthPrefix ? { date: { startsWith: monthPrefix } } : {}),
+      ...(monthStart && nextMonthStart
+        ? {
+            date: {
+              gte: monthStart,
+              lt: nextMonthStart,
+            },
+          }
+        : {}),
     };
 
     const total = await this.prisma.costExtend.count({ where });

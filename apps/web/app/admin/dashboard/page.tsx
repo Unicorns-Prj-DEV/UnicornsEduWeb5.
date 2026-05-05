@@ -557,6 +557,21 @@ export default function AdminDashboardTabPage() {
   const [quickView, setQuickView] = useState<QuickViewKey>("finance");
   const [selectedFinancialRowKey, setSelectedFinancialRowKey] = useState<AdminDashboardFinancialDetailRowKey | null>(null);
 
+  // Date-range mode state
+  const [viewMode, setViewMode] = useState<"month" | "range">("month");
+  const defaultDateRange = useMemo(() => {
+    const now = new Date();
+    const to = now.toISOString().slice(0, 10);
+    const fromDate = new Date(now);
+    fromDate.setDate(fromDate.getDate() - 29);
+    const from = fromDate.toISOString().slice(0, 10);
+    return { from, to };
+  }, []);
+  const [dateFrom, setDateFrom] = useState(defaultDateRange.from);
+  const [dateTo, setDateTo] = useState(defaultDateRange.to);
+
+  const isRangeMode = viewMode === "range";
+
   const dashboardQuery = useQuery<AdminDashboardDto>({
     queryKey: ["dashboard", "admin", year, month],
     queryFn: () =>
@@ -570,15 +585,40 @@ export default function AdminDashboardTabPage() {
     staleTime: 30_000,
   });
 
-  const financialDetailQuery = useQuery({
-    queryKey: ["dashboard", "admin", "financial-detail", selectedFinancialRowKey, year, month],
+  // Second query for range mode financial data (only financial rows; KPI/alerts/quickview stay on month query)
+  const rangeFinancialQuery = useQuery<AdminDashboardDto>({
+    queryKey: ["dashboard", "admin", "range", dateFrom, dateTo],
     queryFn: () =>
-      getAdminDashboardFinancialDetail({
-        rowKey: selectedFinancialRowKey!,
-        month,
-        year,
-        limit: 500,
+      getAdminDashboard({
+        dateFrom,
+        dateTo,
+        alertLimit: 1,
+        topClassLimit: 1,
       }),
+    enabled: fullProfileQuery.isSuccess && !isAssistantStaff && isRangeMode,
+    staleTime: 30_000,
+  });
+
+  const financialDetailQuery = useQuery({
+    queryKey: [
+      "dashboard", "admin", "financial-detail", selectedFinancialRowKey,
+      isRangeMode ? dateFrom : year,
+      isRangeMode ? dateTo : month,
+    ],
+    queryFn: () =>
+      isRangeMode
+        ? getAdminDashboardFinancialDetail({
+            rowKey: selectedFinancialRowKey!,
+            dateFrom,
+            dateTo,
+            limit: 500,
+          })
+        : getAdminDashboardFinancialDetail({
+            rowKey: selectedFinancialRowKey!,
+            month,
+            year,
+            limit: 500,
+          }),
     enabled: fullProfileQuery.isSuccess && !isAssistantStaff && selectedFinancialRowKey != null,
     staleTime: 20_000,
   });
@@ -627,17 +667,25 @@ export default function AdminDashboardTabPage() {
     return { value: y, label: y };
   });
 
-  const teacherCost = getBreakdownAmount(dashboard, "teacherCost");
-  const customerCareCost = getBreakdownAmount(dashboard, "customerCareCost");
-  const lessonCost = getBreakdownAmount(dashboard, "lessonCost");
-  const bonusCost = getBreakdownAmount(dashboard, "bonusCost");
-  const extraAllowanceCost = getBreakdownAmount(dashboard, "extraAllowanceCost");
-  const operatingCost = getBreakdownAmount(dashboard, "operatingCost");
+  // In range mode: financial table + popup use range query data; everything else uses main month query
+  const activeFinancialDashboard =
+    isRangeMode && rangeFinancialQuery.data ? rangeFinancialQuery.data : dashboard;
+
+  const teacherCost = getBreakdownAmount(activeFinancialDashboard, "teacherCost");
+  const customerCareCost = getBreakdownAmount(activeFinancialDashboard, "customerCareCost");
+  const lessonCost = getBreakdownAmount(activeFinancialDashboard, "lessonCost");
+  const bonusCost = getBreakdownAmount(activeFinancialDashboard, "bonusCost");
+  const extraAllowanceCost = getBreakdownAmount(activeFinancialDashboard, "extraAllowanceCost");
+  const operatingCost = getBreakdownAmount(activeFinancialDashboard, "operatingCost");
   const personnelCostMonthly =
     teacherCost + customerCareCost + lessonCost + bonusCost;
   const otherCostMonthly = operatingCost + extraAllowanceCost;
   const totalReceiveNet =
-    dashboard.summary.monthlyTopupTotal - personnelCostMonthly - otherCostMonthly;
+    (activeFinancialDashboard?.summary.monthlyTopupTotal ?? 0) - personnelCostMonthly - otherCostMonthly;
+
+  const financialPeriodLabel = isRangeMode
+    ? (rangeFinancialQuery.data?.period.monthLabel ?? `${dateFrom} – ${dateTo}`)
+    : (dashboard?.period.monthLabel ?? "");
 
   const payrollNoteDetail = `Gia sư: ${formatCurrency(teacherCost)} - Giáo án: ${formatCurrency(lessonCost)} - SALE&CSKH: ${formatCurrency(customerCareCost)} - Thưởng: ${formatCurrency(bonusCost)}`;
 
@@ -645,32 +693,32 @@ export default function AdminDashboardTabPage() {
     {
       key: "topup",
       label: "Tổng nạp",
-      value: dashboard.summary.monthlyTopupTotal,
+      value: activeFinancialDashboard?.summary.monthlyTopupTotal ?? 0,
       note: "Tổng số tiền học sinh đã nạp",
     },
     {
       key: "revenue",
       label: "Học phí đã học",
-      value: dashboard.summary.totalLearnedTuition,
-      note: `Học phí attendance present/excused có sessions.date trong ${dashboard.period.monthLabel}.`,
+      value: activeFinancialDashboard?.summary.totalLearnedTuition ?? 0,
+      note: `Học phí attendance present/excused có sessions.date trong ${financialPeriodLabel}.`,
     },
     {
       key: "prepaid",
       label: "Nợ học phí chưa dạy",
-      value: dashboard.summary.prepaidTuitionTotal,
-      note: "Tổng số dư dương (ví) của học sinh có phát sinh buổi học trong tháng đang xem.",
+      value: activeFinancialDashboard?.summary.prepaidTuitionTotal ?? 0,
+      note: "Tổng số dư dương (ví) của học sinh có phát sinh buổi học trong kỳ đang xem.",
     },
     {
       key: "uncollected",
       label: "Chưa thu",
-      value: dashboard.summary.pendingCollectionTotal,
-      note: "Học sinh âm ví có ít nhất một buổi học trong tháng đang xem.",
+      value: activeFinancialDashboard?.summary.pendingCollectionTotal ?? 0,
+      note: "Học sinh âm ví có ít nhất một buổi học trong kỳ đang xem.",
     },
     {
       key: "pending-payroll",
       label: "Chờ Thanh Toán Trợ Cấp",
-      value: dashboard.summary.pendingPayrollTotal,
-      note: `${payrollNoteDetail} · Pending gắn với tháng đang xem.`,
+      value: activeFinancialDashboard?.summary.pendingPayrollTotal ?? 0,
+      note: `${payrollNoteDetail} · Pending gắn với kỳ đang xem.`,
     },
     {
       key: "personnel-cost",
@@ -687,7 +735,7 @@ export default function AdminDashboardTabPage() {
     {
       key: "profit",
       label: "Lợi nhuận",
-      value: dashboard.summary.monthlyProfit,
+      value: activeFinancialDashboard?.summary.monthlyProfit ?? 0,
       note: "Học phí đã học - Chi phí nhân sự - Chi phí khác",
       emphasize: true,
     },
@@ -793,61 +841,124 @@ export default function AdminDashboardTabPage() {
   return (
     <div className="min-h-full bg-bg-primary p-4 sm:p-6">
       <div className="mx-auto w-full max-w-[1320px] space-y-4 rounded-xl border border-border-default bg-bg-surface p-4 sm:p-5">
-        <section className="flex flex-col gap-3 border-b border-border-default pb-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-col gap-1">
-            <span className="text-xs text-text-muted">Bộ lọc theo thời gian</span>
-            <div className="inline-flex w-fit items-center gap-2 rounded-md border border-border-default bg-bg-surface p-1">
-              <button
-                type="button"
-                onClick={() => {
-                  const next = stepMonth(month, year, -1);
-                  setMonth(next.month);
-                  setYear(next.year);
-                }}
-                className="inline-flex min-h-8 min-w-8 items-center justify-center rounded border border-border-default bg-bg-surface text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                aria-label="Tháng trước"
-                title="Tháng trước"
-              >
-                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <div className="min-w-[150px] rounded border border-border-default px-3 py-1.5 text-center text-sm font-medium text-text-primary">
-                {monthLabel(month, year)}
+        <section className="flex flex-col gap-3 border-b border-border-default pb-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex flex-col gap-2">
+              <span className="text-xs text-text-muted">Bộ lọc theo thời gian</span>
+
+              {/* Mode toggle */}
+              <div className="inline-flex w-fit rounded-md border border-border-default bg-bg-secondary p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("month")}
+                  className={`inline-flex items-center rounded px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
+                    viewMode === "month"
+                      ? "bg-bg-surface text-text-primary shadow-sm"
+                      : "text-text-muted hover:text-text-primary"
+                  }`}
+                >
+                  Theo tháng
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("range")}
+                  className={`inline-flex items-center rounded px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
+                    viewMode === "range"
+                      ? "bg-bg-surface text-text-primary shadow-sm"
+                      : "text-text-muted hover:text-text-primary"
+                  }`}
+                >
+                  Khoảng ngày
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  const next = stepMonth(month, year, 1);
-                  setMonth(next.month);
-                  setYear(next.year);
-                }}
-                className="inline-flex min-h-8 min-w-8 items-center justify-center rounded border border-border-default bg-bg-surface text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                aria-label="Tháng sau"
-                title="Tháng sau"
-              >
-                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-              </div>
+
+              {/* Month navigator (month mode) */}
+              {viewMode === "month" && (
+                <div className="inline-flex w-fit items-center gap-2 rounded-md border border-border-default bg-bg-surface p-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = stepMonth(month, year, -1);
+                      setMonth(next.month);
+                      setYear(next.year);
+                    }}
+                    className="inline-flex min-h-8 min-w-8 items-center justify-center rounded border border-border-default bg-bg-surface text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    aria-label="Tháng trước"
+                    title="Tháng trước"
+                  >
+                    <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <div className="min-w-[150px] rounded border border-border-default px-3 py-1.5 text-center text-sm font-medium text-text-primary">
+                    {monthLabel(month, year)}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = stepMonth(month, year, 1);
+                      setMonth(next.month);
+                      setYear(next.year);
+                    }}
+                    className="inline-flex min-h-8 min-w-8 items-center justify-center rounded border border-border-default bg-bg-surface text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    aria-label="Tháng sau"
+                    title="Tháng sau"
+                  >
+                    <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+
+              {/* Date range picker (range mode) */}
+              {viewMode === "range" && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="dateFrom" className="text-xs text-text-muted whitespace-nowrap">Từ ngày</label>
+                    <input
+                      id="dateFrom"
+                      type="date"
+                      value={dateFrom}
+                      max={dateTo}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="rounded-md border border-border-default bg-bg-surface px-2.5 py-1.5 text-sm text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="dateTo" className="text-xs text-text-muted whitespace-nowrap">Đến ngày</label>
+                    <input
+                      id="dateTo"
+                      type="date"
+                      value={dateTo}
+                      min={dateFrom}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      className="rounded-md border border-border-default bg-bg-surface px-2.5 py-1.5 text-sm text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    />
+                  </div>
+                  {rangeFinancialQuery.isFetching && (
+                    <span className="text-xs text-text-muted animate-pulse">Đang tải...</span>
+                  )}
+                </div>
+              )}
             </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="inline-flex min-h-10 items-center rounded-md border border-border-default bg-bg-surface px-3 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-            >
-              Xuất PDF
-            </button>
-            <button
-              type="button"
-              onClick={() => exportCsv(`dashboard-${year}-${month}.csv`, financialCsvRows)}
-              className="inline-flex min-h-10 items-center rounded-md bg-primary px-3 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-            >
-              Xuất Excel
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="inline-flex min-h-10 items-center rounded-md border border-border-default bg-bg-surface px-3 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              >
+                Xuất PDF
+              </button>
+              <button
+                type="button"
+                onClick={() => exportCsv(isRangeMode ? `dashboard-${dateFrom}-${dateTo}.csv` : `dashboard-${year}-${month}.csv`, financialCsvRows)}
+                className="inline-flex min-h-10 items-center rounded-md bg-primary px-3 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              >
+                Xuất Excel
+              </button>
+            </div>
           </div>
         </section>
 
@@ -881,10 +992,18 @@ export default function AdminDashboardTabPage() {
         </section>
 
         <section className="overflow-hidden rounded-xl border border-border-default bg-bg-surface shadow-sm">
-          <div className="px-5 py-4 sm:px-6 sm:py-5">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-4 sm:px-6 sm:py-5">
             <h2 className="text-base font-bold tracking-tight text-text-primary sm:text-lg">
               Báo cáo tài chính
             </h2>
+            {isRangeMode && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/8 px-2.5 py-1 text-xs font-medium text-primary">
+                <svg className="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                {rangeFinancialQuery.isFetching ? "Đang tải khoảng ngày..." : financialPeriodLabel}
+              </span>
+            )}
           </div>
 
           <div className="space-y-3 border-t border-border-default p-4 md:hidden">

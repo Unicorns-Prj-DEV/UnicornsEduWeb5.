@@ -51,6 +51,7 @@ import {
 } from 'src/common/user-name.util';
 import {
   normalizePercent,
+  resolveOperatingDeductionRate,
   resolveTaxDeductionRate,
   roundMoney,
 } from 'src/payroll/deduction-rates';
@@ -374,6 +375,8 @@ type StaffPaymentPreviewRecord = {
   currentStatus: string | null;
   grossAmount: number;
   operatingAmount: number;
+  /** % vận hành hiện hành tại thời điểm thanh toán; 0 cho mọi role không phải teacher. */
+  operatingRatePercent: number;
   taxRatePercent: number;
   taxAmount: number;
   netAmount: number;
@@ -381,9 +384,11 @@ type StaffPaymentPreviewRecord = {
 
 type StaffPaymentPreviewDraftRecord = Omit<
   StaffPaymentPreviewRecord,
-  'taxRatePercent' | 'taxAmount' | 'netAmount'
+  'taxRatePercent' | 'taxAmount' | 'netAmount' | 'operatingRatePercent'
 > & {
   taxableBaseAmount?: number;
+  /** Chỉ set cho teacher_session; các nguồn khác để undefined (finalize sẽ default 0). */
+  operatingRatePercent?: number;
 };
 
 type StaffDepositPaymentPreviewSessionRecord = {
@@ -1434,10 +1439,27 @@ export class StaffService {
   ): Promise<StaffPaymentPreviewDraftRecord[]> {
     const rows = await this.getTeacherPaymentPreviewRows(db, params);
 
+    const uniqueClassIds = [
+      ...new Set(
+        rows
+          .map((r) => r.classId?.trim())
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    const operatingRateByClassId = await this.resolveCurrentOperatingRates(
+      db,
+      params.teacherId,
+      uniqueClassIds,
+    );
+
     return rows.map((row) => {
       const grossAmount = normalizeMoneyAmount(row.grossAmount);
-      const operatingAmount = normalizeMoneyAmount(row.operatingAmount);
-      const taxableBaseAmount = normalizeMoneyAmount(row.taxableBaseAmount);
+      const classId = row.classId?.trim() ?? '';
+      const operatingRatePercent = operatingRateByClassId.get(classId) ?? 0;
+      const operatingAmount = roundMoney(
+        (grossAmount * operatingRatePercent) / 100,
+      );
+      const taxableBaseAmount = grossAmount - operatingAmount;
 
       return {
         id: row.id,
@@ -1450,6 +1472,7 @@ export class StaffService {
         currentStatus: row.paymentStatus,
         grossAmount,
         operatingAmount,
+        operatingRatePercent,
         taxableBaseAmount,
       };
     });
@@ -1768,12 +1791,54 @@ export class StaffService {
     };
   }
 
+  /**
+   * Resolve % vận hành hiện hành (server now) cho từng classId của giáo viên.
+   * Ưu tiên bảng `class_teacher_operating_deduction_rates` (effective-date),
+   * fallback về `class_teachers.operatingDeductionRatePercent`.
+   */
+  private async resolveCurrentOperatingRates(
+    db: StaffPaymentClient,
+    teacherId: string,
+    classIds: string[],
+  ): Promise<Map<string, number>> {
+    if (classIds.length === 0) {
+      return new Map();
+    }
+    const effectiveDate = new Date();
+    const entries = await Promise.all(
+      classIds.map(async (classId) => {
+        const fromTable = await resolveOperatingDeductionRate(db, {
+          classId,
+          teacherId,
+          effectiveDate,
+        });
+        if (fromTable > 0) {
+          return [classId, fromTable] as const;
+        }
+        const classTeacher = await db.classTeacher.findUnique({
+          where: { classId_teacherId: { classId, teacherId } },
+          select: { operatingDeductionRatePercent: true },
+        });
+        return [
+          classId,
+          normalizePercent(classTeacher?.operatingDeductionRatePercent),
+        ] as const;
+      }),
+    );
+    return new Map(entries);
+  }
+
   private finalizePaymentPreviewRecords(
     records: StaffPaymentPreviewDraftRecord[],
     taxRateByRole: Map<StaffRole, number>,
   ): StaffPaymentPreviewRecord[] {
     return records.map((record) => {
-      const { taxableBaseAmount, ...baseRecord } = record;
+      const {
+        taxableBaseAmount,
+        operatingRatePercent: draftOpRate,
+        ...baseRecord
+      } = record;
+      const operatingRatePercent = draftOpRate ?? 0;
       const taxRatePercent =
         record.role == null ? 0 : (taxRateByRole.get(record.role) ?? 0);
       const normalizedTaxableBaseAmount = normalizeMoneyAmount(
@@ -1786,6 +1851,7 @@ export class StaffService {
 
       return {
         ...baseRecord,
+        operatingRatePercent,
         taxRatePercent,
         taxAmount,
         netAmount: record.grossAmount - record.operatingAmount - taxAmount,
@@ -2541,21 +2607,34 @@ export class StaffService {
       const sourceResults: StaffPaymentSourceResult[] = [];
 
       if (teacherSessionIds.length > 0) {
-        const updateResult = await tx.session.updateMany({
-          where: {
-            id: {
-              in: teacherSessionIds,
-            },
-          },
-          data: {
-            teacherTaxDeductionRatePercent: teacherTaxRatePercent,
-            teacherPaymentStatus: 'paid',
-          },
+        // Group by operatingRatePercent (per-class; teacher tax rate is the same across all sessions)
+        const teacherSessionRecords = records.filter(
+          (record) => record.sourceType === 'teacher_session',
+        );
+        const byOperatingRate = new Map<number, string[]>();
+        teacherSessionRecords.forEach((record) => {
+          const rate = record.operatingRatePercent;
+          const ids = byOperatingRate.get(rate) ?? [];
+          ids.push(record.id);
+          byOperatingRate.set(rate, ids);
         });
+
+        let updatedSessionCount = 0;
+        for (const [operatingRatePercent, ids] of byOperatingRate) {
+          const result = await tx.session.updateMany({
+            where: { id: { in: ids } },
+            data: {
+              teacherTaxDeductionRatePercent: teacherTaxRatePercent,
+              teacherOperatingDeductionRatePercent: operatingRatePercent,
+              teacherPaymentStatus: 'paid',
+            },
+          });
+          updatedSessionCount += result.count;
+        }
         sourceResults.push({
           sourceType: 'teacher_session',
           sourceLabel: 'Buổi dạy',
-          updatedCount: updateResult.count,
+          updatedCount: updatedSessionCount,
         });
       }
 

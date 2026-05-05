@@ -1,7 +1,11 @@
 export interface AdminDashboardPeriod {
   month: string;
   year: string;
+  /** Human-readable label; in range mode this is "dateFrom – dateTo". */
   monthLabel: string;
+  viewMode?: "month" | "range";
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 export interface AdminDashboardSummary {

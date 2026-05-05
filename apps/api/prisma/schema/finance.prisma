@@ -9,6 +9,7 @@ model Bonus {
   createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
   staff     StaffInfo     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  date      DateTime      @default(now()) @map("date") @db.Date
 
   @@index([staffId])
   @@index([month])
@@ -131,7 +132,7 @@ model CostExtend {
   month       String?
   category    String?
   amount      Int?
-  date        String?        @map("date")
+  date        DateTime?      @map("date") @db.Date
   status      PaymentStatus? @default(pending)
   createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamp(6)
   updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamp(6)
