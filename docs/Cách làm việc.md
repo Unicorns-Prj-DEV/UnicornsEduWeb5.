@@ -264,7 +264,9 @@ pnpm --filter web add @unicorns/shared --workspace
 
 ## Deploy VPS (GitHub Actions)
 
-Pipeline: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — **hai job build** (`build-api`, `build-web`) chạy **song song** trên GitHub runners, mỗi job push một image lên GHCR (cache BuildKit `type=gha` tách `scope=api` / `scope=web`) → job `deploy` chỉ chạy khi cả hai build xong → SSH vào VPS → `git pull --ff-only` để sync compose/nginx/workflow-side config → `docker compose pull` / `up` → probe readiness thật từ trong container → **nếu có Certbot trên host:** `certbot renew --quiet` → `nginx -t` + reload → **kiểm tra HTTPS** (`curl` với `--resolve` tới `127.0.0.1` theo biến job `VPS_PUBLIC_HOST`, mặc định `unicorn.sunnydev.qzz.io`, endpoint `/api/`) → `prisma migrate deploy`.
+Pipeline: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — **hai job build** (`build-api`, `build-web`) chạy **song song** trên GitHub runners, mỗi job push một image lên GHCR (cache BuildKit `type=gha` tách `scope=api` / `scope=web`) → job `deploy` chỉ chạy khi cả hai build xong → SSH vào VPS → `git pull --ff-only` để sync compose/nginx/workflow-side config → `docker compose pull` / `up` → probe readiness thật từ trong container → **nếu có Certbot trên host:** `certbot renew --quiet` → `nginx -t` + reload → **kiểm tra HTTPS** (nếu có hostname — xem `VPS_PUBLIC_HOST` bên dưới): `curl` với `--resolve` tới `127.0.0.1`, endpoint `/api/` → `prisma migrate deploy`.
+
+**`VPS_PUBLIC_HOST` (smoke test HTTPS):** đặt một trong các cách — **Secret** `VPS_PUBLIC_HOST` (ưu tiên) hoặc **Repository variable** `VPS_PUBLIC_HOST`, hoặc trong file **`.env` trên VPS** (cùng thư mục compose, ví dụ `/root/UnicornsEdu/.env`). Script deploy đọc theo thứ tự: giá trị GitHub Actions truyền SSH → nếu trống thì đọc dòng `VPS_PUBLIC_HOST=…` trong `.env`. Nếu vẫn trống, **bỏ qua** bước `curl` (deploy không fail vì thiếu domain). Khớp `server_name` / chứng chỉ trong nginx.
 
 ### Lỗi `Process exited with status 137`
 
@@ -330,6 +332,8 @@ Stack prod map **80/443** và mount **`/etc/letsencrypt`** (chứng chỉ trên 
 Truy cập bằng **IP** vẫn dùng khối `listen 80 default_server` (không redirect HTTPS). Truy cập **https://unicorn.sunnydev.qzz.io/** sau khi có cert: HTTP (port 80) cho hostname đó redirect 301 sang HTTPS; HTTPS phục vụ app.
 
 **Miền khác:** dùng mẫu `nginx/conf.d/https-vhost.conf.example`, sao chép/sửa thành file `.conf` riêng hoặc chỉnh `server_name` và đường dẫn `ssl_certificate` cho khớp `-d` khi chạy Certbot.
+
+**GitHub Actions:** job `deploy` trong [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) sau khi `api`/`web` sẵn sàng sẽ gọi `certbot renew --quiet` trên VPS (bỏ qua nếu chưa cài Certbot), rồi `nginx -t` + `nginx -s reload`. Hostname cho smoke test HTTPS lấy theo thứ tự: **Secret** `VPS_PUBLIC_HOST` → **Repository variable** `VPS_PUBLIC_HOST` → dòng **`VPS_PUBLIC_HOST`** trong `.env` trên VPS (không có scheme). Nếu có hostname và có `curl`, chạy `curl` tới `https://…/api/` qua `--resolve` tới `127.0.0.1`. Nếu **không** có hostname → **bỏ qua** smoke test (deploy vẫn thành công). Khi có hostname nhưng TLS/route lỗi, deploy **fail** tại `curl`. Biến mẫu: [.env.production.example](../.env.production.example).
 
 ### Lỗi Prisma `The datasource.url property is required` khi `migrate deploy`
 
