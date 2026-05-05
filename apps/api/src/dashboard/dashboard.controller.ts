@@ -125,6 +125,21 @@ export class DashboardController {
     description: 'Maximum number of rows returned.',
     example: 200,
   })
+  @ApiQuery({
+    name: 'month',
+    required: false,
+    type: String,
+    description:
+      'Month in 01-12 format. Defaults to current month; limits rows to students with session activity in that calendar month.',
+    example: '03',
+  })
+  @ApiQuery({
+    name: 'year',
+    required: false,
+    type: String,
+    description: 'Year in YYYY format. Defaults to current year.',
+    example: '2026',
+  })
   @ApiResponse({
     status: 200,
     description: 'Student balance detail rows.',
