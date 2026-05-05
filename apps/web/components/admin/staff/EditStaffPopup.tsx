@@ -2,7 +2,6 @@
 
 import { useState, type SyntheticEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import CccdImageUploadFields from "@/components/staff/CccdImageUploadFields";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type { StaffDetail } from "@/dtos/staff.dto";
@@ -98,15 +97,7 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
   const handleSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmedName = fullName.trim();
-    if (!trimmedName) {
-      toast.error("Họ tên là bắt buộc.");
-      return;
-    }
     const normalizedCccd = cccdNumber.trim();
-    if (!/^\d{12}$/.test(normalizedCccd)) {
-      toast.error("Số CCCD phải gồm đúng 12 chữ số.");
-      return;
-    }
 
     onClose();
     runBackgroundSave({
@@ -116,8 +107,8 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
       action: async () => {
         await staffApi.updateStaff({
           id: staff.id,
-          full_name: trimmedName,
-          cccd_number: normalizedCccd,
+          full_name: trimmedName || undefined,
+          cccd_number: normalizedCccd || undefined,
           cccd_issued_date: cccdIssuedDateInput.trim() || undefined,
           cccd_issued_place: cccdIssuedPlace.trim() || undefined,
           status,
@@ -188,7 +179,6 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
                   onChange={(e) => setFullName(e.target.value)}
                   className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   placeholder="Ví dụ: Nguyễn Văn A"
-                  required
                 />
               </label>
 
@@ -212,14 +202,13 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
               </label>
 
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
-                <span>Số CCCD *</span>
+                <span>Số CCCD</span>
                 <input
                   value={cccdNumber}
                   onChange={(e) => setCccdNumber(e.target.value)}
                   inputMode="numeric"
                   className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   placeholder="012345678901"
-                  required
                 />
               </label>
 
@@ -310,7 +299,6 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
                 <span>Link QR thanh toán</span>
                 <input
-                  type="url"
                   value={bankQrLink}
                   onChange={(e) => setBankQrLink(e.target.value)}
                   className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
