@@ -228,6 +228,31 @@ function renderSessionStatus(
   };
 }
 
+/** Pill for payment/timeline status: wraps inside narrow `table-fixed` cells instead of clipping on overflow. */
+function SessionPaymentStatusPill({
+  label,
+  toneClassName,
+  density = "default",
+}: {
+  label: string;
+  toneClassName: string;
+  density?: "default" | "dense";
+}) {
+  const densityClass =
+    density === "dense"
+      ? "px-2 py-0.5 text-[11px]"
+      : "px-2.5 py-0.5 text-xs";
+
+  return (
+    <span
+      className={`inline-block max-w-full min-w-0 wrap-break-word rounded-full font-medium ${densityClass} ${toneClassName}`}
+      title={label}
+    >
+      <span className="block text-pretty text-center leading-snug">{label}</span>
+    </span>
+  );
+}
+
 function renderEntityCell(
   session: SessionItem,
   entityMode: SessionEntityMode,
@@ -1421,11 +1446,10 @@ export default function SessionHistoryTable({
                         />
                       </button>
                     ) : null}
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}
-                    >
-                      {status.label}
-                    </span>
+                    <SessionPaymentStatusPill
+                      label={status.label}
+                      toneClassName={status.className}
+                    />
                     {isClassDetailTeacherLayout ? (
                       <div className="flex flex-col items-end gap-1 text-xs text-text-muted">
                         <div className="inline-flex items-center gap-1">
@@ -1686,12 +1710,12 @@ export default function SessionHistoryTable({
                             </div>
                           ) : null}
 
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${status.className}`}
-                          >
-                            <span className="sr-only">Trạng thái thanh toán:</span>
-                            {status.label}
-                          </span>
+                          <span className="sr-only">Trạng thái thanh toán:</span>
+                          <SessionPaymentStatusPill
+                            label={status.label}
+                            toneClassName={status.className}
+                            density="dense"
+                          />
 
                           <div className="inline-flex items-center gap-3 text-[11px] text-text-muted">
                             <div className="inline-flex items-center gap-0.5">
@@ -1783,18 +1807,18 @@ export default function SessionHistoryTable({
             {entityMode === "teacher" ? (
               <>
                 <col className="w-[10%]" />
-                <col className="w-[28%]" />
+                <col className="w-[24%]" />
                 <col className="w-[14%]" />
                 <col className="w-[18%]" />
-                <col className="w-[18%]" />
+                <col className="w-[22%]" />
                 {showActionsColumn && <col className="w-[12%]" />}
               </>
             ) : shouldShowEntity ? (
               <>
-                <col className="w-[18%]" />
-                <col className="w-[14%]" />
-                <col className="w-[36%]" />
-                <col className="w-[20%]" />
+                <col className="w-[16%]" />
+                <col className="w-[12%]" />
+                <col className="w-[32%]" />
+                <col className="min-w-30 w-[26%]" />
                 {showActionsColumn && <col className="w-[12%]" />}
               </>
             ) : (
@@ -1850,7 +1874,7 @@ export default function SessionHistoryTable({
               ) : null}
               <th
                 scope="col"
-                className="px-4 py-3 font-medium text-text-primary"
+                className="min-w-0 max-w-40 whitespace-normal px-4 py-3 text-left font-medium leading-snug text-text-primary sm:max-w-none"
               >
                 {statusMode === "timeline"
                   ? "Tiến độ"
@@ -1947,12 +1971,11 @@ export default function SessionHistoryTable({
                         </span>
                       </td>
                     ) : null}
-                    <td className="px-4 py-3">
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}
-                      >
-                        {status.label}
-                      </span>
+                    <td className="min-w-0 px-4 py-3 align-top">
+                      <SessionPaymentStatusPill
+                        label={status.label}
+                        toneClassName={status.className}
+                      />
                     </td>
                     {showActionsColumn ? (
                       <td className="px-2 py-3 text-right">
