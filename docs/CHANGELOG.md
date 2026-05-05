@@ -22,7 +22,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 ## [Unreleased]
 
 ### Added
-- FE `/admin/staffs/[id]` (shell `/admin`) — card **Lớp phụ trách**: cột **KH vận hành** (%) và chỉnh sửa inline (blur để lưu) cho **admin**; cập nhật `class_teachers.tax_rate_percent` qua `PATCH /staff/:id/class-teachers/:classId/operating-deduction`. `GET /staff/:id` trả thêm `operatingDeductionRatePercent` trên từng `classTeachers`.
+- **Nginx HTTPS (prod):** Tách `location` proxy chung vào `nginx/conf.d/snippets/proxy-locations.conf`, `app.conf` phục vụ HTTP (default_server) + `/.well-known/acme-challenge/` cho Certbot webroot; mount `./nginx/certbot/www` trong `docker-compose.prod.yml`; file mẫu `nginx/conf.d/https-vhost.conf.example`; **`nginx/conf.d/https-vhost.conf` cố định cho `unicorn.sunnydev.qzz.io`** (TLS + redirect). Hướng dẫn & thứ tự Certbot trong `docs/Cách làm việc.md`.
+- FE `/admin/staffs/[id]` (shell `/admin`) — card **Lớp phụ trách**: cột **KH vận hành** (%); **admin** chỉnh ô `%` với **Huỷ bỏ** / **Lưu** chỉ hiện khi có thay đổi; không lưu khi blur; **Huỷ bỏ** refetch `GET /staff/:id` và xóa draft; **Lưu** áp tuần tự các lớp đã đổi qua `PATCH /staff/:id/class-teachers/:classId/operating-deduction` và hiện skeleton khi đang lưu. `GET /staff/:id` trả `operatingDeductionRatePercent` trên từng `classTeachers`.
 
 ### Changed
 - FE admin/staff/student CRUD save UX: các form save không-destructive cho lớp, nhân sự, học sinh, session, học phí, ví và self-profile nay đóng popup/thoát edit mode ngay sau client validation, hiện `toast.loading`, rồi resolve success/error khi mutation nền hoàn tất; section đang refetch vẫn giữ dữ liệu cũ, dim nhẹ và hiện refresh strip/skeleton mảnh thay vì thay cả vùng bằng loading state.
@@ -31,6 +32,9 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - CI: `.github/workflows/deploy.yml` tách build Docker **API** và **Web** thành hai job chạy song song (`build-api`, `build-web`); `deploy` chờ cả hai; cache BuildKit `gha` dùng `scope` riêng để tránh xung đột khi push cache đồng thời.
 
 ### Fixed
+- FE `SessionHistoryTable`: pill trạng thái thanh toán (ví dụ *Chưa thanh toán*) xuống dòng gọn trong ô khi bảng `table-fixed` hẹp / `overflow-x-auto`, cột trạng thái tăng tỷ lệ + `min-w-30`, tiêu đề cột được phép xuống dòng trên màn nhỏ — tránh badge/mask lệch hoặc tràn khi scroll ngang.
+- BE admin dashboard aggregate (`GET /dashboard`): chỉnh `getMonthlyTrend` dùng cận ngày `YYYY-MM-DD` theo `month`/`year` + `anchorMonthKey`, và `buildDashboardRange` dùng `Date.UTC` cho biên tháng / `formatMonthKey` theo UTC — tránh lệch múi giờ khiến `generate_series` không khớp CTE doanh thu/chi phí và `resolveSelectedMonthTrend` fallback về 0 (bảng **Báo cáo tài chính** hiển thị sai **Học phí đã học**, chi phí, lợi nhuận).
+- BE dashboard `getMonthlyTrend`: lọc `cost_extend.date` ép `::date` vì cột DB là `TEXT` — sửa lỗi PostgreSQL `operator does not exist: text >= date` (Prisma `P2010`).
 - BE/FE staff income summary unpaid: thêm `snapshotUnpaidTotal` authoritative cho card `Chưa nhận` trên `/staff/profile` và `/admin/staffs/[id]`; snapshot loại trạng thái cọc, buổi dạy chỉ tính `unpaid` trong `days` gần nhất, các nguồn pending khác tính full, dùng semantics trước thuế. Đồng thời cột `Chưa nhận` theo lớp chuyển sang lấy gross từ cửa sổ unpaid gần nhất.
 - BE staff income summary theo lớp: `classMonthlySummaries` chuẩn hóa lại theo rule mới — cột `Tổng` + `Đã nhận` tính theo **tháng đang chọn** với gross trước thuế, còn cột `Chưa nhận` giữ cửa sổ `days` gần nhất (mặc định 14 ngày) với gross trước thuế.
 - BE session date-only consistency: chuẩn hóa parse/lọc ngày theo mốc UTC date-only (`YYYY-MM-DD`) cho luồng tạo/sửa session và query tháng để tránh case đổi ngày sang tháng trước nhưng vẫn hiển thị ở tháng hiện tại.
