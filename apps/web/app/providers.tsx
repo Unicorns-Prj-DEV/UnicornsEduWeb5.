@@ -12,7 +12,6 @@ import { useAuth } from "@/context/AuthContext";
 import { createGuestUser, Role, UserInfoDto } from "@/dtos/Auth.dto";
 import type { NotificationPushEvent } from "@/dtos/notification.dto";
 import { summarizeNotificationContent } from "@/lib/format-sidebar-notification-time";
-import { notificationFeedQueryKey } from "@/lib/notification-feed-query";
 import {
   OPEN_NOTIFICATION_DETAIL_EVENT,
   type OpenNotificationDetailPayload,
@@ -35,7 +34,7 @@ import {
 } from "@/lib/email-verification-access";
 import {
   invalidateActionHistoryScopedQueries,
-  invalidateNotificationScopedQueries,
+  invalidateNotificationFeedScopedQueries,
 } from "@/lib/query-invalidation";
 
 const defaultUser: UserInfoDto = createGuestUser();
@@ -263,10 +262,7 @@ function NotificationSocketBridge() {
         return;
       }
 
-      void invalidateNotificationScopedQueries(queryClient);
-      void queryClient.invalidateQueries({
-        queryKey: notificationFeedQueryKey(),
-      });
+      void invalidateNotificationFeedScopedQueries(queryClient);
 
       const openNotificationDetail = () => {
         const payload: OpenNotificationDetailPayload = {

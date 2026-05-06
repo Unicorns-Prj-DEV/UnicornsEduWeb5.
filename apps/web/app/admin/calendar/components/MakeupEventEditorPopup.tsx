@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { ClassScheduleEvent } from "@/dtos/class-schedule.dto";
 import * as classScheduleApi from "@/lib/apis/class-schedule.api";
+import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 
 type MakeupEventEditorPopupProps = {
   open: boolean;
@@ -85,11 +86,7 @@ export default function MakeupEventEditorPopup({
   );
 
   const invalidateCalendar = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["classScheduleEvents"] }),
-      queryClient.invalidateQueries({ queryKey: ["staffCalendarEvents"] }),
-    ]);
-    window.dispatchEvent(new Event("calendar:refetch"));
+    await invalidateCalendarScopedQueries(queryClient);
   };
 
   const createMutation = useMutation({

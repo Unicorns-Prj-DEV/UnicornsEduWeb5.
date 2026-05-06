@@ -24,6 +24,7 @@ import type {
 } from "@/dtos/notification.dto";
 import { formatDateTime } from "@/lib/class.helpers";
 import * as notificationApi from "@/lib/apis/notification.api";
+import { invalidateAdminNotificationScopedQueries } from "@/lib/query-invalidation";
 import { sanitizeRichTextContent } from "@/lib/sanitize";
 
 type ComposerMode = "create" | "edit-draft" | "repush";
@@ -418,7 +419,7 @@ export default function AdminNotificationPage() {
   });
 
   const invalidateNotifications = async () => {
-    await queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    await invalidateAdminNotificationScopedQueries(queryClient);
   };
 
   const resetComposer = () => {

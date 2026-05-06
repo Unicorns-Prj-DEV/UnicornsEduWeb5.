@@ -11,6 +11,7 @@ export class DashboardCacheService implements OnModuleInit {
   private cleanupPromise: Promise<void> | null = null;
   private lastCleanupStartedAt = 0;
   private hasLoggedUnavailable = false;
+  private readonly inFlightJsonLoads = new Map<string, Promise<unknown>>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -117,15 +118,32 @@ export class DashboardCacheService implements OnModuleInit {
       return cachedValue;
     }
 
-    const freshValue = await options.loader();
-    await this.setJson({
-      key: options.key,
-      cacheType: options.cacheType,
-      value: freshValue,
-      ttlSeconds: options.ttlSeconds,
+    const inFlightLoad = this.inFlightJsonLoads.get(options.key);
+    if (inFlightLoad) {
+      return inFlightLoad as Promise<T>;
+    }
+
+    const loadPromise = Promise.resolve().then(async () => {
+      const freshValue = await options.loader();
+      await this.setJson({
+        key: options.key,
+        cacheType: options.cacheType,
+        value: freshValue,
+        ttlSeconds: options.ttlSeconds,
+      });
+
+      return freshValue;
     });
 
-    return freshValue;
+    this.inFlightJsonLoads.set(options.key, loadPromise);
+
+    try {
+      return await loadPromise;
+    } finally {
+      if (this.inFlightJsonLoads.get(options.key) === loadPromise) {
+        this.inFlightJsonLoads.delete(options.key);
+      }
+    }
   }
 
   private async maybeCleanupExpiredEntries() {

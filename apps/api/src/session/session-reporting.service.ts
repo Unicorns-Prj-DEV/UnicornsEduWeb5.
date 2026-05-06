@@ -191,13 +191,9 @@ export class SessionReportingService {
 
     return this.prisma.$queryRaw<SessionUnpaidSummaryItem[]>(Prisma.sql`
       SELECT
-        tab.class_id AS "classId",
+        sessions.class_id AS "classId",
         classes.name AS "className",
-        SUM(tab.teacher_allowance_total) AS "totalAllowance"
-      FROM (
-        SELECT
-          attendance.session_id,
-          sessions.class_id,
+        SUM(
           LEAST(
             COALESCE(
               NULLIF(classes.max_allowance_per_session, 0),
@@ -220,24 +216,20 @@ export class SessionReportingService {
               ) * COALESCE(sessions.teacher_tax_rate_percent, 0)
             ) / 100.0,
             0
-          ) AS teacher_allowance_total
-        FROM attendance
-        JOIN sessions ON attendance.session_id = sessions.id
-        JOIN classes ON classes.id = sessions.class_id
-        WHERE sessions.teacher_id = ${teacherId}
-          AND sessions.teacher_payment_status = 'unpaid'
-          AND sessions.date >= CURRENT_DATE - make_interval(days => ${safeDays - 1})
-          AND sessions.date < CURRENT_DATE + INTERVAL '1 day'
-        GROUP BY
-          sessions.class_id,
-          attendance.session_id,
-          sessions.allowance_amount,
-          classes.max_allowance_per_session,
-          sessions.coefficient,
-          sessions.teacher_tax_rate_percent
-      ) AS tab
-      JOIN classes ON classes.id = tab.class_id
-      GROUP BY tab.class_id, classes.name
+          )
+        ) AS "totalAllowance"
+      FROM sessions
+      JOIN classes ON classes.id = sessions.class_id
+      WHERE sessions.teacher_id = ${teacherId}
+        AND sessions.teacher_payment_status = 'unpaid'
+        AND sessions.date >= CURRENT_DATE - make_interval(days => ${safeDays - 1})
+        AND sessions.date < CURRENT_DATE + INTERVAL '1 day'
+        AND EXISTS (
+          SELECT 1
+          FROM attendance
+          WHERE attendance.session_id = sessions.id
+        )
+      GROUP BY sessions.class_id, classes.name
     `);
   }
 }

@@ -7,6 +7,7 @@ import type {
   ClassScopedMakeupScheduleEventPayload,
   MakeupScheduleEventRecord,
 } from "@/dtos/class-schedule.dto";
+import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import ClassCard from "./ClassCard";
 
@@ -424,10 +425,8 @@ export default function MakeupScheduleCard({
   const invalidateAfterMutation = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: invalidateQueryKey }),
-      queryClient.invalidateQueries({ queryKey: ["classScheduleEvents"] }),
-      queryClient.invalidateQueries({ queryKey: ["staffCalendarEvents"] }),
+      invalidateCalendarScopedQueries(queryClient),
     ]);
-    window.dispatchEvent(new Event("calendar:refetch"));
   };
 
   const createMutation = useMutation({

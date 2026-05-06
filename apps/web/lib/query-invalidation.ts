@@ -37,10 +37,30 @@ export async function invalidateCalendarScopedQueries(queryClient: QueryClient) 
   ]);
 }
 
-export async function invalidateNotificationScopedQueries(queryClient: QueryClient) {
+export async function invalidateNotificationScopedQueries(
+  queryClient: QueryClient,
+) {
   await queryClient.invalidateQueries({ queryKey: notificationsKeys.all });
 }
 
-export async function invalidateActionHistoryScopedQueries(queryClient: QueryClient) {
+export async function invalidateAdminNotificationScopedQueries(
+  queryClient: QueryClient,
+) {
+  await queryClient.invalidateQueries({
+    queryKey: [...notificationsKeys.all, "admin"],
+  });
+}
+
+export async function invalidateNotificationFeedScopedQueries(
+  queryClient: QueryClient,
+) {
+  await queryClient.invalidateQueries({
+    queryKey: [...notificationsKeys.all, "feed"],
+  });
+}
+
+export async function invalidateActionHistoryScopedQueries(
+  queryClient: QueryClient,
+) {
   await queryClient.invalidateQueries({ queryKey: actionHistoryKeys.all });
 }

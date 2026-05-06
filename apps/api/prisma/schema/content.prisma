@@ -10,7 +10,9 @@ model ClassSurvey {
   teacher    StaffInfo? @relation(fields: [teacherId], references: [id])
 
   @@index([classId])
+  @@index([classId, testNumber])
   @@index([teacherId])
+  @@index([teacherId, reportDate])
   @@map("class_surveys")
 }
 

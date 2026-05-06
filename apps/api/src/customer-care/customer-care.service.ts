@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from 'generated/client';
 import { PaymentStatus, StaffRole, UserRole } from 'generated/enums';
 import type {
   CustomerCareCommissionDto,
@@ -19,6 +20,12 @@ function toNumber(value: unknown): number {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
 }
+
+type CustomerCareCommissionAggregateRow = {
+  studentId: string;
+  fullName: string | null;
+  totalCommission: unknown;
+};
 
 @Injectable()
 export class CustomerCareService {
@@ -158,41 +165,38 @@ export class CustomerCareService {
     since.setDate(since.getDate() - days);
     since.setHours(0, 0, 0, 0);
 
-    const attendances = await this.prisma.attendance.findMany({
-      where: {
-        customerCareStaffId: accessibleStaffId,
-        session: { date: { gte: since } },
-      },
-      select: {
-        studentId: true,
-        tuitionFee: true,
-        customerCareCoef: true,
-        student: { select: { id: true, fullName: true } },
-      },
-    });
+    const rows = await this.prisma.$queryRaw<
+      CustomerCareCommissionAggregateRow[]
+    >(
+      Prisma.sql`
+          SELECT
+            student_info.id AS "studentId",
+            COALESCE(student_info.full_name, '') AS "fullName",
+            COALESCE(
+              SUM(
+                ROUND(
+                  COALESCE(attendance.tuition_fee, 0)::numeric
+                  * COALESCE(attendance.customer_care_coef, 0)
+                )
+              ),
+              0
+            ) AS "totalCommission"
+          FROM attendance
+          INNER JOIN sessions
+            ON sessions.id = attendance.session_id
+          INNER JOIN student_info
+            ON student_info.id = attendance.student_id
+          WHERE attendance.customer_care_staff_id = ${accessibleStaffId}
+            AND sessions.date >= ${since}
+          GROUP BY student_info.id, student_info.full_name
+        `,
+    );
 
-    const byStudent = new Map<
-      string,
-      { studentId: string; fullName: string; totalCommission: number }
-    >();
-
-    for (const attendance of attendances) {
-      const tuition = toNumber(attendance.tuitionFee);
-      const coef = toNumber(attendance.customerCareCoef);
-      const commission = Math.round(tuition * coef);
-      const existing = byStudent.get(attendance.studentId);
-      if (existing) {
-        existing.totalCommission += commission;
-      } else {
-        byStudent.set(attendance.studentId, {
-          studentId: attendance.student.id,
-          fullName: attendance.student.fullName ?? '',
-          totalCommission: commission,
-        });
-      }
-    }
-
-    return Array.from(byStudent.values());
+    return rows.map((row) => ({
+      studentId: row.studentId,
+      fullName: row.fullName ?? '',
+      totalCommission: toNumber(row.totalCommission),
+    }));
   }
 
   /** Session-level commissions for one student under this staff (last N days). */

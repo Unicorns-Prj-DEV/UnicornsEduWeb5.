@@ -56,6 +56,7 @@ model StudentClass {
   @@index([studentId])
   @@index([classId])
   @@index([classId, studentId])
+  @@index([classId, status, createdAt])
   @@index([studentId, classId])
   @@map("student_classes")
 }
@@ -89,6 +90,8 @@ model Session {
   @@index([classId])
   @@index([date])
   @@index([classId, date])
+  @@index([classId, teacherId, date])
+  @@index([teacherPaymentStatus, date, teacherId])
   @@index([teacherId, date])
   @@index([teacherId, teacherPaymentStatus, date])
   @@index([googleCalendarEventId])
@@ -150,7 +153,10 @@ model Attendance {
   @@index([sessionId])
   @@index([studentId])
   @@index([customerCareStaffId, customerCarePaymentStatus])
+  @@index([customerCareStaffId, customerCarePaymentStatus, sessionId], map: "attendance_cc_staff_payment_session_idx")
+  @@index([customerCareStaffId, studentId, sessionId])
   @@index([assistantManagerStaffId, assistantPaymentStatus])
+  @@index([assistantManagerStaffId, assistantPaymentStatus, sessionId], map: "attendance_assistant_staff_payment_session_idx")
   @@map("attendance")
 }
 

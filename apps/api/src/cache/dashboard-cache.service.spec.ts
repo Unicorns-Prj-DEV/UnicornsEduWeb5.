@@ -87,6 +87,47 @@ describe('DashboardCacheService', () => {
     expect(upsertArgs.update.data).toEqual({ total: 7 });
   });
 
+  it('shares one loader across concurrent misses for the same key', async () => {
+    const prisma = createPrismaService();
+    prisma.dashboardCache.findUnique.mockResolvedValue(null);
+
+    const service = new DashboardCacheService(
+      prisma as never,
+      createConfigService({}),
+    );
+
+    let releaseLoader: () => void = () => undefined;
+    const loaderRelease = new Promise<void>((resolve) => {
+      releaseLoader = resolve;
+    });
+    let loaderCalls = 0;
+    const loader = jest.fn(async () => {
+      loaderCalls += 1;
+      const value = { total: loaderCalls };
+      await loaderRelease;
+      return value;
+    });
+
+    const firstResultPromise = service.wrapJson({
+      key: 'dashboard:summary',
+      cacheType: 'aggregate',
+      loader,
+    });
+    const secondResultPromise = service.wrapJson({
+      key: 'dashboard:summary',
+      cacheType: 'aggregate',
+      loader,
+    });
+
+    releaseLoader();
+
+    await expect(
+      Promise.all([firstResultPromise, secondResultPromise]),
+    ).resolves.toEqual([{ total: 1 }, { total: 1 }]);
+    expect(loader).toHaveBeenCalledTimes(1);
+    expect(prisma.dashboardCache.upsert).toHaveBeenCalledTimes(1);
+  });
+
   it('treats expired cache rows as misses and deletes them', async () => {
     const prisma = createPrismaService();
     prisma.dashboardCache.findUnique.mockResolvedValueOnce({

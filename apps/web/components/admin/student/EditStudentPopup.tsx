@@ -16,6 +16,7 @@ import type { CustomerCareStaffOption } from "@/dtos/staff.dto";
 import * as staffApi from "@/lib/apis/staff.api";
 import * as studentApi from "@/lib/apis/student.api";
 import { createClientId } from "@/lib/client-id";
+import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
 
 type DropdownRect = { top: number; left: number; width: number; maxHeight: number };
@@ -314,10 +315,8 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
           queryClient.invalidateQueries({ queryKey: ["student", "list"] }),
           queryClient.invalidateQueries({ queryKey: ["customer-care"] }),
           queryClient.invalidateQueries({ queryKey: ["student", "exam-schedules", student.id] }),
-          queryClient.invalidateQueries({ queryKey: ["classScheduleEvents"] }),
-          queryClient.invalidateQueries({ queryKey: ["staffCalendarEvents"] }),
+          invalidateCalendarScopedQueries(queryClient),
         ]);
-        window.dispatchEvent(new Event("calendar:refetch"));
         await onSuccess?.();
       },
     });

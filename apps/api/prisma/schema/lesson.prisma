@@ -83,6 +83,7 @@ model LessonOutput {
   @@index([staffId])
   @@index([staffId, date])
   @@index([staffId, paymentStatus, date])
+  @@index([paymentStatus, date, staffId])
   @@index([level])
   @@index([updatedAt])
   @@map("lesson_outputs")

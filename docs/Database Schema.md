@@ -106,11 +106,13 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - `avatar_path` (`TEXT`, nullable): object path avatar trong bucket `avatars` theo format `users/{userId}/avatar`
 - Quan hệ profile không nằm trên `users`; link authoritative được lưu ngược ở `student_info.user_id` và `staff_info.user_id`.
 - Không còn field legacy `person_profile_id` trong schema được hỗ trợ.
-- Index: `email`, `phone`, `account_handle`, `link_id`, `role_type`, `status`
+- Index: `email`, `phone`, `account_handle`, `link_id`, `role_type`, `status`, `created_at`
 
 ### 4.2 `staff_info`
 
 - Thông tin nhân sự: hồ sơ cá nhân, CCCD, ngân hàng, `roles` (`StaffRole[]` dạng Postgres enum array), `status`
+- Index: unique B-tree `staff_info_user_id_key` trên `user_id` kèm **`INCLUDE ("id", "roles")`** (covering) để tối ưu các đọc theo `user_id` (auth/session, roles guard). Trong Prisma: `@@unique([userId], map: "staff_info_user_id_key")` trên model `StaffInfo` (phần `INCLUDE` chỉ có trong migration SQL, Prisma chưa có DSL tương ứng).
+- Index: GIN trên `roles` cho lookup nhân sự theo role array.
 - Không còn lưu cột tên riêng trong `staff_info` (đã bỏ `full_name`); tên staff canonical được đọc từ `users.first_name` + `users.last_name`. Một số API vẫn có thể trả `staffInfo.fullName` dưới dạng derived field để tương thích ngược.
 - CCCD:
   - `cccd_number` (`TEXT`, nullable, unique): số CCCD 12 chữ số (rule validate ở BE/FE)
@@ -190,6 +192,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - `student_id`
   - `class_id`
   - composite `(class_id, student_id)` (hot path cho validate roster/session update)
+  - composite `(class_id, status, created_at)` (hot path cho danh sách roster theo lớp/trạng thái)
   - composite `(student_id, class_id)` (hot path cho membership lookups theo học sinh)
 
 ### 4.4.1 `makeup_schedule_events`
@@ -229,7 +232,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - Quan hệ con: `attendance`
 - Indexes chính:
   - đơn lẻ: `teacher_id`, `class_id`, `date`
-  - composite cho read path nóng: `(class_id, date)`, `(teacher_id, date)`, `(teacher_id, teacher_payment_status, date)`
+  - composite cho read path nóng: `(class_id, date)`, `(class_id, teacher_id, date)`, `(teacher_id, date)`, `(teacher_id, teacher_payment_status, date)`, `(teacher_payment_status, date, teacher_id)`
 - Trường Google Calendar/Meet legacy (tùy chọn): `google_meet_link` (TEXT), `google_calendar_event_id` (TEXT), `calendar_synced_at` (TIMESTAMPTZ), `calendar_sync_error` (TEXT)
   - Các field này được giữ để tương thích dữ liệu cũ đã từng sync session lên Google Calendar.
   - Từ `2026-04-14`, workflow `create/update/delete session` không còn auto-populate hay mutate các field này nữa; Google Calendar chỉ còn gắn với recurring entry trong `Class.schedule` và record one-off của `makeup_schedule_events`.
@@ -240,7 +243,13 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - Điểm danh theo từng session & student
 - Unique composite: `(session_id, student_id)`
 - Trạng thái dùng enum `AttendanceStatus`
-- Index read path bổ sung cho aggregate CSKH: `(customer_care_staff_id, customer_care_payment_status)` với tên index thực tế `attendance_customer_care_staff_id_customer_care_payment_sta_idx`
+- Index read path:
+  - `session_id`, `student_id`
+  - `(customer_care_staff_id, customer_care_payment_status)` với tên index thực tế `attendance_customer_care_staff_id_customer_care_payment_sta_idx`
+  - `(customer_care_staff_id, customer_care_payment_status, session_id)` cho aggregate CSKH theo trạng thái/buổi
+  - `(customer_care_staff_id, student_id, session_id)` cho lookup CSKH theo học sinh/buổi
+  - `(assistant_manager_staff_id, assistant_payment_status)` cho aggregate trợ lí quản lí
+  - `(assistant_manager_staff_id, assistant_payment_status, session_id)` cho aggregate trợ lí quản lí theo trạng thái/buổi
 - `assistant_manager_staff_id` (nullable FK → `staff_info.id`): snapshot trợ lí quản lí tại thời điểm tạo/cập nhật buổi; dùng để tính trợ cấp 3% học phí (chỉ tính khi `status = present`)
 - `assistant_payment_status` (`PaymentStatus?`): trạng thái thanh toán trợ cấp trợ lí, mặc định `pending` khi có manager
 - Snapshot khấu trừ thuế trên attendance:
@@ -261,9 +270,11 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `staff_monthly_stats`: số liệu tổng hợp lương/việc theo tháng
 - `extra_allowances`: khoản trợ cấp bổ sung theo staff/tháng/role, có `amount`, `status`, `note`, `month`, `role_type`, và snapshot `tax_deduction_rate_percent`
 - Index read path mới cho finance:
-  - `bonuses`: composite `(staff_id, month, status)` cho payroll preview/listing theo nhân sự-tháng-trạng thái
-  - `wallet_transactions_history`: composite `(student_id, created_at)` cho feed lịch sử ví theo học sinh
-  - `extra_allowances`: composite `(staff_id, month, status)` cho payroll preview/listing theo nhân sự-tháng-trạng thái
+  - `bonuses`: composite `(staff_id, month, status)` cho payroll preview/listing theo nhân sự-tháng-trạng thái; composite `(status, date, staff_id)` cho batch thanh toán/lọc theo trạng thái-ngày
+  - `wallet_transactions_history`: composite `(student_id, created_at)` cho feed lịch sử ví theo học sinh; composite `(type, created_at)` cho phân loại lịch sử theo loại giao dịch
+  - `extra_allowances`: composite `(staff_id, month, status)` cho payroll preview/listing theo nhân sự-tháng-trạng thái; composite `(status, staff_id, month, role_type, tax_deduction_rate_percent)` cho aggregate allowance theo trạng thái/rate bucket
+  - `dashboard_cache`: index `expires_at` cho dọn cache hết hạn
+  - `cost_extend`: index `date`, `month`, và composite `(status, date)` cho lọc chi phí theo kỳ/trạng thái
 - Payroll semantics:
   - thuế áp dụng cho mọi staff nhưng **không áp dụng cho bonus**
   - tax base được aggregate theo **từng nguồn thu nhập trong kỳ** và tách bucket theo snapshot rate đang effective
@@ -274,7 +285,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 ### 4.8 Content & audit
 
-- `class_surveys`: báo cáo/đánh giá lớp theo mốc test
+- `class_surveys`: báo cáo/đánh giá lớp theo mốc test; index `class_id`, `teacher_id`, `(class_id, test_number)`, `(teacher_id, report_date)`
 - `action_history`: audit log thay đổi dữ liệu (`before_value`, `after_value`, `changed_fields` là JSON)
 - `documents`: metadata tài liệu (`file_url`, `tags` JSON)
 - `notifications`: bản ghi thông báo admin push cho feed admin/staff/student; lưu draft/published, audience target động, version, số lần push và thời điểm push gần nhất
@@ -361,6 +372,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - `updated_at`
   - `created_by_user_id`
   - `updated_by_user_id`
+  - GIN: `audiences`
 
 ### 4.9 Codeforces tutorial (`cf_problem_tutorials`)
 
@@ -393,6 +405,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
     - `staff_id`
     - `(staff_id, date)`
     - `(staff_id, payment_status, date)`
+    - `(payment_status, date, staff_id)`
     - `level`
     - `updated_at`
 

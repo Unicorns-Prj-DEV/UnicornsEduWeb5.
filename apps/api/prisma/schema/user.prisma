@@ -28,5 +28,6 @@ model User {
   @@index([accountHandle])
   @@index([roleType])
   @@index([status])
+  @@index([createdAt])
   @@map("users")
 }

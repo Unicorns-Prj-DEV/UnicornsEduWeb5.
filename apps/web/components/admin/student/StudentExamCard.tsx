@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import type { StudentExamScheduleItem } from "@/dtos/student.dto";
 import * as authApi from "@/lib/apis/auth.api";
 import * as studentApi from "@/lib/apis/student.api";
+import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import StudentExamSchedulePopup from "./StudentExamSchedulePopup";
 import StudentInfoCard from "./StudentInfoCard";
 
@@ -93,10 +94,8 @@ export default function StudentExamCard({
         queryClient.invalidateQueries({ queryKey }),
         queryClient.invalidateQueries({ queryKey: ["student", "detail", studentId] }),
         queryClient.invalidateQueries({ queryKey: ["student", "self", "detail"] }),
-        queryClient.invalidateQueries({ queryKey: ["classScheduleEvents"] }),
-        queryClient.invalidateQueries({ queryKey: ["staffCalendarEvents"] }),
+        invalidateCalendarScopedQueries(queryClient),
       ]);
-      window.dispatchEvent(new Event("calendar:refetch"));
       toast.success("Đã lưu lịch thi.");
       setEditorOpen(false);
     },
