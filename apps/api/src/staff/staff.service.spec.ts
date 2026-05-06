@@ -28,6 +28,7 @@ describe('StaffService', () => {
     },
     classTeacher: {
       findMany: jest.fn(),
+      findUnique: jest.fn(),
     },
     session: {
       findMany: jest.fn(),
@@ -70,6 +71,7 @@ describe('StaffService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockPrisma.extraAllowance.findMany.mockResolvedValue([]);
+    mockPrisma.bonus.findMany.mockResolvedValue([]);
     mockPrisma.session.findMany.mockResolvedValue([]);
     mockPrisma.session.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma.attendance.findMany.mockResolvedValue([]);
@@ -80,6 +82,7 @@ describe('StaffService', () => {
     mockPrisma.extraAllowance.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma.roleTaxDeductionRate.findFirst.mockResolvedValue(null);
     mockPrisma.staffTaxDeductionOverride.findFirst.mockResolvedValue(null);
+    mockPrisma.classTeacher.findUnique.mockResolvedValue(null);
     mockPrisma.$queryRaw.mockResolvedValue([]);
     mockPrisma.$transaction.mockImplementation(
       (callback: (db: typeof mockPrisma) => unknown) => callback(mockPrisma),
@@ -96,6 +99,7 @@ describe('StaffService', () => {
         service as any,
         'getTeacherAllowanceSourceRowsByStatusAndTaxBucket',
       )
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
     jest
@@ -915,12 +919,28 @@ describe('StaffService', () => {
         teacherAllowanceTotal: 50000,
       },
     ]);
-    mockPrisma.$queryRaw.mockResolvedValueOnce([
-      {
-        staffId: 'staff-1',
-        totalUnpaid: 50000,
-      },
-    ]);
+    mockPrisma.$queryRaw
+      .mockResolvedValueOnce([
+        {
+          staffId: 'staff-1',
+          totalUnpaid: 50000,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 'session-unpaid-1',
+          classId: 'class-1',
+          className: 'Toán 10A',
+          date: new Date('2026-03-12T00:00:00.000Z'),
+          paymentStatus: 'unpaid',
+          grossAmount: 50000,
+          operatingAmount: 0,
+          taxableBaseAmount: 50000,
+        },
+      ]);
+    mockPrisma.classTeacher.findUnique.mockResolvedValue({
+      operatingDeductionRatePercent: 0,
+    });
 
     const result = await service.getIncomeSummary('staff-1', {
       month: '03',
@@ -995,6 +1015,9 @@ describe('StaffService', () => {
       },
     ]);
     expect(result.snapshotUnpaidTotal).toBe(50000);
+    expect(result.snapshotUnpaidNetTotal).toBe(50000);
+    expect(result.yearPaidNetTotal).toBe(90000);
+    expect(result.totalReceivedNet).toBe(140000);
     expect(result.depositYearByClass).toEqual([
       {
         classId: 'class-1',
@@ -1037,7 +1060,7 @@ describe('StaffService', () => {
           taxableBaseAmount: 90000,
           taxRatePercent: 10,
         },
-      ])
+      ]      )
       .mockResolvedValueOnce([
         {
           paymentStatus: PaymentStatus.paid,
@@ -1072,6 +1095,9 @@ describe('StaffService', () => {
     expect(result.yearOperatingDeductionTotal).toBe(10000);
     expect(result.yearIncomeTotal).toBe(81000);
     expect(result.yearTotalDeductionTotal).toBe(19000);
+    expect(result.yearPaidNetTotal).toBe(81000);
+    expect(result.snapshotUnpaidNetTotal).toBe(0);
+    expect(result.totalReceivedNet).toBe(81000);
   });
 
   it('uses the current staff tax override rate in payment preview items', async () => {

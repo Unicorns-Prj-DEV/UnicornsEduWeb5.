@@ -225,6 +225,15 @@ export interface StaffIncomeDepositClassSummaryDto {
 export interface StaffIncomeSummaryDto {
   recentUnpaidDays: number;
   snapshotUnpaidTotal: number;
+  /**
+   * Net “Chưa nhận”: cùng phạm vi `snapshotUnpaidTotal`; % vận hành (GV theo lớp)
+   * và % thuế theo role lấy **hiện hành** (như popup thanh toán), không dùng snapshot thuế trên record.
+   */
+  snapshotUnpaidNetTotal: number;
+  /** Tổng trợ cấp net đã thanh toán trong năm (theo `year`) */
+  yearPaidNetTotal: number;
+  /** `yearPaidNetTotal` + `snapshotUnpaidNetTotal` */
+  totalReceivedNet: number;
   monthlyIncomeTotals: StaffIncomeAmountSummaryDto;
   monthlyGrossTotals: StaffIncomeAmountSummaryDto;
   monthlyTaxTotals: StaffIncomeAmountSummaryDto;

@@ -22,10 +22,13 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 ## [Unreleased]
 
 ### Added
+- DB migration: `staff_info` thay unique index `staff_info_user_id_key` bằng phiên bản **covering** `INCLUDE ("id", "roles")` để hỗ trợ index-only scan cho truy vấn theo `user_id` (luồng auth/session).
+- Prisma `StaffInfo`: doc comment + `@@unique([userId], map: "staff_info_user_id_key")` (thay `@unique` trên field) để tên index khớp DB và ghi chú INCLUDE chỉ trong migration.
 - **Nginx HTTPS (prod):** Tách `location` proxy chung vào `nginx/conf.d/snippets/proxy-locations.conf`, `app.conf` phục vụ HTTP (default_server) + `/.well-known/acme-challenge/` cho Certbot webroot; mount `./nginx/certbot/www` trong `docker-compose.prod.yml`; file mẫu `nginx/conf.d/https-vhost.conf.example`; **`nginx/conf.d/https-vhost.conf` cố định cho `unicorn.sunnydev.qzz.io`** (TLS + redirect). Hướng dẫn & thứ tự Certbot trong `docs/Cách làm việc.md`.
 - FE `/admin/staffs/[id]` (shell `/admin`) — card **Lớp phụ trách**: cột **KH vận hành** (%); **admin** chỉnh ô `%` với **Huỷ bỏ** / **Lưu** chỉ hiện khi có thay đổi; không lưu khi blur; **Huỷ bỏ** refetch `GET /staff/:id` và xóa draft; **Lưu** áp tuần tự các lớp đã đổi qua `PATCH /staff/:id/class-teachers/:classId/operating-deduction` và hiện skeleton khi đang lưu. `GET /staff/:id` trả `operatingDeductionRatePercent` trên từng `classTeachers`.
 
 ### Changed
+- BE/FE staff income summary (detail cards): `snapshotUnpaidNetTotal` tính net với **% vận hành và % thuế hiện hành** (cùng luồng preview thanh toán); `yearPaidNetTotal`, `totalReceivedNet` (= `yearPaidNetTotal` + `snapshotUnpaidNetTotal`). Card **Tổng nhận** = `monthlyIncomeTotals.total` (net tháng đang xem); **Chưa nhận** / **Tổng năm** như trước.
 - **GitHub Actions:** gỡ job CI trên Actions; chỉ giữ [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) (push `main`: build/push GHCR `unicorns-prj-dev`, tag `latest` + `${GITHUB_SHA}`, deploy VPS với `GHCR_USERNAME` / `GHCR_TOKEN`). Lint/typecheck/test chạy local (`pnpm lint`, `pnpm check-types`, …).
 - CI deploy workflow: biến `VPS_PUBLIC_HOST` cho curl HTTPS smoke test qua loopback (SNI); sau deploy gọi `certbot renew` khi có trên VPS.
 - BE/FE admin dashboard: `GetAdminStudentBalanceDetails` thêm query tùy chọn `month` (01–12) / `year` (YYYY) để drill-down prepaid phù hợp tháng đang xem; FE admin dashboard chỉnh copy KPI và ghi chú nợ học phí / chưa thu / quick view cho khớp semantics tháng hiện tại.

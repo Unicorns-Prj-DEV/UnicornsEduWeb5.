@@ -40,8 +40,8 @@
 - `/staff`
   - luôn dùng chung staff shell; dashboard gốc là **role-aware dashboard**, trong đó mọi staff có `staffInfo` đều thấy thẻ chung `Thu nhập tháng`, còn các khối còn lại lấy authoritative từ `GET /users/me/staff-dashboard?month=&year=`
   - **UI dashboard:** layout compact (padding/gap/line-height nhỏ hơn, bo góc vừa phải), bớt dòng mô tả trùng tiêu đề; hành vi dữ liệu và API giữ nguyên
-  - `Thực nhận tháng` lấy từ `GET /users/me/staff-income-summary` (`monthlyIncomeTotals.total`) và là số **thực nhận sau khấu trừ** (net), không tự cộng ở frontend
-  - thẻ `Chưa nhận` trên staff/admin detail lấy từ `snapshotUnpaidTotal` trong cùng response: gồm toàn bộ khoản chưa thanh toán theo snapshot nghiệp vụ (buổi dạy chỉ tính `unpaid` trong cửa sổ `days` gần nhất, loại trạng thái cọc; các nguồn pending khác tính full), semantics tiền **trước thuế**
+  - Trên dashboard `/staff`, thẻ **Thực nhận** (dòng tiền đầu) vẫn lấy `monthlyIncomeTotals.total` (net tháng) từ `GET /users/me/staff-income-summary`; không tự cộng ở frontend
+  - Trên `/staff/profile` và `/admin/staffs/:id` (và mirror `/staff/staffs/:id`), cụm card **Thống kê thu nhập**: **Tổng nhận** = `monthlyIncomeTotals.total` (net tháng đang xem); **Chưa nhận** = `snapshotUnpaidNetTotal` (cùng phạm vi snapshot gross `snapshotUnpaidTotal`, nhưng net với **% vận hành và % thuế hiện hành** như popup thanh toán); **Tổng năm** = `yearPaidNetTotal`; **Đã nhận** = `monthlyIncomeTotals.paid`; **Ghi cọc** = `depositYearTotal`. `snapshotUnpaidTotal` vẫn là gross cho breakdown/list khác.
   - `teacher`: thêm 3 khối `Lớp phụ trách`, `Lớp chưa điền lịch / khảo sát`, `Lịch hôm nay`
   - `lesson_plan`: thêm thẻ tiến độ task giáo án (`tổng task`, `đã hoàn thành`, `còn lại`) và danh sách task còn mở
   - `lesson_plan_head`: thêm thẻ cảnh báo task chưa hoàn thành kèm người phụ trách, cùng thẻ tổng hợp lesson output (`tổng số bài`, `bài mới tháng này`, `bài mới tuần này`)
@@ -80,7 +80,7 @@
   - hiển thị đầy đủ các section cùng contract dữ liệu với admin detail:
     - Hàng đầu dùng `StaffIdentityOverview`: card đồng bộ style các section khác, QR minimal cùng hàng tiêu đề, khối thành tích nền phụ; đồng bộ với admin staff detail
     - `Thống kê thu nhập` theo tháng với `MonthNav` (toolbar chuyển tháng UI đồng bộ theo backup)
-      - cụm số liệu hiển thị dạng card grid (Thực nhận tháng, Chưa nhận, Đã nhận, Tổng năm, Ghi cọc); `Thực nhận tháng` lấy authoritative từ `monthlyIncomeTotals.total` (net), `Đã nhận` lấy `monthlyIncomeTotals.paid`, còn `Chưa nhận` lấy `snapshotUnpaidTotal` (snapshot before-tax)
+      - cụm số liệu hiển thị dạng card grid (Tổng nhận, Chưa nhận, Đã nhận, Tổng năm, Ghi cọc): `Tổng nhận` = `monthlyIncomeTotals.total` (net tháng); `Chưa nhận` = `snapshotUnpaidNetTotal` (net với CPVH + thuế **hiện hành**); `Đã nhận` = `monthlyIncomeTotals.paid`; `Tổng năm` = `yearPaidNetTotal`; `Ghi cọc` = `depositYearTotal`
       - block `Trước khấu trừ` chỉ hiển thị khi actor là `admin` hoặc có role `accountant` **và** còn ít nhất một chỉ số con có giá trị > 0; từng ô con (gross/chưa nhận/đã nhận, thuế, vận hành, tổng khấu trừ khi backend trả về) chỉ render khi số tương ứng > 0. Dữ liệu lấy từ các field gross/tax backend (`monthlyGrossTotals`, `monthlyTaxTotals`, `yearGrossIncomeTotal`, `yearTaxTotal`) và tự mở rộng thêm `monthlyOperatingDeductionTotals` / `monthlyTotalDeductionTotals` / `yearOperatingDeductionTotal` / `yearTotalDeductionTotal` nếu backend đã expose. Thuế được tính trên tổng thu nhập của từng nguồn trong kỳ; riêng nguồn giáo viên tính thuế trên phần sau vận hành; bonus không chịu thuế.
     - popup `Buổi cọc theo lớp` ở self profile vẫn là read-only; chỉ route mirror `/staff/staffs/[id]` mới mở quyền **Thanh toán cọc**
     - `Lớp phụ trách`: bảng cột `Tổng / Chưa nhận / Đã nhận`; `Tổng` và `Đã nhận` lấy theo **tháng đang chọn** (gross trước thuế), còn `Chưa nhận` là snapshot buổi dạy `unpaid` trong `days` gần nhất (gross trước thuế), không tính cọc
@@ -265,7 +265,7 @@
   - `PATCH /users/me` (self-service dùng để cập nhật tên staff canonical trên popup/profile)
   - `PATCH /users/me/staff` (self-service validate `bank_qr_link` chỉ `http/https`; không dùng để đổi tên canonical)
   - `GET /users/me/staff-detail`
-  - `GET /users/me/staff-income-summary?month=&year=&days=` (net-first cho tổng tháng/năm + breakdown gross/tax; thêm `snapshotUnpaidTotal` cho card `Chưa nhận`: buổi dạy `unpaid` trong cửa sổ `days` gần nhất, không tính cọc; các nguồn pending khác tính full; semantics trước thuế)
+  - `GET /users/me/staff-income-summary?month=&year=&days=` (net-first cho tổng tháng/năm + breakdown gross/tax; `snapshotUnpaidTotal` = gross snapshot; `snapshotUnpaidNetTotal` = net snapshot với **mức CPVH + thuế hiện hành** (khớp luồng preview thanh toán); `yearPaidNetTotal`; `totalReceivedNet` = `yearPaidNetTotal` + `snapshotUnpaidNetTotal`. Buổi dạy trong snapshot: chỉ `unpaid`/`pending` trong cửa sổ `days` gần nhất, không tính cọc; các nguồn pending khác tính full theo nghiệp vụ)
   - `GET /deduction-settings/tax?asOfDate=&roleType=&staffId=` (đọc cấu hình khấu trừ thuế đang hiệu lực + lịch sử)
   - `POST /deduction-settings/tax/role-defaults` (append mức theo role; mở cho admin/assistant/accountant theo policy shell)
   - `PATCH /deduction-settings/tax/role-defaults/:id` (chỉnh trực tiếp `ratePercent`, `effectiveFrom` của mức theo role; giữ nguyên `roleType`; mở cho admin/assistant/accountant theo policy shell)

@@ -1478,6 +1478,333 @@ export class StaffService {
     });
   }
 
+  /** Unpaid/pending sessions trong cửa sổ snapshot (cùng rule gross SQL với payment preview). */
+  private async getTeacherSnapshotPaymentPreviewRows(
+    db: StaffPaymentClient,
+    params: {
+      teacherId: string;
+      start: Date;
+      end: Date;
+    },
+  ): Promise<TeacherPaymentPreviewRow[]> {
+    return db.$queryRaw<TeacherPaymentPreviewRow[]>(Prisma.sql`
+      ${this.buildTeacherSessionAllowanceCte({
+        teacherId: params.teacherId,
+        start: params.start,
+        end: params.end,
+        teacherPaymentStatuses: [...RECENT_UNPAID_SESSION_STATUSES],
+      })}
+      SELECT
+        session_id AS id,
+        class_id AS "classId",
+        class_name AS "className",
+        session_date AS date,
+        teacher_payment_status AS "paymentStatus",
+        COALESCE(teacher_gross_total, 0) AS "grossAmount",
+        COALESCE(teacher_operating_total, 0) AS "operatingAmount",
+        COALESCE(teacher_after_operating_total, 0) AS "taxableBaseAmount"
+      FROM teacher_session_allowances
+      ORDER BY session_date DESC, class_name ASC, session_id ASC
+    `);
+  }
+
+  /** Net “Chưa nhận” cho buổi dạy: %VH + %thuế hiện hành (giống popup thanh toán). */
+  private async getTeacherSnapshotPaymentPreviewRecords(
+    db: StaffPaymentClient,
+    params: {
+      teacherId: string;
+      start: Date;
+      end: Date;
+    },
+  ): Promise<StaffPaymentPreviewDraftRecord[]> {
+    const rows = await this.getTeacherSnapshotPaymentPreviewRows(db, params);
+
+    const uniqueClassIds = [
+      ...new Set(
+        rows
+          .map((r) => r.classId?.trim())
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    const operatingRateByClassId = await this.resolveCurrentOperatingRates(
+      db,
+      params.teacherId,
+      uniqueClassIds,
+    );
+
+    return rows.map((row) => {
+      const grossAmount = normalizeMoneyAmount(row.grossAmount);
+      const classId = row.classId?.trim() ?? '';
+      const operatingRatePercent = operatingRateByClassId.get(classId) ?? 0;
+      const operatingAmount = roundMoney(
+        (grossAmount * operatingRatePercent) / 100,
+      );
+      const taxableBaseAmount = grossAmount - operatingAmount;
+
+      return {
+        id: row.id,
+        role: StaffRole.teacher,
+        sourceType: 'teacher_session',
+        sourceLabel: 'Buổi dạy',
+        label: row.className?.trim() || 'Lớp chưa đặt tên',
+        secondaryLabel: row.classId?.trim() ? `Mã lớp: ${row.classId}` : null,
+        date: toIsoDateString(row.date),
+        currentStatus: row.paymentStatus,
+        grossAmount,
+        operatingAmount,
+        operatingRatePercent,
+        taxableBaseAmount,
+      };
+    });
+  }
+
+  private async getBonusAllPendingPreviewRecords(
+    db: StaffPaymentClient,
+    staffId: string,
+  ): Promise<StaffPaymentPreviewDraftRecord[]> {
+    const rows = await db.bonus.findMany({
+      where: {
+        staffId,
+        status: PaymentStatus.pending,
+      },
+      select: {
+        id: true,
+        workType: true,
+        month: true,
+        amount: true,
+        status: true,
+        note: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return rows.map((row) => {
+      const grossAmount = normalizeMoneyAmount(row.amount);
+
+      return {
+        id: row.id,
+        role: null,
+        sourceType: 'bonus',
+        sourceLabel: 'Thưởng',
+        label: row.workType.trim() || 'Thưởng',
+        secondaryLabel: row.note?.trim() || row.month,
+        date: null,
+        currentStatus: row.status,
+        grossAmount,
+        operatingAmount: 0,
+      };
+    });
+  }
+
+  private async getCustomerCareAllPendingPreviewRecords(
+    db: StaffPaymentClient,
+    staffId: string,
+  ): Promise<StaffPaymentPreviewDraftRecord[]> {
+    const rows = await db.attendance.findMany({
+      where: {
+        customerCareStaffId: staffId,
+        OR: [
+          { customerCarePaymentStatus: PaymentStatus.pending },
+          { customerCarePaymentStatus: null },
+        ],
+      },
+      select: {
+        id: true,
+        tuitionFee: true,
+        customerCareCoef: true,
+        customerCarePaymentStatus: true,
+        student: {
+          select: {
+            fullName: true,
+          },
+        },
+        session: {
+          select: {
+            date: true,
+            class: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        session: {
+          date: 'desc',
+        },
+      },
+    });
+
+    return rows.map((row) => {
+      const grossAmount = roundMoney(
+        normalizeMoneyAmount(row.tuitionFee) *
+          normalizePercent(row.customerCareCoef),
+      );
+
+      return {
+        id: row.id,
+        role: StaffRole.customer_care,
+        sourceType: 'customer_care',
+        sourceLabel: 'Hoa hồng CSKH',
+        label: row.student.fullName?.trim() || 'Học sinh chưa đặt tên',
+        secondaryLabel: row.session.class?.name?.trim() || 'Lớp chưa đặt tên',
+        date: row.session.date.toISOString(),
+        currentStatus: row.customerCarePaymentStatus ?? PaymentStatus.pending,
+        grossAmount,
+        operatingAmount: 0,
+      };
+    });
+  }
+
+  private async getAssistantAllPendingPreviewRecords(
+    db: StaffPaymentClient,
+    staffId: string,
+  ): Promise<StaffPaymentPreviewDraftRecord[]> {
+    const rows = await db.attendance.findMany({
+      where: {
+        assistantManagerStaffId: staffId,
+        status: {
+          in: ['present', 'excused'],
+        },
+        OR: [
+          { assistantPaymentStatus: PaymentStatus.pending },
+          { assistantPaymentStatus: null },
+        ],
+      },
+      select: {
+        id: true,
+        tuitionFee: true,
+        assistantPaymentStatus: true,
+        student: {
+          select: {
+            fullName: true,
+          },
+        },
+        session: {
+          select: {
+            date: true,
+            class: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        session: {
+          date: 'desc',
+        },
+      },
+    });
+
+    return rows.map((row) => {
+      const grossAmount = roundMoney(
+        normalizeMoneyAmount(row.tuitionFee) * 0.03,
+      );
+
+      return {
+        id: row.id,
+        role: StaffRole.assistant,
+        sourceType: 'assistant_share',
+        sourceLabel: 'Phần chia trợ lí 3%',
+        label: row.student.fullName?.trim() || 'Học sinh chưa đặt tên',
+        secondaryLabel: row.session.class?.name?.trim() || 'Lớp chưa đặt tên',
+        date: row.session.date.toISOString(),
+        currentStatus: row.assistantPaymentStatus ?? PaymentStatus.pending,
+        grossAmount,
+        operatingAmount: 0,
+      };
+    });
+  }
+
+  private async getLessonOutputAllPendingPreviewRecords(
+    db: StaffPaymentClient,
+    params: {
+      staffId: string;
+      role: StaffRole;
+    },
+  ): Promise<StaffPaymentPreviewDraftRecord[]> {
+    const rows = await db.lessonOutput.findMany({
+      where: {
+        staffId: params.staffId,
+        paymentStatus: PaymentStatus.pending,
+      },
+      select: {
+        id: true,
+        lessonName: true,
+        contestUploaded: true,
+        date: true,
+        paymentStatus: true,
+        cost: true,
+      },
+      orderBy: {
+        date: 'desc',
+      },
+    });
+
+    return rows.map((row) => {
+      const grossAmount = normalizeMoneyAmount(row.cost);
+
+      return {
+        id: row.id,
+        role: params.role,
+        sourceType: 'lesson_output',
+        sourceLabel: 'Lesson output',
+        label: row.lessonName.trim() || 'Bài chưa đặt tên',
+        secondaryLabel: row.contestUploaded?.trim() || null,
+        date: row.date.toISOString(),
+        currentStatus: row.paymentStatus,
+        grossAmount,
+        operatingAmount: 0,
+      };
+    });
+  }
+
+  private async getExtraAllowanceAllPendingPreviewRecords(
+    db: StaffPaymentClient,
+    staffId: string,
+  ): Promise<StaffPaymentPreviewDraftRecord[]> {
+    const rows = await db.extraAllowance.findMany({
+      where: {
+        staffId,
+        status: PaymentStatus.pending,
+      },
+      select: {
+        id: true,
+        roleType: true,
+        month: true,
+        amount: true,
+        status: true,
+        note: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return rows.map((row) => {
+      const grossAmount = normalizeMoneyAmount(row.amount);
+      const roleLabel = STAFF_ROLE_LABELS[row.roleType] ?? row.roleType;
+
+      return {
+        id: row.id,
+        role: row.roleType,
+        sourceType: 'extra_allowance',
+        sourceLabel: 'Trợ cấp thêm',
+        label: row.note?.trim() || `Trợ cấp ${roleLabel}`,
+        secondaryLabel: row.month,
+        date: null,
+        currentStatus: row.status,
+        grossAmount,
+        operatingAmount: 0,
+      };
+    });
+  }
+
   private async getCustomerCarePaymentPreviewRecords(
     db: StaffPaymentClient,
     params: {
@@ -2840,6 +3167,69 @@ export class StaffService {
     });
   }
 
+  /**
+   * Tổng net “Chưa nhận” theo snapshot nghiệp vụ: buổi dạy trong cửa sổ `days`,
+   * các nguồn pending khác toàn hệ thống. % vận hành (GV theo lớp) và % thuế
+   * theo role lấy **hiện hành** như popup thanh toán (`resolveCurrentOperatingRates`,
+   * `resolveTaxDeductionRate`).
+   */
+  private async computeSnapshotUnpaidNetTotal(
+    staffId: string,
+    recentWindow: { start: Date; end: Date },
+    roles: StaffRole[],
+    isAssistant: boolean,
+  ): Promise<number> {
+    const db = this.prisma;
+    const lessonRoleForOutputs = roles.includes(StaffRole.lesson_plan_head)
+      ? StaffRole.lesson_plan_head
+      : roles.includes(StaffRole.lesson_plan)
+        ? StaffRole.lesson_plan
+        : null;
+
+    const draftRecordGroups = await Promise.all([
+      this.getTeacherSnapshotPaymentPreviewRecords(db, {
+        teacherId: staffId,
+        start: recentWindow.start,
+        end: recentWindow.end,
+      }),
+      this.getBonusAllPendingPreviewRecords(db, staffId),
+      roles.includes(StaffRole.customer_care)
+        ? this.getCustomerCareAllPendingPreviewRecords(db, staffId)
+        : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
+      lessonRoleForOutputs
+        ? this.getLessonOutputAllPendingPreviewRecords(db, {
+            staffId,
+            role: lessonRoleForOutputs,
+          })
+        : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
+      isAssistant
+        ? this.getAssistantAllPendingPreviewRecords(db, staffId)
+        : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
+      this.getExtraAllowanceAllPendingPreviewRecords(db, staffId),
+    ]);
+
+    const draftRecords = draftRecordGroups.flat();
+    if (draftRecords.length === 0) {
+      return 0;
+    }
+
+    const { taxRateByRole } = await this.resolveCurrentPaymentTaxRates(
+      db,
+      staffId,
+      draftRecords,
+    );
+
+    const finalized = this.finalizePaymentPreviewRecords(
+      draftRecords,
+      taxRateByRole,
+    );
+
+    return finalized.reduce(
+      (sum, record) => sum + normalizeMoneyAmount(record.netAmount),
+      0,
+    );
+  }
+
   private async getUnpaidTotalsByStaffIds(
     staffIds: string[],
     recentWindow: { start: Date; end: Date } = buildRecentWindow(),
@@ -3098,6 +3488,7 @@ export class StaffService {
         },
         select: {
           amount: true,
+          status: true,
         },
       }),
       this.getExtraAllowanceRowsByRoleAndStatus({
@@ -3160,6 +3551,13 @@ export class StaffService {
         : Promise.resolve<SourcePaymentTaxBucketRow[]>([]),
       this.getUnpaidTotalsByStaffIds([id], recentWindow),
     ]);
+
+    const snapshotUnpaidNetTotal = await this.computeSnapshotUnpaidNetTotal(
+      id,
+      recentWindow,
+      staff.roles,
+      isAssistant,
+    );
 
     const sessionMonthlySummary = summarizeSourceBucketRows(
       monthlySessionSummaryRows,
@@ -3317,6 +3715,12 @@ export class StaffService {
       (sum, bonus) => sum + normalizeMoneyAmount(bonus.amount),
       0,
     );
+    const bonusYearPaidTotal = yearBonuses.reduce((sum, bonus) => {
+      if (String(bonus.status ?? '').toLowerCase() !== 'paid') {
+        return sum;
+      }
+      return sum + normalizeMoneyAmount(bonus.amount);
+    }, 0);
     const extraAllowanceYearTotal = extraAllowanceYearSummary.netTotals.total;
     const extraAllowanceYearGrossTotal =
       extraAllowanceYearSummary.grossTotals.total;
@@ -3361,6 +3765,16 @@ export class StaffService {
       lessonOutputYearTaxTotal +
       assistantShareYearTaxTotal;
     const yearTotalDeductionTotal = yearTaxTotal + yearOperatingDeductionTotal;
+
+    const yearPaidNetTotal =
+      sessionYearSummary.netTotals.paid +
+      bonusYearPaidTotal +
+      extraAllowanceYearSummary.netTotals.paid +
+      customerCareYearSummary.netTotals.paid +
+      lessonOutputYearSummary.netTotals.paid +
+      assistantShareYearSummary.netTotals.paid;
+
+    const totalReceivedNet = yearPaidNetTotal + snapshotUnpaidNetTotal;
 
     const lessonRoleForOutputs = staff.roles.includes(
       StaffRole.lesson_plan_head,
@@ -3473,6 +3887,9 @@ export class StaffService {
     return {
       recentUnpaidDays: recentWindow.days,
       snapshotUnpaidTotal,
+      snapshotUnpaidNetTotal,
+      yearPaidNetTotal,
+      totalReceivedNet,
       monthlyIncomeTotals,
       monthlyGrossTotals,
       monthlyTaxTotals,
