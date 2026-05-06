@@ -16,7 +16,7 @@ GitHub Actions CI/CD
     │  1. Build Docker images (api, web)
     │  2. Push to GitHub Container Registry (ghcr.io)
     │  3. SSH into VPS → sync repo config + docker compose pull + up -d
-    │  4. Probe API/web readiness, reload nginx, run prisma migrate deploy
+    │  4. Probe API/web readiness, reload nginx, docker image prune (không chạy migrate deploy trong Actions)
     ▼
 ┌─────────────── VPS (Ubuntu) ───────────────────┐
 │                                                  │
@@ -139,7 +139,7 @@ Two independent jobs start together on separate runners:
 5. `docker compose -f docker-compose.prod.yml up -d --remove-orphans`
 6. Probe `api` and `web` from inside their containers (`127.0.0.1`) until they respond successfully
 7. `docker compose exec nginx nginx -t && docker compose exec nginx nginx -s reload`
-8. `docker compose exec api npx prisma migrate deploy`
+8. (Tuỳ vận hành) `docker compose exec api npx prisma migrate deploy` — **không** nằm trong workflow; chạy tay khi cần áp migration
 
 ### Required GitHub Secrets
 
@@ -173,8 +173,9 @@ Based on `apps/api/.env.example`:
 ```env
 DATABASE_URL=<managed-postgres-connection-string>
 PORT=4000
-BACKEND_URL=https://yourdomain.com
-FRONTEND_URL=https://yourdomain.com
+# Nginx strip prefix /api — public API origin phải khớp NEXT_PUBLIC_BACKEND_URL khi build web
+BACKEND_URL=https://it.unicornsedu.com/api
+FRONTEND_URL=https://it.unicornsedu.com
 TRUST_PROXY=1
 JWT_SECRET=<secret>
 JWT_REFRESH_SECRET=<secret>

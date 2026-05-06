@@ -21,13 +21,17 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Fixed
+- API local CORS/preflight: bật CORS qua `NestFactory.create(..., { cors })` trong `apps/api/src/main.ts` thay vì `app.enableCors()` sau `create`, để middleware CORS đăng ký trước router Nest và trả `Access-Control-Allow-Origin` cho `OPTIONS` (tránh lỗi preflight khi gọi API cross-origin từ web).
+
 ### Added
 - DB migration: `staff_info` thay unique index `staff_info_user_id_key` bằng phiên bản **covering** `INCLUDE ("id", "roles")` để hỗ trợ index-only scan cho truy vấn theo `user_id` (luồng auth/session).
 - Prisma `StaffInfo`: doc comment + `@@unique([userId], map: "staff_info_user_id_key")` (thay `@unique` trên field) để tên index khớp DB và ghi chú INCLUDE chỉ trong migration.
-- **Nginx HTTPS (prod):** Tách `location` proxy chung vào `nginx/conf.d/snippets/proxy-locations.conf`, `app.conf` phục vụ HTTP (default_server) + `/.well-known/acme-challenge/` cho Certbot webroot; mount `./nginx/certbot/www` trong `docker-compose.prod.yml`; file mẫu `nginx/conf.d/https-vhost.conf.example`; **`nginx/conf.d/https-vhost.conf` cố định cho `unicorn.sunnydev.qzz.io`** (TLS + redirect). Hướng dẫn & thứ tự Certbot trong `docs/Cách làm việc.md`.
+- **Nginx HTTPS (prod):** Tách `location` proxy chung vào `nginx/conf.d/snippets/proxy-locations.conf`, `app.conf` phục vụ HTTP (default_server) + `/.well-known/acme-challenge/` cho Certbot webroot; mount `./nginx/certbot/www` trong `docker-compose.prod.yml`; file mẫu `nginx/conf.d/https-vhost.conf.example`; **`nginx/conf.d/https-vhost.conf`** cho TLS + redirect (miền prod hiện tại: `it.unicornsedu.com`). Hướng dẫn & thứ tự Certbot trong `docs/Cách làm việc.md`.
 - FE `/admin/staffs/[id]` (shell `/admin`) — card **Lớp phụ trách**: cột **KH vận hành** (%); **admin** chỉnh ô `%` với **Huỷ bỏ** / **Lưu** chỉ hiện khi có thay đổi; không lưu khi blur; **Huỷ bỏ** refetch `GET /staff/:id` và xóa draft; **Lưu** áp tuần tự các lớp đã đổi qua `PATCH /staff/:id/class-teachers/:classId/operating-deduction` và hiện skeleton khi đang lưu. `GET /staff/:id` trả `operatingDeductionRatePercent` trên từng `classTeachers`.
 
 ### Changed
+- **Prod domain (VPS):** `nginx/conf.d/https-vhost.conf`, [.env.production.example](../.env.production.example) và mục Certbot/HTTPS trong `docs/Cách làm việc.md` chuyển sang **`it.unicornsedu.com`** (Let’s Encrypt path `/etc/letsencrypt/live/it.unicornsedu.com/`). Trên VPS: cấp lại cert với `-d it.unicornsedu.com`, đồng bộ `.env` (`FRONTEND_URL`, `BACKEND_URL`, `GOOGLE_CALLBACK_URL`, `VPS_PUBLIC_HOST`) và secret GitHub `NEXT_PUBLIC_BACKEND_URL` = `https://it.unicornsedu.com/api`.
 - **CI deploy:** [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) không còn gọi `prisma migrate deploy` sau smoke HTTPS; migration production do vận hành chạy tay trên VPS (hoặc quy trình ngoài Actions). `docs/Cách làm việc.md` cập nhật mô tả pipeline và mục troubleshooting 137.
 - BE/FE staff income summary (detail cards): `snapshotUnpaidNetTotal` tính net với **% vận hành và % thuế hiện hành** (cùng luồng preview thanh toán); `yearPaidNetTotal`, `totalReceivedNet` (= `yearPaidNetTotal` + `snapshotUnpaidNetTotal`). Card **Tổng nhận** = `monthlyIncomeTotals.total` (net tháng đang xem); **Chưa nhận** / **Tổng năm** như trước.
 - **GitHub Actions:** gỡ job CI trên Actions; chỉ giữ [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) (push `main`: build/push GHCR `unicorns-prj-dev`, tag `latest` + `${GITHUB_SHA}`, deploy VPS với `GHCR_USERNAME` / `GHCR_TOKEN`). Lint/typecheck/test chạy local (`pnpm lint`, `pnpm check-types`, …).

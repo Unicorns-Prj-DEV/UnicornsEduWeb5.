@@ -485,7 +485,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 ## 8) Tạo lại DB từ schema
 
-Kết nối DB qua `DATABASE_URL` trong `apps/api/.env` (đọc từ `prisma.config.ts`). **Docker (API):** image production copy `prisma.config.ts` vào `/app` cùng thư mục `prisma/` — `migrate deploy` trong container cần file này để biết `datasource.url`. Các lệnh local chạy tại thư mục **`apps/api`**:
+Kết nối DB qua `DATABASE_URL` trong `apps/api/.env` (đọc từ `prisma.config.ts`). **Docker (API):** image production copy `prisma.config.ts` vào `/app` cùng thư mục `prisma/` — `migrate deploy` trong container cần file này để biết `datasource.url`. **Lưu ý:** job deploy GitHub Actions ([`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)) **không** tự chạy `migrate deploy`; trên production cần áp migration bằng tay (hoặc quy trình riêng), ví dụ `docker compose -f docker-compose.prod.yml exec -T api npx prisma migrate deploy --schema=./prisma/schema/`. Các lệnh local chạy tại thư mục **`apps/api`**:
 
 | Việc                                          | Lệnh                                                                         |
 | --------------------------------------------- | ---------------------------------------------------------------------------- |

@@ -32,17 +32,18 @@ function parseTrustProxy(
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    cors: {
+      origin: process.env.FRONTEND_URL,
+      credentials: true,
+    },
+  });
   const trustProxy = parseTrustProxy(process.env.TRUST_PROXY);
 
   if (trustProxy !== undefined) {
     app.set('trust proxy', trustProxy);
   }
 
-  app.enableCors({
-    origin: process.env.FRONTEND_URL,
-    credentials: true,
-  });
   app.use(cookieParser());
 
   app.useGlobalPipes(

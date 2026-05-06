@@ -247,6 +247,7 @@ export default function StudentSidebar() {
                 <li key={item.href} className="sidebar-item">
                   <Link
                     href={item.href}
+                    prefetch={false}
                     onClick={handleMobileClose}
                     className={`flex items-center rounded-lg py-2.5 text-sm font-medium transition-[gap,padding,background-color,color] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "gap-0 px-2.5" : "gap-3 px-3"} ${isActive ? "bg-primary text-text-inverse" : "hover:bg-bg-tertiary hover:text-text-primary"}`}
                     aria-label={collapsed && !isMobile ? item.label : undefined}
@@ -270,6 +271,7 @@ export default function StudentSidebar() {
         <div className="shrink-0 border-t border-border-default p-2">
           <Link
             href="/"
+            prefetch={false}
             onClick={handleMobileClose}
             className={`sidebar-item flex items-center rounded-lg py-2.5 text-sm font-medium transition-[gap,padding,background-color,color] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "gap-0 px-2.5" : "gap-3 px-3"} ${pathname === "/" ? "bg-primary text-text-inverse" : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"}`}
             aria-label={collapsed && !isMobile ? "Trang chủ" : undefined}
@@ -288,6 +290,7 @@ export default function StudentSidebar() {
           <div className={`mt-2 flex items-center gap-2 ${compact ? "flex-wrap justify-center" : ""}`}>
             <Link
               href="/user-profile"
+              prefetch={false}
               onClick={handleMobileClose}
               className="sidebar-item flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-tertiary text-text-primary ring-2 ring-border-default transition-colors duration-200 hover:bg-primary hover:text-text-inverse focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary"
               aria-label="Hồ sơ tài khoản"
