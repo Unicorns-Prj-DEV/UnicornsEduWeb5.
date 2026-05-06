@@ -680,7 +680,7 @@ export default function StaffSidebar() {
 
             <SidebarThemePicker compact={compact} onMobileClose={handleMobileClose} />
 
-            <SidebarNotificationTray compact={compact} />
+            <SidebarNotificationTray compact={compact} enableUnreadWarning />
 
             <div className={`min-w-0 flex-1 ${compact ? "hidden" : ""}`} aria-hidden />
 
