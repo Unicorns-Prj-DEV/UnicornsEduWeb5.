@@ -1,3 +1,6 @@
+/// Lookup by `user_id` uses unique index `staff_info_user_id_key`. PostgreSQL definition adds
+/// `INCLUDE (id, roles)` for index-only scans (auth/session); Prisma has no INCLUDE syntax — see
+/// migration `20260506140000_staff_info_user_id_covering_index`.
 model StaffInfo {
   id                           String                @id @default(uuid())
   cccdNumber                   String?               @unique @map("cccd_number")
@@ -15,7 +18,7 @@ model StaffInfo {
   status                       StaffStatus           @default(active)
   createdAt                    DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                    DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
-  userId                       String?               @unique @map("user_id")
+  userId                       String?               @map("user_id")
   roles                        StaffRole[]           @default([])
   customerCareManagedByStaffId String?               @map("customer_care_managed_by_staff_id")
   assistantStudentSession      Attendance[]          @relation("AttendanceAssistant")
@@ -37,6 +40,7 @@ model StaffInfo {
   staffLessonTasks             StaffLessonTask[]
   monthlyStats                 StaffMonthlyStat[]
 
+  @@unique([userId], map: "staff_info_user_id_key")
   @@index([customerCareManagedByStaffId])
   @@map("staff_info")
 }
