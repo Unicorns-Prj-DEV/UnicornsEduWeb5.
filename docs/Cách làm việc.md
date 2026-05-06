@@ -266,7 +266,7 @@ pnpm --filter web add @unicorns/shared --workspace
 
 ## Deploy VPS (GitHub Actions)
 
-Pipeline: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — khi **push `main`**: hai job build song song `build-api` / `build-web` push GHCR `ghcr.io/unicorns-prj-dev/*` với tag `latest` và `${GITHUB_SHA}` (cache BuildKit `type=gha`, `scope` riêng) → job `deploy` SSH vào VPS → `git pull --ff-only` → **`docker login ghcr.io`** bằng secret `GHCR_USERNAME` + `GHCR_TOKEN` (bắt buộc nếu package private) → `docker compose pull` / `up` (image `latest` trong `docker-compose.prod.yml`) → probe HTTP → certbot renew (nếu có) → `nginx -t` + reload → smoke HTTPS (tùy `VPS_PUBLIC_HOST`) → `prisma migrate deploy` trong container `api`. **Không** chạy lint/test trên GitHub Actions; kiểm tra local dùng `pnpm lint`, `pnpm check-types`, `pnpm --filter api test`, v.v.
+Pipeline: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — khi **push `main`**: hai job build song song `build-api` / `build-web` push GHCR `ghcr.io/unicorns-prj-dev/*` với tag `latest` và `${GITHUB_SHA}` (cache BuildKit `type=gha`, `scope` riêng) → job `deploy` SSH vào VPS → `git pull --ff-only` → **`docker login ghcr.io`** bằng secret `GHCR_USERNAME` + `GHCR_TOKEN` (bắt buộc nếu package private) → `docker compose pull` / `up` (image `latest` trong `docker-compose.prod.yml`) → probe HTTP → certbot renew (nếu có) → `nginx -t` + reload → smoke HTTPS (tùy `VPS_PUBLIC_HOST`) → `docker image prune -f`. **Không** chạy `prisma migrate deploy` trong workflow; áp migration production cần chạy tay trên VPS (hoặc quy trình riêng), xem [Database Schema.md](./Database%20Schema.md). **Không** chạy lint/test trên GitHub Actions; kiểm tra local dùng `pnpm lint`, `pnpm check-types`, `pnpm --filter api test`, v.v.
 
 **Secrets / variables GitHub (CD):** ngoài `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `NEXT_PUBLIC_BACKEND_URL`, `VPS_PUBLIC_HOST` (tuỳ chọn), cần **`GHCR_TOKEN`** (PAT `read:packages`, user đã authorize SSO org nếu có) và **`GHCR_USERNAME`** (username GitHub của chủ PAT). Có thể dùng Repository variable cho `GHCR_USERNAME`.
 
@@ -274,13 +274,13 @@ Pipeline: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — 
 
 ### Lỗi `Process exited with status 137`
 
-**137** = tiến trình bị **SIGKILL**; trên VPS nhỏ (512MB–1GB RAM) nguyên nhân hay gặp nhất là **OOM** (kernel kill) khi Docker **pull/giải nén layer**, **recreate** `api` + `web` cùng lúc, hoặc khi chạy **`npx prisma migrate deploy`** ngay sau khi container vừa start.
+**137** = tiến trình bị **SIGKILL**; trên VPS nhỏ (512MB–1GB RAM) nguyên nhân hay gặp nhất là **OOM** (kernel kill) khi Docker **pull/giải nén layer** hoặc **recreate** `api` + `web` cùng lúc.
 
 **Việc nên làm trên VPS:**
 
 1. **Thêm swap** (ví dụ 2G) nếu RAM &lt; 2G — giảm đột biến OOM khi deploy.
 2. **Nâng RAM** hoặc tách DB sang host khác để VPS chỉ chạy stack app.
-3. Workflow đã bật `COMPOSE_PARALLEL_LIMIT=1`, `command_timeout: 30m`, `git pull --ff-only` trên VPS để cập nhật `docker-compose.prod.yml` / `nginx`, probe HTTP readiness thật từ trong container trước migrate, và `NODE_OPTIONS=--max-old-space-size=384` cho bước Prisma để giảm spike; nếu vẫn 137, ưu tiên swap / RAM.
+3. Workflow đã bật `COMPOSE_PARALLEL_LIMIT=1`, `command_timeout: 30m`, `git pull --ff-only` trên VPS để cập nhật `docker-compose.prod.yml` / `nginx`, và probe HTTP readiness thật từ trong container trước khi reload nginx; nếu vẫn 137, ưu tiên swap / RAM. Nếu chạy `migrate deploy` tay trên VPS và gặp OOM, thử `NODE_OPTIONS=--max-old-space-size=384` (hoặc tương đương) khi `exec` vào container `api`.
 
 ### Nginx 502 `Connection refused` tới `172.x.x.x:3000` sau khi `docker compose up`
 
@@ -341,7 +341,7 @@ Truy cập bằng **IP** vẫn dùng khối `listen 80 default_server` (không r
 
 Nếu gặp lỗi `OCI runtime exec failed: ... setns process`, đây thường là race ngay sau lúc container `nginx` vừa recreate hoặc đang restart. Workflow đã thêm `wait_for_nginx_running` + retry `docker compose exec -T nginx ...` trước khi test/reload; nếu vẫn fail sẽ in `docker compose ps` và `logs --tail=200 nginx` để chẩn đoán trực tiếp nguyên nhân root (thiếu cert, lỗi syntax config, crash loop...).
 
-### Lỗi Prisma `The datasource.url property is required` khi `migrate deploy`
+### Lỗi Prisma `The datasource.url property is required` khi chạy `migrate deploy` (tay trên VPS)
 
 Image API phải chứa `prisma.config.ts` ở thư mục làm việc của container (`/app`): Prisma 7 khai báo `datasource.url` qua `process.env.DATABASE_URL` trong file đó (schema `prisma/schema/*.prisma` không còn dòng `url`). Đảm bảo đã build image từ Dockerfile mới có bước `COPY ... prisma.config.ts`, và file `.env` trên VPS có `DATABASE_URL` (Compose dùng `env_file`).
 

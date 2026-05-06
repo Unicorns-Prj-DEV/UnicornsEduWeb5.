@@ -192,8 +192,4 @@ jobs:
               echo "Skipping HTTPS smoke test (set VPS_PUBLIC_HOST in GitHub Variables/Secrets and/or VPS .env)"
             fi
 
-            docker compose -f docker-compose.prod.yml exec -T \
-              -e NODE_OPTIONS=--max-old-space-size=384 \
-              api npx prisma migrate deploy --schema=./prisma/schema/
-
             docker image prune -f
