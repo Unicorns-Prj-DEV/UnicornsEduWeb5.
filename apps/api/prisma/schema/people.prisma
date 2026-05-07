@@ -15,11 +15,13 @@ model StaffInfo {
   specialization               String?
   bankAccount                  String?               @map("bank_account")
   bankQrLink                   String?               @map("bank_qr_link")
+  googleMeetLink               String?               @map("google_meet_link")
   status                       StaffStatus           @default(active)
   createdAt                    DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                    DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
   userId                       String?               @map("user_id")
   roles                        StaffRole[]           @default([])
+  personalAchievementLink      String?               @map("personal_achievement_link")
   customerCareManagedByStaffId String?               @map("customer_care_managed_by_staff_id")
   assistantStudentSession      Attendance[]          @relation("AttendanceAssistant")
   customerCareStudentSession   Attendance[]          @relation("AttendanceCustomerCare")

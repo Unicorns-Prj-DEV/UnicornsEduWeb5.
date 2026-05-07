@@ -121,6 +121,8 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - `cccd_front_path` (`TEXT`, nullable): object path ảnh CCCD mặt trước trong bucket `id-cards` theo format `${userId}-front`
   - `cccd_back_path` (`TEXT`, nullable): object path ảnh CCCD mặt sau trong bucket `id-cards` theo format `${userId}-back`
   - `cccd_verified_at` (`TIMESTAMPTZ`, nullable): thời điểm xác minh CCCD (dành cho flow verify sau này)
+- `google_meet_link` (`TEXT`, nullable): link Google Meet cố định của gia sư; là nguồn authoritative cho Meet link của tất cả lịch học và buổi bù mà gia sư này phụ trách. Được tạo tự động qua Google Calendar API lần đầu khi gia sư được gán vào lịch nếu chưa có; có thể regenerate thủ công qua `POST /staff/:id/regenerate-meet-link`.
+- `personal_achievement_link` (`TEXT`, nullable): link Google Drive hoặc URL lưu trữ thành tích cá nhân của nhân sự. Không bắt buộc; chỉ accept URL hợp lệ dạng `http/https`. Hiển thị ở trang chi tiết nhân sự (admin + staff self-service) và cột bảng danh sách nhân sự.
 - `customer_care_managed_by_staff_id` (nullable FK → `staff_info.id`): trỏ tới trợ lí quản lí CSKH này; trợ lí được hưởng 3% học phí đã học của học sinh thuộc CSKH quản lí. Index: `(customer_care_managed_by_staff_id)`
 - Được tham chiếu bởi: `users`, `class_teachers`, `sessions`, `makeup_schedule_events`, `bonuses`, `lesson_outputs`, `customer_care_service`, `wallet_transactions_history` (customer care), `staff_monthly_stats`, `extra_allowances`, `class_surveys`, `staff_lesson_task`, `attendance` (assistant_manager)
 
