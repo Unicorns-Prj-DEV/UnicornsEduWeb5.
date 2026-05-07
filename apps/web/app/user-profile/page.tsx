@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import UpgradedSelect, {
@@ -9,6 +10,7 @@ import UpgradedSelect, {
 } from "@/components/ui/UpgradedSelect";
 import EmailVerificationInline from "@/components/user-profile/EmailVerificationInline";
 import UserAvatar from "@/components/ui/UserAvatar";
+import CccdImageUploadFields from "@/components/staff/CccdImageUploadFields";
 import { useAuth } from "@/context/AuthContext";
 import {
   MOCK_VERIFY_EMAIL_TOAST,
@@ -471,14 +473,19 @@ function ErrorState({ status }: { status?: number }) {
 export default function UserProfilePage() {
   const queryClient = useQueryClient();
   const { user, setUser } = useAuth();
+  const searchParams = useSearchParams();
   const [editUser, setEditUser] = useState(false);
   const [editStaff, setEditStaff] = useState(false);
   const [editStudent, setEditStudent] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [staffFrontImage, setStaffFrontImage] = useState<File | null>(null);
+  const [staffBackImage, setStaffBackImage] = useState<File | null>(null);
   const avatarPreviewUrl = useMemo(
     () => (avatarFile ? URL.createObjectURL(avatarFile) : null),
     [avatarFile],
   );
+  const requiresProfileCompletion = searchParams.get("profile_required") === "1";
+  const redirectedFrom = searchParams.get("from");
 
   useEffect(() => {
     return () => {
@@ -487,6 +494,19 @@ export default function UserProfilePage() {
       }
     };
   }, [avatarPreviewUrl]);
+
+  useEffect(() => {
+    if (!requiresProfileCompletion) {
+      return;
+    }
+
+    toast.warning(
+      "Bạn chưa điền đầy đủ thông tin bắt buộc. Vui lòng hoàn thiện hồ sơ để tiếp tục.",
+      {
+        id: "profile-required-warning",
+      },
+    );
+  }, [requiresProfileCompletion]);
 
   const {
     data: profile,
@@ -549,6 +569,21 @@ export default function UserProfilePage() {
     onError: (err: unknown) => {
       const ax = err as { response?: { data?: { message?: string } } };
       toast.error(ax.response?.data?.message ?? "Cập nhật thất bại.");
+    },
+  });
+
+  const uploadStaffCccdMutation = useMutation({
+    mutationFn: authApi.uploadMyStaffCccdImages,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile", "full"] });
+      queryClient.invalidateQueries({ queryKey: ["auth", "full-profile"] });
+      setStaffFrontImage(null);
+      setStaffBackImage(null);
+      toast.success("Đã cập nhật ảnh CCCD.");
+    },
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } };
+      toast.error(ax.response?.data?.message ?? "Không thể tải ảnh CCCD.");
     },
   });
 
@@ -620,6 +655,9 @@ export default function UserProfilePage() {
     e.preventDefault();
     const form = e.currentTarget;
     const payload: UpdateMyStaffProfileDto = {
+      cccd_number: getFieldValue(form, "cccd_number"),
+      cccd_issued_date: getFieldValue(form, "cccd_issued_date"),
+      cccd_issued_place: getFieldValue(form, "cccd_issued_place"),
       birth_date: getFieldValue(form, "birth_date"),
       university: getFieldValue(form, "university"),
       high_school: getFieldValue(form, "high_school"),
@@ -628,6 +666,17 @@ export default function UserProfilePage() {
       bank_qr_link: getFieldValue(form, "bank_qr_link"),
     };
     updateStaffMutation.mutate(payload);
+  };
+
+  const handleSubmitStaffCccdImages = () => {
+    if (!staffFrontImage && !staffBackImage) {
+      toast.error("Vui lòng chọn ít nhất một ảnh CCCD.");
+      return;
+    }
+    uploadStaffCccdMutation.mutate({
+      frontImage: staffFrontImage,
+      backImage: staffBackImage,
+    });
   };
 
   const handleSubmitStudent = (e: React.FormEvent<HTMLFormElement>) => {
@@ -706,6 +755,11 @@ export default function UserProfilePage() {
       profile.staffInfo.specialization,
       profile.staffInfo.bankAccount,
       profile.staffInfo.bankQrLink,
+      profile.staffInfo.cccdNumber,
+      profile.staffInfo.cccdIssuedDate,
+      profile.staffInfo.cccdIssuedPlace,
+      profile.staffInfo.cccdFrontPath ?? profile.staffInfo.cccdFrontUrl,
+      profile.staffInfo.cccdBackPath ?? profile.staffInfo.cccdBackUrl,
       profile.staffInfo.status,
       profile.staffInfo.roles,
     ])
@@ -745,6 +799,11 @@ export default function UserProfilePage() {
       profile.staffInfo.specialization,
       profile.staffInfo.bankAccount,
       profile.staffInfo.bankQrLink,
+      profile.staffInfo.cccdNumber,
+      profile.staffInfo.cccdIssuedDate,
+      profile.staffInfo.cccdIssuedPlace,
+      profile.staffInfo.cccdFrontPath ?? profile.staffInfo.cccdFrontUrl,
+      profile.staffInfo.cccdBackPath ?? profile.staffInfo.cccdBackUrl,
       profile.staffInfo.status,
       profile.staffInfo.roles
     );
@@ -819,6 +878,23 @@ export default function UserProfilePage() {
       href: "#profile-staff",
       detail: "Cần thiết để hoàn thiện luồng thanh toán cho nhân sự.",
     },
+    profile.staffInfo && !profile.staffInfo.cccdNumber && {
+      label: "Điền số CCCD",
+      href: "#profile-staff",
+      detail: "Thông tin định danh là bắt buộc để hoàn tất hồ sơ nhân sự.",
+    },
+    profile.staffInfo &&
+      !(profile.staffInfo.cccdFrontPath ?? profile.staffInfo.cccdFrontUrl) && {
+        label: "Tải ảnh CCCD mặt trước",
+        href: "#profile-staff",
+        detail: "Ảnh CCCD mặt trước dùng cho bước xác minh hồ sơ nhân sự.",
+      },
+    profile.staffInfo &&
+      !(profile.staffInfo.cccdBackPath ?? profile.staffInfo.cccdBackUrl) && {
+        label: "Tải ảnh CCCD mặt sau",
+        href: "#profile-staff",
+        detail: "Ảnh CCCD mặt sau dùng cho bước xác minh hồ sơ nhân sự.",
+      },
     profile.staffInfo && !profile.staffInfo.specialization && {
       label: "Điền chuyên ngành",
       href: "#profile-staff",
@@ -882,6 +958,15 @@ export default function UserProfilePage() {
         label: "Họ tên tài khoản",
         value: displayName(profile),
         hint: "Tên chính thức của nhân sự được đồng bộ từ hồ sơ tài khoản.",
+      },
+      { label: "Số CCCD", value: profile.staffInfo.cccdNumber ?? "—" },
+      {
+        label: "Ngày cấp CCCD",
+        value: formatDate(profile.staffInfo.cccdIssuedDate),
+      },
+      {
+        label: "Nơi cấp CCCD",
+        value: profile.staffInfo.cccdIssuedPlace ?? "—",
       },
       { label: "Ngày sinh", value: formatDate(profile.staffInfo.birthDate) },
       { label: "Trường đại học", value: profile.staffInfo.university ?? "—" },
@@ -964,6 +1049,13 @@ export default function UserProfilePage() {
             <Tag label={getRoleLabel(profile.roleType)} tone="neutral" />
           </div>
         </header>
+
+        {requiresProfileCompletion ? (
+          <div className="mb-6 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-text-primary">
+            Bạn chưa điền đầy đủ thông tin bắt buộc. Vui lòng cập nhật đầy đủ hồ sơ để tiếp tục sử dụng hệ thống
+            {redirectedFrom ? ` (được chuyển từ ${redirectedFrom}).` : "."}
+          </div>
+        ) : null}
 
         {missingItems.length > 0 ? (
           <div className="mb-8 rounded-lg border border-warning/30 bg-bg-surface px-4 py-3 text-sm">
@@ -1157,6 +1249,31 @@ export default function UserProfilePage() {
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <TextField
+                        id="staff-cccd_number"
+                        name="cccd_number"
+                        label="Số CCCD (12 số)"
+                        defaultValue={profile.staffInfo.cccdNumber ?? ""}
+                      />
+                      <TextField
+                        id="staff-cccd_issued_date"
+                        name="cccd_issued_date"
+                        label="Ngày cấp CCCD"
+                        type="date"
+                        defaultValue={
+                          profile.staffInfo.cccdIssuedDate
+                            ? new Date(profile.staffInfo.cccdIssuedDate)
+                              .toISOString()
+                              .slice(0, 10)
+                            : ""
+                        }
+                      />
+                      <TextField
+                        id="staff-cccd_issued_place"
+                        name="cccd_issued_place"
+                        label="Nơi cấp CCCD"
+                        defaultValue={profile.staffInfo.cccdIssuedPlace ?? ""}
+                      />
+                      <TextField
                         id="staff-birth_date"
                         name="birth_date"
                         label="Ngày sinh"
@@ -1209,6 +1326,46 @@ export default function UserProfilePage() {
                       pending={updateStaffMutation.isPending}
                       onCancel={() => setEditStaff(false)}
                     />
+
+                    <div className="space-y-3">
+                      <CccdImageUploadFields
+                        frontImage={staffFrontImage}
+                        backImage={staffBackImage}
+                        frontPath={profile.staffInfo.cccdFrontPath}
+                        backPath={profile.staffInfo.cccdBackPath}
+                        frontUrl={profile.staffInfo.cccdFrontUrl}
+                        backUrl={profile.staffInfo.cccdBackUrl}
+                        disabled={uploadStaffCccdMutation.isPending}
+                        isUploading={uploadStaffCccdMutation.isPending}
+                        onFrontImageChange={setStaffFrontImage}
+                        onBackImageChange={setStaffBackImage}
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={handleSubmitStaffCccdImages}
+                          disabled={uploadStaffCccdMutation.isPending}
+                          className={primaryButtonClassName}
+                        >
+                          {uploadStaffCccdMutation.isPending
+                            ? "Đang tải ảnh CCCD…"
+                            : "Lưu ảnh CCCD"}
+                        </button>
+                        {(staffFrontImage || staffBackImage) ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStaffFrontImage(null);
+                              setStaffBackImage(null);
+                            }}
+                            disabled={uploadStaffCccdMutation.isPending}
+                            className={ghostButtonClassName}
+                          >
+                            Huỷ chọn ảnh
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
                   </form>
                 ) : (
                   <DetailRows items={staffDetails ?? []} />
