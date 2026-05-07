@@ -85,6 +85,7 @@ export type StaffIdentityOverviewProps = {
   province: React.ReactNode;
   university?: string | null;
   specialization?: string | null;
+  personalAchievementLink?: string | null;
   qrLink: string | null;
   onQrEdit: () => void;
 };
@@ -94,11 +95,14 @@ export default function StaffIdentityOverview({
   province,
   university,
   specialization,
+  personalAchievementLink,
   qrLink,
   onQrEdit,
 }: StaffIdentityOverviewProps) {
   const sectionTitleId = useId();
   const achievementsTitleId = useId();
+
+  const trimmedAchievementLink = personalAchievementLink?.trim() || null;
 
   return (
     <section
@@ -129,6 +133,21 @@ export default function StaffIdentityOverview({
         </span>
         <InlineFact label="Trường ĐH" value={university?.trim()} />
       </div>
+
+      {trimmedAchievementLink ? (
+        <div className="mt-3 flex items-center gap-2 text-sm">
+          <span className="shrink-0 text-text-secondary">Thành tích cá nhân:</span>
+          <a
+            href={trimmedAchievementLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="min-w-0 truncate font-medium text-primary underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
+            title={trimmedAchievementLink}
+          >
+            Xem thành tích
+          </a>
+        </div>
+      ) : null}
 
       <div className="mt-5 border-t border-border-default pt-4">
         <h3 id={achievementsTitleId} className={SECTION_HEADING}>

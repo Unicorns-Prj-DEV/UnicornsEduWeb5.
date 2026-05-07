@@ -802,6 +802,7 @@ export default function StaffSelfDetailPage() {
           province={province}
           university={staff.university}
           specialization={staff.specialization}
+          personalAchievementLink={staff.personalAchievementLink}
           qrLink={resolvedQrLink}
           onQrEdit={() => setEditPopupOpen(true)}
         />
