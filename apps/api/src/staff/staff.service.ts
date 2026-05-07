@@ -2,8 +2,10 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { GoogleCalendarService } from 'src/google-calendar/google-calendar.service';
 import { Prisma } from '../../generated/client';
 import {
   ActionHistoryActor,
@@ -515,9 +517,12 @@ function comparePaymentPreviewItems(
 
 @Injectable()
 export class StaffService {
+  private readonly logger = new Logger(StaffService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly actionHistoryService: ActionHistoryService,
+    private readonly googleCalendarService: GoogleCalendarService,
   ) {}
 
   private validateCccdImageFile(
@@ -1441,9 +1446,7 @@ export class StaffService {
 
     const uniqueClassIds = [
       ...new Set(
-        rows
-          .map((r) => r.classId?.trim())
-          .filter((id): id is string => !!id),
+        rows.map((r) => r.classId?.trim()).filter((id): id is string => !!id),
       ),
     ];
     const operatingRateByClassId = await this.resolveCurrentOperatingRates(
@@ -1521,9 +1524,7 @@ export class StaffService {
 
     const uniqueClassIds = [
       ...new Set(
-        rows
-          .map((r) => r.classId?.trim())
-          .filter((id): id is string => !!id),
+        rows.map((r) => r.classId?.trim()).filter((id): id is string => !!id),
       ),
     ];
     const operatingRateByClassId = await this.resolveCurrentOperatingRates(
@@ -4088,6 +4089,10 @@ export class StaffService {
       payload.specialization = data.specialization;
     if (data.bank_account != null) payload.bankAccount = data.bank_account;
     if (data.bank_qr_link != null) payload.bankQrLink = data.bank_qr_link;
+    if (data.personal_achievement_link !== undefined)
+      payload.personalAchievementLink = data.personal_achievement_link ?? null;
+    if (data.google_meet_link !== undefined)
+      payload.googleMeetLink = data.google_meet_link ?? null;
     if (data.roles != null) payload.roles = data.roles;
     if (data.user_id != null) payload.userId = data.user_id;
     if (data.status != null) payload.status = data.status;
@@ -4298,6 +4303,7 @@ export class StaffService {
           specialization: data.specialization,
           bankAccount: data.bank_account,
           bankQrLink: data.bank_qr_link,
+          personalAchievementLink: data.personal_achievement_link ?? null,
           roles: data.roles,
           userId: data.user_id,
           customerCareManagedByStaffId:
@@ -4453,5 +4459,107 @@ export class StaffService {
       cccdFrontPath: updatedStaff.cccdFrontPath,
       cccdBackPath: updatedStaff.cccdBackPath,
     });
+  }
+
+  /**
+   * Regenerates the Google Meet link for a tutor and saves it to `staff_info`.
+   * Any authenticated user can trigger this action (enforced at controller level).
+   */
+  async regenerateMeetLink(
+    staffId: string,
+  ): Promise<{ googleMeetLink: string }> {
+    const staff = await this.prisma.staffInfo.findUnique({
+      where: { id: staffId },
+      select: {
+        id: true,
+        user: {
+          select: { first_name: true, last_name: true, email: true },
+        },
+      },
+    });
+
+    if (!staff) {
+      throw new NotFoundException('Staff not found');
+    }
+
+    const staffName =
+      [staff.user?.first_name, staff.user?.last_name]
+        .filter(Boolean)
+        .join(' ')
+        .trim() || staffId;
+    const staffEmail = staff.user?.email ?? undefined;
+
+    const meetLink = await this.googleCalendarService.generateTutorMeetLink({
+      staffId,
+      staffName,
+      staffEmail,
+    });
+
+    await this.prisma.staffInfo.update({
+      where: { id: staffId },
+      data: { googleMeetLink: meetLink },
+    });
+
+    this.logger.log(
+      `[StaffService] Regenerated Meet link for staff ${staffId}`,
+    );
+
+    return { googleMeetLink: meetLink };
+  }
+
+  /**
+   * Returns the existing `google_meet_link` for a tutor, or auto-creates one
+   * if absent. Used by calendar sync flows when assigning a tutor to a slot.
+   */
+  async ensureTutorMeetLink(staffId: string): Promise<string | null> {
+    const staff = await this.prisma.staffInfo.findUnique({
+      where: { id: staffId },
+      select: {
+        id: true,
+        googleMeetLink: true,
+        user: {
+          select: { first_name: true, last_name: true, email: true },
+        },
+      },
+    });
+
+    if (!staff) {
+      return null;
+    }
+
+    if (staff.googleMeetLink) {
+      return staff.googleMeetLink;
+    }
+
+    try {
+      const staffName =
+        [staff.user?.first_name, staff.user?.last_name]
+          .filter(Boolean)
+          .join(' ')
+          .trim() || staffId;
+      const staffEmail = staff.user?.email ?? undefined;
+
+      const meetLink = await this.googleCalendarService.generateTutorMeetLink({
+        staffId,
+        staffName,
+        staffEmail,
+      });
+
+      await this.prisma.staffInfo.update({
+        where: { id: staffId },
+        data: { googleMeetLink: meetLink },
+      });
+
+      this.logger.log(
+        `[StaffService] Auto-created Meet link for staff ${staffId}: ${meetLink}`,
+      );
+
+      return meetLink;
+    } catch (err) {
+      this.logger.error(
+        `[StaffService] Failed to auto-create Meet link for staff ${staffId}: ${String(err)}`,
+      );
+      return null;
+    }
   }
 }

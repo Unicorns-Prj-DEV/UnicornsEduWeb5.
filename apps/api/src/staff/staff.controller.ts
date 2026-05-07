@@ -454,11 +454,15 @@ export class StaffController {
   @ApiBody({ type: PatchStaffClassTeacherOperatingDeductionDto })
   @ApiResponse({
     status: 200,
-    description: 'Full staff profile after update (same shape as GET /staff/:id).',
+    description:
+      'Full staff profile after update (same shape as GET /staff/:id).',
   })
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({ status: 403, description: 'Not admin.' })
-  @ApiResponse({ status: 404, description: 'Staff or class–teacher row not found.' })
+  @ApiResponse({
+    status: 404,
+    description: 'Staff or class–teacher row not found.',
+  })
   async patchStaffClassTeacherOperatingDeduction(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -471,6 +475,24 @@ export class StaffController {
       body,
       { roleType: user.roleType },
     );
+  }
+
+  @Post(':id/regenerate-meet-link')
+  @Roles(UserRole.admin, UserRole.staff)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Regenerate Google Meet link for a tutor',
+    description:
+      'Generates a new Google Meet link for the specified staff member and saves it to staff_info.google_meet_link. Any authenticated admin or staff user can call this endpoint. Returns the new Meet link.',
+  })
+  @ApiParam({ name: 'id', description: 'Staff id' })
+  @ApiResponse({
+    status: 200,
+    description: 'New Google Meet link generated and saved.',
+  })
+  @ApiResponse({ status: 404, description: 'Staff not found.' })
+  async regenerateMeetLink(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.staffService.regenerateMeetLink(id);
   }
 
   @Get(':id')
@@ -503,11 +525,16 @@ export class StaffController {
       data.bank_qr_link,
       'Link QR ngân hàng',
     );
+    const normalizedAchievementLink = normalizeHttpHttpsUrl(
+      data.personal_achievement_link,
+      'Link thành tích cá nhân',
+    );
 
     return this.staffService.createStaff(
       {
         ...data,
         bank_qr_link: normalizedBankQrLink ?? undefined,
+        personal_achievement_link: normalizedAchievementLink ?? undefined,
       },
       {
         userId: user.id,
@@ -537,11 +564,16 @@ export class StaffController {
       data.bank_qr_link,
       'Link QR ngân hàng',
     );
+    const normalizedAchievementLink = normalizeHttpHttpsUrl(
+      data.personal_achievement_link,
+      'Link thành tích cá nhân',
+    );
 
     return this.staffService.updateStaff(
       {
         ...data,
         bank_qr_link: normalizedBankQrLink ?? undefined,
+        personal_achievement_link: normalizedAchievementLink ?? undefined,
       },
       {
         userId: user.id,

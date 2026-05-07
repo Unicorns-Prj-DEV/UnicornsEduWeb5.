@@ -90,6 +90,7 @@ describe('StaffService', () => {
     service = new StaffService(
       mockPrisma as never,
       actionHistoryService as never,
+      { generateTutorMeetLink: jest.fn() } as never,
     );
   });
 
@@ -1060,7 +1061,7 @@ describe('StaffService', () => {
           taxableBaseAmount: 90000,
           taxRatePercent: 10,
         },
-      ]      )
+      ])
       .mockResolvedValueOnce([
         {
           paymentStatus: PaymentStatus.paid,
