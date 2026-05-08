@@ -513,13 +513,15 @@ export class GoogleCalendarService implements OnModuleInit {
   }
 
   /**
-   * Creates a minimal one-off Google Calendar event solely to obtain a stable
-   * Google Meet link for a tutor. The event is immediately deleted after the
-   * Meet link is captured, leaving only the URL stored on `staff_info`.
+   * Creates a minimal one-off Google Calendar event to obtain a stable
+   * Google Meet link for a tutor and grant meeting-management permissions.
+   * The tutor is invited as CO_HOST so they can manage the meeting room.
    *
-   * Falls back to a 30-minute event starting from now if no time range is
-   * provided. Meet link generation requires OAuth2 credentials (not service
-   * account) — if conferenceData is absent in the response the method throws.
+   * NOTE: this setup event is intentionally kept (not auto-deleted) because
+   * removing it can revoke host/co-host permissions tied to the event.
+   *
+   * Meet link generation requires OAuth2 credentials (not service account) —
+   * if conferenceData is absent in the response the method throws.
    */
   async generateTutorMeetLink(params: {
     staffId: string;
@@ -541,10 +543,17 @@ export class GoogleCalendarService implements OnModuleInit {
       `Tutor: ${staffName}`,
       `Staff ID: ${staffId}`,
       'This event was created automatically by UnicornsEdu to generate a permanent Google Meet link for the tutor.',
-      'It is safe to delete this calendar event — the Meet link remains valid.',
+      'Do not delete this event. It preserves host/co-host management rights for the tutor.',
     ].join('\n');
 
-    const attendees = staffEmail ? [{ email: staffEmail.trim() }] : [];
+    const attendees = staffEmail
+      ? [
+          {
+            email: staffEmail.trim(),
+            role: 'CO_HOST' as const,
+          },
+        ]
+      : [];
 
     const eventBody: calendar_v3.Schema$Event = {
       summary,
@@ -595,13 +604,10 @@ export class GoogleCalendarService implements OnModuleInit {
       `[TutorMeet] Generated Meet link for staff ${staffId}: ${meetLink}`,
     );
 
-    // Clean up the temporary event; ignore errors since the Meet link is independent.
     if (event.id) {
-      this.deleteCalendarEvent(event.id).catch((err) => {
-        this.logger.warn(
-          `[TutorMeet] Failed to delete temporary Meet-setup event ${event.id}: ${String(err)}`,
-        );
-      });
+      this.logger.log(
+        `[TutorMeet] Kept Meet-setup event ${event.id} to preserve tutor meeting-management permissions.`,
+      );
     }
 
     return meetLink;

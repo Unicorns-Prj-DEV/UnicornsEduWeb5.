@@ -170,12 +170,13 @@ Kể từ 2026-05-07, **nguồn authoritative cho Google Meet link là `staff_in
 
 1. `CalendarService.syncScheduleWithCalendar()` gọi `StaffService.ensureTutorMeetLink(teacherId)`.
 2. Nếu `staff_info.google_meet_link` đã có → trả về ngay.
-3. Nếu chưa có → gọi `GoogleCalendarService.generateTutorMeetLink()` (tạo one-shot event riêng lấy Meet URL), persist vào `staff_info`, rồi trả về link.
+3. Nếu chưa có → gọi `GoogleCalendarService.generateTutorMeetLink()` (tạo setup event riêng lấy Meet URL), persist vào `staff_info`, rồi trả về link.
 4. Link này được truyền vào `GoogleCalendarService.createOrUpdateClassScheduleRecurringEvent({ meetLink })`:
    - Khi `meetLink` được cung cấp: link được ghi vào **mô tả** của Google Calendar event (`Google Meet: <url>`); `conferenceData.createRequest` bị bỏ qua (không tạo Meet room mới).
    - Khi không có `meetLink` (fallback hiếm gặp): dùng `conferenceData.createRequest` để Google tự tạo conference.
 5. `entry.meetLink` trong JSON schedule cũng được set về link này (backward-compat FE đọc).
 6. Tương tự, `syncMakeupScheduleEventWithCalendar()` gọi `ensureTutorMeetLink()` và truyền link vào `createOrUpdateMakeupScheduleEvent({ meetLink })` — link xuất hiện trong description của event buổi bù.
+7. Setup event tạo link cho gia sư sẽ **không bị auto-delete**; gia sư được add vào attendees với vai trò `CO_HOST` để giữ quyền quản lý meeting.
 
 ### 4.2 Recurring event cho `Class.schedule`
 
