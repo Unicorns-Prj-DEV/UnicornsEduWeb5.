@@ -161,6 +161,24 @@ export class CreateStaffDto {
   @IsOptional()
   @IsUUID()
   customer_care_managed_by_staff_id?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'https://drive.google.com/drive/folders/abc123',
+    description:
+      'Link Google Drive hoặc URL thành tích cá nhân của nhân sự (không bắt buộc)',
+  })
+  @IsOptional()
+  @IsString()
+  personal_achievement_link?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'https://meet.google.com/abc-defg-hij',
+    description:
+      'Link Google Meet cố định của gia sư (không bắt buộc; có thể để trống để hệ thống tự tạo khi cần)',
+  })
+  @IsOptional()
+  @IsString()
+  google_meet_link?: string | null;
 }
 
 export class UpdateStaffDto extends PartialType(CreateStaffDto) {
@@ -185,7 +203,10 @@ export class PatchStaffClassTeacherOperatingDeductionDto {
   @Type(() => Number)
   @IsNumber(
     { maxDecimalPlaces: 2 },
-    { message: 'operating_deduction_rate_percent phải là số 0–100 tối đa 2 chữ số thập phân.' },
+    {
+      message:
+        'operating_deduction_rate_percent phải là số 0–100 tối đa 2 chữ số thập phân.',
+    },
   )
   @Min(0)
   @Max(100)

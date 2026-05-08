@@ -73,8 +73,9 @@
   - header hiển thị avatar, trạng thái staff, staff roles và nút chỉnh sửa hồ sơ cơ bản
   - tên staff canonical luôn đọc từ `User` (`first_name` + `last_name`) qua `GET /users/me/full`; `staff.fullName` / `staffInfo.fullName` chỉ còn là fallback derived trong giai đoạn rollout
   - popup tự sửa hồ sơ cơ bản tách cập nhật: tên hiển thị đi qua `PATCH /users/me`, còn phần hồ sơ staff đi qua `PATCH /users/me/staff`
-  - chỉ cho sửa trong popup: tên canonical, `birth_date`, `university`, `high_school`, `specialization`, `bank_account`, `bank_qr_link`, `cccd_*`
-  - `bank_qr_link` self-service chỉ nhận URL `http/https` (trim trước khi lưu); link schema khác (`javascript:`, `data:`, ...) bị backend từ chối
+  - chỉ cho sửa trong popup: tên canonical, `birth_date`, `university`, `high_school`, `specialization`, `bank_account`, `bank_qr_link`, `personal_achievement_link`, `cccd_*`
+  - `bank_qr_link` và `personal_achievement_link` self-service chỉ nhận URL `http/https` (trim trước khi lưu); link schema khác (`javascript:`, `data:`, ...) bị backend từ chối
+  - `personal_achievement_link` là tùy chọn; khi có giá trị hợp lệ, hiển thị ở phần `Hồ sơ nhân sự` dưới dạng link text rút gọn "Xem thành tích" mở tab mới
   - trường `Mô tả chuyên môn` trong block `Thông tin cơ bản` giữ được newline từ textarea và cũng render được rich text HTML đã sanitize để self profile không lệch hành vi với admin detail
   - hiển thị QR thanh toán từ hồ sơ staff hiện tại và tái dùng popup self-edit để cập nhật
   - hiển thị đầy đủ các section cùng contract dữ liệu với admin detail:
@@ -263,7 +264,7 @@
 - **Backend routes đang dùng**
   - `GET /users/me/full`
   - `PATCH /users/me` (self-service dùng để cập nhật tên staff canonical trên popup/profile)
-  - `PATCH /users/me/staff` (self-service validate `bank_qr_link` chỉ `http/https`; không dùng để đổi tên canonical)
+  - `PATCH /users/me/staff` (self-service validate `bank_qr_link` và `personal_achievement_link` chỉ `http/https`; không dùng để đổi tên canonical; `personal_achievement_link` tùy chọn, gửi `null` để xóa)
   - `GET /users/me/staff-detail`
   - `GET /users/me/staff-income-summary?month=&year=&days=` (net-first cho tổng tháng/năm + breakdown gross/tax; `snapshotUnpaidTotal` = gross snapshot; `snapshotUnpaidNetTotal` = net snapshot với **mức CPVH + thuế hiện hành** (khớp luồng preview thanh toán); `yearPaidNetTotal`; `totalReceivedNet` = `yearPaidNetTotal` + `snapshotUnpaidNetTotal`. Buổi dạy trong snapshot: chỉ `unpaid`/`pending` trong cửa sổ `days` gần nhất, không tính cọc; các nguồn pending khác tính full theo nghiệp vụ)
   - `GET /deduction-settings/tax?asOfDate=&roleType=&staffId=` (đọc cấu hình khấu trừ thuế đang hiệu lực + lịch sử)

@@ -119,6 +119,13 @@ export class UpdateMyStaffProfileDto {
   @IsOptional()
   @IsString()
   bank_qr_link?: string;
+
+  @ApiPropertyOptional({
+    example: 'https://drive.google.com/drive/folders/abc123',
+  })
+  @IsOptional()
+  @IsString()
+  personal_achievement_link?: string | null;
 }
 
 /** Update current user's student record (self). No id. */

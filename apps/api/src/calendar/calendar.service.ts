@@ -7,6 +7,7 @@ import {
 import { Prisma } from '../../generated/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { GoogleCalendarService } from '../google-calendar/google-calendar.service';
+import { StaffService } from '../staff/staff.service';
 import {
   ClassScheduleEntryDto,
   ClassScheduleEventDto,
@@ -65,6 +66,7 @@ export class CalendarService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly googleCalendarService: GoogleCalendarService,
+    private readonly staffService: StaffService,
   ) {}
 
   private getStoredClassScheduleEntries(
@@ -994,6 +996,25 @@ export class CalendarService {
             )
             .filter((email): email is string => Boolean(email));
 
+      // Resolve Meet link from staff_info (authoritative source). Auto-create
+      // if the responsible tutor does not yet have a link.
+      const responsibleTeacherId =
+        entry.teacherId ??
+        (cls.teachers.length === 1 ? cls.teachers[0].teacherId : undefined);
+
+      let meetLinkFromStaff: string | undefined;
+      if (responsibleTeacherId) {
+        try {
+          const link =
+            await this.staffService.ensureTutorMeetLink(responsibleTeacherId);
+          meetLinkFromStaff = link ?? undefined;
+        } catch (err) {
+          this.logger.error(
+            `[Calendar CRUD:sync] Failed to resolve Meet link for tutor ${responsibleTeacherId}: ${String(err)}`,
+          );
+        }
+      }
+
       try {
         const result =
           await this.googleCalendarService.createOrUpdateClassScheduleRecurringEvent(
@@ -1005,6 +1026,7 @@ export class CalendarService {
               dayOfWeek,
               from,
               end,
+              meetLink: meetLinkFromStaff,
             },
           );
 
@@ -1014,6 +1036,10 @@ export class CalendarService {
         this.logger.error(
           `[Calendar CRUD:sync] Failed to sync recurring event for class ${cls.id}, entry ${entryId}: ${String(error)}`,
         );
+        // Even if Google Calendar sync fails, preserve the staff Meet link in the schedule JSON.
+        if (meetLinkFromStaff) {
+          entry.meetLink = meetLinkFromStaff;
+        }
       }
     }
 
@@ -1133,6 +1159,18 @@ export class CalendarService {
       ? [event.teacher.user.email]
       : [];
 
+    // Resolve Meet link from staff_info (authoritative). Auto-create if absent.
+    let staffMeetLink: string | null = null;
+    try {
+      staffMeetLink = await this.staffService.ensureTutorMeetLink(
+        event.teacherId,
+      );
+    } catch (err) {
+      this.logger.error(
+        `[Calendar Makeup] Failed to resolve staff Meet link for tutor ${event.teacherId}: ${String(err)}`,
+      );
+    }
+
     try {
       const result =
         await this.googleCalendarService.createOrUpdateMakeupScheduleEvent({
@@ -1146,13 +1184,15 @@ export class CalendarService {
           endTime: this.normalizeTimeValue(event.endTime) ?? '00:00:00',
           title: event.title ?? undefined,
           note: event.note ?? undefined,
+          meetLink: staffMeetLink ?? undefined,
         });
 
       await this.prisma.makeupScheduleEvent.update({
         where: { id: event.id },
         data: {
           googleCalendarEventId: result.eventId,
-          googleMeetLink: result.meetLink ?? null,
+          // Prefer staff-level Meet link over the per-event link.
+          googleMeetLink: staffMeetLink ?? result.meetLink ?? null,
           calendarSyncedAt: new Date(),
           calendarSyncError: null,
         },
@@ -1161,6 +1201,8 @@ export class CalendarService {
       await this.prisma.makeupScheduleEvent.update({
         where: { id: event.id },
         data: {
+          // Keep staff Meet link even if Calendar sync failed; it stays valid.
+          ...(staffMeetLink ? { googleMeetLink: staffMeetLink } : {}),
           calendarSyncError:
             error instanceof Error ? error.message : String(error),
         },

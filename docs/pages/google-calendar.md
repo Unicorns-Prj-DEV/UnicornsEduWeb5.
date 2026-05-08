@@ -103,6 +103,7 @@ Hành vi runtime hiện tại:
 | `GET` | `/calendar/classes` | Danh sách lớp running cho filter; staff chỉ dùng được khi có role `teacher`, nếu không sẽ nhận `403` |
 | `GET` | `/calendar/teachers` | Danh sách gia sư active cho filter |
 | `GET` | `/calendar/students` | Danh sách học sinh còn gắn với lớp đang chạy cho filter calendar; staff chỉ thấy học sinh thuộc lớp mình phụ trách và staff non-teacher nhận `403` |
+| `POST` | `/staff/:id/regenerate-meet-link` | Tạo Meet link mới cho gia sư và lưu vào `staff_info.google_meet_link`; mọi `admin` hoặc `staff` role đều gọi được |
 
 ### 3.2 Các endpoint đã retire
 
@@ -134,8 +135,9 @@ Trang `/admin/calendar` ưu tiên dùng `GET /admin/calendar/events` làm source
 - Khi tạo/sửa `makeup_schedule_events`, backend sẽ:
   1. validate `teacherId` thuộc lớp tương ứng
   2. lưu record makeup event
-  3. sync một event one-off lên Google Calendar
-  4. lưu lại `googleCalendarEventId`, `googleMeetLink`, `calendarSyncedAt`, `calendarSyncError`
+  3. resolve Meet link từ `staff_info.google_meet_link` của gia sư (auto-create nếu thiếu)
+  4. sync một event one-off lên Google Calendar
+  5. lưu lại `googleCalendarEventId`, `googleMeetLink` (ưu tiên link từ `staff_info`), `calendarSyncedAt`, `calendarSyncError`
 - Khi xoá makeup event, backend sẽ cố xóa luôn Google Calendar event liên kết nếu có `googleCalendarEventId`.
 
 ### 3.4 Staff Calendar (`/staff/calendar`)
@@ -153,7 +155,30 @@ Staff có role `teacher` có thể xem lịch dạy cá nhân tại `/staff/cale
 
 ## 4) Sync Event Cho Calendar
 
-### 4.1 Recurring event cho `Class.schedule`
+### 4.1 Google Meet link theo gia sư (authoritative source)
+
+Kể từ 2026-05-07, **nguồn authoritative cho Google Meet link là `staff_info.google_meet_link`** của gia sư phụ trách buổi học — không còn là link per-session hay per-entry.
+
+**Quy tắc:**
+
+- Khi gia sư đã có `google_meet_link` trong `staff_info`, link đó được tái sử dụng cho mọi lịch học và buổi bù mà gia sư phụ trách.
+- Khi gia sư chưa có `google_meet_link`, backend tự tạo link thật qua Google Calendar API (helper `GoogleCalendarService.generateTutorMeetLink()`) và lưu link mới vào `staff_info.google_meet_link`. Link này được reuse cho tất cả các buổi sau.
+- Regenerate thủ công: gọi `POST /staff/:id/regenerate-meet-link` (mọi staff role đều được phép). Backend tạo link mới và cập nhật `staff_info.google_meet_link`.
+- Chiến lược tương thích: dữ liệu cũ (session cũ, schedule entry cũ có `meetLink`) **không bị bulk backfill**. Logic mới chỉ áp dụng khi tạo/sync lịch mới hoặc khi gia sư được cập nhật.
+
+**Luồng auto-create và nhúng vào Google Calendar event:**
+
+1. `CalendarService.syncScheduleWithCalendar()` gọi `StaffService.ensureTutorMeetLink(teacherId)`.
+2. Nếu `staff_info.google_meet_link` đã có → trả về ngay.
+3. Nếu chưa có → gọi `GoogleCalendarService.generateTutorMeetLink()` (tạo setup event riêng lấy Meet URL), persist vào `staff_info`, rồi trả về link.
+4. Link này được truyền vào `GoogleCalendarService.createOrUpdateClassScheduleRecurringEvent({ meetLink })`:
+   - Khi `meetLink` được cung cấp: link được ghi vào **mô tả** của Google Calendar event (`Google Meet: <url>`); `conferenceData.createRequest` bị bỏ qua (không tạo Meet room mới).
+   - Khi không có `meetLink` (fallback hiếm gặp): dùng `conferenceData.createRequest` để Google tự tạo conference.
+5. `entry.meetLink` trong JSON schedule cũng được set về link này (backward-compat FE đọc).
+6. Tương tự, `syncMakeupScheduleEventWithCalendar()` gọi `ensureTutorMeetLink()` và truyền link vào `createOrUpdateMakeupScheduleEvent({ meetLink })` — link xuất hiện trong description của event buổi bù.
+7. Setup event tạo link cho gia sư sẽ **không bị auto-delete**; gia sư được add vào attendees với vai trò `CO_HOST` để giữ quyền quản lý meeting.
+
+### 4.2 Recurring event cho `Class.schedule`
 
 Mỗi schedule entry trong `Class.schedule` có thể được đồng bộ thành một recurring weekly event:
 
@@ -167,7 +192,8 @@ Khi gọi `PUT /admin/calendar/classes/:classId/schedule`, hệ thống sẽ:
 1. Lưu schedule pattern mới xuống DB.
 2. Xóa recurring event cũ của các entry cũ còn liên kết.
 3. Tạo recurring event mới cho các entry hiện tại.
-4. Lưu `googleCalendarEventId` và `meetLink` ngược lại vào JSON `Class.schedule`.
+4. Resolve Meet link từ `staff_info` của gia sư phụ trách (auto-create nếu thiếu).
+5. Lưu `googleCalendarEventId` và `meetLink` (lấy từ `staff_info`) ngược lại vào JSON `Class.schedule`.
 
 `CalendarService.enrichEventsWithMeetLinks()` chỉ đọc `meetLink` từ schedule entry đã sync để đổ vào `ClassScheduleEventDto`.
 
@@ -233,6 +259,9 @@ Các log còn ý nghĩa cho feature này:
 | `[Calendar CRUD:sync]` | Khi xóa/tạo recurring event cho `Class.schedule` |
 | `[Calendar CRUD:DELETE]` | Khi xóa recurring event cũ của schedule entry |
 | `[Calendar]` | Các log nội bộ từ recurring-event sync và meet-link enrichment |
+| `[TutorMeet]` | Khi tạo link Meet mới cho gia sư qua `GoogleCalendarService.generateTutorMeetLink()` |
+| `[StaffService]` | Khi auto-create hoặc regenerate Meet link cho gia sư qua `StaffService` |
+| `[Calendar Makeup]` | Khi resolve Meet link từ `staff_info` trong luồng sync makeup event |
 
 Session CRUD không còn log vòng đời sync Google Calendar nữa.
 
@@ -240,12 +269,24 @@ Session CRUD không còn log vòng đời sync Google Calendar nữa.
 
 ## 7) Kiểm thử nhanh
 
-1. Cập nhật schedule lớp qua `PUT /admin/calendar/classes/:classId/schedule`.
-2. Kiểm tra Google Calendar có recurring event mới.
-3. Tạo/sửa/xóa một makeup event từ trang chi tiết lớp (`/admin/classes/:id` hoặc `/staff/classes/:id`) và xác nhận Google Calendar có event one-off tương ứng.
-4. Mở `/admin/calendar` hoặc `/staff/calendar` và xác nhận popup event có `meetLink` từ recurring slot hoặc makeup event nếu sync thành công.
-5. Tạo/sửa/xóa một session từ màn lớp hoặc staff profile.
-6. Xác nhận không có log/session side effect nào gọi Google Calendar.
+1. **Meet link theo gia sư (luồng mới):**
+   - Xóa (hoặc null) `staff_info.google_meet_link` của một gia sư test.
+   - Cập nhật schedule lớp có gia sư đó qua `PUT /admin/calendar/classes/:classId/schedule`.
+   - Xác nhận `staff_info.google_meet_link` đã được populate tự động.
+   - Xác nhận `entry.meetLink` trong `Class.schedule` trả về đúng link gia sư.
+2. **Tái sử dụng link cũ:**
+   - Gán lại gia sư đó vào một lịch khác; xác nhận link cũ được giữ nguyên (`staff_info.google_meet_link` không đổi).
+3. **Regenerate thủ công:**
+   - Gọi `POST /staff/:id/regenerate-meet-link`.
+   - Xác nhận `staff_info.google_meet_link` được cập nhật link mới.
+   - Sync lại schedule → `entry.meetLink` dùng link mới.
+4. **Makeup event:**
+   - Tạo/sửa một makeup event từ trang chi tiết lớp.
+   - Xác nhận `makeup_schedule_events.google_meet_link` khớp với `staff_info.google_meet_link` của gia sư phụ trách.
+5. **Backward compat:**
+   - Xác nhận các entry cũ không bị tự động cập nhật link nếu không có sync mới.
+6. **Không có session side effect:**
+   - Tạo/sửa/xóa một session; xác nhận không có log Google Calendar nào được gọi.
 
 ---
 
@@ -255,6 +296,8 @@ Session CRUD không còn log vòng đời sync Google Calendar nữa.
 |-------|----------|
 | Không sync được recurring event | Kiểm tra `GOOGLE_SERVICE_ACCOUNT_KEY` hoặc `GOOGLE_SERVICE_ACCOUNT_JSON_PATH` |
 | Token/access token bị expire | Hệ thống sẽ tự refresh và retry 1 lần; nếu vẫn lỗi, kiểm tra `GOOGLE_REFRESH_TOKEN` hoặc quyền service account/key hiện tại còn hợp lệ |
-| Không có Meet link | Kiểm tra auth method Google, quyền conference/invite, và log response của Google API |
+| Không có Meet link | Kiểm tra auth method Google (phải là OAuth2), quyền conference/invite, và log response của Google API |
+| Auto-create Meet link thất bại | Kiểm tra OAuth2 credentials (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`); service account không hỗ trợ tạo conference data |
 | Gia sư không nhận invite recurring event | Kiểm tra email tutor đúng, calendar được share đúng, và slot có `teacherId` hợp lệ |
+| Muốn đổi Meet link của gia sư | Gọi `POST /staff/:id/regenerate-meet-link`; link mới sẽ được dùng từ lần sync tiếp theo |
 | Tạo session nhưng Google Calendar không đổi | Đây là hành vi đúng từ 2026-04-14; session không còn sync calendar |

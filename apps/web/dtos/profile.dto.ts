@@ -20,6 +20,7 @@ export interface ProfileStaffInfoDto {
   specialization?: string | null;
   bankAccount?: string | null;
   bankQrLink?: string | null;
+  personalAchievementLink?: string | null;
   status: StaffStatus;
   roles: string[];
   createdAt?: string;
@@ -104,6 +105,7 @@ export interface UpdateMyStaffProfileDto {
   specialization?: string;
   bank_account?: string;
   bank_qr_link?: string;
+  personal_achievement_link?: string | null;
 }
 
 /** Payload to update current user's student: PATCH /auth/me/student */

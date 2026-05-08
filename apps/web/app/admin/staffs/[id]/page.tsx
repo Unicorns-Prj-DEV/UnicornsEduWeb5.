@@ -1467,6 +1467,7 @@ export default function AdminStaffDetailPage({
           province={province}
           university={staff.university}
           specialization={staff.specialization}
+          personalAchievementLink={staff.personalAchievementLink}
           qrLink={qrLink ?? resolvedQrLink}
           onQrEdit={() => setQrPopupOpen(true)}
         />

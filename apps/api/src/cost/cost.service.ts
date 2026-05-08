@@ -57,7 +57,11 @@ export class CostService {
     const nextMonthStart =
       monthStart != null
         ? new Date(
-            Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 1),
+            Date.UTC(
+              monthStart.getUTCFullYear(),
+              monthStart.getUTCMonth() + 1,
+              1,
+            ),
           )
         : null;
 

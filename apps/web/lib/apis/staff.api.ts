@@ -127,6 +127,7 @@ export async function updateStaff(payload: {
     specialization?: string;
     bank_account?: string;
     bank_qr_link?: string;
+    personal_achievement_link?: string | null;
     roles?: string[];
     status?: StaffStatus;
     customer_care_managed_by_staff_id?: string | null;
@@ -280,6 +281,17 @@ export async function payStaffDepositSessions(
         data,
     );
 
+    return response.data;
+}
+
+/** Regenerate Google Meet link cho gia sư: POST /staff/:id/regenerate-meet-link */
+export async function regenerateStaffMeetLink(
+    id: string,
+): Promise<{ googleMeetLink: string }> {
+    const safeId = encodeURIComponent(id);
+    const response = await api.post<{ googleMeetLink: string }>(
+        `/staff/${safeId}/regenerate-meet-link`,
+    );
     return response.data;
 }
 

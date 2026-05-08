@@ -652,6 +652,21 @@ export default function AdminStaffPage() {
 
                       <div className="mt-2 flex flex-col gap-1 text-sm text-text-secondary">
                         <span className="truncate">Tỉnh: {province}</span>
+                        {row.personalAchievementLink?.trim() ? (
+                          <span className="flex items-center gap-1">
+                            <span>Thành tích:</span>
+                            <a
+                              href={row.personalAchievementLink.trim()}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="truncate font-medium text-primary underline-offset-4 hover:underline focus:outline-none"
+                              title={row.personalAchievementLink.trim()}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              Xem link
+                            </a>
+                          </span>
+                        ) : null}
                         {classItems.length > 0 ? (
                           <div className="flex flex-col gap-1">
                             <span className="text-sm text-text-secondary">Lớp:</span>
@@ -683,11 +698,12 @@ export default function AdminStaffPage() {
                   <thead>
                     <tr className="border-b border-border-default bg-bg-secondary/80">
                       <th scope="col" className="w-[3%] min-w-10 px-2 py-3 overflow-x-hidden" aria-label="Trạng thái" />
-                      <th scope="col" className="w-[15%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary overflow-x-hidden">Tên</th>
-                      <th scope="col" className="w-[25%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary overflow-x-hidden">Role</th>
-                      <th scope="col" className="w-[15%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary overflow-x-hidden">Tỉnh</th>
-                      <th scope="col" className="w-[20%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary overflow-x-hidden">Lớp</th>
-                      <th scope="col" className="w-[17%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary overflow-x-hidden">Chưa thanh toán</th>
+                      <th scope="col" className="w-[13%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary overflow-x-hidden">Tên</th>
+                      <th scope="col" className="w-[20%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary overflow-x-hidden">Role</th>
+                      <th scope="col" className="w-[10%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary overflow-x-hidden">Tỉnh</th>
+                      <th scope="col" className="w-[14%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary overflow-x-hidden">Thành tích</th>
+                      <th scope="col" className="w-[16%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary overflow-x-hidden">Lớp</th>
+                      <th scope="col" className="w-[14%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary overflow-x-hidden">Chưa thanh toán</th>
                       {canDeleteStaff ? (
                         <th scope="col" className="w-[5%] min-w-16 px-4 py-3">
                           <span className="sr-only">Xóa</span>
@@ -749,8 +765,24 @@ export default function AdminStaffPage() {
                               )}
                             </div>
                           </td>
-                          <td className="w-[14%] min-w-0 px-4 py-3 text-text-secondary">
+                          <td className="w-[10%] min-w-0 px-4 py-3 text-text-secondary">
                             <span className="block truncate">{province}</span>
+                          </td>
+                          <td className="w-[14%] min-w-0 px-4 py-3 align-middle">
+                            {row.personalAchievementLink?.trim() ? (
+                              <a
+                                href={row.personalAchievementLink.trim()}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block max-w-[10rem] truncate text-sm font-medium text-primary underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                title={row.personalAchievementLink.trim()}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Xem thành tích
+                              </a>
+                            ) : (
+                              <span className="text-text-muted">—</span>
+                            )}
                           </td>
                           <td className="w-[16%] min-w-0 px-4 py-3 text-text-secondary align-middle">
                             <div className="flex min-w-0 flex-col gap-1">

@@ -37,6 +37,7 @@ describe('CalendarService', () => {
     service = new CalendarService(
       mockPrisma as never,
       googleCalendarService as never,
+      { ensureTutorMeetLink: jest.fn().mockResolvedValue(null) } as never,
     );
   });
 

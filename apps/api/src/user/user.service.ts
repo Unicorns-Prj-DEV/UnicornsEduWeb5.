@@ -1038,6 +1038,12 @@ export class UserService {
         'Link QR ngân hàng',
       );
     }
+    if (dto.personal_achievement_link !== undefined) {
+      data.personalAchievementLink = normalizeHttpHttpsUrl(
+        dto.personal_achievement_link,
+        'Link thành tích cá nhân',
+      );
+    }
     if (
       Object.keys(data).length === 0 &&
       Object.keys(userNameData).length === 0

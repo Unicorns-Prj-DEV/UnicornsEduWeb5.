@@ -62,6 +62,7 @@ export default function StaffSelfEditPopup({
   );
   const [bankAccount, setBankAccount] = useState(staffInfo?.bankAccount ?? "");
   const [bankQrLink, setBankQrLink] = useState(staffInfo?.bankQrLink ?? "");
+  const [personalAchievementLink, setPersonalAchievementLink] = useState(staffInfo?.personalAchievementLink ?? "");
   const [frontImage, setFrontImage] = useState<File | null>(null);
   const [backImage, setBackImage] = useState<File | null>(null);
 
@@ -98,6 +99,7 @@ export default function StaffSelfEditPopup({
           specialization: specialization.trim(),
           bank_account: bankAccount.trim(),
           bank_qr_link: bankQrLink.trim(),
+          personal_achievement_link: personalAchievementLink.trim() || null,
         });
 
         if (frontImage || backImage) {
@@ -340,6 +342,27 @@ export default function StaffSelfEditPopup({
                   className="rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   placeholder="https://…"
                 />
+              </label>
+
+              <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
+                <span>
+                  Thành tích cá nhân{" "}
+                  <span className="text-xs text-text-muted">(tùy chọn)</span>
+                </span>
+                <input
+                  name="personalAchievementLink"
+                  type="url"
+                  value={personalAchievementLink}
+                  onChange={(event) => setPersonalAchievementLink(event.target.value)}
+                  autoComplete="url"
+                  spellCheck={false}
+                  disabled={isSaving}
+                  className="rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  placeholder="https://drive.google.com/…"
+                />
+                <p className="text-xs text-text-muted">
+                  Link Google Drive lưu trữ thành tích. Không bắt buộc điền.
+                </p>
               </label>
 
               <div className="sm:col-span-2">

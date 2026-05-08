@@ -18,6 +18,7 @@ export interface StaffListItem {
     fullName: string;
     status: StaffStatus;
     roles?: string[];
+    personalAchievementLink?: string | null;
     user?: {
         province?: string | null;
         fullName?: string | null;
@@ -78,6 +79,8 @@ export interface StaffDetail {
     specialization?: string | null;
     bankAccount?: string | null;
     bankQrLink?: string | null;
+    personalAchievementLink?: string | null;
+    googleMeetLink?: string | null;
     roles: string[];
     status: StaffStatus;
     createdAt?: string;
@@ -291,6 +294,7 @@ export interface CreateStaffPayload {
     specialization?: string;
     bank_account?: string;
     bank_qr_link?: string;
+    personal_achievement_link?: string | null;
     roles: string[];
     user_id: string;
     customer_care_managed_by_staff_id?: string | null;

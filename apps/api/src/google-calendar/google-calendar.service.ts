@@ -512,6 +512,107 @@ export class GoogleCalendarService implements OnModuleInit {
     }
   }
 
+  /**
+   * Creates a minimal one-off Google Calendar event to obtain a stable
+   * Google Meet link for a tutor and grant meeting-management permissions.
+   * The tutor is invited as CO_HOST so they can manage the meeting room.
+   *
+   * NOTE: this setup event is intentionally kept (not auto-deleted) because
+   * removing it can revoke host/co-host permissions tied to the event.
+   *
+   * Meet link generation requires OAuth2 credentials (not service account) —
+   * if conferenceData is absent in the response the method throws.
+   */
+  async generateTutorMeetLink(params: {
+    staffId: string;
+    staffName: string;
+    staffEmail?: string;
+  }): Promise<string> {
+    const { staffId, staffName, staffEmail } = params;
+
+    const vnTimeZone = this.config.timeZone || this.DEFAULT_TIME_ZONE;
+    const nowInVN = new Date(
+      new Date().toLocaleString('en-US', { timeZone: vnTimeZone }),
+    );
+    const startISO = nowInVN.toISOString().replace('Z', '');
+    const endDate = new Date(nowInVN.getTime() + 30 * 60 * 1000);
+    const endISO = endDate.toISOString().replace('Z', '');
+
+    const summary = `[Meet Setup] ${staffName}`;
+    const description = [
+      `Tutor: ${staffName}`,
+      `Staff ID: ${staffId}`,
+      'This event was created automatically by UnicornsEdu to generate a permanent Google Meet link for the tutor.',
+      'Do not delete this event. It preserves host/co-host management rights for the tutor.',
+    ].join('\n');
+
+    const attendees = staffEmail
+      ? [
+          {
+            email: staffEmail.trim(),
+            role: 'CO_HOST' as const,
+          },
+        ]
+      : [];
+
+    const eventBody: calendar_v3.Schema$Event = {
+      summary,
+      description,
+      start: {
+        dateTime: startISO,
+        timeZone: vnTimeZone,
+      },
+      end: {
+        dateTime: endISO,
+        timeZone: vnTimeZone,
+      },
+      ...(attendees.length > 0 ? { attendees } : {}),
+      conferenceData: {
+        createRequest: {
+          requestId: randomUUID(),
+        },
+      },
+    };
+
+    const response = await this.executeCalendarRequest(
+      `generate tutor meet link for staff ${staffId}`,
+      async () =>
+        this.calendar!.events.insert({
+          calendarId: this.config.calendarId || 'primary',
+          requestBody: eventBody,
+          conferenceDataVersion: 1,
+        }),
+    );
+
+    const event = response.data as GoogleCalendarEvent;
+
+    const meetLink =
+      event.conferenceData?.entryPoints?.find(
+        (ep) => ep.entryPointType === 'video',
+      )?.uri ?? '';
+
+    if (!meetLink) {
+      this.logger.warn(
+        `[TutorMeet] No Meet link in response for staff ${staffId}. OAuth2 credentials may not support conference creation.`,
+      );
+      throw new Error(
+        `Google Calendar did not return a Meet link for tutor ${staffId}. Ensure OAuth2 credentials are configured.`,
+      );
+    }
+
+    this.logger.log(
+      `[TutorMeet] Generated Meet link for staff ${staffId}: ${meetLink}`,
+    );
+
+    if (event.id) {
+      this.logger.log(
+        `[TutorMeet] Kept Meet-setup event ${event.id} to preserve tutor meeting-management permissions.`,
+      );
+    }
+
+    return meetLink;
+  }
+
   async createOrUpdateClassScheduleRecurringEvent(params: {
     classId: string;
     className: string;
@@ -521,6 +622,11 @@ export class GoogleCalendarService implements OnModuleInit {
     dayOfWeek: number;
     from: string;
     end: string;
+    /** Pre-resolved Meet link for the responsible tutor. When provided the
+     *  link is embedded in the event description and conferenceData.createRequest
+     *  is omitted (no new Meet room is created). When absent, falls back to
+     *  requesting a new conference from Google. */
+    meetLink?: string;
   }): Promise<{ eventId: string; meetLink?: string }> {
     const {
       classId,
@@ -531,6 +637,7 @@ export class GoogleCalendarService implements OnModuleInit {
       dayOfWeek,
       from,
       end,
+      meetLink: providedMeetLink,
     } = params;
 
     this.logger.log(
@@ -602,11 +709,20 @@ export class GoogleCalendarService implements OnModuleInit {
       normalizedTeacherEmails.length > 0
         ? `Teachers: ${normalizedTeacherEmails.join(', ')}`
         : null,
+      providedMeetLink ? `Google Meet: ${providedMeetLink}` : null,
       '',
       'This event was created automatically by the UnicornsEdu system.',
     ].filter((line): line is string => Boolean(line));
     const description = descriptionLines.join('\n');
     const existingEventId = calendarEventId;
+
+    // When a pre-resolved Meet link is provided, embed it in the description
+    // and skip conferenceData.createRequest (no new Meet room needed).
+    // Fall back to createRequest only when no link is available.
+    const conferenceDataPayload: calendar_v3.Schema$ConferenceData | undefined =
+      providedMeetLink
+        ? undefined
+        : { createRequest: { requestId: randomUUID() } };
 
     const eventBody: calendar_v3.Schema$Event = {
       summary,
@@ -624,16 +740,20 @@ export class GoogleCalendarService implements OnModuleInit {
         email,
         role: 'CO_HOST' as const,
       })),
-      conferenceData: {
-        createRequest: {
-          requestId: randomUUID(),
-        },
-      },
+      ...(conferenceDataPayload ? { conferenceData: conferenceDataPayload } : {}),
     };
 
     this.logger.log(`[Calendar] Event body summary: ${summary}`);
-    this.logger.log(`[Calendar] conferenceData.createRequest present: true`);
-    this.logger.log(`[Calendar] Conference data version will be set to 1`);
+    this.logger.log(
+      `[Calendar] conferenceData.createRequest present: ${!providedMeetLink}`,
+    );
+    if (providedMeetLink) {
+      this.logger.log(
+        `[Calendar] Using pre-resolved tutor Meet link in description: ${providedMeetLink}`,
+      );
+    } else {
+      this.logger.log(`[Calendar] Conference data version will be set to 1`);
+    }
 
     try {
       const action = existingEventId ? 'update' : 'create';
@@ -641,6 +761,9 @@ export class GoogleCalendarService implements OnModuleInit {
       this.logger.log(
         `[Calendar] ${action === 'update' ? 'Updating' : 'Creating'} recurring event on Google Calendar...`,
       );
+
+      // conferenceDataVersion=1 is only needed when requesting a new conference
+      const conferenceDataVersion = conferenceDataPayload ? 1 : 0;
 
       const response = await this.executeCalendarRequest(
         `${action} recurring event for class ${classId}`,
@@ -650,26 +773,20 @@ export class GoogleCalendarService implements OnModuleInit {
               calendarId: this.config.calendarId || 'primary',
               eventId: existingEventId,
               requestBody: eventBody,
-              conferenceDataVersion: 1,
+              conferenceDataVersion,
             });
           }
 
           return this.calendar!.events.insert({
             calendarId: this.config.calendarId || 'primary',
             requestBody: eventBody,
-            conferenceDataVersion: 1,
+            conferenceDataVersion,
           });
         },
       );
 
       const event = response.data as GoogleCalendarEvent;
       this.logger.log(`[Calendar] Google API response event.id: ${event.id}`);
-      this.logger.log(
-        `[Calendar] conferenceData present: ${!!event.conferenceData}`,
-      );
-      this.logger.log(
-        `[Calendar] conferenceData raw: ${JSON.stringify(event.conferenceData, null, 2)}`,
-      );
 
       if (!event.id) {
         this.logger.error(
@@ -679,24 +796,35 @@ export class GoogleCalendarService implements OnModuleInit {
           `Google Calendar did not return an event id for class ${className}`,
         );
       }
-      const meetLink =
-        event.conferenceData?.entryPoints.find(
-          (ep) => ep.entryPointType === 'video',
-        )?.uri || '';
 
-      if (meetLink) {
-        this.logger.log(`[Calendar] Meet link created: ${meetLink}`);
-      } else {
-        this.logger.warn(
-          `[Calendar] WARNING: No Meet link in response for class ${className}. This may indicate OAuth2 user credentials are not configured or conferenceData.createRequest was not processed.`,
+      // When a tutor Meet link was pre-provided, use it directly (no Google conference created).
+      // Otherwise, try to read the conference-generated link from the response.
+      let resolvedMeetLink: string | undefined = providedMeetLink;
+      if (!resolvedMeetLink) {
+        this.logger.log(
+          `[Calendar] conferenceData present: ${!!event.conferenceData}`,
         );
+        const fromConference =
+          event.conferenceData?.entryPoints?.find(
+            (ep) => ep.entryPointType === 'video',
+          )?.uri || '';
+        if (fromConference) {
+          this.logger.log(
+            `[Calendar] Meet link from Google conference: ${fromConference}`,
+          );
+          resolvedMeetLink = fromConference;
+        } else {
+          this.logger.warn(
+            `[Calendar] WARNING: No Meet link in response for class ${className}. This may indicate OAuth2 user credentials are not configured or conferenceData.createRequest was not processed.`,
+          );
+        }
       }
 
       this.logger.log(
-        `[Calendar] ${action === 'update' ? 'Updated' : 'Created'} Google Calendar recurring event: ${event.id} for class ${className}, meetLink=${meetLink || '(none)'}`,
+        `[Calendar] ${action === 'update' ? 'Updated' : 'Created'} Google Calendar recurring event: ${event.id} for class ${className}, meetLink=${resolvedMeetLink || '(none)'}`,
       );
 
-      return { eventId: event.id, meetLink: meetLink || undefined };
+      return { eventId: event.id, meetLink: resolvedMeetLink };
     } catch (error) {
       this.logger.error(
         `[Calendar] Error creating/updating recurring event:`,
@@ -724,6 +852,10 @@ export class GoogleCalendarService implements OnModuleInit {
     endTime: string;
     title?: string;
     note?: string;
+    /** Pre-resolved Meet link for the responsible tutor. When provided the
+     *  link is embedded in the event description and conferenceData.createRequest
+     *  is omitted (no new Meet room is created). */
+    meetLink?: string;
   }): Promise<{ eventId: string; meetLink?: string }> {
     const {
       classId,
@@ -736,6 +868,7 @@ export class GoogleCalendarService implements OnModuleInit {
       endTime,
       title,
       note,
+      meetLink: providedMeetLink,
     } = params;
 
     if (endTime <= startTime) {
@@ -762,11 +895,18 @@ export class GoogleCalendarService implements OnModuleInit {
         ? `Teachers: ${normalizedTeacherEmails.join(', ')}`
         : null,
       note?.trim() ? `Note: ${note.trim()}` : null,
+      providedMeetLink ? `Google Meet: ${providedMeetLink}` : null,
       '',
       'This event was created automatically by the UnicornsEdu system.',
     ]
       .filter((line): line is string => Boolean(line))
       .join('\n');
+
+    // Skip conferenceData.createRequest when a tutor Meet link is pre-resolved.
+    const conferenceDataPayload: calendar_v3.Schema$ConferenceData | undefined =
+      providedMeetLink
+        ? undefined
+        : { createRequest: { requestId: randomUUID() } };
 
     const eventBody: calendar_v3.Schema$Event = {
       summary,
@@ -783,12 +923,10 @@ export class GoogleCalendarService implements OnModuleInit {
         email,
         role: 'CO_HOST' as const,
       })),
-      conferenceData: {
-        createRequest: {
-          requestId: randomUUID(),
-        },
-      },
+      ...(conferenceDataPayload ? { conferenceData: conferenceDataPayload } : {}),
     };
+
+    const conferenceDataVersion = conferenceDataPayload ? 1 : 0;
 
     try {
       const response = await this.executeCalendarRequest(
@@ -799,14 +937,14 @@ export class GoogleCalendarService implements OnModuleInit {
               calendarId: this.config.calendarId || 'primary',
               eventId: calendarEventId,
               requestBody: eventBody,
-              conferenceDataVersion: 1,
+              conferenceDataVersion,
             });
           }
 
           return this.calendar!.events.insert({
             calendarId: this.config.calendarId || 'primary',
             requestBody: eventBody,
-            conferenceDataVersion: 1,
+            conferenceDataVersion,
           });
         },
       );
@@ -818,12 +956,16 @@ export class GoogleCalendarService implements OnModuleInit {
         );
       }
 
-      const meetLink =
-        event.conferenceData?.entryPoints.find(
-          (entryPoint) => entryPoint.entryPointType === 'video',
-        )?.uri || '';
+      // Prefer the pre-provided tutor Meet link; fall back to Google-generated conference link.
+      let resolvedMeetLink: string | undefined = providedMeetLink;
+      if (!resolvedMeetLink) {
+        resolvedMeetLink =
+          event.conferenceData?.entryPoints?.find(
+            (ep) => ep.entryPointType === 'video',
+          )?.uri || undefined;
+      }
 
-      return { eventId: event.id, meetLink: meetLink || undefined };
+      return { eventId: event.id, meetLink: resolvedMeetLink };
     } catch (error) {
       this.handleApiError(
         error,
