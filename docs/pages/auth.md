@@ -38,7 +38,7 @@
 - Khi user đang đăng nhập nhưng chưa verify email:
   - chỉ được ở Home (`/`)
   - bấm avatar hoặc vào route cá nhân/role route sẽ mở popup “Vui lòng xác minh email”
-  - popup hỗ trợ 2 case: chưa có email thì nhập email mới; đã có email thì hiển thị email masked và gửi lại mail xác minh.
+  - popup hỗ trợ 2 case: chưa có email thì nhập email mới; đã có email thì hiển thị email masked và gửi lại mail xác minh; backend chấp nhận `refresh_token` session hợp lệ cho `POST /auth/resend-verification` để user không bị kẹt khi `access_token` đã hết hạn.
 
 ## Lấy user trong Server Component
 
@@ -91,10 +91,12 @@ export default async function SomePage() {
 - `GET /auth/session` — contract auth nhẹ cho frontend/server (`id`, `email`, `emailVerified`, `canAccessRestrictedRoutes`, `accountHandle`, `roleType`, `requiresPasswordSetup`, `avatarUrl`, `staffRoles`, `hasStaffProfile`, `hasStudentProfile`); guest trả về object cùng shape với default rỗng.
   - `GET /auth/profile` — backward-compatible alias của session resolver.
   - `GET /auth/me` — thông tin auth hiện tại từ DB theo `access_token`, trả cùng session shape.
-- `POST /auth/resend-verification` (cần đăng nhập)
+- `POST /auth/resend-verification` (cần session đăng nhập qua `access_token` hoặc `refresh_token`)
   - body optional: `{ email?: string }`
   - không truyền email: gửi lại email xác minh tới email hiện tại
   - có truyền email: cập nhật email tài khoản hiện tại, reset `emailVerified=false`, rồi gửi mail xác minh tới email mới
+  - endpoint này là `@Public()` ở lớp global JWT guard nhưng tự xác thực cookie trong controller; nếu không có session hợp lệ vẫn trả `401`.
+  - nếu SMTP chưa cấu hình hoặc provider từ chối đăng nhập SMTP, backend trả `503` với thông báo cấu hình thay vì `500`. Với Gmail, `SMTP_PASS` phải là App Password 16 ký tự, không phải mật khẩu đăng nhập Google thường; backend chấp nhận cả dạng Google hiển thị có khoảng trắng (`abcd efgh ijkl mnop`) và sẽ bỏ khoảng trắng trước khi gửi qua SMTP.
   - `GET /auth/verify?token=...`
     - rate limit: `30` request / `1 giờ` / IP.
   - `POST /auth/forgot-password` body: `{ email }`

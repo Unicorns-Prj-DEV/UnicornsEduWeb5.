@@ -7,6 +7,7 @@ jest.mock('bcrypt', () => ({
 }));
 
 import * as bcrypt from 'bcrypt';
+import { ServiceUnavailableException } from '@nestjs/common';
 import { UserRole } from '../../generated/enums';
 import { AuthService } from './auth.service';
 
@@ -412,6 +413,20 @@ describe('AuthService', () => {
     expect(mailService.sendVerificationEmail).toHaveBeenCalledWith(
       'new@example.com',
       'token',
+    );
+  });
+
+  it('preserves SMTP configuration errors when resending verification email', async () => {
+    mockPrisma.user.findUnique.mockResolvedValueOnce({
+      id: 'user-1',
+      email: 'pending@example.com',
+    });
+    mailService.sendVerificationEmail.mockRejectedValueOnce(
+      new ServiceUnavailableException('SMTP is not configured'),
+    );
+
+    await expect(service.resendVerificationEmail('user-1')).rejects.toThrow(
+      ServiceUnavailableException,
     );
   });
 });

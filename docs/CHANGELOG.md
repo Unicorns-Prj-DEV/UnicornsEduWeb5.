@@ -22,6 +22,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 ## [Unreleased]
 
 ### Fixed
+- BE auth/email verification: `POST /auth/resend-verification` chấp nhận session qua `access_token` hoặc `refresh_token` để user chưa verify không bị kẹt; lỗi SMTP giữ đúng `503` thay vì thành `500`; Gmail App Password có khoảng trắng được normalize trước khi gửi qua Nodemailer.
 - API local CORS/preflight: bật CORS qua `NestFactory.create(..., { cors })` trong `apps/api/src/main.ts` thay vì `app.enableCors()` sau `create`, để middleware CORS đăng ký trước router Nest và trả `Access-Control-Allow-Origin` cho `OPTIONS` (tránh lỗi preflight khi gọi API cross-origin từ web).
 
 ### Added

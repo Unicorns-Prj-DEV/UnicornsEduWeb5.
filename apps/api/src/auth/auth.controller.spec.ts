@@ -4,11 +4,14 @@ jest.mock('./auth.service', () => ({
 
 import { UserRole } from '../../generated/enums';
 import { AuthController } from './auth.controller';
+import { IS_PUBLIC_KEY } from './constants';
 
 describe('AuthController', () => {
   const originalNodeEnv = process.env.NODE_ENV;
   const authService = {
     login: jest.fn(),
+    getSessionProfile: jest.fn(),
+    resendVerificationEmail: jest.fn(),
     revokeRefreshTokenBySession: jest.fn(),
     accessTokenExpiresIn: 900,
     refreshTokenDefaultExpiresIn: 604_800,
@@ -167,4 +170,51 @@ describe('AuthController', () => {
       });
     },
   );
+
+  it('resends verification email using refresh session when access token is absent', async () => {
+    authService.getSessionProfile.mockResolvedValue({
+      id: 'user-1',
+      email: 'pending@example.com',
+    });
+    authService.resendVerificationEmail.mockResolvedValue({
+      message: 'Verification email sent successfully.',
+      email: 'pending@example.com',
+    });
+
+    await expect(
+      controller.resendVerification(
+        {
+          cookies: {
+            refresh_token: 'refresh-token',
+          },
+        } as never,
+        {},
+      ),
+    ).resolves.toEqual({
+      message: 'Verification email sent successfully.',
+      email: 'pending@example.com',
+    });
+
+    expect(authService.getSessionProfile).toHaveBeenCalledWith(
+      'refresh-token',
+      expect.objectContaining({
+        cookies: {
+          refresh_token: 'refresh-token',
+        },
+      }),
+    );
+    expect(authService.resendVerificationEmail).toHaveBeenCalledWith(
+      'user-1',
+      undefined,
+    );
+  });
+
+  it('allows resend verification to reach controller without the global JWT guard', () => {
+    expect(
+      Reflect.getMetadata(
+        IS_PUBLIC_KEY,
+        AuthController.prototype.resendVerification,
+      ),
+    ).toBe(true);
+  });
 });

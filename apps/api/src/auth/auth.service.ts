@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  HttpException,
   Injectable,
   InternalServerErrorException,
   UnauthorizedException,
@@ -320,16 +321,7 @@ export class AuthService {
       'email-verify',
     );
 
-    try {
-      await this.mailService.sendVerificationEmail(
-        targetEmail,
-        verificationToken,
-      );
-    } catch {
-      throw new InternalServerErrorException(
-        'Không gửi được email xác thực. Vui lòng thử lại hoặc liên hệ quản trị viên.',
-      );
-    }
+    await this.sendVerificationEmailOrThrow(targetEmail, verificationToken);
 
     return {
       message: 'Verification email sent successfully.',
@@ -455,16 +447,7 @@ export class AuthService {
       'email-verify',
     );
 
-    try {
-      await this.mailService.sendVerificationEmail(
-        data.email,
-        verificationToken,
-      );
-    } catch {
-      throw new InternalServerErrorException(
-        'Không gửi được email xác thực. Vui lòng thử lại hoặc liên hệ quản trị viên.',
-      );
-    }
+    await this.sendVerificationEmailOrThrow(data.email, verificationToken);
 
     return {
       message:
@@ -792,6 +775,23 @@ export class AuthService {
         : this.emailVerifyTokenOptions;
     const token = await this.jwtService.signAsync(payload, tokenOptions);
     return token;
+  }
+
+  private async sendVerificationEmailOrThrow(
+    email: string,
+    token: string,
+  ): Promise<void> {
+    try {
+      await this.mailService.sendVerificationEmail(email, token);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(
+        'Không gửi được email xác thực. Vui lòng thử lại hoặc liên hệ quản trị viên.',
+      );
+    }
   }
 
   private async verifyRefreshToken(refreshToken: string) {

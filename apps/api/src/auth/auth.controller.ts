@@ -94,15 +94,57 @@ export class AuthController {
     };
   }
 
-  private getVerifiedAccessTokenPayload(req: Request): VerifiedTokenPayload {
+  private getOptionalAccessTokenPayload(
+    req: Request,
+  ): VerifiedTokenPayload | null {
     const accessToken = readCookie(req, 'access_token');
     if (!accessToken) {
+      return null;
+    }
+
+    try {
+      return this.jwtService.verify<VerifiedTokenPayload>(accessToken, {
+        secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  private getVerifiedAccessTokenPayload(req: Request): VerifiedTokenPayload {
+    const payload = this.getOptionalAccessTokenPayload(req);
+
+    if (!payload) {
       throw new UnauthorizedException('Unauthorized');
     }
 
-    return this.jwtService.verify<VerifiedTokenPayload>(accessToken, {
-      secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
-    });
+    return payload;
+  }
+
+  private async getAuthenticatedUserIdFromCookies(
+    req: RequestWithResolvedAuthContext,
+  ): Promise<string> {
+    const accessPayload = this.getOptionalAccessTokenPayload(req);
+    if (accessPayload?.id) {
+      return accessPayload.id;
+    }
+
+    const refreshToken = readCookie(req, 'refresh_token');
+    if (refreshToken) {
+      try {
+        const profile = await this.authService.getSessionProfile(
+          refreshToken,
+          req,
+        );
+        if (profile?.id) {
+          return profile.id;
+        }
+      } catch {
+        // Fall through to the generic unauthorized response below.
+      }
+    }
+
+    throw new UnauthorizedException('Unauthorized');
   }
 
   private setAuthCookies(
@@ -469,13 +511,15 @@ export class AuthController {
     };
   }
 
+  @Public()
   @Post('resend-verification')
   @HttpCode(HttpStatus.OK)
   @ApiCookieAuth('access_token')
+  @ApiCookieAuth('refresh_token')
   @ApiOperation({
     summary: 'Resend verification email',
     description:
-      'Resends email verification for the current authenticated user. Optionally accepts a new email and resets verification state.',
+      'Resends email verification for the current authenticated session. Optionally accepts a new email and resets verification state.',
   })
   @ApiBody({ type: ResendVerificationDto, required: false })
   @ApiResponse({
@@ -488,10 +532,11 @@ export class AuthController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   async resendVerification(
-    @CurrentUser() user: JwtPayload,
-    @Body() body: ResendVerificationDto,
+    @Req() req: RequestWithResolvedAuthContext,
+    @Body() body?: ResendVerificationDto,
   ) {
-    return this.authService.resendVerificationEmail(user.id, body.email);
+    const userId = await this.getAuthenticatedUserIdFromCookies(req);
+    return this.authService.resendVerificationEmail(userId, body?.email);
   }
 
   @Public()
