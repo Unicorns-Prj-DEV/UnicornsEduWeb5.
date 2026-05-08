@@ -40,6 +40,13 @@
   - bấm avatar hoặc vào route cá nhân/role route sẽ mở popup “Vui lòng xác minh email”
   - popup hỗ trợ 2 case: chưa có email thì nhập email mới; đã có email thì hiển thị email masked và gửi lại mail xác minh.
 
+## Email delivery
+
+- Backend gửi email xác thực và quên mật khẩu qua Resend Node SDK trong `apps/api/src/mail/mail.service.ts`.
+- Cấu hình bắt buộc trong `apps/api/.env`: `RESEND_API_KEY` và `MAIL_FROM`.
+- Theo best practices của Resend, `RESEND_API_KEY` chỉ lưu ở backend/private env; không expose ra frontend. `MAIL_FROM` nên dùng sender/domain đã verify trong Resend, đặc biệt ở production.
+- Mail service dùng idempotency key theo từng token và chỉ retry có backoff cho lỗi Resend `429` hoặc `500`; lỗi cấu hình/API key/domain không retry.
+
 ## Lấy user trong Server Component
 
 Để lấy thông tin user hiện tại trong **Server Component**, Route Handler hoặc Server Action (không dùng React context):
