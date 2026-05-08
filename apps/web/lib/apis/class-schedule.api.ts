@@ -327,11 +327,19 @@ export async function getClassesForFilter(params: {
  * Fetch all teachers (staff with teaching role) for filter dropdown
  * Reuses existing staff API endpoint
  */
-export async function getTeachersForFilter(limit: number = 100): Promise<{ data: Array<{ id: string; fullName: string }> }> {
+export async function getTeachersForFilter(
+  params: { limit?: number; search?: string } | number = {},
+): Promise<{ data: Array<{ id: string; fullName: string }> }> {
+  const normalizedParams =
+    typeof params === "number" ? { limit: params } : params;
+  const { limit = 100, search } = normalizedParams;
   const response = await api.get<{
     data: Array<{ id: string; name: string }>;
   }>("/calendar/teachers", {
-    params: { limit },
+    params: {
+      limit,
+      ...(search?.trim() ? { search: search.trim() } : {}),
+    },
   });
   return {
     data: response.data.data.map((teacher) => ({

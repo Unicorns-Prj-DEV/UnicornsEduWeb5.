@@ -12,6 +12,26 @@ jest.mock('../../generated/client', () => ({
 
 import { CalendarService } from './calendar.service';
 
+type StudentExamFindManyArgs = {
+  where: unknown;
+  include: {
+    student: {
+      include: {
+        studentClasses: {
+          where: unknown;
+        };
+      };
+    };
+  };
+};
+
+type StudentExamWhereWithDate = {
+  examDate: {
+    gte: unknown;
+    lte: unknown;
+  };
+};
+
 describe('CalendarService', () => {
   const mockPrisma = {
     class: {
@@ -23,16 +43,32 @@ describe('CalendarService', () => {
     studentExamSchedule: {
       findMany: jest.fn(),
     },
+    staffInfo: {
+      findMany: jest.fn(),
+      count: jest.fn(),
+    },
   };
   const googleCalendarService = {};
 
   let service: CalendarService;
+
+  const getStudentExamFindManyArgs = (): StudentExamFindManyArgs => {
+    const findMany = mockPrisma.studentExamSchedule
+      .findMany as unknown as jest.MockedFunction<
+      (args: StudentExamFindManyArgs) => Promise<unknown[]>
+    >;
+    const args = findMany.mock.calls[0]?.[0];
+    expect(args).toBeDefined();
+    return args;
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockPrisma.class.findMany.mockResolvedValue([]);
     mockPrisma.makeupScheduleEvent.findMany.mockResolvedValue([]);
     mockPrisma.studentExamSchedule.findMany.mockResolvedValue([]);
+    mockPrisma.staffInfo.findMany.mockResolvedValue([]);
+    mockPrisma.staffInfo.count.mockResolvedValue(0);
 
     service = new CalendarService(
       mockPrisma as never,
@@ -67,14 +103,12 @@ describe('CalendarService', () => {
       endDate: '2026-05-31',
     } as never);
 
-    const examQuery =
-      mockPrisma.studentExamSchedule.findMany.mock.calls[0]?.[0];
+    const examQuery = getStudentExamFindManyArgs();
+    const examWhere = examQuery.where as StudentExamWhereWithDate;
 
+    expect(examWhere.examDate.gte).toBeInstanceOf(Date);
+    expect(examWhere.examDate.lte).toBeInstanceOf(Date);
     expect(examQuery.where).toMatchObject({
-      examDate: {
-        gte: expect.any(Date),
-        lte: expect.any(Date),
-      },
       student: {
         studentClasses: {
           some: {
@@ -131,8 +165,7 @@ describe('CalendarService', () => {
       classId: 'class-7',
     } as never);
 
-    const examQuery =
-      mockPrisma.studentExamSchedule.findMany.mock.calls[0]?.[0];
+    const examQuery = getStudentExamFindManyArgs();
 
     expect(examQuery.where).toMatchObject({
       student: {
@@ -161,6 +194,72 @@ describe('CalendarService', () => {
           },
         },
       },
+    });
+  });
+
+  it('filters calendar teacher options by user name and email search', async () => {
+    mockPrisma.staffInfo.findMany.mockResolvedValue([
+      {
+        id: 'teacher-1',
+        user: {
+          first_name: 'An',
+          last_name: 'Nguyễn',
+        },
+      },
+    ]);
+    mockPrisma.staffInfo.count.mockResolvedValue(1);
+
+    const result = await (
+      service as unknown as {
+        getTeachers: (
+          page?: number,
+          limit?: number,
+          search?: string,
+        ) => Promise<{
+          data: Array<{ id: string; name: string }>;
+          total: number;
+          page: number;
+          limit: number;
+        }>;
+      }
+    ).getTeachers(2, 12, ' an ');
+
+    const expectedWhere = {
+      status: 'active',
+      classTeachers: {
+        some: {
+          class: {
+            status: 'running',
+          },
+        },
+      },
+      user: {
+        is: {
+          OR: [
+            { first_name: { contains: 'an', mode: 'insensitive' } },
+            { last_name: { contains: 'an', mode: 'insensitive' } },
+            { email: { contains: 'an', mode: 'insensitive' } },
+            { accountHandle: { contains: 'an', mode: 'insensitive' } },
+          ],
+        },
+      },
+    };
+
+    expect(mockPrisma.staffInfo.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expectedWhere,
+        skip: 12,
+        take: 12,
+      }),
+    );
+    expect(mockPrisma.staffInfo.count).toHaveBeenCalledWith({
+      where: expectedWhere,
+    });
+    expect(result).toEqual({
+      data: [{ id: 'teacher-1', name: 'An Nguyễn' }],
+      total: 1,
+      page: 2,
+      limit: 12,
     });
   });
 });

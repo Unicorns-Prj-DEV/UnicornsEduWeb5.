@@ -698,21 +698,58 @@ export class CalendarService {
   async getTeachers(
     page = 1,
     limit = 50,
+    search?: string,
   ): Promise<PaginatedResponse<{ id: string; name: string }>> {
+    const trimmedSearch = search?.trim();
     const skip = (page - 1) * limit;
+    const where: Prisma.StaffInfoWhereInput = {
+      status: 'active',
+      classTeachers: {
+        some: {
+          class: {
+            status: 'running',
+          },
+        },
+      },
+      ...(trimmedSearch
+        ? {
+            user: {
+              is: {
+                OR: [
+                  {
+                    first_name: {
+                      contains: trimmedSearch,
+                      mode: 'insensitive',
+                    },
+                  },
+                  {
+                    last_name: {
+                      contains: trimmedSearch,
+                      mode: 'insensitive',
+                    },
+                  },
+                  {
+                    email: {
+                      contains: trimmedSearch,
+                      mode: 'insensitive',
+                    },
+                  },
+                  {
+                    accountHandle: {
+                      contains: trimmedSearch,
+                      mode: 'insensitive',
+                    },
+                  },
+                ],
+              },
+            },
+          }
+        : {}),
+    };
 
     const [staffInfos, total] = await Promise.all([
       this.prisma.staffInfo.findMany({
-        where: {
-          status: 'active',
-          classTeachers: {
-            some: {
-              class: {
-                status: 'running',
-              },
-            },
-          },
-        },
+        where,
         include: {
           user: {
             select: { first_name: true, last_name: true },
@@ -727,16 +764,7 @@ export class CalendarService {
         },
       }),
       this.prisma.staffInfo.count({
-        where: {
-          status: 'active',
-          classTeachers: {
-            some: {
-              class: {
-                status: 'running',
-              },
-            },
-          },
-        },
+        where,
       }),
     ]);
 

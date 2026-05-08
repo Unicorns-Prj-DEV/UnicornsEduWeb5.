@@ -9,6 +9,7 @@ import { CalendarController } from './calendar.controller';
 describe('CalendarController', () => {
   const calendarService = {
     getClasses: jest.fn(),
+    getTeachers: jest.fn(),
     getStudentsForCalendar: jest.fn(),
     getStaffScheduleEvents: jest.fn(),
   };
@@ -123,5 +124,18 @@ describe('CalendarController', () => {
       'physics',
       undefined,
     );
+  });
+
+  it('passes teacher search keywords to calendar teacher filters', async () => {
+    calendarService.getTeachers.mockResolvedValue({
+      data: [],
+      total: 0,
+      page: 1,
+      limit: 12,
+    });
+
+    await controller.getTeachers({ page: 1, limit: 12 } as never, 'an');
+
+    expect(calendarService.getTeachers).toHaveBeenCalledWith(1, 12, 'an');
   });
 });

@@ -131,6 +131,12 @@ export class CalendarController {
     required: false,
     type: Number,
   })
+  @ApiQuery({
+    name: 'search',
+    description: 'Tìm giáo viên theo tên, email hoặc account handle',
+    required: false,
+    type: String,
+  })
   @ApiResponse({
     status: 200,
     description: 'Danh sách giáo viên',
@@ -155,9 +161,10 @@ export class CalendarController {
   })
   async getTeachers(
     @Query() pagination: PaginationQueryDto,
+    @Query('search') search?: string,
   ): Promise<PaginatedResponse<TeacherItem>> {
     const { page, limit } = pagination;
-    return this.calendarService.getTeachers(page, limit);
+    return this.calendarService.getTeachers(page, limit, search);
   }
 
   @Get('students')
