@@ -10,6 +10,7 @@ import {
   ActionHistoryService,
 } from '../action-history/action-history.service';
 import {
+  ClassStatus,
   Gender,
   StaffRole,
   StudentClassStatus,
@@ -798,6 +799,67 @@ export class StudentService {
     }
 
     return this.serializeStudentSelfDetail(student);
+  }
+
+  /**
+   * Nội dung chuyển khoản/hiển thị cho phụ huynh (đồng bộ cách diễn đạt gói học phí với frontend).
+   */
+  async getTuitionExtensionTransferNoteForSelf(
+    studentId: string,
+    referenceDate: Date = new Date(),
+  ): Promise<string> {
+    const student = await this.prisma.studentInfo.findUnique({
+      where: { id: studentId },
+      include: studentDetailInclude,
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    const pkg = this.formatTuitionPackageSummaryForTransferNote(student);
+    const dateStr = new Intl.DateTimeFormat('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }).format(referenceDate);
+
+    return `Phụ huynh gia hạn tiền học phí gói ${pkg} ngày ${dateStr}`;
+  }
+
+  private formatTuitionPackageSummaryForTransferNote(
+    student: StudentDetailEntity,
+  ): string {
+    const classes = student.studentClasses;
+    if (!classes.length) {
+      return 'chưa gán lớp';
+    }
+
+    const running = classes.filter(
+      (sc) => sc.class.status === ClassStatus.running,
+    );
+    const source = running.length > 0 ? running : classes;
+
+    return source
+      .map((sc) => {
+        const row = this.serializeStudentClass(sc);
+        const name = row.class.name?.trim() || 'Lớp';
+        const sess = row.effectiveTuitionPackageSession;
+        const total = row.effectiveTuitionPackageTotal;
+        const perSession = row.effectiveTuitionPerSession;
+
+        if (total != null && sess != null && sess > 0) {
+          return `${name} (${this.formatVND(total)}/${sess} buổi)`;
+        }
+        if (sess != null && sess > 0) {
+          return `${name} (${sess} buổi)`;
+        }
+        if (perSession != null && perSession > 0) {
+          return `${name} (${this.formatVND(perSession)}/buổi)`;
+        }
+        return name;
+      })
+      .join('; ');
   }
 
   async getStudentWalletHistory(
