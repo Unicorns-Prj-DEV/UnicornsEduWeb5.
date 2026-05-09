@@ -99,6 +99,21 @@ export interface StudentExamScheduleItem {
 
 export type StudentSelfClassItem = StudentClassItem;
 
+/** Phản hồi POST /users/me/student-wallet-sepay-topup-order */
+export interface StudentSePayTopUpOrderResponse {
+  amount: number;
+  transferNote: string;
+  orderCode: string;
+  qrCode?: string | null;
+  qrCodeUrl?: string | null;
+  orderId?: string | null;
+  vaNumber?: string | null;
+  bankName?: string | null;
+  accountNumber?: string | null;
+  accountHolderName?: string | null;
+  expiredAt?: string | null;
+}
+
 export interface StudentSelfDetail {
   id: string;
   fullName: string;

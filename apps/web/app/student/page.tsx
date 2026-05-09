@@ -3,7 +3,7 @@
 import UpgradedSelect, { type UpgradedSelectOption } from "@/components/ui/UpgradedSelect";
 import type { UpdateMyStudentProfileDto } from "@/dtos/profile.dto";
 import Link from "next/link";
-import { useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -22,6 +22,7 @@ import type {
     StudentStatus,
 } from "@/dtos/student.dto";
 import {
+    createMyStudentSePayTopUpOrder,
     getMyStudentDetail,
     getMyStudentWalletHistory,
     updateMyStudentAccountBalance,
@@ -249,6 +250,13 @@ export default function StudentSelfPage() {
         [student],
     );
 
+    const sePayStudentTopUpEnabled =
+        process.env.NEXT_PUBLIC_STUDENT_WALLET_SEPAY_TOPUP === "1";
+
+    const createSePayTopUpOrder = useCallback(async (amount: number) => {
+        return createMyStudentSePayTopUpOrder({ amount });
+    }, []);
+
     if (isLoading) {
         return (
             <div className="flex min-h-0 flex-1 flex-col" aria-busy="true">
@@ -368,6 +376,7 @@ export default function StudentSelfPage() {
                 ]}
                 allowNegativeBalance={false}
                 successTargetLabel="tài khoản của bạn"
+                createSePayTopUpOrder={sePayStudentTopUpEnabled ? createSePayTopUpOrder : undefined}
                 errorMessages={{
                     topup: "Không thể thay đổi số dư ví của bạn.",
                     withdraw: "Không thể rút tiền khỏi tài khoản của bạn.",
@@ -375,8 +384,9 @@ export default function StudentSelfPage() {
                 blockedNegativeBalanceMessage="Số dư hiện tại không đủ để thực hiện giao dịch rút tiền này."
                 copyOverrides={{
                     topup: {
-                        description:
-                            "Nhập số dương để tăng số dư, số âm để giảm (giống rút). Chỉ số nguyên khác 0; hệ thống chặn nếu ví không đủ khi giảm.",
+                        description: sePayStudentTopUpEnabled
+                            ? 'Nhập số tiền dương rồi bấm "Tạo mã QR SePay" để thanh toán (QR do SePay phát hành; nội dung CK theo gói học phí và ngày). Số âm để giảm số dư như rút — vẫn xử lý ngay trên hệ thống.'
+                            : "Nhập số dương để tăng số dư, số âm để giảm (giống rút). Chỉ số nguyên khác 0; hệ thống chặn nếu ví không đủ khi giảm.",
                     },
                     withdraw: {
                         description:
