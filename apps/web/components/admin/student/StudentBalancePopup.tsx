@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState, type SyntheticEvent } from "react";
+import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 import { useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { toast } from "sonner";
+import type { StudentSePayTopUpOrderResponse } from "@/dtos/student.dto";
 import * as studentApi from "@/lib/apis/student.api";
 import { formatCurrency } from "@/lib/class.helpers";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
@@ -38,6 +39,11 @@ type Props = {
   successTargetLabel?: string;
   errorMessages?: Partial<Record<BalanceMode, string>>;
   blockedNegativeBalanceMessage?: string;
+  /**
+   * Khi có, nạp **dương** gọi backend tạo đơn SePay và hiển thị QR trả về (không cộng ví ngay).
+   * Số **âm** / rút vẫn dùng `submitBalanceChange` như cũ.
+   */
+  createSePayTopUpOrder?: (amount: number) => Promise<StudentSePayTopUpOrderResponse>;
 };
 
 const MODE_COPY: Record<BalanceMode, BalanceModeCopy> = {
@@ -66,6 +72,16 @@ function balanceClassName(value: number): string {
   return value < 0 ? "text-error" : "text-text-primary";
 }
 
+function readApiErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object" && "response" in error) {
+    const data = (error as { response?: { data?: { message?: string } } }).response?.data;
+    if (typeof data?.message === "string" && data.message.trim()) {
+      return data.message.trim();
+    }
+  }
+  return fallback;
+}
+
 export default function StudentBalancePopup({
   open,
   mode,
@@ -79,9 +95,30 @@ export default function StudentBalancePopup({
   successTargetLabel,
   errorMessages,
   blockedNegativeBalanceMessage = "Số dư hiện tại không đủ để rút số tiền này.",
+  createSePayTopUpOrder,
 }: Props) {
   const queryClient = useQueryClient();
   const [amountInput, setAmountInput] = useState("");
+  const [topupStep, setTopupStep] = useState<"amount" | "qr">("amount");
+  const [sePayOrder, setSePayOrder] = useState<StudentSePayTopUpOrderResponse | null>(null);
+  const [isSePayLoading, setIsSePayLoading] = useState(false);
+
+  const sePayTopupEnabled = mode === "topup" && Boolean(createSePayTopUpOrder);
+
+  useEffect(() => {
+    if (!open) {
+      setTopupStep("amount");
+      setSePayOrder(null);
+      setIsSePayLoading(false);
+      setAmountInput("");
+    }
+  }, [open]);
+
+  useEffect(() => {
+    setTopupStep("amount");
+    setSePayOrder(null);
+    setIsSePayLoading(false);
+  }, [mode]);
 
   const currentBalance = student.accountBalance ?? 0;
   const rawAmount = amountInput.trim() === "" ? Number.NaN : Number(amountInput.trim());
@@ -151,7 +188,19 @@ export default function StudentBalancePopup({
     onClose();
   };
 
-  const handleSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
+  const handleCopyTransferNote = async (text: string) => {
+    if (!text) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Đã sao chép nội dung chuyển khoản.");
+    } catch {
+      toast.error("Không thể sao chép. Vui lòng chọn và copy thủ công.");
+    }
+  };
+
+  const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!hasValidAmount) {
@@ -165,6 +214,35 @@ export default function StudentBalancePopup({
 
     if (!allowNegativeBalance && nextBalance < 0) {
       toast.error(blockedNegativeBalanceMessage);
+      return;
+    }
+
+    if (
+      mode === "topup" &&
+      sePayTopupEnabled &&
+      createSePayTopUpOrder &&
+      signedTopUpAmount > 0 &&
+      topupStep === "amount"
+    ) {
+      setIsSePayLoading(true);
+      try {
+        const order = await createSePayTopUpOrder(signedTopUpAmount);
+        if (!order.qrCode?.trim() && !order.qrCodeUrl?.trim()) {
+          toast.error("SePay không trả về mã QR. Vui lòng liên hệ trung tâm.");
+          return;
+        }
+        setSePayOrder(order);
+        setTopupStep("qr");
+      } catch (err) {
+        toast.error(
+          readApiErrorMessage(
+            err,
+            "Không tạo được đơn SePay. Kiểm tra cấu hình server hoặc thử lại sau.",
+          ),
+        );
+      } finally {
+        setIsSePayLoading(false);
+      }
       return;
     }
 
@@ -207,6 +285,26 @@ export default function StudentBalancePopup({
 
   if (!open) return null;
 
+  const dialogEyebrow =
+    topupStep === "qr" && mode === "topup" ? "SePay" : modeCopy.eyebrow;
+  const dialogTitle =
+    topupStep === "qr" && mode === "topup" ? "Quét mã QR SePay để thanh toán" : modeCopy.title;
+
+  const primarySubmitLabel =
+    mode === "topup" &&
+    sePayTopupEnabled &&
+    signedTopUpAmount > 0 &&
+    topupStep === "amount"
+      ? "Tạo mã QR SePay"
+      : modeCopy.submitLabel;
+
+  const showQrStep = topupStep === "qr" && mode === "topup" && Boolean(sePayOrder);
+
+  const qrImageSrc =
+    sePayOrder?.qrCode?.trim() ||
+    sePayOrder?.qrCodeUrl?.trim() ||
+    null;
+
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[1px]" aria-hidden onClick={handleClose} />
@@ -220,10 +318,10 @@ export default function StudentBalancePopup({
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-text-muted">
-                {modeCopy.eyebrow}
+                {dialogEyebrow}
               </p>
               <h2 id="student-balance-popup-title" className="mt-1 text-lg font-semibold text-text-primary">
-                {modeCopy.title}
+                {dialogTitle}
               </h2>
               <p className="mt-1 text-sm text-text-secondary">{studentName}</p>
             </div>
@@ -240,74 +338,186 @@ export default function StudentBalancePopup({
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-4 py-4 sm:px-5">
-          <div className="grid gap-4">
-            <section className="rounded-2xl border border-border-default bg-bg-secondary/50 p-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${impactChip.chipClass}`}>
-                  {impactChip.chipLabel}
-                </span>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-text-secondary">{modeCopy.description}</p>
-
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                {summaryItems.map((item) => (
-                  <div
-                    key={item.label}
-                    className="rounded-[1.1rem] border border-border-default bg-bg-surface px-3.5 py-3 shadow-sm"
-                  >
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
-                      {item.label}
-                    </p>
-                    <p className={`mt-2 text-sm font-semibold tabular-nums sm:text-base ${item.className}`}>
-                      {item.value}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              <label className="mt-4 flex flex-col gap-1 text-sm text-text-secondary">
-                <span>Số tiền</span>
-                <input
-                  name="amount"
-                  type="number"
-                  {...(mode === "withdraw" ? { min: 0 } : {})}
-                  step={1}
-                  inputMode="numeric"
-                  autoComplete="off"
-                  value={amountInput}
-                  onChange={(event) => setAmountInput(event.target.value)}
-                  className="rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  placeholder={mode === "topup" ? "Ví dụ: 500000 hoặc -200000…" : "Ví dụ: 500000…"}
-                />
-              </label>
-
-              {nextBalance < 0 && hasValidAmount && (mode === "withdraw" || deltaAmount < 0) ? (
-                <p className="mt-3 rounded-xl border border-error/20 bg-error/10 px-3 py-2 text-sm text-error">
-                  {allowNegativeBalance
-                    ? `Sau giao dịch, tài khoản sẽ âm ${formatCurrency(Math.abs(nextBalance))}.`
-                    : blockedNegativeBalanceMessage}
+        {showQrStep && sePayOrder ? (
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+              <section className="rounded-2xl border border-border-default bg-bg-secondary/50 p-4">
+                <p className="text-sm font-semibold text-text-primary">
+                  Số tiền:{" "}
+                  <span className="tabular-nums text-primary">
+                    {formatCurrency(sePayOrder.amount)}
+                  </span>
                 </p>
-              ) : null}
-            </section>
-          </div>
+                {sePayOrder.orderCode ? (
+                  <p className="mt-1 text-xs text-text-muted">
+                    Mã đơn:{" "}
+                    <span className="font-mono font-medium text-text-secondary">{sePayOrder.orderCode}</span>
+                  </p>
+                ) : null}
 
-          <div className="mt-5 grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="min-h-11 rounded-md border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              className="min-h-11 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition hover:bg-[var(--ue-primary-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-            >
-              {modeCopy.submitLabel}
-            </button>
+                <ul className="mt-3 space-y-1 text-sm text-text-secondary">
+                  {sePayOrder.bankName ? (
+                    <li>
+                      <span className="text-text-muted">Ngân hàng:</span>{" "}
+                      <span className="font-medium text-text-primary">{sePayOrder.bankName}</span>
+                    </li>
+                  ) : null}
+                  {sePayOrder.accountNumber ? (
+                    <li>
+                      <span className="text-text-muted">Số tài khoản / VA:</span>{" "}
+                      <span className="font-medium text-text-primary">{sePayOrder.accountNumber}</span>
+                    </li>
+                  ) : null}
+                  {sePayOrder.vaNumber && sePayOrder.vaNumber !== sePayOrder.accountNumber ? (
+                    <li>
+                      <span className="text-text-muted">Số VA:</span>{" "}
+                      <span className="font-medium text-text-primary">{sePayOrder.vaNumber}</span>
+                    </li>
+                  ) : null}
+                  {sePayOrder.accountHolderName ? (
+                    <li>
+                      <span className="text-text-muted">Chủ tài khoản:</span>{" "}
+                      <span className="font-medium text-text-primary">{sePayOrder.accountHolderName}</span>
+                    </li>
+                  ) : null}
+                  {sePayOrder.expiredAt ? (
+                    <li>
+                      <span className="text-text-muted">Hết hạn:</span>{" "}
+                      <span className="font-medium text-text-primary">{sePayOrder.expiredAt}</span>
+                    </li>
+                  ) : null}
+                </ul>
+
+                {qrImageSrc ? (
+                  <div className="mt-4 flex justify-center">
+                    <img
+                      src={qrImageSrc}
+                      alt="Mã QR thanh toán SePay"
+                      className="max-h-72 w-72 max-w-full rounded-xl border border-border-default bg-bg-surface object-contain"
+                    />
+                  </div>
+                ) : (
+                  <p className="mt-4 text-sm text-error">Không có ảnh QR từ SePay.</p>
+                )}
+
+                <div className="mt-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
+                    Nội dung chuyển khoản (sao chép khi cần)
+                  </p>
+                  <p className="mt-2 rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-sm leading-relaxed text-text-primary">
+                    {sePayOrder.transferNote || "—"}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyTransferNote(sePayOrder.transferNote)}
+                    disabled={!sePayOrder.transferNote}
+                    className="mt-3 min-h-10 w-full rounded-md border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Sao chép nội dung
+                  </button>
+                </div>
+
+                <p className="mt-4 rounded-xl border border-border-subtle bg-bg-surface/80 px-3 py-2 text-xs leading-relaxed text-text-secondary">
+                  Mã QR do SePay tạo. Sau khi chuyển khoản thành công, số dư ví sẽ được cập nhật khi trung tâm
+                  đối soát. Nếu cần hỗ trợ gấp, liên hệ trung tâm kèm mã đơn và biên lai.
+                </p>
+              </section>
+            </div>
+            <div className="grid shrink-0 grid-cols-2 gap-2 border-t border-border-default px-4 py-4 sm:px-5">
+              <button
+                type="button"
+                onClick={() => {
+                  setTopupStep("amount");
+                  setSePayOrder(null);
+                }}
+                className="min-h-11 rounded-md border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              >
+                Quay lại
+              </button>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="min-h-11 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition hover:bg-[var(--ue-primary-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              >
+                Đóng
+              </button>
+            </div>
           </div>
-        </form>
+        ) : (
+          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+            <div className="grid gap-4">
+              <section className="rounded-2xl border border-border-default bg-bg-secondary/50 p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${impactChip.chipClass}`}
+                  >
+                    {impactChip.chipLabel}
+                  </span>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-text-secondary">{modeCopy.description}</p>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  {summaryItems.map((item) => (
+                    <div
+                      key={item.label}
+                      className="rounded-[1.1rem] border border-border-default bg-bg-surface px-3.5 py-3 shadow-sm"
+                    >
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
+                        {item.label}
+                      </p>
+                      <p
+                        className={`mt-2 text-sm font-semibold tabular-nums sm:text-base ${item.className}`}
+                      >
+                        {item.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                <label className="mt-4 flex flex-col gap-1 text-sm text-text-secondary">
+                  <span>Số tiền</span>
+                  <input
+                    name="amount"
+                    type="number"
+                    {...(mode === "withdraw" ? { min: 0 } : {})}
+                    step={1}
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={amountInput}
+                    onChange={(event) => setAmountInput(event.target.value)}
+                    className="rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    placeholder={mode === "topup" ? "Ví dụ: 500000 hoặc -200000…" : "Ví dụ: 500000…"}
+                  />
+                </label>
+
+                {nextBalance < 0 && hasValidAmount && (mode === "withdraw" || deltaAmount < 0) ? (
+                  <p className="mt-3 rounded-xl border border-error/20 bg-error/10 px-3 py-2 text-sm text-error">
+                    {allowNegativeBalance
+                      ? `Sau giao dịch, tài khoản sẽ âm ${formatCurrency(Math.abs(nextBalance))}.`
+                      : blockedNegativeBalanceMessage}
+                  </p>
+                ) : null}
+              </section>
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="min-h-11 rounded-md border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={isSePayLoading}
+                className="min-h-11 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition hover:bg-[var(--ue-primary-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSePayLoading ? "Đang tạo đơn…" : primarySubmitLabel}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </>
   );
