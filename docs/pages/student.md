@@ -13,8 +13,8 @@
 - **Save/refetch UX:** form tự sửa hồ sơ và popup ví dùng fast-close UX: pass validate là thoát edit mode/đóng popup ngay, hiện `toast.loading`, rồi resolve success/error khi backend xong; lỗi chỉ hiện toast, không tự mở lại form. Khi self detail refetch mà đã có dữ liệu cũ, section giữ nguyên nội dung, dim nhẹ và hiện refresh strip nhỏ.
 - **Dữ liệu tài chính theo lớp:** Hiển thị học phí/buổi và gói học phí đang áp dụng cho từng lớp ở chế độ **chỉ xem** để học sinh theo dõi; không có control chỉnh học phí.
 - **Ẩn dữ liệu nhạy cảm còn lại:** Không render customer care profit và các control quản trị lớp/hồ sơ.
-- **Ví học viên:** Hiển thị số dư hiện tại, popup lịch sử ví authoritative, cho phép **nạp tiền** và **rút tiền** trên chính tài khoản của mình.
-- **Ràng buộc rút tiền:** Backend chặn rút vượt số dư; self-service không được phép làm âm ví.
+- **Ví học viên:** Hiển thị số dư hiện tại, popup lịch sử ví authoritative, cho phép **nạp tiền** và **rút tiền** trên chính tài khoản của mình. Ở popup **Nạp tiền**, có thể nhập **số âm** để giảm số dư (cùng hiệu lực với rút) thay vì bắt buộc dùng tab Rút.
+- **Ràng buộc rút / giảm số dư:** Backend chặn làm âm ví khi self-service rút hoặc khi nạp số âm vượt số dư hiện có.
 - **Lớp học:** Hiển thị danh sách lớp đang liên kết + học phí đang áp dụng + số buổi đã vào học; không có thao tác đổi lớp/gỡ lớp hoặc sửa học phí.
 - **Lịch thi:** Reuse card `StudentExamCard` để xem và quản lý lịch thi authoritative theo đúng `studentId` qua popup form; mỗi bản ghi gồm 1 ngày thi và 1 ghi chú ngắn, có thể thêm, sửa hoặc xóa và dữ liệu được lưu ở backend.
 - **Data scope:** All data scoped to current student; backend enforces by identity.

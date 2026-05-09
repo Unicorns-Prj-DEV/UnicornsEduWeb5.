@@ -44,8 +44,9 @@ const MODE_COPY: Record<BalanceMode, BalanceModeCopy> = {
   topup: {
     eyebrow: "Top Up",
     title: "Nạp tiền vào tài khoản",
-    description: "Số tiền nhập vào sẽ được cộng trực tiếp vào số dư hiện tại của học sinh.",
-    submitLabel: "Xác nhận nạp tiền",
+    description:
+      "Nhập số dương để tăng số dư, số âm để giảm số dư (cùng hiệu lực với rút). Chỉ chấp nhận số nguyên khác 0.",
+    submitLabel: "Xác nhận thay đổi số dư",
     deltaPrefix: "+",
     chipClass: "bg-primary/10 text-primary ring-primary/20",
     chipLabel: "Cộng vào số dư",
@@ -84,12 +85,12 @@ export default function StudentBalancePopup({
 
   const currentBalance = student.accountBalance ?? 0;
   const rawAmount = amountInput.trim() === "" ? Number.NaN : Number(amountInput.trim());
-  const normalizedAmount =
-    Number.isFinite(rawAmount) && Number.isInteger(rawAmount) && rawAmount > 0
-      ? rawAmount
-      : 0;
-  const hasValidAmount = normalizedAmount > 0;
-  const deltaAmount = mode === "topup" ? normalizedAmount : -normalizedAmount;
+  const withdrawAmount =
+    Number.isFinite(rawAmount) && Number.isInteger(rawAmount) && rawAmount > 0 ? rawAmount : 0;
+  const signedTopUpAmount =
+    Number.isFinite(rawAmount) && Number.isInteger(rawAmount) && rawAmount !== 0 ? rawAmount : 0;
+  const hasValidAmount = mode === "topup" ? signedTopUpAmount !== 0 : withdrawAmount > 0;
+  const deltaAmount = mode === "topup" ? signedTopUpAmount : -withdrawAmount;
   const nextBalance = currentBalance + deltaAmount;
   const modeCopy = {
     ...MODE_COPY[mode],
@@ -102,6 +103,29 @@ export default function StudentBalancePopup({
     ["student", "wallet-history", student.id],
   ];
 
+  const impactDisplay = !hasValidAmount
+    ? "Nhập số tiền"
+    : `${deltaAmount >= 0 ? "+" : "-"}${formatCurrency(Math.abs(deltaAmount))}`;
+
+  const impactClassName = !hasValidAmount
+    ? "text-text-muted"
+    : mode === "withdraw" || deltaAmount < 0
+      ? "text-warning"
+      : "text-primary";
+
+  const impactChip = useMemo(() => {
+    if (mode === "withdraw") {
+      return { chipClass: MODE_COPY.withdraw.chipClass, chipLabel: MODE_COPY.withdraw.chipLabel };
+    }
+    if (!hasValidAmount) {
+      return { chipClass: MODE_COPY.topup.chipClass, chipLabel: MODE_COPY.topup.chipLabel };
+    }
+    if (deltaAmount < 0) {
+      return { chipClass: MODE_COPY.withdraw.chipClass, chipLabel: "Trừ khỏi số dư" };
+    }
+    return { chipClass: MODE_COPY.topup.chipClass, chipLabel: MODE_COPY.topup.chipLabel };
+  }, [mode, hasValidAmount, deltaAmount]);
+
   const summaryItems = useMemo(
     () => [
       {
@@ -111,14 +135,8 @@ export default function StudentBalancePopup({
       },
       {
         label: "Tác động",
-        value: hasValidAmount
-          ? `${modeCopy.deltaPrefix}${formatCurrency(normalizedAmount)}`
-          : "Nhập số tiền",
-        className: hasValidAmount
-          ? mode === "withdraw"
-            ? "text-warning"
-            : "text-primary"
-          : "text-text-muted",
+        value: impactDisplay,
+        className: impactClassName,
       },
       {
         label: "Sau giao dịch",
@@ -126,7 +144,7 @@ export default function StudentBalancePopup({
         className: balanceClassName(nextBalance),
       },
     ],
-    [currentBalance, hasValidAmount, mode, modeCopy.deltaPrefix, nextBalance, normalizedAmount],
+    [currentBalance, impactClassName, impactDisplay, nextBalance],
   );
 
   const handleClose = () => {
@@ -137,7 +155,11 @@ export default function StudentBalancePopup({
     event.preventDefault();
 
     if (!hasValidAmount) {
-      toast.error("Vui lòng nhập số nguyên lớn hơn 0.");
+      toast.error(
+        mode === "topup"
+          ? "Vui lòng nhập số nguyên khác 0 (có thể âm để giảm số dư)."
+          : "Vui lòng nhập số nguyên lớn hơn 0.",
+      );
       return;
     }
 
@@ -148,15 +170,22 @@ export default function StudentBalancePopup({
 
     onClose();
     runBackgroundSave({
-      loadingMessage: mode === "topup" ? "Đang nạp tiền..." : "Đang rút tiền...",
+      loadingMessage:
+        mode === "withdraw"
+          ? "Đang rút tiền..."
+          : deltaAmount < 0
+            ? "Đang cập nhật số dư..."
+            : "Đang nạp tiền...",
       successMessage:
-        mode === "topup"
-          ? `Đã nạp ${formatCurrency(normalizedAmount)} cho ${successTargetLabel ?? studentName}.`
-          : `Đã rút ${formatCurrency(normalizedAmount)} khỏi ${successTargetLabel ?? `tài khoản của ${studentName}`}.`,
+        mode === "withdraw"
+          ? `Đã rút ${formatCurrency(withdrawAmount)} khỏi ${successTargetLabel ?? `tài khoản của ${studentName}`}.`
+          : deltaAmount < 0
+            ? `Đã giảm ${formatCurrency(Math.abs(deltaAmount))} trên ${successTargetLabel ?? studentName}.`
+            : `Đã nạp ${formatCurrency(deltaAmount)} cho ${successTargetLabel ?? studentName}.`,
       errorMessage:
         errorMessages?.[mode] ??
         (mode === "topup"
-          ? "Không thể nạp tiền cho học sinh."
+          ? "Không thể thay đổi số dư học sinh."
           : "Không thể rút tiền khỏi tài khoản học sinh."),
       action: () =>
         submitBalanceChange
@@ -215,8 +244,8 @@ export default function StudentBalancePopup({
           <div className="grid gap-4">
             <section className="rounded-2xl border border-border-default bg-bg-secondary/50 p-4">
               <div className="flex flex-wrap items-center gap-2">
-                <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${modeCopy.chipClass}`}>
-                  {modeCopy.chipLabel}
+                <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${impactChip.chipClass}`}>
+                  {impactChip.chipLabel}
                 </span>
               </div>
               <p className="mt-3 text-sm leading-6 text-text-secondary">{modeCopy.description}</p>
@@ -242,18 +271,18 @@ export default function StudentBalancePopup({
                 <input
                   name="amount"
                   type="number"
-                  min={0}
+                  {...(mode === "withdraw" ? { min: 0 } : {})}
                   step={1}
                   inputMode="numeric"
                   autoComplete="off"
                   value={amountInput}
                   onChange={(event) => setAmountInput(event.target.value)}
                   className="rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  placeholder="Ví dụ: 500000…"
+                  placeholder={mode === "topup" ? "Ví dụ: 500000 hoặc -200000…" : "Ví dụ: 500000…"}
                 />
               </label>
 
-              {mode === "withdraw" && nextBalance < 0 && hasValidAmount ? (
+              {nextBalance < 0 && hasValidAmount && (mode === "withdraw" || deltaAmount < 0) ? (
                 <p className="mt-3 rounded-xl border border-error/20 bg-error/10 px-3 py-2 text-sm text-error">
                   {allowNegativeBalance
                     ? `Sau giao dịch, tài khoản sẽ âm ${formatCurrency(Math.abs(nextBalance))}.`

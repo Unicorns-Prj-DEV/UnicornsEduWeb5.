@@ -13,10 +13,7 @@ import UserAvatar from "@/components/ui/UserAvatar";
 import CccdImageUploadFields from "@/components/staff/CccdImageUploadFields";
 import { useAuth } from "@/context/AuthContext";
 import {
-  MOCK_VERIFY_EMAIL_TOAST,
-  mockResendVerificationEmail,
   resolveEmailVerified,
-  resolveStudentEmailVerified,
 } from "@/mocks/user-profile-verification.mock";
 import * as authApi from "@/lib/apis/auth.api";
 import type {
@@ -626,14 +623,14 @@ export default function UserProfilePage() {
     },
   });
 
-  /** Mock gửi link xác minh — thay `mutationFn` bằng API thật khi có endpoint. */
   const requestVerifyEmailMutation = useMutation({
-    mutationFn: mockResendVerificationEmail,
-    onSuccess: () => {
-      toast.success(MOCK_VERIFY_EMAIL_TOAST.success);
+    mutationFn: () => authApi.resendVerificationEmail(),
+    onSuccess: (data) => {
+      toast.success(data?.message ?? "Đã gửi email xác minh. Vui lòng kiểm tra hộp thư.");
     },
-    onError: () => {
-      toast.error("Không gửi được yêu cầu xác minh. Thử lại sau.");
+    onError: (err: unknown) => {
+      const ax = err as { response?: { data?: { message?: string } } };
+      toast.error(ax.response?.data?.message ?? "Không gửi được yêu cầu xác minh. Thử lại sau.");
     },
   });
 
@@ -924,11 +921,18 @@ export default function UserProfilePage() {
   }));
 
   const emailVerifiedDisplay = resolveEmailVerified(profile.emailVerified);
-  const studentEmailVerifiedDisplay = resolveStudentEmailVerified(
-    profile.email,
-    profile.studentInfo?.email,
-    profile.emailVerified,
-  );
+  const accountEmailNorm = profile.email?.trim().toLowerCase() ?? "";
+  const studentEmailRaw = profile.studentInfo?.email?.trim() ?? "";
+  const studentEmailNorm = studentEmailRaw.toLowerCase();
+  const studentEmailMatchesAccount =
+    Boolean(studentEmailRaw) && studentEmailNorm === accountEmailNorm;
+  const studentEmailNotApplicableMessage =
+    studentEmailRaw && !studentEmailMatchesAccount
+      ? "Đây là email liên hệ trên hồ sơ học viên; trạng thái xác minh chỉ áp dụng cho email đăng nhập ở mục Tài khoản phía trên."
+      : undefined;
+  const studentEmailVerifiedDisplay = studentEmailMatchesAccount
+    ? resolveEmailVerified(profile.emailVerified)
+    : false;
 
   const accountDetails: DetailItem[] = [
     { label: "Họ tên hiển thị", value: displayName(profile) },
@@ -1001,6 +1005,7 @@ export default function UserProfilePage() {
           <EmailVerificationInline
             email={profile.studentInfo.email ?? ""}
             verified={studentEmailVerifiedDisplay}
+            notApplicableMessage={studentEmailNotApplicableMessage}
             onRequestVerify={() => requestVerifyEmailMutation.mutate()}
             verifyPending={requestVerifyEmailMutation.isPending}
           />

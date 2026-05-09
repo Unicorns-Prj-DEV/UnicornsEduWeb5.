@@ -369,13 +369,14 @@ export default function StudentSelfPage() {
                 allowNegativeBalance={false}
                 successTargetLabel="tài khoản của bạn"
                 errorMessages={{
-                    topup: "Không thể nạp tiền vào tài khoản của bạn.",
+                    topup: "Không thể thay đổi số dư ví của bạn.",
                     withdraw: "Không thể rút tiền khỏi tài khoản của bạn.",
                 }}
                 blockedNegativeBalanceMessage="Số dư hiện tại không đủ để thực hiện giao dịch rút tiền này."
                 copyOverrides={{
                     topup: {
-                        description: "Số tiền nhập vào sẽ được cộng trực tiếp vào số dư hiện tại của bạn.",
+                        description:
+                            "Nhập số dương để tăng số dư, số âm để giảm (giống rút). Chỉ số nguyên khác 0; hệ thống chặn nếu ví không đủ khi giảm.",
                     },
                     withdraw: {
                         description:

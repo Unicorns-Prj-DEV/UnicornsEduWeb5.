@@ -6,10 +6,10 @@
  */
 export const USER_PROFILE_VERIFICATION_MOCK = {
   /**
-   * `true` = luôn hiển thị **chưa xác minh** (kể cả khi API trả `emailVerified: true`) — dùng để test UI.
-   * Xong test: đặt lại `false`.
+   * `true` = luôn hiển thị **chưa xác minh** (kể cả khi API trả `emailVerified: true`) — chỉ bật tạm khi test UI.
+   * Mặc định `false` để `/user-profile` phản ánh đúng `GET /users/me/full`.
    */
-  forceEmailUnverifiedForTest: true,
+  forceEmailUnverifiedForTest: false,
   /**
    * Khi API không gửi `emailVerified` và `forceEmailUnverifiedForTest` là `false`:
    * `false` → chưa xác minh; `true` → đã xác minh.

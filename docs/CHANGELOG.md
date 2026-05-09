@@ -21,6 +21,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Changed
+- FE `StudentBalancePopup` (chế độ **Nạp tiền**): cho phép nhập **số nguyên âm** để giảm số dư (cùng API signed `amount` với rút); cập nhật chip “Tác động”, toast và placeholder; `/student` điều chỉnh copy lỗi/mô tả. Docs: `docs/pages/student.md`, `docs/pages/admin.md`, `docs/README.md`, `docs/pages/auth.md`.
+- FE `/user-profile`: tắt `forceEmailUnverifiedForTest` mặc định để hiển thị đúng `emailVerified` từ API; nhãn chữ **Đã xác minh** / **Chưa xác minh**; gửi lại link qua `POST /auth/resend-verification` thay vì mock; email học viên khác email tài khoản hiển thị ghi chú không áp dụng xác minh đăng nhập. Docs: `docs/pages/auth.md`.
+
 ### Fixed
 - BE auth/email verification: `POST /auth/resend-verification` chấp nhận session qua `access_token` hoặc `refresh_token` để user chưa verify không bị kẹt; lỗi SMTP giữ đúng `503` thay vì thành `500`; Gmail App Password có khoảng trắng được normalize trước khi gửi qua Nodemailer.
 - API local CORS/preflight: bật CORS qua `NestFactory.create(..., { cors })` trong `apps/api/src/main.ts` thay vì `app.enableCors()` sau `create`, để middleware CORS đăng ký trước router Nest và trả `Access-Control-Allow-Origin` cho `OPTIONS` (tránh lỗi preflight khi gọi API cross-origin từ web).
