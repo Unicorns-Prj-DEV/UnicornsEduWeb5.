@@ -21,6 +21,9 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Added
+- BE `POST /users/me/student-wallet-sepay-topup-order`: tạo đơn SePay (userapi v2) kèm QR; `StudentService.getTuitionExtensionTransferNoteForSelf`; module `sepay/`. FE `/student`: khi `NEXT_PUBLIC_STUDENT_WALLET_SEPAY_TOPUP=1`, nạp dương hiển thị QR SePay từ API (thay VietQR). Docs: `docs/pages/auth.md`, `docs/pages/student.md`, `docs/Cách làm việc.md`, `apps/api/.env.example`, `apps/web/.env.example`.
+
 ### Changed
 - Deploy/Nginx: production chuyển sang Cloudflare Tunnel; NGINX chỉ bind `127.0.0.1:80`, bỏ vhost HTTPS/certbot/domain cũ, preserve `X-Forwarded-Proto`, deploy smoke test qua loopback local thay vì `VPS_PUBLIC_HOST`. Docs `docs/Cách làm việc.md`.
 - CI: job **`mirror-nginx`** copy manifest `docker.io/library/nginx:1.27-alpine` → **`ghcr.io/unicorns-prj-dev/nginx:1.27-alpine`** (`buildx imagetools create`); `docker-compose.prod.yml` trỏ `nginx` sang GHCR; `deploy` chờ `mirror-nginx`. VPS không còn phụ thuộc pull trực tiếp Docker Hub cho nginx. Docs `docs/Cách làm việc.md`.

@@ -130,7 +130,8 @@ Các endpoint xem/sửa hồ sơ hiện tại nằm trong **user module** (khôn
 - `POST /users/me/staff/cccd-images` — upload ảnh CCCD mặt trước/sau, chỉ nhận JPEG/PNG/WEBP, tối đa 5MB mỗi file (controller-level filter + service-level validation).
 - `GET /users/me/student-detail` — hồ sơ self-service của học sinh hiện tại, chỉ trả về field an toàn cho student UI (không có gói học phí / field admin-only).
 - `GET /users/me/student-wallet-history?limit=` — lịch sử ví của học sinh hiện tại từ `wallet_transactions_history`.
-- `PATCH /users/me/student-account-balance` — nạp/rút tiền trên ví của chính học sinh hiện tại. Body: `{ amount }`; `amount > 0` là nạp, `amount < 0` là rút. FE popup “Nạp” có thể gửi `amount` âm (cùng semantics). Backend chặn làm âm ví khi giảm số dư vượt số dư hiện có.
+- `POST /users/me/student-wallet-sepay-topup-order` — tạo **đơn nạp tiền SePay** (userapi v2 `bank-accounts/{xid}/orders`) kèm **QR** trả về; body `{ amount }` (VND, số nguyên ≥ 1000). Trả về `transferNote` (mẫu gia hạn học phí + gói + ngày), `orderCode`, `qrCode` / `qrCodeUrl`, thông tin VA/STK nếu có. **Không** cộng `account_balance`. Cần biến môi trường `SEPAY_API_ACCESS_TOKEN` + `SEPAY_BANK_ACCOUNT_XID` (và tuỳ chọn `SEPAY_VA_PREFIX`, …); nếu chưa cấu hình → `503`.
+- `PATCH /users/me/student-account-balance` — nạp/rút tiền trên ví của chính học sinh hiện tại. Body: `{ amount }`; `amount > 0` là nạp, `amount < 0` là rút. FE popup “Nạp” có thể gửi `amount` âm (cùng semantics). Backend chặn làm âm ví khi giảm số dư vượt số dư hiện có. Khi FE bật `NEXT_PUBLIC_STUDENT_WALLET_SEPAY_TOPUP`, nạp **dương** ưu tiên bước SePay QR; nạp âm / rút vẫn dùng endpoint này.
 
 DTO: `apps/web/dtos/profile.dto.ts` và `apps/api/src/dtos/profile.dto.ts`.
 
