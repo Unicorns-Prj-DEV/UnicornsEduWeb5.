@@ -251,6 +251,65 @@ export class UpdateMyStudentAccountBalanceDto {
   amount: number;
 }
 
+export class CreateStudentSePayTopUpOrderDto {
+  @ApiProperty({
+    description:
+      'Số tiền nạp (VND, số nguyên dương). Tạo đơn SePay kèm mã QR; không tự cộng số dư ví.',
+    example: 500000,
+    minimum: 1000,
+  })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1000)
+  @Max(999_999_999_999)
+  amount: number;
+}
+
+/** Phản hồi POST student-wallet-sepay-topup-order */
+export class StudentSePayTopUpOrderResponseDto {
+  @ApiProperty({ description: 'Số tiền đơn' })
+  amount!: number;
+
+  @ApiProperty({
+    description:
+      'Nội dung chuyển khoản đề xuất (hiển thị / sao chép cho phụ huynh).',
+  })
+  transferNote!: string;
+
+  @ApiProperty({ description: 'Mã đơn gửi lên SePay' })
+  orderCode!: string;
+
+  @ApiPropertyOptional({
+    description: 'Ảnh QR dạng data URL (nếu SePay trả về)',
+    nullable: true,
+  })
+  qrCode?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'URL ảnh QR (nếu SePay trả về)',
+    nullable: true,
+  })
+  qrCodeUrl?: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  orderId?: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  vaNumber?: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  bankName?: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  accountNumber?: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  accountHolderName?: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  expiredAt?: string | null;
+}
+
 export class StudentWalletHistoryQueryDto {
   @ApiPropertyOptional({
     example: 50,

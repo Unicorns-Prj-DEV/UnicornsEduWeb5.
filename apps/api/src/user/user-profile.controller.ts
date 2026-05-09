@@ -11,6 +11,7 @@ import {
   Post,
   Put,
   Query,
+  ServiceUnavailableException,
   UploadedFile,
   UploadedFiles,
   UseGuards,
@@ -38,7 +39,9 @@ import {
   type StaffDashboardDto,
 } from 'src/dtos/dashboard.dto';
 import {
+  CreateStudentSePayTopUpOrderDto,
   StudentExamScheduleItemDto,
+  StudentSePayTopUpOrderResponseDto,
   StudentWalletHistoryQueryDto,
   UpdateStudentExamSchedulesDto,
   UpdateMyStudentAccountBalanceDto,
@@ -68,6 +71,7 @@ import {
 } from 'src/storage/supabase-storage';
 import { UserService } from './user.service';
 import { VerifiedEmailGuard } from 'src/auth/guards/verified-email.guard';
+import { SePayService } from 'src/sepay/sepay.service';
 
 @ApiTags('users')
 @Controller('users/me')
@@ -83,6 +87,7 @@ export class UserProfileController {
     private readonly lessonService: LessonService,
     private readonly studentService: StudentService,
     private readonly dashboardService: DashboardService,
+    private readonly sePayService: SePayService,
   ) {}
 
   @Get('full')
@@ -664,6 +669,73 @@ export class UserProfileController {
       userEmail: user.email,
       roleType: user.roleType,
     });
+  }
+
+  @Post('student-wallet-sepay-topup-order')
+  @ApiOperation({
+    summary: 'Create SePay top-up order with QR for current student',
+    description:
+      'Tạo đơn nạp tiền qua SePay (userapi v2) kèm mã QR. Không cộng số dư ví — chỉ trả thông tin thanh toán. Cần cấu hình SEPAY_* trên server.',
+  })
+  @ApiBody({ type: CreateStudentSePayTopUpOrderDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Đơn SePay đã tạo; trả QR / VA nếu có.',
+    type: StudentSePayTopUpOrderResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error or invalid amount.',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized.',
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'SePay chưa được cấu hình trên server.',
+  })
+  @ApiResponse({
+    status: 502,
+    description: 'SePay từ chối hoặc lỗi kết nối.',
+  })
+  async createMyStudentSePayTopUpOrder(
+    @CurrentUser() user: JwtPayload,
+    @Body() body: CreateStudentSePayTopUpOrderDto,
+  ): Promise<StudentSePayTopUpOrderResponseDto> {
+    if (!this.sePayService.isWalletTopUpConfigured()) {
+      throw new ServiceUnavailableException(
+        'Thanh toán SePay chưa được bật trên hệ thống.',
+      );
+    }
+
+    const studentId = await this.userService.getLinkedStudentId(user.id);
+    const amount = Math.round(body.amount);
+    const now = new Date();
+    const transferNote =
+      await this.studentService.getTuitionExtensionTransferNoteForSelf(
+        studentId,
+        now,
+      );
+    const orderCode = this.sePayService.buildStudentWalletOrderCode(studentId);
+    const sePay = await this.sePayService.createBankAccountOrder({
+      amountVnd: amount,
+      orderCode,
+    });
+
+    return {
+      amount,
+      transferNote,
+      orderCode: sePay.orderCode ?? orderCode,
+      qrCode: sePay.qrCode ?? null,
+      qrCodeUrl: sePay.qrCodeUrl ?? null,
+      orderId: sePay.orderId ?? null,
+      vaNumber: sePay.vaNumber ?? null,
+      bankName: sePay.bankName ?? null,
+      accountNumber: sePay.accountNumber ?? null,
+      accountHolderName: sePay.accountHolderName ?? null,
+      expiredAt: sePay.expiredAt ?? null,
+    };
   }
 
   @Patch()
