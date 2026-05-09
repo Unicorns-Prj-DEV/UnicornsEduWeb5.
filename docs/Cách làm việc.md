@@ -59,6 +59,7 @@ Dùng làm context khi implement hoặc review code frontend; giúp model chọn
 | **Validation / Transform** | Tùy chọn theo module | Không bắt buộc class-validator/class-transformer; chọn giải pháp phù hợp yêu cầu từng phần. |
 | **TypeScript** | TS 5.x | Path alias `@/*` → `./*` (tsconfig.json). Target ES2017, moduleResolution bundler, strict. |
 | **API base URL** | Biến môi trường | `NEXT_PUBLIC_BACKEND_URL`; nên set tường minh trong `apps/web/.env`. Frontend hiện có fallback `http://localhost:3001`, trong khi API listen ở `PORT` hoặc `4000` nếu không cấu hình. |
+| **SePay nạp ví học sinh** | Biến môi trường | Web: `NEXT_PUBLIC_STUDENT_WALLET_SEPAY_TOPUP=1` để nạp dương qua QR SePay (`apps/web/.env.example`). API: `SEPAY_API_ACCESS_TOKEN`, `SEPAY_BANK_ACCOUNT_XID`, tuỳ chọn `SEPAY_USERAPI_BASE_URL`, `SEPAY_VA_PREFIX`, `SEPAY_ORDER_DURATION_SECONDS` (`apps/api/.env.example`). |
 
 **Cấu trúc thư mục frontend:** `apps/web/app/` (routes, layout, page), `apps/web/lib/` (API client, utils). Component và style theo cấu trúc Next.js App Router; tokens và theme đã định nghĩa sẵn trong `globals.css`.
 

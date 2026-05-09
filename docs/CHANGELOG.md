@@ -21,6 +21,9 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Added
+- BE `POST /users/me/student-wallet-sepay-topup-order`: tạo đơn SePay (userapi v2) kèm QR; `StudentService.getTuitionExtensionTransferNoteForSelf`; module `sepay/`. FE `/student`: khi `NEXT_PUBLIC_STUDENT_WALLET_SEPAY_TOPUP=1`, nạp dương hiển thị QR SePay từ API (thay VietQR). Docs: `docs/pages/auth.md`, `docs/pages/student.md`, `docs/Cách làm việc.md`, `apps/api/.env.example`, `apps/web/.env.example`.
+
 ### Changed
 - FE `StudentBalancePopup` (chế độ **Nạp tiền**): cho phép nhập **số nguyên âm** để giảm số dư (cùng API signed `amount` với rút); cập nhật chip “Tác động”, toast và placeholder; `/student` điều chỉnh copy lỗi/mô tả. Docs: `docs/pages/student.md`, `docs/pages/admin.md`, `docs/README.md`, `docs/pages/auth.md`.
 - FE `/user-profile`: tắt `forceEmailUnverifiedForTest` mặc định để hiển thị đúng `emailVerified` từ API; nhãn chữ **Đã xác minh** / **Chưa xác minh**; gửi lại link qua `POST /auth/resend-verification` thay vì mock; email học viên khác email tài khoản hiển thị ghi chú không áp dụng xác minh đăng nhập. Docs: `docs/pages/auth.md`.
