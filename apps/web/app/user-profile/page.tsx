@@ -11,7 +11,7 @@ import UpgradedSelect, {
 import EmailVerificationInline from "@/components/user-profile/EmailVerificationInline";
 import UserAvatar from "@/components/ui/UserAvatar";
 import CccdImageUploadFields from "@/components/staff/CccdImageUploadFields";
-import StaffSpecializationRichText from "@/components/staff/StaffSpecializationRichText";
+import StaffSpecializationMarkdown from "@/components/staff/StaffSpecializationMarkdown";
 import { useAuth } from "@/context/AuthContext";
 import {
   resolveEmailVerified,
@@ -294,6 +294,43 @@ function TextField({
         max={max}
         autoComplete={autoComplete}
       />
+    </div>
+  );
+}
+
+function TextAreaField({
+  id,
+  name,
+  label,
+  defaultValue,
+  placeholder,
+  rows = 8,
+}: {
+  id: string;
+  name: string;
+  label: string;
+  defaultValue?: string | number;
+  placeholder?: string;
+  rows?: number;
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className={labelClassName}>
+        {label}
+      </label>
+      <textarea
+        id={id}
+        name={name}
+        className={`${inputClassName} min-h-[180px] resize-y leading-relaxed`}
+        defaultValue={defaultValue ?? ""}
+        placeholder={placeholder}
+        rows={rows}
+      />
+      <p className="mt-1.5 text-xs text-text-muted">
+        Mỗi dòng sẽ được lưu trực tiếp vào hồ sơ. Dùng{" "}
+        <code className="rounded bg-bg-tertiary px-1">- </code>
+        ở đầu dòng để tạo danh sách Markdown.
+      </p>
     </div>
   );
 }
@@ -995,7 +1032,7 @@ export default function UserProfilePage() {
       {
         label: "Chuyên ngành",
         value: profile.staffInfo.specialization?.trim() ? (
-          <StaffSpecializationRichText
+          <StaffSpecializationMarkdown
             text={profile.staffInfo.specialization}
             emptyFallback="—"
           />
@@ -1355,12 +1392,17 @@ export default function UserProfilePage() {
                           label="Trường THPT"
                           defaultValue={profile.staffInfo.highSchool ?? ""}
                         />
-                        <TextField
-                          id="staff-specialization"
-                          name="specialization"
-                          label="Chuyên ngành"
-                          defaultValue={profile.staffInfo.specialization ?? ""}
-                        />
+                        <div className="sm:col-span-2">
+                          <TextAreaField
+                            id="staff-specialization"
+                            name="specialization"
+                            label="Chuyên ngành"
+                            defaultValue={profile.staffInfo.specialization ?? ""}
+                            placeholder={
+                              "Thành tích cá nhân:\n- Giải Nhì HSG Quốc gia môn Tin học\n- Huy chương Bạc Olympic..."
+                            }
+                          />
+                        </div>
                         <TextField
                           id="staff-bank_account"
                           name="bank_account"

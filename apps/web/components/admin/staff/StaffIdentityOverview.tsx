@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, type ReactNode } from "react";
-import StaffSpecializationRichText from "@/components/staff/StaffSpecializationRichText";
+import StaffSpecializationMarkdown from "@/components/staff/StaffSpecializationMarkdown";
 import StaffQrCard from "./StaffQrCard";
 
 function InlineFact({
@@ -106,7 +106,7 @@ export default function StaffIdentityOverview({
           className="mt-3 rounded-lg border border-border-default bg-bg-secondary/40 px-3 py-3 sm:px-4 sm:py-4"
           aria-labelledby={achievementsTitleId}
         >
-          <StaffSpecializationRichText text={specialization} />
+          <StaffSpecializationMarkdown text={specialization} />
         </div>
       </div>
     </section>

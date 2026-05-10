@@ -287,8 +287,8 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
                   placeholder="Ví dụ: Toán, Lý"
                 />
                 <p className="text-xs text-text-muted">
-                  Hiển thị hỗ trợ Markdown (gạch đầu dòng <code className="rounded bg-bg-tertiary px-1">-</code> /{" "}
-                  <code className="rounded bg-bg-tertiary px-1">*</code>, in đậm, liên kết) hoặc HTML đã lưu.
+                  Hiển thị bằng Markdown từ nội dung đã lưu (gạch đầu dòng <code className="rounded bg-bg-tertiary px-1">-</code> /{" "}
+                  <code className="rounded bg-bg-tertiary px-1">*</code>, in đậm, liên kết).
                 </p>
               </label>
 

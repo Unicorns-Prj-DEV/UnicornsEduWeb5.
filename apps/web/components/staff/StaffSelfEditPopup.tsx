@@ -313,9 +313,9 @@ export default function StaffSelfEditPopup({
                   placeholder="Ví dụ: Toán, Lý, luyện thi, chăm sóc học viên…"
                 />
                 <p className="text-xs text-text-muted">
-                  Hiển thị hỗ trợ Markdown (gạch đầu dòng <code className="rounded bg-bg-tertiary px-1">-</code> /{" "}
+                  Hiển thị bằng Markdown từ nội dung đã lưu (gạch đầu dòng <code className="rounded bg-bg-tertiary px-1">-</code> /{" "}
                   <code className="rounded bg-bg-tertiary px-1">*</code>, in đậm <code className="rounded bg-bg-tertiary px-1">**…**</code>, liên kết{" "}
-                  <code className="rounded bg-bg-tertiary px-1">[text](url)</code>) hoặc HTML đã lưu từ trình soạn thảo.
+                  <code className="rounded bg-bg-tertiary px-1">[text](url)</code>).
                 </p>
               </label>
 
