@@ -1,28 +1,8 @@
 "use client";
 
-import { useId, useMemo, type ReactNode } from "react";
+import { useId, type ReactNode } from "react";
+import StaffSpecializationMarkdown from "@/components/staff/StaffSpecializationMarkdown";
 import StaffQrCard from "./StaffQrCard";
-
-/** Strip common wrapper quotes and trim lines (fixes pasted "…" blocks). */
-function normalizeSpecializationRaw(raw: string): string {
-  let s = raw.trim();
-  s = s.replace(/^[\s"'“”]+|[\s"'“”]+$/g, "");
-  return s;
-}
-
-function parseSpecializationLines(raw: string | undefined | null): string[] {
-  if (!raw?.trim()) return [];
-  const body = normalizeSpecializationRaw(raw);
-  return body
-    .split(/\r?\n/)
-    .map((line) =>
-      line
-        .replace(/^\s*[•\-\*\u2022]\s*/, "")
-        .replace(/^[\s"'“”]+|[\s"'“”]+$/g, "")
-        .trim(),
-    )
-    .filter(Boolean);
-}
 
 function InlineFact({
   label,
@@ -41,41 +21,6 @@ function InlineFact({
   );
 }
 
-function StaffAchievementsList({
-  text,
-  labelledBy,
-}: {
-  text?: string | null;
-  labelledBy: string;
-}) {
-  const lines = useMemo(() => parseSpecializationLines(text ?? ""), [text]);
-
-  if (lines.length === 0) {
-    return (
-      <p className="text-sm leading-relaxed text-text-muted">
-        Chưa có thành tích chuyên môn.
-      </p>
-    );
-  }
-
-  return (
-    <ul className="space-y-2.5" aria-labelledby={labelledBy}>
-      {lines.map((line, i) => (
-        <li
-          key={i}
-          className="flex gap-3 text-sm leading-relaxed text-text-primary"
-        >
-          <span
-            className="mt-2 size-1.5 shrink-0 rounded-full bg-primary"
-            aria-hidden
-          />
-          <span className="min-w-0">{line}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 /** Matches in-page section titles e.g. "Thống kê thu nhập". */
 const SECTION_HEADING =
   "text-sm font-semibold uppercase tracking-wide text-text-primary";
@@ -88,6 +33,8 @@ export type StaffIdentityOverviewProps = {
   personalAchievementLink?: string | null;
   qrLink: string | null;
   onQrEdit: () => void;
+  /** When false, QR block is view-only (no edit / add link). Default true. */
+  allowQrEdit?: boolean;
 };
 
 export default function StaffIdentityOverview({
@@ -98,6 +45,7 @@ export default function StaffIdentityOverview({
   personalAchievementLink,
   qrLink,
   onQrEdit,
+  allowQrEdit = true,
 }: StaffIdentityOverviewProps) {
   const sectionTitleId = useId();
   const achievementsTitleId = useId();
@@ -119,6 +67,7 @@ export default function StaffIdentityOverview({
           size="minimal"
           embedded
           className="shrink-0"
+          allowEdit={allowQrEdit}
         />
       </div>
 
@@ -153,11 +102,11 @@ export default function StaffIdentityOverview({
         <h3 id={achievementsTitleId} className={SECTION_HEADING}>
           Thành tích chuyên môn
         </h3>
-        <div className="mt-3 rounded-lg border border-border-default bg-bg-secondary/40 px-3 py-3 sm:px-4 sm:py-4">
-          <StaffAchievementsList
-            text={specialization}
-            labelledBy={achievementsTitleId}
-          />
+        <div
+          className="mt-3 rounded-lg border border-border-default bg-bg-secondary/40 px-3 py-3 sm:px-4 sm:py-4"
+          aria-labelledby={achievementsTitleId}
+        >
+          <StaffSpecializationMarkdown text={specialization} />
         </div>
       </div>
     </section>

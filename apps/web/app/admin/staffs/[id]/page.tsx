@@ -284,6 +284,9 @@ export default function AdminStaffDetailPage({
   });
   const { isAdmin, isAssistant, isAccountant } =
     resolveAdminShellAccess(fullProfile);
+  const ownStaffId = fullProfile?.staffInfo?.id;
+  const viewingOwnStaffRecordOnStaffShell =
+    routeBase === "/staff" && Boolean(ownStaffId) && ownStaffId === id;
   const canViewBeforeDeduction = isAdmin || isAccountant;
   const canCreateBonus = !isAccountant;
   const canDeleteBonus = !isAccountant;
@@ -650,7 +653,9 @@ export default function AdminStaffDetailPage({
   const monthlyIncomeTotals =
     incomeSummary?.monthlyIncomeTotals ?? EMPTY_AMOUNT_SUMMARY;
   const snapshotUnpaidNetTotal = incomeSummary?.snapshotUnpaidNetTotal ?? 0;
-  const yearPaidNetTotal = incomeSummary?.yearPaidNetTotal ?? 0;
+  const incomeStatsTotalNet =
+    incomeSummary?.incomeStatsTotalNet ?? monthlyIncomeTotals.total;
+  const yearIncomeTotal = incomeSummary?.yearIncomeTotal ?? 0;
   const depositYearTotal = incomeSummary?.depositYearTotal ?? 0;
   const depositByClass = incomeSummary?.depositYearByClass ?? [];
   const bonusTotals = incomeSummary?.bonusMonthlyTotals ?? EMPTY_AMOUNT_SUMMARY;
@@ -1402,28 +1407,30 @@ export default function AdminStaffDetailPage({
               <h1 className="min-w-0 truncate text-lg font-semibold text-text-primary sm:text-xl">
                 {staff.fullName?.trim() || "Nhân sự"}
               </h1>
-              <button
-                type="button"
-                onClick={() => setEditPopupOpen(true)}
-                className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border-default bg-bg-surface text-text-muted transition hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary sm:size-8"
-                aria-label="Chỉnh sửa thông tin nhân sự"
-                title="Chỉnh sửa thông tin nhân sự"
-              >
-                <svg
-                  className="size-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden
+              {!viewingOwnStaffRecordOnStaffShell ? (
+                <button
+                  type="button"
+                  onClick={() => setEditPopupOpen(true)}
+                  className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border-default bg-bg-surface text-text-muted transition hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary sm:size-8"
+                  aria-label="Chỉnh sửa thông tin nhân sự"
+                  title="Chỉnh sửa thông tin nhân sự"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                  />
-                </svg>
-              </button>
+                  <svg
+                    className="size-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    />
+                  </svg>
+                </button>
+              ) : null}
             </div>
             <div className="flex flex-wrap gap-1.5">
               {(staff.roles ?? []).map((role) => (
@@ -1453,13 +1460,15 @@ export default function AdminStaffDetailPage({
         ) : null}
       </header>
 
-      <EditStaffPopup
-        key={`${staff.id}:${editPopupOpen ? "open" : "closed"}`}
-        open={editPopupOpen}
-        onClose={() => setEditPopupOpen(false)}
-        staff={staff}
-        onSuccess={handleStaffEditSuccess}
-      />
+      {!viewingOwnStaffRecordOnStaffShell ? (
+        <EditStaffPopup
+          key={`${staff.id}:${editPopupOpen ? "open" : "closed"}`}
+          open={editPopupOpen}
+          onClose={() => setEditPopupOpen(false)}
+          staff={staff}
+          onSuccess={handleStaffEditSuccess}
+        />
+      ) : null}
 
       <div className="flex flex-col gap-4">
         <StaffIdentityOverview
@@ -1470,6 +1479,7 @@ export default function AdminStaffDetailPage({
           personalAchievementLink={staff.personalAchievementLink}
           qrLink={qrLink ?? resolvedQrLink}
           onQrEdit={() => setQrPopupOpen(true)}
+          allowQrEdit={!viewingOwnStaffRecordOnStaffShell}
         />
 
         <section
@@ -1495,7 +1505,7 @@ export default function AdminStaffDetailPage({
           <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
               <p className="text-xs uppercase tracking-wide text-text-muted">Tổng nhận</p>
-              <p className="mt-1 tabular-nums text-lg font-semibold text-primary">{formatCurrency(monthlyIncomeTotals.total)}</p>
+              <p className="mt-1 tabular-nums text-lg font-semibold text-primary">{formatCurrency(incomeStatsTotalNet)}</p>
             </article>
             <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
               <p className="text-xs uppercase tracking-wide text-text-muted">Chưa nhận</p>
@@ -1507,7 +1517,7 @@ export default function AdminStaffDetailPage({
             </article>
             <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
               <p className="text-xs uppercase tracking-wide text-text-muted">Tổng năm</p>
-              <p className="mt-1 tabular-nums text-lg font-semibold text-warning">{formatCurrency(yearPaidNetTotal)}</p>
+              <p className="mt-1 tabular-nums text-lg font-semibold text-warning">{formatCurrency(yearIncomeTotal)}</p>
             </article>
             <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
               <p className="text-xs uppercase tracking-wide text-text-muted">Ghi cọc</p>
@@ -2251,15 +2261,17 @@ export default function AdminStaffDetailPage({
         </StaffCard>
       </div>
 
-      <QrLinkPopup
-        open={qrPopupOpen}
-        onClose={() => setQrPopupOpen(false)}
-        currentLink={qrLink ?? resolvedQrLink ?? ""}
-        onSave={(link) => {
-          setQrLink(link || null);
-          setQrPopupOpen(false);
-        }}
-      />
+      {!viewingOwnStaffRecordOnStaffShell ? (
+        <QrLinkPopup
+          open={qrPopupOpen}
+          onClose={() => setQrPopupOpen(false)}
+          currentLink={qrLink ?? resolvedQrLink ?? ""}
+          onSave={(link) => {
+            setQrLink(link || null);
+            setQrPopupOpen(false);
+          }}
+        />
+      ) : null}
 
       {paymentPreviewPopupOpen ? (
         <>

@@ -537,6 +537,10 @@ function AddTutorPopupContent({ open, onClose, onCreated }: Props) {
                           placeholder="Ví dụ: Toán, tổ hợp, chuyên đề lớp 10-12"
                           className="rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:bg-bg-tertiary disabled:text-text-muted"
                         />
+                        <p className="text-xs text-text-muted">
+                          Có thể nhập Markdown (gạch đầu dòng <code className="rounded bg-bg-tertiary px-1">-</code> /{" "}
+                          <code className="rounded bg-bg-tertiary px-1">*</code>, …) — trang hồ sơ sẽ hiển thị danh sách đúng định dạng.
+                        </p>
                       </label>
 
                       <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">

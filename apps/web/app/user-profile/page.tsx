@@ -11,6 +11,7 @@ import UpgradedSelect, {
 import EmailVerificationInline from "@/components/user-profile/EmailVerificationInline";
 import UserAvatar from "@/components/ui/UserAvatar";
 import CccdImageUploadFields from "@/components/staff/CccdImageUploadFields";
+import StaffSpecializationMarkdown from "@/components/staff/StaffSpecializationMarkdown";
 import { useAuth } from "@/context/AuthContext";
 import {
   resolveEmailVerified,
@@ -239,9 +240,19 @@ function DetailRows({ items }: { items: DetailItem[] }) {
       {items.map((item) => (
         <div
           key={item.label}
-          className="grid grid-cols-1 gap-x-8 gap-y-1 py-3 first:pt-0 last:pb-0 sm:grid-cols-[minmax(7.5rem,11rem)_minmax(0,1fr)] sm:items-baseline"
+          className={
+            item.fullWidth
+              ? "grid grid-cols-1 gap-y-1.5 py-3 first:pt-0 last:pb-0"
+              : "grid grid-cols-1 gap-x-8 gap-y-1 py-3 first:pt-0 last:pb-0 sm:grid-cols-[minmax(7.5rem,11rem)_minmax(0,1fr)] sm:items-baseline"
+          }
         >
-          <dt className="text-sm font-semibold text-text-primary sm:text-right">
+          <dt
+            className={
+              item.fullWidth
+                ? "text-sm font-semibold text-text-primary"
+                : "text-sm font-semibold text-text-primary sm:text-right"
+            }
+          >
             {item.label}
           </dt>
           <dd className="min-w-0 text-sm font-normal leading-relaxed text-text-primary">
@@ -283,6 +294,43 @@ function TextField({
         max={max}
         autoComplete={autoComplete}
       />
+    </div>
+  );
+}
+
+function TextAreaField({
+  id,
+  name,
+  label,
+  defaultValue,
+  placeholder,
+  rows = 8,
+}: {
+  id: string;
+  name: string;
+  label: string;
+  defaultValue?: string | number;
+  placeholder?: string;
+  rows?: number;
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className={labelClassName}>
+        {label}
+      </label>
+      <textarea
+        id={id}
+        name={name}
+        className={`${inputClassName} min-h-[180px] resize-y leading-relaxed`}
+        defaultValue={defaultValue ?? ""}
+        placeholder={placeholder}
+        rows={rows}
+      />
+      <p className="mt-1.5 text-xs text-text-muted">
+        Mỗi dòng sẽ được lưu trực tiếp vào hồ sơ. Dùng{" "}
+        <code className="rounded bg-bg-tertiary px-1">- </code>
+        ở đầu dòng để tạo danh sách Markdown.
+      </p>
     </div>
   );
 }
@@ -651,6 +699,7 @@ export default function UserProfilePage() {
   const handleSubmitStaff = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
+    const achievementRaw = getFieldValue(form, "personal_achievement_link");
     const payload: UpdateMyStaffProfileDto = {
       cccd_number: getFieldValue(form, "cccd_number"),
       cccd_issued_date: getFieldValue(form, "cccd_issued_date"),
@@ -661,6 +710,9 @@ export default function UserProfilePage() {
       specialization: getFieldValue(form, "specialization"),
       bank_account: getFieldValue(form, "bank_account"),
       bank_qr_link: getFieldValue(form, "bank_qr_link"),
+      personal_achievement_link: achievementRaw?.trim()
+        ? achievementRaw.trim()
+        : null,
     };
     updateStaffMutation.mutate(payload);
   };
@@ -750,6 +802,7 @@ export default function UserProfilePage() {
       profile.staffInfo.university,
       profile.staffInfo.highSchool,
       profile.staffInfo.specialization,
+      profile.staffInfo.personalAchievementLink,
       profile.staffInfo.bankAccount,
       profile.staffInfo.bankQrLink,
       profile.staffInfo.cccdNumber,
@@ -794,6 +847,7 @@ export default function UserProfilePage() {
       profile.staffInfo.university,
       profile.staffInfo.highSchool,
       profile.staffInfo.specialization,
+      profile.staffInfo.personalAchievementLink,
       profile.staffInfo.bankAccount,
       profile.staffInfo.bankQrLink,
       profile.staffInfo.cccdNumber,
@@ -975,12 +1029,42 @@ export default function UserProfilePage() {
       { label: "Ngày sinh", value: formatDate(profile.staffInfo.birthDate) },
       { label: "Trường đại học", value: profile.staffInfo.university ?? "—" },
       { label: "Trường THPT", value: profile.staffInfo.highSchool ?? "—" },
-      { label: "Chuyên ngành", value: profile.staffInfo.specialization ?? "—" },
+      {
+        label: "Chuyên ngành",
+        value: profile.staffInfo.specialization?.trim() ? (
+          <StaffSpecializationMarkdown
+            text={profile.staffInfo.specialization}
+            emptyFallback="—"
+          />
+        ) : (
+          "—"
+        ),
+        fullWidth: true,
+      },
       { label: "Số tài khoản", value: profile.staffInfo.bankAccount ?? "—" },
       {
         label: "Link QR ngân hàng",
         value: profile.staffInfo.bankQrLink ?? "—",
         fullWidth: true,
+      },
+      {
+        label: "Minh chứng thành tích",
+        value: (() => {
+          const href = profile.staffInfo?.personalAchievementLink?.trim();
+          if (!href) return "—";
+          return (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-primary underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+            >
+              Xem liên kết
+            </a>
+          );
+        })(),
+        fullWidth: true,
+        hint: "URL http(s) tới tài liệu minh chứng (ví dụ Google Drive).",
       },
       {
         label: "Trạng thái",
@@ -1057,7 +1141,8 @@ export default function UserProfilePage() {
 
         {requiresProfileCompletion ? (
           <div className="mb-6 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-text-primary">
-            Bạn chưa điền đầy đủ thông tin bắt buộc. Vui lòng cập nhật đầy đủ hồ sơ để tiếp tục sử dụng hệ thống
+            Bạn chưa điền đầy đủ thông tin bắt buộc. Vui lòng cập nhật đầy đủ hồ
+            sơ để tiếp tục sử dụng hệ thống
             {redirectedFrom ? ` (được chuyển từ ${redirectedFrom}).` : "."}
           </div>
         ) : null}
@@ -1238,144 +1323,169 @@ export default function UserProfilePage() {
             {profile.staffInfo ? (
               <>
                 <hr className="border-border-default" />
-              <ProfileSection
-                id="profile-staff"
-                title="Nhân sự"
-                description="Học vấn, chuyên môn và thanh toán"
-                completion={staffCompletion!}
-                isEditing={editStaff}
-                onEdit={() => setEditStaff(true)}
-              >
-                {editStaff ? (
-                  <form onSubmit={handleSubmitStaff} className="space-y-6">
-                    <div className="rounded-lg border border-border-default bg-bg-secondary/50 px-4 py-3 text-sm text-text-secondary">
-                      Tên nhân sự hiện lấy từ mục <span className="font-medium text-text-primary">Thông tin chung</span>.
-                      Nếu cần đổi tên hiển thị, hãy cập nhật `Tên` và `Họ và tên đệm` ở phần đó.
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <TextField
-                        id="staff-cccd_number"
-                        name="cccd_number"
-                        label="Số CCCD (12 số)"
-                        defaultValue={profile.staffInfo.cccdNumber ?? ""}
-                      />
-                      <TextField
-                        id="staff-cccd_issued_date"
-                        name="cccd_issued_date"
-                        label="Ngày cấp CCCD"
-                        type="date"
-                        defaultValue={
-                          profile.staffInfo.cccdIssuedDate
-                            ? new Date(profile.staffInfo.cccdIssuedDate)
-                              .toISOString()
-                              .slice(0, 10)
-                            : ""
-                        }
-                      />
-                      <TextField
-                        id="staff-cccd_issued_place"
-                        name="cccd_issued_place"
-                        label="Nơi cấp CCCD"
-                        defaultValue={profile.staffInfo.cccdIssuedPlace ?? ""}
-                      />
-                      <TextField
-                        id="staff-birth_date"
-                        name="birth_date"
-                        label="Ngày sinh"
-                        type="date"
-                        defaultValue={
-                          profile.staffInfo.birthDate
-                            ? new Date(profile.staffInfo.birthDate)
-                              .toISOString()
-                              .slice(0, 10)
-                            : ""
-                        }
-                      />
-                      <TextField
-                        id="staff-university"
-                        name="university"
-                        label="Trường đại học"
-                        defaultValue={profile.staffInfo.university ?? ""}
-                      />
-                      <TextField
-                        id="staff-high_school"
-                        name="high_school"
-                        label="Trường THPT"
-                        defaultValue={profile.staffInfo.highSchool ?? ""}
-                      />
-                      <TextField
-                        id="staff-specialization"
-                        name="specialization"
-                        label="Chuyên ngành"
-                        defaultValue={profile.staffInfo.specialization ?? ""}
-                      />
-                      <TextField
-                        id="staff-bank_account"
-                        name="bank_account"
-                        label="Số tài khoản ngân hàng"
-                        defaultValue={profile.staffInfo.bankAccount ?? ""}
-                      />
-                      <div className="sm:col-span-2">
-                        <TextField
-                          id="staff-bank_qr_link"
-                          name="bank_qr_link"
-                          label="Link QR ngân hàng"
-                          type="url"
-                          defaultValue={profile.staffInfo.bankQrLink ?? ""}
-                          placeholder="https://..."
-                        />
+                <ProfileSection
+                  id="profile-staff"
+                  title="Nhân sự"
+                  description="Học vấn, chuyên môn và thanh toán"
+                  completion={staffCompletion!}
+                  isEditing={editStaff}
+                  onEdit={() => setEditStaff(true)}
+                >
+                  {editStaff ? (
+                    <form onSubmit={handleSubmitStaff} className="space-y-6">
+                      <div className="rounded-lg border border-border-default bg-bg-secondary/50 px-4 py-3 text-sm text-text-secondary">
+                        Tên nhân sự hiện lấy từ mục{" "}
+                        <span className="font-medium text-text-primary">
+                          Thông tin chung
+                        </span>
+                        . Nếu cần đổi tên hiển thị, hãy cập nhật `Tên` và `Họ
+                        và tên đệm` ở phần đó.
                       </div>
-                    </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <TextField
+                          id="staff-cccd_number"
+                          name="cccd_number"
+                          label="Số CCCD (12 số)"
+                          defaultValue={profile.staffInfo.cccdNumber ?? ""}
+                        />
+                        <TextField
+                          id="staff-cccd_issued_date"
+                          name="cccd_issued_date"
+                          label="Ngày cấp CCCD"
+                          type="date"
+                          defaultValue={
+                            profile.staffInfo.cccdIssuedDate
+                              ? new Date(profile.staffInfo.cccdIssuedDate)
+                                  .toISOString()
+                                  .slice(0, 10)
+                              : ""
+                          }
+                        />
+                        <TextField
+                          id="staff-cccd_issued_place"
+                          name="cccd_issued_place"
+                          label="Nơi cấp CCCD"
+                          defaultValue={profile.staffInfo.cccdIssuedPlace ?? ""}
+                        />
+                        <TextField
+                          id="staff-birth_date"
+                          name="birth_date"
+                          label="Ngày sinh"
+                          type="date"
+                          defaultValue={
+                            profile.staffInfo.birthDate
+                              ? new Date(profile.staffInfo.birthDate)
+                                  .toISOString()
+                                  .slice(0, 10)
+                              : ""
+                          }
+                        />
+                        <TextField
+                          id="staff-university"
+                          name="university"
+                          label="Trường đại học"
+                          defaultValue={profile.staffInfo.university ?? ""}
+                        />
+                        <TextField
+                          id="staff-high_school"
+                          name="high_school"
+                          label="Trường THPT"
+                          defaultValue={profile.staffInfo.highSchool ?? ""}
+                        />
+                        <div className="sm:col-span-2">
+                          <TextAreaField
+                            id="staff-specialization"
+                            name="specialization"
+                            label="Chuyên ngành"
+                            defaultValue={profile.staffInfo.specialization ?? ""}
+                            placeholder={
+                              "Thành tích cá nhân:\n- Giải Nhì HSG Quốc gia môn Tin học\n- Huy chương Bạc Olympic..."
+                            }
+                          />
+                        </div>
+                        <TextField
+                          id="staff-bank_account"
+                          name="bank_account"
+                          label="Số tài khoản ngân hàng"
+                          defaultValue={profile.staffInfo.bankAccount ?? ""}
+                        />
+                        <div className="sm:col-span-2">
+                          <TextField
+                            id="staff-bank_qr_link"
+                            name="bank_qr_link"
+                            label="Link QR ngân hàng"
+                            type="url"
+                            defaultValue={profile.staffInfo.bankQrLink ?? ""}
+                            placeholder="https://..."
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <TextField
+                            id="staff-personal_achievement_link"
+                            name="personal_achievement_link"
+                            label="Minh chứng thành tích (tùy chọn)"
+                            type="url"
+                            defaultValue={
+                              profile.staffInfo.personalAchievementLink ?? ""
+                            }
+                            placeholder="https://drive.google.com/…"
+                          />
+                          <p className="mt-1.5 text-xs text-text-muted">
+                            Link Google Drive hoặc trang http(s) lưu minh chứng
+                            thành tích. Để trống để xóa liên kết.
+                          </p>
+                        </div>
+                      </div>
 
-                    <FormActions
-                      pending={updateStaffMutation.isPending}
-                      onCancel={() => setEditStaff(false)}
-                    />
-
-                    <div className="space-y-3">
-                      <CccdImageUploadFields
-                        frontImage={staffFrontImage}
-                        backImage={staffBackImage}
-                        frontPath={profile.staffInfo.cccdFrontPath}
-                        backPath={profile.staffInfo.cccdBackPath}
-                        frontUrl={profile.staffInfo.cccdFrontUrl}
-                        backUrl={profile.staffInfo.cccdBackUrl}
-                        disabled={uploadStaffCccdMutation.isPending}
-                        isUploading={uploadStaffCccdMutation.isPending}
-                        onFrontImageChange={setStaffFrontImage}
-                        onBackImageChange={setStaffBackImage}
+                      <FormActions
+                        pending={updateStaffMutation.isPending}
+                        onCancel={() => setEditStaff(false)}
                       />
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={handleSubmitStaffCccdImages}
+
+                      <div className="space-y-3">
+                        <CccdImageUploadFields
+                          frontImage={staffFrontImage}
+                          backImage={staffBackImage}
+                          frontPath={profile.staffInfo.cccdFrontPath}
+                          backPath={profile.staffInfo.cccdBackPath}
+                          frontUrl={profile.staffInfo.cccdFrontUrl}
+                          backUrl={profile.staffInfo.cccdBackUrl}
                           disabled={uploadStaffCccdMutation.isPending}
-                          className={primaryButtonClassName}
-                        >
-                          {uploadStaffCccdMutation.isPending
-                            ? "Đang tải ảnh CCCD…"
-                            : "Lưu ảnh CCCD"}
-                        </button>
-                        {(staffFrontImage || staffBackImage) ? (
+                          isUploading={uploadStaffCccdMutation.isPending}
+                          onFrontImageChange={setStaffFrontImage}
+                          onBackImageChange={setStaffBackImage}
+                        />
+                        <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
-                            onClick={() => {
-                              setStaffFrontImage(null);
-                              setStaffBackImage(null);
-                            }}
+                            onClick={handleSubmitStaffCccdImages}
                             disabled={uploadStaffCccdMutation.isPending}
-                            className={ghostButtonClassName}
+                            className={primaryButtonClassName}
                           >
-                            Huỷ chọn ảnh
+                            {uploadStaffCccdMutation.isPending
+                              ? "Đang tải ảnh CCCD…"
+                              : "Lưu ảnh CCCD"}
                           </button>
-                        ) : null}
+                          {staffFrontImage || staffBackImage ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setStaffFrontImage(null);
+                                setStaffBackImage(null);
+                              }}
+                              disabled={uploadStaffCccdMutation.isPending}
+                              className={ghostButtonClassName}
+                            >
+                              Huỷ chọn ảnh
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
-                  </form>
-                ) : (
-                  <DetailRows items={staffDetails ?? []} />
-                )}
-              </ProfileSection>
+                    </form>
+                  ) : (
+                    <DetailRows items={staffDetails ?? []} />
+                  )}
+                </ProfileSection>
               </>
             ) : null}
 

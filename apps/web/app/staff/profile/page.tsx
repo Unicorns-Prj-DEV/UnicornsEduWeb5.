@@ -617,7 +617,9 @@ export default function StaffSelfDetailPage() {
   const monthlyIncomeTotals =
     incomeSummary?.monthlyIncomeTotals ?? EMPTY_AMOUNT_SUMMARY;
   const snapshotUnpaidNetTotal = incomeSummary?.snapshotUnpaidNetTotal ?? 0;
-  const yearPaidNetTotal = incomeSummary?.yearPaidNetTotal ?? 0;
+  const incomeStatsTotalNet =
+    incomeSummary?.incomeStatsTotalNet ?? monthlyIncomeTotals.total;
+  const yearIncomeTotal = incomeSummary?.yearIncomeTotal ?? 0;
   const monthlyGrossTotals =
     incomeSummary?.monthlyGrossTotals ?? EMPTY_AMOUNT_SUMMARY;
   const monthlyTaxTotals =
@@ -744,33 +746,9 @@ export default function StaffSelfDetailPage() {
             />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <h1 className="min-w-0 truncate text-lg font-semibold text-text-primary sm:text-xl">
-                {staffDisplayName}
-              </h1>
-              <button
-                type="button"
-                onClick={() => setEditPopupOpen(true)}
-                className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border-default bg-bg-surface text-text-muted transition hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary sm:size-8"
-                aria-label="Chỉnh sửa thông tin nhân sự"
-                title="Chỉnh sửa thông tin nhân sự"
-              >
-                <svg
-                  className="size-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                  />
-                </svg>
-              </button>
-            </div>
+            <h1 className="mb-2 min-w-0 truncate text-lg font-semibold text-text-primary sm:text-xl">
+              {staffDisplayName}
+            </h1>
             <div className="flex flex-wrap gap-1.5">
               {(staff.roles ?? []).map((role) => (
                 <span
@@ -830,7 +808,7 @@ export default function StaffSelfDetailPage() {
           <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
               <p className="text-xs uppercase tracking-wide text-text-muted">Tổng nhận</p>
-              <p className="mt-1 tabular-nums text-lg font-semibold text-primary">{formatCurrency(monthlyIncomeTotals.total)}</p>
+              <p className="mt-1 tabular-nums text-lg font-semibold text-primary">{formatCurrency(incomeStatsTotalNet)}</p>
             </article>
             <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
               <p className="text-xs uppercase tracking-wide text-text-muted">Chưa nhận</p>
@@ -842,7 +820,7 @@ export default function StaffSelfDetailPage() {
             </article>
             <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
               <p className="text-xs uppercase tracking-wide text-text-muted">Tổng năm</p>
-              <p className="mt-1 tabular-nums text-lg font-semibold text-warning">{formatCurrency(yearPaidNetTotal)}</p>
+              <p className="mt-1 tabular-nums text-lg font-semibold text-warning">{formatCurrency(yearIncomeTotal)}</p>
             </article>
             <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
               <p className="text-xs uppercase tracking-wide text-text-muted">Ghi cọc</p>

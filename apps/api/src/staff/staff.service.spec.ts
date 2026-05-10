@@ -104,12 +104,12 @@ describe('StaffService', () => {
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
     jest
-      .spyOn(service as any, 'getTeacherAllowanceRowsByClassAndStatus')
+      .spyOn(
+        service as any,
+        'getTeacherAllowanceRowsByClassStatusAndTaxBucket',
+      )
       .mockResolvedValue([]);
     jest.spyOn(service as any, 'getDepositSessionRows').mockResolvedValue([]);
-    jest
-      .spyOn(service as any, 'getTeacherAllowanceRowsByClass')
-      .mockResolvedValue([]);
   }
 
   it('records action history after creating a staff profile', async () => {
@@ -887,27 +887,30 @@ describe('StaffService', () => {
         },
       ]);
     jest
-      .spyOn(service as any, 'getTeacherAllowanceRowsByClassAndStatus')
+      .spyOn(
+        service as any,
+        'getTeacherAllowanceRowsByClassStatusAndTaxBucket',
+      )
       .mockResolvedValueOnce([
         {
           classId: 'class-1',
           className: 'Toán 10A',
           teacherPaymentStatus: PaymentStatus.paid,
-          totalAllowance: 90000,
+          taxRatePercent: 10,
           grossAllowance: 100000,
-          operatingAmount: 10000,
+          operatingAmount: 0,
+          taxableBaseAmount: 100000,
         },
-      ]);
-    jest
-      .spyOn(service as any, 'getTeacherAllowanceRowsByClass')
-      .mockResolvedValue([
+      ])
+      .mockResolvedValueOnce([
         {
           classId: 'class-1',
           className: 'Toán 10A',
           teacherPaymentStatus: 'unpaid',
-          totalAllowance: 50000,
+          taxRatePercent: 10,
           grossAllowance: 50000,
           operatingAmount: 0,
+          taxableBaseAmount: 50000,
         },
       ]);
     jest.spyOn(service as any, 'getDepositSessionRows').mockResolvedValue([
@@ -1010,9 +1013,9 @@ describe('StaffService', () => {
       {
         classId: 'class-1',
         className: 'Toán 10A',
-        total: 100000,
-        paid: 100000,
-        unpaid: 50000,
+        total: 90000,
+        paid: 90000,
+        unpaid: 45000,
       },
     ]);
     expect(result.snapshotUnpaidTotal).toBe(50000);
@@ -1072,11 +1075,12 @@ describe('StaffService', () => {
         },
       ]);
     jest
-      .spyOn(service as any, 'getTeacherAllowanceRowsByClassAndStatus')
-      .mockResolvedValue([]);
-    jest
-      .spyOn(service as any, 'getTeacherAllowanceRowsByClass')
-      .mockResolvedValue([]);
+      .spyOn(
+        service as any,
+        'getTeacherAllowanceRowsByClassStatusAndTaxBucket',
+      )
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
     jest.spyOn(service as any, 'getDepositSessionRows').mockResolvedValue([]);
 
     const result = await service.getIncomeSummary('staff-1', {
@@ -1089,6 +1093,7 @@ describe('StaffService', () => {
     expect(result.monthlyOperatingDeductionTotals.total).toBe(10000);
     expect(result.monthlyTaxTotals.total).toBe(9000);
     expect(result.monthlyIncomeTotals.total).toBe(81000);
+    expect(result.incomeStatsTotalNet).toBe(81000);
     expect(result.monthlyTotalDeductionTotals.total).toBe(19000);
     expect(result.sessionMonthlyTaxTotals.total).toBe(9000);
     expect(result.sessionMonthlyTotals.total).toBe(81000);
@@ -1099,6 +1104,264 @@ describe('StaffService', () => {
     expect(result.yearPaidNetTotal).toBe(81000);
     expect(result.snapshotUnpaidNetTotal).toBe(0);
     expect(result.totalReceivedNet).toBe(81000);
+  });
+
+  it('includes unpaid teaching sessions in monthly total using current net deductions', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      roles: [StaffRole.teacher],
+      classTeachers: [],
+    });
+    mockPrisma.bonus.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    mockPrisma.extraAllowance.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    mockPrisma.staffTaxDeductionOverride.findFirst.mockResolvedValue({
+      ratePercent: 10,
+    });
+    mockPrisma.classTeacher.findUnique.mockResolvedValue({
+      operatingDeductionRatePercent: 10,
+    });
+    jest
+      .spyOn(
+        service as any,
+        'getTeacherAllowanceSourceRowsByStatusAndTaxBucket',
+      )
+      .mockResolvedValueOnce([
+        {
+          paymentStatus: PaymentStatus.paid,
+          grossAmount: 100000,
+          operatingAmount: 10000,
+          taxableBaseAmount: 90000,
+          taxRatePercent: 10,
+        },
+        {
+          paymentStatus: 'unpaid',
+          grossAmount: 50000,
+          operatingAmount: 0,
+          taxableBaseAmount: 50000,
+          taxRatePercent: 0,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          paymentStatus: PaymentStatus.paid,
+          grossAmount: 100000,
+          operatingAmount: 10000,
+          taxableBaseAmount: 90000,
+          taxRatePercent: 10,
+        },
+      ]);
+    jest
+      .spyOn(
+        service as any,
+        'getTeacherAllowanceRowsByClassStatusAndTaxBucket',
+      )
+      .mockResolvedValueOnce([
+        {
+          classId: 'class-1',
+          className: 'Toán 10A',
+          teacherPaymentStatus: 'unpaid',
+          taxRatePercent: 0,
+          grossAllowance: 50000,
+          operatingAmount: 0,
+          taxableBaseAmount: 50000,
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    jest.spyOn(service as any, 'getDepositSessionRows').mockResolvedValue([]);
+
+    const result = await service.getIncomeSummary('staff-1', {
+      month: '03',
+      year: '2026',
+      days: 14,
+    });
+
+    expect(result.monthlyIncomeTotals).toEqual({
+      total: 121500,
+      paid: 81000,
+      unpaid: 40500,
+    });
+    expect(result.incomeStatsTotalNet).toBe(121500);
+    expect(result.monthlyGrossTotals.total).toBe(150000);
+    expect(result.monthlyOperatingDeductionTotals.total).toBe(15000);
+    expect(result.monthlyTaxTotals.total).toBe(13500);
+  });
+
+  it('counts all unpaid teacher sessions in the current unpaid snapshot net', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      roles: [StaffRole.teacher],
+      classTeachers: [],
+    });
+    mockPrisma.bonus.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    mockPrisma.extraAllowance.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    mockPrisma.staffTaxDeductionOverride.findFirst.mockResolvedValue({
+      ratePercent: 10,
+    });
+    mockPrisma.classTeacher.findUnique.mockResolvedValue({
+      operatingDeductionRatePercent: 20,
+    });
+    jest
+      .spyOn(
+        service as any,
+        'getTeacherAllowanceSourceRowsByStatusAndTaxBucket',
+      )
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          paymentStatus: PaymentStatus.paid,
+          grossAmount: 50000,
+          operatingAmount: 0,
+          taxableBaseAmount: 50000,
+          taxRatePercent: 0,
+        },
+      ]);
+    jest
+      .spyOn(
+        service as any,
+        'getTeacherAllowanceRowsByClassStatusAndTaxBucket',
+      )
+      .mockResolvedValue([]);
+    jest.spyOn(service as any, 'getDepositSessionRows').mockResolvedValue([]);
+    jest
+      .spyOn(service as any, 'getUnpaidTotalsByStaffIds')
+      .mockImplementation(async (_staffIds: string[], recentWindow?: unknown) => {
+        return new Map([['staff-1', recentWindow ? 0 : 100000]]);
+      });
+    jest
+      .spyOn(service as any, 'getTeacherSnapshotPaymentPreviewRows')
+      .mockImplementation(async (_db: unknown, params: { start?: Date; end?: Date }) => {
+        if (params.start || params.end) {
+          return [];
+        }
+
+        return [
+          {
+            id: 'old-session-1',
+            classId: 'class-1',
+            className: 'Toán 10A',
+            date: new Date('2025-01-05T00:00:00.000Z'),
+            paymentStatus: 'unpaid',
+            grossAmount: 100000,
+            operatingAmount: 0,
+            taxableBaseAmount: 100000,
+          },
+        ];
+      });
+
+    const result = await service.getIncomeSummary('staff-1', {
+      month: '03',
+      year: '2026',
+      days: 14,
+    });
+
+    expect(result.snapshotUnpaidTotal).toBe(100000);
+    expect(result.snapshotUnpaidNetTotal).toBe(72000);
+    expect(result.yearPaidNetTotal).toBe(50000);
+    expect(result.totalReceivedNet).toBe(122000);
+  });
+
+  it('applies tax but no operating deduction to non-teacher unpaid snapshot net', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      roles: [StaffRole.customer_care],
+      classTeachers: [],
+    });
+    mockEmptyTeacherIncome();
+    mockPrisma.staffTaxDeductionOverride.findFirst.mockResolvedValue({
+      ratePercent: 10,
+    });
+    mockPrisma.bonus.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    mockPrisma.extraAllowance.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    jest
+      .spyOn(service as any, 'getCustomerCareCommissionRowsByStatus')
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    jest
+      .spyOn(service as any, 'getUnpaidTotalsByStaffIds')
+      .mockResolvedValue(new Map([['staff-1', 100000]]));
+    mockPrisma.attendance.findMany.mockResolvedValueOnce([
+      {
+        id: 'attendance-1',
+        tuitionFee: 100000,
+        customerCareCoef: 1,
+        customerCarePaymentStatus: PaymentStatus.pending,
+        student: {
+          fullName: 'Học sinh A',
+        },
+        session: {
+          date: new Date('2026-03-12T00:00:00.000Z'),
+          class: {
+            name: 'Toán 10A',
+          },
+        },
+      },
+    ]);
+
+    const result = await service.getIncomeSummary('staff-1', {
+      month: '03',
+      year: '2026',
+      days: 14,
+    });
+
+    expect(result.snapshotUnpaidTotal).toBe(100000);
+    expect(result.snapshotUnpaidNetTotal).toBe(90000);
+    expect(result.totalReceivedNet).toBe(90000);
+  });
+
+  it('applies bonus income tax from prioritized staff role in income summary', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      roles: [StaffRole.teacher],
+      classTeachers: [],
+    });
+    mockEmptyTeacherIncome();
+    mockPrisma.staffTaxDeductionOverride.findFirst.mockResolvedValue({
+      ratePercent: 10,
+    });
+    mockPrisma.bonus.findMany
+      .mockResolvedValueOnce([
+        {
+          workType: 'Hỗ trợ',
+          amount: 100_000,
+          status: PaymentStatus.paid,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          amount: 100_000,
+          status: PaymentStatus.paid,
+        },
+      ]);
+
+    const result = await service.getIncomeSummary('staff-1', {
+      month: '03',
+      year: '2026',
+      days: 14,
+    });
+
+    expect(result.bonusMonthlyTotals).toEqual({
+      total: 90_000,
+      paid: 90_000,
+      unpaid: 0,
+    });
+    expect(result.monthlyGrossTotals.total).toBe(100_000);
+    expect(result.monthlyTaxTotals.total).toBe(10_000);
+    expect(result.monthlyIncomeTotals.total).toBe(90_000);
+    expect(result.yearTaxTotal).toBe(10_000);
+    expect(result.yearGrossIncomeTotal).toBe(100_000);
+    expect(result.yearIncomeTotal).toBe(90_000);
   });
 
   it('uses the current staff tax override rate in payment preview items', async () => {

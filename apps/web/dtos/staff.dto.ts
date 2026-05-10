@@ -126,6 +126,7 @@ export interface StaffIncomeAmountSummary {
     unpaid: number;
 }
 
+/** GV theo lớp: số tiền sau KH vận hành và thuế (khớp income-summary backend). */
 export interface StaffIncomeClassSummary extends StaffIncomeAmountSummary {
     classId: string;
     className: string;
@@ -152,9 +153,15 @@ export interface StaffIncomeDepositClassSummary {
 
 export interface StaffIncomeSummary {
     recentUnpaidDays: number;
+    /** Gross chưa nhận hiện tại: mọi khoản pending/unpaid, không giới hạn tháng/days, không gồm cọc. */
     snapshotUnpaidTotal: number;
+    /** Net chưa nhận hiện tại: teacher trừ vận hành rồi thuế; role khác chỉ trừ thuế. */
     snapshotUnpaidNetTotal: number;
+    /** Net đã thanh toán trong năm đang xem. */
     yearPaidNetTotal: number;
+    /** Card "Tổng nhận": NET của tháng đang chọn = `monthlyIncomeTotals.total`. */
+    incomeStatsTotalNet: number;
+    /** Tổng NET đã nhận/chưa nhận hiện tại; giữ để tương thích contract cũ. */
     totalReceivedNet: number;
     monthlyIncomeTotals: StaffIncomeAmountSummary;
     monthlyGrossTotals: StaffIncomeAmountSummary;
@@ -175,6 +182,7 @@ export interface StaffIncomeSummary {
     depositYearTotal: number;
     depositYearByClass: StaffIncomeDepositClassSummary[];
     classMonthlySummaries: StaffIncomeClassSummary[];
+    /** Thưởng tháng đang xem: sau thuế (không KH VH); gross/tax xem `monthlyGrossTotals` / `monthlyTaxTotals`. */
     bonusMonthlyTotals: StaffIncomeAmountSummary;
     otherRoleSummaries: StaffIncomeRoleSummary[];
 }

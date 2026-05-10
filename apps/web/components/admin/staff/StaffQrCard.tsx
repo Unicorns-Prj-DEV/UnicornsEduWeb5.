@@ -28,6 +28,8 @@ type Props = {
   size?: "default" | "compact" | "minimal";
   /** Strip outer card chrome; use inside another section. */
   embedded?: boolean;
+  /** When false, hide edit control and block "add QR" flow (read-only / open link only). */
+  allowEdit?: boolean;
 };
 
 export default function StaffQrCard({
@@ -36,6 +38,7 @@ export default function StaffQrCard({
   className = "",
   size = "default",
   embedded = false,
+  allowEdit = true,
 }: Props) {
   const isMinimal = size === "minimal";
   const isCompact = size === "compact";
@@ -76,88 +79,119 @@ export default function StaffQrCard({
       ? "border-primary/30 bg-primary/5 hover:border-primary/45 hover:bg-primary/10"
       : "border-border-default bg-bg-secondary/50 opacity-80 hover:bg-bg-tertiary hover:opacity-95";
 
-  return (
-    <section className={outerClass} aria-label="QR thanh toán">
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onEditClick();
-        }}
-        className={`absolute z-10 rounded p-0.5 text-text-muted transition-colors duration-200 hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
-          embedded ? "right-0 top-0" : "right-2 top-2"
-        }`}
-        title="Chỉnh sửa link QR"
-        aria-label="Chỉnh sửa link QR thanh toán"
-      >
+  const mainInteractive =
+    allowEdit || (hasLink && displayUrl && isHttpOrHttpsUrl(displayUrl));
+
+  const mainBody = (
+    <>
+      {hasLink && qrImageSrc ? (
+        <Image
+          src={qrImageSrc}
+          alt=""
+          width={isMinimal ? 48 : isCompact ? 72 : 112}
+          height={isMinimal ? 48 : isCompact ? 72 : 112}
+          className={imgClass}
+          unoptimized
+        />
+      ) : (
         <svg
-          className={isMinimal ? "size-3" : "size-3.5 sm:size-4"}
+          className={`${iconClass} text-text-muted`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
-          aria-hidden="true"
+          aria-hidden
         >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
-            strokeWidth={2}
+            strokeWidth={1.75}
             d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
           />
         </svg>
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          if (hasLink && displayUrl && isHttpOrHttpsUrl(displayUrl)) {
-            window.open(displayUrl, "_blank", "noopener,noreferrer");
-          } else {
+      )}
+      {isMinimal ? (
+        <span className="sr-only">
+          {hasLink
+            ? "Đã có QR thanh toán, nhấn để mở link"
+            : allowEdit
+              ? "Chưa có link QR, nhấn để thêm"
+              : "Chưa có link QR thanh toán"}
+        </span>
+      ) : (
+        <span
+          className={`text-center font-medium text-text-muted ${captionClass}`}
+        >
+          {hasLink ? "Mở link / QR" : allowEdit ? "Thêm link" : "Chưa có link"}
+        </span>
+      )}
+    </>
+  );
+
+  return (
+    <section className={outerClass} aria-label="QR thanh toán">
+      {allowEdit ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
             onEditClick();
-          }
-        }}
-        className={`relative flex touch-manipulation flex-col items-center justify-center transition-colors duration-200 ${boxClass} ${
-          isMinimal
-            ? `cursor-pointer ${hasLink ? "hover:bg-bg-tertiary/80" : "opacity-75 hover:opacity-100"}`
-            : `border-dashed ${borderTone} cursor-pointer`
-        }`}
-        title={hasLink ? "Mở link thanh toán" : "Thêm link QR thanh toán"}
-      >
-        {hasLink && qrImageSrc ? (
-          <Image
-            src={qrImageSrc}
-            alt=""
-            width={isMinimal ? 48 : isCompact ? 72 : 112}
-            height={isMinimal ? 48 : isCompact ? 72 : 112}
-            className={imgClass}
-            unoptimized
-          />
-        ) : (
+          }}
+          className={`absolute z-10 rounded p-0.5 text-text-muted transition-colors duration-200 hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
+            embedded ? "right-0 top-0" : "right-2 top-2"
+          }`}
+          title="Chỉnh sửa link QR"
+          aria-label="Chỉnh sửa link QR thanh toán"
+        >
           <svg
-            className={`${iconClass} text-text-muted`}
+            className={isMinimal ? "size-3" : "size-3.5 sm:size-4"}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
-            aria-hidden
+            aria-hidden="true"
           >
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
-              strokeWidth={1.75}
+              strokeWidth={2}
               d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
             />
           </svg>
-        )}
-        {isMinimal ? (
-          <span className="sr-only">
-            {hasLink ? "Đã có QR thanh toán, nhấn để mở link" : "Chưa có link QR, nhấn để thêm"}
-          </span>
-        ) : (
-          <span
-            className={`text-center font-medium text-text-muted ${captionClass}`}
-          >
-            {hasLink ? "Mở link / QR" : "Thêm link"}
-          </span>
-        )}
-      </button>
+        </button>
+      ) : null}
+      {mainInteractive ? (
+        <button
+          type="button"
+          onClick={() => {
+            if (hasLink && displayUrl && isHttpOrHttpsUrl(displayUrl)) {
+              window.open(displayUrl, "_blank", "noopener,noreferrer");
+            } else if (allowEdit) {
+              onEditClick();
+            }
+          }}
+          className={`relative flex touch-manipulation flex-col items-center justify-center transition-colors duration-200 ${boxClass} ${
+            isMinimal
+              ? `cursor-pointer ${hasLink ? "hover:bg-bg-tertiary/80" : "opacity-75 hover:opacity-100"}`
+              : `border-dashed ${borderTone} cursor-pointer`
+          }`}
+          title={
+            hasLink
+              ? "Mở link thanh toán"
+              : allowEdit
+                ? "Thêm link QR thanh toán"
+                : undefined
+          }
+        >
+          {mainBody}
+        </button>
+      ) : (
+        <div
+          className={`relative flex flex-col items-center justify-center ${boxClass} ${
+            isMinimal ? "cursor-default opacity-75" : `border-dashed ${borderTone} cursor-default`
+          }`}
+        >
+          {mainBody}
+        </div>
+      )}
     </section>
   );
 }
