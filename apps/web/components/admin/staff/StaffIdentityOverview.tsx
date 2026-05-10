@@ -88,6 +88,8 @@ export type StaffIdentityOverviewProps = {
   personalAchievementLink?: string | null;
   qrLink: string | null;
   onQrEdit: () => void;
+  /** When false, QR block is view-only (no edit / add link). Default true. */
+  allowQrEdit?: boolean;
 };
 
 export default function StaffIdentityOverview({
@@ -98,6 +100,7 @@ export default function StaffIdentityOverview({
   personalAchievementLink,
   qrLink,
   onQrEdit,
+  allowQrEdit = true,
 }: StaffIdentityOverviewProps) {
   const sectionTitleId = useId();
   const achievementsTitleId = useId();
@@ -119,6 +122,7 @@ export default function StaffIdentityOverview({
           size="minimal"
           embedded
           className="shrink-0"
+          allowEdit={allowQrEdit}
         />
       </div>
 

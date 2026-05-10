@@ -651,6 +651,7 @@ export default function UserProfilePage() {
   const handleSubmitStaff = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
+    const achievementRaw = getFieldValue(form, "personal_achievement_link");
     const payload: UpdateMyStaffProfileDto = {
       cccd_number: getFieldValue(form, "cccd_number"),
       cccd_issued_date: getFieldValue(form, "cccd_issued_date"),
@@ -661,6 +662,9 @@ export default function UserProfilePage() {
       specialization: getFieldValue(form, "specialization"),
       bank_account: getFieldValue(form, "bank_account"),
       bank_qr_link: getFieldValue(form, "bank_qr_link"),
+      personal_achievement_link: achievementRaw?.trim()
+        ? achievementRaw.trim()
+        : null,
     };
     updateStaffMutation.mutate(payload);
   };
@@ -750,6 +754,7 @@ export default function UserProfilePage() {
       profile.staffInfo.university,
       profile.staffInfo.highSchool,
       profile.staffInfo.specialization,
+      profile.staffInfo.personalAchievementLink,
       profile.staffInfo.bankAccount,
       profile.staffInfo.bankQrLink,
       profile.staffInfo.cccdNumber,
@@ -794,6 +799,7 @@ export default function UserProfilePage() {
       profile.staffInfo.university,
       profile.staffInfo.highSchool,
       profile.staffInfo.specialization,
+      profile.staffInfo.personalAchievementLink,
       profile.staffInfo.bankAccount,
       profile.staffInfo.bankQrLink,
       profile.staffInfo.cccdNumber,
@@ -981,6 +987,25 @@ export default function UserProfilePage() {
         label: "Link QR ngân hàng",
         value: profile.staffInfo.bankQrLink ?? "—",
         fullWidth: true,
+      },
+      {
+        label: "Minh chứng thành tích",
+        value: (() => {
+          const href = profile.staffInfo?.personalAchievementLink?.trim();
+          if (!href) return "—";
+          return (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-primary underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+            >
+              Xem liên kết
+            </a>
+          );
+        })(),
+        fullWidth: true,
+        hint: "URL http(s) tới tài liệu minh chứng (ví dụ Google Drive).",
       },
       {
         label: "Trạng thái",
@@ -1324,6 +1349,22 @@ export default function UserProfilePage() {
                           defaultValue={profile.staffInfo.bankQrLink ?? ""}
                           placeholder="https://..."
                         />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <TextField
+                          id="staff-personal_achievement_link"
+                          name="personal_achievement_link"
+                          label="Minh chứng thành tích (tùy chọn)"
+                          type="url"
+                          defaultValue={
+                            profile.staffInfo.personalAchievementLink ?? ""
+                          }
+                          placeholder="https://drive.google.com/…"
+                        />
+                        <p className="mt-1.5 text-xs text-text-muted">
+                          Link Google Drive hoặc trang http(s) lưu minh chứng
+                          thành tích. Để trống để xóa liên kết.
+                        </p>
                       </div>
                     </div>
 
