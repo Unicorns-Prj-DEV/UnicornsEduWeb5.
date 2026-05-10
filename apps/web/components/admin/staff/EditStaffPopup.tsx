@@ -286,6 +286,10 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
                   className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus resize-none"
                   placeholder="Ví dụ: Toán, Lý"
                 />
+                <p className="text-xs text-text-muted">
+                  Hiển thị hỗ trợ Markdown (gạch đầu dòng <code className="rounded bg-bg-tertiary px-1">-</code> /{" "}
+                  <code className="rounded bg-bg-tertiary px-1">*</code>, in đậm, liên kết) hoặc HTML đã lưu.
+                </p>
               </label>
 
               <label className="flex flex-col gap-1 text-sm text-text-secondary">

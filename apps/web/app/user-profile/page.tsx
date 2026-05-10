@@ -11,6 +11,7 @@ import UpgradedSelect, {
 import EmailVerificationInline from "@/components/user-profile/EmailVerificationInline";
 import UserAvatar from "@/components/ui/UserAvatar";
 import CccdImageUploadFields from "@/components/staff/CccdImageUploadFields";
+import StaffSpecializationRichText from "@/components/staff/StaffSpecializationRichText";
 import { useAuth } from "@/context/AuthContext";
 import {
   resolveEmailVerified,
@@ -239,9 +240,19 @@ function DetailRows({ items }: { items: DetailItem[] }) {
       {items.map((item) => (
         <div
           key={item.label}
-          className="grid grid-cols-1 gap-x-8 gap-y-1 py-3 first:pt-0 last:pb-0 sm:grid-cols-[minmax(7.5rem,11rem)_minmax(0,1fr)] sm:items-baseline"
+          className={
+            item.fullWidth
+              ? "grid grid-cols-1 gap-y-1.5 py-3 first:pt-0 last:pb-0"
+              : "grid grid-cols-1 gap-x-8 gap-y-1 py-3 first:pt-0 last:pb-0 sm:grid-cols-[minmax(7.5rem,11rem)_minmax(0,1fr)] sm:items-baseline"
+          }
         >
-          <dt className="text-sm font-semibold text-text-primary sm:text-right">
+          <dt
+            className={
+              item.fullWidth
+                ? "text-sm font-semibold text-text-primary"
+                : "text-sm font-semibold text-text-primary sm:text-right"
+            }
+          >
             {item.label}
           </dt>
           <dd className="min-w-0 text-sm font-normal leading-relaxed text-text-primary">
@@ -981,7 +992,18 @@ export default function UserProfilePage() {
       { label: "Ngày sinh", value: formatDate(profile.staffInfo.birthDate) },
       { label: "Trường đại học", value: profile.staffInfo.university ?? "—" },
       { label: "Trường THPT", value: profile.staffInfo.highSchool ?? "—" },
-      { label: "Chuyên ngành", value: profile.staffInfo.specialization ?? "—" },
+      {
+        label: "Chuyên ngành",
+        value: profile.staffInfo.specialization?.trim() ? (
+          <StaffSpecializationRichText
+            text={profile.staffInfo.specialization}
+            emptyFallback="—"
+          />
+        ) : (
+          "—"
+        ),
+        fullWidth: true,
+      },
       { label: "Số tài khoản", value: profile.staffInfo.bankAccount ?? "—" },
       {
         label: "Link QR ngân hàng",

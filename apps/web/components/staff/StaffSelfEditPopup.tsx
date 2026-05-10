@@ -312,6 +312,11 @@ export default function StaffSelfEditPopup({
                   className="resize-none rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   placeholder="Ví dụ: Toán, Lý, luyện thi, chăm sóc học viên…"
                 />
+                <p className="text-xs text-text-muted">
+                  Hiển thị hỗ trợ Markdown (gạch đầu dòng <code className="rounded bg-bg-tertiary px-1">-</code> /{" "}
+                  <code className="rounded bg-bg-tertiary px-1">*</code>, in đậm <code className="rounded bg-bg-tertiary px-1">**…**</code>, liên kết{" "}
+                  <code className="rounded bg-bg-tertiary px-1">[text](url)</code>) hoặc HTML đã lưu từ trình soạn thảo.
+                </p>
               </label>
 
               <label className="flex flex-col gap-1 text-sm text-text-secondary">

@@ -1,6 +1,11 @@
 import DOMPurify from "dompurify";
 
 const HTML_TAG_PATTERN = /<\/?[a-z][\s\S]*>/i;
+
+/** True when content likely contains HTML (e.g. TipTap / pasted rich text). Plain Markdown stays false. */
+export function isLikelyHtmlFragment(content: string): boolean {
+  return HTML_TAG_PATTERN.test(content.trim());
+}
 const HTML_ESCAPE_TABLE: Record<string, string> = {
   "&": "&amp;",
   "<": "&lt;",
