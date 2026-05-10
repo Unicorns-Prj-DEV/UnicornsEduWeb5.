@@ -249,6 +249,42 @@ function summarizeSourceBucketRows<T extends SourcePaymentTaxBucketRow>(
   };
 }
 
+type SourceBucketSummary = ReturnType<typeof summarizeSourceBucketRows>;
+
+function mergeSourceBucketSummaries(
+  summaries: SourceBucketSummary[],
+): SourceBucketSummary {
+  return summaries.reduce<SourceBucketSummary>(
+    (current, summary) => ({
+      grossTotals: mergeAmountSummary(current.grossTotals, summary.grossTotals),
+      taxTotals: mergeAmountSummary(current.taxTotals, summary.taxTotals),
+      operatingTotals: mergeAmountSummary(
+        current.operatingTotals,
+        summary.operatingTotals,
+      ),
+      totalDeductionTotals: mergeAmountSummary(
+        current.totalDeductionTotals,
+        summary.totalDeductionTotals,
+      ),
+      netTotals: mergeAmountSummary(current.netTotals, summary.netTotals),
+    }),
+    {
+      grossTotals: makeAmountSummary(),
+      taxTotals: makeAmountSummary(),
+      operatingTotals: makeAmountSummary(),
+      totalDeductionTotals: makeAmountSummary(),
+      netTotals: makeAmountSummary(),
+    },
+  );
+}
+
+function isRecentUnpaidSessionStatus(status: string | null | undefined) {
+  const normalized = String(status ?? '')
+    .trim()
+    .toLowerCase();
+  return RECENT_UNPAID_SESSION_STATUSES.some((value) => value === normalized);
+}
+
 function buildMonthRange(month: string, year: string) {
   if (!/^\d{4}$/.test(year)) {
     throw new BadRequestException('year must use YYYY format.');
@@ -491,6 +527,40 @@ function toIsoDateString(value: Date | string | null | undefined) {
 
 function calculateTaxAmount(grossAmount: number, taxRatePercent: number) {
   return roundMoney((grossAmount * normalizePercent(taxRatePercent)) / 100);
+}
+
+/** Thưởng không có KH vận hành; thuế áp trên gross theo % resolved (cùng rule `resolveBonusIncomeTaxRatePercent`). */
+function buildBonusIncomeSummaries(
+  bonuses: {
+    amount: number | string | null | undefined;
+    status: string | null | undefined;
+  }[],
+  taxRatePercent: number,
+): {
+  grossTotals: StaffIncomeAmountSummaryDto;
+  netTotals: StaffIncomeAmountSummaryDto;
+  taxTotals: StaffIncomeAmountSummaryDto;
+} {
+  const grossTotals = makeAmountSummary();
+  const netTotals = makeAmountSummary();
+  const taxTotals = makeAmountSummary();
+  const rate = normalizePercent(taxRatePercent);
+
+  bonuses.forEach((bonus) => {
+    const gross = normalizeMoneyAmount(bonus.amount);
+    const taxAmount = calculateTaxAmount(gross, rate);
+    const netAmount = gross - taxAmount;
+    const paymentStatus =
+      bonus.status === undefined || bonus.status === null
+        ? null
+        : String(bonus.status);
+
+    addAmountToSummary(grossTotals, paymentStatus, gross);
+    addAmountToSummary(taxTotals, paymentStatus, taxAmount);
+    addAmountToSummary(netTotals, paymentStatus, netAmount);
+  });
+
+  return { grossTotals, netTotals, taxTotals };
 }
 
 function comparePaymentPreviewItems(
@@ -1463,20 +1533,16 @@ export class StaffService {
     });
   }
 
-  /** Unpaid/pending sessions trong cửa sổ snapshot (cùng rule gross SQL với payment preview). */
+  /** Toàn bộ unpaid/pending sessions cho snapshot hiện tại (cùng rule gross SQL với payment preview). */
   private async getTeacherSnapshotPaymentPreviewRows(
     db: StaffPaymentClient,
     params: {
       teacherId: string;
-      start: Date;
-      end: Date;
     },
   ): Promise<TeacherPaymentPreviewRow[]> {
     return db.$queryRaw<TeacherPaymentPreviewRow[]>(Prisma.sql`
       ${this.buildTeacherSessionAllowanceCte({
         teacherId: params.teacherId,
-        start: params.start,
-        end: params.end,
         teacherPaymentStatuses: [...RECENT_UNPAID_SESSION_STATUSES],
       })}
       SELECT
@@ -1493,13 +1559,11 @@ export class StaffService {
     `);
   }
 
-  /** Net “Chưa nhận” cho buổi dạy: %VH + %thuế hiện hành (giống popup thanh toán). */
+  /** Net “Chưa nhận” cho mọi buổi dạy unpaid/pending: %VH + %thuế hiện hành (giống popup thanh toán). */
   private async getTeacherSnapshotPaymentPreviewRecords(
     db: StaffPaymentClient,
     params: {
       teacherId: string;
-      start: Date;
-      end: Date;
     },
   ): Promise<StaffPaymentPreviewDraftRecord[]> {
     const rows = await this.getTeacherSnapshotPaymentPreviewRows(db, params);
@@ -2102,6 +2166,90 @@ export class StaffService {
   }
 
   /**
+   * Thuế áp cho khoản **thưởng** trong income-summary / payment preview snapshot:
+   * lấy mức khấu trừ hiện hành theo role đầu tiên trong thứ tự ưu tiên nghiệp vụ
+   * (trùng hướng “một nhân sự — một mức thuế thưởng” khi DB không gắn role từng dòng bonus).
+   */
+  private async resolveBonusIncomeTaxRatePercent(
+    staffId: string,
+    roles: StaffRole[],
+  ): Promise<number> {
+    const effectiveDate = new Date();
+    const priority: StaffRole[] = [
+      StaffRole.teacher,
+      StaffRole.customer_care,
+      StaffRole.lesson_plan_head,
+      StaffRole.lesson_plan,
+      StaffRole.assistant,
+      StaffRole.accountant,
+      StaffRole.communication,
+      StaffRole.technical,
+    ];
+
+    for (const role of priority) {
+      if (roles.includes(role)) {
+        return resolveTaxDeductionRate(this.prisma, {
+          staffId,
+          roleType: role,
+          effectiveDate,
+        });
+      }
+    }
+
+    return 0;
+  }
+
+  private async summarizeTeacherMonthlyUnpaidAtCurrentRates(
+    teacherId: string,
+    rows: TeacherAllowanceByClassTaxBucketRow[],
+  ): Promise<SourceBucketSummary> {
+    const unpaidRows = rows.filter((row) =>
+      isRecentUnpaidSessionStatus(row.teacherPaymentStatus),
+    );
+
+    if (unpaidRows.length === 0) {
+      return mergeSourceBucketSummaries([]);
+    }
+
+    const classIds = [
+      ...new Set(
+        unpaidRows
+          .map((row) => row.classId?.trim())
+          .filter((classId): classId is string => !!classId),
+      ),
+    ];
+    const [operatingRateByClassId, teacherTaxRatePercent] = await Promise.all([
+      this.resolveCurrentOperatingRates(this.prisma, teacherId, classIds),
+      resolveTaxDeductionRate(this.prisma, {
+        staffId: teacherId,
+        roleType: StaffRole.teacher,
+        effectiveDate: new Date(),
+      }),
+    ]);
+
+    const currentRateRows: SourcePaymentTaxBucketRow[] = unpaidRows.map(
+      (row) => {
+        const grossAmount = normalizeMoneyAmount(row.grossAllowance);
+        const classId = row.classId?.trim() ?? '';
+        const operatingRatePercent = operatingRateByClassId.get(classId) ?? 0;
+        const operatingAmount = roundMoney(
+          (grossAmount * operatingRatePercent) / 100,
+        );
+
+        return {
+          paymentStatus: row.teacherPaymentStatus,
+          grossAmount,
+          operatingAmount,
+          taxableBaseAmount: grossAmount - operatingAmount,
+          taxRatePercent: teacherTaxRatePercent,
+        };
+      },
+    );
+
+    return summarizeSourceBucketRows(currentRateRows);
+  }
+
+  /**
    * Resolve % vận hành hiện hành (server now) cho từng classId của giáo viên.
    * Ưu tiên bảng `class_teacher_operating_deduction_rates` (effective-date),
    * fallback về `class_teachers.operatingDeductionRatePercent`.
@@ -2141,6 +2289,7 @@ export class StaffService {
   private finalizePaymentPreviewRecords(
     records: StaffPaymentPreviewDraftRecord[],
     taxRateByRole: Map<StaffRole, number>,
+    bonusIncomeTaxRatePercent: number,
   ): StaffPaymentPreviewRecord[] {
     return records.map((record) => {
       const {
@@ -2150,7 +2299,11 @@ export class StaffService {
       } = record;
       const operatingRatePercent = draftOpRate ?? 0;
       const taxRatePercent =
-        record.role == null ? 0 : (taxRateByRole.get(record.role) ?? 0);
+        record.sourceType === 'bonus'
+          ? bonusIncomeTaxRatePercent
+          : record.role == null
+            ? 0
+            : (taxRateByRole.get(record.role) ?? 0);
       const normalizedTaxableBaseAmount = normalizeMoneyAmount(
         taxableBaseAmount ?? record.grossAmount,
       );
@@ -2246,11 +2399,18 @@ export class StaffService {
     const { taxAsOfDate, taxRateByRole } =
       await this.resolveCurrentPaymentTaxRates(db, id, draftRecords);
 
+    const bonusIncomeTaxRatePercent =
+      await this.resolveBonusIncomeTaxRatePercent(id, staff.roles);
+
     return {
       staff,
       monthKey: range.monthKey,
       taxAsOfDate,
-      records: this.finalizePaymentPreviewRecords(draftRecords, taxRateByRole),
+      records: this.finalizePaymentPreviewRecords(
+        draftRecords,
+        taxRateByRole,
+        bonusIncomeTaxRatePercent,
+      ),
     };
   }
 
@@ -3151,14 +3311,13 @@ export class StaffService {
   }
 
   /**
-   * Tổng net “Chưa nhận” theo snapshot nghiệp vụ: buổi dạy trong cửa sổ `days`,
-   * các nguồn pending khác toàn hệ thống. % vận hành (GV theo lớp) và % thuế
-   * theo role lấy **hiện hành** như popup thanh toán (`resolveCurrentOperatingRates`,
-   * `resolveTaxDeductionRate`).
+   * Tổng net “Chưa nhận” theo snapshot nghiệp vụ: mọi khoản pending/unpaid hiện tại,
+   * không giới hạn tháng hoặc cửa sổ `days`, và loại trừ cọc. % vận hành (GV theo lớp)
+   * và % thuế theo role lấy **hiện hành** như popup thanh toán
+   * (`resolveCurrentOperatingRates`, `resolveTaxDeductionRate`).
    */
   private async computeSnapshotUnpaidNetTotal(
     staffId: string,
-    recentWindow: { start: Date; end: Date },
     roles: StaffRole[],
     isAssistant: boolean,
   ): Promise<number> {
@@ -3172,8 +3331,6 @@ export class StaffService {
     const draftRecordGroups = await Promise.all([
       this.getTeacherSnapshotPaymentPreviewRecords(db, {
         teacherId: staffId,
-        start: recentWindow.start,
-        end: recentWindow.end,
       }),
       this.getBonusAllPendingPreviewRecords(db, staffId),
       roles.includes(StaffRole.customer_care)
@@ -3202,9 +3359,13 @@ export class StaffService {
       draftRecords,
     );
 
+    const bonusIncomeTaxRatePercent =
+      await this.resolveBonusIncomeTaxRatePercent(staffId, roles);
+
     const finalized = this.finalizePaymentPreviewRecords(
       draftRecords,
       taxRateByRole,
+      bonusIncomeTaxRatePercent,
     );
 
     return finalized.reduce(
@@ -3213,10 +3374,7 @@ export class StaffService {
     );
   }
 
-  private async getUnpaidTotalsByStaffIds(
-    staffIds: string[],
-    recentWindow: { start: Date; end: Date } = buildRecentWindow(),
-  ) {
+  private async getUnpaidTotalsByStaffIds(staffIds: string[]) {
     const normalizedStaffIds = Array.from(
       new Set(
         staffIds
@@ -3254,8 +3412,6 @@ export class StaffService {
         WHERE LOWER(COALESCE(sessions.teacher_payment_status, '')) IN (${Prisma.join(
           Array.from(RECENT_UNPAID_SESSION_STATUSES),
         )})
-          AND sessions.date >= ${recentWindow.start}
-          AND sessions.date < ${recentWindow.end}
         GROUP BY
           sessions.teacher_id,
           sessions.id,
@@ -3424,6 +3580,7 @@ export class StaffService {
       assistantShareMonthlyRows,
       assistantShareYearRows,
       unpaidSnapshotTotalsByStaffId,
+      bonusIncomeTaxRatePercent,
     ] = await Promise.all([
       this.getTeacherAllowanceSourceRowsByStatusAndTaxBucket({
         teacherId: id,
@@ -3532,19 +3689,30 @@ export class StaffService {
             end: range.yearEnd,
           })
         : Promise.resolve<SourcePaymentTaxBucketRow[]>([]),
-      this.getUnpaidTotalsByStaffIds([id], recentWindow),
+      this.getUnpaidTotalsByStaffIds([id]),
+      this.resolveBonusIncomeTaxRatePercent(id, staff.roles),
     ]);
 
     const snapshotUnpaidNetTotal = await this.computeSnapshotUnpaidNetTotal(
       id,
-      recentWindow,
       staff.roles,
       isAssistant,
     );
 
-    const sessionMonthlySummary = summarizeSourceBucketRows(
-      monthlySessionSummaryRows,
+    const sessionMonthlySettledSummary = summarizeSourceBucketRows(
+      monthlySessionSummaryRows.filter(
+        (row) => !isRecentUnpaidSessionStatus(row.paymentStatus),
+      ),
     );
+    const sessionMonthlyUnpaidSummary =
+      await this.summarizeTeacherMonthlyUnpaidAtCurrentRates(
+        id,
+        monthlyClassTaxBucketRows,
+      );
+    const sessionMonthlySummary = mergeSourceBucketSummaries([
+      sessionMonthlySettledSummary,
+      sessionMonthlyUnpaidSummary,
+    ]);
     const sessionYearSummary = summarizeSourceBucketRows(
       sessionYearSummaryRows,
     );
@@ -3637,17 +3805,15 @@ export class StaffService {
       });
     });
 
-    const bonusMonthlyTotals =
-      monthlyBonuses.reduce<StaffIncomeAmountSummaryDto>((summary, bonus) => {
-        const amount = normalizeMoneyAmount(bonus.amount);
-        const isPaid = String(bonus.status ?? '').toLowerCase() === 'paid';
-
-        return {
-          total: summary.total + amount,
-          paid: summary.paid + (isPaid ? amount : 0),
-          unpaid: summary.unpaid + (isPaid ? 0 : amount),
-        };
-      }, makeAmountSummary());
+    const bonusMonthBreakdown = buildBonusIncomeSummaries(
+      monthlyBonuses,
+      bonusIncomeTaxRatePercent,
+    );
+    const bonusYearBreakdown = buildBonusIncomeSummaries(
+      yearBonuses,
+      bonusIncomeTaxRatePercent,
+    );
+    const bonusMonthlyTotals = bonusMonthBreakdown.netTotals;
 
     const extraAllowanceMonthlyTotals = extraAllowanceMonthlySummary.netTotals;
     const extraAllowanceMonthlyGrossTotals =
@@ -3683,7 +3849,7 @@ export class StaffService {
 
     const monthlyGrossTotals = [
       sessionMonthlyGrossTotals,
-      bonusMonthlyTotals,
+      bonusMonthBreakdown.grossTotals,
       extraAllowanceMonthlyGrossTotals,
       customerCareMonthlyGrossTotals,
       lessonOutputMonthlyGrossTotals,
@@ -3692,6 +3858,7 @@ export class StaffService {
 
     const monthlyTaxTotals = [
       sessionMonthlyTaxTotals,
+      bonusMonthBreakdown.taxTotals,
       extraAllowanceMonthlyTaxTotals,
       customerCareMonthlyTaxTotals,
       lessonOutputMonthlyTaxTotals,
@@ -3707,16 +3874,8 @@ export class StaffService {
       monthlyOperatingDeductionTotals,
     ].reduce(mergeAmountSummary, makeAmountSummary());
 
-    const bonusYearTotal = yearBonuses.reduce(
-      (sum, bonus) => sum + normalizeMoneyAmount(bonus.amount),
-      0,
-    );
-    const bonusYearPaidTotal = yearBonuses.reduce((sum, bonus) => {
-      if (String(bonus.status ?? '').toLowerCase() !== 'paid') {
-        return sum;
-      }
-      return sum + normalizeMoneyAmount(bonus.amount);
-    }, 0);
+    const bonusYearTotal = bonusYearBreakdown.netTotals.total;
+    const bonusYearPaidTotal = bonusYearBreakdown.netTotals.paid;
     const extraAllowanceYearTotal = extraAllowanceYearSummary.netTotals.total;
     const extraAllowanceYearGrossTotal =
       extraAllowanceYearSummary.grossTotals.total;
@@ -3749,13 +3908,14 @@ export class StaffService {
       assistantShareYearTotal;
     const yearGrossIncomeTotal =
       sessionYearGrossTotal +
-      bonusYearTotal +
+      bonusYearBreakdown.grossTotals.total +
       extraAllowanceYearGrossTotal +
       customerCareYearGrossTotal +
       lessonOutputYearGrossTotal +
       assistantShareYearGrossTotal;
     const yearTaxTotal =
       sessionYearTaxTotal +
+      bonusYearBreakdown.taxTotals.total +
       extraAllowanceYearTaxTotal +
       customerCareYearTaxTotal +
       lessonOutputYearTaxTotal +
@@ -3885,6 +4045,7 @@ export class StaffService {
       snapshotUnpaidTotal,
       snapshotUnpaidNetTotal,
       yearPaidNetTotal,
+      incomeStatsTotalNet: monthlyIncomeTotals.total,
       totalReceivedNet,
       monthlyIncomeTotals,
       monthlyGrossTotals,

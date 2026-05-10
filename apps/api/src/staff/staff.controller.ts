@@ -277,7 +277,7 @@ export class StaffController {
   @ApiOperation({
     summary: 'Get staff income summary',
     description:
-      'Get backend-authoritative income summaries for a staff detail page.',
+      'Backend-authoritative net-first totals for staff detail. incomeStatsTotalNet is the top-card "Tổng nhận" monthly NET (monthlyIncomeTotals.total), while yearIncomeTotal remains the selected-year net rollup and totalReceivedNet keeps the current paid-year + unpaid-snapshot contract. Teacher allowance uses operating + tax on post-operating base; bonuses use tax only (no operating), at the current effective rate for the first matching staff role in priority order: teacher, customer_care, lesson_plan_head, lesson_plan, assistant, accountant, communication, technical. Gross/tax breakdown fields include bonus gross and bonus tax.',
   })
   @ApiParam({ name: 'id', description: 'Staff id' })
   @ApiQuery({
@@ -327,7 +327,7 @@ export class StaffController {
   @ApiOperation({
     summary: 'Get staff payment preview',
     description:
-      'Get backend-authoritative payable items grouped by role/source. Teacher sessions (`unpaid`) include every unpaid teaching session for the staff, not limited to the selected month; other sources (bonus, extra allowance, lesson outputs, CSKH/assistant shares on attendance, etc.) are scoped to the selected month/year. Teacher tax is recalculated from the current teacher rate on the post-operating amount, while other roles keep their current per-role tax behavior.',
+      'Get backend-authoritative payable items grouped by role/source. Teacher sessions (`unpaid`) include every unpaid teaching session for the staff, not limited to the selected month; other sources (bonus, extra allowance, lesson outputs, CSKH/assistant shares on attendance, etc.) are scoped to the selected month/year. Teacher tax is recalculated from the current teacher rate on the post-operating amount, while other roles keep their current per-role tax behavior. Bonus items use the same prioritized staff-role tax rate as income-summary (no operating deduction on bonus).',
   })
   @ApiParam({ name: 'id', description: 'Staff id' })
   @ApiQuery({

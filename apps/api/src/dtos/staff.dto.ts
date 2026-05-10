@@ -249,15 +249,21 @@ export interface StaffIncomeDepositClassSummaryDto {
 
 export interface StaffIncomeSummaryDto {
   recentUnpaidDays: number;
+  /**
+   * Gross “Chưa nhận”: toàn bộ khoản pending/unpaid hiện tại từ mọi nguồn, không giới hạn tháng
+   * hoặc cửa sổ `days`; không gồm session trạng thái cọc.
+   */
   snapshotUnpaidTotal: number;
   /**
-   * Net “Chưa nhận”: cùng phạm vi `snapshotUnpaidTotal`; % vận hành (GV theo lớp)
-   * và % thuế theo role lấy **hiện hành** (như popup thanh toán), không dùng snapshot thuế trên record.
+   * Net “Chưa nhận”: cùng phạm vi `snapshotUnpaidTotal`; giáo viên trừ vận hành hiện hành theo lớp
+   * rồi tính thuế trên phần sau vận hành; các role khác chỉ trừ thuế hiện hành, không trừ vận hành.
    */
   snapshotUnpaidNetTotal: number;
   /** Tổng trợ cấp net đã thanh toán trong năm (theo `year`) */
   yearPaidNetTotal: number;
-  /** `yearPaidNetTotal` + `snapshotUnpaidNetTotal` */
+  /** Card “Tổng nhận”: NET của tháng đang chọn = `monthlyIncomeTotals.total`. */
+  incomeStatsTotalNet: number;
+  /** Tổng NET đã nhận/chưa nhận hiện tại; giữ để tương thích contract cũ. */
   totalReceivedNet: number;
   monthlyIncomeTotals: StaffIncomeAmountSummaryDto;
   monthlyGrossTotals: StaffIncomeAmountSummaryDto;
@@ -278,6 +284,10 @@ export interface StaffIncomeSummaryDto {
   depositYearTotal: number;
   depositYearByClass: StaffIncomeDepositClassSummaryDto[];
   classMonthlySummaries: StaffIncomeClassSummaryDto[];
+  /**
+   * Thưởng trong tháng đang xem: **thực nhận** sau khấu trừ thuế (theo % hiện hành của role ưu tiên trên hồ sơ).
+   * Giá trị gross thưởng nằm trong `monthlyGrossTotals`; thuế thưởng trong `monthlyTaxTotals`.
+   */
   bonusMonthlyTotals: StaffIncomeAmountSummaryDto;
   otherRoleSummaries: StaffIncomeRoleSummaryDto[];
 }

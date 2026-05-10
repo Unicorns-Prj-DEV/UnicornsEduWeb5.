@@ -653,7 +653,9 @@ export default function AdminStaffDetailPage({
   const monthlyIncomeTotals =
     incomeSummary?.monthlyIncomeTotals ?? EMPTY_AMOUNT_SUMMARY;
   const snapshotUnpaidNetTotal = incomeSummary?.snapshotUnpaidNetTotal ?? 0;
-  const yearPaidNetTotal = incomeSummary?.yearPaidNetTotal ?? 0;
+  const incomeStatsTotalNet =
+    incomeSummary?.incomeStatsTotalNet ?? monthlyIncomeTotals.total;
+  const yearIncomeTotal = incomeSummary?.yearIncomeTotal ?? 0;
   const depositYearTotal = incomeSummary?.depositYearTotal ?? 0;
   const depositByClass = incomeSummary?.depositYearByClass ?? [];
   const bonusTotals = incomeSummary?.bonusMonthlyTotals ?? EMPTY_AMOUNT_SUMMARY;
@@ -1503,7 +1505,7 @@ export default function AdminStaffDetailPage({
           <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
               <p className="text-xs uppercase tracking-wide text-text-muted">Tổng nhận</p>
-              <p className="mt-1 tabular-nums text-lg font-semibold text-primary">{formatCurrency(monthlyIncomeTotals.total)}</p>
+              <p className="mt-1 tabular-nums text-lg font-semibold text-primary">{formatCurrency(incomeStatsTotalNet)}</p>
             </article>
             <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
               <p className="text-xs uppercase tracking-wide text-text-muted">Chưa nhận</p>
@@ -1515,7 +1517,7 @@ export default function AdminStaffDetailPage({
             </article>
             <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
               <p className="text-xs uppercase tracking-wide text-text-muted">Tổng năm</p>
-              <p className="mt-1 tabular-nums text-lg font-semibold text-warning">{formatCurrency(yearPaidNetTotal)}</p>
+              <p className="mt-1 tabular-nums text-lg font-semibold text-warning">{formatCurrency(yearIncomeTotal)}</p>
             </article>
             <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
               <p className="text-xs uppercase tracking-wide text-text-muted">Ghi cọc</p>

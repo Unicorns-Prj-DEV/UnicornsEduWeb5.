@@ -998,6 +998,7 @@ export default function StaffDashboardPage() {
     paid: 0,
     unpaid: 0,
   };
+  const snapshotUnpaidNetTotal = incomeSummary?.snapshotUnpaidNetTotal ?? 0;
   const dashboard = dashboardQuery.data;
   const hasLessonPlanHead = staffRoles.includes("lesson_plan_head");
   const hasLessonPlan = staffRoles.includes("lesson_plan") && !hasLessonPlanHead;
@@ -1075,7 +1076,7 @@ export default function StaffDashboardPage() {
                   />
                   <MiniStat
                     label="Chưa nhận"
-                    value={formatCurrency(monthlyTotals.unpaid)}
+                    value={formatCurrency(snapshotUnpaidNetTotal)}
                     tone="warning"
                   />
                 </div>

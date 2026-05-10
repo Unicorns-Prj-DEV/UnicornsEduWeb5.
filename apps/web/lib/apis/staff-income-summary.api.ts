@@ -113,14 +113,21 @@ export function normalizeStaffIncomeSummary(
     "yearTotalDeductionTotal",
     "yearDeductionTotal",
   ]);
+  const monthlyIncomeTotals = normalizeAmountSummary(source.monthlyIncomeTotals);
 
   return {
     recentUnpaidDays: toNumber(source.recentUnpaidDays),
     snapshotUnpaidTotal: toNumber(source.snapshotUnpaidTotal),
     snapshotUnpaidNetTotal: toNumber(source.snapshotUnpaidNetTotal),
     yearPaidNetTotal: toNumber(source.yearPaidNetTotal),
-    totalReceivedNet: toNumber(source.totalReceivedNet),
-    monthlyIncomeTotals: normalizeAmountSummary(source.monthlyIncomeTotals),
+    incomeStatsTotalNet:
+      pickFirstValue(source, ["incomeStatsTotalNet"]) == null
+        ? monthlyIncomeTotals.total
+        : toNumber(source.incomeStatsTotalNet),
+    totalReceivedNet: toNumber(
+      pickFirstValue(source, ["totalReceivedNet", "incomeStatsTotalNet"]),
+    ),
+    monthlyIncomeTotals,
     monthlyGrossTotals: normalizeAmountSummary(source.monthlyGrossTotals),
     monthlyTaxTotals: normalizeAmountSummary(source.monthlyTaxTotals),
     ...(monthlyOperatingDeductionTotals
