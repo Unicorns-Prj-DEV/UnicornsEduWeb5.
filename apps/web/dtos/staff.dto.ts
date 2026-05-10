@@ -126,6 +126,7 @@ export interface StaffIncomeAmountSummary {
     unpaid: number;
 }
 
+/** GV theo lớp: số tiền sau KH vận hành và thuế (khớp income-summary backend). */
 export interface StaffIncomeClassSummary extends StaffIncomeAmountSummary {
     classId: string;
     className: string;

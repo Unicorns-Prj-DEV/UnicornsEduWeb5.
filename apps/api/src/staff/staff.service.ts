@@ -312,21 +312,15 @@ function formatMonthKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
-type TeacherAllowanceByClassStatusRow = {
+/** Per-class buckets aligned with `SourcePaymentTaxBucketRow` / buổi dạy snapshot. */
+type TeacherAllowanceByClassTaxBucketRow = {
   classId: string;
   className: string;
   teacherPaymentStatus: string | null;
+  taxRatePercent: number | string | null;
   grossAllowance: number | string | null;
   operatingAmount: number | string | null;
-  totalAllowance: number | string | null;
-};
-
-type TeacherAllowanceByClassRow = {
-  classId: string;
-  className: string;
-  grossAllowance: number | string | null;
-  operatingAmount: number | string | null;
-  totalAllowance: number | string | null;
+  taxableBaseAmount: number | string | null;
 };
 
 type ExtraAllowanceRoleTaxBucketRow = SourcePaymentTaxBucketRow & {
@@ -1169,42 +1163,30 @@ export class StaffService {
     `;
   }
 
-  private async getTeacherAllowanceRowsByClassAndStatus(params: {
+  private async getTeacherAllowanceRowsByClassStatusAndTaxBucket(params: {
     teacherId: string;
     start: Date;
     end: Date;
     teacherPaymentStatuses?: string[];
-  }): Promise<TeacherAllowanceByClassStatusRow[]> {
-    return this.prisma.$queryRaw<TeacherAllowanceByClassStatusRow[]>(Prisma.sql`
+  }): Promise<TeacherAllowanceByClassTaxBucketRow[]> {
+    return this.prisma.$queryRaw<
+      TeacherAllowanceByClassTaxBucketRow[]
+    >(Prisma.sql`
       ${this.buildTeacherSessionAllowanceCte(params)}
       SELECT
         class_id AS "classId",
         class_name AS "className",
         teacher_payment_status AS "teacherPaymentStatus",
+        teacher_tax_deduction_rate_percent AS "taxRatePercent",
         COALESCE(SUM(teacher_gross_total), 0) AS "grossAllowance",
         COALESCE(SUM(teacher_operating_total), 0) AS "operatingAmount",
-        COALESCE(SUM(teacher_after_operating_total), 0) AS "totalAllowance"
+        COALESCE(SUM(teacher_after_operating_total), 0) AS "taxableBaseAmount"
       FROM teacher_session_allowances
-      GROUP BY class_id, class_name, teacher_payment_status
-    `);
-  }
-
-  private async getTeacherAllowanceRowsByClass(params: {
-    teacherId: string;
-    start: Date;
-    end: Date;
-    teacherPaymentStatuses?: string[];
-  }): Promise<TeacherAllowanceByClassRow[]> {
-    return this.prisma.$queryRaw<TeacherAllowanceByClassRow[]>(Prisma.sql`
-      ${this.buildTeacherSessionAllowanceCte(params)}
-      SELECT
-        class_id AS "classId",
-        class_name AS "className",
-        COALESCE(SUM(teacher_gross_total), 0) AS "grossAllowance",
-        COALESCE(SUM(teacher_operating_total), 0) AS "operatingAmount",
-        COALESCE(SUM(teacher_after_operating_total), 0) AS "totalAllowance"
-      FROM teacher_session_allowances
-      GROUP BY class_id, class_name
+      GROUP BY
+        class_id,
+        class_name,
+        teacher_payment_status,
+        teacher_tax_deduction_rate_percent
     `);
   }
 
@@ -3428,9 +3410,9 @@ export class StaffService {
     const [
       monthlySessionSummaryRows,
       sessionYearSummaryRows,
-      monthlySessionRows,
+      monthlyClassTaxBucketRows,
       depositSessionRows,
-      recentUnpaidSessionRows,
+      recentUnpaidClassTaxBucketRows,
       monthlyBonuses,
       yearBonuses,
       monthlyExtraAllowanceRows,
@@ -3453,7 +3435,7 @@ export class StaffService {
         start: range.yearStart,
         end: range.yearEnd,
       }),
-      this.getTeacherAllowanceRowsByClassAndStatus({
+      this.getTeacherAllowanceRowsByClassStatusAndTaxBucket({
         teacherId: id,
         start: range.start,
         end: range.end,
@@ -3463,7 +3445,7 @@ export class StaffService {
         start: range.yearStart,
         end: range.yearEnd,
       }),
-      this.getTeacherAllowanceRowsByClass({
+      this.getTeacherAllowanceRowsByClassStatusAndTaxBucket({
         teacherId: id,
         start: recentWindow.start,
         end: recentWindow.end,
@@ -3606,7 +3588,7 @@ export class StaffService {
       });
     });
 
-    monthlySessionRows.forEach((row) => {
+    monthlyClassTaxBucketRows.forEach((row) => {
       const classId = row.classId?.trim();
       if (!classId) return;
 
@@ -3615,18 +3597,24 @@ export class StaffService {
         className: row.className?.trim() || 'Lớp chưa đặt tên',
         ...makeAmountSummary(),
       };
-      const monthlyGrossAmount = normalizeMoneyAmount(row.grossAllowance);
+      const netAmount = calculateBucketNetAmount({
+        paymentStatus: row.teacherPaymentStatus,
+        grossAmount: row.grossAllowance,
+        operatingAmount: row.operatingAmount,
+        taxRatePercent: row.taxRatePercent,
+        taxableBaseAmount: row.taxableBaseAmount,
+      });
       const isPaid =
         String(row.teacherPaymentStatus ?? '').toLowerCase() === 'paid';
 
       classSummaryById.set(classId, {
         ...current,
-        total: current.total + monthlyGrossAmount,
-        paid: current.paid + (isPaid ? monthlyGrossAmount : 0),
+        total: current.total + netAmount,
+        paid: current.paid + (isPaid ? netAmount : 0),
       });
     });
 
-    recentUnpaidSessionRows.forEach((row) => {
+    recentUnpaidClassTaxBucketRows.forEach((row) => {
       const classId = row.classId?.trim();
       if (!classId) return;
 
@@ -3635,10 +3623,17 @@ export class StaffService {
         className: row.className?.trim() || 'Lớp chưa đặt tên',
         ...makeAmountSummary(),
       };
+      const netAmount = calculateBucketNetAmount({
+        paymentStatus: row.teacherPaymentStatus,
+        grossAmount: row.grossAllowance,
+        operatingAmount: row.operatingAmount,
+        taxRatePercent: row.taxRatePercent,
+        taxableBaseAmount: row.taxableBaseAmount,
+      });
 
       classSummaryById.set(classId, {
         ...current,
-        unpaid: current.unpaid + normalizeMoneyAmount(row.grossAllowance),
+        unpaid: current.unpaid + netAmount,
       });
     });
 

@@ -104,12 +104,12 @@ describe('StaffService', () => {
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
     jest
-      .spyOn(service as any, 'getTeacherAllowanceRowsByClassAndStatus')
+      .spyOn(
+        service as any,
+        'getTeacherAllowanceRowsByClassStatusAndTaxBucket',
+      )
       .mockResolvedValue([]);
     jest.spyOn(service as any, 'getDepositSessionRows').mockResolvedValue([]);
-    jest
-      .spyOn(service as any, 'getTeacherAllowanceRowsByClass')
-      .mockResolvedValue([]);
   }
 
   it('records action history after creating a staff profile', async () => {
@@ -887,27 +887,30 @@ describe('StaffService', () => {
         },
       ]);
     jest
-      .spyOn(service as any, 'getTeacherAllowanceRowsByClassAndStatus')
+      .spyOn(
+        service as any,
+        'getTeacherAllowanceRowsByClassStatusAndTaxBucket',
+      )
       .mockResolvedValueOnce([
         {
           classId: 'class-1',
           className: 'Toán 10A',
           teacherPaymentStatus: PaymentStatus.paid,
-          totalAllowance: 90000,
+          taxRatePercent: 10,
           grossAllowance: 100000,
-          operatingAmount: 10000,
+          operatingAmount: 0,
+          taxableBaseAmount: 100000,
         },
-      ]);
-    jest
-      .spyOn(service as any, 'getTeacherAllowanceRowsByClass')
-      .mockResolvedValue([
+      ])
+      .mockResolvedValueOnce([
         {
           classId: 'class-1',
           className: 'Toán 10A',
           teacherPaymentStatus: 'unpaid',
-          totalAllowance: 50000,
+          taxRatePercent: 10,
           grossAllowance: 50000,
           operatingAmount: 0,
+          taxableBaseAmount: 50000,
         },
       ]);
     jest.spyOn(service as any, 'getDepositSessionRows').mockResolvedValue([
@@ -1010,9 +1013,9 @@ describe('StaffService', () => {
       {
         classId: 'class-1',
         className: 'Toán 10A',
-        total: 100000,
-        paid: 100000,
-        unpaid: 50000,
+        total: 90000,
+        paid: 90000,
+        unpaid: 45000,
       },
     ]);
     expect(result.snapshotUnpaidTotal).toBe(50000);
@@ -1072,11 +1075,12 @@ describe('StaffService', () => {
         },
       ]);
     jest
-      .spyOn(service as any, 'getTeacherAllowanceRowsByClassAndStatus')
-      .mockResolvedValue([]);
-    jest
-      .spyOn(service as any, 'getTeacherAllowanceRowsByClass')
-      .mockResolvedValue([]);
+      .spyOn(
+        service as any,
+        'getTeacherAllowanceRowsByClassStatusAndTaxBucket',
+      )
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
     jest.spyOn(service as any, 'getDepositSessionRows').mockResolvedValue([]);
 
     const result = await service.getIncomeSummary('staff-1', {
