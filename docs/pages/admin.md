@@ -5,7 +5,7 @@
 - **Path chính:** `/admin/dashboard`
 - **Alias tương thích:** `/admin` render cùng dashboard để tránh dev-runtime redirect error và giữ backward compatibility cho link cũ.
 - **Route bổ sung:** `/admin/notification`, `/admin/deductions`
-- **Role:** `/admin/notification` chỉ mở cho `admin` (assistant bị chặn ở sidebar + access gate và được điều hướng sang `/staff/notification` nếu cố mở trực tiếp). Route `/admin/deductions` mở cho `admin`, `staff.assistant`, và `staff.accountant` theo policy admin shell.
+- **Role:** `roleType=admin` và `roleType=staff` có `staff.admin` đều được xem là admin đầy đủ trong admin shell và backend admin guards. `/admin/notification` chỉ mở cho admin đầy đủ (assistant bị chặn ở sidebar + access gate và được điều hướng sang `/staff/notification` nếu cố mở trực tiếp). Route `/admin/deductions` mở cho admin đầy đủ, `staff.assistant`, và `staff.accountant` theo policy admin shell.
 - **Workplan owner:** Huy (Frontend – Product Flow).
 
 ## Features

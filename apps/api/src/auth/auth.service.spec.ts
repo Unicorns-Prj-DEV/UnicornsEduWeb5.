@@ -8,7 +8,7 @@ jest.mock('bcrypt', () => ({
 
 import * as bcrypt from 'bcrypt';
 import { ServiceUnavailableException } from '@nestjs/common';
-import { UserRole } from '../../generated/enums';
+import { StaffRole, UserRole } from '../../generated/enums';
 import { AuthService } from './auth.service';
 
 describe('AuthService', () => {
@@ -42,6 +42,7 @@ describe('AuthService', () => {
   };
   const authIdentityCacheService = {
     getAuthIdentity: jest.fn(),
+    getStaffRoles: jest.fn(),
     invalidateUser: jest.fn(),
   };
 
@@ -298,6 +299,63 @@ describe('AuthService', () => {
       'user-1',
       undefined,
     );
+  });
+
+  it('lets admin access restricted routes before email verification', async () => {
+    authIdentityCacheService.getAuthIdentity.mockResolvedValue({
+      id: 'admin-1',
+      email: 'admin@example.com',
+      emailVerified: false,
+      accountHandle: 'admin',
+      roleType: UserRole.admin,
+      status: 'active',
+      requiresPasswordSetup: false,
+    });
+
+    await expect(service.getAuthProfile('admin-1')).resolves.toEqual({
+      id: 'admin-1',
+      email: 'admin@example.com',
+      emailVerified: false,
+      canAccessRestrictedRoutes: true,
+      accountHandle: 'admin',
+      roleType: UserRole.admin,
+      requiresPasswordSetup: false,
+      avatarUrl: null,
+      staffRoles: [],
+      hasStaffProfile: false,
+      hasStudentProfile: false,
+    });
+  });
+
+  it('lets staff admin access restricted routes before email verification', async () => {
+    authIdentityCacheService.getAuthIdentity.mockResolvedValue({
+      id: 'staff-admin-1',
+      email: 'staff-admin@example.com',
+      emailVerified: false,
+      accountHandle: 'staff-admin',
+      roleType: UserRole.staff,
+      status: 'active',
+      requiresPasswordSetup: false,
+    });
+    authIdentityCacheService.getStaffRoles.mockResolvedValue([StaffRole.admin]);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      staffInfo: { id: 'staff-info-1' },
+      studentInfo: null,
+    });
+
+    await expect(service.getAuthProfile('staff-admin-1')).resolves.toEqual({
+      id: 'staff-admin-1',
+      email: 'staff-admin@example.com',
+      emailVerified: false,
+      canAccessRestrictedRoutes: true,
+      accountHandle: 'staff-admin',
+      roleType: UserRole.staff,
+      requiresPasswordSetup: false,
+      avatarUrl: null,
+      staffRoles: [StaffRole.admin],
+      hasStaffProfile: true,
+      hasStudentProfile: false,
+    });
   });
 
   it('sets the first password for an OAuth user and records action history', async () => {

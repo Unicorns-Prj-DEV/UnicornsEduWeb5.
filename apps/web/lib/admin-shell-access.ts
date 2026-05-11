@@ -35,6 +35,14 @@ const ACCOUNTANT_ALLOWED_ROUTE_PATTERNS = [
   /^\/admin\/lesson_plan_detail\/[^/]+$/,
 ] as const;
 
+export const LESSON_MANAGEMENT_ROUTE_PREFIXES = [
+  "/admin/lesson-plans",
+  "/admin/lesson-manage-details",
+  "/admin/lessons",
+] as const;
+
+export const STRICT_ADMIN_ROUTE_PREFIXES = ["/admin/notification"] as const;
+
 export function resolveAdminShellAccess(
   profile?: FullProfileDto | UserInfoDto | null,
 ): AdminShellAccess {
@@ -48,7 +56,9 @@ export function resolveAdminShellAccess(
       : Boolean((profile as FullProfileDto | undefined)?.staffInfo?.id);
 
   return {
-    isAdmin: profile?.roleType === "admin",
+    isAdmin:
+      profile?.roleType === "admin" ||
+      (isStaff && hasStaffProfile && staffRoles.includes("admin")),
     isAssistant: isStaff && hasStaffProfile && staffRoles.includes("assistant"),
     isAccountant: isStaff && hasStaffProfile && staffRoles.includes("accountant"),
     isCustomerCare: isStaff && hasStaffProfile && staffRoles.includes("customer_care"),
@@ -65,4 +75,75 @@ export function isAccountantAllowedAdminRoute(pathname: string): boolean {
   return ACCOUNTANT_ALLOWED_ROUTE_PATTERNS.some((pattern) =>
     pattern.test(pathname),
   );
+}
+
+export function isLessonManagementRoute(pathname: string): boolean {
+  return LESSON_MANAGEMENT_ROUTE_PREFIXES.some((prefix) =>
+    pathname.startsWith(prefix),
+  );
+}
+
+export function isStrictAdminRoute(pathname: string): boolean {
+  return STRICT_ADMIN_ROUTE_PREFIXES.some((prefix) =>
+    pathname.startsWith(prefix),
+  );
+}
+
+export function canAccessAdminShellRoute(
+  access: AdminShellAccess,
+  pathname: string,
+): boolean {
+  if (isStrictAdminRoute(pathname)) {
+    return access.isAdmin;
+  }
+
+  return (
+    access.isAdmin ||
+    access.isAssistant ||
+    (access.isAccountant && isAccountantAllowedAdminRoute(pathname)) ||
+    (access.isLessonPlanHead && isLessonManagementRoute(pathname))
+  );
+}
+
+export function resolveAdminShellFallbackHref(
+  access: AdminShellAccess,
+  pathname: string,
+): string {
+  if (isStrictAdminRoute(pathname) && access.isAssistant) {
+    return "/staff/notification";
+  }
+
+  if (access.isAssistant) {
+    return "/admin/dashboard";
+  }
+
+  if (access.isAccountant) {
+    return "/admin/classes";
+  }
+
+  if (access.isLessonPlanHead) {
+    return "/admin/lesson-plans";
+  }
+
+  return "/";
+}
+
+export function getAdminShellEntryHref(
+  profile?: FullProfileDto | UserInfoDto | null,
+): string | null {
+  const access = resolveAdminShellAccess(profile);
+
+  if (access.isAdmin || access.isAssistant) {
+    return "/admin/dashboard";
+  }
+
+  if (access.isAccountant) {
+    return "/admin/classes";
+  }
+
+  if (access.isLessonPlanHead) {
+    return "/admin/lesson-plans";
+  }
+
+  return null;
 }

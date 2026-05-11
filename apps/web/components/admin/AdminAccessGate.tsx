@@ -5,28 +5,15 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import {
-  isAccountantAllowedAdminRoute,
+  canAccessAdminShellRoute,
   resolveAdminShellAccess,
+  resolveAdminShellFallbackHref,
+  isStrictAdminRoute,
 } from "@/lib/admin-shell-access";
 import {
   isRestrictedByEmailVerification,
   OPEN_EMAIL_VERIFICATION_MODAL_EVENT,
 } from "@/lib/email-verification-access";
-
-const LESSON_MANAGEMENT_ROUTE_PREFIXES = ["/admin/lesson-plans", "/admin/lesson-manage-details", "/admin/lessons"];
-const STRICT_ADMIN_ROUTE_PREFIXES = ["/admin/notification"];
-
-function isLessonManagementRoute(pathname: string) {
-  return LESSON_MANAGEMENT_ROUTE_PREFIXES.some((prefix) =>
-    pathname.startsWith(prefix),
-  );
-}
-
-function isStrictAdminRoute(pathname: string) {
-  return STRICT_ADMIN_ROUTE_PREFIXES.some((prefix) =>
-    pathname.startsWith(prefix),
-  );
-}
 
 export default function AdminAccessGate({
   children,
@@ -37,27 +24,11 @@ export default function AdminAccessGate({
   const router = useRouter();
   const { user, isAuthReady } = useAuth();
 
-  const { isAdmin, isAssistant, isAccountant, isLessonPlanHead } =
-    resolveAdminShellAccess(user);
+  const access = resolveAdminShellAccess(user);
   const restrictedByEmailVerification = isRestrictedByEmailVerification(user);
-  const lessonManagementRoute = isLessonManagementRoute(pathname);
   const strictAdminRoute = isStrictAdminRoute(pathname);
-  const isAllowed =
-    strictAdminRoute
-      ? isAdmin
-      : isAdmin ||
-        isAssistant ||
-        (isAccountant && isAccountantAllowedAdminRoute(pathname)) ||
-        (isLessonPlanHead && lessonManagementRoute);
-  const fallbackHref = strictAdminRoute && isAssistant
-    ? "/staff/notification"
-    : isAssistant
-      ? "/admin/dashboard"
-      : isAccountant
-        ? "/admin/classes"
-        : isLessonPlanHead
-          ? "/admin/lesson-plans"
-          : "/";
+  const isAllowed = canAccessAdminShellRoute(access, pathname);
+  const fallbackHref = resolveAdminShellFallbackHref(access, pathname);
 
   useEffect(() => {
     if (isAuthReady && restrictedByEmailVerification) {
@@ -96,12 +67,12 @@ export default function AdminAccessGate({
   if (!isAllowed) {
     const title = strictAdminRoute
       ? "Route này chỉ mở cho admin."
-      : isLessonPlanHead
+      : access.isLessonPlanHead
       ? "Role Trưởng giáo án chỉ mở được module Giáo Án."
       : "Tài khoản này không mở được khu quản trị.";
     const description = strictAdminRoute
       ? "Trang quản lý notification là nơi phát thông báo toàn hệ thống. Assistant và các staff role khác chỉ dùng `/staff/notification` để xem feed."
-      : isLessonPlanHead
+      : access.isLessonPlanHead
       ? "Bạn có toàn quyền trên phần giáo án, nhưng các module admin khác vẫn bị khóa."
       : "Route này hiện chỉ mở cho admin, hoặc các staff role được cấp quyền riêng trên từng module admin.";
 
@@ -120,7 +91,7 @@ export default function AdminAccessGate({
           >
               {strictAdminRoute
                 ? "Đi tới feed staff"
-                : isLessonPlanHead
+                : access.isLessonPlanHead
                   ? "Đi tới Giáo Án"
                   : "Về trang chủ"}
             </Link>

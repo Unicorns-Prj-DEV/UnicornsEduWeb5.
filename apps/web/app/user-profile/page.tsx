@@ -757,8 +757,6 @@ export default function UserProfilePage() {
       profile.staffInfo.cccdIssuedPlace,
       profile.staffInfo.cccdFrontPath ?? profile.staffInfo.cccdFrontUrl,
       profile.staffInfo.cccdBackPath ?? profile.staffInfo.cccdBackUrl,
-      profile.staffInfo.status,
-      profile.staffInfo.roles,
     ])
     : null;
 
@@ -800,9 +798,7 @@ export default function UserProfilePage() {
       profile.staffInfo.cccdIssuedDate,
       profile.staffInfo.cccdIssuedPlace,
       profile.staffInfo.cccdFrontPath ?? profile.staffInfo.cccdFrontUrl,
-      profile.staffInfo.cccdBackPath ?? profile.staffInfo.cccdBackUrl,
-      profile.staffInfo.status,
-      profile.staffInfo.roles
+      profile.staffInfo.cccdBackPath ?? profile.staffInfo.cccdBackUrl
     );
   }
 

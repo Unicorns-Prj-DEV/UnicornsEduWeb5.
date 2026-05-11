@@ -27,6 +27,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - FE admin student forms: thêm field email phụ huynh nhận biên nhận (`parent_email`) khi tạo/sửa học sinh.
 
 ### Changed
+- FE/BE auth gates: đồng bộ admin shell access để `staff.admin` được xem là admin đầy đủ, admin không bị khóa bởi email verification, và login/proxy/client gate dùng cùng policy route admin shell. Docs: `docs/pages/admin.md`, `docs/pages/auth.md`, `docs/pages/auth-login.md`, `docs/README.md`.
+- FE `/user-profile`: bộ đếm section `Nhân sự` chỉ tính 12 field staff người dùng tự hoàn thiện, không tính `status`/`roles`; `personal_achievement_link` tiếp tục là tùy chọn và không kích hoạt redirect hoàn thiện hồ sơ. Docs: `docs/pages/auth.md`, `docs/pages/staff.md`, `docs/README.md`.
 - FE `StudentBalancePopup` (chế độ **Nạp tiền**): cho phép nhập **số nguyên âm** để giảm số dư (cùng API signed `amount` với rút); cập nhật chip “Tác động”, toast và placeholder; `/student` điều chỉnh copy lỗi/mô tả. Docs: `docs/pages/student.md`, `docs/pages/admin.md`, `docs/README.md`, `docs/pages/auth.md`.
 - FE `/user-profile`: tắt `forceEmailUnverifiedForTest` mặc định để hiển thị đúng `emailVerified` từ API; nhãn chữ **Đã xác minh** / **Chưa xác minh**; gửi lại link qua `POST /auth/resend-verification` thay vì mock; email học viên khác email tài khoản hiển thị ghi chú không áp dụng xác minh đăng nhập. Docs: `docs/pages/auth.md`.
 - FE SePay top-up UX/docs: chặn tạo QR khi số tiền dương dưới `1.000` VND, cập nhật copy sang webhook tự động cộng ví sau xác nhận ngân hàng, và ghi rõ backend chặn self-service nạp dương qua `PATCH` khi API đã cấu hình SePay.

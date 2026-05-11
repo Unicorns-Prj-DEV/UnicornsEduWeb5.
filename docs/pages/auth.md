@@ -19,9 +19,9 @@
 ## Redirect rules
 
 - Login thành công:
-  - nếu `canAccessRestrictedRoutes=false` (chưa verify email), frontend giữ user ở Home (`/`) và bật popup xác minh khi truy cập trang cá nhân/role routes
-  - `admin -> /admin`
-  - `staff -> /staff` chỉ khi session contract xác nhận `hasStaffProfile=true`; nếu chưa có profile thì fallback `/user-profile`
+  - nếu `canAccessRestrictedRoutes=false` (chưa verify email, trừ admin), frontend giữ user ở Home (`/`) và bật popup xác minh khi truy cập trang cá nhân/role routes
+  - `admin -> /admin/dashboard`
+  - `staff` có role admin-shell (`staff.admin`, `assistant`, `accountant`, `lesson_plan_head`) được redirect vào entry route admin shell tương ứng; staff thường -> `/staff` chỉ khi session contract xác nhận `hasStaffProfile=true`; nếu chưa có profile thì fallback `/user-profile`
   - `student -> /student` chỉ khi session contract xác nhận `hasStudentProfile=true`; nếu chưa có profile thì fallback `/user-profile`
   - `guest -> /`
 - Google OAuth thành công:
@@ -144,8 +144,9 @@ DTO: `apps/web/dtos/profile.dto.ts` và `apps/api/src/dtos/profile.dto.ts`.
 - **Data:** `useQuery` với `getFullProfile()` (GET /users/me/full). Cập nhật qua `updateMyProfile`, `updateMyStaffProfile`, `updateMyStudentProfile` với TanStack Query mutation; riêng tên staff canonical ở `/user-profile` đi qua `updateMyProfile`, không đi qua `updateMyStaffProfile`; toast Sonner cho thành công/lỗi.
 - **Xác minh email:** Dòng Email (tài khoản) hiển thị icon + nhãn **Đã xác minh** / **Chưa xác minh** theo `emailVerified` từ `GET /users/me/full` (`EmailVerificationInline`). Khi **chưa** xác minh: nút «Xác minh email →→» gọi `POST /auth/resend-verification` (`authApi.resendVerificationEmail`). Mock `apps/web/mocks/user-profile-verification.mock.ts`: mặc định `forceEmailUnverifiedForTest: false` để hiển thị đúng API; có thể bật tạm khi test UI. `emailVerifiedWhenApiMissing` khi API thiếu field. Email trên hồ sơ **học viên** khác email đăng nhập: hiển thị ghi chú không áp dụng trạng thái xác minh tài khoản; nếu trùng email đăng nhập thì trạng thái trùng với tài khoản.
 - **Bảo vệ:** Nếu 401 (chưa đăng nhập), trang gợi ý đăng nhập và link tới `/auth/login`.
-- **Role gates:** `AdminAccessGate`, `StudentAccessGate` và `StaffAccessGate` dùng lightweight auth session (`useAuth()` bootstrap từ `GET /auth/session`) để kiểm tra `roleType`, `staffRoles`, `hasStaffProfile`, `hasStudentProfile`; không cần refetch `GET /users/me/full` chỉ để gate shell access.
-- **Email verification gate:** Với session `canAccessRestrictedRoutes=false`, frontend chặn các route cá nhân/role routes bằng popup xác minh và giữ user ở Home; backend tiếp tục chặn `users/me/*` bằng guard để tránh lộ dữ liệu cá nhân qua API trực tiếp.
+- **Role gates:** `AdminAccessGate`, `StudentAccessGate` và `StaffAccessGate` dùng lightweight auth session (`useAuth()` bootstrap từ `GET /auth/session`) để kiểm tra `roleType`, `staffRoles`, `hasStaffProfile`, `hasStudentProfile`; không cần refetch `GET /users/me/full` chỉ để gate shell access. `StaffAccessGate` chỉ redirect về `/user-profile` khi tài khoản staff/admin chưa có linked staff profile; nếu có profile nhưng thiếu quyền route thì hiển thị màn locked thay vì ép hoàn thiện hồ sơ.
+- **Staff profile completion:** Section «Nhân sự» của `/user-profile` tính 12 field staff người dùng tự hoàn thiện; `status`, `roles`, và `personal_achievement_link` không tính vào bộ đếm bắt buộc. `personal_achievement_link` là minh chứng thành tích tùy chọn.
+- **Email verification gate:** Với session `canAccessRestrictedRoutes=false`, frontend chặn các route cá nhân/role routes bằng popup xác minh và giữ user ở Home; backend tiếp tục chặn `users/me/*` bằng guard để tránh lộ dữ liệu cá nhân qua API trực tiếp. Admin đầy đủ (`roleType=admin` hoặc `staff.admin`) được coi là `canAccessRestrictedRoutes=true` trong session và được backend guard bỏ qua bước email verification.
 
 ## Tài liệu chi tiết theo trang
 

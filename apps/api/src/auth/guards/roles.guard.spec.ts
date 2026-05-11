@@ -91,6 +91,27 @@ describe('RolesGuard', () => {
     ).resolves.toBe(true);
   });
 
+  it('allows staff admin on admin routes regardless of assistant fallback', async () => {
+    authIdentityCacheService.getStaffRoles.mockResolvedValue([StaffRole.admin]);
+
+    await expect(
+      guard.canActivate(
+        createContext(
+          {
+            id: 'staff-admin-1',
+            email: 'staff-admin@example.com',
+            accountHandle: 'staff-admin',
+            roleType: UserRole.staff,
+          },
+          {
+            requiredRoles: [UserRole.admin],
+            allowAssistantOnAdminRoutes: false,
+          },
+        ),
+      ),
+    ).resolves.toBe(true);
+  });
+
   it('allows accountant when the route explicitly permits accountant', async () => {
     authIdentityCacheService.getStaffRoles.mockResolvedValue([
       StaffRole.accountant,
