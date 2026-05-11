@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+    canAccessAdminShellRoute,
+    resolveAdminShellAccess,
+    resolveAdminShellFallbackHref,
+} from "./lib/admin-shell-access";
 import { getUser } from "./lib/auth-server";
 import { shouldVerifySessionInProxy } from "./lib/proxy-auth-guard";
 
@@ -86,28 +91,16 @@ export async function proxy(req: NextRequest) {
 
     const user = await getUser(req.headers.get("cookie") ?? undefined);
     const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
-    const isStrictAdminNotificationRoute =
-        pathname === "/admin/notification" ||
-        pathname.startsWith("/admin/notification/");
 
     if (isAdminRoute) {
-        if (user?.roleType === "admin") {
+        const adminShellAccess = resolveAdminShellAccess(user);
+        if (canAccessAdminShellRoute(adminShellAccess, pathname)) {
             return NextResponse.next();
         }
 
-        if (user?.roleType === "staff") {
-            const roles = user.staffRoles ?? [];
-            if (roles.includes("assistant")) {
-                if (isStrictAdminNotificationRoute) {
-                    return NextResponse.redirect(
-                        new URL("/staff/notification", req.url),
-                    );
-                }
-                return NextResponse.next();
-            }
-        }
-
-        return NextResponse.redirect(new URL("/", req.url));
+        return NextResponse.redirect(
+            new URL(resolveAdminShellFallbackHref(adminShellAccess, pathname), req.url),
+        );
     }
 
     const isStaffRoute = pathname === "/staff" || pathname.startsWith("/staff/");

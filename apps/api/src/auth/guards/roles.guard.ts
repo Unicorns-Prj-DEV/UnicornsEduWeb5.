@@ -67,6 +67,10 @@ export class RolesGuard implements CanActivate {
 
     if (roleType === UserRole.staff && requiredRoles.includes(UserRole.admin)) {
       const staffRoles = await this.resolveStaffRoles(request);
+      if (staffRoles.includes(StaffRole.admin)) {
+        return true;
+      }
+
       const allowedStaffRoles =
         allowedStaffRolesOnAdminRoutes ??
         (allowAssistantOnAdminRoutes ? [StaffRole.assistant] : []);

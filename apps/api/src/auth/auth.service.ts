@@ -255,11 +255,14 @@ export class AuthService {
       }),
     ]);
 
+    const hasAdminAccess =
+      user.roleType === UserRole.admin || staffRoles.includes(StaffRole.admin);
+
     return {
       id: user.id,
       email: user.email,
       emailVerified: Boolean(user.emailVerified),
-      canAccessRestrictedRoutes: Boolean(user.emailVerified),
+      canAccessRestrictedRoutes: hasAdminAccess || Boolean(user.emailVerified),
       accountHandle: user.accountHandle,
       roleType: user.roleType,
       requiresPasswordSetup: user.requiresPasswordSetup,

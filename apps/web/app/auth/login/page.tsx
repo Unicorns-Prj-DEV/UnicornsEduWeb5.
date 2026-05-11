@@ -11,6 +11,7 @@ import * as authApi from "@/lib/apis/auth.api";
 import type { LoginDto, UserInfoDto } from "@/dtos/Auth.dto";
 import { useAuth } from "@/context/AuthContext";
 import { BrandLogoLockup } from "@/components/BrandLogoLockup";
+import { getAdminShellEntryHref } from "@/lib/admin-shell-access";
 
 const ROLE_REDIRECT: Record<string, string> = {
   admin: "/admin/dashboard",
@@ -27,12 +28,13 @@ function resolvePostLoginRedirect(
   }
 
   if (session.roleType === "admin") {
-    return ROLE_REDIRECT.admin;
+    return getAdminShellEntryHref(session) ?? ROLE_REDIRECT.admin;
   }
 
   if (session.roleType === "staff") {
-    if ((session.staffRoles ?? []).includes("assistant")) {
-      return "/admin/dashboard";
+    const adminShellHref = getAdminShellEntryHref(session);
+    if (adminShellHref) {
+      return adminShellHref;
     }
 
     return session.hasStaffProfile ? ROLE_REDIRECT.staff : "/user-profile";

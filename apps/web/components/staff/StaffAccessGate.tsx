@@ -24,6 +24,7 @@ export default function StaffAccessGate({
   const staffRoles = user.staffRoles ?? [];
   const hasStaffProfile = Boolean(user.hasStaffProfile);
   const isStaffOrAdmin = roleType === "staff" || roleType === "admin";
+  const shouldRedirectToUserProfile = isStaffOrAdmin && !hasStaffProfile;
   const isTeacher = staffRoles.includes("teacher");
   const isCustomerCare = staffRoles.includes("customer_care");
   const isAssistant = staffRoles.includes("assistant");
@@ -223,9 +224,29 @@ export default function StaffAccessGate({
     }
 
     if (isAuthReady && !isAllowed) {
-      router.replace(isAssistantStaff ? "/staff" : isStaffOrAdmin ? "/user-profile" : "/");
+      if (isAssistantStaff) {
+        router.replace("/staff");
+        return;
+      }
+
+      if (shouldRedirectToUserProfile) {
+        router.replace("/user-profile");
+        return;
+      }
+
+      if (!isStaffOrAdmin) {
+        router.replace("/");
+      }
     }
-  }, [isAllowed, isAssistantStaff, isAuthReady, isStaffOrAdmin, restrictedByEmailVerification, router]);
+  }, [
+    isAllowed,
+    isAssistantStaff,
+    isAuthReady,
+    isStaffOrAdmin,
+    restrictedByEmailVerification,
+    router,
+    shouldRedirectToUserProfile,
+  ]);
 
   if (!isAuthReady) {
     return (
