@@ -22,7 +22,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 ## [Unreleased]
 
 ### Added
-- BE `POST /users/me/student-wallet-sepay-topup-order`: tạo đơn SePay (userapi v2) kèm QR; `StudentService.getTuitionExtensionTransferNoteForSelf`; module `sepay/`. FE `/student`: khi `NEXT_PUBLIC_STUDENT_WALLET_SEPAY_TOPUP=1`, nạp dương hiển thị QR SePay từ API (thay VietQR). Docs: `docs/pages/auth.md`, `docs/pages/student.md`, `docs/Cách làm việc.md`, `apps/api/.env.example`, `apps/web/.env.example`.
+- BE `POST /users/me/student-wallet-sepay-topup-order`: tạo yêu cầu nạp ví SePay kèm QR; `StudentService.getTuitionExtensionTransferNoteForSelf`; module `sepay/`. FE `/student`: khi `NEXT_PUBLIC_STUDENT_WALLET_SEPAY_TOPUP=1`, nạp dương hiển thị QR do backend trả về. Docs: `docs/pages/auth.md`, `docs/pages/student.md`, `docs/Cách làm việc.md`, `apps/api/.env.example`, `apps/web/.env.example`.
 - BE mail: thêm biên nhận nạp ví SePay gửi tới email phụ huynh, nội dung text/html an toàn và giữ mapping lỗi SMTP `503`.
 - FE admin student forms: thêm field email phụ huynh nhận biên nhận (`parent_email`) khi tạo/sửa học sinh.
 
@@ -43,6 +43,13 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - FE `StudentBalancePopup` (chế độ **Nạp tiền**): cho phép nhập **số nguyên âm** để giảm số dư (cùng API signed `amount` với rút); cập nhật chip “Tác động”, toast và placeholder; `/student` điều chỉnh copy lỗi/mô tả. Docs: `docs/pages/student.md`, `docs/pages/admin.md`, `docs/README.md`, `docs/pages/auth.md`.
 - FE `/user-profile`: tắt `forceEmailUnverifiedForTest` mặc định để hiển thị đúng `emailVerified` từ API; nhãn chữ **Đã xác minh** / **Chưa xác minh**; gửi lại link qua `POST /auth/resend-verification` thay vì mock; email học viên khác email tài khoản hiển thị ghi chú không áp dụng xác minh đăng nhập. Docs: `docs/pages/auth.md`.
 - FE SePay top-up UX/docs: chặn tạo QR khi số tiền dương dưới `1.000` VND, cập nhật copy sang webhook tự động cộng ví sau xác nhận ngân hàng, và ghi rõ backend chặn self-service nạp dương qua `PATCH` khi API đã cấu hình SePay.
+- BE SePay top-up: thêm `SEPAY_TOPUP_MODE=bank_transfer` để tạo QR chuyển khoản thường/VietQR và reconcile bằng webhook cho ngân hàng không hỗ trợ VA orders như MBBank; giữ `va_order` cho BIDV/Sacombank.
+- BE SePay webhook: hỗ trợ xác thực HMAC `X-SePay-Signature` + `X-SePay-Timestamp` trên chuỗi `{timestamp}.{raw_body}` đúng byte SePay gửi, thêm replay-window `SEPAY_WEBHOOK_SIGNATURE_TOLERANCE_SECONDS`, và chỉ nhận fallback `X-Secret-Key` cũ khi bật `SEPAY_WEBHOOK_ALLOW_LEGACY_SECRET_KEY`.
+- BE SePay webhook: sau khi validate định dạng header, so khớp digest HMAC bằng `timingSafeEqual` trên 32 byte decode từ hex (chặt hơn ví dụ `!==` trên toàn chuỗi).
+- BE SePay webhook: `401` khi `X-SePay-Timestamp` ngoài cửa sổ drift dùng message riêng (không còn trùng với sai HMAC), kèm gợi ý cấu hình / ký lại; docs checklist gỡ lỗi curl replay.
+- BE SePay webhook: ACK thành công đổi sang `{ "success": true }` để khớp yêu cầu response body của SePay Webhooks.
+- BE SePay webhook: log `[SePayWebhookAuth]` khi invalidate chỉ còn reason, fingerprint/length của expected secret, received legacy `X-Secret-Key`, received `X-SePay-Signature`, và `expectedSignature` khi HMAC mismatch; không log payload metadata.
+- BE SePay webhook: verify HMAC bằng raw body theo tài liệu HMAC hiện tại của SePay; nếu thiếu raw body khi có header HMAC thì fail closed để tránh ký sai payload.
 
 ### Changed
 - FE **Thành tích chuyên môn** (`specialization`): render trực tiếp chuỗi từ DB bằng Markdown (`react-markdown` + `remark-gfm`, `skipHtml`) qua `StaffSpecializationMarkdown`; bỏ nhánh rich text HTML sanitize, bỏ helper tự chèn xuống dòng trước bullet, copy popup chỉ hướng dẫn nhập Markdown, và `/user-profile` dùng textarea nhiều dòng để lưu newline thật vào DB. Docs: `docs/pages/staff.md`, `docs/pages/admin.md`, `docs/pages/auth.md`.
