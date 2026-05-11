@@ -74,11 +74,47 @@ model WalletTransactionsHistory {
   createdAt                     DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   studentTransactionAttendances Attendance?
   student                       StudentInfo           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  sepayWalletOrder              StudentWalletSepayOrder?
 
   @@index([studentId])
   @@index([studentId, createdAt])
   @@index([type, createdAt])
   @@map("wallet_transactions_history")
+}
+
+model StudentWalletSepayOrder {
+  id                     String                        @id @default(uuid())
+  studentId              String                        @map("student_id")
+  orderCode              String                        @unique @map("order_code")
+  status                 StudentWalletSepayOrderStatus @default(pending)
+  amountRequested        Int                           @map("amount_requested")
+  amountReceived         Int?                          @map("amount_received")
+  transferNote           String                        @map("transfer_note")
+  parentEmail            String?                       @map("parent_email")
+  sepayOrderId           String?                       @map("sepay_order_id")
+  sepayOrderStatus       String?                       @map("sepay_order_status")
+  sepayVaNumber          String?                       @map("sepay_va_number")
+  sepayVaHolderName      String?                       @map("sepay_va_holder_name")
+  sepayBankName          String?                       @map("sepay_bank_name")
+  sepayAccountNumber     String?                       @map("sepay_account_number")
+  sepayAccountHolderName String?                       @map("sepay_account_holder_name")
+  sepayQrCode            String?                       @map("sepay_qr_code")
+  sepayQrCodeUrl         String?                       @map("sepay_qr_code_url")
+  sepayExpiredAt         DateTime?                     @map("sepay_expired_at") @db.Timestamptz(6)
+  sepayTransactionId     String?                       @unique @map("sepay_transaction_id")
+  sepayReferenceCode     String?                       @unique @map("sepay_reference_code")
+  walletTransactionId    String?                       @unique @map("wallet_transaction_id")
+  completedAt            DateTime?                     @map("completed_at") @db.Timestamptz(6)
+  receiptEmailSentAt     DateTime?                     @map("receipt_email_sent_at") @db.Timestamptz(6)
+  webhookPayload         Json?                         @map("webhook_payload")
+  createdAt              DateTime                      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  student                StudentInfo                   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  walletTransaction      WalletTransactionsHistory?    @relation(fields: [walletTransactionId], references: [id], onDelete: SetNull)
+
+  @@index([studentId])
+  @@index([status, createdAt])
+  @@map("student_wallet_sepay_orders")
 }
 
 model CustomerCareService {

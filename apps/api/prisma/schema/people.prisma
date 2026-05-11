@@ -56,6 +56,7 @@ model StudentInfo {
   birthYear            Int?                        @map("birth_year")
   parentName           String?                     @map("parent_name")
   parentPhone          String?                     @map("parent_phone")
+  parentEmail          String?                     @map("parent_email")
   status               StudentStatus               @default(active)
   gender               Gender                      @default(male)
   goal                 String?
@@ -70,6 +71,7 @@ model StudentInfo {
   studentClasses       StudentClass[]
   user                 User?                       @relation(fields: [userId], references: [id])
   walletTransactions   WalletTransactionsHistory[]
+  sepayWalletOrders    StudentWalletSepayOrder[]
 
   @@map("student_info")
 }

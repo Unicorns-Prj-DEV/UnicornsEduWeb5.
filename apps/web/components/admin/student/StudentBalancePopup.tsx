@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 import { useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -68,6 +69,8 @@ const MODE_COPY: Record<BalanceMode, BalanceModeCopy> = {
   },
 };
 
+const SEPAY_MIN_TOPUP_AMOUNT = 1000;
+
 function balanceClassName(value: number): string {
   return value < 0 ? "text-error" : "text-text-primary";
 }
@@ -127,6 +130,10 @@ export default function StudentBalancePopup({
   const signedTopUpAmount =
     Number.isFinite(rawAmount) && Number.isInteger(rawAmount) && rawAmount !== 0 ? rawAmount : 0;
   const hasValidAmount = mode === "topup" ? signedTopUpAmount !== 0 : withdrawAmount > 0;
+  const isPositiveSePayTopup =
+    mode === "topup" && sePayTopupEnabled && signedTopUpAmount > 0;
+  const isSePayTopupBelowMinimum =
+    isPositiveSePayTopup && signedTopUpAmount < SEPAY_MIN_TOPUP_AMOUNT;
   const deltaAmount = mode === "topup" ? signedTopUpAmount : -withdrawAmount;
   const nextBalance = currentBalance + deltaAmount;
   const modeCopy = {
@@ -212,6 +219,11 @@ export default function StudentBalancePopup({
       return;
     }
 
+    if (isSePayTopupBelowMinimum) {
+      toast.error(`Nạp qua SePay tối thiểu ${formatCurrency(SEPAY_MIN_TOPUP_AMOUNT)}.`);
+      return;
+    }
+
     if (!allowNegativeBalance && nextBalance < 0) {
       toast.error(blockedNegativeBalanceMessage);
       return;
@@ -221,7 +233,7 @@ export default function StudentBalancePopup({
       mode === "topup" &&
       sePayTopupEnabled &&
       createSePayTopUpOrder &&
-      signedTopUpAmount > 0 &&
+      isPositiveSePayTopup &&
       topupStep === "amount"
     ) {
       setIsSePayLoading(true);
@@ -390,9 +402,12 @@ export default function StudentBalancePopup({
 
                 {qrImageSrc ? (
                   <div className="mt-4 flex justify-center">
-                    <img
+                    <Image
                       src={qrImageSrc}
                       alt="Mã QR thanh toán SePay"
+                      width={288}
+                      height={288}
+                      unoptimized
                       className="max-h-72 w-72 max-w-full rounded-xl border border-border-default bg-bg-surface object-contain"
                     />
                   </div>
@@ -418,8 +433,8 @@ export default function StudentBalancePopup({
                 </div>
 
                 <p className="mt-4 rounded-xl border border-border-subtle bg-bg-surface/80 px-3 py-2 text-xs leading-relaxed text-text-secondary">
-                  Mã QR do SePay tạo. Sau khi chuyển khoản thành công, số dư ví sẽ được cập nhật khi trung tâm
-                  đối soát. Nếu cần hỗ trợ gấp, liên hệ trung tâm kèm mã đơn và biên lai.
+                  Mã QR do SePay tạo. Webhook SePay sẽ tự động cập nhật số dư ví sau khi ngân hàng xác nhận
+                  giao dịch. Nếu cần hỗ trợ gấp, liên hệ trung tâm kèm mã đơn và biên lai.
                 </p>
               </section>
             </div>
@@ -489,6 +504,20 @@ export default function StudentBalancePopup({
                     placeholder={mode === "topup" ? "Ví dụ: 500000 hoặc -200000…" : "Ví dụ: 500000…"}
                   />
                 </label>
+
+                {sePayTopupEnabled && mode === "topup" ? (
+                  <p
+                    className={`mt-2 rounded-xl border px-3 py-2 text-xs leading-relaxed ${
+                      isSePayTopupBelowMinimum
+                        ? "border-error/20 bg-error/10 text-error"
+                        : "border-border-subtle bg-bg-surface/80 text-text-secondary"
+                    }`}
+                  >
+                    {isSePayTopupBelowMinimum
+                      ? `SePay chỉ tạo mã QR cho khoản nạp từ ${formatCurrency(SEPAY_MIN_TOPUP_AMOUNT)} trở lên.`
+                      : "Khoản nạp dương qua SePay sẽ được webhook cập nhật tự động sau khi ngân hàng xác nhận."}
+                  </p>
+                ) : null}
 
                 {nextBalance < 0 && hasValidAmount && (mode === "withdraw" || deltaAmount < 0) ? (
                   <p className="mt-3 rounded-xl border border-error/20 bg-error/10 px-3 py-2 text-sm text-error">

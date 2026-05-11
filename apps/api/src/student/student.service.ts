@@ -150,6 +150,13 @@ function normalizeOptionalText(value: string | null | undefined) {
   return trimmed ? trimmed : undefined;
 }
 
+function isSePayWalletTopUpConfigured() {
+  return Boolean(
+    process.env.SEPAY_API_ACCESS_TOKEN?.trim() &&
+    process.env.SEPAY_BANK_ACCOUNT_XID?.trim(),
+  );
+}
+
 function toDateOrNull(
   value: string | Date | null | undefined,
 ): Date | null | undefined {
@@ -247,6 +254,7 @@ export class StudentService {
       id: student.id,
       fullName: student.fullName,
       email: student.email,
+      parentEmail: student.parentEmail,
       accountBalance: student.accountBalance,
       school: student.school,
       province: student.province,
@@ -324,6 +332,7 @@ export class StudentService {
       birthYear: student.birthYear,
       parentName: student.parentName,
       parentPhone: student.parentPhone,
+      parentEmail: student.parentEmail,
       goal: student.goal,
       dropOutDate: student.dropOutDate,
       customerCare: student.customerCareServices
@@ -399,6 +408,7 @@ export class StudentService {
       birthYear: student.birthYear,
       parentName: student.parentName,
       parentPhone: student.parentPhone,
+      parentEmail: student.parentEmail,
       goal: student.goal,
       studentClasses: student.studentClasses.map((studentClass) =>
         this.serializeStudentClass(studentClass),
@@ -504,6 +514,12 @@ export class StudentService {
     if (dto.birth_year !== undefined) data.birthYear = dto.birth_year;
     if (dto.parent_name !== undefined) data.parentName = dto.parent_name;
     if (dto.parent_phone !== undefined) data.parentPhone = dto.parent_phone;
+    if (dto.parent_email !== undefined) {
+      data.parentEmail =
+        dto.parent_email === null
+          ? null
+          : (normalizeOptionalText(dto.parent_email) ?? null);
+    }
     if (dto.status !== undefined) data.status = dto.status;
     if (dto.gender !== undefined) data.gender = dto.gender;
     if (dto.goal !== undefined) data.goal = dto.goal;
@@ -1187,6 +1203,13 @@ export class StudentService {
     data: UpdateMyStudentAccountBalanceDto,
     auditActor?: ActionHistoryActor,
   ) {
+    const normalizedAmount = Math.round(data.amount);
+    if (normalizedAmount > 0 && isSePayWalletTopUpConfigured()) {
+      throw new BadRequestException(
+        'Use SePay top-up order endpoint for self-service wallet top-ups.',
+      );
+    }
+
     const updated = await this.applyStudentAccountBalanceChange(
       studentId,
       data.amount,
@@ -1432,6 +1455,7 @@ export class StudentService {
           birthYear: data.birth_year,
           parentName: normalizeOptionalText(data.parent_name),
           parentPhone: normalizeOptionalText(data.parent_phone),
+          parentEmail: normalizeOptionalText(data.parent_email),
           status: data.status ?? StudentStatus.active,
           gender: data.gender ?? Gender.male,
           goal: normalizeOptionalText(data.goal),

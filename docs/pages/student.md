@@ -14,7 +14,7 @@
 - **Dữ liệu tài chính theo lớp:** Hiển thị học phí/buổi và gói học phí đang áp dụng cho từng lớp ở chế độ **chỉ xem** để học sinh theo dõi; không có control chỉnh học phí.
 - **Ẩn dữ liệu nhạy cảm còn lại:** Không render customer care profit và các control quản trị lớp/hồ sơ.
 - **Ví học viên:** Hiển thị số dư hiện tại, popup lịch sử ví authoritative, cho phép **nạp tiền** và **rút tiền** trên chính tài khoản của mình. Ở popup **Nạp tiền**, có thể nhập **số âm** để giảm số dư (cùng hiệu lực với rút) thay vì bắt buộc dùng tab Rút.
-- **Nạp tiền qua SePay (tùy cấu hình):** Khi `NEXT_PUBLIC_STUDENT_WALLET_SEPAY_TOPUP=1` trên web **và** API đã cấu hình `SEPAY_*`, học sinh nhập **số tiền dương** rồi bấm **Tạo mã QR SePay** → frontend gọi `POST /users/me/student-wallet-sepay-topup-order` → hiển thị **QR do SePay trả về** (`qr_code` hoặc `qr_code_url`). **Nội dung chuyển khoản** (sao chép) do backend tính: `Phụ huynh gia hạn tiền học phí gói <mô tả gói> ngày <dd/mm/yyyy>` (gói: ưu tiên lớp `running`, cùng logic tóm tắt như trước). **Số dư ví không tự tăng** sau khi quét QR. **Số âm** / **rút** không qua SePay, vẫn `PATCH /users/me/student-account-balance`. Nếu không bật cờ FE, nạp dương giữ hành vi cũ (điều chỉnh số dư qua PATCH).
+- **Nạp tiền qua SePay (tùy cấu hình):** Khi `NEXT_PUBLIC_STUDENT_WALLET_SEPAY_TOPUP=1` trên web **và** API đã cấu hình `SEPAY_*`, học sinh nhập **số tiền dương ≥ 1.000 VND** rồi bấm **Tạo mã QR SePay** → frontend gọi `POST /users/me/student-wallet-sepay-topup-order` → hiển thị **QR do SePay trả về** (`qr_code` hoặc `qr_code_url`). API lưu đơn vào `student_wallet_sepay_orders`; webhook SePay cập nhật ví tự động sau khi ngân hàng xác nhận và gửi biên nhận cho `parent_email` nếu có. **Số âm** / **rút** không qua SePay, vẫn `PATCH /users/me/student-account-balance`. Khi API đã cấu hình `SEPAY_API_ACCESS_TOKEN` + `SEPAY_BANK_ACCOUNT_XID`, backend chặn self-service nạp dương qua `PATCH`, nên web cần bật cờ SePay để tránh bypass luồng QR.
 - **Ràng buộc rút / giảm số dư:** Backend chặn làm âm ví khi self-service rút hoặc khi nạp số âm vượt số dư hiện có.
 - **Lớp học:** Hiển thị danh sách lớp đang liên kết + học phí đang áp dụng + số buổi đã vào học; không có thao tác đổi lớp/gỡ lớp hoặc sửa học phí.
 - **Lịch thi:** Reuse card `StudentExamCard` để xem và quản lý lịch thi authoritative theo đúng `studentId` qua popup form; mỗi bản ghi gồm 1 ngày thi và 1 ghi chú ngắn, có thể thêm, sửa hoặc xóa và dữ liệu được lưu ở backend.
@@ -32,17 +32,18 @@
 
 ## Data and API
 
-- **Backend domain:** `student_info`, `student_classes`, `wallet_transactions_history`.
+- **Backend domain:** `student_info`, `student_classes`, `wallet_transactions_history`, `student_wallet_sepay_orders`.
 - **API (real):**
   - `GET /users/me/student-detail`
   - `PATCH /users/me/student`
   - `GET /users/me/student-wallet-history?limit=`
-  - `POST /users/me/student-wallet-sepay-topup-order` body `{ amount }` (SePay QR, tuỳ cấu hình)
+  - `POST /users/me/student-wallet-sepay-topup-order` body `{ amount }` (SePay QR, số nguyên ≥ 1.000 VND, tuỳ cấu hình)
   - `PATCH /users/me/student-account-balance` body `{ amount }`
+  - `POST /webhook/sepay` — SePay gọi khi có giao dịch ngân hàng; API xác thực `SEPAY_WEBHOOK_SECRET`, reconcile theo mã đơn/nội dung CK, trả `{ "status": "success" }` khi nhận hợp lệ.
   - `GET /users/me/student-exam-schedules`
   - `PUT /users/me/student-exam-schedules` body `{ items: [{ id?, examDate, note? }] }`
 - **Self-edit scope:** Chỉ cho cập nhật thông tin cơ bản như họ tên, email liên hệ, trường, tỉnh/thành, năm sinh, liên hệ phụ huynh, giới tính, mục tiêu; không cho tự chỉnh học phí, trạng thái hoặc phân lớp.
-- **Balance semantics:** `amount > 0` = nạp tiền, `amount < 0` = rút tiền; backend ghi `wallet_transactions_history` và tự chặn số dư âm ở self-service route. Khi bật SePay trên UI, **nạp dương** tạo đơn + QR trước; chỉ **số âm** / **rút** gọi `PATCH` điều chỉnh số dư trực tiếp.
+- **Balance semantics:** `amount > 0` = nạp tiền, `amount < 0` = rút tiền; backend ghi `wallet_transactions_history` và tự chặn số dư âm ở self-service route. Khi bật SePay trên UI, **nạp dương** tạo đơn + QR trước, sau đó webhook mới cộng ví; chỉ **số âm** / **rút** gọi `PATCH` điều chỉnh số dư trực tiếp.
 - **Frontend data layer:** TanStack Query + `apps/web/lib/apis/auth.api.ts`; DTO student self-service nằm trong `apps/web/dtos/student.dto.ts`.
 - **Exam schedule persistence:** Lịch thi ở `/student` lưu authoritative ở backend qua `student_exam_schedules`; admin/student cùng đọc một nguồn dữ liệu và calendar aggregate có thể render `exam` event trực tiếp từ đó.
 

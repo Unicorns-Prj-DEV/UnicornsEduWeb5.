@@ -385,7 +385,7 @@ export default function StudentSelfPage() {
                 copyOverrides={{
                     topup: {
                         description: sePayStudentTopUpEnabled
-                            ? 'Nhập số tiền dương rồi bấm "Tạo mã QR SePay" để thanh toán (QR do SePay phát hành; nội dung CK theo gói học phí và ngày). Số âm để giảm số dư như rút — vẫn xử lý ngay trên hệ thống.'
+                            ? 'Nhập số tiền dương rồi bấm "Tạo mã QR SePay" để thanh toán. Webhook SePay sẽ tự động cập nhật ví sau khi ngân hàng xác nhận; số âm để giảm số dư như rút.'
                             : "Nhập số dương để tăng số dư, số âm để giảm (giống rút). Chỉ số nguyên khác 0; hệ thống chặn nếu ví không đủ khi giảm.",
                     },
                     withdraw: {
