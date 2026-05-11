@@ -59,16 +59,17 @@ Dùng làm context khi implement hoặc review code frontend; giúp model chọn
 | **Validation / Transform** | Tùy chọn theo module | Không bắt buộc class-validator/class-transformer; chọn giải pháp phù hợp yêu cầu từng phần. |
 | **TypeScript** | TS 5.x | Path alias `@/*` → `./*` (tsconfig.json). Target ES2017, moduleResolution bundler, strict. |
 | **API base URL** | Biến môi trường | `NEXT_PUBLIC_BACKEND_URL`; nên set tường minh trong `apps/web/.env`. Frontend hiện có fallback `http://localhost:3001`, trong khi API listen ở `PORT` hoặc `4000` nếu không cấu hình. |
-| **SePay nạp ví học sinh** | Biến môi trường | Web: `NEXT_PUBLIC_STUDENT_WALLET_SEPAY_TOPUP=1` để nạp dương qua QR SePay (`apps/web/.env.example`). API: `SEPAY_API_ACCESS_TOKEN`, `SEPAY_BANK_ACCOUNT_XID`, `SEPAY_WEBHOOK_SECRET`, SMTP receipt mail, tuỳ chọn `SEPAY_USERAPI_BASE_URL`, `SEPAY_VA_PREFIX`, `SEPAY_ORDER_DURATION_SECONDS` (`apps/api/.env.example`). |
+| **SePay nạp ví học sinh** | Biến môi trường | Web: `NEXT_PUBLIC_STUDENT_WALLET_SEPAY_TOPUP=1` để nạp dương qua QR SePay (`apps/web/.env.example`). API: `SEPAY_TOPUP_MODE=va_order` dùng `SEPAY_API_ACCESS_TOKEN`, `SEPAY_BANK_ACCOUNT_XID`; `SEPAY_TOPUP_MODE=bank_transfer` dùng `SEPAY_TRANSFER_BANK_BIN`, `SEPAY_TRANSFER_ACCOUNT_NUMBER`; cả hai mode cần `SEPAY_WEBHOOK_SECRET`, `SEPAY_WEBHOOK_SIGNATURE_TOLERANCE_SECONDS=300`, và SMTP receipt mail (`apps/api/.env.example`). |
 
 **Cấu trúc thư mục frontend:** `apps/web/app/` (routes, layout, page), `apps/web/lib/` (API client, utils). Component và style theo cấu trúc Next.js App Router; tokens và theme đã định nghĩa sẵn trong `globals.css`.
 
 ### Checklist SePay nạp ví
 
 - FE: bật `NEXT_PUBLIC_STUDENT_WALLET_SEPAY_TOPUP=1` khi API đã cấu hình SePay; popup chỉ tạo QR cho số tiền dương từ `1.000` VND, số âm/rút vẫn đi `PATCH`.
-- API: cấu hình `SEPAY_API_ACCESS_TOKEN`, `SEPAY_BANK_ACCOUNT_XID`, `SEPAY_WEBHOOK_SECRET`; SMTP dùng cho email xác thực và biên nhận phụ huynh.
-- Flow: `POST /users/me/student-wallet-sepay-topup-order` lưu `student_wallet_sepay_orders`; `POST /webhook/sepay` nhận `transferAmount`, `transactionDate`, `referenceCode`, ack `{ "status": "success" }`, tạo lịch sử ví và gửi receipt nếu có `parent_email`.
+- API: dùng `SEPAY_TOPUP_MODE=va_order` cho BIDV/Sacombank VA orders; dùng `SEPAY_TOPUP_MODE=bank_transfer` cho QR chuyển khoản thường (ví dụ MBBank không hỗ trợ VA orders). Cả hai mode cần `SEPAY_WEBHOOK_SECRET`; SMTP dùng cho email xác thực và biên nhận phụ huynh.
+- Flow: `POST /users/me/student-wallet-sepay-topup-order` lưu `student_wallet_sepay_orders`; mode `bank_transfer` trả VietQR quick link với nội dung `NAPVI <orderCode>`; `POST /webhook/sepay` verify `X-SePay-Signature` + `X-SePay-Timestamp` bằng HMAC-SHA256 trên chuỗi `{timestamp}.{raw_body}` với `SEPAY_WEBHOOK_SECRET` (raw body đúng byte SePay gửi, không serialize lại từ `req.body`), từ chối timestamp quá `SEPAY_WEBHOOK_SIGNATURE_TOLERANCE_SECONDS` giây (mặc định `300`), chỉ nhận fallback `X-Secret-Key` cũ khi `SEPAY_WEBHOOK_ALLOW_LEGACY_SECRET_KEY=1`, nhận `transferAmount`, `transactionDate`, `referenceCode`, ack `{ "success": true }`, tạo lịch sử ví và gửi receipt nếu có `parent_email`.
 - Test nhanh: chạy mail spec, tạo order sandbox, gọi webhook mẫu inbound, kiểm tra số dư ví + `wallet_transactions_history` + `receipt_email_sent_at`.
+- **Gỡ lỗi webhook HMAC:** Nếu copy `curl` cũ (cùng `X-SePay-Timestamp` / chữ ký) và gọi lại sau vài phút, API trả `401` vì timestamp lệch quá `SEPAY_WEBHOOK_SIGNATURE_TOLERANCE_SECONDS` (mặc định `300`). Cần tạo lại chữ ký với timestamp hiện tại + đúng raw body + đúng `SEPAY_WEBHOOK_SECRET`, hoặc tăng tolerance trên môi trường test (prod nên giữ hẹp).
 
 ### Quy tắc BE-first cho frontend
 
