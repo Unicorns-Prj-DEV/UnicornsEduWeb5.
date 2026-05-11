@@ -42,6 +42,7 @@ async function bootstrap() {
       origin: normalizeCorsOrigin(process.env.FRONTEND_URL),
       credentials: true,
     },
+    rawBody: true,
   });
   const trustProxy = parseTrustProxy(process.env.TRUST_PROXY);
 
