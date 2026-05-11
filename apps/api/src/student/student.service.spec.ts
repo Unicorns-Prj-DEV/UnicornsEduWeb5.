@@ -59,8 +59,11 @@ describe('StudentService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    delete process.env.SEPAY_TOPUP_MODE;
     delete process.env.SEPAY_API_ACCESS_TOKEN;
     delete process.env.SEPAY_BANK_ACCOUNT_XID;
+    delete process.env.SEPAY_TRANSFER_BANK_BIN;
+    delete process.env.SEPAY_TRANSFER_ACCOUNT_NUMBER;
     mockPrisma.$transaction.mockImplementation(
       (callback: (db: typeof mockPrisma) => unknown) => callback(mockPrisma),
     );
@@ -300,6 +303,21 @@ describe('StudentService', () => {
   it('blocks self-service positive wallet deltas when SePay top-up is configured', async () => {
     process.env.SEPAY_API_ACCESS_TOKEN = 'token-123';
     process.env.SEPAY_BANK_ACCOUNT_XID = 'bank-xid-123';
+
+    await expect(
+      service.updateMyStudentAccountBalance('student-1', {
+        amount: 150000,
+      }),
+    ).rejects.toThrow('Use SePay');
+
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.walletTransactionsHistory.create).not.toHaveBeenCalled();
+  });
+
+  it('blocks self-service positive wallet deltas when SePay bank-transfer top-up is configured', async () => {
+    process.env.SEPAY_TOPUP_MODE = 'bank_transfer';
+    process.env.SEPAY_TRANSFER_BANK_BIN = '970422';
+    process.env.SEPAY_TRANSFER_ACCOUNT_NUMBER = '722732006';
 
     await expect(
       service.updateMyStudentAccountBalance('student-1', {

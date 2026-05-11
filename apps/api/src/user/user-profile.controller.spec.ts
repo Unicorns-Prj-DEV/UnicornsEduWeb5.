@@ -13,7 +13,7 @@ describe('UserProfileController', () => {
   const sePayService = {
     isWalletTopUpConfigured: jest.fn(),
     buildStudentWalletOrderCode: jest.fn(),
-    createBankAccountOrder: jest.fn(),
+    createStudentWalletTopUpPayment: jest.fn(),
   };
   const prisma = {
     studentInfo: {
@@ -71,7 +71,7 @@ describe('UserProfileController', () => {
       parentEmail: 'parent@example.com',
     });
     sePayService.buildStudentWalletOrderCode.mockReturnValue('ABC123');
-    sePayService.createBankAccountOrder.mockResolvedValue({
+    sePayService.createStudentWalletTopUpPayment.mockResolvedValue({
       orderId: 'sepay-order-1',
       orderCode: 'ABC123',
       amount: 500000,
@@ -84,6 +84,7 @@ describe('UserProfileController', () => {
       expiredAt: '2026-05-11 10:15:00',
       qrCode: 'data:image/png;base64,abc',
       qrCodeUrl: 'https://qr.sepay.vn/img?template=compact',
+      transferNote: 'Gia hạn gói học phí ABC123',
       raw: { status: 'success' },
     });
     prisma.studentWalletSepayOrder.create.mockResolvedValue({
@@ -139,10 +140,10 @@ describe('UserProfileController', () => {
       expiredAt: '2026-05-11T10:15:00.000Z',
     });
 
-    expect(sePayService.createBankAccountOrder).toHaveBeenCalledWith({
+    expect(sePayService.createStudentWalletTopUpPayment).toHaveBeenCalledWith({
       amountVnd: 500000,
       orderCode: 'ABC123',
-      description: 'Gia hạn gói học phí ABC123',
+      baseTransferNote: 'Gia hạn gói học phí',
     });
     expect(prisma.studentWalletSepayOrder.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -172,7 +173,7 @@ describe('UserProfileController', () => {
     sePayService.buildStudentWalletOrderCode
       .mockReturnValueOnce('ABC123')
       .mockReturnValueOnce('DEF456');
-    sePayService.createBankAccountOrder
+    sePayService.createStudentWalletTopUpPayment
       .mockRejectedValueOnce(new SePayDuplicateOrderCodeException())
       .mockResolvedValueOnce({
         orderId: 'sepay-order-2',
@@ -187,6 +188,7 @@ describe('UserProfileController', () => {
         expiredAt: null,
         qrCode: null,
         qrCodeUrl: 'https://qr.sepay.vn/img?template=compact',
+        transferNote: 'Gia hạn gói học phí DEF456',
         raw: { status: 'success' },
       });
     prisma.studentWalletSepayOrder.create.mockResolvedValue({
@@ -228,16 +230,22 @@ describe('UserProfileController', () => {
       transferNote: 'Gia hạn gói học phí DEF456',
     });
 
-    expect(sePayService.createBankAccountOrder).toHaveBeenCalledTimes(2);
-    expect(sePayService.createBankAccountOrder).toHaveBeenNthCalledWith(1, {
+    expect(sePayService.createStudentWalletTopUpPayment).toHaveBeenCalledTimes(
+      2,
+    );
+    expect(
+      sePayService.createStudentWalletTopUpPayment,
+    ).toHaveBeenNthCalledWith(1, {
       amountVnd: 500000,
       orderCode: 'ABC123',
-      description: 'Gia hạn gói học phí ABC123',
+      baseTransferNote: 'Gia hạn gói học phí',
     });
-    expect(sePayService.createBankAccountOrder).toHaveBeenNthCalledWith(2, {
+    expect(
+      sePayService.createStudentWalletTopUpPayment,
+    ).toHaveBeenNthCalledWith(2, {
       amountVnd: 500000,
       orderCode: 'DEF456',
-      description: 'Gia hạn gói học phí DEF456',
+      baseTransferNote: 'Gia hạn gói học phí',
     });
     expect(prisma.studentWalletSepayOrder.create).toHaveBeenCalledWith({
       data: expect.objectContaining({

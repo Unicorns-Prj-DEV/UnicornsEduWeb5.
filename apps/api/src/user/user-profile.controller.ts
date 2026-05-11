@@ -701,12 +701,12 @@ export class UserProfileController {
   @ApiOperation({
     summary: 'Create SePay top-up order with QR for current student',
     description:
-      'Tạo đơn nạp tiền qua SePay (userapi v2) kèm mã QR. Không cộng số dư ví — chỉ trả thông tin thanh toán. Cần cấu hình SEPAY_* trên server.',
+      'Tạo yêu cầu nạp tiền qua SePay kèm mã QR. Mode va_order dùng UserAPI v2 VA order; mode bank_transfer tạo QR chuyển khoản thường và reconcile bằng webhook. Không cộng số dư ví — chỉ trả thông tin thanh toán.',
   })
   @ApiBody({ type: CreateStudentSePayTopUpOrderDto })
   @ApiResponse({
     status: 201,
-    description: 'Đơn SePay đã tạo; trả QR / VA nếu có.',
+    description: 'Yêu cầu nạp SePay đã tạo; trả QR / thông tin nhận tiền.',
     type: StudentSePayTopUpOrderResponseDto,
   })
   @ApiResponse({
@@ -755,17 +755,14 @@ export class UserProfileController {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const orderCode =
         this.sePayService.buildStudentWalletOrderCode(studentId);
-      const transferNote = this.buildSePayTransferNote(
-        baseTransferNote,
-        orderCode,
-      );
 
       try {
-        const sePay = await this.sePayService.createBankAccountOrder({
+        const sePay = await this.sePayService.createStudentWalletTopUpPayment({
           amountVnd: amount,
           orderCode,
-          description: transferNote,
+          baseTransferNote,
         });
+        const transferNote = sePay.transferNote;
 
         const persisted = await this.prisma.studentWalletSepayOrder.create({
           data: {
@@ -801,14 +798,6 @@ export class UserProfileController {
       lastDuplicateError ??
       new BadRequestException('Không tạo được mã đơn SePay duy nhất.')
     );
-  }
-
-  private buildSePayTransferNote(baseTransferNote: string, orderCode: string) {
-    const trimmed = baseTransferNote.trim();
-    if (trimmed.includes(orderCode)) {
-      return trimmed;
-    }
-    return `${trimmed} ${orderCode}`.trim();
   }
 
   private parseSePayTimestamp(value: string | null | undefined) {

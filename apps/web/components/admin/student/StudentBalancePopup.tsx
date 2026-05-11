@@ -433,7 +433,7 @@ export default function StudentBalancePopup({
                 </div>
 
                 <p className="mt-4 rounded-xl border border-border-subtle bg-bg-surface/80 px-3 py-2 text-xs leading-relaxed text-text-secondary">
-                  Mã QR do SePay tạo. Webhook SePay sẽ tự động cập nhật số dư ví sau khi ngân hàng xác nhận
+                  Mã QR thanh toán do backend tạo theo cấu hình SePay. Webhook SePay sẽ tự động cập nhật số dư ví sau khi ngân hàng xác nhận
                   giao dịch. Nếu cần hỗ trợ gấp, liên hệ trung tâm kèm mã đơn và biên lai.
                 </p>
               </section>

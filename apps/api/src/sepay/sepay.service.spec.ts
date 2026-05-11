@@ -91,6 +91,45 @@ describe('SePayService', () => {
     );
   });
 
+  it('creates a direct bank-transfer QR without calling VA order APIs in bank_transfer mode', async () => {
+    process.env.SEPAY_TOPUP_MODE = 'bank_transfer';
+    process.env.SEPAY_TRANSFER_BANK_BIN = '970422';
+    process.env.SEPAY_TRANSFER_ACCOUNT_NUMBER = '722732006';
+    process.env.SEPAY_TRANSFER_ACCOUNT_NAME = 'VU MINH PHUONG';
+    process.env.SEPAY_TRANSFER_BANK_NAME = 'MBBank';
+
+    await expect(
+      service.createStudentWalletTopUpPayment({
+        amountVnd: 120000,
+        orderCode: 'UABCDEF1234567890',
+        baseTransferNote: 'Phụ huynh gia hạn học phí',
+      }),
+    ).resolves.toMatchObject({
+      orderId: null,
+      orderCode: 'UABCDEF1234567890',
+      amount: 120000,
+      sepayStatus: 'Pending',
+      vaNumber: null,
+      bankName: 'MBBank',
+      accountNumber: '722732006',
+      accountHolderName: 'VU MINH PHUONG',
+      transferNote: 'NAPVI UABCDEF1234567890',
+    });
+
+    const result = await service.createStudentWalletTopUpPayment({
+      amountVnd: 120000,
+      orderCode: 'UABCDEF1234567890',
+      baseTransferNote: 'Phụ huynh gia hạn học phí',
+    });
+    expect(result.qrCodeUrl).toContain(
+      'https://img.vietqr.io/image/970422-722732006-compact2.png',
+    );
+    expect(result.qrCodeUrl).toContain('amount=120000');
+    expect(result.qrCodeUrl).toContain('addInfo=NAPVI+UABCDEF1234567890');
+    expect(result.qrCodeUrl).toContain('accountName=VU+MINH+PHUONG');
+    expect(http.post).not.toHaveBeenCalled();
+  });
+
   it('rejects invalid order codes before calling SePay', async () => {
     await expect(
       service.createBankAccountOrder({

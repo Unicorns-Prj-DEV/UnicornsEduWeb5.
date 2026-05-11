@@ -304,7 +304,7 @@ export class StudentSePayTopUpOrderResponseDto {
   @ApiPropertyOptional({ nullable: true })
   parentEmail?: string | null;
 
-  @ApiProperty({ description: 'Mã đơn gửi lên SePay' })
+  @ApiProperty({ description: 'Mã đơn dùng để reconcile webhook SePay' })
   orderCode!: string;
 
   @ApiPropertyOptional({

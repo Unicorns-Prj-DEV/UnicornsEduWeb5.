@@ -151,6 +151,13 @@ function normalizeOptionalText(value: string | null | undefined) {
 }
 
 function isSePayWalletTopUpConfigured() {
+  if (process.env.SEPAY_TOPUP_MODE?.trim() === 'bank_transfer') {
+    return Boolean(
+      process.env.SEPAY_TRANSFER_BANK_BIN?.trim() &&
+      process.env.SEPAY_TRANSFER_ACCOUNT_NUMBER?.trim(),
+    );
+  }
+
   return Boolean(
     process.env.SEPAY_API_ACCESS_TOKEN?.trim() &&
     process.env.SEPAY_BANK_ACCOUNT_XID?.trim(),
