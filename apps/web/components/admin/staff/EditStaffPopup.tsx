@@ -7,6 +7,7 @@ import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type { StaffDetail } from "@/dtos/staff.dto";
 import * as staffApi from "@/lib/apis/staff.api";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
+import { openNativeDateTimePickerOnPointerDown } from "@/lib/native-datetime-picker";
 
 type Props = {
   open: boolean;
@@ -220,7 +221,7 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
                   type="date"
                   value={cccdIssuedDateInput}
                   onChange={(e) => setCccdIssuedDateInput(e.target.value)}
-                  onClick={(e) => e.currentTarget.showPicker?.()}
+                  onPointerDown={openNativeDateTimePickerOnPointerDown}
                   className="cursor-pointer rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />
               </label>
@@ -241,7 +242,7 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
                   type="date"
                   value={birthDateInput}
                   onChange={(e) => setBirthDateInput(e.target.value)}
-                  onClick={(e) => e.currentTarget.showPicker?.()}
+                  onPointerDown={openNativeDateTimePickerOnPointerDown}
                   className="cursor-pointer rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />
               </label>

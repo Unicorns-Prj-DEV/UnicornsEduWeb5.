@@ -21,7 +21,12 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Added
+- `start-server.sh` (gốc repo) + mục hướng dẫn trong `docs/Cách làm việc.md`: khởi động API + Web trên macOS (dọn cổng 3000/3001, gỡ lock `.next`, bootstrap PATH/fnm/nvm/Homebrew, mở hai cửa sổ Terminal hoặc fallback chạy nền).
+
 ### Changed
+- FE native `<input type="date">` / `<input type="time">` (và `datetime-local` trên `/user-profile`): bấm bất kỳ trong ô mở picker qua `HTMLInputElement.showPicker()` — helper `apps/web/lib/native-datetime-picker.ts`, gắn trên form thêm/sửa buổi học, lịch bù, lịch lớp, staff tạo lớp, bộ lọc dashboard/history/deductions/lesson/cost/học sinh/CCCD, v.v.; `TextField` trên `/user-profile` tự gắn theo `type`; thay `onClick` + `showPicker` thủ công ở `StaffSelfEditPopup` / `EditStaffPopup`. Docs: `docs/UI-Schema.md`.
+- FE `/auth/login`: toast lỗi 401 khi server trả `Invalid credentials` hiển thị «Sai tài khoản hoặc mật khẩu.» thay vì nguyên văn tiếng Anh. Docs: `docs/pages/auth.md`.
 - FE `/staff/profile`: bỏ nút bút chì chỉnh sửa thông tin nhân sự ở header; `StaffSelfEditPopup` vẫn mở qua chỉnh sửa QR trong mục Hồ sơ nhân sự; toast `profile_required=1` cập nhật copy tương ứng. Docs: `docs/pages/staff.md`, `docs/README.md`, `docs/CHANGELOG.md`.
 - FE `/user-profile`: khối **Nhân sự** lại **chỉnh sửa được** (form `updateMyStaffProfile`, upload CCCD). Proxy staff: hồ sơ chưa đủ → redirect `/user-profile?profile_required=1&from=...`. Bỏ toast `profile_required` riêng trên `/staff/profile`. Docs: `docs/README.md`, `docs/pages/auth.md`, `docs/pages/staff.md`.
 - FE `/staff/staffs/[id]` khi mở **đúng hồ sơ nhân sự của chính user** (sidebar **Cá nhân**): ẩn chỉnh sửa kiểu admin (**Chỉnh sửa thông tin nhân sự**, popup `EditStaffPopup`, chỉnh QR thanh toán); tự cập nhật hồ sơ qua `/staff/profile`. Docs: `docs/pages/staff.md`.

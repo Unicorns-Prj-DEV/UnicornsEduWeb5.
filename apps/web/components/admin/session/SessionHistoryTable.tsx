@@ -35,6 +35,7 @@ import { getFullProfile } from "@/lib/apis/auth.api";
 import * as classApi from "@/lib/apis/class.api";
 import * as sessionApi from "@/lib/apis/session.api";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
+import { openNativeDateTimePickerOnPointerDown } from "@/lib/native-datetime-picker";
 
 type SessionEntityMode = "teacher" | "class" | "none";
 type SessionStatusMode = "payment" | "timeline";
@@ -2275,6 +2276,7 @@ export default function SessionHistoryTable({
                         <input
                           name="edit-session-date"
                           type="date"
+                          onPointerDown={openNativeDateTimePickerOnPointerDown}
                           value={editDate}
                           autoComplete="off"
                           onChange={(e) => setEditDate(e.target.value)}
@@ -2292,6 +2294,7 @@ export default function SessionHistoryTable({
                             <input
                               name="edit-session-start-time"
                               type="time"
+                              onPointerDown={openNativeDateTimePickerOnPointerDown}
                               step={1}
                               value={editStartTime}
                               autoComplete="off"
@@ -2307,6 +2310,7 @@ export default function SessionHistoryTable({
                             <input
                               name="edit-session-end-time"
                               type="time"
+                              onPointerDown={openNativeDateTimePickerOnPointerDown}
                               step={1}
                               value={editEndTime}
                               autoComplete="off"

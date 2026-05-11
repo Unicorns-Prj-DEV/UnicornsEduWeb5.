@@ -29,6 +29,10 @@ Unicorns Edu 5.0 uses a tokenized color system built for product clarity, operat
 - Product decisions remain language-based (`error`, `muted`, `elevated`) instead of color-based (`red-600`).
 - Reduces regression during rebrand, dark-mode tuning, and accessibility adjustments.
 
+### Native `<input type="date">` / `<input type="time">`
+
+- Trên WebKit (Safari), picker lịch/giờ thường chỉ mở khi bấm icon cuối ô. Dự án gắn handler chung `onPointerDown={openNativeDateTimePickerOnPointerDown}` từ `apps/web/lib/native-datetime-picker.ts` (gọi `showPicker()` khi trình duyệt hỗ trợ) để bấm **bất kỳ chỗ nào trong ô** cũng mở picker.
+
 ### Scalability considerations
 
 - All new components must use semantic tokens only.

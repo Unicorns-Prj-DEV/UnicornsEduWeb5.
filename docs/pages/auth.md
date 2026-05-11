@@ -11,6 +11,7 @@
 
 ## UI feedback chuẩn hoá
 
+- `/auth/login`: toast lỗi **401** nếu server trả `Invalid credentials` thì hiển thị «Sai tài khoản hoặc mật khẩu.» (thay vì nguyên văn tiếng Anh).
 - Thay toàn bộ box thông báo inline lỗi/thành công trong 5 auth pages bằng toast của Sonner.
 - Dùng `toast.error(...)` cho validation/mutation failure.
 - Dùng `toast.success(...)` cho mutation success.

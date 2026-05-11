@@ -18,6 +18,7 @@ import type {
   LessonUpsertMode,
 } from "@/dtos/lesson.dto";
 import * as lessonApi from "@/lib/apis/lesson.api";
+import { openNativeDateTimePickerOnPointerDown } from "@/lib/native-datetime-picker";
 import {
   LESSON_PAYMENT_STATUS_OPTIONS,
   LESSON_PAYMENT_STATUS_LABELS,
@@ -592,6 +593,7 @@ export default function LessonOutputEditorForm({
                 </span>
                 <input
                   type="date"
+                  onPointerDown={openNativeDateTimePickerOnPointerDown}
                   value={date}
                   onChange={(event) => setDate(event.target.value)}
                   className={fieldInputClass()}
@@ -797,6 +799,7 @@ export default function LessonOutputEditorForm({
               <span>Ngày</span>
               <input
                 type="date"
+                onPointerDown={openNativeDateTimePickerOnPointerDown}
                 value={date}
                 onChange={(event) => setDate(event.target.value)}
                 className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"

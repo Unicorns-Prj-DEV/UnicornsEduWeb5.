@@ -11,6 +11,7 @@ import type {
   ActionHistoryListItem,
 } from "@/dtos/action-history.dto";
 import * as actionHistoryApi from "@/lib/apis/action-history.api";
+import { openNativeDateTimePickerOnPointerDown } from "@/lib/native-datetime-picker";
 
 const PAGE_SIZE = 20;
 const EMPTY_HISTORY_ENTRIES: ActionHistoryListItem[] = [];
@@ -694,6 +695,7 @@ function HistoryFilterCard({
             </span>
             <input
               type="date"
+              onPointerDown={openNativeDateTimePickerOnPointerDown}
               name="startDate"
               autoComplete="off"
               value={startDate}
@@ -709,6 +711,7 @@ function HistoryFilterCard({
             </span>
             <input
               type="date"
+              onPointerDown={openNativeDateTimePickerOnPointerDown}
               name="endDate"
               autoComplete="off"
               value={endDate}

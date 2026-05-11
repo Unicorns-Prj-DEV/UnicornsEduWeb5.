@@ -79,6 +79,12 @@ function getLoginErrorToastMessage(error: unknown): string {
   }
 
   if (status === 401) {
+    if (
+      serverMsg &&
+      /^invalid credentials$/i.test(serverMsg.trim())
+    ) {
+      return "Sai tài khoản hoặc mật khẩu.";
+    }
     return serverMsg ?? "Sai tài khoản hoặc mật khẩu.";
   }
 

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { COST_STATUS_OPTIONS } from "@/components/admin/cost/costStatusPresentation";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type { CostBaseFields, CostStatus, CostUpsertMode } from "@/dtos/cost.dto";
+import { openNativeDateTimePickerOnPointerDown } from "@/lib/native-datetime-picker";
 
 export interface CostFormSubmitPayload {
   month?: string;
@@ -158,6 +159,7 @@ export default function CostFormPopup({
               <span>Ngày</span>
               <input
                 type="date"
+                onPointerDown={openNativeDateTimePickerOnPointerDown}
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"

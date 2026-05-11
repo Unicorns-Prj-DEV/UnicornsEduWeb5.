@@ -26,6 +26,7 @@ import {
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
+import { openNativeDateTimePickerOnPointerDown } from "@/lib/native-datetime-picker";
 
 export interface SessionStudentItem {
   id: string;
@@ -534,6 +535,7 @@ export default function AddSessionPopup({
                       <input
                         name="add-session-date"
                         type="date"
+                        onPointerDown={openNativeDateTimePickerOnPointerDown}
                         value={date}
                         autoComplete="off"
                         onChange={(event) => setDate(event.target.value)}
@@ -552,6 +554,7 @@ export default function AddSessionPopup({
                           <input
                             name="add-session-start-time"
                             type="time"
+                            onPointerDown={openNativeDateTimePickerOnPointerDown}
                             step={1}
                             value={startTime}
                             autoComplete="off"
@@ -571,6 +574,7 @@ export default function AddSessionPopup({
                           <input
                             name="add-session-end-time"
                             type="time"
+                            onPointerDown={openNativeDateTimePickerOnPointerDown}
                             step={1}
                             value={endTime}
                             autoComplete="off"

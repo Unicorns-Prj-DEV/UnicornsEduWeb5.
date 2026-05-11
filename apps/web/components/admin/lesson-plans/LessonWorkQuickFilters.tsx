@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
+import { openNativeDateTimePickerOnPointerDown } from "@/lib/native-datetime-picker";
 import type {
   LessonOutputStaffOption,
   LessonOutputStatus,
@@ -235,6 +236,7 @@ export default function LessonWorkQuickFilters({
                 </span>
                 <input
                   type="date"
+                  onPointerDown={openNativeDateTimePickerOnPointerDown}
                   name="lesson-work-date-from"
                   value={draft.dateFrom}
                   onChange={(e) =>
@@ -270,6 +272,7 @@ export default function LessonWorkQuickFilters({
                 </span>
                 <input
                   type="date"
+                  onPointerDown={openNativeDateTimePickerOnPointerDown}
                   name="lesson-work-date-to"
                   value={draft.dateTo}
                   onChange={(e) =>

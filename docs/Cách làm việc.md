@@ -131,6 +131,19 @@ pnpm check-types
 pnpm clean
 ```
 
+### Helper script khởi động API + Web (macOS / Unix)
+
+Tương đương `start-server.bat` trên Windows: giải phóng cổng FE/BE mặc định, gỡ lock `.next` của Next.js (nếu có), kiểm tra `node_modules`, rồi mở hai cửa sổ **Terminal.app** chạy API và Web. Nếu không mở được Terminal (Automation), script sẽ chạy song song trong terminal hiện tại.
+
+```bash
+chmod +x ./start-server.sh
+./start-server.sh
+```
+
+Mặc định Web dùng cổng **3000**, script giải phóng **3000** và **3001** trước khi chạy (API có thể dùng `PORT` trong `apps/api/.env`). Biến `FE_PORT` / `BE_PORT` chỉ dùng cho thông báo và bước dọn cổng; export `PORT` trong `.env` của API vẫn là chuẩn.
+
+Script tự **bổ sung PATH** kiểu shell đăng nhập (Homebrew, pnpm shim, Volta/fnm/nvm/asdf, và fallback Node của Cursor) vì **Terminal.app** thường không đọc `~/.zshrc`. Nếu vẫn báo thiếu `node`, cài Node hoặc thêm `export PATH="/opt/homebrew/bin:$PATH"` vào `~/.zprofile`.
+
 ### Chạy một ứng dụng cụ thể (dùng --filter)
 
 ```bash

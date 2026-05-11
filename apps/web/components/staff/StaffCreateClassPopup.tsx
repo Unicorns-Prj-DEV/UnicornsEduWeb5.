@@ -23,6 +23,7 @@ import {
   classEditorModalSecondaryButtonClassName,
   classEditorModalTitleClassName,
 } from "@/components/admin/class/classEditorModalStyles";
+import { openNativeDateTimePickerOnPointerDown } from "@/lib/native-datetime-picker";
 
 type Props = {
   open: boolean;
@@ -319,6 +320,7 @@ function StaffCreateClassDialog({
                       <input
                         name={`staff-create-class-schedule-from-${range.id}`}
                         type="time"
+                        onPointerDown={openNativeDateTimePickerOnPointerDown}
                         step={1}
                         value={range.from}
                         autoComplete="off"
@@ -334,6 +336,7 @@ function StaffCreateClassDialog({
                       <input
                         name={`staff-create-class-schedule-to-${range.id}`}
                         type="time"
+                        onPointerDown={openNativeDateTimePickerOnPointerDown}
                         step={1}
                         value={range.to}
                         autoComplete="off"

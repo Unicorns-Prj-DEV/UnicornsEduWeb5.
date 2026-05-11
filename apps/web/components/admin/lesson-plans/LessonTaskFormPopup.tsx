@@ -18,6 +18,7 @@ import type {
   LessonUpsertMode,
 } from "@/dtos/lesson.dto";
 import * as lessonApi from "@/lib/apis/lesson.api";
+import { openNativeDateTimePickerOnPointerDown } from "@/lib/native-datetime-picker";
 import {
   formatLessonStaffRoleLabel,
   formatLessonStaffStatusLabel,
@@ -312,6 +313,7 @@ function LessonTaskFormPopupContent({
                   <span>Hạn xử lý</span>
                   <input
                     type="date"
+                    onPointerDown={openNativeDateTimePickerOnPointerDown}
                     name="dueDate"
                     autoComplete="off"
                     value={dueDate}

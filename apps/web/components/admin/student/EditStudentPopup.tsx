@@ -18,6 +18,7 @@ import * as studentApi from "@/lib/apis/student.api";
 import { createClientId } from "@/lib/client-id";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
+import { openNativeDateTimePickerOnPointerDown } from "@/lib/native-datetime-picker";
 
 type DropdownRect = { top: number; left: number; width: number; maxHeight: number };
 
@@ -498,6 +499,7 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
                     name="drop_out_date"
                     autoComplete="off"
                     type="date"
+                    onPointerDown={openNativeDateTimePickerOnPointerDown}
                     value={dropOutDate}
                     onChange={(event) => setDropOutDate(event.target.value)}
                     className="rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
@@ -726,6 +728,7 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
                             name={`exam_date_${index + 1}`}
                             autoComplete="off"
                             type="date"
+                            onPointerDown={openNativeDateTimePickerOnPointerDown}
                             value={item.examDate}
                             onChange={(e) =>
                               setExamDraftItems((prev) =>

@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { createClientId } from "@/lib/client-id";
+import { openNativeDateTimePickerOnPointerDown } from "@/lib/native-datetime-picker";
 import type { StudentExamItem } from "./StudentExamCard";
 
 type Props = {
@@ -168,6 +169,7 @@ export default function StudentExamSchedulePopup({
                       </span>
                       <input
                         type="date"
+                        onPointerDown={openNativeDateTimePickerOnPointerDown}
                         value={item.examDate}
                         onChange={(event) =>
                           onItemsChange(

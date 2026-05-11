@@ -23,6 +23,7 @@ import type {
   AdminDashboardFinancialDetailRowKey,
   AdminDashboardFinancialDetailSource,
 } from "@/dtos/dashboard.dto";
+import { openNativeDateTimePickerOnPointerDown } from "@/lib/native-datetime-picker";
 
 function formatCurrency(value: number) {
   return `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value)} đ`;
@@ -919,6 +920,7 @@ export default function AdminDashboardTabPage() {
                     <input
                       id="dateFrom"
                       type="date"
+                      onPointerDown={openNativeDateTimePickerOnPointerDown}
                       value={dateFrom}
                       max={dateTo}
                       onChange={(e) => setDateFrom(e.target.value)}
@@ -930,6 +932,7 @@ export default function AdminDashboardTabPage() {
                     <input
                       id="dateTo"
                       type="date"
+                      onPointerDown={openNativeDateTimePickerOnPointerDown}
                       value={dateTo}
                       min={dateFrom}
                       onChange={(e) => setDateTo(e.target.value)}

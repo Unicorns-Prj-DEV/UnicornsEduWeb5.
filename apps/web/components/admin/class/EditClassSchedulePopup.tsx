@@ -23,6 +23,7 @@ import {
 } from "./classEditorModalStyles";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
+import { openNativeDateTimePickerOnPointerDown } from "@/lib/native-datetime-picker";
 
 type ScheduleRangeForm = {
   id: string;
@@ -353,6 +354,7 @@ function EditClassScheduleDialog({
                     <input
                       name={`edit-class-schedule-from-${range.id}`}
                       type="time"
+                      onPointerDown={openNativeDateTimePickerOnPointerDown}
                       step={1}
                       value={range.from}
                       autoComplete="off"
@@ -370,6 +372,7 @@ function EditClassScheduleDialog({
                     <input
                       name={`edit-class-schedule-to-${range.id}`}
                       type="time"
+                      onPointerDown={openNativeDateTimePickerOnPointerDown}
                       step={1}
                       value={range.to}
                       autoComplete="off"

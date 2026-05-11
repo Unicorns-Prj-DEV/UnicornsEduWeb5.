@@ -12,6 +12,7 @@ import { getFullProfile } from "@/lib/apis/auth.api";
 import * as deductionSettingsApi from "@/lib/apis/deduction-settings.api";
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
 import { ROLE_LABELS } from "@/lib/staff.constants";
+import { openNativeDateTimePickerOnPointerDown } from "@/lib/native-datetime-picker";
 
 type RoleDefaultFormState = {
   roleType: StaffRoleType;
@@ -250,6 +251,7 @@ export default function AdminDeductionsPage() {
               <span>Hiệu lực tại ngày</span>
               <input
                 type="date"
+                onPointerDown={openNativeDateTimePickerOnPointerDown}
                 value={asOfDate}
                 onChange={(event) => setAsOfDate(event.target.value || today)}
                 className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
@@ -323,6 +325,7 @@ export default function AdminDeductionsPage() {
                 <span>Hiệu lực từ ngày</span>
                 <input
                   type="date"
+                  onPointerDown={openNativeDateTimePickerOnPointerDown}
                   value={roleDefaultForm.effectiveFrom}
                   onChange={(event) =>
                     setRoleDefaultForm((prev) => ({

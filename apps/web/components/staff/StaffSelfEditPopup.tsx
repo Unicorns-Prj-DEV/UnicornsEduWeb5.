@@ -11,6 +11,7 @@ import {
 } from "@/dtos/user-name.dto";
 import * as authApi from "@/lib/apis/auth.api";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
+import { openNativeDateTimePickerOnPointerDown } from "@/lib/native-datetime-picker";
 
 type Props = {
   open: boolean;
@@ -225,7 +226,7 @@ export default function StaffSelfEditPopup({
                   type="date"
                   value={cccdIssuedDateInput}
                   onChange={(event) => setCccdIssuedDateInput(event.target.value)}
-                  onClick={(event) => event.currentTarget.showPicker?.()}
+                  onPointerDown={openNativeDateTimePickerOnPointerDown}
                   autoComplete="off"
                   disabled={isSaving}
                   className="min-h-11 cursor-pointer rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
@@ -252,7 +253,7 @@ export default function StaffSelfEditPopup({
                   type="date"
                   value={birthDateInput}
                   onChange={(event) => setBirthDateInput(event.target.value)}
-                  onClick={(event) => event.currentTarget.showPicker?.()}
+                  onPointerDown={openNativeDateTimePickerOnPointerDown}
                   autoComplete="bday"
                   disabled={isSaving}
                   className="min-h-11 cursor-pointer rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"

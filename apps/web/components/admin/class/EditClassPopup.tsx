@@ -30,6 +30,7 @@ import {
   parseTuitionPackageInputs,
 } from "@/lib/class.helpers";
 import { createClientId } from "@/lib/client-id";
+import { openNativeDateTimePickerOnPointerDown } from "@/lib/native-datetime-picker";
 
 type ScheduleRangeForm = {
   id: string;
@@ -1045,6 +1046,7 @@ function EditClassDialog({ onClose, classDetail }: Omit<Props, "open">) {
                       <input
                         name={`edit-class-schedule-from-${range.id}`}
                         type="time"
+                        onPointerDown={openNativeDateTimePickerOnPointerDown}
                         step={1}
                         value={range.from}
                         autoComplete="off"
@@ -1064,6 +1066,7 @@ function EditClassDialog({ onClose, classDetail }: Omit<Props, "open">) {
                       <input
                         name={`edit-class-schedule-to-${range.id}`}
                         type="time"
+                        onPointerDown={openNativeDateTimePickerOnPointerDown}
                         step={1}
                         value={range.to}
                         autoComplete="off"

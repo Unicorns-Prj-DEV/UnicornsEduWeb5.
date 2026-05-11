@@ -7,6 +7,7 @@ import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { ClassScheduleEvent } from "@/dtos/class-schedule.dto";
 import * as classScheduleApi from "@/lib/apis/class-schedule.api";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
+import { openNativeDateTimePickerOnPointerDown } from "@/lib/native-datetime-picker";
 
 type MakeupEventEditorPopupProps = {
   open: boolean;
@@ -217,6 +218,7 @@ export default function MakeupEventEditorPopup({
               <input
                 id="makeup-date"
                 type="date"
+                onPointerDown={openNativeDateTimePickerOnPointerDown}
                 value={form.date}
                 onChange={(event) => setForm((prev) => ({ ...prev, date: event.target.value }))}
                 disabled={isSubmitting}
@@ -248,6 +250,7 @@ export default function MakeupEventEditorPopup({
               <input
                 id="makeup-start"
                 type="time"
+                onPointerDown={openNativeDateTimePickerOnPointerDown}
                 value={form.startTime}
                 onChange={(event) => setForm((prev) => ({ ...prev, startTime: event.target.value }))}
                 disabled={isSubmitting}
@@ -262,6 +265,7 @@ export default function MakeupEventEditorPopup({
               <input
                 id="makeup-end"
                 type="time"
+                onPointerDown={openNativeDateTimePickerOnPointerDown}
                 value={form.endTime}
                 onChange={(event) => setForm((prev) => ({ ...prev, endTime: event.target.value }))}
                 disabled={isSubmitting}

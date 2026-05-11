@@ -8,6 +8,7 @@ import type {
   MakeupScheduleEventRecord,
 } from "@/dtos/class-schedule.dto";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
+import { openNativeDateTimePickerOnPointerDown } from "@/lib/native-datetime-picker";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import ClassCard from "./ClassCard";
 
@@ -223,6 +224,7 @@ function MakeupEditorDialog({
               <input
                 id="makeup-date"
                 type="date"
+                onPointerDown={openNativeDateTimePickerOnPointerDown}
                 value={form.date}
                 onChange={(nextEvent) =>
                   setForm((prev) => ({ ...prev, date: nextEvent.target.value }))
@@ -256,6 +258,7 @@ function MakeupEditorDialog({
               <input
                 id="makeup-start"
                 type="time"
+                onPointerDown={openNativeDateTimePickerOnPointerDown}
                 value={form.startTime}
                 onChange={(nextEvent) =>
                   setForm((prev) => ({ ...prev, startTime: nextEvent.target.value }))
@@ -272,6 +275,7 @@ function MakeupEditorDialog({
               <input
                 id="makeup-end"
                 type="time"
+                onPointerDown={openNativeDateTimePickerOnPointerDown}
                 value={form.endTime}
                 onChange={(nextEvent) =>
                   setForm((prev) => ({ ...prev, endTime: nextEvent.target.value }))

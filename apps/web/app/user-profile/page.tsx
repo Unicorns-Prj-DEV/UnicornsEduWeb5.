@@ -26,6 +26,7 @@ import type {
 import { Role } from "@/dtos/Auth.dto";
 import { resolveCanonicalUserName } from "@/dtos/user-name.dto";
 import { OPEN_EMAIL_VERIFICATION_MODAL_EVENT } from "@/lib/email-verification-access";
+import { openNativeDateTimePickerOnPointerDown } from "@/lib/native-datetime-picker";
 
 type Tone = "primary" | "success" | "warning" | "neutral";
 
@@ -287,6 +288,11 @@ function TextField({
         id={id}
         name={name}
         type={type}
+        onPointerDown={
+          type === "date" || type === "time" || type === "datetime-local"
+            ? openNativeDateTimePickerOnPointerDown
+            : undefined
+        }
         className={inputClassName}
         defaultValue={defaultValue ?? ""}
         placeholder={placeholder}

@@ -15,6 +15,7 @@ import type {
 } from "@/dtos/staff.dto";
 import * as staffApi from "@/lib/apis/staff.api";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
+import { openNativeDateTimePickerOnPointerDown } from "@/lib/native-datetime-picker";
 
 type Props = {
   open: boolean;
@@ -465,6 +466,7 @@ function AddTutorPopupContent({ open, onClose, onCreated }: Props) {
                         <span>Ngày cấp CCCD</span>
                         <input
                           type="date"
+                          onPointerDown={openNativeDateTimePickerOnPointerDown}
                           value={cccdIssuedDateInput}
                           onChange={(event) => setCccdIssuedDateInput(event.target.value)}
                           disabled={!selectedUser?.isEligible}
@@ -487,6 +489,7 @@ function AddTutorPopupContent({ open, onClose, onCreated }: Props) {
                         <span>Ngày sinh</span>
                         <input
                           type="date"
+                          onPointerDown={openNativeDateTimePickerOnPointerDown}
                           value={birthDateInput}
                           onChange={(event) => setBirthDateInput(event.target.value)}
                           disabled={!selectedUser?.isEligible}
