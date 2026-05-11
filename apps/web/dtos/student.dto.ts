@@ -2,7 +2,11 @@ import type { StaffStatus } from "./staff.dto";
 
 export type StudentStatus = "active" | "inactive";
 export type StudentGender = "male" | "female";
-export type StudentWalletTransactionType = "topup" | "loan" | "repayment" | "extend";
+export type StudentWalletTransactionType =
+  | "topup"
+  | "loan"
+  | "repayment"
+  | "extend";
 
 export interface StudentListMeta {
   total: number;
@@ -31,6 +35,7 @@ export interface StudentListItem {
   id: string;
   fullName: string;
   email?: string | null;
+  parentEmail?: string | null;
   accountBalance?: number | null;
   school?: string | null;
   province?: string | null;
@@ -118,6 +123,7 @@ export interface StudentSelfDetail {
   id: string;
   fullName: string;
   email?: string | null;
+  parentEmail?: string | null;
   accountBalance?: number | null;
   school?: string | null;
   province?: string | null;
@@ -135,6 +141,7 @@ export interface StudentSelfDetail {
 export interface UpdateStudentPayload {
   full_name?: string;
   email?: string;
+  parent_email?: string;
   school?: string;
   province?: string;
   birth_year?: number;
@@ -151,6 +158,7 @@ export interface UpdateStudentPayload {
 export interface CreateStudentPayload {
   full_name: string;
   email?: string;
+  parent_email?: string;
   school?: string;
   province?: string;
   birth_year?: number;

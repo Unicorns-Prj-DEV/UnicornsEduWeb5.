@@ -1,6 +1,8 @@
 import { HttpService } from '@nestjs/axios';
 import {
   BadGatewayException,
+  BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   ServiceUnavailableException,
@@ -13,6 +15,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+export class SePayDuplicateOrderCodeException extends ConflictException {
+  constructor(message = 'SePay order_code already exists.') {
+    super(message);
+  }
+}
+
 @Injectable()
 export class SePayService {
   private readonly logger = new Logger(SePayService.name);
@@ -22,7 +30,7 @@ export class SePayService {
   isWalletTopUpConfigured(): boolean {
     return Boolean(
       process.env.SEPAY_API_ACCESS_TOKEN?.trim() &&
-        process.env.SEPAY_BANK_ACCOUNT_XID?.trim(),
+      process.env.SEPAY_BANK_ACCOUNT_XID?.trim(),
     );
   }
 
@@ -39,6 +47,7 @@ export class SePayService {
   async createBankAccountOrder(params: {
     amountVnd: number;
     orderCode: string;
+    description?: string;
     qrcodeTemplate?: 'compact' | 'qronly';
   }): Promise<SePayNormalizedCreateOrderResult> {
     const base =
@@ -50,15 +59,20 @@ export class SePayService {
         'SePay chưa được cấu hình (thiếu SEPAY_API_ACCESS_TOKEN hoặc SEPAY_BANK_ACCOUNT_XID).',
       );
     }
+    this.assertCreateOrderInput(params.amountVnd, params.orderCode);
 
     const url = `${base.replace(/\/$/, '')}/v2/bank-accounts/${encodeURIComponent(baXid)}/orders`;
 
     const body: Record<string, string | number> = {
       order_code: params.orderCode,
       amount: params.amountVnd,
-      with_qrcode: '1',
+      with_qrcode: 1,
       qrcode_template: params.qrcodeTemplate ?? 'compact',
     };
+    const description = params.description?.trim();
+    if (description) {
+      body.description = description;
+    }
 
     const vaPrefix = process.env.SEPAY_VA_PREFIX?.trim();
     if (vaPrefix) {
@@ -93,6 +107,11 @@ export class SePayService {
         `SePay create order failed: status=${status} data=${JSON.stringify(data)?.slice(0, 500)}`,
       );
       const message = this.extractSePayErrorMessage(data) ?? err.message;
+      if (status === 409) {
+        throw new SePayDuplicateOrderCodeException(
+          message ?? 'SePay order_code already exists.',
+        );
+      }
       throw new BadGatewayException(
         message ??
           'Không tạo được đơn SePay. Vui lòng thử lại hoặc liên hệ trung tâm.',
@@ -113,6 +132,20 @@ export class SePayService {
       return nested.message.trim();
     }
     return undefined;
+  }
+
+  private assertCreateOrderInput(amountVnd: number, orderCode: string) {
+    if (!Number.isInteger(amountVnd) || amountVnd <= 0) {
+      throw new BadRequestException(
+        'SePay order amount must be a positive integer.',
+      );
+    }
+
+    if (!/^[A-Za-z0-9]{6,50}$/.test(orderCode)) {
+      throw new BadRequestException(
+        'SePay order_code must be 6-50 alphanumeric characters.',
+      );
+    }
   }
 
   private normalizeCreateOrderResponse(
@@ -146,8 +179,13 @@ export class SePayService {
       orderCode:
         typeof payload.order_code === 'string' ? payload.order_code : null,
       amount: typeof payload.amount === 'number' ? payload.amount : null,
+      sepayStatus: typeof payload.status === 'string' ? payload.status : null,
       vaNumber:
         typeof payload.va_number === 'string' ? payload.va_number : null,
+      vaHolderName:
+        typeof payload.va_holder_name === 'string'
+          ? payload.va_holder_name
+          : null,
       bankName:
         typeof payload.bank_name === 'string' ? payload.bank_name : null,
       accountNumber:

@@ -3,7 +3,9 @@ export interface SePayNormalizedCreateOrderResult {
   orderId?: string | null;
   orderCode?: string | null;
   amount?: number | null;
+  sepayStatus?: string | null;
   vaNumber?: string | null;
+  vaHolderName?: string | null;
   bankName?: string | null;
   accountNumber?: string | null;
   accountHolderName?: string | null;

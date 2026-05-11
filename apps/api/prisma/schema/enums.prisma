@@ -68,6 +68,14 @@ enum WalletTransactionType {
   extend
 }
 
+enum StudentWalletSepayOrderStatus {
+  pending
+  completed
+  expired
+  cancelled
+  failed
+}
+
 enum LessonTaskStatus {
   pending
   in_progress

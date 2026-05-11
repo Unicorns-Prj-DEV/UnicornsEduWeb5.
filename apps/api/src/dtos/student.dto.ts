@@ -115,6 +115,11 @@ export class UpdateStudentBodyDto {
   @IsString()
   parent_phone?: string;
 
+  @ApiPropertyOptional({ example: 'parent@example.com', nullable: true })
+  @IsOptional()
+  @IsEmail()
+  parent_email?: string | null;
+
   @ApiPropertyOptional({ enum: StudentStatus })
   @IsOptional()
   @IsEnum(StudentStatus)
@@ -194,6 +199,11 @@ export class CreateStudentDto {
   @IsString()
   parent_phone?: string;
 
+  @ApiPropertyOptional({ example: 'parent@example.com', nullable: true })
+  @IsOptional()
+  @IsEmail()
+  parent_email?: string | null;
+
   @ApiPropertyOptional({ enum: StudentStatus })
   @IsOptional()
   @IsEnum(StudentStatus)
@@ -267,14 +277,32 @@ export class CreateStudentSePayTopUpOrderDto {
 
 /** Phản hồi POST student-wallet-sepay-topup-order */
 export class StudentSePayTopUpOrderResponseDto {
+  @ApiProperty({ description: 'Persisted top-up order id' })
+  id!: string;
+
+  @ApiProperty({
+    description:
+      'Trạng thái đơn nạp SePay trong hệ thống (pending/completed/expired/cancelled/failed).',
+  })
+  status!: string;
+
   @ApiProperty({ description: 'Số tiền đơn' })
   amount!: number;
+
+  @ApiProperty({ description: 'Số tiền yêu cầu nạp' })
+  amountRequested!: number;
+
+  @ApiPropertyOptional({ nullable: true })
+  amountReceived?: number | null;
 
   @ApiProperty({
     description:
       'Nội dung chuyển khoản đề xuất (hiển thị / sao chép cho phụ huynh).',
   })
   transferNote!: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  parentEmail?: string | null;
 
   @ApiProperty({ description: 'Mã đơn gửi lên SePay' })
   orderCode!: string;
@@ -298,6 +326,9 @@ export class StudentSePayTopUpOrderResponseDto {
   vaNumber?: string | null;
 
   @ApiPropertyOptional({ nullable: true })
+  vaHolderName?: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
   bankName?: string | null;
 
   @ApiPropertyOptional({ nullable: true })
@@ -308,6 +339,12 @@ export class StudentSePayTopUpOrderResponseDto {
 
   @ApiPropertyOptional({ nullable: true })
   expiredAt?: string | null;
+
+  @ApiProperty()
+  createdAt!: string;
+
+  @ApiProperty()
+  updatedAt!: string;
 }
 
 export class StudentWalletHistoryQueryDto {

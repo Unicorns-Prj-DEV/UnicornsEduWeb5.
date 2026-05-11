@@ -117,6 +117,7 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
     student.birthYear == null ? "" : String(student.birthYear),
   );
   const [parentName, setParentName] = useState(student.parentName ?? "");
+  const [parentEmail, setParentEmail] = useState(student.parentEmail ?? "");
   const [parentPhone, setParentPhone] = useState(student.parentPhone ?? "");
   const [gender, setGender] = useState<StudentGender>(student.gender ?? "male");
   const [status, setStatus] = useState<StudentStatus>(student.status ?? "active");
@@ -291,6 +292,7 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
           province: province.trim() || undefined,
           birth_year: parsedBirthYear,
           parent_name: parentName.trim() || undefined,
+          parent_email: parentEmail.trim() || undefined,
           parent_phone: parentPhone.trim() || undefined,
           gender,
           status,
@@ -441,6 +443,20 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
                     onChange={(event) => setParentName(event.target.value)}
                     className="rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                     placeholder="Nguyễn Thị B…"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1 text-sm text-text-secondary">
+                  <span>Email nhận biên nhận</span>
+                  <input
+                    name="parent_email"
+                    autoComplete="email"
+                    spellCheck={false}
+                    type="email"
+                    value={parentEmail}
+                    onChange={(event) => setParentEmail(event.target.value)}
+                    className="rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    placeholder="parent@example.com…"
                   />
                 </label>
 

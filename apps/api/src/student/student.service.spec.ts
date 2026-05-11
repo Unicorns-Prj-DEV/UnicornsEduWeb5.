@@ -59,6 +59,8 @@ describe('StudentService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    delete process.env.SEPAY_API_ACCESS_TOKEN;
+    delete process.env.SEPAY_BANK_ACCOUNT_XID;
     mockPrisma.$transaction.mockImplementation(
       (callback: (db: typeof mockPrisma) => unknown) => callback(mockPrisma),
     );
@@ -91,6 +93,7 @@ describe('StudentService', () => {
       birthYear: 2010,
       parentName: 'Parent A',
       parentPhone: '0900000000',
+      parentEmail: 'parent@example.com',
       status: StudentStatus.active,
       gender: 'male',
       goal: 'Top 1',
@@ -111,6 +114,7 @@ describe('StudentService', () => {
       birthYear: 2010,
       parentName: 'Parent A',
       parentPhone: '0900000000',
+      parentEmail: 'parent@example.com',
       status: StudentStatus.active,
       gender: 'male',
       goal: 'Top 1',
@@ -196,6 +200,7 @@ describe('StudentService', () => {
       birthYear: 2010,
       parentName: 'Parent A',
       parentPhone: '0900000000',
+      parentEmail: 'parent@example.com',
       status: StudentStatus.active,
       gender: 'male',
       goal: 'Top 1',
@@ -246,6 +251,7 @@ describe('StudentService', () => {
       birthYear: 2010,
       parentName: 'Parent A',
       parentPhone: '0900000000',
+      parentEmail: 'parent@example.com',
       goal: 'Top 1',
       studentClasses: [
         {
@@ -266,6 +272,7 @@ describe('StudentService', () => {
       ],
     });
     expect(result).not.toHaveProperty('customerCare');
+    expect(result.parentEmail).toBe('parent@example.com');
     expect(result.studentClasses[0]).toMatchObject({
       effectiveTuitionPerSession: 100000,
       effectiveTuitionPackageTotal: 900000,
@@ -290,6 +297,20 @@ describe('StudentService', () => {
     expect(mockPrisma.studentInfo.update).not.toHaveBeenCalled();
   });
 
+  it('blocks self-service positive wallet deltas when SePay top-up is configured', async () => {
+    process.env.SEPAY_API_ACCESS_TOKEN = 'token-123';
+    process.env.SEPAY_BANK_ACCOUNT_XID = 'bank-xid-123';
+
+    await expect(
+      service.updateMyStudentAccountBalance('student-1', {
+        amount: 150000,
+      }),
+    ).rejects.toThrow('Use SePay');
+
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.walletTransactionsHistory.create).not.toHaveBeenCalled();
+  });
+
   it('allows customer care staff to read the detail of their assigned student', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-1',
@@ -307,6 +328,7 @@ describe('StudentService', () => {
       birthYear: 2010,
       parentName: 'Parent A',
       parentPhone: '0900000000',
+      parentEmail: 'parent@example.com',
       status: StudentStatus.active,
       gender: 'male',
       goal: 'Top 1',
@@ -326,6 +348,7 @@ describe('StudentService', () => {
     ).resolves.toMatchObject({
       id: 'student-1',
       fullName: 'Nguyen Van A',
+      parentEmail: 'parent@example.com',
     });
   });
 

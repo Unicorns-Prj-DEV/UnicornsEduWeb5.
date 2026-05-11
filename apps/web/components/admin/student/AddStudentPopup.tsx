@@ -64,6 +64,7 @@ export default function AddStudentPopup({ open, onClose, onCreated }: Props) {
   const [school, setSchool] = useState("");
   const [birthYearInput, setBirthYearInput] = useState("");
   const [parentName, setParentName] = useState("");
+  const [parentEmail, setParentEmail] = useState("");
   const [parentPhone, setParentPhone] = useState("");
   const [gender, setGender] = useState<StudentGender>("male");
   const [status, setStatus] = useState<StudentStatus>("active");
@@ -101,6 +102,7 @@ export default function AddStudentPopup({ open, onClose, onCreated }: Props) {
     setSchool("");
     setBirthYearInput("");
     setParentName("");
+    setParentEmail("");
     setParentPhone("");
     setGender("male");
     setStatus("active");
@@ -179,6 +181,7 @@ export default function AddStudentPopup({ open, onClose, onCreated }: Props) {
           school: school.trim() || undefined,
           birth_year: parsedBirthYear,
           parent_name: parentName.trim() || undefined,
+          parent_email: parentEmail.trim() || undefined,
           parent_phone: parentPhone.trim() || undefined,
           gender,
           status,
@@ -479,6 +482,21 @@ export default function AddStudentPopup({ open, onClose, onCreated }: Props) {
                           onChange={(event) => setParentName(event.target.value)}
                           disabled={formDisabled}
                           placeholder="Ví dụ: Nguyễn Văn B"
+                          className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:bg-bg-tertiary disabled:text-text-muted"
+                        />
+                      </label>
+
+                      <label className="flex flex-col gap-1 text-sm text-text-secondary">
+                        <span>Email nhận biên nhận</span>
+                        <input
+                          name="parent_email"
+                          autoComplete="email"
+                          spellCheck={false}
+                          type="email"
+                          value={parentEmail}
+                          onChange={(event) => setParentEmail(event.target.value)}
+                          disabled={formDisabled}
+                          placeholder="parent@example.com…"
                           className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:bg-bg-tertiary disabled:text-text-muted"
                         />
                       </label>

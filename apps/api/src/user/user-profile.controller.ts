@@ -71,7 +71,32 @@ import {
 } from 'src/storage/supabase-storage';
 import { UserService } from './user.service';
 import { VerifiedEmailGuard } from 'src/auth/guards/verified-email.guard';
-import { SePayService } from 'src/sepay/sepay.service';
+import {
+  SePayDuplicateOrderCodeException,
+  SePayService,
+} from 'src/sepay/sepay.service';
+import { PrismaService } from 'src/prisma/prisma.service';
+
+type PersistedStudentWalletSepayOrder = {
+  id: string;
+  orderCode: string;
+  status: string;
+  amountRequested: number;
+  amountReceived: number | null;
+  transferNote: string;
+  parentEmail: string | null;
+  sepayOrderId: string | null;
+  sepayVaNumber: string | null;
+  sepayVaHolderName: string | null;
+  sepayBankName: string | null;
+  sepayAccountNumber: string | null;
+  sepayAccountHolderName: string | null;
+  sepayQrCode: string | null;
+  sepayQrCodeUrl: string | null;
+  sepayExpiredAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 @ApiTags('users')
 @Controller('users/me')
@@ -88,6 +113,7 @@ export class UserProfileController {
     private readonly studentService: StudentService,
     private readonly dashboardService: DashboardService,
     private readonly sePayService: SePayService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Get('full')
@@ -712,29 +738,114 @@ export class UserProfileController {
     const studentId = await this.userService.getLinkedStudentId(user.id);
     const amount = Math.round(body.amount);
     const now = new Date();
-    const transferNote =
+    const baseTransferNote =
       await this.studentService.getTuitionExtensionTransferNoteForSelf(
         studentId,
         now,
       );
-    const orderCode = this.sePayService.buildStudentWalletOrderCode(studentId);
-    const sePay = await this.sePayService.createBankAccountOrder({
-      amountVnd: amount,
-      orderCode,
+    const student = await this.prisma.studentInfo.findUnique({
+      where: { id: studentId },
+      select: { id: true, parentEmail: true },
     });
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
 
+    let lastDuplicateError: SePayDuplicateOrderCodeException | null = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const orderCode =
+        this.sePayService.buildStudentWalletOrderCode(studentId);
+      const transferNote = this.buildSePayTransferNote(
+        baseTransferNote,
+        orderCode,
+      );
+
+      try {
+        const sePay = await this.sePayService.createBankAccountOrder({
+          amountVnd: amount,
+          orderCode,
+          description: transferNote,
+        });
+
+        const persisted = await this.prisma.studentWalletSepayOrder.create({
+          data: {
+            studentId,
+            orderCode,
+            amountRequested: amount,
+            transferNote,
+            parentEmail: student.parentEmail,
+            sepayOrderId: sePay.orderId ?? null,
+            sepayOrderStatus: sePay.sepayStatus ?? null,
+            sepayVaNumber: sePay.vaNumber ?? null,
+            sepayVaHolderName: sePay.vaHolderName ?? null,
+            sepayBankName: sePay.bankName ?? null,
+            sepayAccountNumber: sePay.accountNumber ?? null,
+            sepayAccountHolderName: sePay.accountHolderName ?? null,
+            sepayQrCode: sePay.qrCode ?? null,
+            sepayQrCodeUrl: sePay.qrCodeUrl ?? null,
+            sepayExpiredAt: this.parseSePayTimestamp(sePay.expiredAt),
+          },
+        });
+
+        return this.serializeStudentWalletSepayOrder(persisted);
+      } catch (error) {
+        if (error instanceof SePayDuplicateOrderCodeException) {
+          lastDuplicateError = error;
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    throw (
+      lastDuplicateError ??
+      new BadRequestException('Không tạo được mã đơn SePay duy nhất.')
+    );
+  }
+
+  private buildSePayTransferNote(baseTransferNote: string, orderCode: string) {
+    const trimmed = baseTransferNote.trim();
+    if (trimmed.includes(orderCode)) {
+      return trimmed;
+    }
+    return `${trimmed} ${orderCode}`.trim();
+  }
+
+  private parseSePayTimestamp(value: string | null | undefined) {
+    if (!value) {
+      return null;
+    }
+    const normalized = value.includes('T') ? value : value.replace(' ', 'T');
+    const withZone = /(?:Z|[+-]\d{2}:\d{2})$/.test(normalized)
+      ? normalized
+      : `${normalized}Z`;
+    const parsed = new Date(withZone);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  private serializeStudentWalletSepayOrder(
+    order: PersistedStudentWalletSepayOrder,
+  ): StudentSePayTopUpOrderResponseDto {
     return {
-      amount,
-      transferNote,
-      orderCode: sePay.orderCode ?? orderCode,
-      qrCode: sePay.qrCode ?? null,
-      qrCodeUrl: sePay.qrCodeUrl ?? null,
-      orderId: sePay.orderId ?? null,
-      vaNumber: sePay.vaNumber ?? null,
-      bankName: sePay.bankName ?? null,
-      accountNumber: sePay.accountNumber ?? null,
-      accountHolderName: sePay.accountHolderName ?? null,
-      expiredAt: sePay.expiredAt ?? null,
+      id: order.id,
+      status: order.status,
+      amount: order.amountRequested,
+      amountRequested: order.amountRequested,
+      amountReceived: order.amountReceived,
+      transferNote: order.transferNote,
+      parentEmail: order.parentEmail,
+      orderCode: order.orderCode,
+      qrCode: order.sepayQrCode,
+      qrCodeUrl: order.sepayQrCodeUrl,
+      orderId: order.sepayOrderId,
+      vaNumber: order.sepayVaNumber,
+      vaHolderName: order.sepayVaHolderName,
+      bankName: order.sepayBankName,
+      accountNumber: order.sepayAccountNumber,
+      accountHolderName: order.sepayAccountHolderName,
+      expiredAt: order.sepayExpiredAt?.toISOString() ?? null,
+      createdAt: order.createdAt.toISOString(),
+      updatedAt: order.updatedAt.toISOString(),
     };
   }
 

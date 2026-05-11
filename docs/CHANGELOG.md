@@ -23,6 +23,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 - BE `POST /users/me/student-wallet-sepay-topup-order`: tạo đơn SePay (userapi v2) kèm QR; `StudentService.getTuitionExtensionTransferNoteForSelf`; module `sepay/`. FE `/student`: khi `NEXT_PUBLIC_STUDENT_WALLET_SEPAY_TOPUP=1`, nạp dương hiển thị QR SePay từ API (thay VietQR). Docs: `docs/pages/auth.md`, `docs/pages/student.md`, `docs/Cách làm việc.md`, `apps/api/.env.example`, `apps/web/.env.example`.
+- BE mail: thêm biên nhận nạp ví SePay gửi tới email phụ huynh, nội dung text/html an toàn và giữ mapping lỗi SMTP `503`.
+- FE admin student forms: thêm field email phụ huynh nhận biên nhận (`parent_email`) khi tạo/sửa học sinh.
 
 ### Changed
 - Deploy/Nginx: production chuyển sang Cloudflare Tunnel; NGINX chỉ bind `127.0.0.1:80`, bỏ vhost HTTPS/certbot/domain cũ, preserve `X-Forwarded-Proto`, deploy smoke test qua loopback local thay vì `VPS_PUBLIC_HOST`. Docs `docs/Cách làm việc.md`.
@@ -40,6 +42,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - FE `/user-profile` — khối **Nhân sự**: thêm field **Minh chứng thành tích** (`personal_achievement_link`, `PATCH /users/me/staff`), đồng bộ với popup self-edit `/staff/profile`. Docs: `docs/pages/auth.md`, `docs/README.md`.
 - FE `StudentBalancePopup` (chế độ **Nạp tiền**): cho phép nhập **số nguyên âm** để giảm số dư (cùng API signed `amount` với rút); cập nhật chip “Tác động”, toast và placeholder; `/student` điều chỉnh copy lỗi/mô tả. Docs: `docs/pages/student.md`, `docs/pages/admin.md`, `docs/README.md`, `docs/pages/auth.md`.
 - FE `/user-profile`: tắt `forceEmailUnverifiedForTest` mặc định để hiển thị đúng `emailVerified` từ API; nhãn chữ **Đã xác minh** / **Chưa xác minh**; gửi lại link qua `POST /auth/resend-verification` thay vì mock; email học viên khác email tài khoản hiển thị ghi chú không áp dụng xác minh đăng nhập. Docs: `docs/pages/auth.md`.
+- FE SePay top-up UX/docs: chặn tạo QR khi số tiền dương dưới `1.000` VND, cập nhật copy sang webhook tự động cộng ví sau xác nhận ngân hàng, và ghi rõ backend chặn self-service nạp dương qua `PATCH` khi API đã cấu hình SePay.
 
 ### Changed
 - FE **Thành tích chuyên môn** (`specialization`): render trực tiếp chuỗi từ DB bằng Markdown (`react-markdown` + `remark-gfm`, `skipHtml`) qua `StaffSpecializationMarkdown`; bỏ nhánh rich text HTML sanitize, bỏ helper tự chèn xuống dòng trước bullet, copy popup chỉ hướng dẫn nhập Markdown, và `/user-profile` dùng textarea nhiều dòng để lưu newline thật vào DB. Docs: `docs/pages/staff.md`, `docs/pages/admin.md`, `docs/pages/auth.md`.
