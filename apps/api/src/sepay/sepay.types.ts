@@ -1,3 +1,5 @@
+export type SePayWalletTopUpMode = 'va_order' | 'bank_transfer';
+
 /** Phản hồi chuẩn hoá sau khi tạo đơn SePay (userapi v2 bank-accounts/.../orders). */
 export interface SePayNormalizedCreateOrderResult {
   orderId?: string | null;
@@ -14,4 +16,8 @@ export interface SePayNormalizedCreateOrderResult {
   qrCode?: string | null;
   qrCodeUrl?: string | null;
   raw?: unknown;
+}
+
+export interface SePayWalletTopUpPaymentResult extends SePayNormalizedCreateOrderResult {
+  transferNote: string;
 }
