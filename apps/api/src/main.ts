@@ -37,6 +37,7 @@ async function bootstrap() {
       origin: process.env.FRONTEND_URL,
       credentials: true,
     },
+    rawBody: true,
   });
   const trustProxy = parseTrustProxy(process.env.TRUST_PROXY);
 
