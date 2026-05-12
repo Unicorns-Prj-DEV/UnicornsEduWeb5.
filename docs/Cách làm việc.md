@@ -267,9 +267,27 @@ pnpm --filter web add @unicorns/shared --workspace
 
 ## Deploy VPS (GitHub Actions)
 
-Pipeline: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — khi **push `main`**: hai job build song song `build-api` / `build-web` push GHCR `ghcr.io/unicorns-prj-dev/*` với tag `latest` và `${GITHUB_SHA}` (cache BuildKit `type=gha`, `scope` riêng) → job `deploy` SSH vào VPS → `git pull --ff-only` → **`docker login ghcr.io`** bằng secret `GHCR_USERNAME` + `GHCR_TOKEN` (bắt buộc nếu package private) → `docker compose pull` / `up` (image `latest` trong `docker-compose.prod.yml`) → probe HTTP → certbot renew (nếu có) → `nginx -t` + reload → smoke HTTPS (tùy `VPS_PUBLIC_HOST`) → `docker image prune -f`. **Không** chạy `prisma migrate deploy` trong workflow; áp migration production cần chạy tay trên VPS (hoặc quy trình riêng), xem [Database Schema.md](./Database%20Schema.md). **Không** chạy lint/test trên GitHub Actions; kiểm tra local dùng `pnpm lint`, `pnpm check-types`, `pnpm --filter api test`, v.v.
+Pipeline: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — khi **push `main`**: hai job build song song `build-api` / `build-web` push GHCR `ghcr.io/unicorns-prj-dev/*` với tag `latest` và `${GITHUB_SHA}` (cache BuildKit `type=gha`, `scope` riêng) → job `deploy` (tuỳ chọn **Tailscale** trước bước SSH) → SSH vào VPS → `git pull --ff-only` → **`docker login ghcr.io`** bằng secret `GHCR_USERNAME` + `GHCR_TOKEN` (bắt buộc nếu package private) → `docker compose pull` / `up` (image `latest` trong `docker-compose.prod.yml`) → probe HTTP → certbot renew (nếu có) → `nginx -t` + reload → smoke HTTPS (tùy `VPS_PUBLIC_HOST`) → `docker image prune -f`. **Không** chạy `prisma migrate deploy` trong workflow; áp migration production cần chạy tay trên VPS (hoặc quy trình riêng), xem [Database Schema.md](./Database%20Schema.md). **Không** chạy lint/test trên GitHub Actions; kiểm tra local dùng `pnpm lint`, `pnpm check-types`, `pnpm --filter api test`, v.v.
 
 **Secrets / variables GitHub (CD):** ngoài `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `NEXT_PUBLIC_BACKEND_URL`, `VPS_PUBLIC_HOST` (tuỳ chọn), cần **`GHCR_TOKEN`** (PAT `read:packages`, user đã authorize SSO org nếu có) và **`GHCR_USERNAME`** (username GitHub của chủ PAT). Có thể dùng Repository variable cho `GHCR_USERNAME`.
+
+### Tailscale trong job `deploy` (tuỳ chọn)
+
+Khi bật, runner GitHub Actions gia nhập tailnet bằng action chính thức [`tailscale/github-action@v4`](https://github.com/tailscale/github-action) rồi mới SSH — phù hợp mô hình **không mở SSH ra internet**, SSH chỉ qua Tailscale (đặt **`VPS_HOST`** = tên MagicDNS của máy VPS trên tailnet, hoặc IP Tailscale).
+
+1. **Repository variable** `TAILSCALE_ENABLED` = `true` để bật hai bước Tailscale trong workflow.
+2. **Chế độ xác thực (khuyến nghị: OAuth client)** — mặc định khi **không** đặt `TAILSCALE_AUTH_MODE=authkey`:
+   - Tạo [OAuth API client](https://tailscale.com/s/oauth-clients) trên admin Tailscale với scope tạo auth key và **tag** khớp workflow (mặc định `tag:ci` — tag trên OAuth client phải khớp mọi tag truyền vào action).
+   - **Secrets:** `TS_OAUTH_CLIENT_ID`, `TS_OAUTH_SECRET`.
+   - **Màn “New credential” → Custom scopes (như UI Tailscale):** nút *Generate* chỉ bật khi đã chọn ít nhất một scope. Với [`tailscale/github-action`](https://github.com/tailscale/github-action) runner cần credential **mint auth key** (scope kiểu `auth_keys` trong [tài liệu OAuth](https://tailscale.com/docs/features/oauth-clients)). Thực hành **least privilege:**
+     - **Không** bật nhóm **General** (DNS, Policy File, Users, Services) — không cần cho bước deploy CI.
+     - Mở **Keys** và bật quyền **Write** (hoặc đúng dòng mô tả *auth keys* / tạo key) nếu UI hiển thị tách theo Read/Write.
+     - Nếu wizard chỉ gom quyền dưới **Devices**: theo [hướng dẫn GitHub CI/CD của Tailscale](https://tailscale.com/docs/solutions/connect-github-CICD-workflows-to-private-infrastructure-without-public-exposure) có thể cần **Devices → Write** để tạo auth key đưa máy ephemeral vào tailnet — chọn **tối thiểu** đúng mục mà Tailscale mô tả là tạo key / đăng ký thiết bị, tránh bật dư Logging, Settings, Policy, DNS.
+     - Ở bước **Settings** hoặc ngay khi tạo credential, **gán tag** (ví dụ `tag:ci`) trùng với biến `TAILSCALE_TAGS` trên GitHub (hoặc mặc định `tag:ci` trong workflow). Trong ACL, `tag:ci` phải được phép SSH tới VPS.
+3. **Chế độ auth key (legacy):** đặt variable `TAILSCALE_AUTH_MODE` = `authkey` và secret **`TAILSCALE_AUTHKEY`** (auth key có tag phù hợp; Tailscale khuyến nghị OAuth thay cho key sống lâu).
+4. **Tuỳ chọn:** variable `TAILSCALE_TAGS` (mặc định workflow dùng `tag:ci` nếu để trống); variable `VPS_TAILSCALE_PING` = tên máy / host để action chạy `tailscale ping` sau `tailscale up` (xác minh đường đi trước SSH).
+
+**ACL tailnet:** phải cho phép node có tag CI (ví dụ `tag:ci`) SSH tới cổng 22 của VPS theo policy của bạn. Node trên runner là **ephemeral** (OAuth) và được gỡ sau khi job xong.
 
 **`VPS_PUBLIC_HOST` (smoke test HTTPS):** đặt một trong các cách — **Secret** `VPS_PUBLIC_HOST` (ưu tiên) hoặc **Repository variable** `VPS_PUBLIC_HOST`, hoặc trong file **`.env` trên VPS** (cùng thư mục compose, ví dụ `/root/UnicornsEdu/.env`). Script deploy đọc theo thứ tự: giá trị GitHub Actions truyền SSH → nếu trống thì đọc dòng `VPS_PUBLIC_HOST=…` trong `.env`. Nếu vẫn trống, **bỏ qua** bước `curl` (deploy không fail vì thiếu domain). Khớp `server_name` / chứng chỉ trong nginx.
 

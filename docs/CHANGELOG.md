@@ -22,6 +22,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 ## [Unreleased]
 
 ### Changed
+- `docs/Cách làm việc.md`: mục Tailscale bổ sung hướng dẫn **Custom scopes** (Keys/Devices, không bật General) khi tạo OAuth credential cho GitHub Actions.
 - FE `/staff/profile`: bỏ nút bút chì chỉnh sửa thông tin nhân sự ở header; `StaffSelfEditPopup` vẫn mở qua chỉnh sửa QR trong mục Hồ sơ nhân sự; toast `profile_required=1` cập nhật copy tương ứng. Docs: `docs/pages/staff.md`, `docs/README.md`, `docs/CHANGELOG.md`.
 - FE `/user-profile`: khối **Nhân sự** lại **chỉnh sửa được** (form `updateMyStaffProfile`, upload CCCD). Proxy staff: hồ sơ chưa đủ → redirect `/user-profile?profile_required=1&from=...`. Bỏ toast `profile_required` riêng trên `/staff/profile`. Docs: `docs/README.md`, `docs/pages/auth.md`, `docs/pages/staff.md`.
 - FE `/staff/staffs/[id]` khi mở **đúng hồ sơ nhân sự của chính user** (sidebar **Cá nhân**): ẩn chỉnh sửa kiểu admin (**Chỉnh sửa thông tin nhân sự**, popup `EditStaffPopup`, chỉnh QR thanh toán); tự cập nhật hồ sơ qua `/staff/profile`. Docs: `docs/pages/staff.md`.
@@ -40,6 +41,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - API local CORS/preflight: bật CORS qua `NestFactory.create(..., { cors })` trong `apps/api/src/main.ts` thay vì `app.enableCors()` sau `create`, để middleware CORS đăng ký trước router Nest và trả `Access-Control-Allow-Origin` cho `OPTIONS` (tránh lỗi preflight khi gọi API cross-origin từ web).
 
 ### Added
+- **CI deploy — Tailscale (tuỳ chọn):** job `deploy` trong [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) có thể gọi [`tailscale/github-action@v4`](https://github.com/tailscale/github-action) trước `appleboy/ssh-action` khi bật variable `TAILSCALE_ENABLED=true` (OAuth `TS_OAUTH_CLIENT_ID` / `TS_OAUTH_SECRET` mặc định, hoặc `TAILSCALE_AUTH_MODE=authkey` + `TAILSCALE_AUTHKEY`). Biến tuỳ chọn `TAILSCALE_TAGS`, `VPS_TAILSCALE_PING`. Hướng dẫn: `docs/Cách làm việc.md`.
 - DB migration: `staff_info` thay unique index `staff_info_user_id_key` bằng phiên bản **covering** `INCLUDE ("id", "roles")` để hỗ trợ index-only scan cho truy vấn theo `user_id` (luồng auth/session).
 - Prisma `StaffInfo`: doc comment + `@@unique([userId], map: "staff_info_user_id_key")` (thay `@unique` trên field) để tên index khớp DB và ghi chú INCLUDE chỉ trong migration.
 - **Nginx HTTPS (prod):** Tách `location` proxy chung vào `nginx/conf.d/snippets/proxy-locations.conf`, `app.conf` phục vụ HTTP (default_server) + `/.well-known/acme-challenge/` cho Certbot webroot; mount `./nginx/certbot/www` trong `docker-compose.prod.yml`; file mẫu `nginx/conf.d/https-vhost.conf.example`; **`nginx/conf.d/https-vhost.conf`** cho TLS + redirect (miền prod hiện tại: `it.unicornsedu.com`). Hướng dẫn & thứ tự Certbot trong `docs/Cách làm việc.md`.

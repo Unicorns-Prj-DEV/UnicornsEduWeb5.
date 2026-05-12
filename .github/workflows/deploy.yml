@@ -1,5 +1,9 @@
 # .github/workflows/deploy.yml
 # Build Docker images → push GHCR → deploy VPS (push main only).
+#
+# Optional Tailscale: set repo variable TAILSCALE_ENABLED=true so the runner joins
+# your tailnet before SSH (see docs/Cách làm việc.md). Use OAuth (recommended) or
+# auth key mode via TAILSCALE_AUTH_MODE.
 name: Build and Deploy
 
 on:
@@ -93,6 +97,29 @@ jobs:
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
 
     steps:
+      # Tailscale: ephemeral node on the tailnet (OAuth preferred over long-lived auth keys).
+      # Set VPS_HOST to the VPS MagicDNS name or Tailscale IP when this is enabled.
+      - name: Connect Tailscale (OAuth)
+        if: ${{ vars.TAILSCALE_ENABLED == 'true' && vars.TAILSCALE_AUTH_MODE != 'authkey' }}
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: ${{ vars.TAILSCALE_TAGS || 'tag:ci' }}
+          hostname: unicorns-gha-${{ github.run_id }}-${{ github.run_attempt }}
+          version: latest
+          ping: ${{ vars.VPS_TAILSCALE_PING }}
+
+      - name: Connect Tailscale (auth key)
+        if: ${{ vars.TAILSCALE_ENABLED == 'true' && vars.TAILSCALE_AUTH_MODE == 'authkey' }}
+        uses: tailscale/github-action@v4
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          tags: ${{ vars.TAILSCALE_TAGS || 'tag:ci' }}
+          hostname: unicorns-gha-${{ github.run_id }}-${{ github.run_attempt }}
+          version: latest
+          ping: ${{ vars.VPS_TAILSCALE_PING }}
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         env:
