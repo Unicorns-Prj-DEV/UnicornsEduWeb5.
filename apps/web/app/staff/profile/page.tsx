@@ -192,7 +192,8 @@ export default function StaffSelfDetailPage() {
   const canAccessClassWorkspace =
     profile?.roleType === "admin" ||
     (profile?.roleType === "staff" &&
-      (profile.staffInfo?.roles ?? []).includes("teacher"));
+      ((profile.staffInfo?.roles ?? []).includes("teacher") ||
+        (profile.staffInfo?.roles ?? []).includes("accountant")));
   const canViewBeforeDeduction =
     profile?.roleType === "admin" ||
     (profile?.roleType === "staff" &&

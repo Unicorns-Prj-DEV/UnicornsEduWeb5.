@@ -485,7 +485,10 @@ export class StudentService {
       );
     }
 
-    if (staff.roles.includes(StaffRole.assistant)) {
+    if (
+      staff.roles.includes(StaffRole.assistant) ||
+      staff.roles.includes(StaffRole.accountant)
+    ) {
       return;
     }
 

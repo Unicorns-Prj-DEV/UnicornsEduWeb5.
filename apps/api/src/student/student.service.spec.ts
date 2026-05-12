@@ -370,6 +370,46 @@ describe('StudentService', () => {
     });
   });
 
+  it('allows accountant staff to read any student detail without customer care assignment', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      roles: [StaffRole.accountant],
+    });
+    mockPrisma.studentInfo.findUnique.mockResolvedValue({
+      id: 'student-1',
+      fullName: 'Nguyen Van A',
+      email: 'student@example.com',
+      school: 'THPT Nguyen Du',
+      province: 'Hanoi',
+      birthYear: 2010,
+      parentName: 'Parent A',
+      parentPhone: '0900000000',
+      parentEmail: 'parent@example.com',
+      status: StudentStatus.active,
+      gender: 'male',
+      goal: 'Top 1',
+      accountBalance: 250000,
+      createdAt: new Date('2026-03-20T10:00:00.000Z'),
+      updatedAt: new Date('2026-03-21T10:00:00.000Z'),
+      dropOutDate: null,
+      customerCareServices: null,
+      studentClasses: [],
+    });
+
+    await expect(
+      service.getStudentById('student-1', {
+        userId: 'user-1',
+        roleType: UserRole.staff,
+      }),
+    ).resolves.toMatchObject({
+      id: 'student-1',
+      fullName: 'Nguyen Van A',
+      parentEmail: 'parent@example.com',
+    });
+
+    expect(mockPrisma.customerCareService.findUnique).not.toHaveBeenCalled();
+  });
+
   it('rejects customer care staff when the student is not assigned to them', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-1',

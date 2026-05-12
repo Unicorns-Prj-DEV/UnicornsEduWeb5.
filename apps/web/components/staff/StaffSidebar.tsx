@@ -74,11 +74,25 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
       isVisible: ({ hasStaffProfile }) => hasStaffProfile,
     },
     {
+      href: "/staff/staffs",
+      label: "Nhân sự",
+      icon: <IconStaff />,
+      isActive: (pathname) => pathname.startsWith("/staff/staffs"),
+      isVisible: ({ isAccountant }) => isAccountant,
+    },
+    {
       href: "/staff/classes",
       label: "Lớp học",
       icon: <IconClasses />,
       isActive: (pathname) =>
         pathname === "/staff/classes" || pathname.startsWith("/staff/classes/"),
+      isVisible: ({ isAccountant }) => isAccountant,
+    },
+    {
+      href: "/staff/students",
+      label: "Học sinh",
+      icon: <IconStudents />,
+      isActive: (pathname) => pathname.startsWith("/staff/students"),
       isVisible: ({ isAccountant }) => isAccountant,
     },
     {
