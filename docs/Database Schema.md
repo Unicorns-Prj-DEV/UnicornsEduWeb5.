@@ -479,6 +479,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 3. Các relation có hành vi xóa khác nhau (`Cascade`, `Restrict`, `SetNull`) — cần giữ đúng khi viết service xử lý delete.
 4. Có nhiều trường JSON (`schedule`, `tags`, `before_value`, `after_value`, `changed_fields`, `dashboard_cache.data`) — cần validate ở boundary API.
 5. `users.email_verified` và `users.phone_verified` là cờ xác thực quan trọng cho auth flow.
+6. Schema hiện không có model/cột `tenant_id` hoặc `workspace_id`; app đang single-tenant. Từ "workspace" trong page docs chỉ nghĩa là scope UI/role, không phải phân vùng dữ liệu.
 
 ---
 
