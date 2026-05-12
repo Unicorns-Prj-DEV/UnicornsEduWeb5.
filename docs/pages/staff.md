@@ -4,13 +4,15 @@
 
 - **Paths:** `/staff`, `/staff/dashboard`, `/staff/profile`, `/staff/notification`, `/staff/users`, `/staff/staffs`, `/staff/staffs/[id]`, `/staff/classes`, `/staff/classes/[id]`, `/staff/students`, `/staff/students/[id]`, `/staff/deductions`, `/staff/costs`, `/staff/history`, `/staff/customer-care-detail`, `/staff/customer-care-detail/[staffId]`, `/staff/assistant-detail`, `/staff/accountant-detail`, `/staff/communication-detail`, `/staff/technical-detail`, `/staff/lesson-plan-detail`, `/staff/lesson-plan-detail/[staffId]`, `/staff/lesson_plan_detail`, `/staff/lesson_plan_detail/[staffId]`, `/staff/lesson-plan-tasks`, `/staff/lesson-plan-tasks/[taskId]`, `/staff/lesson-plan-manage-details`, `/staff/lesson-plans`, `/staff/lesson-plans/tasks/[taskId]`, `/staff/lesson-manage-details`, `/staff/calendar`
 - **Runtime access hiện tại:**
-  - proxy vẫn dùng `GET /users/me/full` để chặn staff thiếu hồ sơ bắt buộc trước khi vào `/staff/**`; `personal_achievement_link` là minh chứng thành tích tùy chọn và không nằm trong điều kiện redirect này
+  - **Tenant/workspace:** `/staff/**` là staff workspace trong app single-tenant; mọi scope khóa bằng `roleType=staff`, linked `staffInfo`, và `staffInfo.roles`, không dùng tenant/workspace id
+  - proxy dùng cùng helper `staff-shell-access` với `StaffAccessGate` để chặn sớm cross-shell/thiếu linked `staffInfo`; riêng staff đã có profile vẫn gọi `GET /users/me/full` để chặn hồ sơ thiếu các trường bắt buộc trước khi vào `/staff/**`; `personal_achievement_link` là minh chứng thành tích tùy chọn và không nằm trong điều kiện redirect này
   - các client gates trong nhóm `/staff` dùng lightweight session từ `GET /auth/session` để check `roleType`, `staffRoles`, `hasStaffProfile`; nếu có linked staff profile nhưng thiếu quyền route, gate hiển thị màn locked thay vì redirect về `/user-profile`
   - `/staff`: tài khoản hiện tại phải có linked `staffInfo`; dashboard luôn có thẻ chung `Thu nhập tháng` từ `GET /users/me/staff-income-summary`, còn các khối còn lại được bật theo `staffInfo.roles` qua `GET /users/me/staff-dashboard`; trợ lí có link “Xem chi tiết” thu nhập trỏ `/staff/staffs/:ownStaffId` thay vì `/staff/profile`
   - `/staff/dashboard`: chỉ mở cho `staff.assistant` (assistant admin-like); **redirect** về `/staff` để giữ bookmark cũ; chi tiết nhân sự bản thân mở qua sidebar **Cá nhân** hoặc `/staff/staffs/:ownStaffId`
   - `/staff/profile`: tài khoản hiện tại phải có linked `staffInfo`; đây là self-detail page đầy đủ của chính staff đang đăng nhập
   - `/staff/notification`: tài khoản hiện tại phải có linked `staffInfo`; đây là feed chỉ đọc để xem các notification admin đã push
-  - `/staff/users`, `/staff/staffs`, `/staff/staffs/[id]`, `/staff/students`, `/staff/history`: chỉ mở cho `roleType=staff` có role `assistant`; đây là mirror route của admin workspace nhưng giữ nguyên staff shell
+  - `/staff/users`, `/staff/history`: chỉ mở cho `roleType=staff` có role `assistant`; đây là mirror route của admin workspace nhưng giữ nguyên staff shell
+  - `/staff/staffs`, `/staff/staffs/[id]`, `/staff/classes`, `/staff/classes/[id]`, `/staff/students`, `/staff/students/[id]`: mở cho `roleType=staff` có role `assistant` hoặc `accountant`; kế toán dùng quyền xem để mở link nhân sự/lớp/học sinh từ các màn chi tiết, còn mutation vẫn do backend route tương ứng kiểm soát
   - `/staff/deductions` và `/staff/costs`: mở cho `staff.assistant` và `staff.accountant` (admin-like module tài chính trong staff shell)
   - `/staff/students/[id]`: `roleType=staff` có role `assistant`, hoặc `roleType=staff` có role `customer_care` khi học sinh đang thuộc phạm vi CSKH của chính staff hiện tại
   - `/staff/classes/[id]`: `admin`, `roleType=staff` có `teacher`, `assistant`, `accountant`, hoặc `customer_care` khi lớp có ít nhất một học sinh thuộc phạm vi CSKH của staff hiện tại
@@ -174,6 +176,7 @@
 
 ## Permission boundaries
 
+- Baseline staff shell: mọi staff cần linked `staffInfo`; route cụ thể mở theo `staffInfo.roles`. Các route mirror dưới `/staff/**` reuse hành vi admin nhưng vẫn chạy trong staff shell, không phải workspace/tenant dữ liệu riêng.
 - Assistant root hub **được phép**
   - vào `/staff` để mở dashboard phân quyền của assistant
   - mở feed notification qua **chuông** hoặc trực tiếp URL `/staff/notification` như mọi staff khác

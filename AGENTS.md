@@ -60,6 +60,7 @@ If you change project workflow/conventions for agents (commands, required checks
 - **Protected sidebar prefetch**: sidebar links in protected shells (`AdminSidebar`, `StaffSidebar`, `StudentSidebar`) should use `prefetch={false}` to avoid background prefetch triggering `apps/web/proxy.ts` and creating `/auth/session` request bursts.
 - **Protected proxy verification**: `apps/web/proxy.ts` should verify auth on direct protected document navigations, but skip Next App Router internal RSC/prefetch requests (`RSC`, `_rsc`, `next-router-state-tree`, `next-router-prefetch`) so dashboard tab/query changes do not call `/auth/session`.
 - **Route parity**: if you change anything in `apps/web/app/admin/**` (UI, behavior, permissions, shared components), review and update the corresponding `staff` and/or `student` routes/features that rely on the same domain behavior so experiences don’t diverge.
+- **Workspace access matrix**: if you change admin/staff/student role gates, proxy redirects, sidebar visibility, or backend role decorators, update `docs/pages/README.md` and the matching route spec (`docs/pages/admin.md`, `docs/pages/staff.md`, or `docs/pages/student.md`) in the same task.
 - **DTOs/enums location**: define all frontend DTOs/enums in `apps/web/dtos/` (do not define ad-hoc types in pages or `lib/apis/*`).
 
 ## Backend rules (`apps/api`) (mandatory)
