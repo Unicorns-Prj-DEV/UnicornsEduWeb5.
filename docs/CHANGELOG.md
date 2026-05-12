@@ -22,6 +22,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 ## [Unreleased]
 
 ### Changed
+- CI deploy Tailscale: input `ping` mặc định **`vars.VPS_TAILSCALE_PING || secrets.VPS_HOST`** để đợi tailnet propagate trước SSH (giảm `ssh: handshake failed: EOF`). Docs `docs/Cách làm việc.md`.
 - CI deploy: nâng `appleboy/ssh-action` **v1.0.3 → v1.2.0** để SSH chạy trên runner (composite); kết hợp Tailscale tránh lỗi `ssh: handshake failed: EOF` do bản cũ chạy SSH trong container tách network. Docs `docs/Cách làm việc.md`.
 - CI deploy Tailscale: mặc định `tags` từ `tag:ci` → **`tag:cicd`** (khớp OAuth client / ACL tailnet); vẫn override được bằng variable `TAILSCALE_TAGS`. Docs `docs/Cách làm việc.md`.
 - `docs/Cách làm việc.md`: mục Tailscale bổ sung hướng dẫn **Custom scopes** (Keys/Devices, không bật General) khi tạo OAuth credential cho GitHub Actions.

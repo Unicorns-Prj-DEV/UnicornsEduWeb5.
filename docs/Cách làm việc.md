@@ -285,7 +285,7 @@ Khi bật, runner GitHub Actions gia nhập tailnet bằng action chính thức 
      - Nếu wizard chỉ gom quyền dưới **Devices**: theo [hướng dẫn GitHub CI/CD của Tailscale](https://tailscale.com/docs/solutions/connect-github-CICD-workflows-to-private-infrastructure-without-public-exposure) có thể cần **Devices → Write** để tạo auth key đưa máy ephemeral vào tailnet — chọn **tối thiểu** đúng mục mà Tailscale mô tả là tạo key / đăng ký thiết bị, tránh bật dư Logging, Settings, Policy, DNS.
      - Ở bước **Settings** hoặc ngay khi tạo credential, **gán tag** (ví dụ `tag:cicd`) trùng với biến `TAILSCALE_TAGS` trên GitHub (hoặc mặc định `tag:cicd` trong workflow). Trong ACL, `tag:cicd` phải được phép SSH tới VPS.
 3. **Chế độ auth key (legacy):** đặt variable `TAILSCALE_AUTH_MODE` = `authkey` và secret **`TAILSCALE_AUTHKEY`** (auth key có tag phù hợp; Tailscale khuyến nghị OAuth thay cho key sống lâu).
-4. **Tuỳ chọn:** variable `TAILSCALE_TAGS` (mặc định workflow dùng `tag:cicd` nếu để trống); variable `VPS_TAILSCALE_PING` = tên máy / host để action chạy `tailscale ping` sau `tailscale up` (xác minh đường đi trước SSH).
+4. **Tuỳ chọn:** variable `TAILSCALE_TAGS` (mặc định workflow dùng `tag:cicd` nếu để trống); variable `VPS_TAILSCALE_PING` = tên máy / host để action chạy `tailscale ping` sau `tailscale up` (tới ~3 phút, theo [README action](https://github.com/tailscale/github-action)). **Nếu để trống**, workflow dùng luôn **`VPS_HOST`** (secret) làm mục tiêu ping — tránh SSH quá sớm khi peer CI chưa propagate trên tailnet (hay gặp `ssh: handshake failed: EOF`).
 
 **ACL tailnet:** phải cho phép node có tag CI/CD (ví dụ `tag:cicd`) SSH tới cổng 22 của VPS theo policy của bạn. Node trên runner là **ephemeral** (OAuth) và được gỡ sau khi job xong.
 

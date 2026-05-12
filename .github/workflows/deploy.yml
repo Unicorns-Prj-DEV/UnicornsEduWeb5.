@@ -99,6 +99,7 @@ jobs:
     steps:
       # Tailscale: ephemeral node on the tailnet (OAuth preferred over long-lived auth keys).
       # Set VPS_HOST to the VPS MagicDNS name or Tailscale IP when this is enabled.
+      # ping: wait until VPS is reachable on tailnet (eventual consistency); empty VPS_TAILSCALE_PING → ping same host as SSH.
       - name: Connect Tailscale (OAuth)
         if: ${{ vars.TAILSCALE_ENABLED == 'true' && vars.TAILSCALE_AUTH_MODE != 'authkey' }}
         uses: tailscale/github-action@v4
@@ -108,7 +109,7 @@ jobs:
           tags: ${{ vars.TAILSCALE_TAGS || 'tag:cicd' }}
           hostname: unicorns-gha-${{ github.run_id }}-${{ github.run_attempt }}
           version: latest
-          ping: ${{ vars.VPS_TAILSCALE_PING }}
+          ping: ${{ vars.VPS_TAILSCALE_PING || secrets.VPS_HOST }}
 
       - name: Connect Tailscale (auth key)
         if: ${{ vars.TAILSCALE_ENABLED == 'true' && vars.TAILSCALE_AUTH_MODE == 'authkey' }}
@@ -118,7 +119,7 @@ jobs:
           tags: ${{ vars.TAILSCALE_TAGS || 'tag:cicd' }}
           hostname: unicorns-gha-${{ github.run_id }}-${{ github.run_attempt }}
           version: latest
-          ping: ${{ vars.VPS_TAILSCALE_PING }}
+          ping: ${{ vars.VPS_TAILSCALE_PING || secrets.VPS_HOST }}
 
       # v1.0.3 runs SSH inside Docker (no host tailnet routes). v1.2.0+ uses composite → SSH on runner → works with Tailscale step above.
       - name: Deploy via SSH
