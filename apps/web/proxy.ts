@@ -5,6 +5,7 @@ import {
     resolveAdminShellFallbackHref,
 } from "./lib/admin-shell-access";
 import { getUser } from "./lib/auth-server";
+import { resolveStaffShellRouteAccess } from "./lib/staff-shell-access";
 
 const API_URL =
     process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
@@ -93,6 +94,26 @@ export async function proxy(req: NextRequest) {
     }
 
     const isStaffRoute = pathname === "/staff" || pathname.startsWith("/staff/");
+    if (isStaffRoute) {
+        const staffShellAccess = resolveStaffShellRouteAccess(user, pathname);
+        if (!staffShellAccess.isAllowed && staffShellAccess.redirectHref) {
+            return NextResponse.redirect(
+                new URL(staffShellAccess.redirectHref, req.url),
+            );
+        }
+    }
+
+    const isStudentRoute = pathname === "/student" || pathname.startsWith("/student/");
+    if (isStudentRoute) {
+        const canAccessStudentShell =
+            user?.roleType === "student" && Boolean(user.hasStudentProfile);
+        if (!canAccessStudentShell) {
+            return NextResponse.redirect(
+                new URL(user?.roleType === "student" ? "/user-profile" : "/", req.url),
+            );
+        }
+    }
+
     if (isStaffRoute && user?.roleType === "staff") {
         const cookieHeader = req.headers.get("cookie") ?? "";
         const profile = await fetchFullProfile(cookieHeader);

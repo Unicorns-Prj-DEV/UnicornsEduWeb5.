@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { resolveStaffLessonWorkspace } from "@/lib/staff-lesson-workspace";
+import { resolveStaffShellRouteAccess } from "@/lib/staff-shell-access";
 import {
   isRestrictedByEmailVerification,
   OPEN_EMAIL_VERIFICATION_MODAL_EVENT,
@@ -20,110 +20,30 @@ export default function StaffAccessGate({
   const { user, isAuthReady } = useAuth();
   const restrictedByEmailVerification = isRestrictedByEmailVerification(user);
 
-  const roleType = user.roleType;
-  const staffRoles = user.staffRoles ?? [];
-  const hasStaffProfile = Boolean(user.hasStaffProfile);
-  const isStaffOrAdmin = roleType === "staff" || roleType === "admin";
-  const shouldRedirectToUserProfile = isStaffOrAdmin && !hasStaffProfile;
-  const isTeacher = staffRoles.includes("teacher");
-  const isCustomerCare = staffRoles.includes("customer_care");
-  const isAssistant = staffRoles.includes("assistant");
-  const isAccountant = staffRoles.includes("accountant");
-  const isCommunication = staffRoles.includes("communication");
-  const isTechnical = staffRoles.includes("technical");
-  const isAssistantStaff = roleType === "staff" && hasStaffProfile && isAssistant;
-  const lessonWorkspace = resolveStaffLessonWorkspace(user);
-  const isLessonPlanner =
-    staffRoles.includes("lesson_plan") || staffRoles.includes("lesson_plan_head");
-  const isDashboardRoute = pathname === "/staff";
-  const isAssistantDashboardRoute = pathname === "/staff/dashboard";
-  const isProfileRoute = pathname === "/staff/profile";
-  const isAssistantUsersRoute = pathname.startsWith("/staff/users");
-  const isAssistantStaffsRoute = pathname.startsWith("/staff/staffs");
-  const isStaffClassesRoute = pathname.startsWith("/staff/classes");
-  const isStaffClassDetailRoute = pathname.startsWith("/staff/classes/");
-  const isStaffDeductionsRoute = pathname.startsWith("/staff/deductions");
-  const isStaffCostsRoute = pathname.startsWith("/staff/costs");
-  const isStaffStudentsRoute = pathname.startsWith("/staff/students");
-  const isStaffStudentsListRoute = pathname === "/staff/students";
-  const isStaffStudentDetailRoute = pathname.startsWith("/staff/students/");
-  const isAssistantHistoryRoute = pathname.startsWith("/staff/history");
-  const isStaffNotificationRoute = pathname.startsWith("/staff/notification");
-  const isNotesSubjectRoute = pathname.startsWith("/staff/notes-subject");
-  const isRootStaffProfileRoute = isDashboardRoute || isProfileRoute;
-  const isCustomerCareSelfRoute = pathname.startsWith("/staff/customer-care-detail");
-  const isCustomerCareAdminRoute = pathname.startsWith("/staff/customer-care-detail/");
-  const isAssistantSelfRoute = pathname.startsWith("/staff/assistant-detail");
-  const isAccountantSelfRoute = pathname.startsWith("/staff/accountant-detail");
-  const isCommunicationSelfRoute = pathname.startsWith("/staff/communication-detail");
-  const isTechnicalSelfRoute = pathname.startsWith("/staff/technical-detail");
-  const isLessonPlanSelfRoute =
-    pathname.startsWith("/staff/lesson-plan-detail") ||
-    pathname.startsWith("/staff/lesson_plan_detail");
-  const isLessonPlanAdminDetailRoute =
-    pathname.startsWith("/staff/lesson-plan-detail/") ||
-    pathname.startsWith("/staff/lesson_plan_detail/");
-  const isLessonPlanLegacyRoute =
-    pathname.startsWith("/staff/lesson-plan-tasks") ||
-    pathname.startsWith("/staff/lesson-plan-manage-details");
-  const isStaffLessonPlansHomeRoute = pathname === "/staff/lesson-plans";
-  const isStaffLessonPlansTaskDetailRoute = pathname.startsWith("/staff/lesson-plans/tasks/");
-  const isLessonPlanManageDetailsRoute = pathname.startsWith("/staff/lesson-manage-details");
-  const isAssistantAdminLikeRoute =
-    isAssistantDashboardRoute ||
-    isAssistantUsersRoute ||
-    isAssistantStaffsRoute ||
-    isStaffStudentsListRoute ||
-    isAssistantHistoryRoute ||
-    isCustomerCareAdminRoute ||
-    isLessonPlanAdminDetailRoute;
-  const isAllowed = isDashboardRoute || isProfileRoute || isNotesSubjectRoute || isStaffNotificationRoute
-    ? hasStaffProfile && isStaffOrAdmin
-    : isStaffClassesRoute
-      ? isAssistantStaff ||
-        (hasStaffProfile && isStaffOrAdmin && isAccountant) ||
-        (isStaffClassDetailRoute &&
-          ((hasStaffProfile && roleType === "admin") ||
-            (hasStaffProfile && roleType === "staff" && (isTeacher || isCustomerCare))))
-    : isStaffDeductionsRoute
-      ? isAssistantStaff || (hasStaffProfile && isStaffOrAdmin && isAccountant)
-    : isStaffStudentsRoute
-      ? isAssistantStaff ||
-        (isStaffStudentDetailRoute &&
-          hasStaffProfile &&
-          roleType === "staff" &&
-          isCustomerCare)
-    : isStaffCostsRoute
-      ? isAssistantStaff || (hasStaffProfile && isStaffOrAdmin && isAccountant)
-    : isStaffLessonPlansHomeRoute
-      ? hasStaffProfile && isStaffOrAdmin && lessonWorkspace.canAccessWorkspace
-    : isAssistantAdminLikeRoute
-      ? isAssistantStaff
-    : isCustomerCareSelfRoute
-      ? isCustomerCareAdminRoute
-        ? isAssistantStaff
-        : hasStaffProfile && isStaffOrAdmin && isCustomerCare
-      : isAssistantSelfRoute
-        ? hasStaffProfile && isStaffOrAdmin && (isAssistant || isAssistantStaff)
-        : isAccountantSelfRoute
-          ? hasStaffProfile && isStaffOrAdmin && (isAccountant || isAssistantStaff)
-          : isCommunicationSelfRoute
-            ? hasStaffProfile && isStaffOrAdmin && (isCommunication || isAssistantStaff)
-            : isTechnicalSelfRoute
-              ? hasStaffProfile && isStaffOrAdmin && (isTechnical || isAssistantStaff)
-            : isLessonPlanLegacyRoute
-              ? hasStaffProfile && isStaffOrAdmin && lessonWorkspace.canAccessWorkspace
-              : isStaffLessonPlansTaskDetailRoute
-                ? hasStaffProfile && isStaffOrAdmin && lessonWorkspace.canAccessTaskDetail
-                : isLessonPlanManageDetailsRoute
-                  ? hasStaffProfile && isStaffOrAdmin && lessonWorkspace.canAccessManageDetails
-                : isLessonPlanSelfRoute
-                  ? hasStaffProfile &&
-                    isStaffOrAdmin &&
-                    (isLessonPlanAdminDetailRoute
-                      ? isAssistantStaff
-                      : isLessonPlanner || isAssistantStaff)
-                  : roleType === "admin" || isAssistantStaff || (roleType === "staff" && isTeacher);
+  const routeAccess = resolveStaffShellRouteAccess(user, pathname);
+  const { isAllowed, flags } = routeAccess;
+  const {
+    isRootStaffProfileRoute,
+    isAssistantStaffsRoute,
+    isStaffClassesRoute,
+    isStaffDeductionsRoute,
+    isStaffStudentsRoute,
+    isStaffCostsRoute,
+    isAssistantAdminLikeRoute,
+    isCustomerCareSelfRoute,
+    isAssistantSelfRoute,
+    isAccountantSelfRoute,
+    isCommunicationSelfRoute,
+    isTechnicalSelfRoute,
+    isLessonPlanLegacyRoute,
+    isStaffLessonPlansTaskDetailRoute,
+    isLessonPlanManageDetailsRoute,
+    isStaffLessonPlansHomeRoute,
+    isLessonPlanSelfRoute,
+    isNotesSubjectRoute,
+    isStaffNotificationRoute,
+  } = flags;
+  const redirectHref = routeAccess.redirectHref;
 
   const lockedLabel = isRootStaffProfileRoute || isNotesSubjectRoute || isStaffNotificationRoute
     ? "Staff Profile Locked"
@@ -132,9 +52,11 @@ export default function StaffAccessGate({
     : isStaffDeductionsRoute
       ? "Deduction Workspace Locked"
     : isStaffStudentsRoute
-      ? "Student Detail Locked"
+      ? "Student Workspace Locked"
     : isStaffCostsRoute
       ? "Cost Workspace Locked"
+    : isAssistantStaffsRoute
+      ? "Staff Directory Locked"
     : isAssistantAdminLikeRoute
       ? "Assistant Workspace Locked"
     : isCustomerCareSelfRoute
@@ -158,9 +80,11 @@ export default function StaffAccessGate({
     : isStaffDeductionsRoute
       ? "Tài khoản này không dùng được màn cấu hình khấu trừ trong staff shell."
     : isStaffStudentsRoute
-      ? "Tài khoản này không dùng được màn chi tiết học sinh trong staff shell."
+      ? "Tài khoản này không dùng được màn danh sách/chi tiết học sinh trong staff shell."
     : isStaffCostsRoute
       ? "Tài khoản này không dùng được màn chi phí trong staff shell."
+    : isAssistantStaffsRoute
+      ? "Tài khoản này không dùng được danh sách nhân sự trong staff shell."
     : isAssistantAdminLikeRoute
       ? "Route này chỉ mở cho staff có role `assistant`."
     : isCustomerCareSelfRoute
@@ -191,9 +115,11 @@ export default function StaffAccessGate({
     : isStaffDeductionsRoute
       ? "Route `/staff/deductions` hiện mở cho `staff.assistant` và `staff.accountant` để theo dõi/cấu hình tỷ lệ khấu trừ. Các role staff khác tiếp tục bị khóa."
     : isStaffStudentsRoute
-      ? "Route `/staff/students` hiện mở danh sách cho `staff.assistant`; riêng `staff.customer_care` chỉ mở trực tiếp trang chi tiết `/staff/students/[id]` và backend sẽ khóa học sinh vào đúng hồ sơ CSKH hiện tại."
+      ? "Route `/staff/students` hiện mở danh sách/chi tiết cho `staff.assistant` và `staff.accountant`; riêng `staff.customer_care` chỉ mở trực tiếp trang chi tiết `/staff/students/[id]` và backend sẽ khóa học sinh vào đúng hồ sơ CSKH hiện tại."
     : isStaffCostsRoute
       ? "Route `/staff/costs` hiện mở cho `staff.assistant` và `staff.accountant`. Kế toán dùng admin-like cost workspace trong staff shell, nhưng các action tạo mới/xóa vẫn bị khóa theo policy accountant."
+    : isAssistantStaffsRoute
+      ? "Route `/staff/staffs` hiện mở danh sách/chi tiết cho `staff.assistant` và `staff.accountant` trong staff shell."
     : isAssistantAdminLikeRoute
       ? "Nhóm route này mirror lại các module quản trị trong staff shell. Nó chỉ mở cho `roleType=staff` có role `assistant`; các staff role khác tiếp tục dùng self-service hoặc workspace chuyên biệt của riêng mình."
     : isCustomerCareSelfRoute
@@ -223,29 +149,15 @@ export default function StaffAccessGate({
       return;
     }
 
-    if (isAuthReady && !isAllowed) {
-      if (isAssistantStaff) {
-        router.replace("/staff");
-        return;
-      }
-
-      if (shouldRedirectToUserProfile) {
-        router.replace("/user-profile");
-        return;
-      }
-
-      if (!isStaffOrAdmin) {
-        router.replace("/");
-      }
+    if (isAuthReady && !isAllowed && redirectHref) {
+      router.replace(redirectHref);
     }
   }, [
     isAllowed,
-    isAssistantStaff,
     isAuthReady,
-    isStaffOrAdmin,
+    redirectHref,
     restrictedByEmailVerification,
     router,
-    shouldRedirectToUserProfile,
   ]);
 
   if (!isAuthReady) {

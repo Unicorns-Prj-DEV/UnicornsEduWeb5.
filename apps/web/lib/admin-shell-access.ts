@@ -12,7 +12,6 @@ export type AdminShellAccess = {
 };
 
 export const ACCOUNTANT_VISIBLE_HREFS = new Set([
-  "/admin/dashboard",
   "/admin/classes",
   "/admin/staffs",
   "/admin/deductions",
