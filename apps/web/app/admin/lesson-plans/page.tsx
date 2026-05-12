@@ -12,11 +12,16 @@ export default function AdminLessonPlansPage() {
     retry: false,
     staleTime: 60_000,
   });
-  const { isAccountant } = resolveAdminShellAccess(fullProfile);
+  const { isAdmin, isAssistant, isAccountant, isLessonPlanHead } =
+    resolveAdminShellAccess(fullProfile);
+  const workspacePolicy =
+    isAdmin || isAssistant
+      ? "admin"
+      : isLessonPlanHead
+        ? "lesson_plan_head"
+        : isAccountant
+          ? "accountant"
+          : "admin";
 
-  return (
-    <AdminLessonPlansWorkspace
-      workspacePolicy={isAccountant ? "accountant" : "admin"}
-    />
-  );
+  return <AdminLessonPlansWorkspace workspacePolicy={workspacePolicy} />;
 }
