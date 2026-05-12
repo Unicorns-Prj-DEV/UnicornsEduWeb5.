@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { MailService } from './mail.service';
+import { ReceiptAssetsService } from './receipt-assets.service';
+import { ReceiptPdfService } from './receipt-pdf.service';
 
 @Module({
   imports: [ConfigModule],
-  providers: [MailService],
+  providers: [MailService, ReceiptPdfService, ReceiptAssetsService],
   exports: [MailService],
 })
 export class MailModule {}

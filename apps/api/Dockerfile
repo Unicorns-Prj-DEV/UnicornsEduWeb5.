@@ -34,6 +34,17 @@ FROM node:24-alpine AS production
 WORKDIR /app
 ENV NODE_ENV=production
 
+# Chromium for Puppeteer PDF receipts (MailService + ReceiptPdfService)
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+  && rm -rf /var/cache/apk/*
+ENV CHROMIUM_PATH=/usr/bin/chromium
+
 # Production node_modules (includes `prisma` CLI for `migrate deploy` on VPS)
 COPY --from=pruner /deploy/api/node_modules ./node_modules
 # Compiled JS

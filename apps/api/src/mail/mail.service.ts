@@ -4,7 +4,19 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { render } from '@react-email/render';
 import nodemailer, { type SendMailOptions, type Transporter } from 'nodemailer';
+import React from 'react';
+import {
+  ReceiptAssetsService,
+  type ReceiptImageDataUris,
+} from './receipt-assets.service';
+import { ReceiptPdfService } from './receipt-pdf.service';
+import type {
+  ReceiptLineItem,
+  TuitionReceiptEmailProps,
+} from './receipt.types';
+import { TuitionReceiptEmail } from './templates/tuition-receipt.email';
 
 interface SmtpError {
   code?: string;
@@ -17,11 +29,15 @@ export interface StudentWalletTopUpReceiptEmailParams {
   to: string;
   parentName?: string | null;
   studentName: string;
+  /** Mã HV hiển thị trên biên lai (tùy chọn) */
+  studentCode?: string | null;
   amountReceived: number;
   orderCode: string;
   transactionDate?: string | null;
   referenceCode?: string | null;
   balanceAfter?: number | null;
+  /** Nội dung chuyển khoản / mã đơn trên QR (từ đơn SePay) */
+  transferNote?: string | null;
 }
 
 interface StudentWalletTopUpReceiptEmailWebhookPayload {
@@ -33,13 +49,43 @@ interface StudentWalletTopUpReceiptEmailWebhookPayload {
   referenceCode?: string | null;
 }
 
+const RECEIPT_INLINE_IMAGES = [
+  {
+    key: 'logoMain',
+    prop: 'logoMainSrc',
+    filename: 'logo-main.png',
+    cid: 'receipt-logo-main@unicorns-edu',
+  },
+  {
+    key: 'logoTin',
+    prop: 'logoTinSrc',
+    filename: 'logo-tin.png',
+    cid: 'receipt-logo-tin@unicorns-edu',
+  },
+  {
+    key: 'stamp',
+    prop: 'stampSrc',
+    filename: 'receipt-stamp.png',
+    cid: 'receipt-stamp@unicorns-edu',
+  },
+] as const;
+
+type ReceiptImageSourceProps = Pick<
+  TuitionReceiptEmailProps,
+  'logoMainSrc' | 'logoTinSrc' | 'stampSrc'
+>;
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
   private readonly transporter: Transporter | null;
   private readonly mailFrom: string;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly receiptPdfService: ReceiptPdfService,
+    private readonly receiptAssetsService: ReceiptAssetsService,
+  ) {
     const host = this.configService.get<string>('SMTP_HOST');
     if (host) {
       const smtpSecure =
@@ -117,61 +163,285 @@ export class MailService {
     );
     const studentName =
       this.normalizeReceiptText(params.studentName) || 'Học sinh';
+    const studentCode =
+      'studentCode' in params
+        ? this.normalizeReceiptText(params.studentCode)
+        : '';
     const orderCode = this.normalizeReceiptText(params.orderCode);
     const transactionDate = this.normalizeReceiptText(params.transactionDate);
     const referenceCode = this.normalizeReceiptText(params.referenceCode);
-    const amountReceived = this.formatVnd(amount);
+    const transferNote =
+      'transferNote' in params
+        ? this.normalizeReceiptText(params.transferNote)
+        : '';
     const balanceAfter =
       'balanceAfter' in params && params.balanceAfter != null
-        ? this.formatVnd(params.balanceAfter)
+        ? params.balanceAfter
         : null;
 
-    const details = [
-      ['Học sinh', studentName],
-      ['Số tiền đã nhận', amountReceived],
-      ['Mã đơn SePay', orderCode],
-      transactionDate ? ['Thời gian giao dịch', transactionDate] : null,
-      referenceCode ? ['Mã tham chiếu ngân hàng', referenceCode] : null,
-      balanceAfter ? ['Số dư sau nạp', balanceAfter] : null,
-    ].filter((item): item is [string, string] => Boolean(item));
+    const receiptProps = this.buildTuitionReceiptProps({
+      parentName,
+      studentName,
+      studentCode: studentCode || null,
+      orderCode,
+      amount,
+      transactionDate: transactionDate || null,
+      referenceCode: referenceCode || null,
+      transferNote: transferNote || null,
+      balanceAfter,
+    });
 
-    const greeting = parentName
-      ? `Xin chào ${parentName},`
-      : 'Xin chào Quý phụ huynh,';
-    const textDetails = details
-      .map(([label, value]) => `${label}: ${value}`)
-      .join('\n');
-    const htmlRows = details
-      .map(
-        ([label, value]) => `<tr>
-          <th align="left" style="padding:8px 12px;border:1px solid #e5e7eb;background:#f9fafb;color:#374151;font-weight:600;">${this.escapeHtml(label)}</th>
-          <td style="padding:8px 12px;border:1px solid #e5e7eb;color:#111827;">${this.escapeHtml(value)}</td>
-        </tr>`,
-      )
-      .join('');
+    const imageDataUris = this.receiptAssetsService.getReceiptImageDataUris();
+    const pdfProps: TuitionReceiptEmailProps = {
+      ...receiptProps,
+      logoMainSrc: imageDataUris?.logoMain ?? null,
+      logoTinSrc: imageDataUris?.logoTin ?? null,
+      stampSrc: imageDataUris?.stamp ?? null,
+    };
+
+    const pdfHtml = await this.renderReceiptHtml(pdfProps);
+    const pdfBuffer = await this.receiptPdfService.renderToPdf(pdfHtml);
+    const inlineImages = this.buildReceiptInlineImages(imageDataUris);
+    const emailProps: TuitionReceiptEmailProps = {
+      ...receiptProps,
+      ...inlineImages.props,
+    };
+    const html = await this.renderReceiptHtml(emailProps);
+
+    const plainText = this.buildReceiptPlainText(
+      receiptProps,
+      parentName,
+      balanceAfter,
+    );
+
+    const attachments: SendMailOptions['attachments'] = [
+      ...inlineImages.attachments,
+    ];
+    if (pdfBuffer) {
+      attachments.push({
+        filename: `bien-lai-${orderCode}.pdf`,
+        content: pdfBuffer,
+        contentType: 'application/pdf',
+      });
+    }
 
     await this.sendMailOrThrow({
       from: this.mailFrom,
       to,
-      subject: `Biên nhận nạp ví Unicorns Edu - ${orderCode}`,
-      text: `${greeting}
-
-Unicorns Edu đã ghi nhận khoản nạp ví học sinh qua SePay.
-
-${textDetails}
-
-Số dư ví được cập nhật tự động sau khi ngân hàng xác nhận giao dịch.
-
-Trân trọng,
-Unicorns Edu`,
-      html: `<div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
-        <p>${this.escapeHtml(greeting)}</p>
-        <p>Unicorns Edu đã ghi nhận khoản nạp ví học sinh qua SePay.</p>
-        <table cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:16px 0;">${htmlRows}</table>
-        <p>Số dư ví được cập nhật tự động sau khi ngân hàng xác nhận giao dịch.</p>
-        <p>Trân trọng,<br/>Unicorns Edu</p>
-      </div>`,
+      subject: `[Unicorns Edu] Biên lai nạp ví — ${studentName} — ${orderCode}`,
+      text: plainText,
+      html,
+      ...(attachments.length ? { attachments } : {}),
     });
+  }
+
+  private async renderReceiptHtml(
+    props: TuitionReceiptEmailProps,
+  ): Promise<string> {
+    return render(
+      React.createElement(
+        TuitionReceiptEmail as React.FC<TuitionReceiptEmailProps>,
+        props,
+      ),
+    );
+  }
+
+  private buildTuitionReceiptProps(args: {
+    parentName: string;
+    studentName: string;
+    studentCode: string | null;
+    orderCode: string;
+    amount: number;
+    transactionDate: string | null;
+    referenceCode: string | null;
+    transferNote: string | null;
+    balanceAfter: number | null;
+  }): TuitionReceiptEmailProps {
+    const documentTitle =
+      this.configService.get<string>('RECEIPT_DOCUMENT_TITLE')?.trim() ||
+      'Biên lai xác nhận học phí';
+
+    const receiverName =
+      this.configService.get<string>('RECEIPT_RECEIVER_NAME')?.trim() ||
+      this.configService.get<string>('SEPAY_TRANSFER_ACCOUNT_NAME')?.trim() ||
+      'Unicorns Edu';
+
+    const receiverBankName =
+      this.configService.get<string>('RECEIPT_RECEIVER_BANK_NAME')?.trim() ||
+      this.configService.get<string>('SEPAY_TRANSFER_BANK_NAME')?.trim() ||
+      null;
+
+    const receiverBankAccount =
+      this.configService.get<string>('RECEIPT_RECEIVER_BANK_ACCOUNT')?.trim() ||
+      this.configService.get<string>('SEPAY_TRANSFER_ACCOUNT_NUMBER')?.trim() ||
+      null;
+
+    const issueDate = this.formatNowVNDateTime();
+    const rowDate = args.transactionDate?.trim()
+      ? this.formatDateVNFromTransactionString(args.transactionDate)
+      : this.formatNowVNDate();
+
+    const memoParts = [
+      args.transferNote || null,
+      args.balanceAfter != null
+        ? `Số dư ví sau nạp: ${this.formatVnd(args.balanceAfter)} VND`
+        : null,
+    ].filter(Boolean);
+    const memo =
+      memoParts.length > 0
+        ? memoParts.join(' · ')
+        : `Nạp ví SePay — đơn ${args.orderCode}`;
+
+    const lineItems: ReceiptLineItem[] = [
+      {
+        date: rowDate,
+        memo,
+        referenceCode: args.referenceCode || '—',
+        amount: args.amount,
+      },
+    ];
+
+    const payerDisplay = args.parentName.trim() || args.studentName;
+
+    return {
+      documentTitle,
+      invoiceCode: args.orderCode,
+      issueDate,
+      studentName: args.studentName,
+      studentCode: args.studentCode,
+      payerName: payerDisplay,
+      receiverName,
+      receiverBankName,
+      receiverBankAccount,
+      lineItems,
+      totalAmount: args.amount,
+    };
+  }
+
+  /** Ngày hiển thị trên dòng giao dịch: ưu tiên parse từ SePay `YYYY-MM-DD HH:mm:ss`. */
+  private formatDateVNFromTransactionString(
+    raw: string | null | undefined,
+  ): string {
+    if (!raw?.trim()) {
+      return this.formatNowVNDate();
+    }
+    const parsed = new Date(raw.replace(' ', 'T'));
+    if (Number.isNaN(parsed.getTime())) {
+      return this.formatNowVNDate();
+    }
+    return parsed.toLocaleDateString('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  }
+
+  private formatNowVNDate(): string {
+    return new Date().toLocaleDateString('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  }
+
+  private formatNowVNDateTime(): string {
+    return new Date().toLocaleString('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  private buildReceiptPlainText(
+    props: TuitionReceiptEmailProps,
+    parentName: string,
+    balanceAfter: number | null,
+  ): string {
+    const greet = parentName.trim()
+      ? `Kính gửi ${parentName},`
+      : 'Kính gửi Quý phụ huynh,';
+    const lines = [
+      greet,
+      '',
+      `${props.documentTitle}`,
+      `Mã biên lai: ${props.invoiceCode}`,
+      `Ngày lập: ${props.issueDate}`,
+      `Học viên: ${props.studentName}`,
+      `Người thanh toán: ${props.payerName}`,
+      `Người nhận: ${props.receiverName}`,
+      props.receiverBankName ? `Ngân hàng: ${props.receiverBankName}` : null,
+      props.receiverBankAccount ? `STK: ${props.receiverBankAccount}` : null,
+      '',
+      'Chi tiết:',
+      ...props.lineItems.map(
+        (r, i) =>
+          `${i + 1}. ${r.date} | ${r.memo} | ${r.referenceCode ?? '—'} | ${this.formatVnd(r.amount)} VND`,
+      ),
+      `Tổng: ${this.formatVnd(props.totalAmount)} VND`,
+      balanceAfter != null
+        ? `\nSố dư ví sau nạp: ${this.formatVnd(balanceAfter)} VND`
+        : '',
+      '',
+      'Đính kèm: file PDF biên lai (nếu hệ thống sinh PDF thành công).',
+      '',
+      'Nếu Quý phụ huynh không thực hiện giao dịch này, vui lòng liên hệ trung tâm ngay.',
+      '',
+      'Trân trọng,',
+      'Unicorns Edu',
+    ]
+      .filter((x) => x !== null)
+      .join('\n');
+    return lines;
+  }
+
+  private buildReceiptInlineImages(images: ReceiptImageDataUris | null): {
+    props: ReceiptImageSourceProps;
+    attachments: NonNullable<SendMailOptions['attachments']>;
+  } {
+    const props: ReceiptImageSourceProps = {
+      logoMainSrc: null,
+      logoTinSrc: null,
+      stampSrc: null,
+    };
+    const attachments: NonNullable<SendMailOptions['attachments']> = [];
+    if (!images) {
+      return { props, attachments };
+    }
+
+    for (const image of RECEIPT_INLINE_IMAGES) {
+      const parsed = this.parseReceiptImageDataUri(images[image.key]);
+      if (!parsed) {
+        continue;
+      }
+      props[image.prop] = `cid:${image.cid}`;
+      attachments.push({
+        filename: image.filename,
+        content: parsed.content,
+        contentType: parsed.contentType,
+        cid: image.cid,
+      });
+    }
+
+    return { props, attachments };
+  }
+
+  private parseReceiptImageDataUri(
+    dataUri: string | null | undefined,
+  ): { content: Buffer; contentType: string } | null {
+    const match = dataUri?.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+    if (!match) {
+      return null;
+    }
+
+    return {
+      contentType: match[1],
+      content: Buffer.from(match[2], 'base64'),
+    };
   }
 
   private async sendMailOrThrow(options: SendMailOptions): Promise<void> {
@@ -234,24 +504,22 @@ Unicorns Edu`,
   }
 
   private normalizeReceiptText(value: string | null | undefined): string {
-    return (value ?? '')
-      .replace(/[\u0000-\u001f\u007f]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const raw = value ?? '';
+    let out = '';
+    for (let i = 0; i < raw.length; i += 1) {
+      const code = raw.charCodeAt(i);
+      if (code > 31 && code !== 127) {
+        out += raw[i];
+      } else {
+        out += ' ';
+      }
+    }
+    return out.replace(/\s+/g, ' ').trim();
   }
 
   private formatVnd(amount: number): string {
     return new Intl.NumberFormat('vi-VN', {
       maximumFractionDigits: 0,
     }).format(amount);
-  }
-
-  private escapeHtml(value: string): string {
-    return value
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
   }
 }

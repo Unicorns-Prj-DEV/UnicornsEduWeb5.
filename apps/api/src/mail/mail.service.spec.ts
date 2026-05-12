@@ -5,12 +5,35 @@ jest.mock('nodemailer', () => ({
   },
 }));
 
+import type { ReactElement } from 'react';
+import * as ReactDOMServer from 'react-dom/server';
+
+jest.mock('@react-email/render', () => ({
+  render: (element: ReactElement) =>
+    Promise.resolve(
+      `<!DOCTYPE html>${ReactDOMServer.renderToStaticMarkup(element)}`,
+    ),
+}));
+
 import { ServiceUnavailableException } from '@nestjs/common';
+import type { SendMailOptions } from 'nodemailer';
 import nodemailer from 'nodemailer';
 import { MailService } from './mail.service';
 
+function getLastSendMailOptions(
+  sendMailFn: jest.MockedFunction<
+    (options: SendMailOptions) => Promise<unknown>
+  >,
+): SendMailOptions {
+  const call = sendMailFn.mock.calls[0];
+  if (!call?.[0]) {
+    throw new Error('sendMail was not called with options');
+  }
+  return call[0];
+}
+
 describe('MailService', () => {
-  const sendMail = jest.fn();
+  const sendMail = jest.fn<Promise<unknown>, [SendMailOptions]>();
   const configService = {
     get: jest.fn((key: string) => {
       const values: Record<string, string> = {
@@ -26,6 +49,14 @@ describe('MailService', () => {
     }),
   };
 
+  const receiptPdfService = {
+    renderToPdf: jest.fn().mockResolvedValue(null),
+  };
+
+  const receiptAssetsService = {
+    getReceiptImageDataUris: jest.fn().mockReturnValue(null),
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     (nodemailer.createTransport as jest.Mock).mockReturnValue({ sendMail });
@@ -38,7 +69,11 @@ describe('MailService', () => {
         responseCode: 535,
       }),
     );
-    const service = new MailService(configService as never);
+    const service = new MailService(
+      configService as never,
+      receiptPdfService as never,
+      receiptAssetsService as never,
+    );
 
     await expect(
       service.sendVerificationEmail('user@example.com', 'token'),
@@ -59,7 +94,11 @@ describe('MailService', () => {
       return values[key];
     });
 
-    new MailService(configService as never);
+    new MailService(
+      configService as never,
+      receiptPdfService as never,
+      receiptAssetsService as never,
+    );
 
     expect(nodemailer.createTransport).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -73,7 +112,11 @@ describe('MailService', () => {
 
   it('sends a wallet top-up receipt to the exact parent email', async () => {
     sendMail.mockResolvedValueOnce(undefined);
-    const service = new MailService(configService as never);
+    const service = new MailService(
+      configService as never,
+      receiptPdfService as never,
+      receiptAssetsService as never,
+    );
 
     await service.sendStudentWalletTopUpReceiptEmail({
       to: 'parent@example.com',
@@ -86,26 +129,65 @@ describe('MailService', () => {
       balanceAfter: 450000,
     });
 
-    expect(sendMail).toHaveBeenCalledWith(
-      expect.objectContaining({
-        from: 'Unicorns Edu <sender@gmail.com>',
-        to: 'parent@example.com',
-        subject: expect.stringContaining('UEDU-20260511-001'),
-        text: expect.stringContaining('Nguyễn Minh'),
-        html: expect.stringContaining('Nguyễn Minh'),
-      }),
-    );
-    const sent = sendMail.mock.calls[0][0];
+    expect(sendMail).toHaveBeenCalledTimes(1);
+    const sent = getLastSendMailOptions(sendMail);
+    expect(sent.from).toBe('Unicorns Edu <sender@gmail.com>');
+    expect(sent.to).toBe('parent@example.com');
+    expect(sent.subject).toContain('UEDU-20260511-001');
+    expect(sent.text).toContain('Nguyễn Minh');
+    expect(sent.html).toContain('Nguyễn Minh');
     expect(sent.text).toContain('150.000');
     expect(sent.text).toContain('UEDU-20260511-001');
     expect(sent.text).toContain('FT26069ABC');
     expect(sent.html).toContain('150.000');
     expect(sent.html).toContain('UEDU-20260511-001');
+    expect(receiptPdfService.renderToPdf).toHaveBeenCalled();
+  });
+
+  it('embeds receipt images as inline CID attachments while keeping data URIs for the PDF', async () => {
+    sendMail.mockResolvedValueOnce(undefined);
+    receiptAssetsService.getReceiptImageDataUris.mockReturnValueOnce({
+      logoMain: `data:image/png;base64,${Buffer.from('main-logo').toString('base64')}`,
+      logoTin: `data:image/png;base64,${Buffer.from('tin-logo').toString('base64')}`,
+      stamp: `data:image/png;base64,${Buffer.from('stamp').toString('base64')}`,
+    });
+    const service = new MailService(
+      configService as never,
+      receiptPdfService as never,
+      receiptAssetsService as never,
+    );
+
+    await service.sendStudentWalletTopUpReceiptEmail({
+      to: 'parent@example.com',
+      studentName: 'Nguyễn Minh',
+      amountReceived: 50000,
+      orderCode: 'ORD-123',
+    });
+
+    const sent = getLastSendMailOptions(sendMail);
+    expect(sent.html).toContain('src="cid:receipt-logo-main@unicorns-edu"');
+    expect(sent.html).toContain('src="cid:receipt-logo-tin@unicorns-edu"');
+    expect(sent.html).toContain('src="cid:receipt-stamp@unicorns-edu"');
+    expect(sent.html).not.toContain('data:image/png;base64');
+    expect(sent.attachments).toHaveLength(3);
+    expect(sent.attachments?.map((a) => a.cid)).toEqual([
+      'receipt-logo-main@unicorns-edu',
+      'receipt-logo-tin@unicorns-edu',
+      'receipt-stamp@unicorns-edu',
+    ]);
+    expect(Buffer.isBuffer(sent.attachments?.[0].content)).toBe(true);
+    expect(receiptPdfService.renderToPdf).toHaveBeenCalledWith(
+      expect.stringContaining('data:image/png;base64'),
+    );
   });
 
   it('escapes risky HTML content in wallet top-up receipts', async () => {
     sendMail.mockResolvedValueOnce(undefined);
-    const service = new MailService(configService as never);
+    const service = new MailService(
+      configService as never,
+      receiptPdfService as never,
+      receiptAssetsService as never,
+    );
 
     await service.sendStudentWalletTopUpReceiptEmail({
       to: 'parent@example.com',
@@ -116,7 +198,7 @@ describe('MailService', () => {
       referenceCode: '<b>REF</b>',
     });
 
-    const sent = sendMail.mock.calls[0][0];
+    const sent = getLastSendMailOptions(sendMail);
     expect(sent.html).not.toContain('<script>');
     expect(sent.html).not.toContain('<img');
     expect(sent.html).not.toContain('<img src=x onerror=alert(1)>');
@@ -132,7 +214,11 @@ describe('MailService', () => {
         responseCode: 535,
       }),
     );
-    const service = new MailService(configService as never);
+    const service = new MailService(
+      configService as never,
+      receiptPdfService as never,
+      receiptAssetsService as never,
+    );
 
     await expect(
       service.sendStudentWalletTopUpReceiptEmail({
@@ -142,5 +228,31 @@ describe('MailService', () => {
         orderCode: 'UEDU-20260511-001',
       }),
     ).rejects.toThrow(ServiceUnavailableException);
+  });
+
+  it('attaches PDF when renderToPdf returns a buffer', async () => {
+    sendMail.mockResolvedValueOnce(undefined);
+    receiptPdfService.renderToPdf.mockResolvedValueOnce(
+      Buffer.from('%PDF-1.4 test'),
+    );
+    const service = new MailService(
+      configService as never,
+      receiptPdfService as never,
+      receiptAssetsService as never,
+    );
+
+    await service.sendStudentWalletTopUpReceiptEmail({
+      to: 'parent@example.com',
+      studentName: 'Nguyễn Minh',
+      amountReceived: 50000,
+      orderCode: 'ORD-123',
+    });
+
+    const sent = getLastSendMailOptions(sendMail);
+    const attachments = sent.attachments;
+    expect(attachments).toBeDefined();
+    expect(attachments).toHaveLength(1);
+    expect(attachments![0].filename).toBe('bien-lai-ORD-123.pdf');
+    expect(attachments![0].contentType).toBe('application/pdf');
   });
 });

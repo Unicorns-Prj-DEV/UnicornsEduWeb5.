@@ -27,6 +27,7 @@ type StudentWalletSepayOrderRecord = {
   status: string;
   amountRequested?: number | null;
   amountReceived?: number | null;
+  transferNote?: string | null;
   sepayTransactionId?: string | null;
   sepayReferenceCode?: string | null;
   walletTransactionId?: string | null;
@@ -36,6 +37,7 @@ type StudentWalletSepayOrderRecord = {
   parentEmail?: string | null;
   student?: {
     fullName?: string | null;
+    parentName?: string | null;
     parentEmail?: string | null;
   } | null;
 };
@@ -373,13 +375,22 @@ export class SePayWebhookService {
     }
 
     try {
+      const studentRow = await this.prisma.studentInfo.findUnique({
+        where: { id: order.studentId },
+        select: { accountBalance: true },
+      });
+
       await this.mailService.sendStudentWalletTopUpReceiptEmail({
         to: parentEmail,
+        parentName: order.student?.parentName ?? null,
         studentName: order.student?.fullName ?? 'Học sinh',
+        studentCode: order.studentId,
         orderCode: order.orderCode,
         amountReceived: payload.transferAmount,
         transactionDate: payload.transactionDate,
         referenceCode: payload.referenceCode,
+        balanceAfter: studentRow?.accountBalance ?? null,
+        transferNote: order.transferNote ?? null,
       });
 
       const client = this.getPrismaClient(this.prisma);

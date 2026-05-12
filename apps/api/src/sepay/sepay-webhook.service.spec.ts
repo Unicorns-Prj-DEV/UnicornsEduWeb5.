@@ -34,6 +34,7 @@ function createPrismaMock() {
     },
     studentInfo: {
       update: jest.fn<Promise<unknown>, [unknown]>(),
+      findUnique: jest.fn<Promise<unknown>, [unknown]>(),
     },
   };
 
@@ -76,6 +77,7 @@ describe('SePayWebhookService', () => {
       status: 'pending',
       amountRequested: 120_000,
       amountReceived: null,
+      transferNote: 'NAPVI UABCDEF1234567890',
       sepayTransactionId: null,
       sepayReferenceCode: null,
       walletTransactionId: null,
@@ -83,6 +85,7 @@ describe('SePayWebhookService', () => {
       accountNumber: '0123499999',
       student: {
         fullName: 'Nguyen Van A',
+        parentName: 'Nguyen Thi B',
         parentEmail: 'parent@example.com',
       },
     };
@@ -109,6 +112,9 @@ describe('SePayWebhookService', () => {
         receiptEmailSentAt: new Date(),
       });
     prisma.studentInfo.update.mockResolvedValue({ id: 'student-1' });
+    prisma.studentInfo.findUnique.mockResolvedValue({
+      accountBalance: 1_320_000,
+    });
 
     const service = new SePayWebhookService(prisma as never, mail as never);
 
@@ -147,9 +153,13 @@ describe('SePayWebhookService', () => {
     expect(mail.sendStudentWalletTopUpReceiptEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         to: 'parent@example.com',
+        parentName: 'Nguyen Thi B',
+        studentCode: 'student-1',
         orderCode: 'UABCDEF1234567890',
         amountReceived: 120_000,
         referenceCode: 'MBVCB.3278907687',
+        transferNote: 'NAPVI UABCDEF1234567890',
+        balanceAfter: 1_320_000,
       }),
     );
   });

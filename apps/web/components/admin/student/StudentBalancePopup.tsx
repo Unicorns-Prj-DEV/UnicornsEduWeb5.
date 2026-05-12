@@ -431,11 +431,6 @@ export default function StudentBalancePopup({
                     Sao chép nội dung
                   </button>
                 </div>
-
-                <p className="mt-4 rounded-xl border border-border-subtle bg-bg-surface/80 px-3 py-2 text-xs leading-relaxed text-text-secondary">
-                  Mã QR thanh toán do backend tạo theo cấu hình SePay. Webhook SePay sẽ tự động cập nhật số dư ví sau khi ngân hàng xác nhận
-                  giao dịch. Nếu cần hỗ trợ gấp, liên hệ trung tâm kèm mã đơn và biên lai.
-                </p>
               </section>
             </div>
             <div className="grid shrink-0 grid-cols-2 gap-2 border-t border-border-default px-4 py-4 sm:px-5">
