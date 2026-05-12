@@ -289,6 +289,8 @@ Khi bật, runner GitHub Actions gia nhập tailnet bằng action chính thức 
 
 **ACL tailnet:** phải cho phép node có tag CI/CD (ví dụ `tag:cicd`) SSH tới cổng 22 của VPS theo policy của bạn. Node trên runner là **ephemeral** (OAuth) và được gỡ sau khi job xong.
 
+**SSH sau Tailscale:** bước deploy dùng [`appleboy/ssh-action@v1.2.0`](https://github.com/appleboy/ssh-action) (chạy **composite** trên runner, cùng network stack với `tailscale/github-action`). **`appleboy/ssh-action@v1.0.3`** chạy client SSH **trong container Docker** tách khỏi host → container **không** đi được qua `tailscale0` / route 100.x của runner → hay gặp `ssh: handshake failed: EOF` dù log Tailscale đã “connected”.
+
 **`VPS_PUBLIC_HOST` (smoke test HTTPS):** đặt một trong các cách — **Secret** `VPS_PUBLIC_HOST` (ưu tiên) hoặc **Repository variable** `VPS_PUBLIC_HOST`, hoặc trong file **`.env` trên VPS** (cùng thư mục compose, ví dụ `/root/UnicornsEdu/.env`). Script deploy đọc theo thứ tự: giá trị GitHub Actions truyền SSH → nếu trống thì đọc dòng `VPS_PUBLIC_HOST=…` trong `.env`. Nếu vẫn trống, **bỏ qua** bước `curl` (deploy không fail vì thiếu domain). Khớp `server_name` / chứng chỉ trong nginx.
 
 ### Lỗi `Process exited with status 137`

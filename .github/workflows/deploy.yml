@@ -120,8 +120,9 @@ jobs:
           version: latest
           ping: ${{ vars.VPS_TAILSCALE_PING }}
 
+      # v1.0.3 runs SSH inside Docker (no host tailnet routes). v1.2.0+ uses composite → SSH on runner → works with Tailscale step above.
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.0
         env:
           VPS_PUBLIC_HOST: ${{ env.VPS_PUBLIC_HOST }}
           GHCR_USERNAME: ${{ env.GHCR_USERNAME }}

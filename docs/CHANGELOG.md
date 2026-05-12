@@ -22,6 +22,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 ## [Unreleased]
 
 ### Changed
+- CI deploy: nâng `appleboy/ssh-action` **v1.0.3 → v1.2.0** để SSH chạy trên runner (composite); kết hợp Tailscale tránh lỗi `ssh: handshake failed: EOF` do bản cũ chạy SSH trong container tách network. Docs `docs/Cách làm việc.md`.
 - CI deploy Tailscale: mặc định `tags` từ `tag:ci` → **`tag:cicd`** (khớp OAuth client / ACL tailnet); vẫn override được bằng variable `TAILSCALE_TAGS`. Docs `docs/Cách làm việc.md`.
 - `docs/Cách làm việc.md`: mục Tailscale bổ sung hướng dẫn **Custom scopes** (Keys/Devices, không bật General) khi tạo OAuth credential cho GitHub Actions.
 - FE `/staff/profile`: bỏ nút bút chì chỉnh sửa thông tin nhân sự ở header; `StaffSelfEditPopup` vẫn mở qua chỉnh sửa QR trong mục Hồ sơ nhân sự; toast `profile_required=1` cập nhật copy tương ứng. Docs: `docs/pages/staff.md`, `docs/README.md`, `docs/CHANGELOG.md`.
