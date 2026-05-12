@@ -20,7 +20,25 @@ fi
 
 printf '%s' "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
 
-docker compose -f docker-compose.prod.yml pull
+# Docker Hub (nginx) can hit transient TLS timeouts from small VPS / busy networks.
+compose_pull_with_retry() {
+  local max="${COMPOSE_PULL_RETRIES:-5}"
+  local attempt=1
+  while [ "$attempt" -le "$max" ]; do
+    if docker compose -f docker-compose.prod.yml pull; then
+      return 0
+    fi
+    if [ "$attempt" -eq "$max" ]; then
+      echo "docker compose pull failed after ${max} attempt(s)."
+      return 1
+    fi
+    local wait=$((attempt * 15))
+    echo "docker compose pull failed (attempt ${attempt}/${max}), retrying in ${wait}s..."
+    sleep "$wait"
+    attempt=$((attempt + 1))
+  done
+}
+compose_pull_with_retry
 docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
 wait_for_http() {

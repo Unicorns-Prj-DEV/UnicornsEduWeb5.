@@ -36,7 +36,8 @@ services:
       start_period: 30s
 
   nginx:
-    image: nginx:1.27-alpine
+    # Mirrored from Docker Hub in CI → GHCR so VPS pull avoids registry-1.docker.io (TLS / rate limits).
+    image: ghcr.io/unicorns-prj-dev/nginx:1.27-alpine
     restart: unless-stopped
     ports:
       - "80:80"

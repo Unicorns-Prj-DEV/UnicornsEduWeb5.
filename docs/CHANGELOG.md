@@ -22,6 +22,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 ## [Unreleased]
 
 ### Changed
+- CI: job **`mirror-nginx`** copy manifest `docker.io/library/nginx:1.27-alpine` → **`ghcr.io/unicorns-prj-dev/nginx:1.27-alpine`** (`buildx imagetools create`); `docker-compose.prod.yml` trỏ `nginx` sang GHCR; `deploy` chờ `mirror-nginx`. VPS không còn phụ thuộc pull trực tiếp Docker Hub cho nginx. Docs `docs/Cách làm việc.md`.
+- Deploy VPS script [`scripts/gha-deploy-remote.sh`](../scripts/gha-deploy-remote.sh): **retry** `docker compose pull` (mặc định 5 lần, backoff) cho lỗi mạng/ghcr tạm thời. Docs `docs/Cách làm việc.md`.
 - CI build/push Docker: thêm **multi-arch** `linux/amd64,linux/arm64` (`docker/setup-qemu-action` + `platforms` trên `docker/build-push-action`) để VPS **ARM64** kéo được image từ GHCR (tránh `no matching manifest for linux/arm64`). Lần build đầu có thể chậm hơn do QEMU. Docs `docs/Cách làm việc.md`.
 - CI deploy Tailscale: input `ping` mặc định **`vars.VPS_TAILSCALE_PING || secrets.VPS_HOST`** để đợi tailnet propagate trước SSH (giảm `ssh: handshake failed: EOF`). Docs `docs/Cách làm việc.md`.
 - `docs/Cách làm việc.md`: Tailscale SSH — `action: check` **không** cho `src` là **tag**; rule từ `tag:cicd` dùng **`action: accept`**; numbering troubleshooting ACL.
