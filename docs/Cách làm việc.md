@@ -4,10 +4,10 @@
 
 Dự án sử dụng **Turborepo** để quản lý monorepo, kết hợp **pnpm workspaces** để quản lý dependencies. Trong monorepo có các ứng dụng:
 
-| Ứng dụng | Đường dẫn | Framework | Mô tả |
-|-----------|-----------|-----------|-------|
-| `web` | `apps/web` | Next.js | Giao diện người dùng (Frontend) |
-| `api` | `apps/api` | NestJS | Backend API (Auth, Learning, Finance, Lesson, …) |
+| Ứng dụng | Đường dẫn  | Framework | Mô tả                                            |
+| -------- | ---------- | --------- | ------------------------------------------------ |
+| `web`    | `apps/web` | Next.js   | Giao diện người dùng (Frontend)                  |
+| `api`    | `apps/api` | NestJS    | Backend API (Auth, Learning, Finance, Lesson, …) |
 
 ## Cấu trúc thư mục (thực tế)
 
@@ -48,18 +48,18 @@ UnicornsEduWeb5./
 
 Dùng làm context khi implement hoặc review code frontend; giúp model chọn đúng thư viện và pattern.
 
-| Hạng mục | Công nghệ / Phiên bản | Ghi chú |
-|----------|------------------------|---------|
-| **Framework** | Next.js 16.x | App Router (thư mục `app/`). |
-| **UI** | React 19.x | react, react-dom 19.2.x. |
-| **Styling** | Tailwind CSS v4 | `@tailwindcss/postcss` trong `postcss.config.mjs`; trong `globals.css` dùng `@import "tailwindcss"`. |
-| **Theme / Design tokens** | CSS variables | Trong `app/globals.css`: tokens theo `docs/UI-Schema.md` (--ue-bg-primary, --ue-text-primary, --ue-primary, …); chuyển theme bằng `[data-theme]` trên `<html>` (light / dark / pink). |
-| **Fonts** | next/font/google | Geist (sans), Geist_Mono (mono); khai báo trong `app/layout.tsx`, dùng biến CSS `--font-geist-sans`, `--font-geist-mono`. |
-| **Data fetching / API** | TanStack React Query v5, Axios | React Query cho server state; Axios instance trong `lib/client.ts` (baseURL từ env, withCredentials, xử lý refresh token, chuẩn hóa lỗi `429 Too Many Requests` để FE hiện toast rate-limit nhất quán). |
-| **Validation / Transform** | Tùy chọn theo module | Không bắt buộc class-validator/class-transformer; chọn giải pháp phù hợp yêu cầu từng phần. |
-| **TypeScript** | TS 5.x | Path alias `@/*` → `./*` (tsconfig.json). Target ES2017, moduleResolution bundler, strict. |
-| **API base URL** | Biến môi trường | `NEXT_PUBLIC_BACKEND_URL`; nên set tường minh trong `apps/web/.env`. Frontend hiện có fallback `http://localhost:3001`, trong khi API listen ở `PORT` hoặc `4000` nếu không cấu hình. |
-| **SePay nạp ví học sinh** | Biến môi trường | Web: `NEXT_PUBLIC_STUDENT_WALLET_SEPAY_TOPUP=1` để nạp dương qua QR SePay (`apps/web/.env.example`). API: `SEPAY_TOPUP_MODE=va_order` dùng `SEPAY_API_ACCESS_TOKEN`, `SEPAY_BANK_ACCOUNT_XID`; `SEPAY_TOPUP_MODE=bank_transfer` dùng `SEPAY_TRANSFER_BANK_BIN`, `SEPAY_TRANSFER_ACCOUNT_NUMBER`; cả hai mode cần `SEPAY_WEBHOOK_SECRET`, `SEPAY_WEBHOOK_SIGNATURE_TOLERANCE_SECONDS=300`, và SMTP receipt mail (`apps/api/.env.example`). |
+| Hạng mục                   | Công nghệ / Phiên bản          | Ghi chú                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| -------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Framework**              | Next.js 16.x                   | App Router (thư mục `app/`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **UI**                     | React 19.x                     | react, react-dom 19.2.x.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| **Styling**                | Tailwind CSS v4                | `@tailwindcss/postcss` trong `postcss.config.mjs`; trong `globals.css` dùng `@import "tailwindcss"`.                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **Theme / Design tokens**  | CSS variables                  | Trong `app/globals.css`: tokens theo `docs/UI-Schema.md` (--ue-bg-primary, --ue-text-primary, --ue-primary, …); chuyển theme bằng `[data-theme]` trên `<html>` (light / dark / pink).                                                                                                                                                                                                                                                                                                                              |
+| **Fonts**                  | next/font/google               | Geist (sans), Geist_Mono (mono); khai báo trong `app/layout.tsx`, dùng biến CSS `--font-geist-sans`, `--font-geist-mono`.                                                                                                                                                                                                                                                                                                                                                                                          |
+| **Data fetching / API**    | TanStack React Query v5, Axios | React Query cho server state; Axios instance trong `lib/client.ts` (baseURL từ env, withCredentials, xử lý refresh token, chuẩn hóa lỗi `429 Too Many Requests` để FE hiện toast rate-limit nhất quán).                                                                                                                                                                                                                                                                                                            |
+| **Validation / Transform** | Tùy chọn theo module           | Không bắt buộc class-validator/class-transformer; chọn giải pháp phù hợp yêu cầu từng phần.                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **TypeScript**             | TS 5.x                         | Path alias `@/*` → `./*` (tsconfig.json). Target ES2017, moduleResolution bundler, strict.                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **API base URL**           | Biến môi trường                | `NEXT_PUBLIC_BACKEND_URL`; nên set tường minh trong `apps/web/.env`. Frontend hiện có fallback `http://localhost:3001`, trong khi API listen ở `PORT` hoặc `4000` nếu không cấu hình.                                                                                                                                                                                                                                                                                                                              |
+| **SePay nạp ví học sinh**  | Biến môi trường                | Web: `NEXT_PUBLIC_STUDENT_WALLET_SEPAY_TOPUP=1` để nạp dương qua QR SePay (`apps/web/.env.example`). API: `SEPAY_TOPUP_MODE=va_order` dùng `SEPAY_API_ACCESS_TOKEN`, `SEPAY_BANK_ACCOUNT_XID`; `SEPAY_TOPUP_MODE=bank_transfer` dùng `SEPAY_TRANSFER_BANK_BIN`, `SEPAY_TRANSFER_ACCOUNT_NUMBER`; cả hai mode cần `SEPAY_WEBHOOK_SECRET`, `SEPAY_WEBHOOK_SIGNATURE_TOLERANCE_SECONDS=300`, SMTP (`apps/api/.env.example`), và **Chromium** (`CHROMIUM_PATH`) nếu cần đính kèm PDF biên lai (Docker API đã set sẵn). |
 
 **Cấu trúc thư mục frontend:** `apps/web/app/` (routes, layout, page), `apps/web/lib/` (API client, utils). Component và style theo cấu trúc Next.js App Router; tokens và theme đã định nghĩa sẵn trong `globals.css`.
 
@@ -67,7 +67,7 @@ Dùng làm context khi implement hoặc review code frontend; giúp model chọn
 
 - FE: bật `NEXT_PUBLIC_STUDENT_WALLET_SEPAY_TOPUP=1` khi API đã cấu hình SePay; popup chỉ tạo QR cho số tiền dương từ `1.000` VND, số âm/rút vẫn đi `PATCH`.
 - API: dùng `SEPAY_TOPUP_MODE=va_order` cho BIDV/Sacombank VA orders; dùng `SEPAY_TOPUP_MODE=bank_transfer` cho QR chuyển khoản thường (ví dụ MBBank không hỗ trợ VA orders). Cả hai mode cần `SEPAY_WEBHOOK_SECRET`; SMTP dùng cho email xác thực và biên nhận phụ huynh.
-- Flow: `POST /users/me/student-wallet-sepay-topup-order` lưu `student_wallet_sepay_orders`; mode `bank_transfer` trả VietQR quick link với nội dung `NAPVI <orderCode>`; `POST /webhook/sepay` verify `X-SePay-Signature` + `X-SePay-Timestamp` bằng HMAC-SHA256 trên chuỗi `{timestamp}.{raw_body}` với `SEPAY_WEBHOOK_SECRET` (raw body đúng byte SePay gửi, không serialize lại từ `req.body`), từ chối timestamp quá `SEPAY_WEBHOOK_SIGNATURE_TOLERANCE_SECONDS` giây (mặc định `300`), chỉ nhận fallback `X-Secret-Key` cũ khi `SEPAY_WEBHOOK_ALLOW_LEGACY_SECRET_KEY=1`, nhận `transferAmount`, `transactionDate`, `referenceCode`, ack `{ "success": true }`, tạo lịch sử ví và gửi receipt nếu có `parent_email`.
+- Flow: `POST /users/me/student-wallet-sepay-topup-order` lưu `student_wallet_sepay_orders`; mode `bank_transfer` trả VietQR quick link với nội dung `NAPVI <orderCode>`; `POST /webhook/sepay` verify `X-SePay-Signature` + `X-SePay-Timestamp` bằng HMAC-SHA256 trên chuỗi `{timestamp}.{raw_body}` với `SEPAY_WEBHOOK_SECRET` (raw body đúng byte SePay gửi, không serialize lại từ `req.body`), từ chối timestamp quá `SEPAY_WEBHOOK_SIGNATURE_TOLERANCE_SECONDS` giây (mặc định `300`), chỉ nhận fallback `X-Secret-Key` cũ khi `SEPAY_WEBHOOK_ALLOW_LEGACY_SECRET_KEY=1`, nhận `transferAmount`, `transactionDate`, `referenceCode`, ack `{ "success": true }`, tạo lịch sử ví và gửi **email biên lai nạp ví** tới `parent_email` (ưu tiên cột trên đơn, không thì `student_info.parent_email`) qua `MailService.sendStudentWalletTopUpReceiptEmail` — HTML **React Email** (layout biên lai, logo/con dấu nhúng inline bằng CID) + **PDF đính kèm** khi Chromium/Puppeteer hoạt động; plain text tóm tắt; nội dung gồm tên phụ huynh (nếu có), học sinh, mã học viên (`student_info.id`), số tiền, mã đơn, nội dung CK, tham chiếu ngân hàng, số dư ví sau nạp; lỗi SMTP chỉ log, không fail acknowledge webhook; cập nhật `receipt_email_sent_at` khi gửi thành công.
 - Test nhanh: chạy mail spec, tạo order sandbox, gọi webhook mẫu inbound, kiểm tra số dư ví + `wallet_transactions_history` + `receipt_email_sent_at`.
 - **Gỡ lỗi webhook HMAC:** Nếu copy `curl` cũ (cùng `X-SePay-Timestamp` / chữ ký) và gọi lại sau vài phút, API trả `401` vì timestamp lệch quá `SEPAY_WEBHOOK_SIGNATURE_TOLERANCE_SECONDS` (mặc định `300`). Cần tạo lại chữ ký với timestamp hiện tại + đúng raw body + đúng `SEPAY_WEBHOOK_SECRET`, hoặc tăng tolerance trên môi trường test (prod nên giữ hẹp).
 
@@ -237,6 +237,20 @@ Cấu trúc NestJS: modules, controllers, services, guards, pipes trong `apps/ap
 Deploy Docker production pin `NODE_ENV=production` trong `docker-compose.prod.yml`; không override `NODE_ENV` trong VPS `.env` vì cookie auth phụ thuộc production mode. `FRONTEND_URL` nên là origin chính xác không có trailing slash (ví dụ `https://it.unicornsedu.com`); backend có normalize phòng lỗi cấu hình nhưng env vẫn nên sạch.
 
 Avatar và CCCD hiện đều dùng backend proxy lên Supabase Storage. Avatar người dùng lưu ở bucket `avatars` với object key `users/{userId}/avatar`; ảnh CCCD lưu ở bucket `id-cards` với object key `${userId}-front` / `${userId}-back`. Vì vậy cần cấu hình `SUPABASE_URL` và `SUPABASE_SERVICE_ROLE_KEY` trong `apps/api/.env` (không expose service role key ra frontend). Backend chịu trách nhiệm upload, xoá file và ký signed URL ngắn hạn; frontend chỉ gọi API NestJS và không tự ký URL hoặc truy cập bucket bằng service role key.
+
+## Nginx reverse proxy local (một cổng: FE `/`, BE `/api/`)
+
+Để Next và Nest **cùng origin** (cookie `Set-Cookie` + CORS khớp `FRONTEND_URL`), có thể chạy Nginx trên máy dev theo mẫu [`nginx/dev-local-8080.example.conf`](../nginx/dev-local-8080.example.conf). Cơ chế strip prefix `/api/` giống snippet Docker [`nginx/conf.d/snippets/proxy-locations.conf`](../nginx/conf.d/snippets/proxy-locations.conf).
+
+**Env khi proxy `http://localhost:8080` (đổi cổng thì đổi tương ứng):**
+
+- `apps/web/.env`: `NEXT_PUBLIC_BACKEND_URL=http://localhost:8080/api` (axios gọi `/auth/...` → đủ URL `.../api/auth/...`).
+- `apps/api/.env`: `FRONTEND_URL=http://localhost:8080` (bắt buộc có scheme `http://` hoặc `https://`, không chỉ `localhost:8080`).
+- Google OAuth: `GOOGLE_CALLBACK_URL` qua gateway, ví dụ `http://localhost:8080/api/auth/google/callback`.
+- `TRUST_PROXY=true` (hoặc `1`) trên API khi đứng sau Nginx.
+- Truy cập **HTTP** mà API chạy `NODE_ENV=production`: cookie `Secure` có thể không được trình duyệt chấp nhận; nên dùng `development` khi test qua HTTP hoặc bật HTTPS (mkcert, v.v.).
+
+**Swagger qua gateway:** Nest mount UI tại path `/api` trên cổng API thuần; URL ngoài thường là `http://localhost:8080/api/api`.
 
 ## Thêm shared package mới
 

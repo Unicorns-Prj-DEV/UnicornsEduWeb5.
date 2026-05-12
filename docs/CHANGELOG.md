@@ -22,9 +22,12 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 ## [Unreleased]
 
 ### Added
+
+- Docs + mẫu Nginx native: [`nginx/dev-local-8080.example.conf`](../nginx/dev-local-8080.example.conf) và mục **Nginx reverse proxy local** trong [`docs/Cách làm việc.md`](./Cách%20làm%20việc.md) (cùng origin `http://localhost:8080`, BE `/api/`, biến env `FRONTEND_URL` / `NEXT_PUBLIC_BACKEND_URL` / OAuth callback).
 - BE `POST /users/me/student-wallet-sepay-topup-order`: tạo yêu cầu nạp ví SePay kèm QR; `StudentService.getTuitionExtensionTransferNoteForSelf`; module `sepay/`. FE `/student`: khi `NEXT_PUBLIC_STUDENT_WALLET_SEPAY_TOPUP=1`, nạp dương hiển thị QR do backend trả về. Docs: `docs/pages/auth.md`, `docs/pages/student.md`, `docs/Cách làm việc.md`, `apps/api/.env.example`, `apps/web/.env.example`.
 - BE mail: thêm biên nhận nạp ví SePay gửi tới email phụ huynh, nội dung text/html an toàn và giữ mapping lỗi SMTP `503`.
 - FE admin student forms: thêm field email phụ huynh nhận biên nhận (`parent_email`) khi tạo/sửa học sinh.
+- **Parent email self-service & hiển thị toàn hệ thống:** Thêm `parent_email` vào `UpdateMyStudentProfileDto` (backend `apps/api/src/dtos/profile.dto.ts` + `UserService.updateMyStudentProfile`) để học sinh tự cập nhật email phụ huynh qua `PATCH /users/me/student` (truyền `null`/chuỗi rỗng để xoá). FE: `ProfileStudentInfoDto`/`UpdateMyStudentProfileDto` (`apps/web/dtos/profile.dto.ts`) bổ sung `parentEmail`/`parent_email`; `/admin/students/[id]` (cũng dùng cho `/staff/students/[id]`) hiển thị dòng **Email nhận biên nhận** trong thẻ "Liên hệ phụ huynh"; `/student` self-service thêm input + dòng đọc cho email phụ huynh và tính `isStudentProfileDirty` theo field mới; `/user-profile` section Học viên thêm `TextField`/`DetailRows` `parent_email` và đưa field vào `studentCompletion`/`allProfileValues`. Docs: `docs/pages/auth.md`, `docs/pages/student.md`.
 
 ### Changed
 - Deploy/Nginx: production chuyển sang Cloudflare Tunnel; NGINX chỉ bind `127.0.0.1:80`, bỏ vhost HTTPS/certbot/domain cũ, preserve `X-Forwarded-Proto`, deploy smoke test qua loopback local thay vì `VPS_PUBLIC_HOST`. Docs `docs/Cách làm việc.md`.
@@ -40,6 +43,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - FE `/user-profile`: khối **Nhân sự** lại **chỉnh sửa được** (form `updateMyStaffProfile`, upload CCCD). Proxy staff: hồ sơ chưa đủ → redirect `/user-profile?profile_required=1&from=...`. Bỏ toast `profile_required` riêng trên `/staff/profile`. Docs: `docs/README.md`, `docs/pages/auth.md`, `docs/pages/staff.md`.
 - FE `/staff/staffs/[id]` khi mở **đúng hồ sơ nhân sự của chính user** (sidebar **Cá nhân**): ẩn chỉnh sửa kiểu admin (**Chỉnh sửa thông tin nhân sự**, popup `EditStaffPopup`, chỉnh QR thanh toán); tự cập nhật hồ sơ qua `/staff/profile`. Docs: `docs/pages/staff.md`.
 - FE `/user-profile` — khối **Nhân sự**: thêm field **Minh chứng thành tích** (`personal_achievement_link`, `PATCH /users/me/staff`), đồng bộ với popup self-edit `/staff/profile`. Docs: `docs/pages/auth.md`, `docs/README.md`.
+- **Email/PDF biên lai (`TuitionReceiptEmail`):** Hai logo căn giữa bằng bảng presentation (tránh client chia `Row`/`Column` đẩy logo ra hai mép); chú thích “Đối chiếu sao kê…” góc trái dưới và con dấu (ảnh CID) góc phải dưới cùng một hàng; viền khối biên lai mỏng `1px` khớp mẫu in.
+- **Email biên lai nạp ví (phụ huynh, sau webhook SePay):** HTML render bằng **React Email** (`TuitionReceiptEmail`), logo/con dấu qua `ReceiptAssetsService` (`src/mail/assets/*_sm.png`). Đính kèm **PDF** cùng HTML khi `ReceiptPdfService` (Puppeteer + `CHROMIUM_PATH`) sinh PDF thành công; image Docker API cài Chromium và `CHROMIUM_PATH=/usr/bin/chromium`. Tuỳ chọn `RECEIPT_*` ghi đè tiêu đề/người nhận/STK; `sendReceiptAfterCommit` vẫn truyền `parentName`, `transferNote`, `balanceAfter`; lỗi SMTP không fail webhook. Docs: `apps/api/.env.example`, `docs/Cách làm việc.md`, `docs/pages/auth.md`, `docs/pages/student.md`.
 - FE/BE auth gates: đồng bộ admin shell access để `staff.admin` được xem là admin đầy đủ, admin không bị khóa bởi email verification, và login/proxy/client gate dùng cùng policy route admin shell. Docs: `docs/pages/admin.md`, `docs/pages/auth.md`, `docs/pages/auth-login.md`, `docs/README.md`.
 - FE `/user-profile`: bộ đếm section `Nhân sự` chỉ tính 12 field staff người dùng tự hoàn thiện, không tính `status`/`roles`; `personal_achievement_link` tiếp tục là tùy chọn và không kích hoạt redirect hoàn thiện hồ sơ. Docs: `docs/pages/auth.md`, `docs/pages/staff.md`, `docs/README.md`.
 - FE `StudentBalancePopup` (chế độ **Nạp tiền**): cho phép nhập **số nguyên âm** để giảm số dư (cùng API signed `amount` với rút); cập nhật chip “Tác động”, toast và placeholder; `/student` điều chỉnh copy lỗi/mô tả. Docs: `docs/pages/student.md`, `docs/pages/admin.md`, `docs/README.md`, `docs/pages/auth.md`.
@@ -72,6 +77,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - FE notification tray (staff shell): thêm popup cảnh báo giữa màn hình khi load trang và còn thông báo `unread`, nội dung "Cảnh báo còn thông báo chưa đọc", có nút `X` để tắt popup và nút CTA `Xem thông báo` để mở notification slide bên phải ở tab `Mới`.
 
 ### Changed
+
 - **Prod domain (VPS):** `nginx/conf.d/https-vhost.conf`, [.env.production.example](../.env.production.example) và mục Certbot/HTTPS trong `docs/Cách làm việc.md` chuyển sang **`it.unicornsedu.com`** (Let’s Encrypt path `/etc/letsencrypt/live/it.unicornsedu.com/`). Trên VPS: cấp lại cert với `-d it.unicornsedu.com`, đồng bộ `.env` (`FRONTEND_URL`, `BACKEND_URL`, `GOOGLE_CALLBACK_URL`, `VPS_PUBLIC_HOST`) và secret GitHub `NEXT_PUBLIC_BACKEND_URL` = `https://it.unicornsedu.com/api`.
 - **CI deploy:** [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) không còn gọi `prisma migrate deploy` sau smoke HTTPS; migration production do vận hành chạy tay trên VPS (hoặc quy trình ngoài Actions). `docs/Cách làm việc.md` cập nhật mô tả pipeline và mục troubleshooting 137.
 - BE/FE staff income summary (detail cards): `snapshotUnpaidNetTotal` tính net với **% vận hành và % thuế hiện hành** (cùng luồng preview thanh toán); `incomeStatsTotalNet` = `monthlyIncomeTotals.total`; `totalReceivedNet` = `yearPaidNetTotal + snapshotUnpaidNetTotal`. Card **Tổng nhận** = net tháng đang chọn, bao gồm unpaid/pending buổi dạy sau khấu trừ hiện hành; **Đã nhận** = `monthlyIncomeTotals.paid`; **Tổng năm** = `yearIncomeTotal`.
@@ -84,9 +90,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - CI: `.github/workflows/deploy.yml` tách build Docker **API** và **Web** thành hai job chạy song song (`build-api`, `build-web`); `deploy` chờ cả hai; cache BuildKit `gha` dùng `scope` riêng để tránh xung đột khi push cache đồng thời. Job `deploy`: `VPS_PUBLIC_HOST` từ Secret hoặc Repository variable (`secrets.VPS_PUBLIC_HOST || vars.VPS_PUBLIC_HOST`), truyền SSH qua `envs`; trên VPS nếu trống thì đọc `VPS_PUBLIC_HOST` trong `.env`; chỉ chạy smoke test HTTPS (`curl --resolve`) khi đã có hostname (không có thì skip). `.env.production.example` thêm `VPS_PUBLIC_HOST`.
 
 ### Fixed
+
 - BE dashboard `getMonthlyTrend`: sửa lỗi PostgreSQL `function pg_catalog.substring(date, integer, integer) does not exist` (Prisma `P2010`) khi raw SQL bind cận `DATE` dạng parameter — chuyển sang literal `DATE 'YYYY-MM-DD'` đã validate; gộp chi phí bonus theo `bonuses.date`; `cost_extend` lọc nhánh `month` bằng `::text` + `BTRIM` đồng bộ với range aggregate.
 - CI deploy (`.github/workflows/deploy.yml`): giảm lỗi race `OCI runtime exec failed ... setns` ở bước `docker compose exec -T nginx ...` bằng cách chờ `nginx` chạy ổn định sau recreate (`wait_for_nginx_running`) và retry `nginx -t` / `nginx -s reload`; khi thất bại sẽ dump `docker compose ps` + `logs nginx` để debug nhanh root cause.
-- FE `SessionHistoryTable`: pill trạng thái thanh toán (ví dụ *Chưa thanh toán*) xuống dòng gọn trong ô khi bảng `table-fixed` hẹp / `overflow-x-auto`, cột trạng thái tăng tỷ lệ + `min-w-30`, tiêu đề cột được phép xuống dòng trên màn nhỏ — tránh badge/mask lệch hoặc tràn khi scroll ngang.
+- FE `SessionHistoryTable`: pill trạng thái thanh toán (ví dụ _Chưa thanh toán_) xuống dòng gọn trong ô khi bảng `table-fixed` hẹp / `overflow-x-auto`, cột trạng thái tăng tỷ lệ + `min-w-30`, tiêu đề cột được phép xuống dòng trên màn nhỏ — tránh badge/mask lệch hoặc tràn khi scroll ngang.
 - BE admin dashboard aggregate (`GET /dashboard`): chỉnh `getMonthlyTrend` dùng cận ngày `YYYY-MM-DD` theo `month`/`year` + `anchorMonthKey`, và `buildDashboardRange` dùng `Date.UTC` cho biên tháng / `formatMonthKey` theo UTC — tránh lệch múi giờ khiến `generate_series` không khớp CTE doanh thu/chi phí và `resolveSelectedMonthTrend` fallback về 0 (bảng **Báo cáo tài chính** hiển thị sai **Học phí đã học**, chi phí, lợi nhuận).
 - BE dashboard `getMonthlyTrend`: lọc `cost_extend.date` ép `::date` vì cột DB là `TEXT` — sửa lỗi PostgreSQL `operator does not exist: text >= date` (Prisma `P2010`).
 - BE/FE staff income summary unpaid: thêm `snapshotUnpaidTotal` authoritative cho card `Chưa nhận` trên `/staff/profile` và `/admin/staffs/[id]`; snapshot loại trạng thái cọc, buổi dạy chỉ tính `unpaid` trong `days` gần nhất, các nguồn pending khác tính full, dùng semantics trước thuế. Đồng thời cột `Chưa nhận` theo lớp chuyển sang lấy gross từ cửa sổ unpaid gần nhất.
@@ -105,6 +112,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - FE `/staff/calendar` và `/admin/calendar`: thêm switch **Calendar / Schedule**, bộ lọc lớp hỗ trợ **multi-select** (admin giữ thêm lọc gia sư); chế độ Schedule chỉ hiển thị ngày có lịch (ẩn ngày trống); dùng chung `CalendarScheduleList` + palette lớp; card có badge trạng thái `Đã dạy / Đang diễn ra / Sắp tới`.
 
 ### Changed
+
 - BE/FE calendar: chuyển sang aggregate feed hợp nhất `fixed` + `makeup` + `exam`, hỗ trợ filter học sinh, toggle **Tuần này / Tuần sau**, popup/list render lịch thi như event all-day kiểu ngày lễ; route admin/staff calendar giữ read-only cho `makeup`.
 - FE `/admin/classes/[id]` và `/staff/classes/[id]`: quản lý **Lịch dạy bù** trực tiếp trong trang chi tiết lớp, có phân trang, sắp xếp buổi gần nhất trước, copy tiếng Việt đầy đủ; admin/trợ lí chọn gia sư phụ trách, teacher tạo buổi bù với chính mình là người phụ trách.
 - FE `AddSessionPopup` + dialog **Chỉnh sửa buổi học** trong `SessionHistoryTable`: layout một cột (`max-w-3xl`), header có số tiền (success), nhóm thời gian có mũi tên + thời lượng, điểm danh cột **Trạng thái** trước (nút icon Học/Phép/Vắng), tổng điểm danh dạng một dòng màu; module dùng chung `session-form-ui.tsx`. Truyền `classPricing` từ chi tiết lớp để hiển thị ước lượng trợ cấp (gốc lưu buổi = trợ cấp/HS × có mặt + scale; header gross = `min(max_allowance, gốc × hệ_số)`).
@@ -118,11 +126,13 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - BE/FE deductions settings: `/admin/deductions` và mirror `/staff/deductions` giờ chỉ quản lý mức thuế mặc định theo role; flow chỉnh/tạo override theo staff được chuyển sang card thuế ở `/admin/staffs/:id` và mirror `/staff/staffs/:id`. API `PATCH` cho role defaults và staff overrides vẫn giữ nguyên.
 
 ### Removed
+
 - FE `/staff/classes/[id]`: bỏ đoạn ghi chú dưới header (teacher / admin teacher-workspace / CSKH) về khung giờ, buổi học và trường tài chính bị khóa.
 - FE: component `AdminProfilePopup` (modal "Thông tin cá nhân" khi bấm avatar); export barrel `@/components/admin` không còn `AdminProfilePopup`. Thông tin cá nhân chỉ qua trang `/user-profile`.
 - BE/FE notifications: gỡ cấu hình người nhận lưu DB và API `GET /notifications/recipient-options`; push/feed không còn filter theo đối tượng. Trên `/admin/notification`, ô **Người nhận** chỉ còn **mock UI (demo)** trên FE (tag + user giả), không gửi lên server.
 
 ### Added
+
 - BE/FE student exams + Google Calendar: thêm persistence `student_exam_schedules`, popup/card chỉnh lịch thi học sinh, aggregate calendar event type `exam`, và sync all-day event lên Google Calendar theo `studentId + examScheduleId`.
 - BE/FE makeup schedules: thêm bảng `makeup_schedule_events`, API CRUD theo lớp cho admin/staff workspace, render one-off event `makeup` trong aggregate calendar và sync riêng lên Google Calendar.
 - BE schema/migration: thêm `class_teachers.tax_rate_percent` (default `0`) và `sessions.teacher_tax_rate_percent` (default `0`) để cấu hình thuế theo từng cặp gia sư-lớp và snapshot mức thuế tại thời điểm tạo/cập nhật buổi học.
@@ -133,12 +143,14 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - BE/FE: Trợ cấp trợ lí 3% học phí đã học. Trợ lí (`assistant` role) quản lí các CSKH: `staff_info.customer_care_managed_by_staff_id` FK mới; snapshot `assistant_manager_staff_id` + `assistant_payment_status` trên `attendance` tại thời điểm tạo/cập nhật buổi học. Thu nhập trợ lí aggregate bằng raw SQL `ROUND(tuition_fee * 0.03)` chỉ trên attendance `present`, wire vào `getIncomeSummary`, `getUnpaidTotalsByStaffIds`, và dashboard unpaid CTE. API: `GET /staff/assistant-options`, `PATCH /staff` nhận thêm `customer_care_managed_by_staff_id`; `GET /staff/:id` trả `customerCareManagedBy`. FE: dropdown trợ lí trong popup sửa nhân sự CSKH. Migration: `20260405120000_add_assistant_manager_fields`.
 
 ### Fixed
+
 - Auth/API/Web: thêm `GET /auth/session` làm contract auth nhẹ cho SSR/proxy/bootstrap; `GET /auth/profile` delegate cùng resolver; refresh/session auth không còn đối chiếu hash refresh token với DB để hỗ trợ đăng nhập đồng thời nhiều thiết bị cùng một tài khoản; logout clear cookie theo session hiện tại; forgot-password trả generic success để tránh account enumeration; bổ sung route `/verify-email` ở web.
 - User self-service/security: đổi email tự phục vụ sẽ reset `emailVerified=false`; self student update không còn nhận `status`; `bank_qr_link` được normalize/validate chỉ cho `http/https`; upload avatar/CCCD được chặn MIME/size ngay từ controller interceptor; `StaffQrCard` không còn `window.open` URL không an toàn.
 - FE: popup **Chọn giao diện** (`SidebarThemePicker`) render qua `createPortal` → `document.body` để không bị cắt bởi `overflow-hidden` / `transform` trên sidebar.
 - API: `NotificationService` feed + mark-read không còn dùng `include.reads` / `prisma.notificationRead` (tránh lệch type khi Prisma client chưa generate đủ); feed query `notification_reads` bằng `$queryRaw` + `Prisma.join`, mark read bằng `$executeRaw` `ON CONFLICT DO NOTHING`.
 
 ### Changed
+
 - BE income summary staff: chuyển sang **net-first** cho khoản dạy học (`monthlyIncomeTotals`, `sessionMonthlyTotals`, `yearIncomeTotal`) và trả thêm breakdown gross/tax (`monthlyGrossTotals`, `monthlyTaxTotals`, `sessionMonthlyGrossTotals`, `sessionMonthlyTaxTotals`, `yearGrossIncomeTotal`, `yearTaxTotal`).
 - FE `/admin/staffs/[id]` và `/staff/profile`: card thu nhập tháng hiển thị số net làm chính; block `Trước khấu trừ` render động gross/tax và tự mở rộng thêm `operating/total deductions` nếu backend expose; chỉ hiển thị cho admin hoặc accountant.
 - FE class forms (`AddClassPopup`, `EditClassPopup`, `EditClassTeachersPopup`): semantic UI/DTO đổi từ `thuế gia sư-lớp` sang `khấu trừ vận hành`; giữ fallback tương thích key cũ để không vỡ khi backend rollout từng phần.
@@ -174,6 +186,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - FE trang chi tiết nhân sự (`/admin/staffs/[id]`, mirror `/staff/staffs/[id]`, `/staff/profile`): `StaffIdentityOverview` đồng bộ UI với các card section (viền/shadow/tiêu đề giống “Thống kê thu nhập”), QR minimal **cùng hàng tiêu đề bên phải** (flex), khối thành tích nền `bg-bg-secondary/40`, parse `specialization` bỏ ngoặc kép bọc ngoài.
 
 ### Added
+
 - BE/FE auth: thêm flow bắt buộc thiết lập mật khẩu cho user đăng nhập Google OAuth nếu account tương ứng chưa có `passwordHash`. Backend thêm `POST /auth/setup-password`, mở rộng `GET /auth/profile` và `GET /auth/me` với cờ `requiresPasswordSetup`, re-issue lại cookie sau khi setup thành công, và ghi audit `setup password`. Frontend thêm route `/auth/setup-password`, root auth gate để chặn mọi route đã đăng nhập khi còn thiếu mật khẩu, và redirect tự động từ Google callback sang flow này.
 - BE server cache: thêm Postgres-backed dashboard cache service (`apps/api/src/cache/dashboard-cache.service.ts`) dùng bảng `dashboard_cache` cho các read endpoint nặng của admin dashboard (`GET /dashboard`, `GET /dashboard/topup-history`, `GET /dashboard/student-balance-details`) với key theo query params và TTL ngắn; nếu thao tác cache lỗi thì backend vẫn fallback query dữ liệu tươi từ PostgreSQL.
 - BE self-service users: thêm endpoint `PATCH /users/me/staff-bonuses` để staff chỉnh `workType`, `month`, `amount`, `note` của khoản thưởng thuộc chính mình; route kiểm tra ownership bằng truy vấn hẹp `id` + `staffId` và không cho tự đổi `status`.
@@ -194,9 +207,11 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - BE lesson: thêm `GET /lesson-task-options?search=&limit=` cho flow đổi task gốc của output; query giữ bounded search với `limit` nhỏ, select tối thiểu và recent-first khi không search để tránh tải danh sách task rộng xuống FE.
 
 ### Security
+
 - BE auth/server hardening: thêm global HTTP rate limiting bằng `@nestjs/throttler` ở `AppModule`, bỏ qua health check `GET /`, và cân theo scale ~200 user với default `300 request / 60s / endpoint / IP`. Các route nhạy cảm dùng limit riêng để giảm false positive khi nhiều người dùng chung NAT/proxy: `POST /auth/login` (20/5 phút), `POST /auth/register` (10/giờ), `POST /auth/forgot-password` (5/giờ), `POST /auth/reset-password` (10/giờ), `POST /auth/change-password` (10/30 phút), `GET /auth/verify` (30/giờ), `POST /auth/refresh` (120/phút). Thêm env `THROTTLE_DEFAULT_*` và `TRUST_PROXY` để cấu hình runtime.
 
 ### Changed
+
 - FE `/admin/dashboard`: khối **Báo cáo tài chính** chuyển sang card viền nhạt + tiêu đề trái và bảng 3 cột (Danh mục / Giá trị / Ghi chú), 9 dòng tóm tắt nghiệp vụ; bỏ cột nhóm và cụm 3 card tín hiệu phía trên bảng; giá trị **Tổng nạp** và **Nợ học phí chưa dạy** vẫn là link mở popup lịch sử nạp / số dư học sinh.
 - FE `/admin/students`: thêm nút xóa (icon thùng rác) ở cuối mỗi dòng học sinh (desktop) với popup xác nhận; gọi `DELETE /student/:id` và tự refresh danh sách sau khi xóa.
 - BE staff/student: chặn xóa cứng khi còn dữ liệu liên kết (staff còn `sessions.teacher_id`, student còn `attendance.student_id`), trả lỗi 400 rõ ràng để FE toast thay vì phát sinh lỗi Prisma foreign key (P2003).
@@ -269,6 +284,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - BE `sessions`: cập nhật DTO create/update theo shape attendance từ FE (không yêu cầu `sessionId`/`attendance.id` trong payload), parse/validate date-time rõ ràng hơn, và update attendance theo cơ chế sync (upsert + delete bản ghi không còn trong payload) thay vì xóa toàn bộ rồi tạo lại.
 
 ### Fixed
+
 - Docker Compose production: pin `api.PORT=4000` và `web.PORT=3000` ngay trong `docker-compose.prod.yml` vì cả hai service cùng dùng chung `.env`; tránh việc `PORT=4000` của backend override Next.js khiến container `web` listen ở `4000` còn Nginx vẫn proxy sang `web:3000` và phát sinh 502.
 - Nginx (`nginx/conf.d/app.conf`): thêm exact-match redirect `location = /api { return 301 /api/; }` để `GET /api` không rơi xuống `location /` và trả HTML của Next.js; với proxy đang strip prefix, verify backend bằng `GET /api/` (kỳ vọng `Hello World!`) hoặc mở Swagger tại `/api/api`.
 - Nginx (`nginx/conf.d/app.conf`): bỏ khối `upstream` tĩnh, dùng `resolver 127.0.0.11` + `proxy_pass` qua biến (`web`/`api`) để Docker DNS cập nhật IP sau khi recreate container — tránh 502 `connect() failed (111: Connection refused)` tới IP cũ (ví dụ `172.18.0.3:3000`). `server_name` đổi thành `_` để truy cập bằng IP không bị lệch virtual host.
