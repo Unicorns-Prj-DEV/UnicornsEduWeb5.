@@ -802,7 +802,6 @@ export default function UserProfilePage() {
       profile.staffInfo.university,
       profile.staffInfo.highSchool,
       profile.staffInfo.specialization,
-      profile.staffInfo.personalAchievementLink,
       profile.staffInfo.bankAccount,
       profile.staffInfo.bankQrLink,
       profile.staffInfo.cccdNumber,
@@ -845,7 +844,6 @@ export default function UserProfilePage() {
       profile.staffInfo.university,
       profile.staffInfo.highSchool,
       profile.staffInfo.specialization,
-      profile.staffInfo.personalAchievementLink,
       profile.staffInfo.bankAccount,
       profile.staffInfo.bankQrLink,
       profile.staffInfo.cccdNumber,
@@ -1006,6 +1004,9 @@ export default function UserProfilePage() {
     { label: "Vai trò", value: getRoleLabel(profile.roleType) },
   ];
 
+  const staffAchievementLink =
+    profile.staffInfo?.personalAchievementLink?.trim() || null;
+
   const staffDetails: DetailItem[] | null = profile.staffInfo
     ? [
       {
@@ -1045,20 +1046,19 @@ export default function UserProfilePage() {
       },
       {
         label: "Minh chứng thành tích",
-        value: (() => {
-          const href = profile.staffInfo?.personalAchievementLink?.trim();
-          if (!href) return "—";
-          return (
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium text-primary underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
-            >
-              Xem liên kết
-            </a>
-          );
-        })(),
+        value: staffAchievementLink ? (
+          <a
+            href={staffAchievementLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-primary underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+            title={staffAchievementLink}
+          >
+            Xem liên kết
+          </a>
+        ) : (
+          "—"
+        ),
         fullWidth: true,
         hint: "URL http(s) tới tài liệu minh chứng (ví dụ Google Drive).",
       },
@@ -1431,7 +1431,7 @@ export default function UserProfilePage() {
                             thành tích. Để trống để xóa liên kết.
                           </p>
                         </div>
-                      </div>
+                        </div>
 
                       <FormActions
                         pending={updateStaffMutation.isPending}
