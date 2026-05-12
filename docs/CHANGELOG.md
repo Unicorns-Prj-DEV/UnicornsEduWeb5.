@@ -22,8 +22,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 ## [Unreleased]
 
 ### Changed
+- CI build/push Docker: thêm **multi-arch** `linux/amd64,linux/arm64` (`docker/setup-qemu-action` + `platforms` trên `docker/build-push-action`) để VPS **ARM64** kéo được image từ GHCR (tránh `no matching manifest for linux/arm64`). Lần build đầu có thể chậm hơn do QEMU. Docs `docs/Cách làm việc.md`.
 - CI deploy Tailscale: input `ping` mặc định **`vars.VPS_TAILSCALE_PING || secrets.VPS_HOST`** để đợi tailnet propagate trước SSH (giảm `ssh: handshake failed: EOF`). Docs `docs/Cách làm việc.md`.
-- CI deploy: nâng `appleboy/ssh-action` **v1.0.3 → v1.2.0** để SSH chạy trên runner (composite); kết hợp Tailscale tránh lỗi `ssh: handshake failed: EOF` do bản cũ chạy SSH trong container tách network. Docs `docs/Cách làm việc.md`.
+- `docs/Cách làm việc.md`: Tailscale SSH — `action: check` **không** cho `src` là **tag**; rule từ `tag:cicd` dùng **`action: accept`**; numbering troubleshooting ACL.
+- CI deploy: khi `TAILSCALE_ENABLED=true`, SSH deploy qua **`ProxyCommand` + `tailscale nc`** (userspace tailnet); script tách [`scripts/gha-deploy-remote.sh`](../scripts/gha-deploy-remote.sh); job `deploy` thêm checkout shallow; không Tailscale vẫn `appleboy/ssh-action` + `script_path`. Docs `docs/Cách làm việc.md`.
 - CI deploy Tailscale: mặc định `tags` từ `tag:ci` → **`tag:cicd`** (khớp OAuth client / ACL tailnet); vẫn override được bằng variable `TAILSCALE_TAGS`. Docs `docs/Cách làm việc.md`.
 - `docs/Cách làm việc.md`: mục Tailscale bổ sung hướng dẫn **Custom scopes** (Keys/Devices, không bật General) khi tạo OAuth credential cho GitHub Actions.
 - FE `/staff/profile`: bỏ nút bút chì chỉnh sửa thông tin nhân sự ở header; `StaffSelfEditPopup` vẫn mở qua chỉnh sửa QR trong mục Hồ sơ nhân sự; toast `profile_required=1` cập nhật copy tương ứng. Docs: `docs/pages/staff.md`, `docs/README.md`, `docs/CHANGELOG.md`.
