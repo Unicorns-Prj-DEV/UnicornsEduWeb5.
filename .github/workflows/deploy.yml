@@ -105,7 +105,7 @@ jobs:
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: ${{ vars.TAILSCALE_TAGS || 'tag:ci' }}
+          tags: ${{ vars.TAILSCALE_TAGS || 'tag:cicd' }}
           hostname: unicorns-gha-${{ github.run_id }}-${{ github.run_attempt }}
           version: latest
           ping: ${{ vars.VPS_TAILSCALE_PING }}
@@ -115,7 +115,7 @@ jobs:
         uses: tailscale/github-action@v4
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
-          tags: ${{ vars.TAILSCALE_TAGS || 'tag:ci' }}
+          tags: ${{ vars.TAILSCALE_TAGS || 'tag:cicd' }}
           hostname: unicorns-gha-${{ github.run_id }}-${{ github.run_attempt }}
           version: latest
           ping: ${{ vars.VPS_TAILSCALE_PING }}

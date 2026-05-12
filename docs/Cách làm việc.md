@@ -277,17 +277,17 @@ Khi bật, runner GitHub Actions gia nhập tailnet bằng action chính thức 
 
 1. **Repository variable** `TAILSCALE_ENABLED` = `true` để bật hai bước Tailscale trong workflow.
 2. **Chế độ xác thực (khuyến nghị: OAuth client)** — mặc định khi **không** đặt `TAILSCALE_AUTH_MODE=authkey`:
-   - Tạo [OAuth API client](https://tailscale.com/s/oauth-clients) trên admin Tailscale với scope tạo auth key và **tag** khớp workflow (mặc định `tag:ci` — tag trên OAuth client phải khớp mọi tag truyền vào action).
+   - Tạo [OAuth API client](https://tailscale.com/s/oauth-clients) trên admin Tailscale với scope tạo auth key và **tag** khớp workflow (mặc định `tag:cicd` — tag trên OAuth client phải khớp mọi tag truyền vào action).
    - **Secrets:** `TS_OAUTH_CLIENT_ID`, `TS_OAUTH_SECRET`.
    - **Màn “New credential” → Custom scopes (như UI Tailscale):** nút *Generate* chỉ bật khi đã chọn ít nhất một scope. Với [`tailscale/github-action`](https://github.com/tailscale/github-action) runner cần credential **mint auth key** (scope kiểu `auth_keys` trong [tài liệu OAuth](https://tailscale.com/docs/features/oauth-clients)). Thực hành **least privilege:**
      - **Không** bật nhóm **General** (DNS, Policy File, Users, Services) — không cần cho bước deploy CI.
      - Mở **Keys** và bật quyền **Write** (hoặc đúng dòng mô tả *auth keys* / tạo key) nếu UI hiển thị tách theo Read/Write.
      - Nếu wizard chỉ gom quyền dưới **Devices**: theo [hướng dẫn GitHub CI/CD của Tailscale](https://tailscale.com/docs/solutions/connect-github-CICD-workflows-to-private-infrastructure-without-public-exposure) có thể cần **Devices → Write** để tạo auth key đưa máy ephemeral vào tailnet — chọn **tối thiểu** đúng mục mà Tailscale mô tả là tạo key / đăng ký thiết bị, tránh bật dư Logging, Settings, Policy, DNS.
-     - Ở bước **Settings** hoặc ngay khi tạo credential, **gán tag** (ví dụ `tag:ci`) trùng với biến `TAILSCALE_TAGS` trên GitHub (hoặc mặc định `tag:ci` trong workflow). Trong ACL, `tag:ci` phải được phép SSH tới VPS.
+     - Ở bước **Settings** hoặc ngay khi tạo credential, **gán tag** (ví dụ `tag:cicd`) trùng với biến `TAILSCALE_TAGS` trên GitHub (hoặc mặc định `tag:cicd` trong workflow). Trong ACL, `tag:cicd` phải được phép SSH tới VPS.
 3. **Chế độ auth key (legacy):** đặt variable `TAILSCALE_AUTH_MODE` = `authkey` và secret **`TAILSCALE_AUTHKEY`** (auth key có tag phù hợp; Tailscale khuyến nghị OAuth thay cho key sống lâu).
-4. **Tuỳ chọn:** variable `TAILSCALE_TAGS` (mặc định workflow dùng `tag:ci` nếu để trống); variable `VPS_TAILSCALE_PING` = tên máy / host để action chạy `tailscale ping` sau `tailscale up` (xác minh đường đi trước SSH).
+4. **Tuỳ chọn:** variable `TAILSCALE_TAGS` (mặc định workflow dùng `tag:cicd` nếu để trống); variable `VPS_TAILSCALE_PING` = tên máy / host để action chạy `tailscale ping` sau `tailscale up` (xác minh đường đi trước SSH).
 
-**ACL tailnet:** phải cho phép node có tag CI (ví dụ `tag:ci`) SSH tới cổng 22 của VPS theo policy của bạn. Node trên runner là **ephemeral** (OAuth) và được gỡ sau khi job xong.
+**ACL tailnet:** phải cho phép node có tag CI/CD (ví dụ `tag:cicd`) SSH tới cổng 22 của VPS theo policy của bạn. Node trên runner là **ephemeral** (OAuth) và được gỡ sau khi job xong.
 
 **`VPS_PUBLIC_HOST` (smoke test HTTPS):** đặt một trong các cách — **Secret** `VPS_PUBLIC_HOST` (ưu tiên) hoặc **Repository variable** `VPS_PUBLIC_HOST`, hoặc trong file **`.env` trên VPS** (cùng thư mục compose, ví dụ `/root/UnicornsEdu/.env`). Script deploy đọc theo thứ tự: giá trị GitHub Actions truyền SSH → nếu trống thì đọc dòng `VPS_PUBLIC_HOST=…` trong `.env`. Nếu vẫn trống, **bỏ qua** bước `curl` (deploy không fail vì thiếu domain). Khớp `server_name` / chứng chỉ trong nginx.
 
