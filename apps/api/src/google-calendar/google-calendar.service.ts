@@ -740,7 +740,9 @@ export class GoogleCalendarService implements OnModuleInit {
         email,
         role: 'CO_HOST' as const,
       })),
-      ...(conferenceDataPayload ? { conferenceData: conferenceDataPayload } : {}),
+      ...(conferenceDataPayload
+        ? { conferenceData: conferenceDataPayload }
+        : {}),
     };
 
     this.logger.log(`[Calendar] Event body summary: ${summary}`);
@@ -923,7 +925,9 @@ export class GoogleCalendarService implements OnModuleInit {
         email,
         role: 'CO_HOST' as const,
       })),
-      ...(conferenceDataPayload ? { conferenceData: conferenceDataPayload } : {}),
+      ...(conferenceDataPayload
+        ? { conferenceData: conferenceDataPayload }
+        : {}),
     };
 
     const conferenceDataVersion = conferenceDataPayload ? 1 : 0;
