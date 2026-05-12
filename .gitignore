@@ -73,4 +73,7 @@ skills-lock.json
 # Local backups
 backup/
 
+# Local receipt prototype / source assets (not part of the app runtime)
+BienLai/
+
 sub-modules
