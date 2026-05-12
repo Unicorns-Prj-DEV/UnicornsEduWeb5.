@@ -661,6 +661,8 @@ export default function UserProfilePage() {
       specialization: getFieldValue(form, "specialization"),
       bank_account: getFieldValue(form, "bank_account"),
       bank_qr_link: getFieldValue(form, "bank_qr_link"),
+      personal_achievement_link:
+        getFieldValue(form, "personal_achievement_link") ?? null,
     };
     updateStaffMutation.mutate(payload);
   };
@@ -952,6 +954,9 @@ export default function UserProfilePage() {
     { label: "Vai trò", value: getRoleLabel(profile.roleType) },
   ];
 
+  const staffAchievementLink =
+    profile.staffInfo?.personalAchievementLink?.trim() || null;
+
   const staffDetails: DetailItem[] | null = profile.staffInfo
     ? [
       {
@@ -976,6 +981,23 @@ export default function UserProfilePage() {
       {
         label: "Link QR ngân hàng",
         value: profile.staffInfo.bankQrLink ?? "—",
+        fullWidth: true,
+      },
+      {
+        label: "Link minh chứng thành tích",
+        value: staffAchievementLink ? (
+          <a
+            href={staffAchievementLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-primary underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            title={staffAchievementLink}
+          >
+            Xem thành tích
+          </a>
+        ) : (
+          "—"
+        ),
         fullWidth: true,
       },
       {
@@ -1319,6 +1341,19 @@ export default function UserProfilePage() {
                           type="url"
                           defaultValue={profile.staffInfo.bankQrLink ?? ""}
                           placeholder="https://..."
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <TextField
+                          id="staff-personal_achievement_link"
+                          name="personal_achievement_link"
+                          label="Link minh chứng thành tích (tùy chọn)"
+                          type="url"
+                          defaultValue={
+                            profile.staffInfo.personalAchievementLink ?? ""
+                          }
+                          placeholder="https://drive.google.com/..."
+                          autoComplete="url"
                         />
                       </div>
                     </div>
