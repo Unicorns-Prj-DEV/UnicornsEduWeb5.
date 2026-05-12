@@ -1136,6 +1136,14 @@ export class UserService {
     if (dto.birth_year !== undefined) data.birthYear = dto.birth_year;
     if (dto.parent_name !== undefined) data.parentName = dto.parent_name;
     if (dto.parent_phone !== undefined) data.parentPhone = dto.parent_phone;
+    if (dto.parent_email !== undefined) {
+      if (dto.parent_email === null) {
+        data.parentEmail = null;
+      } else {
+        const trimmed = dto.parent_email.trim();
+        data.parentEmail = trimmed ? trimmed : null;
+      }
+    }
     if (dto.gender !== undefined) data.gender = dto.gender;
     if (dto.goal !== undefined) data.goal = dto.goal;
     if (Object.keys(data).length === 0) {

@@ -166,6 +166,16 @@ export class UpdateMyStudentProfileDto {
   @IsString()
   parent_phone?: string;
 
+  @ApiPropertyOptional({
+    example: 'parent@example.com',
+    nullable: true,
+    description:
+      'Email nhận biên lai nạp ví của phụ huynh. Truyền chuỗi rỗng hoặc null để xoá.',
+  })
+  @IsOptional()
+  @IsEmail()
+  parent_email?: string | null;
+
   @ApiPropertyOptional({ enum: Gender })
   @IsOptional()
   @IsEnum(Gender)

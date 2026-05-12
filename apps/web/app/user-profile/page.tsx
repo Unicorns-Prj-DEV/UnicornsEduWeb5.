@@ -745,6 +745,7 @@ export default function UserProfilePage() {
       birth_year: birthYear ? Number(birthYear) : undefined,
       parent_name: getFieldValue(form, "parent_name"),
       parent_phone: getFieldValue(form, "parent_phone"),
+      parent_email: getFieldValue(form, "parent_email"),
       gender,
       goal: getFieldValue(form, "goal"),
     };
@@ -821,6 +822,7 @@ export default function UserProfilePage() {
       profile.studentInfo.birthYear,
       profile.studentInfo.parentName,
       profile.studentInfo.parentPhone,
+      profile.studentInfo.parentEmail,
       profile.studentInfo.gender,
       profile.studentInfo.goal,
       profile.studentInfo.status,
@@ -863,6 +865,7 @@ export default function UserProfilePage() {
       profile.studentInfo.birthYear,
       profile.studentInfo.parentName,
       profile.studentInfo.parentPhone,
+      profile.studentInfo.parentEmail,
       profile.studentInfo.gender,
       profile.studentInfo.goal,
       profile.studentInfo.status
@@ -1103,6 +1106,11 @@ export default function UserProfilePage() {
         hint: profile.studentInfo.parentPhone
           ? `Liên hệ: ${profile.studentInfo.parentPhone}`
           : "Chưa có số điện thoại phụ huynh.",
+      },
+      {
+        label: "Email nhận biên nhận (phụ huynh)",
+        value: profile.studentInfo.parentEmail ?? "—",
+        hint: "Email phụ huynh nhận biên lai nạp ví SePay.",
       },
       { label: "Giới tính", value: getGenderLabel(profile.studentInfo.gender) },
       {
@@ -1555,6 +1563,14 @@ export default function UserProfilePage() {
                         label="SĐT phụ huynh"
                         type="tel"
                         defaultValue={profile.studentInfo.parentPhone ?? ""}
+                      />
+                      <TextField
+                        id="student-parent_email"
+                        name="parent_email"
+                        label="Email nhận biên nhận (phụ huynh)"
+                        type="email"
+                        defaultValue={profile.studentInfo.parentEmail ?? ""}
+                        placeholder="parent@example.com"
                       />
                       <div className="sm:col-span-2">
                         <TextField

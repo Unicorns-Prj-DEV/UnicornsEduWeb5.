@@ -37,6 +37,7 @@ export interface ProfileStudentInfoDto {
   birthYear?: number | null;
   parentName?: string | null;
   parentPhone?: string | null;
+  parentEmail?: string | null;
   status: StudentStatus;
   gender: StudentGender;
   goal?: string | null;
@@ -117,6 +118,7 @@ export interface UpdateMyStudentProfileDto {
   birth_year?: number;
   parent_name?: string;
   parent_phone?: string;
+  parent_email?: string;
   status?: StudentStatus;
   gender?: StudentGender;
   goal?: string;

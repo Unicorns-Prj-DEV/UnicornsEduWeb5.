@@ -66,6 +66,7 @@ type StudentProfileDraft = {
     birthYearInput: string;
     parentName: string;
     parentPhone: string;
+    parentEmail: string;
     gender: StudentGender;
     goal: string;
 };
@@ -158,6 +159,7 @@ function buildStudentProfileDraft(student: StudentSelfDetail): StudentProfileDra
         birthYearInput: student.birthYear == null ? "" : String(student.birthYear),
         parentName: student.parentName ?? "",
         parentPhone: student.parentPhone ?? "",
+        parentEmail: student.parentEmail ?? "",
         gender: normalizeGender(student.gender),
         goal: student.goal ?? "",
     };
@@ -174,6 +176,7 @@ function buildStudentProfilePayload(draft: StudentProfileDraft): UpdateMyStudent
         birth_year: birthYear ? Number(birthYear) : undefined,
         parent_name: normalizeOptionalText(draft.parentName),
         parent_phone: normalizeOptionalText(draft.parentPhone),
+        parent_email: normalizeOptionalText(draft.parentEmail),
         gender: draft.gender,
         goal: normalizeOptionalText(draft.goal),
     };
@@ -190,6 +193,7 @@ function isStudentProfileDirty(student: StudentSelfDetail, draft: StudentProfile
         payload.birth_year !== (student.birthYear ?? undefined) ||
         payload.parent_name !== normalizeOptionalText(student.parentName ?? "") ||
         payload.parent_phone !== normalizeOptionalText(student.parentPhone ?? "") ||
+        payload.parent_email !== normalizeOptionalText(student.parentEmail ?? "") ||
         payload.gender !== normalizeGender(student.gender) ||
         payload.goal !== normalizeOptionalText(student.goal ?? "")
     );
@@ -225,6 +229,7 @@ export default function StudentSelfPage() {
         birthYearInput: "",
         parentName: "",
         parentPhone: "",
+        parentEmail: "",
         gender: "male",
         goal: "",
     });
@@ -694,6 +699,25 @@ export default function StudentSelfPage() {
                                                         disabled={isSavingProfile}
                                                     />
                                                 </EditableField>
+
+                                                <EditableField label="Email nhận biên nhận">
+                                                    <input
+                                                        name="parent_email"
+                                                        type="email"
+                                                        autoComplete="email"
+                                                        spellCheck={false}
+                                                        value={profileDraft.parentEmail}
+                                                        onChange={(event) =>
+                                                            setProfileDraft((current) => ({
+                                                                ...current,
+                                                                parentEmail: event.target.value,
+                                                            }))
+                                                        }
+                                                        className={inputClassName}
+                                                        placeholder="parent@example.com"
+                                                        disabled={isSavingProfile}
+                                                    />
+                                                </EditableField>
                                             </div>
 
                                             <div className="rounded-[1.15rem] border border-border-default bg-bg-secondary/60 px-4 py-4">
@@ -734,6 +758,10 @@ export default function StudentSelfPage() {
                                         <dl className="divide-y divide-border-subtle">
                                             <StudentDetailRow label="Họ tên" value={student.parentName?.trim() || "—"} />
                                             <StudentDetailRow label="Số điện thoại" value={student.parentPhone?.trim() || "—"} />
+                                            <StudentDetailRow
+                                                label="Email nhận biên nhận"
+                                                value={student.parentEmail?.trim() || "—"}
+                                            />
                                             <StudentDetailRow
                                                 label="Trạng thái"
                                                 value={
