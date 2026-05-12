@@ -771,11 +771,14 @@ function UnpaidStaffList({
           item.bonusAmount > 0 ? `Bonus ${formatCurrency(item.bonusAmount)}` : null,
           item.extraAllowanceAmount > 0 ? `Trợ cấp ${formatCurrency(item.extraAllowanceAmount)}` : null,
         ].filter((value): value is string => value != null);
+        const staffDetailHref = `/staff/staffs/${encodeURIComponent(item.staffId)}`;
 
         return (
-          <div
+          <Link
             key={item.staffId}
-            className="rounded-xl border border-border-default bg-bg-secondary/20 p-3"
+            href={staffDetailHref}
+            className="block rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:border-border-focus hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            aria-label={`Mở chi tiết nhân sự ${item.staffName}`}
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
@@ -790,7 +793,7 @@ function UnpaidStaffList({
                 {formatCurrency(item.totalUnpaid)}
               </span>
             </div>
-          </div>
+          </Link>
         );
       })}
     </div>

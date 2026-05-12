@@ -126,7 +126,7 @@ export default function AdminClassDetailPage() {
     adminAccess.isAccountant ||
     adminAccess.isCustomerCare;
   const canCreateSession = !isAccountant;
-  const canOpenStudentDetails = !isAccountant;
+  const canOpenStudentDetails = true;
   const canManageMakeupSchedule = adminAccess.isAdmin || adminAccess.isAssistant;
 
   const surveysInMonth = useMemo(() => {

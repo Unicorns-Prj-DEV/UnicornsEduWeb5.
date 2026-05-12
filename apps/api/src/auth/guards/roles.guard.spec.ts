@@ -69,6 +69,24 @@ describe('RolesGuard', () => {
     } as unknown as ExecutionContext;
   }
 
+  it('allows access when no role metadata is present', async () => {
+    await expect(
+      guard.canActivate(
+        createContext(
+          {
+            id: 'staff-no-roles',
+            email: 'staff-no-roles@example.com',
+            accountHandle: 'staff-no-roles',
+            roleType: UserRole.staff,
+          },
+          {},
+        ),
+      ),
+    ).resolves.toBe(true);
+
+    expect(authIdentityCacheService.getStaffRoles).not.toHaveBeenCalled();
+  });
+
   it('allows assistant on admin routes by default', async () => {
     authIdentityCacheService.getStaffRoles.mockResolvedValue([
       StaffRole.assistant,
@@ -133,6 +151,31 @@ describe('RolesGuard', () => {
         ),
       ),
     ).resolves.toBe(true);
+  });
+
+  it('rejects assistant when explicit admin-route staff roles omit assistant', async () => {
+    authIdentityCacheService.getStaffRoles.mockResolvedValue([
+      StaffRole.assistant,
+    ]);
+
+    await expect(
+      guard.canActivate(
+        createContext(
+          {
+            id: 'staff-allowed-roles-assistant',
+            email: 'assistant@example.com',
+            accountHandle: 'assistant',
+            roleType: UserRole.staff,
+          },
+          {
+            requiredRoles: [UserRole.admin],
+            allowStaffRolesOnAdminRoutes: [StaffRole.accountant],
+          },
+        ),
+      ),
+    ).rejects.toThrow(
+      new ForbiddenException('Only authorized roles can access this resource'),
+    );
   });
 
   it('rejects accountant on admin routes without explicit accountant access', async () => {

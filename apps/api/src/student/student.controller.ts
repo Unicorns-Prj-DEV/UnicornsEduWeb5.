@@ -94,12 +94,13 @@ export class StudentController {
   @Get()
   @ApiOperation({
     summary: 'List students',
-    description: 'Get all students. Admin only.',
+    description: 'Get all students. Admin, assistant, and accountant only.',
   })
   @ApiResponse({
     status: 200,
     description: 'Paginated students list with data and meta.',
   })
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.accountant)
   @ApiQuery({
     name: 'page',
     required: false,
@@ -293,7 +294,11 @@ export class StudentController {
   @ApiParam({ name: 'id', description: 'Student ID' })
   @ApiResponse({ status: 200, description: 'Student found.' })
   @ApiResponse({ status: 404, description: 'Student not found.' })
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.customer_care)
+  @AllowStaffRolesOnAdminRoutes(
+    StaffRole.assistant,
+    StaffRole.accountant,
+    StaffRole.customer_care,
+  )
   async getStudentById(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -316,7 +321,11 @@ export class StudentController {
     type: [StudentExamScheduleItemDto],
   })
   @ApiResponse({ status: 404, description: 'Student not found.' })
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.customer_care)
+  @AllowStaffRolesOnAdminRoutes(
+    StaffRole.assistant,
+    StaffRole.accountant,
+    StaffRole.customer_care,
+  )
   async getStudentExamSchedules(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe()) id: string,
