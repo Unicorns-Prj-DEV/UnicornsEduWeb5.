@@ -31,10 +31,15 @@ function parseTrustProxy(
   return normalizedValue;
 }
 
+function normalizeCorsOrigin(value: string | undefined): string | undefined {
+  const normalizedValue = value?.trim().replace(/\/+$/, '');
+  return normalizedValue || undefined;
+}
+
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     cors: {
-      origin: process.env.FRONTEND_URL,
+      origin: normalizeCorsOrigin(process.env.FRONTEND_URL),
       credentials: true,
     },
   });

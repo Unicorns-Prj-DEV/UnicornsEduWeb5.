@@ -39,7 +39,7 @@ compose_pull_with_retry() {
   done
 }
 compose_pull_with_retry
-docker compose -f docker-compose.prod.yml up -d --remove-orphans
+docker compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans
 
 wait_for_http() {
   service="$1"
