@@ -69,39 +69,11 @@ wait_for_http() {
 wait_for_http api http://127.0.0.1:4000/
 wait_for_http web http://127.0.0.1:3000/api/healthcheck
 
-if command -v certbot >/dev/null 2>&1; then
-  certbot renew --quiet
-fi
-
 docker compose -f docker-compose.prod.yml exec -T nginx nginx -t
 docker compose -f docker-compose.prod.yml exec -T nginx nginx -s reload
 
-trim_ws() { printf '%s' "$1" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'; }
-
-DEPLOY_HOST="$(trim_ws "${VPS_PUBLIC_HOST:-}")"
-if [ -z "$DEPLOY_HOST" ] && [ -f .env ]; then
-  line="$(grep -E '^[[:space:]]*VPS_PUBLIC_HOST=' .env | tail -n1 || true)"
-  if [ -n "$line" ]; then
-    val="${line#*=}"
-    val="${val%%#*}"
-    val="$(trim_ws "$val")"
-    val="${val%\"}"
-    val="${val#\"}"
-    val="${val%\'}"
-    val="${val#\'}"
-    DEPLOY_HOST="$(trim_ws "$val")"
-  fi
-fi
-
-if [ -n "$DEPLOY_HOST" ] && command -v curl >/dev/null 2>&1; then
-  if ! curl -sfS --max-time 25 --resolve "${DEPLOY_HOST}:443:127.0.0.1" \
-    "https://${DEPLOY_HOST}/api/" >/dev/null; then
-    curl -sfS --http1.1 --max-time 25 --resolve "${DEPLOY_HOST}:443:127.0.0.1" \
-      "https://${DEPLOY_HOST}/api/" >/dev/null
-  fi
-  echo "HTTPS OK for https://${DEPLOY_HOST}/api/"
-else
-  echo "Skipping HTTPS smoke test (set VPS_PUBLIC_HOST in GitHub Variables/Secrets and/or VPS .env)"
-fi
+wait_for_http nginx http://127.0.0.1/nginx-health
+wait_for_http nginx http://127.0.0.1/api/
+echo "Local nginx OK for cloudflared tunnel: http://127.0.0.1:80"
 
 docker image prune -f

@@ -124,7 +124,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-api, build-web, mirror-nginx]
     env:
-      VPS_PUBLIC_HOST: ${{ secrets.VPS_PUBLIC_HOST || vars.VPS_PUBLIC_HOST }}
       GHCR_USERNAME: ${{ secrets.GHCR_USERNAME || vars.GHCR_USERNAME }}
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
 
@@ -164,14 +163,13 @@ jobs:
         if: ${{ vars.TAILSCALE_ENABLED != 'true' }}
         uses: appleboy/ssh-action@v1.2.0
         env:
-          VPS_PUBLIC_HOST: ${{ env.VPS_PUBLIC_HOST }}
           GHCR_USERNAME: ${{ env.GHCR_USERNAME }}
           GHCR_TOKEN: ${{ env.GHCR_TOKEN }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: VPS_PUBLIC_HOST,GHCR_USERNAME,GHCR_TOKEN
+          envs: GHCR_USERNAME,GHCR_TOKEN
           command_timeout: 30m
           script_path: scripts/gha-deploy-remote.sh
 
@@ -179,7 +177,6 @@ jobs:
         if: ${{ vars.TAILSCALE_ENABLED == 'true' }}
         timeout-minutes: 35
         env:
-          VPS_PUBLIC_HOST: ${{ env.VPS_PUBLIC_HOST }}
           GHCR_USERNAME: ${{ env.GHCR_USERNAME }}
           GHCR_TOKEN: ${{ env.GHCR_TOKEN }}
         run: |
@@ -190,7 +187,6 @@ jobs:
           TS="/usr/local/bin/tailscale"
           REMOTE="${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
           {
-            printf 'export VPS_PUBLIC_HOST=%q\n' "${VPS_PUBLIC_HOST:-}"
             printf 'export GHCR_USERNAME=%q\n' "${GHCR_USERNAME:-}"
             printf 'export GHCR_TOKEN=%q\n' "${GHCR_TOKEN:-}"
             cat scripts/gha-deploy-remote.sh

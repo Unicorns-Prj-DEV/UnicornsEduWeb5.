@@ -22,6 +22,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 ## [Unreleased]
 
 ### Changed
+- Deploy/Nginx: production chuyển sang Cloudflare Tunnel; NGINX chỉ bind `127.0.0.1:80`, bỏ vhost HTTPS/certbot/domain cũ, preserve `X-Forwarded-Proto`, deploy smoke test qua loopback local thay vì `VPS_PUBLIC_HOST`. Docs `docs/Cách làm việc.md`.
 - CI: job **`mirror-nginx`** copy manifest `docker.io/library/nginx:1.27-alpine` → **`ghcr.io/unicorns-prj-dev/nginx:1.27-alpine`** (`buildx imagetools create`); `docker-compose.prod.yml` trỏ `nginx` sang GHCR; `deploy` chờ `mirror-nginx`. VPS không còn phụ thuộc pull trực tiếp Docker Hub cho nginx. Docs `docs/Cách làm việc.md`.
 - Deploy VPS script [`scripts/gha-deploy-remote.sh`](../scripts/gha-deploy-remote.sh): **retry** `docker compose pull` (mặc định 5 lần, backoff) cho lỗi mạng/ghcr tạm thời. Docs `docs/Cách làm việc.md`.
 - CI build/push Docker: thêm **multi-arch** `linux/amd64,linux/arm64` (`docker/setup-qemu-action` + `platforms` trên `docker/build-push-action`) để VPS **ARM64** kéo được image từ GHCR (tránh `no matching manifest for linux/arm64`). Lần build đầu có thể chậm hơn do QEMU. Docs `docs/Cách làm việc.md`.

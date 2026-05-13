@@ -267,13 +267,15 @@ pnpm --filter web add @unicorns/shared --workspace
 
 ## Deploy VPS (GitHub Actions)
 
-Pipeline: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — khi **push `main`**: hai job build song song `build-api` / `build-web` (QEMU + Buildx, **`linux/amd64` + `linux/arm64`** push GHCR …) + job **`mirror-nginx`** (copy manifest `nginx:1.27-alpine` từ Docker Hub lên **`ghcr.io/unicorns-prj-dev/nginx:1.27-alpine`** bằng `docker buildx imagetools create` — VPS không cần kéo `docker.io`) → job `deploy` **checkout** shallow → (tuỳ chọn **Tailscale** trước bước SSH) → SSH vào VPS (script chung [`scripts/gha-deploy-remote.sh`](../scripts/gha-deploy-remote.sh): qua **`tailscale nc` ProxyCommand** nếu `TAILSCALE_ENABLED=true`, qua `appleboy/ssh-action` nếu không) → `git pull --ff-only` → **`docker login ghcr.io`** bằng secret `GHCR_USERNAME` + `GHCR_TOKEN` (bắt buộc nếu package private) → `docker compose pull` / `up` (image `latest` trong `docker-compose.prod.yml`) → probe HTTP → certbot renew (nếu có) → `nginx -t` + reload → smoke HTTPS (tùy `VPS_PUBLIC_HOST`) → `docker image prune -f`. **Không** chạy `prisma migrate deploy` trong workflow; áp migration production cần chạy tay trên VPS (hoặc quy trình riêng), xem [Database Schema.md](./Database%20Schema.md). **Không** chạy lint/test trên GitHub Actions; kiểm tra local dùng `pnpm lint`, `pnpm check-types`, `pnpm --filter api test`, v.v.
+Pipeline: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — khi **push `main`**: hai job build song song `build-api` / `build-web` (QEMU + Buildx, **`linux/amd64` + `linux/arm64`** push GHCR …) + job **`mirror-nginx`** (copy manifest `nginx:1.27-alpine` từ Docker Hub lên **`ghcr.io/unicorns-prj-dev/nginx:1.27-alpine`** bằng `docker buildx imagetools create` — VPS không cần kéo `docker.io`) → job `deploy` **checkout** shallow → (tuỳ chọn **Tailscale** trước bước SSH) → SSH vào VPS (script chung [`scripts/gha-deploy-remote.sh`](../scripts/gha-deploy-remote.sh): qua **`tailscale nc` ProxyCommand** nếu `TAILSCALE_ENABLED=true`, qua `appleboy/ssh-action` nếu không) → `git pull --ff-only` → **`docker login ghcr.io`** bằng secret `GHCR_USERNAME` + `GHCR_TOKEN` (bắt buộc nếu package private) → `docker compose pull` / `up` (image `latest` trong `docker-compose.prod.yml`) → probe HTTP service nội bộ → `nginx -t` + reload → smoke HTTP loopback (`http://127.0.0.1`) cho cloudflared → `docker image prune -f`. **Không** chạy `prisma migrate deploy` trong workflow; áp migration production cần chạy tay trên VPS (hoặc quy trình riêng), xem [Database Schema.md](./Database%20Schema.md). **Không** chạy lint/test trên GitHub Actions; kiểm tra local dùng `pnpm lint`, `pnpm check-types`, `pnpm --filter api test`, v.v.
 
 **Kiến trúc VPS:** image `unicorns-api` / `unicorns-web` được build trên Actions cho **`linux/amd64` và `linux/arm64`** (manifest chung `latest`). VPS **ARM64** (ví dụ Ampere/Graviton, Mac server) sẽ kéo đúng layer arm64; VPS **amd64** dùng layer amd64. Nếu bỏ multi-arch trong workflow, ARM VPS sẽ lỗi `no matching manifest for linux/arm64`.
 
 **Docker Hub / `docker compose pull`:** service **`nginx`** trong [`docker-compose.prod.yml`](../docker-compose.prod.yml) dùng image **`ghcr.io/unicorns-prj-dev/nginx:1.27-alpine`** — được job CI **`mirror-nginx`** đồng bộ manifest đa kiến trúc từ `docker.io/library/nginx:1.27-alpine` lên GHCR mỗi lần push `main`, nên VPS sau `docker login ghcr.io` **chỉ cần** kéo từ GHCR (tránh `registry-1.docker.io` / TLS timeout). Script deploy vẫn **retry** `docker compose pull` cho lỗi mạng tạm thời khác.
 
-**Secrets / variables GitHub (CD):** ngoài `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `NEXT_PUBLIC_BACKEND_URL`, `VPS_PUBLIC_HOST` (tuỳ chọn), cần **`GHCR_TOKEN`** (PAT `read:packages`, user đã authorize SSO org nếu có) và **`GHCR_USERNAME`** (username GitHub của chủ PAT). Có thể dùng Repository variable cho `GHCR_USERNAME`.
+**Cloudflared / NGINX production:** NGINX chỉ bind loopback host `127.0.0.1:80` trong [`docker-compose.prod.yml`](../docker-compose.prod.yml). Cloudflare Tunnel cấu hình service tới `http://127.0.0.1:80`; TLS/domain kết thúc ở Cloudflare, nên VPS không cần expose `443`, không cần `certbot`, và không dùng `VPS_PUBLIC_HOST` cho smoke test. `nginx/conf.d/app.conf` là catch-all local vhost; `nginx/nginx.conf` giữ lại `X-Forwarded-Proto` từ cloudflared để backend/web vẫn biết request gốc là HTTPS.
+
+**Secrets / variables GitHub (CD):** ngoài `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `NEXT_PUBLIC_BACKEND_URL`, cần **`GHCR_TOKEN`** (PAT `read:packages`, user đã authorize SSO org nếu có) và **`GHCR_USERNAME`** (username GitHub của chủ PAT). Có thể dùng Repository variable cho `GHCR_USERNAME`.
 
 ### Tailscale trong job `deploy` (tuỳ chọn)
 
@@ -304,7 +306,7 @@ Khi bật, runner GitHub Actions gia nhập tailnet bằng action chính thức 
 
 **SSH sau Tailscale:** runner sau `tailscale/github-action` thường ở chế độ tương đương **userspace networking** — client SSH thường (kể cả [`appleboy/ssh-action`](https://github.com/appleboy/ssh-action) composite) **không** tự đi qua `tailscaled`, dễ gặp `ssh: handshake failed: EOF` dù log “Tailscale connected”. Theo [tài liệu `tailscale ssh`](https://tailscale.com/docs/reference/tailscale-cli), cần đi qua daemon: workflow khi `TAILSCALE_ENABLED=true` dùng OpenSSH với **`ProxyCommand=sudo -E /usr/local/bin/tailscale nc %h %p`** và script chung [`scripts/gha-deploy-remote.sh`](../scripts/gha-deploy-remote.sh). Khi **không** bật Tailscale, deploy vẫn dùng `appleboy/ssh-action@v1.2.0` + `script_path` tới cùng file. Job `deploy` có bước **checkout** shallow để có file script trên runner. **`appleboy/ssh-action@v1.0.3`** chạy SSH trong container Docker → không dùng được tailnet trên host.
 
-**`VPS_PUBLIC_HOST` (smoke test HTTPS):** đặt một trong các cách — **Secret** `VPS_PUBLIC_HOST` (ưu tiên) hoặc **Repository variable** `VPS_PUBLIC_HOST`, hoặc trong file **`.env` trên VPS** (cùng thư mục compose, ví dụ `/root/UnicornsEdu/.env`). Script deploy đọc theo thứ tự: giá trị GitHub Actions truyền SSH → nếu trống thì đọc dòng `VPS_PUBLIC_HOST=…` trong `.env`. Nếu vẫn trống, **bỏ qua** bước `curl` (deploy không fail vì thiếu domain). Khớp `server_name` / chứng chỉ trong nginx.
+**Cloudflared smoke test:** deploy không còn cần `VPS_PUBLIC_HOST`. Script kiểm tra `api`, `web`, rồi kiểm tra NGINX qua `http://127.0.0.1/nginx-health` và `http://127.0.0.1/api/`; tunnel public do Cloudflare quản lý ngoài workflow.
 
 ### Lỗi `Process exited with status 137`
 
@@ -338,40 +340,30 @@ Lưu ý: khi `proxy_pass` dùng **biến hostname** để tránh stale Docker IP
 
 Nếu log `web` hiển thị Next.js chạy ở `http://0.0.0.0:4000` thay vì `3000`, nguyên nhân thường là cả `api` và `web` cùng ăn chung `env_file: .env` và biến `PORT=4000` từ backend đã override frontend. `docker-compose.prod.yml` hiện đã pin lại `api.PORT=4000` và `web.PORT=3000` ở từng service; sau khi cập nhật file này trên VPS, chạy lại `docker compose -f docker-compose.prod.yml up -d --force-recreate web nginx`.
 
-### HTTPS (Let’s Encrypt) với Nginx trong Docker
+### Cloudflared Tunnel với Nginx local
 
-Stack prod map **80/443** và mount **`/etc/letsencrypt`** (chứng chỉ trên host) vào container `nginx`. Repo có **`nginx/conf.d/https-vhost.conf`** cho môi trường prod **it.unicornsedu.com** (redirect HTTP→HTTPS + TLS). Container `nginx` **chỉ start/`nginx -t` thành công** khi đã tồn tại `/etc/letsencrypt/live/it.unicornsedu.com/` trên host — nếu chưa có chứng chỉ, **tạm đổi tên** file (ví dụ `https-vhost.conf.bak`), chạy Certbot xong rồi đặt lại tên và reload.
+Stack prod không terminate TLS trong NGINX nữa. `docker-compose.prod.yml` bind NGINX vào **`127.0.0.1:80`** trên VPS; Cloudflare Tunnel trỏ service tới **`http://127.0.0.1:80`**. Public hostname, TLS certificate, redirect HTTPS và WAF/routing nằm ở Cloudflare.
 
-**Lưu ý:** `certbot --nginx` trên host không chỉnh được file cấu hình Nginx **bên trong container**. Dùng **HTTP-01 + webroot** (đã có `location /.well-known/acme-challenge/` và volume `./nginx/certbot/www`).
+1. Chạy deploy như bình thường để `api`, `web`, `nginx` lên cùng compose network.
+2. Cấu hình cloudflared trên VPS:
 
-1. Mở firewall: `ufw allow 80` và `ufw allow 443` (nếu dùng UFW).
-2. Đảm bảo DNS **A/AAAA** của `it.unicornsedu.com` trỏ về IP VPS; compose đã chạy và Nginx lắng nghe port 80 (khối `default_server` trong `app.conf` vẫn phục vụ challenge qua `/var/www/certbot`).
-3. Cài Certbot trên **host** VPS (ví dụ `snap install --classic certbot` hoặc gói distro).
-4. Từ thư mục deploy (nơi có `nginx/certbot/www`), cấp chứng chỉ:
-
-   ```bash
-   sudo certbot certonly --webroot \
-     -w "$(pwd)/nginx/certbot/www" \
-     -d it.unicornsedu.com
+   ```yaml
+   ingress:
+     - hostname: YOUR_CLOUDFLARE_HOSTNAME
+       service: http://127.0.0.1:80
+     - service: http_status:404
    ```
 
-   Certbot ghi file challenge vào `nginx/certbot/www` trên host; container `nginx` đọc cùng đường dẫn qua mount tại `/var/www/certbot`.
-
-5. Đảm bảo `nginx/conf.d/https-vhost.conf` có trong deploy (repo đã khai báo sẵn cho tên miền trên). Nếu trước đó đã đổi tên file để tránh lỗi thiếu cert, đặt lại `https-vhost.conf`.
-6. Kiểm tra và nạp lại:
+3. Kiểm tra local trước khi kiểm tra domain public:
 
    ```bash
    docker compose -f docker-compose.prod.yml exec nginx nginx -t
    docker compose -f docker-compose.prod.yml exec nginx nginx -s reload
+   curl -fsS http://127.0.0.1/nginx-health
+   curl -fsS http://127.0.0.1/api/
    ```
 
-7. Gia hạn: `sudo certbot renew` (cron/systemd timer). Sau renew có thể cần `nginx -s reload` nếu dùng `reload-hook`; Certbot thường cấu hình sẵn.
-
-Truy cập bằng **IP** vẫn dùng khối `listen 80 default_server` (không redirect HTTPS). Truy cập **https://it.unicornsedu.com/** sau khi có cert: HTTP (port 80) cho hostname đó redirect 301 sang HTTPS; HTTPS phục vụ app.
-
-**Miền khác:** dùng mẫu `nginx/conf.d/https-vhost.conf.example`, sao chép/sửa thành file `.conf` riêng hoặc chỉnh `server_name` và đường dẫn `ssl_certificate` cho khớp `-d` khi chạy Certbot.
-
-**GitHub Actions:** job `deploy` trong [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) sau khi `api`/`web` sẵn sàng sẽ gọi `certbot renew --quiet` trên VPS (bỏ qua nếu chưa cài Certbot), rồi `nginx -t` + `nginx -s reload`. Hostname cho smoke test HTTPS lấy theo thứ tự: **Secret** `VPS_PUBLIC_HOST` → **Repository variable** `VPS_PUBLIC_HOST` → dòng **`VPS_PUBLIC_HOST`** trong `.env` trên VPS (không có scheme). Nếu có hostname và có `curl`, workflow probe `https://…/api/` qua `--resolve` tới `127.0.0.1`; mặc định thử HTTP/2 trước, nếu gặp lỗi framing layer thì fallback HTTP/1.1 để tránh fail giả trên một số tổ hợp VPS/nginx/curl. Nếu **không** có hostname → **bỏ qua** smoke test (deploy vẫn thành công). Khi cả probe mặc định và fallback đều lỗi, deploy **fail** tại `curl`. Biến mẫu: [.env.production.example](../.env.production.example).
+`nginx/conf.d/https-vhost.conf` cố ý để trống phần server block để tránh phụ thuộc cert trên VPS. `nginx/nginx.conf` preserve `X-Forwarded-Proto` từ cloudflared; backend/web vẫn thấy request gốc là HTTPS khi Cloudflare gửi header này.
 
 Nếu gặp lỗi `OCI runtime exec failed: ... setns process`, đây thường là race ngay sau lúc container `nginx` vừa recreate hoặc đang restart. Workflow đã thêm `wait_for_nginx_running` + retry `docker compose exec -T nginx ...` trước khi test/reload; nếu vẫn fail sẽ in `docker compose ps` và `logs --tail=200 nginx` để chẩn đoán trực tiếp nguyên nhân root (thiếu cert, lỗi syntax config, crash loop...).
 
