@@ -20,7 +20,7 @@ export class LessonManagementGuard implements CanActivate {
       return true;
     }
 
-    if (user?.roleType !== UserRole.staff) {
+    if (!user?.id) {
       throw new ForbiddenException(
         'Chỉ admin hoặc staff.lesson_plan_head mới được quản lý giáo án.',
       );
@@ -35,12 +35,19 @@ export class LessonManagementGuard implements CanActivate {
     });
 
     if (!staff) {
+      if (user.roleType !== UserRole.staff) {
+        throw new ForbiddenException(
+          'Chỉ admin hoặc staff.lesson_plan_head mới được quản lý giáo án.',
+        );
+      }
+
       throw new ForbiddenException(
         'Tài khoản staff hiện tại chưa có hồ sơ nhân sự để dùng màn quản lý giáo án.',
       );
     }
 
     if (
+      !staff.roles.includes(StaffRole.admin) &&
       !staff.roles.includes(StaffRole.assistant) &&
       !staff.roles.includes(StaffRole.lesson_plan_head)
     ) {

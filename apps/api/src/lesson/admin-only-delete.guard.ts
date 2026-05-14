@@ -20,13 +20,16 @@ export class AdminOnlyDeleteGuard implements CanActivate {
       return true;
     }
 
-    if (user?.roleType === UserRole.staff) {
+    if (user?.id) {
       const staff = await this.prisma.staffInfo.findUnique({
         where: { userId: user.id },
         select: { roles: true },
       });
 
-      if (staff?.roles.includes(StaffRole.assistant)) {
+      if (
+        staff?.roles.includes(StaffRole.admin) ||
+        staff?.roles.includes(StaffRole.assistant)
+      ) {
         return true;
       }
     }

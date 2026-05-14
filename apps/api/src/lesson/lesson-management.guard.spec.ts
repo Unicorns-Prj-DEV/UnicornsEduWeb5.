@@ -124,4 +124,22 @@ describe('LessonManagementGuard', () => {
       ),
     ).resolves.toBe(true);
   });
+
+  it('allows linked staff.admin even when the primary role is student', async () => {
+    mockPrisma.staffInfo.findFirst.mockResolvedValue({
+      id: 'staff-info-1',
+      roles: [StaffRole.admin],
+    });
+
+    await expect(
+      guard.canActivate(
+        createContext({
+          id: 'student-staff-admin',
+          email: 'student-staff-admin@example.com',
+          accountHandle: 'student-staff-admin',
+          roleType: UserRole.student,
+        }),
+      ),
+    ).resolves.toBe(true);
+  });
 });

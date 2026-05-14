@@ -2217,18 +2217,6 @@ export class LessonService {
       };
     }
 
-    if (actor.roleType !== UserRole.staff) {
-      return {
-        userId: actor.id,
-        roleType: actor.roleType,
-        staffId: null,
-        staffRoles: [],
-        canManage: false,
-        canParticipate: false,
-        canAccountWork: false,
-      };
-    }
-
     const staff = await this.prisma.staffInfo.findUnique({
       where: { userId: actor.id },
       select: {
@@ -2250,6 +2238,7 @@ export class LessonService {
     }
 
     const canManage =
+      staff.roles.includes(StaffRole.admin) ||
       staff.roles.includes(StaffRole.assistant) ||
       staff.roles.includes(StaffRole.lesson_plan_head);
     const canParticipate =

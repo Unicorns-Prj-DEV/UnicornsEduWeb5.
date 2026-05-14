@@ -11,9 +11,23 @@ import {
   LessonTaskPriority,
   LessonTaskStatus,
   PaymentStatus,
+  StaffRole,
   UserRole,
 } from '../../generated/enums';
 import { LessonService } from './lesson.service';
+
+type LessonActorContextForTest = {
+  staffId: string | null;
+  staffRoles: StaffRole[];
+  canManage: boolean;
+  canParticipate: boolean;
+};
+
+type LessonServiceTestAccess = {
+  resolveLessonActorContext: (
+    ...args: unknown[]
+  ) => Promise<LessonActorContextForTest>;
+};
 
 describe('LessonService', () => {
   const lessonStaffUserSelect = {
@@ -111,6 +125,29 @@ describe('LessonService', () => {
       mockPrisma as never,
       actionHistoryService as never,
     );
+  });
+
+  it('treats linked staff.admin as full lesson manager access', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-admin-1',
+      roles: [StaffRole.admin],
+    });
+
+    await expect(
+      (service as unknown as LessonServiceTestAccess).resolveLessonActorContext(
+        {
+          id: 'student-staff-admin',
+          email: 'student-staff-admin@example.com',
+          accountHandle: 'student-staff-admin',
+          roleType: UserRole.student,
+        },
+      ),
+    ).resolves.toMatchObject({
+      staffId: 'staff-admin-1',
+      staffRoles: [StaffRole.admin],
+      canManage: true,
+      canParticipate: true,
+    });
   });
 
   it('returns overview summary with normalized resources and tasks', async () => {
@@ -1593,14 +1630,16 @@ describe('LessonService', () => {
         id: true,
       },
     });
+    const expectedCreateInput = expect.objectContaining({
+      data: expect.objectContaining({
+        lessonTaskId: 'task-output-1',
+        staffId: 'staff-participant',
+        paymentStatus: PaymentStatus.pending,
+      }) as unknown,
+    }) as unknown;
+
     expect(mockPrisma.lessonOutput.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          lessonTaskId: 'task-output-1',
-          staffId: 'staff-participant',
-          paymentStatus: PaymentStatus.pending,
-        }),
-      }),
+      expectedCreateInput,
     );
   });
 
