@@ -17,12 +17,26 @@ type GuardMetadata = {
   allowStaffRolesOnAdminRoutes?: StaffRole[];
 };
 
+type TestResolvedAuthAccess = {
+  effectiveRoleTypes: UserRole[];
+  staffRoles: StaffRole[];
+  access: {
+    admin: {
+      canAccess: boolean;
+      tier: 'full' | 'assistant' | 'accountant' | 'lesson_plan_head' | null;
+    };
+  };
+};
+
 describe('RolesGuard', () => {
   const mockReflector = {
     getAllAndOverride: jest.fn(),
   };
   const authIdentityCacheService = {
     getStaffRoles: jest.fn(),
+  };
+  const authAccessService = {
+    resolveForUserId: jest.fn(),
   };
 
   let guard: RolesGuard;
@@ -32,6 +46,7 @@ describe('RolesGuard', () => {
     guard = new RolesGuard(
       mockReflector as unknown as Reflector,
       authIdentityCacheService as never,
+      authAccessService as never,
     );
   });
 
@@ -43,6 +58,7 @@ describe('RolesGuard', () => {
       roleType: UserRole;
     },
     metadata: GuardMetadata,
+    requestContext?: { resolvedAuthAccess?: TestResolvedAuthAccess },
   ): ExecutionContext {
     mockReflector.getAllAndOverride.mockImplementation((key: string) => {
       if (key === ROLES_KEY) {
@@ -64,7 +80,7 @@ describe('RolesGuard', () => {
       getHandler: () => 'handler',
       getClass: () => 'controller',
       switchToHttp: () => ({
-        getRequest: () => ({ user }),
+        getRequest: () => ({ user, ...requestContext }),
       }),
     } as unknown as ExecutionContext;
   }
@@ -124,6 +140,57 @@ describe('RolesGuard', () => {
           {
             requiredRoles: [UserRole.admin],
             allowAssistantOnAdminRoutes: false,
+          },
+        ),
+      ),
+    ).resolves.toBe(true);
+  });
+
+  it('allows an effective student role from a linked student profile', async () => {
+    await expect(
+      guard.canActivate(
+        createContext(
+          {
+            id: 'staff-student-1',
+            email: 'staff-student@example.com',
+            accountHandle: 'staff-student',
+            roleType: UserRole.staff,
+          },
+          {
+            requiredRoles: [UserRole.student],
+          },
+          {
+            resolvedAuthAccess: {
+              effectiveRoleTypes: [UserRole.staff, UserRole.student],
+              staffRoles: [],
+              access: { admin: { canAccess: false, tier: null } },
+            },
+          },
+        ),
+      ),
+    ).resolves.toBe(true);
+  });
+
+  it('allows staff admin access from a linked staff profile when primary role is student', async () => {
+    await expect(
+      guard.canActivate(
+        createContext(
+          {
+            id: 'student-staff-admin-1',
+            email: 'student-staff-admin@example.com',
+            accountHandle: 'student-staff-admin',
+            roleType: UserRole.student,
+          },
+          {
+            requiredRoles: [UserRole.admin],
+            allowAssistantOnAdminRoutes: false,
+          },
+          {
+            resolvedAuthAccess: {
+              effectiveRoleTypes: [UserRole.student, UserRole.staff],
+              staffRoles: [StaffRole.admin],
+              access: { admin: { canAccess: true, tier: 'full' } },
+            },
           },
         ),
       ),

@@ -11,6 +11,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { MailModule } from '../mail/mail.module';
 import { GoogleStrategy } from './strategies/google-oauth.strategy';
+import { AuthAccessService } from './auth-access.service';
 
 @Module({
   imports: [
@@ -31,11 +32,12 @@ import { GoogleStrategy } from './strategies/google-oauth.strategy';
   controllers: [AuthController],
   providers: [
     AuthService,
+    AuthAccessService,
     AuthIdentityCacheService,
     JwtStrategy,
     JwtRefreshStrategy,
     GoogleStrategy,
   ],
-  exports: [AuthService, AuthIdentityCacheService],
+  exports: [AuthService, AuthAccessService, AuthIdentityCacheService],
 })
 export class AuthModule {}

@@ -1,5 +1,9 @@
 import { StaffRole, UserRole } from 'generated/enums';
 import { TokenPair } from 'src/auth/auth.service';
+import type {
+  AdminAccessTier,
+  AuthWorkspace,
+} from 'src/auth/auth-access.service';
 
 export interface AuthProfileDto {
   id: string;
@@ -13,6 +17,24 @@ export interface AuthProfileDto {
   staffRoles: StaffRole[];
   hasStaffProfile: boolean;
   hasStudentProfile: boolean;
+  effectiveRoleTypes: UserRole[];
+  staffProfileComplete: boolean;
+  availableWorkspaces: AuthWorkspace[];
+  defaultWorkspace: AuthWorkspace | null;
+  preferredRedirect: string;
+  access: {
+    admin: {
+      canAccess: boolean;
+      tier: AdminAccessTier;
+    };
+    staff: {
+      canAccess: boolean;
+      profileComplete: boolean;
+    };
+    student: {
+      canAccess: boolean;
+    };
+  };
 }
 
 export interface LoginResponseDto {

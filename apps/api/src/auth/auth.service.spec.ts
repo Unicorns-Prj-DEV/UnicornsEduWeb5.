@@ -45,8 +45,50 @@ describe('AuthService', () => {
     getStaffRoles: jest.fn(),
     invalidateUser: jest.fn(),
   };
+  const authAccessService = {
+    resolveForIdentity: jest.fn(),
+  };
 
   let service: AuthService;
+
+  function buildAuthAccess(
+    overrides: {
+      effectiveRoleTypes?: UserRole[];
+      staffRoles?: StaffRole[];
+      hasStaffProfile?: boolean;
+      hasStudentProfile?: boolean;
+      staffProfileComplete?: boolean;
+      availableWorkspaces?: Array<'admin' | 'staff' | 'student'>;
+      defaultWorkspace?: 'admin' | 'staff' | 'student' | null;
+      preferredRedirect?: string;
+      adminTier?:
+        | 'full'
+        | 'assistant'
+        | 'accountant'
+        | 'lesson_plan_head'
+        | null;
+    } = {},
+  ) {
+    const adminTier = overrides.adminTier ?? null;
+    return {
+      effectiveRoleTypes: overrides.effectiveRoleTypes ?? [UserRole.guest],
+      staffRoles: overrides.staffRoles ?? [],
+      hasStaffProfile: overrides.hasStaffProfile ?? false,
+      hasStudentProfile: overrides.hasStudentProfile ?? false,
+      staffProfileComplete: overrides.staffProfileComplete ?? false,
+      availableWorkspaces: overrides.availableWorkspaces ?? [],
+      defaultWorkspace: overrides.defaultWorkspace ?? null,
+      preferredRedirect: overrides.preferredRedirect ?? '/',
+      access: {
+        admin: { canAccess: adminTier !== null, tier: adminTier },
+        staff: {
+          canAccess: overrides.hasStaffProfile ?? false,
+          profileComplete: overrides.staffProfileComplete ?? false,
+        },
+        student: { canAccess: overrides.hasStudentProfile ?? false },
+      },
+    };
+  }
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -61,6 +103,7 @@ describe('AuthService', () => {
       mailService as never,
       actionHistoryService as never,
       authIdentityCacheService as never,
+      authAccessService as never,
     );
   });
 
@@ -264,7 +307,14 @@ describe('AuthService', () => {
       accountHandle: 'clean-schema',
     });
 
-    const upsertArgs = mockPrisma.user.upsert.mock.calls.at(-1)?.[0];
+    const upsertMock = mockPrisma.user.upsert as jest.MockedFunction<
+      (args: {
+        create: Record<string, unknown>;
+        update: Record<string, unknown>;
+      }) => unknown
+    >;
+    const upsertArgs = upsertMock.mock.lastCall?.[0];
+    expect(upsertArgs).toBeDefined();
     expect(upsertArgs?.create).not.toHaveProperty('personProfileId');
     expect(upsertArgs?.create).not.toHaveProperty('person_profile_id');
     expect(upsertArgs?.update).not.toHaveProperty('personProfileId');
@@ -281,6 +331,11 @@ describe('AuthService', () => {
       status: 'active',
       requiresPasswordSetup: true,
     });
+    authAccessService.resolveForIdentity.mockResolvedValue(
+      buildAuthAccess({
+        effectiveRoleTypes: [UserRole.guest],
+      }),
+    );
 
     await expect(service.getAuthProfile('user-1')).resolves.toEqual({
       id: 'user-1',
@@ -294,6 +349,16 @@ describe('AuthService', () => {
       staffRoles: [],
       hasStaffProfile: false,
       hasStudentProfile: false,
+      effectiveRoleTypes: [UserRole.guest],
+      staffProfileComplete: false,
+      availableWorkspaces: [],
+      defaultWorkspace: null,
+      preferredRedirect: '/',
+      access: {
+        admin: { canAccess: false, tier: null },
+        staff: { canAccess: false, profileComplete: false },
+        student: { canAccess: false },
+      },
     });
     expect(authIdentityCacheService.getAuthIdentity).toHaveBeenCalledWith(
       'user-1',
@@ -311,6 +376,15 @@ describe('AuthService', () => {
       status: 'active',
       requiresPasswordSetup: false,
     });
+    authAccessService.resolveForIdentity.mockResolvedValue(
+      buildAuthAccess({
+        effectiveRoleTypes: [UserRole.admin],
+        availableWorkspaces: ['admin'],
+        defaultWorkspace: 'admin',
+        preferredRedirect: '/admin/dashboard',
+        adminTier: 'full',
+      }),
+    );
 
     await expect(service.getAuthProfile('admin-1')).resolves.toEqual({
       id: 'admin-1',
@@ -324,6 +398,16 @@ describe('AuthService', () => {
       staffRoles: [],
       hasStaffProfile: false,
       hasStudentProfile: false,
+      effectiveRoleTypes: [UserRole.admin],
+      staffProfileComplete: false,
+      availableWorkspaces: ['admin'],
+      defaultWorkspace: 'admin',
+      preferredRedirect: '/admin/dashboard',
+      access: {
+        admin: { canAccess: true, tier: 'full' },
+        staff: { canAccess: false, profileComplete: false },
+        student: { canAccess: false },
+      },
     });
   });
 
@@ -337,11 +421,17 @@ describe('AuthService', () => {
       status: 'active',
       requiresPasswordSetup: false,
     });
-    authIdentityCacheService.getStaffRoles.mockResolvedValue([StaffRole.admin]);
-    mockPrisma.user.findUnique.mockResolvedValue({
-      staffInfo: { id: 'staff-info-1' },
-      studentInfo: null,
-    });
+    authAccessService.resolveForIdentity.mockResolvedValue(
+      buildAuthAccess({
+        effectiveRoleTypes: [UserRole.staff, UserRole.admin],
+        staffRoles: [StaffRole.admin],
+        hasStaffProfile: true,
+        availableWorkspaces: ['admin', 'staff'],
+        defaultWorkspace: 'admin',
+        preferredRedirect: '/admin/dashboard',
+        adminTier: 'full',
+      }),
+    );
 
     await expect(service.getAuthProfile('staff-admin-1')).resolves.toEqual({
       id: 'staff-admin-1',
@@ -355,6 +445,16 @@ describe('AuthService', () => {
       staffRoles: [StaffRole.admin],
       hasStaffProfile: true,
       hasStudentProfile: false,
+      effectiveRoleTypes: [UserRole.staff, UserRole.admin],
+      staffProfileComplete: false,
+      availableWorkspaces: ['admin', 'staff'],
+      defaultWorkspace: 'admin',
+      preferredRedirect: '/admin/dashboard',
+      access: {
+        admin: { canAccess: true, tier: 'full' },
+        staff: { canAccess: true, profileComplete: false },
+        student: { canAccess: false },
+      },
     });
   });
 

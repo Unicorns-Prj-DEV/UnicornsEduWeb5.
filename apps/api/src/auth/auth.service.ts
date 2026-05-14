@@ -9,12 +9,13 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import type { Prisma } from '../../generated/client';
-import { StaffRole, UserRole } from 'generated/enums';
+import { UserRole } from 'generated/enums';
 import {
   ActionHistoryActor,
   ActionHistoryService,
 } from '../action-history/action-history.service';
 import { AuthIdentityCacheService } from './auth-identity-cache.service';
+import { AuthAccessService } from './auth-access.service';
 import { CreateUserDto } from '../dtos/user.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
@@ -65,6 +66,7 @@ export class AuthService {
     private readonly mailService: MailService,
     private readonly actionHistoryService: ActionHistoryService,
     private readonly authIdentityCacheService: AuthIdentityCacheService,
+    private readonly authAccessService: AuthAccessService,
   ) {
     this.accessTokenOptions = {
       expiresIn: this.accessTokenExpiresIn,
@@ -241,35 +243,30 @@ export class AuthService {
       return null;
     }
 
-    const [avatarUrl, staffRoles, profileLinks] = await Promise.all([
+    const [avatarUrl, authAccess] = await Promise.all([
       this.createAvatarSignedUrl(user.avatarPath),
-      user.roleType === UserRole.staff
-        ? this.authIdentityCacheService.getStaffRoles(user.id, request)
-        : Promise.resolve([] as StaffRole[]),
-      this.prisma.user.findUnique({
-        where: { id: user.id },
-        select: {
-          staffInfo: { select: { id: true } },
-          studentInfo: { select: { id: true } },
-        },
-      }),
+      this.authAccessService.resolveForIdentity(user, request),
     ]);
-
-    const hasAdminAccess =
-      user.roleType === UserRole.admin || staffRoles.includes(StaffRole.admin);
 
     return {
       id: user.id,
       email: user.email,
       emailVerified: Boolean(user.emailVerified),
-      canAccessRestrictedRoutes: hasAdminAccess || Boolean(user.emailVerified),
+      canAccessRestrictedRoutes:
+        authAccess.access.admin.tier === 'full' || Boolean(user.emailVerified),
       accountHandle: user.accountHandle,
       roleType: user.roleType,
       requiresPasswordSetup: user.requiresPasswordSetup,
       avatarUrl,
-      staffRoles,
-      hasStaffProfile: Boolean(profileLinks?.staffInfo?.id),
-      hasStudentProfile: Boolean(profileLinks?.studentInfo?.id),
+      staffRoles: authAccess.staffRoles,
+      hasStaffProfile: authAccess.hasStaffProfile,
+      hasStudentProfile: authAccess.hasStudentProfile,
+      effectiveRoleTypes: authAccess.effectiveRoleTypes,
+      staffProfileComplete: authAccess.staffProfileComplete,
+      availableWorkspaces: authAccess.availableWorkspaces,
+      defaultWorkspace: authAccess.defaultWorkspace,
+      preferredRedirect: authAccess.preferredRedirect,
+      access: authAccess.access,
     };
   }
 

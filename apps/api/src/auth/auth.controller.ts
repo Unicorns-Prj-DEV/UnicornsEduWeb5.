@@ -91,6 +91,16 @@ export class AuthController {
       staffRoles: [],
       hasStaffProfile: false,
       hasStudentProfile: false,
+      effectiveRoleTypes: [UserRole.guest],
+      staffProfileComplete: false,
+      availableWorkspaces: [],
+      defaultWorkspace: null,
+      preferredRedirect: '/',
+      access: {
+        admin: { canAccess: false, tier: null },
+        staff: { canAccess: false, profileComplete: false },
+        student: { canAccess: false },
+      },
     };
   }
 

@@ -4,6 +4,7 @@ import type {
   JwtPayload,
   JwtRefreshPayload,
 } from './decorators/current-user.decorator';
+import type { ResolvedAuthAccess } from './auth-access.service';
 
 export interface CachedAuthIdentity {
   id: string;
@@ -20,4 +21,5 @@ export interface RequestWithResolvedAuthContext extends Request {
   user?: JwtPayload | JwtRefreshPayload;
   resolvedAuthIdentity?: CachedAuthIdentity | null;
   resolvedStaffRoles?: StaffRole[];
+  resolvedAuthAccess?: ResolvedAuthAccess | null;
 }
