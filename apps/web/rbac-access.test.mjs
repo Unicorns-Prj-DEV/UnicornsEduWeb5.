@@ -47,11 +47,12 @@ const staffShellAccess = compileModule("lib/staff-shell-access.ts", {
   "@/lib/staff-lesson-workspace": staffLessonWorkspace,
 });
 const authRedirect = compileModule("lib/auth-redirect.ts", {
+  "@/dtos/Auth.dto": authDto,
   "@/lib/admin-shell-access": adminShellAccess,
   "@/lib/staff-shell-access": staffShellAccess,
 });
 
-test("post-login redirect sends accountant to their admin shell entry", () => {
+test("post-login redirect sends accountant to staff shell", () => {
   assert.equal(
     authRedirect.resolvePostLoginRedirect({
       id: "accountant-user",
@@ -63,11 +64,11 @@ test("post-login redirect sends accountant to their admin shell entry", () => {
       hasStaffProfile: true,
       hasStudentProfile: false,
     }),
-    "/admin/classes",
+    "/staff",
   );
 });
 
-test("post-login redirect ignores next paths the session cannot access", () => {
+test("post-login redirect ignores admin next paths for non-admin staff", () => {
   assert.equal(
     authRedirect.resolvePostLoginRedirect(
       {
@@ -80,9 +81,65 @@ test("post-login redirect ignores next paths the session cannot access", () => {
         hasStaffProfile: true,
         hasStudentProfile: false,
       },
-      "/admin/users",
+      "/admin/classes",
     ),
-    "/admin/classes",
+    "/staff",
+  );
+});
+
+test("post-login redirect sends staff admin role to staff shell", () => {
+  assert.equal(
+    authRedirect.resolvePostLoginRedirect({
+      id: "staff-admin-user",
+      accountHandle: "staff-admin",
+      roleType: "staff",
+      requiresPasswordSetup: false,
+      canAccessRestrictedRoutes: true,
+      staffRoles: ["admin"],
+      hasStaffProfile: true,
+      hasStudentProfile: false,
+      effectiveRoleTypes: ["staff", "admin"],
+      access: { admin: { canAccess: true, tier: "full" } },
+      preferredRedirect: "/admin/dashboard",
+    }),
+    "/staff",
+  );
+});
+
+test("post-login redirect sends primary student to student shell", () => {
+  assert.equal(
+    authRedirect.resolvePostLoginRedirect({
+      id: "student-staff-user",
+      accountHandle: "student-staff",
+      roleType: "student",
+      requiresPasswordSetup: false,
+      canAccessRestrictedRoutes: true,
+      staffRoles: ["teacher"],
+      hasStaffProfile: true,
+      hasStudentProfile: true,
+      effectiveRoleTypes: ["student", "staff"],
+      preferredRedirect: "/staff",
+    }),
+    "/student",
+  );
+});
+
+test("post-login redirect sends primary admin to admin shell", () => {
+  const session = {
+    id: "admin-user",
+    accountHandle: "admin",
+    roleType: "admin",
+    requiresPasswordSetup: false,
+    canAccessRestrictedRoutes: true,
+    staffRoles: [],
+    hasStaffProfile: false,
+    hasStudentProfile: false,
+  };
+
+  assert.equal(authRedirect.resolvePostLoginRedirect(session), "/admin/dashboard");
+  assert.equal(
+    authRedirect.resolvePostLoginRedirect(session, "/admin/users"),
+    "/admin/users",
   );
 });
 

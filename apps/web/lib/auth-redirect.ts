@@ -1,4 +1,4 @@
-import type { UserInfoDto } from "@/dtos/Auth.dto";
+import { Role, type UserInfoDto } from "@/dtos/Auth.dto";
 import {
   canAccessAdminShellRoute,
   getAdminShellEntryHref,
@@ -44,19 +44,29 @@ function canAccessStudentShell(session: UserInfoDto) {
   );
 }
 
+function isPrimaryAdmin(session: UserInfoDto) {
+  return session.roleType === Role.admin;
+}
+
 function canAccessRequestedPath(session: UserInfoDto, nextPath: string) {
   const pathname = getPathname(nextPath);
 
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {
-    return canAccessAdminShellRoute(resolveAdminShellAccess(session), pathname);
+    return (
+      isPrimaryAdmin(session) &&
+      canAccessAdminShellRoute(resolveAdminShellAccess(session), pathname)
+    );
   }
 
   if (pathname === "/staff" || pathname.startsWith("/staff/")) {
-    return resolveStaffShellRouteAccess(session, pathname).isAllowed;
+    return (
+      session.roleType !== Role.student &&
+      resolveStaffShellRouteAccess(session, pathname).isAllowed
+    );
   }
 
   if (pathname === "/student" || pathname.startsWith("/student/")) {
-    return canAccessStudentShell(session);
+    return session.roleType === Role.student && canAccessStudentShell(session);
   }
 
   return true;
@@ -83,9 +93,14 @@ export function resolvePostLoginRedirect(
     return preferredRedirect;
   }
 
-  const adminEntryHref = getAdminShellEntryHref(session);
-  if (adminEntryHref) {
-    return adminEntryHref;
+  if (isPrimaryAdmin(session)) {
+    return getAdminShellEntryHref(session) ?? ROLE_REDIRECT.admin;
+  }
+
+  if (session.roleType === Role.student) {
+    return canAccessStudentShell(session)
+      ? ROLE_REDIRECT.student
+      : "/user-profile";
   }
 
   const staffShellAccess = resolveStaffShellRouteAccess(session, ROLE_REDIRECT.staff);
@@ -99,10 +114,6 @@ export function resolvePostLoginRedirect(
 
   if (canAccessStudentShell(session)) {
     return ROLE_REDIRECT.student;
-  }
-
-  if (session.roleType === "student") {
-    return "/user-profile";
   }
 
   return ROLE_REDIRECT[session.roleType] ?? "/";
