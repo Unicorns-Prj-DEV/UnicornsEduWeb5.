@@ -129,6 +129,7 @@
   - với `staff.accountant`, route này là chế độ xem tài chính/học sinh và được tạo QR SePay cho học sinh, không được chỉnh thẳng số dư
   - với `staff.customer_care`, route chỉ mở khi học sinh đó đang thuộc `customer_care_service` của chính staff hiện tại
   - ở mode `customer_care`, trang khóa chỉnh hồ sơ, danh sách lớp, gói học phí và các popup mutate; ví chỉ cho tạo QR SePay cho học sinh đang được giao, không có Nạp thẳng/Rút; vẫn giữ deep-link sang chi tiết lớp của học sinh
+  - UI trang re-export từ `apps/web/app/admin/students/[id]/page.tsx`; layout profile/ví dùng chung với admin (xem ghi chú grid responsive trong `docs/pages/admin.md`).
 - `/staff/customer-care-detail`
   - tự động lấy `staffInfo.id` của user đang đăng nhập, không nhận `staffId` từ URL
   - dùng cùng dữ liệu với trang admin customer-care detail: 2 tab **Học sinh** và **Hoa hồng**

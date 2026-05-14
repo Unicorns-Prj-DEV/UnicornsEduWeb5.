@@ -11,7 +11,7 @@ export default function StudentInfoCard({
 }) {
   return (
     <section
-      className={`rounded-[1.4rem] border border-border-default bg-bg-surface p-3.5 shadow-sm sm:rounded-2xl sm:p-5 ${className}`}
+      className={`min-w-0 rounded-[1.4rem] border border-border-default bg-bg-surface p-3.5 shadow-sm sm:rounded-2xl sm:p-5 ${className}`}
       aria-labelledby={`student-card-${title.replace(/\s+/g, "-")}`}
     >
       <h2
@@ -20,7 +20,7 @@ export default function StudentInfoCard({
       >
         {title}
       </h2>
-      <div className="text-sm text-text-primary">{children}</div>
+      <div className="min-w-0 text-sm text-text-primary">{children}</div>
     </section>
   );
 }

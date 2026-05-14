@@ -441,7 +441,7 @@ export default function AdminStudentDetailPage() {
                     </div>
 
                     <div className="mt-4 grid gap-3.5 sm:mt-5 sm:gap-4">
-                        <div className="grid gap-3.5 xl:grid-cols-[0.95fr_0.95fr_1.1fr] sm:gap-4">
+                        <div className="grid min-w-0 gap-3.5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,1.1fr)] sm:gap-4">
                             <StudentInfoCard title="Thông tin cơ bản">
                                 <dl className="divide-y divide-border-subtle">
                                     <StudentDetailRow label="Email" value={student.email?.trim() || "—"} />
@@ -487,7 +487,7 @@ export default function AdminStudentDetailPage() {
                                 </dl>
                             </StudentInfoCard>
 
-                            <div className="space-y-3.5 xl:col-span-1 xl:space-y-4">
+                            <div className="min-w-0 space-y-3.5 xl:col-span-1 xl:space-y-4">
                                 <StudentWalletCard
                                     balance={student.accountBalance ?? 0}
                                     onTopUp={canCreateWalletQr || canDirectlyAdjustWallet ? handleTopUp : undefined}

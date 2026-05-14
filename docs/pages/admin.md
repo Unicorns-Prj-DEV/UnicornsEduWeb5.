@@ -264,6 +264,7 @@
   - Backend sẽ chặn xóa nếu học sinh đã có điểm danh/buổi học liên kết (`attendance.student_id`), và trả 400 để FE hiển thị thông báo.
   - FE popup **Chỉnh sửa hồ sơ học sinh** có thêm khối **Chăm sóc khách hàng** với combobox tìm theo họ và tên, và input tỷ lệ lợi nhuận theo `%` (ví dụ nhập `20` để lưu `profitPercent = 0.20`).
   - Popup **Chỉnh sửa hồ sơ học sinh** được tối giản UI: giảm mô tả dài/nhãn phụ, giảm tầng card và làm gọn spacing để thao tác chỉnh sửa nhanh hơn, vẫn giữ đủ các khối dữ liệu (thông tin cơ bản, phụ huynh/trạng thái, CSKH, lịch thi).
+  - Trang chi tiết học sinh (`/admin/students/[id]`, cùng page với `/staff/students/[id]`): khối profile ba cột ở breakpoint `xl` dùng track `minmax(0, fr)` và `min-w-0` trên ô grid/thẻ (`StudentInfoCard`, cột ví + lịch thi) để thẻ **Tài khoản hiện tại** (số dư VND dài, nút, icon lịch sử) luôn nằm trong card bọc ngoài, không tràn ngang khi vùng nội dung hẹp (sidebar + padding).
   - Trong popup này, nếu học sinh đang có CSKH thì admin có thể bấm **Loại bỏ CSKH** để clear cả nhân sự phụ trách lẫn `% lợi nhuận` ở draft form; UI hiển thị trạng thái “sẽ gỡ khi lưu” và cho phép khôi phục trước khi submit.
 - **Cost endpoints (CRUD + pagination):**
   - `GET /cost?page=<number>&limit=<number>&search=<text>`.

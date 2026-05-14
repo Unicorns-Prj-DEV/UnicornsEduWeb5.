@@ -23,12 +23,14 @@ export default function StudentWalletCard({
 
   return (
     <StudentInfoCard title="Tài khoản hiện tại" className={className}>
-      <div className="relative">
-        <dl>
+      <div className={`relative min-w-0 max-w-full ${onOpenHistory ? "pr-10 sm:pr-9" : ""}`.trim()}>
+        <dl className="min-w-0">
           <StudentDetailRow
             label="Số dư"
             value={
-              <span className={`text-base font-semibold tabular-nums sm:text-lg ${amountClass}`}>
+              <span
+                className={`block min-w-0 max-w-full text-base font-semibold tabular-nums [overflow-wrap:anywhere] sm:inline sm:text-lg ${amountClass}`}
+              >
                 {formatCurrency(balance)}
               </span>
             }
@@ -56,12 +58,14 @@ export default function StudentWalletCard({
       </div>
 
       {showActions ? (
-        <div className={`mt-4 grid gap-2 ${onTopUp && onWithdraw ? "sm:grid-cols-2" : ""}`}>
+        <div
+          className={`mt-4 grid min-w-0 max-w-full gap-2 ${onTopUp && onWithdraw ? "sm:grid-cols-2" : ""}`}
+        >
           {onTopUp ? (
             <button
               type="button"
               onClick={onTopUp}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition-transform transition-colors duration-200 hover:-translate-y-0.5 hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              className="inline-flex min-h-11 w-full min-w-0 max-w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition-transform transition-colors duration-200 hover:-translate-y-0.5 hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
             >
               <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v14m7-7H5" />
@@ -73,7 +77,7 @@ export default function StudentWalletCard({
             <button
               type="button"
               onClick={onWithdraw}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition-transform transition-colors duration-200 hover:-translate-y-0.5 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              className="inline-flex min-h-11 w-full min-w-0 max-w-full items-center justify-center gap-2 rounded-xl border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition-transform transition-colors duration-200 hover:-translate-y-0.5 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
             >
               <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H8m0 0 5-5m-5 5 5 5" />
