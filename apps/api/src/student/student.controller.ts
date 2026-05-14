@@ -28,7 +28,9 @@ import {
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import {
   CreateStudentDto,
+  CreateStudentSePayTopUpOrderDto,
   SearchAssignableStudentUsersDto,
+  StudentSePayTopUpOrderResponseDto,
   StudentWalletHistoryQueryDto,
   StudentListQueryDto,
   StudentExamScheduleItemDto,
@@ -202,6 +204,39 @@ export class StudentController {
     @Body() data: UpdateStudentAccountBalanceCreateDto,
   ) {
     return this.studentService.updateStudentAccountBalance(data, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
+  }
+
+  @Post(':id/wallet-sepay-topup-order')
+  @ApiOperation({
+    summary: 'Create SePay top-up order for a student',
+    description:
+      'Create a SePay QR top-up order for a specific student. Admin, assistant, accountant, and assigned customer care staff only.',
+  })
+  @ApiParam({ name: 'id', description: 'Student ID' })
+  @ApiBody({ type: CreateStudentSePayTopUpOrderDto })
+  @ApiResponse({
+    status: 201,
+    description: 'SePay top-up order created.',
+    type: StudentSePayTopUpOrderResponseDto,
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Student not found.' })
+  @ApiResponse({ status: 503, description: 'SePay is not configured.' })
+  @AllowStaffRolesOnAdminRoutes(
+    StaffRole.assistant,
+    StaffRole.accountant,
+    StaffRole.customer_care,
+  )
+  async createStudentSePayTopUpOrder(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: CreateStudentSePayTopUpOrderDto,
+  ): Promise<StudentSePayTopUpOrderResponseDto> {
+    return this.studentService.createStudentSePayTopUpOrder(id, body, {
       userId: user.id,
       userEmail: user.email,
       roleType: user.roleType,

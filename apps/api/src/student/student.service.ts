@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import {
   ActionHistoryActor,
@@ -20,7 +21,9 @@ import {
 } from 'generated/enums';
 import { Prisma } from '../../generated/client';
 import {
+  CreateStudentSePayTopUpOrderDto,
   CreateStudentDto,
+  StudentSePayTopUpOrderResponseDto,
   StudentWalletHistoryQueryDto,
   StudentListQueryDto,
   UpdateMyStudentAccountBalanceDto,
@@ -38,6 +41,10 @@ import {
   resolveEffectiveTuitionPerSession,
 } from 'src/common/student-class-tuition.util';
 import { GoogleCalendarService } from 'src/google-calendar/google-calendar.service';
+import {
+  SePayDuplicateOrderCodeException,
+  SePayService,
+} from 'src/sepay/sepay.service';
 
 const studentClassDetailInclude = {
   include: {
@@ -105,6 +112,28 @@ type StudentAccountBalanceChangeOptions = {
   topupNotePrefix: string;
   withdrawNotePrefix: string;
   auditDescription: string;
+  reason?: string | null;
+};
+
+type PersistedStudentWalletSepayOrder = {
+  id: string;
+  orderCode: string;
+  status: string;
+  amountRequested: number;
+  amountReceived: number | null;
+  transferNote: string;
+  parentEmail: string | null;
+  sepayOrderId: string | null;
+  sepayVaNumber: string | null;
+  sepayVaHolderName: string | null;
+  sepayBankName: string | null;
+  sepayAccountNumber: string | null;
+  sepayAccountHolderName: string | null;
+  sepayQrCode: string | null;
+  sepayQrCodeUrl: string | null;
+  sepayExpiredAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 function normalizeNullableDecimal(
@@ -148,20 +177,6 @@ function normalizeCustomerCareProfitPercent(
 function normalizeOptionalText(value: string | null | undefined) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
-}
-
-function isSePayWalletTopUpConfigured() {
-  if (process.env.SEPAY_TOPUP_MODE?.trim() === 'bank_transfer') {
-    return Boolean(
-      process.env.SEPAY_TRANSFER_BANK_BIN?.trim() &&
-      process.env.SEPAY_TRANSFER_ACCOUNT_NUMBER?.trim(),
-    );
-  }
-
-  return Boolean(
-    process.env.SEPAY_API_ACCESS_TOKEN?.trim() &&
-    process.env.SEPAY_BANK_ACCOUNT_XID?.trim(),
-  );
 }
 
 function toDateOrNull(
@@ -213,6 +228,7 @@ export class StudentService {
     private readonly prisma: PrismaService,
     private readonly actionHistoryService: ActionHistoryService,
     private readonly googleCalendarService: GoogleCalendarService,
+    private readonly sePayService: SePayService,
   ) {}
 
   private formatVND(amount: number) {
@@ -269,7 +285,7 @@ export class StudentService {
       gender: student.gender,
       createdAt: student.createdAt,
       updatedAt: student.updatedAt,
-      studentClasses: student.studentClasses.map((studentClass) => ({
+      studentClasses: (student.studentClasses ?? []).map((studentClass) => ({
         class: {
           id: studentClass.class.id,
           name: studentClass.class.name,
@@ -358,7 +374,7 @@ export class StudentService {
             ),
           }
         : null,
-      studentClasses: student.studentClasses.map((studentClass) =>
+      studentClasses: (student.studentClasses ?? []).map((studentClass) =>
         this.serializeStudentClass(studentClass),
       ),
     };
@@ -380,6 +396,45 @@ export class StudentService {
     // Defensive: some queries/mocks may omit examSchedules, so normalize to [].
     const schedules = student.examSchedules ?? [];
     return schedules.map((item) => this.serializeStudentExamScheduleItem(item));
+  }
+
+  private parseSePayTimestamp(value: string | null | undefined) {
+    if (!value) {
+      return null;
+    }
+
+    const normalized = value.includes('T') ? value : value.replace(' ', 'T');
+    const withZone = /(?:Z|[+-]\d{2}:\d{2})$/.test(normalized)
+      ? normalized
+      : `${normalized}Z`;
+    const parsed = new Date(withZone);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  private serializeStudentWalletSepayOrder(
+    order: PersistedStudentWalletSepayOrder,
+  ): StudentSePayTopUpOrderResponseDto {
+    return {
+      id: order.id,
+      status: order.status,
+      amount: order.amountRequested,
+      amountRequested: order.amountRequested,
+      amountReceived: order.amountReceived,
+      transferNote: order.transferNote,
+      parentEmail: order.parentEmail,
+      orderCode: order.orderCode,
+      qrCode: order.sepayQrCode,
+      qrCodeUrl: order.sepayQrCodeUrl,
+      orderId: order.sepayOrderId,
+      vaNumber: order.sepayVaNumber,
+      vaHolderName: order.sepayVaHolderName,
+      bankName: order.sepayBankName,
+      accountNumber: order.sepayAccountNumber,
+      accountHolderName: order.sepayAccountHolderName,
+      expiredAt: order.sepayExpiredAt?.toISOString() ?? null,
+      createdAt: order.createdAt.toISOString(),
+      updatedAt: order.updatedAt.toISOString(),
+    };
   }
 
   private async syncStudentExamSchedulesWithCalendar(
@@ -853,6 +908,165 @@ export class StudentService {
     return `Phụ huynh gia hạn tiền học phí gói ${pkg} ngày ${dateStr}`;
   }
 
+  private async resolveWalletTopUpCreator(
+    studentId: string,
+    actor?: ActionHistoryActor,
+  ) {
+    if (!actor) {
+      return { staffRoles: [] as StaffRole[] };
+    }
+
+    if (
+      actor.roleType === UserRole.admin ||
+      actor.roleType === UserRole.student
+    ) {
+      return { staffRoles: [] as StaffRole[] };
+    }
+
+    if (actor.roleType !== UserRole.staff) {
+      throw new ForbiddenException(
+        'Only authorized roles can access this resource',
+      );
+    }
+
+    if (!actor.userId) {
+      throw new ForbiddenException(
+        'Only authorized roles can access this resource',
+      );
+    }
+
+    const staff = await this.prisma.staffInfo.findUnique({
+      where: { userId: actor.userId },
+      select: {
+        id: true,
+        roles: true,
+      },
+    });
+
+    if (!staff) {
+      throw new ForbiddenException(
+        'Only authorized roles can access this resource',
+      );
+    }
+
+    if (
+      staff.roles.includes(StaffRole.assistant) ||
+      staff.roles.includes(StaffRole.accountant)
+    ) {
+      return { staffRoles: staff.roles };
+    }
+
+    if (!staff.roles.includes(StaffRole.customer_care)) {
+      throw new ForbiddenException(
+        'Only authorized roles can access this resource',
+      );
+    }
+
+    const customerCareAssignment =
+      await this.prisma.customerCareService.findUnique({
+        where: { studentId },
+        select: { staffId: true },
+      });
+
+    if (
+      !customerCareAssignment ||
+      customerCareAssignment.staffId !== staff.id
+    ) {
+      throw new NotFoundException('Student not found');
+    }
+
+    return { staffRoles: staff.roles };
+  }
+
+  private normalizeOrderCreatorRoleType(actor?: ActionHistoryActor) {
+    return Object.values(UserRole).includes(actor?.roleType as UserRole)
+      ? (actor?.roleType as UserRole)
+      : null;
+  }
+
+  async createStudentSePayTopUpOrder(
+    studentId: string,
+    dto: CreateStudentSePayTopUpOrderDto,
+    actor?: ActionHistoryActor,
+  ): Promise<StudentSePayTopUpOrderResponseDto> {
+    const { staffRoles } = await this.resolveWalletTopUpCreator(
+      studentId,
+      actor,
+    );
+
+    if (!this.sePayService.isWalletTopUpConfigured()) {
+      throw new ServiceUnavailableException(
+        'Thanh toán SePay chưa được bật trên hệ thống.',
+      );
+    }
+
+    const amount = Math.round(dto.amount);
+    const now = new Date();
+    const baseTransferNote = await this.getTuitionExtensionTransferNoteForSelf(
+      studentId,
+      now,
+    );
+    const student = await this.prisma.studentInfo.findUnique({
+      where: { id: studentId },
+      select: { id: true, parentEmail: true },
+    });
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    let lastDuplicateError: SePayDuplicateOrderCodeException | null = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const orderCode =
+        this.sePayService.buildStudentWalletOrderCode(studentId);
+
+      try {
+        const sePay = await this.sePayService.createStudentWalletTopUpPayment({
+          amountVnd: amount,
+          orderCode,
+          baseTransferNote,
+        });
+        const transferNote = sePay.transferNote;
+
+        const persisted = await this.prisma.studentWalletSepayOrder.create({
+          data: {
+            studentId,
+            orderCode,
+            amountRequested: amount,
+            transferNote,
+            parentEmail: student.parentEmail,
+            sepayOrderId: sePay.orderId ?? null,
+            sepayOrderStatus: sePay.sepayStatus ?? null,
+            sepayVaNumber: sePay.vaNumber ?? null,
+            sepayVaHolderName: sePay.vaHolderName ?? null,
+            sepayBankName: sePay.bankName ?? null,
+            sepayAccountNumber: sePay.accountNumber ?? null,
+            sepayAccountHolderName: sePay.accountHolderName ?? null,
+            sepayQrCode: sePay.qrCode ?? null,
+            sepayQrCodeUrl: sePay.qrCodeUrl ?? null,
+            sepayExpiredAt: this.parseSePayTimestamp(sePay.expiredAt),
+            createdByUserId: actor?.userId ?? null,
+            createdByUserEmail: actor?.userEmail ?? null,
+            createdByRoleType: this.normalizeOrderCreatorRoleType(actor),
+            createdByStaffRoles: staffRoles,
+          },
+        });
+
+        return this.serializeStudentWalletSepayOrder(persisted);
+      } catch (error) {
+        if (error instanceof SePayDuplicateOrderCodeException) {
+          lastDuplicateError = error;
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    throw (
+      lastDuplicateError ??
+      new BadRequestException('Không tạo được mã đơn SePay duy nhất.')
+    );
+  }
+
   private formatTuitionPackageSummaryForTransferNote(
     student: StudentDetailEntity,
   ): string {
@@ -1086,6 +1300,7 @@ export class StudentService {
         normalizedAmount > 0
           ? options.topupNotePrefix
           : options.withdrawNotePrefix;
+      const reasonText = options.reason?.trim();
       const operator = normalizedAmount > 0 ? '+' : '-';
 
       await tx.walletTransactionsHistory.create({
@@ -1093,7 +1308,7 @@ export class StudentService {
           studentId: student.id,
           type: transactionType,
           amount: transactionAmount,
-          note: `${notePrefix} | Số dư: ${this.formatVND(balanceBefore)} ${operator} ${this.formatVND(transactionAmount)} = ${this.formatVND(balanceAfter)}`,
+          note: `${notePrefix}${reasonText ? ` Lý do: ${reasonText}.` : ''} | Số dư: ${this.formatVND(balanceBefore)} ${operator} ${this.formatVND(transactionAmount)} = ${this.formatVND(balanceAfter)}`,
           date: new Date(),
         },
       });
@@ -1192,6 +1407,13 @@ export class StudentService {
     data: UpdateStudentAccountBalanceCreateDto,
     auditActor?: ActionHistoryActor,
   ) {
+    const reason = data.reason?.trim();
+    if (!reason) {
+      throw new BadRequestException(
+        'Reason is required for manual balance changes.',
+      );
+    }
+
     const updated = await this.applyStudentAccountBalanceChange(
       data.student_id,
       data.amount,
@@ -1201,6 +1423,7 @@ export class StudentService {
         withdrawNotePrefix:
           'Điều chỉnh giảm số dư thủ công từ trang chi tiết học sinh.',
         auditDescription: 'Điều chỉnh số dư học sinh',
+        reason,
       },
       auditActor,
     );
@@ -1208,31 +1431,19 @@ export class StudentService {
     return this.serializeStudentDetail(updated);
   }
 
-  async updateMyStudentAccountBalance(
+  updateMyStudentAccountBalance(
     studentId: string,
     data: UpdateMyStudentAccountBalanceDto,
-    auditActor?: ActionHistoryActor,
-  ) {
-    const normalizedAmount = Math.round(data.amount);
-    if (normalizedAmount > 0 && isSePayWalletTopUpConfigured()) {
-      throw new BadRequestException(
+    _auditActor?: ActionHistoryActor,
+  ): Promise<never> {
+    void studentId;
+    void data;
+    void _auditActor;
+    return Promise.reject(
+      new BadRequestException(
         'Use SePay top-up order endpoint for self-service wallet top-ups.',
-      );
-    }
-
-    const updated = await this.applyStudentAccountBalanceChange(
-      studentId,
-      data.amount,
-      {
-        allowNegativeBalance: false,
-        topupNotePrefix: 'Học sinh tự nạp tiền từ trang thông tin cá nhân.',
-        withdrawNotePrefix: 'Học sinh tự rút tiền từ trang thông tin cá nhân.',
-        auditDescription: 'Học sinh tự điều chỉnh số dư',
-      },
-      auditActor,
+      ),
     );
-
-    return this.serializeStudentSelfDetail(updated);
   }
 
   async updateStudentClasses(

@@ -248,12 +248,20 @@ export class UpdateStudentAccountBalanceCreateDto {
   @Type(() => Number)
   @IsNumber()
   amount: number;
+
+  @ApiProperty({
+    description: 'Reason required for manual balance changes.',
+    example: 'Phụ huynh chuyển khoản ngoài SePay',
+  })
+  @IsString()
+  @MinLength(1)
+  reason: string;
 }
 
 export class UpdateMyStudentAccountBalanceDto {
   @ApiProperty({
     description:
-      'Signed balance delta for the current authenticated student. Use a positive number to top up and a negative number to withdraw.',
+      'Legacy self-service wallet delta payload. The endpoint is blocked; use the SePay top-up order endpoint instead.',
     example: 500000,
   })
   @Type(() => Number)
