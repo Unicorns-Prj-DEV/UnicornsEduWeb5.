@@ -115,20 +115,52 @@ function resolveAdminTier(
   return null;
 }
 
-function resolvePreferredRedirect(adminTier: AdminAccessTier) {
-  if (adminTier === 'full' || adminTier === 'assistant') {
-    return '/admin/dashboard';
+function resolveDefaultWorkspace(
+  roleType: UserRole,
+  hasStaffProfile: boolean,
+  hasStudentProfile: boolean,
+): AuthWorkspace | null {
+  if (roleType === UserRole.admin) {
+    return 'admin';
   }
 
-  if (adminTier === 'accountant') {
-    return '/admin/classes';
+  if (roleType === UserRole.student && hasStudentProfile) {
+    return 'student';
   }
 
-  if (adminTier === 'lesson_plan_head') {
-    return '/admin/lesson-plans';
+  if (hasStaffProfile) {
+    return 'staff';
+  }
+
+  if (hasStudentProfile) {
+    return 'student';
   }
 
   return null;
+}
+
+function resolvePreferredRedirect(
+  roleType: UserRole,
+  hasStaffProfile: boolean,
+  hasStudentProfile: boolean,
+) {
+  if (roleType === UserRole.admin) {
+    return '/admin/dashboard';
+  }
+
+  if (roleType === UserRole.student) {
+    return hasStudentProfile ? '/student' : '/user-profile';
+  }
+
+  if (hasStaffProfile) {
+    return '/staff';
+  }
+
+  if (hasStudentProfile) {
+    return '/student';
+  }
+
+  return '/';
 }
 
 @Injectable()
@@ -226,13 +258,16 @@ export class AuthAccessService {
       availableWorkspaces.push('student');
     }
 
-    const defaultWorkspace =
-      availableWorkspaces[0] ??
-      (user.roleType === UserRole.admin ? 'admin' : null);
-    const adminRedirect = resolvePreferredRedirect(adminTier);
-    const preferredRedirect =
-      adminRedirect ??
-      (hasStaffProfile ? '/staff' : hasStudentProfile ? '/student' : '/');
+    const defaultWorkspace = resolveDefaultWorkspace(
+      user.roleType,
+      hasStaffProfile,
+      hasStudentProfile,
+    );
+    const preferredRedirect = resolvePreferredRedirect(
+      user.roleType,
+      hasStaffProfile,
+      hasStudentProfile,
+    );
     const staffProfileComplete = isStaffProfileComplete(
       profileLinks?.staffInfo ?? null,
     );

@@ -64,8 +64,8 @@ describe('AuthAccessService', () => {
       hasStudentProfile: true,
       staffProfileComplete: true,
       availableWorkspaces: ['admin', 'staff', 'student'],
-      defaultWorkspace: 'admin',
-      preferredRedirect: '/admin/dashboard',
+      defaultWorkspace: 'student',
+      preferredRedirect: '/student',
       access: {
         admin: { canAccess: true, tier: 'full' },
         staff: { canAccess: true, profileComplete: true },
@@ -76,6 +76,55 @@ describe('AuthAccessService', () => {
       'user-1',
       undefined,
     );
+  });
+
+  it('uses staff as the login landing workspace for non-admin staff roles', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      staffInfo: {
+        id: 'staff-2',
+        cccdNumber: '012345678901',
+        cccdIssuedDate: new Date('2026-01-01T00:00:00.000Z'),
+        cccdIssuedPlace: 'Ha Noi',
+        birthDate: new Date('2000-01-01T00:00:00.000Z'),
+        university: 'UE University',
+        highSchool: 'UE High',
+        specialization: 'Accounting',
+        bankAccount: '123456789',
+        bankQrLink: 'qr-link',
+        cccdFrontPath: 'front.png',
+        cccdBackPath: 'back.png',
+      },
+      studentInfo: null,
+    });
+    authIdentityCacheService.getStaffRoles.mockResolvedValue([
+      StaffRole.accountant,
+    ]);
+
+    await expect(
+      service.resolveForIdentity({
+        id: 'user-2',
+        email: 'accountant@example.com',
+        accountHandle: 'accountant',
+        roleType: UserRole.staff,
+        status: 'active',
+        emailVerified: true,
+        avatarPath: null,
+        requiresPasswordSetup: false,
+      }),
+    ).resolves.toMatchObject({
+      effectiveRoleTypes: [UserRole.staff],
+      staffRoles: [StaffRole.accountant],
+      hasStaffProfile: true,
+      hasStudentProfile: false,
+      availableWorkspaces: ['admin', 'staff'],
+      defaultWorkspace: 'staff',
+      preferredRedirect: '/staff',
+      access: {
+        admin: { canAccess: true, tier: 'accountant' },
+        staff: { canAccess: true, profileComplete: true },
+        student: { canAccess: false },
+      },
+    });
   });
 
   it('does not grant staff workspace from primary role alone without a staff profile', async () => {
