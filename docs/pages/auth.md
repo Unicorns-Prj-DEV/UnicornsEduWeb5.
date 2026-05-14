@@ -46,6 +46,7 @@
 
 - Import và gọi `getUser()` từ `@/lib/auth-server`.
 - Hàm đọc cookie auth từ request, gọi backend `GET /auth/session`, và trả về `UserInfoDto` gồm `id`, `accountHandle`, `roleType`, `requiresPasswordSetup`, `avatarUrl`, `staffRoles`, `hasStaffProfile`, `hasStudentProfile`; nếu lỗi thì fallback guest user.
+- `apps/web/proxy.ts` dùng helper `shouldVerifySessionInProxy()` để chỉ gọi `GET /auth/session` cho direct/document navigation vào route protected. Next App Router RSC request khi đổi tab/query (`RSC`, `_rsc`, `next-router-state-tree`) và prefetch (`next-router-prefetch`, `purpose=prefetch`) được bỏ qua để không tạo burst verify session trong dashboard.
 
 **Ví dụ (trang server component):**
 

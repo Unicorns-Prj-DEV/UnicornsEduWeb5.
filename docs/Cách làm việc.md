@@ -75,7 +75,7 @@ Dùng làm context khi implement hoặc review code frontend; giúp model chọn
 - Logout flow ở shell/navbar phải dùng scoped cleanup (`apps/web/lib/query-invalidation.ts`) thay vì `queryClient.invalidateQueries()` toàn cục để tránh request burst.
 - Với calendar pages (`/admin/calendar`, `/staff/calendar`), ưu tiên trigger `calendar:refetch` hoặc invalidation theo calendar key-scope; tránh nghe global mutation event không liên quan.
 - Notification feed dùng `apps/web/lib/notification-feed-query.ts` (factory `notificationFeedQueryKey`) để đồng bộ key giữa tray/page/socket bridge.
-- Auth guard ở `apps/web/proxy.ts` phải dùng `matcher` giới hạn vào route cần bảo vệ (`/admin`, `/staff`, `/student`, `/user-profile`) để tránh gọi lặp `/auth/session` cho static/public requests.
+- Auth guard ở `apps/web/proxy.ts` phải dùng `matcher` giới hạn vào route cần bảo vệ (`/admin`, `/staff`, `/student`, `/user-profile`) để tránh gọi lặp `/auth/session` cho static/public requests; proxy chỉ verify session cho request document/direct navigation, còn App Router RSC request (`RSC`, `_rsc`, `next-router-state-tree`) và prefetch phải đi thẳng để đổi tab/query trong dashboard không tạo burst `/auth/session`.
 - Protected shell/sidebar links (`AdminSidebar`, `StaffSidebar`, `StudentSidebar`) phải dùng `prefetch={false}` để tránh background prefetch gọi proxy và tạo burst `/auth/session`.
 - Axios refresh interceptor trong `apps/web/lib/client.ts` chỉ được refresh cho business APIs; mọi endpoint `/auth/*` (bao gồm `/auth/session`) phải bỏ qua để tránh vòng lặp refresh khi auth endpoint trả `401`.
 

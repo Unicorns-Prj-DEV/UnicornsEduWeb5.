@@ -58,6 +58,7 @@ If you change project workflow/conventions for agents (commands, required checks
   - Keep a custom combobox/listbox only when the UX truly needs search, multi-select, async suggestions, or richer option content.
 - **Mobile-first**: implement for small screens first, then add larger breakpoints.
 - **Protected sidebar prefetch**: sidebar links in protected shells (`AdminSidebar`, `StaffSidebar`, `StudentSidebar`) should use `prefetch={false}` to avoid background prefetch triggering `apps/web/proxy.ts` and creating `/auth/session` request bursts.
+- **Protected proxy verification**: `apps/web/proxy.ts` should verify auth on direct protected document navigations, but skip Next App Router internal RSC/prefetch requests (`RSC`, `_rsc`, `next-router-state-tree`, `next-router-prefetch`) so dashboard tab/query changes do not call `/auth/session`.
 - **Route parity**: if you change anything in `apps/web/app/admin/**` (UI, behavior, permissions, shared components), review and update the corresponding `staff` and/or `student` routes/features that rely on the same domain behavior so experiences don’t diverge.
 - **DTOs/enums location**: define all frontend DTOs/enums in `apps/web/dtos/` (do not define ad-hoc types in pages or `lib/apis/*`).
 
