@@ -167,6 +167,45 @@ Table wallet_transactions_history {
   customer_care_payment_status boolean
 }
 
+Table student_wallet_sepay_orders {
+  id varchar [pk]
+  student_id varchar [not null, ref: > studentInfo.id]
+  order_code varchar [not null, unique]
+  status varchar [not null, default: 'pending', note: 'pending, completed, expired, cancelled, failed']
+  amount_requested int [not null]
+  amount_received int
+  transfer_note varchar [not null]
+  parent_email varchar
+  sepay_order_id varchar
+  sepay_order_status varchar
+  sepay_va_number varchar
+  sepay_va_holder_name varchar
+  sepay_bank_name varchar
+  sepay_account_number varchar
+  sepay_account_holder_name varchar
+  sepay_qr_code varchar
+  sepay_qr_code_url varchar
+  sepay_expired_at timestamptz
+  sepay_transaction_id varchar [unique]
+  sepay_reference_code varchar [unique]
+  wallet_transaction_id varchar [unique, ref: > wallet_transactions_history.id]
+  created_by_user_id varchar [ref: > users.id]
+  created_by_user_email varchar
+  created_by_role_type varchar [note: 'admin, staff, student, guest']
+  created_by_staff_roles json
+  completed_at timestamptz
+  receipt_email_sent_at timestamptz
+  webhook_payload json
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    student_id
+    (status, created_at)
+    created_by_user_id
+  }
+}
+
 Table customer_care_service {
   id varchar [pk]
   student_id varchar [not null , ref: > studentInfo.id]

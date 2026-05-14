@@ -21,6 +21,7 @@ model User {
   notificationsCreated Notification[]     @relation("NotificationCreatedBy")
   regulationsCreated   Regulation[]       @relation("RegulationCreatedBy")
   regulationsUpdated   Regulation[]       @relation("RegulationUpdatedBy")
+  studentWalletSepayOrdersCreated StudentWalletSepayOrder[] @relation("StudentWalletSepayOrdersCreatedBy")
   staffInfo            StaffInfo?
   studentInfo          StudentInfo?
 

@@ -104,6 +104,10 @@ model StudentWalletSepayOrder {
   sepayTransactionId     String?                       @unique @map("sepay_transaction_id")
   sepayReferenceCode     String?                       @unique @map("sepay_reference_code")
   walletTransactionId    String?                       @unique @map("wallet_transaction_id")
+  createdByUserId        String?                       @map("created_by_user_id")
+  createdByUserEmail     String?                       @map("created_by_user_email")
+  createdByRoleType      UserRole?                     @map("created_by_role_type")
+  createdByStaffRoles    Json?                         @map("created_by_staff_roles")
   completedAt            DateTime?                     @map("completed_at") @db.Timestamptz(6)
   receiptEmailSentAt     DateTime?                     @map("receipt_email_sent_at") @db.Timestamptz(6)
   webhookPayload         Json?                         @map("webhook_payload")
@@ -111,9 +115,11 @@ model StudentWalletSepayOrder {
   updatedAt              DateTime                      @updatedAt @map("updated_at") @db.Timestamptz(6)
   student                StudentInfo                   @relation(fields: [studentId], references: [id], onDelete: Cascade)
   walletTransaction      WalletTransactionsHistory?    @relation(fields: [walletTransactionId], references: [id], onDelete: SetNull)
+  createdByUser          User?                         @relation("StudentWalletSepayOrdersCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
 
   @@index([studentId])
   @@index([status, createdAt])
+  @@index([createdByUserId])
   @@map("student_wallet_sepay_orders")
 }
 
