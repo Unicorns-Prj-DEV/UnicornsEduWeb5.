@@ -81,6 +81,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - **Bonus → StaffInfo**: N-1.
 - **WalletTransactionsHistory → StudentInfo**: N-1.
 - **WalletTransactionsHistory → StaffInfo (CustomerCareStaff)**: N-1 (relation name `CustomerCareStaff`).
+- **StudentWalletSepayOrder → User (createdBy)**: optional FK `created_by_user_id`, `onDelete: SetNull`; lưu thêm email/role snapshot để audit khi tạo QR.
 - **CustomerCareService**: liên kết `student_info` và `staff_info`.
 - **StaffMonthlyStat → StaffInfo**: N-1.
 - **ExtraAllowance → StaffInfo**: N-1.
@@ -270,14 +271,14 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `staff_tax_deduction_overrides`: lịch sử append-only override khấu trừ thuế theo staff + role + `effective_from`
 - `class_teacher_operating_deduction_rates`: lịch sử append-only mức khấu trừ vận hành theo cặp `class-teacher` + `effective_from`
 - `wallet_transactions_history`: lịch sử ví học viên + thông tin chia lợi nhuận CSKH
-- `student_wallet_sepay_orders`: yêu cầu nạp ví SePay đã tạo cho học sinh; lưu `order_code`, trạng thái `pending/completed/expired/failed`, `amount_requested`, `amount_received`, `transfer_note`, snapshot `parent_email`, dữ liệu QR/VA từ SePay hoặc QR chuyển khoản thường, `sepay_transaction_id`, `sepay_reference_code`, `wallet_transaction_id`, `completed_at`, `receipt_email_sent_at`, và `webhook_payload`.
+- `student_wallet_sepay_orders`: yêu cầu nạp ví SePay đã tạo cho học sinh; lưu `order_code`, trạng thái `pending/completed/expired/failed`, `amount_requested`, `amount_received`, `transfer_note`, snapshot `parent_email`, dữ liệu QR/VA từ SePay hoặc QR chuyển khoản thường, metadata người tạo đơn (`created_by_user_id`, `created_by_user_email`, `created_by_role_type`, `created_by_staff_roles`), `sepay_transaction_id`, `sepay_reference_code`, `wallet_transaction_id`, `completed_at`, `receipt_email_sent_at`, và `webhook_payload`.
 - `customer_care_service`: map staff chăm sóc theo học viên + % profit
 - `staff_monthly_stats`: số liệu tổng hợp lương/việc theo tháng
 - `extra_allowances`: khoản trợ cấp bổ sung theo staff/tháng/role, có `amount`, `status`, `note`, `month`, `role_type`, và snapshot `tax_deduction_rate_percent`
 - Index read path mới cho finance:
   - `bonuses`: composite `(staff_id, month, status)` cho payroll preview/listing theo nhân sự-tháng-trạng thái; composite `(status, date, staff_id)` cho batch thanh toán/lọc theo trạng thái-ngày
   - `wallet_transactions_history`: composite `(student_id, created_at)` cho feed lịch sử ví theo học sinh; composite `(type, created_at)` cho phân loại lịch sử theo loại giao dịch
-  - `student_wallet_sepay_orders`: unique `order_code`, unique `sepay_transaction_id`, unique `sepay_reference_code`, unique `wallet_transaction_id`; index `(student_id)` và `(status, created_at)` cho reconcile/webhook.
+  - `student_wallet_sepay_orders`: unique `order_code`, unique `sepay_transaction_id`, unique `sepay_reference_code`, unique `wallet_transaction_id`; index `(student_id)`, `(status, created_at)`, và `(created_by_user_id)` cho reconcile/webhook và audit người tạo QR.
   - `extra_allowances`: composite `(staff_id, month, status)` cho payroll preview/listing theo nhân sự-tháng-trạng thái; composite `(status, staff_id, month, role_type, tax_deduction_rate_percent)` cho aggregate allowance theo trạng thái/rate bucket
   - `dashboard_cache`: index `expires_at` cho dọn cache hết hạn
   - `cost_extend`: index `date`, `month`, và composite `(status, date)` cho lọc chi phí theo kỳ/trạng thái

@@ -14,7 +14,7 @@
   - `/staff/users`, `/staff/history`: chỉ mở cho `roleType=staff` có role `assistant`; đây là mirror route của admin workspace nhưng giữ nguyên staff shell
   - `/staff/staffs`, `/staff/staffs/[id]`, `/staff/classes`, `/staff/classes/[id]`, `/staff/students`, `/staff/students/[id]`: mở cho `roleType=staff` có role `assistant` hoặc `accountant`; kế toán dùng quyền xem để mở link nhân sự/lớp/học sinh từ các màn chi tiết, còn mutation vẫn do backend route tương ứng kiểm soát
   - `/staff/deductions` và `/staff/costs`: mở cho `staff.assistant` và `staff.accountant` (admin-like module tài chính trong staff shell)
-  - `/staff/students/[id]`: `roleType=staff` có role `assistant`, hoặc `roleType=staff` có role `customer_care` khi học sinh đang thuộc phạm vi CSKH của chính staff hiện tại
+  - `/staff/students/[id]`: `roleType=staff` có role `assistant` hoặc `accountant`; `roleType=staff` có role `customer_care` chỉ mở khi học sinh đang thuộc phạm vi CSKH của chính staff hiện tại
   - `/staff/classes/[id]`: `admin`, `roleType=staff` có `teacher`, `assistant`, `accountant`, hoặc `customer_care` khi lớp có ít nhất một học sinh thuộc phạm vi CSKH của staff hiện tại
   - `/staff/customer-care-detail`: hồ sơ staff hiện tại có role `customer_care`
   - `/staff/customer-care-detail/[staffId]`: chỉ mở cho `roleType=staff` có role `assistant`
@@ -124,9 +124,10 @@
   - bảng lịch sử buổi học hiển thị `trạng thái thanh toán` của từng session ở dạng chỉ đọc
   - card khung giờ học hiển thị luôn `gia sư chịu trách nhiệm` của từng slot; trong staff shell, popup chỉnh lịch vẫn giữ tutor của slot ở chế độ chỉ đọc và không cho staff đổi assignment này
 - `/staff/students/[id]`
-  - với `staff.assistant`, route này giữ toàn bộ student detail kiểu admin ngay trong staff shell
+  - với `staff.assistant`, route này giữ student detail kiểu admin ngay trong staff shell nhưng ví chỉ được tạo QR SePay, không được chỉnh thẳng số dư
+  - với `staff.accountant`, route này là chế độ xem tài chính/học sinh và được tạo QR SePay cho học sinh, không được chỉnh thẳng số dư
   - với `staff.customer_care`, route chỉ mở khi học sinh đó đang thuộc `customer_care_service` của chính staff hiện tại
-  - ở mode `customer_care`, trang đổi sang **chỉ xem**: khóa chỉnh hồ sơ, ví, danh sách lớp, gói học phí và các popup mutate; vẫn giữ deep-link sang chi tiết lớp của học sinh
+  - ở mode `customer_care`, trang khóa chỉnh hồ sơ, danh sách lớp, gói học phí và các popup mutate; ví chỉ cho tạo QR SePay cho học sinh đang được giao, không có Nạp thẳng/Rút; vẫn giữ deep-link sang chi tiết lớp của học sinh
 - `/staff/customer-care-detail`
   - tự động lấy `staffInfo.id` của user đang đăng nhập, không nhận `staffId` từ URL
   - dùng cùng dữ liệu với trang admin customer-care detail: 2 tab **Học sinh** và **Hoa hồng**
@@ -239,9 +240,11 @@
   - vào `/staff`
   - vào `/staff/customer-care-detail`
   - chỉ xem dữ liệu CSKH của chính mình
+  - tạo QR SePay nạp ví cho học sinh đang được chính mình chăm sóc
 - Staff `customer_care` **không được phép**
   - xem dữ liệu CSKH của staff khác qua route `/staff`
   - dùng `/staff/classes/[id]` nếu không đồng thời có role `teacher`
+  - chỉnh thẳng số dư ví học sinh hoặc rút tiền khỏi ví
 - Teacher **không được phép**
   - tạo class
   - đổi teacher phụ trách
@@ -326,7 +329,9 @@
   - `GET /customer-care/staff/:staffId/students/:studentId/session-commissions?days=30`
     - response chi tiết buổi hiện có thêm `paymentStatus` (map từ `attendance.customer_care_payment_status`, mặc định `pending` nếu DB trả `null`)
   - `GET /student/:id`
-    - `staff.assistant` giữ quyền admin-like như cũ; `staff.customer_care` chỉ đọc được khi `customer_care_service.student_id` trỏ đúng về staff hiện tại
+    - `staff.assistant` giữ quyền admin-like như cũ; `staff.accountant` đọc được để mở link tài chính/học sinh; `staff.customer_care` chỉ đọc được khi `customer_care_service.student_id` trỏ đúng về staff hiện tại
+  - `POST /student/:id/wallet-sepay-topup-order`
+    - `staff.assistant` và `staff.accountant` tạo QR SePay cho học sinh xem được; `staff.customer_care` chỉ tạo được khi học sinh đang thuộc CSKH của chính staff hiện tại. Không role staff nào được gọi `PATCH /student/update-student-account-balance` để chỉnh thẳng số dư.
   - `POST /staff/:userId/cccd-images` (admin/staff.assistant upload CCCD): chỉ nhận JPEG/PNG/WEBP, tối đa 5MB mỗi file
 - **Guard**
   - controller mở cho `UserRole.staff` và `UserRole.admin`
