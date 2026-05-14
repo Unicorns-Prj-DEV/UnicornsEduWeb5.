@@ -545,6 +545,7 @@ export class StaffController {
   }
 
   @Patch()
+  @AllowStaffRolesOnAdminRoutes()
   @ApiOperation({
     summary: 'Update staff',
     description: 'Update a staff record.',

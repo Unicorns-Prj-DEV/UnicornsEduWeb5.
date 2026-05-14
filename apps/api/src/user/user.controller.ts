@@ -21,6 +21,7 @@ import {
   CurrentUser,
   type JwtPayload,
 } from 'src/auth/decorators/current-user.decorator';
+import { AllowStaffRolesOnAdminRoutes } from 'src/auth/decorators/allow-staff-roles-on-admin.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { UserRole } from 'generated/enums';
 import {
@@ -90,6 +91,7 @@ export class UserController {
   }
 
   @Post()
+  @AllowStaffRolesOnAdminRoutes()
   @ApiOperation({
     summary: 'Create user',
     description: 'Create a new user. Admin only.',
@@ -121,6 +123,7 @@ export class UserController {
   }
 
   @Post('student')
+  @AllowStaffRolesOnAdminRoutes()
   @ApiOperation({
     summary: 'Create student user with profile and classes',
     description:
@@ -154,6 +157,7 @@ export class UserController {
   }
 
   @Patch()
+  @AllowStaffRolesOnAdminRoutes()
   @ApiOperation({
     summary: 'Update user',
     description: 'Update a user. Admin only.',
@@ -182,6 +186,7 @@ export class UserController {
   }
 
   @Delete(':id')
+  @AllowStaffRolesOnAdminRoutes()
   @ApiOperation({
     summary: 'Delete user',
     description: 'Delete a user by ID. Admin only.',
