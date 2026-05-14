@@ -106,8 +106,13 @@ export type StudentSelfClassItem = StudentClassItem;
 
 /** Phản hồi POST /users/me/student-wallet-sepay-topup-order */
 export interface StudentSePayTopUpOrderResponse {
+  id?: string;
+  status?: string;
   amount: number;
+  amountRequested?: number;
+  amountReceived?: number | null;
   transferNote: string;
+  parentEmail?: string | null;
   orderCode: string;
   qrCode?: string | null;
   qrCodeUrl?: string | null;
@@ -174,6 +179,7 @@ export interface CreateStudentPayload {
 export interface UpdateStudentAccountBalancePayload {
   student_id: string;
   amount: number;
+  reason: string;
 }
 
 export interface UpdateStudentClassesPayload {
@@ -186,8 +192,4 @@ export interface UpdateStudentExamSchedulesPayload {
     examDate: string;
     note?: string | null;
   }>;
-}
-
-export interface UpdateMyStudentAccountBalancePayload {
-  amount: number;
 }

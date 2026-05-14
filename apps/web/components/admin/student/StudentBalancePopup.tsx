@@ -10,6 +10,7 @@ import { formatCurrency } from "@/lib/class.helpers";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
 
 type BalanceMode = "topup" | "withdraw";
+type TopUpMethod = "sepay" | "direct";
 
 type BalanceSubject = {
   id: string;
@@ -33,16 +34,19 @@ type Props = {
   onClose: () => void;
   student: BalanceSubject;
   onSuccess?: () => void | Promise<void>;
-  submitBalanceChange?: (amount: number) => Promise<unknown>;
+  submitBalanceChange?: (amount: number, reason?: string) => Promise<unknown>;
   invalidateQueryKeys?: QueryKey[];
   allowNegativeBalance?: boolean;
+  directBalanceChangeEnabled?: boolean;
+  directReasonRequired?: boolean;
+  defaultTopUpMethod?: TopUpMethod;
+  showTopUpMethodTabs?: boolean;
   copyOverrides?: Partial<Record<BalanceMode, Partial<BalanceModeCopy>>>;
   successTargetLabel?: string;
   errorMessages?: Partial<Record<BalanceMode, string>>;
   blockedNegativeBalanceMessage?: string;
   /**
-   * Khi có, nạp **dương** gọi backend tạo đơn SePay và hiển thị QR trả về (không cộng ví ngay).
-   * Số **âm** / rút vẫn dùng `submitBalanceChange` như cũ.
+   * Khi có, nạp tiền gọi backend tạo đơn SePay và hiển thị QR trả về (không cộng ví ngay).
    */
   createSePayTopUpOrder?: (amount: number) => Promise<StudentSePayTopUpOrderResponse>;
 };
@@ -52,7 +56,7 @@ const MODE_COPY: Record<BalanceMode, BalanceModeCopy> = {
     eyebrow: "Top Up",
     title: "Nạp tiền vào tài khoản",
     description:
-      "Nhập số dương để tăng số dư, số âm để giảm số dư (cùng hiệu lực với rút). Chỉ chấp nhận số nguyên khác 0.",
+      "Nhập số tiền dương để tạo QR SePay hoặc nạp thẳng nếu bạn có quyền admin.",
     submitLabel: "Xác nhận thay đổi số dư",
     deltaPrefix: "+",
     chipClass: "bg-primary/10 text-primary ring-primary/20",
@@ -94,6 +98,10 @@ export default function StudentBalancePopup({
   submitBalanceChange,
   invalidateQueryKeys,
   allowNegativeBalance = true,
+  directBalanceChangeEnabled = true,
+  directReasonRequired = false,
+  defaultTopUpMethod,
+  showTopUpMethodTabs = false,
   copyOverrides,
   successTargetLabel,
   errorMessages,
@@ -103,10 +111,17 @@ export default function StudentBalancePopup({
   const queryClient = useQueryClient();
   const [amountInput, setAmountInput] = useState("");
   const [topupStep, setTopupStep] = useState<"amount" | "qr">("amount");
+  const [topUpMethod, setTopUpMethod] = useState<TopUpMethod>("sepay");
   const [sePayOrder, setSePayOrder] = useState<StudentSePayTopUpOrderResponse | null>(null);
   const [isSePayLoading, setIsSePayLoading] = useState(false);
+  const [reasonInput, setReasonInput] = useState("");
 
-  const sePayTopupEnabled = mode === "topup" && Boolean(createSePayTopUpOrder);
+  const preferredTopUpMethod =
+    defaultTopUpMethod ?? (createSePayTopUpOrder ? "sepay" : "direct");
+  const sePayTopupEnabled =
+    mode === "topup" && topUpMethod === "sepay" && Boolean(createSePayTopUpOrder);
+  const directTopupSelected = mode === "topup" && topUpMethod === "direct";
+  const directBalanceChangeSelected = mode === "withdraw" || directTopupSelected;
 
   useEffect(() => {
     if (!open) {
@@ -114,6 +129,7 @@ export default function StudentBalancePopup({
       setSePayOrder(null);
       setIsSePayLoading(false);
       setAmountInput("");
+      setReasonInput("");
     }
   }, [open]);
 
@@ -121,20 +137,23 @@ export default function StudentBalancePopup({
     setTopupStep("amount");
     setSePayOrder(null);
     setIsSePayLoading(false);
-  }, [mode]);
+    setTopUpMethod(preferredTopUpMethod);
+    setReasonInput("");
+  }, [mode, preferredTopUpMethod]);
 
   const currentBalance = student.accountBalance ?? 0;
   const rawAmount = amountInput.trim() === "" ? Number.NaN : Number(amountInput.trim());
-  const withdrawAmount =
+  const positiveAmount =
     Number.isFinite(rawAmount) && Number.isInteger(rawAmount) && rawAmount > 0 ? rawAmount : 0;
-  const signedTopUpAmount =
-    Number.isFinite(rawAmount) && Number.isInteger(rawAmount) && rawAmount !== 0 ? rawAmount : 0;
-  const hasValidAmount = mode === "topup" ? signedTopUpAmount !== 0 : withdrawAmount > 0;
+  const withdrawAmount = positiveAmount;
+  const signedTopUpAmount = positiveAmount;
+  const hasValidAmount = positiveAmount > 0;
   const isPositiveSePayTopup =
     mode === "topup" && sePayTopupEnabled && signedTopUpAmount > 0;
   const isSePayTopupBelowMinimum =
     isPositiveSePayTopup && signedTopUpAmount < SEPAY_MIN_TOPUP_AMOUNT;
   const deltaAmount = mode === "topup" ? signedTopUpAmount : -withdrawAmount;
+  const directReason = reasonInput.trim();
   const nextBalance = currentBalance + deltaAmount;
   const modeCopy = {
     ...MODE_COPY[mode],
@@ -213,7 +232,7 @@ export default function StudentBalancePopup({
     if (!hasValidAmount) {
       toast.error(
         mode === "topup"
-          ? "Vui lòng nhập số nguyên khác 0 (có thể âm để giảm số dư)."
+          ? "Vui lòng nhập số nguyên lớn hơn 0."
           : "Vui lòng nhập số nguyên lớn hơn 0.",
       );
       return;
@@ -226,6 +245,16 @@ export default function StudentBalancePopup({
 
     if (!allowNegativeBalance && nextBalance < 0) {
       toast.error(blockedNegativeBalanceMessage);
+      return;
+    }
+
+    if (directBalanceChangeSelected && !directBalanceChangeEnabled) {
+      toast.error("Bạn không có quyền chỉnh thẳng số dư học sinh.");
+      return;
+    }
+
+    if (directBalanceChangeSelected && directReasonRequired && !directReason) {
+      toast.error("Vui lòng nhập lý do chỉnh số dư thủ công.");
       return;
     }
 
@@ -258,6 +287,11 @@ export default function StudentBalancePopup({
       return;
     }
 
+    if (mode === "topup" && topUpMethod === "sepay" && !createSePayTopUpOrder) {
+      toast.error("Thanh toán SePay chưa được bật trên giao diện này.");
+      return;
+    }
+
     onClose();
     runBackgroundSave({
       loadingMessage:
@@ -279,10 +313,11 @@ export default function StudentBalancePopup({
           : "Không thể rút tiền khỏi tài khoản học sinh."),
       action: () =>
         submitBalanceChange
-          ? submitBalanceChange(deltaAmount)
+          ? submitBalanceChange(deltaAmount, directReason || undefined)
           : studentApi.updateStudentAccountBalance({
               student_id: student.id,
               amount: deltaAmount,
+              reason: directReason,
             }),
       onSuccess: async () => {
         await Promise.all(
@@ -304,7 +339,7 @@ export default function StudentBalancePopup({
 
   const primarySubmitLabel =
     mode === "topup" &&
-    sePayTopupEnabled &&
+    topUpMethod === "sepay" &&
     signedTopUpAmount > 0 &&
     topupStep === "amount"
       ? "Tạo mã QR SePay"
@@ -466,6 +501,35 @@ export default function StudentBalancePopup({
                 </div>
                 <p className="mt-3 text-sm leading-6 text-text-secondary">{modeCopy.description}</p>
 
+                {mode === "topup" && showTopUpMethodTabs ? (
+                  <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-border-default bg-bg-surface p-1">
+                    {([
+                      ["sepay", "Tạo QR SePay"],
+                      ["direct", "Nạp thẳng"],
+                    ] as const).map(([method, label]) => {
+                      const selected = topUpMethod === method;
+                      return (
+                        <button
+                          key={method}
+                          type="button"
+                          onClick={() => {
+                            setTopUpMethod(method);
+                            setTopupStep("amount");
+                            setSePayOrder(null);
+                          }}
+                          className={`min-h-10 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
+                            selected
+                              ? "bg-primary text-text-inverse"
+                              : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
                   {summaryItems.map((item) => (
                     <div
@@ -496,11 +560,24 @@ export default function StudentBalancePopup({
                     value={amountInput}
                     onChange={(event) => setAmountInput(event.target.value)}
                     className="rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                    placeholder={mode === "topup" ? "Ví dụ: 500000 hoặc -200000…" : "Ví dụ: 500000…"}
+                    placeholder="Ví dụ: 500000…"
                   />
                 </label>
 
-                {sePayTopupEnabled && mode === "topup" ? (
+                {directBalanceChangeSelected && directReasonRequired ? (
+                  <label className="mt-4 flex flex-col gap-1 text-sm text-text-secondary">
+                    <span>Lý do chỉnh số dư</span>
+                    <textarea
+                      value={reasonInput}
+                      onChange={(event) => setReasonInput(event.target.value)}
+                      rows={3}
+                      className="resize-none rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                      placeholder="Ví dụ: Phụ huynh chuyển khoản ngoài SePay"
+                    />
+                  </label>
+                ) : null}
+
+                {mode === "topup" && topUpMethod === "sepay" ? (
                   <p
                     className={`mt-2 rounded-xl border px-3 py-2 text-xs leading-relaxed ${
                       isSePayTopupBelowMinimum

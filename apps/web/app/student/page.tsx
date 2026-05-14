@@ -25,7 +25,6 @@ import {
     createMyStudentSePayTopUpOrder,
     getMyStudentDetail,
     getMyStudentWalletHistory,
-    updateMyStudentAccountBalance,
     updateMyStudentProfile,
 } from "@/lib/apis/auth.api";
 import { formatCurrency } from "@/lib/class.helpers";
@@ -255,9 +254,6 @@ export default function StudentSelfPage() {
         [student],
     );
 
-    const sePayStudentTopUpEnabled =
-        process.env.NEXT_PUBLIC_STUDENT_WALLET_SEPAY_TOPUP === "1";
-
     const createSePayTopUpOrder = useCallback(async (amount: number) => {
         return createMyStudentSePayTopUpOrder({ amount });
     }, []);
@@ -374,28 +370,24 @@ export default function StudentSelfPage() {
                 mode={balancePopupMode ?? "topup"}
                 onClose={() => setBalancePopupMode(null)}
                 student={student}
-                submitBalanceChange={(amount) => updateMyStudentAccountBalance({ amount })}
                 invalidateQueryKeys={[
                     ["student", "self", "detail"],
                     ["student", "self", "wallet-history"],
                 ]}
                 allowNegativeBalance={false}
+                directBalanceChangeEnabled={false}
+                defaultTopUpMethod="sepay"
                 successTargetLabel="tài khoản của bạn"
-                createSePayTopUpOrder={sePayStudentTopUpEnabled ? createSePayTopUpOrder : undefined}
+                createSePayTopUpOrder={createSePayTopUpOrder}
                 errorMessages={{
-                    topup: "Không thể thay đổi số dư ví của bạn.",
+                    topup: "Không thể tạo mã QR nạp ví của bạn.",
                     withdraw: "Không thể rút tiền khỏi tài khoản của bạn.",
                 }}
                 blockedNegativeBalanceMessage="Số dư hiện tại không đủ để thực hiện giao dịch rút tiền này."
                 copyOverrides={{
                     topup: {
-                        description: sePayStudentTopUpEnabled
-                            ? 'Nhập số tiền dương rồi bấm "Tạo mã QR SePay" để thanh toán. Webhook SePay sẽ tự động cập nhật ví sau khi ngân hàng xác nhận; số âm để giảm số dư như rút.'
-                            : "Nhập số dương để tăng số dư, số âm để giảm (giống rút). Chỉ số nguyên khác 0; hệ thống chặn nếu ví không đủ khi giảm.",
-                    },
-                    withdraw: {
                         description:
-                            "Số tiền nhập vào sẽ được trừ trực tiếp khỏi số dư hiện tại của bạn. Hệ thống sẽ chặn nếu ví không đủ tiền.",
+                            'Nhập số tiền dương rồi bấm "Tạo mã QR SePay" để thanh toán. Webhook SePay sẽ tự động cập nhật ví sau khi ngân hàng xác nhận.',
                     },
                 }}
             />
@@ -779,7 +771,6 @@ export default function StudentSelfPage() {
                                 <StudentWalletCard
                                     balance={student.accountBalance ?? 0}
                                     onTopUp={() => setBalancePopupMode("topup")}
-                                    onWithdraw={() => setBalancePopupMode("withdraw")}
                                     onOpenHistory={() => setWalletHistoryOpen(true)}
                                 />
                                 <StudentExamCard

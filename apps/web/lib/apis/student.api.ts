@@ -6,6 +6,7 @@ import type {
   StudentGender,
   StudentListItem,
   StudentListResponse,
+  StudentSePayTopUpOrderResponse,
   StudentStatus,
   StudentWalletTransaction,
   UpdateStudentAccountBalancePayload,
@@ -150,13 +151,24 @@ export async function updateStudentExamSchedules(
   return Array.isArray(response.data) ? response.data : [];
 }
 
-/**
- * PATCH /student/update-student-account-balance – increment/decrement student balance.
- */
+/** PATCH /student/update-student-account-balance – admin-only manual balance adjustment with reason. */
 export async function updateStudentAccountBalance(
   payload: UpdateStudentAccountBalancePayload,
 ): Promise<StudentDetail> {
   const response = await api.patch<StudentDetail>("/student/update-student-account-balance", payload);
+  return response.data;
+}
+
+/** POST /student/:id/wallet-sepay-topup-order – create SePay QR top-up order for a student. */
+export async function createStudentSePayTopUpOrder(
+  studentId: string,
+  payload: { amount: number },
+): Promise<StudentSePayTopUpOrderResponse> {
+  const safeId = encodeURIComponent(studentId);
+  const response = await api.post<StudentSePayTopUpOrderResponse>(
+    `/student/${safeId}/wallet-sepay-topup-order`,
+    payload,
+  );
   return response.data;
 }
 

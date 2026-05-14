@@ -36,7 +36,6 @@ import type {
     StudentSePayTopUpOrderResponse,
     StudentWalletTransaction,
     UpdateStudentExamSchedulesPayload,
-    UpdateMyStudentAccountBalancePayload,
 } from '@/dtos/student.dto';
 import { api } from '../client';
 import { normalizeStaffIncomeSummary } from './staff-income-summary.api';
@@ -186,14 +185,6 @@ export async function updateMyStudentExamSchedules(
         payload,
     );
     return Array.isArray(response.data) ? response.data : [];
-}
-
-/** Current linked student wallet update for self-service pages. */
-export async function updateMyStudentAccountBalance(
-    dto: UpdateMyStudentAccountBalancePayload,
-): Promise<StudentSelfDetail> {
-    const response = await api.patch<StudentSelfDetail>('/users/me/student-account-balance', dto);
-    return response.data;
 }
 
 /** Tạo đơn nạp tiền SePay kèm QR (không tự cộng số dư ví). */

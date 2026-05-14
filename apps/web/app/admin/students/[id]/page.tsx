@@ -115,13 +115,25 @@ export default function AdminStudentDetailPage() {
         routeBase === "/staff" &&
         fullProfile?.roleType === "staff" &&
         staffRoles.includes("assistant");
+    const isAccountantStaff =
+        routeBase === "/staff" &&
+        fullProfile?.roleType === "staff" &&
+        staffRoles.includes("accountant");
+    const isCustomerCareStaff =
+        routeBase === "/staff" &&
+        fullProfile?.roleType === "staff" &&
+        staffRoles.includes("customer_care");
     const isCustomerCareReadOnlyView =
         routeBase === "/staff" &&
         fullProfile?.roleType === "staff" &&
         !isAssistantStaff &&
-        staffRoles.includes("customer_care");
+        isCustomerCareStaff;
     const canManageStudent =
         routeBase === "/admin" || fullProfile?.roleType === "admin" || isAssistantStaff;
+    const canCreateWalletQr =
+        canManageStudent || isAccountantStaff || isCustomerCareStaff;
+    const canDirectlyAdjustWallet =
+        routeBase === "/admin" || fullProfile?.roleType === "admin";
     const backLabel = isCustomerCareReadOnlyView
         ? "Quay lại trang CSKH"
         : "Quay lại danh sách học sinh";
@@ -295,13 +307,27 @@ export default function AdminStudentDetailPage() {
                     student={student}
                 />
             ) : null}
-            {canManageStudent ? (
+            {balancePopupMode && (canCreateWalletQr || canDirectlyAdjustWallet) ? (
                 <StudentBalancePopup
                     key={`${student.id}-${student.updatedAt ?? "stable"}-balance-${balancePopupMode ?? "closed"}`}
                     open={balancePopupMode !== null}
                     mode={balancePopupMode ?? "topup"}
                     onClose={() => setBalancePopupMode(null)}
                     student={student}
+                    createSePayTopUpOrder={(amount) =>
+                        studentApi.createStudentSePayTopUpOrder(student.id, { amount })
+                    }
+                    directBalanceChangeEnabled={canDirectlyAdjustWallet}
+                    directReasonRequired={canDirectlyAdjustWallet}
+                    defaultTopUpMethod="sepay"
+                    showTopUpMethodTabs={canDirectlyAdjustWallet}
+                    copyOverrides={{
+                        topup: {
+                            description: canDirectlyAdjustWallet
+                                ? "Tạo QR SePay để phụ huynh chuyển khoản, hoặc dùng tab Nạp thẳng khi admin cần ghi nhận thủ công."
+                                : "Tạo QR SePay để phụ huynh chuyển khoản. Webhook SePay sẽ tự động cập nhật ví sau khi ngân hàng xác nhận.",
+                        },
+                    }}
                 />
             ) : null}
             {canManageStudent ? (
@@ -464,8 +490,8 @@ export default function AdminStudentDetailPage() {
                             <div className="space-y-3.5 xl:col-span-1 xl:space-y-4">
                                 <StudentWalletCard
                                     balance={student.accountBalance ?? 0}
-                                    onTopUp={canManageStudent ? handleTopUp : undefined}
-                                    onWithdraw={canManageStudent ? handleWithdraw : undefined}
+                                    onTopUp={canCreateWalletQr || canDirectlyAdjustWallet ? handleTopUp : undefined}
+                                    onWithdraw={canDirectlyAdjustWallet ? handleWithdraw : undefined}
                                     onOpenHistory={canManageStudent ? () => setWalletHistoryOpen(true) : undefined}
                                 />
                                 <StudentExamCard key={student.id} studentId={student.id} />
