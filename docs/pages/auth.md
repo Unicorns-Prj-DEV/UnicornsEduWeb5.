@@ -18,16 +18,14 @@
 
 ## Redirect rules
 
-- Guest mở protected route `/admin/**`, `/staff/**`, hoặc `/student` sẽ bị proxy redirect về `/auth/login?next=<path+query hiện tại>`; sau login thành công frontend chỉ ưu tiên `next` nếu internal, không thuộc `/auth/*`, và session hiện tại có quyền vào route đó.
+- Guest mở protected route `/admin/**`, `/staff/**`, hoặc `/student` sẽ bị proxy redirect về `/auth/login?next=<path+query hiện tại>`; sau login thành công frontend chỉ ưu tiên `next` nếu internal, không thuộc `/auth/*`, và route đó khớp shell đăng nhập của role chính.
 - Login thành công:
   - nếu `canAccessRestrictedRoutes=false` (chưa verify email, trừ admin), frontend giữ user ở Home (`/`) và bật popup xác minh khi truy cập trang cá nhân/role routes
-  - nếu có `next` hợp lệ và user được phép vào route đó, redirect về `next`
-  - `admin` hoặc `staff.admin` -> `/admin/dashboard`
-  - `staff.assistant` -> `/admin/dashboard`
-  - `staff.accountant` -> `/admin/classes`
-  - `staff.lesson_plan_head` -> `/admin/lesson-plans`
-  - các staff role vận hành khác, kể cả multi-role như `teacher + lesson_plan`, -> `/staff` chỉ khi session contract xác nhận `hasStaffProfile=true`; nếu chưa có profile thì fallback `/user-profile`
-  - linked `studentInfo` -> `/student` chỉ khi không có admin/staff workspace ưu tiên hơn
+  - nếu có `next` hợp lệ và cùng shell với role chính, redirect về `next`
+  - `roleType=admin` -> `/admin/dashboard`
+  - `roleType=student` -> `/student` khi session contract xác nhận `hasStudentProfile=true`; nếu chưa có profile thì fallback `/user-profile`
+  - mọi staff role không phải `roleType=admin`, kể cả `staff.admin`, `staff.assistant`, `staff.accountant`, `staff.lesson_plan_head`, và multi-role như `teacher + lesson_plan`, -> `/staff` chỉ khi session contract xác nhận `hasStaffProfile=true`; nếu chưa có profile thì fallback `/user-profile`
+  - linked `studentInfo` -> `/student` khi user không có linked staff profile
   - `guest -> /`
 - Google OAuth thành công:
   - nếu user đã có `passwordHash`: backend set cookie và redirect về `FRONTEND_URL` như flow cũ

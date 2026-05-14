@@ -18,6 +18,8 @@ Page-level specs for `apps/web`, aligned with [Workplan](../Workplan.md) and [UI
 
 Guest mở `/admin/**`, `/staff/**`, hoặc `/student` sẽ được proxy đưa về `/auth/login?next=<path+query hiện tại>`; sau login/setup-password frontend chỉ dùng `next` nếu là internal path hợp lệ, không thuộc `/auth/*`, và session hiện tại thật sự có quyền vào route đó. Nếu `next` không hợp lệ hoặc không đủ quyền, frontend dùng `preferredRedirect`/workspace entrypoint đã resolve từ backend.
 
+Login landing dùng `users.role_type` chính để chọn shell mặc định: chỉ `roleType=admin` vào `/admin/dashboard`, `roleType=student` vào `/student`, các staff role khác vào `/staff`. Quyền runtime vào route vẫn được resolve theo union ở ma trận trên; rule này chỉ chặn redirect sau login quay về sai shell như `staff.accountant -> /admin/*`.
+
 Các mutation thay đổi user/staff role boundary phải dùng quyền admin đầy đủ: `POST/PATCH/DELETE /users*` và `PATCH /staff` không mở theo assistant/accountant fallback. Khi tạo, relink, đổi `roles`, hoặc xóa staff profile, backend phải invalidate auth identity/staff-role cache của các user liên quan để session/proxy thấy quyền mới ngay request kế tiếp.
 
 **Nguồn sự thật:** `docs/Database Schema.md` + Prisma schema là chuẩn cho single-tenant schema; `admin.md` là baseline UX/quyền admin; `staff.md` và `student.md` chỉ ghi các route mirror hoặc self-service khác baseline.
