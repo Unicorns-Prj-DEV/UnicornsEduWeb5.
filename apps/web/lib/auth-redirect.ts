@@ -1,4 +1,10 @@
 import type { UserInfoDto } from "@/dtos/Auth.dto";
+import {
+  canAccessAdminShellRoute,
+  getAdminShellEntryHref,
+  resolveAdminShellAccess,
+} from "@/lib/admin-shell-access";
+import { resolveStaffShellRouteAccess } from "@/lib/staff-shell-access";
 
 const ROLE_REDIRECT: Record<string, string> = {
   admin: "/admin/dashboard",
@@ -16,11 +22,6 @@ function isAuthPath(path: string) {
   return path === "/auth" || path.startsWith("/auth/");
 }
 
-function shouldLandInAdminShell(session: UserInfoDto) {
-  const staffRoles = session.staffRoles ?? [];
-  return staffRoles.includes("admin") || staffRoles.includes("assistant");
-}
-
 export function readSafeNextPath(nextPath: string | null) {
   if (!nextPath || !nextPath.startsWith("/") || nextPath.startsWith("//")) {
     return null;
@@ -33,6 +34,34 @@ export function readSafeNextPath(nextPath: string | null) {
   return nextPath;
 }
 
+function getPathname(path: string) {
+  return path.split(/[?#]/, 1)[0] || "/";
+}
+
+function canAccessStudentShell(session: UserInfoDto) {
+  return Boolean(
+    session.access?.student?.canAccess ?? session.hasStudentProfile,
+  );
+}
+
+function canAccessRequestedPath(session: UserInfoDto, nextPath: string) {
+  const pathname = getPathname(nextPath);
+
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    return canAccessAdminShellRoute(resolveAdminShellAccess(session), pathname);
+  }
+
+  if (pathname === "/staff" || pathname.startsWith("/staff/")) {
+    return resolveStaffShellRouteAccess(session, pathname).isAllowed;
+  }
+
+  if (pathname === "/student" || pathname.startsWith("/student/")) {
+    return canAccessStudentShell(session);
+  }
+
+  return true;
+}
+
 export function resolvePostLoginRedirect(
   session: UserInfoDto,
   requestedNextPath?: string | null,
@@ -42,28 +71,38 @@ export function resolvePostLoginRedirect(
   }
 
   const safeNextPath = readSafeNextPath(requestedNextPath ?? null);
-  if (safeNextPath) {
+  if (safeNextPath && canAccessRequestedPath(session, safeNextPath)) {
     return safeNextPath;
   }
 
-  if (session.roleType === "admin") {
-    return ROLE_REDIRECT.admin;
+  const preferredRedirect = readSafeNextPath(session.preferredRedirect ?? null);
+  if (
+    preferredRedirect &&
+    canAccessRequestedPath(session, preferredRedirect)
+  ) {
+    return preferredRedirect;
   }
 
-  if (session.roleType === "staff") {
-    if (!session.hasStaffProfile) {
-      return "/user-profile";
-    }
+  const adminEntryHref = getAdminShellEntryHref(session);
+  if (adminEntryHref) {
+    return adminEntryHref;
+  }
 
-    if (shouldLandInAdminShell(session)) {
-      return ROLE_REDIRECT.admin;
-    }
-
+  const staffShellAccess = resolveStaffShellRouteAccess(session, ROLE_REDIRECT.staff);
+  if (staffShellAccess.isAllowed) {
     return ROLE_REDIRECT.staff;
   }
 
+  if (staffShellAccess.redirectHref) {
+    return staffShellAccess.redirectHref;
+  }
+
+  if (canAccessStudentShell(session)) {
+    return ROLE_REDIRECT.student;
+  }
+
   if (session.roleType === "student") {
-    return session.hasStudentProfile ? ROLE_REDIRECT.student : "/user-profile";
+    return "/user-profile";
   }
 
   return ROLE_REDIRECT[session.roleType] ?? "/";

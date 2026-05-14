@@ -7,6 +7,7 @@ import {
 import { getUser } from "./lib/auth-server";
 import { shouldVerifySessionInProxy } from "./lib/proxy-auth-guard";
 import { resolveStaffShellRouteAccess } from "./lib/staff-shell-access";
+import { Role } from "./dtos/Auth.dto";
 
 const API_URL =
     process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
@@ -69,6 +70,22 @@ function hasAuthenticatedSession(user: Awaited<ReturnType<typeof getUser>>) {
     return Boolean(user.id && user.accountHandle && user.roleType !== "guest");
 }
 
+function canAccessStudentShell(user: Awaited<ReturnType<typeof getUser>>) {
+    return Boolean(user.access?.student?.canAccess ?? user.hasStudentProfile);
+}
+
+function hasStudentWorkspaceHint(user: Awaited<ReturnType<typeof getUser>>) {
+    return (
+        user.roleType === "student" ||
+        Boolean(user.hasStudentProfile) ||
+        Boolean(user.effectiveRoleTypes?.includes(Role.student))
+    );
+}
+
+function canAccessStaffShell(user: Awaited<ReturnType<typeof getUser>>) {
+    return Boolean(user.access?.staff?.canAccess ?? user.hasStaffProfile);
+}
+
 function redirectGuestToLogin(req: NextRequest) {
     const redirectUrl = new URL("/auth/login", req.url);
     redirectUrl.searchParams.set(
@@ -124,25 +141,31 @@ export async function proxy(req: NextRequest) {
     const isStaffRoute = pathname === "/staff" || pathname.startsWith("/staff/");
     if (isStaffRoute) {
         const staffShellAccess = resolveStaffShellRouteAccess(user, pathname);
-        if (!staffShellAccess.isAllowed && staffShellAccess.redirectHref) {
+        if (!staffShellAccess.isAllowed) {
             return NextResponse.redirect(
-                new URL(staffShellAccess.redirectHref, req.url),
+                new URL(
+                    staffShellAccess.redirectHref ??
+                    (canAccessStaffShell(user) ? "/staff" : "/"),
+                    req.url,
+                ),
             );
         }
     }
 
     const isStudentRoute = pathname === "/student" || pathname.startsWith("/student/");
     if (isStudentRoute) {
-        const canAccessStudentShell =
-            user?.roleType === "student" && Boolean(user.hasStudentProfile);
-        if (!canAccessStudentShell) {
+        if (!canAccessStudentShell(user)) {
             return NextResponse.redirect(
-                new URL(user?.roleType === "student" ? "/user-profile" : "/", req.url),
+                new URL(hasStudentWorkspaceHint(user) ? "/user-profile" : "/", req.url),
             );
         }
     }
 
-    if (isStaffRoute && user?.roleType === "staff") {
+    if (isStaffRoute && canAccessStaffShell(user)) {
+        if (user.staffProfileComplete === true) {
+            return NextResponse.next();
+        }
+
         const cookieHeader = req.headers.get("cookie") ?? "";
         const profile = await fetchFullProfile(cookieHeader);
 

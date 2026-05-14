@@ -49,6 +49,10 @@ function hasAuthenticatedSession(user: UserInfoDto) {
   return Boolean(user.id && user.accountHandle);
 }
 
+function hasEffectiveRole(user: UserInfoDto, role: Role) {
+  return user.roleType === role || Boolean(user.effectiveRoleTypes?.includes(role));
+}
+
 function EmailVerificationAccessModal() {
   const queryClient = useQueryClient();
   const { user, setUser } = useAuth();
@@ -212,23 +216,27 @@ function NotificationSocketBridge() {
   const { user, isAuthReady } = useAuth();
   const queryClient = useQueryClient();
   const recentNotificationKeysRef = useRef<string[]>([]);
+  const canOpenAdminChannel = Boolean(
+    user.access?.admin?.canAccess ?? hasEffectiveRole(user, Role.admin),
+  );
+  const canOpenStaffChannel = Boolean(
+    user.access?.staff?.canAccess ??
+      (hasEffectiveRole(user, Role.staff) && user.hasStaffProfile),
+  );
+  const canOpenStudentChannel = Boolean(
+    user.access?.student?.canAccess ??
+      (hasEffectiveRole(user, Role.student) && user.hasStudentProfile),
+  );
   const canConnectRealtimeNotifications =
     isAuthReady &&
     hasAuthenticatedSession(user) &&
-    (user.roleType === Role.admin ||
-      user.roleType === Role.staff ||
-      user.roleType === Role.student);
+    (canOpenAdminChannel || canOpenStaffChannel || canOpenStudentChannel);
 
   useEffect(() => {
     if (!canConnectRealtimeNotifications) {
       return;
     }
 
-    const canOpenAdminChannel = user.roleType === Role.admin;
-    const canOpenStaffChannel =
-      user.roleType === Role.staff && Boolean(user.hasStaffProfile);
-    const canOpenStudentChannel =
-      user.roleType === Role.student && Boolean(user.hasStudentProfile);
     if (
       !canOpenAdminChannel &&
       !canOpenStaffChannel &&
@@ -314,11 +322,11 @@ function NotificationSocketBridge() {
       socket.disconnect();
     };
   }, [
+    canOpenAdminChannel,
+    canOpenStaffChannel,
+    canOpenStudentChannel,
     canConnectRealtimeNotifications,
     queryClient,
-    user.hasStaffProfile,
-    user.hasStudentProfile,
-    user.roleType,
   ]);
 
   return null;

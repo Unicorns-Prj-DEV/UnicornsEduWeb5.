@@ -1,4 +1,4 @@
-import type { UserInfoDto } from "@/dtos/Auth.dto";
+import { Role, type UserInfoDto } from "@/dtos/Auth.dto";
 import type { FullProfileDto } from "@/dtos/profile.dto";
 
 export type StaffLessonWorkspacePolicy =
@@ -32,8 +32,20 @@ export function resolveStaffLessonWorkspace(
   const staffRoles = Array.isArray((profile as UserInfoDto | undefined)?.staffRoles)
     ? (profile as UserInfoDto).staffRoles ?? []
     : (profile as FullProfileDto | undefined)?.staffInfo?.roles ?? [];
-  const isAdmin = profile?.roleType === "admin";
-  const isStaff = profile?.roleType === "staff";
+  const effectiveRoleTypes =
+    (profile as UserInfoDto | undefined)?.effectiveRoleTypes ?? [];
+  const hasStaffProfile =
+    typeof (profile as UserInfoDto | undefined)?.hasStaffProfile === "boolean"
+      ? Boolean((profile as UserInfoDto).hasStaffProfile)
+      : Boolean((profile as FullProfileDto | undefined)?.staffInfo?.id);
+  const isAdmin =
+    profile?.roleType === "admin" ||
+    staffRoles.includes("admin") ||
+    (profile as UserInfoDto | undefined)?.access?.admin?.tier === "full";
+  const isStaff =
+    profile?.roleType === "staff" ||
+    effectiveRoleTypes.includes(Role.staff) ||
+    (hasStaffProfile && profile?.roleType !== "guest");
   const isAssistant = isStaff && staffRoles.includes("assistant");
   const isLessonPlanHead = isStaff && staffRoles.includes("lesson_plan_head");
   const isLessonPlan = isStaff && staffRoles.includes("lesson_plan");

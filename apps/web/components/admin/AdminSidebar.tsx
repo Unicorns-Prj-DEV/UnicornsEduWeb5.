@@ -181,7 +181,11 @@ export default function AdminSidebar() {
   const isMobile = useMediaQuery("(max-width: 767px)");
   const prefersReducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const { setUser } = useAuth();
-  const { data: fullProfile, isLoading: isProfileLoading } = useQuery({
+  const {
+    data: fullProfile,
+    isError: isProfileError,
+    isLoading: isProfileLoading,
+  } = useQuery({
     queryKey: ["auth", "full-profile"],
     queryFn: authApi.getFullProfile,
     retry: false,
@@ -194,7 +198,7 @@ export default function AdminSidebar() {
       ? `/admin/staffs/${encodeURIComponent(staffId)}`
       : "/admin/dashboard";
 
-  const menuItems = isProfileLoading
+  const menuItems = isProfileLoading || isProfileError || !fullProfile
     ? []
     : isAssistant || isAdmin
       ? MENU_ITEMS.filter((item) => isAdmin || !item.adminOnly)
@@ -202,7 +206,7 @@ export default function AdminSidebar() {
         ? MENU_ITEMS.filter((item) => ACCOUNTANT_VISIBLE_HREFS.has(item.href))
         : isLessonPlanHead
           ? MENU_ITEMS.filter((item) => item.href === "/admin/lesson-plans")
-          : MENU_ITEMS;
+          : [];
 
   useEffect(() => {
     if (!isMobile) {

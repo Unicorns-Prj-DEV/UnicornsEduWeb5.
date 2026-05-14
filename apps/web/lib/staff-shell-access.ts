@@ -1,4 +1,4 @@
-import type { UserInfoDto } from "@/dtos/Auth.dto";
+import { Role, type UserInfoDto } from "@/dtos/Auth.dto";
 import type { FullProfileDto } from "@/dtos/profile.dto";
 import { resolveStaffLessonWorkspace } from "@/lib/staff-lesson-workspace";
 
@@ -43,6 +43,7 @@ export type StaffShellAccessContext = {
   hasStaffProfile: boolean;
   isStaffOrAdmin: boolean;
   shouldRedirectToUserProfile: boolean;
+  isAdmin: boolean;
   isTeacher: boolean;
   isCustomerCare: boolean;
   isAssistant: boolean;
@@ -82,7 +83,18 @@ function resolveStaffShellContext(
   const roleType = profile?.roleType;
   const staffRoles = getStaffRoles(profile);
   const hasStaffProfile = hasLinkedStaffProfile(profile);
-  const isStaffOrAdmin = roleType === "staff" || roleType === "admin";
+  const effectiveRoleTypes =
+    (profile as UserInfoDto | undefined)?.effectiveRoleTypes ?? [];
+  const isStaffOrAdmin =
+    roleType === "staff" ||
+    roleType === "admin" ||
+    effectiveRoleTypes.includes(Role.staff) ||
+    (hasStaffProfile && roleType !== "guest");
+  const isAdmin =
+    roleType === "admin" ||
+    effectiveRoleTypes.includes(Role.admin) ||
+    staffRoles.includes("admin") ||
+    (profile as UserInfoDto | undefined)?.access?.admin?.tier === "full";
   const isTeacher = staffRoles.includes("teacher");
   const isCustomerCare = staffRoles.includes("customer_care");
   const isAssistant = staffRoles.includes("assistant");
@@ -96,13 +108,14 @@ function resolveStaffShellContext(
     hasStaffProfile,
     isStaffOrAdmin,
     shouldRedirectToUserProfile: isStaffOrAdmin && !hasStaffProfile,
+    isAdmin,
     isTeacher,
     isCustomerCare,
     isAssistant,
     isAccountant,
     isCommunication,
     isTechnical,
-    isAssistantStaff: roleType === "staff" && hasStaffProfile && isAssistant,
+    isAssistantStaff: hasStaffProfile && isAssistant,
     isLessonPlanner:
       staffRoles.includes("lesson_plan") ||
       staffRoles.includes("lesson_plan_head"),
@@ -206,9 +219,9 @@ export function resolveStaffShellRouteAccess(
   const lessonWorkspace = resolveStaffLessonWorkspace(profile);
 
   const {
-    roleType,
     hasStaffProfile,
     isStaffOrAdmin,
+    isAdmin,
     isTeacher,
     isCustomerCare,
     isAssistant,
@@ -225,17 +238,17 @@ export function resolveStaffShellRouteAccess(
     flags.isNotesSubjectRoute ||
     flags.isStaffNotificationRoute
       ? hasStaffProfile && isStaffOrAdmin
+      : hasStaffProfile && isStaffOrAdmin && isAdmin
+        ? true
       : flags.isStaffCalendarRoute
         ? hasStaffProfile &&
-          (roleType === "admin" || isAssistantStaff || (roleType === "staff" && isTeacher))
+          (isAdmin || isAssistantStaff || isTeacher)
         : flags.isStaffClassesRoute
           ? isAssistantStaff ||
             (hasStaffProfile && isStaffOrAdmin && isAccountant) ||
             (flags.isStaffClassDetailRoute &&
-              ((hasStaffProfile && roleType === "admin") ||
-                (hasStaffProfile &&
-                  roleType === "staff" &&
-                  (isTeacher || isCustomerCare))))
+              hasStaffProfile &&
+              (isAdmin || isTeacher || isCustomerCare))
           : flags.isStaffDeductionsRoute
             ? isAssistantStaff || (hasStaffProfile && isStaffOrAdmin && isAccountant)
           : flags.isStaffStudentsRoute
@@ -243,7 +256,6 @@ export function resolveStaffShellRouteAccess(
               (hasStaffProfile && isStaffOrAdmin && isAccountant) ||
               (flags.isStaffStudentDetailRoute &&
                 hasStaffProfile &&
-                roleType === "staff" &&
                 isCustomerCare)
             : flags.isStaffCostsRoute
               ? isAssistantStaff || (hasStaffProfile && isStaffOrAdmin && isAccountant)

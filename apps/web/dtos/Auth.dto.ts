@@ -42,6 +42,24 @@ export interface UserInfoDto {
     staffRoles?: string[];
     hasStaffProfile?: boolean;
     hasStudentProfile?: boolean;
+    effectiveRoleTypes?: Role[];
+    staffProfileComplete?: boolean;
+    availableWorkspaces?: Array<"admin" | "staff" | "student">;
+    defaultWorkspace?: "admin" | "staff" | "student" | null;
+    preferredRedirect?: string;
+    access?: {
+        admin?: {
+            canAccess: boolean;
+            tier: "full" | "assistant" | "accountant" | "lesson_plan_head" | null;
+        };
+        staff?: {
+            canAccess: boolean;
+            profileComplete: boolean;
+        };
+        student?: {
+            canAccess: boolean;
+        };
+    };
 }
 
 export function createGuestUser(): UserInfoDto {
@@ -57,6 +75,16 @@ export function createGuestUser(): UserInfoDto {
         staffRoles: [],
         hasStaffProfile: false,
         hasStudentProfile: false,
+        effectiveRoleTypes: [Role.guest],
+        staffProfileComplete: false,
+        availableWorkspaces: [],
+        defaultWorkspace: null,
+        preferredRedirect: "/",
+        access: {
+            admin: { canAccess: false, tier: null },
+            staff: { canAccess: false, profileComplete: false },
+            student: { canAccess: false },
+        },
     };
 }
 

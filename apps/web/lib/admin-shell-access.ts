@@ -1,4 +1,4 @@
-import type { UserInfoDto } from "@/dtos/Auth.dto";
+import { Role, type UserInfoDto } from "@/dtos/Auth.dto";
 import type { FullProfileDto } from "@/dtos/profile.dto";
 
 export type AdminShellAccess = {
@@ -48,20 +48,32 @@ export function resolveAdminShellAccess(
   const staffRoles = Array.isArray((profile as UserInfoDto | undefined)?.staffRoles)
     ? (profile as UserInfoDto).staffRoles ?? []
     : (profile as FullProfileDto | undefined)?.staffInfo?.roles ?? [];
-  const isStaff = profile?.roleType === "staff";
+  const effectiveRoleTypes =
+    (profile as UserInfoDto | undefined)?.effectiveRoleTypes ?? [];
   const hasStaffProfile =
     typeof (profile as UserInfoDto | undefined)?.hasStaffProfile === "boolean"
       ? Boolean((profile as UserInfoDto).hasStaffProfile)
       : Boolean((profile as FullProfileDto | undefined)?.staffInfo?.id);
+  const isStaff =
+    profile?.roleType === "staff" ||
+    effectiveRoleTypes.includes(Role.staff) ||
+    (hasStaffProfile && profile?.roleType !== "guest");
+  const adminTier = (profile as UserInfoDto | undefined)?.access?.admin?.tier;
 
   return {
     isAdmin:
+      adminTier === "full" ||
       profile?.roleType === "admin" ||
       (isStaff && hasStaffProfile && staffRoles.includes("admin")),
-    isAssistant: isStaff && hasStaffProfile && staffRoles.includes("assistant"),
-    isAccountant: isStaff && hasStaffProfile && staffRoles.includes("accountant"),
+    isAssistant:
+      adminTier === "assistant" ||
+      (isStaff && hasStaffProfile && staffRoles.includes("assistant")),
+    isAccountant:
+      adminTier === "accountant" ||
+      (isStaff && hasStaffProfile && staffRoles.includes("accountant")),
     isCustomerCare: isStaff && hasStaffProfile && staffRoles.includes("customer_care"),
     isLessonPlanHead:
+      adminTier === "lesson_plan_head" ||
       isStaff && hasStaffProfile && staffRoles.includes("lesson_plan_head"),
     staffId:
       (profile as FullProfileDto | undefined)?.staffInfo?.id ??

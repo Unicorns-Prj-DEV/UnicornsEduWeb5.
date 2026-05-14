@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { Role } from "@/dtos/Auth.dto";
 import { useAuth } from "@/context/AuthContext";
 import {
   isRestrictedByEmailVerification,
@@ -19,7 +20,11 @@ export default function StudentAccessGate({
   const restrictedByEmailVerification = isRestrictedByEmailVerification(user);
 
   const hasStudentProfile = Boolean(user.hasStudentProfile);
-  const isAllowed = user.roleType === "student" && hasStudentProfile;
+  const isAllowed = Boolean(user.access?.student?.canAccess ?? hasStudentProfile);
+  const hasStudentWorkspaceHint =
+    user.roleType === "student" ||
+    hasStudentProfile ||
+    Boolean(user.effectiveRoleTypes?.includes(Role.student));
 
   useEffect(() => {
     if (isAuthReady && restrictedByEmailVerification) {
@@ -29,9 +34,15 @@ export default function StudentAccessGate({
     }
 
     if (isAuthReady && !isAllowed) {
-      router.replace(user.roleType === "student" ? "/user-profile" : "/");
+      router.replace(hasStudentWorkspaceHint ? "/user-profile" : "/");
     }
-  }, [isAllowed, isAuthReady, restrictedByEmailVerification, router, user.roleType]);
+  }, [
+    hasStudentWorkspaceHint,
+    isAllowed,
+    isAuthReady,
+    restrictedByEmailVerification,
+    router,
+  ]);
 
   if (!isAuthReady) {
     return (
@@ -66,8 +77,8 @@ export default function StudentAccessGate({
             Tài khoản này chưa mở được trang học sinh tự phục vụ.
           </h1>
           <p className="mt-3 text-sm text-text-secondary">
-            Route `/student` chỉ mở khi tài khoản đang đăng nhập có role `student`
-            và được liên kết đúng với hồ sơ học sinh của chính mình.
+            Route `/student` chỉ mở khi tài khoản đang đăng nhập được liên kết
+            đúng với hồ sơ học sinh của chính mình.
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Link

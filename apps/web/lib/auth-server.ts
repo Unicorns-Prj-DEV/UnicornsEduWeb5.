@@ -9,6 +9,23 @@ function buildCookieHeader(entries: Array<{ name: string; value: string }>) {
   return entries.map((entry) => `${entry.name}=${entry.value}`).join("; ");
 }
 
+function normalizeRole(value: unknown): Role | null {
+  return typeof value === "string" && Object.values(Role).includes(value as Role)
+    ? (value as Role)
+    : null;
+}
+
+function normalizeRoleList(value: unknown, fallback: Role[]) {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+
+  const roles = value
+    .map((role) => normalizeRole(role))
+    .filter((role): role is Role => role !== null);
+  return roles.length > 0 ? roles : fallback;
+}
+
 /**
  * Get the current user from auth cookies in a Server Component, Route Handler, Server Action, or proxy.
  * Calls the backend /auth/session endpoint and returns a guest user on unauthenticated/error states.
@@ -51,12 +68,15 @@ export async function getUser(cookieHeader?: string): Promise<UserInfoDto> {
       staffRoles?: string[];
       hasStaffProfile?: boolean;
       hasStudentProfile?: boolean;
+      effectiveRoleTypes?: string[];
+      staffProfileComplete?: boolean;
+      availableWorkspaces?: Array<"admin" | "staff" | "student">;
+      defaultWorkspace?: "admin" | "staff" | "student" | null;
+      preferredRedirect?: string;
+      access?: UserInfoDto["access"];
     };
 
-    const roleType =
-      data.roleType && Object.values(Role).includes(data.roleType as Role)
-        ? (data.roleType as Role)
-        : Role.guest;
+    const roleType = normalizeRole(data.roleType) ?? Role.guest;
 
     return {
       id: data.id ?? "",
@@ -76,6 +96,21 @@ export async function getUser(cookieHeader?: string): Promise<UserInfoDto> {
       staffRoles: Array.isArray(data.staffRoles) ? data.staffRoles : [],
       hasStaffProfile: Boolean(data.hasStaffProfile),
       hasStudentProfile: Boolean(data.hasStudentProfile),
+      effectiveRoleTypes: normalizeRoleList(data.effectiveRoleTypes, [roleType]),
+      staffProfileComplete: Boolean(data.staffProfileComplete),
+      availableWorkspaces: Array.isArray(data.availableWorkspaces)
+        ? data.availableWorkspaces
+        : [],
+      defaultWorkspace: data.defaultWorkspace ?? null,
+      preferredRedirect: data.preferredRedirect ?? "/",
+      access: data.access ?? {
+        admin: { canAccess: false, tier: null },
+        staff: {
+          canAccess: Boolean(data.hasStaffProfile),
+          profileComplete: Boolean(data.staffProfileComplete),
+        },
+        student: { canAccess: Boolean(data.hasStudentProfile) },
+      },
     };
   } catch {
     return createGuestUser();

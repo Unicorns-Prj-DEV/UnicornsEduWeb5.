@@ -134,9 +134,11 @@ export default function StaffClassDetailPage() {
   const isCustomerCare =
     profile?.roleType === "staff" &&
     (profile.staffInfo?.roles ?? []).includes("customer_care");
+  const shouldUseAdminClassDetailPage = isAssistant || isAccountant;
   /** Dải meta trạng thái/gói/trợ cấp/sĩ số/… — chỉ cho admin, kế toán, CSKH (trợ lí dùng AdminClassDetailPage). */
   const showClassOperationalMeta = isAdmin || isAccountant || isCustomerCare;
-  const canAccessClassWorkspace = isAdmin || isTeacher || isCustomerCare;
+  const canAccessClassWorkspace =
+    !shouldUseAdminClassDetailPage && (isAdmin || isTeacher || isCustomerCare);
   const actorStaffId = profile?.staffInfo?.id ?? "";
 
   const {
@@ -339,7 +341,7 @@ export default function StaffClassDetailPage() {
     );
   }
 
-  if (isAssistant || (isAccountant && !isTeacher)) {
+  if (shouldUseAdminClassDetailPage) {
     return <AdminClassDetailPage />;
   }
 

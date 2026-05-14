@@ -57,6 +57,17 @@ function resolveActiveMenuHref(pathname: string, items: MenuItem[]) {
   return activeHref;
 }
 
+function dedupeMenuItems(items: MenuItem[]) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (seen.has(item.href)) {
+      return false;
+    }
+    seen.add(item.href);
+    return true;
+  });
+}
+
 const DEFAULT_MENU_ITEMS: MenuItem[] = [
     {
       href: "/staff",
@@ -428,21 +439,23 @@ export default function StaffSidebar() {
 
   const staffRoles = fullProfile?.staffInfo?.roles ?? [];
   const hasStaffProfile = Boolean(fullProfile?.staffInfo?.id);
-  const isAssistant =
-    fullProfile?.roleType === "staff" && staffRoles.includes("assistant");
+  const isAssistant = hasStaffProfile && staffRoles.includes("assistant");
   const canAccessClassWorkspace =
     fullProfile?.roleType === "admin" || staffRoles.includes("teacher");
   const canAccessCustomerCareSelf =
-    fullProfile?.roleType === "staff" && staffRoles.includes("customer_care");
+    hasStaffProfile && staffRoles.includes("customer_care");
   const lessonWorkspace = resolveStaffLessonWorkspace(fullProfile);
   const canAccessLessonPlanWorkspace = lessonWorkspace.canAccessWorkspace;
   const isAccountant = staffRoles.includes("accountant");
   const isCommunication = staffRoles.includes("communication");
   const isTechnical = staffRoles.includes("technical");
-  const menuItems = (isAssistant
-    ? buildAssistantMenuItems(fullProfile?.staffInfo?.id ?? "")
-    : DEFAULT_MENU_ITEMS
-  ).filter((item) =>
+  const baseMenuItems = isAssistant
+    ? [
+        ...buildAssistantMenuItems(fullProfile?.staffInfo?.id ?? ""),
+        ...DEFAULT_MENU_ITEMS.filter((item) => item.href !== "/staff/profile"),
+      ]
+    : DEFAULT_MENU_ITEMS;
+  const menuItems = dedupeMenuItems(baseMenuItems).filter((item) =>
     item.isVisible({
       hasStaffProfile,
       canAccessClassWorkspace,
