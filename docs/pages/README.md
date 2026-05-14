@@ -16,6 +16,8 @@ Page-level specs for `apps/web`, aligned with [Workplan](../Workplan.md) and [UI
 | Staff `/staff/**` | Staff workspace là shell phân quyền theo staff hiện tại; các mirror route không tạo tenant riêng. | Cần linked `staffInfo`; proxy chặn staff thiếu hồ sơ bắt buộc trước khi vào `/staff/**`. `personal_achievement_link` là tùy chọn. | `assistant` mở admin-mirror routes; `accountant` mở finance/lesson scope và quyền xem danh sách/chi tiết nhân sự + học sinh; `assistant`/`accountant` chỉ tạo QR SePay khi nạp ví học sinh, không chỉnh thẳng số dư; `customer_care` chỉ mở route chuyên trách và tạo QR SePay cho học sinh được giao; `teacher`, `lesson_plan`, `lesson_plan_head` chỉ mở route chuyên trách tương ứng. |
 | Student `/student` | Student workspace chỉ hiển thị dữ liệu của học sinh đang đăng nhập. | Cần `roleType=student` và linked `studentInfo`. | Không có staff exception; staff/admin dùng route admin/staff để xem dữ liệu học sinh theo quyền. |
 
+Guest mở `/admin/**`, `/staff/**`, hoặc `/student` sẽ được proxy đưa về `/auth/login?next=<path+query hiện tại>`; sau login/setup-password frontend chỉ dùng `next` nếu là internal path hợp lệ và không thuộc `/auth/*`.
+
 **Nguồn sự thật:** `docs/Database Schema.md` + Prisma schema là chuẩn cho single-tenant schema; `admin.md` là baseline UX/quyền admin; `staff.md` và `student.md` chỉ ghi các route mirror hoặc self-service khác baseline.
 
 ## Route index

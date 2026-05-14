@@ -65,6 +65,19 @@ function isStaffProfileComplete(profile: FullProfileGuardPayload): boolean {
     );
 }
 
+function hasAuthenticatedSession(user: Awaited<ReturnType<typeof getUser>>) {
+    return Boolean(user.id && user.accountHandle && user.roleType !== "guest");
+}
+
+function redirectGuestToLogin(req: NextRequest) {
+    const redirectUrl = new URL("/auth/login", req.url);
+    redirectUrl.searchParams.set(
+        "next",
+        `${req.nextUrl.pathname}${req.nextUrl.search}`,
+    );
+    return NextResponse.redirect(redirectUrl);
+}
+
 async function fetchFullProfile(cookieHeader: string): Promise<FullProfileGuardPayload | null> {
     try {
         const response = await fetch(`${API_URL}/users/me/full`, {
@@ -91,6 +104,10 @@ export async function proxy(req: NextRequest) {
     }
 
     const user = await getUser(req.headers.get("cookie") ?? undefined);
+    if (!hasAuthenticatedSession(user)) {
+        return redirectGuestToLogin(req);
+    }
+
     const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
 
     if (isAdminRoute) {

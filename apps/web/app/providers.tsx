@@ -28,6 +28,10 @@ import { io } from "socket.io-client";
 import { toast, Toaster } from "sonner";
 import * as authApi from "@/lib/apis/auth.api";
 import {
+  buildSetupPasswordHref,
+  resolvePasswordSetupNextPath,
+} from "@/lib/auth-redirect";
+import {
   isRestrictedByEmailVerification,
   maskEmailAddress,
   OPEN_EMAIL_VERIFICATION_MODAL_EVENT,
@@ -40,10 +44,6 @@ import {
 const defaultUser: UserInfoDto = createGuestUser();
 
 const PASSWORD_SETUP_PATH = "/auth/setup-password";
-
-function isSafeInternalPath(path: string) {
-  return path.startsWith("/") && !path.startsWith("//");
-}
 
 function hasAuthenticatedSession(user: UserInfoDto) {
   return Boolean(user.id && user.accountHandle);
@@ -344,12 +344,12 @@ function AuthPasswordSetupGate() {
       return;
     }
 
-    const nextPath = `${pathname}${search ? `?${search}` : ""}`;
-    const safeNextPath = isSafeInternalPath(nextPath) ? nextPath : "/";
     router.replace(
-      `${PASSWORD_SETUP_PATH}?next=${encodeURIComponent(safeNextPath)}`,
+      buildSetupPasswordHref(
+        resolvePasswordSetupNextPath(pathname, searchParams),
+      ),
     );
-  }, [pathname, router, search, isAuthReady, user]);
+  }, [pathname, router, search, searchParams, isAuthReady, user]);
 
   return null;
 }

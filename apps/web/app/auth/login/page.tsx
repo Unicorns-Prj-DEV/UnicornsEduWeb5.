@@ -11,41 +11,10 @@ import * as authApi from "@/lib/apis/auth.api";
 import type { LoginDto, UserInfoDto } from "@/dtos/Auth.dto";
 import { useAuth } from "@/context/AuthContext";
 import { BrandLogoLockup } from "@/components/BrandLogoLockup";
-import { getAdminShellEntryHref } from "@/lib/admin-shell-access";
-
-const ROLE_REDIRECT: Record<string, string> = {
-  admin: "/admin/dashboard",
-  staff: "/staff",
-  student: "/student",
-  guest: "/",
-};
-
-function resolvePostLoginRedirect(
-  session: UserInfoDto,
-): string {
-  if (session.canAccessRestrictedRoutes === false) {
-    return "/";
-  }
-
-  if (session.roleType === "admin") {
-    return getAdminShellEntryHref(session) ?? ROLE_REDIRECT.admin;
-  }
-
-  if (session.roleType === "staff") {
-    const adminShellHref = getAdminShellEntryHref(session);
-    if (adminShellHref) {
-      return adminShellHref;
-    }
-
-    return session.hasStaffProfile ? ROLE_REDIRECT.staff : "/user-profile";
-  }
-
-  if (session.roleType === "student") {
-    return session.hasStudentProfile ? ROLE_REDIRECT.student : "/user-profile";
-  }
-
-  return ROLE_REDIRECT[session.roleType] ?? "/";
-}
+import {
+  buildSetupPasswordHref,
+  resolvePostLoginRedirect,
+} from "@/lib/auth-redirect";
 
 function nestMessageFromResponseData(data: unknown): string | null {
   if (!data || typeof data !== "object") {
@@ -137,7 +106,15 @@ function LoginPageContent() {
 
       setUser(session);
       queryClient.setQueryData(["auth", "session"], session);
-      router.push(resolvePostLoginRedirect(session));
+      const redirectHref = resolvePostLoginRedirect(
+        session,
+        searchParams.get("next"),
+      );
+      router.replace(
+        session.requiresPasswordSetup
+          ? buildSetupPasswordHref(redirectHref)
+          : redirectHref,
+      );
     },
     onError: (error) => {
       toast.error(getLoginErrorToastMessage(error));

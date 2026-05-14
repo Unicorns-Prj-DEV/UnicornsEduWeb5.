@@ -8,6 +8,7 @@
 - **Role:** `roleType=admin` và `roleType=staff` có `staff.admin` đều được xem là admin đầy đủ trong admin shell và backend admin guards. `/admin/notification` chỉ mở cho admin đầy đủ (assistant bị chặn ở sidebar + access gate và được điều hướng sang `/staff/notification` nếu cố mở trực tiếp). Route `/admin/deductions` mở cho admin đầy đủ, `staff.assistant`, và `staff.accountant` theo policy admin shell.
 - **Workspace/tenant:** admin shell là baseline cho hành vi quản trị. App hiện single-tenant theo Prisma schema; "admin workspace" chỉ là scope quyền theo `roleType`/`staffInfo.roles`, không phải tenant dữ liệu riêng.
 - **Yêu cầu hồ sơ:** `roleType=admin` không cần linked `staffInfo`; admin qua staff (`staff.admin`) phải có linked `staffInfo` vì quyền nằm trong `staffInfo.roles`.
+- **Guest redirect:** guest mở `/admin/**` được proxy đưa về `/auth/login?next=<path+query>` để sau login quay lại đúng admin route nếu role/session cho phép.
 - **Workplan owner:** Huy (Frontend – Product Flow).
 
 ## Features

@@ -5,7 +5,7 @@
 - **Paths:** `/auth/login`, `/auth/register`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/setup-password`, `/verify-email`.
 - **State layer:** TanStack Query (`useMutation`) cho toàn bộ submit flow auth.
 - **Global providers:** `QueryClientProvider` + Sonner `Toaster` được mount tại `apps/web/app/providers.tsx`.
-- **Auth gate:** `apps/web/app/providers.tsx` có `AuthPasswordSetupGate`; nếu user có session hợp lệ (`id` + `accountHandle`) và `requiresPasswordSetup=true` thì mọi route client sẽ bị đẩy về `/auth/setup-password`, kể cả khi `roleType` hiện tại vẫn là `guest`.
+- **Auth gate:** `apps/web/app/providers.tsx` có `AuthPasswordSetupGate`; nếu user có session hợp lệ (`id` + `accountHandle`) và `requiresPasswordSetup=true` thì mọi route client sẽ bị đẩy về `/auth/setup-password`, kể cả khi `roleType` hiện tại vẫn là `guest`. Khi gate chạy từ `/auth/*`, nó dùng query `next` hợp lệ nếu có, không lấy chính auth page làm đích sau setup.
 - **Auth API contract:** `GET /auth/session` là contract auth nhẹ dùng cho SSR, `proxy.ts`, bootstrap client và redirect sau login/setup-password. `GET /auth/profile` giữ backward compatibility nhưng delegate cùng session resolver. Cả hai trả về `id`, `email`, `emailVerified`, `canAccessRestrictedRoutes`, `accountHandle`, `roleType`, `requiresPasswordSetup`, `avatarUrl`, `staffRoles`, `hasStaffProfile`, `hasStudentProfile`.
 - **Cookie policy:** backend set `access_token` và `refresh_token` với `secure=true` + `SameSite=Strict` khi `NODE_ENV=production`; ở `test` và các môi trường non-production thì dùng `secure=false` + `SameSite=Lax`.
 
@@ -18,10 +18,14 @@
 
 ## Redirect rules
 
+- Guest mở protected route `/admin/**`, `/staff/**`, hoặc `/student` sẽ bị proxy redirect về `/auth/login?next=<path+query hiện tại>`; sau login thành công frontend ưu tiên `next` hợp lệ trước khi fallback theo role.
 - Login thành công:
   - nếu `canAccessRestrictedRoutes=false` (chưa verify email, trừ admin), frontend giữ user ở Home (`/`) và bật popup xác minh khi truy cập trang cá nhân/role routes
+  - nếu có `next` hợp lệ và user được phép vào restricted routes, redirect về `next`
   - `admin -> /admin/dashboard`
-  - `staff` có role admin-shell (`staff.admin`, `assistant`, `accountant`, `lesson_plan_head`) được redirect vào entry route admin shell tương ứng; staff thường -> `/staff` chỉ khi session contract xác nhận `hasStaffProfile=true`; nếu chưa có profile thì fallback `/user-profile`
+  - `staff.admin` hoặc `staff.assistant` -> `/admin/dashboard`
+  - các staff role vận hành khác, kể cả multi-role như `teacher + lesson_plan + accountant`, -> `/staff` chỉ khi session contract xác nhận `hasStaffProfile=true`; nếu chưa có profile thì fallback `/user-profile`
+  - `accountant` / `lesson_plan_head` vẫn có thể mở các admin route được policy cho phép khi đi trực tiếp, nhưng không còn là post-login landing mặc định
   - `student -> /student` chỉ khi session contract xác nhận `hasStudentProfile=true`; nếu chưa có profile thì fallback `/user-profile`
   - `guest -> /`
 - Google OAuth thành công:

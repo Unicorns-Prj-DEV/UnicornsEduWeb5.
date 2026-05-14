@@ -8,43 +8,10 @@ import { toast } from "sonner";
 import { createGuestUser, type UserInfoDto } from "@/dtos/Auth.dto";
 import { useAuth } from "@/context/AuthContext";
 import * as authApi from "@/lib/apis/auth.api";
-
-const ROLE_REDIRECT: Record<string, string> = {
-  admin: "/admin/dashboard",
-  staff: "/staff",
-  student: "/student",
-  guest: "/",
-};
-
-function resolvePostLoginRedirect(
-  session: UserInfoDto,
-): string {
-  if (session.roleType === "admin") {
-    return ROLE_REDIRECT.admin;
-  }
-
-  if (session.roleType === "staff") {
-    if ((session.staffRoles ?? []).includes("assistant")) {
-      return "/admin/dashboard";
-    }
-
-    return session.hasStaffProfile ? ROLE_REDIRECT.staff : "/user-profile";
-  }
-
-  if (session.roleType === "student") {
-    return session.hasStudentProfile ? ROLE_REDIRECT.student : "/user-profile";
-  }
-
-  return ROLE_REDIRECT[session.roleType] ?? "/";
-}
-
-function readSafeNextPath(nextPath: string | null) {
-  if (!nextPath || !nextPath.startsWith("/") || nextPath.startsWith("//")) {
-    return null;
-  }
-
-  return nextPath;
-}
+import {
+  readSafeNextPath,
+  resolvePostLoginRedirect,
+} from "@/lib/auth-redirect";
 
 function hasAuthenticatedSession(user: {
   id: string;

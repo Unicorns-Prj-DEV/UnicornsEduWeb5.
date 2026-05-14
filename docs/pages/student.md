@@ -6,6 +6,7 @@
 - **Role:** `student` only (guard must block other roles).
 - **Workspace/tenant:** `/student` là student workspace trong app single-tenant; scope khóa theo tài khoản hiện tại và linked `studentInfo`, không theo `tenant_id`/`workspace_id`.
 - **Yêu cầu hồ sơ:** cần `roleType=student` và linked `studentInfo`; thiếu hồ sơ học sinh thì shell không mở.
+- **Guest redirect:** guest mở `/student` được proxy đưa về `/auth/login?next=<path+query>` để sau login quay lại đúng student route nếu session có linked `studentInfo`.
 - **Workplan owner:** Minh (Frontend – UX + Assistant/Student).
 
 ## Features
