@@ -8,15 +8,17 @@ Page-level specs for `apps/web`, aligned with [Workplan](../Workplan.md) and [UI
 
 ## Ma trận workspace/tenant access
 
-> **Tenant hiện tại:** Prisma schema chưa có `tenant_id`/`workspace_id`; app đang single-tenant. Trong docs page, `workspace` nghĩa là phạm vi shell theo `roleType`, linked profile, và `staffInfo.roles`, không phải tenant dữ liệu.
+> **Tenant hiện tại:** Prisma schema chưa có `tenant_id`/`workspace_id`; app đang single-tenant. Trong docs page, `workspace` nghĩa là phạm vi shell theo `effectiveRoleTypes`, linked profile, và `staffInfo.roles`, không phải tenant dữ liệu. `users.role_type` chỉ là role gốc/default; quyền runtime được resolve theo union của `role_type`, linked `staffInfo`, linked `studentInfo`, và `staffInfo.roles`.
 
 | Shell | Baseline quyền | Yêu cầu hồ sơ | Ngoại lệ staff role |
 | --- | --- | --- | --- |
-| Admin `/admin/**` | Admin là baseline cho hành vi quản trị. `roleType=admin` và `roleType=staff` có `staff.admin` là admin đầy đủ theo admin shell/guards. | `roleType=admin` không phụ thuộc `staffInfo`; admin qua staff đọc quyền từ linked `staffInfo.roles`. | `/admin/notification` chỉ admin đầy đủ; `/admin/deductions` mở thêm `staff.assistant` và `staff.accountant` theo policy admin shell. |
-| Staff `/staff/**` | Staff workspace là shell phân quyền theo staff hiện tại; các mirror route không tạo tenant riêng. | Cần linked `staffInfo`; proxy chặn staff thiếu hồ sơ bắt buộc trước khi vào `/staff/**`. `personal_achievement_link` là tùy chọn. | `assistant` mở admin-mirror routes; `accountant` mở finance/lesson scope và quyền xem danh sách/chi tiết nhân sự + học sinh; `assistant`/`accountant` chỉ tạo QR SePay khi nạp ví học sinh, không chỉnh thẳng số dư; `customer_care` chỉ mở route chuyên trách và tạo QR SePay cho học sinh được giao; `teacher`, `lesson_plan`, `lesson_plan_head` chỉ mở route chuyên trách tương ứng. |
-| Student `/student` | Student workspace chỉ hiển thị dữ liệu của học sinh đang đăng nhập. | Cần `roleType=student` và linked `studentInfo`. | Không có staff exception; staff/admin dùng route admin/staff để xem dữ liệu học sinh theo quyền. |
+| Admin `/admin/**` | Admin là baseline cho hành vi quản trị. `roleType=admin` hoặc linked `staffInfo.roles` có `admin` là admin đầy đủ theo admin shell/guards, kể cả khi `role_type` chính là `student`. | `roleType=admin` không phụ thuộc `staffInfo`; admin qua staff đọc quyền từ linked `staffInfo.roles`. | `/admin/notification` chỉ admin đầy đủ; `/admin/deductions` mở thêm `staff.assistant` và `staff.accountant`; `staff.lesson_plan_head` mở lesson management theo policy admin shell. |
+| Staff `/staff/**` | Staff workspace là shell phân quyền theo linked staff hiện tại; các mirror route không tạo tenant riêng. | Cần linked `staffInfo`; proxy chặn staff thiếu hồ sơ bắt buộc trước khi vào `/staff/**`. `personal_achievement_link` là tùy chọn. | `assistant` mở admin-mirror routes; `accountant` mở finance/lesson scope và quyền xem danh sách/chi tiết lớp/nhân sự + học sinh; khi staff có nhiều role, từng trang dùng quyền rộng nhất của trang đó (ví dụ `accountant` thắng `teacher` trên chi tiết lớp); `assistant`/`accountant` chỉ tạo QR SePay khi nạp ví học sinh, không chỉnh thẳng số dư; `customer_care` chỉ mở route chuyên trách và tạo QR SePay cho học sinh được giao; `teacher`, `lesson_plan`, `lesson_plan_head`, `communication`, `technical` mở route chuyên trách tương ứng. |
+| Student `/student` | Student workspace chỉ hiển thị dữ liệu của học sinh đang đăng nhập. | Cần linked `studentInfo`; không yêu cầu `users.role_type=student` nếu actor đồng thời có workspace khác. | Staff/admin có linked `studentInfo` vẫn được vào `/student` cho self-service của chính hồ sơ học sinh đó; xem dữ liệu học sinh khác vẫn đi qua admin/staff route theo quyền. |
 
-Guest mở `/admin/**`, `/staff/**`, hoặc `/student` sẽ được proxy đưa về `/auth/login?next=<path+query hiện tại>`; sau login/setup-password frontend chỉ dùng `next` nếu là internal path hợp lệ và không thuộc `/auth/*`.
+Guest mở `/admin/**`, `/staff/**`, hoặc `/student` sẽ được proxy đưa về `/auth/login?next=<path+query hiện tại>`; sau login/setup-password frontend chỉ dùng `next` nếu là internal path hợp lệ, không thuộc `/auth/*`, và session hiện tại thật sự có quyền vào route đó. Nếu `next` không hợp lệ hoặc không đủ quyền, frontend dùng `preferredRedirect`/workspace entrypoint đã resolve từ backend.
+
+Các mutation thay đổi user/staff role boundary phải dùng quyền admin đầy đủ: `POST/PATCH/DELETE /users*` và `PATCH /staff` không mở theo assistant/accountant fallback. Khi tạo, relink, đổi `roles`, hoặc xóa staff profile, backend phải invalidate auth identity/staff-role cache của các user liên quan để session/proxy thấy quyền mới ngay request kế tiếp.
 
 **Nguồn sự thật:** `docs/Database Schema.md` + Prisma schema là chuẩn cho single-tenant schema; `admin.md` là baseline UX/quyền admin; `staff.md` và `student.md` chỉ ghi các route mirror hoặc self-service khác baseline.
 
@@ -36,7 +38,7 @@ Guest mở `/admin/**`, `/staff/**`, hoặc `/student` sẽ được proxy đưa
 | `/staff/staffs` | Implemented | `staff.assistant`, `staff.accountant` | Huy | [staff.md](staff.md) |
 | `/staff/classes` | Implemented | `staff.assistant`, `staff.accountant` | Huy | [staff.md](staff.md) |
 | `/staff/students` | Implemented | `staff.assistant`, `staff.accountant` | Huy | [staff.md](staff.md) |
-| `/staff/costs` | Implemented | `staff.assistant` | Huy | [staff.md](staff.md) |
+| `/staff/costs` | Implemented | `staff.assistant`, `staff.accountant` | Huy | [staff.md](staff.md) |
 | `/staff/history` | Implemented | `staff.assistant` | Huy | [staff.md](staff.md) |
 | `/staff/customer-care-detail` | Implemented | `staff.customer_care` | Huy | [staff.md](staff.md) |
 | `/staff/lesson_plan_detail` | Implemented | `staff.lesson_plan`, `staff.lesson_plan_head` | Huy | [staff.md](staff.md) |
@@ -52,7 +54,7 @@ Guest mở `/admin/**`, `/staff/**`, hoặc `/student` sẽ được proxy đưa
 | `/verify-email` | Implemented | Public | Huy/Minh | [auth.md](auth.md) |
 | `/assistant` | Planned | Assistant | Minh | [assistant.md](assistant.md) |
 | `/mentor` | Planned | Teacher | Huy | [mentor.md](mentor.md) |
-| `/student` | Implemented | Student | Minh | [student.md](student.md) |
+| `/student` | Implemented | linked `studentInfo` | Minh | [student.md](student.md) |
 
 ## Workplan phase mapping
 

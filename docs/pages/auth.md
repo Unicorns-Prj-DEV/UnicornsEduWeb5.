@@ -6,7 +6,7 @@
 - **State layer:** TanStack Query (`useMutation`) cho toàn bộ submit flow auth.
 - **Global providers:** `QueryClientProvider` + Sonner `Toaster` được mount tại `apps/web/app/providers.tsx`.
 - **Auth gate:** `apps/web/app/providers.tsx` có `AuthPasswordSetupGate`; nếu user có session hợp lệ (`id` + `accountHandle`) và `requiresPasswordSetup=true` thì mọi route client sẽ bị đẩy về `/auth/setup-password`, kể cả khi `roleType` hiện tại vẫn là `guest`. Khi gate chạy từ `/auth/*`, nó dùng query `next` hợp lệ nếu có, không lấy chính auth page làm đích sau setup.
-- **Auth API contract:** `GET /auth/session` là contract auth nhẹ dùng cho SSR, `proxy.ts`, bootstrap client và redirect sau login/setup-password. `GET /auth/profile` giữ backward compatibility nhưng delegate cùng session resolver. Cả hai trả về `id`, `email`, `emailVerified`, `canAccessRestrictedRoutes`, `accountHandle`, `roleType`, `requiresPasswordSetup`, `avatarUrl`, `staffRoles`, `hasStaffProfile`, `hasStudentProfile`.
+- **Auth API contract:** `GET /auth/session` là contract auth nhẹ dùng cho SSR, `proxy.ts`, bootstrap client và redirect sau login/setup-password. `GET /auth/profile` giữ backward compatibility nhưng delegate cùng session resolver. Cả hai trả về `id`, `email`, `emailVerified`, `canAccessRestrictedRoutes`, `accountHandle`, `roleType`, `requiresPasswordSetup`, `avatarUrl`, `staffRoles`, `hasStaffProfile`, `hasStudentProfile`, `effectiveRoleTypes`, `staffProfileComplete`, `availableWorkspaces`, `defaultWorkspace`, `preferredRedirect`, và `access.{admin,staff,student}`.
 - **Cookie policy:** backend set `access_token` và `refresh_token` với `secure=true` + `SameSite=Strict` khi `NODE_ENV=production`; ở `test` và các môi trường non-production thì dùng `secure=false` + `SameSite=Lax`.
 
 ## UI feedback chuẩn hoá
@@ -18,15 +18,16 @@
 
 ## Redirect rules
 
-- Guest mở protected route `/admin/**`, `/staff/**`, hoặc `/student` sẽ bị proxy redirect về `/auth/login?next=<path+query hiện tại>`; sau login thành công frontend ưu tiên `next` hợp lệ trước khi fallback theo role.
+- Guest mở protected route `/admin/**`, `/staff/**`, hoặc `/student` sẽ bị proxy redirect về `/auth/login?next=<path+query hiện tại>`; sau login thành công frontend chỉ ưu tiên `next` nếu internal, không thuộc `/auth/*`, và session hiện tại có quyền vào route đó.
 - Login thành công:
   - nếu `canAccessRestrictedRoutes=false` (chưa verify email, trừ admin), frontend giữ user ở Home (`/`) và bật popup xác minh khi truy cập trang cá nhân/role routes
-  - nếu có `next` hợp lệ và user được phép vào restricted routes, redirect về `next`
-  - `admin -> /admin/dashboard`
-  - `staff.admin` hoặc `staff.assistant` -> `/admin/dashboard`
-  - các staff role vận hành khác, kể cả multi-role như `teacher + lesson_plan + accountant`, -> `/staff` chỉ khi session contract xác nhận `hasStaffProfile=true`; nếu chưa có profile thì fallback `/user-profile`
-  - `accountant` / `lesson_plan_head` vẫn có thể mở các admin route được policy cho phép khi đi trực tiếp, nhưng không còn là post-login landing mặc định
-  - `student -> /student` chỉ khi session contract xác nhận `hasStudentProfile=true`; nếu chưa có profile thì fallback `/user-profile`
+  - nếu có `next` hợp lệ và user được phép vào route đó, redirect về `next`
+  - `admin` hoặc `staff.admin` -> `/admin/dashboard`
+  - `staff.assistant` -> `/admin/dashboard`
+  - `staff.accountant` -> `/admin/classes`
+  - `staff.lesson_plan_head` -> `/admin/lesson-plans`
+  - các staff role vận hành khác, kể cả multi-role như `teacher + lesson_plan`, -> `/staff` chỉ khi session contract xác nhận `hasStaffProfile=true`; nếu chưa có profile thì fallback `/user-profile`
+  - linked `studentInfo` -> `/student` chỉ khi không có admin/staff workspace ưu tiên hơn
   - `guest -> /`
 - Google OAuth thành công:
   - nếu user đã có `passwordHash`: backend set cookie và redirect về `FRONTEND_URL` như flow cũ
@@ -49,7 +50,7 @@
 Để lấy thông tin user hiện tại trong **Server Component**, Route Handler hoặc Server Action (không dùng React context):
 
 - Import và gọi `getUser()` từ `@/lib/auth-server`.
-- Hàm đọc cookie auth từ request, gọi backend `GET /auth/session`, và trả về `UserInfoDto` gồm `id`, `accountHandle`, `roleType`, `requiresPasswordSetup`, `avatarUrl`, `staffRoles`, `hasStaffProfile`, `hasStudentProfile`; nếu lỗi thì fallback guest user.
+- Hàm đọc cookie auth từ request, gọi backend `GET /auth/session`, và trả về đầy đủ `UserInfoDto` nhẹ gồm `id`, `accountHandle`, `roleType`, `requiresPasswordSetup`, `avatarUrl`, `staffRoles`, `hasStaffProfile`, `hasStudentProfile`, `effectiveRoleTypes`, `staffProfileComplete`, `availableWorkspaces`, `defaultWorkspace`, `preferredRedirect`, và `access.{admin,staff,student}`; nếu lỗi thì fallback guest user.
 - `apps/web/proxy.ts` dùng helper `shouldVerifySessionInProxy()` để chỉ gọi `GET /auth/session` cho direct/document navigation vào route protected. Next App Router RSC request khi đổi tab/query (`RSC`, `_rsc`, `next-router-state-tree`) và prefetch (`next-router-prefetch`, `purpose=prefetch`) được bỏ qua để không tạo burst verify session trong dashboard.
 
 **Ví dụ (trang server component):**
@@ -93,7 +94,7 @@ export default async function SomePage() {
   - `POST /auth/refresh` dùng `refresh_token` cookie
     - backend verify chữ ký refresh JWT **và** đối chiếu hash token đang trình bày với `user.refreshToken` đã lưu; refresh token cũ/đã rotate sẽ bị từ chối.
     - rate limit: `120` request / `1 phút` / IP.
-- `GET /auth/session` — contract auth nhẹ cho frontend/server (`id`, `email`, `emailVerified`, `canAccessRestrictedRoutes`, `accountHandle`, `roleType`, `requiresPasswordSetup`, `avatarUrl`, `staffRoles`, `hasStaffProfile`, `hasStudentProfile`); guest trả về object cùng shape với default rỗng.
+- `GET /auth/session` — contract auth nhẹ cho frontend/server (`id`, `email`, `emailVerified`, `canAccessRestrictedRoutes`, `accountHandle`, `roleType`, `requiresPasswordSetup`, `avatarUrl`, `staffRoles`, `hasStaffProfile`, `hasStudentProfile`, `effectiveRoleTypes`, `staffProfileComplete`, `availableWorkspaces`, `defaultWorkspace`, `preferredRedirect`, `access.{admin,staff,student}`); guest trả về object cùng shape với default rỗng. `effectiveRoleTypes` là union của `users.role_type`, linked `staffInfo`, linked `studentInfo`, và full-admin staff role; FE/proxy phải dùng contract này thay vì chỉ so sánh `roleType`.
   - `GET /auth/profile` — backward-compatible alias của session resolver.
   - `GET /auth/me` — thông tin auth hiện tại từ DB theo `access_token`, trả cùng session shape.
 - `POST /auth/resend-verification` (cần session đăng nhập qua `access_token` hoặc `refresh_token`)
@@ -150,7 +151,8 @@ DTO: `apps/web/dtos/profile.dto.ts` và `apps/api/src/dtos/profile.dto.ts`.
 - **Data:** `useQuery` với `getFullProfile()` (GET /users/me/full). Cập nhật qua `updateMyProfile`, `updateMyStaffProfile`, `updateMyStudentProfile` với TanStack Query mutation; riêng tên staff canonical ở `/user-profile` đi qua `updateMyProfile`, không đi qua `updateMyStaffProfile`; toast Sonner cho thành công/lỗi.
 - **Xác minh email:** Dòng Email (tài khoản) hiển thị icon + nhãn **Đã xác minh** / **Chưa xác minh** theo `emailVerified` từ `GET /users/me/full` (`EmailVerificationInline`). Khi **chưa** xác minh: nút «Xác minh email →→» gọi `POST /auth/resend-verification` (`authApi.resendVerificationEmail`). Mock `apps/web/mocks/user-profile-verification.mock.ts`: mặc định `forceEmailUnverifiedForTest: false` để hiển thị đúng API; có thể bật tạm khi test UI. `emailVerifiedWhenApiMissing` khi API thiếu field. Email trên hồ sơ **học viên** khác email đăng nhập: hiển thị ghi chú không áp dụng trạng thái xác minh tài khoản; nếu trùng email đăng nhập thì trạng thái trùng với tài khoản.
 - **Bảo vệ:** Nếu 401 (chưa đăng nhập), trang gợi ý đăng nhập và link tới `/auth/login`.
-- **Role gates:** `AdminAccessGate`, `StudentAccessGate` và `StaffAccessGate` dùng lightweight auth session (`useAuth()` bootstrap từ `GET /auth/session`) để kiểm tra `roleType`, `staffRoles`, `hasStaffProfile`, `hasStudentProfile`; không cần refetch `GET /users/me/full` chỉ để gate shell access. `StaffAccessGate` chỉ redirect về `/user-profile` khi tài khoản staff/admin chưa có linked staff profile; nếu có profile nhưng thiếu quyền route thì hiển thị màn locked thay vì ép hoàn thiện hồ sơ.
+- **Auth session contract:** `GET /auth/session` trả role gốc (`roleType`) cùng contract quyền đã resolve: `effectiveRoleTypes`, `staffRoles`, `hasStaffProfile`, `hasStudentProfile`, `staffProfileComplete`, `availableWorkspaces`, `defaultWorkspace`, `preferredRedirect`, và `access.{admin,staff,student}`. Contract này là nguồn chính cho redirect sau login/proxy/client gates khi một user có nhiều linked profile.
+- **Role gates:** `AdminAccessGate`, `StudentAccessGate` và `StaffAccessGate` dùng lightweight auth session (`useAuth()` bootstrap từ `GET /auth/session`) để kiểm tra quyền đã resolve thay vì chỉ dựa vào `roleType`. `StaffAccessGate` chỉ redirect về `/user-profile` khi actor có staff workspace nhưng thiếu linked staff profile/hồ sơ bắt buộc; nếu có profile nhưng thiếu quyền route thì hiển thị màn locked thay vì ép hoàn thiện hồ sơ. `StudentAccessGate` mở khi session có `access.student.canAccess` hoặc linked `studentInfo`, kể cả khi `roleType` chính không phải `student`.
 - **Staff profile completion:** Section «Nhân sự» của `/user-profile` tính 12 field staff người dùng tự hoàn thiện; `status`, `roles`, và `personal_achievement_link` không tính vào bộ đếm bắt buộc. `personal_achievement_link` là minh chứng thành tích tùy chọn.
 - **Email verification gate:** Với session `canAccessRestrictedRoutes=false`, frontend chặn các route cá nhân/role routes bằng popup xác minh và giữ user ở Home; backend tiếp tục chặn `users/me/*` bằng guard để tránh lộ dữ liệu cá nhân qua API trực tiếp. Admin đầy đủ (`roleType=admin` hoặc `staff.admin`) được coi là `canAccessRestrictedRoutes=true` trong session và được backend guard bỏ qua bước email verification.
 

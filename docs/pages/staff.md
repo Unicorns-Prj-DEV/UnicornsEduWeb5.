@@ -4,32 +4,33 @@
 
 - **Paths:** `/staff`, `/staff/dashboard`, `/staff/profile`, `/staff/notification`, `/staff/users`, `/staff/staffs`, `/staff/staffs/[id]`, `/staff/classes`, `/staff/classes/[id]`, `/staff/students`, `/staff/students/[id]`, `/staff/deductions`, `/staff/costs`, `/staff/history`, `/staff/customer-care-detail`, `/staff/customer-care-detail/[staffId]`, `/staff/assistant-detail`, `/staff/accountant-detail`, `/staff/communication-detail`, `/staff/technical-detail`, `/staff/lesson-plan-detail`, `/staff/lesson-plan-detail/[staffId]`, `/staff/lesson_plan_detail`, `/staff/lesson_plan_detail/[staffId]`, `/staff/lesson-plan-tasks`, `/staff/lesson-plan-tasks/[taskId]`, `/staff/lesson-plan-manage-details`, `/staff/lesson-plans`, `/staff/lesson-plans/tasks/[taskId]`, `/staff/lesson-manage-details`, `/staff/calendar`
 - **Runtime access hiện tại:**
-  - **Tenant/workspace:** `/staff/**` là staff workspace trong app single-tenant; mọi scope khóa bằng `roleType=staff`, linked `staffInfo`, và `staffInfo.roles`, không dùng tenant/workspace id
+  - **Tenant/workspace:** `/staff/**` là staff workspace trong app single-tenant; mọi scope khóa bằng linked `staffInfo` và `staffInfo.roles`, không dùng tenant/workspace id. `users.role_type` không còn là điều kiện duy nhất; một user có primary role khác vẫn mở staff shell nếu có linked staff profile hợp lệ.
+  - `staffInfo.roles` có `admin` được coi là admin đầy đủ trong staff shell: mở toàn bộ staff routes, không bị hạ xuống teacher/customer-care scope khi cùng lúc có các role vận hành khác.
   - guest mở `/staff/**` được proxy đưa về `/auth/login?next=<path+query>` để sau login quay lại đúng staff route nếu role/session cho phép
-  - proxy dùng cùng helper `staff-shell-access` với `StaffAccessGate` để chặn sớm cross-shell/thiếu linked `staffInfo`; riêng staff đã có profile vẫn gọi `GET /users/me/full` để chặn hồ sơ thiếu các trường bắt buộc trước khi vào `/staff/**`; `personal_achievement_link` là minh chứng thành tích tùy chọn và không nằm trong điều kiện redirect này
-  - các client gates trong nhóm `/staff` dùng lightweight session từ `GET /auth/session` để check `roleType`, `staffRoles`, `hasStaffProfile`; nếu có linked staff profile nhưng thiếu quyền route, gate hiển thị màn locked thay vì redirect về `/user-profile`
+  - proxy dùng cùng helper `staff-shell-access` với `StaffAccessGate` để chặn sớm cross-shell/thiếu linked `staffInfo`; mọi actor có staff workspace sẽ bị chặn nếu hồ sơ thiếu các trường bắt buộc trước khi vào `/staff/**`; `personal_achievement_link` là minh chứng thành tích tùy chọn và không nằm trong điều kiện redirect này
+  - các client gates trong nhóm `/staff` dùng lightweight session từ `GET /auth/session` để check `effectiveRoleTypes`, `staffRoles`, `hasStaffProfile`, `staffProfileComplete`, và `access.staff`; nếu có linked staff profile nhưng thiếu quyền route, gate hiển thị màn locked thay vì redirect về `/user-profile`
   - `/staff`: tài khoản hiện tại phải có linked `staffInfo`; dashboard luôn có thẻ chung `Thu nhập tháng` từ `GET /users/me/staff-income-summary`, còn các khối còn lại được bật theo `staffInfo.roles` qua `GET /users/me/staff-dashboard`; trợ lí có link “Xem chi tiết” thu nhập trỏ `/staff/staffs/:ownStaffId` thay vì `/staff/profile`
   - `/staff/dashboard`: chỉ mở cho `staff.assistant` (assistant admin-like); **redirect** về `/staff` để giữ bookmark cũ; chi tiết nhân sự bản thân mở qua sidebar **Cá nhân** hoặc `/staff/staffs/:ownStaffId`
   - `/staff/profile`: tài khoản hiện tại phải có linked `staffInfo`; đây là self-detail page đầy đủ của chính staff đang đăng nhập
   - `/staff/notification`: tài khoản hiện tại phải có linked `staffInfo`; đây là feed chỉ đọc để xem các notification admin đã push
-  - `/staff/users`, `/staff/history`: chỉ mở cho `roleType=staff` có role `assistant`; đây là mirror route của admin workspace nhưng giữ nguyên staff shell
-  - `/staff/staffs`, `/staff/staffs/[id]`, `/staff/classes`, `/staff/classes/[id]`, `/staff/students`, `/staff/students/[id]`: mở cho `roleType=staff` có role `assistant` hoặc `accountant`; kế toán dùng quyền xem để mở link nhân sự/lớp/học sinh từ các màn chi tiết, còn mutation vẫn do backend route tương ứng kiểm soát
+  - `/staff/users`, `/staff/history`: chỉ mở cho linked staff có role `assistant`; đây là mirror route của admin workspace nhưng giữ nguyên staff shell
+  - `/staff/staffs`, `/staff/staffs/[id]`, `/staff/classes`, `/staff/classes/[id]`, `/staff/students`, `/staff/students/[id]`: mở cho linked staff có role `assistant` hoặc `accountant`; kế toán dùng quyền xem để mở link nhân sự/lớp/học sinh từ các màn chi tiết, còn mutation vẫn do backend route tương ứng kiểm soát
   - `/staff/deductions` và `/staff/costs`: mở cho `staff.assistant` và `staff.accountant` (admin-like module tài chính trong staff shell)
-  - `/staff/students/[id]`: `roleType=staff` có role `assistant` hoặc `accountant`; `roleType=staff` có role `customer_care` chỉ mở khi học sinh đang thuộc phạm vi CSKH của chính staff hiện tại
-  - `/staff/classes/[id]`: `admin`, `roleType=staff` có `teacher`, `assistant`, `accountant`, hoặc `customer_care` khi lớp có ít nhất một học sinh thuộc phạm vi CSKH của staff hiện tại
+  - `/staff/students/[id]`: linked staff có role `assistant` hoặc `accountant`; linked staff có role `customer_care` chỉ mở khi học sinh đang thuộc phạm vi CSKH của chính staff hiện tại
+  - `/staff/classes/[id]`: `admin`, linked staff có `teacher`, `assistant`, `accountant`, hoặc `customer_care` khi lớp có ít nhất một học sinh thuộc phạm vi CSKH của staff hiện tại
   - `/staff/customer-care-detail`: hồ sơ staff hiện tại có role `customer_care`
-  - `/staff/customer-care-detail/[staffId]`: chỉ mở cho `roleType=staff` có role `assistant`
+  - `/staff/customer-care-detail/[staffId]`: chỉ mở cho linked staff có role `assistant`
   - `/staff/assistant-detail`: hồ sơ staff hiện tại có role `assistant`
   - `/staff/accountant-detail`: hồ sơ staff hiện tại có role `accountant`; `staff.assistant` cũng mở được route này khi truyền `?staffId=...` để xem admin-like detail
   - `/staff/communication-detail`: hồ sơ staff hiện tại có role `communication`; `staff.assistant` cũng mở được route này khi truyền `?staffId=...` để xem admin-like detail
   - `/staff/technical-detail`: hồ sơ staff hiện tại có role `technical`; `staff.assistant` cũng mở được route này khi truyền `?staffId=...` để xem admin-like detail
   - `/staff/lesson-plan-detail` và `/staff/lesson_plan_detail`: hồ sơ staff hiện tại có role `lesson_plan` hoặc `lesson_plan_head`; route gạch dưới là entrypoint mới từ bảng `Công việc khác`, route gạch nối giữ vai trò alias tương thích
-  - `/staff/lesson-plan-detail/[staffId]` và `/staff/lesson_plan_detail/[staffId]`: chỉ mở cho `roleType=staff` có role `assistant`
+  - `/staff/lesson-plan-detail/[staffId]` và `/staff/lesson_plan_detail/[staffId]`: chỉ mở cho linked staff có role `assistant`
   - `/staff/lesson-plan-tasks`, `/staff/lesson-plan-tasks/[taskId]`, `/staff/lesson-plan-manage-details`: route legacy; hiện redirect về nhóm `/staff/lesson-plans*`
   - `/staff/lesson-plans`: entrypoint lesson workspace dùng chung cho `admin`, `staff.assistant`, `staff.lesson_plan_head`, `staff.lesson_plan`, và `staff.accountant`
   - `/staff/lesson-plans/tasks/[taskId]`: mở cho `admin`, `staff.assistant`, `staff.lesson_plan_head`, `staff.lesson_plan`; `staff.accountant` không vào route này
   - `/staff/lesson-manage-details`: chỉ mở cho `admin`, `staff.assistant`, `staff.lesson_plan_head`
-- `/staff/calendar`: `roleType=staff` có role `teacher`; hiển thị lịch dạy read-only của chính staff với aggregate event feed và 2 chế độ (cùng UX compact với `/admin/calendar` ở phần Calendar/Schedule + multi-select lớp; staff không có filter gia sư hay quyền CRUD buổi bù):
+- `/staff/calendar`: linked staff có role `teacher`, `assistant`, hoặc admin đầy đủ; hiển thị lịch dạy read-only của chính staff với aggregate event feed và 2 chế độ (cùng UX compact với `/admin/calendar` ở phần Calendar/Schedule + multi-select lớp; staff không có filter gia sư hay quyền CRUD buổi bù):
   - Có toggle **Tuần này / Tuần sau**.
   - `Calendar`: lưới tuần kiểu Google Calendar; khung giờ tự co theo buổi (ưu tiên không bơm thêm dải 0–6h khi mọi buổi bắt đầu từ 6h) và có all-day row để render `exam`.
   - `Schedule`: danh sách dọc nhóm theo ngày, chỉ render ngày có lịch dạy (bỏ ngày trống / ngày lễ không có lớp).
@@ -53,7 +54,7 @@
   - `customer_care`: thêm số học sinh mới/nghỉ trong tháng, số học sinh đang chăm sóc, tổng học phí, tổng doanh thu, danh sách học sinh số dư thấp và học sinh nợ tiền
   - `accountant`: thêm danh sách nhân sự còn khoản pending và khối báo cáo tài chính rút gọn cùng nguồn aggregate với admin dashboard
   - `communication` và `technical`: hiện chưa có khối riêng ngoài phần thu nhập tháng
-  - **Trợ lí (`staff.assistant`):** sidebar có **Dashboard** (`/staff`), **Cá nhân** → `/staff/staffs/:ownStaffId` (trang chi tiết nhân sự mirror admin), rồi các mục mirror (`User`, `Nhân sự`, …); mục **Nhân sự** không highlight khi đang xem đúng trang của chính mình (tránh trùng với **Cá nhân**)
+  - **Trợ lí (`staff.assistant`):** sidebar có **Dashboard** (`/staff`), **Cá nhân** → `/staff/staffs/:ownStaffId` (trang chi tiết nhân sự mirror admin), rồi các mục mirror (`User`, `Nhân sự`, …); nếu hồ sơ đồng thời có role khác như `technical`, `communication`, `customer_care` hoặc `teacher`, sidebar union thêm các mục self-service tương ứng thay vì ẩn do nhánh assistant; mục **Nhân sự** không highlight khi đang xem đúng trang của chính mình (tránh trùng với **Cá nhân**)
 - `/staff/notification`
   - là feed chỉ đọc cho staff xem các notification admin đã publish **và match audience hiện tại của staff đó**, sắp xếp mới nhất trước theo `lastPushedAt`
   - mỗi card hiển thị tiêu đề, nội dung, thời điểm push và badge `Điều chỉnh v{n}` khi notification đã được repush
@@ -104,10 +105,9 @@
   - các role `lesson_plan` và `lesson_plan_head` mở row tương ứng trong `Công việc khác` sang self detail `/staff/lesson_plan_detail`; sidebar `Giáo Án` vẫn tiếp tục đi vào workspace `/staff/lesson-plans`
 - `/staff/classes/[id]`
   - header lớp: tên + badge workspace; **dòng meta** (trạng thái, loại, gói học phí, trợ cấp, sĩ số, số học sinh, số gia sư, buổi trong tháng/scoped, scales) **chỉ hiển thị** khi actor là `admin`, `accountant`, hoặc `customer_care` (gia sư thuần `teacher` không thấy dòng này); không còn card **Thông tin cơ bản**; không còn đoạn ghi chú mô tả quyền dưới header
-  - với `staff.assistant`, route này render class detail kiểu admin ngay trong staff shell
-  - với `staff.accountant` nhưng không đồng thời có role `teacher`, route này render class detail kiểu admin ngay trong staff shell
+  - với `staff.assistant` hoặc `staff.accountant`, route này render class detail kiểu admin ngay trong staff shell
+  - nếu một staff đồng thời có `teacher` và `accountant`, route vẫn ưu tiên quyền accountant nên xem được mọi lớp theo admin-like detail thay vì bị scope về lớp đang dạy
   - với teacher/admin còn lại, route giữ teacher workspace self-service như trước
-  - nếu một staff đồng thời có `teacher` và `accountant`, route này ưu tiên teacher workspace self-service để vẫn thêm/sửa session của lớp mình
   - với `staff.customer_care`, route mở ở chế độ **chỉ xem** khi lớp có ít nhất một học sinh đang do chính staff đó phụ trách từ màn CSKH; các CTA sửa khung giờ, thêm buổi và sửa session đều bị khóa
   - card **Lịch dạy bù** xuất hiện ngay trên khu vực lịch sử buổi học; danh sách được sắp theo buổi gần nhất trước và có phân trang ngay trong card
   - `teacher` được phân công lớp có thể tạo buổi bù mới trực tiếp từ `/staff/classes/[id]`, nhưng `gia su phu trach` bị khóa cứng về staff hiện tại

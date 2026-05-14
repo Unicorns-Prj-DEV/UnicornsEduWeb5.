@@ -3,9 +3,9 @@
 ## Route and role
 
 - **Path:** `/student`
-- **Role:** `student` only (guard must block other roles).
+- **Role:** linked `studentInfo` self-service; actor có nhiều workspace vẫn mở `/student` nếu session resolve `access.student.canAccess=true`.
 - **Workspace/tenant:** `/student` là student workspace trong app single-tenant; scope khóa theo tài khoản hiện tại và linked `studentInfo`, không theo `tenant_id`/`workspace_id`.
-- **Yêu cầu hồ sơ:** cần `roleType=student` và linked `studentInfo`; thiếu hồ sơ học sinh thì shell không mở.
+- **Yêu cầu hồ sơ:** cần linked `studentInfo`; thiếu hồ sơ học sinh thì shell không mở.
 - **Guest redirect:** guest mở `/student` được proxy đưa về `/auth/login?next=<path+query>` để sau login quay lại đúng student route nếu session có linked `studentInfo`.
 - **Workplan owner:** Minh (Frontend – UX + Assistant/Student).
 
@@ -53,7 +53,7 @@
 
 - Route `/student` đã có file runtime thật tại `apps/web/app/student/page.tsx`.
 - Shell route dùng `apps/web/app/student/layout.tsx` + `StudentAccessGate`; proxy cũng chặn `/student/**` bằng session nhẹ trước khi vào shell.
-- `StudentAccessGate` dùng `GET /auth/session` qua `useAuth()` và chỉ mở khi actor vừa có `roleType=student` vừa có linked `studentInfo`.
+- `StudentAccessGate` dùng `GET /auth/session` qua `useAuth()` và chỉ mở khi actor có `access.student.canAccess` hoặc linked `studentInfo`; không phụ thuộc duy nhất vào `users.role_type`.
 - Layout: `StudentSidebar` + vùng main (`#student-main-content`), skip link “Bỏ qua điều hướng”; không còn `Navbar` trong shell học sinh.
 - Nội dung trang bám admin student detail nhưng đổi CTA và copy về hướng self-service.
 
