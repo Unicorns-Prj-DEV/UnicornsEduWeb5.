@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "./lib/auth-server";
+import { shouldVerifySessionInProxy } from "./lib/proxy-auth-guard";
 
 const API_URL =
     process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
@@ -73,6 +74,16 @@ async function fetchFullProfile(cookieHeader: string): Promise<FullProfileGuardP
 
 export async function proxy(req: NextRequest) {
     const { pathname } = req.nextUrl;
+    if (
+        !shouldVerifySessionInProxy({
+            pathname,
+            searchParams: req.nextUrl.searchParams,
+            headers: req.headers,
+        })
+    ) {
+        return NextResponse.next();
+    }
+
     const user = await getUser(req.headers.get("cookie") ?? undefined);
     const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
     const isStrictAdminNotificationRoute =
@@ -116,5 +127,34 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-    matcher: ["/admin/:path*", "/staff/:path*", "/student/:path*", "/user-profile/:path*"],
+    matcher: [
+        {
+            source: "/admin/:path*",
+            missing: [
+                { type: "header", key: "next-router-prefetch" },
+                { type: "header", key: "purpose", value: "prefetch" },
+            ],
+        },
+        {
+            source: "/staff/:path*",
+            missing: [
+                { type: "header", key: "next-router-prefetch" },
+                { type: "header", key: "purpose", value: "prefetch" },
+            ],
+        },
+        {
+            source: "/student/:path*",
+            missing: [
+                { type: "header", key: "next-router-prefetch" },
+                { type: "header", key: "purpose", value: "prefetch" },
+            ],
+        },
+        {
+            source: "/user-profile/:path*",
+            missing: [
+                { type: "header", key: "next-router-prefetch" },
+                { type: "header", key: "purpose", value: "prefetch" },
+            ],
+        },
+    ],
 };
