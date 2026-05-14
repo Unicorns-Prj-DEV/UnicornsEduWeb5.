@@ -40,6 +40,19 @@ import { CalendarService } from 'src/calendar/calendar.service';
 import { StaffOperationsAccessService } from 'src/staff-ops/staff-operations-access.service';
 import { ClassService } from './class.service';
 
+const ELEVATED_CLASS_ACCESS_ROLES: readonly StaffRole[] = [
+  StaffRole.admin,
+  StaffRole.assistant,
+  StaffRole.accountant,
+];
+
+function isTeacherScopedActor(roles: StaffRole[]) {
+  return (
+    roles.includes(StaffRole.teacher) &&
+    !roles.some((role) => ELEVATED_CLASS_ACCESS_ROLES.includes(role))
+  );
+}
+
 @Controller('staff-ops/classes')
 @ApiTags('staff-ops-classes')
 @ApiCookieAuth('access_token')
@@ -50,6 +63,22 @@ export class StaffOpsClassController {
     private readonly calendarService: CalendarService,
     private readonly staffOperationsAccess: StaffOperationsAccessService,
   ) {}
+
+  private async assertCanManageMakeupEvent(user: JwtPayload) {
+    if (user.roleType === UserRole.admin) {
+      return;
+    }
+
+    const actor = await this.staffOperationsAccess.resolveClassViewerActor(
+      user.id,
+      user.roleType,
+    );
+    if (!actor.roles.includes(StaffRole.admin)) {
+      throw new ForbiddenException(
+        'Chỉ admin mới được quản lý buổi bù trong staff workspace.',
+      );
+    }
+  }
 
   @Get()
   @ApiOperation({
@@ -171,7 +200,7 @@ export class StaffOpsClassController {
       user.roleType,
     );
 
-    if (actor.roles.includes(StaffRole.teacher)) {
+    if (isTeacherScopedActor(actor.roles)) {
       await this.staffOperationsAccess.assertTeacherAssignedToClass(
         actor.id,
         id,
@@ -225,11 +254,7 @@ export class StaffOpsClassController {
     @Param('eventId', new ParseUUIDPipe()) eventId: string,
     @Body() dto: UpdateClassScopedMakeupScheduleEventDto,
   ): Promise<{ success: boolean; data: MakeupScheduleEventDto }> {
-    if (user.roleType !== UserRole.admin) {
-      throw new ForbiddenException(
-        'Chỉ admin mới được chỉnh sửa buổi bù trong staff workspace.',
-      );
-    }
+    await this.assertCanManageMakeupEvent(user);
 
     return this.calendarService.updateMakeupScheduleEventForClass(
       id,
@@ -250,11 +275,7 @@ export class StaffOpsClassController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('eventId', new ParseUUIDPipe()) eventId: string,
   ): Promise<{ success: boolean }> {
-    if (user.roleType !== UserRole.admin) {
-      throw new ForbiddenException(
-        'Chỉ admin mới được xóa buổi bù trong staff workspace.',
-      );
-    }
+    await this.assertCanManageMakeupEvent(user);
 
     return this.calendarService.deleteMakeupScheduleEventForClass(id, eventId);
   }

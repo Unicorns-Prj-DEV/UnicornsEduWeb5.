@@ -14,9 +14,26 @@ export interface StaffOperationsActor {
 
 export type StaffClassViewAccessMode = 'admin' | 'teacher' | 'customer_care';
 
+const ELEVATED_CLASS_ACCESS_ROLES = [
+  StaffRole.admin,
+  StaffRole.assistant,
+  StaffRole.accountant,
+] as const;
+
+function hasAnyStaffRole(
+  roles: StaffRole[],
+  allowedRoles: readonly StaffRole[],
+) {
+  return roles.some((role) => allowedRoles.includes(role));
+}
+
 @Injectable()
 export class StaffOperationsAccessService {
   constructor(private readonly prisma: PrismaService) {}
+
+  hasElevatedClassAccess(roles: StaffRole[]) {
+    return hasAnyStaffRole(roles, ELEVATED_CLASS_ACCESS_ROLES);
+  }
 
   private async resolveStaffActor(
     userId: string,
@@ -49,17 +66,14 @@ export class StaffOperationsAccessService {
       };
     }
 
-    if (roleType !== UserRole.staff) {
-      throw new ForbiddenException(
-        'Chỉ tài khoản staff mới được dùng màn quản lý lớp học cho teacher.',
-      );
-    }
-
     const staff = await this.resolveStaffActor(userId);
 
-    if (!staff.roles.includes(StaffRole.teacher)) {
+    if (
+      !staff.roles.includes(StaffRole.teacher) &&
+      !this.hasElevatedClassAccess(staff.roles)
+    ) {
       throw new ForbiddenException(
-        'Màn /staff hiện chỉ mở cho staff có role teacher.',
+        'Màn /staff hiện chỉ mở cho teacher, trợ lí, kế toán, hoặc staff admin.',
       );
     }
 
@@ -77,20 +91,15 @@ export class StaffOperationsAccessService {
       };
     }
 
-    if (roleType !== UserRole.staff) {
-      throw new ForbiddenException(
-        'Chỉ tài khoản staff mới được dùng màn chi tiết lớp trong staff shell.',
-      );
-    }
-
     const staff = await this.resolveStaffActor(userId);
 
     if (
       !staff.roles.includes(StaffRole.teacher) &&
-      !staff.roles.includes(StaffRole.customer_care)
+      !staff.roles.includes(StaffRole.customer_care) &&
+      !this.hasElevatedClassAccess(staff.roles)
     ) {
       throw new ForbiddenException(
-        'Màn chi tiết lớp chỉ mở cho staff có role teacher hoặc customer_care.',
+        'Màn chi tiết lớp chỉ mở cho teacher, CSKH, trợ lí, kế toán, hoặc staff admin.',
       );
     }
 
@@ -123,6 +132,10 @@ export class StaffOperationsAccessService {
     classId: string,
   ): Promise<StaffClassViewAccessMode> {
     if (actor.roles.length === 0) {
+      return 'admin';
+    }
+
+    if (this.hasElevatedClassAccess(actor.roles)) {
       return 'admin';
     }
 

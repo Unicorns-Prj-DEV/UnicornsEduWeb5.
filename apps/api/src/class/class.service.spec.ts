@@ -19,6 +19,13 @@ jest.mock('../../generated/client', () => ({
 }));
 
 import { ClassService } from './class.service';
+import { StaffRole, UserRole } from '../../generated/enums';
+
+type ClassServiceTestAccess = {
+  getClassAuditSnapshot: (
+    ...args: unknown[]
+  ) => Promise<{ id: string; teachers: never[] }>;
+};
 
 describe('ClassService', () => {
   const mockTx = {
@@ -45,7 +52,10 @@ describe('ClassService', () => {
     $transaction: jest.fn(),
   };
 
-  const mockStaffOperationsAccess = {};
+  const mockStaffOperationsAccess = {
+    resolveActor: jest.fn(),
+    assertTeacherAssignedToClass: jest.fn(),
+  };
   const mockActionHistoryService = {
     recordUpdate: jest.fn(),
   };
@@ -83,9 +93,138 @@ describe('ClassService', () => {
       mockActionHistoryService as never,
       mockCalendarService as never,
     );
-    (service as any).getClassAuditSnapshot = jest.fn().mockResolvedValue({
-      id: 'class-1',
-      teachers: [],
+    jest
+      .spyOn(
+        service as unknown as ClassServiceTestAccess,
+        'getClassAuditSnapshot',
+      )
+      .mockResolvedValue({
+        id: 'class-1',
+        teachers: [],
+      });
+  });
+
+  describe('getClassesForStaff', () => {
+    it('uses accountant access instead of teacher scope for multi-role staff', async () => {
+      mockStaffOperationsAccess.resolveActor.mockResolvedValue({
+        id: 'staff-1',
+        roles: [StaffRole.teacher, StaffRole.lesson_plan, StaffRole.accountant],
+      });
+      const getClassesSpy = jest
+        .spyOn(service, 'getClasses')
+        .mockResolvedValue({
+          data: [],
+          meta: { total: 0, page: 1, limit: 20 },
+        });
+
+      await service.getClassesForStaff('user-1', UserRole.staff, {
+        page: 1,
+        limit: 20,
+        search: 'SAT',
+      });
+
+      expect(getClassesSpy).toHaveBeenCalledWith({
+        page: 1,
+        limit: 20,
+        search: 'SAT',
+      });
+    });
+
+    it('keeps teacher-only staff scoped to their assigned classes', async () => {
+      mockStaffOperationsAccess.resolveActor.mockResolvedValue({
+        id: 'teacher-1',
+        roles: [StaffRole.teacher],
+      });
+      const getClassesSpy = jest
+        .spyOn(service, 'getClasses')
+        .mockResolvedValue({
+          data: [],
+          meta: { total: 0, page: 1, limit: 20 },
+        });
+
+      await service.getClassesForStaff('user-1', UserRole.staff, {
+        page: 1,
+        limit: 20,
+      });
+
+      expect(getClassesSpy).toHaveBeenCalledWith({
+        page: 1,
+        limit: 20,
+        teacherId: 'teacher-1',
+      });
+    });
+  });
+
+  describe('createClassForStaff', () => {
+    it('allows elevated staff even when they also have teacher role', async () => {
+      mockStaffOperationsAccess.resolveActor.mockResolvedValue({
+        id: 'staff-1',
+        roles: [StaffRole.teacher, StaffRole.accountant],
+      });
+      const createClassSpy = jest
+        .spyOn(service, 'createClass')
+        .mockResolvedValue({
+          id: 'class-1',
+        } as never);
+
+      await service.createClassForStaff('user-1', UserRole.staff, {
+        name: 'Math 10A',
+        type: 'basic',
+        status: 'running',
+      } as never);
+
+      expect(createClassSpy).toHaveBeenCalledWith(
+        {
+          name: 'Math 10A',
+          type: 'basic',
+          status: 'running',
+          schedule: undefined,
+        },
+        undefined,
+      );
+    });
+
+    it('keeps teacher-only staff blocked from creating classes', async () => {
+      mockStaffOperationsAccess.resolveActor.mockResolvedValue({
+        id: 'teacher-1',
+        roles: [StaffRole.teacher],
+      });
+
+      await expect(
+        service.createClassForStaff('user-1', UserRole.staff, {
+          name: 'Math 10A',
+          type: 'basic',
+          status: 'running',
+        } as never),
+      ).rejects.toThrow('Giáo viên không được phép tạo lớp học.');
+    });
+  });
+
+  describe('updateClassScheduleForStaff', () => {
+    it('does not apply teacher assignment scope to elevated multi-role staff', async () => {
+      mockStaffOperationsAccess.resolveActor.mockResolvedValue({
+        id: 'staff-1',
+        roles: [StaffRole.teacher, StaffRole.assistant],
+      });
+      const updateScheduleSpy = jest
+        .spyOn(service, 'updateClassSchedule')
+        .mockResolvedValue({ id: 'class-1' } as never);
+
+      await service.updateClassScheduleForStaff(
+        'user-1',
+        UserRole.staff,
+        'class-1',
+        { schedule: [] } as never,
+      );
+
+      expect(
+        mockStaffOperationsAccess.assertTeacherAssignedToClass,
+      ).not.toHaveBeenCalled();
+      expect(updateScheduleSpy).toHaveBeenCalledWith(
+        'class-1',
+        { schedule: [] },
+        undefined,
+      );
     });
   });
 
@@ -108,6 +247,8 @@ describe('ClassService', () => {
     });
 
     it('upserts same-day operating deduction history rows', async () => {
+      const expectedEffectiveFrom = expect.any(Date) as unknown as Date;
+
       await service.updateClassTeachers('class-1', {
         teachers: [
           {
@@ -135,14 +276,14 @@ describe('ClassService', () => {
           classId_teacherId_effectiveFrom: {
             classId: 'class-1',
             teacherId: 'teacher-1',
-            effectiveFrom: expect.any(Date),
+            effectiveFrom: expectedEffectiveFrom,
           },
         },
         create: {
           classId: 'class-1',
           teacherId: 'teacher-1',
           ratePercent: 7.5,
-          effectiveFrom: expect.any(Date),
+          effectiveFrom: expectedEffectiveFrom,
         },
         update: {
           ratePercent: 7.5,

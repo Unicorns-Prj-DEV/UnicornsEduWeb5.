@@ -46,6 +46,8 @@ describe('StaffOperationsAccessService', () => {
   });
 
   it('rejects non-staff actors from staff operations', async () => {
+    mockPrisma.staffInfo.findFirst.mockResolvedValue(null);
+
     await expect(
       service.resolveActor(
         '6414c8dd-1c84-46da-b8c6-7f9507ec6f63',
@@ -53,7 +55,7 @@ describe('StaffOperationsAccessService', () => {
       ),
     ).rejects.toThrow(
       new ForbiddenException(
-        'Chỉ tài khoản staff mới được dùng màn quản lý lớp học cho teacher.',
+        'Chỉ nhân sự có hồ sơ staff mới được dùng màn vận hành lớp học.',
       ),
     );
   });
@@ -86,9 +88,37 @@ describe('StaffOperationsAccessService', () => {
       ),
     ).rejects.toThrow(
       new ForbiddenException(
-        'Màn /staff hiện chỉ mở cho staff có role teacher.',
+        'Màn /staff hiện chỉ mở cho teacher, trợ lí, kế toán, hoặc staff admin.',
       ),
     );
+  });
+
+  it('resolves linked staff actors even when primary role is student', async () => {
+    mockPrisma.staffInfo.findFirst.mockResolvedValue({
+      id: 'staff-student-1',
+      roles: [StaffRole.accountant],
+    });
+
+    await expect(
+      service.resolveActor('student-accountant-user', UserRole.student),
+    ).resolves.toEqual({
+      id: 'staff-student-1',
+      roles: [StaffRole.accountant],
+    });
+  });
+
+  it('allows elevated non-teacher staff roles for staff operations', async () => {
+    mockPrisma.staffInfo.findFirst.mockResolvedValue({
+      id: 'assistant-1',
+      roles: [StaffRole.assistant],
+    });
+
+    await expect(
+      service.resolveActor('assistant-user', UserRole.staff),
+    ).resolves.toEqual({
+      id: 'assistant-1',
+      roles: [StaffRole.assistant],
+    });
   });
 
   it('returns teacher actor when the staff profile is eligible', async () => {

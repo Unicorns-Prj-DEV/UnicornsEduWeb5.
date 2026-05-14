@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import {
   ClassStatus,
   ClassType,
+  StaffRole,
   StudentClassStatus,
   UserRole,
 } from 'generated/enums';
@@ -193,7 +194,23 @@ export class ClassService {
   }
 
   private isTeacherActor(roles: string[]) {
-    return roles.length > 0;
+    return (
+      roles.includes(StaffRole.teacher) && !this.hasElevatedClassAccess(roles)
+    );
+  }
+
+  private hasElevatedClassAccess(roles: string[]) {
+    return (
+      roles.includes(StaffRole.admin) ||
+      roles.includes(StaffRole.assistant) ||
+      roles.includes(StaffRole.accountant)
+    );
+  }
+
+  private shouldScopeStaffClassesToTeacher(roles: string[]) {
+    return (
+      roles.includes(StaffRole.teacher) && !this.hasElevatedClassAccess(roles)
+    );
   }
 
   private getStoredClassScheduleEntries(
@@ -732,7 +749,9 @@ export class ClassService {
     );
     return this.getClasses({
       ...query,
-      ...(this.isTeacherActor(actor.roles) ? { teacherId: actor.id } : {}),
+      ...(this.shouldScopeStaffClassesToTeacher(actor.roles)
+        ? { teacherId: actor.id }
+        : {}),
     });
   }
 
