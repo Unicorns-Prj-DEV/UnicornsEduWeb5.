@@ -12,6 +12,24 @@ import { BadRequestException } from '@nestjs/common';
 import { PaymentStatus, StaffRole, UserRole } from '../../generated/enums';
 import { StaffService } from './staff.service';
 
+type StaffServiceTestAccess = {
+  getTeacherAllowanceSourceRowsByStatusAndTaxBucket: (
+    ...args: unknown[]
+  ) => Promise<unknown[]>;
+  getTeacherAllowanceRowsByClassStatusAndTaxBucket: (
+    ...args: unknown[]
+  ) => Promise<unknown[]>;
+  getDepositSessionRows: (...args: unknown[]) => Promise<unknown[]>;
+  getUnpaidTotalsByStaffIds: (
+    staffIds: string[],
+    recentWindow?: unknown,
+  ) => Promise<Map<string, number>>;
+  getTeacherSnapshotPaymentPreviewRows: (
+    db: unknown,
+    params: { start?: Date; end?: Date },
+  ) => Promise<unknown[]>;
+};
+
 describe('StaffService', () => {
   const mockPrisma = {
     user: {
@@ -65,6 +83,9 @@ describe('StaffService', () => {
     recordUpdate: jest.fn(),
     recordDelete: jest.fn(),
   };
+  const authIdentityCacheService = {
+    invalidateUser: jest.fn(),
+  };
 
   let service: StaffService;
 
@@ -91,6 +112,7 @@ describe('StaffService', () => {
       mockPrisma as never,
       actionHistoryService as never,
       { generateTutorMeetLink: jest.fn() } as never,
+      authIdentityCacheService as never,
     );
   });
 
@@ -104,10 +126,7 @@ describe('StaffService', () => {
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
     jest
-      .spyOn(
-        service as any,
-        'getTeacherAllowanceRowsByClassStatusAndTaxBucket',
-      )
+      .spyOn(service as any, 'getTeacherAllowanceRowsByClassStatusAndTaxBucket')
       .mockResolvedValue([]);
     jest.spyOn(service as any, 'getDepositSessionRows').mockResolvedValue([]);
   }
@@ -190,6 +209,81 @@ describe('StaffService', () => {
         entityType: 'staff',
         entityId: 'staff-1',
       }),
+    );
+    expect(authIdentityCacheService.invalidateUser).toHaveBeenCalledWith(
+      'user-1',
+    );
+  });
+
+  it('promotes the new linked user and invalidates old and new staff auth cache on relink', async () => {
+    const existingStaff = {
+      id: 'staff-1',
+      userId: 'old-user',
+      roles: [StaffRole.teacher],
+      status: 'active',
+      user: {
+        id: 'old-user',
+        email: 'old@example.com',
+        phone: null,
+        first_name: 'Old',
+        last_name: 'Staff',
+        accountHandle: 'old-staff',
+        province: null,
+        roleType: UserRole.staff,
+        status: 'active',
+        emailVerified: true,
+        phoneVerified: false,
+        linkId: null,
+        createdAt: new Date('2026-03-20T10:00:00.000Z'),
+        updatedAt: new Date('2026-03-20T10:00:00.000Z'),
+      },
+      classTeachers: [],
+    };
+    const updatedStaff = {
+      id: 'staff-1',
+      userId: 'new-user',
+      roles: [StaffRole.teacher],
+      status: 'active',
+      cccdFrontPath: null,
+      cccdBackPath: null,
+      user: {
+        id: 'new-user',
+        email: 'new@example.com',
+        accountHandle: 'new-staff',
+        phone: null,
+        first_name: 'New',
+        last_name: 'Staff',
+        province: null,
+      },
+      classTeachers: [],
+      monthlyStats: [],
+      customerCareManagedBy: null,
+    };
+
+    mockPrisma.staffInfo.findUnique
+      .mockResolvedValueOnce(existingStaff)
+      .mockResolvedValueOnce(updatedStaff);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'new-user',
+      roleType: UserRole.guest,
+      staffInfo: null,
+    });
+    mockPrisma.staffInfo.update.mockResolvedValue({ id: 'staff-1' });
+
+    await service.updateStaff({
+      id: 'staff-1',
+      user_id: 'new-user',
+    });
+
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'new-user' },
+      data: { roleType: UserRole.staff },
+    });
+    expect(authIdentityCacheService.invalidateUser).toHaveBeenCalledWith(
+      'old-user',
+    );
+    expect(authIdentityCacheService.invalidateUser).toHaveBeenCalledWith(
+      'new-user',
     );
   });
 
@@ -887,10 +981,7 @@ describe('StaffService', () => {
         },
       ]);
     jest
-      .spyOn(
-        service as any,
-        'getTeacherAllowanceRowsByClassStatusAndTaxBucket',
-      )
+      .spyOn(service as any, 'getTeacherAllowanceRowsByClassStatusAndTaxBucket')
       .mockResolvedValueOnce([
         {
           classId: 'class-1',
@@ -1075,10 +1166,7 @@ describe('StaffService', () => {
         },
       ]);
     jest
-      .spyOn(
-        service as any,
-        'getTeacherAllowanceRowsByClassStatusAndTaxBucket',
-      )
+      .spyOn(service as any, 'getTeacherAllowanceRowsByClassStatusAndTaxBucket')
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
     jest.spyOn(service as any, 'getDepositSessionRows').mockResolvedValue([]);
@@ -1155,10 +1243,7 @@ describe('StaffService', () => {
         },
       ]);
     jest
-      .spyOn(
-        service as any,
-        'getTeacherAllowanceRowsByClassStatusAndTaxBucket',
-      )
+      .spyOn(service as any, 'getTeacherAllowanceRowsByClassStatusAndTaxBucket')
       .mockResolvedValueOnce([
         {
           classId: 'class-1',
@@ -1208,11 +1293,9 @@ describe('StaffService', () => {
     mockPrisma.classTeacher.findUnique.mockResolvedValue({
       operatingDeductionRatePercent: 20,
     });
+    const testAccess = service as unknown as StaffServiceTestAccess;
     jest
-      .spyOn(
-        service as any,
-        'getTeacherAllowanceSourceRowsByStatusAndTaxBucket',
-      )
+      .spyOn(testAccess, 'getTeacherAllowanceSourceRowsByStatusAndTaxBucket')
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
         {
@@ -1224,37 +1307,36 @@ describe('StaffService', () => {
         },
       ]);
     jest
-      .spyOn(
-        service as any,
-        'getTeacherAllowanceRowsByClassStatusAndTaxBucket',
-      )
+      .spyOn(testAccess, 'getTeacherAllowanceRowsByClassStatusAndTaxBucket')
       .mockResolvedValue([]);
-    jest.spyOn(service as any, 'getDepositSessionRows').mockResolvedValue([]);
+    jest.spyOn(testAccess, 'getDepositSessionRows').mockResolvedValue([]);
     jest
-      .spyOn(service as any, 'getUnpaidTotalsByStaffIds')
-      .mockImplementation(async (_staffIds: string[], recentWindow?: unknown) => {
-        return new Map([['staff-1', recentWindow ? 0 : 100000]]);
-      });
+      .spyOn(testAccess, 'getUnpaidTotalsByStaffIds')
+      .mockImplementation((_staffIds: string[], recentWindow?: unknown) =>
+        Promise.resolve(new Map([['staff-1', recentWindow ? 0 : 100000]])),
+      );
     jest
-      .spyOn(service as any, 'getTeacherSnapshotPaymentPreviewRows')
-      .mockImplementation(async (_db: unknown, params: { start?: Date; end?: Date }) => {
-        if (params.start || params.end) {
-          return [];
-        }
+      .spyOn(testAccess, 'getTeacherSnapshotPaymentPreviewRows')
+      .mockImplementation(
+        (_db: unknown, params: { start?: Date; end?: Date }) => {
+          if (params.start || params.end) {
+            return Promise.resolve([]);
+          }
 
-        return [
-          {
-            id: 'old-session-1',
-            classId: 'class-1',
-            className: 'Toán 10A',
-            date: new Date('2025-01-05T00:00:00.000Z'),
-            paymentStatus: 'unpaid',
-            grossAmount: 100000,
-            operatingAmount: 0,
-            taxableBaseAmount: 100000,
-          },
-        ];
-      });
+          return Promise.resolve([
+            {
+              id: 'old-session-1',
+              classId: 'class-1',
+              className: 'Toán 10A',
+              date: new Date('2025-01-05T00:00:00.000Z'),
+              paymentStatus: 'unpaid',
+              grossAmount: 100000,
+              operatingAmount: 0,
+              taxableBaseAmount: 100000,
+            },
+          ]);
+        },
+      );
 
     const result = await service.getIncomeSummary('staff-1', {
       month: '03',
@@ -1643,9 +1725,13 @@ describe('StaffService', () => {
         teacherPaymentStatus: 'paid',
       },
     });
+    const expectedTaxAsOfDate = expect.stringMatching(
+      /^\d{4}-\d{2}-\d{2}$/,
+    ) as unknown as string;
+
     expect(result).toEqual({
       staffId: 'staff-1',
-      taxAsOfDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      taxAsOfDate: expectedTaxAsOfDate,
       teacherTaxRatePercent: 0,
       requestedItemCount: 2,
       updatedCount: 2,

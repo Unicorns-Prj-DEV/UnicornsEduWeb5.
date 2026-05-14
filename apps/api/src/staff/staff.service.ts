@@ -11,6 +11,7 @@ import {
   ActionHistoryActor,
   ActionHistoryService,
 } from '../action-history/action-history.service';
+import { AuthIdentityCacheService } from 'src/auth/auth-identity-cache.service';
 import {
   PaymentStatus,
   StaffRole,
@@ -587,7 +588,16 @@ export class StaffService {
     private readonly prisma: PrismaService,
     private readonly actionHistoryService: ActionHistoryService,
     private readonly googleCalendarService: GoogleCalendarService,
+    private readonly authIdentityCacheService: AuthIdentityCacheService,
   ) {}
+
+  private invalidateStaffAuthIdentities(
+    ...userIds: Array<string | null | undefined>
+  ) {
+    for (const userId of new Set(userIds.filter(Boolean) as string[])) {
+      this.authIdentityCacheService.invalidateUser(userId);
+    }
+  }
 
   private validateCccdImageFile(
     file: UploadableFile | undefined,
@@ -832,11 +842,15 @@ export class StaffService {
       };
     }
 
-    if (user.roleType !== UserRole.guest && user.roleType !== UserRole.staff) {
+    if (
+      user.roleType !== UserRole.guest &&
+      user.roleType !== UserRole.staff &&
+      user.roleType !== UserRole.student
+    ) {
       return {
         isEligible: false,
         ineligibleReason:
-          'Chỉ có thể gán gia sư cho user đang có role guest hoặc staff.',
+          'Chỉ có thể gán gia sư cho user đang có role guest, staff hoặc student.',
       };
     }
 
@@ -4257,10 +4271,10 @@ export class StaffService {
         data.customer_care_managed_by_staff_id ?? null;
     }
 
+    const targetUserId = data.user_id ?? existingStaff.userId;
+
     try {
       const updatedStaffId = await this.prisma.$transaction(async (tx) => {
-        const targetUserId = data.user_id ?? existingStaff.userId;
-
         if (data.user_id != null) {
           const targetUser = await tx.user.findUnique({
             where: { id: data.user_id },
@@ -4282,11 +4296,40 @@ export class StaffService {
           }
           if (
             targetUser.roleType !== UserRole.guest &&
-            targetUser.roleType !== UserRole.staff
+            targetUser.roleType !== UserRole.staff &&
+            targetUser.roleType !== UserRole.student
           ) {
             throw new BadRequestException(
-              'Chỉ có thể gán gia sư cho user đang có role guest hoặc staff.',
+              'Chỉ có thể gán gia sư cho user đang có role guest, staff hoặc student.',
             );
+          }
+
+          if (targetUser.roleType !== UserRole.staff) {
+            await tx.user.update({
+              where: { id: data.user_id },
+              data: { roleType: UserRole.staff },
+            });
+          }
+
+          if (existingStaff.userId && existingStaff.userId !== data.user_id) {
+            const previousUser = await tx.user.findUnique({
+              where: { id: existingStaff.userId },
+              select: {
+                roleType: true,
+                studentInfo: { select: { id: true } },
+              },
+            });
+
+            if (previousUser?.roleType === UserRole.staff) {
+              await tx.user.update({
+                where: { id: existingStaff.userId },
+                data: {
+                  roleType: previousUser.studentInfo
+                    ? UserRole.student
+                    : UserRole.guest,
+                },
+              });
+            }
           }
         }
 
@@ -4325,9 +4368,7 @@ export class StaffService {
 
         await tx.staffInfo.update({
           where: { id: data.id },
-          data: payload as Parameters<
-            typeof this.prisma.staffInfo.update
-          >[0]['data'],
+          data: payload as Prisma.StaffInfoUpdateArgs['data'],
         });
 
         if (auditActor) {
@@ -4347,7 +4388,9 @@ export class StaffService {
         return data.id;
       });
 
-      return this.getStaffById(updatedStaffId);
+      const updatedStaff = await this.getStaffById(updatedStaffId);
+      this.invalidateStaffAuthIdentities(existingStaff.userId, targetUserId);
+      return updatedStaff;
     } catch (error) {
       if (this.isCccdNumberUniqueConstraint(error)) {
         throw new BadRequestException('Số CCCD đã tồn tại trong hệ thống.');
@@ -4374,7 +4417,7 @@ export class StaffService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const deletedStaff = await this.prisma.$transaction(async (tx) => {
       const deletedStaff = await tx.staffInfo.delete({
         where: {
           id,
@@ -4393,6 +4436,8 @@ export class StaffService {
 
       return deletedStaff;
     });
+    this.invalidateStaffAuthIdentities(existingStaff.userId);
+    return deletedStaff;
   }
   async createStaff(data: CreateStaffDto, auditActor?: ActionHistoryActor) {
     const user = await this.prisma.user.findUnique({
@@ -4486,9 +4531,7 @@ export class StaffService {
         }
 
         const createdStaff = await tx.staffInfo.create({
-          data: createPayload as Parameters<
-            typeof this.prisma.staffInfo.create
-          >[0]['data'],
+          data: createPayload as Prisma.StaffInfoCreateArgs['data'],
         });
 
         if (auditActor) {
@@ -4510,7 +4553,9 @@ export class StaffService {
         return createdStaff.id;
       });
 
-      return this.getStaffById(createdStaffId);
+      const createdStaff = await this.getStaffById(createdStaffId);
+      this.invalidateStaffAuthIdentities(data.user_id);
+      return createdStaff;
     } catch (error) {
       if (this.isCccdNumberUniqueConstraint(error)) {
         throw new BadRequestException('Số CCCD đã tồn tại trong hệ thống.');
