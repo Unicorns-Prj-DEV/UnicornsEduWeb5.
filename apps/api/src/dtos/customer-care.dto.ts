@@ -12,6 +12,34 @@ export interface CustomerCareStudentDto {
   province: string | null;
   status: StudentStatus | null;
   classes: CustomerCareStudentClassDto[];
+  recentTopUpTotalLast21Days: number;
+  recentTopUpMeetsThreshold: boolean;
+}
+
+export interface CustomerCareStudentListMetaDto {
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface CustomerCareStudentListDto {
+  data: CustomerCareStudentDto[];
+  meta: CustomerCareStudentListMetaDto;
+}
+
+export interface CustomerCareTopUpHistoryItemDto {
+  id: string;
+  studentId: string;
+  studentName: string;
+  amount: number;
+  note: string | null;
+  date: string;
+  createdAt: string;
+}
+
+export interface CustomerCareTopUpHistoryListDto {
+  data: CustomerCareTopUpHistoryItemDto[];
+  meta: CustomerCareStudentListMetaDto;
 }
 
 export interface CustomerCareCommissionDto {

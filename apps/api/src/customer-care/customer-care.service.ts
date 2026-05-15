@@ -4,15 +4,24 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from 'generated/client';
-import { PaymentStatus, StaffRole, UserRole } from 'generated/enums';
+import {
+  PaymentStatus,
+  StaffRole,
+  StudentClassStatus,
+  UserRole,
+  WalletTransactionType,
+} from 'generated/enums';
 import type {
   CustomerCareCommissionDto,
   CustomerCareSessionCommissionDto,
-  CustomerCareStudentDto,
+  CustomerCareStudentListDto,
+  CustomerCareTopUpHistoryListDto,
 } from 'src/dtos/customer-care.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 const DEFAULT_DAYS = 30;
+const RECENT_TOP_UP_DAYS = 21;
+const RECENT_TOP_UP_THRESHOLD = 300_000;
 
 function toNumber(value: unknown): number {
   if (value == null) return 0;
@@ -26,6 +35,13 @@ type CustomerCareCommissionAggregateRow = {
   fullName: string | null;
   totalCommission: unknown;
 };
+
+type CustomerCareStudentListQuery = {
+  page?: number;
+  limit?: number;
+};
+
+type CustomerCareTopUpHistoryQuery = CustomerCareStudentListQuery;
 
 @Injectable()
 export class CustomerCareService {
@@ -91,7 +107,8 @@ export class CustomerCareService {
     userId: string,
     roleType: UserRole,
     staffId: string,
-  ): Promise<CustomerCareStudentDto[]> {
+    query: CustomerCareStudentListQuery = {},
+  ): Promise<CustomerCareStudentListDto> {
     const accessibleStaffId = await this.resolveAccessibleStaffId(
       userId,
       roleType,
@@ -104,8 +121,25 @@ export class CustomerCareService {
     });
     if (!staff) throw new NotFoundException('Staff not found');
 
+    const parsedPage = Number(query.page);
+    const parsedLimit = Number(query.limit);
+    const page =
+      Number.isInteger(parsedPage) && parsedPage >= 1 ? parsedPage : 1;
+    const limit =
+      Number.isInteger(parsedLimit) && parsedLimit >= 1
+        ? Math.min(parsedLimit, 100)
+        : 20;
+    const total = await this.prisma.customerCareService.count({
+      where: { staffId: accessibleStaffId },
+    });
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const safePage = Math.min(page, totalPages);
+    const skip = (safePage - 1) * limit;
+
     const list = await this.prisma.customerCareService.findMany({
       where: { staffId: accessibleStaffId },
+      skip,
+      take: limit,
       select: {
         student: {
           select: {
@@ -115,6 +149,7 @@ export class CustomerCareService {
             province: true,
             status: true,
             studentClasses: {
+              where: { status: StudentClassStatus.active },
               select: {
                 class: { select: { id: true, name: true } },
               },
@@ -129,17 +164,138 @@ export class CustomerCareService {
       },
     });
 
-    return list.map((row) => ({
-      id: row.student.id,
-      fullName: row.student.fullName ?? '',
-      accountBalance: row.student.accountBalance ?? 0,
-      province: row.student.province ?? null,
-      status: row.student.status,
-      classes: row.student.studentClasses.map((studentClass) => ({
-        id: studentClass.class.id,
-        name: studentClass.class.name,
+    const studentIds = list.map((row) => row.student.id);
+    const recentTopUpTotals =
+      await this.getRecentTopUpTotalsByStudentId(studentIds);
+
+    return {
+      data: list.map((row) => {
+        const recentTopUpTotal =
+          recentTopUpTotals.get(row.student.id) ?? 0;
+        return {
+          id: row.student.id,
+          fullName: row.student.fullName ?? '',
+          accountBalance: row.student.accountBalance ?? 0,
+          province: row.student.province ?? null,
+          status: row.student.status,
+          classes: row.student.studentClasses.map((studentClass) => ({
+            id: studentClass.class.id,
+            name: studentClass.class.name,
+          })),
+          recentTopUpTotalLast21Days: recentTopUpTotal,
+          recentTopUpMeetsThreshold:
+            recentTopUpTotal >= RECENT_TOP_UP_THRESHOLD,
+        };
+      }),
+      meta: {
+        total,
+        page: safePage,
+        limit,
+      },
+    };
+  }
+
+  private async getRecentTopUpTotalsByStudentId(
+    studentIds: string[],
+  ): Promise<Map<string, number>> {
+    if (studentIds.length === 0) {
+      return new Map();
+    }
+
+    const since = new Date();
+    since.setDate(since.getDate() - RECENT_TOP_UP_DAYS);
+
+    const rows = await this.prisma.walletTransactionsHistory.groupBy({
+      by: ['studentId'],
+      where: {
+        studentId: { in: studentIds },
+        type: WalletTransactionType.topup,
+        createdAt: { gte: since },
+      },
+      _sum: { amount: true },
+    });
+
+    return new Map(
+      rows.map((row) => [row.studentId, row._sum.amount ?? 0]),
+    );
+  }
+
+  async getTopUpHistoryByStaffId(
+    userId: string,
+    roleType: UserRole,
+    staffId: string,
+    query: CustomerCareTopUpHistoryQuery = {},
+  ): Promise<CustomerCareTopUpHistoryListDto> {
+    const accessibleStaffId = await this.resolveAccessibleStaffId(
+      userId,
+      roleType,
+      staffId,
+    );
+
+    const staff = await this.prisma.staffInfo.findUnique({
+      where: { id: accessibleStaffId },
+      select: { id: true },
+    });
+    if (!staff) throw new NotFoundException('Staff not found');
+
+    const parsedPage = Number(query.page);
+    const parsedLimit = Number(query.limit);
+    const page =
+      Number.isInteger(parsedPage) && parsedPage >= 1 ? parsedPage : 1;
+    const limit =
+      Number.isInteger(parsedLimit) && parsedLimit >= 1
+        ? Math.min(parsedLimit, 100)
+        : 20;
+    const where = {
+      type: WalletTransactionType.topup,
+      student: {
+        customerCareServices: {
+          staffId: accessibleStaffId,
+        },
+      },
+    };
+    const total = await this.prisma.walletTransactionsHistory.count({ where });
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const safePage = Math.min(page, totalPages);
+    const skip = (safePage - 1) * limit;
+
+    const transactions = await this.prisma.walletTransactionsHistory.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      select: {
+        id: true,
+        studentId: true,
+        amount: true,
+        note: true,
+        date: true,
+        createdAt: true,
+        student: {
+          select: {
+            id: true,
+            fullName: true,
+          },
+        },
+      },
+    });
+
+    return {
+      data: transactions.map((transaction) => ({
+        id: transaction.id,
+        studentId: transaction.student.id,
+        studentName: transaction.student.fullName ?? '',
+        amount: transaction.amount,
+        note: transaction.note ?? null,
+        date: transaction.date.toISOString(),
+        createdAt: transaction.createdAt.toISOString(),
       })),
-    }));
+      meta: {
+        total,
+        page: safePage,
+        limit,
+      },
+    };
   }
 
   /** List students with total commission (last 30 days) for this staff. */

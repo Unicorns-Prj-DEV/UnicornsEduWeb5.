@@ -16,7 +16,8 @@ import { Roles } from 'src/auth/decorators/roles.decorator';
 import type {
   CustomerCareCommissionDto,
   CustomerCareSessionCommissionDto,
-  CustomerCareStudentDto,
+  CustomerCareStudentListDto,
+  CustomerCareTopUpHistoryListDto,
 } from 'src/dtos/customer-care.dto';
 import { CustomerCareService } from './customer-care.service';
 
@@ -34,16 +35,72 @@ export class CustomerCareController {
       'Students assigned to this staff in customer_care_service, sorted by balance ascending.',
   })
   @ApiParam({ name: 'staffId', description: 'Staff ID' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default 1).',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Page size (default 20, max 100).',
+  })
   @ApiResponse({ status: 200, description: 'List of students.' })
   @ApiResponse({ status: 404, description: 'Staff not found.' })
   async getStudentsByStaffId(
     @CurrentUser() user: JwtPayload,
     @Param('staffId', new ParseUUIDPipe()) staffId: string,
-  ): Promise<CustomerCareStudentDto[]> {
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ): Promise<CustomerCareStudentListDto> {
     return this.customerCareService.getStudentsByStaffId(
       user.id,
       user.roleType,
       staffId,
+      {
+        page: page ? parseInt(page, 10) : undefined,
+        limit: limit ? parseInt(limit, 10) : undefined,
+      },
+    );
+  }
+
+  @Get('staff/:staffId/topup-history')
+  @ApiOperation({
+    summary: 'List top-up history for students in customer care',
+    description:
+      'Wallet top-up transactions for students assigned to this customer-care staff, sorted newest first.',
+  })
+  @ApiParam({ name: 'staffId', description: 'Staff ID' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default 1).',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Page size (default 20, max 100).',
+  })
+  @ApiResponse({ status: 200, description: 'Paginated top-up history.' })
+  @ApiResponse({ status: 404, description: 'Staff not found.' })
+  async getTopUpHistoryByStaffId(
+    @CurrentUser() user: JwtPayload,
+    @Param('staffId', new ParseUUIDPipe()) staffId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ): Promise<CustomerCareTopUpHistoryListDto> {
+    return this.customerCareService.getTopUpHistoryByStaffId(
+      user.id,
+      user.roleType,
+      staffId,
+      {
+        page: page ? parseInt(page, 10) : undefined,
+        limit: limit ? parseInt(limit, 10) : undefined,
+      },
     );
   }
 

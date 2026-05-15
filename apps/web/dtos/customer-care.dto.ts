@@ -10,6 +10,34 @@ export interface CustomerCareStudentItem {
   province: string | null;
   status: StudentStatus | null;
   classes: { id: string; name: string }[];
+  recentTopUpTotalLast21Days: number;
+  recentTopUpMeetsThreshold: boolean;
+}
+
+export interface CustomerCareStudentListMeta {
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface CustomerCareStudentListResponse {
+  data: CustomerCareStudentItem[];
+  meta: CustomerCareStudentListMeta;
+}
+
+export interface CustomerCareTopUpHistoryItem {
+  id: string;
+  studentId: string;
+  studentName: string;
+  amount: number;
+  note?: string | null;
+  date?: string | null;
+  createdAt: string;
+}
+
+export interface CustomerCareTopUpHistoryListResponse {
+  data: CustomerCareTopUpHistoryItem[];
+  meta: CustomerCareStudentListMeta;
 }
 
 /** One row in GET /customer-care/staff/:staffId/commissions */
