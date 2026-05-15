@@ -3,7 +3,7 @@
 import UpgradedSelect, { type UpgradedSelectOption } from "@/components/ui/UpgradedSelect";
 import type { UpdateMyStudentProfileDto } from "@/dtos/profile.dto";
 import Link from "next/link";
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -22,7 +22,7 @@ import type {
     StudentStatus,
 } from "@/dtos/student.dto";
 import {
-    createMyStudentSePayTopUpOrder,
+    getMyStudentSePayStaticQr,
     getMyStudentDetail,
     getMyStudentWalletHistory,
     updateMyStudentProfile,
@@ -246,6 +246,18 @@ export default function StudentSelfPage() {
         staleTime: 60_000,
     });
 
+    const {
+        data: sePayStaticQr,
+        isLoading: isSePayStaticQrLoading,
+        error: sePayStaticQrError,
+    } = useQuery({
+        queryKey: ["student", "self", "sepay-static-qr"],
+        queryFn: getMyStudentSePayStaticQr,
+        enabled: balancePopupMode === "topup" && Boolean(student?.id),
+        retry: false,
+        staleTime: 5 * 60_000,
+    });
+
     const classItems = useMemo(
         () =>
             [...(student?.studentClasses ?? [])].sort((a, b) =>
@@ -253,10 +265,6 @@ export default function StudentSelfPage() {
             ),
         [student],
     );
-
-    const createSePayTopUpOrder = useCallback(async (amount: number) => {
-        return createMyStudentSePayTopUpOrder({ amount });
-    }, []);
 
     if (isLoading) {
         return (
@@ -312,6 +320,9 @@ export default function StudentSelfPage() {
     const contactEmail = student.email?.trim() || "Chưa có email";
     const profileDirty = isStudentProfileDirty(student, profileDraft);
     const isSavingProfile = false;
+    const sePayStaticQrErrorMessage =
+        (sePayStaticQrError as { response?: { data?: { message?: string } } } | null)?.response?.data?.message ??
+        (sePayStaticQrError ? "Không tải được QR SePay. Vui lòng thử lại sau." : null);
 
     const handleStartProfileEdit = () => {
         setProfileDraft(buildStudentProfileDraft(student));
@@ -378,7 +389,9 @@ export default function StudentSelfPage() {
                 directBalanceChangeEnabled={false}
                 defaultTopUpMethod="sepay"
                 successTargetLabel="tài khoản của bạn"
-                createSePayTopUpOrder={createSePayTopUpOrder}
+                sePayStaticQr={sePayStaticQr ?? null}
+                isSePayStaticQrLoading={isSePayStaticQrLoading}
+                sePayStaticQrErrorMessage={sePayStaticQrErrorMessage}
                 errorMessages={{
                     topup: "Không thể tạo mã QR nạp ví của bạn.",
                     withdraw: "Không thể rút tiền khỏi tài khoản của bạn.",
@@ -387,7 +400,7 @@ export default function StudentSelfPage() {
                 copyOverrides={{
                     topup: {
                         description:
-                            'Nhập số tiền dương rồi bấm "Tạo mã QR SePay" để thanh toán. Webhook SePay sẽ tự động cập nhật ví sau khi ngân hàng xác nhận.',
+                            "Quét QR SePay tĩnh và chuyển khoản số tiền cần nạp. Webhook SePay sẽ tự động cập nhật ví sau khi ngân hàng xác nhận.",
                     },
                 }}
             />

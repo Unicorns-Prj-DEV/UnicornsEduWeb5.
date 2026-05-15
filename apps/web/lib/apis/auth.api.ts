@@ -33,6 +33,7 @@ import type { StaffDetail, StaffIncomeSummary } from '@/dtos/staff.dto';
 import type {
     StudentSelfDetail,
     StudentExamScheduleItem,
+    StudentSePayStaticQrResponse,
     StudentSePayTopUpOrderResponse,
     StudentWalletTransaction,
     UpdateStudentExamSchedulesPayload,
@@ -194,6 +195,14 @@ export async function createMyStudentSePayTopUpOrder(payload: {
     const response = await api.post<StudentSePayTopUpOrderResponse>(
         "/users/me/student-wallet-sepay-topup-order",
         payload,
+    );
+    return response.data;
+}
+
+/** Lấy QR SePay tĩnh cho học sinh hiện tại (không tạo đơn, không chứa số tiền). */
+export async function getMyStudentSePayStaticQr(): Promise<StudentSePayStaticQrResponse> {
+    const response = await api.get<StudentSePayStaticQrResponse>(
+        "/users/me/student-wallet-sepay-static-qr",
     );
     return response.data;
 }

@@ -6,9 +6,11 @@ import type {
   StudentGender,
   StudentListItem,
   StudentListResponse,
+  StudentSePayStaticQrResponse,
   StudentSePayTopUpOrderResponse,
   StudentStatus,
   StudentWalletTransaction,
+  StudentWalletTransactionType,
   UpdateStudentAccountBalancePayload,
   UpdateStudentClassesPayload,
   UpdateStudentExamSchedulesPayload,
@@ -29,6 +31,7 @@ type StudentListParams = {
 
 type StudentWalletHistoryParams = {
   limit?: number;
+  type?: StudentWalletTransactionType;
 };
 
 export async function searchAssignableUsersByEmail(
@@ -106,6 +109,7 @@ export async function getStudentWalletHistory(
   const response = await api.get<StudentWalletTransaction[]>(`/student/${safeId}/wallet-history`, {
     params: {
       ...(typeof params.limit === "number" ? { limit: params.limit } : {}),
+      ...(params.type ? { type: params.type } : {}),
     },
   });
 
@@ -168,6 +172,17 @@ export async function createStudentSePayTopUpOrder(
   const response = await api.post<StudentSePayTopUpOrderResponse>(
     `/student/${safeId}/wallet-sepay-topup-order`,
     payload,
+  );
+  return response.data;
+}
+
+/** GET /student/:id/wallet-sepay-static-qr – get static SePay QR for a student. */
+export async function getStudentSePayStaticQr(
+  studentId: string,
+): Promise<StudentSePayStaticQrResponse> {
+  const safeId = encodeURIComponent(studentId);
+  const response = await api.get<StudentSePayStaticQrResponse>(
+    `/student/${safeId}/wallet-sepay-static-qr`,
   );
   return response.data;
 }

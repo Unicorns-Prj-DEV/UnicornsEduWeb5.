@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { QrCodeIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import { StudentListTableSkeleton } from "@/components/admin/student";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
@@ -20,6 +21,7 @@ import {
 } from "@/lib/admin-shell-paths";
 import * as studentApi from "@/lib/apis/student.api";
 import { formatCurrency } from "@/lib/class.helpers";
+import { copyQrImageOrLink } from "@/lib/clipboard-qr";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
@@ -90,6 +92,10 @@ function statusBadgeClass(status: StudentStatus): string {
 function balanceTextClass(balance?: number | null): string {
   if ((balance ?? 0) < 0) return "text-error";
   return "text-text-primary";
+}
+
+function recentTopUpTextClass(meetsThreshold?: boolean): string {
+  return meetsThreshold ? "text-success" : "text-error";
 }
 
 export default function AdminStudentsPage() {
@@ -265,6 +271,20 @@ export default function AdminStudentsPage() {
       toast.error(msg);
     },
   });
+
+  const handleCopyQr = async (student: StudentListItem) => {
+    try {
+      const qr = await studentApi.getStudentSePayStaticQr(student.id);
+      const copied = await copyQrImageOrLink(qr.qrCodeUrl);
+      toast.success(
+        copied === "image"
+          ? "Đã sao chép ảnh QR."
+          : "Không thể copy ảnh QR, đã sao chép link QR.",
+      );
+    } catch {
+      toast.error("Không thể sao chép QR. Vui lòng thử lại.");
+    }
+  };
 
   const openDeleteConfirm = (id: string, name: string) => {
     setStudentToDelete({ id, name });
@@ -523,6 +543,10 @@ export default function AdminStudentsPage() {
                   const province = student.province?.trim() || "—";
                   const balance = student.accountBalance ?? 0;
                   const balanceClassName = balanceTextClass(balance);
+                  const recentTopUpTotal = student.recentTopUpTotalLast21Days ?? 0;
+                  const recentTopUpClassName = recentTopUpTextClass(
+                    student.recentTopUpMeetsThreshold,
+                  );
 
                   return (
                     <article
@@ -552,11 +576,26 @@ export default function AdminStudentsPage() {
                             {student.fullName?.trim() || "—"}
                           </span>
                         </div>
-                        <span
-                          className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ${statusBadgeClass(status)}`}
-                        >
-                          {STATUS_LABELS[status]}
-                        </span>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleCopyQr(student);
+                            }}
+                            onKeyDown={(event) => event.stopPropagation()}
+                            className="inline-flex size-10 items-center justify-center rounded-lg border border-border-default bg-bg-surface text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                            aria-label={`Sao chép QR thanh toán của ${student.fullName?.trim() || "học sinh"}`}
+                            title="Sao chép QR thanh toán"
+                          >
+                            <QrCodeIcon className="size-5" aria-hidden />
+                          </button>
+                          <span
+                            className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ${statusBadgeClass(status)}`}
+                          >
+                            {STATUS_LABELS[status]}
+                          </span>
+                        </div>
                       </div>
 
                       <div className="mt-2 flex flex-wrap gap-1">
@@ -578,11 +617,19 @@ export default function AdminStudentsPage() {
                         <span className="truncate">Tỉnh: {province}</span>
                       </div>
 
-                      <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-border-default bg-bg-secondary/50 px-3 py-2">
-                        <span className="text-xs font-medium text-text-secondary">Số dư</span>
-                        <span className={`text-sm font-semibold tabular-nums ${balanceClassName}`}>
-                          {formatCurrency(balance)}
-                        </span>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        <div className="flex items-center justify-between gap-3 rounded-lg border border-border-default bg-bg-secondary/50 px-3 py-2">
+                          <span className="text-xs font-medium text-text-secondary">Số dư</span>
+                          <span className={`text-sm font-semibold tabular-nums ${balanceClassName}`}>
+                            {formatCurrency(balance)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-3 rounded-lg border border-border-default bg-bg-secondary/50 px-3 py-2">
+                          <span className="text-xs font-medium text-text-secondary">Tiền vào</span>
+                          <span className={`text-sm font-semibold tabular-nums ${recentTopUpClassName}`}>
+                            {formatCurrency(recentTopUpTotal)}
+                          </span>
+                        </div>
                       </div>
 
                       <p className="mt-2 truncate text-sm text-text-primary">
@@ -594,21 +641,27 @@ export default function AdminStudentsPage() {
                 </div>
 
                 <div className="hidden overflow-x-auto md:block">
-                  <table className="w-full min-w-[920px] table-fixed border-collapse text-left text-sm">
+                  <table className="w-full min-w-[1080px] table-fixed border-collapse text-left text-sm">
                   <caption className="sr-only">Danh sách học sinh</caption>
                   <thead>
                     <tr className="border-b border-border-default bg-bg-secondary/80">
-                      <th scope="col" className="w-[6%] min-w-10 px-2 py-3" aria-label="Trạng thái" />
-                      <th scope="col" className="w-[26%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                      <th scope="col" className="w-[5%] min-w-10 px-2 py-3" aria-label="Trạng thái" />
+                      <th scope="col" className="w-[22%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         Học sinh
                       </th>
-                      <th scope="col" className="w-[16%] min-w-0 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                      <th scope="col" className="w-[6%] min-w-10 px-2 py-3 text-center text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                        <span className="sr-only">QR</span>
+                      </th>
+                      <th scope="col" className="w-[13%] min-w-0 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         Số dư
                       </th>
-                      <th scope="col" className="w-[18%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                      <th scope="col" className="w-[13%] min-w-0 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                        Tiền vào
+                      </th>
+                      <th scope="col" className="w-[15%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         Tỉnh
                       </th>
-                      <th scope="col" className="w-[30%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                      <th scope="col" className="w-[22%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         Lớp
                       </th>
                       <th scope="col" className="w-[4%] min-w-10 px-2 py-3 text-right" aria-label="Xóa" />
@@ -620,13 +673,17 @@ export default function AdminStudentsPage() {
                       const classItems = getClassItems(student);
                       const balance = student.accountBalance ?? 0;
                       const balanceClassName = balanceTextClass(balance);
+                      const recentTopUpTotal = student.recentTopUpTotalLast21Days ?? 0;
+                      const recentTopUpClassName = recentTopUpTextClass(
+                        student.recentTopUpMeetsThreshold,
+                      );
 
                       return (
                         <tr
                           key={student.id}
                           role="button"
                           tabIndex={0}
-                          className="cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary/70 focus-within:bg-bg-secondary/70"
+                          className="group cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary/70 focus-within:bg-bg-secondary/70"
                           onClick={() =>
                             router.push(buildAdminLikePath(routeBase, `students/${student.id}`))
                           }
@@ -651,9 +708,25 @@ export default function AdminStudentsPage() {
                               {student.email?.trim() || "Chưa có email"}
                             </p>
                           </td>
+                          <td className="px-2 py-3 text-center align-middle" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => void handleCopyQr(student)}
+                              className="inline-flex size-10 items-center justify-center rounded-lg border border-border-default bg-bg-surface text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                              aria-label={`Sao chép QR thanh toán của ${student.fullName?.trim() || "học sinh"}`}
+                              title="Sao chép QR thanh toán"
+                            >
+                              <QrCodeIcon className="size-5" aria-hidden />
+                            </button>
+                          </td>
                           <td className="px-4 py-3 text-right align-middle">
                             <span className={`inline-block whitespace-nowrap tabular-nums font-semibold ${balanceClassName}`}>
                               {formatCurrency(balance)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right align-middle">
+                            <span className={`inline-block whitespace-nowrap tabular-nums font-semibold ${recentTopUpClassName}`}>
+                              {formatCurrency(recentTopUpTotal)}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-text-primary">

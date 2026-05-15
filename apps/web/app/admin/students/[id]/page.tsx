@@ -158,6 +158,18 @@ export default function AdminStudentDetailPage() {
         enabled: !!id,
     });
 
+    const {
+        data: sePayStaticQr,
+        isLoading: isSePayStaticQrLoading,
+        error: sePayStaticQrError,
+    } = useQuery({
+        queryKey: ["student", "detail", id, "sepay-static-qr"],
+        queryFn: () => studentApi.getStudentSePayStaticQr(id),
+        enabled: balancePopupMode === "topup" && Boolean(id) && canCreateWalletQr,
+        retry: false,
+        staleTime: 5 * 60_000,
+    });
+
     const classItemsWithTuition = useMemo(
         () =>
             (student?.studentClasses ?? [])
@@ -277,6 +289,9 @@ export default function AdminStudentDetailPage() {
     const primaryChipClass = statusBadgeClass(normalizedStatus);
     const initials = (student.fullName?.trim() || student.email || "?").charAt(0).toUpperCase();
     const contactEmail = student.email?.trim() || "Chưa có email";
+    const sePayStaticQrErrorMessage =
+        (sePayStaticQrError as { response?: { data?: { message?: string } } } | null)?.response?.data?.message ??
+        (sePayStaticQrError ? "Không tải được QR SePay. Vui lòng thử lại sau." : null);
 
     return (
         <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-3 pb-8 sm:p-6">
@@ -314,9 +329,9 @@ export default function AdminStudentDetailPage() {
                     mode={balancePopupMode ?? "topup"}
                     onClose={() => setBalancePopupMode(null)}
                     student={student}
-                    createSePayTopUpOrder={(amount) =>
-                        studentApi.createStudentSePayTopUpOrder(student.id, { amount })
-                    }
+                    sePayStaticQr={sePayStaticQr ?? null}
+                    isSePayStaticQrLoading={isSePayStaticQrLoading}
+                    sePayStaticQrErrorMessage={sePayStaticQrErrorMessage}
                     directBalanceChangeEnabled={canDirectlyAdjustWallet}
                     directReasonRequired={canDirectlyAdjustWallet}
                     defaultTopUpMethod="sepay"
@@ -324,8 +339,8 @@ export default function AdminStudentDetailPage() {
                     copyOverrides={{
                         topup: {
                             description: canDirectlyAdjustWallet
-                                ? "Tạo QR SePay để phụ huynh chuyển khoản, hoặc dùng tab Nạp thẳng khi admin cần ghi nhận thủ công."
-                                : "Tạo QR SePay để phụ huynh chuyển khoản. Webhook SePay sẽ tự động cập nhật ví sau khi ngân hàng xác nhận.",
+                                ? "QR SePay tĩnh để phụ huynh chuyển khoản, hoặc dùng Nạp thẳng khi admin cần ghi nhận thủ công."
+                                : "QR SePay tĩnh để phụ huynh chuyển khoản. Webhook SePay sẽ tự động cập nhật ví sau khi ngân hàng xác nhận.",
                         },
                     }}
                 />

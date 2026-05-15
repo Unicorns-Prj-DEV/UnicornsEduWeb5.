@@ -37,6 +37,8 @@ export interface StudentListItem {
   email?: string | null;
   parentEmail?: string | null;
   accountBalance?: number | null;
+  recentTopUpTotalLast21Days?: number;
+  recentTopUpMeetsThreshold?: boolean;
   school?: string | null;
   province?: string | null;
   status?: StudentStatus;
@@ -122,6 +124,16 @@ export interface StudentSePayTopUpOrderResponse {
   accountNumber?: string | null;
   accountHolderName?: string | null;
   expiredAt?: string | null;
+}
+
+export interface StudentSePayStaticQrResponse {
+  studentId: string;
+  classIds: string[];
+  transferNote: string;
+  qrCodeUrl: string;
+  bankName?: string | null;
+  accountNumber: string;
+  accountHolderName?: string | null;
 }
 
 export interface StudentSelfDetail {
