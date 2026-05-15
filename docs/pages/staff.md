@@ -125,15 +125,19 @@
   - bảng lịch sử buổi học hiển thị `trạng thái thanh toán` của từng session ở dạng chỉ đọc
   - card khung giờ học hiển thị luôn `gia sư chịu trách nhiệm` của từng slot; trong staff shell, popup chỉnh lịch vẫn giữ tutor của slot ở chế độ chỉ đọc và không cho staff đổi assignment này
 - `/staff/students/[id]`
-  - với `staff.assistant`, route này giữ student detail kiểu admin ngay trong staff shell nhưng ví chỉ được tạo QR SePay, không được chỉnh thẳng số dư
-  - với `staff.accountant`, route này là chế độ xem tài chính/học sinh và được tạo QR SePay cho học sinh, không được chỉnh thẳng số dư
+  - với `staff.assistant`, route này giữ student detail kiểu admin ngay trong staff shell nhưng ví chỉ được xem QR SePay tĩnh, không được chỉnh thẳng số dư
+  - với `staff.accountant`, route này là chế độ xem tài chính/học sinh và được xem QR SePay tĩnh cho học sinh, không được chỉnh thẳng số dư
   - với `staff.customer_care`, route chỉ mở khi học sinh đó đang thuộc `customer_care_service` của chính staff hiện tại
-  - ở mode `customer_care`, trang khóa chỉnh hồ sơ, danh sách lớp, gói học phí và các popup mutate; ví chỉ cho tạo QR SePay cho học sinh đang được giao, không có Nạp thẳng/Rút; vẫn giữ deep-link sang chi tiết lớp của học sinh
+  - ở mode `customer_care`, trang khóa chỉnh hồ sơ, danh sách lớp, gói học phí và các popup mutate; ví chỉ cho xem QR SePay tĩnh của học sinh đang được giao, không có Nạp thẳng/Rút; vẫn giữ deep-link sang chi tiết lớp của học sinh
   - UI trang re-export từ `apps/web/app/admin/students/[id]/page.tsx`; layout profile/ví dùng chung với admin (xem ghi chú grid responsive trong `docs/pages/admin.md`).
 - `/staff/customer-care-detail`
   - tự động lấy `staffInfo.id` của user đang đăng nhập, không nhận `staffId` từ URL
-  - dùng cùng dữ liệu với trang admin customer-care detail: 2 tab **Học sinh** và **Hoa hồng**
-  - tab **Học sinh** hiển thị học sinh đang được giao chăm sóc (trạng thái, tên, số dư, tỉnh, lớp), sort theo số dư tăng dần; từ `lg` trở xuống dùng card list, từ `lg` trở lên giữ desktop table
+  - dùng cùng dữ liệu với trang admin customer-care detail: 3 tab **Học sinh**, **Thanh Toán** và **Hoa hồng**
+  - tab **Học sinh** hiển thị học sinh đang được giao chăm sóc (trạng thái, tên, QR thanh toán, số dư, **Tiền vào** 21 ngày gần nhất, tỉnh, lớp), sort theo số dư tăng dần; danh sách hiển thị tổng số học sinh và dùng infinite scroll, tải 10 học sinh/lần; từ `lg` trở xuống dùng card list, từ `lg` trở lên giữ desktop table
+  - nút QR trên mỗi học sinh gọi `GET /student/:id/wallet-sepay-static-qr` rồi copy ảnh QR vào clipboard, fallback copy link QR nếu trình duyệt/CORS không cho copy ảnh; phụ huynh tự nhập số tiền chuyển khoản
+  - cột **Tiền vào** là tổng các giao dịch ví `topup` trong 21 ngày gần nhất; màu xanh khi tổng `>= 300.000` VND, màu đỏ khi chưa đạt ngưỡng (kể cả có giao dịch nhỏ hơn ngưỡng), và hiện `0` màu đỏ nếu không có giao dịch đạt điều kiện
+  - bấm trực tiếp vào con số ở cột/thẻ **Tiền vào** sẽ mở popup **Lịch sử tiền vào**, chỉ đọc các giao dịch ví `topup` mới nhất qua `GET /student/:id/wallet-history?type=topup&limit=`; CSKH chỉ xem được lịch sử của học sinh đang được giao
+  - tab **Thanh Toán** hiển thị lịch sử nạp tiền chung của toàn bộ học sinh đang do CSKH đó chăm sóc, sort mới nhất trước, dùng infinite scroll 20 khoản/lần để đối soát nhanh theo thời gian, học sinh, số tiền và nội dung chuyển khoản
   - ở tab **Học sinh**, tên học sinh mở trực tiếp `/staff/students/[id]` và tên lớp mở `/staff/classes/[id]`; cả hai route đều bị ép về policy read-only của `customer_care` và backend chỉ trả dữ liệu cho đúng học sinh/lớp thuộc hồ sơ CSKH hiện tại
   - tab **Hoa hồng** hiển thị tổng hoa hồng 30 ngày qua theo học sinh; trên desktop, hàng danh sách dùng cột `Tên` và `Tổng tiền hoa hồng` cố định để giữ số liệu thẳng cột khi mở rộng từng học sinh xem commission theo buổi
   - khi mở rộng từng học sinh, mỗi buổi học hiển thị theo đúng một hàng ở desktop và chuyển sang stacked cards ở mobile/tablet; cả hai layout đều có badge trạng thái thanh toán CSKH lấy từ `customerCarePaymentStatus`, kèm lớp, học phí, hệ số CSKH và số tiền commission của buổi
@@ -242,7 +246,7 @@
   - vào `/staff`
   - vào `/staff/customer-care-detail`
   - chỉ xem dữ liệu CSKH của chính mình
-  - tạo QR SePay nạp ví cho học sinh đang được chính mình chăm sóc
+  - xem QR SePay tĩnh nạp ví cho học sinh đang được chính mình chăm sóc
 - Staff `customer_care` **không được phép**
   - xem dữ liệu CSKH của staff khác qua route `/staff`
   - dùng `/staff/classes/[id]` nếu không đồng thời có role `teacher`
@@ -326,14 +330,16 @@
     - với `staff.teacher`, backend chỉ trả các buổi trong lớp đó do chính teacher hiện tại phụ trách; `admin` và `staff.customer_care` thấy toàn bộ buổi của lớp, nhưng `customer_care` vẫn chỉ ở chế độ đọc
   - `POST /staff-ops/classes/:classId/sessions`
   - `PUT /staff-ops/sessions/:id`
-  - `GET /customer-care/staff/:staffId/students`
+  - `GET /customer-care/staff/:staffId/students?page=&limit=` — trả `{ data, meta }`; FE dùng infinite scroll với `limit=10`; mỗi học sinh có `recentTopUpTotalLast21Days` và `recentTopUpMeetsThreshold` để render cột **Tiền vào**
+  - `GET /customer-care/staff/:staffId/topup-history?page=&limit=` — trả lịch sử `wallet_transactions_history.type = topup` của toàn bộ học sinh thuộc CSKH đó; FE dùng tab **Thanh Toán** với infinite scroll `limit=20`; `staff.customer_care` chỉ xem được chính staff hiện tại
   - `GET /customer-care/staff/:staffId/commissions?days=30`
   - `GET /customer-care/staff/:staffId/students/:studentId/session-commissions?days=30`
     - response chi tiết buổi hiện có thêm `paymentStatus` (map từ `attendance.customer_care_payment_status`, mặc định `pending` nếu DB trả `null`)
   - `GET /student/:id`
     - `staff.assistant` giữ quyền admin-like như cũ; `staff.accountant` đọc được để mở link tài chính/học sinh; `staff.customer_care` chỉ đọc được khi `customer_care_service.student_id` trỏ đúng về staff hiện tại
-  - `POST /student/:id/wallet-sepay-topup-order`
-    - `staff.assistant` và `staff.accountant` tạo QR SePay cho học sinh xem được; `staff.customer_care` chỉ tạo được khi học sinh đang thuộc CSKH của chính staff hiện tại. Không role staff nào được gọi `PATCH /student/update-student-account-balance` để chỉnh thẳng số dư.
+  - `GET /student/:id/wallet-sepay-static-qr`
+    - `staff.assistant` và `staff.accountant` xem QR SePay tĩnh cho học sinh xem được; `staff.customer_care` chỉ xem được khi học sinh đang thuộc CSKH của chính staff hiện tại. QR note là `NAPVI <student_info.id> <active_class_id...>` và không chứa số tiền. Không role staff nào được gọi `PATCH /student/update-student-account-balance` để chỉnh thẳng số dư.
+  - `GET /student/:id/wallet-history?type=topup&limit=` — dùng cho popup lịch sử tiền vào trong màn CSKH; `staff.customer_care` chỉ xem được học sinh đang thuộc CSKH của chính staff hiện tại
   - `POST /staff/:userId/cccd-images` (admin/staff.assistant upload CCCD): chỉ nhận JPEG/PNG/WEBP, tối đa 5MB mỗi file
 - **Guard**
   - controller mở cho `UserRole.staff` và `UserRole.admin`
