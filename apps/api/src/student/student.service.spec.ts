@@ -6,7 +6,12 @@ jest.mock('../../generated/client', () => ({
 }));
 
 import { BadRequestException } from '@nestjs/common';
-import { StaffRole, StudentStatus, UserRole } from '../../generated/enums';
+import {
+  StaffRole,
+  StudentStatus,
+  UserRole,
+  WalletTransactionType,
+} from '../../generated/enums';
 import { StudentService } from './student.service';
 
 describe('StudentService', () => {
@@ -32,6 +37,7 @@ describe('StudentService', () => {
     walletTransactionsHistory: {
       findMany: jest.fn(),
       create: jest.fn(),
+      groupBy: jest.fn(),
     },
     studentWalletSepayOrder: {
       create: jest.fn(),
@@ -60,8 +66,10 @@ describe('StudentService', () => {
   };
   const sePayService = {
     isWalletTopUpConfigured: jest.fn(),
+    isStudentWalletStaticQrConfigured: jest.fn(),
     buildStudentWalletOrderCode: jest.fn(),
     createStudentWalletTopUpPayment: jest.fn(),
+    createStudentWalletStaticQr: jest.fn(),
   };
 
   let service: StudentService;
@@ -76,12 +84,50 @@ describe('StudentService', () => {
     mockPrisma.$transaction.mockImplementation(
       (callback: (db: typeof mockPrisma) => unknown) => callback(mockPrisma),
     );
+    mockPrisma.walletTransactionsHistory.groupBy.mockResolvedValue([]);
     service = new StudentService(
       mockPrisma as never,
       actionHistoryService as never,
       googleCalendarService as never,
       sePayService as never,
     );
+  });
+
+  it('returns student list rows with 21-day top-up totals', async () => {
+    mockPrisma.studentInfo.count.mockResolvedValue(1);
+    mockPrisma.studentInfo.findMany.mockResolvedValue([
+      {
+        id: 'student-1',
+        fullName: 'Nguyen Van A',
+        email: 'student@example.com',
+        parentEmail: 'parent@example.com',
+        accountBalance: 250000,
+        school: 'THPT Nguyen Du',
+        province: 'Hanoi',
+        status: StudentStatus.active,
+        gender: 'male',
+        createdAt: new Date('2026-03-20T10:00:00.000Z'),
+        updatedAt: new Date('2026-03-21T10:00:00.000Z'),
+        studentClasses: [],
+      },
+    ]);
+    mockPrisma.walletTransactionsHistory.groupBy.mockResolvedValue([
+      {
+        studentId: 'student-1',
+        _sum: { amount: 299_000 },
+      },
+    ]);
+
+    await expect(service.getStudents({ page: 1, limit: 20 })).resolves.toEqual({
+      data: [
+        expect.objectContaining({
+          id: 'student-1',
+          recentTopUpTotalLast21Days: 299_000,
+          recentTopUpMeetsThreshold: false,
+        }),
+      ],
+      meta: { total: 1, page: 1, limit: 20 },
+    });
   });
 
   it('records action history after creating a student', async () => {
@@ -509,6 +555,54 @@ describe('StudentService', () => {
     ]);
   });
 
+  it('creates a static QR with active class ids in the transfer note context', async () => {
+    sePayService.isStudentWalletStaticQrConfigured.mockReturnValue(true);
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      roles: [StaffRole.customer_care],
+    });
+    mockPrisma.customerCareService.findUnique.mockResolvedValue({
+      staffId: 'staff-1',
+    });
+    mockPrisma.studentInfo.findUnique.mockResolvedValue({
+      id: 'student-1',
+      studentClasses: [
+        {
+          status: 'active',
+          class: { id: 'class-active-1', name: 'Toan 8A' },
+        },
+        {
+          status: 'inactive',
+          class: { id: 'class-inactive-1', name: 'Van 8A' },
+        },
+      ],
+    });
+    sePayService.createStudentWalletStaticQr.mockReturnValue({
+      studentId: 'student-1',
+      classIds: ['class-active-1'],
+      transferNote: 'NAPVI student-1 class-active-1',
+      accountNumber: '722732006',
+      qrCodeUrl: 'https://img.vietqr.io/image/qr.png',
+    });
+
+    await expect(
+      service.getStudentSePayStaticQr('student-1', {
+        userId: 'staff-user-1',
+        userEmail: 'care@example.com',
+        roleType: UserRole.staff,
+      }),
+    ).resolves.toMatchObject({
+      studentId: 'student-1',
+      classIds: ['class-active-1'],
+      transferNote: 'NAPVI student-1 class-active-1',
+    });
+
+    expect(sePayService.createStudentWalletStaticQr).toHaveBeenCalledWith({
+      studentId: 'student-1',
+      classIds: ['class-active-1'],
+    });
+  });
+
   it('blocks customer care staff from creating QR orders for unassigned students', async () => {
     sePayService.isWalletTopUpConfigured.mockReturnValue(true);
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
@@ -633,5 +727,73 @@ describe('StudentService', () => {
     ).rejects.toThrow('Student not found');
 
     expect(mockPrisma.studentInfo.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('allows customer care staff to read wallet history for their assigned student', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      roles: [StaffRole.customer_care],
+    });
+    mockPrisma.customerCareService.findUnique.mockResolvedValue({
+      staffId: 'staff-1',
+    });
+    mockPrisma.studentInfo.findUnique.mockResolvedValue({
+      id: 'student-1',
+    });
+    mockPrisma.walletTransactionsHistory.findMany.mockResolvedValue([
+      {
+        id: 'wallet-history-1',
+        type: WalletTransactionType.topup,
+        amount: 500000,
+        note: 'NAPVI student-1 class-1',
+        date: new Date('2026-03-21T09:00:00.000Z'),
+        createdAt: new Date('2026-03-21T09:00:00.000Z'),
+      },
+    ]);
+
+    await expect(
+      service.getStudentWalletHistory(
+        'student-1',
+        { limit: 20 },
+        {
+          userId: 'user-1',
+          roleType: UserRole.staff,
+        },
+      ),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        id: 'wallet-history-1',
+        type: WalletTransactionType.topup,
+        amount: 500000,
+      }),
+    ]);
+
+    expect(mockPrisma.customerCareService.findUnique).toHaveBeenCalledWith({
+      where: { studentId: 'student-1' },
+      select: { staffId: true },
+    });
+  });
+
+  it('rejects customer care staff wallet history access for unassigned students', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      roles: [StaffRole.customer_care],
+    });
+    mockPrisma.customerCareService.findUnique.mockResolvedValue({
+      staffId: 'staff-2',
+    });
+
+    await expect(
+      service.getStudentWalletHistory(
+        'student-1',
+        { limit: 20 },
+        {
+          userId: 'user-1',
+          roleType: UserRole.staff,
+        },
+      ),
+    ).rejects.toThrow('Student not found');
+
+    expect(mockPrisma.walletTransactionsHistory.findMany).not.toHaveBeenCalled();
   });
 });

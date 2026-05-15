@@ -7,6 +7,7 @@ describe('UserProfileController', () => {
   };
   const studentService = {
     createStudentSePayTopUpOrder: jest.fn(),
+    getStudentSePayStaticQr: jest.fn(),
   };
 
   let controller: UserProfileController;
@@ -69,6 +70,43 @@ describe('UserProfileController', () => {
     expect(studentService.createStudentSePayTopUpOrder).toHaveBeenCalledWith(
       'student-1',
       { amount: 500000 },
+      {
+        userId: 'user-1',
+        userEmail: 'student@example.com',
+        roleType: UserRole.student,
+      },
+    );
+  });
+
+  it('delegates current-student static SePay QR lookup to StudentService with actor metadata', async () => {
+    userService.getLinkedStudentId.mockResolvedValue('student-1');
+    studentService.getStudentSePayStaticQr.mockResolvedValue({
+      studentId: 'student-1',
+      classIds: ['class-1'],
+      transferNote: 'NAPVI student-1 class-1',
+      qrCodeUrl: 'https://img.vietqr.io/image/970422-123-compact2.png',
+      bankName: 'MBBank',
+      accountNumber: '123',
+      accountHolderName: 'UNICORNS EDU',
+    });
+
+    await expect(
+      controller.getMyStudentSePayStaticQr({
+        id: 'user-1',
+        email: 'student@example.com',
+        accountHandle: 'student',
+        roleType: UserRole.student,
+      }),
+    ).resolves.toMatchObject({
+      studentId: 'student-1',
+      classIds: ['class-1'],
+      transferNote: 'NAPVI student-1 class-1',
+      qrCodeUrl: 'https://img.vietqr.io/image/970422-123-compact2.png',
+    });
+
+    expect(userService.getLinkedStudentId).toHaveBeenCalledWith('user-1');
+    expect(studentService.getStudentSePayStaticQr).toHaveBeenCalledWith(
+      'student-1',
       {
         userId: 'user-1',
         userEmail: 'student@example.com',

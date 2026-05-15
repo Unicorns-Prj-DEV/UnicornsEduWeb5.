@@ -16,6 +16,7 @@ export interface TuitionReceiptEmailProps {
   receiverName: string;
   receiverBankName?: string | null;
   receiverBankAccount?: string | null;
+  receiptSummary?: string | null;
   lineItems: ReceiptLineItem[];
   totalAmount: number;
   /** `data:image/png;base64,...` cho PDF hoặc `cid:...` cho HTML email. */

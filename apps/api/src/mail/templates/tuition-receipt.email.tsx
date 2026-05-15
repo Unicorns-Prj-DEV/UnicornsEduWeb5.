@@ -40,6 +40,7 @@ export function TuitionReceiptEmail({
   receiverName,
   receiverBankName,
   receiverBankAccount,
+  receiptSummary,
   lineItems,
   totalAmount,
   logoMainSrc,
@@ -192,6 +193,32 @@ export function TuitionReceiptEmail({
                 </Column>
               </Row>
             </Section>
+
+            {receiptSummary ? (
+              <Section
+                style={{
+                  marginBottom: '10px',
+                  padding: '8px 10px',
+                  borderRadius: '8px',
+                  backgroundColor: '#f8fafc',
+                  border: `1px solid ${SLATE200}`,
+                }}
+              >
+                <Text
+                  style={{
+                    margin: 0,
+                    fontSize: '12px',
+                    lineHeight: 1.5,
+                    color: BLUE950,
+                  }}
+                >
+                  <span style={{ fontWeight: 700, color: BORDER }}>
+                    Nội dung:
+                  </span>{' '}
+                  {receiptSummary}
+                </Text>
+              </Section>
+            ) : null}
 
             {/* Người nhận */}
             <Section

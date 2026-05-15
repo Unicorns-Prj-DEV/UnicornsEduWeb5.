@@ -130,6 +130,42 @@ describe('SePayService', () => {
     expect(http.post).not.toHaveBeenCalled();
   });
 
+  it('creates a static student wallet QR without requiring an amount', () => {
+    process.env.SEPAY_TRANSFER_BANK_BIN = '970422';
+    process.env.SEPAY_TRANSFER_ACCOUNT_NUMBER = '722732006';
+    process.env.SEPAY_TRANSFER_ACCOUNT_NAME = 'VU MINH PHUONG';
+    process.env.SEPAY_TRANSFER_BANK_NAME = 'MBBank';
+
+    const result = service.createStudentWalletStaticQr({
+      studentId: '0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7',
+      classIds: [
+        '4d560c5e-c3df-4470-b59a-2fd273ef95ef',
+        '71f0d9ec-c497-4d67-9256-c09e5d5d4334',
+      ],
+    });
+
+    expect(result).toMatchObject({
+      studentId: '0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7',
+      classIds: [
+        '4d560c5e-c3df-4470-b59a-2fd273ef95ef',
+        '71f0d9ec-c497-4d67-9256-c09e5d5d4334',
+      ],
+      transferNote:
+        'NAPVI 0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7 4d560c5e-c3df-4470-b59a-2fd273ef95ef 71f0d9ec-c497-4d67-9256-c09e5d5d4334',
+      bankName: 'MBBank',
+      accountNumber: '722732006',
+      accountHolderName: 'VU MINH PHUONG',
+    });
+    expect(result.qrCodeUrl).toContain(
+      'https://img.vietqr.io/image/970422-722732006-compact2.png',
+    );
+    expect(result.qrCodeUrl).not.toContain('amount=');
+    expect(result.qrCodeUrl).toContain(
+      'addInfo=NAPVI+0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7+4d560c5e-c3df-4470-b59a-2fd273ef95ef+71f0d9ec-c497-4d67-9256-c09e5d5d4334',
+    );
+    expect(http.post).not.toHaveBeenCalled();
+  });
+
   it('rejects invalid order codes before calling SePay', async () => {
     await expect(
       service.createBankAccountOrder({

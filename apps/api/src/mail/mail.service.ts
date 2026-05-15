@@ -38,6 +38,7 @@ export interface StudentWalletTopUpReceiptEmailParams {
   balanceAfter?: number | null;
   /** Nội dung chuyển khoản / mã đơn trên QR (từ đơn SePay) */
   transferNote?: string | null;
+  extensionClassNames?: string[];
 }
 
 interface StudentWalletTopUpReceiptEmailWebhookPayload {
@@ -47,6 +48,7 @@ interface StudentWalletTopUpReceiptEmailWebhookPayload {
   amountVnd: number;
   transactionDate?: string | null;
   referenceCode?: string | null;
+  extensionClassNames?: string[];
 }
 
 const RECEIPT_INLINE_IMAGES = [
@@ -178,6 +180,11 @@ export class MailService {
       'balanceAfter' in params && params.balanceAfter != null
         ? params.balanceAfter
         : null;
+    const extensionClassNames =
+      'extensionClassNames' in params &&
+      Array.isArray(params.extensionClassNames)
+        ? params.extensionClassNames
+        : [];
 
     const receiptProps = this.buildTuitionReceiptProps({
       parentName,
@@ -189,6 +196,7 @@ export class MailService {
       referenceCode: referenceCode || null,
       transferNote: transferNote || null,
       balanceAfter,
+      extensionClassNames,
     });
 
     const imageDataUris = this.receiptAssetsService.getReceiptImageDataUris();
@@ -256,6 +264,7 @@ export class MailService {
     referenceCode: string | null;
     transferNote: string | null;
     balanceAfter: number | null;
+    extensionClassNames: string[];
   }): TuitionReceiptEmailProps {
     const documentTitle =
       this.configService.get<string>('RECEIPT_DOCUMENT_TITLE')?.trim() ||
@@ -302,6 +311,11 @@ export class MailService {
     ];
 
     const payerDisplay = args.parentName.trim() || args.studentName;
+    const receiptSummary = this.buildReceiptSummary(
+      args.studentName,
+      args.extensionClassNames,
+      args.amount,
+    );
 
     return {
       documentTitle,
@@ -313,9 +327,33 @@ export class MailService {
       receiverName,
       receiverBankName,
       receiverBankAccount,
+      receiptSummary,
       lineItems,
       totalAmount: args.amount,
     };
+  }
+
+  private buildReceiptSummary(
+    studentName: string,
+    extensionClassNames: string[],
+    amount: number,
+  ): string {
+    const normalizedClassNames = extensionClassNames
+      .map((name) => this.normalizeReceiptText(name))
+      .filter(Boolean);
+    const classText =
+      normalizedClassNames.length > 0
+        ? ` gia hạn khoá ${this.joinVietnameseList(normalizedClassNames)}`
+        : '';
+    return `Em học sinh ${studentName}${classText} số tiền ${this.formatVnd(amount)} VNĐ.`;
+  }
+
+  private joinVietnameseList(items: string[]): string {
+    if (items.length <= 1) {
+      return items[0] ?? '';
+    }
+
+    return `${items.slice(0, -1).join(', ')} và ${items[items.length - 1]}`;
   }
 
   /** Ngày hiển thị trên dòng giao dịch: ưu tiên parse từ SePay `YYYY-MM-DD HH:mm:ss`. */
@@ -376,6 +414,7 @@ export class MailService {
       `Người nhận: ${props.receiverName}`,
       props.receiverBankName ? `Ngân hàng: ${props.receiverBankName}` : null,
       props.receiverBankAccount ? `STK: ${props.receiverBankAccount}` : null,
+      props.receiptSummary ? `Nội dung: ${props.receiptSummary}` : null,
       '',
       'Chi tiết:',
       ...props.lineItems.map(

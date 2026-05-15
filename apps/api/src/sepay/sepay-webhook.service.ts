@@ -3,6 +3,7 @@ import {
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { MailService } from 'src/mail/mail.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { SePayWebhookDto } from './sepay-webhook.dto';
@@ -43,6 +44,7 @@ type StudentWalletSepayOrderRecord = {
 };
 
 type StudentWalletSepayOrderDelegate = {
+  create(args: unknown): Promise<StudentWalletSepayOrderRecord>;
   findFirst(args: unknown): Promise<StudentWalletSepayOrderRecord | null>;
   findUnique(args: unknown): Promise<StudentWalletSepayOrderRecord | null>;
   updateMany(args: unknown): Promise<{ count: number }>;
@@ -53,7 +55,28 @@ type WalletTransactionsHistoryDelegate = {
   create(args: unknown): Promise<{ id: string }>;
 };
 
+type CustomerCareServiceDelegate = {
+  findUnique(args: unknown): Promise<{
+    staff?: {
+      user?: {
+        email?: string | null;
+      } | null;
+    } | null;
+  } | null>;
+};
+
+type ClassDelegate = {
+  findMany(args: unknown): Promise<Array<{ id: string; name: string }>>;
+};
+
 type StudentInfoDelegate = {
+  findUnique(args: unknown): Promise<{
+    id?: string;
+    accountBalance?: number | null;
+    fullName?: string | null;
+    parentName?: string | null;
+    parentEmail?: string | null;
+  } | null>;
   update(args: unknown): Promise<unknown>;
 };
 
@@ -61,6 +84,13 @@ type SePayWebhookPrismaClient = {
   studentWalletSepayOrder: StudentWalletSepayOrderDelegate;
   walletTransactionsHistory: WalletTransactionsHistoryDelegate;
   studentInfo: StudentInfoDelegate;
+  customerCareService?: CustomerCareServiceDelegate;
+  class?: ClassDelegate;
+};
+
+type StaticQrContext = {
+  studentId: string;
+  classIds: string[];
 };
 
 @Injectable()
@@ -90,14 +120,15 @@ export class SePayWebhookService {
     }
 
     const order = await this.findMatchingOrder(client, payload);
-    if (!order) {
+    const staticQrContext = order ? null : this.getStaticQrContext(payload);
+    if (!order && !staticQrContext) {
       this.logger.warn(
         `SePay webhook unmatched: id=${payload.id} reference=${payload.referenceCode}`,
       );
       return { action: 'unmatched' };
     }
 
-    if (this.isCompleted(order)) {
+    if (order && this.isCompleted(order)) {
       return {
         action: 'duplicate',
         orderCode: order.orderCode,
@@ -105,10 +136,17 @@ export class SePayWebhookService {
       };
     }
 
-    const preflightMismatch = this.getMismatchAction(order, payload);
-    if (preflightMismatch) {
-      this.logMismatch(preflightMismatch, order.orderCode, payload);
-      return { action: preflightMismatch, orderCode: order.orderCode };
+    if (order) {
+      const preflightMismatch = this.getMismatchAction(order, payload);
+      if (preflightMismatch) {
+        this.logMismatch(preflightMismatch, order.orderCode, payload);
+        return { action: preflightMismatch, orderCode: order.orderCode };
+      }
+    } else if (payload.transferAmount <= 0) {
+      this.logger.warn(
+        `SePay webhook unmatched: non-positive static QR amount id=${payload.id} reference=${payload.referenceCode}`,
+      );
+      return { action: 'unmatched' };
     }
 
     const result = await this.prisma.$transaction(async (transactionClient) => {
@@ -119,6 +157,85 @@ export class SePayWebhookService {
           action: 'duplicate' as const,
           order: txDuplicate,
           walletTransactionId: txDuplicate.walletTransactionId ?? undefined,
+        };
+      }
+
+      if (!order) {
+        if (!staticQrContext) {
+          return { action: 'unmatched' as const, order: null };
+        }
+
+        const student = await txClient.studentInfo.findUnique({
+          where: { id: staticQrContext.studentId },
+          select: {
+            id: true,
+            fullName: true,
+            parentName: true,
+            parentEmail: true,
+          },
+        });
+        if (!student) {
+          return { action: 'unmatched' as const, order: null };
+        }
+
+        const orderCode = this.buildStaticQrOrderCode(payload);
+        const transferNote = this.buildStaticQrTransferNote(staticQrContext);
+        const completedAt = new Date();
+        await txClient.studentWalletSepayOrder.create({
+          data: {
+            studentId: staticQrContext.studentId,
+            orderCode,
+            status: 'completed',
+            amountRequested: payload.transferAmount,
+            amountReceived: payload.transferAmount,
+            transferNote,
+            parentEmail: student.parentEmail ?? null,
+            sepayTransactionId: String(payload.id),
+            sepayReferenceCode: payload.referenceCode,
+            sepayAccountNumber: payload.accountNumber,
+            completedAt,
+            webhookPayload: this.buildStoredWebhookPayload(payload),
+          },
+          include: { student: true },
+        });
+
+        const walletTransaction = await txClient.walletTransactionsHistory.create(
+          {
+            data: {
+              studentId: staticQrContext.studentId,
+              type: 'topup',
+              amount: payload.transferAmount,
+              note: this.buildWalletTransactionNote(
+                {
+                  orderCode,
+                  studentId: staticQrContext.studentId,
+                  status: 'completed',
+                  amountRequested: payload.transferAmount,
+                  amountReceived: payload.transferAmount,
+                  transferNote,
+                },
+                payload,
+              ),
+              date: this.parseTransactionDate(payload.transactionDate),
+            },
+          },
+        );
+
+        await txClient.studentInfo.update({
+          where: { id: staticQrContext.studentId },
+          data: { accountBalance: { increment: payload.transferAmount } },
+        });
+
+        const completedOrder = await txClient.studentWalletSepayOrder.update({
+          where: { orderCode },
+          data: { walletTransactionId: walletTransaction.id },
+          include: { student: true },
+        });
+
+        return {
+          action: 'credited' as const,
+          order: completedOrder,
+          walletTransactionId: walletTransaction.id,
         };
       }
 
@@ -280,6 +397,44 @@ export class SePayWebhookService {
     return candidates;
   }
 
+  private getStaticQrContext(payload: SePayWebhookDto): StaticQrContext | null {
+    const text = `${payload.content ?? ''} ${payload.description ?? ''}`;
+    return this.extractStaticQrContextFromText(text);
+  }
+
+  private extractStaticQrContextFromText(text: string): StaticQrContext | null {
+    const uuid =
+      '[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
+    const match = text.match(
+      new RegExp(`\\bNAPVI\\s+(${uuid})((?:\\s+${uuid})*)`, 'i'),
+    );
+    const studentId = match?.[1]?.toLowerCase();
+    if (!studentId) {
+      return null;
+    }
+
+    const classIds = Array.from(
+      new Set(
+        (match?.[2]?.match(new RegExp(uuid, 'gi')) ?? []).map((classId) =>
+          classId.toLowerCase(),
+        ),
+      ),
+    ).filter((classId) => classId !== studentId);
+
+    return { studentId, classIds };
+  }
+
+  private buildStaticQrTransferNote(context: StaticQrContext): string {
+    return ['NAPVI', context.studentId, ...context.classIds].join(' ');
+  }
+
+  private buildStaticQrOrderCode(payload: SePayWebhookDto): string {
+    return `STATIC${createHash('sha256')
+      .update(`${payload.referenceCode}:${payload.id}`)
+      .digest('hex')
+      .slice(0, 44)}`;
+  }
+
   private addOrderCodeCandidate(
     candidates: string[],
     value: string | null,
@@ -369,35 +524,53 @@ export class SePayWebhookService {
     order: StudentWalletSepayOrderRecord,
     payload: SePayWebhookDto,
   ): Promise<void> {
-    const parentEmail = this.getParentEmail(order);
-    if (!parentEmail) {
-      return;
-    }
-
     try {
       const studentRow = await this.prisma.studentInfo.findUnique({
         where: { id: order.studentId },
         select: { accountBalance: true },
       });
+      const customerCareEmail = await this.getCustomerCareEmail(order);
+      const recipients = this.getReceiptRecipients(order, customerCareEmail);
+      if (recipients.length === 0) {
+        return;
+      }
 
-      await this.mailService.sendStudentWalletTopUpReceiptEmail({
-        to: parentEmail,
-        parentName: order.student?.parentName ?? null,
-        studentName: order.student?.fullName ?? 'Học sinh',
-        studentCode: order.studentId,
-        orderCode: order.orderCode,
-        amountReceived: payload.transferAmount,
-        transactionDate: payload.transactionDate,
-        referenceCode: payload.referenceCode,
-        balanceAfter: studentRow?.accountBalance ?? null,
-        transferNote: order.transferNote ?? null,
-      });
+      const extensionClassNames = await this.getExtensionClassNames(order);
+      let sentAny = false;
+      for (const to of recipients) {
+        try {
+          await this.mailService.sendStudentWalletTopUpReceiptEmail({
+            to,
+            parentName: order.student?.parentName ?? null,
+            studentName: order.student?.fullName ?? 'Học sinh',
+            studentCode: order.studentId,
+            orderCode: order.orderCode,
+            amountReceived: payload.transferAmount,
+            transactionDate: payload.transactionDate,
+            referenceCode: payload.referenceCode,
+            balanceAfter: studentRow?.accountBalance ?? null,
+            transferNote: order.transferNote ?? null,
+            extensionClassNames,
+          });
+          sentAny = true;
+        } catch (error) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : 'Unknown receipt mail failure';
+          this.logger.warn(
+            `SePay receipt email failed for order=${order.orderCode} to=${to}: ${message}`,
+          );
+        }
+      }
 
-      const client = this.getPrismaClient(this.prisma);
-      await client.studentWalletSepayOrder.update({
-        where: { orderCode: order.orderCode },
-        data: { receiptEmailSentAt: new Date() },
-      });
+      if (sentAny) {
+        const client = this.getPrismaClient(this.prisma);
+        await client.studentWalletSepayOrder.update({
+          where: { orderCode: order.orderCode },
+          data: { receiptEmailSentAt: new Date() },
+        });
+      }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unknown receipt mail failure';
@@ -405,6 +578,62 @@ export class SePayWebhookService {
         `SePay receipt email failed for order=${order.orderCode}: ${message}`,
       );
     }
+  }
+
+  private async getCustomerCareEmail(
+    order: StudentWalletSepayOrderRecord,
+  ): Promise<string | null> {
+    const client = this.getPrismaClient(this.prisma);
+    const assignment = await client.customerCareService?.findUnique({
+      where: { studentId: order.studentId },
+      select: {
+        staff: {
+          select: {
+            user: {
+              select: { email: true },
+            },
+          },
+        },
+      },
+    });
+    const email = assignment?.staff?.user?.email?.trim();
+    return email || null;
+  }
+
+  private async getExtensionClassNames(
+    order: StudentWalletSepayOrderRecord,
+  ): Promise<string[]> {
+    const classIds =
+      this.extractStaticQrContextFromText(order.transferNote ?? '')?.classIds ??
+      [];
+    if (classIds.length === 0) {
+      return [];
+    }
+
+    const client = this.getPrismaClient(this.prisma);
+    const classes =
+      (await client.class?.findMany({
+        where: { id: { in: classIds } },
+        select: { id: true, name: true },
+      })) ?? [];
+    const namesById = new Map(classes.map((item) => [item.id, item.name]));
+
+    return classIds
+      .map((classId) => namesById.get(classId))
+      .filter((name): name is string => Boolean(name?.trim()));
+  }
+
+  private getReceiptRecipients(
+    order: StudentWalletSepayOrderRecord,
+    customerCareEmail: string | null,
+  ): string[] {
+    return Array.from(
+      new Set(
+        [this.getParentEmail(order), customerCareEmail]
+          .map((email) => email?.trim())
+          .filter((email): email is string => Boolean(email)),
+      ),
+    );
   }
 
   private getParentEmail(order: StudentWalletSepayOrderRecord): string | null {

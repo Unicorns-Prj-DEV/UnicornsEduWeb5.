@@ -11,6 +11,7 @@ import { randomBytes } from 'crypto';
 import { firstValueFrom } from 'rxjs';
 import type {
   SePayNormalizedCreateOrderResult,
+  SePayStudentWalletStaticQrResult,
   SePayWalletTopUpMode,
   SePayWalletTopUpPaymentResult,
 } from './sepay.types';
@@ -42,6 +43,13 @@ export class SePayService {
     return Boolean(
       process.env.SEPAY_API_ACCESS_TOKEN?.trim() &&
       process.env.SEPAY_BANK_ACCOUNT_XID?.trim(),
+    );
+  }
+
+  isStudentWalletStaticQrConfigured(): boolean {
+    return Boolean(
+      process.env.SEPAY_TRANSFER_BANK_BIN?.trim() &&
+        process.env.SEPAY_TRANSFER_ACCOUNT_NUMBER?.trim(),
     );
   }
 
@@ -100,6 +108,62 @@ export class SePayService {
       return trimmed;
     }
     return `${trimmed} ${orderCode}`.trim();
+  }
+
+  buildStudentWalletStaticTransferNote(
+    studentId: string,
+    classIds: string[] = [],
+  ): string {
+    return ['NAPVI', studentId, ...classIds].join(' ').trim();
+  }
+
+  createStudentWalletStaticQr(params: {
+    studentId: string;
+    classIds?: string[];
+  }): SePayStudentWalletStaticQrResult {
+    const bankBin = process.env.SEPAY_TRANSFER_BANK_BIN?.trim();
+    const accountNumber = process.env.SEPAY_TRANSFER_ACCOUNT_NUMBER?.trim();
+    if (!bankBin || !accountNumber) {
+      throw new ServiceUnavailableException(
+        'SePay static bank-transfer QR chưa được cấu hình (thiếu SEPAY_TRANSFER_BANK_BIN hoặc SEPAY_TRANSFER_ACCOUNT_NUMBER).',
+      );
+    }
+
+    const accountName = process.env.SEPAY_TRANSFER_ACCOUNT_NAME?.trim() ?? null;
+    const bankName = process.env.SEPAY_TRANSFER_BANK_NAME?.trim() ?? null;
+    const template =
+      process.env.SEPAY_TRANSFER_QR_TEMPLATE?.trim() || 'compact2';
+    const baseUrl =
+      process.env.SEPAY_VIETQR_IMAGE_BASE_URL?.trim() ||
+      'https://img.vietqr.io/image';
+    const classIds = Array.from(
+      new Set(
+        (params.classIds ?? [])
+          .map((classId) => classId.trim())
+          .filter(Boolean),
+      ),
+    );
+    const transferNote = this.buildStudentWalletStaticTransferNote(
+      params.studentId,
+      classIds,
+    );
+    const qrUrl = new URL(
+      `${baseUrl.replace(/\/$/, '')}/${encodeURIComponent(bankBin)}-${encodeURIComponent(accountNumber)}-${encodeURIComponent(template)}.png`,
+    );
+    qrUrl.searchParams.set('addInfo', transferNote);
+    if (accountName) {
+      qrUrl.searchParams.set('accountName', accountName);
+    }
+
+    return {
+      studentId: params.studentId,
+      classIds,
+      transferNote,
+      bankName,
+      accountNumber,
+      accountHolderName: accountName,
+      qrCodeUrl: qrUrl.toString(),
+    };
   }
 
   async createBankAccountOrder(params: {

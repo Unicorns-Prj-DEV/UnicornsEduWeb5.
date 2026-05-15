@@ -1,6 +1,7 @@
 import { StaffRole } from 'generated/enums';
 import { ALLOW_STAFF_ROLES_ON_ADMIN_KEY } from './decorators/allow-staff-roles-on-admin.decorator';
 import { StaffController } from '../staff/staff.controller';
+import { StudentController } from '../student/student.controller';
 import { UserController } from '../user/user.controller';
 
 function getAllowedStaffRoles(
@@ -25,7 +26,7 @@ function getAllowedStaffRoles(
   return Array.isArray(metadata) ? (metadata as StaffRole[]) : undefined;
 }
 
-describe('RBAC mutation route metadata', () => {
+describe('RBAC route metadata', () => {
   it.each(['createUser', 'createStudentUser', 'updateUser', 'deleteUser'])(
     'requires full admin for UserController.%s',
     (methodName) => {
@@ -43,6 +44,14 @@ describe('RBAC mutation route metadata', () => {
     ]);
     expect(getAllowedStaffRoles(StaffController, 'deleteStaff')).toEqual([
       StaffRole.assistant,
+    ]);
+  });
+
+  it('allows scoped staff roles to read student wallet history', () => {
+    expect(getAllowedStaffRoles(StudentController, 'getStudentWalletHistory')).toEqual([
+      StaffRole.assistant,
+      StaffRole.accountant,
+      StaffRole.customer_care,
     ]);
   });
 });

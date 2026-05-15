@@ -30,6 +30,7 @@ import {
   CreateStudentDto,
   CreateStudentSePayTopUpOrderDto,
   SearchAssignableStudentUsersDto,
+  StudentSePayStaticQrResponseDto,
   StudentSePayTopUpOrderResponseDto,
   StudentWalletHistoryQueryDto,
   StudentListQueryDto,
@@ -243,6 +244,37 @@ export class StudentController {
     });
   }
 
+  @Get(':id/wallet-sepay-static-qr')
+  @ApiOperation({
+    summary: 'Get static SePay QR for a student wallet top-up',
+    description:
+      'Return a static bank-transfer QR for a student. The QR has no amount and uses transfer note NAPVI <studentId> <activeClassId...> for webhook reconciliation.',
+  })
+  @ApiParam({ name: 'id', description: 'Student ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Static SePay QR found.',
+    type: StudentSePayStaticQrResponseDto,
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Student not found.' })
+  @ApiResponse({ status: 503, description: 'SePay static QR is not configured.' })
+  @AllowStaffRolesOnAdminRoutes(
+    StaffRole.assistant,
+    StaffRole.accountant,
+    StaffRole.customer_care,
+  )
+  async getStudentSePayStaticQr(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<StudentSePayStaticQrResponseDto> {
+    return this.studentService.getStudentSePayStaticQr(id, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
+  }
+
   @Patch(':id/classes')
   @ApiOperation({
     summary: 'Replace student class memberships',
@@ -308,17 +340,32 @@ export class StudentController {
     description: 'Maximum number of wallet transactions to return.',
     example: 50,
   })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    enum: ['topup'],
+    description: 'Filter wallet history to top-up transactions.',
+  })
   @ApiResponse({
     status: 200,
     description: 'Student wallet history found.',
   })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 404, description: 'Student not found.' })
+  @AllowStaffRolesOnAdminRoutes(
+    StaffRole.assistant,
+    StaffRole.accountant,
+    StaffRole.customer_care,
+  )
   async getStudentWalletHistory(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Query() query: StudentWalletHistoryQueryDto,
   ) {
-    return this.studentService.getStudentWalletHistory(id, query);
+    return this.studentService.getStudentWalletHistory(id, query, {
+      userId: user.id,
+      roleType: user.roleType,
+    });
   }
 
   @Get(':id')

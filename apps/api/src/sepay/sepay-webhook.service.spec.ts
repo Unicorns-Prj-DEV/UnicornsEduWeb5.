@@ -24,6 +24,7 @@ function buildPayload(
 function createPrismaMock() {
   const tx = {
     studentWalletSepayOrder: {
+      create: jest.fn<Promise<unknown>, [unknown]>(),
       findFirst: jest.fn<Promise<unknown>, [unknown]>(),
       findUnique: jest.fn<Promise<unknown>, [unknown]>(),
       updateMany: jest.fn<Promise<{ count: number }>, [unknown]>(),
@@ -35,6 +36,12 @@ function createPrismaMock() {
     studentInfo: {
       update: jest.fn<Promise<unknown>, [unknown]>(),
       findUnique: jest.fn<Promise<unknown>, [unknown]>(),
+    },
+    customerCareService: {
+      findUnique: jest.fn<Promise<unknown>, [unknown]>(),
+    },
+    class: {
+      findMany: jest.fn<Promise<unknown>, [unknown]>(),
     },
   };
 
@@ -185,6 +192,136 @@ describe('SePayWebhookService', () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
     expect(prisma.walletTransactionsHistory.create).not.toHaveBeenCalled();
     expect(mail.sendStudentWalletTopUpReceiptEmail).not.toHaveBeenCalled();
+  });
+
+  it('credits a static student QR payment from NAPVI student id without a pending order', async () => {
+    const prisma = createPrismaMock();
+    const mail = { sendStudentWalletTopUpReceiptEmail: jest.fn() };
+    const studentId = '0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7';
+    const classId1 = '4d560c5e-c3df-4470-b59a-2fd273ef95ef';
+    const classId2 = '71f0d9ec-c497-4d67-9256-c09e5d5d4334';
+    const staticOrderCode = 'STATIC0123456789abcdef0123456789abcdef01234567';
+    const staticOrder = {
+      orderCode: staticOrderCode,
+      studentId,
+      status: 'completed',
+      amountRequested: 88_000,
+      amountReceived: 88_000,
+      transferNote: `NAPVI ${studentId} ${classId1} ${classId2}`,
+      sepayTransactionId: '92704',
+      sepayReferenceCode: 'MBVCB.3278907687',
+      walletTransactionId: null,
+      receiptEmailSentAt: null,
+      student: {
+        fullName: 'Nguyen Van A',
+        parentName: 'Nguyen Thi B',
+        parentEmail: 'parent@example.com',
+      },
+    };
+    const completedOrder = {
+      ...staticOrder,
+      walletTransactionId: 'wallet-tx-static',
+    };
+
+    prisma.studentWalletSepayOrder.findFirst.mockResolvedValue(null);
+    prisma.studentWalletSepayOrder.findUnique.mockResolvedValue(null);
+    prisma.studentInfo.findUnique
+      .mockResolvedValueOnce({
+        id: studentId,
+        fullName: 'Nguyen Van A',
+        parentName: 'Nguyen Thi B',
+        parentEmail: 'parent@example.com',
+      })
+      .mockResolvedValueOnce({ accountBalance: 188_000 });
+    prisma.customerCareService.findUnique.mockResolvedValue({
+      staff: {
+        user: { email: 'care@example.com' },
+      },
+    });
+    prisma.class.findMany.mockResolvedValue([
+      { id: classId1, name: 'Toan 8A' },
+      { id: classId2, name: 'Ly 8A' },
+    ]);
+    prisma.studentWalletSepayOrder.create.mockResolvedValue(staticOrder);
+    prisma.walletTransactionsHistory.create.mockResolvedValue({
+      id: 'wallet-tx-static',
+    });
+    prisma.studentInfo.update.mockResolvedValue({ id: studentId });
+    prisma.studentWalletSepayOrder.update
+      .mockResolvedValueOnce(completedOrder)
+      .mockResolvedValueOnce({
+        ...completedOrder,
+        receiptEmailSentAt: new Date(),
+      });
+
+    const service = new SePayWebhookService(prisma as never, mail as never);
+
+    await expect(
+      service.reconcile(
+        buildPayload({
+          code: null,
+          content: `NAPVI ${studentId} ${classId1} ${classId2}`,
+          description: `Thanh toan NAPVI ${studentId} ${classId1} ${classId2}`,
+          transferAmount: 88_000,
+        }),
+      ),
+    ).resolves.toEqual({
+      action: 'credited',
+      orderCode: staticOrderCode,
+      walletTransactionId: 'wallet-tx-static',
+    });
+
+    const createOrderArg = prisma.studentWalletSepayOrder.create.mock
+      .calls[0]?.[0] as ObjectArg | undefined;
+    expect(createOrderArg?.data).toMatchObject({
+      studentId,
+      status: 'completed',
+      amountRequested: 88_000,
+      amountReceived: 88_000,
+      transferNote: `NAPVI ${studentId} ${classId1} ${classId2}`,
+      sepayTransactionId: '92704',
+      sepayReferenceCode: 'MBVCB.3278907687',
+    });
+    expect(String(createOrderArg?.data?.orderCode)).toMatch(
+      /^STATIC[a-f0-9]{44}$/,
+    );
+    expect(prisma.walletTransactionsHistory.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        studentId,
+        type: 'topup',
+        amount: 88_000,
+      }),
+    });
+    expect(prisma.studentInfo.update).toHaveBeenCalledWith({
+      where: { id: studentId },
+      data: { accountBalance: { increment: 88_000 } },
+    });
+    expect(prisma.class.findMany).toHaveBeenCalledWith({
+      where: { id: { in: [classId1, classId2] } },
+      select: { id: true, name: true },
+    });
+    expect(mail.sendStudentWalletTopUpReceiptEmail).toHaveBeenCalledTimes(2);
+    expect(mail.sendStudentWalletTopUpReceiptEmail).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        to: 'parent@example.com',
+        studentCode: studentId,
+        orderCode: staticOrderCode,
+        amountReceived: 88_000,
+        transferNote: `NAPVI ${studentId} ${classId1} ${classId2}`,
+        extensionClassNames: ['Toan 8A', 'Ly 8A'],
+      }),
+    );
+    expect(mail.sendStudentWalletTopUpReceiptEmail).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        to: 'care@example.com',
+        studentCode: studentId,
+        orderCode: staticOrderCode,
+        amountReceived: 88_000,
+        extensionClassNames: ['Toan 8A', 'Ly 8A'],
+      }),
+    );
   });
 
   it('ignores unmatched and amount-mismatched inbound events without crediting', async () => {

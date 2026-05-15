@@ -15,7 +15,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
-import { Gender, StudentStatus } from 'generated/enums';
+import { Gender, StudentStatus, WalletTransactionType } from 'generated/enums';
 import { PaginationQueryDto } from './pagination.dto';
 
 export class SearchAssignableStudentUsersDto {
@@ -355,6 +355,39 @@ export class StudentSePayTopUpOrderResponseDto {
   updatedAt!: string;
 }
 
+/** Phản hồi GET student-wallet-sepay-static-qr */
+export class StudentSePayStaticQrResponseDto {
+  @ApiProperty({ description: 'Student id encoded in the transfer note.' })
+  studentId!: string;
+
+  @ApiProperty({
+    description: 'Active class ids encoded after the student id.',
+    type: [String],
+  })
+  classIds!: string[];
+
+  @ApiProperty({
+    description: 'Nội dung chuyển khoản cố định để webhook map về học sinh.',
+    example:
+      'NAPVI 0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7 4d560c5e-c3df-4470-b59a-2fd273ef95ef',
+  })
+  transferNote!: string;
+
+  @ApiProperty({
+    description: 'URL ảnh VietQR tĩnh không chứa số tiền.',
+  })
+  qrCodeUrl!: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  bankName?: string | null;
+
+  @ApiProperty({ description: 'Số tài khoản nhận tiền.' })
+  accountNumber!: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  accountHolderName?: string | null;
+}
+
 export class StudentWalletHistoryQueryDto {
   @ApiPropertyOptional({
     example: 50,
@@ -369,6 +402,14 @@ export class StudentWalletHistoryQueryDto {
   @Min(1)
   @Max(200)
   limit?: number;
+
+  @ApiPropertyOptional({
+    enum: [WalletTransactionType.topup],
+    description: 'Optional wallet transaction type filter.',
+  })
+  @IsOptional()
+  @IsEnum(WalletTransactionType)
+  type?: WalletTransactionType;
 }
 
 export class UpdateStudentClassesDto {

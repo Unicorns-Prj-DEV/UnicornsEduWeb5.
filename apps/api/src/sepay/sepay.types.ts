@@ -21,3 +21,13 @@ export interface SePayNormalizedCreateOrderResult {
 export interface SePayWalletTopUpPaymentResult extends SePayNormalizedCreateOrderResult {
   transferNote: string;
 }
+
+export interface SePayStudentWalletStaticQrResult {
+  studentId: string;
+  classIds: string[];
+  transferNote: string;
+  bankName?: string | null;
+  accountNumber: string;
+  accountHolderName?: string | null;
+  qrCodeUrl: string;
+}

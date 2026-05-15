@@ -40,6 +40,7 @@ import {
 import {
   CreateStudentSePayTopUpOrderDto,
   StudentExamScheduleItemDto,
+  StudentSePayStaticQrResponseDto,
   StudentSePayTopUpOrderResponseDto,
   StudentWalletHistoryQueryDto,
   UpdateStudentExamSchedulesDto,
@@ -657,6 +658,34 @@ export class UserProfileController {
   ) {
     const studentId = await this.userService.getLinkedStudentId(user.id);
     return this.studentService.updateMyStudentAccountBalance(studentId, body, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
+  }
+
+  @Get('student-wallet-sepay-static-qr')
+  @ApiOperation({
+    summary: 'Get static SePay QR for current student wallet top-up',
+    description:
+      'Trả QR chuyển khoản tĩnh cho học sinh hiện tại. QR không chứa số tiền; webhook SePay cộng ví theo số tiền ngân hàng xác nhận và nội dung NAPVI <studentId> <activeClassId...>.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Static SePay QR for current student.',
+    type: StudentSePayStaticQrResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 404, description: 'Linked student not found.' })
+  @ApiResponse({
+    status: 503,
+    description: 'SePay static QR chưa được cấu hình trên server.',
+  })
+  async getMyStudentSePayStaticQr(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<StudentSePayStaticQrResponseDto> {
+    const studentId = await this.userService.getLinkedStudentId(user.id);
+    return this.studentService.getStudentSePayStaticQr(studentId, {
       userId: user.id,
       userEmail: user.email,
       roleType: user.roleType,

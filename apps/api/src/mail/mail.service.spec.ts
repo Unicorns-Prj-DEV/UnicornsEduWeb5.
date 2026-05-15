@@ -127,6 +127,7 @@ describe('MailService', () => {
       transactionDate: '2026-05-11 09:30:00',
       referenceCode: 'FT26069ABC',
       balanceAfter: 450000,
+      extensionClassNames: ['Toán 8A', 'Lý 8A'],
     });
 
     expect(sendMail).toHaveBeenCalledTimes(1);
@@ -139,8 +140,12 @@ describe('MailService', () => {
     expect(sent.text).toContain('150.000');
     expect(sent.text).toContain('UEDU-20260511-001');
     expect(sent.text).toContain('FT26069ABC');
+    expect(sent.text).toContain(
+      'Em học sinh Nguyễn Minh gia hạn khoá Toán 8A và Lý 8A số tiền 150.000 VNĐ.',
+    );
     expect(sent.html).toContain('150.000');
     expect(sent.html).toContain('UEDU-20260511-001');
+    expect(sent.html).toContain('Toán 8A và Lý 8A');
     expect(receiptPdfService.renderToPdf).toHaveBeenCalled();
   });
 

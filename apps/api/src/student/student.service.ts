@@ -23,6 +23,7 @@ import { Prisma } from '../../generated/client';
 import {
   CreateStudentSePayTopUpOrderDto,
   CreateStudentDto,
+  StudentSePayStaticQrResponseDto,
   StudentSePayTopUpOrderResponseDto,
   StudentWalletHistoryQueryDto,
   StudentListQueryDto,
@@ -45,6 +46,9 @@ import {
   SePayDuplicateOrderCodeException,
   SePayService,
 } from 'src/sepay/sepay.service';
+
+const RECENT_TOP_UP_DAYS = 21;
+const RECENT_TOP_UP_THRESHOLD = 300_000;
 
 const studentClassDetailInclude = {
   include: {
@@ -272,7 +276,12 @@ export class StudentService {
     };
   }
 
-  private serializeStudentListItem(student: StudentWithClasses) {
+  private serializeStudentListItem(
+    student: StudentWithClasses & {
+      recentTopUpTotalLast21Days?: number;
+      recentTopUpMeetsThreshold?: boolean;
+    },
+  ) {
     return {
       id: student.id,
       fullName: student.fullName,
@@ -292,6 +301,8 @@ export class StudentService {
           status: studentClass.class.status,
         },
       })),
+      recentTopUpTotalLast21Days: student.recentTopUpTotalLast21Days ?? 0,
+      recentTopUpMeetsThreshold: student.recentTopUpMeetsThreshold ?? false,
     };
   }
 
@@ -844,14 +855,51 @@ export class StudentService {
       },
     });
 
+    const studentIds = data.map((student) => student.id);
+    const recentTopUpTotals =
+      await this.getRecentTopUpTotalsByStudentId(studentIds);
+
     return {
-      data: data.map((student) => this.serializeStudentListItem(student)),
+      data: data.map((student) => {
+        const recentTopUpTotal = recentTopUpTotals.get(student.id) ?? 0;
+        return this.serializeStudentListItem({
+          ...student,
+          recentTopUpTotalLast21Days: recentTopUpTotal,
+          recentTopUpMeetsThreshold:
+            recentTopUpTotal >= RECENT_TOP_UP_THRESHOLD,
+        });
+      }),
       meta: {
         total,
         page: safePage,
         limit,
       },
     };
+  }
+
+  private async getRecentTopUpTotalsByStudentId(
+    studentIds: string[],
+  ): Promise<Map<string, number>> {
+    if (studentIds.length === 0) {
+      return new Map();
+    }
+
+    const since = new Date();
+    since.setDate(since.getDate() - RECENT_TOP_UP_DAYS);
+
+    const rows = await this.prisma.walletTransactionsHistory.groupBy({
+      by: ['studentId'],
+      where: {
+        studentId: { in: studentIds },
+        type: WalletTransactionType.topup,
+        createdAt: { gte: since },
+      },
+      _sum: { amount: true },
+    });
+
+    return new Map(
+      rows.map((row) => [row.studentId, row._sum.amount ?? 0]),
+    );
   }
 
   async getStudentById(id: string, access?: StudentDetailAccess) {
@@ -1067,6 +1115,47 @@ export class StudentService {
     );
   }
 
+  async getStudentSePayStaticQr(
+    studentId: string,
+    actor?: ActionHistoryActor,
+  ): Promise<StudentSePayStaticQrResponseDto> {
+    await this.resolveWalletTopUpCreator(studentId, actor);
+
+    if (!this.sePayService.isStudentWalletStaticQrConfigured()) {
+      throw new ServiceUnavailableException(
+        'Thanh toán SePay QR tĩnh chưa được bật trên hệ thống.',
+      );
+    }
+
+    const student = await this.prisma.studentInfo.findUnique({
+      where: { id: studentId },
+      select: {
+        id: true,
+        studentClasses: {
+          where: { status: StudentClassStatus.active },
+          select: {
+            status: true,
+            class: {
+              select: { id: true },
+            },
+          },
+        },
+      },
+    });
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    return this.sePayService.createStudentWalletStaticQr({
+      studentId: student.id,
+      classIds: student.studentClasses
+        .filter(
+          (studentClass) => studentClass.status === StudentClassStatus.active,
+        )
+        .map((studentClass) => studentClass.class.id),
+    });
+  }
+
   private formatTuitionPackageSummaryForTransferNote(
     student: StudentDetailEntity,
   ): string {
@@ -1105,7 +1194,10 @@ export class StudentService {
   async getStudentWalletHistory(
     id: string,
     query: StudentWalletHistoryQueryDto,
+    access?: StudentDetailAccess,
   ) {
+    await this.assertCanAccessStudentDetail(id, access);
+
     const student = await this.prisma.studentInfo.findUnique({
       where: { id },
       select: { id: true },
@@ -1121,7 +1213,12 @@ export class StudentService {
         : 50;
 
     const transactions = await this.prisma.walletTransactionsHistory.findMany({
-      where: { studentId: id },
+      where: {
+        studentId: id,
+        ...(query.type === WalletTransactionType.topup
+          ? { type: WalletTransactionType.topup }
+          : {}),
+      },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit,
       select: {
