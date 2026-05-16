@@ -21,7 +21,7 @@ env:
 jobs:
   build-api:
     name: Build & push API image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
       packages: write
@@ -46,7 +46,7 @@ jobs:
           context: .
           file: apps/api/Dockerfile
           push: true
-          platforms: linux/amd64
+          platforms: linux/arm64
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/unicorns-api:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/unicorns-api:${{ github.sha }}
@@ -55,7 +55,7 @@ jobs:
 
   build-web:
     name: Build & push Web image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
       packages: write
@@ -80,7 +80,7 @@ jobs:
           context: .
           file: apps/web/Dockerfile
           push: true
-          platforms: linux/amd64
+          platforms: linux/arm64
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/unicorns-web:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/unicorns-web:${{ github.sha }}
