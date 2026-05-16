@@ -39,6 +39,11 @@ compose_pull_with_retry() {
   done
 }
 compose_pull_with_retry
+
+echo "Applying database migrations..."
+docker compose -f docker-compose.prod.yml run --rm --no-deps api \
+  ./node_modules/.bin/prisma migrate deploy --schema=./prisma/schema/
+
 docker compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans
 
 wait_for_http() {
