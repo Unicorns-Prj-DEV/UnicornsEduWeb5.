@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 # apps/web/Dockerfile
 FROM node:24-alpine AS base
 ENV PNPM_HOME="/pnpm"
@@ -10,7 +11,8 @@ WORKDIR /app
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY apps/web/package.json ./apps/web/package.json
 COPY apps/api/package.json ./apps/api/package.json
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=web-pnpm-store,target=/pnpm/store \
+  pnpm install --frozen-lockfile
 
 # ── Build ──────────────────────────────────────────────────────────────────────
 FROM base AS builder

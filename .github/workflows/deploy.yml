@@ -30,9 +30,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Set up QEMU (arm64 images from amd64 runner)
-        uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
@@ -49,7 +46,7 @@ jobs:
           context: .
           file: apps/api/Dockerfile
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/unicorns-api:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/unicorns-api:${{ github.sha }}
@@ -67,9 +64,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Set up QEMU (arm64 images from amd64 runner)
-        uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
@@ -86,7 +80,7 @@ jobs:
           context: .
           file: apps/web/Dockerfile
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/unicorns-web:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/unicorns-web:${{ github.sha }}
