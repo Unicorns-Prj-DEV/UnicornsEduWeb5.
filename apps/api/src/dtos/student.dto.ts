@@ -6,6 +6,7 @@ import {
   IsEmail,
   IsEnum,
   IsInt,
+  IsIn,
   IsNumber,
   IsOptional,
   IsString,
@@ -15,7 +16,13 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
-import { Gender, StudentStatus, WalletTransactionType } from 'generated/enums';
+import {
+  Gender,
+  StudentStatus,
+  StudentWalletDirectTopUpRequestStatus,
+  UserRole,
+  WalletTransactionType,
+} from 'generated/enums';
 import { PaginationQueryDto } from './pagination.dto';
 
 export class SearchAssignableStudentUsersDto {
@@ -386,6 +393,106 @@ export class StudentSePayStaticQrResponseDto {
 
   @ApiPropertyOptional({ nullable: true })
   accountHolderName?: string | null;
+}
+
+export class CreateStudentWalletDirectTopUpRequestDto {
+  @ApiProperty({
+    example: 500000,
+    minimum: 1,
+    description: 'Số tiền VND muốn nạp thẳng, phải là số nguyên dương.',
+  })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  amount!: number;
+
+  @ApiProperty({
+    example: 'Phụ huynh đã chuyển nhầm không dùng QR.',
+    minLength: 3,
+    description: 'Lý do cần nạp thẳng để admin đối soát trước khi duyệt.',
+  })
+  @IsString()
+  @MinLength(3)
+  reason!: string;
+}
+
+export class StudentWalletDirectTopUpRequestResponseDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  studentId!: string;
+
+  @ApiProperty()
+  studentName!: string;
+
+  @ApiProperty()
+  amount!: number;
+
+  @ApiProperty()
+  reason!: string;
+
+  @ApiProperty({ enum: StudentWalletDirectTopUpRequestStatus })
+  status!: StudentWalletDirectTopUpRequestStatus;
+
+  @ApiProperty()
+  requestedByUserEmail!: string | null;
+
+  @ApiProperty({ enum: UserRole, nullable: true })
+  requestedByRoleType!: UserRole | null;
+
+  @ApiProperty()
+  expiresAt!: string;
+
+  @ApiProperty()
+  createdAt!: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  approvedAt?: string | null;
+}
+
+export class StudentWalletDirectTopUpRequestListQueryDto extends PaginationQueryDto {
+  @ApiPropertyOptional({
+    enum: [...Object.values(StudentWalletDirectTopUpRequestStatus), 'all'],
+    default: StudentWalletDirectTopUpRequestStatus.pending,
+    description:
+      'Filter approval queue by status. Pending excludes expired pending requests; expired includes rows past expiry.',
+  })
+  @IsOptional()
+  @IsIn([...Object.values(StudentWalletDirectTopUpRequestStatus), 'all'])
+  status?: StudentWalletDirectTopUpRequestStatus | 'all';
+}
+
+export class StudentWalletDirectTopUpRequestListResponseDto {
+  @ApiProperty({ type: [StudentWalletDirectTopUpRequestResponseDto] })
+  data!: StudentWalletDirectTopUpRequestResponseDto[];
+
+  @ApiProperty({
+    example: { total: 1, page: 1, limit: 20 },
+  })
+  meta!: {
+    total: number;
+    page: number;
+    limit: number;
+  };
+}
+
+export class StudentWalletDirectTopUpApprovalTokenDto {
+  @ApiProperty({ description: 'Token duyệt nạp thẳng lấy từ link email.' })
+  @IsString()
+  @MinLength(20)
+  token!: string;
+}
+
+export class StudentWalletDirectTopUpApprovalResultDto {
+  @ApiProperty()
+  message!: string;
+
+  @ApiProperty({ enum: StudentWalletDirectTopUpRequestStatus })
+  status!: StudentWalletDirectTopUpRequestStatus;
+
+  @ApiPropertyOptional({ nullable: true })
+  balanceAfter?: number | null;
 }
 
 export class StudentWalletHistoryQueryDto {

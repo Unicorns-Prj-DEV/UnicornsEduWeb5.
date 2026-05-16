@@ -43,6 +43,10 @@ type Props = {
   showTopUpMethodTabs?: boolean;
   copyOverrides?: Partial<Record<BalanceMode, Partial<BalanceModeCopy>>>;
   successTargetLabel?: string;
+  directBalanceChangeLoadingMessage?: string;
+  directBalanceChangeSuccessMessage?: string;
+  directReasonLabel?: string;
+  directReasonPlaceholder?: string;
   errorMessages?: Partial<Record<BalanceMode, string>>;
   blockedNegativeBalanceMessage?: string;
   /**
@@ -94,6 +98,10 @@ export default function StudentBalancePopup({
   showTopUpMethodTabs = false,
   copyOverrides,
   successTargetLabel,
+  directBalanceChangeLoadingMessage,
+  directBalanceChangeSuccessMessage,
+  directReasonLabel = "Lý do chỉnh số dư",
+  directReasonPlaceholder = "Ví dụ: Phụ huynh chuyển khoản ngoài SePay",
   errorMessages,
   blockedNegativeBalanceMessage = "Số dư hiện tại không đủ để rút số tiền này.",
   sePayStaticQr,
@@ -248,17 +256,19 @@ export default function StudentBalancePopup({
     onClose();
     runBackgroundSave({
       loadingMessage:
-        mode === "withdraw"
+        directBalanceChangeLoadingMessage ??
+        (mode === "withdraw"
           ? "Đang rút tiền..."
           : deltaAmount < 0
             ? "Đang cập nhật số dư..."
-            : "Đang nạp tiền...",
+            : "Đang nạp tiền..."),
       successMessage:
-        mode === "withdraw"
+        directBalanceChangeSuccessMessage ??
+        (mode === "withdraw"
           ? `Đã rút ${formatCurrency(withdrawAmount)} khỏi ${successTargetLabel ?? `tài khoản của ${studentName}`}.`
           : deltaAmount < 0
             ? `Đã giảm ${formatCurrency(Math.abs(deltaAmount))} trên ${successTargetLabel ?? studentName}.`
-            : `Đã nạp ${formatCurrency(deltaAmount)} cho ${successTargetLabel ?? studentName}.`,
+            : `Đã nạp ${formatCurrency(deltaAmount)} cho ${successTargetLabel ?? studentName}.`),
       errorMessage:
         errorMessages?.[mode] ??
         (mode === "topup"
@@ -506,13 +516,13 @@ export default function StudentBalancePopup({
 
                 {directBalanceChangeSelected && directReasonRequired ? (
                   <label className="mt-4 flex flex-col gap-1 text-sm text-text-secondary">
-                    <span>Lý do chỉnh số dư</span>
+                    <span>{directReasonLabel}</span>
                     <textarea
                       value={reasonInput}
                       onChange={(event) => setReasonInput(event.target.value)}
                       rows={3}
                       className="resize-none rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                      placeholder="Ví dụ: Phụ huynh chuyển khoản ngoài SePay"
+                      placeholder={directReasonPlaceholder}
                     />
                   </label>
                 ) : null}

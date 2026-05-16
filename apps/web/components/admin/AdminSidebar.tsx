@@ -37,6 +37,12 @@ const MENU_ITEMS: {
   { href: "/admin/classes", label: "Lớp học", icon: <IconClasses /> },
   { href: "/admin/notes-subject", label: "Ghi chú môn học", icon: <IconNotesSubject /> },
   { href: "/admin/students", label: "Học sinh", icon: <IconStudents /> },
+  {
+    href: "/admin/wallet-direct-topup-requests",
+    label: "Duyệt nạp ví",
+    icon: <IconWalletApproval />,
+    adminOnly: true,
+  },
   { href: "/admin/costs", label: "Chi phí", icon: <IconCosts /> },
   // { href: "/admin/accountant_detail", label: "Trợ cấp kế toán", icon: <IconExtraAllowances /> },
   // { href: "/admin/assistant_detail", label: "Trợ cấp trợ lí", icon: <IconExtraAllowances /> },
@@ -121,6 +127,18 @@ function IconStudents() {
   return (
     <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+    </svg>
+  );
+}
+function IconWalletApproval() {
+  return (
+    <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M3 7h18v10H3V7zm3 3h4m4 0h4M7 17v2m10-2v2m-5-6.5l1.5 1.5L17 10"
+      />
     </svg>
   );
 }

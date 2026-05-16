@@ -16,7 +16,22 @@ import type {
   ReceiptLineItem,
   TuitionReceiptEmailProps,
 } from './receipt.types';
+import {
+  DirectTopUpApprovalEmail,
+  type DirectTopUpApprovalEmailProps,
+} from './templates/direct-topup-approval.email';
 import { TuitionReceiptEmail } from './templates/tuition-receipt.email';
+
+const LOCAL_FRONTEND_URL = 'http://localhost:3000';
+const UNSAFE_PRODUCTION_FRONTEND_HOSTS = new Set([
+  'localhost',
+  '127.0.0.1',
+  '0.0.0.0',
+  '[::1]',
+  'example.com',
+  'example.net',
+  'example.org',
+]);
 
 interface SmtpError {
   code?: string;
@@ -39,6 +54,17 @@ export interface StudentWalletTopUpReceiptEmailParams {
   /** Nội dung chuyển khoản / mã đơn trên QR (từ đơn SePay) */
   transferNote?: string | null;
   extensionClassNames?: string[];
+}
+
+export interface DirectTopUpApprovalEmailParams {
+  to: string;
+  token: string;
+  studentName: string;
+  studentId: string;
+  amount: number;
+  reason: string;
+  requestedByEmail?: string | null;
+  expiresAt: Date;
 }
 
 interface StudentWalletTopUpReceiptEmailWebhookPayload {
@@ -143,6 +169,55 @@ export class MailService {
       subject: 'Khôi phục mật khẩu',
       text: `Vui lòng khôi phục mật khẩu của bạn qua liên kết sau: ${forgotPasswordLink}`,
       html: `<p>Vui lòng khôi phục mật khẩu của bạn bằng cách bấm vào liên kết sau:</p><p><a href="${forgotPasswordLink}">Link</a></p>`,
+    });
+  }
+
+  async sendStudentWalletDirectTopUpApprovalEmail(
+    params: DirectTopUpApprovalEmailParams,
+  ): Promise<void> {
+    const frontendUrl = this.getDirectTopUpApprovalFrontendUrl();
+    const approvalUrl = `${frontendUrl}/wallet-direct-topup-approval?token=${encodeURIComponent(params.token)}`;
+    const expiresAt = params.expiresAt.toLocaleString('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const props: DirectTopUpApprovalEmailProps = {
+      approvalUrl,
+      studentName: this.normalizeReceiptText(params.studentName) || 'Học sinh',
+      studentId: params.studentId,
+      amount: params.amount,
+      reason: this.normalizeReceiptText(params.reason),
+      requestedByEmail:
+        this.normalizeReceiptText(params.requestedByEmail) || null,
+      expiresAt,
+    };
+
+    const html = await render(
+      React.createElement(
+        DirectTopUpApprovalEmail as React.FC<DirectTopUpApprovalEmailProps>,
+        props,
+      ),
+    );
+    const text = [
+      'Yêu cầu nạp thẳng ví học sinh',
+      `Học sinh: ${props.studentName} (${props.studentId})`,
+      `Số tiền: ${this.formatVnd(props.amount)} VND`,
+      `Lý do: ${props.reason}`,
+      `Người yêu cầu: ${props.requestedByEmail || 'Không có email'}`,
+      `Hết hạn: ${props.expiresAt}`,
+      `Xác nhận tại: ${approvalUrl}`,
+    ].join('\n');
+
+    await this.sendMailOrThrow({
+      from: this.mailFrom,
+      to: params.to,
+      subject: `[Unicorns Edu] Xác nhận nạp thẳng — ${props.studentName} — ${this.formatVnd(props.amount)} VND`,
+      text,
+      html,
     });
   }
 
@@ -540,6 +615,61 @@ export class MailService {
     }
 
     return password;
+  }
+
+  private getDirectTopUpApprovalFrontendUrl(): string {
+    const configuredUrl = this.configService.get<string>('FRONTEND_URL')?.trim();
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    if (!configuredUrl) {
+      if (isProduction) {
+        throw new ServiceUnavailableException(
+          'FRONTEND_URL chưa được cấu hình nên không thể tạo link duyệt nạp thẳng cho production.',
+        );
+      }
+      return LOCAL_FRONTEND_URL;
+    }
+
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(configuredUrl);
+    } catch {
+      throw new ServiceUnavailableException(
+        'FRONTEND_URL không hợp lệ nên không thể tạo link duyệt nạp thẳng.',
+      );
+    }
+
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      throw new ServiceUnavailableException(
+        'FRONTEND_URL phải dùng giao thức http hoặc https.',
+      );
+    }
+
+    if (isProduction) {
+      if (parsedUrl.protocol !== 'https:') {
+        throw new ServiceUnavailableException(
+          'FRONTEND_URL production phải dùng HTTPS để bảo vệ link duyệt nạp thẳng.',
+        );
+      }
+      if (this.isUnsafeProductionFrontendHost(parsedUrl.hostname)) {
+        throw new ServiceUnavailableException(
+          'FRONTEND_URL production phải trỏ tới domain public thật, không dùng localhost hoặc example.com.',
+        );
+      }
+    }
+
+    return configuredUrl.replace(/\/+$/, '');
+  }
+
+  private isUnsafeProductionFrontendHost(hostname: string): boolean {
+    const normalizedHostname = hostname.trim().toLowerCase();
+    return (
+      UNSAFE_PRODUCTION_FRONTEND_HOSTS.has(normalizedHostname) ||
+      normalizedHostname.endsWith('.localhost') ||
+      normalizedHostname.endsWith('.example.com') ||
+      normalizedHostname.endsWith('.example.net') ||
+      normalizedHostname.endsWith('.example.org')
+    );
   }
 
   private normalizeReceiptText(value: string | null | undefined): string {

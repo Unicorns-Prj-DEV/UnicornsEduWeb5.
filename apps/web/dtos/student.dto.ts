@@ -136,6 +136,49 @@ export interface StudentSePayStaticQrResponse {
   accountHolderName?: string | null;
 }
 
+export type StudentWalletDirectTopUpRequestStatus =
+  | "pending"
+  | "approved"
+  | "expired";
+
+export interface CreateStudentWalletDirectTopUpRequestPayload {
+  amount: number;
+  reason: string;
+}
+
+export interface StudentWalletDirectTopUpRequestResponse {
+  id: string;
+  studentId: string;
+  studentName: string;
+  amount: number;
+  reason: string;
+  status: StudentWalletDirectTopUpRequestStatus;
+  requestedByUserEmail?: string | null;
+  requestedByRoleType?: string | null;
+  expiresAt: string;
+  createdAt: string;
+  approvedAt?: string | null;
+}
+
+export type StudentWalletDirectTopUpRequestListStatus =
+  | StudentWalletDirectTopUpRequestStatus
+  | "all";
+
+export interface StudentWalletDirectTopUpRequestListResponse {
+  data: StudentWalletDirectTopUpRequestResponse[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+  };
+}
+
+export interface StudentWalletDirectTopUpApprovalResult {
+  message: string;
+  status: StudentWalletDirectTopUpRequestStatus;
+  balanceAfter?: number | null;
+}
+
 export interface StudentSelfDetail {
   id: string;
   fullName: string;

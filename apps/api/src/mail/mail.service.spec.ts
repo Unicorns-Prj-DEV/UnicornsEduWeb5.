@@ -110,6 +110,46 @@ describe('MailService', () => {
     );
   });
 
+  it('rejects production direct top-up approval emails when FRONTEND_URL is unsafe', async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    configService.get.mockImplementation((key: string) => {
+      const values: Record<string, string> = {
+        SMTP_HOST: 'smtp.gmail.com',
+        SMTP_PORT: '587',
+        SMTP_USER: 'sender@gmail.com',
+        SMTP_PASS: 'app-password',
+        SMTP_SECURE: 'false',
+        MAIL_FROM: 'Unicorns Edu <sender@gmail.com>',
+        FRONTEND_URL: 'http://localhost:3000',
+      };
+      return values[key];
+    });
+    const service = new MailService(
+      configService as never,
+      receiptPdfService as never,
+      receiptAssetsService as never,
+    );
+
+    try {
+      await expect(
+        service.sendStudentWalletDirectTopUpApprovalEmail({
+          to: 'admin@unicornsedu.com',
+          token: 'approval-token',
+          studentName: 'Nguyen Van A',
+          studentId: 'student-1',
+          amount: 500000,
+          reason: 'Phụ huynh chuyển khoản ngoài SePay',
+          requestedByEmail: 'care@example.com',
+          expiresAt: new Date('2026-05-30T03:00:00.000Z'),
+        }),
+      ).rejects.toThrow('FRONTEND_URL');
+      expect(sendMail).not.toHaveBeenCalled();
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv;
+    }
+  });
+
   it('sends a wallet top-up receipt to the exact parent email', async () => {
     sendMail.mockResolvedValueOnce(undefined);
     const service = new MailService(

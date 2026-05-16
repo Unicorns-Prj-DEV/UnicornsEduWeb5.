@@ -72,6 +72,7 @@ model StudentInfo {
   user                 User?                       @relation(fields: [userId], references: [id])
   walletTransactions   WalletTransactionsHistory[]
   sepayWalletOrders    StudentWalletSepayOrder[]
+  directTopUpRequests   StudentWalletDirectTopUpRequest[]
 
   @@map("student_info")
 }

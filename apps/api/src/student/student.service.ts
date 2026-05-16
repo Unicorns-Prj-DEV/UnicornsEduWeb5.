@@ -6,6 +6,8 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { createHash, randomBytes } from 'crypto';
 import {
   ActionHistoryActor,
   ActionHistoryService,
@@ -16,15 +18,21 @@ import {
   StaffRole,
   StudentClassStatus,
   StudentStatus,
+  StudentWalletDirectTopUpRequestStatus,
   UserRole,
   WalletTransactionType,
 } from 'generated/enums';
 import { Prisma } from '../../generated/client';
 import {
   CreateStudentSePayTopUpOrderDto,
+  CreateStudentWalletDirectTopUpRequestDto,
   CreateStudentDto,
   StudentSePayStaticQrResponseDto,
   StudentSePayTopUpOrderResponseDto,
+  StudentWalletDirectTopUpApprovalResultDto,
+  StudentWalletDirectTopUpRequestListQueryDto,
+  StudentWalletDirectTopUpRequestListResponseDto,
+  StudentWalletDirectTopUpRequestResponseDto,
   StudentWalletHistoryQueryDto,
   StudentListQueryDto,
   UpdateMyStudentAccountBalanceDto,
@@ -46,9 +54,20 @@ import {
   SePayDuplicateOrderCodeException,
   SePayService,
 } from 'src/sepay/sepay.service';
+import { MailService } from 'src/mail/mail.service';
+import { NotificationService } from 'src/notification/notification.service';
 
 const RECENT_TOP_UP_DAYS = 21;
 const RECENT_TOP_UP_THRESHOLD = 300_000;
+const DIRECT_TOPUP_APPROVAL_TOKEN_DAYS = 14;
+const DIRECT_TOPUP_APPROVAL_TOKEN_BYTES = 32;
+const ADMIN_EMAIL_PLACEHOLDER_DOMAINS = new Set([
+  'example.com',
+  'example.net',
+  'example.org',
+  'localhost',
+]);
+const ADMIN_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const studentClassDetailInclude = {
   include: {
@@ -108,6 +127,19 @@ type WalletTransactionHistoryEntity =
       note: true;
       date: true;
       createdAt: true;
+    };
+  }>;
+
+type StudentWalletDirectTopUpRequestEntity =
+  Prisma.StudentWalletDirectTopUpRequestGetPayload<{
+    include: {
+      student: {
+        select: {
+          id: true;
+          fullName: true;
+          accountBalance: true;
+        };
+      };
     };
   }>;
 
@@ -233,6 +265,9 @@ export class StudentService {
     private readonly actionHistoryService: ActionHistoryService,
     private readonly googleCalendarService: GoogleCalendarService,
     private readonly sePayService: SePayService,
+    private readonly configService: ConfigService,
+    private readonly mailService: MailService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   private formatVND(amount: number) {
@@ -499,6 +534,174 @@ export class StudentService {
       note: transaction.note,
       date: transaction.date,
       createdAt: transaction.createdAt,
+    };
+  }
+
+  private hashDirectTopUpApprovalToken(token: string) {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
+  private generateDirectTopUpApprovalToken() {
+    return randomBytes(DIRECT_TOPUP_APPROVAL_TOKEN_BYTES).toString('base64url');
+  }
+
+  private getDirectTopUpApprovalExpiry(now = new Date()) {
+    const expiresAt = new Date(now);
+    expiresAt.setDate(expiresAt.getDate() + DIRECT_TOPUP_APPROVAL_TOKEN_DAYS);
+    return expiresAt;
+  }
+
+  private getAdminEmailForDirectTopUpApproval() {
+    const adminEmail = this.configService.get<string>('ADMIN_EMAIL')?.trim();
+    if (!adminEmail) {
+      this.logger.warn(
+        'Direct top-up approval email is not configured: ADMIN_EMAIL is missing.',
+      );
+      throw new ServiceUnavailableException(
+        'ADMIN_EMAIL chưa được cấu hình nên không thể gửi yêu cầu duyệt nạp thẳng.',
+      );
+    }
+    if (!this.isUsableAdminEmail(adminEmail)) {
+      this.logger.warn(
+        `Direct top-up approval email is not configured: ADMIN_EMAIL is invalid domain=${this.getEmailDomain(adminEmail) ?? 'unknown'}.`,
+      );
+      throw new ServiceUnavailableException(
+        'ADMIN_EMAIL phải là email admin thật, đúng định dạng và không dùng domain placeholder như example.com hoặc localhost.',
+      );
+    }
+    return adminEmail;
+  }
+
+  private isUsableAdminEmail(email: string) {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!ADMIN_EMAIL_PATTERN.test(normalizedEmail)) {
+      return false;
+    }
+
+    const domain = normalizedEmail.split('@').at(-1);
+    return Boolean(domain && !ADMIN_EMAIL_PLACEHOLDER_DOMAINS.has(domain));
+  }
+
+  private getEmailDomain(email: string | null | undefined): string | null {
+    const normalizedEmail = email?.trim().toLowerCase();
+    const domain = normalizedEmail?.split('@').at(-1);
+    return domain || null;
+  }
+
+  private formatErrorForLog(error: unknown): string {
+    if (error instanceof Error) {
+      return `${error.name}: ${error.message}`;
+    }
+    return String(error);
+  }
+
+  private escapeNotificationHtml(value: string | null | undefined): string {
+    return (value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  private async sendDirectTopUpRequestAdminNotification(params: {
+    requestId: string;
+    studentName: string;
+    amount: number;
+    reason: string;
+    requestedByEmail: string | null;
+    actor?: ActionHistoryActor;
+  }): Promise<void> {
+    if (!params.actor?.userId) {
+      return;
+    }
+
+    const actor = {
+      userId: params.actor.userId,
+      userEmail: params.actor.userEmail ?? null,
+      roleType: params.actor.roleType ?? null,
+    };
+
+    try {
+      const notification = await this.notificationService.createNotificationDraft(
+        {
+          title: 'Yêu cầu nạp thẳng ví mới',
+          message: [
+            `<p><strong>${this.escapeNotificationHtml(params.studentName)}</strong> vừa có yêu cầu nạp thẳng ${this.escapeNotificationHtml(this.formatVND(params.amount))}.</p>`,
+            `<p>Người yêu cầu: ${this.escapeNotificationHtml(params.requestedByEmail ?? 'không có email')}</p>`,
+            `<p>Lý do: ${this.escapeNotificationHtml(params.reason)}</p>`,
+            '<p>Vào Admin → Duyệt nạp ví để kiểm tra và phê duyệt.</p>',
+          ].join(''),
+          targetAll: false,
+          targetRoleTypes: [UserRole.admin],
+          targetStaffRoles: [StaffRole.admin],
+          targetUserIds: [],
+        },
+        actor,
+      );
+
+      await this.notificationService.pushNotification(
+        notification.id,
+        {},
+        actor,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Direct top-up admin notification failed: requestId=${params.requestId} error=${this.formatErrorForLog(error)}`,
+      );
+    }
+  }
+
+  private buildDirectTopUpRequestStatusWhere(
+    status: StudentWalletDirectTopUpRequestStatus | 'all',
+    now: Date,
+  ): Prisma.StudentWalletDirectTopUpRequestWhereInput {
+    if (status === 'all') {
+      return {};
+    }
+    if (status === StudentWalletDirectTopUpRequestStatus.pending) {
+      return {
+        status: StudentWalletDirectTopUpRequestStatus.pending,
+        expiresAt: { gt: now },
+      };
+    }
+    if (status === StudentWalletDirectTopUpRequestStatus.expired) {
+      return {
+        OR: [
+          { status: StudentWalletDirectTopUpRequestStatus.expired },
+          {
+            status: StudentWalletDirectTopUpRequestStatus.pending,
+            expiresAt: { lte: now },
+          },
+        ],
+      };
+    }
+    return { status };
+  }
+
+  private serializeStudentWalletDirectTopUpRequest(
+    request: StudentWalletDirectTopUpRequestEntity,
+    now = new Date(),
+  ): StudentWalletDirectTopUpRequestResponseDto {
+    const isExpired =
+      request.status === StudentWalletDirectTopUpRequestStatus.pending &&
+      request.expiresAt.getTime() <= now.getTime();
+    const status = isExpired
+      ? StudentWalletDirectTopUpRequestStatus.expired
+      : request.status;
+
+    return {
+      id: request.id,
+      studentId: request.studentId,
+      studentName: request.student.fullName,
+      amount: request.amount,
+      reason: request.reason,
+      status,
+      requestedByUserEmail: request.requestedByUserEmail,
+      requestedByRoleType: request.requestedByRoleType,
+      expiresAt: request.expiresAt.toISOString(),
+      createdAt: request.createdAt.toISOString(),
+      approvedAt: request.approvedAt?.toISOString() ?? null,
     };
   }
 
@@ -897,9 +1100,7 @@ export class StudentService {
       _sum: { amount: true },
     });
 
-    return new Map(
-      rows.map((row) => [row.studentId, row._sum.amount ?? 0]),
-    );
+    return new Map(rows.map((row) => [row.studentId, row._sum.amount ?? 0]));
   }
 
   async getStudentById(id: string, access?: StudentDetailAccess) {
@@ -1153,6 +1354,329 @@ export class StudentService {
           (studentClass) => studentClass.status === StudentClassStatus.active,
         )
         .map((studentClass) => studentClass.class.id),
+    });
+  }
+
+  async createStudentWalletDirectTopUpRequest(
+    studentId: string,
+    dto: CreateStudentWalletDirectTopUpRequestDto,
+    actor?: ActionHistoryActor,
+  ): Promise<StudentWalletDirectTopUpRequestResponseDto> {
+    const { staffRoles } = await this.resolveWalletTopUpCreator(
+      studentId,
+      actor,
+    );
+    const amount = Math.round(dto.amount);
+    if (!Number.isInteger(amount) || amount <= 0) {
+      throw new BadRequestException('Amount must be a positive integer.');
+    }
+
+    const reason = dto.reason?.trim();
+    if (!reason) {
+      throw new BadRequestException('Reason is required.');
+    }
+
+    const adminEmail = this.getAdminEmailForDirectTopUpApproval();
+    const student = await this.prisma.studentInfo.findUnique({
+      where: { id: studentId },
+      select: {
+        id: true,
+        fullName: true,
+        accountBalance: true,
+      },
+    });
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    const token = this.generateDirectTopUpApprovalToken();
+    const tokenHash = this.hashDirectTopUpApprovalToken(token);
+    const expiresAt = this.getDirectTopUpApprovalExpiry();
+    const request = await this.prisma.studentWalletDirectTopUpRequest.create({
+      data: {
+        studentId,
+        amount,
+        reason,
+        tokenHash,
+        expiresAt,
+        requestedByUserId: actor?.userId ?? null,
+        requestedByUserEmail: actor?.userEmail ?? null,
+        requestedByRoleType: this.normalizeOrderCreatorRoleType(actor),
+        requestedByStaffRoles: staffRoles,
+      },
+      include: {
+        student: {
+          select: {
+            id: true,
+            fullName: true,
+            accountBalance: true,
+          },
+        },
+      },
+    });
+
+    try {
+      await this.mailService.sendStudentWalletDirectTopUpApprovalEmail({
+        to: adminEmail,
+        token,
+        studentName: student.fullName,
+        studentId: student.id,
+        amount,
+        reason,
+        requestedByEmail: actor?.userEmail ?? null,
+        expiresAt,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Direct top-up approval email failed: requestId=${request.id} studentId=${studentId} adminEmailDomain=${this.getEmailDomain(adminEmail) ?? 'unknown'} error=${this.formatErrorForLog(error)}`,
+      );
+      try {
+        await this.prisma.studentWalletDirectTopUpRequest.delete({
+          where: { id: request.id },
+        });
+      } catch (cleanupError) {
+        this.logger.warn(
+          `Failed to clean up direct top-up request ${request.id} after email failure: ${String(cleanupError)}`,
+        );
+      }
+      throw error;
+    }
+
+    await this.sendDirectTopUpRequestAdminNotification({
+      requestId: request.id,
+      studentName: student.fullName,
+      amount,
+      reason,
+      requestedByEmail: actor?.userEmail ?? null,
+      actor,
+    });
+
+    return this.serializeStudentWalletDirectTopUpRequest(request);
+  }
+
+  async listStudentWalletDirectTopUpRequests(
+    query: StudentWalletDirectTopUpRequestListQueryDto,
+  ): Promise<StudentWalletDirectTopUpRequestListResponseDto> {
+    const now = new Date();
+    const page = Math.max(1, Math.floor(query.page ?? 1));
+    const limit = Math.min(100, Math.max(1, Math.floor(query.limit ?? 20)));
+    const status = query.status ?? StudentWalletDirectTopUpRequestStatus.pending;
+    const where = this.buildDirectTopUpRequestStatusWhere(status, now);
+
+    const [total, requests] = await Promise.all([
+      this.prisma.studentWalletDirectTopUpRequest.count({ where }),
+      this.prisma.studentWalletDirectTopUpRequest.findMany({
+        where,
+        include: {
+          student: {
+            select: {
+              id: true,
+              fullName: true,
+              accountBalance: true,
+            },
+          },
+        },
+        orderBy: [{ createdAt: 'desc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      data: requests.map((request) =>
+        this.serializeStudentWalletDirectTopUpRequest(request, now),
+      ),
+      meta: {
+        total,
+        page,
+        limit,
+      },
+    };
+  }
+
+  async getStudentWalletDirectTopUpApprovalByToken(
+    token: string,
+  ): Promise<StudentWalletDirectTopUpRequestResponseDto> {
+    const normalizedToken = token?.trim();
+    if (!normalizedToken || normalizedToken.length < 20) {
+      throw new BadRequestException('Link xác nhận không hợp lệ.');
+    }
+
+    const request =
+      await this.prisma.studentWalletDirectTopUpRequest.findUnique({
+        where: {
+          tokenHash: this.hashDirectTopUpApprovalToken(normalizedToken),
+        },
+        include: {
+          student: {
+            select: {
+              id: true,
+              fullName: true,
+              accountBalance: true,
+            },
+          },
+        },
+      });
+
+    if (!request) {
+      throw new BadRequestException('Link xác nhận không hợp lệ.');
+    }
+
+    return this.serializeStudentWalletDirectTopUpRequest(request);
+  }
+
+  async approveStudentWalletDirectTopUpRequest(
+    token: string,
+  ): Promise<StudentWalletDirectTopUpApprovalResultDto> {
+    const normalizedToken = token?.trim();
+    if (!normalizedToken || normalizedToken.length < 20) {
+      throw new BadRequestException('Link xác nhận không hợp lệ.');
+    }
+
+    const adminEmail = this.getAdminEmailForDirectTopUpApproval();
+    const tokenHash = this.hashDirectTopUpApprovalToken(normalizedToken);
+
+    return this.approveStudentWalletDirectTopUpRequestRecord({
+      where: { tokenHash },
+      invalidMessage: 'Link xác nhận không hợp lệ.',
+      actor: {
+        userId: null,
+        userEmail: adminEmail,
+        roleType: UserRole.admin,
+      },
+    });
+  }
+
+  async approveStudentWalletDirectTopUpRequestById(
+    requestId: string,
+    actor?: ActionHistoryActor,
+  ): Promise<StudentWalletDirectTopUpApprovalResultDto> {
+    return this.approveStudentWalletDirectTopUpRequestRecord({
+      where: { id: requestId },
+      invalidMessage: 'Yêu cầu nạp thẳng không tồn tại.',
+      actor: actor ?? null,
+    });
+  }
+
+  private approveStudentWalletDirectTopUpRequestRecord(params: {
+    where: Prisma.StudentWalletDirectTopUpRequestWhereUniqueInput;
+    invalidMessage: string;
+    actor?: ActionHistoryActor | null;
+  }): Promise<StudentWalletDirectTopUpApprovalResultDto> {
+    const now = new Date();
+
+    return this.prisma.$transaction(async (tx) => {
+      const request = await tx.studentWalletDirectTopUpRequest.findUnique({
+        where: params.where,
+        include: {
+          student: {
+            select: {
+              id: true,
+              fullName: true,
+              accountBalance: true,
+            },
+          },
+        },
+      });
+
+      if (!request) {
+        throw new BadRequestException(params.invalidMessage);
+      }
+
+      if (request.status === StudentWalletDirectTopUpRequestStatus.approved) {
+        return {
+          message: 'Yêu cầu nạp thẳng này đã được duyệt trước đó.',
+          status: StudentWalletDirectTopUpRequestStatus.approved,
+          balanceAfter: request.student.accountBalance ?? null,
+        };
+      }
+
+      if (
+        request.status === StudentWalletDirectTopUpRequestStatus.expired ||
+        request.expiresAt.getTime() <= now.getTime()
+      ) {
+        await tx.studentWalletDirectTopUpRequest.update({
+          where: { id: request.id },
+          data: {
+            status: StudentWalletDirectTopUpRequestStatus.expired,
+          },
+        });
+        return {
+          message: 'Link xác nhận đã hết hạn.',
+          status: StudentWalletDirectTopUpRequestStatus.expired,
+          balanceAfter: request.student.accountBalance ?? null,
+        };
+      }
+
+      const claimed = await tx.studentWalletDirectTopUpRequest.updateMany({
+        where: {
+          id: request.id,
+          status: StudentWalletDirectTopUpRequestStatus.pending,
+          walletTransactionId: null,
+          expiresAt: { gt: now },
+        },
+        data: {
+          status: StudentWalletDirectTopUpRequestStatus.approved,
+          approvedAt: now,
+        },
+      });
+
+      if (claimed.count !== 1) {
+        throw new BadRequestException(
+          'Yêu cầu này không còn ở trạng thái chờ duyệt.',
+        );
+      }
+
+      const beforeValue = await this.getStudentAuditSnapshot(
+        tx,
+        request.studentId,
+      );
+      const balanceBefore = request.student.accountBalance ?? 0;
+      const balanceAfter = balanceBefore + request.amount;
+      const walletTransaction = await tx.walletTransactionsHistory.create({
+        data: {
+          studentId: request.studentId,
+          type: WalletTransactionType.topup,
+          amount: request.amount,
+          note: `Nạp thẳng đã được admin xác nhận. Lý do: ${request.reason}. Người yêu cầu: ${request.requestedByUserEmail ?? 'không có email'} | Số dư: ${this.formatVND(balanceBefore)} + ${this.formatVND(request.amount)} = ${this.formatVND(balanceAfter)}`,
+          date: now,
+        },
+      });
+
+      const nextStudent = await tx.studentInfo.update({
+        where: { id: request.studentId },
+        data: { accountBalance: { increment: request.amount } },
+        include: studentDetailInclude,
+      });
+
+      await tx.studentWalletDirectTopUpRequest.update({
+        where: { id: request.id },
+        data: {
+          walletTransactionId: walletTransaction.id,
+        },
+      });
+
+      if (beforeValue) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor:
+            params.actor ?? {
+              userId: null,
+              userEmail: null,
+              roleType: UserRole.admin,
+            },
+          entityType: 'student',
+          entityId: request.studentId,
+          description: `Duyệt yêu cầu nạp thẳng ví học sinh từ ${request.requestedByUserEmail ?? 'nhân sự'}`,
+          beforeValue,
+          afterValue: this.serializeStudentDetail(nextStudent),
+        });
+      }
+
+      return {
+        message: 'Đã xác nhận nạp thẳng vào ví học sinh.',
+        status: StudentWalletDirectTopUpRequestStatus.approved,
+        balanceAfter,
+      };
     });
   }
 

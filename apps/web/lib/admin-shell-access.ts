@@ -40,7 +40,10 @@ export const LESSON_MANAGEMENT_ROUTE_PREFIXES = [
   "/admin/lessons",
 ] as const;
 
-export const STRICT_ADMIN_ROUTE_PREFIXES = ["/admin/notification"] as const;
+export const STRICT_ADMIN_ROUTE_PREFIXES = [
+  "/admin/notification",
+  "/admin/wallet-direct-topup-requests",
+] as const;
 
 export function resolveAdminShellAccess(
   profile?: FullProfileDto | UserInfoDto | null,
@@ -120,7 +123,7 @@ export function resolveAdminShellFallbackHref(
   access: AdminShellAccess,
   pathname: string,
 ): string {
-  if (isStrictAdminRoute(pathname) && access.isAssistant) {
+  if (pathname.startsWith("/admin/notification") && access.isAssistant) {
     return "/staff/notification";
   }
 

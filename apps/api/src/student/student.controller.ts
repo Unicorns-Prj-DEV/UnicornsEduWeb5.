@@ -21,17 +21,25 @@ import {
 } from '@nestjs/swagger';
 import { StaffRole, UserRole } from 'generated/enums';
 import { AllowStaffRolesOnAdminRoutes } from 'src/auth/decorators/allow-staff-roles-on-admin.decorator';
+import { AllowAssistantOnAdminRoutes } from 'src/auth/decorators/allow-assistant-on-admin.decorator';
 import {
   CurrentUser,
   type JwtPayload,
 } from 'src/auth/decorators/current-user.decorator';
+import { Public } from 'src/auth/decorators/public.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import {
   CreateStudentDto,
   CreateStudentSePayTopUpOrderDto,
+  CreateStudentWalletDirectTopUpRequestDto,
   SearchAssignableStudentUsersDto,
   StudentSePayStaticQrResponseDto,
   StudentSePayTopUpOrderResponseDto,
+  StudentWalletDirectTopUpApprovalResultDto,
+  StudentWalletDirectTopUpApprovalTokenDto,
+  StudentWalletDirectTopUpRequestListQueryDto,
+  StudentWalletDirectTopUpRequestListResponseDto,
+  StudentWalletDirectTopUpRequestResponseDto,
   StudentWalletHistoryQueryDto,
   StudentListQueryDto,
   StudentExamScheduleItemDto,
@@ -211,6 +219,149 @@ export class StudentController {
     });
   }
 
+  @Get('wallet-direct-topup-requests')
+  @AllowAssistantOnAdminRoutes(false)
+  @ApiOperation({
+    summary: 'List direct wallet top-up approval requests',
+    description:
+      'Admin-only queue for pending and historical direct wallet top-up approval requests.',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['pending', 'approved', 'expired', 'all'],
+    description: 'Queue status filter. Defaults to pending.',
+  })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated direct top-up approval requests.',
+    type: StudentWalletDirectTopUpRequestListResponseDto,
+  })
+  @ApiResponse({ status: 403, description: 'Admin-only.' })
+  async listStudentWalletDirectTopUpRequests(
+    @Query() query: StudentWalletDirectTopUpRequestListQueryDto,
+  ): Promise<StudentWalletDirectTopUpRequestListResponseDto> {
+    return this.studentService.listStudentWalletDirectTopUpRequests(query);
+  }
+
+  @Post('wallet-direct-topup-requests/:requestId/approve')
+  @AllowAssistantOnAdminRoutes(false)
+  @ApiOperation({
+    summary: 'Approve a direct wallet top-up request from the admin queue',
+    description:
+      'Admin-only approval endpoint. Credits the student wallet using the same transaction logic as the email approval flow.',
+  })
+  @ApiParam({ name: 'requestId', description: 'Direct top-up request ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Direct top-up approval result.',
+    type: StudentWalletDirectTopUpApprovalResultDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid or expired request.' })
+  @ApiResponse({ status: 403, description: 'Admin-only.' })
+  async approveStudentWalletDirectTopUpRequestFromQueue(
+    @CurrentUser() user: JwtPayload,
+    @Param('requestId', new ParseUUIDPipe()) requestId: string,
+  ): Promise<StudentWalletDirectTopUpApprovalResultDto> {
+    return this.studentService.approveStudentWalletDirectTopUpRequestById(
+      requestId,
+      {
+        userId: user.id,
+        userEmail: user.email,
+        roleType: user.roleType,
+      },
+    );
+  }
+
+  @Get('wallet-direct-topup-approval')
+  @Public()
+  @Roles()
+  @ApiOperation({
+    summary: 'Preview a direct wallet top-up approval request',
+    description:
+      'Public token-only endpoint used by the approval email. This does not credit the student wallet.',
+  })
+  @ApiQuery({
+    name: 'token',
+    required: true,
+    type: String,
+    description: 'Approval token from email link',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Direct top-up request preview.',
+    type: StudentWalletDirectTopUpRequestResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid token.' })
+  async getStudentWalletDirectTopUpApproval(
+    @Query() query: StudentWalletDirectTopUpApprovalTokenDto,
+  ): Promise<StudentWalletDirectTopUpRequestResponseDto> {
+    return this.studentService.getStudentWalletDirectTopUpApprovalByToken(
+      query.token,
+    );
+  }
+
+  @Post('wallet-direct-topup-approval/confirm')
+  @Public()
+  @Roles()
+  @ApiOperation({
+    summary: 'Confirm a direct wallet top-up approval request',
+    description:
+      'Public token-only endpoint used by the approval page. Credits the student wallet only after this POST.',
+  })
+  @ApiBody({ type: StudentWalletDirectTopUpApprovalTokenDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Direct top-up approval result.',
+    type: StudentWalletDirectTopUpApprovalResultDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid or expired token.' })
+  async confirmStudentWalletDirectTopUpApproval(
+    @Body() body: StudentWalletDirectTopUpApprovalTokenDto,
+  ): Promise<StudentWalletDirectTopUpApprovalResultDto> {
+    return this.studentService.approveStudentWalletDirectTopUpRequest(
+      body.token,
+    );
+  }
+
+  @Post(':id/wallet-direct-topup-requests')
+  @ApiOperation({
+    summary: 'Create a direct wallet top-up request for admin approval',
+    description:
+      'Create a pending direct top-up request and send an approval email to ADMIN_EMAIL. Admin, assistant, accountant, and assigned customer care staff only.',
+  })
+  @ApiParam({ name: 'id', description: 'Student ID' })
+  @ApiBody({ type: CreateStudentWalletDirectTopUpRequestDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Direct top-up request created and approval email sent.',
+    type: StudentWalletDirectTopUpRequestResponseDto,
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Student not found.' })
+  @ApiResponse({
+    status: 503,
+    description: 'ADMIN_EMAIL or SMTP is not configured.',
+  })
+  @AllowStaffRolesOnAdminRoutes(
+    StaffRole.assistant,
+    StaffRole.accountant,
+    StaffRole.customer_care,
+  )
+  async createStudentWalletDirectTopUpRequest(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: CreateStudentWalletDirectTopUpRequestDto,
+  ): Promise<StudentWalletDirectTopUpRequestResponseDto> {
+    return this.studentService.createStudentWalletDirectTopUpRequest(id, body, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
+  }
+
   @Post(':id/wallet-sepay-topup-order')
   @ApiOperation({
     summary: 'Create SePay top-up order for a student',
@@ -258,7 +409,10 @@ export class StudentController {
   })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 404, description: 'Student not found.' })
-  @ApiResponse({ status: 503, description: 'SePay static QR is not configured.' })
+  @ApiResponse({
+    status: 503,
+    description: 'SePay static QR is not configured.',
+  })
   @AllowStaffRolesOnAdminRoutes(
     StaffRole.assistant,
     StaffRole.accountant,

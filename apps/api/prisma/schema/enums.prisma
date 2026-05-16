@@ -76,6 +76,12 @@ enum StudentWalletSepayOrderStatus {
   failed
 }
 
+enum StudentWalletDirectTopUpRequestStatus {
+  pending
+  approved
+  expired
+}
+
 enum LessonTaskStatus {
   pending
   in_progress

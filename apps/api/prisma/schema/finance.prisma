@@ -75,6 +75,7 @@ model WalletTransactionsHistory {
   studentTransactionAttendances Attendance?
   student                       StudentInfo           @relation(fields: [studentId], references: [id], onDelete: Cascade)
   sepayWalletOrder              StudentWalletSepayOrder?
+  directTopUpRequest            StudentWalletDirectTopUpRequest?
 
   @@index([studentId])
   @@index([studentId, createdAt])
@@ -121,6 +122,32 @@ model StudentWalletSepayOrder {
   @@index([status, createdAt])
   @@index([createdByUserId])
   @@map("student_wallet_sepay_orders")
+}
+
+model StudentWalletDirectTopUpRequest {
+  id                     String                                  @id @default(uuid())
+  studentId              String                                  @map("student_id")
+  amount                 Int
+  reason                 String
+  status                 StudentWalletDirectTopUpRequestStatus   @default(pending)
+  tokenHash              String                                  @unique @map("token_hash")
+  expiresAt              DateTime                                @map("expires_at") @db.Timestamptz(6)
+  approvedAt             DateTime?                               @map("approved_at") @db.Timestamptz(6)
+  walletTransactionId    String?                                 @unique @map("wallet_transaction_id")
+  requestedByUserId      String?                                 @map("requested_by_user_id")
+  requestedByUserEmail   String?                                 @map("requested_by_user_email")
+  requestedByRoleType    UserRole?                               @map("requested_by_role_type")
+  requestedByStaffRoles  Json?                                   @map("requested_by_staff_roles")
+  createdAt              DateTime                                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  student                StudentInfo                             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  walletTransaction      WalletTransactionsHistory?              @relation(fields: [walletTransactionId], references: [id], onDelete: SetNull)
+  requestedByUser        User?                                   @relation("StudentWalletDirectTopUpRequestsRequestedBy", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([studentId])
+  @@index([status, expiresAt])
+  @@index([requestedByUserId])
+  @@map("student_wallet_direct_topup_requests")
 }
 
 model CustomerCareService {

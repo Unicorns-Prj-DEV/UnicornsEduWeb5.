@@ -1,4 +1,5 @@
 import type {
+  CreateStudentWalletDirectTopUpRequestPayload,
   CreateStudentPayload,
   StudentAssignableUser,
   StudentDetail,
@@ -9,6 +10,10 @@ import type {
   StudentSePayStaticQrResponse,
   StudentSePayTopUpOrderResponse,
   StudentStatus,
+  StudentWalletDirectTopUpApprovalResult,
+  StudentWalletDirectTopUpRequestListResponse,
+  StudentWalletDirectTopUpRequestListStatus,
+  StudentWalletDirectTopUpRequestResponse,
   StudentWalletTransaction,
   StudentWalletTransactionType,
   UpdateStudentAccountBalancePayload,
@@ -32,6 +37,12 @@ type StudentListParams = {
 type StudentWalletHistoryParams = {
   limit?: number;
   type?: StudentWalletTransactionType;
+};
+
+type StudentWalletDirectTopUpRequestListParams = {
+  status?: StudentWalletDirectTopUpRequestListStatus;
+  page?: number;
+  limit?: number;
 };
 
 export async function searchAssignableUsersByEmail(
@@ -183,6 +194,80 @@ export async function getStudentSePayStaticQr(
   const safeId = encodeURIComponent(studentId);
   const response = await api.get<StudentSePayStaticQrResponse>(
     `/student/${safeId}/wallet-sepay-static-qr`,
+  );
+  return response.data;
+}
+
+/** POST /student/:id/wallet-direct-topup-requests – request admin approval for a manual top-up. */
+export async function createStudentWalletDirectTopUpRequest(
+  studentId: string,
+  payload: CreateStudentWalletDirectTopUpRequestPayload,
+): Promise<StudentWalletDirectTopUpRequestResponse> {
+  const safeId = encodeURIComponent(studentId);
+  const response = await api.post<StudentWalletDirectTopUpRequestResponse>(
+    `/student/${safeId}/wallet-direct-topup-requests`,
+    payload,
+  );
+  return response.data;
+}
+
+/** GET /student/wallet-direct-topup-requests – admin approval queue and history. */
+export async function getStudentWalletDirectTopUpRequests(
+  params: StudentWalletDirectTopUpRequestListParams = {},
+): Promise<StudentWalletDirectTopUpRequestListResponse> {
+  const page = params.page ?? 1;
+  const limit = params.limit ?? 20;
+  const response = await api.get<StudentWalletDirectTopUpRequestListResponse>(
+    "/student/wallet-direct-topup-requests",
+    {
+      params: {
+        page,
+        limit,
+        ...(params.status ? { status: params.status } : {}),
+      },
+    },
+  );
+  return {
+    data: Array.isArray(response.data?.data) ? response.data.data : [],
+    meta: {
+      total: response.data?.meta?.total ?? 0,
+      page: response.data?.meta?.page ?? page,
+      limit: response.data?.meta?.limit ?? limit,
+    },
+  };
+}
+
+/** POST /student/wallet-direct-topup-requests/:requestId/approve – approve from admin queue. */
+export async function approveStudentWalletDirectTopUpRequest(
+  requestId: string,
+): Promise<StudentWalletDirectTopUpApprovalResult> {
+  const safeId = encodeURIComponent(requestId);
+  const response = await api.post<StudentWalletDirectTopUpApprovalResult>(
+    `/student/wallet-direct-topup-requests/${safeId}/approve`,
+  );
+  return response.data;
+}
+
+/** GET /student/wallet-direct-topup-approval – preview public approval request. */
+export async function getStudentWalletDirectTopUpApproval(
+  token: string,
+): Promise<StudentWalletDirectTopUpRequestResponse> {
+  const response = await api.get<StudentWalletDirectTopUpRequestResponse>(
+    "/student/wallet-direct-topup-approval",
+    {
+      params: { token },
+    },
+  );
+  return response.data;
+}
+
+/** POST /student/wallet-direct-topup-approval/confirm – approve public direct top-up request. */
+export async function confirmStudentWalletDirectTopUpApproval(
+  token: string,
+): Promise<StudentWalletDirectTopUpApprovalResult> {
+  const response = await api.post<StudentWalletDirectTopUpApprovalResult>(
+    "/student/wallet-direct-topup-approval/confirm",
+    { token },
   );
   return response.data;
 }

@@ -5,9 +5,10 @@ jest.mock('../../generated/client', () => ({
   Prisma: {},
 }));
 
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, Logger } from '@nestjs/common';
 import {
   StaffRole,
+  StudentWalletDirectTopUpRequestStatus,
   StudentStatus,
   UserRole,
   WalletTransactionType,
@@ -42,6 +43,15 @@ describe('StudentService', () => {
     studentWalletSepayOrder: {
       create: jest.fn(),
     },
+    studentWalletDirectTopUpRequest: {
+      create: jest.fn(),
+      count: jest.fn(),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+      delete: jest.fn(),
+    },
     staffInfo: {
       findUnique: jest.fn(),
     },
@@ -71,6 +81,16 @@ describe('StudentService', () => {
     createStudentWalletTopUpPayment: jest.fn(),
     createStudentWalletStaticQr: jest.fn(),
   };
+  const configService = {
+    get: jest.fn(),
+  };
+  const mailService = {
+    sendStudentWalletDirectTopUpApprovalEmail: jest.fn(),
+  };
+  const notificationService = {
+    createNotificationDraft: jest.fn(),
+    pushNotification: jest.fn(),
+  };
 
   let service: StudentService;
 
@@ -85,11 +105,23 @@ describe('StudentService', () => {
       (callback: (db: typeof mockPrisma) => unknown) => callback(mockPrisma),
     );
     mockPrisma.walletTransactionsHistory.groupBy.mockResolvedValue([]);
+    notificationService.createNotificationDraft.mockResolvedValue({
+      id: 'notification-1',
+    });
+    notificationService.pushNotification.mockResolvedValue({
+      id: 'notification-1',
+    });
+    configService.get.mockImplementation((key: string) =>
+      key === 'ADMIN_EMAIL' ? 'admin@unicornsedu.com' : undefined,
+    );
     service = new StudentService(
       mockPrisma as never,
       actionHistoryService as never,
       googleCalendarService as never,
       sePayService as never,
+      configService as never,
+      mailService as never,
+      notificationService as never,
     );
   });
 
@@ -603,6 +635,575 @@ describe('StudentService', () => {
     });
   });
 
+  it('creates a direct top-up request with a 14-day approval token expiry', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-05-16T03:00:00.000Z'));
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      roles: [StaffRole.customer_care],
+    });
+    mockPrisma.customerCareService.findUnique.mockResolvedValue({
+      staffId: 'staff-1',
+    });
+    mockPrisma.studentInfo.findUnique.mockResolvedValue({
+      id: 'student-1',
+      fullName: 'Nguyen Van A',
+      accountBalance: 100000,
+    });
+    mockPrisma.studentWalletDirectTopUpRequest.create.mockImplementation(
+      (args: {
+        data: {
+          studentId: string;
+          amount: number;
+          reason: string;
+          tokenHash: string;
+          expiresAt: Date;
+          requestedByUserEmail: string | null;
+        };
+      }) =>
+        Promise.resolve({
+          id: 'direct-request-1',
+          ...args.data,
+          status: StudentWalletDirectTopUpRequestStatus.pending,
+          approvedAt: null,
+          walletTransactionId: null,
+          requestedByUserId: 'staff-user-1',
+          requestedByRoleType: UserRole.staff,
+          requestedByStaffRoles: [StaffRole.customer_care],
+          createdAt: new Date('2026-05-16T03:00:00.000Z'),
+          updatedAt: new Date('2026-05-16T03:00:00.000Z'),
+          student: {
+            id: 'student-1',
+            fullName: 'Nguyen Van A',
+            accountBalance: 100000,
+          },
+        }),
+    );
+
+    await expect(
+      service.createStudentWalletDirectTopUpRequest(
+        'student-1',
+        {
+          amount: 500000,
+          reason: 'Phụ huynh chuyển khoản ngoài SePay',
+        },
+        {
+          userId: 'staff-user-1',
+          userEmail: 'care@example.com',
+          roleType: UserRole.staff,
+        },
+      ),
+    ).resolves.toMatchObject({
+      id: 'direct-request-1',
+      status: StudentWalletDirectTopUpRequestStatus.pending,
+      expiresAt: '2026-05-30T03:00:00.000Z',
+    });
+
+    const createMock = mockPrisma.studentWalletDirectTopUpRequest
+      .create as jest.MockedFunction<
+      (args: {
+        data: {
+          tokenHash: string;
+          expiresAt: Date;
+        };
+      }) => unknown
+    >;
+    const createArg = createMock.mock.calls[0]?.[0];
+    expect(createArg?.data.tokenHash).toHaveLength(64);
+    expect(createArg?.data).not.toHaveProperty('token');
+    expect(createArg?.data.expiresAt.toISOString()).toBe(
+      '2026-05-30T03:00:00.000Z',
+    );
+    expect(
+      mailService.sendStudentWalletDirectTopUpApprovalEmail,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'admin@unicornsedu.com',
+        studentId: 'student-1',
+        amount: 500000,
+        requestedByEmail: 'care@example.com',
+        expiresAt: new Date('2026-05-30T03:00:00.000Z'),
+      }),
+    );
+    expect(notificationService.createNotificationDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: expect.stringContaining('Yêu cầu nạp thẳng ví mới'),
+        message: expect.stringContaining('Nguyen Van A'),
+        targetAll: false,
+        targetRoleTypes: [UserRole.admin],
+        targetStaffRoles: [StaffRole.admin],
+      }),
+      {
+        userId: 'staff-user-1',
+        userEmail: 'care@example.com',
+        roleType: UserRole.staff,
+      },
+    );
+    expect(notificationService.pushNotification).toHaveBeenCalledWith(
+      'notification-1',
+      {},
+      {
+        userId: 'staff-user-1',
+        userEmail: 'care@example.com',
+        roleType: UserRole.staff,
+      },
+    );
+    jest.useRealTimers();
+  });
+
+  it('does not create a direct top-up request when ADMIN_EMAIL is missing', async () => {
+    configService.get.mockReturnValue(undefined);
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      roles: [StaffRole.accountant],
+    });
+
+    await expect(
+      service.createStudentWalletDirectTopUpRequest(
+        'student-1',
+        {
+          amount: 500000,
+          reason: 'Phụ huynh chuyển khoản ngoài SePay',
+        },
+        {
+          userId: 'staff-user-1',
+          userEmail: 'accountant@example.com',
+          roleType: UserRole.staff,
+        },
+      ),
+    ).rejects.toThrow('ADMIN_EMAIL');
+
+    expect(
+      mockPrisma.studentWalletDirectTopUpRequest.create,
+    ).not.toHaveBeenCalled();
+    expect(
+      mailService.sendStudentWalletDirectTopUpApprovalEmail,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('does not create a direct top-up request when ADMIN_EMAIL is a placeholder address', async () => {
+    configService.get.mockImplementation((key: string) =>
+      key === 'ADMIN_EMAIL' ? 'admin@example.com' : undefined,
+    );
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      roles: [StaffRole.accountant],
+    });
+    mockPrisma.studentInfo.findUnique.mockResolvedValue({
+      id: 'student-1',
+      fullName: 'Nguyen Van A',
+      accountBalance: 100000,
+    });
+    mockPrisma.studentWalletDirectTopUpRequest.create.mockResolvedValue({
+      id: 'direct-request-1',
+      studentId: 'student-1',
+      amount: 500000,
+      reason: 'Phụ huynh chuyển khoản ngoài SePay',
+      status: StudentWalletDirectTopUpRequestStatus.pending,
+      tokenHash: 'hashed-token',
+      expiresAt: new Date('2026-05-30T03:00:00.000Z'),
+      approvedAt: null,
+      walletTransactionId: null,
+      requestedByUserId: 'staff-user-1',
+      requestedByUserEmail: 'accountant@example.com',
+      requestedByRoleType: UserRole.staff,
+      requestedByStaffRoles: [StaffRole.accountant],
+      createdAt: new Date('2026-05-16T03:00:00.000Z'),
+      updatedAt: new Date('2026-05-16T03:00:00.000Z'),
+      student: {
+        id: 'student-1',
+        fullName: 'Nguyen Van A',
+        accountBalance: 100000,
+      },
+    });
+
+    await expect(
+      service.createStudentWalletDirectTopUpRequest(
+        'student-1',
+        {
+          amount: 500000,
+          reason: 'Phụ huynh chuyển khoản ngoài SePay',
+        },
+        {
+          userId: 'staff-user-1',
+          userEmail: 'accountant@example.com',
+          roleType: UserRole.staff,
+        },
+      ),
+    ).rejects.toThrow('ADMIN_EMAIL');
+
+    expect(
+      mockPrisma.studentWalletDirectTopUpRequest.create,
+    ).not.toHaveBeenCalled();
+    expect(
+      mailService.sendStudentWalletDirectTopUpApprovalEmail,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('cleans up a direct top-up request when approval email sending fails', async () => {
+    const loggerWarnSpy = jest
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation();
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      roles: [StaffRole.accountant],
+    });
+    mockPrisma.studentInfo.findUnique.mockResolvedValue({
+      id: 'student-1',
+      fullName: 'Nguyen Van A',
+      accountBalance: 100000,
+    });
+    mockPrisma.studentWalletDirectTopUpRequest.create.mockResolvedValue({
+      id: 'direct-request-1',
+      studentId: 'student-1',
+      amount: 500000,
+      reason: 'Phụ huynh chuyển khoản ngoài SePay',
+      tokenHash: 'hash',
+      expiresAt: new Date('2026-05-30T03:00:00.000Z'),
+      status: StudentWalletDirectTopUpRequestStatus.pending,
+      approvedAt: null,
+      walletTransactionId: null,
+      requestedByUserId: 'staff-user-1',
+      requestedByUserEmail: 'accountant@example.com',
+      requestedByRoleType: UserRole.staff,
+      requestedByStaffRoles: [StaffRole.accountant],
+      createdAt: new Date('2026-05-16T03:00:00.000Z'),
+      updatedAt: new Date('2026-05-16T03:00:00.000Z'),
+      student: {
+        id: 'student-1',
+        fullName: 'Nguyen Van A',
+        accountBalance: 100000,
+      },
+    });
+    mailService.sendStudentWalletDirectTopUpApprovalEmail.mockRejectedValue(
+      new Error('smtp failed'),
+    );
+
+    await expect(
+      service.createStudentWalletDirectTopUpRequest(
+        'student-1',
+        {
+          amount: 500000,
+          reason: 'Phụ huynh chuyển khoản ngoài SePay',
+        },
+        {
+          userId: 'staff-user-1',
+          userEmail: 'accountant@example.com',
+          roleType: UserRole.staff,
+        },
+      ),
+    ).rejects.toThrow('smtp failed');
+
+    expect(
+      mockPrisma.studentWalletDirectTopUpRequest.delete,
+    ).toHaveBeenCalledWith({
+      where: { id: 'direct-request-1' },
+    });
+    expect(loggerWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'Direct top-up approval email failed: requestId=direct-request-1 studentId=student-1',
+      ),
+    );
+    loggerWarnSpy.mockRestore();
+  });
+
+  it('lists pending direct top-up requests without expired pending rows', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-05-16T03:00:00.000Z'));
+    mockPrisma.studentWalletDirectTopUpRequest.count.mockResolvedValue(1);
+    mockPrisma.studentWalletDirectTopUpRequest.findMany.mockResolvedValue([
+      {
+        id: 'direct-request-1',
+        studentId: 'student-1',
+        amount: 500000,
+        reason: 'Phụ huynh chuyển khoản ngoài SePay',
+        status: StudentWalletDirectTopUpRequestStatus.pending,
+        tokenHash: 'hash',
+        expiresAt: new Date('2026-05-17T03:00:00.000Z'),
+        approvedAt: null,
+        walletTransactionId: null,
+        requestedByUserId: 'staff-user-1',
+        requestedByUserEmail: 'accountant@example.com',
+        requestedByRoleType: UserRole.staff,
+        requestedByStaffRoles: [StaffRole.accountant],
+        createdAt: new Date('2026-05-16T02:00:00.000Z'),
+        updatedAt: new Date('2026-05-16T02:00:00.000Z'),
+        student: {
+          id: 'student-1',
+          fullName: 'Nguyen Van A',
+          accountBalance: 100000,
+        },
+      },
+    ]);
+
+    await expect(
+      service.listStudentWalletDirectTopUpRequests({
+        status: StudentWalletDirectTopUpRequestStatus.pending,
+        page: 1,
+        limit: 20,
+      }),
+    ).resolves.toMatchObject({
+      data: [
+        {
+          id: 'direct-request-1',
+          status: StudentWalletDirectTopUpRequestStatus.pending,
+        },
+      ],
+      meta: {
+        total: 1,
+        page: 1,
+        limit: 20,
+      },
+    });
+
+    expect(
+      mockPrisma.studentWalletDirectTopUpRequest.findMany,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          status: StudentWalletDirectTopUpRequestStatus.pending,
+          expiresAt: { gt: new Date('2026-05-16T03:00:00.000Z') },
+        },
+        orderBy: [{ createdAt: 'desc' }],
+        skip: 0,
+        take: 20,
+      }),
+    );
+    jest.useRealTimers();
+  });
+
+  it('lists expired direct top-up history including pending rows past expiry', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-05-16T03:00:00.000Z'));
+    mockPrisma.studentWalletDirectTopUpRequest.count.mockResolvedValue(1);
+    mockPrisma.studentWalletDirectTopUpRequest.findMany.mockResolvedValue([
+      {
+        id: 'direct-request-expired',
+        studentId: 'student-1',
+        amount: 500000,
+        reason: 'Quá hạn duyệt',
+        status: StudentWalletDirectTopUpRequestStatus.pending,
+        tokenHash: 'hash',
+        expiresAt: new Date('2026-05-15T03:00:00.000Z'),
+        approvedAt: null,
+        walletTransactionId: null,
+        requestedByUserId: 'staff-user-1',
+        requestedByUserEmail: 'accountant@example.com',
+        requestedByRoleType: UserRole.staff,
+        requestedByStaffRoles: [StaffRole.accountant],
+        createdAt: new Date('2026-05-01T03:00:00.000Z'),
+        updatedAt: new Date('2026-05-01T03:00:00.000Z'),
+        student: {
+          id: 'student-1',
+          fullName: 'Nguyen Van A',
+          accountBalance: 100000,
+        },
+      },
+    ]);
+
+    await expect(
+      service.listStudentWalletDirectTopUpRequests({
+        status: StudentWalletDirectTopUpRequestStatus.expired,
+        page: 2,
+        limit: 10,
+      }),
+    ).resolves.toMatchObject({
+      data: [
+        {
+          id: 'direct-request-expired',
+          status: StudentWalletDirectTopUpRequestStatus.expired,
+        },
+      ],
+      meta: {
+        total: 1,
+        page: 2,
+        limit: 10,
+      },
+    });
+
+    expect(
+      mockPrisma.studentWalletDirectTopUpRequest.count,
+    ).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { status: StudentWalletDirectTopUpRequestStatus.expired },
+          {
+            status: StudentWalletDirectTopUpRequestStatus.pending,
+            expiresAt: { lte: new Date('2026-05-16T03:00:00.000Z') },
+          },
+        ],
+      },
+    });
+    jest.useRealTimers();
+  });
+
+  it('approves a direct top-up request by request id for admin queue', async () => {
+    const expiresAt = new Date(Date.now() + 60_000);
+    const studentSnapshot = {
+      id: 'student-1',
+      fullName: 'Nguyen Van A',
+      email: 'student@example.com',
+      school: 'THPT Nguyen Du',
+      province: 'Hanoi',
+      birthYear: 2010,
+      parentName: 'Parent A',
+      parentPhone: '0900000000',
+      parentEmail: 'parent@example.com',
+      status: StudentStatus.active,
+      gender: 'male',
+      goal: 'Top 1',
+      accountBalance: 100000,
+      createdAt: new Date('2026-03-20T10:00:00.000Z'),
+      updatedAt: new Date('2026-03-21T10:00:00.000Z'),
+      dropOutDate: null,
+      customerCareServices: null,
+      studentClasses: [],
+      examSchedules: [],
+    };
+    mockPrisma.studentWalletDirectTopUpRequest.findUnique.mockResolvedValue({
+      id: 'direct-request-1',
+      studentId: 'student-1',
+      amount: 500000,
+      reason: 'Phụ huynh chuyển khoản ngoài SePay',
+      tokenHash: 'hash',
+      expiresAt,
+      status: StudentWalletDirectTopUpRequestStatus.pending,
+      approvedAt: null,
+      walletTransactionId: null,
+      requestedByUserEmail: 'accountant@example.com',
+      student: {
+        id: 'student-1',
+        fullName: 'Nguyen Van A',
+        accountBalance: 100000,
+      },
+    });
+    mockPrisma.studentWalletDirectTopUpRequest.updateMany.mockResolvedValue({
+      count: 1,
+    });
+    mockPrisma.studentInfo.findUnique.mockResolvedValue(studentSnapshot);
+    mockPrisma.walletTransactionsHistory.create.mockResolvedValue({
+      id: 'wallet-history-1',
+    });
+    mockPrisma.studentInfo.update.mockResolvedValue({
+      ...studentSnapshot,
+      accountBalance: 600000,
+    });
+
+    await expect(
+      service.approveStudentWalletDirectTopUpRequestById('direct-request-1'),
+    ).resolves.toMatchObject({
+      status: StudentWalletDirectTopUpRequestStatus.approved,
+      balanceAfter: 600000,
+    });
+
+    expect(
+      mockPrisma.studentWalletDirectTopUpRequest.findUnique,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'direct-request-1' },
+      }),
+    );
+  });
+
+  it('approves a direct top-up request and credits the student wallet once', async () => {
+    const expiresAt = new Date(Date.now() + 60_000);
+    const studentSnapshot = {
+      id: 'student-1',
+      fullName: 'Nguyen Van A',
+      email: 'student@example.com',
+      school: 'THPT Nguyen Du',
+      province: 'Hanoi',
+      birthYear: 2010,
+      parentName: 'Parent A',
+      parentPhone: '0900000000',
+      parentEmail: 'parent@example.com',
+      status: StudentStatus.active,
+      gender: 'male',
+      goal: 'Top 1',
+      accountBalance: 100000,
+      createdAt: new Date('2026-03-20T10:00:00.000Z'),
+      updatedAt: new Date('2026-03-21T10:00:00.000Z'),
+      dropOutDate: null,
+      customerCareServices: null,
+      studentClasses: [],
+      examSchedules: [],
+    };
+    mockPrisma.studentWalletDirectTopUpRequest.findUnique.mockResolvedValue({
+      id: 'direct-request-1',
+      studentId: 'student-1',
+      amount: 500000,
+      reason: 'Phụ huynh chuyển khoản ngoài SePay',
+      tokenHash: 'hash',
+      expiresAt,
+      status: StudentWalletDirectTopUpRequestStatus.pending,
+      approvedAt: null,
+      walletTransactionId: null,
+      requestedByUserEmail: 'accountant@example.com',
+      student: {
+        id: 'student-1',
+        fullName: 'Nguyen Van A',
+        accountBalance: 100000,
+      },
+    });
+    mockPrisma.studentWalletDirectTopUpRequest.updateMany.mockResolvedValue({
+      count: 1,
+    });
+    mockPrisma.studentInfo.findUnique.mockResolvedValue(studentSnapshot);
+    mockPrisma.walletTransactionsHistory.create.mockResolvedValue({
+      id: 'wallet-history-1',
+    });
+    mockPrisma.studentInfo.update.mockResolvedValue({
+      ...studentSnapshot,
+      accountBalance: 600000,
+    });
+
+    await expect(
+      service.approveStudentWalletDirectTopUpRequest(
+        'valid-approval-token-value',
+      ),
+    ).resolves.toMatchObject({
+      status: StudentWalletDirectTopUpRequestStatus.approved,
+      balanceAfter: 600000,
+    });
+
+    const walletCreateMock = mockPrisma.walletTransactionsHistory
+      .create as jest.MockedFunction<
+      (args: {
+        data: {
+          studentId: string;
+          type: WalletTransactionType;
+          amount: number;
+        };
+      }) => unknown
+    >;
+    const walletCreateArg = walletCreateMock.mock.calls[0]?.[0];
+    expect(walletCreateArg?.data).toMatchObject({
+      studentId: 'student-1',
+      type: WalletTransactionType.topup,
+      amount: 500000,
+    });
+
+    const studentUpdateMock = mockPrisma.studentInfo
+      .update as jest.MockedFunction<
+      (args: {
+        where: { id: string };
+        data: { accountBalance: { increment: number } };
+      }) => unknown
+    >;
+    const studentUpdateArg = studentUpdateMock.mock.calls[0]?.[0];
+    expect(studentUpdateArg).toMatchObject({
+      where: { id: 'student-1' },
+      data: { accountBalance: { increment: 500000 } },
+    });
+    expect(actionHistoryService.recordUpdate).toHaveBeenCalledWith(
+      mockPrisma,
+      expect.objectContaining({
+        entityType: 'student',
+        entityId: 'student-1',
+      }),
+    );
+  });
+
   it('blocks customer care staff from creating QR orders for unassigned students', async () => {
     sePayService.isWalletTopUpConfigured.mockReturnValue(true);
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
@@ -794,6 +1395,8 @@ describe('StudentService', () => {
       ),
     ).rejects.toThrow('Student not found');
 
-    expect(mockPrisma.walletTransactionsHistory.findMany).not.toHaveBeenCalled();
+    expect(
+      mockPrisma.walletTransactionsHistory.findMany,
+    ).not.toHaveBeenCalled();
   });
 });

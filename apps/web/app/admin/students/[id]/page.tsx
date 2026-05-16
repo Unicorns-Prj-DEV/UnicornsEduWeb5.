@@ -134,6 +134,10 @@ export default function AdminStudentDetailPage() {
         canManageStudent || isAccountantStaff || isCustomerCareStaff;
     const canDirectlyAdjustWallet =
         routeBase === "/admin" || fullProfile?.roleType === "admin";
+    const canRequestDirectTopUp =
+        routeBase === "/staff" &&
+        fullProfile?.roleType === "staff" &&
+        (isAssistantStaff || isAccountantStaff || isCustomerCareStaff);
     const backLabel = isCustomerCareReadOnlyView
         ? "Quay lại trang CSKH"
         : "Quay lại danh sách học sinh";
@@ -322,7 +326,7 @@ export default function AdminStudentDetailPage() {
                     student={student}
                 />
             ) : null}
-            {balancePopupMode && (canCreateWalletQr || canDirectlyAdjustWallet) ? (
+            {balancePopupMode && (canCreateWalletQr || canDirectlyAdjustWallet || canRequestDirectTopUp) ? (
                 <StudentBalancePopup
                     key={`${student.id}-${student.updatedAt ?? "stable"}-balance-${balancePopupMode ?? "closed"}`}
                     open={balancePopupMode !== null}
@@ -332,14 +336,53 @@ export default function AdminStudentDetailPage() {
                     sePayStaticQr={sePayStaticQr ?? null}
                     isSePayStaticQrLoading={isSePayStaticQrLoading}
                     sePayStaticQrErrorMessage={sePayStaticQrErrorMessage}
-                    directBalanceChangeEnabled={canDirectlyAdjustWallet}
-                    directReasonRequired={canDirectlyAdjustWallet}
+                    submitBalanceChange={
+                        canRequestDirectTopUp && !canDirectlyAdjustWallet
+                            ? (amount, reason) =>
+                                studentApi.createStudentWalletDirectTopUpRequest(student.id, {
+                                    amount,
+                                    reason: reason ?? "",
+                                })
+                            : undefined
+                    }
+                    directBalanceChangeEnabled={canDirectlyAdjustWallet || canRequestDirectTopUp}
+                    directReasonRequired={canDirectlyAdjustWallet || canRequestDirectTopUp}
+                    directBalanceChangeLoadingMessage={
+                        canRequestDirectTopUp && !canDirectlyAdjustWallet
+                            ? "Đang gửi yêu cầu nạp thẳng..."
+                            : undefined
+                    }
+                    directBalanceChangeSuccessMessage={
+                        canRequestDirectTopUp && !canDirectlyAdjustWallet
+                            ? "Đã gửi yêu cầu nạp thẳng tới admin."
+                            : undefined
+                    }
+                    directReasonLabel={
+                        canRequestDirectTopUp && !canDirectlyAdjustWallet
+                            ? "Lý do nạp thẳng"
+                            : undefined
+                    }
+                    directReasonPlaceholder={
+                        canRequestDirectTopUp && !canDirectlyAdjustWallet
+                            ? "Ví dụ: Phụ huynh chuyển khoản ngoài SePay, cần đối soát thủ công"
+                            : undefined
+                    }
                     defaultTopUpMethod="sepay"
-                    showTopUpMethodTabs={canDirectlyAdjustWallet}
+                    showTopUpMethodTabs={canDirectlyAdjustWallet || canRequestDirectTopUp}
                     copyOverrides={{
                         topup: {
+                            submitLabel:
+                                canRequestDirectTopUp && !canDirectlyAdjustWallet
+                                    ? "Gửi yêu cầu nạp thẳng"
+                                    : undefined,
+                            title:
+                                canRequestDirectTopUp && !canDirectlyAdjustWallet
+                                    ? "Yêu cầu nạp thẳng"
+                                    : undefined,
                             description: canDirectlyAdjustWallet
                                 ? "QR SePay tĩnh để phụ huynh chuyển khoản, hoặc dùng Nạp thẳng khi admin cần ghi nhận thủ công."
+                                : canRequestDirectTopUp
+                                    ? "QR SePay tĩnh để phụ huynh chuyển khoản, hoặc gửi yêu cầu nạp thẳng tới admin khi cần ghi nhận thủ công."
                                 : "QR SePay tĩnh để phụ huynh chuyển khoản. Webhook SePay sẽ tự động cập nhật ví sau khi ngân hàng xác nhận.",
                         },
                     }}
