@@ -630,6 +630,7 @@ export class StudentService {
             `<p><strong>${this.escapeNotificationHtml(params.studentName)}</strong> vừa có yêu cầu nạp thẳng ${this.escapeNotificationHtml(this.formatVND(params.amount))}.</p>`,
             `<p>Người yêu cầu: ${this.escapeNotificationHtml(params.requestedByEmail ?? 'không có email')}</p>`,
             `<p>Lý do: ${this.escapeNotificationHtml(params.reason)}</p>`,
+            `<p>Mã yêu cầu: <code data-direct-topup-request-id="${this.escapeNotificationHtml(params.requestId)}">${this.escapeNotificationHtml(params.requestId)}</code></p>`,
             '<p>Vào Admin → Duyệt nạp ví để kiểm tra và phê duyệt.</p>',
           ].join(''),
           targetAll: false,
@@ -1492,6 +1493,30 @@ export class StudentService {
         limit,
       },
     };
+  }
+
+  async getStudentWalletDirectTopUpRequestById(
+    requestId: string,
+  ): Promise<StudentWalletDirectTopUpRequestResponseDto> {
+    const request =
+      await this.prisma.studentWalletDirectTopUpRequest.findUnique({
+        where: { id: requestId },
+        include: {
+          student: {
+            select: {
+              id: true,
+              fullName: true,
+              accountBalance: true,
+            },
+          },
+        },
+      });
+
+    if (!request) {
+      throw new NotFoundException('Direct top-up request not found.');
+    }
+
+    return this.serializeStudentWalletDirectTopUpRequest(request);
   }
 
   async getStudentWalletDirectTopUpApprovalByToken(

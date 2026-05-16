@@ -11,7 +11,12 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { createGuestUser, Role, UserInfoDto } from "@/dtos/Auth.dto";
 import type { NotificationPushEvent } from "@/dtos/notification.dto";
+import { DirectTopUpApprovalModal } from "@/components/admin/DirectTopUpApprovalModal";
 import { summarizeNotificationContent } from "@/lib/format-sidebar-notification-time";
+import {
+  extractDirectTopUpRequestId,
+  openDirectTopUpApprovalPopup,
+} from "@/lib/direct-topup-notification";
 import {
   OPEN_NOTIFICATION_DETAIL_EVENT,
   type OpenNotificationDetailPayload,
@@ -290,25 +295,39 @@ function NotificationSocketBridge() {
       };
 
       const compactSummary = summarizeNotificationContent(event.message, 88);
+      const directTopUpRequestId = canOpenAdminChannel
+        ? extractDirectTopUpRequestId(event.message)
+        : null;
       toast.custom(
         (toastId) => (
           <button
             type="button"
             onClick={() => {
-              openNotificationDetail();
+              if (directTopUpRequestId) {
+                openDirectTopUpApprovalPopup({
+                  requestId: directTopUpRequestId,
+                  notificationId: event.id,
+                });
+              } else {
+                openNotificationDetail();
+              }
               toast.dismiss(toastId);
             }}
             className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-left shadow-sm transition hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
           >
             <p className="text-sm font-semibold text-text-primary">
-              {event.deliveryKind === "adjusted"
-                ? "Thông báo được cập nhật"
-                : "Thông báo mới từ admin"}
+              {directTopUpRequestId
+                ? "Yêu cầu nạp thẳng mới"
+                : event.deliveryKind === "adjusted"
+                  ? "Thông báo được cập nhật"
+                  : "Thông báo mới từ admin"}
             </p>
             <p className="mt-1 text-xs text-text-secondary">
               {event.title} · {compactSummary}
             </p>
-            <p className="mt-1 text-[11px] text-primary">Bấm để mở chi tiết</p>
+            <p className="mt-1 text-[11px] text-primary">
+              {directTopUpRequestId ? "Bấm để duyệt" : "Bấm để mở chi tiết"}
+            </p>
           </button>
         ),
         { id: eventKey, duration: 10000 },
@@ -378,6 +397,7 @@ export function Providers({
         <RateLimitToastBridge />
         <AuthProvider initialUser={initialUser ?? defaultUser}>
           <NotificationSocketBridge />
+          <DirectTopUpApprovalModal />
           <AuthPasswordSetupGate />
           <EmailVerificationAccessModal />
           {children}

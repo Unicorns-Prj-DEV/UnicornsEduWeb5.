@@ -246,6 +246,29 @@ export class StudentController {
     return this.studentService.listStudentWalletDirectTopUpRequests(query);
   }
 
+  @Get('wallet-direct-topup-requests/:requestId')
+  @AllowAssistantOnAdminRoutes(false)
+  @ApiOperation({
+    summary: 'Get one direct wallet top-up approval request',
+    description:
+      'Admin-only detail endpoint used by the notification approval popup.',
+  })
+  @ApiParam({ name: 'requestId', description: 'Direct top-up request ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Direct top-up approval request.',
+    type: StudentWalletDirectTopUpRequestResponseDto,
+  })
+  @ApiResponse({ status: 403, description: 'Admin-only.' })
+  @ApiResponse({ status: 404, description: 'Request not found.' })
+  async getStudentWalletDirectTopUpRequest(
+    @Param('requestId', new ParseUUIDPipe()) requestId: string,
+  ): Promise<StudentWalletDirectTopUpRequestResponseDto> {
+    return this.studentService.getStudentWalletDirectTopUpRequestById(
+      requestId,
+    );
+  }
+
   @Post('wallet-direct-topup-requests/:requestId/approve')
   @AllowAssistantOnAdminRoutes(false)
   @ApiOperation({

@@ -6,6 +6,10 @@ import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import type { NotificationFeedItem } from "@/dtos/notification.dto";
 import {
+  extractDirectTopUpRequestId,
+  openDirectTopUpApprovalPopup,
+} from "@/lib/direct-topup-notification";
+import {
   getNotificationFeed,
   markNotificationFeedRead,
 } from "@/lib/apis/notification.api";
@@ -106,6 +110,22 @@ export function SidebarNotificationTray({
 
   const handleSelectItem = useCallback(
     (item: NotificationFeedItem) => {
+      const directTopUpRequestId = extractDirectTopUpRequestId(item.message);
+      if (directTopUpRequestId) {
+        setPanelOpen(false);
+        setDetailOpen(false);
+        setDetailId(null);
+        setEphemeralDetailItem(null);
+        if (item.readStatus === "unread") {
+          markReadMutation.mutate(item.id);
+        }
+        openDirectTopUpApprovalPopup({
+          requestId: directTopUpRequestId,
+          notificationId: item.id,
+        });
+        return;
+      }
+
       setEphemeralDetailItem(null);
       setDetailId(item.id);
       setDetailOpen(true);
@@ -153,7 +173,12 @@ export function SidebarNotificationTray({
     }
 
     hasShownUnreadWarningRef.current = true;
-    setUnreadWarningOpen(true);
+    const timeoutId = window.setTimeout(() => {
+      setUnreadWarningOpen(true);
+    }, 0);
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [
     enableUnreadWarning,
     feedQuery.isError,

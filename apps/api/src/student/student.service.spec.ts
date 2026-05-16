@@ -1037,6 +1037,51 @@ describe('StudentService', () => {
     jest.useRealTimers();
   });
 
+  it('gets one direct top-up request by id for the admin approval popup', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-05-16T03:00:00.000Z'));
+    mockPrisma.studentWalletDirectTopUpRequest.findUnique.mockResolvedValue({
+      id: 'direct-request-1',
+      studentId: 'student-1',
+      amount: 500000,
+      reason: 'Phụ huynh chuyển khoản ngoài SePay',
+      status: StudentWalletDirectTopUpRequestStatus.pending,
+      tokenHash: 'hash',
+      expiresAt: new Date('2026-05-17T03:00:00.000Z'),
+      approvedAt: null,
+      walletTransactionId: null,
+      requestedByUserId: 'staff-user-1',
+      requestedByUserEmail: 'accountant@example.com',
+      requestedByRoleType: UserRole.staff,
+      requestedByStaffRoles: [StaffRole.accountant],
+      createdAt: new Date('2026-05-16T02:00:00.000Z'),
+      updatedAt: new Date('2026-05-16T02:00:00.000Z'),
+      student: {
+        id: 'student-1',
+        fullName: 'Nguyen Van A',
+        accountBalance: 100000,
+      },
+    });
+
+    await expect(
+      service.getStudentWalletDirectTopUpRequestById('direct-request-1'),
+    ).resolves.toMatchObject({
+      id: 'direct-request-1',
+      studentId: 'student-1',
+      studentName: 'Nguyen Van A',
+      amount: 500000,
+      status: StudentWalletDirectTopUpRequestStatus.pending,
+    });
+    expect(
+      mockPrisma.studentWalletDirectTopUpRequest.findUnique,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'direct-request-1' },
+      }),
+    );
+    jest.useRealTimers();
+  });
+
   it('approves a direct top-up request by request id for admin queue', async () => {
     const expiresAt = new Date(Date.now() + 60_000);
     const studentSnapshot = {

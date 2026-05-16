@@ -237,6 +237,17 @@ export async function getStudentWalletDirectTopUpRequests(
   };
 }
 
+/** GET /student/wallet-direct-topup-requests/:requestId – admin approval popup detail. */
+export async function getStudentWalletDirectTopUpRequest(
+  requestId: string,
+): Promise<StudentWalletDirectTopUpRequestResponse> {
+  const safeId = encodeURIComponent(requestId);
+  const response = await api.get<StudentWalletDirectTopUpRequestResponse>(
+    `/student/wallet-direct-topup-requests/${safeId}`,
+  );
+  return response.data;
+}
+
 /** POST /student/wallet-direct-topup-requests/:requestId/approve – approve from admin queue. */
 export async function approveStudentWalletDirectTopUpRequest(
   requestId: string,
