@@ -20,31 +20,47 @@ fi
 
 printf '%s' "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
 
-# Docker Hub (nginx) can hit transient TLS timeouts from small VPS / busy networks.
-compose_pull_with_retry() {
+docker_disk_report() {
+  echo "Docker disk usage:"
+  docker system df || true
+  df -h / /var/lib/docker /var/lib/containerd 2>/dev/null || df -h /
+}
+
+docker_prune_unused() {
+  echo "Pruning unused Docker data before/after image pull..."
+  docker system prune -af || true
+  docker builder prune -af || true
+  docker_disk_report
+}
+
+docker_prune_unused
+
+# Pull one service at a time to keep disk peak low on small VPS disks.
+compose_pull_service_with_retry() {
+  local service="$1"
   local max="${COMPOSE_PULL_RETRIES:-5}"
   local attempt=1
   while [ "$attempt" -le "$max" ]; do
-    if docker compose -f docker-compose.prod.yml pull; then
+    if docker compose -f docker-compose.prod.yml pull "$service"; then
       return 0
     fi
     if [ "$attempt" -eq "$max" ]; then
-      echo "docker compose pull failed after ${max} attempt(s)."
+      echo "docker compose pull ${service} failed after ${max} attempt(s)."
+      docker_disk_report
       return 1
     fi
     local wait=$((attempt * 15))
-    echo "docker compose pull failed (attempt ${attempt}/${max}), retrying in ${wait}s..."
+    echo "docker compose pull ${service} failed (attempt ${attempt}/${max}), pruning and retrying in ${wait}s..."
+    docker_prune_unused
     sleep "$wait"
     attempt=$((attempt + 1))
   done
 }
-compose_pull_with_retry
 
 echo "Applying database migrations..."
+compose_pull_service_with_retry api
 docker compose -f docker-compose.prod.yml run --rm --no-deps api \
   ./node_modules/.bin/prisma migrate deploy --schema=./prisma/schema/
-
-docker compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans
 
 wait_for_http() {
   service="$1"
@@ -71,8 +87,36 @@ wait_for_http() {
   exit 1
 }
 
+wait_for_container_running() {
+  service="$1"
+
+  for attempt in $(seq 1 30); do
+    container_id="$(docker compose -f docker-compose.prod.yml ps -q "$service")"
+    if [ -n "$container_id" ] && [ "$(docker inspect -f '{{.State.Running}}' "$container_id" 2>/dev/null || echo false)" = "true" ]; then
+      echo "Container $service is running"
+      return 0
+    fi
+    sleep 2
+  done
+
+  echo "Timed out waiting for container: $service"
+  docker compose -f docker-compose.prod.yml ps
+  docker compose -f docker-compose.prod.yml logs --tail=100 "$service"
+  exit 1
+}
+
+docker compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans api
 wait_for_http api http://127.0.0.1:4000/
+docker_prune_unused
+
+compose_pull_service_with_retry web
+docker compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans web
 wait_for_http web http://127.0.0.1:3000/api/healthcheck
+docker_prune_unused
+
+compose_pull_service_with_retry nginx
+docker compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans nginx
+wait_for_container_running nginx
 
 docker compose -f docker-compose.prod.yml exec -T nginx nginx -t
 docker compose -f docker-compose.prod.yml exec -T nginx nginx -s reload
@@ -81,4 +125,4 @@ wait_for_http nginx http://127.0.0.1/nginx-health
 wait_for_http nginx http://127.0.0.1/api/
 echo "Local nginx OK for cloudflared tunnel: http://127.0.0.1:80"
 
-docker image prune -f
+docker_prune_unused

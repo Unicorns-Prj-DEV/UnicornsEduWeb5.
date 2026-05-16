@@ -295,7 +295,7 @@ pnpm --filter web add @unicorns/shared --workspace
 
 ## Deploy VPS (GitHub Actions)
 
-Pipeline: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — khi **push `main`**: hai job build song song `build-api` / `build-web` chạy trên runner ARM64 native `ubuntu-24.04-arm` (Buildx, **`linux/arm64`** push GHCR, Dockerfile dùng BuildKit cache mount cho pnpm store) + job **`mirror-nginx`** (copy manifest `nginx:1.27-alpine` từ Docker Hub lên **`ghcr.io/unicorns-prj-dev/nginx:1.27-alpine`** bằng `docker buildx imagetools create` — VPS không cần kéo `docker.io`) → job `deploy` **checkout** shallow → (tuỳ chọn **Tailscale** trước bước SSH) → SSH vào VPS (script chung [`scripts/gha-deploy-remote.sh`](../scripts/gha-deploy-remote.sh): qua **`tailscale nc` ProxyCommand** nếu `TAILSCALE_ENABLED=true`, qua `appleboy/ssh-action` nếu không) → `git pull --ff-only` → **`docker login ghcr.io`** bằng secret `GHCR_USERNAME` + `GHCR_TOKEN` (bắt buộc nếu package private) → `docker compose pull` / `up` (image `latest` trong `docker-compose.prod.yml`) → probe HTTP service nội bộ → `nginx -t` + reload → smoke HTTP loopback (`http://127.0.0.1`) cho cloudflared → `docker image prune -f`. **Không** chạy lint/test trên GitHub Actions; kiểm tra local dùng `pnpm lint`, `pnpm check-types`, `pnpm --filter api test`, v.v.
+Pipeline: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — khi **push `main`**: hai job build song song `build-api` / `build-web` chạy trên runner ARM64 native `ubuntu-24.04-arm` (Buildx, **`linux/arm64`** push GHCR, Dockerfile dùng BuildKit cache mount cho pnpm store) + job **`mirror-nginx`** (copy manifest `nginx:1.27-alpine` từ Docker Hub lên **`ghcr.io/unicorns-prj-dev/nginx:1.27-alpine`** bằng `docker buildx imagetools create` — VPS không cần kéo `docker.io`) → job `deploy` **checkout** shallow → (tuỳ chọn **Tailscale** trước bước SSH) → SSH vào VPS (script chung [`scripts/gha-deploy-remote.sh`](../scripts/gha-deploy-remote.sh): qua **`tailscale nc` ProxyCommand** nếu `TAILSCALE_ENABLED=true`, qua `appleboy/ssh-action` nếu không) → `git pull --ff-only` → **`docker login ghcr.io`** bằng secret `GHCR_USERNAME` + `GHCR_TOKEN` (bắt buộc nếu package private) → prune Docker unused data → pull/recreate `api`, `web`, `nginx` tuần tự để giảm peak disk → probe HTTP service nội bộ → `nginx -t` + reload → smoke HTTP loopback (`http://127.0.0.1`) cho cloudflared → prune lại Docker unused data. **Không** chạy lint/test trên GitHub Actions; kiểm tra local dùng `pnpm lint`, `pnpm check-types`, `pnpm --filter api test`, v.v.
 
 **Kiến trúc VPS:** VPS production là **ARM64** (`uname -m` thường là `aarch64`), nên image `unicorns-api` / `unicorns-web` build **arm64-only** trên runner `ubuntu-24.04-arm`. Không build ARM64 qua QEMU trên runner x86 vì step `pnpm install --frozen-lockfile` có thể treo rất lâu. Nếu chuyển VPS sang amd64 (`x86_64`), đổi workflow về `runs-on: ubuntu-latest` và `platforms: linux/amd64`.
 
@@ -345,6 +345,20 @@ Khi bật, runner GitHub Actions gia nhập tailnet bằng action chính thức 
 1. **Thêm swap** (ví dụ 2G) nếu RAM &lt; 2G — giảm đột biến OOM khi deploy.
 2. **Nâng RAM** hoặc tách DB sang host khác để VPS chỉ chạy stack app.
 3. Workflow đã bật `COMPOSE_PARALLEL_LIMIT=1`, `command_timeout: 30m`, `git pull --ff-only` trên VPS để cập nhật `docker-compose.prod.yml` / `nginx`, và probe HTTP readiness thật từ trong container trước khi reload nginx; nếu vẫn 137, ưu tiên swap / RAM. Nếu chạy `migrate deploy` tay trên VPS và gặp OOM, thử `NODE_OPTIONS=--max-old-space-size=384` (hoặc tương đương) khi `exec` vào container `api`.
+
+### Lỗi `no space left on device` khi `docker compose pull`
+
+Thường do `/var/lib/containerd` hoặc `/var/lib/docker` không còn đủ dung lượng để giữ đồng thời layer image cũ và image mới khi pull/giải nén. Script deploy hiện prune unused containers/images/build cache trước pull, pull từng service (`api` → migrate/up/wait/prune → `web` → wait/prune → `nginx`) và in `docker system df` + `df -h` khi pull fail. Nếu vẫn thiếu dung lượng, xử lý trên VPS:
+
+```bash
+docker system df
+df -h / /var/lib/docker /var/lib/containerd
+docker container prune -f
+docker image prune -af
+docker builder prune -af
+```
+
+Nếu vẫn không đủ, cần tăng disk hoặc chấp nhận downtime ngắn để xoá container cũ trước khi pull image mới.
 
 ### Nginx 502 `Connection refused` tới `172.x.x.x:3000` sau khi `docker compose up`
 
