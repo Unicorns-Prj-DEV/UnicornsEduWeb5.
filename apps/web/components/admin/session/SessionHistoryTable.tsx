@@ -30,6 +30,7 @@ import {
   SessionFormDialogHeader,
 } from "@/components/admin/session/session-form-ui";
 import RichTextEditor from "@/components/ui/RichTextEditor";
+import { TimeInput } from "@/components/ui/TimeInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as classApi from "@/lib/apis/class.api";
@@ -2289,10 +2290,8 @@ export default function SessionHistoryTable({
                         <div className="flex flex-wrap items-end gap-2 sm:gap-3">
                           <label className="flex min-w-[8rem] flex-1 flex-col gap-1 text-xs text-text-secondary">
                             <span>Bắt đầu</span>
-                            <input
+                            <TimeInput
                               name="edit-session-start-time"
-                              type="time"
-                              step={1}
                               value={editStartTime}
                               autoComplete="off"
                               onChange={(e) => setEditStartTime(e.target.value)}
@@ -2304,10 +2303,8 @@ export default function SessionHistoryTable({
                           </span>
                           <label className="flex min-w-[8rem] flex-1 flex-col gap-1 text-xs text-text-secondary">
                             <span>Kết thúc</span>
-                            <input
+                            <TimeInput
                               name="edit-session-end-time"
-                              type="time"
-                              step={1}
                               value={editEndTime}
                               autoComplete="off"
                               onChange={(e) => setEditEndTime(e.target.value)}
