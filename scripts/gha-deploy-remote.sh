@@ -74,7 +74,7 @@ wait_for_http() {
   for attempt in $(seq 1 "$max"); do
     if compose exec -T "$service" \
       node -e "fetch(process.argv[1]).then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))" \
-      "$url"; then
+      "$url" </dev/null; then
       echo "Service $service is ready at $url"
       return 0
     fi
@@ -115,8 +115,11 @@ wait_for_container_running() {
 compose_pull_service_with_retry api
 
 echo "Applying database migrations..."
-compose run --rm --no-deps api \
-  ./node_modules/.bin/prisma migrate deploy --schema=./prisma/schema/
+# `</dev/null`: this script is fed to `bash -s` over ssh stdin; `docker compose run`
+# attaches stdin and would otherwise consume the rest of the script, ending the
+# deploy right after the migration (api/web/nginx never get recreated).
+compose run --rm --no-deps -T api \
+  ./node_modules/.bin/prisma migrate deploy --schema=./prisma/schema/ </dev/null
 
 compose up -d --no-deps --force-recreate api
 wait_for_http api http://127.0.0.1:4000/
@@ -133,8 +136,8 @@ compose_pull_service_with_retry nginx
 compose up -d --no-deps --force-recreate --remove-orphans nginx
 wait_for_container_running nginx
 
-compose exec -T nginx nginx -t
-compose exec -T nginx nginx -s reload
+compose exec -T nginx nginx -t </dev/null
+compose exec -T nginx nginx -s reload </dev/null
 
 wait_for_http nginx http://127.0.0.1/nginx-health
 wait_for_http nginx http://127.0.0.1/api/
