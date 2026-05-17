@@ -61,7 +61,7 @@ function PaymentPill({
 
 function LevelPill({ level }: { level: string | null }) {
   if (!level?.trim()) {
-    return <span className="text-sm text-text-muted">—</span>;
+    return <span className="text-sm text-text-muted">-</span>;
   }
 
   const text = /level/i.test(level) ? level.trim() : `Level ${level.trim()}`;
@@ -99,7 +99,7 @@ function SummaryCard({
 }
 
 export default function StaffSelfLessonPlanDetailPage() {
-  const router = useRouter();
+  const { back } = useRouter();
   const {
     data,
     isLoading,
@@ -158,7 +158,7 @@ export default function StaffSelfLessonPlanDetailPage() {
     <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
       <button
         type="button"
-        onClick={() => router.back()}
+        onClick={() => back()}
         className="inline-flex min-h-11 w-fit items-center gap-2 rounded-xl border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary shadow-sm transition-colors hover:bg-bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
       >
         <svg
@@ -300,7 +300,7 @@ export default function StaffSelfLessonPlanDetailPage() {
                               </span>
                             ))
                           ) : (
-                            <span className="text-sm text-text-muted">—</span>
+                            <span className="text-sm text-text-muted">-</span>
                           )}
                         </div>
 
@@ -412,7 +412,7 @@ export default function StaffSelfLessonPlanDetailPage() {
                                       </span>
                                     ))
                                   ) : (
-                                    <span className="text-sm text-text-muted">—</span>
+                                    <span className="text-sm text-text-muted">-</span>
                                   )}
                                 </div>
                               </td>

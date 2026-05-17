@@ -8,11 +8,11 @@ import { useRouter } from "next/navigation";
  * Giờ dashboard chuẩn là `/staff`; route này redirect để bookmark/link cũ vẫn hoạt động.
  */
 export default function StaffDashboardRedirectPage() {
-  const router = useRouter();
+  const { replace } = useRouter();
 
   useEffect(() => {
-    router.replace("/staff");
-  }, [router]);
+    replace("/staff");
+  }, [replace]);
 
   return (
     <div

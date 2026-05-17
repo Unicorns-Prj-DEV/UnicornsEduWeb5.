@@ -32,19 +32,20 @@ function formatCurrency(value: number | null | undefined): string {
 }
 
 export default function AdminStaffPage() {
-  const router = useRouter();
+  const { push, replace } = useRouter();
   const queryClient = useQueryClient();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const getSearchParam = searchParams.get.bind(searchParams);
   const routeBase = resolveAdminLikeRouteBase(pathname);
 
-  const page = parseInt(searchParams.get("page") ?? "1");
-  const search = searchParams.get("search") ?? "";
-  const filterProvince = searchParams.get("province") ?? "";
-  const filterUniversity = searchParams.get("university") ?? "";
-  const filterHighSchool = searchParams.get("thpt") ?? "";
-  const filterRole = searchParams.get("role") ?? "";
-  const filterClass = searchParams.get("class") ?? "";
+  const page = parseInt(getSearchParam("page") ?? "1");
+  const search = getSearchParam("search") ?? "";
+  const filterProvince = getSearchParam("province") ?? "";
+  const filterUniversity = getSearchParam("university") ?? "";
+  const filterHighSchool = getSearchParam("thpt") ?? "";
+  const filterRole = getSearchParam("role") ?? "";
+  const filterClass = getSearchParam("class") ?? "";
 
   const [searchInput, setSearchInput] = useState(search);
   const [filterPopupOpen, setFilterPopupOpen] = useState(false);
@@ -75,7 +76,7 @@ export default function AdminStaffPage() {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("search", value);
     params.set("page", "1");
-    router.replace(`${pathname}?${params.toString()}`);
+    replace(`${pathname}?${params.toString()}`);
   }, SEARCH_DEBOUNCE_MS);
 
   const openFilterPopup = () => {
@@ -109,7 +110,7 @@ export default function AdminStaffPage() {
     if (filterDraft.className.trim()) params.set("class", filterDraft.className.trim());
     else params.delete("class");
 
-    router.replace(`${pathname}?${params.toString()}`);
+    replace(`${pathname}?${params.toString()}`);
     setFilterPopupOpen(false);
     setRoleMenuOpen(false);
   };
@@ -123,7 +124,7 @@ export default function AdminStaffPage() {
     params.delete("role");
     params.delete("class");
     params.set("page", "1");
-    router.replace(`${pathname}?${params.toString()}`);
+    replace(`${pathname}?${params.toString()}`);
     setFilterPopupOpen(false);
     setRoleMenuOpen(false);
   };
@@ -149,7 +150,7 @@ export default function AdminStaffPage() {
     } else {
       params.delete("role");
     }
-    router.replace(`${pathname}?${params.toString()}`);
+    replace(`${pathname}?${params.toString()}`);
   };
 
   useEffect(() => {
@@ -228,13 +229,13 @@ export default function AdminStaffPage() {
   const handlePreviousPage = () => {
     const params = buildListParams();
     params.set("page", (currentPage - 1).toString());
-    router.replace(`${pathname}?${params.toString()}`);
+    replace(`${pathname}?${params.toString()}`);
   };
 
   const handleNextPage = () => {
     const params = buildListParams();
     params.set("page", (currentPage + 1).toString());
-    router.replace(`${pathname}?${params.toString()}`);
+    replace(`${pathname}?${params.toString()}`);
   };
 
   const deleteMutation = useMutation({
@@ -588,12 +589,12 @@ export default function AdminStaffPage() {
                       role="listitem"
                       className="cursor-pointer rounded-xl border border-border-default bg-bg-surface p-4 shadow-sm transition-colors duration-200 hover:bg-bg-secondary focus-within:bg-bg-secondary"
                       onClick={() =>
-                        router.push(buildAdminLikePath(routeBase, `staffs/${row.id}`))
+                        push(buildAdminLikePath(routeBase, `staffs/${row.id}`))
                       }
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          router.push(buildAdminLikePath(routeBase, `staffs/${row.id}`));
+                          push(buildAdminLikePath(routeBase, `staffs/${row.id}`));
                         }
                       }}
                       tabIndex={0}
@@ -646,7 +647,7 @@ export default function AdminStaffPage() {
                             </span>
                           ))
                         ) : (
-                          <span className="text-xs text-text-muted">—</span>
+                          <span className="text-xs text-text-muted">-</span>
                         )}
                       </div>
 
@@ -729,12 +730,12 @@ export default function AdminStaffPage() {
                           tabIndex={0}
                           className="group cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary/80 focus-within:bg-bg-secondary/80"
                           onClick={() =>
-                            router.push(buildAdminLikePath(routeBase, `staffs/${row.id}`))
+                            push(buildAdminLikePath(routeBase, `staffs/${row.id}`))
                           }
                           onKeyDown={(e) => {
                             if (e.key === "Enter" || e.key === " ") {
                               e.preventDefault();
-                              router.push(buildAdminLikePath(routeBase, `staffs/${row.id}`));
+                              push(buildAdminLikePath(routeBase, `staffs/${row.id}`));
                             }
                           }}
                           aria-label={`Xem chi tiết ${row.fullName?.trim() || "nhân sự"}`}
@@ -761,7 +762,7 @@ export default function AdminStaffPage() {
                                   </span>
                                 ))
                               ) : (
-                                <span className="text-text-muted">—</span>
+                                <span className="text-text-muted">-</span>
                               )}
                             </div>
                           </td>
@@ -781,7 +782,7 @@ export default function AdminStaffPage() {
                                 Xem thành tích
                               </a>
                             ) : (
-                              <span className="text-text-muted">—</span>
+                              <span className="text-text-muted">-</span>
                             )}
                           </td>
                           <td className="w-[16%] min-w-0 px-4 py-3 text-text-secondary align-middle">
@@ -796,7 +797,7 @@ export default function AdminStaffPage() {
                                   </span>
                                 ))
                               ) : (
-                                <span className="text-text-muted">—</span>
+                                <span className="text-text-muted">-</span>
                               )}
                             </div>
                           </td>

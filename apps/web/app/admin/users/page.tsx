@@ -239,13 +239,6 @@ function AssignRoleModal({
     },
   });
 
-  useEffect(() => {
-    if (user) {
-      setRoleType(user.roleType);
-      setStaffRoles(user.staffInfo?.roles ?? []);
-    }
-  }, [user]);
-
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
@@ -347,7 +340,7 @@ function AssignRoleModal({
                           setStaffRoles((prev) => prev.filter((r) => r !== role));
                         }
                       }}
-                      className="h-4 w-4 rounded border-border-default text-primary focus:ring-border-focus"
+                      className="size-4 rounded border-border-default text-primary focus:ring-border-focus"
                     />
                     {ROLE_LABELS[role] ?? role}
                   </label>
@@ -404,13 +397,14 @@ function UserListTableSkeleton({ rows = 5 }: { rows?: number }) {
 
 export default function AdminUsersPage() {
   const queryClient = useQueryClient();
-  const router = useRouter();
+  const { replace } = useRouter();
   const pathname = usePathname();
   const isStaffShell = pathname?.startsWith("/staff") ?? false;
   const searchParams = useSearchParams();
-  const page = parsePage(searchParams.get("page"));
-  const search = searchParams.get("search") ?? "";
-  const isCreatePanelOpen = searchParams.get("create") === "1";
+  const getSearchParam = searchParams.get.bind(searchParams);
+  const page = parsePage(getSearchParam("page"));
+  const search = getSearchParam("search") ?? "";
+  const isCreatePanelOpen = getSearchParam("create") === "1";
   const [searchInput, setSearchInput] = useState(search);
   const [createUserForm, setCreateUserForm] =
     useState<CreateUserFormState>(EMPTY_CREATE_USER_FORM);
@@ -435,7 +429,7 @@ export default function AdminUsersPage() {
   }, [search]);
 
   const replaceWithParams = (params: URLSearchParams) => {
-    router.replace(buildUrl(pathname, params));
+    replace(buildUrl(pathname, params));
   };
 
   const setCreatePanelOpen = (open: boolean) => {
@@ -756,8 +750,8 @@ export default function AdminUsersPage() {
 
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("page", String(currentPage));
-    router.replace(buildUrl(pathname, params));
-  }, [currentPage, page, pathname, router, searchParams]);
+    replace(buildUrl(pathname, params));
+  }, [currentPage, page, pathname, replace, searchParams]);
 
   const handleRowClick = (u: UserListItem) => {
     setAssignModalUser({
@@ -772,6 +766,14 @@ export default function AdminUsersPage() {
   };
 
   const modalUser = detailUser ?? assignModalUser;
+  const assignRoleUser = detailLoading ? assignModalUser : modalUser;
+  const assignRoleUserKey = assignRoleUser
+    ? [
+        assignRoleUser.id,
+        assignRoleUser.roleType,
+        assignRoleUser.staffInfo?.roles?.join(",") ?? "",
+      ].join(":")
+    : "empty";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-3 pb-8 sm:p-6">
@@ -944,7 +946,7 @@ export default function AdminUsersPage() {
                                     onChange={(event) =>
                                       toggleCreateUserStaffRole(role, event.target.checked)
                                     }
-                                    className="h-4 w-4 rounded border-border-default text-primary focus:ring-border-focus"
+                                    className="size-4 rounded border-border-default text-primary focus:ring-border-focus"
                                   />
                                   {ROLE_LABELS[role] ?? role}
                                 </label>
@@ -1321,7 +1323,7 @@ export default function AdminUsersPage() {
                                   school: event.target.value,
                                 }))
                               }
-                              placeholder="THPT..."
+                              placeholder="THPT…"
                               className={CREATE_USER_INPUT_CLASS}
                             />
                           </label>
@@ -1394,7 +1396,7 @@ export default function AdminUsersPage() {
                                 goal: event.target.value,
                               }))
                             }
-                            placeholder="Mục tiêu ngắn hạn hoặc dài hạn..."
+                            placeholder="Mục tiêu ngắn hạn hoặc dài hạn…"
                             className={`${CREATE_USER_INPUT_CLASS} min-h-24`}
                           />
                         </label>
@@ -1418,7 +1420,7 @@ export default function AdminUsersPage() {
                                 onChange={(event) =>
                                   setStudentClassSearch(event.target.value)
                                 }
-                                placeholder="Nhập tên lớp để lọc..."
+                                placeholder="Nhập tên lớp để lọc…"
                                 className={CREATE_USER_INPUT_CLASS}
                                 autoComplete="off"
                                 spellCheck={false}
@@ -1428,7 +1430,7 @@ export default function AdminUsersPage() {
                             <div className="mt-3 max-h-56 space-y-1 overflow-y-auto rounded-lg border border-border-default bg-bg-secondary/40 p-2">
                               {isStudentClassOptionsLoading ? (
                                 <p className="px-2 py-1.5 text-sm text-text-muted">
-                                  Đang tải danh sách lớp...
+                                  Đang tải danh sách lớp…
                                 </p>
                               ) : isStudentClassOptionsError ? (
                                 <div className="space-y-2 px-2 py-1.5 text-sm text-error">
@@ -1478,7 +1480,7 @@ export default function AdminUsersPage() {
                             {isStudentClassOptionsFetching &&
                             !isStudentClassOptionsLoading ? (
                               <p className="mt-2 text-xs text-text-muted">
-                                Đang cập nhật kết quả lớp...
+                                Đang cập nhật kết quả lớp…
                               </p>
                             ) : null}
 
@@ -1793,7 +1795,8 @@ export default function AdminUsersPage() {
 
       {assignModalUser && (
         <AssignRoleModal
-          user={detailLoading ? assignModalUser : (modalUser ?? assignModalUser)}
+          key={assignRoleUserKey}
+          user={assignRoleUser}
           onClose={handleCloseModal}
           onSaved={() => { }}
           hideAdminOptions={isStaffShell}

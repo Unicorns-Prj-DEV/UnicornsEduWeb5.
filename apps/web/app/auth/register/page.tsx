@@ -10,7 +10,7 @@ import * as authApi from "@/lib/apis/auth.api";
 import { BrandLogoLockup } from "@/components/BrandLogoLockup";
 
 export default function RegisterPage() {
-  const router = useRouter();
+  const { push } = useRouter();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [accountHandle, setAccountHandle] = useState("");
@@ -24,7 +24,7 @@ export default function RegisterPage() {
     mutationFn: authApi.register,
     onSuccess: () => {
       toast.success("Đăng ký thành công. Vui lòng kiểm tra email để xác thực tài khoản trước khi đăng nhập.");
-      setTimeout(() => router.push("/auth/login"), 3000);
+      setTimeout(() => push("/auth/login"), 3000);
     },
     onError: (err: unknown) => {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Đăng ký thất bại. Email hoặc account handle có thể đã được sử dụng.";

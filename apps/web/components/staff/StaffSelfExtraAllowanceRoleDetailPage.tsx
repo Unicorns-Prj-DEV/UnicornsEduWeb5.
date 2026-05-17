@@ -168,7 +168,7 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
   /** Cho các role self-service được backend cho phép tự thêm trợ cấp pending. */
   allowCreate?: boolean;
 }) {
-  const router = useRouter();
+  const { back } = useRouter();
   const theme = ROLE_THEMES[roleType];
   const roleLabel = getExtraAllowanceRoleLabel(roleType);
   const canSelfCreateAllowance = Boolean(allowCreate);
@@ -366,7 +366,7 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
     <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
       <button
         type="button"
-        onClick={() => router.back()}
+        onClick={() => back()}
         className="inline-flex min-h-11 w-fit items-center gap-2 rounded-xl border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary shadow-sm transition-colors hover:bg-bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
       >
         <svg

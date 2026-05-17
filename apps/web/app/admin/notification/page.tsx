@@ -307,9 +307,9 @@ function NotificationListCard({
             <span className="text-xs font-medium text-text-muted">
               Người nhận:
             </span>
-            {audienceLabels.map((label, index) => (
+            {audienceLabels.map((label) => (
               <span
-                key={`${item.id}-${label}-${index}`}
+                key={`${item.id}-${label}`}
                 className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary"
               >
                 {label}
@@ -825,6 +825,7 @@ export default function AdminNotificationPage() {
                 <div className="rounded-2xl border border-border-default bg-bg-surface p-2">
                   <div
                     className="flex items-center gap-2 border-b border-border-default px-2 pb-2"
+                    role="presentation"
                     onClick={(event) => {
                       const target = event.target as HTMLElement;
                       if (target.closest("button")) return;
@@ -876,7 +877,7 @@ export default function AdminNotificationPage() {
                         onChange={(event) =>
                           setRecipientSearch(event.target.value)
                         }
-                        placeholder="Tìm user hoặc @..."
+                        placeholder="Tìm user hoặc @…"
                         aria-labelledby="admin-notification-recipients-label"
                         className="min-h-8 min-w-[180px] flex-1 bg-transparent px-1 text-sm text-text-primary outline-none placeholder:text-text-muted"
                       />
@@ -931,7 +932,7 @@ export default function AdminNotificationPage() {
                         ) : isRecipientSearchDebouncing ||
                           recipientOptionsQuery.isLoading ? (
                           <div className="px-2.5 py-2 text-sm text-text-muted">
-                            Đang tìm người nhận...
+                            Đang tìm người nhận…
                           </div>
                         ) : recipientOptionsQuery.isError ? (
                           <div className="px-2.5 py-2 text-sm text-error">

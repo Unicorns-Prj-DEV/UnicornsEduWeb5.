@@ -64,18 +64,19 @@ function getLoginErrorToastMessage(error: unknown): string {
 }
 
 function LoginPageContent() {
-  const router = useRouter();
+  const { replace } = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
+  const getSearchParam = searchParams.get.bind(searchParams);
   const [accountHandle, setAccountHandle] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const { setUser } = useAuth();
 
   useEffect(() => {
-    const err = searchParams.get("error");
+    const err = getSearchParam("error");
     if (err === "google_no_user") toast.error("Không lấy được thông tin từ Google. Vui lòng thử lại.");
-  }, [searchParams]);
+  }, [getSearchParam]);
 
   const loginMutation = useMutation({
     mutationFn: async (body: LoginDto) => {
@@ -108,9 +109,9 @@ function LoginPageContent() {
       queryClient.setQueryData(["auth", "session"], session);
       const redirectHref = resolvePostLoginRedirect(
         session,
-        searchParams.get("next"),
+        getSearchParam("next"),
       );
-      router.replace(
+      replace(
         session.requiresPasswordSetup
           ? buildSetupPasswordHref(redirectHref)
           : redirectHref,
@@ -182,7 +183,7 @@ function LoginPageContent() {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded-sm border border-border-default bg-bg-surface accent-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200"
+                  className="size-4 rounded-sm border border-border-default bg-bg-surface accent-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200"
                 />
                 <label htmlFor="remember-me" className="select-none text-sm text-text-primary ml-2">
                   Remember me for a month

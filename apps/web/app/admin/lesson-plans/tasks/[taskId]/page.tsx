@@ -110,6 +110,7 @@ export function LessonTaskDetailPage({
 }) {
   const params = useParams();
   const searchParams = useSearchParams();
+  const getSearchParam = searchParams.get.bind(searchParams);
   const queryClient = useQueryClient();
   const taskId = typeof params?.taskId === "string" ? params.taskId : "";
   const [editPopupOpen, setEditPopupOpen] = useState(false);
@@ -130,21 +131,21 @@ export function LessonTaskDetailPage({
 
   const backHref = useMemo(() => {
     const nextParams = new URLSearchParams();
-    nextParams.set("tab", normalizeTab(searchParams.get("tab")));
+    nextParams.set("tab", normalizeTab(getSearchParam("tab")));
     nextParams.set(
       "resourcePage",
-      String(normalizePositiveInt(searchParams.get("resourcePage"))),
+      String(normalizePositiveInt(getSearchParam("resourcePage"))),
     );
     nextParams.set(
       "taskPage",
-      String(normalizePositiveInt(searchParams.get("taskPage"))),
+      String(normalizePositiveInt(getSearchParam("taskPage"))),
     );
     nextParams.set(
       "workPage",
-      String(normalizePositiveInt(searchParams.get("workPage"))),
+      String(normalizePositiveInt(getSearchParam("workPage"))),
     );
     return `${workspaceBasePath}?${nextParams.toString()}`;
-  }, [searchParams, workspaceBasePath]);
+  }, [getSearchParam, workspaceBasePath]);
 
   const {
     data: task,

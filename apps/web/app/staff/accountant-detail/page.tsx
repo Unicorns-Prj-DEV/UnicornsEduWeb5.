@@ -8,13 +8,14 @@ import { getFullProfile } from "@/lib/apis/auth.api";
 
 export default function StaffAccountantDetailPage() {
   const searchParams = useSearchParams();
+  const getSearchParam = searchParams.get.bind(searchParams);
   const { data: profile } = useQuery({
     queryKey: ["auth", "full-profile"],
     queryFn: getFullProfile,
     retry: false,
     staleTime: 60_000,
   });
-  const staffId = searchParams.get("staffId");
+  const staffId = getSearchParam("staffId");
   const isAssistant =
     profile?.roleType === "staff" &&
     (profile.staffInfo?.roles ?? []).includes("assistant");

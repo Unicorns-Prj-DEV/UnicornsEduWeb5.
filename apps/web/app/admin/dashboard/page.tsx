@@ -240,7 +240,7 @@ function FinancialDetailModal({
                   {detail?.title ?? `Chi tiết ${rowLabel}`}
                 </h2>
                 <p className="mt-1 text-sm text-text-secondary">
-                  {detail?.description ?? "Đang tải chi tiết số liệu từ backend..."}
+                  {detail?.description ?? "Đang tải chi tiết số liệu từ backend…"}
                 </p>
               </div>
               <button
@@ -457,20 +457,20 @@ function AssistantDashboardRedirect({
 }: {
   staffId?: string;
 }) {
-  const router = useRouter();
+  const { replace } = useRouter();
   const pathname = usePathname();
   const routeBase = resolveAdminLikeRouteBase(pathname);
 
   useEffect(() => {
     if (staffId) {
-      router.replace(
+      replace(
         buildAdminLikePath(routeBase, `staffs/${encodeURIComponent(staffId)}`),
       );
       return;
     }
 
-    router.replace("/user-profile");
-  }, [routeBase, router, staffId]);
+    replace("/user-profile");
+  }, [routeBase, replace, staffId]);
 
   return (
     <div className="min-h-full bg-bg-primary p-4 sm:p-6">
@@ -527,7 +527,7 @@ function ProfileGateLoadingState() {
 }
 
 export default function AdminDashboardTabPage() {
-  const router = useRouter();
+  const { push } = useRouter();
   const pathname = usePathname();
   const routeBase = resolveAdminLikeRouteBase(pathname);
   const quickViewYearLabelId = useId();
@@ -770,14 +770,14 @@ export default function AdminDashboardTabPage() {
 
   const openAlertDetail = (alert: AdminDashboardActionAlert) => {
     if (alert.targetType === "student") {
-      router.push(buildAdminLikePath(routeBase, `students/${alert.targetId}`));
+      push(buildAdminLikePath(routeBase, `students/${alert.targetId}`));
       return;
     }
     if (alert.targetType === "staff") {
-      router.push(buildAdminLikePath(routeBase, `staffs/${alert.targetId}`));
+      push(buildAdminLikePath(routeBase, `staffs/${alert.targetId}`));
       return;
     }
-    router.push(buildAdminLikePath(routeBase, `classes/${alert.targetId}`));
+    push(buildAdminLikePath(routeBase, `classes/${alert.targetId}`));
   };
 
   const openFinancialDetail = (rowKey: AdminDashboardFinancialDetailRowKey) => {
@@ -937,7 +937,7 @@ export default function AdminDashboardTabPage() {
                     />
                   </div>
                   {rangeFinancialQuery.isFetching && (
-                    <span className="text-xs text-text-muted animate-pulse">Đang tải...</span>
+                    <span className="text-xs text-text-muted animate-pulse">Đang tải…</span>
                   )}
                 </div>
               )}
@@ -1001,7 +1001,7 @@ export default function AdminDashboardTabPage() {
                 <svg className="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                {rangeFinancialQuery.isFetching ? "Đang tải khoảng ngày..." : financialPeriodLabel}
+                {rangeFinancialQuery.isFetching ? "Đang tải khoảng ngày…" : financialPeriodLabel}
               </span>
             )}
           </div>

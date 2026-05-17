@@ -23,7 +23,7 @@ function hasAuthenticatedSession(user: {
 async function redirectAfterSetup(params: {
   nextPath: string | null;
   queryClient: ReturnType<typeof useQueryClient>;
-  router: ReturnType<typeof useRouter>;
+  replace: ReturnType<typeof useRouter>["replace"];
   setUser: (user: UserInfoDto) => void;
   fallbackUser: UserInfoDto;
 }) {
@@ -37,20 +37,21 @@ async function redirectAfterSetup(params: {
     session = null;
   }
 
-  params.router.replace(
+  params.replace(
     params.nextPath ?? resolvePostLoginRedirect(session ?? params.fallbackUser),
   );
 }
 
 function SetupPasswordPageContent() {
-  const router = useRouter();
+  const { replace } = useRouter();
   const searchParams = useSearchParams();
+  const getSearchParam = searchParams.get.bind(searchParams);
   const queryClient = useQueryClient();
   const { user, setUser, isAuthReady } = useAuth();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const source = searchParams.get("source");
-  const nextPath = readSafeNextPath(searchParams.get("next"));
+  const source = getSearchParam("source");
+  const nextPath = readSafeNextPath(getSearchParam("next"));
   const hasSession = hasAuthenticatedSession(user);
 
   useEffect(() => {
@@ -59,7 +60,7 @@ function SetupPasswordPageContent() {
     }
 
     if (!hasSession) {
-      router.replace("/auth/login");
+      replace("/auth/login");
       return;
     }
 
@@ -67,7 +68,7 @@ function SetupPasswordPageContent() {
       void redirectAfterSetup({
         nextPath,
         queryClient,
-        router,
+        replace,
         setUser,
         fallbackUser: user,
       });
@@ -77,7 +78,7 @@ function SetupPasswordPageContent() {
     isAuthReady,
     nextPath,
     queryClient,
-    router,
+    replace,
     setUser,
     user,
   ]);
@@ -90,12 +91,12 @@ function SetupPasswordPageContent() {
         requiresPasswordSetup: false,
       };
 
-      toast.success("Mật khẩu đã được tạo. Đang chuyển tiếp...");
+      toast.success("Mật khẩu đã được tạo. Đang chuyển tiếp…");
       setUser(nextUser);
       await redirectAfterSetup({
         nextPath,
         queryClient,
-        router,
+        replace,
         setUser,
         fallbackUser: nextUser,
       });
@@ -127,7 +128,7 @@ function SetupPasswordPageContent() {
   if (!isAuthReady) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg-primary">
-        <p className="text-text-muted">Đang xác thực phiên đăng nhập...</p>
+        <p className="text-text-muted">Đang xác thực phiên đăng nhập…</p>
       </div>
     );
   }
@@ -194,7 +195,7 @@ function SetupPasswordPageContent() {
               className="w-full rounded-lg bg-primary py-2.5 font-medium text-text-inverse hover:bg-primary-hover active:bg-primary-active focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-offset-2 disabled:opacity-60 transition-colors duration-200"
             >
               {setupPasswordMutation.isPending
-                ? "Đang lưu mật khẩu..."
+                ? "Đang lưu mật khẩu…"
                 : "Hoàn tất và tiếp tục"}
             </button>
           </form>
@@ -210,7 +211,7 @@ function SetupPasswordPageContent() {
                   await authApi.logout();
                 } finally {
                     setUser(createGuestUser());
-                  router.replace("/auth/login");
+                  replace("/auth/login");
                 }
               }}
               className="text-sm text-primary hover:text-primary-hover font-medium"
@@ -229,7 +230,7 @@ export default function SetupPasswordPage() {
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center bg-bg-primary">
-          <p className="text-text-muted">Đang tải...</p>
+          <p className="text-text-muted">Đang tải…</p>
         </div>
       }
     >

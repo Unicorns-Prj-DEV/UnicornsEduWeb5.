@@ -157,7 +157,7 @@ function toStaffUpdateSessionPayload(payload: SessionUpdatePayload) {
 }
 
 export default function StaffSelfDetailPage() {
-  const router = useRouter();
+  const { back, push } = useRouter();
   const queryClient = useQueryClient();
   const [editPopupOpen, setEditPopupOpen] = useState(false);
   const [addBonusPopupOpen, setAddBonusPopupOpen] = useState(false);
@@ -583,7 +583,7 @@ export default function StaffSelfDetailPage() {
       <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 pb-8 sm:p-6">
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={() => back()}
           className="mb-4 inline-flex min-h-11 min-w-11 items-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-primary hover:text-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary sm:min-h-0 sm:min-w-0 sm:px-0"
         >
           <svg
@@ -710,7 +710,7 @@ export default function StaffSelfDetailPage() {
     <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 pb-8 sm:p-6">
       <button
         type="button"
-        onClick={() => router.back()}
+        onClick={() => back()}
         className="mb-4 inline-flex min-h-11 min-w-11 items-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-primary hover:text-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary sm:min-h-0 sm:min-w-0 sm:px-0"
       >
         <svg
@@ -881,12 +881,13 @@ export default function StaffSelfDetailPage() {
                     return (
                       <div
                         key={item.classId}
-                        role={isInteractive ? "button" : undefined}
-                        tabIndex={isInteractive ? 0 : undefined}
+                        role="button"
+                        tabIndex={isInteractive ? 0 : -1}
+                        aria-disabled={!isInteractive}
                         onClick={
                           isInteractive
                             ? () =>
-                              router.push(
+                              push(
                                 `/staff/classes/${encodeURIComponent(item.classId)}`,
                               )
                             : undefined
@@ -896,7 +897,7 @@ export default function StaffSelfDetailPage() {
                             ? (e) => {
                               if (e.key === "Enter" || e.key === " ") {
                                 e.preventDefault();
-                                router.push(
+                                push(
                                   `/staff/classes/${encodeURIComponent(item.classId)}`,
                                 );
                               }
@@ -976,7 +977,7 @@ export default function StaffSelfDetailPage() {
                             onClick={
                               isInteractive
                                 ? () =>
-                                  router.push(
+                                  push(
                                     `/staff/classes/${encodeURIComponent(item.classId)}`,
                                   )
                                 : undefined
@@ -986,7 +987,7 @@ export default function StaffSelfDetailPage() {
                                 ? (e) => {
                                   if (e.key === "Enter" || e.key === " ") {
                                     e.preventDefault();
-                                    router.push(
+                                    push(
                                       `/staff/classes/${encodeURIComponent(item.classId)}`,
                                     );
                                   }
@@ -1029,7 +1030,7 @@ export default function StaffSelfDetailPage() {
             />
             {isBonusLoading ? (
               <p className="text-sm text-text-muted" aria-live="polite">
-                Đang tải dữ liệu thưởng...
+                Đang tải dữ liệu thưởng…
               </p>
             ) : null}
             {isBonusError ? (
@@ -1046,7 +1047,7 @@ export default function StaffSelfDetailPage() {
             if (isIncomeSummaryLoading && !incomeSummary) {
               return (
                 <p className="text-text-muted" aria-live="polite">
-                  Đang tải dữ liệu công việc khác...
+                  Đang tải dữ liệu công việc khác…
                 </p>
               );
             }
@@ -1326,7 +1327,7 @@ export default function StaffSelfDetailPage() {
                           type="search"
                           value={workTypeSearch}
                           onChange={(e) => setWorkTypeSearch(e.target.value)}
-                          placeholder="Tìm công việc..."
+                          placeholder="Tìm công việc…"
                           className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                         />
                       </div>
@@ -1448,7 +1449,7 @@ export default function StaffSelfDetailPage() {
                 }
               >
                 {createBonusMutation.isPending || updateBonusMutation.isPending
-                  ? "Đang lưu..."
+                  ? "Đang lưu…"
                   : bonusFormMode === "create"
                     ? "Thêm thưởng"
                     : "Lưu điều chỉnh"}

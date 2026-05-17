@@ -99,18 +99,19 @@ function recentTopUpTextClass(meetsThreshold?: boolean): string {
 }
 
 export default function AdminStudentsPage() {
-  const router = useRouter();
+  const { push, replace } = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const getSearchParam = searchParams.get.bind(searchParams);
   const queryClient = useQueryClient();
   const routeBase = resolveAdminLikeRouteBase(pathname);
 
-  const page = parsePositiveInt(searchParams.get("page"));
-  const search = searchParams.get("search") ?? "";
-  const filterGender = (searchParams.get("gender") ?? "") as "" | StudentGender;
-  const filterProvince = searchParams.get("province") ?? "";
-  const filterSchool = searchParams.get("school") ?? "";
-  const filterClass = searchParams.get("class") ?? "";
+  const page = parsePositiveInt(getSearchParam("page"));
+  const search = getSearchParam("search") ?? "";
+  const filterGender = (getSearchParam("gender") ?? "") as "" | StudentGender;
+  const filterProvince = getSearchParam("province") ?? "";
+  const filterSchool = getSearchParam("school") ?? "";
+  const filterClass = getSearchParam("class") ?? "";
 
   const [searchInput, setSearchInput] = useState(search);
   const [filterPopupOpen, setFilterPopupOpen] = useState(false);
@@ -128,7 +129,7 @@ export default function AdminStudentsPage() {
   }, [search]);
 
   const replaceWithParams = (params: URLSearchParams) => {
-    router.replace(buildUrl(pathname, params));
+    replace(buildUrl(pathname, params));
   };
 
   const applySearchToUrl = useDebouncedCallback((value: string) => {
@@ -554,12 +555,12 @@ export default function AdminStudentsPage() {
                       role="listitem"
                       className="cursor-pointer rounded-xl border border-border-default bg-bg-surface p-4 shadow-sm transition-colors duration-200 hover:bg-bg-secondary focus-within:bg-bg-secondary"
                       onClick={() =>
-                        router.push(buildAdminLikePath(routeBase, `students/${student.id}`))
+                        push(buildAdminLikePath(routeBase, `students/${student.id}`))
                       }
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
-                          router.push(buildAdminLikePath(routeBase, `students/${student.id}`));
+                          push(buildAdminLikePath(routeBase, `students/${student.id}`));
                         }
                       }}
                       tabIndex={0}
@@ -685,12 +686,12 @@ export default function AdminStudentsPage() {
                           tabIndex={0}
                           className="group cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary/70 focus-within:bg-bg-secondary/70"
                           onClick={() =>
-                            router.push(buildAdminLikePath(routeBase, `students/${student.id}`))
+                            push(buildAdminLikePath(routeBase, `students/${student.id}`))
                           }
                           onKeyDown={(event) => {
                             if (event.key === "Enter" || event.key === " ") {
                               event.preventDefault();
-                              router.push(buildAdminLikePath(routeBase, `students/${student.id}`));
+                              push(buildAdminLikePath(routeBase, `students/${student.id}`));
                             }
                           }}
                           aria-label={`Xem hồ sơ ${student.fullName?.trim() || "học sinh"}`}

@@ -426,9 +426,7 @@ export default function FilterBar({
                   value={searchInput}
                   onChange={(event) => setSearchInput(event.target.value)}
                   onFocus={() => setIsSearchFocused(true)}
-                  role="combobox"
                   aria-haspopup="listbox"
-                  aria-expanded={shouldShowDropdown}
                   aria-controls={shouldShowDropdown ? listboxId : undefined}
                   aria-autocomplete="list"
                   placeholder={
@@ -595,9 +593,7 @@ export default function FilterBar({
                     }
                   }}
                   onFocus={() => setIsStudentSearchFocused(true)}
-                  role="combobox"
                   aria-haspopup="listbox"
-                  aria-expanded={shouldShowStudentDropdown}
                   aria-controls={
                     shouldShowStudentDropdown ? studentListboxId : undefined
                   }
@@ -766,9 +762,7 @@ export default function FilterBar({
                     }
                   }}
                   onFocus={() => setIsTeacherSearchFocused(true)}
-                  role="combobox"
                   aria-haspopup="listbox"
-                  aria-expanded={shouldShowTeacherDropdown}
                   aria-controls={
                     shouldShowTeacherDropdown ? teacherListboxId : undefined
                   }

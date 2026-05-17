@@ -533,7 +533,7 @@ function TimelineItem({
                 {item.userFullName?.trim() || "Không xác định"}
               </span>
               {item.userEmail?.trim() ? (
-                <span className="text-text-muted"> — {item.userEmail.trim()}</span>
+                <span className="text-text-muted">, {item.userEmail.trim()}</span>
               ) : null}
             </div>
           </div>
@@ -785,23 +785,24 @@ function HistoryFilterCard({
 }
 
 export default function AdminHistoryPage() {
-  const router = useRouter();
+  const { replace } = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const getSearchParam = searchParams.get.bind(searchParams);
   const [expandedEntryIds, setExpandedEntryIds] = useState<string[]>([]);
   const defaultStartDate = getDefaultStartDate();
   const defaultEndDate = getDefaultEndDate();
 
-  const page = parsePage(searchParams.get("page"));
-  const urlEntityType = normalizeSelectValue(searchParams.get("entityType"));
-  const urlActionType = normalizeSelectValue(searchParams.get("actionType"));
-  const urlEntityId = searchParams.get("entityId") ?? "";
-  const urlStartDate = normalizeDateParam(searchParams.get("startDate"), defaultStartDate);
-  const urlEndDate = normalizeDateParam(searchParams.get("endDate"), defaultEndDate);
+  const page = parsePage(getSearchParam("page"));
+  const urlEntityType = normalizeSelectValue(getSearchParam("entityType"));
+  const urlActionType = normalizeSelectValue(getSearchParam("actionType"));
+  const urlEntityId = getSearchParam("entityId") ?? "";
+  const urlStartDate = normalizeDateParam(getSearchParam("startDate"), defaultStartDate);
+  const urlEndDate = normalizeDateParam(getSearchParam("endDate"), defaultEndDate);
 
   const replaceSearchParams = (params: URLSearchParams) => {
     const nextQuery = params.toString();
-    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname);
+    replace(nextQuery ? `${pathname}?${nextQuery}` : pathname);
   };
 
   const listQuery = useQuery({

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { BrandLogoLockup } from "@/components/BrandLogoLockup";
 
 export default function NotFoundPage() {
-  const router = useRouter();
+  const { back } = useRouter();
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg-primary px-4">
@@ -66,7 +66,7 @@ export default function NotFoundPage() {
           <div className="flex flex-col gap-3">
             <button
               type="button"
-              onClick={() => router.back()}
+              onClick={() => back()}
               className="w-full rounded-lg bg-primary py-2.5 font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-offset-2"
             >
               Quay lại trang trước

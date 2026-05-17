@@ -231,9 +231,7 @@ export default function StaffCalendarFilterBar({
                   value={searchInput}
                   onChange={(event) => setSearchInput(event.target.value)}
                   onFocus={() => setIsSearchFocused(true)}
-                  role="combobox"
                   aria-haspopup="listbox"
-                  aria-expanded={shouldShowDropdown}
                   aria-controls={shouldShowDropdown ? listboxId : undefined}
                   aria-autocomplete="list"
                   placeholder={

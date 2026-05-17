@@ -5,11 +5,12 @@ import ExtraAllowanceRoleDetailPage from "@/components/admin/extra-allowance/Ext
 
 export default function AdminCommunicationDetailPage() {
   const searchParams = useSearchParams();
+  const getSearchParam = searchParams.get.bind(searchParams);
 
   return (
     <ExtraAllowanceRoleDetailPage
       roleType="communication"
-      staffId={searchParams.get("staffId")}
+      staffId={getSearchParam("staffId")}
     />
   );
 }

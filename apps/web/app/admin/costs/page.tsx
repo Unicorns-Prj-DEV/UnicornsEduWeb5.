@@ -51,14 +51,15 @@ function formatDate(value: string | null | undefined): string {
 }
 
 export default function AdminCostsPage() {
-  const router = useRouter();
+  const { replace } = useRouter();
   const queryClient = useQueryClient();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const getSearchParam = searchParams.get.bind(searchParams);
 
-  const page = normalizePage(searchParams.get("page"));
-  const search = searchParams.get("search") ?? "";
-  const monthParam = searchParams.get("month") ?? "";
+  const page = normalizePage(getSearchParam("page"));
+  const search = getSearchParam("search") ?? "";
+  const monthParam = getSearchParam("month") ?? "";
 
   const [selectedMonth, setSelectedMonth] = useState(() => {
     if (monthParam && /^\d{4}-(0[1-9]|1[0-2])$/.test(monthParam)) return monthParam;
@@ -102,7 +103,7 @@ export default function AdminCostsPage() {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("month", value);
     params.set("page", "1");
-    router.replace(`${pathname}?${params.toString()}`);
+    replace(`${pathname}?${params.toString()}`);
   };
 
   const [selectedYear, selectedMonthValue] = selectedMonth.split("-");
@@ -112,7 +113,7 @@ export default function AdminCostsPage() {
       const params = new URLSearchParams(currentParams);
       params.set("search", value);
       params.set("page", "1");
-      router.replace(`${currentPathname}?${params.toString()}`);
+      replace(`${currentPathname}?${params.toString()}`);
     },
     SEARCH_DEBOUNCE_MS,
   );
@@ -169,19 +170,19 @@ export default function AdminCostsPage() {
     if (!serverPage || serverPage === page) return;
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("page", String(serverPage));
-    router.replace(`${pathname}?${params.toString()}`);
-  }, [serverPage, page, searchParams, pathname, router]);
+    replace(`${pathname}?${params.toString()}`);
+  }, [serverPage, page, searchParams, pathname, replace]);
 
   const handlePreviousPage = () => {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("page", String(Math.max(1, currentPage - 1)));
-    router.replace(`${pathname}?${params.toString()}`);
+    replace(`${pathname}?${params.toString()}`);
   };
 
   const handleNextPage = () => {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("page", String(Math.min(totalPages, currentPage + 1)));
-    router.replace(`${pathname}?${params.toString()}`);
+    replace(`${pathname}?${params.toString()}`);
   };
 
   const getErrorMessage = (err: unknown, fallback: string) => {
@@ -774,7 +775,7 @@ export default function AdminCostsPage() {
                   aria-hidden
                 />
                 <div
-                  className="absolute -right-8 -top-10 h-24 w-24 rounded-full bg-success/10 blur-3xl"
+                  className="absolute -right-8 -top-10 size-24 rounded-full bg-success/10 blur-3xl"
                   aria-hidden
                 />
 

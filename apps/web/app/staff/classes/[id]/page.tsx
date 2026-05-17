@@ -100,7 +100,7 @@ function toStaffUpdateSessionPayload(payload: SessionUpdatePayload) {
 
 export default function StaffClassDetailPage() {
   const params = useParams();
-  const router = useRouter();
+  const { back } = useRouter();
   const queryClient = useQueryClient();
   const id = typeof params?.id === "string" ? params.id : "";
 
@@ -305,7 +305,7 @@ export default function StaffClassDetailPage() {
   );
   const backLabel = "Quay lại";
   const handleBack = () => {
-    router.back();
+    back();
   };
 
   if (isProfileLoading) {
@@ -600,7 +600,7 @@ export default function StaffClassDetailPage() {
               <div className="space-y-2">
                 {scheduleItems.map((item, index) => (
                   <ScheduleTimeCard
-                    key={`${item.from}-${item.to}-${index}`}
+                    key={`${item.dayOfWeek}-${item.from}-${item.to}`}
                     index={index + 1}
                     from={item.from}
                     to={item.to}

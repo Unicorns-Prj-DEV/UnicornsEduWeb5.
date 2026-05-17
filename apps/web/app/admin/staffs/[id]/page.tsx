@@ -245,7 +245,7 @@ export default function AdminStaffDetailPage({
 }: { staffId?: string } = {}) {
   const params = useParams();
   const id = propStaffId ?? (typeof params?.id === "string" ? params.id : "");
-  const router = useRouter();
+  const { back, push } = useRouter();
   const pathname = usePathname();
   const routeBase = resolveAdminLikeRouteBase(pathname);
   const [today] = useState(() => getTodayDateString());
@@ -584,18 +584,19 @@ export default function AdminStaffDetailPage({
 
       if (toPatch.length === 0) return undefined;
 
-      let last: StaffDetail | undefined;
-      for (const row of toPatch) {
-        last = await staffApi.patchStaffClassTeacherOperatingDeduction(
-          id,
-          row.classId,
-          {
-            operating_deduction_rate_percent:
-              row.operating_deduction_rate_percent,
-          },
-        );
-      }
-      return last;
+      const results = await Promise.all(
+        toPatch.map((row) =>
+          staffApi.patchStaffClassTeacherOperatingDeduction(
+            id,
+            row.classId,
+            {
+              operating_deduction_rate_percent:
+                row.operating_deduction_rate_percent,
+            },
+          ),
+        ),
+      );
+      return results.at(-1);
     },
     onSuccess: (data) => {
       if (!data) return;
@@ -1067,12 +1068,14 @@ export default function AdminStaffDetailPage({
     mutationFn: (bonusId: string) => bonusApi.deleteBonusById(bonusId),
     onSuccess: async () => {
       toast.success("Đã xóa thưởng.");
-      await queryClient.invalidateQueries({
-        queryKey: ["bonus", "list", "staff", id, selectedMonth],
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["staff", "income-summary", id],
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["bonus", "list", "staff", id, selectedMonth],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["staff", "income-summary", id],
+        }),
+      ]);
     },
     onError: (err: unknown) => {
       const msg =
@@ -1090,15 +1093,17 @@ export default function AdminStaffDetailPage({
       toast.success("Đã thêm thưởng.");
       setAddBonusPopupOpen(false);
       setBonusForm(DEFAULT_BONUS_FORM);
-      await queryClient.invalidateQueries({
-        queryKey: ["bonus", "list", "staff", id, selectedMonth],
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["staff", "income-summary", id],
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["staff", "detail", id],
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["bonus", "list", "staff", id, selectedMonth],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["staff", "income-summary", id],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["staff", "detail", id],
+        }),
+      ]);
     },
     onError: (err: unknown) => {
       const msg =
@@ -1118,15 +1123,17 @@ export default function AdminStaffDetailPage({
       setBonusFormMode("create");
       setEditingBonusId(null);
       setBonusForm(DEFAULT_BONUS_FORM);
-      await queryClient.invalidateQueries({
-        queryKey: ["bonus", "list", "staff", id, selectedMonth],
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["staff", "income-summary", id],
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["staff", "detail", id],
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["bonus", "list", "staff", id, selectedMonth],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["staff", "income-summary", id],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["staff", "detail", id],
+        }),
+      ]);
     },
     onError: (err: unknown) => {
       const msg =
@@ -1332,7 +1339,7 @@ export default function AdminStaffDetailPage({
       <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 pb-8 sm:p-6">
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={() => back()}
           className="mb-4 inline-flex min-h-11 min-w-11 items-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-primary hover:text-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary sm:min-h-0 sm:min-w-0 sm:px-0"
         >
           <svg
@@ -1365,7 +1372,7 @@ export default function AdminStaffDetailPage({
     <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 pb-8 sm:p-6">
       <button
         type="button"
-        onClick={() => router.back()}
+        onClick={() => back()}
         className="mb-4 inline-flex min-h-11 min-w-11 items-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-primary hover:text-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary sm:min-h-0 sm:min-w-0 sm:px-0"
       >
         <svg
@@ -1617,7 +1624,7 @@ export default function AdminStaffDetailPage({
                             <button
                               type="button"
                               onClick={() =>
-                                router.push(
+                                push(
                                   buildAdminLikePath(
                                     routeBase,
                                     `classes/${encodeURIComponent(item.classId)}`,
@@ -1651,6 +1658,7 @@ export default function AdminStaffDetailPage({
                             {showClassOperatingColumn ? (
                               <div
                                 className="mt-3 border-t border-border-default pt-3"
+                                role="presentation"
                                 onClick={(e) => e.stopPropagation()}
                                 onKeyDown={(e) => e.stopPropagation()}
                               >
@@ -1757,7 +1765,7 @@ export default function AdminStaffDetailPage({
                                 role="button"
                                 tabIndex={0}
                                 onClick={() =>
-                                  router.push(
+                                  push(
                                     buildAdminLikePath(
                                       routeBase,
                                       `classes/${encodeURIComponent(item.classId)}`,
@@ -1767,7 +1775,7 @@ export default function AdminStaffDetailPage({
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter" || e.key === " ") {
                                     e.preventDefault();
-                                    router.push(
+                                    push(
                                       buildAdminLikePath(
                                         routeBase,
                                         `classes/${encodeURIComponent(item.classId)}`,
@@ -1892,7 +1900,7 @@ export default function AdminStaffDetailPage({
             />
             {isBonusLoading ? (
               <p className="text-sm text-text-muted" aria-live="polite">
-                Đang tải dữ liệu thưởng...
+                Đang tải dữ liệu thưởng…
               </p>
             ) : null}
             {isBonusError ? (
@@ -1908,7 +1916,7 @@ export default function AdminStaffDetailPage({
             if (isIncomeSummaryLoading && !incomeSummary) {
               return (
                 <p className="text-text-muted" aria-live="polite">
-                  Đang tải dữ liệu công việc khác...
+                  Đang tải dữ liệu công việc khác…
                 </p>
               );
             }
@@ -1941,11 +1949,12 @@ export default function AdminStaffDetailPage({
                     return (
                       <div
                         key={item.role}
-                        role={isInteractive ? "button" : undefined}
-                        tabIndex={isInteractive ? 0 : undefined}
+                        role="button"
+                        tabIndex={isInteractive ? 0 : -1}
+                        aria-disabled={!isInteractive}
                         onClick={
                           isInteractive
-                            ? () => router.push(detailHref)
+                            ? () => push(detailHref)
                             : undefined
                         }
                         onKeyDown={
@@ -1953,7 +1962,7 @@ export default function AdminStaffDetailPage({
                             ? (e) => {
                               if (e.key === "Enter" || e.key === " ") {
                                 e.preventDefault();
-                                router.push(detailHref);
+                                push(detailHref);
                               }
                             }
                             : undefined
@@ -2035,7 +2044,7 @@ export default function AdminStaffDetailPage({
                             tabIndex={isInteractive ? 0 : undefined}
                             onClick={
                               isInteractive
-                                ? () => router.push(detailHref)
+                                ? () => push(detailHref)
                                 : undefined
                             }
                             onKeyDown={
@@ -2043,7 +2052,7 @@ export default function AdminStaffDetailPage({
                                 ? (e) => {
                                   if (e.key === "Enter" || e.key === " ") {
                                     e.preventDefault();
-                                    router.push(detailHref);
+                                    push(detailHref);
                                   }
                                 }
                                 : undefined
@@ -2107,7 +2116,7 @@ export default function AdminStaffDetailPage({
           ) : null}
           {isTaxSettingsLoading && !taxSettings ? (
             <p className="text-text-muted" aria-live="polite">
-              Đang tải cấu hình khấu trừ thuế...
+              Đang tải cấu hình khấu trừ thuế…
             </p>
           ) : null}
           {isTaxSettingsError ? (
@@ -2772,7 +2781,7 @@ export default function AdminStaffDetailPage({
                           type="search"
                           value={workTypeSearch}
                           onChange={(e) => setWorkTypeSearch(e.target.value)}
-                          placeholder="Tìm công việc..."
+                          placeholder="Tìm công việc…"
                           className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                         />
                       </div>
@@ -2958,7 +2967,7 @@ export default function AdminStaffDetailPage({
                 }
               >
                 {createBonusMutation.isPending || updateBonusMutation.isPending
-                  ? "Đang lưu..."
+                  ? "Đang lưu…"
                   : bonusFormMode === "create"
                     ? "Thêm thưởng"
                     : "Lưu thay đổi"}

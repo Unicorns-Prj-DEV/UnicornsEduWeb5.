@@ -92,7 +92,7 @@ function resolveActiveHref(pathname: string) {
 
 export default function StudentSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
+  const { push } = useRouter();
   const queryClient = useQueryClient();
   const navListRef = useRef<HTMLUListElement>(null);
   const [collapsed, setCollapsed] = useState(false);
@@ -160,7 +160,7 @@ export default function StudentSidebar() {
         requiresPasswordSetup: false,
         avatarUrl: null,
       });
-      router.push("/");
+      push("/");
     },
     onError: (error) => {
       toast.error(error.message);
@@ -240,7 +240,7 @@ export default function StudentSidebar() {
         </div>
 
         <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 overscroll-contain">
-          <ul ref={navListRef} className="space-y-0.5 px-2" role="list">
+          <ul ref={navListRef} className="space-y-0.5 px-2">
             {MENU_ITEMS.map((item) => {
               const isActive = item.href === activeHref;
               return (

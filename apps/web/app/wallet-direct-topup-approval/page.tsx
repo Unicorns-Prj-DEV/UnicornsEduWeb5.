@@ -43,8 +43,9 @@ function statusLabel(request?: StudentWalletDirectTopUpRequestResponse | null) {
 
 function DirectTopUpApprovalContent() {
   const searchParams = useSearchParams();
+  const getSearchParam = searchParams.get.bind(searchParams);
   const queryClient = useQueryClient();
-  const token = searchParams.get("token")?.trim() ?? "";
+  const token = getSearchParam("token")?.trim() ?? "";
   const queryKey = ["student", "wallet-direct-topup-approval", token];
 
   const approvalQuery = useQuery({

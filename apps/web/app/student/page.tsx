@@ -260,7 +260,7 @@ export default function StudentSelfPage() {
 
     const classItems = useMemo(
         () =>
-            [...(student?.studentClasses ?? [])].sort((a, b) =>
+            (student?.studentClasses ?? []).toSorted((a, b) =>
                 (a.class?.name ?? "").localeCompare(b.class?.name ?? "", "vi"),
             ),
         [student],
@@ -780,7 +780,7 @@ export default function StudentSelfPage() {
                                 </>
                             )}
 
-                            <div className="min-w-0 space-y-3.5 md:col-span-1 md:grid md:grid-cols-2 md:gap-4 md:space-y-0 xl:col-span-1 xl:block xl:space-y-4">
+                            <div className="grid min-w-0 gap-y-3.5 md:col-span-1 md:grid-cols-2 md:gap-4 xl:col-span-1 xl:block xl:space-y-4">
                                 <StudentWalletCard
                                     balance={student.accountBalance ?? 0}
                                     onTopUp={() => setBalancePopupMode("topup")}

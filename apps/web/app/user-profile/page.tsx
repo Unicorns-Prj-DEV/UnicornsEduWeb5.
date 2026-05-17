@@ -439,8 +439,14 @@ function LoadingSkeleton() {
           <div className="min-w-0 space-y-4 border-t border-border-default pt-8 lg:border-t-0 lg:pt-0">
             <div className="h-6 w-40 animate-pulse rounded bg-bg-tertiary" />
             <div className="space-y-3">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="h-10 animate-pulse rounded bg-bg-tertiary/70" />
+              {[
+                "profile-field-skeleton-name",
+                "profile-field-skeleton-email",
+                "profile-field-skeleton-phone",
+                "profile-field-skeleton-address",
+                "profile-field-skeleton-role",
+              ].map((skeletonKey) => (
+                <div key={skeletonKey} className="h-10 animate-pulse rounded bg-bg-tertiary/70" />
               ))}
             </div>
           </div>
@@ -519,6 +525,7 @@ export default function UserProfilePage() {
   const queryClient = useQueryClient();
   const { user, setUser } = useAuth();
   const searchParams = useSearchParams();
+  const getSearchParam = searchParams.get.bind(searchParams);
   const [editUser, setEditUser] = useState(false);
   const [editStaff, setEditStaff] = useState(false);
   const [editStudent, setEditStudent] = useState(false);
@@ -529,8 +536,8 @@ export default function UserProfilePage() {
     () => (avatarFile ? URL.createObjectURL(avatarFile) : null),
     [avatarFile],
   );
-  const requiresProfileCompletion = searchParams.get("profile_required") === "1";
-  const redirectedFrom = searchParams.get("from");
+  const requiresProfileCompletion = getSearchParam("profile_required") === "1";
+  const redirectedFrom = getSearchParam("from");
 
   useEffect(() => {
     return () => {
@@ -1160,7 +1167,7 @@ export default function UserProfilePage() {
                   <Link href={item.href} className="font-medium text-text-primary hover:underline">
                     {item.label}
                   </Link>
-                  <span className="text-text-muted"> — {item.detail}</span>
+                  <span className="text-text-muted">, {item.detail}</span>
                 </li>
               ))}
             </ul>

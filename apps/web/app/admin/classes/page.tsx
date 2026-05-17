@@ -78,14 +78,15 @@ type ClassRow = {
 };
 
 export default function AdminClassesPage() {
-  const router = useRouter();
+  const { push, replace } = useRouter();
   const queryClient = useQueryClient();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const getSearchParam = searchParams.get.bind(searchParams);
   const routeBase = resolveAdminLikeRouteBase(pathname);
 
-  const page = normalizePage(searchParams.get("page"));
-  const search = searchParams.get("search") ?? "";
+  const page = normalizePage(getSearchParam("page"));
+  const search = getSearchParam("search") ?? "";
 
   const [searchInput, setSearchInput] = useState(search);
   const [addPopupOpen, setAddPopupOpen] = useState(false);
@@ -110,7 +111,7 @@ export default function AdminClassesPage() {
       const params = new URLSearchParams(currentParams);
       params.set("search", value);
       params.set("page", "1");
-      router.replace(`${currentPathname}?${params.toString()}`);
+      replace(`${currentPathname}?${params.toString()}`);
     },
     SEARCH_DEBOUNCE_MS,
   );
@@ -163,19 +164,19 @@ export default function AdminClassesPage() {
     if (!serverPage || serverPage === page) return;
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("page", String(serverPage));
-    router.replace(`${pathname}?${params.toString()}`);
-  }, [serverPage, page, searchParams, pathname, router]);
+    replace(`${pathname}?${params.toString()}`);
+  }, [serverPage, page, searchParams, pathname, replace]);
 
   const handlePreviousPage = () => {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("page", String(Math.max(1, currentPage - 1)));
-    router.replace(`${pathname}?${params.toString()}`);
+    replace(`${pathname}?${params.toString()}`);
   };
 
   const handleNextPage = () => {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("page", String(Math.min(totalPages, currentPage + 1)));
-    router.replace(`${pathname}?${params.toString()}`);
+    replace(`${pathname}?${params.toString()}`);
   };
 
   const deleteMutation = useMutation({
@@ -307,12 +308,12 @@ export default function AdminClassesPage() {
                     role="button"
                     tabIndex={0}
                     onClick={() =>
-                      router.push(buildAdminLikePath(routeBase, `classes/${row.id}`))
+                      push(buildAdminLikePath(routeBase, `classes/${row.id}`))
                     }
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        router.push(buildAdminLikePath(routeBase, `classes/${row.id}`));
+                        push(buildAdminLikePath(routeBase, `classes/${row.id}`));
                       }
                     }}
                     aria-label={`Xem chi tiết lớp ${row.name?.trim() || ""}`}
@@ -398,12 +399,12 @@ export default function AdminClassesPage() {
                         tabIndex={0}
                         className="group cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary/80 focus-within:bg-bg-secondary/80"
                         onClick={() =>
-                          router.push(buildAdminLikePath(routeBase, `classes/${row.id}`))
+                          push(buildAdminLikePath(routeBase, `classes/${row.id}`))
                         }
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
-                            router.push(buildAdminLikePath(routeBase, `classes/${row.id}`));
+                            push(buildAdminLikePath(routeBase, `classes/${row.id}`));
                           }
                         }}
                         aria-label={`Xem chi tiết lớp ${row.name?.trim() || ""}`}

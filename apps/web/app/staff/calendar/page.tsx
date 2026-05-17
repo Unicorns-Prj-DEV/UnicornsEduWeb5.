@@ -179,7 +179,7 @@ export default function StaffCalendarPage() {
             <div className="flex items-center justify-center py-16">
               <div className="space-y-3 text-center">
                 <div className="mx-auto size-10 animate-spin rounded-full border-4 border-primary/30 border-t-primary" />
-                <p className="text-sm text-text-secondary">Đang tải lịch...</p>
+                <p className="text-sm text-text-secondary">Đang tải lịch…</p>
               </div>
             </div>
           ) : isError ? (

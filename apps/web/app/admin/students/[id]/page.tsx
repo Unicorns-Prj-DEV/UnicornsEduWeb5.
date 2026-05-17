@@ -95,7 +95,7 @@ function getTuitionPackageSourceLabel(source?: "custom" | "class" | "unset") {
 export default function AdminStudentDetailPage() {
     const params = useParams();
     const id = typeof params?.id === "string" ? params.id : "";
-    const router = useRouter();
+    const { back, push } = useRouter();
     const pathname = usePathname();
     const routeBase = resolveAdminLikeRouteBase(pathname);
     const [editPopupOpen, setEditPopupOpen] = useState(false);
@@ -143,11 +143,11 @@ export default function AdminStudentDetailPage() {
         : "Quay lại danh sách học sinh";
     const handleBack = () => {
         if (isCustomerCareReadOnlyView) {
-            router.push("/staff/customer-care-detail");
+            push("/staff/customer-care-detail");
             return;
         }
 
-        router.back();
+        back();
     };
 
     const {
@@ -602,7 +602,7 @@ export default function AdminStudentDetailPage() {
                                                 role="button"
                                                 tabIndex={0}
                                                 onClick={() =>
-                                                    router.push(
+                                                    push(
                                                         buildAdminLikePath(
                                                             routeBase,
                                                             `classes/${encodeURIComponent(item.classId)}`,
@@ -612,7 +612,7 @@ export default function AdminStudentDetailPage() {
                                                 onKeyDown={(event) => {
                                                     if (event.key === "Enter" || event.key === " ") {
                                                         event.preventDefault();
-                                                        router.push(
+                                                        push(
                                                             buildAdminLikePath(
                                                                 routeBase,
                                                                 `classes/${encodeURIComponent(item.classId)}`,
@@ -740,7 +740,7 @@ export default function AdminStudentDetailPage() {
                                                         role="button"
                                                         tabIndex={0}
                                                         onClick={() =>
-                                                            router.push(
+                                                            push(
                                                                 buildAdminLikePath(
                                                                     routeBase,
                                                                     `classes/${encodeURIComponent(item.classId)}`,
@@ -750,7 +750,7 @@ export default function AdminStudentDetailPage() {
                                                         onKeyDown={(event) => {
                                                             if (event.key === "Enter" || event.key === " ") {
                                                                 event.preventDefault();
-                                                                router.push(
+                                                                push(
                                                                     buildAdminLikePath(
                                                                         routeBase,
                                                                         `classes/${encodeURIComponent(item.classId)}`,

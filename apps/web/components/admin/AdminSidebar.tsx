@@ -191,7 +191,7 @@ function IconCalendar() {
 export default function AdminSidebar() {
   const pathname = usePathname();
   const queryClient = useQueryClient();
-  const router = useRouter();
+  const { push } = useRouter();
   const asideRef = useRef<HTMLElement>(null);
   const navListRef = useRef<HTMLUListElement>(null);
   const [collapsed, setCollapsed] = useState(false);
@@ -283,7 +283,7 @@ export default function AdminSidebar() {
         requiresPasswordSetup: false,
         avatarUrl: null,
       });
-      router.push("/");
+      push("/");
     },
     onError: (error) => {
       toast.error(error.message);
@@ -358,7 +358,7 @@ export default function AdminSidebar() {
           </button>
         </div>
         <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 overscroll-contain">
-          <ul ref={navListRef} className="space-y-0.5 px-2" role="list">
+          <ul ref={navListRef} className="space-y-0.5 px-2">
             {menuItems.length === 0 && (
               <li className="px-1.5 py-2" aria-hidden>
                 <div className="h-10 animate-pulse rounded-xl bg-bg-tertiary" />

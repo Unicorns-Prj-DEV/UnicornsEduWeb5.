@@ -97,7 +97,7 @@ function isClassStudentActive(student: ClassStudent): boolean {
 export default function AdminClassDetailPage() {
   const params = useParams();
   const id = typeof params?.id === "string" ? params.id : "";
-  const router = useRouter();
+  const { back, push } = useRouter();
   const pathname = usePathname();
   const routeBase = resolveAdminLikeRouteBase(pathname);
   const prefersReducedMotion = useReducedMotion();
@@ -286,7 +286,7 @@ export default function AdminClassDetailPage() {
       <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 sm:p-6">
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={() => back()}
           className="mb-4 inline-flex min-h-11 min-w-11 items-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-primary hover:text-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary sm:min-h-0 sm:min-w-0 sm:px-0"
         >
           <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -315,7 +315,7 @@ export default function AdminClassDetailPage() {
     <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-3 sm:p-5">
       <button
         type="button"
-        onClick={() => router.back()}
+        onClick={() => back()}
         className="mb-3 inline-flex min-h-11 min-w-11 items-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-primary hover:text-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary sm:min-h-0 sm:min-w-0 sm:px-0"
       >
         <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -495,7 +495,7 @@ export default function AdminClassDetailPage() {
               <div className="space-y-2">
                 {scheduleItems.map((item, index) => (
                   <ScheduleTimeCard
-                    key={`${item.from}-${item.to}-${index}`}
+                    key={`${item.dayOfWeek}-${item.from}-${item.to}`}
                     index={index + 1}
                     from={item.from}
                     to={item.to}
@@ -550,7 +550,7 @@ export default function AdminClassDetailPage() {
                       onClick={
                         canOpenStudentDetails
                           ? () =>
-                              router.push(
+                              push(
                                 buildAdminLikePath(
                                   routeBase,
                                   `students/${encodeURIComponent(student.id)}`,
@@ -563,7 +563,7 @@ export default function AdminClassDetailPage() {
                           ? (event) => {
                               if (event.key === "Enter" || event.key === " ") {
                                 event.preventDefault();
-                                router.push(
+                                push(
                                   buildAdminLikePath(
                                     routeBase,
                                     `students/${encodeURIComponent(student.id)}`,
@@ -641,7 +641,7 @@ export default function AdminClassDetailPage() {
                         onClick={
                           canOpenStudentDetails
                             ? () =>
-                                router.push(
+                                push(
                                   buildAdminLikePath(
                                     routeBase,
                                     `students/${encodeURIComponent(student.id)}`,
@@ -654,7 +654,7 @@ export default function AdminClassDetailPage() {
                             ? (event) => {
                                 if (event.key === "Enter" || event.key === " ") {
                                   event.preventDefault();
-                                  router.push(
+                                  push(
                                     buildAdminLikePath(
                                       routeBase,
                                       `students/${encodeURIComponent(student.id)}`,
@@ -704,7 +704,7 @@ export default function AdminClassDetailPage() {
                       onClick={
                         canOpenStudentDetails
                           ? () =>
-                              router.push(
+                              push(
                                 buildAdminLikePath(
                                   routeBase,
                                   `students/${encodeURIComponent(student.id)}`,
@@ -729,7 +729,7 @@ export default function AdminClassDetailPage() {
                       onClick={
                         canOpenStudentDetails
                           ? () =>
-                              router.push(
+                              push(
                                 buildAdminLikePath(
                                   routeBase,
                                   `students/${encodeURIComponent(student.id)}`,

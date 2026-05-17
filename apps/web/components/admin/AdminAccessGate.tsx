@@ -21,7 +21,7 @@ export default function AdminAccessGate({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
+  const { replace } = useRouter();
   const { user, isAuthReady } = useAuth();
 
   const access = resolveAdminShellAccess(user);
@@ -33,14 +33,14 @@ export default function AdminAccessGate({
   useEffect(() => {
     if (isAuthReady && restrictedByEmailVerification) {
       window.dispatchEvent(new Event(OPEN_EMAIL_VERIFICATION_MODAL_EVENT));
-      router.replace("/");
+      replace("/");
       return;
     }
 
     if (isAuthReady && !isAllowed) {
-      router.replace(fallbackHref);
+      replace(fallbackHref);
     }
-  }, [fallbackHref, isAllowed, isAuthReady, restrictedByEmailVerification, router]);
+  }, [fallbackHref, isAllowed, isAuthReady, restrictedByEmailVerification, replace]);
 
   if (!isAuthReady) {
     return (

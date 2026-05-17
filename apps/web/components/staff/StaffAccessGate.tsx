@@ -16,7 +16,7 @@ export default function StaffAccessGate({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
+  const { replace } = useRouter();
   const { user, isAuthReady } = useAuth();
   const restrictedByEmailVerification = isRestrictedByEmailVerification(user);
 
@@ -145,19 +145,19 @@ export default function StaffAccessGate({
   useEffect(() => {
     if (isAuthReady && restrictedByEmailVerification) {
       window.dispatchEvent(new Event(OPEN_EMAIL_VERIFICATION_MODAL_EVENT));
-      router.replace("/");
+      replace("/");
       return;
     }
 
     if (isAuthReady && !isAllowed && redirectHref) {
-      router.replace(redirectHref);
+      replace(redirectHref);
     }
   }, [
     isAllowed,
     isAuthReady,
     redirectHref,
     restrictedByEmailVerification,
-    router,
+    replace,
   ]);
 
   if (!isAuthReady) {

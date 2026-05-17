@@ -9,7 +9,8 @@ import { verifyEmail } from "@/lib/apis/auth.api";
 
 function VerifyEmailPageContent() {
   const searchParams = useSearchParams();
-  const token = searchParams.get("token")?.trim() ?? "";
+  const getSearchParam = searchParams.get.bind(searchParams);
+  const token = getSearchParam("token")?.trim() ?? "";
   const verifyQuery = useQuery({
     queryKey: ["auth", "verify-email", token],
     queryFn: async () => verifyEmail(token),

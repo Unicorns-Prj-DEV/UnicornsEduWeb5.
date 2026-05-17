@@ -72,7 +72,7 @@ function PaymentPill({
 
 function LevelPill({ level }: { level: string | null }) {
   if (!level?.trim()) {
-    return <span className="text-sm text-text-muted">—</span>;
+    return <span className="text-sm text-text-muted">-</span>;
   }
 
   const text = /level/i.test(level) ? level.trim() : `Level ${level.trim()}`;
@@ -528,7 +528,7 @@ export default function AdminLessonPlanDetailPage() {
                                   </span>
                                 ))
                               ) : (
-                                <span className="text-sm text-text-muted">—</span>
+                                <span className="text-sm text-text-muted">-</span>
                               )}
                             </div>
 
@@ -667,7 +667,7 @@ export default function AdminLessonPlanDetailPage() {
                                       </span>
                                     ))
                                   ) : (
-                                    <span className="text-sm text-text-muted">—</span>
+                                    <span className="text-sm text-text-muted">-</span>
                                   )}
                                 </div>
                               </td>
@@ -771,7 +771,7 @@ export default function AdminLessonPlanDetailPage() {
                   aria-hidden
                 />
                 <div
-                  className="absolute -right-8 -top-10 h-24 w-24 rounded-full bg-success/10 blur-3xl"
+                  className="absolute -right-8 -top-10 size-24 rounded-full bg-success/10 blur-3xl"
                   aria-hidden
                 />
 

@@ -170,12 +170,13 @@ function DirectTopUpRequestCard({
 
 export default function AdminWalletDirectTopUpRequestsPage() {
   const pathname = usePathname();
-  const router = useRouter();
+  const { replace } = useRouter();
   const searchParams = useSearchParams();
+  const getSearchParam = searchParams.get.bind(searchParams);
   const queryClient = useQueryClient();
 
-  const status = normalizeStatus(searchParams.get("status"));
-  const page = normalizePage(searchParams.get("page"));
+  const status = normalizeStatus(getSearchParam("status"));
+  const page = normalizePage(getSearchParam("page"));
 
   const {
     data: response,
@@ -222,14 +223,14 @@ export default function AdminWalletDirectTopUpRequestsPage() {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("status", nextStatus);
     params.set("page", "1");
-    router.replace(buildUrl(pathname, params));
+    replace(buildUrl(pathname, params));
   };
 
   const setPage = (nextPage: number) => {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("status", status);
     params.set("page", String(Math.min(totalPages, Math.max(1, nextPage))));
-    router.replace(buildUrl(pathname, params));
+    replace(buildUrl(pathname, params));
   };
 
   const handleApprove = (request: StudentWalletDirectTopUpRequestResponse) => {
@@ -258,7 +259,7 @@ export default function AdminWalletDirectTopUpRequestsPage() {
           <div className="rounded-lg border border-border-default bg-bg-surface px-4 py-3 text-sm">
             <p className="font-semibold text-text-primary">{pendingCountLabel}</p>
             <p className="mt-1 text-xs text-text-muted">
-              {isFetching ? "Đang đồng bộ..." : "Đã cập nhật"}
+              {isFetching ? "Đang đồng bộ…" : "Đã cập nhật"}
             </p>
           </div>
         </header>
@@ -294,7 +295,7 @@ export default function AdminWalletDirectTopUpRequestsPage() {
               </p>
             </div>
             {isFetching ? (
-              <span className="text-xs font-medium text-text-muted">Đang tải...</span>
+              <span className="text-xs font-medium text-text-muted">Đang tải…</span>
             ) : null}
           </div>
 

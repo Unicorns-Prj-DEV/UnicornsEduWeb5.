@@ -9,9 +9,9 @@ import { toast } from "sonner";
 import * as authApi from "@/lib/apis/auth.api";
 
 function ResetPasswordForm() {
-  const router = useRouter();
+  const { push } = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams.get("token") ?? "";
+  const token = searchParams.get.bind(searchParams)("token") ?? "";
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -20,8 +20,8 @@ function ResetPasswordForm() {
   const resetPasswordMutation = useMutation({
     mutationFn: (body: { token: string; password: string }) => authApi.resetPassword(body),
     onSuccess: () => {
-      toast.success("Đặt lại mật khẩu thành công. Đang chuyển đến trang đăng nhập...");
-      setTimeout(() => router.push("/auth/login"), 2000);
+      toast.success("Đặt lại mật khẩu thành công. Đang chuyển đến trang đăng nhập…");
+      setTimeout(() => push("/auth/login"), 2000);
     },
     onError: (err: unknown) => {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Link không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu link mới.";
@@ -107,7 +107,7 @@ function ResetPasswordForm() {
               disabled={resetPasswordMutation.isPending}
               className="w-full rounded-lg bg-primary py-2.5 font-medium text-text-inverse hover:bg-primary-hover active:bg-primary-active focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-offset-2 disabled:opacity-60 transition-colors duration-200"
             >
-              {resetPasswordMutation.isPending ? "Đang xử lý..." : "Đặt lại mật khẩu"}
+              {resetPasswordMutation.isPending ? "Đang xử lý…" : "Đặt lại mật khẩu"}
             </button>
           </form>
 
@@ -126,7 +126,7 @@ export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-bg-primary">
-        <p className="text-text-muted">Đang tải...</p>
+        <p className="text-text-muted">Đang tải…</p>
       </div>
     }>
       <ResetPasswordForm />

@@ -15,7 +15,7 @@ export default function StudentAccessGate({
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
+  const { replace } = useRouter();
   const { user, isAuthReady } = useAuth();
   const restrictedByEmailVerification = isRestrictedByEmailVerification(user);
 
@@ -29,19 +29,19 @@ export default function StudentAccessGate({
   useEffect(() => {
     if (isAuthReady && restrictedByEmailVerification) {
       window.dispatchEvent(new Event(OPEN_EMAIL_VERIFICATION_MODAL_EVENT));
-      router.replace("/");
+      replace("/");
       return;
     }
 
     if (isAuthReady && !isAllowed) {
-      router.replace(hasStudentWorkspaceHint ? "/user-profile" : "/");
+      replace(hasStudentWorkspaceHint ? "/user-profile" : "/");
     }
   }, [
     hasStudentWorkspaceHint,
     isAllowed,
     isAuthReady,
     restrictedByEmailVerification,
-    router,
+    replace,
   ]);
 
   if (!isAuthReady) {

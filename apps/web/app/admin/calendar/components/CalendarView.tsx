@@ -64,10 +64,7 @@ export default function CalendarView({
   weekEnd,
   onEventClick,
 }: CalendarViewProps) {
-  const calendarKey = useMemo(
-    () => `${formatLocalDate(weekStart)}-${formatLocalDate(weekEnd)}`,
-    [weekEnd, weekStart],
-  );
+  const calendarKey = `${formatLocalDate(weekStart)}-${formatLocalDate(weekEnd)}`;
   const calendarEvents = useMemo(
     () =>
       events.map((event) => {
