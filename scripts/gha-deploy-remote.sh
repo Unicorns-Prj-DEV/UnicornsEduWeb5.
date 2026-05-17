@@ -72,9 +72,19 @@ wait_for_http() {
   max="${WAIT_HTTP_RETRIES:-90}"
 
   for attempt in $(seq 1 "$max"); do
-    if compose exec -T "$service" \
-      node -e "fetch(process.argv[1]).then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))" \
-      "$url" </dev/null; then
+    if compose exec -T "$service" sh -c '
+      http_url="$1"
+      if command -v node >/dev/null 2>&1; then
+        node -e "fetch(process.argv[1]).then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))" "$http_url"
+      elif command -v wget >/dev/null 2>&1; then
+        wget -q -O /dev/null "$http_url"
+      elif command -v curl >/dev/null 2>&1; then
+        curl -fsS "$http_url" >/dev/null
+      else
+        echo "No HTTP client available in container for healthcheck" >&2
+        exit 127
+      fi
+    ' sh "$url" </dev/null; then
       echo "Service $service is ready at $url"
       return 0
     fi
