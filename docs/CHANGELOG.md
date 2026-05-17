@@ -21,6 +21,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Changed
+
+- FE `SessionHistoryTable` `variant="classDetail"`: layout dòng buổi học 3 cột (thời gian | nhận xét | thông tin + xóa) dùng chung cho `/admin/classes/[id]`, `/admin/staffs/[id]`, `/staff/profile`, `/staff/classes/[id]`; `entityMode="class"` hiển thị tên lớp ở cột phải thay vì gia sư.
+
 ### Added
 
 - FE `/staff/customer-care-detail` và `/admin/customer_care_detail/[staffId]`: tab **Học sinh** hiển thị tổng số, dùng infinite scroll tải 10 học sinh/lần, có nút icon QR copy nhanh, cột **Tiền vào** 21 ngày gần nhất; bấm vào con số **Tiền vào** mở popup **Lịch sử tiền vào** chỉ hiển thị giao dịch `topup`. Thêm tab **Thanh Toán** dùng `GET /customer-care/staff/:staffId/topup-history?page=&limit=` để đối soát lịch sử nạp tiền chung của học sinh thuộc CSKH đó, infinite scroll 20 khoản/lần.
@@ -35,6 +39,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - **Parent email self-service & hiển thị toàn hệ thống:** Thêm `parent_email` vào `UpdateMyStudentProfileDto` (backend `apps/api/src/dtos/profile.dto.ts` + `UserService.updateMyStudentProfile`) để học sinh tự cập nhật email phụ huynh qua `PATCH /users/me/student` (truyền `null`/chuỗi rỗng để xoá). FE: `ProfileStudentInfoDto`/`UpdateMyStudentProfileDto` (`apps/web/dtos/profile.dto.ts`) bổ sung `parentEmail`/`parent_email`; `/admin/students/[id]` (cũng dùng cho `/staff/students/[id]`) hiển thị dòng **Email nhận biên nhận** trong thẻ "Liên hệ phụ huynh"; `/student` self-service thêm input + dòng đọc cho email phụ huynh và tính `isStudentProfileDirty` theo field mới; `/user-profile` section Học viên thêm `TextField`/`DetailRows` `parent_email` và đưa field vào `studentCompletion`/`allProfileValues`. Docs: `docs/pages/auth.md`, `docs/pages/student.md`.
 
 ### Changed
+- FE card **Lịch dạy bù** (`/admin/classes/[id]`, `/staff/classes/[id]`): danh sách chỉ tải buổi có `date >= hôm nay` (ẩn buổi đã qua); tổng và phân trang khớp filter. Docs: `docs/pages/admin.md`, `docs/pages/staff.md`.
 - CI Docker deploy: build API/Web chuyển sang runner ARM64 native `ubuntu-24.04-arm` với `platforms: linux/arm64` và Dockerfile dùng BuildKit cache mount cho pnpm store, tránh `pnpm install --frozen-lockfile` trên ARM64 qua QEMU chạy quá lâu nhưng vẫn có manifest đúng cho VPS ARM64.
 - SePay QR tĩnh nạp ví học sinh đổi nội dung chuyển khoản sang `NAPVI <student_info.id> <active_class_id...>`; webhook gửi biên lai riêng cho phụ huynh và CSKH, kèm dòng nội dung tiếng Việt trong email để nhận diện học sinh/lớp/số tiền.
 - BE `GET /student` và `GET /customer-care/staff/:staffId/students`: trả thêm tổng `topup` 21 ngày gần nhất và cờ đạt ngưỡng `300.000` VND; endpoint CSKH đổi sang response phân trang `{ data, meta }`.
