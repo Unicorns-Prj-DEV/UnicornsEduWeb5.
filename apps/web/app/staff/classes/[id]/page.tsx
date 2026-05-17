@@ -335,7 +335,7 @@ export default function StaffClassDetailPage() {
 
         <div className="mt-4 rounded-lg border border-border-default bg-bg-surface p-4">
           <div className="mb-4 h-5 w-56 animate-pulse rounded bg-bg-tertiary" />
-          <SessionHistoryTableSkeleton rows={1} entityMode="teacher" showActionsColumn={canManageSessions} />
+          <SessionHistoryTableSkeleton rows={1} entityMode="teacher" variant="classDetail" showActionsColumn={canManageSessions} />
         </div>
       </div>
     );
@@ -372,7 +372,7 @@ export default function StaffClassDetailPage() {
 
         <div className="mt-4 rounded-lg border border-border-default bg-bg-surface p-4">
           <div className="mb-4 h-5 w-56 animate-pulse rounded bg-bg-tertiary" />
-          <SessionHistoryTableSkeleton rows={1} entityMode="teacher" showActionsColumn={canManageSessions} />
+          <SessionHistoryTableSkeleton rows={1} entityMode="teacher" variant="classDetail" showActionsColumn={canManageSessions} />
         </div>
       </div>
     );
@@ -787,12 +787,13 @@ export default function StaffClassDetailPage() {
           ) : null}
 
           {isSessionsLoading ? (
-            <SessionHistoryTableSkeleton rows={5} entityMode="teacher" showActionsColumn={canManageSessions} />
+            <SessionHistoryTableSkeleton rows={5} entityMode="teacher" variant="classDetail" showActionsColumn={canManageSessions} />
           ) : (
             <div className={cn("transition-opacity", isSessionsFetching && "opacity-70")}>
               <SessionHistoryTable
                 sessions={sessions}
                 entityMode="teacher"
+                variant="classDetail"
                 statusMode="payment"
                 emptyText={teacherScopedEmptyText}
                 editorLayout="wide"
