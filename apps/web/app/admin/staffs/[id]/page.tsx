@@ -2247,12 +2247,14 @@ export default function AdminStaffDetailPage({
               <SessionHistoryTableSkeleton
                 rows={1}
                 entityMode="class"
+                variant="classDetail"
                 showActionsColumn
               />
             ) : (
               <SessionHistoryTable
                 sessions={sessionsInCurrentMonth}
                 entityMode="class"
+                variant="classDetail"
                 emptyText="Không có buổi học trong tháng này."
                 editorLayout="wide"
                 enableBulkPaymentStatusEdit
