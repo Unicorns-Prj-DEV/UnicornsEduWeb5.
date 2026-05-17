@@ -3,6 +3,7 @@
 import { useState, type SyntheticEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { TimeInput } from "@/components/ui/TimeInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type { ClassScheduleItem, ClassStatus, ClassType } from "@/dtos/class.dto";
 import type { StaffOpsCreateClassPayload } from "@/dtos/staff-ops.dto";
@@ -316,10 +317,8 @@ function StaffCreateClassDialog({
                     </label>
                     <label className="flex flex-col gap-1 text-sm text-text-secondary">
                       <span>Bắt đầu</span>
-                      <input
+                      <TimeInput
                         name={`staff-create-class-schedule-from-${range.id}`}
-                        type="time"
-                        step={1}
                         value={range.from}
                         autoComplete="off"
                         onChange={(event) => handleChangeRange(range.id, "from", event.target.value)}
@@ -331,10 +330,8 @@ function StaffCreateClassDialog({
                     </div>
                     <label className="flex flex-col gap-1 text-sm text-text-secondary">
                       <span>Kết thúc</span>
-                      <input
+                      <TimeInput
                         name={`staff-create-class-schedule-to-${range.id}`}
-                        type="time"
-                        step={1}
                         value={range.to}
                         autoComplete="off"
                         onChange={(event) => handleChangeRange(range.id, "to", event.target.value)}
