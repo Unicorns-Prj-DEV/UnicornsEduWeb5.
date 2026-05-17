@@ -262,6 +262,20 @@ export default function StaffClassDetailPage() {
     return popupStudents;
   };
 
+  const getClassDetailForEdit = useCallback(
+    async (classId: string) => {
+      if (classDetail && classId === id) {
+        return classDetail;
+      }
+
+      return queryClient.ensureQueryData({
+        queryKey: ["staff-ops", "class", "detail", "session-editor", classId],
+        queryFn: () => staffOpsApi.getClassById(classId),
+      });
+    },
+    [classDetail, id, queryClient],
+  );
+
   const updateScheduleMutation = useMutation({
     mutationKey: staffOpsKeys.updateSchedule(id),
     mutationFn: (payload: { schedule: ClassScheduleItem[] }) =>
@@ -573,6 +587,7 @@ export default function StaffClassDetailPage() {
         <div className="grid gap-3 lg:grid-cols-2">
           <TutorCard
             teachers={classDetail.teachers}
+            defaultAllowancePerStudent={classDetail.allowancePerSessionPerStudent}
             className="flex-1"
             enableTeacherNavigation={false}
             action={
@@ -800,6 +815,7 @@ export default function StaffClassDetailPage() {
                 showActionsColumn={canManageSessions}
                 teachers={popupTeachers}
                 getClassStudents={getClassStudentsForEditor}
+                getClassDetailForEdit={getClassDetailForEdit}
                 allowTeacherSelection={false}
                 allowFinancialEdits={false}
                 allowCoefficientEdit

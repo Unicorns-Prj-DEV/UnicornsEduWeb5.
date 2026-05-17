@@ -22,11 +22,13 @@ import {
   formatVnSessionDuration,
   RequiredMark,
   SessionFormDialogHeader,
+  SessionTeacherAllowanceEstimateCard,
 } from "@/components/admin/session/session-form-ui";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import { TimeInput } from "@/components/ui/TimeInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
+import { normalizeOptionalRichTextContent } from "@/lib/sanitize";
 
 export interface SessionStudentItem {
   id: string;
@@ -105,7 +107,7 @@ function toAttendancePayload(
   return items.map((item) => ({
     studentId: item.studentId,
     status: item.status,
-    notes: item.notes.trim() || null,
+    notes: normalizeOptionalRichTextContent(item.notes),
     ...(includeTuition && item.tuitionFee.trim() !== ""
       ? { tuitionFee: Math.floor(Number(item.tuitionFee)) }
       : {}),
@@ -598,6 +600,9 @@ export default function AddSessionPopup({
                           placeholder="Chọn gia sư"
                           buttonClassName="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-left text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                         />
+                        <span className="text-xs font-normal text-text-muted">
+                          Chỉ hiển thị gia sư đã được phân công phụ trách lớp này.
+                        </span>
                       </label>
                     ) : (
                       <div className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
@@ -663,15 +668,9 @@ export default function AddSessionPopup({
                         ) : null}
                       </label>
                     ) : !canEditAllowance && classPricing ? (
-                      <div className="rounded-lg border border-border-default bg-bg-secondary/40 px-3 py-3">
-                        <p className="text-sm font-medium text-text-primary">Trợ cấp giáo viên (ước tính)</p>
-                        <p className="mt-2 text-lg font-semibold tabular-nums text-primary">
-                          {formatCurrency(expectedAllowanceGrossPreview ?? 0)}
-                        </p>
-                        <div className="mt-2 space-y-1 text-xs text-text-muted">
-                          <p>Lấy trực tiếp từ allowance của buổi học (theo cấu hình gia sư/lớp).</p>
-                        </div>
-                      </div>
+                      <SessionTeacherAllowanceEstimateCard
+                        amount={expectedAllowanceGrossPreview}
+                      />
                     ) : isCoefficientOnlyMode ? (
                       <p className="rounded-lg border border-border-default/80 bg-bg-secondary/30 px-3 py-2 text-xs text-text-muted">
                         Bạn chỉ chỉnh được hệ số; trợ cấp do backend lấy theo cấu hình lớp/gia sư.
@@ -705,6 +704,7 @@ export default function AddSessionPopup({
                           if (notesError) setNotesError("");
                         }}
                         minHeight="min-h-[160px]"
+                        ariaLabel="Nhận xét buổi học"
                       />
                       {notesError ? (
                         <span className="text-xs font-medium text-error" role="alert">
@@ -753,18 +753,22 @@ export default function AddSessionPopup({
                               key={item.studentId}
                               className="rounded-xl border border-border-default bg-bg-surface p-4"
                             >
-                              <p className="text-sm font-semibold text-text-primary">{item.fullName}</p>
-                              {canEditAttendanceTuition ? (
-                                <p className="mt-1 text-xs text-text-muted">
-                                  Mặc định:{" "}
-                                  <span className="font-medium tabular-nums text-text-primary">
-                                    {item.defaultTuitionFee != null
-                                      ? formatCurrency(item.defaultTuitionFee)
-                                      : "Chưa cấu hình"}
-                                  </span>
-                                </p>
-                              ) : null}
-                              <div className="mt-3 flex flex-wrap items-center gap-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+                                  <p className="min-w-0 truncate text-sm font-semibold text-text-primary">
+                                    {item.fullName}
+                                  </p>
+                                  {canEditAttendanceTuition ? (
+                                    <p className="shrink-0 text-xs text-text-muted">
+                                      Mặc định:{" "}
+                                      <span className="font-medium tabular-nums text-text-primary">
+                                        {item.defaultTuitionFee != null
+                                          ? formatCurrency(item.defaultTuitionFee)
+                                          : "Chưa cấu hình"}
+                                      </span>
+                                    </p>
+                                  ) : null}
+                                </div>
                                 <AttendanceStatusQuickPick
                                   namePrefix={`add-att-${item.studentId}`}
                                   value={item.status}
@@ -794,20 +798,17 @@ export default function AddSessionPopup({
                                   />
                                 </label>
                               ) : null}
-                              <label className="mt-3 flex flex-col gap-1 text-xs text-text-secondary">
+                              <div className="mt-3 flex flex-col gap-1 text-xs text-text-secondary">
                                 <span>Ghi chú</span>
-                                <input
-                                  name={`add-session-attendance-note-${item.studentId}`}
+                                <RichTextEditor
                                   value={item.notes}
-                                  autoComplete="off"
-                                  onChange={(event) =>
-                                    handleAttendanceNotesChange(item.studentId, event.target.value)
+                                  onChange={(html) =>
+                                    handleAttendanceNotesChange(item.studentId, html)
                                   }
-                                  maxLength={MAX_ATTENDANCE_NOTES_LENGTH}
-                                  className="min-h-10 w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary"
-                                  placeholder="Ghi chú (nếu cần)"
+                                  minHeight="min-h-[120px]"
+                                  ariaLabel={`Ghi chú học sinh ${item.fullName}`}
                                 />
-                              </label>
+                              </div>
                             </article>
                           ))}
                         </div>
@@ -825,7 +826,7 @@ export default function AddSessionPopup({
                                 <th scope="col" className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
                                   Tên học sinh
                                 </th>
-                                <th scope="col" className="min-w-[12rem] px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                                <th scope="col" className="min-w-[18rem] px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
                                   Ghi chú
                                 </th>
                                 {canEditAttendanceTuition ? (
@@ -854,16 +855,13 @@ export default function AddSessionPopup({
                                     {item.fullName}
                                   </td>
                                   <td className="px-3 py-2.5 align-middle">
-                                    <input
-                                      name={`add-session-attendance-note-desktop-${item.studentId}`}
+                                    <RichTextEditor
                                       value={item.notes}
-                                      autoComplete="off"
-                                      onChange={(event) =>
-                                        handleAttendanceNotesChange(item.studentId, event.target.value)
+                                      onChange={(html) =>
+                                        handleAttendanceNotesChange(item.studentId, html)
                                       }
-                                      maxLength={MAX_ATTENDANCE_NOTES_LENGTH}
-                                      className="w-full rounded-lg border border-border-default bg-bg-surface px-2.5 py-1.5 text-sm text-text-primary"
-                                      placeholder="Ghi chú (nếu cần)"
+                                      minHeight="min-h-[96px]"
+                                      ariaLabel={`Ghi chú học sinh ${item.fullName}`}
                                     />
                                   </td>
                                   {canEditAttendanceTuition ? (

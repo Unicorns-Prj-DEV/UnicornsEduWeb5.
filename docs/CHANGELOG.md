@@ -23,6 +23,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- FE `TutorCard` (`/admin/classes/[id]`, `/staff/classes/[id]`): mỗi gia sư phụ trách hiển thị luôn **Trợ cấp** (custom hoặc mặc định lớp) và **Vận hành** (`operatingDeductionRatePercent`) ngay trên card, không cần mở popup chỉnh sửa gia sư.
+
+- FE `/admin/classes/[id]`: nút thêm buổi học chỉ hiện với admin (khớp `POST /sessions`); validate lớp phải có gia sư phụ trách và học sinh `active` trước khi mở popup; sau tạo buổi invalidate lịch sử tháng hiện tại. `AddSessionPopup` gợi ý dropdown gia sư chỉ lấy từ roster lớp.
+
 - FE `SessionHistoryTable` `variant="classDetail"`: layout dòng buổi học 3 cột (thời gian | nhận xét | thông tin + xóa) dùng chung cho `/admin/classes/[id]`, `/admin/staffs/[id]`, `/staff/profile`, `/staff/classes/[id]`; `entityMode="class"` hiển thị tên lớp ở cột phải thay vì gia sư.
 
 ### Added

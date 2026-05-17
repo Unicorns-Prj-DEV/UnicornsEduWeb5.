@@ -381,14 +381,20 @@ export default function StaffSelfDetailPage() {
     );
   }, [workTypeOptions, workTypeSearch]);
 
+  const getClassDetailForSessionEditor = useCallback(
+    (classId: string) =>
+      queryClient.ensureQueryData({
+        queryKey: ["staff-ops", "class", "detail", "session-editor", classId],
+        queryFn: () => staffOpsApi.getClassById(classId),
+      }),
+    [queryClient],
+  );
+
   const getClassStudentsForSessionEditor = useCallback(
     async (classId: string) => {
       if (!classId) return [];
 
-      const classDetail = await queryClient.ensureQueryData({
-        queryKey: ["staff-ops", "class", "detail", "session-editor", classId],
-        queryFn: () => staffOpsApi.getClassById(classId),
-      });
+      const classDetail = await getClassDetailForSessionEditor(classId);
 
       return (classDetail.students ?? []).map((student) => ({
         id: student.id,
@@ -396,7 +402,7 @@ export default function StaffSelfDetailPage() {
         tuitionFee: student.effectiveTuitionPerSession ?? null,
       }));
     },
-    [queryClient],
+    [getClassDetailForSessionEditor],
   );
 
   const handleUpdateSessionFromStaffPage = useCallback(
@@ -1245,6 +1251,7 @@ export default function StaffSelfDetailPage() {
                 editorLayout="wide"
                 showActionsColumn
                 getClassStudents={getClassStudentsForSessionEditor}
+                getClassDetailForEdit={getClassDetailForSessionEditor}
                 allowTeacherSelection={false}
                 allowFinancialEdits={false}
                 allowCoefficientEdit

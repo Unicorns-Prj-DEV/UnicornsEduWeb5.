@@ -20,7 +20,20 @@ describe('SessionUpdateService', () => {
     session: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
+      update: jest.fn(),
       updateMany: jest.fn(),
+    },
+    classTeacher: {
+      findUnique: jest.fn(),
+    },
+    classTeacherOperatingDeductionRate: {
+      findFirst: jest.fn(),
+    },
+    roleTaxDeductionRate: {
+      findFirst: jest.fn(),
+    },
+    staffTaxDeductionOverride: {
+      findFirst: jest.fn(),
     },
   };
 
@@ -60,6 +73,14 @@ describe('SessionUpdateService', () => {
       async (callback: (tx: typeof mockPrisma) => Promise<unknown>) =>
         callback(mockPrisma),
     );
+    mockPrisma.session.updateMany.mockResolvedValue({ count: 0 });
+    mockPrisma.session.update.mockResolvedValue({ id: 'session-1' });
+    mockPrisma.classTeacher.findUnique.mockResolvedValue(null);
+    mockPrisma.classTeacherOperatingDeductionRate.findFirst.mockResolvedValue(
+      null,
+    );
+    mockPrisma.roleTaxDeductionRate.findFirst.mockResolvedValue(null);
+    mockPrisma.staffTaxDeductionOverride.findFirst.mockResolvedValue(null);
     service = new SessionUpdateService(
       mockPrisma as never,
       accessService as never,
@@ -148,13 +169,24 @@ describe('SessionUpdateService', () => {
     mockPrisma.session.findMany.mockResolvedValue([
       {
         id: 'session-1',
+        classId: 'class-1',
+        teacherId: 'teacher-1',
         teacherPaymentStatus: SessionPaymentStatus.unpaid,
       },
       {
         id: 'session-2',
+        classId: 'class-1',
+        teacherId: 'teacher-1',
         teacherPaymentStatus: SessionPaymentStatus.paid,
       },
     ]);
+    mockPrisma.classTeacherOperatingDeductionRate.findFirst.mockResolvedValue({
+      ratePercent: 7,
+    });
+    mockPrisma.roleTaxDeductionRate.findFirst.mockResolvedValue({
+      ratePercent: 12,
+    });
+    mockPrisma.session.updateMany.mockResolvedValue({ count: 1 });
     snapshotService.getSessionAuditSnapshots
       .mockResolvedValueOnce(
         new Map([
@@ -197,6 +229,8 @@ describe('SessionUpdateService', () => {
       },
       data: {
         teacherPaymentStatus: SessionPaymentStatus.paid,
+        teacherOperatingDeductionRatePercent: 7,
+        teacherTaxDeductionRatePercent: 12,
       },
     });
     expect(actionHistoryService.recordUpdate).toHaveBeenCalledTimes(1);
@@ -222,5 +256,146 @@ describe('SessionUpdateService', () => {
       requestedCount: 2,
       updatedCount: 1,
     });
+  });
+
+  it('snapshots zero deductions when bulk-paying deposit sessions', async () => {
+    mockPrisma.session.findMany.mockResolvedValue([
+      {
+        id: 'session-1',
+        classId: 'class-1',
+        teacherId: 'teacher-1',
+        teacherPaymentStatus: SessionPaymentStatus.deposit,
+      },
+    ]);
+    mockPrisma.session.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await service.updateSessionPaymentStatuses(
+      ['session-1'],
+      SessionPaymentStatus.paid,
+    );
+
+    expect(mockPrisma.session.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: {
+          in: ['session-1'],
+        },
+      },
+      data: {
+        teacherPaymentStatus: SessionPaymentStatus.paid,
+        teacherOperatingDeductionRatePercent: 0,
+        teacherTaxDeductionRatePercent: 0,
+      },
+    });
+    expect(result).toEqual({
+      requestedCount: 1,
+      updatedCount: 1,
+    });
+  });
+
+  it('resets deduction snapshots when bulk-moving paid sessions back to unpaid', async () => {
+    mockPrisma.session.findMany.mockResolvedValue([
+      {
+        id: 'session-1',
+        classId: 'class-1',
+        teacherId: 'teacher-1',
+        teacherPaymentStatus: SessionPaymentStatus.paid,
+      },
+    ]);
+    mockPrisma.session.updateMany.mockResolvedValue({ count: 1 });
+
+    await service.updateSessionPaymentStatuses(
+      ['session-1'],
+      SessionPaymentStatus.unpaid,
+    );
+
+    expect(mockPrisma.session.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: {
+          in: ['session-1'],
+        },
+      },
+      data: {
+        teacherPaymentStatus: SessionPaymentStatus.unpaid,
+        teacherOperatingDeductionRatePercent: 0,
+        teacherTaxDeductionRatePercent: 0,
+      },
+    });
+  });
+
+  it('snapshots current deduction rates when updating a session payment status to paid', async () => {
+    mockPrisma.session.findUnique
+      .mockResolvedValueOnce({
+        id: 'session-1',
+        classId: 'class-1',
+        teacherId: 'teacher-1',
+        date: new Date('2026-03-15T00:00:00.000Z'),
+        teacherPaymentStatus: SessionPaymentStatus.unpaid,
+        class: {
+          name: 'Toán 10A',
+        },
+        attendance: [],
+      })
+      .mockResolvedValueOnce({
+        id: 'session-1',
+        attendance: [],
+      });
+    mockPrisma.classTeacherOperatingDeductionRate.findFirst.mockResolvedValue({
+      ratePercent: 6,
+    });
+    mockPrisma.roleTaxDeductionRate.findFirst.mockResolvedValue({
+      ratePercent: 11,
+    });
+
+    await service.updateSession({
+      id: 'session-1',
+      teacherPaymentStatus: SessionPaymentStatus.paid,
+    });
+
+    expect(mockPrisma.session.update).toHaveBeenCalledWith({
+      where: { id: 'session-1' },
+      data: expect.objectContaining({
+        teacherPaymentStatus: SessionPaymentStatus.paid,
+        teacherOperatingDeductionRatePercent: 6,
+        teacherTaxDeductionRatePercent: 11,
+      }),
+    });
+  });
+
+  it('does not overwrite paid deduction snapshots when paid status is unchanged', async () => {
+    mockPrisma.session.findUnique
+      .mockResolvedValueOnce({
+        id: 'session-1',
+        classId: 'class-1',
+        teacherId: 'teacher-1',
+        date: new Date('2026-03-15T00:00:00.000Z'),
+        teacherPaymentStatus: SessionPaymentStatus.paid,
+        class: {
+          name: 'Toán 10A',
+        },
+        attendance: [],
+      })
+      .mockResolvedValueOnce({
+        id: 'session-1',
+        attendance: [],
+      });
+
+    await service.updateSession({
+      id: 'session-1',
+      teacherPaymentStatus: SessionPaymentStatus.paid,
+    });
+
+    const updateArgs = mockPrisma.session.update.mock.calls[0][0];
+    expect(updateArgs).toMatchObject({
+      where: { id: 'session-1' },
+      data: {
+        teacherPaymentStatus: SessionPaymentStatus.paid,
+      },
+    });
+    expect(updateArgs.data).not.toHaveProperty(
+      'teacherOperatingDeductionRatePercent',
+    );
+    expect(updateArgs.data).not.toHaveProperty(
+      'teacherTaxDeductionRatePercent',
+    );
   });
 });

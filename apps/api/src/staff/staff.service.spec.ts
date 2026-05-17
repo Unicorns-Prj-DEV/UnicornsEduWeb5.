@@ -1582,6 +1582,7 @@ describe('StaffService', () => {
             currentStatus: 'unpaid',
             grossAmount: 100000,
             operatingAmount: 0,
+            operatingRatePercent: 7,
             taxRatePercent: 12,
             taxAmount: 12000,
             netAmount: 88000,
@@ -1651,6 +1652,7 @@ describe('StaffService', () => {
       },
       data: {
         teacherTaxDeductionRatePercent: 12,
+        teacherOperatingDeductionRatePercent: 7,
         teacherPaymentStatus: 'paid',
       },
     });

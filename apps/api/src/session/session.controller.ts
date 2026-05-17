@@ -87,6 +87,8 @@ export class SessionController {
   @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.accountant)
   @ApiOperation({
     summary: 'Cập nhật trạng thái thanh toán cho nhiều session',
+    description:
+      'Khi chuyển buổi dạy của gia sư sang paid, backend ghi snapshot % khấu trừ vận hành và % thuế vào sessions theo mức hiện hành tại thời điểm thanh toán; riêng session deposit snapshot 0/0. Khi đổi paid về unpaid/deposit, backend reset hai snapshot này về 0.',
   })
   @ApiBody({
     type: SessionBulkPaymentStatusUpdateDto,

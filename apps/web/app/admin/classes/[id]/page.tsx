@@ -119,13 +119,14 @@ export default function AdminClassDetailPage() {
     staleTime: 60_000,
   });
   const adminAccess = resolveAdminShellAccess(fullProfile);
-  const { isAccountant } = adminAccess;
+  const { isAdmin, isAccountant } = adminAccess;
   const showClassOperationalMeta =
     adminAccess.isAdmin ||
     adminAccess.isAssistant ||
     adminAccess.isAccountant ||
     adminAccess.isCustomerCare;
-  const canCreateSession = !isAccountant;
+  /** POST /sessions is admin-only; keep the CTA aligned with backend. */
+  const canCreateSession = isAdmin;
   const canOpenStudentDetails = true;
   const canManageMakeupSchedule = adminAccess.isAdmin || adminAccess.isAssistant;
 
@@ -245,6 +246,22 @@ export default function AdminClassDetailPage() {
     },
     [id, activeClassStudents],
   );
+
+  const handleOpenAddSessionPopup = useCallback(() => {
+    if (!isAdmin) return;
+
+    if (popupTeachers.length === 0) {
+      toast.error("Lớp chưa có gia sư phụ trách. Hãy phân công gia sư trước khi thêm buổi học.");
+      return;
+    }
+
+    if (activeClassStudents.length === 0) {
+      toast.error("Lớp chưa có học sinh đang học nên chưa thể tạo buổi học.");
+      return;
+    }
+
+    setAddSessionPopupOpen(true);
+  }, [activeClassStudents.length, isAdmin, popupTeachers.length]);
 
   if (isLoading) {
     return (
@@ -450,6 +467,7 @@ export default function AdminClassDetailPage() {
           }}
           teacherMode={addSessionTeacherMode}
           onClose={() => setAddSessionPopupOpen(false)}
+          onCreated={handleSessionUpdated}
         />
       ) : null}
 
@@ -467,6 +485,7 @@ export default function AdminClassDetailPage() {
         >
           <TutorCard
             teachers={classDetail.teachers}
+            defaultAllowancePerStudent={classDetail.allowancePerSessionPerStudent}
             className="flex-1"
             action={
               <button
@@ -837,7 +856,7 @@ export default function AdminClassDetailPage() {
                       type="button"
                       onClick={() => {
                         if (activeTab === "sessions") {
-                          setAddSessionPopupOpen(true);
+                          handleOpenAddSessionPopup();
                           return;
                         }
                         toast.info("Chức năng thêm khảo sát đang phát triển.");
@@ -863,6 +882,15 @@ export default function AdminClassDetailPage() {
             label="Đang tải lại lịch sử buổi học..."
             className="mb-3"
           />
+
+          {canCreateSession &&
+          (popupTeachers.length === 0 || activeClassStudents.length === 0) ? (
+            <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
+              {popupTeachers.length === 0
+                ? "Lớp chưa có gia sư phụ trách. Phân công gia sư trước khi thêm buổi học."
+                : "Lớp chưa có học sinh đang học nên chưa thể tạo buổi học."}
+            </div>
+          ) : null}
 
           <AnimatePresence mode="wait" initial={false}>
             {activeTab === "sessions" ? (

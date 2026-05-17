@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '../../generated/client';
 import {
   PaymentStatus,
   SessionPaymentStatus,
@@ -28,6 +29,7 @@ import { SessionStudentBalanceService } from './session-student-balance.service'
 import { SessionValidationService } from './session-validation.service';
 import {
   createMemoizedTaxDeductionResolver,
+  normalizePercent,
   resolveOperatingDeductionRate,
   resolveTaxDeductionRate,
 } from '../payroll/deduction-rates';
@@ -35,6 +37,32 @@ import { computeDefaultSessionAllowanceAmountVnd } from './session-allowance.uti
 
 const SESSION_UPDATE_TRANSACTION_MAX_WAIT_MS = 10_000;
 const SESSION_UPDATE_TRANSACTION_TIMEOUT_MS = 20_000;
+const DEPOSIT_SESSION_PAYMENT_STATUSES = new Set<string>([
+  SessionPaymentStatus.deposit,
+  'deposite',
+  'coc',
+  'cọc',
+]);
+
+type TeacherPaymentSnapshotSession = {
+  id: string;
+  classId: string;
+  teacherId: string;
+  teacherPaymentStatus: string | null;
+};
+
+type TeacherPaymentRateSnapshot = {
+  teacherOperatingDeductionRatePercent: number;
+  teacherTaxDeductionRatePercent: number;
+};
+
+function isDepositSessionPaymentStatus(value?: string | null) {
+  return DEPOSIT_SESSION_PAYMENT_STATUSES.has(
+    String(value ?? '')
+      .trim()
+      .toLowerCase(),
+  );
+}
 
 function normalizeSessionPaymentStatus(
   value?: string | null,
@@ -45,7 +73,7 @@ function normalizeSessionPaymentStatus(
     return SessionPaymentStatus.paid;
   }
 
-  if (normalized === SessionPaymentStatus.deposit) {
+  if (isDepositSessionPaymentStatus(normalized)) {
     return SessionPaymentStatus.deposit;
   }
 
@@ -64,6 +92,144 @@ export class SessionUpdateService {
     private readonly sessionSnapshotService: SessionSnapshotService,
     private readonly actionHistoryService: ActionHistoryService,
   ) {}
+
+  private async resolveTeacherPaymentRateSnapshot(
+    db: Prisma.TransactionClient,
+    params: {
+      classId: string;
+      teacherId: string;
+      effectiveDate: Date;
+    },
+  ): Promise<TeacherPaymentRateSnapshot> {
+    const resolvedOperatingDeductionRatePercent =
+      await resolveOperatingDeductionRate(db, params);
+    let teacherOperatingDeductionRatePercent =
+      resolvedOperatingDeductionRatePercent;
+
+    if (teacherOperatingDeductionRatePercent <= 0) {
+      const classTeacher = await db.classTeacher.findUnique({
+        where: {
+          classId_teacherId: {
+            classId: params.classId,
+            teacherId: params.teacherId,
+          },
+        },
+        select: {
+          operatingDeductionRatePercent: true,
+        },
+      });
+      teacherOperatingDeductionRatePercent = normalizePercent(
+        classTeacher?.operatingDeductionRatePercent,
+      );
+    }
+
+    const teacherTaxDeductionRatePercent = await resolveTaxDeductionRate(db, {
+      staffId: params.teacherId,
+      roleType: StaffRole.teacher,
+      effectiveDate: params.effectiveDate,
+    });
+
+    return {
+      teacherOperatingDeductionRatePercent,
+      teacherTaxDeductionRatePercent,
+    };
+  }
+
+  private async updateTeacherPaymentStatusesWithSnapshots(
+    db: Prisma.TransactionClient,
+    sessions: TeacherPaymentSnapshotSession[],
+    teacherPaymentStatus: SessionPaymentStatus,
+  ) {
+    const sessionIds = sessions.map((session) => session.id);
+
+    if (sessionIds.length === 0) {
+      return 0;
+    }
+
+    if (teacherPaymentStatus !== SessionPaymentStatus.paid) {
+      const updateResult = await db.session.updateMany({
+        where: {
+          id: {
+            in: sessionIds,
+          },
+        },
+        data: {
+          teacherPaymentStatus,
+          teacherOperatingDeductionRatePercent: 0,
+          teacherTaxDeductionRatePercent: 0,
+        },
+      });
+      return updateResult.count;
+    }
+
+    const depositSessionIds = sessions
+      .filter((session) =>
+        isDepositSessionPaymentStatus(session.teacherPaymentStatus),
+      )
+      .map((session) => session.id);
+    const depositSessionIdSet = new Set(depositSessionIds);
+    const regularSessions = sessions.filter(
+      (session) => !depositSessionIdSet.has(session.id),
+    );
+    let updatedCount = 0;
+
+    if (depositSessionIds.length > 0) {
+      const updateResult = await db.session.updateMany({
+        where: {
+          id: {
+            in: depositSessionIds,
+          },
+        },
+        data: {
+          teacherPaymentStatus,
+          teacherOperatingDeductionRatePercent: 0,
+          teacherTaxDeductionRatePercent: 0,
+        },
+      });
+      updatedCount += updateResult.count;
+    }
+
+    const paymentEffectiveDate = new Date();
+    const groupedRegularSessionIds = new Map<
+      string,
+      TeacherPaymentRateSnapshot & { ids: string[] }
+    >();
+
+    for (const session of regularSessions) {
+      const snapshot = await this.resolveTeacherPaymentRateSnapshot(db, {
+        classId: session.classId,
+        teacherId: session.teacherId,
+        effectiveDate: paymentEffectiveDate,
+      });
+      const key = `${snapshot.teacherOperatingDeductionRatePercent}:${snapshot.teacherTaxDeductionRatePercent}`;
+      const current = groupedRegularSessionIds.get(key) ?? {
+        ...snapshot,
+        ids: [],
+      };
+      current.ids.push(session.id);
+      groupedRegularSessionIds.set(key, current);
+    }
+
+    for (const snapshot of groupedRegularSessionIds.values()) {
+      const updateResult = await db.session.updateMany({
+        where: {
+          id: {
+            in: snapshot.ids,
+          },
+        },
+        data: {
+          teacherPaymentStatus,
+          teacherOperatingDeductionRatePercent:
+            snapshot.teacherOperatingDeductionRatePercent,
+          teacherTaxDeductionRatePercent:
+            snapshot.teacherTaxDeductionRatePercent,
+        },
+      });
+      updatedCount += updateResult.count;
+    }
+
+    return updatedCount;
+  }
 
   async updateSessionPaymentStatuses(
     sessionIds: string[],
@@ -93,6 +259,8 @@ export class SessionUpdateService {
           },
           select: {
             id: true,
+            classId: true,
+            teacherId: true,
             teacherPaymentStatus: true,
           },
         });
@@ -112,13 +280,12 @@ export class SessionUpdateService {
           );
         }
 
-        const changedSessionIds = existingSessions
-          .filter(
-            (session) =>
-              normalizeSessionPaymentStatus(session.teacherPaymentStatus) !==
-              teacherPaymentStatus,
-          )
-          .map((session) => session.id);
+        const changedSessions = existingSessions.filter(
+          (session) =>
+            normalizeSessionPaymentStatus(session.teacherPaymentStatus) !==
+            teacherPaymentStatus,
+        );
+        const changedSessionIds = changedSessions.map((session) => session.id);
 
         if (changedSessionIds.length === 0) {
           return {
@@ -134,16 +301,12 @@ export class SessionUpdateService {
             )
           : new Map<string, unknown>();
 
-        await tx.session.updateMany({
-          where: {
-            id: {
-              in: changedSessionIds,
-            },
-          },
-          data: {
+        const updatedCount =
+          await this.updateTeacherPaymentStatusesWithSnapshots(
+            tx,
+            changedSessions,
             teacherPaymentStatus,
-          },
-        });
+          );
 
         if (actor) {
           const afterValueBySessionId =
@@ -166,7 +329,7 @@ export class SessionUpdateService {
 
         return {
           requestedCount: uniqueSessionIds.length,
-          updatedCount: changedSessionIds.length,
+          updatedCount,
         };
       },
       {
@@ -202,6 +365,7 @@ export class SessionUpdateService {
             classId: true,
             teacherId: true,
             date: true,
+            teacherPaymentStatus: true,
             class: {
               select: {
                 name: true,
@@ -247,6 +411,16 @@ export class SessionUpdateService {
           nextTeacherId !== existingSession.teacherId;
 
         const hasDateChange = data.date !== undefined;
+        const currentTeacherPaymentStatus = normalizeSessionPaymentStatus(
+          existingSession.teacherPaymentStatus,
+        );
+        const nextTeacherPaymentStatus =
+          data.teacherPaymentStatus !== undefined
+            ? normalizeSessionPaymentStatus(data.teacherPaymentStatus)
+            : currentTeacherPaymentStatus;
+        const hasTeacherPaymentStatusChange =
+          data.teacherPaymentStatus !== undefined &&
+          nextTeacherPaymentStatus !== currentTeacherPaymentStatus;
 
         const shouldRefreshAttendanceAssignments =
           data.attendance !== undefined ||
@@ -325,31 +499,57 @@ export class SessionUpdateService {
 
           nextClassName = classTeacher.class.name;
           classTeacherForAllowance = classTeacher;
-          const currentTeacherOperatingDeductionRatePercent = Number(
-            classTeacher.operatingDeductionRatePercent ?? 0,
-          );
-          const resolvedTeacherOperatingDeductionRatePercent =
-            await resolveOperatingDeductionRate(tx, {
-              classId: nextClassId,
-              teacherId: nextTeacherId,
-              effectiveDate: effectiveSessionDate,
-            });
-          teacherOperatingDeductionRatePercentUpdate =
-            resolvedTeacherOperatingDeductionRatePercent > 0
-              ? resolvedTeacherOperatingDeductionRatePercent
-              : Number.isFinite(currentTeacherOperatingDeductionRatePercent)
-                ? Math.round(
-                    currentTeacherOperatingDeductionRatePercent * 100,
-                  ) / 100
-                : 0;
-          teacherTaxDeductionRatePercentUpdate = await resolveTaxDeductionRate(
-            tx,
-            {
-              staffId: nextTeacherId,
-              roleType: StaffRole.teacher,
-              effectiveDate: effectiveSessionDate,
-            },
-          );
+          if (
+            !hasTeacherPaymentStatusChange &&
+            currentTeacherPaymentStatus !== SessionPaymentStatus.paid
+          ) {
+            const currentTeacherOperatingDeductionRatePercent = Number(
+              classTeacher.operatingDeductionRatePercent ?? 0,
+            );
+            const resolvedTeacherOperatingDeductionRatePercent =
+              await resolveOperatingDeductionRate(tx, {
+                classId: nextClassId,
+                teacherId: nextTeacherId,
+                effectiveDate: effectiveSessionDate,
+              });
+            teacherOperatingDeductionRatePercentUpdate =
+              resolvedTeacherOperatingDeductionRatePercent > 0
+                ? resolvedTeacherOperatingDeductionRatePercent
+                : Number.isFinite(currentTeacherOperatingDeductionRatePercent)
+                  ? Math.round(
+                      currentTeacherOperatingDeductionRatePercent * 100,
+                    ) / 100
+                  : 0;
+            teacherTaxDeductionRatePercentUpdate =
+              await resolveTaxDeductionRate(tx, {
+                staffId: nextTeacherId,
+                roleType: StaffRole.teacher,
+                effectiveDate: effectiveSessionDate,
+              });
+          }
+        }
+
+        if (hasTeacherPaymentStatusChange) {
+          if (nextTeacherPaymentStatus !== SessionPaymentStatus.paid) {
+            teacherOperatingDeductionRatePercentUpdate = 0;
+            teacherTaxDeductionRatePercentUpdate = 0;
+          } else if (
+            isDepositSessionPaymentStatus(existingSession.teacherPaymentStatus)
+          ) {
+            teacherOperatingDeductionRatePercentUpdate = 0;
+            teacherTaxDeductionRatePercentUpdate = 0;
+          } else {
+            const paymentSnapshot =
+              await this.resolveTeacherPaymentRateSnapshot(tx, {
+                classId: nextClassId,
+                teacherId: nextTeacherId,
+                effectiveDate: new Date(),
+              });
+            teacherOperatingDeductionRatePercentUpdate =
+              paymentSnapshot.teacherOperatingDeductionRatePercent;
+            teacherTaxDeductionRatePercentUpdate =
+              paymentSnapshot.teacherTaxDeductionRatePercent;
+          }
         }
 
         const attendanceSource =

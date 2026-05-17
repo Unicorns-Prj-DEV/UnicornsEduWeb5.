@@ -1,6 +1,7 @@
 "use client";
 
 import type { SessionAttendanceStatus } from "@/dtos/session.dto";
+import { formatCurrency } from "@/lib/class.helpers";
 
 /** Chuẩn hóa "HH:mm" hoặc "HH:mm:ss" để tính phút. */
 function parseTimeToMinutes(time: string): number | null {
@@ -39,6 +40,41 @@ export function formatVnSessionDuration(startTime: string, endTime: string): str
 
 export function RequiredMark() {
   return <span className="text-error">*</span>;
+}
+
+type SessionTeacherAllowanceEstimateCardProps = {
+  amount?: number | null;
+  loading?: boolean;
+  errorMessage?: string | null;
+  className?: string;
+};
+
+/** Khối read-only trợ cấp gia sư (đồng bộ AddSessionPopup / chỉnh sửa buổi học). */
+export function SessionTeacherAllowanceEstimateCard({
+  amount = 0,
+  loading = false,
+  errorMessage = null,
+  className = "",
+}: SessionTeacherAllowanceEstimateCardProps) {
+  return (
+    <div
+      className={`rounded-lg border border-border-default bg-bg-secondary/40 px-3 py-3 ${className}`.trim()}
+    >
+      <p className="text-sm font-medium text-text-primary">Trợ cấp giáo viên (ước tính)</p>
+      {loading ? (
+        <p className="mt-2 text-sm text-text-muted">Đang tải cấu hình lớp…</p>
+      ) : errorMessage ? (
+        <p className="mt-2 text-sm text-warning">{errorMessage}</p>
+      ) : (
+        <p className="mt-2 text-lg font-semibold tabular-nums text-primary">
+          {formatCurrency(amount ?? 0)}
+        </p>
+      )}
+      <div className="mt-2 space-y-1 text-xs text-text-muted">
+        <p>Lấy trực tiếp từ allowance của buổi học (theo cấu hình gia sư/lớp).</p>
+      </div>
+    </div>
+  );
 }
 
 type SessionFormDialogHeaderProps = {
@@ -100,7 +136,7 @@ type QuickPickProps = {
 export function AttendanceStatusQuickPick({ value, onChange, namePrefix }: QuickPickProps) {
   return (
     <div
-      className="inline-flex gap-0.5 rounded-lg border border-border-default bg-bg-secondary/80 p-0.5"
+      className="inline-flex shrink-0 gap-0.5 rounded-lg border border-border-default bg-bg-secondary/80 p-0.5"
       role="group"
       aria-label="Trạng thái điểm danh"
     >

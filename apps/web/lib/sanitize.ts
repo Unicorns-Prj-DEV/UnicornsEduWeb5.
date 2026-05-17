@@ -41,3 +41,20 @@ export function sanitizeRichTextContent(content: string): string {
 
   return sanitizeHtml(html);
 }
+
+export function getRichTextPlainContent(content: string): string {
+  return content
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .trim();
+}
+
+export function normalizeOptionalRichTextContent(content: string): string | null {
+  const trimmedContent = content.trim();
+
+  if (!getRichTextPlainContent(trimmedContent)) {
+    return null;
+  }
+
+  return trimmedContent;
+}

@@ -16,7 +16,10 @@ type SessionAttendanceRecordWithStudent = SessionAttendanceRecord & {
   student?: { fullName?: string | null } | null;
 };
 import { ClassDetail } from "@/dtos/class.dto";
-import { sanitizeHtml } from "@/lib/sanitize";
+import {
+  normalizeOptionalRichTextContent,
+  sanitizeRichTextContent,
+} from "@/lib/sanitize";
 import { formatCurrency } from "@/lib/class.helpers";
 import {
   computeSessionAllowanceRawBaseVnd,
@@ -28,6 +31,7 @@ import {
   formatVnSessionDuration,
   RequiredMark,
   SessionFormDialogHeader,
+  SessionTeacherAllowanceEstimateCard,
 } from "@/components/admin/session/session-form-ui";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import { TimeInput } from "@/components/ui/TimeInput";
@@ -66,6 +70,8 @@ type Props = {
   getClassStudents?: (
     classId: string,
   ) => Promise<{ id: string; fullName: string; tuitionFee?: number | null }[]>;
+  /** Lấy cấu hình lớp để preview trợ cấp khi sửa buổi học (staff route dùng `staff-ops`). */
+  getClassDetailForEdit?: (classId: string) => Promise<ClassDetail>;
   allowTeacherSelection?: boolean;
   allowFinancialEdits?: boolean;
   allowCoefficientEdit?: boolean;
@@ -742,6 +748,7 @@ export default function SessionHistoryTable({
   teachers: teachersProp,
   getTeachersForClass,
   getClassStudents,
+  getClassDetailForEdit,
   allowTeacherSelection = true,
   allowFinancialEdits = true,
   allowCoefficientEdit,
@@ -804,8 +811,6 @@ export default function SessionHistoryTable({
   const canEditAllowance = allowAllowanceEdit ?? allowFinancialEdits;
   const canEditAttendanceTuition =
     allowAttendanceTuitionEdits ?? allowFinancialEdits;
-  const isCoefficientOnlyEditor =
-    canEditCoefficient && !canEditAllowance && !canEditAttendanceTuition;
   const showTeacherInput =
     allowTeacherSelection && (teachersList.length > 0 || teachersLoading);
   const teacherFieldClass = isWideEditor
@@ -822,15 +827,20 @@ export default function SessionHistoryTable({
     ? "sm:col-span-2 xl:col-span-4"
     : "sm:col-span-2";
   const selectionColumnCount = showBulkPaymentStatusBar ? 1 : 0;
-  const editingClassId = editingSession?.classId ?? "";
+  const editingClassId = editingSession?.classId?.trim() ?? "";
+  const resolveClassDetailForEdit =
+    getClassDetailForEdit ?? classApi.getClassById;
   const {
     data: editingClassDetail,
     isLoading: isEditingClassDetailLoading,
     isError: isEditingClassDetailError,
   } = useQuery<ClassDetail>({
-    queryKey: ["class", "detail", "session-edit", editingClassId],
-    queryFn: () => classApi.getClassById(editingClassId),
-    enabled: !!editingClassId,
+    queryKey: getClassDetailForEdit
+      ? (["staff-ops", "class", "detail", "session-editor", editingClassId] as const)
+      : (["class", "detail", "session-edit", editingClassId] as const),
+    queryFn: () => resolveClassDetailForEdit(editingClassId),
+    enabled: Boolean(editingSession && editingClassId),
+    retry: false,
   });
   const { data: fullProfile } = useQuery({
     queryKey: ["auth", "full-profile"],
@@ -1175,7 +1185,7 @@ export default function SessionHistoryTable({
         ? attendanceItems.map((item) => ({
           studentId: item.studentId,
           status: item.status,
-          notes: item.notes.trim() || null,
+          notes: normalizeOptionalRichTextContent(item.notes),
           ...(canEditAttendanceTuition && item.tuitionFee.trim() !== ""
             ? { tuitionFee: Math.floor(Number(item.tuitionFee)) }
             : {}),
@@ -1410,9 +1420,7 @@ export default function SessionHistoryTable({
   ]);
 
   const shouldWaitForClassFormula =
-    !!editingSession &&
-    (isEditingClassDetailLoading ||
-      (!editingClassDetail && !isEditingClassDetailError));
+    Boolean(editingSession && editingClassId) && isEditingClassDetailLoading;
   const hasPreviewValidationIssue =
     (canEditCoefficient && coefficientInput !== "" && !isCoefficientInputValid) ||
     (canEditAllowance && allowanceInput !== "" && !isAllowanceInputValid);
@@ -1433,6 +1441,17 @@ export default function SessionHistoryTable({
     if (editTutorAllowanceTotal == null) return null;
     return `Trợ cấp gia sư: ${formatCurrency(editTutorAllowanceTotal)}`;
   }, [editTutorAllowanceTotal]);
+  const showEditAllowanceEstimate =
+    !canEditAllowance &&
+    (shouldWaitForClassFormula || !!editingClassDetail || isEditingClassDetailError);
+  const editAllowanceEstimateError =
+    editingSession && !editingClassId
+      ? "Không xác định được lớp của buổi học để ước tính trợ cấp."
+      : isEditingClassDetailError
+        ? "Không tải được cấu hình lớp để ước tính trợ cấp."
+        : hasPreviewValidationIssue
+          ? "Nhập hệ số từ 0,1 đến 9,9 để xem ước tính trợ cấp."
+          : null;
 
   return (
     <>
@@ -1492,7 +1511,7 @@ export default function SessionHistoryTable({
             const status = renderSessionStatus(session, statusMode);
             const notesContent = session.notes?.trim();
             const sanitizedNotes = notesContent
-              ? sanitizeHtml(notesContent)
+              ? sanitizeRichTextContent(notesContent)
               : "";
             const entityLabel = shouldShowEntity
               ? renderEntityHeader(entityMode)
@@ -1807,7 +1826,7 @@ export default function SessionHistoryTable({
                 sessions.map((session) => {
                   const status = renderSessionStatus(session, "payment");
                   const notesContent = session.notes?.trim();
-                  const sanitizedNotes = notesContent ? sanitizeHtml(notesContent) : "";
+                  const sanitizedNotes = notesContent ? sanitizeRichTextContent(notesContent) : "";
 
                   return (
                     <tr
@@ -2031,7 +2050,7 @@ export default function SessionHistoryTable({
                 const status = renderSessionStatus(session, statusMode);
                 const notesContent = session.notes?.trim();
                 const sanitizedNotes = notesContent
-                  ? sanitizeHtml(notesContent)
+                  ? sanitizeRichTextContent(notesContent)
                   : "";
                 return (
                   <tr
@@ -2547,12 +2566,17 @@ export default function SessionHistoryTable({
                             >
                               {allowanceFormulaNote}
                             </p>
-                          ) : isCoefficientOnlyEditor ? (
-                            <p className={`rounded-lg border border-border-default/80 bg-bg-secondary/30 px-3 py-2 text-xs text-text-muted ${fullWidthFieldClass}`}>
-                              Bạn chỉ chỉnh được hệ số; trợ cấp do backend lấy theo cấu hình lớp/gia sư.
-                            </p>
                           ) : null}
                         </>
+                      ) : null}
+
+                      {showEditAllowanceEstimate ? (
+                        <SessionTeacherAllowanceEstimateCard
+                          className={fullWidthFieldClass}
+                          loading={shouldWaitForClassFormula}
+                          errorMessage={editAllowanceEstimateError}
+                          amount={editTutorAllowanceTotal}
+                        />
                       ) : null}
 
                       <label className={`flex flex-col gap-1.5 text-sm font-medium text-text-primary ${fullWidthFieldClass}`}>
@@ -2563,6 +2587,7 @@ export default function SessionHistoryTable({
                           value={editNotes}
                           onChange={setEditNotes}
                           minHeight="min-h-[160px]"
+                          ariaLabel="Nhận xét buổi học"
                         />
                         <span className="text-xs font-normal text-text-muted">
                           Nhận xét về buổi học, tiến độ học sinh…
@@ -2608,18 +2633,22 @@ export default function SessionHistoryTable({
                                   key={item.studentId}
                                   className="rounded-xl border border-border-default bg-bg-surface p-4"
                                 >
-                                  <p className="text-sm font-semibold text-text-primary">{item.fullName}</p>
-                                  {canEditAttendanceTuition ? (
-                                    <p className="mt-1 text-xs text-text-muted">
-                                      Mặc định:{" "}
-                                      <span className="font-medium tabular-nums text-text-primary">
-                                        {item.defaultTuitionFee != null
-                                          ? formatCurrency(item.defaultTuitionFee)
-                                          : "Chưa cấu hình"}
-                                      </span>
-                                    </p>
-                                  ) : null}
-                                  <div className="mt-3">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+                                      <p className="min-w-0 truncate text-sm font-semibold text-text-primary">
+                                        {item.fullName}
+                                      </p>
+                                      {canEditAttendanceTuition ? (
+                                        <p className="shrink-0 text-xs text-text-muted">
+                                          Mặc định:{" "}
+                                          <span className="font-medium tabular-nums text-text-primary">
+                                            {item.defaultTuitionFee != null
+                                              ? formatCurrency(item.defaultTuitionFee)
+                                              : "Chưa cấu hình"}
+                                          </span>
+                                        </p>
+                                      ) : null}
+                                    </div>
                                     <AttendanceStatusQuickPick
                                       namePrefix={`edit-att-${item.studentId}`}
                                       value={item.status}
@@ -2649,21 +2678,17 @@ export default function SessionHistoryTable({
                                       />
                                     </label>
                                   ) : null}
-                                  <label className="mt-3 flex flex-col gap-1 text-xs text-text-secondary">
+                                  <div className="mt-3 flex flex-col gap-1 text-xs text-text-secondary">
                                     <span>Ghi chú</span>
-                                    <input
-                                      name={`edit-session-attendance-note-${item.studentId}`}
-                                      type="text"
+                                    <RichTextEditor
                                       value={item.notes}
-                                      autoComplete="off"
-                                      onChange={(e) =>
-                                        setAttendanceNotes(item.studentId, e.target.value)
+                                      onChange={(html) =>
+                                        setAttendanceNotes(item.studentId, html)
                                       }
-                                      maxLength={MAX_ATTENDANCE_NOTES_LENGTH}
-                                      className="min-h-10 w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary"
-                                      placeholder="Ghi chú (nếu cần)"
+                                      minHeight="min-h-[120px]"
+                                      ariaLabel={`Ghi chú học sinh ${item.fullName}`}
                                     />
-                                  </label>
+                                  </div>
                                 </article>
                               ))}
                             </div>
@@ -2689,7 +2714,7 @@ export default function SessionHistoryTable({
                                     </th>
                                     <th
                                       scope="col"
-                                      className="min-w-[12rem] px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-text-muted"
+                                      className="min-w-[18rem] px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-text-muted"
                                     >
                                       Ghi chú
                                     </th>
@@ -2722,17 +2747,13 @@ export default function SessionHistoryTable({
                                         {item.fullName}
                                       </td>
                                       <td className="px-3 py-2.5 align-middle">
-                                        <input
-                                          name={`edit-session-attendance-note-desktop-${item.studentId}`}
-                                          type="text"
+                                        <RichTextEditor
                                           value={item.notes}
-                                          autoComplete="off"
-                                          onChange={(e) =>
-                                            setAttendanceNotes(item.studentId, e.target.value)
+                                          onChange={(html) =>
+                                            setAttendanceNotes(item.studentId, html)
                                           }
-                                          maxLength={MAX_ATTENDANCE_NOTES_LENGTH}
-                                          className="w-full rounded-lg border border-border-default bg-bg-surface px-2.5 py-1.5 text-sm text-text-primary"
-                                          placeholder="Ghi chú (nếu cần)"
+                                          minHeight="min-h-[96px]"
+                                          ariaLabel={`Ghi chú học sinh ${item.fullName}`}
                                         />
                                       </td>
                                       {canEditAttendanceTuition ? (

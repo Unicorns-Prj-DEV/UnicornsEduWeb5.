@@ -2563,6 +2563,7 @@ export class StaffService {
         id: true,
         date: true,
         teacherPaymentStatus: true,
+        teacherOperatingDeductionRatePercent: true,
         teacherTaxDeductionRatePercent: true,
         class: {
           select: {
