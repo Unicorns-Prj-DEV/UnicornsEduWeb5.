@@ -123,14 +123,48 @@ function formatDateOnly(raw?: string | null): string {
   return "—";
 }
 
-function formatWeekdayLabel(raw?: string | null): string {
+function formatWeekdayLabel(
+  raw?: string | null,
+  options?: { trailingColon?: boolean },
+): string {
   const dateKey = extractDateKey(raw);
   if (!dateKey) return "—";
   const date = new Date(`${dateKey}T00:00:00`);
   if (Number.isNaN(date.getTime())) return "—";
   const d = date.getDay(); // 0..6 (Sun..Sat)
-  if (d === 0) return "Chủ nhật";
-  return `Thứ ${d + 1}`;
+  const label = d === 0 ? "Chủ nhật" : `Thứ ${d + 1}`;
+  return options?.trailingColon ? `${label} :` : label;
+}
+
+function renderClassDetailSessionTime(session: SessionItem): string {
+  const start = formatTimeOnly(session.startTime ?? null);
+  const end = formatTimeOnly(session.endTime ?? null);
+
+  if (start === "—" && end === "—") {
+    return "—";
+  }
+
+  if (start !== "—" && end !== "—") {
+    return `${start} -> ${end}`;
+  }
+
+  return start !== "—" ? start : end;
+}
+
+function ClassDetailDateTimeBlock({ session }: { session: SessionItem }) {
+  return (
+    <div className="flex min-w-[5.5rem] flex-col gap-0.5 text-left">
+      <p className="text-xs leading-tight text-text-secondary">
+        {formatWeekdayLabel(session.date, { trailingColon: true })}
+      </p>
+      <p className="text-sm font-bold leading-tight text-text-primary">
+        {formatDateOnly(session.date)}
+      </p>
+      <p className="font-mono text-[11px] leading-tight text-text-muted">
+        {renderClassDetailSessionTime(session)}
+      </p>
+    </div>
+  );
 }
 
 function formatTimeOnly(raw?: string | null): string {
@@ -599,6 +633,100 @@ function renderCoefficientLabel(raw: unknown): string {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
 
+function ClassDetailInfoColumn({
+  session,
+  entityMode,
+  hideTeacherDisplay,
+  status,
+}: {
+  session: SessionItem;
+  entityMode: SessionEntityMode;
+  hideTeacherDisplay: boolean;
+  status: { label: string; className: string };
+}) {
+  const showTeacherEntity = entityMode === "teacher" && !hideTeacherDisplay;
+  const showClassEntity = entityMode === "class";
+  const entityLabel = showTeacherEntity
+    ? session.teacher?.fullName?.trim() || "—"
+    : showClassEntity
+      ? renderEntityCell(session, entityMode)
+      : null;
+
+  return (
+    <div className="flex w-full max-w-full flex-col items-center justify-center gap-1.5 text-center">
+      {entityLabel ? (
+        <div className="flex w-full max-w-full items-center justify-center gap-1 text-primary">
+          <svg
+            className="size-3.5 shrink-0"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden
+          >
+            {showClassEntity ? (
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+              />
+            ) : (
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2m10-10a4 4 0 11-8 0 4 4 0 018 0zm10 10v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"
+              />
+            )}
+          </svg>
+          <span
+            className="max-w-full truncate text-center text-xs font-semibold"
+            title={entityLabel}
+          >
+            {entityLabel}
+          </span>
+        </div>
+      ) : null}
+
+      <div className="flex w-full justify-center">
+        <SessionPaymentStatusPill
+          label={status.label}
+          toneClassName={status.className}
+          density="dense"
+        />
+      </div>
+
+      <div className="flex w-full items-center justify-center gap-3 text-[11px] text-text-muted">
+        <div className="inline-flex items-center justify-center gap-0.5">
+          <span className="text-text-muted">Σ</span>
+          <span className="tabular-nums text-text-secondary">
+            {renderCoefficientLabel(session.coefficient)}
+          </span>
+        </div>
+        <div className="inline-flex items-center justify-center gap-0.5">
+          <svg
+            className="size-3.5 text-text-muted"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M17 20h5v-2a4 4 0 00-4-4h-1m-6 6H2v-2a4 4 0 014-4h5m4-10a4 4 0 11-8 0 4 4 0 018 0zm6 4a3 3 0 11-6 0 3 3 0 016 0z"
+            />
+          </svg>
+          <span className="tabular-nums text-text-secondary">
+            {countPresentStudents(session)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SessionHistoryTable({
   sessions,
   entityMode = "none",
@@ -629,18 +757,17 @@ export default function SessionHistoryTable({
   const showActionsColumn = showActionsColumnProp ?? Boolean(onSessionUpdated);
   const showDeleteAction = showActionsColumn && allowDeleteSession;
   const isTeacherDisplayHidden = hideTeacherDisplay && entityMode === "teacher";
-  const isClassDetailTeacherLayout =
-    variant === "classDetail" && entityMode === "teacher";
+  const isClassDetailRowLayout = variant === "classDetail";
   const classDetailTablePad = {
-    th: isClassDetailTeacherLayout
+    th: isClassDetailRowLayout
       ? "px-2.5 py-2 text-xs font-medium text-text-primary"
       : "px-4 py-3 font-medium text-text-primary",
-    thBulk: isClassDetailTeacherLayout
+    thBulk: isClassDetailRowLayout
       ? "px-2 py-2 text-center"
       : "px-3 py-3 text-center",
-    td: isClassDetailTeacherLayout ? "px-2.5 py-1.5" : "px-4 py-3",
-    tdCheckbox: isClassDetailTeacherLayout ? "px-2 py-1.5" : "px-3 py-3",
-    tdActions: isClassDetailTeacherLayout ? "px-1.5 py-1.5" : "px-2 py-3",
+    td: isClassDetailRowLayout ? "px-2.5 py-1.5" : "px-4 py-3",
+    tdCheckbox: isClassDetailRowLayout ? "px-2 py-1.5" : "px-3 py-3",
+    tdActions: isClassDetailRowLayout ? "px-1.5 py-1.5" : "px-2 py-3",
   } as const;
   const showBulkPaymentStatusBar =
     enableBulkPaymentStatusEdit &&
@@ -1358,7 +1485,7 @@ export default function SessionHistoryTable({
 
       {/* Mobile layout: card list */}
       <div
-        className={`${isClassDetailTeacherLayout ? "space-y-2" : "space-y-3"} ${className} md:hidden`}
+        className={`${isClassDetailRowLayout ? "space-y-2" : "space-y-3"} ${className} md:hidden`}
       >
         {sessions.length > 0 ? (
           sessions.map((session) => {
@@ -1398,6 +1525,69 @@ export default function SessionHistoryTable({
                   : "border-border-default bg-bg-surface"
                   } ${showActionsColumn ? "cursor-pointer" : ""}`}
               >
+                {isClassDetailRowLayout ? (
+                  <>
+                    <div className="flex items-start gap-2">
+                      {showBulkPaymentStatusBar ? (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            toggleSessionSelection(session.id);
+                          }}
+                          className="mt-0.5 inline-flex shrink-0 items-center justify-center"
+                          aria-label={`Chọn buổi học ${formatDateOnly(session.date)} ${renderClassDetailSessionTime(session)}`}
+                        >
+                          <SelectionCheckbox
+                            checked={visibleSelectedSessionIds.has(session.id)}
+                            onChange={() => toggleSessionSelection(session.id)}
+                            disabled={bulkPaymentStatusMutation.isPending}
+                            ariaLabel={`Chọn buổi học ${formatDateOnly(session.date)} ${renderClassDetailSessionTime(session)}`}
+                            appearance="minimal"
+                          />
+                        </button>
+                      ) : null}
+                      <ClassDetailDateTimeBlock session={session} />
+                      <div className="flex min-w-0 flex-1 justify-center">
+                        <ClassDetailInfoColumn
+                          session={session}
+                          entityMode={entityMode}
+                          hideTeacherDisplay={isTeacherDisplayHidden}
+                          status={status}
+                        />
+                      </div>
+                      {showDeleteAction ? (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            handleDeleteClick(session);
+                          }}
+                          disabled={deleteMutation.isPending}
+                          aria-label="Xóa buổi học"
+                          className="shrink-0 rounded p-1.5 text-text-muted transition-colors hover:bg-error/10 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50"
+                        >
+                          <svg
+                            className="size-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            aria-hidden
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                        </button>
+                      ) : null}
+                    </div>
+                  </>
+                ) : (
                 <div className="flex items-start justify-between gap-2">
                   <div className="space-y-1">
                     <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
@@ -1451,7 +1641,7 @@ export default function SessionHistoryTable({
                       label={status.label}
                       toneClassName={status.className}
                     />
-                    {isClassDetailTeacherLayout ? (
+                    {isClassDetailRowLayout ? (
                       <div className="flex flex-col items-end gap-1 text-xs text-text-muted">
                         <div className="inline-flex items-center gap-1">
                           <span className="text-text-muted">Σ</span>
@@ -1539,11 +1729,12 @@ export default function SessionHistoryTable({
                     )}
                   </div>
                 </div>
+                )}
 
-                {entityMode === "teacher" && (
+                {isClassDetailRowLayout && (
                   <div className="mt-3 border-t border-border-subtle pt-2">
                     <p className="mb-1 text-xs font-medium uppercase tracking-wide text-text-muted">
-                      Ghi chú
+                      Nhận xét
                     </p>
                     {sanitizedNotes ? (
                       <div
@@ -1567,7 +1758,7 @@ export default function SessionHistoryTable({
 
       {/* Desktop / tablet layout: table */}
       <div className={`hidden overflow-x-auto md:block ${className}`}>
-        {isClassDetailTeacherLayout ? (
+        {isClassDetailRowLayout ? (
           <table className="w-full min-w-[880px] border-collapse text-left text-sm">
             <caption className="sr-only">Lịch sử buổi học</caption>
             <colgroup>
@@ -1597,7 +1788,10 @@ export default function SessionHistoryTable({
                 <th scope="col" className={classDetailTablePad.th}>
                   Nhận xét
                 </th>
-                <th scope="col" className={classDetailTablePad.th}>
+                <th
+                  scope="col"
+                  className={`text-center ${classDetailTablePad.th}`}
+                >
                   Thông tin
                 </th>
                 <th
@@ -1614,8 +1808,6 @@ export default function SessionHistoryTable({
                   const status = renderSessionStatus(session, "payment");
                   const notesContent = session.notes?.trim();
                   const sanitizedNotes = notesContent ? sanitizeHtml(notesContent) : "";
-                  const presentCount = countPresentStudents(session);
-                  const coefficientLabel = renderCoefficientLabel(session.coefficient);
 
                   return (
                     <tr
@@ -1662,18 +1854,7 @@ export default function SessionHistoryTable({
                       <td
                         className={`${classDetailTablePad.td} align-top text-text-primary`}
                       >
-                        <div className="flex flex-col gap-0.5">
-                          <p className="text-xs font-semibold leading-tight">
-                            {formatWeekdayLabel(session.date)}
-                            <span className="font-normal text-text-secondary">
-                              {" "}
-                              · {formatDateOnly(session.date)}
-                            </span>
-                          </p>
-                          <p className="font-mono text-xs text-text-muted">
-                            {renderSessionTime(session)}
-                          </p>
-                        </div>
+                        <ClassDetailDateTimeBlock session={session} />
                       </td>
                       <td
                         className={`${classDetailTablePad.td} align-top text-text-primary`}
@@ -1687,64 +1868,16 @@ export default function SessionHistoryTable({
                           <span className="text-xs text-text-muted">-</span>
                         )}
                       </td>
-                      <td className={`${classDetailTablePad.td} align-top`}>
-                        <div className="flex flex-row flex-wrap items-center gap-x-2 gap-y-1">
-                          {!isTeacherDisplayHidden ? (
-                            <div className="inline-flex min-w-0 max-w-[11rem] items-center gap-1 text-text-primary">
-                              <svg
-                                className="size-3.5 shrink-0 text-text-muted"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                aria-hidden
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2m10-10a4 4 0 11-8 0 4 4 0 018 0zm10 10v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"
-                                />
-                              </svg>
-                              <span className="truncate text-xs font-medium">
-                                {session.teacher?.fullName?.trim() || "—"}
-                              </span>
-                            </div>
-                          ) : null}
-
-                          <span className="sr-only">Trạng thái thanh toán:</span>
-                          <SessionPaymentStatusPill
-                            label={status.label}
-                            toneClassName={status.className}
-                            density="dense"
+                      <td
+                        className={`${classDetailTablePad.td} align-middle text-center`}
+                      >
+                        <div className="flex justify-center">
+                          <ClassDetailInfoColumn
+                            session={session}
+                            entityMode={entityMode}
+                            hideTeacherDisplay={isTeacherDisplayHidden}
+                            status={status}
                           />
-
-                          <div className="inline-flex items-center gap-3 text-[11px] text-text-muted">
-                            <div className="inline-flex items-center gap-0.5">
-                              <span className="text-text-muted">Σ</span>
-                              <span className="tabular-nums text-text-secondary">
-                                {coefficientLabel}
-                              </span>
-                            </div>
-                            <div className="inline-flex items-center gap-0.5">
-                              <svg
-                                className="size-3.5 text-text-muted"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                aria-hidden
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M17 20h5v-2a4 4 0 00-4-4h-1m-6 6H2v-2a4 4 0 014-4h5m4-10a4 4 0 11-8 0 4 4 0 018 0zm6 4a3 3 0 11-6 0 3 3 0 016 0z"
-                                />
-                              </svg>
-                              <span className="tabular-nums text-text-secondary">
-                                {presentCount}
-                              </span>
-                            </div>
-                          </div>
                         </div>
                       </td>
                       <td
