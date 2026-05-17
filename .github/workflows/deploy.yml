@@ -164,12 +164,12 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           envs: GHCR_USERNAME,GHCR_TOKEN
-          command_timeout: 30m
+          command_timeout: 45m
           script_path: scripts/gha-deploy-remote.sh
 
       - name: Deploy via SSH (Tailscale ProxyCommand)
         if: ${{ vars.TAILSCALE_ENABLED == 'true' }}
-        timeout-minutes: 35
+        timeout-minutes: 50
         env:
           GHCR_USERNAME: ${{ env.GHCR_USERNAME }}
           GHCR_TOKEN: ${{ env.GHCR_TOKEN }}
@@ -184,7 +184,7 @@ jobs:
             printf 'export GHCR_USERNAME=%q\n' "${GHCR_USERNAME:-}"
             printf 'export GHCR_TOKEN=%q\n' "${GHCR_TOKEN:-}"
             cat scripts/gha-deploy-remote.sh
-          } | timeout 30m ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+          } | timeout 45m ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
             -o "ProxyCommand=sudo -E $TS nc %h %p" \
             -i "$KEY" \
             "$REMOTE" bash -s

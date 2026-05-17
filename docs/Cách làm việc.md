@@ -344,11 +344,11 @@ Khi bật, runner GitHub Actions gia nhập tailnet bằng action chính thức 
 
 1. **Thêm swap** (ví dụ 2G) nếu RAM &lt; 2G — giảm đột biến OOM khi deploy.
 2. **Nâng RAM** hoặc tách DB sang host khác để VPS chỉ chạy stack app.
-3. Workflow đã bật `COMPOSE_PARALLEL_LIMIT=1`, `command_timeout: 30m`, `git pull --ff-only` trên VPS để cập nhật `docker-compose.prod.yml` / `nginx`, và probe HTTP readiness thật từ trong container trước khi reload nginx; nếu vẫn 137, ưu tiên swap / RAM. Nếu chạy `migrate deploy` tay trên VPS và gặp OOM, thử `NODE_OPTIONS=--max-old-space-size=384` (hoặc tương đương) khi `exec` vào container `api`.
+3. Workflow đã bật `command_timeout: 45m`, `git pull --ff-only` trên VPS để cập nhật `docker-compose.prod.yml` / `nginx`, và probe HTTP readiness thật từ trong container trước khi reload nginx; `wait_for_http` chờ tối đa `90 × 5s` mỗi service (override qua `WAIT_HTTP_RETRIES`) để VPS thiếu disk boot chậm không bị abort giữa chừng làm `web`/`nginx` kẹt ở image cũ; nếu vẫn 137, ưu tiên swap / RAM. Nếu chạy `migrate deploy` tay trên VPS và gặp OOM, thử `NODE_OPTIONS=--max-old-space-size=384` (hoặc tương đương) khi `exec` vào container `api`.
 
 ### Lỗi `no space left on device` khi `docker compose pull`
 
-Thường do `/var/lib/containerd` hoặc `/var/lib/docker` không còn đủ dung lượng để giữ đồng thời layer image cũ và image mới khi pull/giải nén. Script deploy hiện prune unused containers/images/build cache trước pull, pull từng service (`api` → migrate/up/wait/prune → `web` → wait/prune → `nginx`) và in `docker system df` + `df -h` khi pull fail. Nếu vẫn thiếu dung lượng, xử lý trên VPS:
+Thường do `/var/lib/containerd` hoặc `/var/lib/docker` không còn đủ dung lượng để giữ đồng thời layer image cũ và image mới khi pull/giải nén. Script deploy hiện prune stopped containers + dangling images + build cache (`docker container/image/builder prune -f`, **không** dùng `-a` để tránh xoá nhầm image `:latest` vừa pull nhưng chưa có container) trước pull, pull từng service (`api` → migrate/up/wait/prune → `web` → wait/prune → `nginx`) và in `docker system df` + `df -h` khi pull fail. Nếu vẫn thiếu dung lượng, xử lý trên VPS:
 
 ```bash
 docker system df
