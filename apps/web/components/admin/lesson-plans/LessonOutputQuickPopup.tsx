@@ -175,7 +175,7 @@ export default function LessonOutputQuickPopup({
 
         {isFetching && !outputDetail ? (
           <div className="rounded-xl border border-border-default bg-bg-secondary/35 px-4 py-8 text-center text-sm text-text-secondary">
-            Đang tải dữ liệu bài...
+            Đang tải dữ liệu bài…
           </div>
         ) : null}
 

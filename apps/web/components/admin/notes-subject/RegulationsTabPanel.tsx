@@ -115,7 +115,7 @@ export default function RegulationsTabPanel({
   return (
     <div className="space-y-5">
       <div className="rounded-md border border-border-default bg-bg-secondary/60 px-3 py-2 text-sm text-text-secondary">
-        {rulePosts.length} quy định — chọn một dòng để mở bảng chỉnh sửa.
+        {rulePosts.length} quy định, chọn một dòng để mở bảng chỉnh sửa.
       </div>
 
       <div className="rounded-xl border border-border-default bg-bg-surface shadow-sm">
@@ -171,7 +171,7 @@ export default function RegulationsTabPanel({
                         className="text-xs"
                       />
                     ) : (
-                      <span className="text-sm text-text-muted">—</span>
+                      <span className="text-sm text-text-muted">-</span>
                     )}
                   </TableCell>
                   <TableCell className="hidden max-w-xl text-text-secondary whitespace-normal md:table-cell">

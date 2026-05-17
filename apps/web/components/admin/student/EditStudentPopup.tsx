@@ -616,8 +616,6 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
                           value={customerCareSearchInput}
                           onChange={(event) => setCustomerCareSearchInput(event.target.value)}
                           onFocus={() => setCustomerCareSearchFocused(true)}
-                          role="combobox"
-                          aria-expanded={customerCareSearchFocused}
                           aria-controls={customerCareSearchFocused ? "customer-care-options-listbox" : undefined}
                           aria-autocomplete="list"
                           placeholder={

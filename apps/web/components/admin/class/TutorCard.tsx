@@ -50,7 +50,7 @@ export default function TutorCard({
   enableTeacherNavigation = true,
 }: Props) {
   const tutorItems = normalizeTutors(teachers);
-  const router = useRouter();
+  const { push } = useRouter();
 
   return (
     <ClassCard title="Gia sư phụ trách" className={className} action={action}>
@@ -59,11 +59,12 @@ export default function TutorCard({
           {tutorItems.map((teacher, index) => (
             <div
               key={teacher.id}
-              role={enableTeacherNavigation ? "button" : undefined}
-              tabIndex={enableTeacherNavigation ? 0 : undefined}
+              role="button"
+              tabIndex={enableTeacherNavigation ? 0 : -1}
+              aria-disabled={!enableTeacherNavigation}
               onClick={
                 enableTeacherNavigation
-                  ? () => router.push(`/admin/staffs/${encodeURIComponent(teacher.id)}`)
+                  ? () => push(`/admin/staffs/${encodeURIComponent(teacher.id)}`)
                   : undefined
               }
               onKeyDown={
@@ -71,7 +72,7 @@ export default function TutorCard({
                   ? (e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        router.push(`/admin/staffs/${encodeURIComponent(teacher.id)}`);
+                        push(`/admin/staffs/${encodeURIComponent(teacher.id)}`);
                       }
                     }
                   : undefined

@@ -369,7 +369,7 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
                     }
                     className="cursor-pointer rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   >
-                    <option value="">— Chưa phân công —</option>
+                    <option value="">Chưa phân công</option>
                     {(assistantOptionsQuery.data ?? []).map((opt) => (
                       <option key={opt.id} value={opt.id}>
                         {opt.fullName}

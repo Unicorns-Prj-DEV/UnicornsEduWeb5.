@@ -29,6 +29,15 @@ import type {
 } from "@/dtos/lesson.dto";
 import { api } from "../client";
 
+function normalizeStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((item) => {
+    const text = String(item).trim();
+    return text ? [text] : [];
+  });
+}
+
 function normalizeLessonStaffReference(
   value:
     | Partial<LessonTaskAssignee>
@@ -133,9 +142,7 @@ function normalizeLessonResourceItem(
     description: value.description ?? null,
     resourceLink: value.resourceLink,
     lessonTaskId: value.lessonTaskId ?? null,
-    tags: Array.isArray(value.tags)
-      ? value.tags.map((item) => String(item).trim()).filter(Boolean)
-      : [],
+    tags: normalizeStringList(value.tags),
     createdAt: value.createdAt ?? "",
     updatedAt: value.updatedAt ?? "",
   };
@@ -152,9 +159,7 @@ function normalizeLessonResourceOption(
     id: value.id,
     title: value.title ?? null,
     resourceLink: value.resourceLink,
-    tags: Array.isArray(value.tags)
-      ? value.tags.map((item) => String(item).trim()).filter(Boolean)
-      : [],
+    tags: normalizeStringList(value.tags),
     lessonTaskId: value.lessonTaskId ?? null,
     lessonTaskTitle: value.lessonTaskTitle ?? null,
   };
@@ -203,11 +208,7 @@ function normalizeLessonTaskDetail(
           .map((item) => normalizeLessonResourcePreview(item))
           .filter((item): item is LessonResourcePreview => item !== null)
       : [],
-    contestUploadedSummary: Array.isArray(value?.contestUploadedSummary)
-      ? value.contestUploadedSummary
-          .map((item) => String(item).trim())
-          .filter(Boolean)
-      : [],
+    contestUploadedSummary: normalizeStringList(value?.contestUploadedSummary),
   };
 }
 
@@ -237,9 +238,7 @@ function normalizeLessonOutputItem(
     source: value?.source ?? null,
     originalLink: value?.originalLink ?? null,
     level: value?.level ?? null,
-    tags: Array.isArray(value?.tags)
-      ? value.tags.map((item) => String(item).trim()).filter(Boolean)
-      : [],
+    tags: normalizeStringList(value?.tags),
     cost:
       typeof value?.cost === "number" && Number.isFinite(value.cost)
         ? value.cost
@@ -272,9 +271,7 @@ function normalizeLessonWorkOutputItem(
     ...baseOutput,
     updatedAt: value?.updatedAt ?? "",
     task: normalizeLessonOutputTaskSummary(value?.task ?? undefined),
-    tags: Array.isArray(value?.tags)
-      ? value.tags.map((item) => String(item).trim()).filter(Boolean)
-      : [],
+    tags: normalizeStringList(value?.tags),
     level: value?.level ?? null,
     link: value?.link ?? null,
     originalLink: value?.originalLink ?? null,

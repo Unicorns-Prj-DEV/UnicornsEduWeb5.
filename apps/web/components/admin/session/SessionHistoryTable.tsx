@@ -1683,7 +1683,7 @@ export default function SessionHistoryTable({
                             dangerouslySetInnerHTML={{ __html: sanitizedNotes }}
                           />
                         ) : (
-                          <span className="text-xs text-text-muted">—</span>
+                          <span className="text-xs text-text-muted">-</span>
                         )}
                       </td>
                       <td className={`${classDetailTablePad.td} align-top`}>
@@ -1954,7 +1954,7 @@ export default function SessionHistoryTable({
                             dangerouslySetInnerHTML={{ __html: sanitizedNotes }}
                           />
                         ) : (
-                          <span className="text-text-muted">—</span>
+                          <span className="text-text-muted">-</span>
                         )}
                       </td>
                     ) : null}
@@ -2078,7 +2078,7 @@ export default function SessionHistoryTable({
                   aria-hidden
                 />
                 <div
-                  className="absolute -right-8 -top-10 h-24 w-24 rounded-full bg-success/10 blur-3xl"
+                  className="absolute -right-8 -top-10 size-24 rounded-full bg-success/10 blur-3xl"
                   aria-hidden
                 />
 

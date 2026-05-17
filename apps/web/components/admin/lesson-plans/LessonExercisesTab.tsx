@@ -181,8 +181,8 @@ function ExercisesTableSkeleton({ rows = 6 }: { rows?: number }) {
                     <div className="mt-4 flex items-center justify-between gap-3">
                       <div className="h-4 w-2/3 animate-pulse rounded-full bg-bg-tertiary/65" />
                       <div className="flex gap-1">
-                        <div className="h-8 w-8 animate-pulse rounded-lg bg-bg-tertiary/80" />
-                        <div className="h-8 w-8 animate-pulse rounded-lg bg-bg-tertiary/65" />
+                        <div className="size-8 animate-pulse rounded-lg bg-bg-tertiary/80" />
+                        <div className="size-8 animate-pulse rounded-lg bg-bg-tertiary/65" />
                       </div>
                     </div>
                   </div>
@@ -211,8 +211,8 @@ function ExercisesTableSkeleton({ rows = 6 }: { rows?: number }) {
                         </td>
                         <td className="px-3 py-3">
                           <div className="ml-auto flex justify-end gap-1">
-                            <div className="h-8 w-8 animate-pulse rounded-lg bg-bg-tertiary/80" />
-                            <div className="h-8 w-8 animate-pulse rounded-lg bg-bg-tertiary/65" />
+                            <div className="size-8 animate-pulse rounded-lg bg-bg-tertiary/80" />
+                            <div className="size-8 animate-pulse rounded-lg bg-bg-tertiary/65" />
                           </div>
                         </td>
                       </tr>
@@ -245,19 +245,20 @@ export default function LessonExercisesTab({
   manageDetailsPath = "/admin/lesson-manage-details",
   participantMode = false,
 }: LessonExercisesTabProps) {
-  const router = useRouter();
+  const { push, replace } = useRouter();
   const searchParams = useSearchParams();
+  const getSearchParam = searchParams.get.bind(searchParams);
   const queryClient = useQueryClient();
   const canManageOutputs = !participantMode;
-  const exPage = normalizePositiveInt(searchParams.get("exPage"));
-  const exLevel = normalizeExLevel(searchParams.get("exLevel"));
+  const exPage = normalizePositiveInt(getSearchParam("exPage"));
+  const exLevel = normalizeExLevel(getSearchParam("exLevel"));
 
-  const exSearch = searchParams.get("exSearch") ?? "";
-  const exTag = searchParams.get("exTag") ?? "";
-  const exOutputStatus = searchParams.get("exOutputStatus") ?? "all";
-  const exStaffId = searchParams.get("exStaffId") ?? "";
-  const exDateFrom = searchParams.get("exDateFrom") ?? "";
-  const exDateTo = searchParams.get("exDateTo") ?? "";
+  const exSearch = getSearchParam("exSearch") ?? "";
+  const exTag = getSearchParam("exTag") ?? "";
+  const exOutputStatus = getSearchParam("exOutputStatus") ?? "all";
+  const exStaffId = getSearchParam("exStaffId") ?? "";
+  const exDateFrom = getSearchParam("exDateFrom") ?? "";
+  const exDateTo = getSearchParam("exDateTo") ?? "";
 
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedOutputId, setSelectedOutputId] = useState<string | null>(null);
@@ -299,11 +300,11 @@ export default function LessonExercisesTab({
           params.set(key, String(value));
         }
       }
-      router.replace(`${currentPagePath}?${params.toString()}`, {
+      replace(`${currentPagePath}?${params.toString()}`, {
         scroll: false,
       });
     },
-    [currentPagePath, router, searchParams],
+    [currentPagePath, replace, searchParams],
   );
 
   const applyFilters = useCallback((draft: LessonWorkFilterDraft) => {
@@ -354,13 +355,13 @@ export default function LessonExercisesTab({
   const goToExpandedManageDetails = () => {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("tab", "exercises");
-    router.push(`${manageDetailsPath}?${params.toString()}`);
+    push(`${manageDetailsPath}?${params.toString()}`);
   };
 
   const goBackToLessonPlans = () => {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("tab", "exercises");
-    router.push(`${basePagePath}?${params.toString()}`);
+    push(`${basePagePath}?${params.toString()}`);
   };
 
   const queryKey = useMemo(
@@ -686,6 +687,7 @@ export default function LessonExercisesTab({
                             </div>
                             <div
                               className="flex shrink-0 items-center gap-0.5"
+                              role="presentation"
                               onClick={(event) => event.stopPropagation()}
                             >
                               <button

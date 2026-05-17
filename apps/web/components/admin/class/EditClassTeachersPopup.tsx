@@ -350,9 +350,7 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
               }}
               autoComplete="off"
               spellCheck={false}
-              role="combobox"
               aria-controls="edit-class-teachers-search-results"
-              aria-expanded={teacherSearchFocused && !!dropdownRect}
               aria-haspopup="listbox"
               placeholder="Tìm kiếm gia sư theo tên…"
               className={cn(

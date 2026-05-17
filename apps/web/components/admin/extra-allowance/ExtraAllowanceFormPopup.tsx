@@ -315,9 +315,7 @@ export default function ExtraAllowanceFormPopup({
                           value={staffSearchInput}
                           onChange={(event) => setStaffSearchInput(event.target.value)}
                           onFocus={() => setStaffSearchFocused(true)}
-                          role="combobox"
                           aria-haspopup="listbox"
-                          aria-expanded={staffSearchFocused}
                           aria-controls={
                             staffSearchFocused
                               ? "extra-allowance-staff-options"

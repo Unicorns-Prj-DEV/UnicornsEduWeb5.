@@ -243,8 +243,8 @@ function ListTableSkeleton({
                 <div className="h-4 w-28 animate-pulse rounded-full bg-bg-tertiary/65" />
               </div>
               <div className="flex gap-2">
-                <div className="h-10 w-10 animate-pulse rounded-xl bg-bg-tertiary/80" />
-                <div className="h-10 w-10 animate-pulse rounded-xl bg-bg-tertiary/65" />
+                <div className="size-10 animate-pulse rounded-xl bg-bg-tertiary/80" />
+                <div className="size-10 animate-pulse rounded-xl bg-bg-tertiary/65" />
               </div>
             </div>
 
@@ -318,8 +318,8 @@ function ListTableSkeleton({
               )}
 
               <div className="flex items-start justify-end gap-2 lg:col-span-2">
-                <div className="h-8 w-8 animate-pulse rounded-lg bg-bg-tertiary/70" />
-                <div className="h-8 w-8 animate-pulse rounded-lg bg-bg-tertiary/55" />
+                <div className="size-8 animate-pulse rounded-lg bg-bg-tertiary/70" />
+                <div className="size-8 animate-pulse rounded-lg bg-bg-tertiary/55" />
               </div>
             </div>
           ))}
@@ -385,13 +385,14 @@ export default function AdminLessonPlansWorkspace({
   createOutputAccessMode?: Exclude<StaffLessonEndpointAccessMode, "account"> | null;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
+  const { push, replace } = useRouter();
   const prefersReducedMotion = useReducedMotion();
   const searchParams = useSearchParams();
+  const getSearchParam = searchParams.get.bind(searchParams);
   const queryClient = useQueryClient();
-  const activeTab = normalizeTab(searchParams.get("tab"));
-  const resourcePage = normalizePositiveInt(searchParams.get("resourcePage"));
-  const taskPage = normalizePositiveInt(searchParams.get("taskPage"));
+  const activeTab = normalizeTab(getSearchParam("tab"));
+  const resourcePage = normalizePositiveInt(getSearchParam("resourcePage"));
+  const taskPage = normalizePositiveInt(getSearchParam("taskPage"));
 
   const [resourcePopupOpen, setResourcePopupOpen] = useState(false);
   const [resourceMode, setResourceMode] = useState<LessonUpsertMode>("create");
@@ -550,11 +551,11 @@ export default function AdminLessonPlansWorkspace({
       const params = new URLSearchParams(searchParams?.toString() ?? "");
       params.set("tab", tab);
       const nextQuery = params.toString();
-      router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
+      replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
         scroll: false,
       });
     },
-    [pathname, router, searchParams],
+    [pathname, replace, searchParams],
   );
 
   useEffect(() => {
@@ -570,7 +571,7 @@ export default function AdminLessonPlansWorkspace({
     params.set(key, String(Math.max(1, page)));
     params.set("tab", resolvedActiveTab);
     const nextQuery = params.toString();
-    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
+    replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
       scroll: false,
     });
   };
@@ -974,7 +975,7 @@ export default function AdminLessonPlansWorkspace({
                                         ))
                                       ) : (
                                         <span className="text-sm text-text-muted">
-                                          —
+                                          -
                                         </span>
                                       )}
                                     </div>
@@ -1088,7 +1089,7 @@ export default function AdminLessonPlansWorkspace({
                                           ))
                                         ) : (
                                           <span className="text-sm text-text-muted">
-                                            —
+                                            -
                                           </span>
                                         )}
                                       </div>
@@ -1402,7 +1403,7 @@ export default function AdminLessonPlansWorkspace({
                                     tabIndex={0}
                                     className="group cursor-pointer border-t border-border-default bg-bg-surface align-top transition-colors hover:bg-bg-secondary/50 focus-within:bg-bg-secondary/50"
                                     onClick={() =>
-                                      router.push(buildTaskDetailHref(task.id))
+                                      push(buildTaskDetailHref(task.id))
                                     }
                                     onKeyDown={(event) => {
                                       if (
@@ -1410,7 +1411,7 @@ export default function AdminLessonPlansWorkspace({
                                         event.key === " "
                                       ) {
                                         event.preventDefault();
-                                        router.push(buildTaskDetailHref(task.id));
+                                        push(buildTaskDetailHref(task.id));
                                       }
                                     }}
                                     aria-label={`Xem chi tiết công việc ${task.title?.trim() || ""}`}

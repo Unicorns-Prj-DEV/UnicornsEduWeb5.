@@ -46,11 +46,11 @@ function nodeToMarkdownish(node: Node): string {
   if (tag === "br") return "\n";
 
   if (tag === "ul" || tag === "ol") {
-    const items = Array.from(el.children)
-      .filter((c) => c.tagName.toLowerCase() === "li")
-      .map((li) => nodeToMarkdownish(li).trim())
-      .filter(Boolean)
-      .map((t) => `- ${t}`);
+    const items = Array.from(el.children).flatMap((child) => {
+      if (child.tagName.toLowerCase() !== "li") return [];
+      const text = nodeToMarkdownish(child).trim();
+      return text ? [`- ${text}`] : [];
+    });
     return items.length ? `${items.join("\n")}\n\n` : "";
   }
 

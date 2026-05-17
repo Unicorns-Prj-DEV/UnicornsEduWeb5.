@@ -118,7 +118,7 @@ function openExternal(url: string) {
 
 function LevelPill({ level }: { level: string | null }) {
   if (!level?.trim()) {
-    return <span className="text-sm text-text-muted">—</span>;
+    return <span className="text-sm text-text-muted">-</span>;
   }
 
   const text = /level/i.test(level) ? level.trim() : `Level ${level.trim()}`;
@@ -217,8 +217,8 @@ function WorkTableSkeleton({ rows = 5 }: { rows?: number }) {
                 <div className="h-4 w-28 animate-pulse rounded-full bg-bg-tertiary/65" />
               </div>
               <div className="flex gap-2">
-                <div className="h-10 w-10 animate-pulse rounded-xl bg-bg-tertiary/85" />
-                <div className="h-10 w-10 animate-pulse rounded-xl bg-bg-tertiary/65" />
+                <div className="size-10 animate-pulse rounded-xl bg-bg-tertiary/85" />
+                <div className="size-10 animate-pulse rounded-xl bg-bg-tertiary/65" />
               </div>
             </div>
 
@@ -333,8 +333,9 @@ export default function LessonWorkTab({
   allowBulkPaymentStatusEdit?: boolean;
   allowDelete?: boolean;
 }) {
-  const router = useRouter();
+  const { replace } = useRouter();
   const searchParams = useSearchParams();
+  const getSearchParam = searchParams.get.bind(searchParams);
   const queryClient = useQueryClient();
   const canManageOutputs = outputAccessMode !== "participant";
   const canCreateOutputs = createAccessMode !== null && allowCreate;
@@ -350,10 +351,10 @@ export default function LessonWorkTab({
   const createAllowsTasklessOutput = createAccessMode === "manage";
   const createAllowsPaymentStatusEdit = createAccessMode === "manage";
   const createOpenAfterCreate = createAccessMode === "manage" ? "popup" : "none";
-  const workPage = normalizePositiveInt(searchParams.get("workPage"));
+  const workPage = normalizePositiveInt(getSearchParam("workPage"));
   const { year: workYear, month: workMonth } = normalizeMonthYear(
-    searchParams.get("workYear"),
-    searchParams.get("workMonth"),
+    getSearchParam("workYear"),
+    getSearchParam("workMonth"),
   );
 
   const [filterOpen, setFilterOpen] = useState(false);
@@ -363,12 +364,12 @@ export default function LessonWorkTab({
   const [bulkPaymentStatusDraft, setBulkPaymentStatusDraft] =
     useState<LessonPaymentStatus>(DEFAULT_BULK_LESSON_PAYMENT_STATUS);
 
-  const workSearch = searchParams.get("workSearch") ?? "";
-  const workTag = searchParams.get("workTag") ?? "";
-  const workOutputStatus = searchParams.get("workOutputStatus") ?? "all";
-  const workStaffId = searchParams.get("workStaffId") ?? "";
-  const workDateFrom = searchParams.get("workDateFrom") ?? "";
-  const workDateTo = searchParams.get("workDateTo") ?? "";
+  const workSearch = getSearchParam("workSearch") ?? "";
+  const workTag = getSearchParam("workTag") ?? "";
+  const workOutputStatus = getSearchParam("workOutputStatus") ?? "all";
+  const workStaffId = getSearchParam("workStaffId") ?? "";
+  const workDateFrom = getSearchParam("workDateFrom") ?? "";
+  const workDateTo = getSearchParam("workDateTo") ?? "";
   const appliedDraft = useMemo<LessonWorkFilterDraft>(
     () => ({
       search: workSearch,
@@ -412,11 +413,11 @@ export default function LessonWorkTab({
           params.set(key, String(value));
         }
       }
-      router.replace(`${basePagePath}?${params.toString()}`, {
+      replace(`${basePagePath}?${params.toString()}`, {
         scroll: false,
       });
     },
-    [basePagePath, router, searchParams],
+    [basePagePath, replace, searchParams],
   );
 
   const applyFilters = useCallback((draft: LessonWorkFilterDraft) => {
@@ -463,7 +464,7 @@ export default function LessonWorkTab({
 
   const openOutputDetail = useCallback((outputId: string) => {
     setSelectedOutputId(outputId);
-  }, []);
+  }, [setSelectedOutputId]);
 
   const queryKey = useMemo(
     () =>
@@ -871,7 +872,7 @@ export default function LessonWorkTab({
                                 </span>
                               ))
                             ) : (
-                              <span className="text-sm text-text-muted">—</span>
+                              <span className="text-sm text-text-muted">-</span>
                             )}
                           </div>
                           <p className="mt-3 text-base font-semibold leading-6 text-text-primary">
@@ -886,7 +887,7 @@ export default function LessonWorkTab({
 
                         <div className="flex shrink-0 items-start gap-2">
                           {canBulkEditPaymentStatus ? (
-                            <div onClick={(event) => event.stopPropagation()}>
+                            <div role="presentation" onClick={(event) => event.stopPropagation()}>
                               <SelectionCheckbox
                                 checked={isSelected}
                                 onChange={() => toggleOne(output.id)}
@@ -920,6 +921,7 @@ export default function LessonWorkTab({
                         </p>
                         <div
                           className="flex shrink-0 items-center gap-0.5"
+                          role="presentation"
                           onClick={(event) => event.stopPropagation()}
                         >
                           <button
@@ -1049,7 +1051,7 @@ export default function LessonWorkTab({
                                   </span>
                                 ))
                               ) : (
-                                <span className="text-sm text-text-muted">—</span>
+                                <span className="text-sm text-text-muted">-</span>
                               )}
                             </div>
                           </td>
@@ -1188,7 +1190,7 @@ export default function LessonWorkTab({
                 className="relative w-full overflow-hidden rounded-[1.5rem] border border-border-default bg-bg-surface p-5 shadow-2xl"
               >
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-success/0 via-success/50 to-primary/0" aria-hidden />
-                <div className="absolute -right-8 -top-10 h-24 w-24 rounded-full bg-success/10 blur-3xl" aria-hidden />
+                <div className="absolute -right-8 -top-10 size-24 rounded-full bg-success/10 blur-3xl" aria-hidden />
 
                 <div className="relative">
                   <div className="flex items-start justify-between gap-3">

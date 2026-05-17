@@ -137,9 +137,11 @@ export function saveCustomLessonTag(tag: string) {
   const raw = window.localStorage.getItem(CUSTOM_TAGS_STORAGE_KEY);
   const parsed = raw ? (JSON.parse(raw) as unknown) : [];
   const list = Array.isArray(parsed)
-    ? parsed
-        .map((item) => (typeof item === "string" ? normalizeTagText(item) : ""))
-        .filter(Boolean)
+    ? parsed.flatMap((item) => {
+        if (typeof item !== "string") return [];
+        const text = normalizeTagText(item);
+        return text ? [text] : [];
+      })
     : [];
 
   if (list.some((item) => areTagsEqualIgnoreCase(item, normalized))) {
@@ -162,9 +164,11 @@ export function loadCustomLessonTags(): string[] {
     }
     return Array.from(
       new Set(
-        parsed
-          .map((item) => (typeof item === "string" ? normalizeTagText(item) : ""))
-          .filter(Boolean),
+        parsed.flatMap((item) => {
+          if (typeof item !== "string") return [];
+          const text = normalizeTagText(item);
+          return text ? [text] : [];
+        }),
       ),
     );
   } catch {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type {
@@ -146,22 +146,6 @@ function MakeupEditorDialog({
       teacherMode,
     }),
   );
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    setForm(
-      buildInitialEditorState({
-        event,
-        defaultDate,
-        teachers,
-        defaultTeacherId,
-        teacherMode,
-      }),
-    );
-  }, [defaultDate, defaultTeacherId, event, open, teacherMode, teachers]);
 
   const teacherOptions = useMemo(
     () =>
@@ -413,14 +397,9 @@ export default function MakeupScheduleCard({
   const items = data?.data ?? [];
   const totalItems = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalItems / MAKEUP_EVENTS_PAGE_SIZE));
-  const pageStart = totalItems === 0 ? 0 : (page - 1) * MAKEUP_EVENTS_PAGE_SIZE + 1;
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = totalItems === 0 ? 0 : (currentPage - 1) * MAKEUP_EVENTS_PAGE_SIZE + 1;
   const pageEnd = totalItems === 0 ? 0 : pageStart + items.length - 1;
-
-  useEffect(() => {
-    if (page > totalPages) {
-      setPage(totalPages);
-    }
-  }, [page, totalPages]);
 
   const invalidateAfterMutation = async () => {
     await Promise.all([
@@ -624,12 +603,12 @@ export default function MakeupScheduleCard({
       {totalItems > 0 ? (
         <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-text-muted">
-            Trang {page}/{totalPages}
+            Trang {currentPage}/{totalPages}
           </p>
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+              onClick={() => setPage((prev) => Math.max(1, Math.min(totalPages, prev - 1)))}
               disabled={page <= 1}
               className="inline-flex min-h-10 items-center justify-center rounded-lg border border-border-default bg-bg-surface px-3 text-xs font-medium text-text-primary transition-colors hover:bg-bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -647,32 +626,35 @@ export default function MakeupScheduleCard({
         </div>
       ) : null}
 
-      <MakeupEditorDialog
-        open={isEditorOpen}
-        mode={editorMode}
-        event={editingEvent}
-        defaultDate={defaultDate}
-        teachers={teachers}
-        defaultTeacherId={defaultTeacherId}
-        teacherMode={teacherMode}
-        isSubmitting={isSubmitting}
-        canDelete={canDelete}
-        onClose={() => {
-          if (isSubmitting) {
-            return;
-          }
-          setIsEditorOpen(false);
-          setEditingEvent(null);
-        }}
-        onSave={(payload) => {
-          if (editorMode === "create") {
-            createMutation.mutate(payload);
-            return;
-          }
-          updateMutation.mutate(payload);
-        }}
-        onDelete={() => deleteMutation.mutate()}
-      />
+      {isEditorOpen ? (
+        <MakeupEditorDialog
+          key={`${editorMode}-${editingEvent?.id ?? "new"}-${defaultDate}-${defaultTeacherId ?? ""}-${teacherMode}`}
+          open={isEditorOpen}
+          mode={editorMode}
+          event={editingEvent}
+          defaultDate={defaultDate}
+          teachers={teachers}
+          defaultTeacherId={defaultTeacherId}
+          teacherMode={teacherMode}
+          isSubmitting={isSubmitting}
+          canDelete={canDelete}
+          onClose={() => {
+            if (isSubmitting) {
+              return;
+            }
+            setIsEditorOpen(false);
+            setEditingEvent(null);
+          }}
+          onSave={(payload) => {
+            if (editorMode === "create") {
+              createMutation.mutate(payload);
+              return;
+            }
+            updateMutation.mutate(payload);
+          }}
+          onDelete={() => deleteMutation.mutate()}
+        />
+      ) : null}
     </ClassCard>
   );
 }

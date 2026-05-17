@@ -101,9 +101,9 @@ export default function DocsTab() {
 
         {docGroupsLoading ? (
           <div className="space-y-2">
-            {[1, 2, 3].map((i) => (
+            {["doc-group-skeleton-a", "doc-group-skeleton-b", "doc-group-skeleton-c"].map((skeletonKey) => (
               <div
-                key={i}
+                key={skeletonKey}
                 className="h-16 rounded-xl border border-border-default bg-bg-surface animate-pulse"
               />
             ))}
@@ -203,9 +203,15 @@ export default function DocsTab() {
         </div>
       ) : contestsLoading ? (
         <div className="space-y-2">
-          {[1, 2, 3, 4, 5].map((i) => (
+          {[
+            "contest-skeleton-a",
+            "contest-skeleton-b",
+            "contest-skeleton-c",
+            "contest-skeleton-d",
+            "contest-skeleton-e",
+          ].map((skeletonKey) => (
             <div
-              key={i}
+              key={skeletonKey}
               className="h-14 rounded-xl border border-border-default bg-bg-surface animate-pulse"
             />
           ))}
@@ -238,9 +244,9 @@ export default function DocsTab() {
                 <div className="border-t border-border-default bg-bg-secondary/50 p-3">
                   {problemsLoading ? (
                     <div className="space-y-2">
-                      {[1, 2, 3].map((i) => (
+                      {["contest-post-skeleton-a", "contest-post-skeleton-b", "contest-post-skeleton-c"].map((skeletonKey) => (
                         <div
-                          key={i}
+                          key={skeletonKey}
                           className="h-10 rounded-md bg-bg-surface animate-pulse"
                         />
                       ))}

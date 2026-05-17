@@ -54,10 +54,10 @@ export default function LessonWorkQuickFilters({
     () =>
       Array.from(
         new Set(
-          draft.tag
-            .split(/[,;]/)
-            .map((item) => item.trim())
-            .filter(Boolean),
+          draft.tag.split(/[,;]/).flatMap((item) => {
+            const tag = item.trim();
+            return tag ? [tag] : [];
+          }),
         ),
       ),
     [draft.tag],

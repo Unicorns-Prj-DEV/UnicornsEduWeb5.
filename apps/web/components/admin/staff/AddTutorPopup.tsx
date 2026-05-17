@@ -539,7 +539,7 @@ function AddTutorPopupContent({ open, onClose, onCreated }: Props) {
                         />
                         <p className="text-xs text-text-muted">
                           Có thể nhập Markdown (gạch đầu dòng <code className="rounded bg-bg-tertiary px-1">-</code> /{" "}
-                          <code className="rounded bg-bg-tertiary px-1">*</code>, …) — trang hồ sơ sẽ hiển thị danh sách đúng định dạng.
+                          <code className="rounded bg-bg-tertiary px-1">*</code>, …), trang hồ sơ sẽ hiển thị danh sách đúng định dạng.
                         </p>
                       </label>
 
