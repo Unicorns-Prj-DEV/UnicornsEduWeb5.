@@ -109,7 +109,7 @@
   - nếu một staff đồng thời có `teacher` và `accountant`, route vẫn ưu tiên quyền accountant nên xem được mọi lớp theo admin-like detail thay vì bị scope về lớp đang dạy
   - với teacher/admin còn lại, route giữ teacher workspace self-service như trước
   - với `staff.customer_care`, route mở ở chế độ **chỉ xem** khi lớp có ít nhất một học sinh đang do chính staff đó phụ trách từ màn CSKH; các CTA sửa khung giờ, thêm buổi và sửa session đều bị khóa
-  - card **Lịch dạy bù** xuất hiện ngay trên khu vực lịch sử buổi học; danh sách được sắp theo buổi gần nhất trước và có phân trang ngay trong card
+  - card **Lịch dạy bù** xuất hiện ngay trên khu vực lịch sử buổi học; danh sách chỉ hiển thị buổi **từ hôm nay trở đi** (ẩn buổi đã qua), sắp theo buổi gần nhất trước và có phân trang ngay trong card
   - `teacher` được phân công lớp có thể tạo buổi bù mới trực tiếp từ `/staff/classes/[id]`, nhưng `gia su phu trach` bị khóa cứng về staff hiện tại
   - `admin` ở staff shell có thể tạo/sửa/xóa buổi bù từ cùng card; `customer_care` chỉ xem, không có CTA mutate
   - section `Gia sư phụ trách` là chỉ đọc; bấm vào từng gia sư không dẫn sang `/admin/staffs/:id`
@@ -122,7 +122,7 @@
   - popup chỉnh `session` ở route này giữ cùng nhịp layout với form thêm buổi học: modal `wide`, phần cấu hình buổi học trải đều trước khi xuống block ghi chú và điểm danh
   - attendance `present` và `excused` đều tính học phí (trừ ví học sinh); chỉ `absent` không tạo charge ở backend
   - khi attendance không có học phí override, backend tự dùng mức mặc định hiệu lực của lớp theo thứ tự: custom của học sinh trong lớp → `student_tuition_per_session` của lớp → mức suy ra từ `tuitionPackageTotal / tuitionPackageSession`
-  - bảng lịch sử buổi học hiển thị `trạng thái thanh toán` của từng session ở dạng chỉ đọc
+  - bảng lịch sử buổi học dùng `SessionHistoryTable` `variant="classDetail"` (thời gian | nhận xét | trạng thái + hệ số/điểm danh); hiển thị `trạng thái thanh toán` chỉ đọc
   - card khung giờ học hiển thị luôn `gia sư chịu trách nhiệm` của từng slot; trong staff shell, popup chỉnh lịch vẫn giữ tutor của slot ở chế độ chỉ đọc và không cho staff đổi assignment này
 - `/staff/students/[id]`
   - với `staff.assistant`, route này giữ student detail kiểu admin ngay trong staff shell; ví xem được QR SePay tĩnh và có tab **Nạp thẳng** để gửi yêu cầu duyệt tới admin, không cộng số dư ngay
@@ -400,7 +400,7 @@
 - `staff.assistant` vào được `/staff/dashboard` (redirect), `/staff/users`, `/staff/staffs`, `/staff/classes`, `/staff/students`, `/staff/deductions`, `/staff/costs`, `/staff/history`
 - `/staff/profile` hiển thị self-detail của staff hiện tại với layout chính bám admin staff detail
 - `/staff/profile` chỉ cho chỉnh thông tin cơ bản, ngân hàng và QR
-- `/staff/profile` giữ layout thống kê thu nhập cũ nhưng đổi dòng tiền đầu thành `Thực nhận tháng` authoritative, kèm popup ghi cọc, khối thưởng self-service, công việc khác và lịch sử buổi học
+- `/staff/profile` giữ layout thống kê thu nhập cũ nhưng đổi dòng tiền đầu thành `Thực nhận tháng` authoritative, kèm popup ghi cọc, khối thưởng self-service, công việc khác và lịch sử buổi học (`SessionHistoryTable` `variant="classDetail"`, `entityMode="class"` — cột phải hiển thị tên lớp)
 - `/staff/profile` cho thêm và điều chỉnh thưởng của chính mình; bản ghi mới vẫn ở trạng thái `pending`, còn `payment status` hiện có chỉ hiển thị để xem
 - `/staff/profile` chỉ cho chỉnh sửa buổi học từ bảng lịch sử qua `staff-ops`, cho phép đổi `coefficient` nhưng không cho chỉnh `allowanceAmount`, học phí override hay `custom allowance`
 - các dòng role trong `Công việc khác` mở được self route tương ứng nếu actor có role đó
