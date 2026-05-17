@@ -82,12 +82,12 @@ function EmailVerificationAccessModal() {
     mutationFn: authApi.resendVerificationEmail,
     onSuccess: (payload) => {
       const normalizedEmail = payload.email?.trim() ?? "";
-      setUser({
-        ...user,
-        email: normalizedEmail || user.email || "",
+      setUser((currentUser) => ({
+        ...currentUser,
+        email: normalizedEmail || currentUser.email || "",
         emailVerified: false,
         canAccessRestrictedRoutes: false,
-      });
+      }));
       queryClient.setQueryData(["auth", "session"], (prev: UserInfoDto) => ({
         ...(prev ?? user),
         email: normalizedEmail || user.email || "",
@@ -354,7 +354,7 @@ function NotificationSocketBridge() {
 function AuthPasswordSetupGate() {
   const { user, isAuthReady } = useAuth();
   const pathname = usePathname();
-  const router = useRouter();
+  const { replace } = useRouter();
   const searchParams = useSearchParams();
   const search = searchParams.toString();
 
@@ -371,12 +371,12 @@ function AuthPasswordSetupGate() {
       return;
     }
 
-    router.replace(
+    replace(
       buildSetupPasswordHref(
         resolvePasswordSetupNextPath(pathname, searchParams),
       ),
     );
-  }, [pathname, router, search, searchParams, isAuthReady, user]);
+  }, [pathname, replace, search, searchParams, isAuthReady, user]);
 
   return null;
 }

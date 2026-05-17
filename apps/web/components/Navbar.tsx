@@ -36,7 +36,7 @@ function scrollToSection(id: string) {
 
 export function Navbar({ showHomeMenu = true }: { showHomeMenu?: boolean }) {
   const { user, setUser } = useAuth();
-  const router = useRouter();
+  const { push } = useRouter();
   const queryClient = useQueryClient();
 
   const logoutMutation = useMutation({
@@ -51,7 +51,7 @@ export function Navbar({ showHomeMenu = true }: { showHomeMenu?: boolean }) {
       });
       await clearLogoutScopedQueries(queryClient);
       toast.success("Đăng xuất thành công");
-      router.push("/");
+      push("/");
     },
   });
 

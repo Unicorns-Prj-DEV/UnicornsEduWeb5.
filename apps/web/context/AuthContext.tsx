@@ -1,6 +1,6 @@
 'use client';
 import { createGuestUser, UserInfoDto } from "@/dtos/Auth.dto";
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, use, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 
 interface AuthContextProviderProps {
     children: React.ReactNode;
@@ -9,7 +9,7 @@ interface AuthContextProviderProps {
 
 interface AuthContextValue {
     user: UserInfoDto;
-    setUser: (user: UserInfoDto) => void;
+    setUser: Dispatch<SetStateAction<UserInfoDto>>;
     resetUser: () => void;
     isAuthReady: boolean;
 }
@@ -41,5 +41,5 @@ export const AuthProvider = ({ children, initialUser }: AuthContextProviderProps
 };
 
 export const useAuth = () => {
-    return useContext(AuthContext);
+    return use(AuthContext);
 };

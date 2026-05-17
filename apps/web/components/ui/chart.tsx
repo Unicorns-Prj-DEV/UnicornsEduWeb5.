@@ -25,7 +25,7 @@ type ChartContextProps = {
 const ChartContext = React.createContext<ChartContextProps | null>(null);
 
 function useChart() {
-  const context = React.useContext(ChartContext);
+  const context = React.use(ChartContext);
   if (!context) {
     throw new Error("useChart must be used within a <ChartContainer />");
   }
@@ -84,8 +84,7 @@ function ChartStyle({ id, config }: { id: string; config: ChartConfig }) {
         __html: `
 [data-chart=${id}] {
 ${colorConfig
-  .map(([key, itemConfig]) => (itemConfig.color ? `  --color-${key}: ${itemConfig.color};` : null))
-  .filter(Boolean)
+  .flatMap(([key, itemConfig]) => (itemConfig.color ? [`  --color-${key}: ${itemConfig.color};`] : []))
   .join("\n")}
 }
 `,
@@ -165,11 +164,11 @@ function ChartTooltipContent({
     >
       {!nestLabel ? tooltipLabel : null}
       <div className="grid gap-1.5">
-        {payload
-          .filter((item) => item.type !== "none")
-          .map((item, index) => {
+        {payload.flatMap((item, index) => {
+          if (item.type === "none") return [];
             const key = `${nameKey ?? item.name ?? item.dataKey ?? "value"}`;
             const itemConfig = getPayloadConfigFromPayload(config, item, key);
+            const payloadKey = `${key}-${item.name ?? ""}-${String(item.value ?? "")}`;
             const indicatorColor =
               color ??
               (typeof item.payload === "object" && item.payload !== null && Object.hasOwn(item.payload, "fill")
@@ -180,7 +179,7 @@ function ChartTooltipContent({
 
             return (
               <div
-                key={`${key}-${index}`}
+                key={payloadKey}
                 className={cn(
                   "flex w-full flex-wrap items-stretch gap-2",
                   indicator === "dot" ? "items-center" : "",
@@ -252,14 +251,14 @@ function ChartLegendContent({
         className,
       )}
     >
-      {payload
-        .filter((item) => item.type !== "none")
-        .map((item, index) => {
+      {payload.flatMap((item) => {
+          if (item.type === "none") return [];
           const key = `${nameKey ?? item.dataKey ?? "value"}`;
           const itemConfig = getPayloadConfigFromPayload(config, item, key);
+          const payloadKey = `${key}-${String(item.value ?? item.color ?? "")}`;
 
           return (
-            <div key={`${key}-${index}`} className="flex items-center gap-1.5">
+            <div key={payloadKey} className="flex items-center gap-1.5">
               {itemConfig?.icon && !hideIcon ? (
                 <itemConfig.icon />
               ) : (

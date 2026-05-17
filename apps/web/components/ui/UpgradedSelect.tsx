@@ -117,8 +117,10 @@ export default function UpgradedSelect({
       triggerRef.current?.focus();
     };
 
+    const passiveTouchOptions = { passive: true } as const;
+
     document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("touchstart", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown, passiveTouchOptions);
     document.addEventListener("keydown", handleEscape);
 
     return () => {
@@ -328,7 +330,7 @@ export default function UpgradedSelect({
                 const isSelected = option.value === selectedValue;
                 return (
                   <button
-                    key={`${option.value}-${index}`}
+                    key={option.value}
                     ref={(node) => {
                       optionRefs.current[index] = node;
                     }}

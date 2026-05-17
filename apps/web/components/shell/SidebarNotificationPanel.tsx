@@ -175,7 +175,7 @@ export function SidebarNotificationPanel({
                     : "Chưa có thông báo."}
                 </p>
               ) : (
-                <ul className="space-y-2 p-2" role="list">
+                <ul className="space-y-2 p-2">
                   {filtered.map((item) => (
                     <li key={item.id}>
                       <button

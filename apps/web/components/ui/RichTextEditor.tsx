@@ -2,7 +2,7 @@
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { useEffect, useCallback } from "react";
+import { useEffect, useRef } from "react";
 
 export type RichTextEditorProps = {
   value: string;
@@ -18,6 +18,7 @@ export default function RichTextEditor({
   onChange,
   minHeight = DEFAULT_MIN_HEIGHT,
 }: RichTextEditorProps) {
+  const onChangeRef = useRef(onChange);
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [StarterKit],
@@ -35,18 +36,20 @@ export default function RichTextEditor({
     if (value !== current) editor.commands.setContent(value || "", { emitUpdate: false });
   }, [value, editor]);
 
-  const handleUpdate = useCallback(() => {
-    const html = editor?.getHTML() ?? "";
-    onChange(html);
-  }, [editor, onChange]);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   useEffect(() => {
     if (!editor) return;
+    const handleUpdate = () => {
+      onChangeRef.current(editor.getHTML());
+    };
     editor.on("update", handleUpdate);
     return () => {
       editor.off("update", handleUpdate);
     };
-  }, [editor, handleUpdate]);
+  }, [editor]);
 
   if (!editor) return null;
 

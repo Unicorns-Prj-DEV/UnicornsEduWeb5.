@@ -30,7 +30,7 @@ export default function EmailVerificationInline({
   const empty = !email.trim() || email === "—";
 
   if (empty) {
-    return <span className="text-text-muted">—</span>;
+    return <span className="text-text-muted">-</span>;
   }
 
   if (notApplicableMessage?.trim()) {

@@ -9,7 +9,7 @@ export function BulletList({ points }: BulletListProps) {
         <li key={point} className="flex items-center gap-2.5">
           <span
             aria-hidden
-            className="mt-1 inline-block h-2 w-2 rounded-full bg-primary"
+            className="mt-1 inline-block size-2 rounded-full bg-primary"
           />
           <span className="text-text-secondary">{point}</span>
         </li>
