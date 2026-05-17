@@ -391,7 +391,7 @@ export default function CustomerCareDetailPanels({
     classes: CustomerCareStudentItem["classes"] | undefined,
   ) => {
     if (!classes?.length) {
-      return <span className="text-sm text-text-muted">—</span>;
+      return <span className="text-sm text-text-muted">-</span>;
     }
 
     return (
@@ -503,7 +503,7 @@ export default function CustomerCareDetailPanels({
                   Chưa có khoản nạp tiền.
                 </p>
               ) : (
-                <ul role="list" className="divide-y divide-border-subtle">
+                <ul className="divide-y divide-border-subtle">
                   {paymentHistory.map((tx: StudentWalletTransaction) => (
                     <li
                       key={tx.id}
@@ -1117,7 +1117,7 @@ export default function CustomerCareDetailPanels({
                               <span>Thanh toán</span>
                               <span className="text-right">Hoa hồng</span>
                             </div>
-                            <ul role="list" className="divide-y divide-border-subtle">
+                            <ul className="divide-y divide-border-subtle">
                               {sessionCommissions.map((session: CustomerCareSessionCommissionItem) => (
                                 <li
                                   key={session.sessionId}

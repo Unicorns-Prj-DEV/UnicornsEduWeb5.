@@ -226,9 +226,13 @@ export default function CccdImageUploadFields({
           aria-modal="true"
           aria-label={`Xem ${dialogPreview.label}`}
           onClick={() => setDialogPreview(null)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") setDialogPreview(null);
+          }}
         >
           <div
             className="w-full max-w-4xl overflow-hidden rounded-[1.4rem] border border-white/10 bg-slate-950 shadow-2xl"
+            role="presentation"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3 text-white">
