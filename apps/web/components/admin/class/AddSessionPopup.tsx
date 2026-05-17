@@ -24,7 +24,6 @@ import {
   SessionFormDialogHeader,
 } from "@/components/admin/session/session-form-ui";
 import RichTextEditor from "@/components/ui/RichTextEditor";
-import { TimeInput } from "@/components/ui/TimeInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
 
@@ -550,8 +549,10 @@ export default function AddSessionPopup({
                       <div className="flex flex-wrap items-end gap-2 sm:gap-3">
                         <label className="flex min-w-[8rem] flex-1 flex-col gap-1 text-xs text-text-secondary">
                           <span>Bắt đầu</span>
-                          <TimeInput
+                          <input
                             name="add-session-start-time"
+                            type="time"
+                            step={1}
                             value={startTime}
                             autoComplete="off"
                             onChange={(event) => setStartTime(event.target.value)}
@@ -567,8 +568,10 @@ export default function AddSessionPopup({
                         </span>
                         <label className="flex min-w-[8rem] flex-1 flex-col gap-1 text-xs text-text-secondary">
                           <span>Kết thúc</span>
-                          <TimeInput
+                          <input
                             name="add-session-end-time"
+                            type="time"
+                            step={1}
                             value={endTime}
                             autoComplete="off"
                             onChange={(event) => setEndTime(event.target.value)}

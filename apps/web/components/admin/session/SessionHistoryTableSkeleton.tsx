@@ -1,8 +1,10 @@
 type SessionEntityMode = "teacher" | "class" | "none";
+type SessionTableVariant = "default" | "classDetail";
 
 type Props = {
   rows?: number;
   entityMode?: SessionEntityMode;
+  variant?: SessionTableVariant;
   className?: string;
   /** Khi true, skeleton có cột Thao tác để khớp layout với bảng thật. */
   showActionsColumn?: boolean;
@@ -19,11 +21,88 @@ function renderEntityHeader(entityMode: Exclude<SessionEntityMode, "none">): str
 export default function SessionHistoryTableSkeleton({
   rows = 1,
   entityMode = "none",
+  variant = "default",
   className = "",
   showActionsColumn = false,
 }: Props) {
   const shouldShowEntity = entityMode !== "none";
   const isTeacher = entityMode === "teacher";
+  const isClassDetailRowLayout = variant === "classDetail";
+
+  if (isClassDetailRowLayout) {
+    return (
+      <div className={className} aria-hidden>
+        <div className="space-y-2 md:hidden">
+          {Array.from({ length: rows }).map((_, rowIndex) => (
+            <article
+              key={rowIndex}
+              className="rounded-lg border border-border-default bg-bg-surface p-3 shadow-sm"
+            >
+              <div className="flex items-start gap-2">
+                <div className="space-y-1">
+                  <span className="inline-block h-3 w-12 animate-pulse rounded bg-bg-tertiary" />
+                  <span className="block h-4 w-20 animate-pulse rounded bg-bg-tertiary" />
+                  <span className="block h-3 w-24 animate-pulse rounded bg-bg-tertiary" />
+                </div>
+                <div className="ml-auto flex flex-col items-end gap-2">
+                  <span className="inline-block h-4 w-28 animate-pulse rounded bg-bg-tertiary" />
+                  <span className="inline-block h-5 w-24 animate-pulse rounded-full bg-bg-tertiary" />
+                  <span className="inline-block h-3 w-14 animate-pulse rounded bg-bg-tertiary" />
+                </div>
+              </div>
+              <div className="mt-3 border-t border-border-subtle pt-2 space-y-1">
+                <span className="block h-3 w-5/6 animate-pulse rounded bg-bg-tertiary" />
+                <span className="block h-3 w-2/3 animate-pulse rounded bg-bg-tertiary" />
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
+          <table className="w-full min-w-[880px] border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-border-default bg-bg-secondary">
+                <th className="px-2.5 py-2 text-xs font-medium text-text-primary">
+                  Thời gian
+                </th>
+                <th className="px-2.5 py-2 text-xs font-medium text-text-primary">
+                  Nhận xét
+                </th>
+                <th className="px-2.5 py-2 text-center text-xs font-medium text-text-primary">
+                  Thông tin
+                </th>
+                {showActionsColumn ? (
+                  <th className="w-10 px-1.5 py-2" aria-hidden>
+                    <span className="sr-only">Thao tác</span>
+                  </th>
+                ) : null}
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: rows }).map((_, rowIndex) => (
+                <tr key={rowIndex} className="border-b border-border-default bg-bg-surface">
+                  <td className="px-2.5 py-1.5">
+                    <span className="inline-block h-10 w-20 animate-pulse rounded bg-bg-tertiary" />
+                  </td>
+                  <td className="px-2.5 py-1.5">
+                    <span className="inline-block h-8 w-full max-w-md animate-pulse rounded bg-bg-tertiary" />
+                  </td>
+                  <td className="px-2.5 py-1.5 text-center">
+                    <span className="mx-auto block h-12 w-32 animate-pulse rounded bg-bg-tertiary" />
+                  </td>
+                  {showActionsColumn ? (
+                    <td className="px-1.5 py-1.5">
+                      <span className="inline-block h-5 w-5 animate-pulse rounded bg-bg-tertiary" />
+                    </td>
+                  ) : null}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={className} aria-hidden>
