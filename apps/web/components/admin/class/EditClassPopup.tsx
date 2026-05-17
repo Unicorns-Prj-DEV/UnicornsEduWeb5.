@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { useDebounce } from "use-debounce";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { TimeInput } from "@/components/ui/TimeInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type {
   ClassDetail,
@@ -1042,10 +1043,8 @@ function EditClassDialog({ onClose, classDetail }: Omit<Props, "open">) {
                     </label>
                     <label className="flex flex-col gap-1 text-sm text-text-secondary">
                       <span className="text-text-muted">Bắt đầu</span>
-                      <input
+                      <TimeInput
                         name={`edit-class-schedule-from-${range.id}`}
-                        type="time"
-                        step={1}
                         value={range.from}
                         autoComplete="off"
                         onChange={(e) => handleChangeRange(range.id, "from", e.target.value)}
@@ -1061,10 +1060,8 @@ function EditClassDialog({ onClose, classDetail }: Omit<Props, "open">) {
 
                     <label className="flex flex-col gap-1 text-sm text-text-secondary">
                       <span className="text-text-muted">Kết thúc</span>
-                      <input
+                      <TimeInput
                         name={`edit-class-schedule-to-${range.id}`}
-                        type="time"
-                        step={1}
                         value={range.to}
                         autoComplete="off"
                         onChange={(e) => handleChangeRange(range.id, "to", e.target.value)}

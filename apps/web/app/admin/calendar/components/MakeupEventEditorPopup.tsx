@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { TimeInput } from "@/components/ui/TimeInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { ClassScheduleEvent } from "@/dtos/class-schedule.dto";
 import * as classScheduleApi from "@/lib/apis/class-schedule.api";
@@ -245,9 +246,8 @@ export default function MakeupEventEditorPopup({
               <label htmlFor="makeup-start" className="block text-xs font-medium text-text-secondary">
                 Bắt đầu
               </label>
-              <input
+              <TimeInput
                 id="makeup-start"
-                type="time"
                 value={form.startTime}
                 onChange={(event) => setForm((prev) => ({ ...prev, startTime: event.target.value }))}
                 disabled={isSubmitting}
@@ -259,9 +259,8 @@ export default function MakeupEventEditorPopup({
               <label htmlFor="makeup-end" className="block text-xs font-medium text-text-secondary">
                 Kết thúc
               </label>
-              <input
+              <TimeInput
                 id="makeup-end"
-                type="time"
                 value={form.endTime}
                 onChange={(event) => setForm((prev) => ({ ...prev, endTime: event.target.value }))}
                 disabled={isSubmitting}

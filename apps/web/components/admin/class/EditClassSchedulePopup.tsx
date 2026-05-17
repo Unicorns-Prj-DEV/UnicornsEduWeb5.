@@ -21,6 +21,7 @@ import {
   classEditorModalSecondaryButtonClassName,
   classEditorModalTitleClassName,
 } from "./classEditorModalStyles";
+import { TimeInput } from "@/components/ui/TimeInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
 
@@ -350,10 +351,8 @@ function EditClassScheduleDialog({
                   </label>
                   <label className="flex flex-col gap-1 text-sm text-text-secondary">
                     <span className="text-[11px] uppercase tracking-wider text-text-muted">Bắt đầu</span>
-                    <input
+                    <TimeInput
                       name={`edit-class-schedule-from-${range.id}`}
-                      type="time"
-                      step={1}
                       value={range.from}
                       autoComplete="off"
                       onChange={(e) => handleChangeRange(range.id, "from", e.target.value)}
@@ -367,10 +366,8 @@ function EditClassScheduleDialog({
                   </div>
                   <label className="flex flex-col gap-1 text-sm text-text-secondary">
                     <span className="text-[11px] uppercase tracking-wider text-text-muted">Kết thúc</span>
-                    <input
+                    <TimeInput
                       name={`edit-class-schedule-to-${range.id}`}
-                      type="time"
-                      step={1}
                       value={range.to}
                       autoComplete="off"
                       onChange={(e) => handleChangeRange(range.id, "to", e.target.value)}

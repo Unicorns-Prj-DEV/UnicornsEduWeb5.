@@ -5,6 +5,7 @@ import { useDebounce } from "use-debounce";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { ClassStatus, ClassType, CreateClassPayload } from "@/dtos/class.dto";
+import { TimeInput } from "@/components/ui/TimeInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import * as classApi from "@/lib/apis/class.api";
 import * as staffApi from "@/lib/apis/staff.api";
@@ -678,10 +679,8 @@ function AddClassDialog({ onClose }: Omit<Props, "open">) {
                     </label>
                     <label className="flex flex-col gap-1 text-sm text-text-secondary">
                       <span className="text-text-muted">Bắt đầu</span>
-                      <input
+                      <TimeInput
                         name={`add-class-schedule-from-${range.id}`}
-                        type="time"
-                        step={1}
                         value={range.from}
                         autoComplete="off"
                         onChange={(e) => handleChangeRange(range.id, "from", e.target.value)}
@@ -695,10 +694,8 @@ function AddClassDialog({ onClose }: Omit<Props, "open">) {
                     </div>
                     <label className="flex flex-col gap-1 text-sm text-text-secondary">
                       <span className="text-text-muted">Kết thúc</span>
-                      <input
+                      <TimeInput
                         name={`add-class-schedule-to-${range.id}`}
-                        type="time"
-                        step={1}
                         value={range.to}
                         autoComplete="off"
                         onChange={(e) => handleChangeRange(range.id, "to", e.target.value)}
