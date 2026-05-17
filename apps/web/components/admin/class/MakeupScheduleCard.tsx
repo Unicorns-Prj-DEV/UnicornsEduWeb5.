@@ -366,12 +366,19 @@ export default function MakeupScheduleCard({
     [teachers],
   );
   const [page, setPage] = useState(1);
-  const defaultDate = useMemo(() => getTodayDateValue(), []);
-  const rangeStartDate = "1900-01-01";
+  const todayDate = useMemo(() => getTodayDateValue(), []);
+  const rangeStartDate = todayDate;
   const rangeEndDate = "2100-12-31";
   const makeupQueryKey = useMemo(
-    () => [...queryKeyPrefix, "makeup-events", classId, page, MAKEUP_EVENTS_PAGE_SIZE],
-    [classId, page, queryKeyPrefix],
+    () => [
+      ...queryKeyPrefix,
+      "makeup-events",
+      classId,
+      rangeStartDate,
+      page,
+      MAKEUP_EVENTS_PAGE_SIZE,
+    ],
+    [classId, page, queryKeyPrefix, rangeStartDate],
   );
   const invalidateQueryKey = useMemo(
     () => [...queryKeyPrefix, "makeup-events", classId],
@@ -627,11 +634,11 @@ export default function MakeupScheduleCard({
 
       {isEditorOpen ? (
         <MakeupEditorDialog
-          key={`${editorMode}-${editingEvent?.id ?? "new"}-${defaultDate}-${defaultTeacherId ?? ""}-${teacherMode}`}
+          key={`${editorMode}-${editingEvent?.id ?? "new"}-${todayDate}-${defaultTeacherId ?? ""}-${teacherMode}`}
           open={isEditorOpen}
           mode={editorMode}
           event={editingEvent}
-          defaultDate={defaultDate}
+          defaultDate={todayDate}
           teachers={teachers}
           defaultTeacherId={defaultTeacherId}
           teacherMode={teacherMode}
