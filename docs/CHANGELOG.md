@@ -23,7 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
-- FE `TutorCard` (`/admin/classes/[id]`, `/staff/classes/[id]`): mỗi gia sư phụ trách hiển thị luôn **Trợ cấp** (custom hoặc mặc định lớp) và **Vận hành** (`operatingDeductionRatePercent`) ngay trên card, không cần mở popup chỉnh sửa gia sư.
+- FE `TutorCard` (`/admin/classes/[id]`, `/staff/classes/[id]` qua admin-like detail): **Trợ cấp** + **Vận hành** chỉ hiển thị với `admin`, `assistant`, `accountant`; các role khác giữ layout gia sư như trước (tên + trạng thái).
 
 - FE `/admin/classes/[id]`: nút thêm buổi học chỉ hiện với admin (khớp `POST /sessions`); validate lớp phải có gia sư phụ trách và học sinh `active` trước khi mở popup; sau tạo buổi invalidate lịch sử tháng hiện tại. `AddSessionPopup` gợi ý dropdown gia sư chỉ lấy từ roster lớp.
 

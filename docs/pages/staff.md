@@ -112,7 +112,7 @@
   - card **Lịch dạy bù** xuất hiện ngay trên khu vực lịch sử buổi học; danh sách chỉ hiển thị buổi **từ hôm nay trở đi** (ẩn buổi đã qua), sắp theo buổi gần nhất trước và có phân trang ngay trong card
   - `teacher` được phân công lớp có thể tạo buổi bù mới trực tiếp từ `/staff/classes/[id]`, nhưng `gia su phu trach` bị khóa cứng về staff hiện tại
   - `admin` ở staff shell có thể tạo/sửa/xóa buổi bù từ cùng card; `customer_care` chỉ xem, không có CTA mutate
-  - section `Gia sư phụ trách` là chỉ đọc; bấm vào từng gia sư không dẫn sang `/admin/staffs/:id`; mỗi gia sư hiển thị luôn **Trợ cấp** và **Vận hành** theo quan hệ `class_teachers` (không cần mở popup chỉnh sửa)
+  - section `Gia sư phụ trách` là chỉ đọc; bấm vào từng gia sư không dẫn sang `/admin/staffs/:id`; teacher/CSKH chỉ thấy tên + trạng thái; `assistant`/`accountant` dùng `AdminClassDetailPage` nên thấy thêm **Trợ cấp** + **Vận hành** trên `TutorCard` như admin
   - card `Danh sách học sinh` tách thành 2 phần: danh sách học sinh **đang học** và block riêng **Học sinh đã nghỉ** để tránh lẫn trạng thái
   - cho phép chỉnh `khung giờ học`
   - teacher chỉ thấy các session có `teacherId` đúng với hồ sơ staff hiện tại; admin vẫn thấy toàn bộ session của lớp trong tháng đang chọn

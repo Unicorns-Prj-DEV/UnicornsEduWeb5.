@@ -22,6 +22,8 @@ type Props = {
   teachers?: ClassTeacher[];
   /** Class default allowance per student per session (VNĐ). Used when teacher has no custom override. */
   defaultAllowancePerStudent?: number | null;
+  /** Admin, accountant, assistant only — shows per-teacher Trợ cấp + Vận hành. */
+  showTeacherCompensation?: boolean;
   className?: string;
   action?: React.ReactNode;
   enableTeacherNavigation?: boolean;
@@ -87,11 +89,15 @@ function normalizeTutors(
 export default function TutorCard({
   teachers,
   defaultAllowancePerStudent,
+  showTeacherCompensation = false,
   className = "",
   action,
   enableTeacherNavigation = true,
 }: Props) {
-  const tutorItems = normalizeTutors(teachers, defaultAllowancePerStudent);
+  const tutorItems = normalizeTutors(
+    teachers,
+    showTeacherCompensation ? defaultAllowancePerStudent : undefined,
+  );
   const { push } = useRouter();
 
   return (
@@ -119,13 +125,23 @@ export default function TutorCard({
                     }
                   : undefined
               }
-              className={`rounded-lg border border-border-default bg-bg-secondary/70 px-2.5 py-2 transition-colors sm:px-3 sm:py-2.5 ${
+              className={`rounded-lg border border-border-default bg-bg-secondary/70 transition-colors ${
+                showTeacherCompensation
+                  ? "px-2.5 py-2 sm:px-3 sm:py-2.5"
+                  : "flex items-center gap-2 px-2.5 py-1.5 sm:gap-2.5 sm:px-3 sm:py-2"
+              } ${
                 enableTeacherNavigation
                   ? "cursor-pointer hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   : "cursor-default"
               }`}
             >
-              <div className="flex items-center gap-2 sm:gap-2.5">
+              <div
+                className={
+                  showTeacherCompensation
+                    ? "flex items-center gap-2 sm:gap-2.5"
+                    : "contents"
+                }
+              >
                 <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border-default bg-bg-surface text-[10px] font-semibold tabular-nums text-text-secondary">
                   {String(index + 1).padStart(2, "0")}
                 </div>
@@ -146,29 +162,31 @@ export default function TutorCard({
                   {teacher.status ?? "Đang phân công"}
                 </div>
               </div>
-              <div
-                className="mt-2 grid grid-cols-2 gap-2 border-t border-border-default/70 pt-2"
-                role="presentation"
-                onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
-              >
-                <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">
-                    Trợ cấp
-                  </p>
-                  <p className="mt-0.5 truncate text-sm font-semibold tabular-nums text-primary">
-                    {formatCurrency(teacher.customAllowance)}
-                  </p>
+              {showTeacherCompensation ? (
+                <div
+                  className="mt-2 grid grid-cols-2 gap-2 border-t border-border-default/70 pt-2"
+                  role="presentation"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                      Trợ cấp
+                    </p>
+                    <p className="mt-0.5 truncate text-sm font-semibold tabular-nums text-primary">
+                      {formatCurrency(teacher.customAllowance)}
+                    </p>
+                  </div>
+                  <div className="min-w-0 text-right">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                      Vận hành
+                    </p>
+                    <p className="mt-0.5 text-sm font-semibold tabular-nums text-text-primary">
+                      {formatRatePercent(teacher.operatingDeductionRatePercent)}
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0 text-right">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">
-                    Vận hành
-                  </p>
-                  <p className="mt-0.5 text-sm font-semibold tabular-nums text-text-primary">
-                    {formatRatePercent(teacher.operatingDeductionRatePercent)}
-                  </p>
-                </div>
-              </div>
+              ) : null}
             </div>
           ))}
         </div>

@@ -125,6 +125,8 @@ export default function AdminClassDetailPage() {
     adminAccess.isAssistant ||
     adminAccess.isAccountant ||
     adminAccess.isCustomerCare;
+  const showTeacherCompensation =
+    adminAccess.isAdmin || adminAccess.isAssistant || adminAccess.isAccountant;
   /** POST /sessions is admin-only; keep the CTA aligned with backend. */
   const canCreateSession = isAdmin;
   const canOpenStudentDetails = true;
@@ -486,6 +488,7 @@ export default function AdminClassDetailPage() {
           <TutorCard
             teachers={classDetail.teachers}
             defaultAllowancePerStudent={classDetail.allowancePerSessionPerStudent}
+            showTeacherCompensation={showTeacherCompensation}
             className="flex-1"
             action={
               <button
