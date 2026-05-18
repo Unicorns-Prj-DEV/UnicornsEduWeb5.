@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   getFullProfile,
@@ -22,8 +24,6 @@ import {
 import { resolveCanonicalUserName } from "@/dtos/user-name.dto";
 import { formatCurrency, normalizeTimeOnly } from "@/lib/class.helpers";
 import { ROLE_LABELS } from "@/lib/staff.constants";
-
-const RECENT_UNPAID_DAYS = 14;
 
 const TASK_STATUS_LABELS: Record<string, string> = {
   pending: "Chờ xử lý",
@@ -94,8 +94,9 @@ function formatTimeRange(startTime?: string | null, endTime?: string | null) {
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
-  const message = (error as { response?: { data?: { message?: string | string[] } } })
-    ?.response?.data?.message;
+  const message = (
+    error as { response?: { data?: { message?: string | string[] } } }
+  )?.response?.data?.message;
 
   if (Array.isArray(message)) {
     return message.filter(Boolean).join(", ") || fallback;
@@ -220,11 +221,21 @@ function MiniStat({
   );
 }
 
-function EmptyState({ title, description }: { title: string; description: string }) {
+function EmptyState({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
   return (
     <div className="rounded-xl border border-dashed border-border-default bg-bg-secondary/35 px-3 py-4 text-center">
-      <p className="text-sm font-semibold leading-snug text-text-primary">{title}</p>
-      <p className="mt-0.5 text-xs leading-snug text-text-muted">{description}</p>
+      <p className="text-sm font-semibold leading-snug text-text-primary">
+        {title}
+      </p>
+      <p className="mt-0.5 text-xs leading-snug text-text-muted">
+        {description}
+      </p>
     </div>
   );
 }
@@ -247,7 +258,9 @@ function SectionTitle({
           {ROLE_LABELS[role] ?? role}
         </p>
         {description ? (
-          <p className="mt-0.5 text-xs leading-snug text-text-secondary">{description}</p>
+          <p className="mt-0.5 text-xs leading-snug text-text-secondary">
+            {description}
+          </p>
         ) : null}
       </div>
       {href && linkLabel ? (
@@ -279,40 +292,51 @@ function TaskList({
 
   return (
     <div className="space-y-2">
-      {tasks.map((task) => (
-        <Link
-          key={task.taskId}
-          href={hrefBuilder(task.taskId)}
-          className="block rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-        >
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold leading-snug text-text-primary">
-                {task.title?.trim() || "Task chưa đặt tên"}
-              </p>
-              <p className="mt-0.5 text-[11px] leading-snug text-text-secondary">
-                Phụ trách: {task.responsibleName ?? "Chưa gán"} · Nhân sự:{" "}
-                {task.assigneeNames.length > 0 ? task.assigneeNames.join(", ") : "Chưa có"}
-              </p>
+      {tasks.map((task) => {
+        const assigneeNames = Array.from(
+          new Set(
+            [
+              ...task.assigneeNames,
+              task.responsibleName,
+            ].filter((name): name is string => Boolean(name?.trim())),
+          ),
+        );
+
+        return (
+          <Link
+            key={task.taskId}
+            href={hrefBuilder(task.taskId)}
+            className="block rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold leading-snug text-text-primary">
+                  {task.title?.trim() || "Task chưa đặt tên"}
+                </p>
+                <p className="mt-0.5 text-[11px] leading-snug text-text-secondary">
+                  Nhân sự thực hiện:{" "}
+                  {assigneeNames.length > 0 ? assigneeNames.join(", ") : "Chưa có"}
+                </p>
+              </div>
+              <div className="flex flex-wrap justify-end gap-1.5">
+                <span
+                  className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${taskStatusClasses(task.status)}`}
+                >
+                  {TASK_STATUS_LABELS[task.status] ?? task.status}
+                </span>
+                <span
+                  className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${priorityClasses(task.priority)}`}
+                >
+                  {TASK_PRIORITY_LABELS[task.priority] ?? task.priority}
+                </span>
+              </div>
             </div>
-            <div className="flex flex-wrap justify-end gap-1.5">
-              <span
-                className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${taskStatusClasses(task.status)}`}
-              >
-                {TASK_STATUS_LABELS[task.status] ?? task.status}
-              </span>
-              <span
-                className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${priorityClasses(task.priority)}`}
-              >
-                {TASK_PRIORITY_LABELS[task.priority] ?? task.priority}
-              </span>
-            </div>
-          </div>
-          <p className="mt-1.5 text-[11px] font-medium text-text-muted">
-            Hạn: {formatShortDate(task.dueDate)}
-          </p>
-        </Link>
-      ))}
+            <p className="mt-1.5 text-[11px] font-medium text-text-muted">
+              Hạn: {formatShortDate(task.dueDate)}
+            </p>
+          </Link>
+        );
+      })}
     </div>
   );
 }
@@ -350,11 +374,13 @@ function TeacherSection({
                       {item.name}
                     </p>
                     <p className="mt-0.5 text-[11px] leading-snug text-text-secondary">
-                      {item.studentCount} HS · {item.scheduleCount} khung giờ · {item.surveyCount}{" "}
-                      khảo sát
+                      {item.studentCount} HS · {item.scheduleCount} khung giờ ·{" "}
+                      {item.surveyCount} khảo sát
                     </p>
                   </div>
-                  <span className="shrink-0 text-[11px] font-medium text-primary">Mở</span>
+                  <span className="shrink-0 text-[11px] font-medium text-primary">
+                    Mở
+                  </span>
                 </Link>
               ))}
             </div>
@@ -378,7 +404,9 @@ function TeacherSection({
                   <p className="text-sm font-semibold leading-snug text-text-primary">
                     {item.className}
                   </p>
-                  <p className="mt-0.5 text-xs leading-snug text-text-secondary">{item.reason}</p>
+                  <p className="mt-0.5 text-xs leading-snug text-text-secondary">
+                    {item.reason}
+                  </p>
                 </Link>
               ))}
             </div>
@@ -413,7 +441,9 @@ function TeacherSection({
                     </span>
                   </div>
                   <p className="mt-1 text-[11px] text-text-muted">
-                    {SESSION_PAYMENT_STATUS_LABELS[session.teacherPaymentStatus ?? ""] ?? "—"}
+                    {SESSION_PAYMENT_STATUS_LABELS[
+                      session.teacherPaymentStatus ?? ""
+                    ] ?? "—"}
                   </p>
                 </Link>
               ))}
@@ -432,7 +462,11 @@ function LessonPlanSection({
 }) {
   return (
     <section className="space-y-2">
-      <SectionTitle role="lesson_plan" href="/staff/lesson-plans" linkLabel="Giáo án" />
+      <SectionTitle
+        role="lesson_plan"
+        href="/staff/lesson-plans"
+        linkLabel="Giáo án"
+      />
       <div className="grid gap-3 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
         <SurfaceCard eyebrow="Tiến độ" title="Task được giao">
           <div className="grid gap-2 sm:grid-cols-3">
@@ -478,7 +512,11 @@ function LessonPlanHeadSection({
 }) {
   return (
     <section className="space-y-2">
-      <SectionTitle role="lesson_plan_head" href="/staff/lesson-plans" linkLabel="Giáo án" />
+      <SectionTitle
+        role="lesson_plan_head"
+        href="/staff/lesson-plans"
+        linkLabel="Giáo án"
+      />
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)]">
         <SurfaceCard eyebrow="Tiến độ" title="Task chưa hoàn thành">
           <TaskList
@@ -550,7 +588,9 @@ function AssistantSection({
                         {formatCurrency(alert.amount)}
                       </span>
                     </div>
-                    <p className="mt-1.5 text-[11px] text-text-muted">{alert.due}</p>
+                    <p className="mt-1.5 text-[11px] text-text-muted">
+                      {alert.due}
+                    </p>
                   </div>
                 );
 
@@ -563,7 +603,9 @@ function AssistantSection({
                     {content}
                   </Link>
                 ) : (
-                  <div key={`${alert.targetType}-${alert.targetId}-${alert.subject}`}>
+                  <div
+                    key={`${alert.targetType}-${alert.targetId}-${alert.subject}`}
+                  >
                     {content}
                   </div>
                 );
@@ -616,7 +658,9 @@ function AssistantSection({
                           {item.activeStudentCount} HS đang chăm sóc
                         </p>
                       </div>
-                      <span className="text-[11px] font-medium text-primary">Chi tiết</span>
+                      <span className="text-[11px] font-medium text-primary">
+                        Chi tiết
+                      </span>
                     </div>
                     <div className="mt-2 grid gap-2 sm:grid-cols-2">
                       <MiniStat
@@ -765,11 +809,21 @@ function UnpaidStaffList({
     <div className="space-y-2">
       {items.map((item) => {
         const parts = [
-          item.sessionAmount > 0 ? `Buổi ${formatCurrency(item.sessionAmount)}` : null,
-          item.customerCareAmount > 0 ? `CSKH ${formatCurrency(item.customerCareAmount)}` : null,
-          item.lessonAmount > 0 ? `Giáo án ${formatCurrency(item.lessonAmount)}` : null,
-          item.bonusAmount > 0 ? `Bonus ${formatCurrency(item.bonusAmount)}` : null,
-          item.extraAllowanceAmount > 0 ? `Trợ cấp ${formatCurrency(item.extraAllowanceAmount)}` : null,
+          item.sessionAmount > 0
+            ? `Buổi ${formatCurrency(item.sessionAmount)}`
+            : null,
+          item.customerCareAmount > 0
+            ? `CSKH ${formatCurrency(item.customerCareAmount)}`
+            : null,
+          item.lessonAmount > 0
+            ? `Giáo án ${formatCurrency(item.lessonAmount)}`
+            : null,
+          item.bonusAmount > 0
+            ? `Bonus ${formatCurrency(item.bonusAmount)}`
+            : null,
+          item.extraAllowanceAmount > 0
+            ? `Trợ cấp ${formatCurrency(item.extraAllowanceAmount)}`
+            : null,
         ].filter((value): value is string => value != null);
         const staffDetailHref = `/staff/staffs/${encodeURIComponent(item.staffId)}`;
 
@@ -891,7 +945,10 @@ function AccountantSection({
 
 function RootLoadingState() {
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 pb-6 sm:p-5" aria-busy="true">
+    <div
+      className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 pb-6 sm:p-5"
+      aria-busy="true"
+    >
       <div className="rounded-2xl border border-border-default bg-bg-surface p-4 shadow-sm">
         <div className="h-2.5 w-28 animate-pulse rounded-full bg-bg-tertiary" />
         <div className="mt-3 h-9 w-56 animate-pulse rounded-xl bg-bg-tertiary" />
@@ -917,6 +974,7 @@ function RootLoadingState() {
 }
 
 export default function StaffDashboardPage() {
+  const { replace } = useRouter();
   const { month, year } = getCurrentMonth();
   const monthLabel = formatMonthLabel(month, year);
 
@@ -934,17 +992,18 @@ export default function StaffDashboardPage() {
 
   const linkedStaffId = profile?.staffInfo?.id ?? "";
   const staffRoles = profile?.staffInfo?.roles ?? [];
+  const isPrimaryAdminWithoutStaffProfile =
+    profile?.roleType === "admin" && !linkedStaffId;
   const isAssistant =
     (profile?.roleType === "staff" || profile?.roleType === "admin") &&
     staffRoles.includes("assistant");
 
   const incomeQuery = useQuery({
-    queryKey: ["staff", "self", "income-summary", year, month, RECENT_UNPAID_DAYS],
+    queryKey: ["staff", "self", "income-summary", year, month],
     queryFn: () =>
       getMyStaffIncomeSummary({
         month,
         year,
-        days: RECENT_UNPAID_DAYS,
       }),
     enabled: !!linkedStaffId,
     staleTime: 30_000,
@@ -961,8 +1020,24 @@ export default function StaffDashboardPage() {
     staleTime: 30_000,
   });
 
+  useEffect(() => {
+    if (
+      !isProfileLoading &&
+      !isProfileError &&
+      isPrimaryAdminWithoutStaffProfile
+    ) {
+      replace("/staff/classes");
+    }
+  }, [
+    isPrimaryAdminWithoutStaffProfile,
+    isProfileError,
+    isProfileLoading,
+    replace,
+  ]);
+
   if (
     isProfileLoading ||
+    isPrimaryAdminWithoutStaffProfile ||
     (linkedStaffId &&
       (incomeQuery.isLoading || dashboardQuery.isLoading) &&
       !incomeQuery.data &&
@@ -1004,7 +1079,8 @@ export default function StaffDashboardPage() {
   const snapshotUnpaidNetTotal = incomeSummary?.snapshotUnpaidNetTotal ?? 0;
   const dashboard = dashboardQuery.data;
   const hasLessonPlanHead = staffRoles.includes("lesson_plan_head");
-  const hasLessonPlan = staffRoles.includes("lesson_plan") && !hasLessonPlanHead;
+  const hasLessonPlan =
+    staffRoles.includes("lesson_plan") && !hasLessonPlanHead;
   const hasExtraSections =
     staffRoles.includes("teacher") ||
     hasLessonPlan ||
@@ -1105,7 +1181,10 @@ export default function StaffDashboardPage() {
         ) : (
           <>
             {staffRoles.includes("teacher") && dashboard?.teacher ? (
-              <TeacherSection section={dashboard.teacher} monthLabel={monthLabel} />
+              <TeacherSection
+                section={dashboard.teacher}
+                monthLabel={monthLabel}
+              />
             ) : null}
 
             {hasLessonPlan && dashboard?.lessonPlan ? (
