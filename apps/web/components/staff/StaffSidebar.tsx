@@ -163,7 +163,7 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
     },
     {
       href: "/staff/notes-subject",
-      label: "Ghi chú môn học",
+      label: "Quy định",
       icon: <IconNotesSubject />,
       isActive: (pathname) => pathname.startsWith("/staff/notes-subject"),
       isVisible: ({ hasStaffProfile }) => hasStaffProfile,
@@ -218,7 +218,7 @@ function buildAssistantMenuItems(ownStaffId: string): MenuItem[] {
     },
     {
       href: "/staff/notes-subject",
-      label: "Ghi chú môn học",
+      label: "Quy định",
       icon: <IconNotesSubject />,
       isActive: (pathname) => pathname.startsWith("/staff/notes-subject"),
       isVisible: () => true,
@@ -439,6 +439,8 @@ export default function StaffSidebar() {
 
   const staffRoles = fullProfile?.staffInfo?.roles ?? [];
   const hasStaffProfile = Boolean(fullProfile?.staffInfo?.id);
+  const isFullAdmin =
+    fullProfile?.roleType === "admin" || staffRoles.includes("admin");
   const isAssistant = hasStaffProfile && staffRoles.includes("assistant");
   const canAccessClassWorkspace =
     fullProfile?.roleType === "admin" || staffRoles.includes("teacher");
@@ -449,7 +451,7 @@ export default function StaffSidebar() {
   const isAccountant = staffRoles.includes("accountant");
   const isCommunication = staffRoles.includes("communication");
   const isTechnical = staffRoles.includes("technical");
-  const baseMenuItems = isAssistant
+  const baseMenuItems = isFullAdmin || isAssistant
     ? [
         ...buildAssistantMenuItems(fullProfile?.staffInfo?.id ?? ""),
         ...DEFAULT_MENU_ITEMS.filter((item) => item.href !== "/staff/profile"),

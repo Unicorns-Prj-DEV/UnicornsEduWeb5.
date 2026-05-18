@@ -39,7 +39,7 @@ const MENU_ITEMS: {
   { href: "/admin/lesson-plans", label: "Giáo Án", icon: <IconLessonPlans /> },
   { href: "/admin/calendar", label: "Lịch", icon: <IconCalendar /> },
   { href: "/admin/deductions", label: "Khấu trừ", icon: <IconDeductions /> },
-  { href: "/admin/notes-subject", label: "Ghi chú môn học", icon: <IconNotesSubject /> },
+  { href: "/admin/notes-subject", label: "Quy định", icon: <IconNotesSubject /> },
   {
     href: "/admin/wallet-direct-topup-requests",
     label: "Duyệt nạp ví",
