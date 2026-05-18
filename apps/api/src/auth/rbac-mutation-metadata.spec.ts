@@ -1,5 +1,7 @@
 import { StaffRole } from 'generated/enums';
 import { ALLOW_STAFF_ROLES_ON_ADMIN_KEY } from './decorators/allow-staff-roles-on-admin.decorator';
+import { BonusController } from '../bonus/bonus.controller';
+import { CostController } from '../cost/cost.controller';
 import { StaffController } from '../staff/staff.controller';
 import { StudentController } from '../student/student.controller';
 import { UserController } from '../user/user.controller';
@@ -48,10 +50,27 @@ describe('RBAC route metadata', () => {
   });
 
   it('allows scoped staff roles to read student wallet history', () => {
-    expect(getAllowedStaffRoles(StudentController, 'getStudentWalletHistory')).toEqual([
+    expect(
+      getAllowedStaffRoles(StudentController, 'getStudentWalletHistory'),
+    ).toEqual([
       StaffRole.assistant,
       StaffRole.accountant,
       StaffRole.customer_care,
+    ]);
+  });
+
+  it('allows assistant and accountant to create costs', () => {
+    expect(getAllowedStaffRoles(CostController, 'createCost')).toEqual([
+      StaffRole.assistant,
+      StaffRole.accountant,
+    ]);
+  });
+
+  it('allows staff admin, assistant, and accountant to create bonuses', () => {
+    expect(getAllowedStaffRoles(BonusController, 'createBonus')).toEqual([
+      StaffRole.admin,
+      StaffRole.assistant,
+      StaffRole.accountant,
     ]);
   });
 });

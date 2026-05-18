@@ -97,7 +97,7 @@ describe('AuthService', () => {
       access: {
         admin: { canAccess: adminTier !== null, tier: adminTier },
         staff: {
-          canAccess: overrides.hasStaffProfile ?? false,
+          canAccess: (overrides.hasStaffProfile ?? false) || adminTier === 'full',
           profileComplete: overrides.staffProfileComplete ?? false,
         },
         student: { canAccess: overrides.hasStudentProfile ?? false },
@@ -393,7 +393,7 @@ describe('AuthService', () => {
     authAccessService.resolveForIdentity.mockResolvedValue(
       buildAuthAccess({
         effectiveRoleTypes: [UserRole.admin],
-        availableWorkspaces: ['admin'],
+        availableWorkspaces: ['admin', 'staff'],
         defaultWorkspace: 'admin',
         preferredRedirect: '/admin/dashboard',
         adminTier: 'full',
@@ -417,12 +417,12 @@ describe('AuthService', () => {
       hasStudentProfile: false,
       effectiveRoleTypes: [UserRole.admin],
       staffProfileComplete: false,
-      availableWorkspaces: ['admin'],
+      availableWorkspaces: ['admin', 'staff'],
       defaultWorkspace: 'admin',
       preferredRedirect: '/admin/dashboard',
       access: {
         admin: { canAccess: true, tier: 'full' },
-        staff: { canAccess: false, profileComplete: false },
+        staff: { canAccess: true, profileComplete: false },
         student: { canAccess: false },
       },
     });

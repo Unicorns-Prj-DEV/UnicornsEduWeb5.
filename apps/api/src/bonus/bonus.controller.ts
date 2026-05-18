@@ -31,7 +31,11 @@ import { BonusService } from './bonus.service';
 @Controller('bonus')
 @ApiTags('bonus')
 @ApiCookieAuth('access_token')
-@AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.accountant)
+@AllowStaffRolesOnAdminRoutes(
+  StaffRole.admin,
+  StaffRole.assistant,
+  StaffRole.accountant,
+)
 @Roles(UserRole.admin)
 export class BonusController {
   constructor(private readonly bonusService: BonusService) {}
@@ -106,7 +110,11 @@ export class BonusController {
   }
 
   @Post()
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(
+    StaffRole.admin,
+    StaffRole.assistant,
+    StaffRole.accountant,
+  )
   @ApiOperation({
     summary: 'Create bonus',
     description: 'Create a new bonus record.',

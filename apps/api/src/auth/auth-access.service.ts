@@ -230,6 +230,7 @@ export class AuthAccessService {
       ? await this.authIdentityCacheService.getStaffRoles(user.id, request)
       : [];
     const adminTier = resolveAdminTier(user.roleType, staffRoles);
+    const canBypassStaffWorkspaceProfile = adminTier === 'full';
     const effectiveRoleTypes: UserRole[] = [];
 
     if (user.roleType !== UserRole.guest) {
@@ -251,7 +252,7 @@ export class AuthAccessService {
     if (adminTier !== null) {
       availableWorkspaces.push('admin');
     }
-    if (hasStaffProfile) {
+    if (hasStaffProfile || canBypassStaffWorkspaceProfile) {
       availableWorkspaces.push('staff');
     }
     if (hasStudentProfile) {
@@ -287,7 +288,7 @@ export class AuthAccessService {
           tier: adminTier,
         },
         staff: {
-          canAccess: hasStaffProfile,
+          canAccess: hasStaffProfile || canBypassStaffWorkspaceProfile,
           profileComplete: staffProfileComplete,
         },
         student: {

@@ -127,6 +127,41 @@ describe('AuthAccessService', () => {
     });
   });
 
+  it('lets primary admin access staff workspace without a staff profile', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      staffInfo: null,
+      studentInfo: null,
+    });
+
+    await expect(
+      service.resolveForIdentity({
+        id: 'admin-1',
+        email: 'admin@example.com',
+        accountHandle: 'admin',
+        roleType: UserRole.admin,
+        status: 'active',
+        emailVerified: true,
+        avatarPath: null,
+        requiresPasswordSetup: false,
+      }),
+    ).resolves.toMatchObject({
+      effectiveRoleTypes: [UserRole.admin],
+      staffRoles: [],
+      hasStaffProfile: false,
+      hasStudentProfile: false,
+      staffProfileComplete: false,
+      availableWorkspaces: ['admin', 'staff'],
+      defaultWorkspace: 'admin',
+      preferredRedirect: '/admin/dashboard',
+      access: {
+        admin: { canAccess: true, tier: 'full' },
+        staff: { canAccess: true, profileComplete: false },
+        student: { canAccess: false },
+      },
+    });
+    expect(authIdentityCacheService.getStaffRoles).not.toHaveBeenCalled();
+  });
+
   it('does not grant staff workspace from primary role alone without a staff profile', async () => {
     prisma.user.findUnique.mockResolvedValue({
       staffInfo: null,

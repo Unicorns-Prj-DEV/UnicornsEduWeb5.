@@ -86,6 +86,14 @@ function canAccessStaffShell(user: Awaited<ReturnType<typeof getUser>>) {
   return Boolean(user.access?.staff?.canAccess ?? user.hasStaffProfile);
 }
 
+function canBypassStaffProfileGuard(user: Awaited<ReturnType<typeof getUser>>) {
+  return (
+    user.roleType === Role.admin ||
+    user.access?.admin?.tier === "full" ||
+    Boolean(user.effectiveRoleTypes?.includes(Role.admin))
+  );
+}
+
 function redirectGuestToLogin(req: NextRequest) {
   const redirectUrl = new URL("/auth/login", req.url);
   redirectUrl.searchParams.set(
@@ -178,7 +186,11 @@ export async function proxy(req: NextRequest) {
     }
   }
 
-  if (isStaffRoute && canAccessStaffShell(user)) {
+  if (
+    isStaffRoute &&
+    canAccessStaffShell(user) &&
+    !canBypassStaffProfileGuard(user)
+  ) {
     if (requiresStaffDataConsent) {
       if (isStaffDataConsentRoute) {
         return NextResponse.next();

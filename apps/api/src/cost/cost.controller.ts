@@ -110,7 +110,7 @@ export class CostController {
   }
 
   @Post()
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.accountant)
   @ApiOperation({
     summary: 'Create cost',
     description: 'Create a new cost record.',
