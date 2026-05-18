@@ -47,15 +47,15 @@ RUN apk add --no-cache \
   && rm -rf /var/cache/apk/*
 ENV CHROMIUM_PATH=/usr/bin/chromium
 
-# Production node_modules (includes `prisma` CLI for `migrate deploy` on VPS)
+# Production node_modules (includes `prisma` CLI for generate checks/manual ops)
 COPY --from=pruner /deploy/api/node_modules ./node_modules
 # Compiled JS
 COPY --from=builder /app/apps/api/dist ./dist
 # Prisma generated client
 COPY --from=builder /app/apps/api/generated ./generated
-# Migrations (needed for prisma migrate deploy at runtime)
+# Prisma schema and migrations (needed for generate checks and manual deploys)
 COPY --from=builder /app/apps/api/prisma ./prisma
-# Prisma 7: datasource URL lives here (not in schema.prisma); required for `migrate deploy` on VPS
+# Prisma 7: datasource URL lives here (not in schema.prisma); required by Prisma CLI on VPS
 COPY --from=builder /app/apps/api/prisma.config.ts ./prisma.config.ts
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup \

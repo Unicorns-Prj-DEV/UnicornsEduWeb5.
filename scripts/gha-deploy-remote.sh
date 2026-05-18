@@ -121,15 +121,17 @@ wait_for_container_running() {
   exit 1
 }
 
-# --- API: pull the new image, migrate with it, then recreate ----------------
+# --- API: pull the new image, validate Prisma generation, then recreate ------
 compose_pull_service_with_retry api
 
-echo "Applying database migrations..."
+echo "Verifying Prisma client generation..."
+# CD intentionally does not apply database migrations. Run the committed
+# migration procedure separately for releases that require schema changes.
 # `</dev/null`: this script is fed to `bash -s` over ssh stdin; `docker compose run`
 # attaches stdin and would otherwise consume the rest of the script, ending the
-# deploy right after the migration (api/web/nginx never get recreated).
+# deploy right after the Prisma check (api/web/nginx never get recreated).
 compose run --rm --no-deps -T api \
-  ./node_modules/.bin/prisma migrate deploy --schema=./prisma/schema/ </dev/null
+  ./node_modules/.bin/prisma generate --schema=./prisma/schema/ </dev/null
 
 compose up -d --no-deps --force-recreate api
 wait_for_http api http://127.0.0.1:4000/
