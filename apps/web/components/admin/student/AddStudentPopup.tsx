@@ -487,7 +487,7 @@ export default function AddStudentPopup({ open, onClose, onCreated }: Props) {
                       </label>
 
                       <label className="flex flex-col gap-1 text-sm text-text-secondary">
-                        <span>Email nhận biên nhận</span>
+                        <span>Email phụ huynh</span>
                         <input
                           name="parent_email"
                           autoComplete="email"

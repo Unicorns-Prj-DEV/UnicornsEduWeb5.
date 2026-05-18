@@ -447,7 +447,7 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
                 </label>
 
                 <label className="flex flex-col gap-1 text-sm text-text-secondary">
-                  <span>Email nhận biên nhận</span>
+                  <span>Email phụ huynh</span>
                   <input
                     name="parent_email"
                     autoComplete="email"

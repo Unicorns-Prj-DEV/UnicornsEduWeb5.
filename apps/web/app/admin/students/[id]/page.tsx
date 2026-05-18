@@ -529,7 +529,7 @@ export default function AdminStudentDetailPage() {
                                     <StudentDetailRow label="Họ tên" value={student.parentName?.trim() || "—"} />
                                     <StudentDetailRow label="Số điện thoại" value={student.parentPhone?.trim() || "—"} />
                                     <StudentDetailRow
-                                        label="Email nhận biên nhận"
+                                        label="Email phụ huynh"
                                         value={student.parentEmail?.trim() || "—"}
                                     />
                                     <StudentDetailRow

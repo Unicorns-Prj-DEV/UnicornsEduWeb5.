@@ -1115,7 +1115,7 @@ export default function UserProfilePage() {
           : "Chưa có số điện thoại phụ huynh.",
       },
       {
-        label: "Email nhận biên nhận (phụ huynh)",
+        label: "Email phụ huynh",
         value: profile.studentInfo.parentEmail ?? "—",
         hint: "Email phụ huynh nhận biên lai nạp ví SePay.",
       },
@@ -1574,7 +1574,7 @@ export default function UserProfilePage() {
                       <TextField
                         id="student-parent_email"
                         name="parent_email"
-                        label="Email nhận biên nhận (phụ huynh)"
+                        label="Email phụ huynh"
                         type="email"
                         defaultValue={profile.studentInfo.parentEmail ?? ""}
                         placeholder="parent@example.com"

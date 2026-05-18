@@ -705,7 +705,7 @@ export default function StudentSelfPage() {
                                                     />
                                                 </EditableField>
 
-                                                <EditableField label="Email nhận biên nhận">
+                                                <EditableField label="Email phụ huynh">
                                                     <input
                                                         name="parent_email"
                                                         type="email"
@@ -764,7 +764,7 @@ export default function StudentSelfPage() {
                                             <StudentDetailRow label="Họ tên" value={student.parentName?.trim() || "—"} />
                                             <StudentDetailRow label="Số điện thoại" value={student.parentPhone?.trim() || "—"} />
                                             <StudentDetailRow
-                                                label="Email nhận biên nhận"
+                                                label="Email phụ huynh"
                                                 value={student.parentEmail?.trim() || "—"}
                                             />
                                             <StudentDetailRow

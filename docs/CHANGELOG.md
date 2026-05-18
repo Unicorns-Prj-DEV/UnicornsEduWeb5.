@@ -23,6 +23,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- FE nhãn `parent_email`: đổi **Email nhận biên nhận** → **Email phụ huynh** trên `/admin/students/[id]` (cả `/staff/students/[id]`), popup thêm/sửa học sinh, `/student` self-service và `/user-profile`.
+
 - FE `AdminSidebar`: sắp xếp lại menu — Dashboard → Thông báo → User → Nhân sự → Lớp học → Học sinh → Chi phí → Giáo Án → Lịch → (Khấu trừ, Ghi chú môn học, Duyệt nạp ví, Lịch sử).
 
 - BE mail: email xác thực tài khoản (`sendVerificationEmail`) chuyển sang React Email template `email-verification.email.tsx` (header thương hiệu, CTA, fallback link, ghi chú hết hạn 24 giờ); subject `[Unicorns Edu] Xác thực email tài khoản`. Docs: `docs/pages/auth.md`.
