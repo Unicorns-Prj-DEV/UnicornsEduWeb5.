@@ -2,45 +2,45 @@
 /// `INCLUDE (id, roles)` for index-only scans (auth/session); Prisma has no INCLUDE syntax — see
 /// migration `20260506140000_staff_info_user_id_covering_index`.
 model StaffInfo {
-  id                           String                @id @default(uuid())
-  cccdNumber                   String?               @unique @map("cccd_number")
-  cccdIssuedDate               DateTime?             @map("cccd_issued_date") @db.Date
-  cccdIssuedPlace              String?               @map("cccd_issued_place")
-  cccdFrontPath                String?               @map("cccd_front_path")
-  cccdBackPath                 String?               @map("cccd_back_path")
-  cccdVerifiedAt               DateTime?             @map("cccd_verified_at") @db.Timestamptz(6)
-  birthDate                    DateTime?             @map("birth_date") @db.Date
-  university                   String?
-  highSchool                   String?               @map("high_school")
-  specialization               String?
-  bankAccount                  String?               @map("bank_account")
-  bankQrLink                   String?               @map("bank_qr_link")
-  googleMeetLink               String?               @map("google_meet_link")
-  status                       StaffStatus           @default(active)
-  createdAt                    DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                    DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
-  userId                       String?               @map("user_id")
-  roles                        StaffRole[]           @default([])
-  personalAchievementLink      String?               @map("personal_achievement_link")
-  customerCareManagedByStaffId String?               @map("customer_care_managed_by_staff_id")
-  assistantStudentSession      Attendance[]          @relation("AttendanceAssistant")
-  customerCareStudentSession   Attendance[]          @relation("AttendanceCustomerCare")
-  bonuses                      Bonus[]
+  id                                  String                               @id @default(uuid())
+  cccdNumber                          String?                              @unique @map("cccd_number")
+  cccdIssuedDate                      DateTime?                            @map("cccd_issued_date") @db.Date
+  cccdIssuedPlace                     String?                              @map("cccd_issued_place")
+  cccdFrontPath                       String?                              @map("cccd_front_path")
+  cccdBackPath                        String?                              @map("cccd_back_path")
+  cccdVerifiedAt                      DateTime?                            @map("cccd_verified_at") @db.Timestamptz(6)
+  birthDate                           DateTime?                            @map("birth_date") @db.Date
+  university                          String?
+  highSchool                          String?                              @map("high_school")
+  specialization                      String?
+  bankAccount                         String?                              @map("bank_account")
+  bankQrLink                          String?                              @map("bank_qr_link")
+  googleMeetLink                      String?                              @map("google_meet_link")
+  status                              StaffStatus                          @default(active)
+  createdAt                           DateTime                             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                           DateTime                             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  userId                              String?                              @map("user_id")
+  roles                               StaffRole[]                          @default([])
+  personalAchievementLink             String?                              @map("personal_achievement_link")
+  customerCareManagedByStaffId        String?                              @map("customer_care_managed_by_staff_id")
+  assistantStudentSession             Attendance[]                         @relation("AttendanceAssistant")
+  customerCareStudentSession          Attendance[]                         @relation("AttendanceCustomerCare")
+  bonuses                             Bonus[]
   classTeacherOperatingDeductionRates ClassTeacherOperatingDeductionRate[]
-  classSurveys                 ClassSurvey[]
-  classTeachers                ClassTeacher[]
-  customerCareServices         CustomerCareService[]
-  extraAllowances              ExtraAllowance[]
-  lessonOutputs                LessonOutput[]
-  makeupScheduleEvents         MakeupScheduleEvent[]
-  staffTaxDeductionOverrides   StaffTaxDeductionOverride[]
-  tasksCreated                 LessonTask[]
-  sessions                     Session[]
-  customerCareManagedBy        StaffInfo?            @relation("AssistantManagesCustomerCare", fields: [customerCareManagedByStaffId], references: [id])
-  managedCustomerCareStaff     StaffInfo[]           @relation("AssistantManagesCustomerCare")
-  user                         User?                 @relation(fields: [userId], references: [id])
-  staffLessonTasks             StaffLessonTask[]
-  monthlyStats                 StaffMonthlyStat[]
+  classSurveys                        ClassSurvey[]
+  classTeachers                       ClassTeacher[]
+  customerCareServices                CustomerCareService[]
+  extraAllowances                     ExtraAllowance[]
+  lessonOutputs                       LessonOutput[]
+  makeupScheduleEvents                MakeupScheduleEvent[]
+  staffTaxDeductionOverrides          StaffTaxDeductionOverride[]
+  tasksCreated                        LessonTask[]
+  sessions                            Session[]
+  customerCareManagedBy               StaffInfo?                           @relation("AssistantManagesCustomerCare", fields: [customerCareManagedByStaffId], references: [id])
+  managedCustomerCareStaff            StaffInfo[]                          @relation("AssistantManagesCustomerCare")
+  user                                User?                                @relation(fields: [userId], references: [id])
+  staffLessonTasks                    StaffLessonTask[]
+  monthlyStats                        StaffMonthlyStat[]
 
   @@unique([userId], map: "staff_info_user_id_key")
   @@index([customerCareManagedByStaffId])
@@ -48,31 +48,31 @@ model StaffInfo {
 }
 
 model StudentInfo {
-  id                   String                      @id @default(uuid())
-  fullName             String                      @map("full_name")
+  id                   String                            @id @default(uuid())
+  fullName             String                            @map("full_name")
   email                String?
   school               String?
   province             String?
-  birthYear            Int?                        @map("birth_year")
-  parentName           String?                     @map("parent_name")
-  parentPhone          String?                     @map("parent_phone")
-  parentEmail          String?                     @map("parent_email")
-  status               StudentStatus               @default(active)
-  gender               Gender                      @default(male)
+  birthYear            Int?                              @map("birth_year")
+  parentName           String?                           @map("parent_name")
+  parentPhone          String?                           @map("parent_phone")
+  parentEmail          String?                           @map("parent_email")
+  status               StudentStatus                     @default(active)
+  gender               Gender                            @default(male)
   goal                 String?
-  dropOutDate          DateTime?                   @map("drop_out_date") @db.Date
-  createdAt            DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt            DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
-  userId               String?                     @unique @map("user_id")
-  accountBalance       Int?                        @default(0) @map("account_balance")
+  dropOutDate          DateTime?                         @map("drop_out_date") @db.Date
+  createdAt            DateTime                          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime                          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  userId               String?                           @unique @map("user_id")
+  accountBalance       Int?                              @default(0) @map("account_balance")
   attendanceRecords    Attendance[]
   customerCareServices CustomerCareService?
   examSchedules        StudentExamSchedule[]
   studentClasses       StudentClass[]
-  user                 User?                       @relation(fields: [userId], references: [id])
+  user                 User?                             @relation(fields: [userId], references: [id])
   walletTransactions   WalletTransactionsHistory[]
   sepayWalletOrders    StudentWalletSepayOrder[]
-  directTopUpRequests   StudentWalletDirectTopUpRequest[]
+  directTopUpRequests  StudentWalletDirectTopUpRequest[]
 
   @@map("student_info")
 }

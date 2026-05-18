@@ -1,38 +1,38 @@
 model Class {
-  id                            String         @id @default(uuid())
-  name                          String
-  type                          ClassType      @default(basic)
-  status                        ClassStatus    @default(running)
-  maxStudents                   Int            @default(15) @map("max_students")
-  allowancePerSessionPerStudent Int            @default(0) @map("allowance_per_session_per_student")
-  maxAllowancePerSession        Int?           @map("max_allowance_per_session")
-  scaleAmount                   Int?           @map("scale_amount")
-  schedule                      Json           @default("[]")
-  studentTuitionPerSession      Int?           @map("student_tuition_per_session")
-  tuitionPackageTotal           Int?           @map("tuition_package_total")
-  tuitionPackageSession         Int?           @map("tuition_package_session")
-  createdAt                     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
-  surveys                       ClassSurvey[]
-  teachers                      ClassTeacher[]
+  id                             String                               @id @default(uuid())
+  name                           String
+  type                           ClassType                            @default(basic)
+  status                         ClassStatus                          @default(running)
+  maxStudents                    Int                                  @default(15) @map("max_students")
+  allowancePerSessionPerStudent  Int                                  @default(0) @map("allowance_per_session_per_student")
+  maxAllowancePerSession         Int?                                 @map("max_allowance_per_session")
+  scaleAmount                    Int?                                 @map("scale_amount")
+  schedule                       Json                                 @default("[]")
+  studentTuitionPerSession       Int?                                 @map("student_tuition_per_session")
+  tuitionPackageTotal            Int?                                 @map("tuition_package_total")
+  tuitionPackageSession          Int?                                 @map("tuition_package_session")
+  createdAt                      DateTime                             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                      DateTime                             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  surveys                        ClassSurvey[]
+  teachers                       ClassTeacher[]
   teacherOperatingDeductionRates ClassTeacherOperatingDeductionRate[]
-  makeupScheduleEvents          MakeupScheduleEvent[]
-  sessions                      Session[]
-  students                      StudentClass[]
+  makeupScheduleEvents           MakeupScheduleEvent[]
+  sessions                       Session[]
+  students                       StudentClass[]
 
   @@map("classes")
 }
 
 model ClassTeacher {
-  id                             String    @id @default(uuid())
-  classId                        String    @map("class_id")
-  teacherId                      String    @map("teacher_id")
-  customAllowance                Int?      @map("custom_allowance")
-  operatingDeductionRatePercent  Decimal   @default(0) @map("tax_rate_percent") @db.Decimal(5, 2)
-  status                         String?
-  createdAt                      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  class                          Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
-  teacher                        StaffInfo @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  id                            String    @id @default(uuid())
+  classId                       String    @map("class_id")
+  teacherId                     String    @map("teacher_id")
+  customAllowance               Int?      @map("custom_allowance")
+  operatingDeductionRatePercent Decimal   @default(0) @map("tax_rate_percent") @db.Decimal(5, 2)
+  status                        String?
+  createdAt                     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  class                         Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  teacher                       StaffInfo @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
   @@unique([classId, teacherId])
   @@index([classId])
@@ -41,17 +41,17 @@ model ClassTeacher {
 }
 
 model StudentClass {
-  id                             String      @id @default(uuid())
-  studentId                      String      @map("student_id")
-  classId                        String      @map("class_id")
+  id                             String              @id @default(uuid())
+  studentId                      String              @map("student_id")
+  classId                        String              @map("class_id")
   status                         StudentClassStatus?
-  customStudentTuitionPerSession Int?        @map("custom_student_tuition_per_session")
-  customTuitionPackageTotal      Int?        @map("custom_tuition_package_total")
-  customTuitionPackageSession    Int?        @map("custom_tuition_package_session")
-  totalAttendedSession           Int?        @map("total_attended_session")
-  createdAt                      DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  class                          Class       @relation(fields: [classId], references: [id], onDelete: Cascade)
-  student                        StudentInfo @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  customStudentTuitionPerSession Int?                @map("custom_student_tuition_per_session")
+  customTuitionPackageTotal      Int?                @map("custom_tuition_package_total")
+  customTuitionPackageSession    Int?                @map("custom_tuition_package_session")
+  totalAttendedSession           Int?                @map("total_attended_session")
+  createdAt                      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  class                          Class               @relation(fields: [classId], references: [id], onDelete: Cascade)
+  student                        StudentInfo         @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@index([studentId])
   @@index([classId])
@@ -62,29 +62,29 @@ model StudentClass {
 }
 
 model Session {
-  id                                  String       @id @default(uuid())
-  teacherId                           String       @map("teacher_id")
-  classId                             String       @map("class_id")
-  allowanceAmount                     Int?         @map("allowance_amount")
-  teacherOperatingDeductionRatePercent Decimal     @default(0) @map("teacher_tax_rate_percent") @db.Decimal(5, 2)
-  teacherTaxDeductionRatePercent      Decimal      @default(0) @map("teacher_tax_deduction_rate_percent") @db.Decimal(5, 2)
-  teacherPaymentStatus                String       @default("unpaid") @map("teacher_payment_status")
-  date                                DateTime     @db.Date
-  startTime                           DateTime?    @map("start_time") @db.Time(6)
-  endTime                             DateTime?    @map("end_time") @db.Time(6)
-  coefficient                         Decimal      @default(1.0) @db.Decimal(3, 1)
-  notes                               String?
-  tuitionFee                          Int?         @map("tuition_fee")
-  googleMeetLink                      String?      @map("google_meet_link")
-  googleCalendarEventId               String?      @map("google_calendar_event_id")
-  calendarSyncedAt                    DateTime?    @map("calendar_synced_at") @db.Timestamptz(6)
-  calendarSyncError                   String?      @map("calendar_sync_error")
-  createdAt                           DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                           DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
-  attendance                          Attendance[]
-  class                               Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
-  makeupScheduleEvent                 MakeupScheduleEvent?
-  teacher                             StaffInfo    @relation(fields: [teacherId], references: [id])
+  id                                   String               @id @default(uuid())
+  teacherId                            String               @map("teacher_id")
+  classId                              String               @map("class_id")
+  allowanceAmount                      Int?                 @map("allowance_amount")
+  teacherOperatingDeductionRatePercent Decimal              @default(0) @map("teacher_tax_rate_percent") @db.Decimal(5, 2)
+  teacherTaxDeductionRatePercent       Decimal              @default(0) @map("teacher_tax_deduction_rate_percent") @db.Decimal(5, 2)
+  teacherPaymentStatus                 String               @default("unpaid") @map("teacher_payment_status")
+  date                                 DateTime             @db.Date
+  startTime                            DateTime?            @map("start_time") @db.Time(6)
+  endTime                              DateTime?            @map("end_time") @db.Time(6)
+  coefficient                          Decimal              @default(1.0) @db.Decimal(3, 1)
+  notes                                String?
+  tuitionFee                           Int?                 @map("tuition_fee")
+  googleMeetLink                       String?              @map("google_meet_link")
+  googleCalendarEventId                String?              @map("google_calendar_event_id")
+  calendarSyncedAt                     DateTime?            @map("calendar_synced_at") @db.Timestamptz(6)
+  calendarSyncError                    String?              @map("calendar_sync_error")
+  createdAt                            DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                            DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  attendance                           Attendance[]
+  class                                Class                @relation(fields: [classId], references: [id], onDelete: Cascade)
+  makeupScheduleEvent                  MakeupScheduleEvent?
+  teacher                              StaffInfo            @relation(fields: [teacherId], references: [id])
 
   @@index([teacherId])
   @@index([classId])
@@ -99,24 +99,24 @@ model Session {
 }
 
 model MakeupScheduleEvent {
-  id                    String      @id @default(uuid()) @db.Text
-  classId               String      @map("class_id") @db.Text
-  teacherId             String      @map("teacher_id") @db.Text
-  linkedSessionId       String?     @unique @map("linked_session_id") @db.Text
-  date                  DateTime    @db.Date
-  startTime             DateTime?   @map("start_time") @db.Time(6)
-  endTime               DateTime?   @map("end_time") @db.Time(6)
+  id                    String    @id @default(uuid()) @db.Text
+  classId               String    @map("class_id") @db.Text
+  teacherId             String    @map("teacher_id") @db.Text
+  linkedSessionId       String?   @unique @map("linked_session_id") @db.Text
+  date                  DateTime  @db.Date
+  startTime             DateTime? @map("start_time") @db.Time(6)
+  endTime               DateTime? @map("end_time") @db.Time(6)
   title                 String?
   note                  String?
-  googleMeetLink        String?     @map("google_meet_link")
-  googleCalendarEventId String?     @map("google_calendar_event_id")
-  calendarSyncedAt      DateTime?   @map("calendar_synced_at") @db.Timestamptz(6)
-  calendarSyncError     String?     @map("calendar_sync_error")
-  createdAt             DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
-  class                 Class       @relation(fields: [classId], references: [id], onDelete: Cascade)
-  linkedSession         Session?    @relation(fields: [linkedSessionId], references: [id], onDelete: SetNull)
-  teacher               StaffInfo   @relation(fields: [teacherId], references: [id])
+  googleMeetLink        String?   @map("google_meet_link")
+  googleCalendarEventId String?   @map("google_calendar_event_id")
+  calendarSyncedAt      DateTime? @map("calendar_synced_at") @db.Timestamptz(6)
+  calendarSyncError     String?   @map("calendar_sync_error")
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  class                 Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  linkedSession         Session?  @relation(fields: [linkedSessionId], references: [id], onDelete: SetNull)
+  teacher               StaffInfo @relation(fields: [teacherId], references: [id])
 
   @@index([classId])
   @@index([teacherId])
@@ -128,26 +128,26 @@ model MakeupScheduleEvent {
 }
 
 model Attendance {
-  id                                 String                     @id @default(uuid())
-  sessionId                          String                     @map("session_id")
-  studentId                          String                     @map("student_id")
-  status                             AttendanceStatus           @default(present)
-  notes                              String?
-  createdAt                          DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
-  customerCareCoef                   Decimal?                   @map("customer_care_coef") @db.Decimal(3, 2)
-  customerCareStaffId                String?                    @map("customer_care_staff_id")
-  customerCarePaymentStatus          PaymentStatus?             @map("customer_care_payment_status")
-  customerCareTaxDeductionRatePercent Decimal                   @default(0) @map("customer_care_tax_deduction_rate_percent") @db.Decimal(5, 2)
-  tuitionFee                         Int?                       @map("tuition_fee")
-  transactionId                      String?                    @unique @map("transaction_id")
-  assistantManagerStaffId            String?                    @map("assistant_manager_staff_id")
-  assistantPaymentStatus             PaymentStatus?             @map("assistant_payment_status")
-  assistantTaxDeductionRatePercent   Decimal                    @default(0) @map("assistant_tax_deduction_rate_percent") @db.Decimal(5, 2)
-  assistantManagerStaff              StaffInfo?                 @relation("AttendanceAssistant", fields: [assistantManagerStaffId], references: [id])
-  customerCareStaff                  StaffInfo?                 @relation("AttendanceCustomerCare", fields: [customerCareStaffId], references: [id])
-  session                            Session                    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  student                            StudentInfo                @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  transaction                        WalletTransactionsHistory? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  id                                  String                     @id @default(uuid())
+  sessionId                           String                     @map("session_id")
+  studentId                           String                     @map("student_id")
+  status                              AttendanceStatus           @default(present)
+  notes                               String?
+  createdAt                           DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  customerCareCoef                    Decimal?                   @map("customer_care_coef") @db.Decimal(3, 2)
+  customerCareStaffId                 String?                    @map("customer_care_staff_id")
+  customerCarePaymentStatus           PaymentStatus?             @map("customer_care_payment_status")
+  customerCareTaxDeductionRatePercent Decimal                    @default(0) @map("customer_care_tax_deduction_rate_percent") @db.Decimal(5, 2)
+  tuitionFee                          Int?                       @map("tuition_fee")
+  transactionId                       String?                    @unique @map("transaction_id")
+  assistantManagerStaffId             String?                    @map("assistant_manager_staff_id")
+  assistantPaymentStatus              PaymentStatus?             @map("assistant_payment_status")
+  assistantTaxDeductionRatePercent    Decimal                    @default(0) @map("assistant_tax_deduction_rate_percent") @db.Decimal(5, 2)
+  assistantManagerStaff               StaffInfo?                 @relation("AttendanceAssistant", fields: [assistantManagerStaffId], references: [id])
+  customerCareStaff                   StaffInfo?                 @relation("AttendanceCustomerCare", fields: [customerCareStaffId], references: [id])
+  session                             Session                    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student                             StudentInfo                @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  transaction                         WalletTransactionsHistory? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 
   @@unique([sessionId, studentId])
   @@index([sessionId])
