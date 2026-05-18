@@ -8,6 +8,7 @@ import {
   type SyntheticEvent,
 } from "react";
 import { toast } from "sonner";
+import { DateInput } from "@/components/ui/DateInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type {
   CreateLessonOutputPayload,
@@ -590,8 +591,7 @@ export default function LessonOutputEditorForm({
                 <span className="text-sm text-text-secondary">
                   Ngày <span className="text-error">*</span>
                 </span>
-                <input
-                  type="date"
+                <DateInput
                   value={date}
                   onChange={(event) => setDate(event.target.value)}
                   className={fieldInputClass()}
@@ -795,8 +795,7 @@ export default function LessonOutputEditorForm({
 
             <label className="flex flex-col gap-1 text-sm text-text-secondary">
               <span>Ngày</span>
-              <input
-                type="date"
+              <DateInput
                 value={date}
                 onChange={(event) => setDate(event.target.value)}
                 className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
@@ -929,7 +928,7 @@ export default function LessonOutputEditorForm({
               <LessonTagPicker
                 value={selectedTags}
                 onChange={setSelectedTags}
-                placeholder="Tìm kiếm và chọn tag..."
+                placeholder="Tìm kiếm và chọn tag…"
               />
             </label>
 
@@ -964,10 +963,10 @@ export default function LessonOutputEditorForm({
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-text-primary">
-                    Nhân sự phụ trách output
+                    Nhân sự nhận thanh toán
                   </p>
                   <p className="mt-1 text-xs leading-5 text-text-secondary">
-                    Dùng để biết ai đang đứng tên output này khi rà soát tiến độ.
+                    Người đứng tên chi phí và thanh toán cho output này.
                   </p>
                 </div>
               </div>
@@ -980,7 +979,7 @@ export default function LessonOutputEditorForm({
                   />
                 ) : (
                   <div className="rounded-2xl border border-dashed border-border-default bg-bg-surface px-4 py-5 text-sm text-text-muted">
-                    Chưa gán nhân sự cho output này.
+                    Chưa gán nhân sự nhận thanh toán cho output này.
                   </div>
                 )}
               </div>
@@ -990,10 +989,10 @@ export default function LessonOutputEditorForm({
               <div className="flex flex-col gap-3 border-b border-border-default pb-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <p className="text-sm font-semibold text-text-primary">
-                    Tìm nhân sự
+                    Tìm nhân sự nhận thanh toán
                   </p>
                   <p className="mt-1 text-xs leading-5 text-text-secondary">
-                    Gắn người chịu trách nhiệm cho output ngay trong cùng flow tạo.
+                    Chọn người được ghi nhận thanh toán cho output trong cùng flow tạo.
                   </p>
                 </div>
 
@@ -1045,9 +1044,9 @@ export default function LessonOutputEditorForm({
                             className={`rounded-xl px-3 py-2 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${isSelected
                               ? "border border-primary/25 bg-primary/12 text-primary"
                               : "border border-border-default bg-bg-surface text-text-primary hover:bg-bg-tertiary"
-                              }`}
+                            }`}
                           >
-                            {isSelected ? "Đang gắn" : "Chọn cho output"}
+                            {isSelected ? "Đang nhận" : "Chọn nhận thanh toán"}
                           </button>
                         </div>
                       </article>

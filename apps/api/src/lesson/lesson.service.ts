@@ -776,13 +776,13 @@ export class LessonService {
     const dueDate = toDateOnlyOrNull(data.dueDate);
 
     return this.prisma.$transaction(async (tx) => {
-      const createdByStaffId =
+      const legacyCreatedByStaffId =
         data.createdByStaffId !== undefined
           ? await this.resolveCreatedByStaffId(tx, data.createdByStaffId)
-          : await this.resolveActorStaffId(tx, auditActor?.userId);
-      const assigneeStaffIds = await this.resolveTaskAssigneeStaffIds(
-        tx,
-        data.assigneeStaffIds,
+          : null;
+      const assigneeStaffIds = this.mergeStaffIds(
+        await this.resolveTaskAssigneeStaffIds(tx, data.assigneeStaffIds),
+        legacyCreatedByStaffId ? [legacyCreatedByStaffId] : [],
       );
 
       const createdTask = await tx.lessonTask.create({
@@ -792,7 +792,6 @@ export class LessonService {
           status,
           priority,
           dueDate,
-          createdBy: createdByStaffId,
         },
       });
 
@@ -854,33 +853,29 @@ export class LessonService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const createdByStaffId =
+      const legacyCreatedByStaffId =
         data.createdByStaffId !== undefined
           ? await this.resolveCreatedByStaffId(tx, data.createdByStaffId)
-          : undefined;
-      const assigneeStaffIds =
+          : null;
+      const baseAssigneeStaffIds =
         data.assigneeStaffIds !== undefined
           ? await this.resolveTaskAssigneeStaffIds(tx, data.assigneeStaffIds)
-          : undefined;
+          : existingTask.assignees.map((assignee) => assignee.id);
+      const assigneeStaffIds = this.mergeStaffIds(
+        baseAssigneeStaffIds,
+        legacyCreatedByStaffId ? [legacyCreatedByStaffId] : [],
+      );
 
-      if (createdByStaffId !== undefined) {
-        updateData.createdByStaff = createdByStaffId
-          ? {
-              connect: { id: createdByStaffId },
-            }
-          : {
-              disconnect: true,
-            };
-      }
+      updateData.createdByStaff = {
+        disconnect: true,
+      };
 
       await tx.lessonTask.update({
         where: { id },
         data: updateData,
       });
 
-      if (assigneeStaffIds !== undefined) {
-        await this.syncTaskAssignees(tx, id, assigneeStaffIds);
-      }
+      await this.syncTaskAssignees(tx, id, assigneeStaffIds);
 
       const afterTaskRecord = await this.getTaskSnapshot(tx, id);
       const afterValue = afterTaskRecord
@@ -1134,7 +1129,7 @@ export class LessonService {
     if (data.staffId !== undefined) {
       if (participantEditing) {
         throw new ForbiddenException(
-          'Staff giáo án không được đổi nhân sự thực hiện output.',
+          'Staff giáo án không được đổi nhân sự nhận thanh toán output.',
         );
       }
       nextStaffId = await this.resolveLessonOutputStaffId(
@@ -2182,22 +2177,6 @@ export class LessonService {
     return this.mapTask(task);
   }
 
-  private async resolveActorStaffId(
-    db: Prisma.TransactionClient | PrismaService,
-    userId?: string | null,
-  ) {
-    if (!userId) {
-      return null;
-    }
-
-    const staff = await db.staffInfo.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-
-    return staff?.id ?? null;
-  }
-
   private async resolveLessonActorContext(
     actor?: JwtPayload,
   ): Promise<LessonActorContext | null> {
@@ -2355,7 +2334,7 @@ export class LessonService {
 
     if (!staff) {
       throw new BadRequestException(
-        'Chỉ được gán người phụ trách có role giáo án hoặc trưởng giáo án.',
+        'Chỉ được gán nhân sự thực hiện có role giáo án hoặc trưởng giáo án.',
       );
     }
 
@@ -2398,7 +2377,7 @@ export class LessonService {
 
     if (assignableStaff.length !== normalizedStaffIds.length) {
       throw new BadRequestException(
-        'Chỉ được gán nhân sự thực hiện task có role giáo án hoặc trưởng giáo án.',
+        'Chỉ được gán nhân sự thực hiện có role giáo án hoặc trưởng giáo án.',
       );
     }
 
@@ -2430,7 +2409,11 @@ export class LessonService {
       createdByStaff: task.createdBy
         ? (creatorMap.get(task.createdBy) ?? null)
         : null,
-      assignees: assigneeMap.get(task.id) ?? [],
+      assignees: this.mergeTaskAssignees(
+        task.createdBy ? creatorMap.get(task.createdBy) : null,
+        assigneeMap.get(task.id),
+        outputAssigneeMap.get(task.id),
+      ),
       outputAssignees: outputAssigneeMap.get(task.id) ?? [],
     }));
   }
@@ -2450,7 +2433,11 @@ export class LessonService {
       createdByStaff: task.createdBy
         ? (creatorMap.get(task.createdBy) ?? null)
         : null,
-      assignees: assigneeMap.get(task.id) ?? [],
+      assignees: this.mergeTaskAssignees(
+        task.createdBy ? creatorMap.get(task.createdBy) : null,
+        assigneeMap.get(task.id),
+        outputAssigneeMap.get(task.id),
+      ),
       outputAssignees: outputAssigneeMap.get(task.id) ?? [],
     };
   }
@@ -2598,6 +2585,48 @@ export class LessonService {
 
       return left.fullName.localeCompare(right.fullName, 'vi');
     });
+  }
+
+  private mergeTaskAssignees(
+    ...groups: Array<
+      | LessonTaskAssigneeDto
+      | LessonTaskCreatorDto
+      | Array<LessonTaskAssigneeDto | LessonTaskCreatorDto>
+      | null
+      | undefined
+    >
+  ) {
+    const assigneeMap = new Map<string, LessonTaskAssigneeDto>();
+
+    for (const group of groups) {
+      const staffs = Array.isArray(group) ? group : group ? [group] : [];
+
+      for (const staff of staffs) {
+        if (!staff?.id || assigneeMap.has(staff.id)) {
+          continue;
+        }
+
+        assigneeMap.set(staff.id, {
+          id: staff.id,
+          fullName: staff.fullName,
+          roles: staff.roles,
+          status: staff.status,
+        });
+      }
+    }
+
+    return this.sortTaskAssignees([...assigneeMap.values()]);
+  }
+
+  private mergeStaffIds(...groups: Array<Array<string | null | undefined>>) {
+    return Array.from(
+      new Set(
+        groups
+          .flat()
+          .map((staffId) => toTrimmedString(staffId))
+          .filter((staffId): staffId is string => staffId !== null),
+      ),
+    );
   }
 
   private async getTaskCreatorMap(

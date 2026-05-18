@@ -84,7 +84,7 @@ function TaskMetaCard({
 function StaffCard({
   staff,
 }: {
-  staff: NonNullable<LessonTaskItem["createdByStaff"]>;
+  staff: LessonTaskItem["assignees"][number];
 }) {
   return (
     <article className="rounded-[1.35rem] border border-border-default bg-bg-secondary/55 p-4">
@@ -543,16 +543,7 @@ export function LessonTaskDetailPage({
                     hint="Ngày hệ thống đang dùng để điều phối nhịp xử lý."
                   />
                   <TaskMetaCard
-                    label="Phụ trách"
-                    value={task.createdByStaff?.fullName ?? "Chưa khóa cụ thể"}
-                    hint={
-                      participantMode
-                        ? "Thông tin owner hiện được giữ ở chế độ chỉ xem."
-                        : "Có thể thay đổi trực tiếp trong popup chỉnh sửa."
-                    }
-                  />
-                  <TaskMetaCard
-                    label="Task Team"
+                    label="Nhân sự thực hiện"
                     value={String(task.assignees.length)}
                     hint="Số nhân sự đang được giao thực hiện task."
                   />
@@ -580,47 +571,17 @@ export function LessonTaskDetailPage({
               </div>
             </section>
 
-            <div className="grid gap-6 lg:grid-cols-2">
-              <section className="rounded-[1.75rem] flex-1 border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
-                      Ownership
-                    </p>
-                    <h2 className="mt-2 text-2xl font-semibold text-text-primary">
-                      Người chịu trách nhiệm
-                    </h2>
-                    <p className="mt-2 text-sm leading-6 text-text-secondary">
-                      Nhân sự đang đứng tên phụ trách và chịu ownership chính của
-                      task này.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  {task.createdByStaff ? (
-                    <StaffCard staff={task.createdByStaff} />
-                  ) : (
-                    <div className="rounded-[1.35rem] border border-dashed border-border-default bg-bg-secondary/40 px-4 py-8 text-sm text-text-muted">
-                      {participantMode
-                        ? "Chưa gán người phụ trách cụ thể."
-                        : "Chưa gán người phụ trách cụ thể. Mở popup chỉnh sửa để chọn lại."}
-                    </div>
-                  )}
-                </div>
-              </section>
-
+            <div className="grid gap-6">
               <section className="rounded-[1.75rem] flex-1 border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
                     Execution
                   </p>
                   <h2 className="mt-2 text-2xl font-semibold text-text-primary">
-                    Nhân sự thực hiện task
+                    Nhân sự thực hiện
                   </h2>
                   <p className="mt-2 text-sm leading-6 text-text-secondary">
-                    Danh sách assignment thật của task. Đây là nhóm backend dùng
-                    để xác định participant access cho staff giáo án.
+                    Danh sách nhân sự đang được giao thực hiện task giáo án này.
                   </p>
                 </div>
 
@@ -632,8 +593,8 @@ export function LessonTaskDetailPage({
                   ) : (
                     <div className="rounded-[1.35rem] border border-dashed border-border-default bg-bg-secondary/40 px-4 py-8 text-sm text-text-muted">
                       {participantMode
-                        ? "Task này hiện chưa được gán cho nhân sự nào ngoài bạn trong workspace participant."
-                        : "Chưa có nhân sự thực hiện task. Mở popup chỉnh sửa để gán assignment."}
+                        ? "Task này hiện chưa được gán thêm nhân sự nào ngoài bạn trong workspace participant."
+                        : "Chưa có nhân sự thực hiện. Mở popup chỉnh sửa để gán nhân sự."}
                     </div>
                   )}
                 </div>
@@ -704,7 +665,7 @@ export function LessonTaskDetailPage({
                             <span>Ngày: {formatLessonDateOnly(output.date)}</span>
                             {!participantMode ? (
                               <span>
-                                Nhân sự output:{" "}
+                                Nhân sự nhận thanh toán:{" "}
                                 {output.staffDisplayName ?? output.staffId ?? "Chưa gán"}
                               </span>
                             ) : null}

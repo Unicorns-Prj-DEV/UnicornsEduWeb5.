@@ -8,6 +8,7 @@ import {
   type SyntheticEvent,
 } from "react";
 import { toast } from "sonner";
+import { DateInput } from "@/components/ui/DateInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type {
   CreateLessonTaskPayload,
@@ -73,11 +74,7 @@ function getPopupTitle(mode: LessonUpsertMode) {
 }
 
 function mapTaskStaffOption(
-  value:
-    | LessonTaskItem["createdByStaff"]
-    | LessonTaskItem["assignees"][number]
-    | null
-    | undefined,
+  value: LessonTaskItem["assignees"][number] | null | undefined,
 ) {
   if (!value) {
     return null;
@@ -92,11 +89,7 @@ function mapTaskStaffOption(
 }
 
 function mapTaskStaffOptions(
-  values:
-    | LessonTaskItem["assignees"]
-    | LessonTaskItem["outputAssignees"]
-    | null
-    | undefined,
+  values: LessonTaskItem["assignees"] | null | undefined,
 ) {
   if (!Array.isArray(values) || values.length === 0) {
     return [];
@@ -105,28 +98,6 @@ function mapTaskStaffOptions(
   return values
     .map((value) => mapTaskStaffOption(value))
     .filter((value): value is LessonTaskStaffOption => value !== null);
-}
-
-function StaffSelectionCard({
-  staff,
-}: {
-  staff: LessonTaskStaffOption;
-}) {
-  return (
-    <div className="rounded-2xl border border-border-default bg-bg-secondary/70 p-3">
-      <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-text-primary">
-          {staff.fullName}
-        </p>
-        <p className="mt-1 text-xs text-text-secondary">
-          {formatLessonStaffRoleLabel(staff.roles)}
-        </p>
-      </div>
-      <p className="mt-2 text-xs text-text-muted">
-        {formatLessonStaffStatusLabel(staff.status)}
-      </p>
-    </div>
-  );
 }
 
 function LessonTaskFormPopupContent({
@@ -149,17 +120,9 @@ function LessonTaskFormPopupContent({
   );
   const [dueDate, setDueDate] = useState(() => initialData?.dueDate ?? "");
   const [staffSearch, setStaffSearch] = useState("");
-  const [selectedCreator, setSelectedCreator] =
-    useState<LessonTaskStaffOption | null>(() =>
-      mapTaskStaffOption(initialData?.createdByStaff),
-    );
   const [selectedAssignees, setSelectedAssignees] = useState<
     LessonTaskStaffOption[]
   >(() => mapTaskStaffOptions(initialData?.assignees));
-  const outputAssignees = useMemo(
-    () => mapTaskStaffOptions(initialData?.outputAssignees),
-    [initialData?.outputAssignees],
-  );
 
   const deferredStaffSearch = useDeferredValue(staffSearch.trim());
 
@@ -206,7 +169,6 @@ function LessonTaskFormPopupContent({
       status,
       priority,
       dueDate: dueDate.trim() || null,
-      createdByStaffId: selectedCreator?.id ?? null,
       assigneeStaffIds: selectedAssignees.map((assignee) => assignee.id),
     });
   };
@@ -236,9 +198,8 @@ function LessonTaskFormPopupContent({
               {getPopupTitle(mode)}
             </h2>
             <p className="mt-2 text-sm leading-6 text-text-secondary">
-              Chỉnh riêng ba lớp phân công: người chịu trách nhiệm, nhân sự thực
-              hiện task, và nhân sự thực hiện output. Việc gán staff cho output
-              con sẽ không tự ghi đè danh sách nhân sự của task nữa.
+              Chọn một danh sách nhân sự thực hiện cho task. Nhân sự đứng tên
+              output con chỉ dùng cho thanh toán và không tự ghi đè danh sách này.
             </p>
           </div>
           <button
@@ -310,8 +271,7 @@ function LessonTaskFormPopupContent({
 
                 <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
                   <span>Hạn xử lý</span>
-                  <input
-                    type="date"
+                  <DateInput
                     name="dueDate"
                     autoComplete="off"
                     value={dueDate}
@@ -336,48 +296,15 @@ function LessonTaskFormPopupContent({
             </div>
 
             <div className="space-y-4">
-              <section className="rounded-[1.5rem] border border-border-default bg-bg-secondary/50 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-text-primary">
-                      Người chịu trách nhiệm
-                    </p>
-                    <p className="mt-1 text-xs leading-5 text-text-secondary">
-                      Nếu để trống, backend sẽ dùng hồ sơ nhân sự của người thao
-                      tác khi có thể map được.
-                    </p>
-                  </div>
-                  {selectedCreator ? (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedCreator(null)}
-                      className="rounded-full border border-border-default bg-bg-surface px-3 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                    >
-                      Bỏ chọn
-                    </button>
-                  ) : null}
-                </div>
-
-                <div className="mt-3">
-                  {selectedCreator ? (
-                    <StaffSelectionCard staff={selectedCreator} />
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-border-default bg-bg-surface px-4 py-5 text-sm text-text-muted">
-                      Chưa gán người phụ trách cụ thể.
-                    </div>
-                  )}
-                </div>
-              </section>
-
               <section className="rounded-[1.5rem] border border-border-default bg-bg-surface p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-text-primary">
-                      Nhân sự thực hiện task
+                      Nhân sự thực hiện
                     </p>
                     <p className="mt-1 text-xs leading-5 text-text-secondary">
-                      Danh sách này quyết định ai được xem task trong participant
-                      workspace và ai đang đứng trong execution team của task.
+                      Danh sách này quyết định ai được giao thực hiện task và ai
+                      được xem task trong participant workspace.
                     </p>
                   </div>
                   {selectedAssignees.length > 0 ? (
@@ -424,34 +351,8 @@ function LessonTaskFormPopupContent({
                     ))
                   ) : (
                     <div className="rounded-2xl border border-dashed border-border-default bg-bg-surface px-4 py-5 text-sm text-text-muted sm:col-span-2">
-                      Chưa gán nhân sự thực hiện task. Nếu để trống, task sẽ
+                      Chưa gán nhân sự thực hiện. Nếu để trống, task sẽ
                       không hiện trong participant workspace của staff thường.
-                    </div>
-                  )}
-                </div>
-              </section>
-
-              <section className="rounded-[1.5rem] border border-border-default bg-bg-surface p-4 shadow-sm">
-                <div>
-                  <p className="text-sm font-semibold text-text-primary">
-                    Nhân sự thực hiện output
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-text-secondary">
-                    Đây là danh sách chỉ đọc, tổng hợp từ staff đang đứng tên
-                    trên các output con của task.
-                  </p>
-                </div>
-
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  {outputAssignees.length > 0 ? (
-                    outputAssignees.map((assignee) => (
-                      <StaffSelectionCard key={assignee.id} staff={assignee} />
-                    ))
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-border-default bg-bg-secondary/35 px-4 py-5 text-sm text-text-muted sm:col-span-2">
-                      {mode === "create"
-                        ? "Task mới chưa có output nào nên danh sách này sẽ trống cho tới khi phát sinh output."
-                        : "Task này chưa có nhân sự đứng tên output nào."}
                     </div>
                   )}
                 </div>
@@ -466,8 +367,7 @@ function LessonTaskFormPopupContent({
                   Tìm nhân sự giáo án
                 </p>
                 <p className="mt-1 text-xs leading-5 text-text-secondary">
-                  Mỗi nhân sự có thể được gán vào owner, team thực hiện task, hoặc
-                  cả hai nếu flow thực tế cần như vậy.
+                  Chọn một hoặc nhiều nhân sự để thực hiện task này.
                 </p>
               </div>
               <p
@@ -496,7 +396,6 @@ function LessonTaskFormPopupContent({
             <div className="mt-4 grid gap-3">
               {staffOptions.length > 0 ? (
                 staffOptions.map((staff) => {
-                  const isCreator = selectedCreator?.id === staff.id;
                   const isAssignee = selectedAssignees.some(
                     (assignee) => assignee.id === staff.id,
                   );
@@ -522,18 +421,6 @@ function LessonTaskFormPopupContent({
                         <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
-                            onClick={() => setSelectedCreator(staff)}
-                            className={`rounded-xl px-3 py-2 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${isCreator
-                              ? "border border-primary/25 bg-primary/12 text-primary"
-                              : "border border-border-default bg-bg-surface text-text-primary hover:bg-bg-tertiary"
-                              }`}
-                          >
-                            {isCreator
-                              ? "Đang phụ trách"
-                              : "Chọn phụ trách"}
-                          </button>
-                          <button
-                            type="button"
                             onClick={() =>
                               setSelectedAssignees((current) =>
                                 current.some((item) => item.id === staff.id)
@@ -547,7 +434,7 @@ function LessonTaskFormPopupContent({
                                 : "border border-border-default bg-bg-surface text-text-primary hover:bg-bg-tertiary"
                             }`}
                           >
-                            {isAssignee ? "Đã vào task" : "Thêm vào task"}
+                            {isAssignee ? "Đang thực hiện" : "Thêm thực hiện"}
                           </button>
                         </div>
                       </div>

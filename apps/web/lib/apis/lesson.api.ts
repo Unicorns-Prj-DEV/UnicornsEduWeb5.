@@ -64,6 +64,33 @@ function normalizeLessonStaffReference(
 function normalizeLessonTask(
   value: Partial<LessonTaskItem> | undefined,
 ): LessonTaskItem {
+  const createdByStaff = normalizeLessonStaffReference(
+    value?.createdByStaff ?? undefined,
+  );
+  const directAssignees = Array.isArray(value?.assignees)
+    ? value.assignees
+        .map((item) => normalizeLessonStaffReference(item))
+        .filter((item): item is LessonTaskAssignee => item !== null)
+    : [];
+  const outputAssignees = Array.isArray(value?.outputAssignees)
+    ? value.outputAssignees
+        .map((item) => normalizeLessonStaffReference(item))
+        .filter((item): item is LessonTaskAssignee => item !== null)
+    : [];
+  const mergedAssigneeMap = new Map<string, LessonTaskAssignee>();
+
+  for (const assignee of [
+    createdByStaff,
+    ...directAssignees,
+    ...outputAssignees,
+  ]) {
+    if (!assignee || mergedAssigneeMap.has(assignee.id)) {
+      continue;
+    }
+
+    mergedAssigneeMap.set(assignee.id, assignee);
+  }
+
   return {
     id: value?.id ?? "",
     title: value?.title ?? null,
@@ -71,19 +98,9 @@ function normalizeLessonTask(
     status: value?.status ?? "pending",
     priority: value?.priority ?? "medium",
     dueDate: value?.dueDate ?? null,
-    createdByStaff: normalizeLessonStaffReference(
-      value?.createdByStaff ?? undefined,
-    ),
-    assignees: Array.isArray(value?.assignees)
-      ? value.assignees
-          .map((item) => normalizeLessonStaffReference(item))
-          .filter((item): item is LessonTaskAssignee => item !== null)
-      : [],
-    outputAssignees: Array.isArray(value?.outputAssignees)
-      ? value.outputAssignees
-          .map((item) => normalizeLessonStaffReference(item))
-          .filter((item): item is LessonTaskAssignee => item !== null)
-      : [],
+    createdByStaff,
+    assignees: Array.from(mergedAssigneeMap.values()),
+    outputAssignees,
   };
 }
 

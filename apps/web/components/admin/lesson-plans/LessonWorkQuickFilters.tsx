@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
+import { DateInput } from "@/components/ui/DateInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type {
   LessonOutputStaffOption,
@@ -198,14 +199,14 @@ export default function LessonWorkQuickFilters({
 
             {showStaffFilter ? (
               <div className="flex flex-col gap-1.5 text-sm text-text-secondary">
-                <span>Nhân sự</span>
+                <span>Nhân sự nhận thanh toán</span>
                 <UpgradedSelect
                   value={draft.staffId}
                   onValueChange={(value) =>
                     setDraft((current) => ({ ...current, staffId: value ?? "" }))
                   }
                   options={staffSelectOptions}
-                  ariaLabel="Nhân sự phụ trách"
+                  ariaLabel="Nhân sự nhận thanh toán"
                   placeholder="Tất cả nhân sự"
                   buttonClassName="min-h-11 w-full justify-between rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-left text-sm text-text-primary shadow-sm"
                 />
@@ -233,8 +234,7 @@ export default function LessonWorkQuickFilters({
                     />
                   </svg>
                 </span>
-                <input
-                  type="date"
+                <DateInput
                   name="lesson-work-date-from"
                   value={draft.dateFrom}
                   onChange={(e) =>
@@ -268,8 +268,7 @@ export default function LessonWorkQuickFilters({
                     />
                   </svg>
                 </span>
-                <input
-                  type="date"
+                <DateInput
                   name="lesson-work-date-to"
                   value={draft.dateTo}
                   onChange={(e) =>

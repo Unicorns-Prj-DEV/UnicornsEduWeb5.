@@ -88,9 +88,9 @@ export class LessonController {
 
   @Get('lesson-task-staff-options')
   @ApiOperation({
-    summary: 'Search staff options for lesson task ownership and execution',
+    summary: 'Search staff options for lesson task execution',
     description:
-      'Return lightweight staff options for selecting the responsible owner and task assignees of a lesson task.',
+      'Return lightweight staff options for selecting unified execution staff of a lesson task.',
   })
   @ApiResponse({
     status: 200,
@@ -135,9 +135,9 @@ export class LessonController {
 
   @Get('lesson-output-staff-options')
   @ApiOperation({
-    summary: 'Search staff options for lesson output assignment',
+    summary: 'Search payment staff options for lesson output',
     description:
-      'Return lightweight staff options for assigning an owner to lesson outputs.',
+      'Return lightweight staff options for selecting who receives payment for a lesson output.',
   })
   @ApiResponse({
     status: 200,
@@ -396,7 +396,7 @@ export class LessonController {
   @ApiOperation({
     summary: 'Create lesson task',
     description:
-      'Create a lesson task for the overview tasks list with separate owner and task assignees.',
+      'Create a lesson task for the overview tasks list with one unified execution staff list.',
   })
   @ApiBody({
     type: CreateLessonTaskDto,
@@ -420,7 +420,7 @@ export class LessonController {
   @ApiOperation({
     summary: 'Update lesson task',
     description:
-      'Update a lesson task by id, including task assignees independent from lesson output staff.',
+      'Update a lesson task by id and normalize legacy staff fields into the unified execution staff list.',
   })
   @ApiParam({ name: 'id', description: 'Lesson task id' })
   @ApiBody({

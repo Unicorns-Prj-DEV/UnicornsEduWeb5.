@@ -203,7 +203,7 @@ type PickerPanelPosition = {
 export default function LessonTagPicker({
   value,
   onChange,
-  placeholder = "Tìm kiếm và chọn tag...",
+  placeholder = "Tìm kiếm và chọn tag…",
 }: Props) {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
@@ -223,13 +223,23 @@ export default function LessonTagPicker({
 
   const visibleGroups = useMemo(() => {
     const keyword = search.trim().toLowerCase();
-    return groupsWithDynamicOthers.map((group) => ({
-      ...group,
-      totalCount: group.tags.length,
-      tags: group.tags.filter((tag) =>
+    const nextGroups: Array<LessonTagGroup & { totalCount: number }> = [];
+
+    for (const group of groupsWithDynamicOthers) {
+      const tags = group.tags.filter((tag) =>
         keyword ? tag.toLowerCase().includes(keyword) : true,
-      ),
-    })).filter((group) => group.tags.length > 0);
+      );
+
+      if (tags.length > 0) {
+        nextGroups.push({
+          ...group,
+          totalCount: group.tags.length,
+          tags,
+        });
+      }
+    }
+
+    return nextGroups;
   }, [groupsWithDynamicOthers, search]);
 
   const canCreateCustom = useMemo(() => {
@@ -277,9 +287,11 @@ export default function LessonTagPicker({
 
     const updatePanelPosition = () => {
       const input = inputRef.current;
-      if (!input) return;
+      const container = containerRef.current;
+      if (!input || !container) return;
 
       const rect = input.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
       const viewportPadding = 16;
       const gap = 8;
       const preferredMaxHeight = 320;
@@ -290,14 +302,14 @@ export default function LessonTagPicker({
         window.innerWidth - width - viewportPadding,
       );
       const spaceBelow = window.innerHeight - rect.bottom - viewportPadding;
-      const spaceAbove = rect.top - viewportPadding;
+      const spaceAbove = containerRect.top - viewportPadding;
       const shouldOpenUpward = spaceBelow < 220 && spaceAbove > spaceBelow;
       const availableSpace = shouldOpenUpward ? spaceAbove : spaceBelow;
       const maxHeight = Math.max(
         160,
         Math.min(
           preferredMaxHeight,
-          availableSpace - (shouldOpenUpward ? 0 : gap),
+          availableSpace - gap,
         ),
       );
 
@@ -306,7 +318,7 @@ export default function LessonTagPicker({
         width,
         maxHeight,
         ...(shouldOpenUpward
-          ? { bottom: window.innerHeight - rect.top }
+          ? { bottom: window.innerHeight - containerRect.top + gap }
           : { top: rect.bottom + gap }),
       });
     };
@@ -329,9 +341,27 @@ export default function LessonTagPicker({
 
   return (
     <div ref={containerRef} className="relative">
+      {value.length > 0 ? (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {value.map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              onClick={() => toggleTag(tag)}
+              className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            >
+              {tag}
+              <span aria-hidden>×</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       <input
         ref={inputRef}
+        name="lesson-tag-search"
         type="text"
+        autoComplete="off"
         value={search}
         onFocus={() => setOpen(true)}
         onChange={(event) => setSearch(event.target.value)}
@@ -342,22 +372,6 @@ export default function LessonTagPicker({
         placeholder={placeholder}
         className="min-h-11 w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-sm text-text-primary shadow-sm placeholder:text-text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
       />
-
-      {value.length > 0 ? (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {value.map((tag) => (
-            <button
-              key={tag}
-              type="button"
-              onClick={() => toggleTag(tag)}
-              className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/15"
-            >
-              {tag}
-              <span aria-hidden>×</span>
-            </button>
-          ))}
-        </div>
-      ) : null}
 
       {open && panelPosition && typeof document !== "undefined"
         ? createPortal(

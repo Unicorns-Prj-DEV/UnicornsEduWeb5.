@@ -1094,17 +1094,10 @@ describe('LessonService', () => {
     });
   });
 
-  it('stores responsible staff using the actor staff profile when available', async () => {
+  it('creates task without storing actor staff as legacy task staff', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({ id: 'staff-creator' });
     mockPrisma.lessonTask.create.mockResolvedValue({ id: 'task-1' });
-    mockPrisma.staffInfo.findMany.mockResolvedValue([
-      {
-        id: 'staff-creator',
-        fullName: 'Lesson Planner',
-        roles: ['lesson_plan'],
-        status: 'active',
-      },
-    ]);
+    mockPrisma.staffInfo.findMany.mockResolvedValue([]);
     mockPrisma.lessonOutput.findMany.mockResolvedValue([]);
     mockPrisma.staffLessonTask.findMany.mockResolvedValue([]);
     mockPrisma.lessonTask.findUnique.mockResolvedValue({
@@ -1114,7 +1107,7 @@ describe('LessonService', () => {
       status: LessonTaskStatus.pending,
       priority: LessonTaskPriority.medium,
       dueDate: new Date('2026-03-24T00:00:00.000Z'),
-      createdBy: 'staff-creator',
+      createdBy: null,
     });
 
     await service.createTask(
@@ -1137,9 +1130,9 @@ describe('LessonService', () => {
         status: LessonTaskStatus.pending,
         priority: LessonTaskPriority.medium,
         dueDate: new Date('2026-03-24T00:00:00.000Z'),
-        createdBy: 'staff-creator',
       },
     });
+    expect(mockPrisma.staffLessonTask.createMany).not.toHaveBeenCalled();
     expect(actionHistoryService.recordCreate).toHaveBeenCalledWith(
       mockPrisma,
       expect.objectContaining({
@@ -1149,7 +1142,7 @@ describe('LessonService', () => {
     );
   });
 
-  it('uses the selected lesson planner as responsible staff when provided', async () => {
+  it('maps provided legacy task staff into task assignees on creation', async () => {
     mockPrisma.staffInfo.findFirst.mockResolvedValue({ id: 'staff-head' });
     mockPrisma.lessonTask.create.mockResolvedValue({ id: 'task-2' });
     mockPrisma.staffInfo.findMany.mockResolvedValue([
@@ -1169,7 +1162,7 @@ describe('LessonService', () => {
       status: LessonTaskStatus.pending,
       priority: LessonTaskPriority.high,
       dueDate: null,
-      createdBy: 'staff-head',
+      createdBy: null,
     });
 
     await service.createTask(
@@ -1191,8 +1184,15 @@ describe('LessonService', () => {
         status: LessonTaskStatus.pending,
         priority: LessonTaskPriority.medium,
         dueDate: null,
-        createdBy: 'staff-head',
       },
+    });
+    expect(mockPrisma.staffLessonTask.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          lessonTaskId: 'task-2',
+          staffId: 'staff-head',
+        },
+      ],
     });
   });
 
@@ -1302,7 +1302,7 @@ describe('LessonService', () => {
     });
   });
 
-  it('updates lesson task content without mutating task assignees when payload omits them', async () => {
+  it('normalizes legacy output staff into task assignees when editing task without assignee payload', async () => {
     mockPrisma.lessonTask.findUnique
       .mockResolvedValueOnce({
         id: 'task-1',
@@ -1330,7 +1330,7 @@ describe('LessonService', () => {
         staff: {
           id: 'staff-2',
           fullName: 'Planner 02',
-          roles: ['assistant'],
+          roles: ['lesson_plan'],
           status: 'active',
         },
       },
@@ -1344,10 +1344,20 @@ describe('LessonService', () => {
       where: { id: 'task-1' },
       data: {
         description: 'Bản mới',
+        createdByStaff: {
+          disconnect: true,
+        },
       },
     });
     expect(mockPrisma.staffLessonTask.deleteMany).not.toHaveBeenCalled();
-    expect(mockPrisma.staffLessonTask.createMany).not.toHaveBeenCalled();
+    expect(mockPrisma.staffLessonTask.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          lessonTaskId: 'task-1',
+          staffId: 'staff-2',
+        },
+      ],
+    });
   });
 
   it('returns a hydrated lesson task detail by id', async () => {
@@ -1363,8 +1373,8 @@ describe('LessonService', () => {
       {
         lessonTaskId: 'task-3',
         staff: {
-          id: 'staff-creator',
-          fullName: 'Planner Owner',
+          id: 'staff-assignee',
+          fullName: 'Planner Assignee',
           roles: ['lesson_plan'],
           status: 'active',
         },
@@ -1383,11 +1393,11 @@ describe('LessonService', () => {
       .mockResolvedValueOnce([
         {
           lessonTaskId: 'task-3',
-          staffId: 'staff-creator',
+          staffId: 'staff-output',
           staff: {
-            id: 'staff-creator',
-            fullName: 'Planner Owner',
-            roles: ['lesson_plan'],
+            id: 'staff-output',
+            fullName: 'Planner Payment',
+            roles: ['lesson_plan_head'],
             status: 'active',
           },
         },
@@ -1450,17 +1460,29 @@ describe('LessonService', () => {
       },
       assignees: [
         {
+          id: 'staff-assignee',
+          fullName: 'Planner Assignee',
+          roles: ['lesson_plan'],
+          status: 'active',
+        },
+        {
           id: 'staff-creator',
           fullName: 'Planner Owner',
           roles: ['lesson_plan'],
           status: 'active',
         },
+        {
+          id: 'staff-output',
+          fullName: 'Planner Payment',
+          roles: ['lesson_plan_head'],
+          status: 'active',
+        },
       ],
       outputAssignees: [
         {
-          id: 'staff-creator',
-          fullName: 'Planner Owner',
-          roles: ['lesson_plan'],
+          id: 'staff-output',
+          fullName: 'Planner Payment',
+          roles: ['lesson_plan_head'],
           status: 'active',
         },
       ],
@@ -1519,7 +1541,7 @@ describe('LessonService', () => {
     });
   });
 
-  it('rejects responsible staff outside lesson planning roles', async () => {
+  it('rejects legacy task staff outside lesson planning roles', async () => {
     mockPrisma.staffInfo.findFirst.mockResolvedValue(null);
 
     await expect(

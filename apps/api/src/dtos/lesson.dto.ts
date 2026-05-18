@@ -94,8 +94,11 @@ export interface LessonTaskResponseDto {
   status: LessonTaskStatus;
   priority: LessonTaskPriority;
   dueDate: string | null;
+  /** Legacy creator staff. Kept for backward compatibility; task coordination uses `assignees`. */
   createdByStaff: LessonTaskCreatorDto | null;
+  /** Unified execution staff, including legacy creator/output staff fallbacks for old data. */
   assignees: LessonTaskAssigneeDto[];
+  /** Legacy output-level staff summary. Kept for backward compatibility; not a task coordination group. */
   outputAssignees: LessonTaskAssigneeDto[];
 }
 
@@ -115,7 +118,9 @@ export interface LessonTaskOutputListItemDto {
   lessonName: string;
   contestUploaded: string | null;
   date: string;
+  /** Nhân sự nhận thanh toán / đứng tên output. */
   staffId: string | null;
+  /** Display name for `staffId`, not task execution staff. */
   staffDisplayName: string | null;
   status: LessonOutputStatus;
   paymentStatus: PaymentStatus;
@@ -312,7 +317,9 @@ export class LessonWorkQueryDto {
   @MaxLength(120)
   tag?: string;
 
-  @ApiPropertyOptional({ description: 'Lọc theo nhân sự phụ trách output.' })
+  @ApiPropertyOptional({
+    description: 'Lọc theo nhân sự nhận thanh toán output.',
+  })
   @IsOptional()
   @IsUUID('4')
   staffId?: string;
@@ -541,7 +548,7 @@ export class CreateLessonTaskDto {
   @ApiPropertyOptional({
     example: '99e2effd-fab2-42e1-8b17-43c0d840e1be',
     description:
-      'Staff id assigned as the responsible owner of this lesson task.',
+      'Deprecated legacy staff id. New writes merge this staff into assigneeStaffIds and do not store a separate task-level personnel group.',
   })
   @IsOptional()
   @IsUUID('4')
@@ -554,7 +561,7 @@ export class CreateLessonTaskDto {
       'f6b9f3f2-5a72-4ab7-8895-66b77a92f24d',
     ],
     description:
-      'Danh sách nhân sự thực hiện task. Tách biệt với staff được gán cho từng lesson output.',
+      'Danh sách nhân sự thực hiện giáo án của task. Đây là nguồn điều phối task chính thức.',
   })
   @IsOptional()
   @IsArray()
@@ -658,7 +665,8 @@ export class CreateLessonOutputDto {
 
   @ApiPropertyOptional({
     example: '99e2effd-fab2-42e1-8b17-43c0d840e1be',
-    description: 'Assigned staff id for this output.',
+    description:
+      'Nhân sự nhận thanh toán / đứng tên output. Không phải nhóm điều phối task.',
   })
   @IsOptional()
   @IsUUID('4')

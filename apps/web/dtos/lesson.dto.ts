@@ -90,8 +90,11 @@ export interface LessonTaskItem {
   status: LessonTaskStatus;
   priority: LessonTaskPriority;
   dueDate: string | null;
+  /** Legacy creator staff; task coordination uses `assignees`. */
   createdByStaff: LessonTaskCreator | null;
+  /** Unified execution staff for this lesson task. */
   assignees: LessonTaskAssignee[];
+  /** Legacy output-level staff summary; not a separate task coordination group. */
   outputAssignees: LessonTaskAssignee[];
 }
 
@@ -111,7 +114,9 @@ export interface LessonOutputListItem {
   lessonName: string;
   contestUploaded: string | null;
   date: string;
+  /** Nhân sự nhận thanh toán / đứng tên output. */
   staffId: string | null;
+  /** Display name for `staffId`, not task execution staff. */
   staffDisplayName: string | null;
   status: LessonOutputStatus;
   paymentStatus: LessonPaymentStatus;
@@ -218,6 +223,7 @@ export interface CreateLessonTaskPayload {
   status?: LessonTaskStatus;
   priority?: LessonTaskPriority;
   dueDate?: string | null;
+  /** Deprecated: merged into `assigneeStaffIds` by the backend for legacy callers. */
   createdByStaffId?: string | null;
   assigneeStaffIds?: string[] | null;
 }
@@ -228,6 +234,7 @@ export interface UpdateLessonTaskPayload {
   status?: LessonTaskStatus;
   priority?: LessonTaskPriority;
   dueDate?: string | null;
+  /** Deprecated: merged into `assigneeStaffIds` by the backend for legacy callers. */
   createdByStaffId?: string | null;
   assigneeStaffIds?: string[] | null;
 }
@@ -266,6 +273,7 @@ export interface LessonOutputItem {
   date: string;
   contestUploaded: string | null;
   link: string | null;
+  /** Nhân sự nhận thanh toán / đứng tên output. */
   staffId: string | null;
   staff: LessonOutputStaff | null;
   status: LessonOutputStatus;
@@ -289,6 +297,7 @@ export interface CreateLessonOutputPayload {
   date: string;
   contestUploaded?: string | null;
   link?: string | null;
+  /** Nhân sự nhận thanh toán / đứng tên output, không phải nhóm điều phối task. */
   staffId?: string | null;
   status?: LessonOutputStatus;
 }

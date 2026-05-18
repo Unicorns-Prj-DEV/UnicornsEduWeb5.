@@ -96,6 +96,22 @@ function getErrorMessage(error: unknown, fallback: string) {
   );
 }
 
+function formatTaskAssigneeSummary(assignees: LessonTaskItem["assignees"]) {
+  if (assignees.length === 0) {
+    return "Chưa ghi nhận";
+  }
+
+  const visibleNames = assignees
+    .slice(0, 2)
+    .map((assignee) => assignee.fullName)
+    .join(", ");
+  const remainingCount = assignees.length - 2;
+
+  return remainingCount > 0
+    ? `${visibleNames} +${remainingCount}`
+    : visibleNames;
+}
+
 function EmptyState({
   title,
   description,
@@ -1284,10 +1300,9 @@ export default function AdminLessonPlansWorkspace({
                                         </p>
                                       </OverviewMetaBlock>
 
-                                      <OverviewMetaBlock label="Phụ trách">
+                                      <OverviewMetaBlock label="Nhân sự thực hiện">
                                         <p className="text-sm font-medium text-text-primary">
-                                          {task.createdByStaff?.fullName ??
-                                            "Chưa ghi nhận"}
+                                          {formatTaskAssigneeSummary(task.assignees)}
                                         </p>
                                       </OverviewMetaBlock>
                                     </div>
@@ -1385,7 +1400,7 @@ export default function AdminLessonPlansWorkspace({
                                     scope="col"
                                     className="px-4 py-3 font-medium"
                                   >
-                                    Phụ trách
+                                    Nhân sự thực hiện
                                   </th>
                                   <th
                                     scope="col"
@@ -1445,8 +1460,7 @@ export default function AdminLessonPlansWorkspace({
                                       {formatLessonDateOnly(task.dueDate)}
                                     </td>
                                     <td className="px-4 py-4 text-sm text-text-secondary">
-                                      {task.createdByStaff?.fullName ??
-                                        "Chưa ghi nhận"}
+                                      {formatTaskAssigneeSummary(task.assignees)}
                                     </td>
                                     <td
                                       className="px-4 py-4"
