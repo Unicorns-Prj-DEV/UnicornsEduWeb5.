@@ -12,6 +12,7 @@ const mockCalendar = {
     update: jest.fn(),
     delete: jest.fn(),
     get: jest.fn(),
+    list: jest.fn(),
   },
   calendarList: {
     list: jest.fn(),
@@ -150,6 +151,13 @@ describe('GoogleCalendarService', () => {
           requestBody: expect.objectContaining({
             recurrence: ['RRULE:FREQ=WEEKLY;BYDAY=TU'],
             attendees: [{ email: 'teacher@example.com' }],
+            extendedProperties: {
+              private: {
+                unicornsType: 'classSchedule',
+                unicornsClassId: 'class-123',
+                unicornsScheduleEntryId: 'entry-1',
+              },
+            },
           }),
         }),
       );
@@ -413,6 +421,7 @@ describe('GoogleCalendarService', () => {
       expect(mockCalendar.events.delete).toHaveBeenCalledWith({
         calendarId: 'test-calendar@group.calendar.google.com',
         eventId: 'event-123',
+        sendUpdates: 'none',
       });
     });
 
@@ -429,6 +438,82 @@ describe('GoogleCalendarService', () => {
       mockCalendar.events.delete.mockRejectedValue(new Error('API Error'));
 
       await expect(service.deleteCalendarEvent('event-123')).rejects.toThrow();
+    });
+  });
+
+  describe('listClassScheduleRecurringEvents', () => {
+    it('lists metadata and legacy description-backed class schedule events', async () => {
+      mockCalendar.events.list
+        .mockResolvedValueOnce({
+          data: {
+            items: [
+              {
+                id: 'metadata-event',
+                status: 'confirmed',
+                extendedProperties: {
+                  private: {
+                    unicornsType: 'classSchedule',
+                    unicornsClassId: 'class-123',
+                    unicornsScheduleEntryId: 'entry-1',
+                  },
+                },
+              },
+            ],
+          },
+        })
+        .mockResolvedValueOnce({
+          data: {
+            items: [
+              {
+                id: 'legacy-event',
+                status: 'confirmed',
+                summary: '[Class] Math 10A - Weekly',
+                description:
+                  'Class: Math 10A\nClass ID: class-123\nSchedule Entry ID: entry-legacy\nSchedule: Weekly on TU',
+              },
+              {
+                id: 'unrelated-event',
+                status: 'confirmed',
+                description: 'Class ID: other-class',
+              },
+            ],
+          },
+        });
+
+      await expect(
+        service.listClassScheduleRecurringEvents('class-123'),
+      ).resolves.toEqual([
+        {
+          eventId: 'metadata-event',
+          calendarId: 'test-calendar@group.calendar.google.com',
+          scheduleEntryId: 'entry-1',
+        },
+        {
+          eventId: 'legacy-event',
+          calendarId: 'test-calendar@group.calendar.google.com',
+          scheduleEntryId: 'entry-legacy',
+        },
+      ]);
+
+      expect(mockCalendar.events.list).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          calendarId: 'test-calendar@group.calendar.google.com',
+          privateExtendedProperty: [
+            'unicornsType=classSchedule',
+            'unicornsClassId=class-123',
+          ],
+          showDeleted: false,
+        }),
+      );
+      expect(mockCalendar.events.list).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          calendarId: 'test-calendar@group.calendar.google.com',
+          q: 'class-123',
+          showDeleted: false,
+        }),
+      );
     });
   });
 

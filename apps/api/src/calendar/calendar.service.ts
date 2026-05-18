@@ -982,18 +982,44 @@ export class CalendarService {
 
     const currentSchedule = this.getStoredClassScheduleEntries(cls.schedule);
     const entriesToDelete = oldSchedule || currentSchedule;
+    const deleteCandidates = new Map<
+      string,
+      { eventId: string; calendarId?: string }
+    >();
+
+    const addDeleteCandidate = (eventId: string, calendarId?: string) => {
+      const existing = deleteCandidates.get(eventId);
+      if (!existing || (!existing.calendarId && calendarId)) {
+        deleteCandidates.set(eventId, { eventId, calendarId });
+      }
+    };
 
     for (const entry of entriesToDelete) {
       if (entry.googleCalendarEventId) {
-        try {
-          await this.googleCalendarService.deleteCalendarEvent(
-            entry.googleCalendarEventId,
-          );
-        } catch (error) {
-          this.logger.error(
-            `[Calendar CRUD:sync] Failed to delete recurring event ${entry.googleCalendarEventId}: ${String(error)}`,
-          );
+        addDeleteCandidate(entry.googleCalendarEventId);
+      }
+    }
+
+    const discoveredEvents =
+      await this.googleCalendarService.listClassScheduleRecurringEvents(classId);
+    for (const event of discoveredEvents) {
+      addDeleteCandidate(event.eventId, event.calendarId);
+    }
+
+    for (const event of deleteCandidates.values()) {
+      try {
+        if (event.calendarId) {
+          await this.googleCalendarService.deleteCalendarEvent(event.eventId, {
+            calendarId: event.calendarId,
+          });
+        } else {
+          await this.googleCalendarService.deleteCalendarEvent(event.eventId);
         }
+      } catch (error) {
+        this.logger.error(
+          `[Calendar CRUD:sync] Failed to delete recurring event ${event.eventId}: ${String(error)}`,
+        );
+        throw error;
       }
     }
 

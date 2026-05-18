@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { DateInput } from "@/components/ui/DateInput";
 import { TimeInput } from "@/components/ui/TimeInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { ClassScheduleEvent } from "@/dtos/class-schedule.dto";
@@ -214,9 +215,8 @@ export default function MakeupEventEditorPopup({
               <label htmlFor="makeup-date" className="block text-xs font-medium text-text-secondary">
                 Ngày học
               </label>
-              <input
+              <DateInput
                 id="makeup-date"
-                type="date"
                 value={form.date}
                 onChange={(event) => setForm((prev) => ({ ...prev, date: event.target.value }))}
                 disabled={isSubmitting}

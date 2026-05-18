@@ -1381,7 +1381,7 @@ export class ClassService {
       this.logger.error(
         `[ClassService] Failed to sync schedule with Google Calendar for class ${id}: ${message}`,
       );
-      // Do not fail the schedule update if calendar sync fails
+      throw err;
     }
 
     return result;

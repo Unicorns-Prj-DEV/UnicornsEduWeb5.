@@ -8,6 +8,7 @@ import type {
   MakeupScheduleEventRecord,
 } from "@/dtos/class-schedule.dto";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
+import { DateInput } from "@/components/ui/DateInput";
 import { TimeInput } from "@/components/ui/TimeInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import ClassCard from "./ClassCard";
@@ -205,9 +206,8 @@ function MakeupEditorDialog({
               <label htmlFor="makeup-date" className="block text-xs font-medium text-text-secondary">
                 Ngày học
               </label>
-              <input
+              <DateInput
                 id="makeup-date"
-                type="date"
                 value={form.date}
                 onChange={(nextEvent) =>
                   setForm((prev) => ({ ...prev, date: nextEvent.target.value }))

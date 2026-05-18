@@ -54,6 +54,7 @@ describe('CalendarService', () => {
     deleteCalendarEvent: jest.fn(),
     createOrUpdateClassScheduleRecurringEvent: jest.fn(),
     createOrUpdateMakeupScheduleEvent: jest.fn(),
+    listClassScheduleRecurringEvents: jest.fn(),
   };
 
   let service: CalendarService;
@@ -77,6 +78,7 @@ describe('CalendarService', () => {
     mockPrisma.studentExamSchedule.findMany.mockResolvedValue([]);
     mockPrisma.staffInfo.findMany.mockResolvedValue([]);
     mockPrisma.staffInfo.count.mockResolvedValue(0);
+    googleCalendarService.listClassScheduleRecurringEvents.mockResolvedValue([]);
 
     service = new CalendarService(
       mockPrisma as never,
@@ -387,5 +389,101 @@ describe('CalendarService', () => {
         ],
       },
     });
+  });
+
+  it('deletes old and discovered recurring Google events before creating replacement schedule events', async () => {
+    mockPrisma.class.findUnique.mockResolvedValue({
+      id: 'class-1',
+      name: 'Toán 9A',
+      schedule: [
+        {
+          id: 'slot-2',
+          dayOfWeek: 3,
+          from: '18:00:00',
+          to: '19:30:00',
+          teacherId: 'teacher-1',
+        },
+      ],
+      teachers: [
+        {
+          teacherId: 'teacher-1',
+          teacher: {
+            id: 'teacher-1',
+            user: {
+              email: 'an@example.com',
+              first_name: 'An',
+              last_name: 'Nguyễn',
+            },
+          },
+        },
+      ],
+    });
+    googleCalendarService.listClassScheduleRecurringEvents.mockResolvedValue([
+      {
+        eventId: 'discovered-old-event',
+        calendarId: 'test-calendar@group.calendar.google.com',
+        scheduleEntryId: 'slot-1',
+      },
+    ]);
+    googleCalendarService.createOrUpdateClassScheduleRecurringEvent.mockResolvedValue(
+      {
+        eventId: 'new-calendar-event',
+        meetLink: 'https://meet.google.com/new-link',
+      },
+    );
+
+    await service.syncScheduleWithCalendar('class-1', [
+      {
+        id: 'slot-1',
+        dayOfWeek: 1,
+        from: '19:00:00',
+        to: '20:30:00',
+        teacherId: 'teacher-1',
+        googleCalendarEventId: 'stored-old-event',
+      },
+    ]);
+
+    expect(
+      googleCalendarService.listClassScheduleRecurringEvents,
+    ).toHaveBeenCalledWith('class-1');
+    expect(googleCalendarService.deleteCalendarEvent).toHaveBeenCalledWith(
+      'stored-old-event',
+    );
+    expect(googleCalendarService.deleteCalendarEvent).toHaveBeenCalledWith(
+      'discovered-old-event',
+      { calendarId: 'test-calendar@group.calendar.google.com' },
+    );
+    expect(
+      googleCalendarService.deleteCalendarEvent.mock.invocationCallOrder[1],
+    ).toBeLessThan(
+      googleCalendarService.createOrUpdateClassScheduleRecurringEvent.mock
+        .invocationCallOrder[0],
+    );
+  });
+
+  it('deletes discovered recurring Google events even when DB schedule metadata is missing', async () => {
+    mockPrisma.class.findUnique.mockResolvedValue({
+      id: 'class-1',
+      name: 'Toán 9A',
+      schedule: [],
+      teachers: [],
+    });
+    googleCalendarService.listClassScheduleRecurringEvents.mockResolvedValue([
+      {
+        eventId: 'orphaned-google-event',
+        calendarId: 'test-calendar@group.calendar.google.com',
+        scheduleEntryId: 'slot-legacy',
+      },
+    ]);
+
+    await service.syncScheduleWithCalendar('class-1', []);
+
+    expect(googleCalendarService.deleteCalendarEvent).toHaveBeenCalledWith(
+      'orphaned-google-event',
+      { calendarId: 'test-calendar@group.calendar.google.com' },
+    );
+    expect(
+      googleCalendarService.createOrUpdateClassScheduleRecurringEvent,
+    ).not.toHaveBeenCalled();
   });
 });

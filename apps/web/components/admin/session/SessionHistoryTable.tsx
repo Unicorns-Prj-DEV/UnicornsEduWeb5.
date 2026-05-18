@@ -33,6 +33,7 @@ import {
   SessionFormDialogHeader,
   SessionTeacherAllowanceEstimateCard,
 } from "@/components/admin/session/session-form-ui";
+import { DateInput } from "@/components/ui/DateInput";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import { TimeInput } from "@/components/ui/TimeInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
@@ -280,16 +281,16 @@ function SessionPaymentStatusPill({
   density?: "default" | "dense";
 }) {
   const densityClass =
-    density === "dense"
-      ? "px-2 py-0.5 text-[11px]"
-      : "px-2.5 py-0.5 text-xs";
+    density === "dense" ? "px-2 py-0.5 text-[11px]" : "px-2.5 py-0.5 text-xs";
 
   return (
     <span
       className={`inline-block max-w-full min-w-0 wrap-break-word rounded-full font-medium ${densityClass} ${toneClassName}`}
       title={label}
     >
-      <span className="block text-pretty text-center leading-snug">{label}</span>
+      <span className="block text-pretty text-center leading-snug">
+        {label}
+      </span>
     </span>
   );
 }
@@ -500,10 +501,11 @@ function SelectionCheckbox({
   if (appearance === "minimal") {
     return (
       <label
-        className={`inline-flex min-h-9 min-w-9 cursor-pointer items-center justify-center rounded-xl border transition-colors focus-within:ring-2 focus-within:ring-border-focus focus-within:ring-offset-2 focus-within:ring-offset-bg-surface ${checked || indeterminate
-          ? "border-primary/45 bg-primary/10"
-          : "border-border-default bg-bg-surface hover:border-primary/30 hover:bg-bg-secondary"
-          } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+        className={`inline-flex min-h-9 min-w-9 cursor-pointer items-center justify-center rounded-xl border transition-colors focus-within:ring-2 focus-within:ring-border-focus focus-within:ring-offset-2 focus-within:ring-offset-bg-surface ${
+          checked || indeterminate
+            ? "border-primary/45 bg-primary/10"
+            : "border-border-default bg-bg-surface hover:border-primary/30 hover:bg-bg-secondary"
+        } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
       >
         <input
           ref={inputRef}
@@ -515,21 +517,42 @@ function SelectionCheckbox({
           className="sr-only"
         />
         <span
-          className={`inline-flex size-5 items-center justify-center rounded-md border text-[11px] font-bold transition-colors ${checked
-            ? "border-primary bg-primary text-text-inverse"
-            : indeterminate
-              ? "border-warning/60 bg-warning/15 text-warning"
-              : "border-border-default bg-bg-surface text-transparent"
-            }`}
+          className={`inline-flex size-5 items-center justify-center rounded-md border text-[11px] font-bold transition-colors ${
+            checked
+              ? "border-primary bg-primary text-text-inverse"
+              : indeterminate
+                ? "border-warning/60 bg-warning/15 text-warning"
+                : "border-border-default bg-bg-surface text-transparent"
+          }`}
           aria-hidden
         >
           {checked ? (
-            <svg className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="m5 12 4.2 4.2L19 6.8" />
+            <svg
+              className="size-3.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.5}
+                d="m5 12 4.2 4.2L19 6.8"
+              />
             </svg>
           ) : indeterminate ? (
-            <svg className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 12h12" />
+            <svg
+              className="size-3.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.5}
+                d="M6 12h12"
+              />
             </svg>
           ) : (
             "•"
@@ -642,15 +665,13 @@ function renderCoefficientLabel(raw: unknown): string {
 function ClassDetailInfoColumn({
   session,
   entityMode,
-  hideTeacherDisplay,
   status,
 }: {
   session: SessionItem;
   entityMode: SessionEntityMode;
-  hideTeacherDisplay: boolean;
   status: { label: string; className: string };
 }) {
-  const showTeacherEntity = entityMode === "teacher" && !hideTeacherDisplay;
+  const showTeacherEntity = entityMode === "teacher";
   const showClassEntity = entityMode === "class";
   const entityLabel = showTeacherEntity
     ? session.teacher?.fullName?.trim() || "—"
@@ -836,7 +857,13 @@ export default function SessionHistoryTable({
     isError: isEditingClassDetailError,
   } = useQuery<ClassDetail>({
     queryKey: getClassDetailForEdit
-      ? (["staff-ops", "class", "detail", "session-editor", editingClassId] as const)
+      ? ([
+          "staff-ops",
+          "class",
+          "detail",
+          "session-editor",
+          editingClassId,
+        ] as const)
       : (["class", "detail", "session-edit", editingClassId] as const),
     queryFn: () => resolveClassDetailForEdit(editingClassId),
     enabled: Boolean(editingSession && editingClassId),
@@ -896,24 +923,31 @@ export default function SessionHistoryTable({
     }
 
     const paymentStatus = (session.teacherPaymentStatus ?? "").toLowerCase();
-    const isLockedSession = paymentStatus === "paid" || paymentStatus === "deposit";
+    const isLockedSession =
+      paymentStatus === "paid" || paymentStatus === "deposit";
 
     setAttendanceLoading(true);
     setAttendanceItems([]);
     const existingAttendance = session.attendance ?? [];
 
     if (isLockedSession) {
-      const items: AttendanceFormItem[] = existingAttendance.map((attendanceItem) => ({
-        studentId: attendanceItem.studentId,
-        fullName: (attendanceItem as SessionAttendanceRecordWithStudent).student?.fullName?.trim() || "—",
-        status: (attendanceItem.status ?? "absent") as SessionAttendanceStatus,
-        notes: attendanceItem.notes ?? "",
-        tuitionFee:
-          normalizeMoneyValue(attendanceItem.tuitionFee) != null
-            ? String(normalizeMoneyValue(attendanceItem.tuitionFee))
-            : "",
-        defaultTuitionFee: normalizeMoneyValue(attendanceItem.tuitionFee),
-      }));
+      const items: AttendanceFormItem[] = existingAttendance.map(
+        (attendanceItem) => ({
+          studentId: attendanceItem.studentId,
+          fullName:
+            (
+              attendanceItem as SessionAttendanceRecordWithStudent
+            ).student?.fullName?.trim() || "—",
+          status: (attendanceItem.status ??
+            "absent") as SessionAttendanceStatus,
+          notes: attendanceItem.notes ?? "",
+          tuitionFee:
+            normalizeMoneyValue(attendanceItem.tuitionFee) != null
+              ? String(normalizeMoneyValue(attendanceItem.tuitionFee))
+              : "",
+          defaultTuitionFee: normalizeMoneyValue(attendanceItem.tuitionFee),
+        }),
+      );
       setAttendanceItems(items);
       setAttendanceLoading(false);
       return;
@@ -961,12 +995,17 @@ export default function SessionHistoryTable({
               !merged.some((row) => row.studentId === attendanceItem.studentId),
           )
           .map((attendanceItem) => {
-            const student = (attendanceItem as SessionAttendanceRecordWithStudent).student;
-            const existingTuitionFee = normalizeMoneyValue(attendanceItem.tuitionFee);
+            const student = (
+              attendanceItem as SessionAttendanceRecordWithStudent
+            ).student;
+            const existingTuitionFee = normalizeMoneyValue(
+              attendanceItem.tuitionFee,
+            );
             return {
               studentId: attendanceItem.studentId,
               fullName: student?.fullName?.trim() || "—",
-              status: (attendanceItem.status ?? "absent") as SessionAttendanceStatus,
+              status: (attendanceItem.status ??
+                "absent") as SessionAttendanceStatus,
               notes: attendanceItem.notes ?? "",
               tuitionFee:
                 existingTuitionFee != null ? String(existingTuitionFee) : "",
@@ -1183,13 +1222,13 @@ export default function SessionHistoryTable({
     const attendancePayload: SessionAttendanceItem[] =
       attendanceItems.length > 0
         ? attendanceItems.map((item) => ({
-          studentId: item.studentId,
-          status: item.status,
-          notes: normalizeOptionalRichTextContent(item.notes),
-          ...(canEditAttendanceTuition && item.tuitionFee.trim() !== ""
-            ? { tuitionFee: Math.floor(Number(item.tuitionFee)) }
-            : {}),
-        }))
+            studentId: item.studentId,
+            status: item.status,
+            notes: normalizeOptionalRichTextContent(item.notes),
+            ...(canEditAttendanceTuition && item.tuitionFee.trim() !== ""
+              ? { tuitionFee: Math.floor(Number(item.tuitionFee)) }
+              : {}),
+          }))
         : [];
     const coeffNum =
       canEditCoefficient && editCoefficient.trim()
@@ -1220,9 +1259,9 @@ export default function SessionHistoryTable({
         : {}),
       ...(canEditCoefficient && validCoeff ? { coefficient: coeffNum } : {}),
       ...(canEditAllowance &&
-        allowanceNum !== undefined &&
-        Number.isFinite(allowanceNum) &&
-        allowanceNum >= 0
+      allowanceNum !== undefined &&
+      Number.isFinite(allowanceNum) &&
+      allowanceNum >= 0
         ? { allowanceAmount: allowanceNum }
         : {}),
       ...(attendancePayload.length > 0 && { attendance: attendancePayload }),
@@ -1268,11 +1307,11 @@ export default function SessionHistoryTable({
       ? (sessionTuitionTotal ?? 0)
       : attendanceItems.length > 0
         ? attendanceItems.reduce(
-          (sum, item) => sum + resolveAttendanceTuitionValue(item),
-          0,
-        )
+            (sum, item) => sum + resolveAttendanceTuitionValue(item),
+            0,
+          )
         : editingSession.tuitionFee != null ||
-          Array.isArray(editingSession.attendance)
+            Array.isArray(editingSession.attendance)
           ? resolveSessionTuitionFee(editingSession)
           : (sessionTuitionTotal ?? 0);
   const attendanceDefaultTuitionTotal = useMemo(
@@ -1330,7 +1369,9 @@ export default function SessionHistoryTable({
   const selectedTeacherId =
     editTeacherId.trim() || editingSession?.teacherId || "";
   const selectedTeacherName =
-    teachersList.find((teacher) => teacher.id === selectedTeacherId)?.fullName?.trim() ||
+    teachersList
+      .find((teacher) => teacher.id === selectedTeacherId)
+      ?.fullName?.trim() ||
     editingSession?.teacher?.fullName?.trim() ||
     (selectedTeacherId ? "Gia sư đang phụ trách" : "");
   const selectedTeacherCustomAllowance =
@@ -1356,13 +1397,17 @@ export default function SessionHistoryTable({
       fallbackTeacherAllowance ??
       editingClassDetail?.allowancePerSessionPerStudent ??
       0,
-    [fallbackTeacherAllowance, editingClassDetail?.allowancePerSessionPerStudent],
+    [
+      fallbackTeacherAllowance,
+      editingClassDetail?.allowancePerSessionPerStudent,
+    ],
   );
 
   const chargeableAttendanceCountForAllowance = useMemo(
     () =>
-      attendanceItems.filter((item) => isChargeableAttendanceStatus(item.status))
-        .length,
+      attendanceItems.filter((item) =>
+        isChargeableAttendanceStatus(item.status),
+      ).length,
     [attendanceItems],
   );
 
@@ -1422,7 +1467,9 @@ export default function SessionHistoryTable({
   const shouldWaitForClassFormula =
     Boolean(editingSession && editingClassId) && isEditingClassDetailLoading;
   const hasPreviewValidationIssue =
-    (canEditCoefficient && coefficientInput !== "" && !isCoefficientInputValid) ||
+    (canEditCoefficient &&
+      coefficientInput !== "" &&
+      !isCoefficientInputValid) ||
     (canEditAllowance && allowanceInput !== "" && !isAllowanceInputValid);
   const allowanceFormulaNote = isEditingClassDetailError
     ? "Công thức trợ cấp: không tải được cấu hình lớp để preview."
@@ -1443,7 +1490,9 @@ export default function SessionHistoryTable({
   }, [editTutorAllowanceTotal]);
   const showEditAllowanceEstimate =
     !canEditAllowance &&
-    (shouldWaitForClassFormula || !!editingClassDetail || isEditingClassDetailError);
+    (shouldWaitForClassFormula ||
+      !!editingClassDetail ||
+      isEditingClassDetailError);
   const editAllowanceEstimateError =
     editingSession && !editingClassId
       ? "Không xác định được lớp của buổi học để ước tính trợ cấp."
@@ -1465,7 +1514,8 @@ export default function SessionHistoryTable({
               type="button"
               onClick={toggleAllSessions}
               disabled={
-                pageSessionIds.length === 0 || bulkPaymentStatusMutation.isPending
+                pageSessionIds.length === 0 ||
+                bulkPaymentStatusMutation.isPending
               }
               className="touch-manipulation inline-flex min-h-10 items-center justify-center rounded-lg px-1 text-sm font-medium text-text-muted transition-colors hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -1531,18 +1581,19 @@ export default function SessionHistoryTable({
                 onKeyDown={
                   showActionsColumn
                     ? (event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        openEdit(session);
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          openEdit(session);
+                        }
                       }
-                    }
                     : undefined
                 }
-                className={`group rounded-lg border p-3 shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${showBulkPaymentStatusBar &&
+                className={`group rounded-lg border p-3 shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
+                  showBulkPaymentStatusBar &&
                   visibleSelectedSessionIds.has(session.id)
-                  ? "border-primary/35 bg-primary/5"
-                  : "border-border-default bg-bg-surface"
-                  } ${showActionsColumn ? "cursor-pointer" : ""}`}
+                    ? "border-primary/35 bg-primary/5"
+                    : "border-border-default bg-bg-surface"
+                } ${showActionsColumn ? "cursor-pointer" : ""}`}
               >
                 {isClassDetailRowLayout ? (
                   <>
@@ -1572,7 +1623,6 @@ export default function SessionHistoryTable({
                         <ClassDetailInfoColumn
                           session={session}
                           entityMode={entityMode}
-                          hideTeacherDisplay={isTeacherDisplayHidden}
                           status={status}
                         />
                       </div>
@@ -1607,126 +1657,100 @@ export default function SessionHistoryTable({
                     </div>
                   </>
                 ) : (
-                <div className="flex items-start justify-between gap-2">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
-                      Ngày học
-                    </p>
-                    <p className="text-sm font-semibold text-text-primary">
-                      {formatWeekdayLabel(session.date)} · {formatDateOnly(session.date)}
-                    </p>
-                    <p className="mt-1 text-xs font-medium uppercase tracking-wide text-text-muted">
-                      Giờ học
-                    </p>
-                    <p className="text-sm font-mono text-text-primary">
-                      {renderSessionTime(session)}
-                    </p>
-                    {shouldShowEntity && (
-                      <div className="mt-1">
-                        <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
-                          {entityLabel}
-                        </p>
-                        <p
-                          className="max-w-[200px] truncate text-sm text-text-primary"
-                          title={entityValue}
-                        >
-                          {entityValue}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                    {showBulkPaymentStatusBar ? (
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          toggleSessionSelection(session.id);
-                        }}
-                        className="inline-flex items-center justify-center"
-                        aria-label={`Chọn buổi học ${formatDateOnly(session.date)} ${renderSessionTime(session)}`}
-                      >
-                        <SelectionCheckbox
-                          checked={visibleSelectedSessionIds.has(session.id)}
-                          onChange={() => toggleSessionSelection(session.id)}
-                          disabled={bulkPaymentStatusMutation.isPending}
-                          ariaLabel={`Chọn buổi học ${formatDateOnly(session.date)} ${renderSessionTime(session)}`}
-                          appearance="minimal"
-                        />
-                      </button>
-                    ) : null}
-                    <SessionPaymentStatusPill
-                      label={status.label}
-                      toneClassName={status.className}
-                    />
-                    {isClassDetailRowLayout ? (
-                      <div className="flex flex-col items-end gap-1 text-xs text-text-muted">
-                        <div className="inline-flex items-center gap-1">
-                          <span className="text-text-muted">Σ</span>
-                          <span className="tabular-nums text-text-secondary">
-                            {renderCoefficientLabel(session.coefficient)}
-                          </span>
-                        </div>
-                        <div className="inline-flex items-center gap-1">
-                          <svg
-                            className="size-3.5 text-text-muted"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                            aria-hidden
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                        Ngày học
+                      </p>
+                      <p className="text-sm font-semibold text-text-primary">
+                        {formatWeekdayLabel(session.date)} ·{" "}
+                        {formatDateOnly(session.date)}
+                      </p>
+                      <p className="mt-1 text-xs font-medium uppercase tracking-wide text-text-muted">
+                        Giờ học
+                      </p>
+                      <p className="text-sm font-mono text-text-primary">
+                        {renderSessionTime(session)}
+                      </p>
+                      {shouldShowEntity && (
+                        <div className="mt-1">
+                          <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                            {entityLabel}
+                          </p>
+                          <p
+                            className="max-w-[200px] truncate text-sm text-text-primary"
+                            title={entityValue}
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M17 20h5v-2a4 4 0 00-4-4h-1m-6 6H2v-2a4 4 0 014-4h5m4-10a4 4 0 11-8 0 4 4 0 018 0zm6 4a3 3 0 11-6 0 3 3 0 016 0z"
-                            />
-                          </svg>
-                          <span className="tabular-nums text-text-secondary">
-                            {countPresentStudents(session)}
-                          </span>
+                            {entityValue}
+                          </p>
                         </div>
-                      </div>
-                    ) : null}
-                    {showActionsColumn && (
-                      <div className="flex items-center gap-1">
+                      )}
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      {showBulkPaymentStatusBar ? (
                         <button
                           type="button"
                           onClick={(event) => {
                             event.preventDefault();
                             event.stopPropagation();
-                            openEdit(session);
+                            toggleSessionSelection(session.id);
                           }}
-                          aria-label="Chỉnh sửa buổi học"
-                          className="rounded p-1.5 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                          className="inline-flex items-center justify-center"
+                          aria-label={`Chọn buổi học ${formatDateOnly(session.date)} ${renderSessionTime(session)}`}
                         >
-                          <svg
-                            className="size-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                            aria-hidden
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                            />
-                          </svg>
+                          <SelectionCheckbox
+                            checked={visibleSelectedSessionIds.has(session.id)}
+                            onChange={() => toggleSessionSelection(session.id)}
+                            disabled={bulkPaymentStatusMutation.isPending}
+                            ariaLabel={`Chọn buổi học ${formatDateOnly(session.date)} ${renderSessionTime(session)}`}
+                            appearance="minimal"
+                          />
                         </button>
-                        {showDeleteAction ? (
+                      ) : null}
+                      <SessionPaymentStatusPill
+                        label={status.label}
+                        toneClassName={status.className}
+                      />
+                      {isClassDetailRowLayout ? (
+                        <div className="flex flex-col items-end gap-1 text-xs text-text-muted">
+                          <div className="inline-flex items-center gap-1">
+                            <span className="text-text-muted">Σ</span>
+                            <span className="tabular-nums text-text-secondary">
+                              {renderCoefficientLabel(session.coefficient)}
+                            </span>
+                          </div>
+                          <div className="inline-flex items-center gap-1">
+                            <svg
+                              className="size-3.5 text-text-muted"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              aria-hidden
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M17 20h5v-2a4 4 0 00-4-4h-1m-6 6H2v-2a4 4 0 014-4h5m4-10a4 4 0 11-8 0 4 4 0 018 0zm6 4a3 3 0 11-6 0 3 3 0 016 0z"
+                              />
+                            </svg>
+                            <span className="tabular-nums text-text-secondary">
+                              {countPresentStudents(session)}
+                            </span>
+                          </div>
+                        </div>
+                      ) : null}
+                      {showActionsColumn && (
+                        <div className="flex items-center gap-1">
                           <button
                             type="button"
                             onClick={(event) => {
                               event.preventDefault();
                               event.stopPropagation();
-                              handleDeleteClick(session);
+                              openEdit(session);
                             }}
-                            disabled={deleteMutation.isPending}
-                            aria-label="Xóa buổi học"
-                            className="rounded p-1.5 text-text-muted transition-colors hover:bg-error/10 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50"
+                            aria-label="Chỉnh sửa buổi học"
+                            className="rounded p-1.5 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                           >
                             <svg
                               className="size-4"
@@ -1739,15 +1763,42 @@ export default function SessionHistoryTable({
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                                 strokeWidth={2}
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
                               />
                             </svg>
                           </button>
-                        ) : null}
-                      </div>
-                    )}
+                          {showDeleteAction ? (
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                handleDeleteClick(session);
+                              }}
+                              disabled={deleteMutation.isPending}
+                              aria-label="Xóa buổi học"
+                              className="rounded p-1.5 text-text-muted transition-colors hover:bg-error/10 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50"
+                            >
+                              <svg
+                                className="size-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                aria-hidden
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                            </button>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
                 )}
 
                 {isClassDetailRowLayout && (
@@ -1826,29 +1877,33 @@ export default function SessionHistoryTable({
                 sessions.map((session) => {
                   const status = renderSessionStatus(session, "payment");
                   const notesContent = session.notes?.trim();
-                  const sanitizedNotes = notesContent ? sanitizeRichTextContent(notesContent) : "";
+                  const sanitizedNotes = notesContent
+                    ? sanitizeRichTextContent(notesContent)
+                    : "";
 
                   return (
                     <tr
                       key={session.id}
                       role={showActionsColumn ? "button" : undefined}
                       tabIndex={showActionsColumn ? 0 : undefined}
-                      onClick={showActionsColumn ? () => openEdit(session) : undefined}
+                      onClick={
+                        showActionsColumn ? () => openEdit(session) : undefined
+                      }
                       onKeyDown={
                         showActionsColumn
                           ? (event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault();
-                              openEdit(session);
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                openEdit(session);
+                              }
                             }
-                          }
                           : undefined
                       }
                       className={`border-b border-border-default bg-bg-surface transition-colors ${showActionsColumn ? "cursor-pointer hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus" : "hover:bg-bg-secondary"}`}
                     >
                       {showBulkPaymentStatusBar ? (
                         <td
-                          className={`${classDetailTablePad.tdCheckbox} text-center align-top`}
+                          className={`${classDetailTablePad.tdCheckbox} text-center align-middle`}
                         >
                           <button
                             type="button"
@@ -1861,8 +1916,12 @@ export default function SessionHistoryTable({
                             aria-label={`Chọn buổi học ${formatDateOnly(session.date)} ${renderSessionTime(session)}`}
                           >
                             <SelectionCheckbox
-                              checked={visibleSelectedSessionIds.has(session.id)}
-                              onChange={() => toggleSessionSelection(session.id)}
+                              checked={visibleSelectedSessionIds.has(
+                                session.id,
+                              )}
+                              onChange={() =>
+                                toggleSessionSelection(session.id)
+                              }
                               disabled={bulkPaymentStatusMutation.isPending}
                               ariaLabel={`Chọn buổi học ${formatDateOnly(session.date)} ${renderSessionTime(session)}`}
                               appearance="minimal"
@@ -1871,7 +1930,7 @@ export default function SessionHistoryTable({
                         </td>
                       ) : null}
                       <td
-                        className={`${classDetailTablePad.td} align-top text-text-primary`}
+                        className={`${classDetailTablePad.td} align-middle text-text-primary`}
                       >
                         <ClassDetailDateTimeBlock session={session} />
                       </td>
@@ -1894,7 +1953,6 @@ export default function SessionHistoryTable({
                           <ClassDetailInfoColumn
                             session={session}
                             entityMode={entityMode}
-                            hideTeacherDisplay={isTeacherDisplayHidden}
                             status={status}
                           />
                         </div>
@@ -1947,228 +2005,210 @@ export default function SessionHistoryTable({
             </tbody>
           </table>
         ) : (
-        <table
-          className={
-            entityMode === "class"
-              ? "w-full min-w-[440px] table-fixed border-collapse text-left text-sm"
-              : "w-full min-w-[560px] border-collapse text-left text-sm"
-          }
-        >
-          <caption className="sr-only">Lịch sử buổi học</caption>
-          <colgroup>
-            {showBulkPaymentStatusBar ? <col className="w-12" /> : null}
-            {entityMode === "teacher" ? (
-              <>
-                <col className="w-[10%]" />
-                <col className="w-[24%]" />
-                <col className="w-[14%]" />
-                <col className="w-[18%]" />
-                <col className="w-[22%]" />
-                {showActionsColumn && <col className="w-[12%]" />}
-              </>
-            ) : shouldShowEntity ? (
-              <>
-                <col className="w-[16%]" />
-                <col className="w-[12%]" />
-                <col className="w-[32%]" />
-                <col className="min-w-30 w-[26%]" />
-                {showActionsColumn && <col className="w-[12%]" />}
-              </>
-            ) : (
-              <>
-                <col className="w-[25%]" />
-                <col className="w-[25%]" />
-                <col className="w-[38%]" />
-                {showActionsColumn && <col className="w-[12%]" />}
-              </>
-            )}
-          </colgroup>
-          <thead>
-            <tr className="border-b border-border-default bg-bg-secondary">
-              {showBulkPaymentStatusBar ? (
-                <th scope="col" className="px-3 py-3 text-center">
-                  <SelectionCheckbox
-                    checked={allSessionsSelected}
-                    indeterminate={hasPartialSessionSelection}
-                    onChange={toggleAllSessions}
-                    disabled={bulkPaymentStatusMutation.isPending}
-                    ariaLabel="Chọn tất cả buổi học trong bảng"
-                    appearance="minimal"
-                  />
-                </th>
-              ) : null}
-              <th
-                scope="col"
-                className="px-4 py-3 font-medium text-text-primary"
-              >
-                Ngày học
-              </th>
+          <table
+            className={
+              entityMode === "class"
+                ? "w-full min-w-[440px] table-fixed border-collapse text-left text-sm"
+                : "w-full min-w-[560px] border-collapse text-left text-sm"
+            }
+          >
+            <caption className="sr-only">Lịch sử buổi học</caption>
+            <colgroup>
+              {showBulkPaymentStatusBar ? <col className="w-12" /> : null}
               {entityMode === "teacher" ? (
+                <>
+                  <col className="w-[10%]" />
+                  <col className="w-[24%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[18%]" />
+                  <col className="w-[22%]" />
+                  {showActionsColumn && <col className="w-[12%]" />}
+                </>
+              ) : shouldShowEntity ? (
+                <>
+                  <col className="w-[16%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[32%]" />
+                  <col className="min-w-30 w-[26%]" />
+                  {showActionsColumn && <col className="w-[12%]" />}
+                </>
+              ) : (
+                <>
+                  <col className="w-[25%]" />
+                  <col className="w-[25%]" />
+                  <col className="w-[38%]" />
+                  {showActionsColumn && <col className="w-[12%]" />}
+                </>
+              )}
+            </colgroup>
+            <thead>
+              <tr className="border-b border-border-default bg-bg-secondary">
+                {showBulkPaymentStatusBar ? (
+                  <th scope="col" className="px-3 py-3 text-center">
+                    <SelectionCheckbox
+                      checked={allSessionsSelected}
+                      indeterminate={hasPartialSessionSelection}
+                      onChange={toggleAllSessions}
+                      disabled={bulkPaymentStatusMutation.isPending}
+                      ariaLabel="Chọn tất cả buổi học trong bảng"
+                      appearance="minimal"
+                    />
+                  </th>
+                ) : null}
                 <th
                   scope="col"
                   className="px-4 py-3 font-medium text-text-primary"
                 >
-                  Note
+                  Ngày học
                 </th>
-              ) : null}
-              <th
-                scope="col"
-                className="px-4 py-3 font-medium text-text-primary"
-              >
-                Giờ học
-              </th>
-              {shouldShowEntity ? (
-                <th
-                  scope="col"
-                  className="min-w-0 px-4 py-3 font-medium text-text-primary"
-                >
-                  {renderEntityHeader(entityMode)}
-                </th>
-              ) : null}
-              <th
-                scope="col"
-                className="min-w-0 max-w-40 whitespace-normal px-4 py-3 text-left font-medium leading-snug text-text-primary sm:max-w-none"
-              >
-                {statusMode === "timeline"
-                  ? "Tiến độ"
-                  : "Trạng thái thanh toán"}
-              </th>
-              {showActionsColumn ? (
-                <th
-                  scope="col"
-                  className="w-20 px-2 py-3 text-right font-medium text-text-primary"
-                  title="Thao tác"
-                >
-                  <span className="sr-only">Thao tác</span>
-                </th>
-              ) : null}
-            </tr>
-          </thead>
-          <tbody>
-            {sessions.length > 0 ? (
-              sessions.map((session) => {
-                const status = renderSessionStatus(session, statusMode);
-                const notesContent = session.notes?.trim();
-                const sanitizedNotes = notesContent
-                  ? sanitizeRichTextContent(notesContent)
-                  : "";
-                return (
-                  <tr
-                    key={session.id}
-                    role={showActionsColumn ? "button" : undefined}
-                    tabIndex={showActionsColumn ? 0 : undefined}
-                    onClick={showActionsColumn ? () => openEdit(session) : undefined}
-                    onKeyDown={
-                      showActionsColumn
-                        ? (event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault();
-                              openEdit(session);
-                            }
-                          }
-                        : undefined
-                    }
-                    className={`group border-b border-border-default transition-colors duration-200 ${showBulkPaymentStatusBar &&
-                      visibleSelectedSessionIds.has(session.id)
-                      ? "bg-primary/5 hover:bg-primary/10"
-                      : "bg-bg-surface hover:bg-bg-secondary"
-                      } ${showActionsColumn ? "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus" : ""}`}
+                {entityMode === "teacher" ? (
+                  <th
+                    scope="col"
+                    className="px-4 py-3 font-medium text-text-primary"
                   >
-                    {showBulkPaymentStatusBar ? (
-                      <td className="px-3 py-3 text-center align-middle">
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            toggleSessionSelection(session.id);
-                          }}
-                          className="inline-flex items-center justify-center"
-                          aria-label={`Chọn buổi học ${formatDateOnly(session.date)} ${renderSessionTime(session)}`}
-                        >
-                          <SelectionCheckbox
-                            checked={visibleSelectedSessionIds.has(session.id)}
-                            onChange={() => toggleSessionSelection(session.id)}
-                            disabled={bulkPaymentStatusMutation.isPending}
-                            ariaLabel={`Chọn buổi học ${formatDateOnly(session.date)} ${renderSessionTime(session)}`}
-                            appearance="minimal"
-                          />
-                        </button>
-                      </td>
-                    ) : null}
-                    <td className="px-4 py-3 text-text-primary">
-                      {formatDateOnly(session.date)}
-                    </td>
-                    {entityMode === "teacher" ? (
-                      <td className="px-4 py-3 text-text-primary">
-                        {sanitizedNotes ? (
-                          <div
-                            className="min-w-0 [&_p]:mb-1 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_strong]:font-bold [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm"
-                            dangerouslySetInnerHTML={{ __html: sanitizedNotes }}
-                          />
-                        ) : (
-                          <span className="text-text-muted">-</span>
-                        )}
-                      </td>
-                    ) : null}
-                    <td className="px-4 py-3 font-mono text-text-primary">
-                      {renderSessionTime(session)}
-                    </td>
-                    {shouldShowEntity ? (
-                      <td className="min-w-0 px-4 py-3 text-text-primary">
-                        <span
-                          className="block truncate"
-                          title={renderEntityCell(session, entityMode)}
-                        >
-                          {renderEntityCell(session, entityMode)}
-                        </span>
-                      </td>
-                    ) : null}
-                    <td className="min-w-0 px-4 py-3 align-top">
-                      <SessionPaymentStatusPill
-                        label={status.label}
-                        toneClassName={status.className}
-                      />
-                    </td>
-                    {showActionsColumn ? (
-                      <td className="px-2 py-3 text-right">
-                        <div className="inline-flex items-center justify-end gap-1">
+                    Note
+                  </th>
+                ) : null}
+                <th
+                  scope="col"
+                  className="px-4 py-3 font-medium text-text-primary"
+                >
+                  Giờ học
+                </th>
+                {shouldShowEntity ? (
+                  <th
+                    scope="col"
+                    className="min-w-0 px-4 py-3 font-medium text-text-primary"
+                  >
+                    {renderEntityHeader(entityMode)}
+                  </th>
+                ) : null}
+                <th
+                  scope="col"
+                  className="min-w-0 max-w-40 whitespace-normal px-4 py-3 text-left font-medium leading-snug text-text-primary sm:max-w-none"
+                >
+                  {statusMode === "timeline"
+                    ? "Tiến độ"
+                    : "Trạng thái thanh toán"}
+                </th>
+                {showActionsColumn ? (
+                  <th
+                    scope="col"
+                    className="w-20 px-2 py-3 text-right font-medium text-text-primary"
+                    title="Thao tác"
+                  >
+                    <span className="sr-only">Thao tác</span>
+                  </th>
+                ) : null}
+              </tr>
+            </thead>
+            <tbody>
+              {sessions.length > 0 ? (
+                sessions.map((session) => {
+                  const status = renderSessionStatus(session, statusMode);
+                  const notesContent = session.notes?.trim();
+                  const sanitizedNotes = notesContent
+                    ? sanitizeRichTextContent(notesContent)
+                    : "";
+                  return (
+                    <tr
+                      key={session.id}
+                      role={showActionsColumn ? "button" : undefined}
+                      tabIndex={showActionsColumn ? 0 : undefined}
+                      onClick={
+                        showActionsColumn ? () => openEdit(session) : undefined
+                      }
+                      onKeyDown={
+                        showActionsColumn
+                          ? (event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                openEdit(session);
+                              }
+                            }
+                          : undefined
+                      }
+                      className={`group border-b border-border-default transition-colors duration-200 ${
+                        showBulkPaymentStatusBar &&
+                        visibleSelectedSessionIds.has(session.id)
+                          ? "bg-primary/5 hover:bg-primary/10"
+                          : "bg-bg-surface hover:bg-bg-secondary"
+                      } ${showActionsColumn ? "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus" : ""}`}
+                    >
+                      {showBulkPaymentStatusBar ? (
+                        <td className="px-3 py-3 text-center align-middle">
                           <button
                             type="button"
                             onClick={(event) => {
                               event.preventDefault();
                               event.stopPropagation();
-                              openEdit(session);
+                              toggleSessionSelection(session.id);
                             }}
-                            aria-label="Chỉnh sửa buổi học"
-                            className="rounded p-1.5 text-text-muted opacity-0 transition-opacity duration-200 group-hover:opacity-100 hover:bg-bg-tertiary hover:text-primary focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                            className="inline-flex items-center justify-center"
+                            aria-label={`Chọn buổi học ${formatDateOnly(session.date)} ${renderSessionTime(session)}`}
                           >
-                            <svg
-                              className="size-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                              aria-hidden
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                              />
-                            </svg>
+                            <SelectionCheckbox
+                              checked={visibleSelectedSessionIds.has(
+                                session.id,
+                              )}
+                              onChange={() =>
+                                toggleSessionSelection(session.id)
+                              }
+                              disabled={bulkPaymentStatusMutation.isPending}
+                              ariaLabel={`Chọn buổi học ${formatDateOnly(session.date)} ${renderSessionTime(session)}`}
+                              appearance="minimal"
+                            />
                           </button>
-                          {showDeleteAction ? (
+                        </td>
+                      ) : null}
+                      <td className="px-4 py-3 text-text-primary">
+                        {formatDateOnly(session.date)}
+                      </td>
+                      {entityMode === "teacher" ? (
+                        <td className="px-4 py-3 text-text-primary">
+                          {sanitizedNotes ? (
+                            <div
+                              className="min-w-0 [&_p]:mb-1 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_strong]:font-bold [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm"
+                              dangerouslySetInnerHTML={{
+                                __html: sanitizedNotes,
+                              }}
+                            />
+                          ) : (
+                            <span className="text-text-muted">-</span>
+                          )}
+                        </td>
+                      ) : null}
+                      <td className="px-4 py-3 font-mono text-text-primary">
+                        {renderSessionTime(session)}
+                      </td>
+                      {shouldShowEntity ? (
+                        <td className="min-w-0 px-4 py-3 text-text-primary">
+                          <span
+                            className="block truncate"
+                            title={renderEntityCell(session, entityMode)}
+                          >
+                            {renderEntityCell(session, entityMode)}
+                          </span>
+                        </td>
+                      ) : null}
+                      <td className="min-w-0 px-4 py-3 align-top">
+                        <SessionPaymentStatusPill
+                          label={status.label}
+                          toneClassName={status.className}
+                        />
+                      </td>
+                      {showActionsColumn ? (
+                        <td className="px-2 py-3 text-right">
+                          <div className="inline-flex items-center justify-end gap-1">
                             <button
                               type="button"
                               onClick={(event) => {
                                 event.preventDefault();
                                 event.stopPropagation();
-                                handleDeleteClick(session);
+                                openEdit(session);
                               }}
-                              disabled={deleteMutation.isPending}
-                              aria-label="Xóa buổi học"
-                              className="rounded p-1.5 text-text-muted opacity-0 transition-opacity duration-200 group-hover:opacity-100 hover:bg-error/10 hover:text-error focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50"
+                              aria-label="Chỉnh sửa buổi học"
+                              className="rounded p-1.5 text-text-muted opacity-0 transition-opacity duration-200 group-hover:opacity-100 hover:bg-bg-tertiary hover:text-primary focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                             >
                               <svg
                                 className="size-4"
@@ -2181,33 +2221,64 @@ export default function SessionHistoryTable({
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
                                   strokeWidth={2}
-                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
                                 />
                               </svg>
                             </button>
-                          ) : null}
-                        </div>
-                      </td>
-                    ) : null}
-                  </tr>
-                );
-              })
-            ) : (
-              <tr>
-                <td
-                  colSpan={
-                    selectionColumnCount +
-                    (entityMode === "teacher" ? 5 : shouldShowEntity ? 4 : 3) +
-                    (showActionsColumn ? 1 : 0)
-                  }
-                  className="px-4 py-3 text-center text-text-muted"
-                >
-                  {emptyText}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                            {showDeleteAction ? (
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  handleDeleteClick(session);
+                                }}
+                                disabled={deleteMutation.isPending}
+                                aria-label="Xóa buổi học"
+                                className="rounded p-1.5 text-text-muted opacity-0 transition-opacity duration-200 group-hover:opacity-100 hover:bg-error/10 hover:text-error focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50"
+                              >
+                                <svg
+                                  className="size-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                  aria-hidden
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                  />
+                                </svg>
+                              </button>
+                            ) : null}
+                          </div>
+                        </td>
+                      ) : null}
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td
+                    colSpan={
+                      selectionColumnCount +
+                      (entityMode === "teacher"
+                        ? 5
+                        : shouldShowEntity
+                          ? 4
+                          : 3) +
+                      (showActionsColumn ? 1 : 0)
+                    }
+                    className="px-4 py-3 text-center text-text-muted"
+                  >
+                    {emptyText}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         )}
       </div>
 
@@ -2401,8 +2472,9 @@ export default function SessionHistoryTable({
           />
           <div className="fixed inset-0 z-50 overflow-y-auto overscroll-contain p-2 sm:p-4">
             <div
-              className={`mx-auto flex min-h-full w-full items-start py-2 sm:items-center sm:py-0 ${isWideEditor ? "max-w-[72rem]" : "max-w-3xl"
-                }`}
+              className={`mx-auto flex min-h-full w-full items-start py-2 sm:items-center sm:py-0 ${
+                isWideEditor ? "max-w-[72rem]" : "max-w-3xl"
+              }`}
             >
               <div
                 role="dialog"
@@ -2425,9 +2497,8 @@ export default function SessionHistoryTable({
                         <span>
                           Ngày học <RequiredMark />
                         </span>
-                        <input
+                        <DateInput
                           name="edit-session-date"
-                          type="date"
                           value={editDate}
                           autoComplete="off"
                           onChange={(e) => setEditDate(e.target.value)}
@@ -2450,7 +2521,10 @@ export default function SessionHistoryTable({
                               className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 font-mono text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                             />
                           </label>
-                          <span className="mb-3 hidden text-text-muted sm:inline" aria-hidden>
+                          <span
+                            className="mb-3 hidden text-text-muted sm:inline"
+                            aria-hidden
+                          >
                             →
                           </span>
                           <label className="flex min-w-[8rem] flex-1 flex-col gap-1 text-xs text-text-secondary">
@@ -2465,12 +2539,16 @@ export default function SessionHistoryTable({
                           </label>
                         </div>
                         {editDurationLabel ? (
-                          <p className="mt-1.5 text-xs text-text-muted">Thời lượng: {editDurationLabel}</p>
+                          <p className="mt-1.5 text-xs text-text-muted">
+                            Thời lượng: {editDurationLabel}
+                          </p>
                         ) : null}
                       </div>
 
                       {showTeacherInput ? (
-                        <label className={`flex flex-col gap-1.5 text-sm font-medium text-text-primary ${teacherFieldClass}`}>
+                        <label
+                          className={`flex flex-col gap-1.5 text-sm font-medium text-text-primary ${teacherFieldClass}`}
+                        >
                           <span>
                             Gia sư dạy <RequiredMark />
                           </span>
@@ -2483,15 +2561,21 @@ export default function SessionHistoryTable({
                               value: teacher.id,
                               label: teacher.fullName?.trim() || "Gia sư",
                             }))}
-                            placeholder={teachersLoading ? "Đang tải…" : "Chọn gia sư"}
+                            placeholder={
+                              teachersLoading ? "Đang tải…" : "Chọn gia sư"
+                            }
                             buttonClassName="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-left text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                           />
                         </label>
                       ) : selectedTeacherName ? (
-                        <div className={`flex flex-col gap-1.5 text-sm font-medium text-text-primary ${teacherFieldClass}`}>
+                        <div
+                          className={`flex flex-col gap-1.5 text-sm font-medium text-text-primary ${teacherFieldClass}`}
+                        >
                           <span>Gia sư dạy</span>
                           <div className="flex min-h-11 items-center rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary">
-                            <span className="truncate font-medium">{selectedTeacherName}</span>
+                            <span className="truncate font-medium">
+                              {selectedTeacherName}
+                            </span>
                           </div>
                         </div>
                       ) : null}
@@ -2533,18 +2617,23 @@ export default function SessionHistoryTable({
                                 step={0.1}
                                 value={editCoefficient}
                                 autoComplete="off"
-                                onChange={(e) => setEditCoefficient(e.target.value)}
+                                onChange={(e) =>
+                                  setEditCoefficient(e.target.value)
+                                }
                                 className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                                 placeholder="1"
                               />
                               <span className="text-xs font-normal text-text-muted">
-                                Hệ số áp dụng theo cấu hình buổi học (0,1 đến 9,9).
+                                Hệ số áp dụng theo cấu hình buổi học (0,1 đến
+                                9,9).
                               </span>
                             </label>
                           ) : null}
 
                           {canEditAllowance ? (
-                            <label className={`flex flex-col gap-1.5 text-sm font-medium text-text-primary ${allowanceFieldClass}`}>
+                            <label
+                              className={`flex flex-col gap-1.5 text-sm font-medium text-text-primary ${allowanceFieldClass}`}
+                            >
                               <span>Trợ cấp buổi (VNĐ)</span>
                               <input
                                 name="edit-session-allowance"
@@ -2552,7 +2641,9 @@ export default function SessionHistoryTable({
                                 min={0}
                                 value={editAllowanceAmount}
                                 autoComplete="off"
-                                onChange={(e) => setEditAllowanceAmount(e.target.value)}
+                                onChange={(e) =>
+                                  setEditAllowanceAmount(e.target.value)
+                                }
                                 className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                                 placeholder="Để trống = giữ nguyên"
                               />
@@ -2561,8 +2652,12 @@ export default function SessionHistoryTable({
 
                           {canEditAllowance ? (
                             <p
-                              className={`rounded-lg border border-border-default/80 bg-bg-secondary/40 px-3 py-2 text-xs ${fullWidthFieldClass} ${isEditingClassDetailError || hasPreviewValidationIssue ? "text-warning" : "text-text-muted"
-                                }`}
+                              className={`rounded-lg border border-border-default/80 bg-bg-secondary/40 px-3 py-2 text-xs ${fullWidthFieldClass} ${
+                                isEditingClassDetailError ||
+                                hasPreviewValidationIssue
+                                  ? "text-warning"
+                                  : "text-text-muted"
+                              }`}
                             >
                               {allowanceFormulaNote}
                             </p>
@@ -2579,7 +2674,9 @@ export default function SessionHistoryTable({
                         />
                       ) : null}
 
-                      <label className={`flex flex-col gap-1.5 text-sm font-medium text-text-primary ${fullWidthFieldClass}`}>
+                      <label
+                        className={`flex flex-col gap-1.5 text-sm font-medium text-text-primary ${fullWidthFieldClass}`}
+                      >
                         <span>
                           Nhận xét <RequiredMark />
                         </span>
@@ -2603,18 +2700,25 @@ export default function SessionHistoryTable({
                           </h3>
                           {canEditAttendanceTuition ? (
                             <div className="mt-3 flex flex-wrap gap-2 rounded-lg border border-border-default bg-bg-secondary/40 p-3 text-xs">
-                              <span className="text-text-muted">Học phí buổi:</span>
+                              <span className="text-text-muted">
+                                Học phí buổi:
+                              </span>
                               <span className="font-medium tabular-nums text-text-primary">
-                                Mặc định {formatCurrency(attendanceDefaultTuitionTotal)}
+                                Mặc định{" "}
+                                {formatCurrency(attendanceDefaultTuitionTotal)}
                               </span>
                               <span className="text-text-muted">·</span>
                               <span className="font-semibold tabular-nums text-primary">
-                                Đang áp dụng {formatCurrency(resolvedEditSessionTuition)}
+                                Đang áp dụng{" "}
+                                {formatCurrency(resolvedEditSessionTuition)}
                               </span>
                               {attendanceOverrideCount > 0 ? (
                                 <>
                                   <span className="text-text-muted">·</span>
-                                  <span>Điều chỉnh {attendanceOverrideCount} học sinh</span>
+                                  <span>
+                                    Điều chỉnh {attendanceOverrideCount} học
+                                    sinh
+                                  </span>
                                 </>
                               ) : null}
                             </div>
@@ -2622,9 +2726,13 @@ export default function SessionHistoryTable({
                         </div>
 
                         {attendanceLoading ? (
-                          <p className="py-6 text-center text-sm text-text-muted">Đang tải…</p>
+                          <p className="py-6 text-center text-sm text-text-muted">
+                            Đang tải…
+                          </p>
                         ) : attendanceItems.length === 0 ? (
-                          <p className="py-6 text-center text-sm text-text-muted">Lớp chưa có học sinh.</p>
+                          <p className="py-6 text-center text-sm text-text-muted">
+                            Lớp chưa có học sinh.
+                          </p>
                         ) : (
                           <>
                             <div className="space-y-3 md:hidden">
@@ -2643,7 +2751,9 @@ export default function SessionHistoryTable({
                                           Mặc định:{" "}
                                           <span className="font-medium tabular-nums text-text-primary">
                                             {item.defaultTuitionFee != null
-                                              ? formatCurrency(item.defaultTuitionFee)
+                                              ? formatCurrency(
+                                                  item.defaultTuitionFee,
+                                                )
                                               : "Chưa cấu hình"}
                                           </span>
                                         </p>
@@ -2653,7 +2763,10 @@ export default function SessionHistoryTable({
                                       namePrefix={`edit-att-${item.studentId}`}
                                       value={item.status}
                                       onChange={(next) =>
-                                        setAttendanceStatus(item.studentId, next)
+                                        setAttendanceStatus(
+                                          item.studentId,
+                                          next,
+                                        )
                                       }
                                     />
                                   </div>
@@ -2667,7 +2780,10 @@ export default function SessionHistoryTable({
                                         value={item.tuitionFee}
                                         autoComplete="off"
                                         onChange={(e) =>
-                                          setAttendanceTuitionFee(item.studentId, e.target.value)
+                                          setAttendanceTuitionFee(
+                                            item.studentId,
+                                            e.target.value,
+                                          )
                                         }
                                         className="min-h-10 w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary"
                                         placeholder={
@@ -2697,7 +2813,9 @@ export default function SessionHistoryTable({
                               <table
                                 className={`w-full border-collapse text-left text-sm ${canEditAttendanceTuition ? "min-w-[720px]" : "min-w-[520px]"}`}
                               >
-                                <caption className="sr-only">Điểm danh học sinh</caption>
+                                <caption className="sr-only">
+                                  Điểm danh học sinh
+                                </caption>
                                 <thead>
                                   <tr className="border-b border-border-default bg-bg-secondary/80">
                                     <th
@@ -2739,7 +2857,10 @@ export default function SessionHistoryTable({
                                           namePrefix={`edit-att-d-${item.studentId}`}
                                           value={item.status}
                                           onChange={(next) =>
-                                            setAttendanceStatus(item.studentId, next)
+                                            setAttendanceStatus(
+                                              item.studentId,
+                                              next,
+                                            )
                                           }
                                         />
                                       </td>
@@ -2750,7 +2871,10 @@ export default function SessionHistoryTable({
                                         <RichTextEditor
                                           value={item.notes}
                                           onChange={(html) =>
-                                            setAttendanceNotes(item.studentId, html)
+                                            setAttendanceNotes(
+                                              item.studentId,
+                                              html,
+                                            )
                                           }
                                           minHeight="min-h-[96px]"
                                           ariaLabel={`Ghi chú học sinh ${item.fullName}`}
@@ -2766,19 +2890,26 @@ export default function SessionHistoryTable({
                                               value={item.tuitionFee}
                                               autoComplete="off"
                                               onChange={(e) =>
-                                                setAttendanceTuitionFee(item.studentId, e.target.value)
+                                                setAttendanceTuitionFee(
+                                                  item.studentId,
+                                                  e.target.value,
+                                                )
                                               }
                                               className="w-full rounded-lg border border-border-default bg-bg-surface px-2.5 py-1.5 text-sm tabular-nums text-text-primary"
                                               placeholder={
                                                 item.defaultTuitionFee != null
-                                                  ? String(item.defaultTuitionFee)
+                                                  ? String(
+                                                      item.defaultTuitionFee,
+                                                    )
                                                   : "Theo học sinh"
                                               }
                                             />
                                             <p className="text-[11px] text-text-muted">
                                               Mặc định:{" "}
                                               {item.defaultTuitionFee != null
-                                                ? formatCurrency(item.defaultTuitionFee)
+                                                ? formatCurrency(
+                                                    item.defaultTuitionFee,
+                                                  )
                                                 : "—"}
                                             </p>
                                           </div>

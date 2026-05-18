@@ -45,6 +45,10 @@ export class GoogleCalendarService implements OnModuleInit {
   private readonly GOOGLE_MEET_V2_BASE_URL = 'https://meet.googleapis.com/v2';
   private readonly GOOGLE_MEET_V2_BETA_BASE_URL =
     'https://meet.googleapis.com/v2beta';
+  private readonly CLASS_SCHEDULE_EVENT_TYPE = 'classSchedule';
+  private readonly CLASS_SCHEDULE_TYPE_KEY = 'unicornsType';
+  private readonly CLASS_SCHEDULE_CLASS_ID_KEY = 'unicornsClassId';
+  private readonly CLASS_SCHEDULE_ENTRY_ID_KEY = 'unicornsScheduleEntryId';
   private readonly STUDENT_EXAM_EVENT_TYPE = 'studentExam';
   private readonly STUDENT_EXAM_TYPE_KEY = 'unicornsType';
   private readonly STUDENT_EXAM_STUDENT_ID_KEY = 'unicornsStudentId';
@@ -376,6 +380,24 @@ export class GoogleCalendarService implements OnModuleInit {
     );
   }
 
+  private isNotFoundError(error: unknown): boolean {
+    return (
+      this.getGoogleErrorStatus(error) === 404 ||
+      this.getGoogleErrorSummary(error).toLowerCase().includes('not found')
+    );
+  }
+
+  private getCalendarId(): string {
+    return this.config.calendarId || 'primary';
+  }
+
+  private getClassScheduleEntryIdFromDescription(
+    description: string | null | undefined,
+  ): string | undefined {
+    const match = description?.match(/^Schedule Entry ID:\s*(.+)$/m);
+    return match?.[1]?.trim() || undefined;
+  }
+
   private extractMeetMeetingCode(meetLink: string): string | null {
     try {
       const url = new URL(meetLink);
@@ -510,16 +532,23 @@ export class GoogleCalendarService implements OnModuleInit {
     );
   }
 
-  async deleteCalendarEvent(eventId: string): Promise<void> {
+  async deleteCalendarEvent(
+    eventId: string,
+    options?: {
+      calendarId?: string;
+    },
+  ): Promise<void> {
+    const calendarId = options?.calendarId || this.getCalendarId();
     this.logger.log(
-      `[Calendar CRUD:DELETE] Deleting Google Calendar event: eventId=${eventId}`,
+      `[Calendar CRUD:DELETE] Deleting Google Calendar event: calendarId=${calendarId}, eventId=${eventId}`,
     );
 
     try {
       await this.executeCalendarRequest(`delete event ${eventId}`, async () =>
         this.calendar!.events.delete({
-          calendarId: this.config.calendarId || 'primary',
+          calendarId,
           eventId,
+          sendUpdates: 'none',
         }),
       );
 
@@ -527,7 +556,7 @@ export class GoogleCalendarService implements OnModuleInit {
         `[Calendar CRUD:DELETE] Successfully deleted event ${eventId}`,
       );
     } catch (error: unknown) {
-      if (error instanceof Error && error.message?.includes('not found')) {
+      if (this.isNotFoundError(error)) {
         this.logger.warn(
           `[Calendar CRUD:DELETE] Event ${eventId} not found during delete, treating as success`,
         );
@@ -544,6 +573,87 @@ export class GoogleCalendarService implements OnModuleInit {
         error as Error & { errors?: unknown[] },
       );
     }
+  }
+
+  async listClassScheduleRecurringEvents(classId: string): Promise<
+    Array<{
+      eventId: string;
+      calendarId: string;
+      scheduleEntryId?: string;
+    }>
+  > {
+    const calendarId = this.getCalendarId();
+    const byEventId = new Map<
+      string,
+      {
+        eventId: string;
+        calendarId: string;
+        scheduleEntryId?: string;
+      }
+    >();
+
+    const addEvent = (event: calendar_v3.Schema$Event) => {
+      if (!event.id || event.status === 'cancelled') {
+        return;
+      }
+
+      const privateProps = event.extendedProperties?.private ?? {};
+      const metadataClassId =
+        privateProps[this.CLASS_SCHEDULE_CLASS_ID_KEY] ?? undefined;
+      const metadataEntryId =
+        privateProps[this.CLASS_SCHEDULE_ENTRY_ID_KEY] ?? undefined;
+      const legacyClassMarker = `Class ID: ${classId}`;
+      const isMetadataMatch = metadataClassId === classId;
+      const isLegacyMatch =
+        typeof event.description === 'string' &&
+        event.description.includes(legacyClassMarker);
+
+      if (!isMetadataMatch && !isLegacyMatch) {
+        return;
+      }
+
+      byEventId.set(event.id, {
+        eventId: event.id,
+        calendarId,
+        scheduleEntryId:
+          metadataEntryId ??
+          this.getClassScheduleEntryIdFromDescription(event.description),
+      });
+    };
+
+    const listEvents = async (
+      params: Omit<calendar_v3.Params$Resource$Events$List, 'calendarId'>,
+    ) => {
+      let pageToken: string | undefined;
+      do {
+        const response = await this.executeCalendarRequest(
+          `list class schedule events for class ${classId}`,
+          async () =>
+            this.calendar!.events.list({
+              calendarId,
+              showDeleted: false,
+              maxResults: 2500,
+              ...params,
+              pageToken,
+            }),
+        );
+
+        for (const event of response.data.items ?? []) {
+          addEvent(event);
+        }
+        pageToken = response.data.nextPageToken ?? undefined;
+      } while (pageToken);
+    };
+
+    await listEvents({
+      privateExtendedProperty: [
+        `${this.CLASS_SCHEDULE_TYPE_KEY}=${this.CLASS_SCHEDULE_EVENT_TYPE}`,
+        `${this.CLASS_SCHEDULE_CLASS_ID_KEY}=${classId}`,
+      ],
+    });
+    await listEvents({ q: classId });
+
+    return Array.from(byEventId.values());
   }
 
   async testConnection(): Promise<boolean> {
@@ -946,6 +1056,15 @@ export class GoogleCalendarService implements OnModuleInit {
       attendees: normalizedTeacherEmails.map((email) => ({
         email,
       })),
+      extendedProperties: {
+        private: {
+          [this.CLASS_SCHEDULE_TYPE_KEY]: this.CLASS_SCHEDULE_EVENT_TYPE,
+          [this.CLASS_SCHEDULE_CLASS_ID_KEY]: classId,
+          ...(entryId
+            ? { [this.CLASS_SCHEDULE_ENTRY_ID_KEY]: entryId }
+            : {}),
+        },
+      },
       ...(conferenceDataPayload
         ? { conferenceData: conferenceDataPayload }
         : {}),
