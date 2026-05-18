@@ -15,10 +15,10 @@ export type StaffRole =
 
 export interface CreateUserPayload {
   email: string;
-  phone: string;
+  phone?: string;
   password: string;
-  first_name: string;
-  last_name: string;
+  first_name?: string;
+  last_name?: string;
   province?: string;
   accountHandle: string;
   roleType?: UserRoleType;

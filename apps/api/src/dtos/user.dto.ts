@@ -53,7 +53,40 @@ export class CreateUserDto {
   last_name: string;
 }
 
-export class AdminCreateUserDto extends CreateUserDto {
+export class AdminCreateUserDto {
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({ example: 'StrongPass123!' })
+  @IsString()
+  @MinLength(6)
+  password: string;
+
+  @ApiProperty({ example: 'nguyenvana' })
+  @IsString()
+  accountHandle: string;
+
+  @ApiPropertyOptional({ example: '0901234567' })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @ApiPropertyOptional({ example: 'TP.HCM' })
+  @IsOptional()
+  @IsString()
+  province?: string;
+
+  @ApiPropertyOptional({ example: 'Nguyen' })
+  @IsOptional()
+  @IsString()
+  first_name?: string;
+
+  @ApiPropertyOptional({ example: 'Van A' })
+  @IsOptional()
+  @IsString()
+  last_name?: string;
+
   @ApiPropertyOptional({
     enum: UserRole,
     description:

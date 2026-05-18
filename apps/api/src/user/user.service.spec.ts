@@ -46,7 +46,7 @@ describe('UserService', () => {
   };
 
   const staffService = {
-    attachCccdImageUrls: jest.fn(async (value: unknown) => value),
+    attachCccdImageUrls: jest.fn((value: unknown) => value),
   };
 
   let service: UserService;
@@ -73,11 +73,7 @@ describe('UserService', () => {
       service.createUser(
         {
           email: 'new-user@example.com',
-          phone: '0123456789',
           password: 'secret',
-          first_name: 'New',
-          last_name: 'User',
-          province: 'Hanoi',
           accountHandle: 'new-user',
         },
         {
@@ -95,11 +91,7 @@ describe('UserService', () => {
     ).toHaveBeenCalledWith(
       {
         email: 'new-user@example.com',
-        phone: '0123456789',
         password: 'secret',
-        first_name: 'New',
-        last_name: 'User',
-        province: 'Hanoi',
         accountHandle: 'new-user',
       },
       {
