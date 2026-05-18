@@ -22,7 +22,7 @@ const TAG_GROUPS: LessonTagGroup[] = [
   {
     key: "level-0",
     label: "LEVEL 0: NỀN TẢNG",
-    toneClassName: "bg-slate-100 text-slate-600",
+    toneClassName: "bg-bg-tertiary text-text-muted",
     tags: [
       "Nhập/Xuất",
       "Input/Output",
@@ -37,7 +37,7 @@ const TAG_GROUPS: LessonTagGroup[] = [
   {
     key: "level-1",
     label: "LEVEL 1: THUẬT TOÁN CƠ BẢN",
-    toneClassName: "bg-emerald-50 text-emerald-700",
+    toneClassName: "bg-success/10 text-success",
     tags: [
       "Đệ quy",
       "Recursion",
@@ -52,7 +52,7 @@ const TAG_GROUPS: LessonTagGroup[] = [
   {
     key: "level-2",
     label: "LEVEL 2: CẤU TRÚC DỮ LIỆU",
-    toneClassName: "bg-sky-50 text-sky-700",
+    toneClassName: "bg-info/10 text-info",
     tags: [
       "Stack",
       "Queue",
@@ -67,7 +67,7 @@ const TAG_GROUPS: LessonTagGroup[] = [
   {
     key: "level-3",
     label: "LEVEL 3: NÂNG CAO",
-    toneClassName: "bg-violet-50 text-violet-700",
+    toneClassName: "bg-primary/10 text-primary",
     tags: [
       "Dynamic Programming",
       "DFS",
@@ -82,7 +82,7 @@ const TAG_GROUPS: LessonTagGroup[] = [
   {
     key: "level-4",
     label: "LEVEL 4: OLYMPIC",
-    toneClassName: "bg-amber-50 text-amber-700",
+    toneClassName: "bg-warning/10 text-warning",
     tags: [
       "Bitmask",
       "Combinatorics",
@@ -97,7 +97,7 @@ const TAG_GROUPS: LessonTagGroup[] = [
   {
     key: "level-5",
     label: "LEVEL 5: CHUYÊN SÂU",
-    toneClassName: "bg-rose-50 text-rose-700",
+    toneClassName: "bg-error/10 text-error",
     tags: [
       "2-SAT",
       "Centroid",
@@ -112,7 +112,7 @@ const TAG_GROUPS: LessonTagGroup[] = [
   {
     key: "others",
     label: "KHÁC",
-    toneClassName: "bg-slate-100 text-slate-600",
+    toneClassName: "bg-bg-tertiary text-text-muted",
     tags: [],
   },
 ];

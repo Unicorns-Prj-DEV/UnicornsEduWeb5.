@@ -7,6 +7,8 @@
 
 :root,
 [data-theme="light"] {
+  color-scheme: light;
+
   --ue-bg-primary: #FFFFFF;
   --ue-bg-secondary: #F8FAFC;
   --ue-bg-tertiary: #F1F5F9;
@@ -32,9 +34,18 @@
   --ue-warning: #F59E0B;
   --ue-error: #EF4444;
   --ue-info: #0EA5E9;
+
+  --ue-theme-preview-light-start: #FFFFFF;
+  --ue-theme-preview-light-end: #EFF6FF;
+  --ue-theme-preview-dark-start: #1F2937;
+  --ue-theme-preview-dark-end: #111827;
+  --ue-theme-preview-pink-start: #FFF7FB;
+  --ue-theme-preview-pink-end: #FCE7F3;
 }
 
 [data-theme="dark"] {
+  color-scheme: dark;
+
   --ue-bg-primary: #111827;
   --ue-bg-secondary: #1F2937;
   --ue-bg-tertiary: #273449;
@@ -64,6 +75,8 @@
 
 /* Hoa anh đào / Hana — tông hồng, điểm nhấn rose */
 [data-theme="pink"] {
+  color-scheme: light;
+
   --ue-bg-primary: #FFF5F7;
   --ue-bg-secondary: #FFE4EC;
   --ue-bg-tertiary: #FBCFE8;

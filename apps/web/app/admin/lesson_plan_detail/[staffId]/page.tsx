@@ -399,7 +399,7 @@ export default function AdminLessonPlanDetailPage() {
             </div>
 
             {selectedCount > 0 ? (
-              <section className="relative mt-5 overflow-hidden rounded-[1.35rem] border border-border-default bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92),rgba(14,165,233,0.08))] p-3 shadow-sm">
+              <section className="relative mt-5 overflow-hidden rounded-[1.35rem] border border-border-default bg-bg-surface p-3 shadow-sm">
                 <div
                   className="pointer-events-none absolute -right-10 top-0 size-28 rounded-full bg-success/10 blur-3xl"
                   aria-hidden
@@ -447,7 +447,7 @@ export default function AdminLessonPlanDetailPage() {
                       type="button"
                       onClick={openBulkEditPopup}
                       disabled={bulkStatusMutation.isPending}
-                      className="touch-manipulation inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse shadow-[0_14px_30px_-18px_rgba(37,99,235,0.55)] transition-all hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                      className="touch-manipulation inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse shadow-[0_14px_30px_-18px_color-mix(in_srgb,var(--ue-primary)_45%,transparent)] transition-all hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
                       aria-label={`Sửa trạng thái thanh toán cho ${selectedCount} lesson output đã chọn`}
                     >
                       <svg
@@ -465,7 +465,7 @@ export default function AdminLessonPlanDetailPage() {
                         />
                       </svg>
                       <span>Sửa trạng thái thanh toán</span>
-                      <span className="rounded-full bg-white/18 px-2 py-0.5 text-xs font-semibold tabular-nums">
+                      <span className="rounded-full bg-bg-surface/18 px-2 py-0.5 text-xs font-semibold tabular-nums">
                         {selectedCount}
                       </span>
                     </button>
@@ -490,7 +490,7 @@ export default function AdminLessonPlanDetailPage() {
                         key={output.id}
                         className={`rounded-[1.35rem] border p-3 shadow-sm transition-all duration-200 ${
                           isSelected
-                            ? "border-primary/35 bg-primary/5 shadow-[0_20px_36px_-26px_rgba(37,99,235,0.48)]"
+                            ? "border-primary/35 bg-primary/5 shadow-[0_20px_36px_-26px_color-mix(in_srgb,var(--ue-primary)_38%,transparent)]"
                             : "border-border-default bg-bg-surface"
                         }`}
                       >
@@ -754,7 +754,7 @@ export default function AdminLessonPlanDetailPage() {
       {bulkEditPopupOpen && selectedCount > 0 ? (
         <>
           <div
-            className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-[1px]"
+            className="fixed inset-0 z-[60] bg-bg-primary/75 backdrop-blur-[1px]"
             aria-hidden
             onClick={closeBulkEditPopup}
           />

@@ -146,11 +146,11 @@ function fieldInputClass() {
 }
 
 function selectButtonClass() {
-  return "min-h-11 rounded-xl border border-border-default bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ue-bg-surface)_96%,white),color-mix(in_srgb,var(--ue-bg-secondary)_74%,white))] px-3 py-2.5 text-sm text-text-primary shadow-sm transition-all duration-200 hover:border-primary/25 hover:bg-bg-secondary/65 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus";
+  return "min-h-11 rounded-xl border border-border-default bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ue-bg-surface)_96%,transparent),color-mix(in_srgb,var(--ue-bg-secondary)_74%,transparent))] px-3 py-2.5 text-sm text-text-primary shadow-sm transition-all duration-200 hover:border-primary/25 hover:bg-bg-secondary/65 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus";
 }
 
 function selectMenuClass() {
-  return "overflow-auto rounded-[1.2rem] border border-border-default bg-bg-surface/96 p-1.5 shadow-[0_28px_68px_-30px_rgba(15,23,42,0.5)] backdrop-blur-sm";
+  return "overflow-auto rounded-[1.2rem] border border-border-default bg-bg-surface/96 p-1.5 shadow-[0_28px_68px_-30px_color-mix(in_srgb,var(--ue-text-primary)_50%,transparent)] backdrop-blur-sm";
 }
 
 function DropdownLabel({

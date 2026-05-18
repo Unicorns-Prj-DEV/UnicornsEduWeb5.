@@ -2288,7 +2288,7 @@ export default function AdminStaffDetailPage({
       {paymentPreviewPopupOpen ? (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[1px]"
+            className="fixed inset-0 z-40 bg-bg-primary/75 backdrop-blur-[1px]"
             aria-hidden
             onClick={closePaymentPreviewPopup}
           />
@@ -2722,7 +2722,7 @@ export default function AdminStaffDetailPage({
       {addBonusPopupOpen ? (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/50"
+            className="fixed inset-0 z-40 bg-bg-primary/75"
             aria-hidden
             onClick={closeAddBonusPopup}
           />
@@ -2983,7 +2983,7 @@ export default function AdminStaffDetailPage({
       {depositPopupOpen ? (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]"
+            className="fixed inset-0 z-40 bg-bg-primary/75 backdrop-blur-[2px]"
             aria-hidden
             onClick={closeDepositPopup}
           />

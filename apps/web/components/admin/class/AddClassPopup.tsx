@@ -11,6 +11,7 @@ import * as classApi from "@/lib/apis/class.api";
 import * as staffApi from "@/lib/apis/staff.api";
 import * as studentApi from "@/lib/apis/student.api";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
+import { classKeys } from "@/lib/query-keys";
 import {
   CLASS_SCHEDULE_DAY_OPTIONS,
   compactTuitionPerSessionLine,
@@ -34,6 +35,7 @@ const EMPTY_SCHEDULE_RANGE = { dayOfWeek: 1, from: "", to: "" } as const;
 type Props = {
   open: boolean;
   onClose: () => void;
+  onCreated?: (classId: string) => void;
 };
 
 const STATUS_OPTIONS: { value: ClassStatus; label: string }[] = [
@@ -85,13 +87,13 @@ function normalizeOperatingDeductionRatePercent(value?: number): number {
   return Number((value ?? 0).toFixed(2));
 }
 
-export default function AddClassPopup({ open, onClose }: Props) {
+export default function AddClassPopup({ open, onClose, onCreated }: Props) {
   if (!open) return null;
 
-  return <AddClassDialog onClose={onClose} />;
+  return <AddClassDialog onClose={onClose} onCreated={onCreated} />;
 }
 
-function AddClassDialog({ onClose }: Omit<Props, "open">) {
+function AddClassDialog({ onClose, onCreated }: Omit<Props, "open">) {
   const queryClient = useQueryClient();
 
   const [name, setName] = useState("");
@@ -261,8 +263,10 @@ function AddClassDialog({ onClose }: Omit<Props, "open">) {
       successMessage: "Đã thêm lớp học.",
       errorMessage: "Không thể tạo lớp học.",
       action: () => classApi.createClass(payload),
-      onSuccess: async () => {
-        await queryClient.invalidateQueries({ queryKey: ["class", "list"] });
+      onSuccess: async (createdClass) => {
+        queryClient.setQueryData(classKeys.detail(createdClass.id), createdClass);
+        await queryClient.invalidateQueries({ queryKey: classKeys.lists() });
+        onCreated?.(createdClass.id);
       },
     });
   };
@@ -271,7 +275,7 @@ function AddClassDialog({ onClose }: Omit<Props, "open">) {
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/50" aria-hidden onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-bg-primary/75" aria-hidden onClick={onClose} />
       <div
         role="dialog"
         aria-modal="true"

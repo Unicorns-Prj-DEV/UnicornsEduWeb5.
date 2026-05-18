@@ -175,7 +175,7 @@ export default function CalendarView({
       <div className="flex min-h-full flex-col gap-1">
         <div className="flex items-start justify-between gap-2">
           <span className="truncate text-[11px] font-semibold">{timeLabel}</span>
-          <span className="shrink-0 rounded-full bg-black/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]">
+            <span className="shrink-0 rounded-full bg-bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]">
             {eventTypeLabel}
           </span>
         </div>

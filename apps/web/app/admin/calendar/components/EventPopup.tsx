@@ -68,7 +68,7 @@ export default function EventPopup({ event, onClose }: EventPopupProps) {
     <div className="fixed inset-0 z-[100] flex items-end justify-center p-0 sm:items-center sm:p-4">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-[1px]"
+        className="absolute inset-0 bg-bg-primary/70 backdrop-blur-[1px]"
         onClick={onClose}
         aria-hidden
       />
@@ -185,7 +185,7 @@ export default function EventPopup({ event, onClose }: EventPopupProps) {
                   href={meetLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-blue-400/40 bg-blue-500/10 px-4 py-3 text-sm font-semibold text-blue-500 transition-colors hover:bg-blue-500/20 focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+            className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-4 py-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/20 focus:outline-none focus:ring-2 focus:ring-border-focus/60"
                 >
                   <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                     <path

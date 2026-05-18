@@ -186,7 +186,7 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/50" aria-hidden onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-bg-primary/75" aria-hidden onClick={onClose} />
       <div
         role="dialog"
         aria-modal="true"
@@ -371,7 +371,7 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
                   ref={dropdownRef}
                   role="listbox"
                   className={cn(
-                    "z-[60] overflow-y-auto overscroll-contain border border-border-default bg-bg-surface py-1 shadow-[0_16px_36px_rgba(15,23,42,0.14)]",
+                    "z-[60] overflow-y-auto overscroll-contain border border-border-default bg-bg-surface py-1 shadow-[0_16px_36px_color-mix(in_srgb,var(--ue-text-primary)_14%,transparent)]",
                     dropdownRect.direction === "down" && "rounded-b-xl rounded-t-none border-t-transparent",
                     dropdownRect.direction === "up" && "rounded-t-xl rounded-b-none border-b-transparent",
                   )}

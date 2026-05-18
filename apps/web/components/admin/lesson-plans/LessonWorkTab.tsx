@@ -762,7 +762,7 @@ export default function LessonWorkTab({
 
         <div className="px-4 py-3.5 sm:px-5 sm:py-4">
           {canBulkEditPaymentStatus && selectedCount > 0 ? (
-            <section className="relative mb-4 overflow-hidden rounded-[1.2rem] border border-border-default bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92),rgba(14,165,233,0.08))] p-3 shadow-sm">
+              <section className="relative mb-4 overflow-hidden rounded-[1.2rem] border border-border-default bg-bg-surface p-3 shadow-sm">
               <div className="pointer-events-none absolute -right-10 top-0 size-24 rounded-full bg-success/10 blur-3xl" aria-hidden />
               <div className="pointer-events-none absolute bottom-0 left-8 size-20 rounded-full bg-primary/10 blur-3xl" aria-hidden />
               <div className="relative flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -800,14 +800,14 @@ export default function LessonWorkTab({
                     type="button"
                     onClick={openBulkEditPopup}
                     disabled={bulkStatusMutation.isPending}
-                    className="touch-manipulation inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse shadow-[0_14px_30px_-18px_rgba(37,99,235,0.55)] transition-all hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                  className="touch-manipulation inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse shadow-[0_14px_30px_-18px_color-mix(in_srgb,var(--ue-primary)_45%,transparent)] transition-all hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
                     aria-label={`Sửa trạng thái thanh toán cho ${selectedCount} bài đã chọn`}
                   >
                     <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                     </svg>
                     <span>Sửa trạng thái thanh toán</span>
-                    <span className="rounded-full bg-white/18 px-2 py-0.5 text-xs font-semibold tabular-nums">
+                  <span className="rounded-full bg-bg-surface/18 px-2 py-0.5 text-xs font-semibold tabular-nums">
                       {selectedCount}
                     </span>
                   </button>
@@ -1177,7 +1177,7 @@ export default function LessonWorkTab({
       {canBulkEditPaymentStatus && bulkEditPopupOpen && selectedCount > 0 ? (
         <>
           <div
-            className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-[1px]"
+            className="fixed inset-0 z-[60] bg-bg-primary/75 backdrop-blur-[1px]"
             aria-hidden
             onClick={closeBulkEditPopup}
           />

@@ -1273,7 +1273,7 @@ export default function StaffSelfDetailPage() {
       {addBonusPopupOpen ? (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/50"
+            className="fixed inset-0 z-40 bg-bg-primary/75"
             aria-hidden
             onClick={closeAddBonusPopup}
           />
@@ -1476,7 +1476,7 @@ export default function StaffSelfDetailPage() {
       {depositPopupOpen ? (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]"
+            className="fixed inset-0 z-40 bg-bg-primary/75 backdrop-blur-[2px]"
             aria-hidden
             onClick={() => setDepositPopupOpen(false)}
           />

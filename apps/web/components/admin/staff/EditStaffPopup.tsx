@@ -148,7 +148,7 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/50" aria-hidden onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-bg-primary/75" aria-hidden onClick={onClose} />
       <div
         role="dialog"
         aria-modal="true"
@@ -337,14 +337,14 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
                       className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors duration-200"
                       style={{
                         borderColor: selectedRoles.has(opt.value)
-                          ? "var(--color-primary, #6366f1)"
-                          : "var(--color-border-default, #e5e7eb)",
+                          ? "var(--ue-primary)"
+                          : "var(--ue-border-default)",
                         backgroundColor: selectedRoles.has(opt.value)
-                          ? "color-mix(in srgb, var(--color-primary, #6366f1) 15%, transparent)"
+                          ? "color-mix(in srgb, var(--ue-primary) 15%, transparent)"
                           : "transparent",
                         color: selectedRoles.has(opt.value)
-                          ? "var(--color-primary)"
-                          : "var(--color-text-secondary)",
+                          ? "var(--ue-primary)"
+                          : "var(--ue-text-secondary)",
                       }}
                     >
                       <input

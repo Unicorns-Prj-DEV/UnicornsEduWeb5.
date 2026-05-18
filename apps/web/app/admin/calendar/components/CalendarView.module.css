@@ -103,8 +103,8 @@
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: var(--ue-calendar-event-accent, rgba(255, 255, 255, 0.72));
-  box-shadow: 0 0 0 4px color-mix(in srgb, black 10%, transparent);
+  background: var(--ue-calendar-event-accent, color-mix(in srgb, var(--ue-bg-surface) 72%, transparent));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ue-text-primary) 10%, transparent);
   opacity: 0.95;
 }
 
@@ -112,7 +112,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  border: 1px var(--ue-calendar-event-sync-style, solid) color-mix(in srgb, var(--ue-calendar-event-ring, transparent) 92%, white 8%);
+  border: 1px var(--ue-calendar-event-sync-style, solid) color-mix(in srgb, var(--ue-calendar-event-ring, transparent) 92%, var(--ue-bg-surface) 8%);
   border-radius: inherit;
   pointer-events: none;
 }
@@ -120,7 +120,7 @@
 .calendarShell :global(.fc-timegrid-event.is-unsynced::before) {
   border-radius: 2px;
   width: 10px;
-  background: color-mix(in srgb, var(--ue-calendar-event-accent, white) 80%, white 20%);
+  background: color-mix(in srgb, var(--ue-calendar-event-accent, var(--ue-bg-surface)) 80%, var(--ue-bg-surface) 20%);
 }
 
 .calendarShell :global(.fc-daygrid-event) {

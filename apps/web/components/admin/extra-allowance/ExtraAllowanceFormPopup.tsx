@@ -218,7 +218,7 @@ export default function ExtraAllowanceFormPopup({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/50" aria-hidden onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-bg-primary/75" aria-hidden onClick={onClose} />
       <div
         role="dialog"
         aria-modal="true"

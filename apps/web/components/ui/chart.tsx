@@ -57,7 +57,7 @@ function ChartContainer({
         data-slot="chart"
         data-chart={chartId}
         className={cn(
-          "flex aspect-[1.6] justify-center text-xs text-text-muted [&_.recharts-cartesian-axis-tick_text]:fill-[var(--ue-text-muted)] [&_.recharts-cartesian-grid_line]:stroke-[color-mix(in_srgb,var(--ue-border-default)_70%,transparent)] [&_.recharts-layer]:outline-hidden [&_.recharts-polar-grid_[stroke='#ccc']]:stroke-[color-mix(in_srgb,var(--ue-border-default)_70%,transparent)] [&_.recharts-sector]:outline-hidden [&_.recharts-surface]:outline-hidden",
+          "flex aspect-[1.6] justify-center text-xs text-text-muted [&_.recharts-cartesian-axis-tick_text]:fill-[var(--ue-text-muted)] [&_.recharts-cartesian-grid_line]:stroke-[color-mix(in_srgb,var(--ue-border-default)_70%,transparent)] [&_.recharts-layer]:outline-hidden [&_.recharts-polar-grid_line]:stroke-[color-mix(in_srgb,var(--ue-border-default)_70%,transparent)] [&_.recharts-sector]:outline-hidden [&_.recharts-surface]:outline-hidden",
           className,
         )}
         {...props}

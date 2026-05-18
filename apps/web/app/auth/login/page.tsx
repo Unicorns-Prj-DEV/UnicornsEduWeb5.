@@ -183,7 +183,7 @@ function LoginPageContent() {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="size-4 rounded-sm border border-border-default bg-bg-surface accent-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200"
+                  className="size-4 rounded-sm border border-border-default bg-bg-surface accent-primary focus:ring-2 focus:ring-border-focus focus:ring-offset-2 transition-colors duration-200"
                 />
                 <label htmlFor="remember-me" className="select-none text-sm text-text-primary ml-2">
                   Remember me for a month

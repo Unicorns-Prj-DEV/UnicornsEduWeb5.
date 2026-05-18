@@ -55,51 +55,47 @@ type RoleTheme = {
 
 const ROLE_THEMES: Record<SupportedRoleType, RoleTheme> = {
   assistant: {
-    listGradientClassName:
-      "bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92),rgba(245,158,11,0.10))]",
+    listGradientClassName: "bg-bg-surface",
     listGlowTopClassName: "bg-warning/12",
     listGlowBottomClassName: "bg-primary/10",
     selectionBadgeClassName:
       "border-warning/15 bg-warning/8 text-warning",
     activeCardClassName:
-      "border-warning/35 bg-warning/5 shadow-[0_20px_36px_-26px_rgba(245,158,11,0.45)]",
+      "border-warning/35 bg-warning/5 shadow-[0_20px_36px_-26px_color-mix(in_srgb,var(--ue-warning)_42%,transparent)]",
     activeRowClassName:
       "border-warning/15 bg-warning/5 hover:bg-warning/8",
     popupGlowClassName: "bg-warning/10",
   },
   communication: {
-    listGradientClassName:
-      "bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92),rgba(239,68,68,0.09))]",
+    listGradientClassName: "bg-bg-surface",
     listGlowTopClassName: "bg-error/12",
     listGlowBottomClassName: "bg-primary/10",
     selectionBadgeClassName: "border-error/15 bg-error/8 text-error",
     activeCardClassName:
-      "border-error/35 bg-error/5 shadow-[0_20px_36px_-26px_rgba(239,68,68,0.40)]",
+      "border-error/35 bg-error/5 shadow-[0_20px_36px_-26px_color-mix(in_srgb,var(--ue-error)_38%,transparent)]",
     activeRowClassName:
       "border-error/15 bg-error/5 hover:bg-error/8",
     popupGlowClassName: "bg-error/10",
   },
   technical: {
-    listGradientClassName:
-      "bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92),rgba(14,165,233,0.10))]",
+    listGradientClassName: "bg-bg-surface",
     listGlowTopClassName: "bg-info/12",
     listGlowBottomClassName: "bg-primary/10",
     selectionBadgeClassName: "border-info/15 bg-info/8 text-info",
     activeCardClassName:
-      "border-info/35 bg-info/5 shadow-[0_20px_36px_-26px_rgba(14,165,233,0.40)]",
+      "border-info/35 bg-info/5 shadow-[0_20px_36px_-26px_color-mix(in_srgb,var(--ue-info)_38%,transparent)]",
     activeRowClassName:
       "border-info/15 bg-info/5 hover:bg-info/8",
     popupGlowClassName: "bg-info/10",
   },
   accountant: {
-    listGradientClassName:
-      "bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92),rgba(16,185,129,0.10))]",
+    listGradientClassName: "bg-bg-surface",
     listGlowTopClassName: "bg-success/12",
     listGlowBottomClassName: "bg-info/10",
     selectionBadgeClassName:
       "border-success/15 bg-success/8 text-success",
     activeCardClassName:
-      "border-success/35 bg-success/5 shadow-[0_20px_36px_-26px_rgba(16,185,129,0.42)]",
+      "border-success/35 bg-success/5 shadow-[0_20px_36px_-26px_color-mix(in_srgb,var(--ue-success)_40%,transparent)]",
     activeRowClassName:
       "border-success/15 bg-success/5 hover:bg-success/8",
     popupGlowClassName: "bg-success/10",
@@ -683,7 +679,7 @@ export default function ExtraAllowanceRoleDetailPage({
                       type="button"
                       onClick={openBulkEditPopup}
                       disabled={bulkStatusMutation.isPending}
-                      className="touch-manipulation inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse shadow-[0_14px_30px_-18px_rgba(37,99,235,0.55)] transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                      className="touch-manipulation inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse shadow-[0_14px_30px_-18px_color-mix(in_srgb,var(--ue-primary)_55%,transparent)] transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
                       aria-label={`Sửa trạng thái thanh toán cho ${selectedCount} khoản trợ cấp đã chọn`}
                     >
                       <svg
@@ -701,7 +697,7 @@ export default function ExtraAllowanceRoleDetailPage({
                         />
                       </svg>
                       <span>Sửa trạng thái thanh toán</span>
-                      <span className="rounded-full bg-white/18 px-2 py-0.5 text-xs font-semibold tabular-nums">
+                      <span className="rounded-full bg-text-inverse/18 px-2 py-0.5 text-xs font-semibold tabular-nums">
                         {selectedCount}
                       </span>
                     </button>
@@ -861,7 +857,7 @@ export default function ExtraAllowanceRoleDetailPage({
       {bulkEditPopupOpen && selectedCount > 0 ? (
         <>
           <div
-            className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-[1px]"
+                className="fixed inset-0 z-[60] bg-bg-primary/75 backdrop-blur-[1px]"
             aria-hidden="true"
             onClick={closeBulkEditPopup}
           />

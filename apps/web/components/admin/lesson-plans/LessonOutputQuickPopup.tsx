@@ -139,7 +139,7 @@ export default function LessonOutputQuickPopup({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/50" aria-hidden onClick={handleClose} />
+      <div className="fixed inset-0 z-40 bg-bg-primary/75" aria-hidden onClick={handleClose} />
       <div
         role="dialog"
         aria-modal="true"

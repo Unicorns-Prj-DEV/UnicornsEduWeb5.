@@ -1021,7 +1021,7 @@ export default function StaffDashboardPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 pb-6 sm:p-5">
       <div className="space-y-4">
-        <section className="overflow-hidden rounded-2xl border border-border-default bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.12),transparent_42%),linear-gradient(135deg,rgba(255,255,255,0.98),rgba(246,250,252,0.94))] p-4 shadow-sm sm:p-5">
+        <section className="overflow-hidden rounded-2xl border border-border-default bg-[radial-gradient(circle_at_top_left,color-mix(in_srgb,var(--ue-primary)_12%,transparent),transparent_42%),linear-gradient(135deg,color-mix(in_srgb,var(--ue-bg-surface)_98%,transparent),color-mix(in_srgb,var(--ue-bg-secondary)_94%,transparent))] p-4 shadow-sm sm:p-5">
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)] xl:items-start">
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/80">

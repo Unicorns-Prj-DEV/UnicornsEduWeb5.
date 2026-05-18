@@ -202,7 +202,7 @@ function AddTutorPopupContent({ open, onClose, onCreated }: Props) {
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]" aria-hidden onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-bg-primary/75 backdrop-blur-[2px]" aria-hidden onClick={onClose} />
       <div className="fixed inset-0 z-50 p-2 sm:p-4">
         <div className="mx-auto flex h-full w-full max-w-4xl items-center">
           <div
@@ -211,7 +211,7 @@ function AddTutorPopupContent({ open, onClose, onCreated }: Props) {
             aria-labelledby="add-tutor-title"
             className="flex max-h-full w-full flex-col overflow-hidden rounded-[1.75rem] border border-border-default bg-bg-surface shadow-2xl"
           >
-            <div className="relative overflow-hidden border-b border-border-default/70 bg-[linear-gradient(135deg,rgba(37,99,235,0.12),rgba(37,99,235,0.03)_45%,rgba(245,158,11,0.08))] px-4 py-4 sm:px-6">
+            <div className="relative overflow-hidden border-b border-border-default/70 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--ue-primary)_12%,transparent),color-mix(in_srgb,var(--ue-primary)_3%,transparent)_45%,color-mix(in_srgb,var(--ue-warning)_8%,transparent))] px-4 py-4 sm:px-6">
               <div className="pointer-events-none absolute -right-10 top-0 size-28 rounded-full bg-primary/10 blur-3xl" aria-hidden />
               <div className="pointer-events-none absolute bottom-0 left-10 size-24 rounded-full bg-warning/15 blur-3xl" aria-hidden />
 
@@ -321,7 +321,7 @@ function AddTutorPopupContent({ open, onClose, onCreated }: Props) {
                             onClick={() => handleSelectUser(user)}
                             disabled={!user.isEligible}
                             className={`w-full rounded-[1.4rem] border px-4 py-4 text-left transition-all duration-200 ${isSelected
-                                ? "border-primary bg-primary/5 shadow-[0_12px_32px_-20px_rgba(37,99,235,0.5)]"
+                                ? "border-primary bg-primary/5 shadow-[0_12px_32px_-20px_color-mix(in_srgb,var(--ue-primary)_50%,transparent)]"
                                 : user.isEligible
                                   ? "border-border-default bg-bg-surface hover:border-primary/35 hover:bg-bg-surface"
                                   : "border-border-default bg-bg-surface/65 opacity-75"

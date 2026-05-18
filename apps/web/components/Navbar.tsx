@@ -9,6 +9,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import UserAvatar from "@/components/ui/UserAvatar";
 import { BrandLogoLockup } from "@/components/BrandLogoLockup";
+import { SidebarThemePicker } from "@/components/shell";
 import {
   isRestrictedByEmailVerification,
   OPEN_EMAIL_VERIFICATION_MODAL_EVENT,
@@ -93,6 +94,7 @@ export function Navbar({ showHomeMenu = true }: { showHomeMenu?: boolean }) {
         )}
 
         <div className="flex items-center gap-2">
+          <SidebarThemePicker compact />
           {user.id ? (
             <>
               <Link
@@ -157,7 +159,7 @@ export function Navbar({ showHomeMenu = true }: { showHomeMenu?: boolean }) {
                 onClick={() => {
                   logoutMutation.mutate();
                 }}
-                className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-tertiary font-semibold text-text-primary ring-2 ring-border-default transition-colors duration-200 hover:cursor-pointer hover:bg-red-500 hover:text-text-inverse hover:ring-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-tertiary font-semibold text-text-primary ring-2 ring-border-default transition-colors duration-200 hover:cursor-pointer hover:bg-danger hover:text-text-inverse hover:ring-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
               >
                 <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

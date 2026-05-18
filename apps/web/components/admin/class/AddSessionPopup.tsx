@@ -509,7 +509,7 @@ export default function AddSessionPopup({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]" aria-hidden onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-bg-primary/75 backdrop-blur-[2px]" aria-hidden onClick={onClose} />
       <div className="fixed inset-0 z-50 overflow-y-auto p-2 sm:p-4">
         <div className="mx-auto flex min-h-full w-full max-w-3xl items-start py-2 sm:items-center sm:py-0">
           <div

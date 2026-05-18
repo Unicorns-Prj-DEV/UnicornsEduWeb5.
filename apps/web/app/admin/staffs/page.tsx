@@ -457,7 +457,7 @@ export default function AdminStaffPage() {
         {filterPopupOpen ? (
           <>
             <div
-              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[1px]"
+              className="fixed inset-0 z-40 bg-bg-primary/75 backdrop-blur-[1px]"
               aria-hidden
               onClick={() => {
                 setFilterPopupOpen(false);
@@ -877,7 +877,7 @@ export default function AdminStaffPage() {
       {canDeleteStaff && deleteConfirmOpen && staffToDelete ? (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[1px]"
+            className="fixed inset-0 z-40 bg-bg-primary/75 backdrop-blur-[1px]"
             aria-hidden
             onClick={closeDeleteConfirm}
           />

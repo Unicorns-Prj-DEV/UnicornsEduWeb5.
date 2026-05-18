@@ -18,8 +18,9 @@ Unicorns Edu 5.0 uses a tokenized color system built for product clarity, operat
 
 ### Runtime theme (`data-theme`)
 
-- Người dùng chọn **Sáng** (`light`), **Tối** (`dark`), **Hoa anh đào** (`pink`) qua popup trên sidebar (icon palette). Popup được **portal** ra `document.body` để không bị cắt bởi `overflow` / `transform` của sidebar. Giá trị lưu `localStorage` key `ue-app-theme` (đồng bộ với `apps/web/dtos/theme.dto.ts` → `THEME_STORAGE_KEY`).
-- `ThemeProvider` (`apps/web/context/ThemeContext.tsx`) luôn **hydrate** với `light` rồi trong `useLayoutEffect` đọc `localStorage` và áp `data-theme` + state — tránh lệch HTML server/client khi logo/ token phụ thuộc theme.
+- Người dùng chọn **Sáng** (`light`), **Tối** (`dark`), **Hoa anh đào** (`pink`) qua popup icon palette. Protected shell dùng picker trong sidebar; public/home navbar và các trang auth/verify/wallet approval dùng compact picker để mọi entry point đều đổi theme được. Popup được **portal** ra `document.body` để không bị cắt bởi `overflow` / `transform` của sidebar. Giá trị lưu `localStorage` key `ue-app-theme` (đồng bộ với `apps/web/dtos/theme.dto.ts` → `THEME_STORAGE_KEY`).
+- `ThemeProvider` (`apps/web/context/ThemeContext.tsx`) dùng `useSyncExternalStore`, áp `data-theme` trong `useLayoutEffect`, và đồng bộ giữa tab qua `storage` event. Khi storage bị clear hoặc chứa giá trị không hợp lệ, theme fallback về `light`.
+- `[data-theme]` cũng đặt `color-scheme` (`light`/`dark`) trong `apps/web/app/globals.css` để scrollbar, form controls, và native UI theo đúng theme.
 - `BrandLogo` / `BrandLogoLockup` dùng lần lượt `logo_light.png`, `logo_dark.png`, `logo_hana.png` theo theme.
 - Token CSS cho `[data-theme="pink"]` trong `apps/web/app/globals.css` dùng tông **hoa anh đào / rose** (primary rose ~`#DB2777`), khác bảng primitive “Pink-Purple” bên dưới (tài liệu tham chiếu scale); khi đổi scale primitive cần rà lại semantic pink trong `globals.css`.
 
@@ -31,7 +32,7 @@ Unicorns Edu 5.0 uses a tokenized color system built for product clarity, operat
 
 ### Scalability considerations
 
-- All new components must use semantic tokens only.
+- All new components must use semantic tokens only; avoid raw Tailwind palette classes (`bg-black/*`, `text-white`, `blue-*`, etc.) except brand-owned assets.
 - Primitive scales remain central source of truth.
 - Themes are runtime-switchable via `[data-theme]`.
 - Status colors are kept behaviorally consistent across themes to avoid cognitive drift.
@@ -258,7 +259,7 @@ Unicorns Edu 5.0 uses a tokenized color system built for product clarity, operat
 | Alerts | Status tint background | Status 800 equivalent | Status 300 equivalent | No color animation; keep stable for readability |
 | Tags | `bg-secondary` | `text-secondary` | `border-subtle` | Hover: `bg-tertiary`, selected: `primary` + `text-inverse` |
 | Tables | Header `bg-secondary`; row `bg-surface` | `text-primary` | `border-default` row separators | Row hover: `bg-secondary`; selected row: `secondary` |
-| Modals | Surface `bg-elevated`; overlay `#0F172A99` (light/pink), `#00000099` (dark) | `text-primary` | `border-default` | Primary action follows primary button tokens |
+| Modals | Surface `bg-elevated`; overlay uses semantic theme utility (`bg-bg-primary/75` + blur where needed) | `text-primary` | `border-default` | Primary action follows primary button tokens |
 
 ### 3.4 CSS Variables Version
 

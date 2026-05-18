@@ -270,7 +270,7 @@ function AssignRoleModal({
   return (
     <>
       <div
-        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[1px]"
+        className="fixed inset-0 z-40 bg-bg-primary/75 backdrop-blur-[1px]"
         aria-hidden
         onClick={onClose}
       />
@@ -798,7 +798,7 @@ export default function AdminUsersPage() {
                 onClick={handleCreatePanelToggle}
                 aria-expanded={isCreatePanelOpen}
                 aria-controls="create-user-dialog"
-                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse shadow-[0_14px_35px_-18px_rgba(37,99,235,0.7)] transition-[background-color,box-shadow] duration-200 hover:bg-primary-hover hover:shadow-[0_18px_40px_-18px_rgba(37,99,235,0.8)] focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse shadow-[0_14px_35px_-18px_color-mix(in_srgb,var(--ue-primary)_52%,transparent)] transition-[background-color,box-shadow] duration-200 hover:bg-primary-hover hover:shadow-[0_18px_40px_-18px_color-mix(in_srgb,var(--ue-primary)_60%,transparent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
               >
                 <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -835,7 +835,7 @@ export default function AdminUsersPage() {
         {isCreatePanelOpen ? (
           <>
             <div
-              className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[2px]"
+              className="fixed inset-0 z-40 bg-bg-primary/75 backdrop-blur-[2px]"
               aria-hidden
               onClick={handleCreatePanelToggle}
             />
@@ -846,7 +846,7 @@ export default function AdminUsersPage() {
                 aria-modal="true"
                 aria-labelledby="create-user-dialog-title"
                 aria-describedby="create-user-dialog-description"
-                className="w-full max-w-3xl overflow-hidden rounded-2xl border border-border-default bg-bg-surface shadow-[0_32px_80px_-40px_rgba(15,23,42,0.45)] overscroll-contain"
+                className="w-full max-w-3xl overflow-hidden rounded-2xl border border-border-default bg-bg-surface shadow-[0_32px_80px_-40px_color-mix(in_srgb,var(--ue-text-primary)_32%,transparent)] overscroll-contain"
               >
                 <form
                   onSubmit={handleCreateUserSubmit}

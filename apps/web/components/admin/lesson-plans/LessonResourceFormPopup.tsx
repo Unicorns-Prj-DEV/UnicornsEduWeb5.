@@ -144,7 +144,7 @@ function LessonResourceFormPopupContent({
   return (
     <>
       <div
-        className="fixed inset-0 z-40 bg-black/50"
+        className="fixed inset-0 z-40 bg-bg-primary/75"
         aria-hidden
         onClick={onClose}
       />
@@ -170,27 +170,27 @@ function LessonResourceFormPopupContent({
               tab Tổng quan.
             </p>
             {linkedTask ? (
-              <div className="mt-4 rounded-[1.25rem] border border-primary/15 bg-[linear-gradient(135deg,rgba(219,234,254,0.88),rgba(239,246,255,0.96))] px-4 py-3">
+              <div className="mt-4 rounded-[1.25rem] border border-primary/15 bg-primary/8 px-4 py-3">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary/75">
                   Task đích
                 </p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">
+                <p className="mt-1 text-sm font-semibold text-text-primary">
                   {linkedTask.title ?? "Task chưa đặt tên"}
                 </p>
-                <p className="mt-1 text-xs leading-5 text-slate-600">
+                <p className="mt-1 text-xs leading-5 text-text-secondary">
                   Resource tạo mới từ popup này sẽ được gắn trực tiếp vào công
                   việc đang mở.
                 </p>
               </div>
             ) : requireTaskSelection ? (
-              <div className="mt-4 rounded-[1.25rem] border border-primary/15 bg-[linear-gradient(135deg,rgba(219,234,254,0.88),rgba(239,246,255,0.96))] px-4 py-3">
+              <div className="mt-4 rounded-[1.25rem] border border-primary/15 bg-primary/8 px-4 py-3">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary/75">
                   Task đích
                 </p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">
+                <p className="mt-1 text-sm font-semibold text-text-primary">
                   {selectedTask?.title?.trim() || "Chọn task bạn đang tham gia"}
                 </p>
-                <p className="mt-1 text-xs leading-5 text-slate-600">
+                <p className="mt-1 text-xs leading-5 text-text-secondary">
                   Tài nguyên của staff giáo án thường phải được gắn vào đúng
                   task backend xác nhận bạn đang tham gia.
                 </p>
@@ -238,7 +238,7 @@ function LessonResourceFormPopupContent({
                 </div>
               </div>
             </section>
-            <section className="rounded-[1.4rem] border border-border-default bg-[linear-gradient(180deg,rgba(248,250,252,0.7),rgba(255,255,255,0.96))] p-4 shadow-sm">
+            <section className="rounded-[1.4rem] border border-border-default bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ue-bg-secondary)_70%,transparent),color-mix(in_srgb,var(--ue-bg-surface)_96%,transparent))] p-4 shadow-sm">
               <div className="h-4 w-16 animate-pulse rounded-full bg-bg-tertiary/80" />
               <div className="mt-4 h-12 animate-pulse rounded-xl bg-bg-tertiary/70" />
               <div className="mt-4 flex flex-wrap gap-2">
@@ -433,7 +433,7 @@ function LessonResourceFormPopupContent({
               </div>
             </section>
 
-            <section className="rounded-[1.4rem] border border-border-default bg-[linear-gradient(180deg,rgba(248,250,252,0.7),rgba(255,255,255,0.96))] p-4 shadow-sm">
+            <section className="rounded-[1.4rem] border border-border-default bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ue-bg-secondary)_70%,transparent),color-mix(in_srgb,var(--ue-bg-surface)_96%,transparent))] p-4 shadow-sm">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-text-muted">

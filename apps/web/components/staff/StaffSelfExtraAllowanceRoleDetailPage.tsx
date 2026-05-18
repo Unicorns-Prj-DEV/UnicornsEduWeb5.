@@ -45,26 +45,22 @@ type RoleTheme = {
 
 const ROLE_THEMES: Record<SupportedRoleType, RoleTheme> = {
   assistant: {
-    listGradientClassName:
-      "bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92),rgba(245,158,11,0.10))]",
+    listGradientClassName: "bg-bg-surface",
     listGlowTopClassName: "bg-warning/12",
     listGlowBottomClassName: "bg-primary/10",
   },
   communication: {
-    listGradientClassName:
-      "bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92),rgba(239,68,68,0.09))]",
+    listGradientClassName: "bg-bg-surface",
     listGlowTopClassName: "bg-error/12",
     listGlowBottomClassName: "bg-primary/10",
   },
   technical: {
-    listGradientClassName:
-      "bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92),rgba(14,165,233,0.10))]",
+    listGradientClassName: "bg-bg-surface",
     listGlowTopClassName: "bg-info/12",
     listGlowBottomClassName: "bg-primary/10",
   },
   accountant: {
-    listGradientClassName:
-      "bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92),rgba(16,185,129,0.10))]",
+    listGradientClassName: "bg-bg-surface",
     listGlowTopClassName: "bg-success/12",
     listGlowBottomClassName: "bg-info/10",
   },

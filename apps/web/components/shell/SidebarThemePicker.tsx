@@ -21,9 +21,12 @@ const previewLogos: Record<AppThemeId, typeof logoLight> = {
 };
 
 const previewSwatches: Record<AppThemeId, string> = {
-  light: "linear-gradient(135deg, #FFFFFF 0%, #EFF6FF 100%)",
-  dark: "linear-gradient(135deg, #1F2937 0%, #111827 100%)",
-  pink: "linear-gradient(135deg, #FFF7FB 0%, #FCE7F3 100%)",
+  light:
+    "linear-gradient(135deg,var(--ue-theme-preview-light-start),var(--ue-theme-preview-light-end))",
+  dark:
+    "linear-gradient(135deg,var(--ue-theme-preview-dark-start),var(--ue-theme-preview-dark-end))",
+  pink:
+    "linear-gradient(135deg,var(--ue-theme-preview-pink-start),var(--ue-theme-preview-pink-end))",
 };
 
 type Props = {
@@ -94,7 +97,7 @@ export function SidebarThemePicker({ compact, onMobileClose }: Props) {
             >
               <button
                 type="button"
-                className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
+                className="absolute inset-0 bg-bg-primary/75 backdrop-blur-[2px]"
                 aria-label="Đóng"
                 onClick={close}
               />
@@ -103,7 +106,7 @@ export function SidebarThemePicker({ compact, onMobileClose }: Props) {
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby={titleId}
-                className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-border-default bg-bg-surface shadow-[0_24px_64px_-24px_rgba(15,23,42,0.45)]"
+                className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-border-default bg-bg-surface shadow-[0_24px_64px_-24px_color-mix(in_srgb,var(--ue-text-primary)_32%,transparent)]"
               >
                 <div className="border-b border-border-default px-5 py-4">
                   <h2

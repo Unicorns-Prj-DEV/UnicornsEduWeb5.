@@ -521,7 +521,7 @@ export default function LessonExercisesTab({
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:gap-6">
         <aside className="shrink-0 xl:w-52">
           <nav
-            className="rounded-[1.45rem] border border-border-default bg-[linear-gradient(180deg,rgba(248,250,252,0.92),rgba(255,255,255,0.98))] p-2.5 shadow-sm"
+            className="rounded-[1.45rem] border border-border-default bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ue-bg-secondary)_92%,transparent),color-mix(in_srgb,var(--ue-bg-surface)_98%,transparent))] p-2.5 shadow-sm"
             aria-label="Lọc theo level"
           >
             <div className="px-2 pb-2">

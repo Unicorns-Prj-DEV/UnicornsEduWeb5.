@@ -11,71 +11,30 @@ export type CalendarEventPalette = {
   accent: string;
 };
 
+const themeColor = (token: string) => `var(--ue-${token})`;
+const mix = (token: string, amount: number, base = "transparent") =>
+  `color-mix(in srgb, ${themeColor(token)} ${amount}%, ${base})`;
+const calendarPalette = (
+  token: string,
+  accentToken = token,
+): CalendarEventPalette => ({
+  start: mix(token, 92, themeColor("bg-surface")),
+  end: mix(token, 82, themeColor("text-primary")),
+  text: themeColor("text-inverse"),
+  shadow: mix(token, 28),
+  ring: mix(accentToken, 72),
+  accent: mix(accentToken, 38, themeColor("bg-surface")),
+});
+
 const CLASS_EVENT_PALETTES: CalendarEventPalette[] = [
-  {
-    start: "#0F766E",
-    end: "#115E59",
-    text: "#F8FAFC",
-    shadow: "rgba(15, 118, 110, 0.26)",
-    ring: "rgba(94, 234, 212, 0.82)",
-    accent: "#99F6E4",
-  },
-  {
-    start: "#2563EB",
-    end: "#1D4ED8",
-    text: "#F8FAFC",
-    shadow: "rgba(37, 99, 235, 0.28)",
-    ring: "rgba(147, 197, 253, 0.84)",
-    accent: "#BFDBFE",
-  },
-  {
-    start: "#7C3AED",
-    end: "#6D28D9",
-    text: "#F8FAFC",
-    shadow: "rgba(124, 58, 237, 0.26)",
-    ring: "rgba(196, 181, 253, 0.82)",
-    accent: "#DDD6FE",
-  },
-  {
-    start: "#DB2777",
-    end: "#BE185D",
-    text: "#FFF1F2",
-    shadow: "rgba(219, 39, 119, 0.24)",
-    ring: "rgba(251, 207, 232, 0.86)",
-    accent: "#FBCFE8",
-  },
-  {
-    start: "#EA580C",
-    end: "#C2410C",
-    text: "#FFF7ED",
-    shadow: "rgba(234, 88, 12, 0.24)",
-    ring: "rgba(254, 215, 170, 0.84)",
-    accent: "#FED7AA",
-  },
-  {
-    start: "#4D7C0F",
-    end: "#3F6212",
-    text: "#F7FEE7",
-    shadow: "rgba(77, 124, 15, 0.24)",
-    ring: "rgba(190, 242, 100, 0.82)",
-    accent: "#D9F99D",
-  },
-  {
-    start: "#4338CA",
-    end: "#3730A3",
-    text: "#EEF2FF",
-    shadow: "rgba(67, 56, 202, 0.26)",
-    ring: "rgba(199, 210, 254, 0.84)",
-    accent: "#C7D2FE",
-  },
-  {
-    start: "#0891B2",
-    end: "#0E7490",
-    text: "#ECFEFF",
-    shadow: "rgba(8, 145, 178, 0.24)",
-    ring: "rgba(165, 243, 252, 0.82)",
-    accent: "#A5F3FC",
-  },
+  calendarPalette("primary", "border-focus"),
+  calendarPalette("info"),
+  calendarPalette("success"),
+  calendarPalette("warning"),
+  calendarPalette("error"),
+  calendarPalette("danger"),
+  calendarPalette("secondary", "primary"),
+  calendarPalette("text-secondary", "info"),
 ];
 
 const hashString = (value: string) => {
@@ -91,23 +50,9 @@ const hashString = (value: string) => {
 export const getClassEventPalette = (classId: string) =>
   CLASS_EVENT_PALETTES[hashString(classId) % CLASS_EVENT_PALETTES.length];
 
-const MAKEUP_EVENT_PALETTE: CalendarEventPalette = {
-  start: "#C2410C",
-  end: "#EA580C",
-  text: "#FFF7ED",
-  shadow: "rgba(194, 65, 12, 0.26)",
-  ring: "rgba(254, 215, 170, 0.88)",
-  accent: "#FED7AA",
-};
+const MAKEUP_EVENT_PALETTE: CalendarEventPalette = calendarPalette("warning");
 
-const EXAM_EVENT_PALETTE: CalendarEventPalette = {
-  start: "#BE123C",
-  end: "#E11D48",
-  text: "#FFF1F2",
-  shadow: "rgba(225, 29, 72, 0.24)",
-  ring: "rgba(251, 207, 232, 0.88)",
-  accent: "#FBCFE8",
-};
+const EXAM_EVENT_PALETTE: CalendarEventPalette = calendarPalette("error");
 
 export const getCalendarEventPalette = (
   event: Pick<ClassScheduleEvent, "eventType" | "classId">,

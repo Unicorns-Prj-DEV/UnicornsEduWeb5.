@@ -498,7 +498,7 @@ export default function AdminCostsPage() {
                   type="button"
                   onClick={openBulkEditPopup}
                   disabled={bulkStatusMutation.isPending}
-                  className="touch-manipulation inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse shadow-[0_14px_30px_-18px_rgba(37,99,235,0.55)] transition-all hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                  className="touch-manipulation inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse shadow-[0_14px_30px_-18px_color-mix(in_srgb,var(--ue-primary)_55%,transparent)] transition-all hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
                   aria-label={`Sửa trạng thái thanh toán cho ${totalSelectedCount} khoản chi đã chọn`}
                 >
                   <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -510,7 +510,7 @@ export default function AdminCostsPage() {
                     />
                   </svg>
                   <span>Sửa trạng thái thanh toán</span>
-                  <span className="rounded-full bg-white/18 px-2 py-0.5 text-xs font-semibold tabular-nums">
+                  <span className="rounded-full bg-text-inverse/18 px-2 py-0.5 text-xs font-semibold tabular-nums">
                     {totalSelectedCount}
                   </span>
                 </button>
@@ -545,7 +545,7 @@ export default function AdminCostsPage() {
                     role="button"
                     tabIndex={0}
                     className={`rounded-xl border p-3 shadow-sm transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${visibleSelectedCostIds.has(row.id)
-                      ? "border-primary/35 bg-primary/5 shadow-[0_20px_36px_-26px_rgba(37,99,235,0.48)]"
+                        ? "border-primary/35 bg-primary/5 shadow-[0_20px_36px_-26px_color-mix(in_srgb,var(--ue-primary)_48%,transparent)]"
                       : "border-border-default bg-bg-surface hover:-translate-y-0.5 hover:bg-bg-secondary/90"
                       }`}
                     onClick={() => handleOpenEditPopup(row)}
@@ -758,7 +758,7 @@ export default function AdminCostsPage() {
       {bulkEditPopupOpen ? (
         <>
           <div
-            className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-[1px]"
+            className="fixed inset-0 z-[60] bg-bg-primary/75 backdrop-blur-[1px]"
             aria-hidden
             onClick={closeBulkEditPopup}
           />
@@ -869,7 +869,7 @@ export default function AdminCostsPage() {
       {canDeleteCost && deleteConfirmOpen && costToDelete ? (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[1px]"
+            className="fixed inset-0 z-40 bg-bg-primary/75 backdrop-blur-[1px]"
             aria-hidden
             onClick={closeDeleteConfirm}
           />

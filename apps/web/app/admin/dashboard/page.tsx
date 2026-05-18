@@ -222,7 +222,7 @@ function FinancialDetailModal({
   return (
     <>
       <div
-        className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]"
+        className="fixed inset-0 z-40 bg-bg-primary/75 backdrop-blur-[2px]"
         aria-hidden
         onClick={onClose}
       />
@@ -274,7 +274,7 @@ function FinancialDetailModal({
                 </Alert>
               ) : detail ? (
                 <div className="space-y-4">
-                  <section className="rounded-2xl border border-primary/15 bg-[linear-gradient(135deg,rgba(37,99,235,0.10),rgba(255,255,255,0.96))] p-4">
+                  <section className="rounded-2xl border border-primary/15 bg-primary/8 p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/80">
                       Tổng hợp
                     </p>
@@ -475,7 +475,7 @@ function AssistantDashboardRedirect({
   return (
     <div className="min-h-full bg-bg-primary p-4 sm:p-6">
       <div className="mx-auto w-full max-w-[1020px]">
-        <section className="overflow-hidden rounded-[1.75rem] border border-primary/20 bg-[radial-gradient(circle_at_top_left,rgba(18,86,104,0.12),transparent_42%),linear-gradient(135deg,rgba(255,255,255,0.98),rgba(246,250,252,0.94))] shadow-sm">
+        <section className="overflow-hidden rounded-[1.75rem] border border-primary/20 bg-bg-surface shadow-sm">
           <div className="grid gap-6 px-5 py-6 sm:px-7 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)] lg:items-end">
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-primary/80">
@@ -1032,7 +1032,7 @@ export default function AdminDashboardTabPage() {
                     <div className="mt-1">
                       {renderFinancialValue(
                         row,
-                        "text-right text-base font-semibold tabular-nums text-blue-600 underline-offset-2 transition-colors hover:text-blue-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus",
+                        "text-right text-base font-semibold tabular-nums text-primary underline-offset-2 transition-colors hover:text-primary-hover hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus",
                       )}
                     </div>
                   </div>
@@ -1057,13 +1057,13 @@ export default function AdminDashboardTabPage() {
               </TableCaption>
               <TableHeader>
                 <TableRow className="border-border-default hover:bg-transparent">
-                  <TableHead className="h-auto min-w-[200px] py-3.5 pl-5 text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 sm:pl-6">
+                  <TableHead className="h-auto min-w-[200px] py-3.5 pl-5 text-left text-xs font-semibold uppercase tracking-[0.14em] text-text-muted sm:pl-6">
                     Danh mục
                   </TableHead>
-                  <TableHead className="h-auto min-w-[140px] py-3.5 text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  <TableHead className="h-auto min-w-[140px] py-3.5 text-left text-xs font-semibold uppercase tracking-[0.14em] text-text-muted">
                     Giá trị
                   </TableHead>
-                  <TableHead className="h-auto min-w-[260px] py-3.5 pr-5 text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 sm:pr-6">
+                  <TableHead className="h-auto min-w-[260px] py-3.5 pr-5 text-left text-xs font-semibold uppercase tracking-[0.14em] text-text-muted sm:pr-6">
                     Ghi chú
                   </TableHead>
                 </TableRow>
@@ -1080,7 +1080,7 @@ export default function AdminDashboardTabPage() {
                     <TableCell className="py-4 align-top">
                       {renderFinancialValue(
                         row,
-                        "text-left text-sm font-semibold tabular-nums text-blue-600 underline-offset-2 transition-colors hover:text-blue-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus",
+                          "text-left text-sm font-semibold tabular-nums text-primary underline-offset-2 transition-colors hover:text-primary-hover hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus",
                       )}
                     </TableCell>
                     <TableCell className="whitespace-normal py-4 pr-5 align-top text-sm leading-relaxed text-text-muted sm:pr-6">
@@ -1138,7 +1138,7 @@ export default function AdminDashboardTabPage() {
                   onValueChange={setYear}
                   options={yearOptions}
                   buttonClassName="min-h-9 rounded-md border border-border-default bg-bg-surface px-2.5 py-2 text-sm text-text-primary shadow-none transition-colors duration-200 hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  menuClassName="overflow-auto rounded-xl border border-border-default bg-bg-surface p-1 shadow-[0_18px_40px_-24px_rgba(15,23,42,0.35)]"
+          menuClassName="overflow-auto rounded-xl border border-border-default bg-bg-surface p-1 shadow-[0_18px_40px_-24px_color-mix(in_srgb,var(--ue-text-primary)_24%,transparent)]"
                 />
               </div>
             </div>

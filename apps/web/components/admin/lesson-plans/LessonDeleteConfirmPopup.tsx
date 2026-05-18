@@ -24,7 +24,7 @@ export default function LessonDeleteConfirmPopup({
   return (
     <>
       <div
-        className="fixed inset-0 z-40 bg-black/50"
+        className="fixed inset-0 z-40 bg-bg-primary/75"
         aria-hidden
         onClick={onClose}
       />
@@ -77,7 +77,7 @@ export default function LessonDeleteConfirmPopup({
             type="button"
             onClick={() => void onConfirm()}
             disabled={isSubmitting}
-            className="rounded-xl bg-error px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-error/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60"
+          className="rounded-xl bg-error px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-error/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60"
           >
             {isSubmitting ? "Đang xử lý…" : confirmLabel}
           </button>

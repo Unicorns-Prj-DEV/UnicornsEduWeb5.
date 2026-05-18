@@ -769,7 +769,7 @@ export function LessonTaskDetailPage({
                 </div>
 
                 {canManageTask && attachResourceOpen ? (
-                  <div className="mt-4 rounded-[1.5rem] border border-border-default bg-[linear-gradient(135deg,rgba(239,246,255,0.95),rgba(255,255,255,0.98))] p-4 shadow-sm">
+                    <div className="mt-4 rounded-[1.5rem] border border-border-default bg-bg-surface p-4 shadow-sm">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                       <div className="max-w-2xl">
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-text-muted">
@@ -852,8 +852,8 @@ export function LessonTaskDetailPage({
                                     </p>
                                     <span
                                       className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${resource.lessonTaskId
-                                        ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
-                                        : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                                        ? "bg-warning/10 text-warning ring-1 ring-warning/25"
+                                        : "bg-success/10 text-success ring-1 ring-success/25"
                                         }`}
                                     >
                                       {relationLabel}
@@ -930,7 +930,7 @@ export function LessonTaskDetailPage({
                                   detachResourceMutation.isPending ||
                                   updateResourceMutation.isPending
                                 }
-                                className="inline-flex min-h-11 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60 sm:shrink-0"
+                                className="inline-flex min-h-11 items-center justify-center rounded-xl border border-warning/25 bg-warning/10 px-4 py-2 text-sm font-medium text-warning transition-colors hover:bg-warning/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60 sm:shrink-0"
                               >
                                 {detachResourceMutation.isPending &&
                                   detachResourceMutation.variables === resource.id

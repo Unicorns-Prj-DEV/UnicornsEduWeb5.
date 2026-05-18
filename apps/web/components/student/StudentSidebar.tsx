@@ -189,7 +189,7 @@ export default function StudentSidebar() {
 
       <button
         type="button"
-        className={`fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 ${mobileOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"} md:hidden`}
+        className={`fixed inset-0 z-40 bg-bg-primary/70 transition-opacity duration-300 ${mobileOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"} md:hidden`}
         onClick={() => setMobileOpen(false)}
         aria-label="Đóng menu"
       />
@@ -314,7 +314,7 @@ export default function StudentSidebar() {
             <button
               type="button"
               onClick={() => logoutMutation.mutate()}
-              className="sidebar-item flex size-10 shrink-0 items-center justify-center rounded-full text-text-muted transition-colors duration-200 hover:bg-red-500 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary"
+              className="sidebar-item flex size-10 shrink-0 items-center justify-center rounded-full text-text-muted transition-colors duration-200 hover:bg-danger hover:text-text-inverse focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary"
               aria-label="Đăng xuất"
               title="Đăng xuất"
             >

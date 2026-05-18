@@ -131,7 +131,7 @@ export default function CccdImageUploadFields({
             }}
             className="block w-full text-left disabled:cursor-default"
           >
-            <div className="relative aspect-[1.55] overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.16),transparent_48%),linear-gradient(180deg,rgba(15,23,42,0.04),rgba(15,23,42,0.01))]">
+            <div className="relative aspect-[1.55] overflow-hidden bg-bg-secondary">
               {currentUrl ? (
                 <Image
                   src={currentUrl}
@@ -148,8 +148,8 @@ export default function CccdImageUploadFields({
               )}
 
               {currentUrl ? (
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent px-3 py-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/85">
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-bg-primary/85 to-bg-primary/0 px-3 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-primary">
                     {image ? "Preview mới chọn" : "Ảnh đã lưu"}
                   </p>
                 </div>
@@ -221,7 +221,7 @@ export default function CccdImageUploadFields({
 
       {dialogPreview ? (
         <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-3 backdrop-blur-[2px]"
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-bg-primary/75 p-3 backdrop-blur-[2px]"
           role="dialog"
           aria-modal="true"
           aria-label={`Xem ${dialogPreview.label}`}
@@ -231,13 +231,13 @@ export default function CccdImageUploadFields({
           }}
         >
           <div
-            className="w-full max-w-4xl overflow-hidden rounded-[1.4rem] border border-white/10 bg-slate-950 shadow-2xl"
+            className="w-full max-w-4xl overflow-hidden rounded-[1.4rem] border border-border-default bg-bg-elevated shadow-2xl"
             role="presentation"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3 text-white">
+            <div className="flex items-center justify-between gap-3 border-b border-border-default px-4 py-3 text-text-primary">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/65">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-text-muted">
                   CCCD Preview
                 </p>
                 <h3 className="mt-1 text-sm font-semibold">{dialogPreview.label}</h3>
@@ -248,28 +248,28 @@ export default function CccdImageUploadFields({
                   href={dialogPreview.src}
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-lg border border-white/15 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+                  className="rounded-lg border border-border-default px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 >
                   Mở tab mới
                 </a>
                 <button
                   type="button"
                   onClick={() => setDialogPreview(null)}
-                  className="rounded-lg border border-white/15 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+                  className="rounded-lg border border-border-default px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 >
                   Đóng
                 </button>
               </div>
             </div>
 
-            <div className="max-h-[78vh] overflow-auto bg-[linear-gradient(180deg,#020617,#111827)] p-3">
+            <div className="max-h-[78vh] overflow-auto bg-[linear-gradient(180deg,var(--ue-bg-primary),var(--ue-bg-secondary))] p-3">
               <Image
                 src={dialogPreview.src}
                 alt={dialogPreview.label}
                 width={1600}
                 height={1200}
                 unoptimized
-                className="mx-auto h-auto max-w-full rounded-[1rem] border border-white/10 bg-white object-contain"
+                className="mx-auto h-auto max-w-full rounded-[1rem] border border-border-default bg-bg-surface object-contain"
               />
             </div>
           </div>

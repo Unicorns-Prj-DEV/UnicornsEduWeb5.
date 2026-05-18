@@ -266,7 +266,7 @@ export function SidebarNotificationTray({
               <>
                 <button
                   type="button"
-                  className="fixed inset-0 z-[98] bg-black/45"
+          className="fixed inset-0 z-[98] bg-bg-primary/75"
                   aria-label="Đóng cảnh báo thông báo chưa đọc"
                   onClick={closeUnreadWarning}
                 />

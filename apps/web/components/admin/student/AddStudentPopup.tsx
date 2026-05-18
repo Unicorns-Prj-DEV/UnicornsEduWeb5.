@@ -201,7 +201,7 @@ export default function AddStudentPopup({ open, onClose, onCreated }: Props) {
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]" aria-hidden onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-bg-primary/75 backdrop-blur-[2px]" aria-hidden onClick={onClose} />
       <div className="fixed inset-0 z-50 p-2 sm:p-4">
         <div className="mx-auto flex h-full w-full max-w-5xl items-center">
           <div
@@ -210,7 +210,7 @@ export default function AddStudentPopup({ open, onClose, onCreated }: Props) {
             aria-labelledby="add-student-title"
             className="flex max-h-full w-full flex-col overflow-hidden rounded-[1.75rem] border border-border-default bg-bg-surface shadow-2xl"
           >
-            <div className="relative overflow-hidden border-b border-border-default/70 bg-[linear-gradient(135deg,rgba(22,163,74,0.12),rgba(15,118,110,0.05)_45%,rgba(37,99,235,0.12))] px-4 py-4 sm:px-6">
+            <div className="relative overflow-hidden border-b border-border-default/70 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--ue-success)_12%,transparent),color-mix(in_srgb,var(--ue-info)_5%,transparent)_45%,color-mix(in_srgb,var(--ue-primary)_12%,transparent))] px-4 py-4 sm:px-6">
               <div className="pointer-events-none absolute -right-8 top-0 size-28 rounded-full bg-success/10 blur-3xl" aria-hidden />
               <div className="pointer-events-none absolute bottom-0 left-10 size-24 rounded-full bg-primary/10 blur-3xl" aria-hidden />
 
@@ -321,7 +321,7 @@ export default function AddStudentPopup({ open, onClose, onCreated }: Props) {
                             disabled={!user.isEligible}
                             className={`w-full rounded-[1.4rem] border px-4 py-4 text-left transition-all duration-200 ${
                               isSelected
-                                ? "border-success bg-success/5 shadow-[0_12px_32px_-20px_rgba(22,163,74,0.5)]"
+                                ? "border-success bg-success/5 shadow-[0_12px_32px_-20px_color-mix(in_srgb,var(--ue-success)_50%,transparent)]"
                                 : user.isEligible
                                   ? "border-border-default bg-bg-surface hover:border-success/35 hover:bg-bg-surface"
                                   : "border-border-default bg-bg-surface/65 opacity-75"

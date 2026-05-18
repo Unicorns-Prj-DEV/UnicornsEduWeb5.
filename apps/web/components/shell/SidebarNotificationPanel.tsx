@@ -66,7 +66,7 @@ export function SidebarNotificationPanel({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: reduceMotion ? 0 : 0.2 }}
-            className="fixed inset-0 z-[100] bg-black/45 sm:bg-black/35"
+            className="fixed inset-0 z-[100] bg-bg-primary/75 sm:bg-bg-primary/65"
             aria-label="Đóng thông báo"
             onClick={onClose}
           />
@@ -119,7 +119,7 @@ export function SidebarNotificationPanel({
               >
                 Mới
                 {newCount > 0 ? (
-                  <span className="rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-semibold text-white">
+                  <span className="rounded-full bg-danger px-2 py-0.5 text-[11px] font-semibold text-text-inverse">
                     {newCount > 99 ? "99+" : newCount}
                   </span>
                 ) : null}

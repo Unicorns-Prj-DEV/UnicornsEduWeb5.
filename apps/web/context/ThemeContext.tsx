@@ -41,6 +41,10 @@ export function applyThemeToDocument(theme: AppThemeId) {
   document.documentElement.setAttribute("data-theme", theme);
 }
 
+export function resolveThemeFromStoredValue(value: string | null): AppThemeId {
+  return value && isAppThemeId(value) ? value : DEFAULT_THEME;
+}
+
 function getThemeSnapshot(): AppThemeId {
   return memoryTheme ?? readStoredTheme() ?? DEFAULT_THEME;
 }
@@ -48,17 +52,22 @@ function getThemeSnapshot(): AppThemeId {
 function subscribeThemeChange(onStoreChange: () => void) {
   if (typeof window === "undefined") return () => {};
 
-  const handleChange = () => {
+  const handleThemeChange = () => {
     memoryTheme = readStoredTheme() ?? memoryTheme ?? DEFAULT_THEME;
     onStoreChange();
   };
+  const handleStorageChange = (event: StorageEvent) => {
+    if (event.key !== null && event.key !== THEME_STORAGE_KEY) return;
+    memoryTheme = resolveThemeFromStoredValue(event.newValue);
+    onStoreChange();
+  };
 
-  window.addEventListener("storage", handleChange);
-  window.addEventListener(THEME_CHANGE_EVENT, handleChange);
+  window.addEventListener("storage", handleStorageChange);
+  window.addEventListener(THEME_CHANGE_EVENT, handleThemeChange);
 
   return () => {
-    window.removeEventListener("storage", handleChange);
-    window.removeEventListener(THEME_CHANGE_EVENT, handleChange);
+    window.removeEventListener("storage", handleStorageChange);
+    window.removeEventListener(THEME_CHANGE_EVENT, handleThemeChange);
   };
 }
 

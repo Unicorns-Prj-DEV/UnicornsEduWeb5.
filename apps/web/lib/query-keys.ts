@@ -64,3 +64,11 @@ export const actionHistoryKeys = {
   list: (filters?: Record<string, unknown>) =>
     [...actionHistoryKeys.all, "list", createStableFilterKey(filters)] as const,
 };
+
+export const classKeys = {
+  all: ["class"] as const,
+  lists: () => [...classKeys.all, "list"] as const,
+  list: (filters?: Record<string, unknown>) =>
+    [...classKeys.lists(), createStableFilterKey(filters)] as const,
+  detail: (id: string) => [...classKeys.all, "detail", id] as const,
+};

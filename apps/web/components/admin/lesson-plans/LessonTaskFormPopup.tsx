@@ -214,7 +214,7 @@ function LessonTaskFormPopupContent({
   return (
     <>
       <div
-        className="fixed inset-0 z-40 bg-black/50"
+        className="fixed inset-0 z-40 bg-bg-primary/75"
         aria-hidden
         onClick={onClose}
       />
@@ -369,7 +369,7 @@ function LessonTaskFormPopupContent({
                 </div>
               </section>
 
-              <section className="rounded-[1.5rem] border border-border-default bg-[linear-gradient(135deg,rgba(239,246,255,0.88),rgba(255,255,255,0.98))] p-4 shadow-sm">
+              <section className="rounded-[1.5rem] border border-border-default bg-bg-surface p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-text-primary">
@@ -543,7 +543,7 @@ function LessonTaskFormPopupContent({
                             }
                             className={`rounded-xl px-3 py-2 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
                               isAssignee
-                                ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+                                ? "border border-success/25 bg-success/10 text-success"
                                 : "border border-border-default bg-bg-surface text-text-primary hover:bg-bg-tertiary"
                             }`}
                           >

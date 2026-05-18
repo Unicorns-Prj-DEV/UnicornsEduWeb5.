@@ -261,7 +261,7 @@ export default function StaffCalendarFilterBar({
                 <div
                   id={listboxId}
                   role="listbox"
-                  className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-xl border border-border-default bg-bg-surface py-1 shadow-[0_18px_40px_rgba(15,23,42,0.14)]"
+                  className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-xl border border-border-default bg-bg-surface py-1 shadow-[0_18px_40px_color-mix(in_srgb,var(--ue-text-primary)_14%,transparent)]"
                 >
                   {isFetching ? (
                     <p className="px-3 py-2 text-sm text-text-muted" aria-live="polite">

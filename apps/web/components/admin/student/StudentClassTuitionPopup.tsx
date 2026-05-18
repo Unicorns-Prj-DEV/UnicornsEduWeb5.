@@ -119,7 +119,7 @@ function StudentClassTuitionPopupContent({
   return (
     <>
       <div
-        className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]"
+        className="fixed inset-0 z-40 bg-bg-primary/75 backdrop-blur-[2px]"
         aria-hidden
         onClick={onClose}
       />

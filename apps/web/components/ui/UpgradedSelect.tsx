@@ -265,7 +265,7 @@ export default function UpgradedSelect({
 
   const menuClasses =
     menuClassName ??
-    "overflow-auto rounded-2xl border border-border-default bg-bg-surface/95 p-1 shadow-[0_24px_60px_-28px_rgba(15,23,42,0.45)] backdrop-blur-sm";
+    "overflow-auto rounded-2xl border border-border-default bg-bg-surface/95 p-1 shadow-[0_24px_60px_-28px_color-mix(in_srgb,var(--ue-text-primary)_45%,transparent)] backdrop-blur-sm";
 
   return (
     <>

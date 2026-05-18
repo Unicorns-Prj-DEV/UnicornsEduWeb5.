@@ -390,7 +390,7 @@ export default function AdminStudentsPage() {
         {filterPopupOpen ? (
           <>
             <div
-              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[1px]"
+              className="fixed inset-0 z-40 bg-bg-primary/75 backdrop-blur-[1px]"
               aria-hidden
               onClick={() => {
                 setFilterPopupOpen(false);
@@ -814,7 +814,7 @@ export default function AdminStudentsPage() {
       {deleteConfirmOpen && studentToDelete && (
         <>
           <div
-            className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-[1px]"
+            className="fixed inset-0 z-[60] bg-bg-primary/75 backdrop-blur-[1px]"
             aria-hidden
             onClick={closeDeleteConfirm}
           />

@@ -45,6 +45,7 @@ import {
   invalidateActionHistoryScopedQueries,
   invalidateNotificationFeedScopedQueries,
 } from "@/lib/query-invalidation";
+import { SidebarThemePicker } from "@/components/shell";
 
 const defaultUser: UserInfoDto = createGuestUser();
 
@@ -111,7 +112,7 @@ function EmailVerificationAccessModal() {
   const hasEmail = currentEmail.length > 0;
 
   return (
-    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 px-4">
+      <div className="fixed inset-0 z-100 flex items-center justify-center bg-bg-primary/75 px-4">
       <div className="w-full max-w-md rounded-2xl border border-border-default bg-bg-surface p-5 shadow-xl">
         <h2 className="text-lg font-semibold text-text-primary">
           Vui lòng xác minh email
@@ -381,6 +382,22 @@ function AuthPasswordSetupGate() {
   return null;
 }
 
+function PublicThemePickerBridge() {
+  const pathname = usePathname();
+  const shouldShow =
+    pathname.startsWith("/auth") ||
+    pathname === "/verify-email" ||
+    pathname === "/wallet-direct-topup-approval";
+
+  if (!shouldShow) return null;
+
+  return (
+    <div className="fixed right-4 top-4 z-[80]">
+      <SidebarThemePicker compact />
+    </div>
+  );
+}
+
 export function Providers({
   children,
   initialUser,
@@ -400,6 +417,7 @@ export function Providers({
           <DirectTopUpApprovalModal />
           <AuthPasswordSetupGate />
           <EmailVerificationAccessModal />
+          <PublicThemePickerBridge />
           {children}
           <Toaster richColors position="top-right" />
         </AuthProvider>

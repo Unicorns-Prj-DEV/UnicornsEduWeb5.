@@ -44,7 +44,7 @@ export function NotificationFeedDetailModal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: reduceMotion ? 0 : 0.2 }}
-            className="fixed inset-0 z-[120] bg-black/50"
+        className="fixed inset-0 z-[120] bg-bg-primary/75"
             aria-label="Đóng chi tiết thông báo"
             onClick={onClose}
           />

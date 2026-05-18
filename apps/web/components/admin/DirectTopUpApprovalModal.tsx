@@ -239,7 +239,7 @@ export function DirectTopUpApprovalModal() {
     <>
       <button
         type="button"
-        className="fixed inset-0 z-[130] bg-black/50"
+        className="fixed inset-0 z-[130] bg-bg-primary/75"
         aria-label="Đóng popup duyệt nạp ví"
         onClick={close}
       />

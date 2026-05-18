@@ -328,7 +328,7 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[1px]" aria-hidden onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-bg-primary/75 backdrop-blur-[1px]" aria-hidden onClick={onClose} />
       <div
         role="dialog"
         aria-modal="true"

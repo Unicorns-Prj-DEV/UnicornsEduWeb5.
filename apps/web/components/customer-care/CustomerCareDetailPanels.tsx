@@ -100,8 +100,8 @@ function statusDotClass(status: StudentStatus | null): string {
 
 function paymentStatusChipClass(status: CustomerCarePaymentStatus): string {
   return status === "paid"
-    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-    : "border-amber-200 bg-amber-50 text-amber-700";
+    ? "border-success/25 bg-success/10 text-success"
+    : "border-warning/25 bg-warning/10 text-warning";
 }
 
 function recentTopUpTextClass(meetsThreshold: boolean): string {
@@ -447,7 +447,7 @@ export default function CustomerCareDetailPanels({
     <AnimatePresence>
       {paymentHistoryStudent ? (
         <motion.div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 px-3 py-4 sm:items-center sm:p-6"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-bg-primary/75 px-3 py-4 sm:items-center sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-labelledby="payment-history-title"
