@@ -6,6 +6,7 @@ import { useDebounce } from "use-debounce";
 import { toast } from "sonner";
 import * as staffApi from "@/lib/apis/staff.api";
 import { ROLE_LABELS } from "@/lib/staff.constants";
+import { MonthInput } from "@/components/ui/MonthInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type {
   ExtraAllowanceBaseFields,
@@ -417,10 +418,9 @@ export default function ExtraAllowanceFormPopup({
 
             <label className="flex flex-col gap-1 text-sm text-text-secondary">
               <span>Tháng</span>
-              <input
+              <MonthInput
                 name="extra_allowance_month"
                 autoComplete="off"
-                type="month"
                 value={month}
                 onChange={(event) => setMonth(event.target.value)}
                 className="min-h-11 rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"

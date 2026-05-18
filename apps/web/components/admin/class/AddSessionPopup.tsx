@@ -24,6 +24,7 @@ import {
   SessionFormDialogHeader,
   SessionTeacherAllowanceEstimateCard,
 } from "@/components/admin/session/session-form-ui";
+import { DateInput } from "@/components/ui/DateInput";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import { TimeInput } from "@/components/ui/TimeInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
@@ -534,9 +535,8 @@ export default function AddSessionPopup({
                       <span>
                         Ngày học <RequiredMark />
                       </span>
-                      <input
+                      <DateInput
                         name="add-session-date"
-                        type="date"
                         value={date}
                         autoComplete="off"
                         onChange={(event) => setDate(event.target.value)}

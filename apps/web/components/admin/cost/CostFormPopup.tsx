@@ -3,6 +3,7 @@
 import { useState, type SyntheticEvent } from "react";
 import { toast } from "sonner";
 import { COST_STATUS_OPTIONS } from "@/components/admin/cost/costStatusPresentation";
+import { DateInput } from "@/components/ui/DateInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type { CostBaseFields, CostStatus, CostUpsertMode } from "@/dtos/cost.dto";
 
@@ -156,8 +157,7 @@ export default function CostFormPopup({
 
             <label className="flex flex-col gap-1 text-sm text-text-secondary">
               <span>Ngày</span>
-              <input
-                type="date"
+              <DateInput
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"

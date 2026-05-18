@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
+import { DateInput } from "@/components/ui/DateInput";
 import { createClientId } from "@/lib/client-id";
 import type { StudentExamItem } from "./StudentExamCard";
 
@@ -166,8 +167,7 @@ export default function StudentExamSchedulePopup({
                       <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
                         Ngày thi
                       </span>
-                      <input
-                        type="date"
+                      <DateInput
                         value={item.examDate}
                         onChange={(event) =>
                           onItemsChange(

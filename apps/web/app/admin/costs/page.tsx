@@ -84,8 +84,9 @@ export default function AdminCostsPage() {
     retry: false,
     staleTime: 60_000,
   });
-  const { isAccountant } = resolveAdminShellAccess(fullProfile);
-  const canCreateCost = !isAccountant;
+  const { isAdmin, isAssistant, isAccountant } =
+    resolveAdminShellAccess(fullProfile);
+  const canCreateCost = isAdmin || isAssistant || isAccountant;
   const canDeleteCost = !isAccountant;
 
   useEffect(() => {
@@ -329,7 +330,7 @@ export default function AdminCostsPage() {
   const handleSubmitCost = async (payload: CostFormSubmitPayload) => {
     if (popupMode === "create") {
       if (!canCreateCost) {
-        toast.error("Role kế toán không có quyền tạo khoản chi mới.");
+        toast.error("Bạn không có quyền tạo khoản chi mới.");
         return;
       }
 

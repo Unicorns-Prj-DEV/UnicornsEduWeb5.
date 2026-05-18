@@ -3,6 +3,7 @@
 import { type UIEvent, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { DateInput } from "@/components/ui/DateInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type {
   ActionHistoryActionType,
@@ -692,8 +693,7 @@ function HistoryFilterCard({
             <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
               Từ ngày
             </span>
-            <input
-              type="date"
+            <DateInput
               name="startDate"
               autoComplete="off"
               value={startDate}
@@ -707,8 +707,7 @@ function HistoryFilterCard({
             <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
               Đến ngày
             </span>
-            <input
-              type="date"
+            <DateInput
               name="endDate"
               autoComplete="off"
               value={endDate}

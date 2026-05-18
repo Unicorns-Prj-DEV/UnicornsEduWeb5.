@@ -4,22 +4,20 @@ import { type ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 import { openNativeInputPicker } from "./nativeInputPicker";
 
-export type TimeInputProps = Omit<ComponentProps<"input">, "type">;
+export type MonthInputProps = Omit<ComponentProps<"input">, "type">;
 
-export function TimeInput({
+export function MonthInput({
   className,
-  step = 1,
   disabled,
   readOnly,
   onClick,
   ref,
   ...props
-}: TimeInputProps) {
+}: MonthInputProps) {
   return (
     <input
       ref={ref}
-      type="time"
-      step={step}
+      type="month"
       disabled={disabled}
       readOnly={readOnly}
       onClick={(event) => {

@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { DateInput } from "@/components/ui/DateInput";
 import { Skeleton } from "@/components/ui/skeleton";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -916,9 +917,8 @@ export default function AdminDashboardTabPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="flex items-center gap-2">
                     <label htmlFor="dateFrom" className="text-xs text-text-muted whitespace-nowrap">Từ ngày</label>
-                    <input
+                    <DateInput
                       id="dateFrom"
-                      type="date"
                       value={dateFrom}
                       max={dateTo}
                       onChange={(e) => setDateFrom(e.target.value)}
@@ -927,9 +927,8 @@ export default function AdminDashboardTabPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <label htmlFor="dateTo" className="text-xs text-text-muted whitespace-nowrap">Đến ngày</label>
-                    <input
+                    <DateInput
                       id="dateTo"
-                      type="date"
                       value={dateTo}
                       min={dateFrom}
                       onChange={(e) => setDateTo(e.target.value)}

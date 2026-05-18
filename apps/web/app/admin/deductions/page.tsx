@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { DateInput } from "@/components/ui/DateInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type {
   RoleTaxDeductionRate,
@@ -248,8 +249,7 @@ export default function AdminDeductionsPage() {
             </div>
             <label className="flex flex-col gap-1 text-sm text-text-secondary sm:w-56">
               <span>Hiệu lực tại ngày</span>
-              <input
-                type="date"
+              <DateInput
                 value={asOfDate}
                 onChange={(event) => setAsOfDate(event.target.value || today)}
                 className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
@@ -321,8 +321,7 @@ export default function AdminDeductionsPage() {
               </label>
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
                 <span>Hiệu lực từ ngày</span>
-                <input
-                  type="date"
+                <DateInput
                   value={roleDefaultForm.effectiveFrom}
                   onChange={(event) =>
                     setRoleDefaultForm((prev) => ({

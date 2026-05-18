@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import UpgradedSelect, {
   type UpgradedSelectOption,
 } from "@/components/ui/UpgradedSelect";
+import { DateInput } from "@/components/ui/DateInput";
 import EmailVerificationInline from "@/components/user-profile/EmailVerificationInline";
 import UserAvatar from "@/components/ui/UserAvatar";
 import CccdImageUploadFields from "@/components/staff/CccdImageUploadFields";
@@ -283,17 +284,30 @@ function TextField({
       <label htmlFor={id} className={labelClassName}>
         {label}
       </label>
-      <input
-        id={id}
-        name={name}
-        type={type}
-        className={inputClassName}
-        defaultValue={defaultValue ?? ""}
-        placeholder={placeholder}
-        min={min}
-        max={max}
-        autoComplete={autoComplete}
-      />
+      {type === "date" ? (
+        <DateInput
+          id={id}
+          name={name}
+          className={inputClassName}
+          defaultValue={defaultValue ?? ""}
+          placeholder={placeholder}
+          min={min}
+          max={max}
+          autoComplete={autoComplete}
+        />
+      ) : (
+        <input
+          id={id}
+          name={name}
+          type={type}
+          className={inputClassName}
+          defaultValue={defaultValue ?? ""}
+          placeholder={placeholder}
+          min={min}
+          max={max}
+          autoComplete={autoComplete}
+        />
+      )}
     </div>
   );
 }
@@ -596,6 +610,13 @@ export default function UserProfilePage() {
       hasStaffProfile: Boolean(data.staffInfo?.id),
       hasStudentProfile: Boolean(data.studentInfo?.id),
     });
+
+    void queryClient.invalidateQueries({ queryKey: ["staff", "self", "detail"] });
+    if (data.staffInfo?.id) {
+      void queryClient.invalidateQueries({
+        queryKey: ["staff", "detail", data.staffInfo.id],
+      });
+    }
   };
 
   const updateProfileMutation = useMutation({

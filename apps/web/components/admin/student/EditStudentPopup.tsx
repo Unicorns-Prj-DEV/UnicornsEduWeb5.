@@ -5,6 +5,7 @@ import { useDebounce } from "use-debounce";
 import { useEffect, useLayoutEffect, useRef, useState, type SyntheticEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { DateInput } from "@/components/ui/DateInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type {
   StudentDetail,
@@ -510,10 +511,9 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
 
                 <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
                   <span>Ngày ngừng theo dõi</span>
-                  <input
+                  <DateInput
                     name="drop_out_date"
                     autoComplete="off"
-                    type="date"
                     value={dropOutDate}
                     onChange={(event) => setDropOutDate(event.target.value)}
                     className="rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
@@ -736,10 +736,9 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
                       <div className="mt-3 grid gap-3 sm:grid-cols-2">
                         <label className="flex flex-col gap-1 text-sm text-text-secondary">
                           <span>Ngày thi</span>
-                          <input
+                          <DateInput
                             name={`exam_date_${index + 1}`}
                             autoComplete="off"
-                            type="date"
                             value={item.examDate}
                             onChange={(e) =>
                               setExamDraftItems((prev) =>
