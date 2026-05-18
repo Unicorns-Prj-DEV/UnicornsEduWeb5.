@@ -191,14 +191,18 @@ Mỗi schedule entry trong `Class.schedule` có thể được đồng bộ thà
 - Recurrence: `RRULE:FREQ=WEEKLY;BYDAY=...`
 - Thời điểm bắt đầu: occurrence gần nhất khớp `dayOfWeek`
 - Attendees: ưu tiên tutor phụ trách của từng slot; chỉ fallback sang danh sách tutor của lớp cho các row legacy cũ chưa có `teacherId`. Quyền co-host nằm ở fixed Meet link của tutor (`staff_info.google_meet_link`), không nằm trên recurring Calendar event.
+- Recurring event mới luôn gắn `extendedProperties.private` gồm `unicornsType=classSchedule`, `unicornsClassId`, `unicornsScheduleEntryId` để backend tìm lại và xoá/reconcile kể cả khi JSON schedule cũ thiếu `googleCalendarEventId`.
 
 Khi gọi `PUT /admin/calendar/classes/:classId/schedule`, hệ thống sẽ:
 
 1. Lưu schedule pattern mới xuống DB.
-2. Xóa recurring event cũ của các entry cũ còn liên kết.
-3. Tạo recurring event mới cho các entry hiện tại.
-4. Resolve Meet link từ `staff_info` của gia sư phụ trách (auto-create nếu thiếu).
-5. Lưu `googleCalendarEventId` và `meetLink` (lấy từ `staff_info`) ngược lại vào JSON `Class.schedule`.
+2. List Google Calendar theo private metadata và fallback `Class ID` trong description để tìm mọi recurring event cũ của lớp.
+3. Xóa toàn bộ recurring event cũ tìm được trước khi tạo event mới; delete dùng `sendUpdates=none` và 404 được xem là idempotent success.
+4. Tạo recurring event mới cho các entry hiện tại.
+5. Resolve Meet link từ `staff_info` của gia sư phụ trách (auto-create nếu thiếu).
+6. Lưu `googleCalendarEventId` và `meetLink` (lấy từ `staff_info`) ngược lại vào JSON `Class.schedule`.
+
+Nếu bước xoá/sync Google Calendar lỗi, API cập nhật lịch học trả lỗi thay vì báo lưu thành công, để tránh trạng thái “lịch app đã đổi nhưng Calendar cũ vẫn còn” bị che khuất.
 
 `CalendarService.enrichEventsWithMeetLinks()` chỉ đọc `meetLink` từ schedule entry đã sync để đổ vào `ClassScheduleEventDto`.
 

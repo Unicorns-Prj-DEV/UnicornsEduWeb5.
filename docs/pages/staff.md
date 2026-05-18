@@ -2,14 +2,15 @@
 
 ## Route and role
 
-- **Paths:** `/staff`, `/staff/dashboard`, `/staff/profile`, `/staff/notification`, `/staff/users`, `/staff/staffs`, `/staff/staffs/[id]`, `/staff/classes`, `/staff/classes/[id]`, `/staff/students`, `/staff/students/[id]`, `/staff/deductions`, `/staff/costs`, `/staff/history`, `/staff/customer-care-detail`, `/staff/customer-care-detail/[staffId]`, `/staff/assistant-detail`, `/staff/accountant-detail`, `/staff/communication-detail`, `/staff/technical-detail`, `/staff/lesson-plan-detail`, `/staff/lesson-plan-detail/[staffId]`, `/staff/lesson_plan_detail`, `/staff/lesson_plan_detail/[staffId]`, `/staff/lesson-plan-tasks`, `/staff/lesson-plan-tasks/[taskId]`, `/staff/lesson-plan-manage-details`, `/staff/lesson-plans`, `/staff/lesson-plans/tasks/[taskId]`, `/staff/lesson-manage-details`, `/staff/calendar`
+- **Paths:** `/staff`, `/staff/dashboard`, `/staff/profile`, `/staff/data-consent`, `/staff/notification`, `/staff/users`, `/staff/staffs`, `/staff/staffs/[id]`, `/staff/classes`, `/staff/classes/[id]`, `/staff/students`, `/staff/students/[id]`, `/staff/deductions`, `/staff/costs`, `/staff/history`, `/staff/customer-care-detail`, `/staff/customer-care-detail/[staffId]`, `/staff/assistant-detail`, `/staff/accountant-detail`, `/staff/communication-detail`, `/staff/technical-detail`, `/staff/lesson-plan-detail`, `/staff/lesson-plan-detail/[staffId]`, `/staff/lesson_plan_detail`, `/staff/lesson_plan_detail/[staffId]`, `/staff/lesson-plan-tasks`, `/staff/lesson-plan-tasks/[taskId]`, `/staff/lesson-plan-manage-details`, `/staff/lesson-plans`, `/staff/lesson-plans/tasks/[taskId]`, `/staff/lesson-manage-details`, `/staff/calendar`
 - **Runtime access hiện tại:**
-  - **Tenant/workspace:** `/staff/**` là staff workspace trong app single-tenant; mọi scope khóa bằng linked `staffInfo` và `staffInfo.roles`, không dùng tenant/workspace id. `users.role_type` không còn là điều kiện duy nhất; một user có primary role khác vẫn mở staff shell nếu có linked staff profile hợp lệ.
-  - `staffInfo.roles` có `admin` được coi là admin đầy đủ trong staff shell: mở toàn bộ staff routes, không bị hạ xuống teacher/customer-care scope khi cùng lúc có các role vận hành khác.
+  - **Tenant/workspace:** `/staff/**` là staff workspace trong app single-tenant; scope staff thường khóa bằng linked `staffInfo` và `staffInfo.roles`, không dùng tenant/workspace id. `users.role_type` không còn là điều kiện duy nhất; một user có primary role khác vẫn mở staff shell nếu có linked staff profile hợp lệ, còn `roleType=admin` được bypass yêu cầu linked staff profile để hỗ trợ/kiểm tra staff workspace.
+  - `roleType=admin` và `staffInfo.roles` có `admin` đều được coi là admin đầy đủ trong staff shell: mở toàn bộ staff routes, không bị hạ xuống teacher/customer-care scope khi cùng lúc có các role vận hành khác.
   - guest mở `/staff/**` được proxy đưa về `/auth/login?next=<path+query>` để sau login quay lại đúng staff route nếu role/session cho phép
-  - proxy dùng cùng helper `staff-shell-access` với `StaffAccessGate` để chặn sớm cross-shell/thiếu linked `staffInfo`; mọi actor có staff workspace sẽ bị chặn nếu hồ sơ thiếu các trường bắt buộc trước khi vào `/staff/**`; `personal_achievement_link` là minh chứng thành tích tùy chọn và không nằm trong điều kiện redirect này
+  - staff đã verify email nhưng session có `requiresStaffDataConsent=true` sẽ bị đưa tới `/staff/data-consent?from=...`; route này render điều khoản bằng Markdown và gọi `POST /auth/data-consent/accept`, sau đó quay lại route `from` hợp lệ
+  - proxy dùng cùng helper `staff-shell-access` với `StaffAccessGate` để chặn sớm cross-shell/thiếu linked `staffInfo`; mọi staff actor có staff workspace sẽ bị chặn nếu hồ sơ thiếu các trường bắt buộc trước khi vào `/staff/**`, nhưng admin đầy đủ bypass profile guard; `personal_achievement_link` là minh chứng thành tích tùy chọn và không nằm trong điều kiện redirect này
   - các client gates trong nhóm `/staff` dùng lightweight session từ `GET /auth/session` để check `effectiveRoleTypes`, `staffRoles`, `hasStaffProfile`, `staffProfileComplete`, và `access.staff`; nếu có linked staff profile nhưng thiếu quyền route, gate hiển thị màn locked thay vì redirect về `/user-profile`
-  - `/staff`: tài khoản hiện tại phải có linked `staffInfo`; dashboard luôn có thẻ chung `Thu nhập tháng` từ `GET /users/me/staff-income-summary`, còn các khối còn lại được bật theo `staffInfo.roles` qua `GET /users/me/staff-dashboard`; trợ lí có link “Xem chi tiết” thu nhập trỏ `/staff/staffs/:ownStaffId` thay vì `/staff/profile`
+  - `/staff`: staff actor phải có linked `staffInfo`; dashboard luôn có thẻ chung `Thu nhập tháng` từ `GET /users/me/staff-income-summary`, còn các khối còn lại được bật theo `staffInfo.roles` qua `GET /users/me/staff-dashboard`; trợ lí có link “Xem chi tiết” thu nhập trỏ `/staff/staffs/:ownStaffId` thay vì `/staff/profile`. Primary admin không có linked staff profile được đưa sang `/staff/classes` để vào staff workspace mirror thay vì mắc kẹt ở self dashboard.
   - `/staff/dashboard`: chỉ mở cho `staff.assistant` (assistant admin-like); **redirect** về `/staff` để giữ bookmark cũ; chi tiết nhân sự bản thân mở qua sidebar **Cá nhân** hoặc `/staff/staffs/:ownStaffId`
   - `/staff/profile`: tài khoản hiện tại phải có linked `staffInfo`; đây là self-detail page đầy đủ của chính staff đang đăng nhập
   - `/staff/notification`: tài khoản hiện tại phải có linked `staffInfo`; đây là feed chỉ đọc để xem các notification admin đã push
@@ -41,15 +42,16 @@
 
 ## Features
 
-- **Save/refetch UX cho staff mirror + self-service:** các flow **Save** không destructive ở route mirror `/staff/classes`, `/staff/staffs`, `/staff/students` và self route như `/staff/profile` dùng fast-close UX: pass validate là đóng popup/thoát edit mode ngay, hiện `toast.loading`, rồi mutation tiếp tục chạy nền và resolve success/error bằng chính toast đó; lỗi chỉ hiện toast, không tự mở lại form. Khi query refetch mà đã có dữ liệu cũ, section giữ nguyên nội dung, dim nhẹ và hiện refresh strip/skeleton mảnh thay vì loading toàn trang.
+- **Save/refetch UX cho staff mirror + self-service:** các flow **Save** không destructive ở route mirror `/staff/classes`, `/staff/staffs`, `/staff/students` và self route như `/staff/profile` dùng fast-close UX: pass validate là đóng popup/thoát edit mode ngay, hiện `toast.loading`, rồi mutation tiếp tục chạy nền và resolve success/error bằng chính toast đó; lỗi chỉ hiện toast, không tự mở lại form. Áp dụng cả thao tác tạo/sửa khảo sát lớp. Khi query refetch mà đã có dữ liệu cũ, section giữ nguyên nội dung, dim nhẹ và hiện refresh strip/skeleton mảnh thay vì loading toàn trang.
 - `/staff`
   - luôn dùng chung staff shell; dashboard gốc là **role-aware dashboard**, trong đó mọi staff có `staffInfo` đều thấy thẻ chung `Thu nhập tháng`, còn các khối còn lại lấy authoritative từ `GET /users/me/staff-dashboard?month=&year=`
   - **UI dashboard:** layout compact (padding/gap/line-height nhỏ hơn, bo góc vừa phải), bớt dòng mô tả trùng tiêu đề; hành vi dữ liệu và API giữ nguyên
   - Trên dashboard `/staff`, thẻ **Thực nhận** (dòng tiền đầu) lấy `monthlyIncomeTotals.total` (net tháng) và mini stat **Chưa nhận** lấy `snapshotUnpaidNetTotal` từ `GET /users/me/staff-income-summary`; không tự cộng ở frontend
   - Trên `/staff/profile` và `/admin/staffs/:id` (và mirror `/staff/staffs/:id`), cụm card **Thống kê thu nhập**: **Tổng nhận** = `incomeStatsTotalNet` / `monthlyIncomeTotals.total` (net tháng đang chọn, gồm cả buổi dạy `unpaid`/`pending` trong tháng sau khi tính % vận hành + thuế hiện hành); **Chưa nhận** = `snapshotUnpaidNetTotal` (toàn bộ pending/unpaid hiện tại cùng phạm vi snapshot gross `snapshotUnpaidTotal`, nhưng net với **% vận hành và % thuế hiện hành** như popup thanh toán); **Đã nhận** = `monthlyIncomeTotals.paid`; **Tổng năm** = `yearIncomeTotal`; **Ghi cọc** = `depositYearTotal`. `snapshotUnpaidTotal` vẫn là gross cho breakdown/list khác.
+  - Header hồ sơ trên `/staff/profile`, `/admin/staffs/:id`, và mirror `/staff/staffs/:id` hiển thị avatar nhân sự từ `avatarUrl`; nếu user chưa có avatar thì fallback về chữ cái đầu như trước.
   - `teacher`: thêm 3 khối `Lớp phụ trách`, `Lớp chưa điền lịch / khảo sát`, `Lịch hôm nay`
   - `lesson_plan`: thêm thẻ tiến độ task giáo án (`tổng task`, `đã hoàn thành`, `còn lại`) và danh sách task còn mở
-  - `lesson_plan_head`: thêm thẻ cảnh báo task chưa hoàn thành kèm người phụ trách, cùng thẻ tổng hợp lesson output (`tổng số bài`, `bài mới tháng này`, `bài mới tuần này`)
+  - `lesson_plan_head`: thêm thẻ cảnh báo task chưa hoàn thành kèm nhân sự thực hiện, cùng thẻ tổng hợp lesson output (`tổng số bài`, `bài mới tháng này`, `bài mới tuần này`)
   - `assistant`: thêm cảnh báo hành động kiểu admin, summary vận hành (`lớp`, `học sinh`, `giáo viên`) và danh sách nhân sự `customer_care` thuộc phạm vi theo dõi kèm `tổng học phí đã học` và `tổng doanh thu đã nạp`
   - `customer_care`: thêm số học sinh mới/nghỉ trong tháng, số học sinh đang chăm sóc, tổng học phí, tổng doanh thu, danh sách học sinh số dư thấp và học sinh nợ tiền
   - `accountant`: thêm danh sách nhân sự còn khoản pending và khối báo cáo tài chính rút gọn cùng nguồn aggregate với admin dashboard
@@ -77,7 +79,7 @@
 - `/staff/profile`
   - là self-detail page đầy đủ của staff hiện tại và bám layout chính của `apps/web/app/admin/staffs/[id]/page.tsx`
   - header hiển thị avatar, trạng thái staff và staff roles (chỉnh sửa hồ sơ cơ bản chỉ qua popup tái dùng từ mục QR trong `Hồ sơ nhân sự`)
-  - tên staff canonical luôn đọc từ `User` (`first_name` + `last_name`) qua `GET /users/me/full`; `staff.fullName` / `staffInfo.fullName` chỉ còn là fallback derived trong giai đoạn rollout
+  - tên staff canonical luôn đọc từ `User` và hiển thị theo thứ tự Việt Nam `last_name` + `first_name` qua `GET /users/me/full`; `staff.fullName` / `staffInfo.fullName` chỉ còn là fallback derived trong giai đoạn rollout
   - popup tự sửa hồ sơ cơ bản tách cập nhật: tên hiển thị đi qua `PATCH /users/me`, còn phần hồ sơ staff đi qua `PATCH /users/me/staff`
   - chỉ cho sửa trong popup: tên canonical, `birth_date`, `university`, `high_school`, `specialization`, `bank_account`, `bank_qr_link`, `personal_achievement_link`, `cccd_*`
   - `bank_qr_link` và `personal_achievement_link` self-service chỉ nhận URL `http/https` (trim trước khi lưu); link schema khác (`javascript:`, `data:`, ...) bị backend từ chối
@@ -91,11 +93,11 @@
       - cụm số liệu hiển thị dạng card grid (Tổng nhận, Chưa nhận, Đã nhận, Tổng năm, Ghi cọc): `Tổng nhận` = `incomeStatsTotalNet` / `monthlyIncomeTotals.total` (net tháng đang chọn, gồm unpaid/pending buổi dạy sau khấu trừ hiện hành); `Chưa nhận` = `snapshotUnpaidNetTotal` (net toàn bộ pending/unpaid hiện tại với CPVH + thuế **hiện hành**); `Đã nhận` = `monthlyIncomeTotals.paid`; `Tổng năm` = `yearIncomeTotal`; `Ghi cọc` = `depositYearTotal`
       - block `Trước khấu trừ` chỉ hiển thị khi actor là `admin` hoặc có role `accountant` **và** còn ít nhất một chỉ số con có giá trị > 0; từng ô con (gross/chưa nhận/đã nhận, thuế, vận hành, tổng khấu trừ khi backend trả về) chỉ render khi số tương ứng > 0. Dữ liệu lấy từ các field gross/tax backend (`monthlyGrossTotals`, `monthlyTaxTotals`, `yearGrossIncomeTotal`, `yearTaxTotal`) và tự mở rộng thêm `monthlyOperatingDeductionTotals` / `monthlyTotalDeductionTotals` / `yearOperatingDeductionTotal` / `yearTotalDeductionTotal` nếu backend đã expose. Thuế được tính trên tổng thu nhập của từng nguồn trong kỳ; riêng nguồn giáo viên tính thuế trên phần sau vận hành; **thưởng** áp thuế theo mức hiện hành của role ưu tiên trên hồ sơ (cùng rule income-summary), không khấu trừ vận hành trên thưởng.
     - popup `Buổi cọc theo lớp` ở self profile vẫn là read-only; chỉ route mirror `/staff/staffs/[id]` mới mở quyền **Thanh toán cọc**
-    - `Lớp phụ trách`: bảng cột `Tổng / Chưa nhận / Đã nhận`; cả ba chỉ số là **thực nhận** (sau KH vận hành và thuế theo snapshot buổi): `Tổng` / `Đã nhận` theo **tháng đang chọn**, `Chưa nhận` là cửa sổ `days` gần nhất (chỉ buổi `unpaid`/`pending`), không tính cọc
+    - `Lớp phụ trách`: bảng cột `Tổng / Chưa nhận / Đã nhận`; cả ba chỉ số là **thực nhận** (sau KH vận hành và thuế theo snapshot buổi): `Tổng` / `Đã nhận` theo **tháng đang chọn**, `Chưa nhận` là toàn bộ buổi `unpaid`/`pending` hiện tại của lớp, không tính cọc
     - `Thưởng` của chính mình, cho phép tự thêm khoản thưởng mới và điều chỉnh nội dung khoản thưởng hiện có trong tháng đang xem
     - `Công việc khác` với tổng trợ cấp / commission / lesson output theo từng role của chính mình; riêng `assistant` / `accountant` / `communication` lấy từ `extra_allowances.role_type`; role `assistant` còn được cộng thêm 3% học phí đã học từ CSKH do trợ lí quản lí (attendance `present` hoặc `excused`), còn bonus như `workType = Truyền thông` vẫn hiển thị riêng ở block `Thưởng`
     - nếu request `staff-income-summary` lỗi, section `Công việc khác` hiển thị inline error thay vì rơi về empty state, để dễ phân biệt lỗi phân quyền/dữ liệu với trạng thái thật sự không có role phụ
-    - `Lịch sử buổi học` của chính mình, kèm điều hướng sang lớp phụ trách để tạo buổi học mới
+    - `Lịch sử buổi học` của chính mình, kèm điều hướng sang lớp phụ trách để tạo buổi học mới và nhập khảo sát lớp
   - popup thưởng trên `/staff/profile` dùng cùng bố cục/form với popup add bonus ở admin staff detail: `loại công việc` dạng dropdown có search, `số tiền`, `trạng thái thanh toán` dạng chỉ đọc, `ghi chú`; ở self-service bản ghi tạo ra vẫn luôn được backend khóa về `pending` và khi chỉnh sửa cũng không được tự đổi `payment status`
   - từ section `Lớp phụ trách` trên `/staff/profile`, teacher/admin đi vào `/staff/classes/[id]`; route chi tiết lớp là nơi mở `AddSessionPopup` để thêm buổi học
   - popup thêm buổi học chỉ còn nằm ở `/staff/classes/[id]`, tiếp tục dùng flow `staff-ops` với các field ngày học, giờ học, `coefficient`, ghi chú, điểm danh (mặc định trạng thái điểm danh khởi tạo là `vắng`); roster khi tạo buổi mới chỉ lấy học sinh trạng thái `active`; header popup hiển thị đồng thời **Học phí** (màu xanh, chỉ hiện với `admin`/`accountant`) và **Trợ cấp gia sư** (màu text chính, hiện với mọi role); các field tài chính còn lại như `allowanceAmount`, học phí override và mọi khả năng chỉnh `custom allowance` / `operating_deduction_rate_percent` vẫn bị khóa
@@ -123,7 +125,9 @@
   - popup chỉnh `session` ở route này giữ cùng nhịp layout với form thêm buổi học: modal `wide`, phần cấu hình buổi học trải đều trước khi xuống block ghi chú và điểm danh
   - attendance `present` và `excused` đều tính học phí (trừ ví học sinh); chỉ `absent` không tạo charge ở backend
   - khi attendance không có học phí override, backend tự dùng mức mặc định hiệu lực của lớp theo thứ tự: custom của học sinh trong lớp → `student_tuition_per_session` của lớp → mức suy ra từ `tuitionPackageTotal / tuitionPackageSession`
-  - bảng lịch sử buổi học dùng `SessionHistoryTable` `variant="classDetail"` (thời gian | nhận xét | trạng thái + hệ số/điểm danh); hiển thị `trạng thái thanh toán` chỉ đọc; preview trợ cấp khi sửa buổi dùng cấu hình lớp đã tải trên trang hoặc `staff-ops`
+  - khối **Lịch sử & Khảo sát** có 2 tab `Buổi học` và `Khảo sát`, dùng chung `MonthNav` theo tháng đang xem
+  - bảng lịch sử buổi học dùng `SessionHistoryTable` `variant="classDetail"` (thời gian | nhận xét | thông tin gồm gia sư, trạng thái, hệ số/điểm danh); hiển thị `trạng thái thanh toán` chỉ đọc; preview trợ cấp khi sửa buổi dùng cấu hình lớp đã tải trên trang hoặc `staff-ops`
+  - tab `Khảo sát` đọc `GET /staff-ops/classes/:id/surveys?month=&year=`; teacher được phân công lớp có thể tạo/sửa/xóa khảo sát do chính mình phụ trách, với trường `Khảo sát lần mấy`, `Ngày báo cáo`, `Người phụ trách` và `Nội dung báo cáo` rich text; `customer_care` chỉ xem
   - card khung giờ học hiển thị luôn `gia sư chịu trách nhiệm` của từng slot; trong staff shell, popup chỉnh lịch vẫn giữ tutor của slot ở chế độ chỉ đọc và không cho staff đổi assignment này
 - `/staff/students/[id]`
   - với `staff.assistant`, route này giữ student detail kiểu admin ngay trong staff shell; ví xem được QR SePay tĩnh và có tab **Nạp thẳng** để gửi yêu cầu duyệt tới admin, không cộng số dư ngay
@@ -152,11 +156,10 @@
   - hiển thị lịch sử trợ cấp, trạng thái thanh toán và số tiền của chính mình
   - nếu actor là `staff.assistant` và route có query `staffId`, trang sẽ chuyển sang admin-like detail của staff được chọn nhưng vẫn giữ staff shell
 - `/staff/notes-subject`
-  - với `staff.assistant`, route render nguyên admin notes workspace ngay trong staff shell
-  - với các staff role khác, route giữ 2 tab `Quy định` + `Tài liệu`, trong đó `Quy định` đọc dữ liệu thật từ `GET /regulations`; backend tự lọc theo `audiences` nên staff chỉ thấy bài dành cho role của mình hoặc `all`
+  - với `staff.assistant`, route render nguyên admin **Quy định** workspace ngay trong staff shell
+  - với các staff role khác, route chỉ còn phần `Quy định` read-only, đọc dữ liệu thật từ `GET /regulations`; backend tự lọc theo `audiences` nên staff chỉ thấy bài dành cho role của mình hoặc `all`
   - card quy định ở staff read-only hiển thị `role tag`, `link tài nguyên` ở phía trên mô tả, rồi đến nội dung rich text đã sanitize; `assistant` dùng cùng UI admin (bảng + chỉnh sửa inline)
-  - backend mở toàn bộ API đọc mà route này dùng cho `UserRole.staff`: `GET /codeforces/doc-groups`, `GET /codeforces/contests`, `GET /codeforces/contests/:contestId/problems`, `GET /cf-problem-tutorial/:contestId/:problemIndex`
-  - backend mở thêm `GET /regulations` cho `UserRole.staff`; `PATCH /cf-problem-tutorial/:contestId/:problemIndex` vẫn giữ policy admin/assistant để staff thường không sửa tutorial ngoài UI read-only hiện tại
+  - backend mở thêm `GET /regulations` cho `UserRole.staff`
 - `/staff/lesson-plan-detail`, `/staff/lesson_plan_detail`
   - dùng self-service endpoint đọc thống kê lesson output của chính staff hiện tại trong 30 ngày gần nhất
   - route gạch dưới là canonical self-detail mới khi bấm row `Giáo án` trong bảng `Công việc khác` của `/staff/profile`; route gạch nối tiếp tục alias sang cùng màn này
@@ -174,11 +177,11 @@
   - trong `participantMode`, tab `Tổng quan` chỉ hiển thị task mà backend xác nhận staff hiện tại đang tham gia qua `StaffLessonTask`; đây là assignment riêng của task, không suy ra từ `lesson_outputs.staff_id`
   - trong `participantMode`, tab `Tổng quan` vẫn có nút `Thêm tài nguyên`, nhưng popup tạo resource bắt buộc chọn một task thuộc assignment của chính mình trước khi lưu
   - trong `participantMode`, tab `Công việc` chỉ hiển thị lesson output của chính staff hiện tại nếu đó là quyền cao nhất staff có trên endpoint `GET /lesson-work`; panel thêm output mới bắt buộc chọn một task thuộc assignment của chính mình, ẩn trường nhân sự, khóa chỉnh `paymentStatus`, và backend vẫn ép `staffId` về đúng hồ sơ đang đăng nhập
-  - trong `participantMode`, route detail `/staff/lesson-plans/tasks/[taskId]` cho xem `người chịu trách nhiệm`, `nhân sự thực hiện task`, output và tài nguyên liên quan; participant view không hiển thị dòng meta `Nhân sự output` trên từng sản phẩm; staff thường vẫn tạo output mới và tạo resource mới được ở đây, đồng thời có thể bấm từng output để mở đúng popup detail như tab `Công việc` với cùng giới hạn khóa `cost`/`paymentStatus`/assignment; vẫn không sửa task, không đính kèm resource từ DB, không gỡ resource và không mở popup resource edit
+  - trong `participantMode`, route detail `/staff/lesson-plans/tasks/[taskId]` cho xem `nhân sự thực hiện`, output và tài nguyên liên quan; participant view không hiển thị dòng meta nhân sự nhận thanh toán trên từng sản phẩm; staff thường vẫn tạo output mới và tạo resource mới được ở đây, đồng thời có thể bấm từng output để mở đúng popup detail như tab `Công việc` với cùng giới hạn khóa `cost`/`paymentStatus`/assignment; vẫn không sửa task, không đính kèm resource từ DB, không gỡ resource và không mở popup resource edit
   - `staff.accountant` dùng cùng route này với `workspacePolicy="accountant"`; chỉ thấy tab `Công việc`, xem toàn bộ lesson output, không mở tab `Tổng quan`, không mở tab `Giáo Án`, không vào route task detail hay route manage detail
   - staff có đồng thời `lesson_plan` và `accountant` vẫn mở cùng route với `workspacePolicy="lesson_plan"` để giữ tab `Tổng quan`, nhưng từng endpoint trong module sẽ lấy **quyền cao nhất staff đang có trên chính endpoint đó**: `lesson-overview`, `lesson-task detail`, `lesson-task-options`, `create output/resource` vẫn chạy theo participant scope; riêng `lesson-work`, `lesson-output detail`, `update output`, bulk `paymentStatus` sẽ nâng lên accountant scope nên tab `Công việc` hiển thị toàn bộ lesson output
   - `staff.assistant` dùng cùng route này với `workspacePolicy="admin"`, nên có đầy đủ quyền xóa/sửa như admin ngay trong staff shell
-  - route detail `/staff/lesson-plans/tasks/[taskId]` giữ chế độ quản lí cho `assistant` / `lesson_plan_head`, còn `lesson_plan` vào cùng route nhưng render theo participant mode; không còn card tổng hợp `nhân sự thực hiện output` trên bất kỳ shell nào (admin hay staff); meta `Nhân sự output` trên từng dòng sản phẩm chỉ hiện khi không ở participant mode
+  - route detail `/staff/lesson-plans/tasks/[taskId]` giữ chế độ quản lí cho `assistant` / `lesson_plan_head`, còn `lesson_plan` vào cùng route nhưng render theo participant mode; task chỉ còn một nhóm `nhân sự thực hiện`; meta `Nhân sự nhận thanh toán` trên từng dòng sản phẩm chỉ hiện khi không ở participant mode
   - các link nội bộ của module được giữ dưới `/staff` (`/staff/lesson-plans/tasks/[taskId]`, `/staff/lesson-manage-details`) thay vì nhảy sang `/admin`
   - các route legacy `/staff/lesson-plan-tasks*` và `/staff/lesson-plan-manage-details` chỉ còn giữ vai trò redirect sang `/staff/lesson-plans*`
 
@@ -203,6 +206,7 @@
   - tự thêm thưởng cho chính mình từ `/staff/profile`; backend luôn tạo ở trạng thái `pending`
   - tự điều chỉnh `workType`, `month`, `amount`, `note` của thưởng chính mình từ `/staff/profile`; trạng thái thanh toán vẫn do admin/quản trị xử lý
   - tự thêm và chỉnh sửa buổi học của lớp mình trực tiếp từ `/staff/classes/[id]`; backend vẫn tự áp dụng `customAllowance` hiện có của lớp, còn UI self-service chỉ được gửi `coefficient`
+  - tự tạo/sửa/xóa khảo sát của lớp mình trực tiếp từ tab `Khảo sát`; backend khóa `teacher_id` về chính staff hiện tại đối với teacher-scoped actor
   - mở các link detail tự phục vụ đúng theo staff roles hiện tại khi route self-service tương ứng tồn tại
 - Staff self role detail pages **được phép**
   - xem chi tiết trợ cấp `assistant`, `accountant`, `communication` của chính mình
@@ -223,7 +227,8 @@
   - dùng đầy đủ CRUD và bulk actions của module giáo án như admin
 - Staff `accountant` **được phép**
   - vào `/staff/deductions`
-  - vào `/staff/costs`
+  - vào `/staff/costs` và tạo khoản chi mới; không xóa khoản chi
+  - vào `/staff/staffs/[id]` để tạo thưởng cho nhân sự; không xóa thưởng
   - vào `/staff/lesson-plans`
   - chỉ dùng tab `Công việc`
   - xem toàn bộ lesson output và cập nhật trạng thái thanh toán theo policy accountant
@@ -363,7 +368,7 @@
 - các route `/staff/dashboard`, `/staff/users`, `/staff/staffs`, `/staff/staffs/[id]`, `/staff/students`, `/staff/students/[id]`, `/staff/deductions`, `/staff/costs`, `/staff/history`, `/staff/assistant-detail`, `/staff/accountant-detail`, `/staff/communication-detail`, `/staff/lesson-plan-detail`, `/staff/lesson-plan-detail/[staffId]`, `/staff/lesson_plan_detail`, `/staff/lesson_plan_detail/[staffId]`, `/staff/lesson-plan-tasks`, `/staff/lesson-plan-tasks/[taskId]`, `/staff/lesson-plan-manage-details`, `/staff/lesson-plans`, `/staff/lesson-plans/tasks/[taskId]`, `/staff/lesson-manage-details` cũng đi chung staff shell
 - các CTA `Quay lại` trong staff shell ưu tiên `router.back()` để trả người dùng về đúng màn trước đó trong lịch sử duyệt, thay vì ép cứng về `/staff` hoặc `/staff/profile`
 - Điều hướng của staff sidebar vẫn hiển thị theo role của staff hiện tại:
-  - `assistant`: menu admin-like gồm `Dashboard`, `User`, `Nhân sự`, `Lớp học`, `Ghi chú môn học`, `Học sinh`, `Khấu trừ`, `Chi phí`, `Giáo Án`, `Lịch sử`
+  - `assistant`: menu admin-like gồm `Dashboard`, `User`, `Nhân sự`, `Lớp học`, `Quy định`, `Học sinh`, `Khấu trừ`, `Chi phí`, `Giáo Án`, `Lịch sử`
   - `accountant`: có thêm mục `Khấu trừ` (đọc/điều hướng module deductions trong staff shell)
   - `teacher` hoặc `admin`: mục `Lớp học`
   - `customer_care`: mục `CSKH của tôi`
@@ -371,6 +376,7 @@
   - staff có nhiều role hợp lệ sẽ thấy đồng thời các mục tương ứng; riêng assistant branch ưu tiên menu admin-like
 - `/staff` tái sử dụng shared staff detail components của admin (`StaffCard`, `StaffIdentityOverview`, `StaffQrCard`, `StaffBonusCard`, `SessionHistoryTable`, `MonthNav`) để giữ layout gần như trùng admin detail
 - root `/staff` giữ layout summary cũ, nhưng dòng tiền đầu tiên hiển thị `Thực nhận` từ dữ liệu authoritative `staff-income-summary`
+- card **Lớp phụ trách** dùng `classMonthlySummaries` từ `staff-income-summary`; cột **Chưa nhận** là toàn bộ trợ cấp `unpaid/pending` hiện tại của từng lớp, không còn giới hạn 14 ngày gần nhất
 - popup self-edit thay cho `EditStaffPopup`; bonus card trên `/staff` dùng `canManage=true`, giữ CTA thêm thưởng và truyền callback sửa để bấm từng dòng mở popup điều chỉnh, nhưng vẫn không có callback xóa
 - `/staff` không còn CTA thêm buổi học; teacher/admin phải vào từng route `/staff/classes/[id]` từ section `Lớp phụ trách` để tạo buổi học
 - popup chỉnh sửa session trong bảng `Lịch sử buổi học` trên `/staff` chạy với `allowFinancialEdits=false` và `allowCoefficientEdit=true`, nên chỉ mở riêng field hệ số

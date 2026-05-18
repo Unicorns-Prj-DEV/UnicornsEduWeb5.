@@ -89,10 +89,10 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - **ActionHistory → User**: optional FK, `onDelete: SetNull`.
 - **Notification → User (createdBy)**: optional FK `created_by_user_id`, `onDelete: SetNull`.
 - **Regulation → User (createdBy / updatedBy)**: optional FK `created_by_user_id`, `updated_by_user_id`, `onDelete: SetNull`.
-- **StaffLessonTask**: bảng giao giữa `staff_info` và `lesson_task`, unique `(staff_id, lesson_task_id)`; đây là nguồn assignment chính thức cho `nhân sự thực hiện task`, tách biệt với staff được gán ở từng `lesson_output`.
+- **StaffLessonTask**: bảng giao giữa `staff_info` và `lesson_task`, unique `(staff_id, lesson_task_id)`; đây là nguồn assignment chính thức cho `nhân sự thực hiện giáo án`. Khi đọc data legacy, API có thể gộp thêm `lesson_task.created_by` và `lesson_outputs.staff_id` vào response để hiển thị, nhưng task edit sẽ chuẩn hóa lại về bảng này.
 - **LessonTask → LessonResource**: 1-N optional (`lesson_resources.lessonTaskId`, `onDelete: SetNull`).
 - **LessonTask → LessonOutput**: 1-N optional (`lesson_outputs.lesson_task_id`, `onDelete: SetNull`).
-- **LessonOutput → StaffInfo**: optional FK, `onDelete: SetNull`.
+- **LessonOutput → StaffInfo**: optional FK, `onDelete: SetNull`; staff này là nhân sự nhận thanh toán / đứng tên output, không phải nhóm điều phối task.
 
 ---
 
@@ -102,7 +102,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 - PK: `id` (UUID default)
 - Unique: `email`, `account_handle` (hai trường độc lập; login chấp nhận chuỗi tương ứng email hoặc account_handle, ưu tiên account_handle).
-- Trường chính: `password_hash`, `role_type`, `status`, `email_verified`, `phone_verified`, `refresh_token`
+- Trường chính: `password_hash`, `role_type`, `status`, `email_verified`, `phone_verified`, `data_processing_consent_accepted_at`, `data_processing_consent_version`, `refresh_token`
 - RBAC runtime: `role_type` là role gốc/default của user, không phải nguồn quyền duy nhất. `GET /auth/session` và backend guards resolve quyền hiệu lực bằng union của `users.role_type`, linked `staff_info.user_id`, linked `student_info.user_id`, và `staff_info.roles`; vì vậy một user có thể đồng thời mở admin/staff/student workspace nếu có các linked profile/role tương ứng.
 - Trường tên canonical cho actor dạng staff: `first_name`, `last_name` (nullable). FE/BE dùng cặp này làm nguồn chuẩn để hiển thị tên staff trong rollout bỏ `staff_info.full_name`.
 - Avatar:
@@ -396,14 +396,16 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 - `lesson_task`: task nội dung (status, priority, due date, created_at, updated_at)
   - quan hệ optional `created_by -> staff_info.id`
-  - `created_by` được dùng cho `người chịu trách nhiệm`; danh sách `nhân sự thực hiện task` đi qua `staff_lesson_task`, còn `nhân sự thực hiện output` vẫn đi qua `lesson_outputs.staff_id`
+  - `created_by` là field legacy; flow mới không ghi field này và task edit sẽ clear về `null`
+  - danh sách `nhân sự thực hiện giáo án` đi qua `staff_lesson_task`; response task có thể gộp legacy `created_by` và `lesson_outputs.staff_id` để hiển thị data cũ trước khi edit
   - index read path hiện có cho tab tổng quan giáo án admin: `(status, due_date)`, `updated_at`
-- `staff_lesson_task`: junction assignment chính thức giữa task và nhân sự thực hiện task
+- `staff_lesson_task`: junction assignment chính thức giữa task và nhân sự thực hiện giáo án
 - `lesson_resources`: thư viện tài nguyên học tập
   - field chính cho admin lesson overview: `title`, `description`, `resource_link`, `tags`, `updated_at`
   - index read path hiện có: `created_at`, `updated_at`
 - `lesson_outputs`: sản phẩm bài học gắn optional với `lesson_task`
   - field chính cho work tab / popup chi tiết output: `lesson_task_id`, `lesson_name`, `contest_uploaded`, `date`, `status`, `payment_status`, `staff_id`, `cost`, `link`, `original_link`, `source`, `level`, `tags`
+  - `staff_id` là nhân sự nhận thanh toán / đứng tên output
   - relation optional:
     - `lesson_task_id -> lesson_task.id`
     - `staff_id -> staff_info.id`
@@ -497,7 +499,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 ## 8) Tạo lại DB từ schema
 
-Kết nối DB qua `DATABASE_URL` trong `apps/api/.env` (đọc từ `prisma.config.ts`). **Docker (API):** image production copy `prisma.config.ts` vào `/app` cùng thư mục `prisma/` — `migrate deploy` trong container cần file này để biết `datasource.url`. **Lưu ý:** job deploy GitHub Actions ([`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)) **không** tự chạy `migrate deploy`; trên production cần áp migration bằng tay (hoặc quy trình riêng), ví dụ `docker compose -f docker-compose.prod.yml exec -T api npx prisma migrate deploy --schema=./prisma/schema/`. Các lệnh local chạy tại thư mục **`apps/api`**:
+Kết nối DB qua `DATABASE_URL` trong `apps/api/.env` (đọc từ `prisma.config.ts`). **Docker (API):** image production copy `prisma.config.ts` vào `/app` cùng thư mục `prisma/` để Prisma CLI chạy được `generate` và các lệnh migration thủ công khi cần. **Lưu ý:** job deploy GitHub Actions ([`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)) **không** tự chạy `migrate deploy`; remote deploy script chỉ chạy `prisma generate` để kiểm tra schema/client generation. Trên production cần áp migration bằng tay (hoặc quy trình riêng), ví dụ `docker compose -f docker-compose.prod.yml exec -T api npx prisma migrate deploy --schema=./prisma/schema/`. Các lệnh local chạy tại thư mục **`apps/api`**:
 
 | Việc                                          | Lệnh                                                                         |
 | --------------------------------------------- | ---------------------------------------------------------------------------- |

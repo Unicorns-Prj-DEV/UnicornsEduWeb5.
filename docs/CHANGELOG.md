@@ -34,6 +34,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - FE `/admin/classes/[id]`: nút thêm buổi học chỉ hiện với admin (khớp `POST /sessions`); validate lớp phải có gia sư phụ trách và học sinh `active` trước khi mở popup; sau tạo buổi invalidate lịch sử tháng hiện tại. `AddSessionPopup` gợi ý dropdown gia sư chỉ lấy từ roster lớp.
 
 - FE `SessionHistoryTable` `variant="classDetail"`: layout dòng buổi học 3 cột (thời gian | nhận xét | thông tin + xóa) dùng chung cho `/admin/classes/[id]`, `/admin/staffs/[id]`, `/staff/profile`, `/staff/classes/[id]`; `entityMode="class"` hiển thị tên lớp ở cột phải thay vì gia sư.
+- FE `SessionHistoryTable` `variant="classDetail"`: phần **Thông tin** trên trang lớp luôn hiển thị gia sư của từng buổi học, kể cả khi layout cha đang ẩn cột thực thể riêng.
 
 ### Added
 

@@ -54,6 +54,7 @@ If you change project workflow/conventions for agents (commands, required checks
 - **Mock data for UI-first work (preferred)**: if backend data is not required yet, create page-local mock data directly inside the relevant `apps/web/app/**/page.tsx` to render UI immediately. When switching to real data, replace the mock with TanStack Query + DTOs in `apps/web/dtos/`.
 - **Notifications**: use **Sonner** for success/error toasts (avoid inline alert blocks unless explicitly required).
 - **UI components**: prefer **shadcn/ui** components; compose/extend before hand-rolling new components.
+- **Native temporal inputs**: use shared `apps/web/components/ui/DateInput.tsx`, `MonthInput.tsx`, and `TimeInput.tsx` for native date/month/time fields so clicking the whole input opens the picker.
 - **Dropdowns**: for simple single-select dropdowns, use the shared upgraded dropdown at `apps/web/components/ui/UpgradedSelect.tsx` instead of native `<select>`.
   - Keep a custom combobox/listbox only when the UX truly needs search, multi-select, async suggestions, or richer option content.
 - **Mobile-first**: implement for small screens first, then add larger breakpoints.
@@ -70,6 +71,7 @@ If you change project workflow/conventions for agents (commands, required checks
 - **DTO style**: use **interfaces** for request/response types (follow project convention).
 - **Input validation at boundaries**: validate/normalize incoming data at controllers/pipes/services as appropriate.
 - **Prisma client sync**: after changing Prisma schema or Prisma package versions, use workspace-local scripts (`pnpm --filter api db:generate`, `pnpm --filter api build`, etc.). Do **not** use a global Prisma CLI because `apps/api/generated/` must match the Prisma version installed in this workspace.
+- **CD Prisma behavior**: GitHub Actions deploy must not apply Prisma migrations; keep CD to image build/deploy plus `prisma generate` validation only. Apply committed production/shared DB migrations through a separate, explicit ops step.
 - **Prisma migrations on shared DBs**: do **not** run `prisma migrate dev` against shared/staging/production Supabase databases. Use `pnpm --filter api db:migrate` only on a disposable local dev database, and use `pnpm --filter api db:deploy` to apply committed migrations to shared environments without reset prompts.
 - **Prisma drift fixes**: treat committed Prisma schema + migrations as the only supported database shape. If an environment has manual/legacy drift (for example stray legacy columns/tables), fix it with a committed migration and run `pnpm --filter api db:deploy` before rolling the API code; do **not** add runtime compatibility writes just to tolerate drift.
 
