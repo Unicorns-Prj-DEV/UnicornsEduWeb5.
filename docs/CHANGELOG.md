@@ -23,6 +23,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- Auth password flows: forgot/reset/setup pages now show full Unicorns Edu logo lockup; reset-password email uses React Email branded template with CTA/fallback link; reset tokens are bound to the current password hash so old links are invalid after a password change.
+
 - FE nhãn `parent_email`: đổi **Email nhận biên nhận** → **Email phụ huynh** trên `/admin/students/[id]` (cả `/staff/students/[id]`), popup thêm/sửa học sinh, `/student` self-service và `/user-profile`.
 
 - FE `AdminSidebar`: sắp xếp lại menu — Dashboard → Thông báo → User → Nhân sự → Lớp học → Học sinh → Chi phí → Giáo Án → Lịch → (Khấu trừ, Ghi chú môn học, Duyệt nạp ví, Lịch sử).
@@ -38,6 +40,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- BE/FE profile status workflow: thêm endpoint `PATCH /student/:id/status` và `PATCH /staff/:id/status`; học sinh `inactive` hiển thị **Nghỉ học** và tự đóng roster lớp đang active, nhân sự `inactive` hiển thị **Ngừng hoạt động** và bị chặn khỏi staff/admin-through-staff workspace cũng như phân công mới. Danh sách `/admin/students` và `/admin/staffs` có filter trạng thái server-side.
 - FE `/staff/customer-care-detail` và `/admin/customer_care_detail/[staffId]`: tab **Học sinh** hiển thị tổng số, dùng infinite scroll tải 10 học sinh/lần, có nút icon QR copy nhanh, cột **Tiền vào** 21 ngày gần nhất; bấm vào con số **Tiền vào** mở popup **Lịch sử tiền vào** chỉ hiển thị giao dịch `topup`. Thêm tab **Thanh Toán** dùng `GET /customer-care/staff/:staffId/topup-history?page=&limit=` để đối soát lịch sử nạp tiền chung của học sinh thuộc CSKH đó, infinite scroll 20 khoản/lần.
 - FE `/admin/students`: mỗi dòng học sinh có nút icon QR copy nhanh và cột **Tiền vào** cạnh **Số dư**.
 - BE/FE yêu cầu **Nạp thẳng** ví học sinh cho CSKH/kế toán/trợ lí: staff nhập số tiền + lý do, backend gửi React Email tới `ADMIN_EMAIL`; token duyệt lưu hash, hết hạn sau 14 ngày, public page `/wallet-direct-topup-approval` chỉ cộng ví sau khi admin bấm xác nhận. Thiếu `ADMIN_EMAIL`, dùng placeholder như `admin@example.com`, production `FRONTEND_URL` không phải public HTTPS, hoặc lỗi SMTP thì không giữ request pending; lỗi gửi email duyệt có warning log theo `requestId`, `studentId`, domain admin email và error summary.
