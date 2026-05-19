@@ -40,7 +40,7 @@ export interface SessionCreatePayload {
   startTime?: string;
   endTime?: string;
   notes?: string | null;
-  /** Coefficient (e.g. 1.0, 1.5). Default 1.0. */
+  /** Coefficient from 0.0 to 1.0. Default 1.0. */
   coefficient?: number;
   /** Allowance amount (VNĐ). If omitted, uses class teacher custom allowance. */
   allowanceAmount?: number | null;
@@ -89,7 +89,7 @@ export interface SessionItem {
   teacherPaymentStatus?: SessionPaymentStatus | null;
   allowanceAmount?: number | null;
   tuitionFee?: number | null;
-  /** Coefficient (e.g. 1.0, 1.5). */
+  /** Coefficient from 0.0 to 1.0. */
   coefficient?: number | null;
   notes?: string | null;
   createdAt?: string;

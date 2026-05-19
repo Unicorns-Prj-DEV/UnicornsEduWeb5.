@@ -6,6 +6,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { StaffOperationsModule } from '../staff-ops/staff-operations.module';
 import { GoogleCalendarModule } from '../google-calendar/google-calendar.module';
 import { StaffModule } from '../staff/staff.module';
+import { ActionHistoryModule } from '../action-history/action-history.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { StaffModule } from '../staff/staff.module';
     StaffOperationsModule,
     GoogleCalendarModule,
     StaffModule,
+    ActionHistoryModule,
   ],
   controllers: [CalendarAdminController, CalendarController],
   providers: [CalendarService],

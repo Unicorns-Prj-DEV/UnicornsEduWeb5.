@@ -1243,8 +1243,8 @@ export default function SessionHistoryTable({
     const validCoeff =
       coeffNum !== undefined &&
       Number.isFinite(coeffNum) &&
-      coeffNum >= 0.1 &&
-      coeffNum <= 9.9;
+      coeffNum >= 0 &&
+      coeffNum <= 1;
     const payload = {
       id: editingSession.id,
       date: editDate.trim(),
@@ -1364,8 +1364,8 @@ export default function SessionHistoryTable({
   const isCoefficientInputValid =
     coefficientInputValue != null &&
     Number.isFinite(coefficientInputValue) &&
-    coefficientInputValue >= 0.1 &&
-    coefficientInputValue <= 9.9;
+    coefficientInputValue >= 0 &&
+    coefficientInputValue <= 1;
   const selectedTeacherId =
     editTeacherId.trim() || editingSession?.teacherId || "";
   const selectedTeacherName =
@@ -1429,7 +1429,7 @@ export default function SessionHistoryTable({
     }
     const s = editingSession?.coefficient;
     const c = typeof s === "number" ? s : Number(s);
-    if (Number.isFinite(c) && c >= 0.1 && c <= 9.9) return c;
+    if (Number.isFinite(c) && c >= 0 && c <= 1) return c;
     return 1;
   }, [
     canEditCoefficient,
@@ -1476,7 +1476,7 @@ export default function SessionHistoryTable({
     : shouldWaitForClassFormula
       ? "Công thức trợ cấp: đang tải cấu hình lớp..."
       : hasPreviewValidationIssue
-        ? "Công thức trợ cấp: nhập hệ số từ 0.1 đến 9.9 và trợ cấp không âm để xem preview."
+        ? "Công thức trợ cấp: nhập hệ số từ 0 đến 1 và trợ cấp không âm để xem preview."
         : rawBaseForAllowancePreview == null || editTutorAllowanceTotal == null
           ? "Công thức trợ cấp: chưa đủ dữ liệu để tính."
           : `Gốc lưu buổi: ${formatCurrency(rawBaseForAllowancePreview)}. Gross (hệ số + trần max): ${formatCurrency(editTutorAllowanceTotal)}.`;
@@ -1499,7 +1499,7 @@ export default function SessionHistoryTable({
       : isEditingClassDetailError
         ? "Không tải được cấu hình lớp để ước tính trợ cấp."
         : hasPreviewValidationIssue
-          ? "Nhập hệ số từ 0,1 đến 9,9 để xem ước tính trợ cấp."
+          ? "Nhập hệ số từ 0 đến 1 để xem ước tính trợ cấp."
           : null;
 
   return (
@@ -2607,13 +2607,13 @@ export default function SessionHistoryTable({
                               className={`flex flex-col gap-1.5 text-sm font-medium text-text-primary ${coefficientFieldClass}`}
                             >
                               <span>
-                                Hệ số (0,1–9,9) <RequiredMark />
+                                Hệ số (0–1) <RequiredMark />
                               </span>
                               <input
                                 name="edit-session-coefficient"
                                 type="number"
-                                min={0.1}
-                                max={9.9}
+                                min={0}
+                                max={1}
                                 step={0.1}
                                 value={editCoefficient}
                                 autoComplete="off"
@@ -2624,8 +2624,7 @@ export default function SessionHistoryTable({
                                 placeholder="1"
                               />
                               <span className="text-xs font-normal text-text-muted">
-                                Hệ số áp dụng theo cấu hình buổi học (0,1 đến
-                                9,9).
+                                Hệ số áp dụng theo cấu hình buổi học (0 đến 1).
                               </span>
                             </label>
                           ) : null}

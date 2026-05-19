@@ -171,7 +171,7 @@ Kể từ 2026-05-07, **nguồn authoritative cho Google Meet link là `staff_in
 **Quy tắc:**
 
 - Khi gia sư đã có `google_meet_link` trong `staff_info`, link đó được tái sử dụng cho mọi lịch học và buổi bù mà gia sư phụ trách.
-- Khi gia sư chưa có `google_meet_link`, backend tự tạo link thật qua Google Calendar API (helper `GoogleCalendarService.generateTutorMeetLink()`) và lưu link mới vào `staff_info.google_meet_link`. Link này được reuse cho tất cả các buổi sau.
+- Khi gia sư chưa có `google_meet_link`, backend tự tạo link thật qua Google Calendar API (helper `GoogleCalendarService.generateTutorMeetLink()`) bằng setup event có title `[Unicorns Class] {tên gia sư}` và lưu link mới vào `staff_info.google_meet_link`. Link này được reuse cho tất cả các buổi sau.
 - Regenerate thủ công: gọi `POST /staff/:id/regenerate-meet-link` (mọi staff role đều được phép). Backend tạo link mới, cập nhật `staff_info.google_meet_link`, rồi backfill link vào các `Class.schedule` entry và `makeup_schedule_events` mà gia sư đó phụ trách.
 - Chiến lược tương thích: aggregate calendar feed ưu tiên `staff_info.google_meet_link` của gia sư phụ trách trước `entry.meetLink`, nên dữ liệu cũ sẽ hiển thị link cố định của staff ngay khi staff đã có link.
 
@@ -228,6 +228,11 @@ Manual resync dùng cùng nguyên tắc **system schedule là source of truth, G
 - Mỗi makeup event là **một buổi độc lập, không lặp lại**.
 - Record makeup không sinh `session` tự động; nó chỉ là nguồn event cho in-app calendar và Google Calendar.
 - FE aggregate feed map record này thành event type `makeup`.
+- Makeup event có thể lưu baseline metadata từ lịch cố định: `baselineScheduleEntryId` trỏ tới entry trong `Class.schedule`, `originalDate` là ngày của occurrence gốc bị học bù. Backend validate baseline entry còn tồn tại và ngày gốc khớp `dayOfWeek` của slot cố định trước khi tạo/cập nhật metadata.
+- Backend enforce `startTime < endTime` cho create/update buổi bù và validate `teacherId` vẫn thuộc `class_teachers` của lớp.
+- API trả `calendarSyncStatus` suy ra từ `googleCalendarEventId`, `calendarSyncedAt`, và `calendarSyncError`: `pending`, `synced`, hoặc `error`.
+- Khi xoá buổi bù, backend xoá Google Calendar event trước. Nếu Google delete thất bại, DB record vẫn được giữ nguyên cùng `googleCalendarEventId`, `calendarSyncError` được cập nhật, và API trả lỗi để người vận hành có thể retry thay vì mất event id duy nhất.
+- Create/update/delete/resync buổi bù ghi `action_history` khi endpoint có actor hiện tại.
 
 ### 4.3 All-day event cho `student_exam_schedules`
 

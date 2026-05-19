@@ -34,7 +34,10 @@ import type {
   CreateClassSurveyPayload,
   UpdateClassSurveyPayload,
 } from "@/dtos/class-survey.dto";
-import type { ClassScheduleGoogleCalendarResyncSummary } from "@/dtos/class-schedule.dto";
+import type {
+  ClassScheduleGoogleCalendarResyncSummary,
+  MakeupScheduleEventRecord,
+} from "@/dtos/class-schedule.dto";
 import type { SessionCreatePayload, SessionItem, SessionUpdatePayload } from "@/dtos/session.dto";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as staffOpsApi from "@/lib/apis/staff-ops.api";
@@ -287,7 +290,7 @@ export default function StaffClassDetailPage() {
     : teacherCount === 1
       ? classDetail?.teachers?.[0]?.id ?? ""
       : "";
-  const canManageMakeupSchedule = isAdmin;
+  const canManageMakeupSchedule = isAdmin || hasTeacherSelfServiceAccess;
   const canCreateMakeupSchedule =
     (isAdmin && teacherCount > 0) || (hasTeacherSelfServiceAccess && teacherAssignedToClass);
   const canResyncSchedule =
@@ -301,6 +304,11 @@ export default function StaffClassDetailPage() {
     : teacherCount === 1
       ? classDetail?.teachers?.[0]?.id ?? ""
       : "";
+  const canManageOwnUnlinkedMakeupEvent = (event: MakeupScheduleEventRecord) =>
+    isAdmin ||
+    (Boolean(actorStaffId) &&
+      event.teacherId === actorStaffId &&
+      !event.linkedSessionId);
   const makeupScheduleDisabledMessage =
     isAdmin && teacherCount === 0
       ? "Lop chua co gia su phu trach nen chua the tao buoi bu."
@@ -874,11 +882,15 @@ export default function StaffClassDetailPage() {
           canCreate={canCreateMakeupSchedule}
           canEdit={canManageMakeupSchedule}
           canDelete={canManageMakeupSchedule}
+          canEditEvent={canManageOwnUnlinkedMakeupEvent}
+          canDeleteEvent={canManageOwnUnlinkedMakeupEvent}
           canResync={canResyncMakeupSchedule}
           canResyncEvent={(event) =>
             isAdmin || (Boolean(actorStaffId) && event.teacherId === actorStaffId)
           }
           disabledCreateMessage={makeupScheduleDisabledMessage}
+          month={selectedMonth}
+          scheduleItems={scheduleItems}
           queryKeyPrefix={["staff-ops", "class", "detail", id]}
           listFn={staffOpsApi.getClassMakeupEvents}
           createFn={staffOpsApi.createClassMakeupEvent}

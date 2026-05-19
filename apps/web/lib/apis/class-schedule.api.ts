@@ -128,6 +128,8 @@ const normalizeCalendarEvent = (raw: RawCalendarEvent): ClassScheduleEvent => {
       coerceString(raw.sourceId) ??
       coerceString(raw.id),
     meetLink: coerceString(raw.meetLink),
+    baselineScheduleEntryId: coerceString(raw.baselineScheduleEntryId) ?? null,
+    originalDate: coerceString(raw.originalDate) ?? null,
   };
 };
 
@@ -138,6 +140,8 @@ export const normalizeMakeupScheduleEvent = (
   classId: coerceString(raw.classId) ?? "",
   teacherId: coerceString(raw.teacherId) ?? "",
   linkedSessionId: coerceString(raw.linkedSessionId) ?? null,
+  baselineScheduleEntryId: coerceString(raw.baselineScheduleEntryId) ?? null,
+  originalDate: coerceString(raw.originalDate) ?? null,
   date: coerceString(raw.date) ?? "",
   startTime: coerceString(raw.startTime),
   endTime: coerceString(raw.endTime),
@@ -155,6 +159,11 @@ export const normalizeMakeupScheduleEvent = (
   googleCalendarEventId: coerceString(raw.googleCalendarEventId) ?? null,
   calendarSyncedAt: coerceString(raw.calendarSyncedAt) ?? null,
   calendarSyncError: coerceString(raw.calendarSyncError) ?? null,
+  calendarSyncStatus:
+    coerceString(raw.calendarSyncStatus) === "synced" ||
+    coerceString(raw.calendarSyncStatus) === "error"
+      ? (coerceString(raw.calendarSyncStatus) as "synced" | "error")
+      : "pending",
 });
 
 export const normalizeMakeupScheduleFeedResponse = (

@@ -906,7 +906,7 @@ export class GoogleCalendarService implements OnModuleInit {
     const endDate = new Date(nowInVN.getTime() + 30 * 60 * 1000);
     const endISO = endDate.toISOString().replace('Z', '');
 
-    const summary = `[Meet Setup] ${staffName}`;
+    const summary = `[Unicorns Class] ${staffName}`;
     const description = [
       `Tutor: ${staffName}`,
       `Staff ID: ${staffId}`,

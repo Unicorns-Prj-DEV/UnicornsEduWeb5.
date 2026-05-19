@@ -106,6 +106,8 @@ model MakeupScheduleEvent {
   date                  DateTime  @db.Date
   startTime             DateTime? @map("start_time") @db.Time(6)
   endTime               DateTime? @map("end_time") @db.Time(6)
+  baselineScheduleEntryId String?   @map("baseline_schedule_entry_id") @db.Text
+  originalDate          DateTime? @map("original_date") @db.Date
   title                 String?
   note                  String?
   googleMeetLink        String?   @map("google_meet_link")
@@ -122,6 +124,8 @@ model MakeupScheduleEvent {
   @@index([teacherId])
   @@index([date])
   @@index([classId, date])
+  @@index([baselineScheduleEntryId])
+  @@index([classId, baselineScheduleEntryId, originalDate])
   @@index([teacherId, date])
   @@index([googleCalendarEventId])
   @@map("makeup_schedule_events")

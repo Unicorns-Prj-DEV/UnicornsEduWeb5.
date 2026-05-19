@@ -561,6 +561,26 @@ export class MakeupScheduleEventDto {
   @IsUUID()
   linkedSessionId?: string | null;
 
+  @ApiPropertyOptional({
+    description: 'Class.schedule entry id that this makeup event is based on',
+    example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsUUID()
+  baselineScheduleEntryId?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Original fixed schedule occurrence date in YYYY-MM-DD format',
+    example: '2026-04-17',
+    nullable: true,
+  })
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'originalDate must use YYYY-MM-DD format',
+  })
+  originalDate?: string | null;
+
   @ApiProperty({
     description: 'Makeup date in YYYY-MM-DD format',
     example: '2026-04-24',
@@ -653,6 +673,15 @@ export class MakeupScheduleEventDto {
   @IsOptional()
   @IsString()
   calendarSyncError?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Computed Google Calendar sync status',
+    enum: ['pending', 'synced', 'error'],
+    example: 'synced',
+  })
+  @IsOptional()
+  @IsIn(['pending', 'synced', 'error'])
+  calendarSyncStatus?: 'pending' | 'synced' | 'error';
 }
 
 export class CreateMakeupScheduleEventDto {
@@ -712,6 +741,26 @@ export class CreateMakeupScheduleEventDto {
   @IsOptional()
   @IsString()
   note?: string;
+
+  @ApiPropertyOptional({
+    description: 'Class.schedule entry id that the makeup event is based on',
+    example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsUUID()
+  baselineScheduleEntryId?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Original fixed schedule occurrence date in YYYY-MM-DD format',
+    example: '2026-04-17',
+    nullable: true,
+  })
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'originalDate must use YYYY-MM-DD format',
+  })
+  originalDate?: string | null;
 }
 
 export class UpdateMakeupScheduleEventDto extends PartialType(

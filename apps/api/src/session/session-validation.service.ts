@@ -174,6 +174,6 @@ export class SessionValidationService {
       return undefined;
     }
 
-    return Math.max(0.1, Math.min(9.9, Number(value)));
+    return Math.max(0, Math.min(1, Number(value)));
   }
 }

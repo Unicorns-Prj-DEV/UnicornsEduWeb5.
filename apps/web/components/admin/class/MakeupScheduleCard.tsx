@@ -10,6 +10,7 @@ import type {
   MakeupGoogleCalendarResyncSummary,
   MakeupScheduleEventRecord,
 } from "@/dtos/class-schedule.dto";
+import type { ClassScheduleItem } from "@/dtos/class.dto";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import { DateInput } from "@/components/ui/DateInput";
 import { TimeInput } from "@/components/ui/TimeInput";
@@ -31,9 +32,13 @@ type MakeupScheduleCardProps = {
   canCreate?: boolean;
   canEdit?: boolean;
   canDelete?: boolean;
+  canEditEvent?: (event: MakeupScheduleEventRecord) => boolean;
+  canDeleteEvent?: (event: MakeupScheduleEventRecord) => boolean;
   canResync?: boolean;
   canResyncEvent?: (event: MakeupScheduleEventRecord) => boolean;
   disabledCreateMessage?: string;
+  month?: string;
+  scheduleItems?: ClassScheduleItem[];
   queryKeyPrefix: readonly unknown[];
   listFn: (
     classId: string,
@@ -61,6 +66,19 @@ type MakeupEditorState = {
   startTime: string;
   endTime: string;
   note: string;
+  baselineScheduleEntryId: string;
+  originalDate: string;
+};
+
+type BaselineOccurrenceOption = {
+  value: string;
+  label: string;
+  selectedLabel: string;
+  scheduleEntryId: string;
+  originalDate: string;
+  teacherId?: string;
+  startTime: string;
+  endTime: string;
 };
 
 type MakeupEditorDialogProps = {
@@ -71,6 +89,8 @@ type MakeupEditorDialogProps = {
   teachers: TeacherOption[];
   defaultTeacherId?: string;
   teacherMode: MakeupTeacherMode;
+  month?: string;
+  scheduleItems?: ClassScheduleItem[];
   isSubmitting: boolean;
   canDelete: boolean;
   onClose: () => void;
@@ -86,6 +106,106 @@ function getTodayDateValue(): string {
   const month = String(today.getMonth() + 1).padStart(2, "0");
   const day = String(today.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function getMonthDateRange(monthValue?: string): { startDate: string; endDate: string } | null {
+  if (!monthValue || !/^\d{4}-\d{2}$/.test(monthValue)) {
+    return null;
+  }
+
+  const [yearRaw, monthRaw] = monthValue.split("-");
+  const year = Number(yearRaw);
+  const monthIndex = Number(monthRaw) - 1;
+
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(monthIndex) ||
+    monthIndex < 0 ||
+    monthIndex > 11
+  ) {
+    return null;
+  }
+
+  const endDate = new Date(year, monthIndex + 1, 0);
+  return {
+    startDate: `${yearRaw}-${monthRaw}-01`,
+    endDate: `${yearRaw}-${monthRaw}-${String(endDate.getDate()).padStart(2, "0")}`,
+  };
+}
+
+function formatDateValue(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+    date.getDate(),
+  ).padStart(2, "0")}`;
+}
+
+function getScheduleBaselineOccurrences(options: {
+  month?: string;
+  scheduleItems: ClassScheduleItem[];
+  teachers: TeacherOption[];
+  teacherMode: MakeupTeacherMode;
+  defaultTeacherId?: string;
+}): BaselineOccurrenceOption[] {
+  const range = getMonthDateRange(options.month);
+  if (!range) {
+    return [];
+  }
+
+  const teacherNameById = new Map(
+    options.teachers.map((teacher) => [teacher.id, teacher.fullName]),
+  );
+  const startDate = new Date(`${range.startDate}T00:00:00`);
+  const endDate = new Date(`${range.endDate}T00:00:00`);
+  const occurrences: BaselineOccurrenceOption[] = [];
+
+  for (const item of options.scheduleItems) {
+    if (!item.id || !item.from || !item.to) {
+      continue;
+    }
+
+    if (
+      options.teacherMode === "readOnly" &&
+      options.defaultTeacherId &&
+      item.teacherId !== options.defaultTeacherId
+    ) {
+      continue;
+    }
+
+    const cursor = new Date(startDate);
+    while (cursor <= endDate) {
+      if (cursor.getDay() === item.dayOfWeek) {
+        const originalDate = formatDateValue(cursor);
+        const startTime = item.from.slice(0, 5);
+        const endTime = item.to.slice(0, 5);
+        const teacherName = item.teacherId
+          ? teacherNameById.get(item.teacherId)
+          : undefined;
+        const labelParts = [
+          formatDateLabel(originalDate),
+          `${startTime} - ${endTime}`,
+          teacherName,
+        ].filter(Boolean);
+
+        occurrences.push({
+          value: `${item.id}:${originalDate}`,
+          label: labelParts.join(" · "),
+          selectedLabel: labelParts.join(" · "),
+          scheduleEntryId: item.id,
+          originalDate,
+          teacherId: item.teacherId,
+          startTime,
+          endTime,
+        });
+      }
+
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  }
+
+  return occurrences.sort((first, second) =>
+    first.originalDate.localeCompare(second.originalDate) ||
+    first.startTime.localeCompare(second.startTime),
+  );
 }
 
 function formatDateLabel(dateValue: string): string {
@@ -143,6 +263,8 @@ function buildInitialEditorState(options: {
     startTime: options.event?.startTime?.slice(0, 5) ?? "18:00",
     endTime: options.event?.endTime?.slice(0, 5) ?? "19:30",
     note: options.event?.note ?? "",
+    baselineScheduleEntryId: options.event?.baselineScheduleEntryId ?? "",
+    originalDate: options.event?.originalDate ?? "",
   };
 }
 
@@ -154,6 +276,8 @@ function MakeupEditorDialog({
   teachers,
   defaultTeacherId,
   teacherMode,
+  month,
+  scheduleItems = [],
   isSubmitting,
   canDelete,
   onClose,
@@ -178,6 +302,28 @@ function MakeupEditorDialog({
         selectedLabel: teacher.fullName,
       })),
     [teachers],
+  );
+  const baselineOptions = useMemo<
+    Array<
+      { value: string; label: string; selectedLabel: string } &
+        Partial<BaselineOccurrenceOption>
+    >
+  >(
+    () => [
+      {
+        value: "",
+        label: "Không chọn buổi gốc",
+        selectedLabel: "Không chọn buổi gốc",
+      },
+      ...getScheduleBaselineOccurrences({
+        month,
+        scheduleItems,
+        teachers,
+        teacherMode,
+        defaultTeacherId,
+      }),
+    ],
+    [defaultTeacherId, month, scheduleItems, teacherMode, teachers],
   );
 
   if (!open) {
@@ -223,6 +369,46 @@ function MakeupEditorDialog({
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label htmlFor="makeup-baseline" className="block text-xs font-medium text-text-secondary">
+                Buổi học gốc
+              </label>
+              <div className="mt-1">
+                <UpgradedSelect
+                  id="makeup-baseline"
+                  ariaLabel="Chọn buổi học cố định cần học bù"
+                  value={
+                    form.baselineScheduleEntryId && form.originalDate
+                      ? `${form.baselineScheduleEntryId}:${form.originalDate}`
+                      : ""
+                  }
+                  onValueChange={(value) => {
+                    const selected = baselineOptions.find((option) => option.value === value);
+                    if (!value || !selected || !("scheduleEntryId" in selected)) {
+                      setForm((prev) => ({
+                        ...prev,
+                        baselineScheduleEntryId: "",
+                        originalDate: "",
+                      }));
+                      return;
+                    }
+
+                    setForm((prev) => ({
+                      ...prev,
+                      baselineScheduleEntryId: selected.scheduleEntryId ?? "",
+                      originalDate: selected.originalDate ?? "",
+                      teacherId: selected.teacherId ?? prev.teacherId,
+                      startTime: selected.startTime ?? prev.startTime,
+                      endTime: selected.endTime ?? prev.endTime,
+                    }));
+                  }}
+                  options={baselineOptions}
+                  placeholder="Chọn buổi học gốc"
+                  disabled={isSubmitting || baselineOptions.length <= 1}
+                />
+              </div>
+            </div>
+
             <div>
               <label htmlFor="makeup-date" className="block text-xs font-medium text-text-secondary">
                 Ngày học
@@ -346,7 +532,18 @@ function MakeupEditorDialog({
                     date: form.date,
                     startTime: normalizeTimePayload(form.startTime),
                     endTime: normalizeTimePayload(form.endTime),
-                    note: form.note.trim() || undefined,
+                    note: form.note.trim(),
+                    ...(form.baselineScheduleEntryId && form.originalDate
+                      ? {
+                          baselineScheduleEntryId: form.baselineScheduleEntryId,
+                          originalDate: form.originalDate,
+                        }
+                      : mode === "edit"
+                        ? {
+                            baselineScheduleEntryId: null,
+                            originalDate: null,
+                          }
+                      : {}),
                   });
                 }}
                 disabled={isSubmitting}
@@ -374,9 +571,13 @@ export default function MakeupScheduleCard({
   canCreate = false,
   canEdit = false,
   canDelete = false,
+  canEditEvent,
+  canDeleteEvent,
   canResync = false,
   canResyncEvent,
   disabledCreateMessage,
+  month,
+  scheduleItems = [],
   queryKeyPrefix,
   listFn,
   createFn,
@@ -389,20 +590,34 @@ export default function MakeupScheduleCard({
     () => new Map(teachers.map((teacher) => [teacher.id, teacher.fullName])),
     [teachers],
   );
-  const [page, setPage] = useState(1);
   const todayDate = useMemo(() => getTodayDateValue(), []);
-  const rangeStartDate = todayDate;
-  const rangeEndDate = "2100-12-31";
+  const selectedMonthRange = useMemo(() => getMonthDateRange(month), [month]);
+  const rangeStartDate = selectedMonthRange?.startDate ?? todayDate;
+  const rangeEndDate = selectedMonthRange?.endDate ?? "2100-12-31";
+  const rangeKey = `${rangeStartDate}:${rangeEndDate}`;
+  const [pageState, setPageState] = useState({ rangeKey, page: 1 });
+  const page = pageState.rangeKey === rangeKey ? pageState.page : 1;
+  const setPageForCurrentRange = (getNextPage: (currentPage: number) => number) => {
+    setPageState((prev) => {
+      const currentPage = prev.rangeKey === rangeKey ? prev.page : 1;
+      return {
+        rangeKey,
+        page: getNextPage(currentPage),
+      };
+    });
+  };
+
   const makeupQueryKey = useMemo(
     () => [
       ...queryKeyPrefix,
       "makeup-events",
       classId,
       rangeStartDate,
+      rangeEndDate,
       page,
       MAKEUP_EVENTS_PAGE_SIZE,
     ],
-    [classId, page, queryKeyPrefix, rangeStartDate],
+    [classId, page, queryKeyPrefix, rangeEndDate, rangeStartDate],
   );
   const invalidateQueryKey = useMemo(
     () => [...queryKeyPrefix, "makeup-events", classId],
@@ -580,6 +795,7 @@ export default function MakeupScheduleCard({
         <div className="space-y-3">
           {items.map((item) => {
             const teacherName = item.teacherName ?? teacherNameById.get(item.teacherId) ?? "Chua ro";
+            const canEditThisEvent = canEdit && (!canEditEvent || canEditEvent(item));
 
             return (
               <article
@@ -608,6 +824,18 @@ export default function MakeupScheduleCard({
                       <p className="text-sm leading-6 text-text-secondary">{item.note}</p>
                     ) : null}
 
+                    {item.originalDate ? (
+                      <div className="text-xs text-text-muted">
+                        Buổi gốc: {formatDateLabel(item.originalDate)}
+                      </div>
+                    ) : null}
+
+                    {item.calendarSyncStatus === "error" && item.calendarSyncError ? (
+                      <div className="rounded-lg border border-warning/30 bg-warning/10 px-2.5 py-1.5 text-xs text-warning">
+                        Google Calendar: {item.calendarSyncError}
+                      </div>
+                    ) : null}
+
                     {item.googleMeetLink ? (
                       <a
                         href={item.googleMeetLink}
@@ -628,7 +856,7 @@ export default function MakeupScheduleCard({
                     ) : null}
                   </div>
 
-                  {canEdit || canResync ? (
+                  {canEditThisEvent || canResync ? (
                     <div className="flex shrink-0 items-center gap-2">
                       {canResync &&
                       resyncFn &&
@@ -655,7 +883,7 @@ export default function MakeupScheduleCard({
                           Đồng bộ Google
                         </button>
                       ) : null}
-                      {canEdit ? (
+                      {canEditThisEvent ? (
                         <button
                           type="button"
                           onClick={() => {
@@ -685,7 +913,11 @@ export default function MakeupScheduleCard({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setPage((prev) => Math.max(1, Math.min(totalPages, prev - 1)))}
+              onClick={() =>
+                setPageForCurrentRange((prev) =>
+                  Math.max(1, Math.min(totalPages, prev - 1)),
+                )
+              }
               disabled={page <= 1}
               className="inline-flex min-h-10 items-center justify-center rounded-lg border border-border-default bg-bg-surface px-3 text-xs font-medium text-text-primary transition-colors hover:bg-bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -693,7 +925,9 @@ export default function MakeupScheduleCard({
             </button>
             <button
               type="button"
-              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+              onClick={() =>
+                setPageForCurrentRange((prev) => Math.min(totalPages, prev + 1))
+              }
               disabled={page >= totalPages}
               className="inline-flex min-h-10 items-center justify-center rounded-lg border border-border-default bg-bg-surface px-3 text-xs font-medium text-text-primary transition-colors hover:bg-bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -713,8 +947,14 @@ export default function MakeupScheduleCard({
           teachers={teachers}
           defaultTeacherId={defaultTeacherId}
           teacherMode={teacherMode}
+          month={month}
+          scheduleItems={scheduleItems}
           isSubmitting={isSubmitting}
-          canDelete={canDelete}
+          canDelete={
+            editingEvent
+              ? canDelete && (!canDeleteEvent || canDeleteEvent(editingEvent))
+              : false
+          }
           onClose={() => {
             if (isSubmitting) {
               return;

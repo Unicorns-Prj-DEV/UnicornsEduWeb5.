@@ -10,6 +10,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { GoogleCalendarService } from '../google-calendar/google-calendar.service';
 import { StaffService } from '../staff/staff.service';
 import {
+  ActionHistoryActor,
+  ActionHistoryService,
+} from '../action-history/action-history.service';
+import {
   ClassScheduleEntryDto,
   ClassScheduleGoogleCalendarResyncResponseDto,
   ClassScheduleGoogleCalendarResyncSummaryDto,
@@ -53,6 +57,8 @@ type CalendarScope = {
   teacherId?: string;
 };
 
+type CalendarSyncStatus = 'pending' | 'synced' | 'error';
+
 type StudentOption = {
   id: string;
   fullName: string;
@@ -81,6 +87,7 @@ export class CalendarService {
     private readonly prisma: PrismaService,
     private readonly googleCalendarService: GoogleCalendarService,
     private readonly staffService: StaffService,
+    private readonly actionHistoryService: ActionHistoryService,
   ) {}
 
   private getStoredClassScheduleEntries(
@@ -174,6 +181,143 @@ export class CalendarService {
         '0',
       )}:${String(seconds).padStart(2, '0')}`,
     );
+  }
+
+  private getTimeOnlySeconds(value: Date | null | undefined): number | null {
+    if (!value) {
+      return null;
+    }
+
+    return (
+      value.getHours() * 3600 + value.getMinutes() * 60 + value.getSeconds()
+    );
+  }
+
+  private assertValidMakeupTimeRange(
+    startTime: Date | null | undefined,
+    endTime: Date | null | undefined,
+  ): void {
+    const startSeconds = this.getTimeOnlySeconds(startTime);
+    const endSeconds = this.getTimeOnlySeconds(endTime);
+
+    if (startSeconds == null || endSeconds == null) {
+      return;
+    }
+
+    if (startSeconds >= endSeconds) {
+      throw new BadRequestException('Giờ kết thúc phải sau giờ bắt đầu.');
+    }
+  }
+
+  private getCalendarSyncStatus(event: {
+    googleCalendarEventId?: string | null;
+    calendarSyncedAt?: Date | null;
+    calendarSyncError?: string | null;
+  }): CalendarSyncStatus {
+    if (event.calendarSyncError) {
+      return 'error';
+    }
+
+    if (event.googleCalendarEventId && event.calendarSyncedAt) {
+      return 'synced';
+    }
+
+    return 'pending';
+  }
+
+  private serializeMakeupScheduleAuditValue(event: {
+    id: string;
+    classId: string;
+    teacherId: string;
+    linkedSessionId?: string | null;
+    date: Date;
+    startTime?: Date | null;
+    endTime?: Date | null;
+    baselineScheduleEntryId?: string | null;
+    originalDate?: Date | null;
+    title?: string | null;
+    note?: string | null;
+    googleMeetLink?: string | null;
+    googleCalendarEventId?: string | null;
+    calendarSyncedAt?: Date | null;
+    calendarSyncError?: string | null;
+  }) {
+    return {
+      id: event.id,
+      classId: event.classId,
+      teacherId: event.teacherId,
+      linkedSessionId: event.linkedSessionId ?? null,
+      date: this.formatDate(event.date),
+      startTime: this.normalizeTimeValue(event.startTime) ?? null,
+      endTime: this.normalizeTimeValue(event.endTime) ?? null,
+      baselineScheduleEntryId: event.baselineScheduleEntryId ?? null,
+      originalDate: event.originalDate
+        ? this.formatDate(event.originalDate)
+        : null,
+      title: event.title ?? null,
+      note: event.note ?? null,
+      googleMeetLink: event.googleMeetLink ?? null,
+      googleCalendarEventId: event.googleCalendarEventId ?? null,
+      calendarSyncedAt: event.calendarSyncedAt?.toISOString() ?? null,
+      calendarSyncError: event.calendarSyncError ?? null,
+      calendarSyncStatus: this.getCalendarSyncStatus(event),
+    };
+  }
+
+  private async resolveMakeupBaseline(
+    classId: string,
+    baselineScheduleEntryId: string | null | undefined,
+    originalDateValue: string | null | undefined,
+  ): Promise<{
+    baselineScheduleEntryId?: string | null;
+    originalDate?: Date | null;
+  }> {
+    const normalizedEntryId = baselineScheduleEntryId?.trim() || null;
+    const normalizedOriginalDate = originalDateValue?.trim() || null;
+
+    if (!normalizedEntryId && !normalizedOriginalDate) {
+      return {};
+    }
+
+    if (!normalizedEntryId || !normalizedOriginalDate) {
+      throw new BadRequestException(
+        'Vui lòng chọn đầy đủ buổi học gốc và ngày gốc cần học bù.',
+      );
+    }
+
+    const cls = await this.prisma.class.findUnique({
+      where: { id: classId },
+      select: { schedule: true },
+    });
+
+    if (!cls) {
+      throw new NotFoundException('Class not found');
+    }
+
+    const baselineEntry = this.getStoredClassScheduleEntries(cls.schedule).find(
+      (entry) => entry.id === normalizedEntryId,
+    );
+
+    if (!baselineEntry) {
+      throw new BadRequestException(
+        'Buổi học gốc không còn tồn tại trong lịch cố định của lớp.',
+      );
+    }
+
+    const originalDate = this.parseDateOnly(normalizedOriginalDate);
+    if (
+      typeof baselineEntry.dayOfWeek === 'number' &&
+      originalDate.getDay() !== baselineEntry.dayOfWeek
+    ) {
+      throw new BadRequestException(
+        'Ngày gốc không khớp với thứ trong lịch cố định của lớp.',
+      );
+    }
+
+    return {
+      baselineScheduleEntryId: normalizedEntryId,
+      originalDate,
+    };
   }
 
   private normalizeTimeValue(
@@ -560,6 +704,10 @@ export class CalendarService {
       classId: event.classId,
       teacherId: event.teacherId,
       linkedSessionId: event.linkedSessionId,
+      baselineScheduleEntryId: event.baselineScheduleEntryId,
+      originalDate: event.originalDate
+        ? this.formatDate(event.originalDate)
+        : null,
       date: this.formatDate(event.date) ?? '',
       startTime: this.normalizeTimeValue(event.startTime),
       endTime: this.normalizeTimeValue(event.endTime),
@@ -571,6 +719,7 @@ export class CalendarService {
       googleCalendarEventId: event.googleCalendarEventId,
       calendarSyncedAt: event.calendarSyncedAt?.toISOString() ?? null,
       calendarSyncError: event.calendarSyncError,
+      calendarSyncStatus: this.getCalendarSyncStatus(event),
     };
   }
 
@@ -609,6 +758,7 @@ export class CalendarService {
       allDay: false,
       meetLink: event.googleMeetLink ?? undefined,
       note: event.note ?? undefined,
+      patternEntryId: event.baselineScheduleEntryId ?? undefined,
     };
   }
 
@@ -2012,11 +2162,27 @@ export class CalendarService {
   async resyncMakeupScheduleEventWithGoogleCalendarForClass(
     classId: string,
     eventId: string,
-    options: { teacherId?: string } = {},
+    options: { teacherId?: string; actor?: ActionHistoryActor } = {},
   ): Promise<MakeupGoogleCalendarResyncResponseDto> {
     const existing = await this.prisma.makeupScheduleEvent.findUnique({
       where: { id: eventId },
-      select: { classId: true, teacherId: true },
+      select: {
+        id: true,
+        classId: true,
+        teacherId: true,
+        linkedSessionId: true,
+        date: true,
+        startTime: true,
+        endTime: true,
+        baselineScheduleEntryId: true,
+        originalDate: true,
+        title: true,
+        note: true,
+        googleMeetLink: true,
+        googleCalendarEventId: true,
+        calendarSyncedAt: true,
+        calendarSyncError: true,
+      },
     });
 
     if (!existing || existing.classId !== classId) {
@@ -2029,16 +2195,50 @@ export class CalendarService {
       );
     }
 
+    const summary = await this.syncMakeupScheduleEventWithCalendar(eventId, {
+      throwOnFailure: true,
+    });
+    const refreshed = await this.prisma.makeupScheduleEvent.findUnique({
+      where: { id: eventId },
+      select: {
+        id: true,
+        classId: true,
+        teacherId: true,
+        linkedSessionId: true,
+        date: true,
+        startTime: true,
+        endTime: true,
+        baselineScheduleEntryId: true,
+        originalDate: true,
+        title: true,
+        note: true,
+        googleMeetLink: true,
+        googleCalendarEventId: true,
+        calendarSyncedAt: true,
+        calendarSyncError: true,
+      },
+    });
+
+    if (options.actor && refreshed) {
+      await this.actionHistoryService.recordUpdate(this.prisma, {
+        actor: options.actor,
+        entityType: 'makeup_schedule_event',
+        entityId: eventId,
+        description: 'Đồng bộ Google Calendar buổi bù',
+        beforeValue: this.serializeMakeupScheduleAuditValue(existing),
+        afterValue: this.serializeMakeupScheduleAuditValue(refreshed),
+      });
+    }
+
     return {
       success: true,
-      data: await this.syncMakeupScheduleEventWithCalendar(eventId, {
-        throwOnFailure: true,
-      }),
+      data: summary,
     };
   }
 
   async createMakeupScheduleEvent(
     dto: CreateMakeupScheduleEventDto,
+    actor?: ActionHistoryActor,
   ): Promise<{ success: boolean; data: MakeupScheduleEventDto }> {
     const classTeacher = await this.prisma.classTeacher.findUnique({
       where: {
@@ -2056,13 +2256,23 @@ export class CalendarService {
       );
     }
 
+    const startTime = this.parseTimeOnly(dto.startTime, 'startTime');
+    const endTime = this.parseTimeOnly(dto.endTime, 'endTime');
+    this.assertValidMakeupTimeRange(startTime, endTime);
+    const baseline = await this.resolveMakeupBaseline(
+      dto.classId,
+      dto.baselineScheduleEntryId,
+      dto.originalDate,
+    );
+
     const created = await this.prisma.makeupScheduleEvent.create({
       data: {
         classId: dto.classId,
         teacherId: dto.teacherId,
         date: this.parseDateOnly(dto.date),
-        startTime: this.parseTimeOnly(dto.startTime, 'startTime'),
-        endTime: this.parseTimeOnly(dto.endTime, 'endTime'),
+        startTime,
+        endTime,
+        ...baseline,
         title: dto.title?.trim() || null,
         note: dto.note?.trim() || null,
       },
@@ -2083,6 +2293,16 @@ export class CalendarService {
       },
     });
 
+    if (actor) {
+      await this.actionHistoryService.recordCreate(this.prisma, {
+        actor,
+        entityType: 'makeup_schedule_event',
+        entityId: refreshed.id,
+        description: 'Tạo buổi bù',
+        afterValue: this.serializeMakeupScheduleAuditValue(refreshed),
+      });
+    }
+
     return {
       success: true,
       data: this.serializeMakeupScheduleEvent(refreshed),
@@ -2092,16 +2312,21 @@ export class CalendarService {
   async createMakeupScheduleEventForClass(
     classId: string,
     dto: Omit<CreateMakeupScheduleEventDto, 'classId'>,
+    actor?: ActionHistoryActor,
   ): Promise<{ success: boolean; data: MakeupScheduleEventDto }> {
-    return this.createMakeupScheduleEvent({
-      ...dto,
-      classId,
-    });
+    return this.createMakeupScheduleEvent(
+      {
+        ...dto,
+        classId,
+      },
+      actor,
+    );
   }
 
   async updateMakeupScheduleEvent(
     id: string,
     dto: UpdateMakeupScheduleEventDto,
+    actor?: ActionHistoryActor,
   ): Promise<{ success: boolean; data: MakeupScheduleEventDto }> {
     const existing = await this.prisma.makeupScheduleEvent.findUnique({
       where: { id },
@@ -2127,17 +2352,49 @@ export class CalendarService {
       );
     }
 
+    const nextStartTime =
+      dto.startTime !== undefined
+        ? this.parseTimeOnly(dto.startTime, 'startTime')
+        : existing.startTime;
+    const nextEndTime =
+      dto.endTime !== undefined
+        ? this.parseTimeOnly(dto.endTime, 'endTime')
+        : existing.endTime;
+    this.assertValidMakeupTimeRange(nextStartTime, nextEndTime);
+    const nextBaselineScheduleEntryId =
+      dto.baselineScheduleEntryId !== undefined
+        ? dto.baselineScheduleEntryId?.trim() || null
+        : existing.baselineScheduleEntryId;
+    const nextOriginalDateValue =
+      dto.originalDate !== undefined
+        ? dto.originalDate?.trim() || null
+        : existing.originalDate
+          ? this.formatDate(existing.originalDate)
+          : null;
+    const baseline =
+      dto.baselineScheduleEntryId !== undefined ||
+      dto.originalDate !== undefined
+        ? await this.resolveMakeupBaseline(
+            nextClassId,
+            nextBaselineScheduleEntryId,
+            nextOriginalDateValue,
+          )
+        : {};
+
     const updated = await this.prisma.makeupScheduleEvent.update({
       where: { id },
       data: {
         ...(dto.classId ? { classId: dto.classId } : {}),
         ...(dto.teacherId ? { teacherId: dto.teacherId } : {}),
         ...(dto.date ? { date: this.parseDateOnly(dto.date) } : {}),
-        ...(dto.startTime
-          ? { startTime: this.parseTimeOnly(dto.startTime, 'startTime') }
-          : {}),
-        ...(dto.endTime
-          ? { endTime: this.parseTimeOnly(dto.endTime, 'endTime') }
+        ...(dto.startTime !== undefined ? { startTime: nextStartTime } : {}),
+        ...(dto.endTime !== undefined ? { endTime: nextEndTime } : {}),
+        ...(dto.baselineScheduleEntryId !== undefined ||
+        dto.originalDate !== undefined
+          ? {
+              baselineScheduleEntryId: baseline.baselineScheduleEntryId ?? null,
+              originalDate: baseline.originalDate ?? null,
+            }
           : {}),
         ...(dto.title !== undefined
           ? { title: dto.title?.trim() || null }
@@ -2161,6 +2418,17 @@ export class CalendarService {
       },
     });
 
+    if (actor) {
+      await this.actionHistoryService.recordUpdate(this.prisma, {
+        actor,
+        entityType: 'makeup_schedule_event',
+        entityId: refreshed.id,
+        description: 'Cập nhật buổi bù',
+        beforeValue: this.serializeMakeupScheduleAuditValue(existing),
+        afterValue: this.serializeMakeupScheduleAuditValue(refreshed),
+      });
+    }
+
     return {
       success: true,
       data: this.serializeMakeupScheduleEvent(refreshed),
@@ -2171,6 +2439,7 @@ export class CalendarService {
     classId: string,
     id: string,
     dto: Omit<UpdateMakeupScheduleEventDto, 'classId'>,
+    actor?: ActionHistoryActor,
   ): Promise<{ success: boolean; data: MakeupScheduleEventDto }> {
     const existing = await this.prisma.makeupScheduleEvent.findUnique({
       where: { id },
@@ -2181,19 +2450,54 @@ export class CalendarService {
       throw new NotFoundException('Makeup schedule event not found');
     }
 
-    return this.updateMakeupScheduleEvent(id, {
-      ...dto,
-      classId,
-    });
+    return this.updateMakeupScheduleEvent(
+      id,
+      {
+        ...dto,
+        classId,
+      },
+      actor,
+    );
   }
 
-  async deleteMakeupScheduleEvent(id: string): Promise<{ success: boolean }> {
+  async assertTeacherCanManageMakeupScheduleEventForClass(
+    classId: string,
+    eventId: string,
+    teacherId: string,
+  ): Promise<void> {
     const existing = await this.prisma.makeupScheduleEvent.findUnique({
-      where: { id },
+      where: { id: eventId },
       select: {
         id: true,
-        googleCalendarEventId: true,
+        classId: true,
+        teacherId: true,
+        linkedSessionId: true,
       },
+    });
+
+    if (!existing || existing.classId !== classId) {
+      throw new NotFoundException('Makeup schedule event not found');
+    }
+
+    if (existing.teacherId !== teacherId) {
+      throw new ForbiddenException(
+        'Teacher chỉ được quản lý buổi bù do chính mình phụ trách.',
+      );
+    }
+
+    if (existing.linkedSessionId) {
+      throw new ForbiddenException(
+        'Buổi bù đã liên kết với buổi học nên không thể chỉnh sửa hoặc xóa.',
+      );
+    }
+  }
+
+  async deleteMakeupScheduleEvent(
+    id: string,
+    actor?: ActionHistoryActor,
+  ): Promise<{ success: boolean }> {
+    const existing = await this.prisma.makeupScheduleEvent.findUnique({
+      where: { id },
     });
     if (!existing) {
       throw new NotFoundException('Makeup schedule event not found');
@@ -2208,12 +2512,35 @@ export class CalendarService {
         this.logger.error(
           `[Calendar Makeup] Failed to delete Google event ${existing.googleCalendarEventId}: ${String(error)}`,
         );
+        const errorMessage = this.getCalendarSyncErrorMessage(error);
+        await this.prisma.makeupScheduleEvent.update({
+          where: { id },
+          data: { calendarSyncError: errorMessage },
+        });
+        throw new BadRequestException(
+          `Không xóa được sự kiện Google Calendar. Buổi bù vẫn được giữ lại để thử lại: ${errorMessage}`,
+        );
       }
     }
 
-    await this.prisma.makeupScheduleEvent.delete({
-      where: { id },
-    });
+    if (actor) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.makeupScheduleEvent.delete({
+          where: { id },
+        });
+        await this.actionHistoryService.recordDelete(tx, {
+          actor,
+          entityType: 'makeup_schedule_event',
+          entityId: id,
+          description: 'Xóa buổi bù',
+          beforeValue: this.serializeMakeupScheduleAuditValue(existing),
+        });
+      });
+    } else {
+      await this.prisma.makeupScheduleEvent.delete({
+        where: { id },
+      });
+    }
 
     return { success: true };
   }
@@ -2221,6 +2548,7 @@ export class CalendarService {
   async deleteMakeupScheduleEventForClass(
     classId: string,
     id: string,
+    actor?: ActionHistoryActor,
   ): Promise<{ success: boolean }> {
     const existing = await this.prisma.makeupScheduleEvent.findUnique({
       where: { id },
@@ -2231,6 +2559,6 @@ export class CalendarService {
       throw new NotFoundException('Makeup schedule event not found');
     }
 
-    return this.deleteMakeupScheduleEvent(id);
+    return this.deleteMakeupScheduleEvent(id, actor);
   }
 }

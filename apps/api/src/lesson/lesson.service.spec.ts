@@ -12,6 +12,7 @@ import {
   LessonTaskStatus,
   PaymentStatus,
   StaffRole,
+  StaffStatus,
   UserRole,
 } from '../../generated/enums';
 import { LessonService } from './lesson.service';
@@ -1564,11 +1565,69 @@ describe('LessonService', () => {
         roles: {
           hasSome: ['lesson_plan', 'lesson_plan_head'],
         },
+        status: StaffStatus.active,
       },
       select: {
         id: true,
+        status: true,
       },
     });
+  });
+
+  it('requires legacy task staff to be active', async () => {
+    mockPrisma.staffInfo.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.createTask(
+        {
+          title: 'Soạn outline buổi 2',
+          createdByStaffId: 'staff-inactive',
+        },
+        {
+          userId: 'user-1',
+          userEmail: 'planner@example.com',
+          roleType: 'admin',
+        },
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(mockPrisma.staffInfo.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: 'staff-inactive',
+        roles: {
+          hasSome: ['lesson_plan', 'lesson_plan_head'],
+        },
+        status: StaffStatus.active,
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
+  });
+
+  it('rejects inactive lesson task assignees', async () => {
+    mockPrisma.staffInfo.findMany.mockResolvedValue([
+      {
+        id: 'staff-inactive',
+        roles: [StaffRole.lesson_plan],
+        status: StaffStatus.inactive,
+      },
+    ]);
+
+    await expect(
+      service.createTask(
+        {
+          title: 'Soạn outline buổi 3',
+          assigneeStaffIds: ['staff-inactive'],
+        },
+        {
+          userId: 'user-1',
+          userEmail: 'planner@example.com',
+          roleType: 'admin',
+        },
+      ),
+    ).rejects.toThrow('Nhân sự đang ở trạng thái ngừng hoạt động.');
   });
 
   it('forces participant output creation onto their own assigned task and staff profile', async () => {
@@ -1693,7 +1752,10 @@ describe('LessonService', () => {
 
   it('creates a lesson output under a task without mutating task assignees', async () => {
     mockPrisma.lessonTask.findUnique.mockResolvedValue({ id: 'task-output-1' });
-    mockPrisma.staffInfo.findUnique.mockResolvedValue({ id: 'staff-output-1' });
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-output-1',
+      status: StaffStatus.active,
+    });
     mockPrisma.staffLessonTask.findMany.mockResolvedValue([]);
     mockPrisma.lessonOutput.findMany.mockResolvedValue([
       {

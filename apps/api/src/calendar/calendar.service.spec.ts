@@ -40,7 +40,19 @@ type MakeupScheduleEventUpdateArgs = {
     googleMeetLink?: string | null;
     calendarSyncedAt?: unknown;
     calendarSyncError?: string | null;
+    note?: string | null;
+    baselineScheduleEntryId?: string | null;
+    originalDate?: Date | null;
   };
+};
+
+type ActionHistoryDeleteArgs = {
+  actor: {
+    userId: string;
+  };
+  entityType: string;
+  entityId: string;
+  description: string;
 };
 
 describe('CalendarService', () => {
@@ -50,10 +62,17 @@ describe('CalendarService', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
     },
+    classTeacher: {
+      findUnique: jest.fn(),
+    },
     makeupScheduleEvent: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
+      create: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
+      count: jest.fn(),
+      delete: jest.fn(),
     },
     studentExamSchedule: {
       findMany: jest.fn(),
@@ -62,12 +81,18 @@ describe('CalendarService', () => {
       findMany: jest.fn(),
       count: jest.fn(),
     },
+    $transaction: jest.fn(),
   };
   const googleCalendarService = {
     deleteCalendarEvent: jest.fn(),
     createOrUpdateClassScheduleRecurringEvent: jest.fn(),
     createOrUpdateMakeupScheduleEvent: jest.fn(),
     listClassScheduleRecurringEvents: jest.fn(),
+  };
+  const actionHistoryService = {
+    recordCreate: jest.fn(),
+    recordUpdate: jest.fn(),
+    recordDelete: jest.fn(),
   };
 
   let service: CalendarService;
@@ -82,25 +107,68 @@ describe('CalendarService', () => {
     return args;
   };
 
+  const getMakeupScheduleEventUpdateArgs =
+    (): MakeupScheduleEventUpdateArgs => {
+      const update = mockPrisma.makeupScheduleEvent
+        .update as unknown as jest.MockedFunction<
+        (args: MakeupScheduleEventUpdateArgs) => Promise<unknown>
+      >;
+      const args = update.mock.calls[0]?.[0];
+      expect(args).toBeDefined();
+      return args;
+    };
+
+  const getActionHistoryDeleteArgs = (): ActionHistoryDeleteArgs => {
+    const recordDelete =
+      actionHistoryService.recordDelete as unknown as jest.MockedFunction<
+        (tx: unknown, args: ActionHistoryDeleteArgs) => Promise<unknown>
+      >;
+    const args = recordDelete.mock.calls[0]?.[1];
+    expect(args).toBeDefined();
+    return args;
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockPrisma.class.findMany.mockResolvedValue([]);
     mockPrisma.class.findUnique.mockResolvedValue(null);
     mockPrisma.class.update.mockResolvedValue({});
+    mockPrisma.classTeacher.findUnique.mockResolvedValue({
+      classId: 'class-1',
+    });
     mockPrisma.makeupScheduleEvent.findMany.mockResolvedValue([]);
     mockPrisma.makeupScheduleEvent.findUnique.mockResolvedValue(null);
     mockPrisma.makeupScheduleEvent.update.mockResolvedValue({});
+    mockPrisma.makeupScheduleEvent.create.mockResolvedValue({
+      id: 'makeup-1',
+    });
+    mockPrisma.makeupScheduleEvent.findUniqueOrThrow.mockResolvedValue({});
+    mockPrisma.makeupScheduleEvent.count.mockResolvedValue(0);
+    mockPrisma.makeupScheduleEvent.delete.mockResolvedValue({});
     mockPrisma.studentExamSchedule.findMany.mockResolvedValue([]);
     mockPrisma.staffInfo.findMany.mockResolvedValue([]);
     mockPrisma.staffInfo.count.mockResolvedValue(0);
+    mockPrisma.$transaction.mockImplementation(
+      async (callback: (tx: typeof mockPrisma) => Promise<unknown>) =>
+        callback(mockPrisma),
+    );
     googleCalendarService.listClassScheduleRecurringEvents.mockResolvedValue(
       [],
     );
+    googleCalendarService.createOrUpdateMakeupScheduleEvent.mockResolvedValue({
+      eventId: 'google-event-1',
+      meetLink: 'https://meet.google.com/makeup',
+    });
+    googleCalendarService.deleteCalendarEvent.mockResolvedValue(undefined);
+    actionHistoryService.recordCreate.mockResolvedValue(undefined);
+    actionHistoryService.recordUpdate.mockResolvedValue(undefined);
+    actionHistoryService.recordDelete.mockResolvedValue(undefined);
 
     service = new CalendarService(
       mockPrisma as never,
       googleCalendarService as never,
       { ensureTutorMeetLink: jest.fn().mockResolvedValue(null) } as never,
+      actionHistoryService as never,
     );
   });
 
@@ -283,7 +351,7 @@ describe('CalendarService', () => {
       where: expectedWhere,
     });
     expect(result).toEqual({
-      data: [{ id: 'teacher-1', name: 'An Nguyễn' }],
+      data: [{ id: 'teacher-1', name: 'Nguyễn An' }],
       total: 1,
       page: 2,
       limit: 12,
@@ -345,6 +413,7 @@ describe('CalendarService', () => {
       mockPrisma as never,
       googleCalendarService as never,
       staffService as never,
+      actionHistoryService as never,
     );
 
     mockPrisma.class.findUnique.mockResolvedValue({
@@ -891,6 +960,313 @@ describe('CalendarService', () => {
     expect(googleCalendarService.deleteCalendarEvent).not.toHaveBeenCalled();
   });
 
+  it('rejects creating a makeup event when endTime is not after startTime', async () => {
+    await expect(
+      service.createMakeupScheduleEvent({
+        classId: 'class-1',
+        teacherId: 'teacher-1',
+        date: '2026-05-20',
+        startTime: '19:00:00',
+        endTime: '19:00:00',
+      }),
+    ).rejects.toThrow('Giờ kết thúc phải sau giờ bắt đầu.');
+
+    expect(mockPrisma.makeupScheduleEvent.create).not.toHaveBeenCalled();
+    expect(
+      googleCalendarService.createOrUpdateMakeupScheduleEvent,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('rejects creating a makeup event from a missing fixed schedule baseline', async () => {
+    mockPrisma.class.findUnique.mockResolvedValueOnce({
+      schedule: [
+        {
+          id: 'slot-2',
+          dayOfWeek: 1,
+          from: '19:00:00',
+          to: '20:30:00',
+          teacherId: 'teacher-1',
+        },
+      ],
+    });
+
+    await expect(
+      service.createMakeupScheduleEvent({
+        classId: 'class-1',
+        teacherId: 'teacher-1',
+        date: '2026-05-20',
+        startTime: '19:00:00',
+        endTime: '20:30:00',
+        baselineScheduleEntryId: 'slot-1',
+        originalDate: '2026-05-18',
+      }),
+    ).rejects.toThrow(
+      'Buổi học gốc không còn tồn tại trong lịch cố định của lớp.',
+    );
+
+    expect(mockPrisma.makeupScheduleEvent.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects partial makeup updates that would make endTime not after startTime', async () => {
+    mockPrisma.makeupScheduleEvent.findUnique.mockResolvedValueOnce({
+      id: 'makeup-1',
+      classId: 'class-1',
+      teacherId: 'teacher-1',
+      linkedSessionId: null,
+      date: new Date('2026-05-20T00:00:00.000Z'),
+      startTime: new Date('1970-01-01T19:00:00'),
+      endTime: new Date('1970-01-01T20:30:00'),
+      baselineScheduleEntryId: null,
+      originalDate: null,
+      title: null,
+      note: null,
+      googleMeetLink: null,
+      googleCalendarEventId: null,
+      calendarSyncedAt: null,
+      calendarSyncError: null,
+    });
+
+    await expect(
+      service.updateMakeupScheduleEvent('makeup-1', {
+        endTime: '18:30:00',
+      }),
+    ).rejects.toThrow('Giờ kết thúc phải sau giờ bắt đầu.');
+
+    expect(mockPrisma.makeupScheduleEvent.update).not.toHaveBeenCalled();
+    expect(
+      googleCalendarService.createOrUpdateMakeupScheduleEvent,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('persists an empty makeup note update as null', async () => {
+    mockPrisma.makeupScheduleEvent.findUnique
+      .mockResolvedValueOnce({
+        id: 'makeup-1',
+        classId: 'class-1',
+        teacherId: 'teacher-1',
+        linkedSessionId: null,
+        date: new Date('2026-05-20T00:00:00.000Z'),
+        startTime: new Date('1970-01-01T19:00:00'),
+        endTime: new Date('1970-01-01T20:30:00'),
+        baselineScheduleEntryId: null,
+        originalDate: null,
+        title: null,
+        note: 'old note',
+        googleMeetLink: null,
+        googleCalendarEventId: null,
+        calendarSyncedAt: null,
+        calendarSyncError: null,
+      })
+      .mockResolvedValueOnce({
+        id: 'makeup-1',
+        classId: 'class-1',
+        teacherId: 'teacher-1',
+        googleCalendarEventId: null,
+        googleMeetLink: null,
+        date: new Date('2026-05-20T00:00:00.000Z'),
+        startTime: new Date('1970-01-01T19:00:00'),
+        endTime: new Date('1970-01-01T20:30:00'),
+        title: null,
+        note: null,
+        class: { id: 'class-1', name: 'Toán 9A' },
+        teacher: {
+          id: 'teacher-1',
+          user: {
+            email: 'an@example.com',
+            first_name: 'An',
+            last_name: 'Nguyễn',
+          },
+        },
+      });
+    mockPrisma.makeupScheduleEvent.update.mockResolvedValueOnce({
+      id: 'makeup-1',
+    });
+    mockPrisma.makeupScheduleEvent.findUniqueOrThrow.mockResolvedValueOnce({
+      id: 'makeup-1',
+      classId: 'class-1',
+      teacherId: 'teacher-1',
+      linkedSessionId: null,
+      date: new Date('2026-05-20T00:00:00.000Z'),
+      startTime: new Date('1970-01-01T19:00:00'),
+      endTime: new Date('1970-01-01T20:30:00'),
+      baselineScheduleEntryId: null,
+      originalDate: null,
+      title: null,
+      note: null,
+      googleMeetLink: 'https://meet.google.com/makeup',
+      googleCalendarEventId: 'google-event-1',
+      calendarSyncedAt: new Date('2026-05-19T00:00:00.000Z'),
+      calendarSyncError: null,
+      class: { id: 'class-1', name: 'Toán 9A' },
+      teacher: {
+        id: 'teacher-1',
+        user: {
+          email: 'an@example.com',
+          first_name: 'An',
+          last_name: 'Nguyễn',
+        },
+      },
+    });
+
+    await service.updateMakeupScheduleEvent('makeup-1', { note: '' });
+
+    const updateArgs = getMakeupScheduleEventUpdateArgs();
+    expect(updateArgs.where).toEqual({ id: 'makeup-1' });
+    expect(updateArgs.data.note).toBeNull();
+  });
+
+  it('clears makeup fixed-schedule baseline when both baseline fields are null', async () => {
+    mockPrisma.makeupScheduleEvent.findUnique
+      .mockResolvedValueOnce({
+        id: 'makeup-1',
+        classId: 'class-1',
+        teacherId: 'teacher-1',
+        linkedSessionId: null,
+        date: new Date('2026-05-20T00:00:00.000Z'),
+        startTime: new Date('1970-01-01T19:00:00'),
+        endTime: new Date('1970-01-01T20:30:00'),
+        baselineScheduleEntryId: 'slot-1',
+        originalDate: new Date('2026-05-18T00:00:00.000Z'),
+        title: null,
+        note: null,
+        googleMeetLink: null,
+        googleCalendarEventId: null,
+        calendarSyncedAt: null,
+        calendarSyncError: null,
+      })
+      .mockResolvedValueOnce({
+        id: 'makeup-1',
+        classId: 'class-1',
+        teacherId: 'teacher-1',
+        googleCalendarEventId: null,
+        googleMeetLink: null,
+        date: new Date('2026-05-20T00:00:00.000Z'),
+        startTime: new Date('1970-01-01T19:00:00'),
+        endTime: new Date('1970-01-01T20:30:00'),
+        title: null,
+        note: null,
+        class: { id: 'class-1', name: 'Toán 9A' },
+        teacher: {
+          id: 'teacher-1',
+          user: {
+            email: 'an@example.com',
+            first_name: 'An',
+            last_name: 'Nguyễn',
+          },
+        },
+      });
+    mockPrisma.makeupScheduleEvent.update.mockResolvedValueOnce({
+      id: 'makeup-1',
+    });
+    mockPrisma.makeupScheduleEvent.findUniqueOrThrow.mockResolvedValueOnce({
+      id: 'makeup-1',
+      classId: 'class-1',
+      teacherId: 'teacher-1',
+      linkedSessionId: null,
+      date: new Date('2026-05-20T00:00:00.000Z'),
+      startTime: new Date('1970-01-01T19:00:00'),
+      endTime: new Date('1970-01-01T20:30:00'),
+      baselineScheduleEntryId: null,
+      originalDate: null,
+      title: null,
+      note: null,
+      googleMeetLink: 'https://meet.google.com/makeup',
+      googleCalendarEventId: 'google-event-1',
+      calendarSyncedAt: new Date('2026-05-19T00:00:00.000Z'),
+      calendarSyncError: null,
+      class: { id: 'class-1', name: 'Toán 9A' },
+      teacher: {
+        id: 'teacher-1',
+        user: {
+          email: 'an@example.com',
+          first_name: 'An',
+          last_name: 'Nguyễn',
+        },
+      },
+    });
+
+    await service.updateMakeupScheduleEvent('makeup-1', {
+      baselineScheduleEntryId: null,
+      originalDate: null,
+    });
+
+    const updateArgs = getMakeupScheduleEventUpdateArgs();
+    expect(updateArgs.where).toEqual({ id: 'makeup-1' });
+    expect(updateArgs.data.baselineScheduleEntryId).toBeNull();
+    expect(updateArgs.data.originalDate).toBeNull();
+  });
+
+  it('keeps the makeup event when Google Calendar delete fails', async () => {
+    mockPrisma.makeupScheduleEvent.findUnique.mockResolvedValueOnce({
+      id: 'makeup-1',
+      classId: 'class-1',
+      teacherId: 'teacher-1',
+      linkedSessionId: null,
+      date: new Date('2026-05-20T00:00:00.000Z'),
+      startTime: new Date('1970-01-01T19:00:00'),
+      endTime: new Date('1970-01-01T20:30:00'),
+      baselineScheduleEntryId: null,
+      originalDate: null,
+      title: null,
+      note: null,
+      googleMeetLink: null,
+      googleCalendarEventId: 'google-event-1',
+      calendarSyncedAt: new Date('2026-05-19T00:00:00.000Z'),
+      calendarSyncError: null,
+    });
+    googleCalendarService.deleteCalendarEvent.mockRejectedValueOnce(
+      new Error('Google delete failed'),
+    );
+
+    await expect(service.deleteMakeupScheduleEvent('makeup-1')).rejects.toThrow(
+      'Buổi bù vẫn được giữ lại để thử lại',
+    );
+
+    expect(mockPrisma.makeupScheduleEvent.update).toHaveBeenCalledWith({
+      where: { id: 'makeup-1' },
+      data: { calendarSyncError: 'Google delete failed' },
+    });
+    expect(mockPrisma.makeupScheduleEvent.delete).not.toHaveBeenCalled();
+  });
+
+  it('records audit history when deleting a makeup event', async () => {
+    const event = {
+      id: 'makeup-1',
+      classId: 'class-1',
+      teacherId: 'teacher-1',
+      linkedSessionId: null,
+      date: new Date('2026-05-20T00:00:00.000Z'),
+      startTime: new Date('1970-01-01T19:00:00'),
+      endTime: new Date('1970-01-01T20:30:00'),
+      baselineScheduleEntryId: null,
+      originalDate: null,
+      title: null,
+      note: null,
+      googleMeetLink: null,
+      googleCalendarEventId: null,
+      calendarSyncedAt: null,
+      calendarSyncError: null,
+    };
+    mockPrisma.makeupScheduleEvent.findUnique.mockResolvedValueOnce(event);
+
+    await service.deleteMakeupScheduleEvent('makeup-1', {
+      userId: 'admin-1',
+      userEmail: 'admin@example.com',
+      roleType: 'admin',
+    });
+
+    expect(mockPrisma.makeupScheduleEvent.delete).toHaveBeenCalledWith({
+      where: { id: 'makeup-1' },
+    });
+    const deleteArgs = getActionHistoryDeleteArgs();
+    expect(deleteArgs.actor.userId).toBe('admin-1');
+    expect(deleteArgs).toMatchObject({
+      entityType: 'makeup_schedule_event',
+      entityId: 'makeup-1',
+      description: 'Xóa buổi bù',
+    });
+  });
+
   it('recreates a makeup Google Calendar event when the stored event id is stale', async () => {
     mockPrisma.makeupScheduleEvent.findUnique
       .mockResolvedValueOnce({
@@ -904,8 +1280,8 @@ describe('CalendarService', () => {
         googleCalendarEventId: 'stale-google-event',
         googleMeetLink: null,
         date: new Date('2026-05-20T00:00:00.000Z'),
-        startTime: new Date('1970-01-01T19:00:00.000Z'),
-        endTime: new Date('1970-01-01T20:30:00.000Z'),
+        startTime: new Date('1970-01-01T19:00:00'),
+        endTime: new Date('1970-01-01T20:30:00'),
         title: null,
         note: 'Học bù',
         class: { id: 'class-1', name: 'Toán 9A' },

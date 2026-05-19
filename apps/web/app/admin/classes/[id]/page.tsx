@@ -885,6 +885,8 @@ export default function AdminClassDetailPage() {
           canDelete={canManageMakeupSchedule}
           canResync={isAdmin}
           disabledCreateMessage={makeupScheduleDisabledMessage}
+          month={selectedMonth}
+          scheduleItems={scheduleItems}
           queryKeyPrefix={["class", "detail", id]}
           listFn={classApi.getClassMakeupEvents}
           createFn={classApi.createClassMakeupEvent}

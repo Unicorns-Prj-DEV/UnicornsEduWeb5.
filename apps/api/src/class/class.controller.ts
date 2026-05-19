@@ -307,12 +307,20 @@ export class ClassController {
     type: MakeupGoogleCalendarResyncResponseDto,
   })
   async resyncClassMakeupGoogleCalendar(
+    @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('eventId', new ParseUUIDPipe()) eventId: string,
   ): Promise<MakeupGoogleCalendarResyncResponseDto> {
     return this.calendarService.resyncMakeupScheduleEventWithGoogleCalendarForClass(
       id,
       eventId,
+      {
+        actor: {
+          userId: user.id,
+          userEmail: user.email,
+          roleType: user.roleType,
+        },
+      },
     );
   }
 
@@ -393,10 +401,15 @@ export class ClassController {
     },
   })
   async createMakeupEventByClassId(
+    @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: CreateClassScopedMakeupScheduleEventDto,
   ): Promise<{ success: boolean; data: MakeupScheduleEventDto }> {
-    return this.calendarService.createMakeupScheduleEventForClass(id, dto);
+    return this.calendarService.createMakeupScheduleEventForClass(id, dto, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Patch()
@@ -470,6 +483,7 @@ export class ClassController {
     },
   })
   async updateMakeupEventByClassId(
+    @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('eventId', new ParseUUIDPipe()) eventId: string,
     @Body() dto: UpdateClassScopedMakeupScheduleEventDto,
@@ -478,6 +492,11 @@ export class ClassController {
       id,
       eventId,
       dto,
+      {
+        userId: user.id,
+        userEmail: user.email,
+        roleType: user.roleType,
+      },
     );
   }
 
@@ -542,9 +561,14 @@ export class ClassController {
     },
   })
   async deleteMakeupEventByClassId(
+    @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('eventId', new ParseUUIDPipe()) eventId: string,
   ): Promise<{ success: boolean }> {
-    return this.calendarService.deleteMakeupScheduleEventForClass(id, eventId);
+    return this.calendarService.deleteMakeupScheduleEventForClass(id, eventId, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 }

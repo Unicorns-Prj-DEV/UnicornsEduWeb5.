@@ -108,8 +108,9 @@ describe('SessionValidationService', () => {
 
   it('clamps coefficient into supported range', () => {
     expect(service.normalizeCoefficient(undefined)).toBeUndefined();
-    expect(service.normalizeCoefficient(0)).toBe(0.1);
-    expect(service.normalizeCoefficient(12)).toBe(9.9);
+    expect(service.normalizeCoefficient(-1)).toBe(0);
+    expect(service.normalizeCoefficient(0)).toBe(0);
+    expect(service.normalizeCoefficient(12)).toBe(1);
   });
 
   it('rejects invalid session date strings', () => {

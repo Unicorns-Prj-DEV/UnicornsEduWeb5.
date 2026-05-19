@@ -19,6 +19,7 @@ import {
   ActionHistoryService,
 } from '../action-history/action-history.service';
 import { getPreferredUserFullName } from 'src/common/user-name.util';
+import { assertStaffCanReceiveAssignment } from 'src/common/profile-status.policy';
 import {
   BulkUpdateLessonOutputPaymentStatusResultDto,
   CreateLessonOutputDto,
@@ -1625,11 +1626,13 @@ export class LessonService {
             roles: {
               hasSome: [StaffRole.lesson_plan, StaffRole.lesson_plan_head],
             },
+            status: StaffStatus.active,
           }
         : {
             roles: {
               hasSome: [StaffRole.lesson_plan, StaffRole.lesson_plan_head],
             },
+            status: StaffStatus.active,
           },
       select: {
         id: true,
@@ -2326,9 +2329,11 @@ export class LessonService {
         roles: {
           hasSome: [...LESSON_TASK_ASSIGNABLE_ROLES],
         },
+        status: StaffStatus.active,
       },
       select: {
         id: true,
+        status: true,
       },
     });
 
@@ -2372,6 +2377,7 @@ export class LessonService {
       },
       select: {
         id: true,
+        status: true,
       },
     });
 
@@ -2384,6 +2390,10 @@ export class LessonService {
     const assignableStaffIdSet = new Set(
       assignableStaff.map((staff) => staff.id),
     );
+
+    for (const staff of assignableStaff) {
+      assertStaffCanReceiveAssignment(staff.status);
+    }
 
     return normalizedStaffIds.filter((staffId) =>
       assignableStaffIdSet.has(staffId),
@@ -2787,12 +2797,14 @@ export class LessonService {
 
     const staff = await db.staffInfo.findUnique({
       where: { id: normalizedStaffId },
-      select: { id: true },
+      select: { id: true, status: true },
     });
 
     if (!staff) {
       throw new BadRequestException('Nhân sự của lesson output không tồn tại.');
     }
+
+    assertStaffCanReceiveAssignment(staff.status);
 
     return staff.id;
   }

@@ -120,7 +120,7 @@ export default function MakeupEventEditorPopup({
         date: form.date,
         startTime: `${form.startTime}:00`,
         endTime: `${form.endTime}:00`,
-        note: form.note.trim() || undefined,
+        note: form.note.trim(),
       }),
     onSuccess: async () => {
       await invalidateCalendar();

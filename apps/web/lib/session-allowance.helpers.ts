@@ -21,8 +21,8 @@ export function computeTeacherSessionAllowanceGrossPreviewVnd(options: {
 }): number {
   const coeff =
     Number.isFinite(options.coefficient) &&
-    options.coefficient >= 0.1 &&
-    options.coefficient <= 9.9
+    options.coefficient >= 0 &&
+    options.coefficient <= 1
       ? options.coefficient
       : 1;
   const base = Math.floor(Math.max(0, options.rawBase) * coeff);

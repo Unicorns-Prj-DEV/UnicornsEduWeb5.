@@ -23,6 +23,10 @@ import {
 } from '@nestjs/swagger';
 import { StaffRole, UserRole } from 'generated/enums';
 import { AllowStaffRolesOnAdminRoutes } from '../auth/decorators/allow-staff-roles-on-admin.decorator';
+import {
+  CurrentUser,
+  type JwtPayload,
+} from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CalendarService } from './calendar.service';
 import {
@@ -205,9 +209,14 @@ export class CalendarAdminController {
     },
   })
   async createMakeupEvent(
+    @CurrentUser() user: JwtPayload,
     @Body() dto: CreateMakeupScheduleEventDto,
   ): Promise<{ success: boolean; data: MakeupScheduleEventDto }> {
-    return this.calendarService.createMakeupScheduleEvent(dto);
+    return this.calendarService.createMakeupScheduleEvent(dto, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Patch('makeup-events/:id')
@@ -231,10 +240,15 @@ export class CalendarAdminController {
     },
   })
   async updateMakeupEvent(
+    @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateMakeupScheduleEventDto,
   ): Promise<{ success: boolean; data: MakeupScheduleEventDto }> {
-    return this.calendarService.updateMakeupScheduleEvent(id, dto);
+    return this.calendarService.updateMakeupScheduleEvent(id, dto, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Delete('makeup-events/:id')
@@ -254,8 +268,13 @@ export class CalendarAdminController {
     },
   })
   async deleteMakeupEvent(
+    @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe()) id: string,
   ): Promise<{ success: boolean }> {
-    return this.calendarService.deleteMakeupScheduleEvent(id);
+    return this.calendarService.deleteMakeupScheduleEvent(id, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 }

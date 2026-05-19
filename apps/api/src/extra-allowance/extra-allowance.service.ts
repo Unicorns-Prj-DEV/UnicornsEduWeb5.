@@ -5,7 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Prisma } from '../../generated/client';
-import { PaymentStatus, StaffRole, UserRole } from 'generated/enums';
+import {
+  PaymentStatus,
+  StaffRole,
+  StaffStatus,
+  UserRole,
+} from 'generated/enums';
 import {
   ActionHistoryActor,
   ActionHistoryService,
@@ -24,6 +29,7 @@ import {
   resolveTaxDeductionRate,
 } from '../payroll/deduction-rates';
 import { getUserFullNameFromParts } from '../common/user-name.util';
+import { assertStaffCanReceiveAssignment } from '../common/profile-status.policy';
 
 @Injectable()
 export class ExtraAllowanceService {
@@ -72,6 +78,22 @@ export class ExtraAllowanceService {
     } catch {
       throw new BadRequestException('month must be in YYYY-MM format');
     }
+  }
+
+  private async assertActiveStaffForAllowance(
+    db: Prisma.TransactionClient | PrismaService,
+    staffId: string,
+  ) {
+    const staff = await db.staffInfo.findUnique({
+      where: { id: staffId },
+      select: { id: true, status: true },
+    });
+
+    if (!staff) {
+      throw new NotFoundException('Staff not found');
+    }
+
+    assertStaffCanReceiveAssignment(staff.status);
   }
 
   private getExtraAllowanceSnapshot(id: string) {
@@ -368,6 +390,7 @@ export class ExtraAllowanceService {
     auditActor?: ActionHistoryActor,
   ) {
     return this.prisma.$transaction(async (tx) => {
+      await this.assertActiveStaffForAllowance(tx, data.staffId);
       const taxDeductionRatePercent = await resolveTaxDeductionRate(tx, {
         staffId: data.staffId,
         roleType: data.roleType,
@@ -444,6 +467,7 @@ export class ExtraAllowanceService {
       const nextStaffId = data.staffId ?? existingAllowance.staffId;
       const nextRoleType = data.roleType ?? existingAllowance.roleType;
       const nextMonth = data.month ?? existingAllowance.month;
+      await this.assertActiveStaffForAllowance(tx, nextStaffId);
       const updatedAllowance = await tx.extraAllowance.update({
         where: { id: data.id },
         data: {

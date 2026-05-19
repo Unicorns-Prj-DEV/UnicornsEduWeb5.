@@ -46,6 +46,8 @@ export interface ClassScheduleEvent {
   patternEntryId?: string; // Reference to the ClassScheduleEntry that generated this
   sourceEventId?: string;
   meetLink?: string; // Google Meet link from the corresponding session/schedule
+  baselineScheduleEntryId?: string | null;
+  originalDate?: string | null;
 }
 
 /**
@@ -67,6 +69,8 @@ export interface MakeupCalendarEventPayload {
   teacherId: string;
   title?: string;
   note?: string;
+  baselineScheduleEntryId?: string | null;
+  originalDate?: string | null;
 }
 
 export type MakeupCalendarEventUpdatePayload = Partial<MakeupCalendarEventPayload>;
@@ -76,6 +80,8 @@ export interface MakeupScheduleEventRecord {
   classId: string;
   teacherId: string;
   linkedSessionId?: string | null;
+  baselineScheduleEntryId?: string | null;
+  originalDate?: string | null;
   date: string;
   startTime?: string;
   endTime?: string;
@@ -87,6 +93,7 @@ export interface MakeupScheduleEventRecord {
   googleCalendarEventId?: string | null;
   calendarSyncedAt?: string | null;
   calendarSyncError?: string | null;
+  calendarSyncStatus?: "pending" | "synced" | "error";
 }
 
 export interface ClassScopedMakeupScheduleEventPayload {
@@ -96,6 +103,8 @@ export interface ClassScopedMakeupScheduleEventPayload {
   teacherId: string;
   title?: string;
   note?: string;
+  baselineScheduleEntryId?: string | null;
+  originalDate?: string | null;
 }
 
 export type ClassScopedMakeupScheduleEventUpdatePayload =

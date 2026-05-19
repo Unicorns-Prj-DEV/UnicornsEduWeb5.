@@ -67,14 +67,14 @@ export class SessionCreateDto {
   notes?: string | null;
 
   @ApiPropertyOptional({
-    description: 'Coefficient for this session (e.g. 1.0, 1.5).',
-    example: 1.5,
+    description: 'Coefficient for this session, from 0.0 to 1.0.',
+    example: 1.0,
   })
   @IsOptional()
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 1 })
-  @Min(0.1)
-  @Max(9.9)
+  @Min(0)
+  @Max(1)
   coefficient?: number;
 
   @ApiPropertyOptional({
@@ -217,14 +217,14 @@ export class CreateStaffOpsSessionDto {
 
   @ApiPropertyOptional({
     description:
-      'Coefficient for this session. Staff ops may edit this, but not allowance or tuition overrides.',
-    example: 1.5,
+      'Coefficient for this session, from 0.0 to 1.0. Staff ops may edit this, but not allowance or tuition overrides.',
+    example: 1.0,
   })
   @IsOptional()
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 1 })
-  @Min(0.1)
-  @Max(9.9)
+  @Min(0)
+  @Max(1)
   coefficient?: number;
 
   @ApiProperty({

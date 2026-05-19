@@ -72,20 +72,51 @@ export class StaffOpsClassController {
     private readonly staffOperationsAccess: StaffOperationsAccessService,
   ) {}
 
-  private async assertCanManageMakeupEvent(user: JwtPayload) {
+  private async resolveMakeupManagementTeacherScope(
+    user: JwtPayload,
+    classId: string,
+    eventId: string,
+    dto?: UpdateClassScopedMakeupScheduleEventDto,
+  ): Promise<string | undefined> {
     if (user.roleType === UserRole.admin) {
-      return;
+      return undefined;
     }
 
     const actor = await this.staffOperationsAccess.resolveClassViewerActor(
       user.id,
       user.roleType,
     );
-    if (!actor.roles.includes(StaffRole.admin)) {
-      throw new ForbiddenException(
-        'Chỉ admin mới được quản lý buổi bù trong staff workspace.',
-      );
+
+    if (
+      actor.roles.includes(StaffRole.admin) ||
+      actor.roles.includes(StaffRole.assistant)
+    ) {
+      return undefined;
     }
+
+    if (isTeacherScopedActor(actor.roles)) {
+      await this.staffOperationsAccess.assertTeacherAssignedToClass(
+        actor.id,
+        classId,
+      );
+      await this.calendarService.assertTeacherCanManageMakeupScheduleEventForClass(
+        classId,
+        eventId,
+        actor.id,
+      );
+
+      if (dto?.teacherId && dto.teacherId !== actor.id) {
+        throw new ForbiddenException(
+          'Teacher chỉ được quản lý buổi bù do chính mình phụ trách.',
+        );
+      }
+
+      return actor.id;
+    }
+
+    throw new ForbiddenException(
+      'Chỉ admin, trợ lí hoặc teacher phụ trách buổi bù mới được quản lý buổi bù trong staff workspace.',
+    );
   }
 
   @Get()
@@ -245,7 +276,11 @@ export class StaffOpsClassController {
       }
     }
 
-    return this.calendarService.createMakeupScheduleEventForClass(id, dto);
+    return this.calendarService.createMakeupScheduleEventForClass(id, dto, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Post(':id/surveys')
@@ -353,6 +388,13 @@ export class StaffOpsClassController {
       return this.calendarService.resyncMakeupScheduleEventWithGoogleCalendarForClass(
         id,
         eventId,
+        {
+          actor: {
+            userId: user.id,
+            userEmail: user.email,
+            roleType: user.roleType,
+          },
+        },
       );
     }
 
@@ -364,7 +406,14 @@ export class StaffOpsClassController {
     return this.calendarService.resyncMakeupScheduleEventWithGoogleCalendarForClass(
       id,
       eventId,
-      { teacherId: actor.id },
+      {
+        teacherId: actor.id,
+        actor: {
+          userId: user.id,
+          userEmail: user.email,
+          roleType: user.roleType,
+        },
+      },
     );
   }
 
@@ -382,12 +431,22 @@ export class StaffOpsClassController {
     @Param('eventId', new ParseUUIDPipe()) eventId: string,
     @Body() dto: UpdateClassScopedMakeupScheduleEventDto,
   ): Promise<{ success: boolean; data: MakeupScheduleEventDto }> {
-    await this.assertCanManageMakeupEvent(user);
+    const teacherScope = await this.resolveMakeupManagementTeacherScope(
+      user,
+      id,
+      eventId,
+      dto,
+    );
 
     return this.calendarService.updateMakeupScheduleEventForClass(
       id,
       eventId,
-      dto,
+      teacherScope ? { ...dto, teacherId: teacherScope } : dto,
+      {
+        userId: user.id,
+        userEmail: user.email,
+        roleType: user.roleType,
+      },
     );
   }
 
@@ -431,9 +490,13 @@ export class StaffOpsClassController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('eventId', new ParseUUIDPipe()) eventId: string,
   ): Promise<{ success: boolean }> {
-    await this.assertCanManageMakeupEvent(user);
+    await this.resolveMakeupManagementTeacherScope(user, id, eventId);
 
-    return this.calendarService.deleteMakeupScheduleEventForClass(id, eventId);
+    return this.calendarService.deleteMakeupScheduleEventForClass(id, eventId, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Delete(':id/surveys/:surveyId')

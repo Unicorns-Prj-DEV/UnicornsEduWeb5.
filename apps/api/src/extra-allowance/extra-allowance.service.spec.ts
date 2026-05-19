@@ -11,13 +11,19 @@ jest.mock('../payroll/deduction-rates', () => ({
 }));
 
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
-import { PaymentStatus, StaffRole, UserRole } from '../../generated/enums';
+import {
+  PaymentStatus,
+  StaffRole,
+  StaffStatus,
+  UserRole,
+} from '../../generated/enums';
 import { ExtraAllowanceService } from './extra-allowance.service';
 
 describe('ExtraAllowanceService', () => {
   const mockPrisma = {
     staffInfo: {
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
     },
     extraAllowance: {
       create: jest.fn(),
@@ -40,6 +46,10 @@ describe('ExtraAllowanceService', () => {
     mockPrisma.$transaction.mockImplementation(
       (callback: (db: typeof mockPrisma) => unknown) => callback(mockPrisma),
     );
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      status: StaffStatus.active,
+    });
     service = new ExtraAllowanceService(
       mockPrisma as never,
       actionHistoryService as never,
@@ -47,6 +57,10 @@ describe('ExtraAllowanceService', () => {
   });
 
   it('creates admin extra allowances without requiring a client-provided id', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      status: StaffStatus.active,
+    });
     mockPrisma.extraAllowance.create.mockResolvedValue({
       id: 'allowance-db-1',
       staffId: 'staff-1',
@@ -113,6 +127,25 @@ describe('ExtraAllowanceService', () => {
       roleType: StaffRole.assistant,
       taxDeductionRatePercent: 7.5,
     });
+  });
+
+  it('rejects creating an extra allowance for inactive staff', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      status: StaffStatus.inactive,
+    });
+
+    await expect(
+      service.createExtraAllowance({
+        staffId: 'staff-1',
+        month: '2026-04',
+        amount: 200000,
+        status: PaymentStatus.pending,
+        roleType: StaffRole.assistant,
+      }),
+    ).rejects.toThrow('Nhân sự đang ở trạng thái ngừng hoạt động.');
+
+    expect(mockPrisma.extraAllowance.create).not.toHaveBeenCalled();
   });
 
   it('allows technical staff to create their own pending extra allowance with role-aware tax snapshot', async () => {

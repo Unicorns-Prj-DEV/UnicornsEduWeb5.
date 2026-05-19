@@ -293,7 +293,7 @@ export default function AddSessionPopup({
   const coefficientForPreview = useMemo(() => {
     if (!canEditCoefficient) return 1;
     const n = Number(coefficient.trim());
-    if (Number.isFinite(n) && n >= 0.1 && n <= 9.9) return n;
+    if (Number.isFinite(n) && n >= 0 && n <= 1) return n;
     return 1;
   }, [canEditCoefficient, coefficient]);
 
@@ -457,8 +457,8 @@ export default function AddSessionPopup({
         ? Number(allowanceAmount)
         : computedAllowanceNum;
 
-    if (coeffStr && (!Number.isFinite(coeffNum) || coeffNum < 0.1 || coeffNum > 9.9)) {
-      toast.error("Hệ số (coefficient) phải là số từ 0.1 đến 9.9.");
+    if (coeffStr && (!Number.isFinite(coeffNum) || coeffNum < 0 || coeffNum > 1)) {
+      toast.error("Hệ số (coefficient) phải là số từ 0 đến 1.");
       return;
     }
     if (allowanceStr && (allowanceNum === undefined || !Number.isFinite(allowanceNum) || allowanceNum < 0)) {
@@ -475,8 +475,8 @@ export default function AddSessionPopup({
       notes: trimmedSessionNotes,
       ...(canEditCoefficient &&
         Number.isFinite(coeffNum) &&
-        coeffNum >= 0.1 &&
-        coeffNum <= 9.9
+        coeffNum >= 0 &&
+        coeffNum <= 1
         ? { coefficient: coeffNum }
         : {}),
       ...(canEditAllowance &&
@@ -623,13 +623,13 @@ export default function AddSessionPopup({
                     {canEditCoefficient ? (
                       <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
                         <span>
-                          Hệ số (0,1–9,9) <RequiredMark />
+                          Hệ số (0–1) <RequiredMark />
                         </span>
                         <input
                           name="add-session-coefficient"
                           type="number"
-                          min={0.1}
-                          max={9.9}
+                          min={0}
+                          max={1}
                           step={0.1}
                           value={coefficient}
                           autoComplete="off"
@@ -637,7 +637,7 @@ export default function AddSessionPopup({
                           className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                           placeholder="1"
                         />
-                        <span className="text-xs font-normal text-text-muted">Hệ số áp dụng theo cấu hình buổi học (0,1 đến 9,9).</span>
+                        <span className="text-xs font-normal text-text-muted">Hệ số áp dụng theo cấu hình buổi học (0 đến 1).</span>
                       </label>
                     ) : null}
 

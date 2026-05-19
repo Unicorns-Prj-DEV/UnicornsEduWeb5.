@@ -114,6 +114,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 ### 4.2 `staff_info`
 
 - Thông tin nhân sự: hồ sơ cá nhân, CCCD, ngân hàng, `roles` (`StaffRole[]` dạng Postgres enum array), `status`
+- `status` là trạng thái vận hành hồ sơ nhân sự: `active` = **Hoạt động**, `inactive` = **Ngừng hoạt động**. Chỉ staff `active` được resolve staff/admin-through-staff workspace và được chọn cho phân công mới (gia sư lớp, trợ lí quản lí CSKH, giáo án, trợ cấp thêm). Staff `inactive` vẫn giữ trong lịch sử, payroll và các bản ghi đã phát sinh.
 - Index: unique B-tree `staff_info_user_id_key` trên `user_id` kèm **`INCLUDE ("id", "roles")`** (covering) để tối ưu các đọc theo `user_id` (auth/session, roles guard). Trong Prisma: `@@unique([userId], map: "staff_info_user_id_key")` trên model `StaffInfo` (phần `INCLUDE` chỉ có trong migration SQL, Prisma chưa có DSL tương ứng).
 - Index: GIN trên `roles` cho lookup nhân sự theo role array.
 - Không còn lưu cột tên riêng trong `staff_info` (đã bỏ `full_name`); tên staff canonical được đọc từ `users.first_name` + `users.last_name`. Một số API vẫn có thể trả `staffInfo.fullName` dưới dạng derived field để tương thích ngược.
@@ -132,6 +133,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 ### 4.3 `student_info`
 
 - Hồ sơ học viên: liên hệ phụ huynh (`parent_name`, `parent_phone`, `parent_email`), trạng thái, giới tính, mục tiêu
+- `status` là trạng thái học tập của hồ sơ học sinh: `active` = **Đang học**, `inactive` = **Nghỉ học**. Chỉ học sinh `active` được resolve student workspace và được thêm vào roster/lớp mới. Khi chuyển sang `inactive`, backend chuyển các `student_classes` còn `active` của học sinh đó sang `inactive`; bật lại `active` không tự khôi phục các membership cũ.
 - `parent_email` là email nhận biên nhận nạp ví SePay của phụ huynh; không fallback sang email học sinh.
 - Được tham chiếu bởi: `users`, `student_classes`, `attendance`, `wallet_transactions_history`, `student_wallet_sepay_orders`, `customer_care_service`, `student_exam_schedules`
 
@@ -210,6 +212,8 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - `linked_session_id` (nullable FK → `sessions.id`) để back-reference nếu về sau có session thực hiện buổi bù
   - `date` (`DATE`)
   - `start_time`, `end_time` (`TIME`)
+  - `baseline_schedule_entry_id` (`TEXT`, nullable) để tham chiếu slot cố định trong `Class.schedule` mà buổi bù dựa trên
+  - `original_date` (`DATE`, nullable) để lưu ngày xảy ra buổi cố định bị học bù
   - `title` (`TEXT`, nullable)
   - `note` (`TEXT`, nullable)
   - `google_meet_link` (`TEXT`, nullable)
@@ -222,13 +226,15 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - có thể liên kết ngược tới `sessions`
 - Ghi chú:
   - Buổi bù không thay thế recurring slot trong `Class.schedule`; nó chỉ bổ sung thêm vào feed lịch.
+  - Khi người dùng chọn **buổi học gốc**, frontend gửi `baseline_schedule_entry_id` + `original_date`; backend validate slot đó còn tồn tại trong `Class.schedule` và `original_date` khớp `dayOfWeek` của slot.
   - FE hiện quản lý CRUD buổi bù theo từng lớp tại `/admin/classes/:id` và `/staff/classes/:id`; calendar chỉ còn hiển thị aggregate event.
   - Backend sync one-off event này lên Google Calendar riêng, độc lập với recurring event của `Class.schedule`.
+  - Nếu xóa Google Calendar event bên ngoài thất bại, backend giữ lại record và `google_calendar_event_id`, cập nhật `calendar_sync_error`, rồi trả lỗi để có thể retry thay vì mất handle sync.
 
 ### 4.5 `sessions`
 
 - Mỗi buổi học gắn với 1 lớp và 1 giáo viên
-- Trường chính: ngày học, start/end time, `coefficient`, `allowance_amount`, `teacher_payment_status`, `tuition_fee`
+- Trường chính: ngày học, start/end time, `coefficient` (hệ số buổi học 0.0–1.0), `allowance_amount`, `teacher_payment_status`, `tuition_fee`
 - `allowance_amount`: snapshot **trước hệ số** = tổng `(trợ cấp mỗi học sinh theo cặp gia sư–lớp × số bản ghi điểm danh present/excused) + scale_amount của lớp` tại thời điểm tạo/cập nhật buổi (làm tròn VND theo logic API). Các truy vấn payroll **không** cộng thêm `classes.scale_amount` vào `allowance_amount`.
 - `max_allowance_per_session` không snapshot tại `sessions`; các aggregate payroll/report đọc động từ `classes.max_allowance_per_session` tại thời điểm query, nên thay đổi cấu hình lớp có thể ảnh hưởng kết quả historical aggregate.
 - Snapshot khấu trừ theo buổi:
