@@ -157,6 +157,28 @@ describe('UserService', () => {
     );
   });
 
+  it('rejects student user creation without a student name', async () => {
+    await expect(
+      service.createUser(
+        {
+          email: 'student@example.com',
+          password: 'secret',
+          accountHandle: 'student-handle',
+          roleType: UserRole.student,
+        },
+        {
+          userId: 'admin-1',
+          userEmail: 'admin@example.com',
+          roleType: 'admin',
+        },
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(
+      authService.createPendingUserWithVerificationEmail,
+    ).not.toHaveBeenCalled();
+  });
+
   it('filters users by search tokens and clamps page to available range', async () => {
     mockPrisma.user.count.mockResolvedValue(1);
     mockPrisma.user.findMany.mockResolvedValue([
@@ -358,7 +380,7 @@ describe('UserService', () => {
         staffInfo: null,
         studentInfo: {
           id: 'student-1',
-          fullName: 'New User',
+          fullName: 'User New',
         },
       });
     mockPrisma.user.update.mockResolvedValue({
@@ -380,7 +402,7 @@ describe('UserService', () => {
     });
     mockPrisma.studentInfo.findUnique.mockResolvedValue({
       id: 'student-1',
-      fullName: 'New User',
+      fullName: 'User New',
       email: 'new-user@example.com',
       province: 'Hanoi',
       userId: 'user-1',
@@ -401,7 +423,7 @@ describe('UserService', () => {
 
     expect(mockPrisma.studentInfo.create).toHaveBeenCalledWith({
       data: {
-        fullName: 'New User',
+        fullName: 'User New',
         email: 'new-user@example.com',
         province: 'Hanoi',
         userId: 'user-1',
@@ -503,8 +525,8 @@ describe('UserService', () => {
     expect(mockPrisma.user.update).toHaveBeenCalledWith({
       where: { id: 'user-1' },
       data: {
-        first_name: 'Teacher',
-        last_name: 'A',
+        first_name: 'A',
+        last_name: 'Teacher',
       },
     });
     expect(mockPrisma.staffInfo.update).not.toHaveBeenCalledWith(

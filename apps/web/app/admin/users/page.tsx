@@ -14,6 +14,15 @@ import {
   type UserDetailWithStaff,
   type StaffRole,
 } from "@/dtos/user.dto";
+import {
+  buildCreateUserPayload,
+  CREATE_USER_FIELD_ORDER,
+  EMPTY_CREATE_USER_FORM,
+  validateCreateUserForm,
+  type CreateUserField,
+  type CreateUserFormErrors,
+  type CreateUserFormState,
+} from "@/lib/user-create-form";
 import { USER_ROLE_LABELS } from "@/lib/user.constants";
 import { ROLE_LABELS } from "@/lib/staff.constants";
 
@@ -37,35 +46,6 @@ const STAFF_ROLES: StaffRole[] = [
   "technical",
   "customer_care",
 ];
-
-const CREATE_USER_FIELD_ORDER = [
-  "accountHandle",
-  "email",
-  "password",
-  "confirmPassword",
-] as const;
-
-type CreateUserField = (typeof CREATE_USER_FIELD_ORDER)[number];
-
-type CreateUserFormState = Pick<
-  CreateUserPayload,
-  "accountHandle" | "email" | "password"
-> & {
-  roleType: UserRoleType;
-  staffRoles: StaffRole[];
-  confirmPassword: string;
-};
-
-type CreateUserFormErrors = Partial<Record<CreateUserField, string>>;
-
-const EMPTY_CREATE_USER_FORM: CreateUserFormState = {
-  email: "",
-  password: "",
-  accountHandle: "",
-  roleType: "guest",
-  staffRoles: [],
-  confirmPassword: "",
-};
 
 const CREATE_USER_INPUT_CLASS =
   "mt-1 min-h-11 w-full rounded-xl border border-border-default bg-bg-surface px-3.5 py-2.5 text-sm text-text-primary shadow-sm transition-[border-color,box-shadow,background-color] duration-200 placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus/40";
@@ -109,34 +89,6 @@ function getUserDisplayName(user: {
   last_name?: string | null;
 }) {
   return [user.last_name, user.first_name].filter(Boolean).join(" ").trim();
-}
-
-function validateCreateUserForm(
-  form: CreateUserFormState,
-): CreateUserFormErrors {
-  const errors: CreateUserFormErrors = {};
-  const email = form.email.trim();
-
-  if (!form.accountHandle.trim()) {
-    errors.accountHandle = "Vui lòng nhập account handle.";
-  }
-  if (!email) {
-    errors.email = "Vui lòng nhập email.";
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    errors.email = "Email không hợp lệ.";
-  }
-  if (!form.password) {
-    errors.password = "Vui lòng nhập mật khẩu.";
-  } else if (form.password.length < 6) {
-    errors.password = "Mật khẩu cần ít nhất 6 ký tự.";
-  }
-  if (!form.confirmPassword) {
-    errors.confirmPassword = "Vui lòng nhập xác nhận mật khẩu.";
-  } else if (form.password !== form.confirmPassword) {
-    errors.confirmPassword = "Mật khẩu xác nhận không khớp.";
-  }
-
-  return errors;
 }
 
 function AssignRoleModal({
@@ -414,6 +366,13 @@ export default function AdminUsersPage() {
       roleType: value,
       staffRoles: value === "staff" ? prev.staffRoles : [],
     }));
+    if (value !== "student") {
+      setCreateUserErrors((prev) => {
+        const next = { ...prev };
+        delete next.studentName;
+        return next;
+      });
+    }
   };
 
   const toggleCreateUserStaffRole = (role: StaffRole, checked: boolean) => {
@@ -506,19 +465,7 @@ export default function AdminUsersPage() {
       return;
     }
 
-    const commonPayload = {
-      email: createUserForm.email.trim(),
-      password: createUserForm.password,
-      accountHandle: createUserForm.accountHandle.trim(),
-    };
-
-    createUserMutation.mutate({
-      ...commonPayload,
-      roleType: createUserForm.roleType,
-      ...(createUserForm.roleType === "staff"
-        ? { staffRoles: createUserForm.staffRoles }
-        : {}),
-    });
+    createUserMutation.mutate(buildCreateUserPayload(createUserForm));
   };
 
   const { data, isLoading, isError, error } = useQuery({
@@ -550,6 +497,7 @@ export default function AdminUsersPage() {
     ? createUserErrors[createUserFirstErrorField]
     : null;
   const showCreateUserStaffRoles = createUserForm.roleType === "staff";
+  const showCreateUserStudentName = createUserForm.roleType === "student";
   const createRoleTypeOptions = isStaffShell
     ? ROLE_TYPE_OPTIONS.filter((opt) => opt.value !== "admin")
     : ROLE_TYPE_OPTIONS;
@@ -768,7 +716,7 @@ export default function AdminUsersPage() {
                               Nếu để trống, hồ sơ staff vẫn được tạo nhưng chưa gán role chi tiết.
                             </p>
                           </div>
-                        ) : (
+                        ) : createUserForm.roleType === "student" ? null : (
                           <div className="rounded-xl border border-dashed border-border-default bg-bg-surface px-4 py-3 text-sm leading-6 text-text-secondary">
                             Chọn <span className="font-medium text-text-primary">staff</span> nếu
                             cần gán vai trò nhân sự ngay trong lúc tạo tài khoản.
@@ -778,6 +726,44 @@ export default function AdminUsersPage() {
                     </section>
 
                     <div className="grid gap-4 sm:grid-cols-2">
+                      {showCreateUserStudentName ? (
+                        <label className="block sm:col-span-2">
+                          <span className="text-sm font-medium text-text-secondary">
+                            Tên học sinh
+                          </span>
+                          <input
+                            ref={(node) => {
+                              createUserFieldRefs.current.studentName = node;
+                            }}
+                            id="create-user-student-name"
+                            name="studentName"
+                            type="text"
+                            autoComplete="name"
+                            value={createUserForm.studentName}
+                            onChange={(event) =>
+                              setCreateUserFieldValue("studentName", event.target.value)
+                            }
+                            placeholder="Vũ Minh Phương…"
+                            className={CREATE_USER_INPUT_CLASS}
+                            aria-invalid={Boolean(createUserErrors.studentName)}
+                            aria-describedby={
+                              createUserErrors.studentName
+                                ? "create-user-student-name-error"
+                                : undefined
+                            }
+                          />
+                          {createUserErrors.studentName ? (
+                            <p
+                              id="create-user-student-name-error"
+                              className="mt-1 text-sm text-error"
+                              aria-live="polite"
+                            >
+                              {createUserErrors.studentName}
+                            </p>
+                          ) : null}
+                        </label>
+                      ) : null}
+
                       <label className="block">
                         <span className="text-sm font-medium text-text-secondary">
                           Account handle

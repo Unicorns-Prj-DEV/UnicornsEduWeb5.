@@ -12,6 +12,7 @@ import {
   ActionHistoryService,
 } from 'src/action-history/action-history.service';
 import { AuthService } from 'src/auth/auth.service';
+import { STAFF_DATA_CONSENT_VERSION } from 'src/auth/constants';
 import {
   UpdateMyProfileDto,
   UpdateMyStaffProfileDto,
@@ -33,6 +34,7 @@ import {
   validateImageFile,
 } from 'src/storage/supabase-storage';
 import {
+  getUserFullNameFromParts,
   getPreferredUserFullName,
   splitFullName,
 } from 'src/common/user-name.util';
@@ -361,6 +363,11 @@ export class UserService {
   }
 
   async createUser(data: AdminCreateUserDto, auditActor?: ActionHistoryActor) {
+    const nextRoleType = data.roleType ?? UserRole.guest;
+    if (nextRoleType === UserRole.student && !getUserFullNameFromParts(data)) {
+      throw new BadRequestException('Vui lòng nhập tên học sinh.');
+    }
+
     const response =
       await this.authService.createPendingUserWithVerificationEmail(data, {
         auditActor,
@@ -369,7 +376,6 @@ export class UserService {
         successMessage: 'Tạo user thành công. Email xác thực đã được gửi.',
       });
 
-    const nextRoleType = data.roleType ?? UserRole.guest;
     if (nextRoleType === UserRole.guest) {
       return response;
     }
@@ -795,7 +801,21 @@ export class UserService {
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
-    return this.attachProfileMediaUrls(this.sanitizeUser(user));
+    const profile = await this.attachProfileMediaUrls(this.sanitizeUser(user));
+    const dataConsentAcceptedAt =
+      profile.dataProcessingConsentAcceptedAt ?? null;
+    const dataConsentVersion = profile.dataProcessingConsentVersion ?? null;
+
+    return {
+      ...profile,
+      dataConsentAcceptedAt,
+      dataConsentVersion,
+      requiresStaffDataConsent: Boolean(
+        profile.staffInfo?.id &&
+        (!dataConsentAcceptedAt ||
+          dataConsentVersion !== STAFF_DATA_CONSENT_VERSION),
+      ),
+    };
   }
 
   async getLinkedStaffId(userId: string): Promise<string> {

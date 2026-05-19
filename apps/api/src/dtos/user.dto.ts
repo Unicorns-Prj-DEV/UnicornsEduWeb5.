@@ -90,7 +90,7 @@ export class AdminCreateUserDto {
   @ApiPropertyOptional({
     enum: UserRole,
     description:
-      'Immediate role assignment after provisioning. Defaults to guest when omitted.',
+      'Immediate role assignment after provisioning. Defaults to guest when omitted. Student creation requires first_name and/or last_name.',
   })
   @IsOptional()
   @IsEnum(UserRole)
