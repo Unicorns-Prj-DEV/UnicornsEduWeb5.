@@ -39,8 +39,10 @@ import {
   UpdateClassSurveyDto,
 } from 'src/dtos/class-survey.dto';
 import {
+  ClassScheduleGoogleCalendarResyncResponseDto,
   ClassScheduleFilterDto,
   CreateClassScopedMakeupScheduleEventDto,
+  MakeupGoogleCalendarResyncResponseDto,
   MakeupScheduleEventDto,
   UpdateClassScopedMakeupScheduleEventDto,
 } from 'src/dtos/class-schedule.dto';
@@ -269,6 +271,49 @@ export class ClassController {
     total: number;
   }> {
     return this.calendarService.listMakeupScheduleEventsForClass(id, filters);
+  }
+
+  @Post(':id/schedule/google-calendar/resync')
+  @AllowStaffRolesOnAdminRoutes()
+  @ApiOperation({
+    summary: 'Resync class schedule to Google Calendar',
+    description:
+      'Treat Class.schedule as the system of record, update existing Google recurring events first, recreate stale/missing events, then delete orphaned Google events.',
+  })
+  @ApiParam({ name: 'id', description: 'Class id' })
+  @ApiResponse({
+    status: 200,
+    description: 'Class schedule resynced to Google Calendar.',
+    type: ClassScheduleGoogleCalendarResyncResponseDto,
+  })
+  async resyncClassScheduleGoogleCalendar(
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<ClassScheduleGoogleCalendarResyncResponseDto> {
+    return this.calendarService.resyncClassScheduleWithGoogleCalendar(id);
+  }
+
+  @Post(':id/makeup-events/:eventId/google-calendar/resync')
+  @AllowStaffRolesOnAdminRoutes()
+  @ApiOperation({
+    summary: 'Resync one makeup event to Google Calendar',
+    description:
+      'Treat the makeup_schedule_events row as the system of record and update or recreate the Google Calendar event.',
+  })
+  @ApiParam({ name: 'id', description: 'Class id' })
+  @ApiParam({ name: 'eventId', description: 'Makeup event id' })
+  @ApiResponse({
+    status: 200,
+    description: 'Makeup event resynced to Google Calendar.',
+    type: MakeupGoogleCalendarResyncResponseDto,
+  })
+  async resyncClassMakeupGoogleCalendar(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('eventId', new ParseUUIDPipe()) eventId: string,
+  ): Promise<MakeupGoogleCalendarResyncResponseDto> {
+    return this.calendarService.resyncMakeupScheduleEventWithGoogleCalendarForClass(
+      id,
+      eventId,
+    );
   }
 
   @Get(':id')

@@ -62,6 +62,7 @@ jest.mock('google-auth-library', () => ({
   OAuth2Client: jest.fn(() => mockOAuth2Client),
 }));
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { GoogleCalendarService } = require('./google-calendar.service') as {
   GoogleCalendarService: typeof GoogleCalendarServiceType;
 };
@@ -148,6 +149,7 @@ describe('GoogleCalendarService', () => {
         expect.objectContaining({
           calendarId: 'test-calendar@group.calendar.google.com',
           conferenceDataVersion: 1,
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           requestBody: expect.objectContaining({
             recurrence: ['RRULE:FREQ=WEEKLY;BYDAY=TU'],
             attendees: [{ email: 'teacher@example.com' }],
@@ -230,6 +232,40 @@ describe('GoogleCalendarService', () => {
       expect(mockGoogle.calendar).toHaveBeenCalledTimes(1);
       expect(mockCalendar.events.insert).toHaveBeenCalledTimes(2);
     });
+
+    it('retries when Google Calendar reports usage limits', async () => {
+      mockCalendar.events.insert
+        .mockRejectedValueOnce(
+          Object.assign(new Error('Calendar usage limits exceeded.'), {
+            code: 403,
+            errors: [{ reason: 'quotaExceeded' }],
+          }),
+        )
+        .mockResolvedValueOnce({
+          data: {
+            id: 'event-after-limit-retry',
+            conferenceData: {
+              entryPoints: [],
+            },
+          },
+        });
+
+      const result = await service.createOrUpdateClassScheduleRecurringEvent({
+        classId: 'class-123',
+        className: 'Math 10A',
+        entryId: 'entry-1',
+        teacherEmails: ['teacher@example.com'],
+        dayOfWeek: 2,
+        from: '19:00:00',
+        end: '20:30:00',
+      });
+
+      expect(result).toEqual({
+        eventId: 'event-after-limit-retry',
+        meetLink: undefined,
+      });
+      expect(mockCalendar.events.insert).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('generateTutorMeetLink', () => {
@@ -266,6 +302,7 @@ describe('GoogleCalendarService', () => {
         expect.objectContaining({
           calendarId: 'test-calendar@group.calendar.google.com',
           conferenceDataVersion: 1,
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           requestBody: expect.objectContaining({
             attendees: [{ email: 'Tutor@One.Example' }],
           }),

@@ -93,6 +93,217 @@ export class ClassSchedulePatternDto {
   schedule: ClassScheduleEntryDto[];
 }
 
+export class GoogleCalendarResyncWarningDto {
+  @ApiProperty({
+    description: 'Machine-readable warning code',
+    example: 'ambiguous_legacy_event',
+  })
+  @IsString()
+  code: string;
+
+  @ApiProperty({
+    description: 'Human-readable warning message',
+    example:
+      'Legacy Google Calendar event has no schedule entry id and was skipped.',
+  })
+  @IsString()
+  message: string;
+
+  @ApiPropertyOptional({
+    description: 'Related Google Calendar event id when available',
+    example: 'google-event-123',
+  })
+  @IsOptional()
+  @IsString()
+  eventId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Related schedule entry id when available',
+    example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+  })
+  @IsOptional()
+  @IsString()
+  scheduleEntryId?: string;
+}
+
+export class ClassScheduleGoogleCalendarResyncSummaryDto {
+  @ApiProperty({
+    description: 'Class id that was resynced',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @IsUUID()
+  classId: string;
+
+  @ApiProperty({
+    description:
+      'Resync scope. class = all schedule entries, teacher = entries owned by teacherId only.',
+    enum: ['class', 'teacher'],
+    example: 'teacher',
+  })
+  @IsIn(['class', 'teacher'])
+  scope: 'class' | 'teacher';
+
+  @ApiPropertyOptional({
+    description: 'Teacher id for teacher-scoped resync',
+    example: '660e8400-e29b-41d4-a716-446655440001',
+  })
+  @IsOptional()
+  @IsUUID()
+  teacherId?: string;
+
+  @ApiProperty({
+    description: 'Number of recurring Google Calendar events deleted',
+    example: 2,
+  })
+  @IsInt()
+  deletedRecurringEvents: number;
+
+  @ApiProperty({
+    description: 'Number of recurring Google Calendar events created',
+    example: 1,
+  })
+  @IsInt()
+  createdRecurringEvents: number;
+
+  @ApiProperty({
+    description: 'Number of existing recurring Google Calendar events updated',
+    example: 1,
+  })
+  @IsInt()
+  updatedRecurringEvents: number;
+
+  @ApiProperty({
+    description:
+      'Number of stale recurring event ids recovered by updating another discovered event or creating a replacement',
+    example: 0,
+  })
+  @IsInt()
+  recoveredStaleRecurringEvents: number;
+
+  @ApiProperty({
+    description: 'Number of recurring events that failed to create',
+    example: 0,
+  })
+  @IsInt()
+  failedRecurringEvents: number;
+
+  @ApiProperty({
+    description: 'Number of schedule entries skipped by scope or validation',
+    example: 1,
+  })
+  @IsInt()
+  skippedScheduleEntries: number;
+
+  @ApiProperty({
+    description: 'Number of skipped schedule entries without teacherId',
+    example: 1,
+  })
+  @IsInt()
+  skippedMissingTeacherId: number;
+
+  @ApiProperty({
+    description: 'Number of skipped schedule entries owned by another teacher',
+    example: 2,
+  })
+  @IsInt()
+  skippedUnownedScheduleEntries: number;
+
+  @ApiProperty({
+    description:
+      'Number of legacy Google Calendar events skipped because they cannot be tied to a schedule entry id',
+    example: 1,
+  })
+  @IsInt()
+  skippedAmbiguousGoogleEvents: number;
+
+  @ApiProperty({
+    description:
+      'True when Google Calendar returned usage/rate limit and remaining writes were stopped',
+    example: false,
+  })
+  @IsBoolean()
+  quotaLimited: boolean;
+
+  @ApiProperty({
+    description: 'Warnings emitted during resync',
+    type: [GoogleCalendarResyncWarningDto],
+  })
+  @IsArray()
+  warnings: GoogleCalendarResyncWarningDto[];
+}
+
+export class ClassScheduleGoogleCalendarResyncResponseDto {
+  @ApiProperty({ example: true })
+  @IsBoolean()
+  success: boolean;
+
+  @ApiProperty({ type: ClassScheduleGoogleCalendarResyncSummaryDto })
+  data: ClassScheduleGoogleCalendarResyncSummaryDto;
+}
+
+export class MakeupGoogleCalendarResyncSummaryDto {
+  @ApiProperty({
+    description: 'Class id that owns the makeup event',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @IsUUID()
+  classId: string;
+
+  @ApiProperty({
+    description: 'Makeup schedule event id that was resynced',
+    example: '660e8400-e29b-41d4-a716-446655440000',
+  })
+  @IsUUID()
+  makeupEventId: string;
+
+  @ApiProperty({
+    description: 'Teacher id responsible for the makeup event',
+    example: '770e8400-e29b-41d4-a716-446655440000',
+  })
+  @IsUUID()
+  teacherId: string;
+
+  @ApiPropertyOptional({
+    description: 'Google Calendar event id after resync',
+    example: 'google-event-123',
+  })
+  @IsOptional()
+  @IsString()
+  googleCalendarEventId?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Google Meet link after resync',
+    example: 'https://meet.google.com/xxx-yyy-zzz',
+  })
+  @IsOptional()
+  @IsString()
+  googleMeetLink?: string | null;
+
+  @ApiProperty({
+    description:
+      'True when a stale Google Calendar event id was missing in Google and a replacement event was created',
+    example: false,
+  })
+  @IsBoolean()
+  recoveredStaleEvent: boolean;
+
+  @ApiProperty({
+    description: 'Warnings emitted during resync',
+    type: [GoogleCalendarResyncWarningDto],
+  })
+  @IsArray()
+  warnings: GoogleCalendarResyncWarningDto[];
+}
+
+export class MakeupGoogleCalendarResyncResponseDto {
+  @ApiProperty({ example: true })
+  @IsBoolean()
+  success: boolean;
+
+  @ApiProperty({ type: MakeupGoogleCalendarResyncSummaryDto })
+  data: MakeupGoogleCalendarResyncSummaryDto;
+}
+
 export class ClassScheduleEventDto {
   @ApiProperty({
     description: 'Unique occurrence ID to render this calendar item',

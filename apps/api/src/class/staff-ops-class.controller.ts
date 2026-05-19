@@ -34,8 +34,10 @@ import {
   UpdateClassSurveyDto,
 } from 'src/dtos/class-survey.dto';
 import {
+  ClassScheduleGoogleCalendarResyncResponseDto,
   ClassScheduleFilterDto,
   CreateClassScopedMakeupScheduleEventDto,
+  MakeupGoogleCalendarResyncResponseDto,
   MakeupScheduleEventDto,
   UpdateClassScopedMakeupScheduleEventDto,
 } from 'src/dtos/class-schedule.dto';
@@ -295,6 +297,74 @@ export class StaffOpsClassController {
         userEmail: user.email,
         roleType: user.roleType,
       },
+    );
+  }
+
+  @Post(':id/schedule/google-calendar/resync')
+  @ApiOperation({
+    summary: 'Resync class schedule to Google Calendar for staff operations',
+    description:
+      'Admin resyncs the whole class schedule. Staff accounts resync only the current actor teacher schedule entries. Existing Google events are updated before orphaned events are deleted.',
+  })
+  @ApiParam({ name: 'id', description: 'Class id' })
+  @ApiResponse({
+    status: 200,
+    description: 'Class schedule resynced to Google Calendar.',
+    type: ClassScheduleGoogleCalendarResyncResponseDto,
+  })
+  async resyncClassScheduleGoogleCalendar(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<ClassScheduleGoogleCalendarResyncResponseDto> {
+    if (user.roleType === UserRole.admin) {
+      return this.calendarService.resyncClassScheduleWithGoogleCalendar(id);
+    }
+
+    const actor = await this.staffOperationsAccess.resolveActor(
+      user.id,
+      user.roleType,
+    );
+    await this.staffOperationsAccess.assertTeacherAssignedToClass(actor.id, id);
+    return this.calendarService.resyncClassScheduleWithGoogleCalendarForTeacher(
+      id,
+      actor.id,
+    );
+  }
+
+  @Post(':id/makeup-events/:eventId/google-calendar/resync')
+  @ApiOperation({
+    summary: 'Resync one makeup event to Google Calendar for staff operations',
+    description:
+      'Admin resyncs any makeup event in the class. Staff accounts resync only makeup events assigned to their own staff profile.',
+  })
+  @ApiParam({ name: 'id', description: 'Class id' })
+  @ApiParam({ name: 'eventId', description: 'Makeup event id' })
+  @ApiResponse({
+    status: 200,
+    description: 'Makeup event resynced to Google Calendar.',
+    type: MakeupGoogleCalendarResyncResponseDto,
+  })
+  async resyncClassMakeupGoogleCalendar(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('eventId', new ParseUUIDPipe()) eventId: string,
+  ): Promise<MakeupGoogleCalendarResyncResponseDto> {
+    if (user.roleType === UserRole.admin) {
+      return this.calendarService.resyncMakeupScheduleEventWithGoogleCalendarForClass(
+        id,
+        eventId,
+      );
+    }
+
+    const actor = await this.staffOperationsAccess.resolveActor(
+      user.id,
+      user.roleType,
+    );
+    await this.staffOperationsAccess.assertTeacherAssignedToClass(actor.id, id);
+    return this.calendarService.resyncMakeupScheduleEventWithGoogleCalendarForClass(
+      id,
+      eventId,
+      { teacherId: actor.id },
     );
   }
 

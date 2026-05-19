@@ -53,6 +53,8 @@ export class GoogleCalendarService implements OnModuleInit {
   private readonly STUDENT_EXAM_TYPE_KEY = 'unicornsType';
   private readonly STUDENT_EXAM_STUDENT_ID_KEY = 'unicornsStudentId';
   private readonly STUDENT_EXAM_ITEM_ID_KEY = 'unicornsStudentExamScheduleId';
+  private readonly GOOGLE_CALENDAR_LIMIT_RETRY_DELAYS_MS =
+    process.env.NODE_ENV === 'test' ? [1, 1] : [1000, 3000];
 
   constructor(private readonly configService: ConfigService) {
     this.config = this.loadConfig();
@@ -316,6 +318,46 @@ export class GoogleCalendarService implements OnModuleInit {
     );
   }
 
+  private getGoogleErrorReasons(error: unknown): string[] {
+    const err = error as {
+      errors?: Array<{ reason?: string }>;
+      response?: {
+        data?: { error?: { errors?: Array<{ reason?: string }> } };
+      };
+    };
+    const directReasons = err.errors ?? [];
+    const nestedReasons = err.response?.data?.error?.errors ?? [];
+
+    return [...directReasons, ...nestedReasons]
+      .map((item) => item.reason?.toLowerCase() ?? '')
+      .filter(Boolean);
+  }
+
+  private isCalendarLimitError(error: unknown): boolean {
+    const status = this.getGoogleErrorStatus(error);
+    const message = this.getGoogleErrorSummary(error).toLowerCase();
+    const reasons = this.getGoogleErrorReasons(error);
+
+    return (
+      status === 429 ||
+      reasons.some((reason) =>
+        [
+          'quotaexceeded',
+          'ratelimitexceeded',
+          'userratelimitexceeded',
+        ].includes(reason),
+      ) ||
+      (status === 403 &&
+        (message.includes('calendar usage limits exceeded') ||
+          message.includes('rate limit exceeded') ||
+          message.includes('user rate limit exceeded')))
+    );
+  }
+
+  private async waitForCalendarLimitRetry(delayMs: number): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+
   private async executeCalendarRequest<T>(
     context: string,
     operation: () => Promise<T>,
@@ -323,21 +365,45 @@ export class GoogleCalendarService implements OnModuleInit {
     await this.ensureCalendarInitialized();
     this.requireCalendar();
 
-    try {
-      return await operation();
-    } catch (error) {
-      if (!this.isRetryableAuthError(error)) {
+    let authRetried = false;
+    let limitRetryIndex = 0;
+
+    while (true) {
+      try {
+        return await operation();
+      } catch (error) {
+        if (!authRetried && this.isRetryableAuthError(error)) {
+          authRetried = true;
+          this.logger.warn(
+            `[Calendar Auth] ${context} failed because Google token/auth expired or was rejected. Reinitializing client and retrying once.`,
+          );
+
+          await this.ensureCalendarInitialized(true);
+          this.requireCalendar();
+          continue;
+        }
+
+        if (
+          this.isCalendarLimitError(error) &&
+          limitRetryIndex < this.GOOGLE_CALENDAR_LIMIT_RETRY_DELAYS_MS.length
+        ) {
+          const baseDelayMs =
+            this.GOOGLE_CALENDAR_LIMIT_RETRY_DELAYS_MS[limitRetryIndex];
+          limitRetryIndex += 1;
+          const jitterMs =
+            process.env.NODE_ENV === 'test'
+              ? 0
+              : Math.floor(Math.random() * 250);
+          const delayMs = baseDelayMs + jitterMs;
+          this.logger.warn(
+            `[Calendar Limit] state=retry_scheduled context=${context}, attempt=${limitRetryIndex}, delayMs=${delayMs}, error=${this.getGoogleErrorSummary(error)}`,
+          );
+          await this.waitForCalendarLimitRetry(delayMs);
+          continue;
+        }
+
         throw error;
       }
-
-      this.logger.warn(
-        `[Calendar Auth] ${context} failed because Google token/auth expired or was rejected. Reinitializing client and retrying once.`,
-      );
-
-      await this.ensureCalendarInitialized(true);
-      this.requireCalendar();
-
-      return operation();
     }
   }
 
@@ -540,7 +606,7 @@ export class GoogleCalendarService implements OnModuleInit {
   ): Promise<void> {
     const calendarId = options?.calendarId || this.getCalendarId();
     this.logger.log(
-      `[Calendar CRUD:DELETE] Deleting Google Calendar event: calendarId=${calendarId}, eventId=${eventId}`,
+      `[Calendar CRUD:DELETE] state=started calendarId=${calendarId}, eventId=${eventId}`,
     );
 
     try {
@@ -553,19 +619,19 @@ export class GoogleCalendarService implements OnModuleInit {
       );
 
       this.logger.log(
-        `[Calendar CRUD:DELETE] Successfully deleted event ${eventId}`,
+        `[Calendar CRUD:DELETE] state=succeeded calendarId=${calendarId}, eventId=${eventId}`,
       );
     } catch (error: unknown) {
       if (this.isNotFoundError(error)) {
         this.logger.warn(
-          `[Calendar CRUD:DELETE] Event ${eventId} not found during delete, treating as success`,
+          `[Calendar CRUD:DELETE] state=not_found calendarId=${calendarId}, eventId=${eventId}, action=treated_as_success`,
         );
         return;
       }
 
       const stack = error instanceof Error ? error.stack : String(error);
       this.logger.error(
-        `[Calendar CRUD:DELETE] Failed to delete event ${eventId}: ${stack}`,
+        `[Calendar CRUD:DELETE] state=failed calendarId=${calendarId}, eventId=${eventId}, error=${this.getGoogleErrorSummary(error)}, stack=${stack}`,
       );
       this.handleApiError(error, 'Failed to delete calendar event');
       throw new GoogleCalendarApiError(
@@ -1060,9 +1126,7 @@ export class GoogleCalendarService implements OnModuleInit {
         private: {
           [this.CLASS_SCHEDULE_TYPE_KEY]: this.CLASS_SCHEDULE_EVENT_TYPE,
           [this.CLASS_SCHEDULE_CLASS_ID_KEY]: classId,
-          ...(entryId
-            ? { [this.CLASS_SCHEDULE_ENTRY_ID_KEY]: entryId }
-            : {}),
+          ...(entryId ? { [this.CLASS_SCHEDULE_ENTRY_ID_KEY]: entryId } : {}),
         },
       },
       ...(conferenceDataPayload
@@ -1084,9 +1148,10 @@ export class GoogleCalendarService implements OnModuleInit {
 
     try {
       const action = existingEventId ? 'update' : 'create';
+      const calendarId = this.config.calendarId || 'primary';
 
       this.logger.log(
-        `[Calendar] ${action === 'update' ? 'Updating' : 'Creating'} recurring event on Google Calendar...`,
+        `[Calendar Recurring] state=${action}_started calendarId=${calendarId}, classId=${classId}, entryId=${entryId}, existingEventId=${existingEventId ?? '(new)'}, teacherEmailCount=${normalizedTeacherEmails.length}, hasMeetLink=${Boolean(providedMeetLink)}`,
       );
 
       // conferenceDataVersion=1 is only needed when requesting a new conference
@@ -1097,7 +1162,7 @@ export class GoogleCalendarService implements OnModuleInit {
         async () => {
           if (existingEventId) {
             return this.calendar!.events.update({
-              calendarId: this.config.calendarId || 'primary',
+              calendarId,
               eventId: existingEventId,
               requestBody: eventBody,
               conferenceDataVersion,
@@ -1105,7 +1170,7 @@ export class GoogleCalendarService implements OnModuleInit {
           }
 
           return this.calendar!.events.insert({
-            calendarId: this.config.calendarId || 'primary',
+            calendarId,
             requestBody: eventBody,
             conferenceDataVersion,
           });
@@ -1148,14 +1213,13 @@ export class GoogleCalendarService implements OnModuleInit {
       }
 
       this.logger.log(
-        `[Calendar] ${action === 'update' ? 'Updated' : 'Created'} Google Calendar recurring event: ${event.id} for class ${className}, meetLink=${resolvedMeetLink || '(none)'}`,
+        `[Calendar Recurring] state=${action}_succeeded calendarId=${calendarId}, classId=${classId}, entryId=${entryId}, eventId=${event.id}, hasMeetLink=${Boolean(resolvedMeetLink)}`,
       );
 
       return { eventId: event.id, meetLink: resolvedMeetLink };
     } catch (error) {
       this.logger.error(
-        `[Calendar] Error creating/updating recurring event:`,
-        error,
+        `[Calendar Recurring] state=failed classId=${classId}, entryId=${entryId}, existingEventId=${existingEventId ?? '(new)'}, error=${this.getGoogleErrorSummary(error)}`,
       );
       this.handleApiError(
         error,
@@ -1255,14 +1319,19 @@ export class GoogleCalendarService implements OnModuleInit {
     };
 
     const conferenceDataVersion = conferenceDataPayload ? 1 : 0;
+    const calendarId = this.config.calendarId || 'primary';
+    const action = calendarEventId ? 'update' : 'create';
+    this.logger.log(
+      `[Calendar Makeup] state=${action}_started calendarId=${calendarId}, classId=${classId}, makeupEventId=${makeupEventId}, calendarEventId=${calendarEventId ?? '(new)'}, teacherEmailCount=${normalizedTeacherEmails.length}, hasMeetLink=${Boolean(providedMeetLink)}, conferenceDataVersion=${conferenceDataVersion}`,
+    );
 
     try {
       const response = await this.executeCalendarRequest(
-        `${calendarEventId ? 'update' : 'create'} makeup event ${makeupEventId}`,
+        `${action} makeup event ${makeupEventId}`,
         async () => {
           if (calendarEventId) {
             return this.calendar!.events.update({
-              calendarId: this.config.calendarId || 'primary',
+              calendarId,
               eventId: calendarEventId,
               requestBody: eventBody,
               conferenceDataVersion,
@@ -1270,7 +1339,7 @@ export class GoogleCalendarService implements OnModuleInit {
           }
 
           return this.calendar!.events.insert({
-            calendarId: this.config.calendarId || 'primary',
+            calendarId,
             requestBody: eventBody,
             conferenceDataVersion,
           });
@@ -1293,8 +1362,15 @@ export class GoogleCalendarService implements OnModuleInit {
           )?.uri || undefined;
       }
 
+      this.logger.log(
+        `[Calendar Makeup] state=${action}_succeeded calendarId=${calendarId}, classId=${classId}, makeupEventId=${makeupEventId}, eventId=${event.id}, hasMeetLink=${Boolean(resolvedMeetLink)}`,
+      );
+
       return { eventId: event.id, meetLink: resolvedMeetLink };
     } catch (error) {
+      this.logger.error(
+        `[Calendar Makeup] state=${action}_failed calendarId=${calendarId}, classId=${classId}, makeupEventId=${makeupEventId}, calendarEventId=${calendarEventId ?? '(new)'}, error=${this.getGoogleErrorSummary(error)}`,
+      );
       this.handleApiError(
         error,
         'Failed to create/update makeup schedule event',

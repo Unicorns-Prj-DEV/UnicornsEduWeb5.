@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -10,12 +11,17 @@ import { GoogleCalendarService } from '../google-calendar/google-calendar.servic
 import { StaffService } from '../staff/staff.service';
 import {
   ClassScheduleEntryDto,
+  ClassScheduleGoogleCalendarResyncResponseDto,
+  ClassScheduleGoogleCalendarResyncSummaryDto,
   ClassScheduleEventDto,
   ClassScheduleFilterDto,
   CreateMakeupScheduleEventDto,
+  MakeupGoogleCalendarResyncResponseDto,
+  MakeupGoogleCalendarResyncSummaryDto,
   MakeupScheduleEventDto,
   UpdateMakeupScheduleEventDto,
 } from '../dtos/class-schedule.dto';
+import { GoogleCalendarApiError } from '../google-calendar/errors/google-calendar.errors';
 import { v4 as uuidv4 } from 'uuid';
 import { getUserFullNameFromParts } from '../common/user-name.util';
 
@@ -36,6 +42,12 @@ interface StoredClassScheduleEntry {
   googleCalendarEventId?: string;
   meetLink?: string;
 }
+
+type DiscoveredRecurringGoogleEvent = {
+  eventId: string;
+  calendarId?: string;
+  scheduleEntryId?: string;
+};
 
 type CalendarScope = {
   teacherId?: string;
@@ -62,6 +74,8 @@ type MakeupScheduleEventWithRelations = Prisma.MakeupScheduleEventGetPayload<{
 @Injectable()
 export class CalendarService {
   private readonly logger = new Logger(CalendarService.name);
+  private readonly GOOGLE_CALENDAR_RESYNC_WRITE_DELAY_MS =
+    process.env.NODE_ENV === 'test' ? 0 : 250;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -200,6 +214,108 @@ export class CalendarService {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  }
+
+  private getGoogleCalendarErrorCandidates(error: unknown): unknown[] {
+    const candidates = [
+      error,
+      error instanceof GoogleCalendarApiError ? error.googleError : undefined,
+    ].filter(Boolean);
+
+    return candidates;
+  }
+
+  private getGoogleCalendarErrorStatus(error: unknown): number | undefined {
+    const googleError = error as {
+      code?: number | string;
+      response?: { status?: number };
+    };
+    const numericCode =
+      typeof googleError.code === 'number'
+        ? googleError.code
+        : typeof googleError.code === 'string'
+          ? Number.parseInt(googleError.code, 10)
+          : undefined;
+
+    return googleError.response?.status ?? numericCode;
+  }
+
+  private getGoogleCalendarErrorMessage(error: unknown): string {
+    const googleError = error as {
+      message?: string;
+      response?: { data?: { error?: { message?: string } } };
+    };
+
+    return (
+      googleError.response?.data?.error?.message ?? googleError.message ?? ''
+    );
+  }
+
+  private getGoogleCalendarErrorReasons(error: unknown): string[] {
+    const googleError = error as {
+      errors?: Array<{ reason?: string }>;
+      response?: {
+        data?: { error?: { errors?: Array<{ reason?: string }> } };
+      };
+    };
+    const directReasons = googleError.errors ?? [];
+    const nestedReasons = googleError.response?.data?.error?.errors ?? [];
+
+    return [...directReasons, ...nestedReasons]
+      .map((item) => item.reason?.toLowerCase() ?? '')
+      .filter(Boolean);
+  }
+
+  private isGoogleCalendarNotFoundError(error: unknown): boolean {
+    return this.getGoogleCalendarErrorCandidates(error).some((candidate) => {
+      const message = this.getGoogleCalendarErrorMessage(candidate);
+      return (
+        this.getGoogleCalendarErrorStatus(candidate) === 404 ||
+        message.toLowerCase().includes('not found')
+      );
+    });
+  }
+
+  private isGoogleCalendarQuotaOrRateLimitError(error: unknown): boolean {
+    return this.getGoogleCalendarErrorCandidates(error).some((candidate) => {
+      const status = this.getGoogleCalendarErrorStatus(candidate);
+      const message =
+        this.getGoogleCalendarErrorMessage(candidate).toLowerCase();
+      const reasons = this.getGoogleCalendarErrorReasons(candidate);
+
+      return (
+        status === 429 ||
+        reasons.some((reason) =>
+          [
+            'quotaexceeded',
+            'ratelimitexceeded',
+            'userratelimitexceeded',
+          ].includes(reason),
+        ) ||
+        (status === 403 &&
+          (message.includes('calendar usage limits exceeded') ||
+            message.includes('rate limit exceeded') ||
+            message.includes('user rate limit exceeded')))
+      );
+    });
+  }
+
+  private getCalendarSyncErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+  }
+
+  private formatCalendarSyncLog(fields: Record<string, unknown>): string {
+    return JSON.stringify(fields);
+  }
+
+  private async waitBeforeGoogleCalendarResyncWrite(): Promise<void> {
+    if (this.GOOGLE_CALENDAR_RESYNC_WRITE_DELAY_MS <= 0) {
+      return;
+    }
+
+    await new Promise((resolve) =>
+      setTimeout(resolve, this.GOOGLE_CALENDAR_RESYNC_WRITE_DELAY_MS),
+    );
   }
 
   private buildStaffDisplayName(staff: {
@@ -930,6 +1046,14 @@ export class CalendarService {
     }
 
     const oldSchedule = this.getStoredClassScheduleEntries(cls.schedule);
+    const oldScheduleById = new Map(
+      oldSchedule
+        .filter(
+          (entry): entry is StoredClassScheduleEntry & { id: string } =>
+            typeof entry.id === 'string' && entry.id.length > 0,
+        )
+        .map((entry) => [entry.id, entry]),
+    );
     const entriesWithIds = entries.map((entry) => ({
       ...entry,
       id: entry.id || uuidv4(),
@@ -942,6 +1066,9 @@ export class CalendarService {
         from: this.normalizeTimeValue(entry.from),
         to: this.normalizeTimeValue(entry.end),
         teacherId: entry.teacherId,
+        googleCalendarEventId: oldScheduleById.get(entry.id)
+          ?.googleCalendarEventId,
+        meetLink: oldScheduleById.get(entry.id)?.meetLink,
       })),
     );
 
@@ -959,6 +1086,39 @@ export class CalendarService {
     classId: string,
     oldSchedule?: StoredClassScheduleEntry[],
   ): Promise<void> {
+    await this.resyncClassScheduleWithGoogleCalendarInternal(classId, {
+      oldSchedule,
+    });
+  }
+
+  async resyncClassScheduleWithGoogleCalendar(
+    classId: string,
+  ): Promise<ClassScheduleGoogleCalendarResyncResponseDto> {
+    return {
+      success: true,
+      data: await this.resyncClassScheduleWithGoogleCalendarInternal(classId),
+    };
+  }
+
+  async resyncClassScheduleWithGoogleCalendarForTeacher(
+    classId: string,
+    teacherId: string,
+  ): Promise<ClassScheduleGoogleCalendarResyncResponseDto> {
+    return {
+      success: true,
+      data: await this.resyncClassScheduleWithGoogleCalendarInternal(classId, {
+        teacherId,
+      }),
+    };
+  }
+
+  private async resyncClassScheduleWithGoogleCalendarInternal(
+    classId: string,
+    options: {
+      oldSchedule?: StoredClassScheduleEntry[];
+      teacherId?: string;
+    } = {},
+  ): Promise<ClassScheduleGoogleCalendarResyncSummaryDto> {
     const cls = await this.prisma.class.findUnique({
       where: { id: classId },
       include: {
@@ -980,48 +1140,215 @@ export class CalendarService {
       throw new NotFoundException(`Class not found: ${classId}`);
     }
 
+    const scopedTeacherId = options.teacherId;
+    const summary: ClassScheduleGoogleCalendarResyncSummaryDto = {
+      classId,
+      scope: scopedTeacherId ? 'teacher' : 'class',
+      ...(scopedTeacherId ? { teacherId: scopedTeacherId } : {}),
+      deletedRecurringEvents: 0,
+      createdRecurringEvents: 0,
+      updatedRecurringEvents: 0,
+      recoveredStaleRecurringEvents: 0,
+      failedRecurringEvents: 0,
+      skippedScheduleEntries: 0,
+      skippedMissingTeacherId: 0,
+      skippedUnownedScheduleEntries: 0,
+      skippedAmbiguousGoogleEvents: 0,
+      quotaLimited: false,
+      warnings: [],
+    };
     const currentSchedule = this.getStoredClassScheduleEntries(cls.schedule);
-    const entriesToDelete = oldSchedule || currentSchedule;
+    const targetEntryIds = new Set<string>();
+    if (scopedTeacherId) {
+      for (const entry of currentSchedule) {
+        if (!entry.teacherId) {
+          summary.skippedMissingTeacherId += 1;
+          summary.skippedScheduleEntries += 1;
+          continue;
+        }
+        if (entry.teacherId !== scopedTeacherId) {
+          summary.skippedUnownedScheduleEntries += 1;
+          summary.skippedScheduleEntries += 1;
+          continue;
+        }
+        if (entry.id) {
+          targetEntryIds.add(entry.id);
+        } else {
+          summary.skippedScheduleEntries += 1;
+          summary.warnings.push({
+            code: 'schedule_entry_missing_id',
+            message:
+              'Schedule entry belongs to the teacher but has no id, so it cannot be resynced safely.',
+          });
+        }
+      }
+    }
+    if (!scopedTeacherId) {
+      for (const entry of currentSchedule) {
+        if (entry.id) {
+          targetEntryIds.add(entry.id);
+        }
+      }
+    }
+    this.logger.log(
+      `[Calendar Resync:Recurring] state=started ${this.formatCalendarSyncLog({
+        classId,
+        className: cls.name,
+        scope: summary.scope,
+        teacherId: scopedTeacherId ?? null,
+        currentScheduleEntries: currentSchedule.length,
+        oldScheduleEntries: options.oldSchedule?.length ?? null,
+        targetScheduleEntries: scopedTeacherId
+          ? targetEntryIds.size
+          : currentSchedule.length,
+      })}`,
+    );
+
+    const currentEntryById = new Map(
+      currentSchedule
+        .filter(
+          (entry): entry is StoredClassScheduleEntry & { id: string } =>
+            typeof entry.id === 'string' && entry.id.length > 0,
+        )
+        .map((entry) => [entry.id, entry]),
+    );
+    const protectedEventIds = new Set<string>();
     const deleteCandidates = new Map<
       string,
-      { eventId: string; calendarId?: string }
+      { eventId: string; calendarId?: string; reason: string }
+    >();
+    const discoveredEventsByEntryId = new Map<
+      string,
+      DiscoveredRecurringGoogleEvent[]
     >();
 
-    const addDeleteCandidate = (eventId: string, calendarId?: string) => {
+    const addDeleteCandidate = (
+      eventId: string,
+      calendarId: string | undefined,
+      reason: string,
+    ) => {
       const existing = deleteCandidates.get(eventId);
       if (!existing || (!existing.calendarId && calendarId)) {
-        deleteCandidates.set(eventId, { eventId, calendarId });
+        deleteCandidates.set(eventId, { eventId, calendarId, reason });
       }
     };
 
-    for (const entry of entriesToDelete) {
+    for (const entry of currentSchedule) {
       if (entry.googleCalendarEventId) {
-        addDeleteCandidate(entry.googleCalendarEventId);
+        protectedEventIds.add(entry.googleCalendarEventId);
       }
     }
 
     const discoveredEvents =
-      await this.googleCalendarService.listClassScheduleRecurringEvents(classId);
+      await this.googleCalendarService.listClassScheduleRecurringEvents(
+        classId,
+      );
+    this.logger.log(
+      `[Calendar Resync:Recurring] state=discovered ${this.formatCalendarSyncLog(
+        {
+          classId,
+          scope: summary.scope,
+          discoveredGoogleEvents: discoveredEvents.length,
+        },
+      )}`,
+    );
     for (const event of discoveredEvents) {
-      addDeleteCandidate(event.eventId, event.calendarId);
-    }
-
-    for (const event of deleteCandidates.values()) {
-      try {
-        if (event.calendarId) {
-          await this.googleCalendarService.deleteCalendarEvent(event.eventId, {
-            calendarId: event.calendarId,
-          });
-        } else {
-          await this.googleCalendarService.deleteCalendarEvent(event.eventId);
+      const isStoredCurrentEvent = currentSchedule.some(
+        (entry) => entry.googleCalendarEventId === event.eventId,
+      );
+      if (scopedTeacherId) {
+        if (!event.scheduleEntryId) {
+          if (!isStoredCurrentEvent) {
+            summary.skippedAmbiguousGoogleEvents += 1;
+            summary.warnings.push({
+              code: 'ambiguous_legacy_event',
+              message:
+                'Legacy Google Calendar event has no schedule entry id and was skipped during teacher-scoped resync.',
+              eventId: event.eventId,
+            });
+            this.logger.warn(
+              `[Calendar Resync:Recurring] state=skipped ${this.formatCalendarSyncLog(
+                {
+                  classId,
+                  scope: summary.scope,
+                  reason: 'ambiguous_legacy_event',
+                  eventId: event.eventId,
+                  calendarId: event.calendarId,
+                },
+              )}`,
+            );
+          }
+          continue;
         }
-      } catch (error) {
-        this.logger.error(
-          `[Calendar CRUD:sync] Failed to delete recurring event ${event.eventId}: ${String(error)}`,
+        if (!targetEntryIds.has(event.scheduleEntryId)) {
+          this.logger.log(
+            `[Calendar Resync:Recurring] state=skipped ${this.formatCalendarSyncLog(
+              {
+                classId,
+                scope: summary.scope,
+                reason: 'unowned_discovered_event',
+                eventId: event.eventId,
+                calendarId: event.calendarId,
+                scheduleEntryId: event.scheduleEntryId,
+              },
+            )}`,
+          );
+          continue;
+        }
+      }
+
+      if (event.scheduleEntryId && targetEntryIds.has(event.scheduleEntryId)) {
+        const eventsForEntry =
+          discoveredEventsByEntryId.get(event.scheduleEntryId) ?? [];
+        eventsForEntry.push(event);
+        discoveredEventsByEntryId.set(event.scheduleEntryId, eventsForEntry);
+        continue;
+      }
+
+      if (!isStoredCurrentEvent) {
+        addDeleteCandidate(
+          event.eventId,
+          event.calendarId,
+          event.scheduleEntryId ? 'removed_schedule_entry' : 'legacy_orphan',
         );
-        throw error;
       }
     }
+
+    for (const entry of options.oldSchedule ?? []) {
+      if (!entry.googleCalendarEventId) {
+        continue;
+      }
+
+      const currentEntry = entry.id
+        ? currentEntryById.get(entry.id)
+        : undefined;
+      const isScopedOldEntry =
+        !scopedTeacherId || entry.teacherId === scopedTeacherId;
+      const isRemovedCurrentEntry =
+        isScopedOldEntry && (!entry.id || !targetEntryIds.has(entry.id));
+      const isDifferentStoredEvent =
+        currentEntry?.googleCalendarEventId &&
+        currentEntry.googleCalendarEventId !== entry.googleCalendarEventId;
+
+      if ((!currentEntry && isRemovedCurrentEntry) || isDifferentStoredEvent) {
+        addDeleteCandidate(
+          entry.googleCalendarEventId,
+          undefined,
+          'removed_stored_event',
+        );
+      }
+    }
+
+    this.logger.log(
+      `[Calendar Resync:Recurring] state=delete_candidates ${this.formatCalendarSyncLog(
+        {
+          classId,
+          scope: summary.scope,
+          deleteCandidates: deleteCandidates.size,
+          timing: 'before_target_sync',
+        },
+      )}`,
+    );
 
     const teacherEmailMap = new Map<string, string>();
     for (const teacherRecord of cls.teachers) {
@@ -1031,9 +1358,45 @@ export class CalendarService {
       }
     }
 
+    let stopRecurringWrites = false;
+    const markQuotaLimited = (
+      error: unknown,
+      context: Record<string, unknown>,
+    ) => {
+      summary.quotaLimited = true;
+      summary.failedRecurringEvents += 1;
+      summary.warnings.push({
+        code: 'google_calendar_quota_limited',
+        message:
+          'Google Calendar usage/rate limit was reached. Remaining recurring sync writes were stopped; retry resync later.',
+        ...(typeof context.scheduleEntryId === 'string'
+          ? { scheduleEntryId: context.scheduleEntryId }
+          : {}),
+        ...(typeof context.eventId === 'string'
+          ? { eventId: context.eventId }
+          : {}),
+      });
+      stopRecurringWrites = true;
+      this.logger.error(
+        `[Calendar Resync:Recurring] state=quota_limited ${this.formatCalendarSyncLog(
+          {
+            classId,
+            scope: summary.scope,
+            ...context,
+            error: this.getCalendarSyncErrorMessage(error),
+          },
+        )}`,
+      );
+    };
+
     for (const entry of currentSchedule) {
-      entry.googleCalendarEventId = undefined;
-      entry.meetLink = undefined;
+      if (stopRecurringWrites) {
+        break;
+      }
+
+      if (scopedTeacherId && (!entry.id || !targetEntryIds.has(entry.id))) {
+        continue;
+      }
 
       const dayOfWeek = entry.dayOfWeek;
       const from = this.normalizeTimeValue(entry.from);
@@ -1041,7 +1404,56 @@ export class CalendarService {
       const entryId = entry.id;
 
       if (dayOfWeek === undefined || !from || !end || !entryId) {
+        summary.skippedScheduleEntries += 1;
+        summary.warnings.push({
+          code: 'invalid_schedule_entry',
+          message:
+            'Schedule entry is missing dayOfWeek, time range, or id and was skipped.',
+          ...(entryId ? { scheduleEntryId: entryId } : {}),
+        });
+        this.logger.warn(
+          `[Calendar Resync:Recurring] state=skipped ${this.formatCalendarSyncLog(
+            {
+              classId,
+              scope: summary.scope,
+              reason: 'invalid_schedule_entry',
+              scheduleEntryId: entryId ?? null,
+              dayOfWeek: dayOfWeek ?? null,
+              from: from ?? null,
+              end: end ?? null,
+            },
+          )}`,
+        );
         continue;
+      }
+
+      const discoveredForEntry = discoveredEventsByEntryId.get(entryId) ?? [];
+      const existingEventId =
+        entry.googleCalendarEventId ?? discoveredForEntry[0]?.eventId;
+      if (existingEventId) {
+        protectedEventIds.add(existingEventId);
+      }
+      if (!entry.googleCalendarEventId && existingEventId) {
+        this.logger.log(
+          `[Calendar Resync:Recurring] state=existing_event_adopted ${this.formatCalendarSyncLog(
+            {
+              classId,
+              scope: summary.scope,
+              scheduleEntryId: entryId,
+              eventId: existingEventId,
+            },
+          )}`,
+        );
+      }
+
+      for (const discoveredEvent of discoveredForEntry) {
+        if (discoveredEvent.eventId !== existingEventId) {
+          addDeleteCandidate(
+            discoveredEvent.eventId,
+            discoveredEvent.calendarId,
+            'duplicate_schedule_entry_event',
+          );
+        }
       }
 
       const teacherEmails = entry.teacherId
@@ -1068,18 +1480,48 @@ export class CalendarService {
           meetLinkFromStaff = link ?? undefined;
         } catch (err) {
           this.logger.error(
-            `[Calendar CRUD:sync] Failed to resolve Meet link for tutor ${responsibleTeacherId}: ${String(err)}`,
+            `[Calendar Resync:Recurring] state=meet_link_failed ${this.formatCalendarSyncLog(
+              {
+                classId,
+                scope: summary.scope,
+                scheduleEntryId: entryId,
+                teacherId: responsibleTeacherId,
+                error: this.getCalendarSyncErrorMessage(err),
+              },
+            )}`,
           );
         }
       }
 
-      try {
+      const syncRecurringEvent = async (
+        calendarEventId: string | undefined,
+      ) => {
+        const action = calendarEventId ? 'update' : 'create';
+        this.logger.log(
+          `[Calendar Resync:Recurring] state=${action}_started ${this.formatCalendarSyncLog(
+            {
+              classId,
+              scope: summary.scope,
+              scheduleEntryId: entryId,
+              existingEventId: calendarEventId ?? null,
+              teacherId: entry.teacherId ?? null,
+              teacherEmailCount: teacherEmails.length,
+              dayOfWeek,
+              from,
+              end,
+              hasMeetLink: Boolean(meetLinkFromStaff),
+            },
+          )}`,
+        );
+
+        await this.waitBeforeGoogleCalendarResyncWrite();
         const result =
           await this.googleCalendarService.createOrUpdateClassScheduleRecurringEvent(
             {
               classId: cls.id,
               className: cls.name,
               entryId,
+              calendarEventId,
               teacherEmails,
               dayOfWeek,
               from,
@@ -1090,14 +1532,188 @@ export class CalendarService {
 
         entry.googleCalendarEventId = result.eventId;
         entry.meetLink = meetLinkFromStaff ?? result.meetLink;
+        if (calendarEventId) {
+          summary.updatedRecurringEvents += 1;
+        } else {
+          summary.createdRecurringEvents += 1;
+        }
+        protectedEventIds.add(result.eventId);
+        this.logger.log(
+          `[Calendar Resync:Recurring] state=${action}_succeeded ${this.formatCalendarSyncLog(
+            {
+              classId,
+              scope: summary.scope,
+              scheduleEntryId: entryId,
+              eventId: result.eventId,
+              hasMeetLink: Boolean(entry.meetLink),
+            },
+          )}`,
+        );
+
+        return result;
+      };
+
+      try {
+        await syncRecurringEvent(existingEventId);
       } catch (error) {
+        let syncError: unknown = error;
+        if (existingEventId && this.isGoogleCalendarNotFoundError(syncError)) {
+          summary.recoveredStaleRecurringEvents += 1;
+          const alternateEvent = discoveredForEntry.find(
+            (event) => event.eventId !== existingEventId,
+          );
+          const recoveryEventId = alternateEvent?.eventId;
+          if (recoveryEventId) {
+            protectedEventIds.add(recoveryEventId);
+          }
+          this.logger.warn(
+            `[Calendar Resync:Recurring] state=stale_event_detected ${this.formatCalendarSyncLog(
+              {
+                classId,
+                scope: summary.scope,
+                scheduleEntryId: entryId,
+                staleEventId: entry.googleCalendarEventId ?? null,
+                fallbackEventId: recoveryEventId ?? null,
+                recoveryAction: recoveryEventId
+                  ? 'update_discovered'
+                  : 'create_replacement',
+              },
+            )}`,
+          );
+          try {
+            await syncRecurringEvent(recoveryEventId);
+            continue;
+          } catch (recoveryError) {
+            if (this.isGoogleCalendarQuotaOrRateLimitError(recoveryError)) {
+              markQuotaLimited(recoveryError, {
+                scheduleEntryId: entryId,
+                eventId: recoveryEventId ?? null,
+                phase: 'stale_recovery',
+              });
+              if (meetLinkFromStaff) {
+                entry.meetLink = meetLinkFromStaff;
+              }
+              continue;
+            }
+            syncError = recoveryError;
+          }
+        }
+
+        if (this.isGoogleCalendarQuotaOrRateLimitError(syncError)) {
+          markQuotaLimited(syncError, {
+            scheduleEntryId: entryId,
+            eventId: existingEventId ?? null,
+            phase: 'sync',
+          });
+          if (meetLinkFromStaff) {
+            entry.meetLink = meetLinkFromStaff;
+          }
+          continue;
+        }
+
+        summary.failedRecurringEvents += 1;
+        summary.warnings.push({
+          code: 'recurring_event_sync_failed',
+          message: this.getCalendarSyncErrorMessage(syncError),
+          scheduleEntryId: entryId,
+        });
         this.logger.error(
-          `[Calendar CRUD:sync] Failed to sync recurring event for class ${cls.id}, entry ${entryId}: ${String(error)}`,
+          `[Calendar Resync:Recurring] state=sync_failed ${this.formatCalendarSyncLog(
+            {
+              classId: cls.id,
+              scope: summary.scope,
+              scheduleEntryId: entryId,
+              existingEventId: existingEventId ?? null,
+              teacherId: entry.teacherId ?? null,
+              error: this.getCalendarSyncErrorMessage(syncError),
+            },
+          )}`,
         );
         // Even if Google Calendar sync fails, preserve the staff Meet link in the schedule JSON.
         if (meetLinkFromStaff) {
           entry.meetLink = meetLinkFromStaff;
         }
+      }
+    }
+
+    this.logger.log(
+      `[Calendar Resync:Recurring] state=delete_candidates ${this.formatCalendarSyncLog(
+        {
+          classId,
+          scope: summary.scope,
+          deleteCandidates: deleteCandidates.size,
+          protectedEvents: protectedEventIds.size,
+          timing: 'after_target_sync',
+        },
+      )}`,
+    );
+
+    if (!stopRecurringWrites) {
+      for (const event of deleteCandidates.values()) {
+        if (protectedEventIds.has(event.eventId)) {
+          continue;
+        }
+
+        try {
+          this.logger.log(
+            `[Calendar Resync:Recurring] state=delete_started ${this.formatCalendarSyncLog(
+              {
+                classId,
+                scope: summary.scope,
+                eventId: event.eventId,
+                calendarId: event.calendarId ?? null,
+                reason: event.reason,
+              },
+            )}`,
+          );
+          await this.waitBeforeGoogleCalendarResyncWrite();
+          if (event.calendarId) {
+            await this.googleCalendarService.deleteCalendarEvent(
+              event.eventId,
+              {
+                calendarId: event.calendarId,
+              },
+            );
+          } else {
+            await this.googleCalendarService.deleteCalendarEvent(event.eventId);
+          }
+        } catch (error) {
+          if (this.isGoogleCalendarQuotaOrRateLimitError(error)) {
+            markQuotaLimited(error, {
+              eventId: event.eventId,
+              calendarId: event.calendarId ?? null,
+              phase: 'delete',
+              reason: event.reason,
+            });
+            break;
+          }
+
+          this.logger.error(
+            `[Calendar Resync:Recurring] state=delete_failed ${this.formatCalendarSyncLog(
+              {
+                classId,
+                scope: summary.scope,
+                eventId: event.eventId,
+                calendarId: event.calendarId ?? null,
+                reason: event.reason,
+                error: this.getCalendarSyncErrorMessage(error),
+              },
+            )}`,
+          );
+          throw error;
+        }
+        summary.deletedRecurringEvents += 1;
+        this.logger.log(
+          `[Calendar Resync:Recurring] state=delete_succeeded ${this.formatCalendarSyncLog(
+            {
+              classId,
+              scope: summary.scope,
+              eventId: event.eventId,
+              calendarId: event.calendarId ?? null,
+              reason: event.reason,
+            },
+          )}`,
+        );
       }
     }
 
@@ -1117,6 +1733,12 @@ export class CalendarService {
         ),
       },
     });
+
+    this.logger.log(
+      `[Calendar Resync:Recurring] state=summary ${this.formatCalendarSyncLog(summary as unknown as Record<string, unknown>)}`,
+    );
+
+    return summary;
   }
 
   async listMakeupScheduleEvents(filters: ClassScheduleFilterDto): Promise<{
@@ -1194,7 +1816,10 @@ export class CalendarService {
 
   private async syncMakeupScheduleEventWithCalendar(
     makeupEventId: string,
-  ): Promise<void> {
+    options: {
+      throwOnFailure?: boolean;
+    } = {},
+  ): Promise<MakeupGoogleCalendarResyncSummaryDto> {
     const event = await this.prisma.makeupScheduleEvent.findUnique({
       where: { id: makeupEventId },
       include: {
@@ -1213,6 +1838,27 @@ export class CalendarService {
       throw new NotFoundException('Makeup schedule event not found');
     }
 
+    const summary: MakeupGoogleCalendarResyncSummaryDto = {
+      classId: event.classId,
+      makeupEventId: event.id,
+      teacherId: event.teacherId,
+      googleCalendarEventId: event.googleCalendarEventId,
+      googleMeetLink: event.googleMeetLink,
+      recoveredStaleEvent: false,
+      warnings: [],
+    };
+    this.logger.log(
+      `[Calendar Resync:Makeup] state=started ${this.formatCalendarSyncLog({
+        classId: event.classId,
+        className: event.class.name,
+        makeupEventId: event.id,
+        teacherId: event.teacherId,
+        storedGoogleEventId: event.googleCalendarEventId ?? null,
+        date: this.formatDate(event.date) ?? null,
+        startTime: this.normalizeTimeValue(event.startTime) ?? null,
+        endTime: this.normalizeTimeValue(event.endTime) ?? null,
+      })}`,
+    );
     const teacherEmails = event.teacher.user?.email
       ? [event.teacher.user.email]
       : [];
@@ -1225,25 +1871,84 @@ export class CalendarService {
       );
     } catch (err) {
       this.logger.error(
-        `[Calendar Makeup] Failed to resolve staff Meet link for tutor ${event.teacherId}: ${String(err)}`,
+        `[Calendar Resync:Makeup] state=meet_link_failed ${this.formatCalendarSyncLog(
+          {
+            classId: event.classId,
+            makeupEventId: event.id,
+            teacherId: event.teacherId,
+            error: this.getCalendarSyncErrorMessage(err),
+          },
+        )}`,
       );
     }
 
+    const syncToGoogle = (calendarEventId?: string) =>
+      this.googleCalendarService.createOrUpdateMakeupScheduleEvent({
+        classId: event.classId,
+        className: event.class.name,
+        makeupEventId: event.id,
+        calendarEventId,
+        teacherEmails,
+        date: this.formatDate(event.date) ?? '',
+        startTime: this.normalizeTimeValue(event.startTime) ?? '00:00:00',
+        endTime: this.normalizeTimeValue(event.endTime) ?? '00:00:00',
+        title: event.title ?? undefined,
+        note: event.note ?? undefined,
+        meetLink: staffMeetLink ?? undefined,
+      });
+
     try {
-      const result =
-        await this.googleCalendarService.createOrUpdateMakeupScheduleEvent({
-          classId: event.classId,
-          className: event.class.name,
-          makeupEventId: event.id,
-          calendarEventId: event.googleCalendarEventId ?? undefined,
-          teacherEmails,
-          date: this.formatDate(event.date) ?? '',
-          startTime: this.normalizeTimeValue(event.startTime) ?? '00:00:00',
-          endTime: this.normalizeTimeValue(event.endTime) ?? '00:00:00',
-          title: event.title ?? undefined,
-          note: event.note ?? undefined,
-          meetLink: staffMeetLink ?? undefined,
-        });
+      let result: { eventId: string; meetLink?: string };
+      try {
+        this.logger.log(
+          `[Calendar Resync:Makeup] state=sync_started ${this.formatCalendarSyncLog(
+            {
+              classId: event.classId,
+              makeupEventId: event.id,
+              action: event.googleCalendarEventId ? 'update' : 'create',
+              calendarEventId: event.googleCalendarEventId ?? null,
+              teacherEmailCount: teacherEmails.length,
+              hasMeetLink: Boolean(staffMeetLink),
+            },
+          )}`,
+        );
+        result = await syncToGoogle(event.googleCalendarEventId ?? undefined);
+      } catch (error) {
+        if (
+          event.googleCalendarEventId &&
+          this.isGoogleCalendarNotFoundError(error)
+        ) {
+          this.logger.warn(
+            `[Calendar Resync:Makeup] state=stale_event_detected ${this.formatCalendarSyncLog(
+              {
+                classId: event.classId,
+                makeupEventId: event.id,
+                staleEventId: event.googleCalendarEventId,
+                error: this.getCalendarSyncErrorMessage(error),
+              },
+            )}`,
+          );
+          summary.recoveredStaleEvent = true;
+          summary.warnings.push({
+            code: 'stale_google_event_recreated',
+            message:
+              'Stored Google Calendar event was missing and a replacement event was created.',
+            eventId: event.googleCalendarEventId,
+          });
+          this.logger.log(
+            `[Calendar Resync:Makeup] state=recreate_started ${this.formatCalendarSyncLog(
+              {
+                classId: event.classId,
+                makeupEventId: event.id,
+                staleEventId: event.googleCalendarEventId,
+              },
+            )}`,
+          );
+          result = await syncToGoogle(undefined);
+        } else {
+          throw error;
+        }
+      }
 
       await this.prisma.makeupScheduleEvent.update({
         where: { id: event.id },
@@ -1255,6 +1960,19 @@ export class CalendarService {
           calendarSyncError: null,
         },
       });
+      summary.googleCalendarEventId = result.eventId;
+      summary.googleMeetLink = staffMeetLink ?? result.meetLink ?? null;
+      this.logger.log(
+        `[Calendar Resync:Makeup] state=sync_succeeded ${this.formatCalendarSyncLog(
+          {
+            classId: event.classId,
+            makeupEventId: event.id,
+            eventId: result.eventId,
+            recoveredStaleEvent: summary.recoveredStaleEvent,
+            hasMeetLink: Boolean(summary.googleMeetLink),
+          },
+        )}`,
+      );
     } catch (error) {
       await this.prisma.makeupScheduleEvent.update({
         where: { id: event.id },
@@ -1266,9 +1984,57 @@ export class CalendarService {
         },
       });
       this.logger.error(
-        `[Calendar Makeup] Failed to sync makeup event ${event.id}: ${String(error)}`,
+        `[Calendar Resync:Makeup] state=sync_failed ${this.formatCalendarSyncLog(
+          {
+            classId: event.classId,
+            makeupEventId: event.id,
+            storedGoogleEventId: event.googleCalendarEventId ?? null,
+            error: this.getCalendarSyncErrorMessage(error),
+          },
+        )}`,
+      );
+      summary.warnings.push({
+        code: 'makeup_event_sync_failed',
+        message: this.getCalendarSyncErrorMessage(error),
+      });
+      if (options.throwOnFailure) {
+        throw error;
+      }
+    }
+
+    this.logger.log(
+      `[Calendar Resync:Makeup] state=summary ${this.formatCalendarSyncLog(summary as unknown as Record<string, unknown>)}`,
+    );
+
+    return summary;
+  }
+
+  async resyncMakeupScheduleEventWithGoogleCalendarForClass(
+    classId: string,
+    eventId: string,
+    options: { teacherId?: string } = {},
+  ): Promise<MakeupGoogleCalendarResyncResponseDto> {
+    const existing = await this.prisma.makeupScheduleEvent.findUnique({
+      where: { id: eventId },
+      select: { classId: true, teacherId: true },
+    });
+
+    if (!existing || existing.classId !== classId) {
+      throw new NotFoundException('Makeup schedule event not found');
+    }
+
+    if (options.teacherId && existing.teacherId !== options.teacherId) {
+      throw new ForbiddenException(
+        'Staff chỉ được resync buổi bù do chính mình phụ trách.',
       );
     }
+
+    return {
+      success: true,
+      data: await this.syncMakeupScheduleEventWithCalendar(eventId, {
+        throwOnFailure: true,
+      }),
+    };
   }
 
   async createMakeupScheduleEvent(
