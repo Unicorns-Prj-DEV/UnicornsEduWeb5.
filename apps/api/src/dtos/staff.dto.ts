@@ -221,11 +221,13 @@ export interface StaffIncomeAmountSummaryDto {
 
 /**
  * Tổng hợp theo lớp (giáo viên) cho card "Lớp phụ trách".
- * `paid` là thực nhận sau khấu trừ; `unpaid` là gross allowance, chưa trừ vận hành/thuế.
+ * `total` / `paid` / `unpaid` đều là gross allowance, chưa trừ CPVH/thuế.
  */
 export interface StaffIncomeClassSummaryDto extends StaffIncomeAmountSummaryDto {
   classId: string;
   className: string;
+  /** True when the staff is still assigned to this class via `class_teachers`. */
+  isCurrentTeacherAssignment: boolean;
 }
 
 export interface StaffIncomeRoleSummaryDto extends StaffIncomeAmountSummaryDto {

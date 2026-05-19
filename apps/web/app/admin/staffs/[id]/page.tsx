@@ -62,6 +62,14 @@ function formatDate(iso?: string | null): string {
   }
 }
 
+function RetiredTeachingLabel() {
+  return (
+    <span className="mt-1 inline-flex w-fit rounded-full border border-warning/25 bg-warning/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning">
+      NGHỈ DẠY
+    </span>
+  );
+}
+
 function formatCompactDate(iso?: string | null): string {
   if (!iso) return "—";
   try {
@@ -1664,6 +1672,8 @@ export default function AdminStaffDetailPage({
                         const hasClassTeacherRow = staff?.classTeachers?.some(
                           (ct) => ct.class?.id === item.classId,
                         );
+                        const isRetiredTeaching =
+                          item.isCurrentTeacherAssignment === false;
                         const opValue = operatingPercentByClassId.get(
                           item.classId,
                         );
@@ -1686,6 +1696,9 @@ export default function AdminStaffDetailPage({
                             >
                               {item.className}
                             </button>
+                            {isRetiredTeaching ? (
+                              <RetiredTeachingLabel />
+                            ) : null}
                             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-secondary">
                               <span>
                                 Tổng:{" "}
@@ -1808,6 +1821,8 @@ export default function AdminStaffDetailPage({
                               staff?.classTeachers?.some(
                                 (ct) => ct.class?.id === item.classId,
                               );
+                            const isRetiredTeaching =
+                              item.isCurrentTeacherAssignment === false;
                             const opValue = operatingPercentByClassId.get(
                               item.classId,
                             );
@@ -1838,7 +1853,12 @@ export default function AdminStaffDetailPage({
                                 className="cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                               >
                                 <td className="px-4 py-3 text-text-primary">
-                                  {item.className}
+                                  <div className="flex flex-col items-start">
+                                    <span>{item.className}</span>
+                                    {isRetiredTeaching ? (
+                                      <RetiredTeachingLabel />
+                                    ) : null}
+                                  </div>
                                 </td>
                                 <td className="px-4 py-3 tabular-nums font-semibold text-primary">
                                   {formatCurrency(item.total)}

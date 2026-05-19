@@ -3882,11 +3882,15 @@ export class StaffService {
     const sessionMonthlyTotalDeductionTotals =
       sessionMonthlySummary.totalDeductionTotals;
 
+    const currentAssignmentClassIds = new Set(
+      staff.classTeachers.map((assignment) => assignment.class.id),
+    );
     const classSummaryById = new Map<string, StaffIncomeClassSummaryDto>();
     staff.classTeachers.forEach((assignment) => {
       classSummaryById.set(assignment.class.id, {
         classId: assignment.class.id,
         className: assignment.class.name,
+        isCurrentTeacherAssignment: true,
         ...makeAmountSummary(),
       });
     });
@@ -3898,22 +3902,17 @@ export class StaffService {
       const current = classSummaryById.get(classId) ?? {
         classId,
         className: row.className?.trim() || 'Lớp chưa đặt tên',
+        isCurrentTeacherAssignment: currentAssignmentClassIds.has(classId),
         ...makeAmountSummary(),
       };
-      const netAmount = calculateBucketNetAmount({
-        paymentStatus: row.teacherPaymentStatus,
-        grossAmount: row.grossAllowance,
-        operatingAmount: row.operatingAmount,
-        taxRatePercent: row.taxRatePercent,
-        taxableBaseAmount: row.taxableBaseAmount,
-      });
+      const grossAmount = normalizeMoneyAmount(row.grossAllowance);
       const isPaid =
         String(row.teacherPaymentStatus ?? '').toLowerCase() === 'paid';
 
       classSummaryById.set(classId, {
         ...current,
-        total: current.total + netAmount,
-        paid: current.paid + (isPaid ? netAmount : 0),
+        total: current.total + grossAmount,
+        paid: current.paid + (isPaid ? grossAmount : 0),
       });
     });
 
@@ -3924,6 +3923,7 @@ export class StaffService {
       const current = classSummaryById.get(classId) ?? {
         classId,
         className: row.className?.trim() || 'Lớp chưa đặt tên',
+        isCurrentTeacherAssignment: currentAssignmentClassIds.has(classId),
         ...makeAmountSummary(),
       };
       const grossAmount = normalizeMoneyAmount(row.grossAllowance);

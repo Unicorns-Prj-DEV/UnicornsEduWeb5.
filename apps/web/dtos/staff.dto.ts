@@ -128,10 +128,11 @@ export interface StaffIncomeAmountSummary {
     unpaid: number;
 }
 
-/** GV theo lớp: số tiền sau KH vận hành và thuế (khớp income-summary backend). */
+/** GV theo lớp: số tiền gross trước CPVH và thuế. */
 export interface StaffIncomeClassSummary extends StaffIncomeAmountSummary {
     classId: string;
     className: string;
+    isCurrentTeacherAssignment: boolean;
 }
 
 export interface StaffIncomeRoleSummary extends StaffIncomeAmountSummary {
@@ -183,7 +184,7 @@ export interface StaffIncomeSummary {
     yearTotalDeductionTotal?: number;
     depositYearTotal: number;
     depositYearByClass: StaffIncomeDepositClassSummary[];
-    /** Card "Lớp phụ trách": `unpaid` là gross allowance, chưa trừ vận hành/thuế. */
+    /** Card "Lớp phụ trách": `total` / `paid` / `unpaid` đều là gross allowance, chưa trừ CPVH/thuế. */
     classMonthlySummaries: StaffIncomeClassSummary[];
     /** Thưởng tháng đang xem: sau thuế (không KH VH); gross/tax xem `monthlyGrossTotals` / `monthlyTaxTotals`. */
     bonusMonthlyTotals: StaffIncomeAmountSummary;

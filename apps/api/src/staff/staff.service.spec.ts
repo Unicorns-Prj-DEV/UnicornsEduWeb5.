@@ -1096,8 +1096,8 @@ describe('StaffService', () => {
           teacherPaymentStatus: PaymentStatus.paid,
           taxRatePercent: 10,
           grossAllowance: 100000,
-          operatingAmount: 0,
-          taxableBaseAmount: 100000,
+          operatingAmount: 10000,
+          taxableBaseAmount: 90000,
         },
       ])
       .mockResolvedValueOnce([
@@ -1211,8 +1211,9 @@ describe('StaffService', () => {
       {
         classId: 'class-1',
         className: 'Toán 10A',
-        total: 90000,
-        paid: 90000,
+        isCurrentTeacherAssignment: true,
+        total: 100000,
+        paid: 100000,
         unpaid: 50000,
       },
     ]);
@@ -1438,6 +1439,60 @@ describe('StaffService', () => {
       {
         classId: 'class-1',
         className: 'Toán 10A',
+        isCurrentTeacherAssignment: true,
+        total: 0,
+        paid: 0,
+        unpaid: 50000,
+      },
+    ]);
+  });
+
+  it('marks classes without a current teacher assignment in income summary', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      roles: [StaffRole.teacher],
+      classTeachers: [],
+    });
+    mockPrisma.bonus.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    mockPrisma.extraAllowance.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    jest
+      .spyOn(
+        service as any,
+        'getTeacherAllowanceSourceRowsByStatusAndTaxBucket',
+      )
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    jest
+      .spyOn(service as any, 'getTeacherAllowanceRowsByClassStatusAndTaxBucket')
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          classId: 'class-retired',
+          className: 'Toán nghỉ dạy',
+          teacherPaymentStatus: 'unpaid',
+          taxRatePercent: 10,
+          grossAllowance: 50000,
+          operatingAmount: 10000,
+          taxableBaseAmount: 40000,
+        },
+      ]);
+    jest.spyOn(service as any, 'getDepositSessionRows').mockResolvedValue([]);
+
+    const result = await service.getIncomeSummary('staff-1', {
+      month: '03',
+      year: '2026',
+      days: 14,
+    });
+
+    expect(result.classMonthlySummaries).toEqual([
+      {
+        classId: 'class-retired',
+        className: 'Toán nghỉ dạy',
+        isCurrentTeacherAssignment: false,
         total: 0,
         paid: 0,
         unpaid: 50000,
