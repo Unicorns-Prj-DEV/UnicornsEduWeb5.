@@ -51,6 +51,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
+- BE `GET /staff/:id/income-summary` — `classMonthlySummaries` (card **Lớp phụ trách**) trả `total` / `paid` / `unpaid` đều là gross allowance trước CPVH và trước thuế; tổng hợp thu nhập chung vẫn giữ net theo contract hiện tại. Docs: `docs/README.md`, `docs/pages/staff.md`; DTO comment `StaffIncomeClassSummary`.
+
 - BE Google Meet link cố định cho staff: sau khi admin OAuth tạo Meet setup event, backend gọi Google Meet API `v2/spaces` để set `config.accessType=OPEN` cho link mới, rồi gọi `v2beta/spaces/{space}/members` để cấp role `COHOST` cho email staff; bỏ field `role: "CO_HOST"` khỏi Calendar attendees vì Calendar API không hỗ trợ field này. Nếu set `OPEN` hoặc cấp `COHOST` lỗi, link vẫn được lưu vào `staff_info.google_meet_link`; regenerate/auto-create backfill link vào `Class.schedule` và `makeup_schedule_events` do staff phụ trách, còn calendar feed ưu tiên link cố định của staff thay vì link cũ theo từng buổi. Docs/env cập nhật scope `meetings.space.settings`.
 
 - CD deploy (`scripts/gha-deploy-remote.sh`): `wait_for_http` không còn bắt buộc mọi container có `node`; API/web vẫn dùng `node`, còn nginx image `nginx:1.27-alpine` dùng fallback `wget`/`curl`, tránh lỗi `exec: "node": executable file not found in $PATH` làm job timeout sau khi nginx đã start.

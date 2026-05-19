@@ -6,6 +6,18 @@
 - **Nhân sự nhận thanh toán output**: staff đứng tên chi phí/thanh toán cho một `lesson_output`; không phải nhóm điều phối task.
 - Các cách gọi cũ như `người chịu trách nhiệm`, `nhân sự thực hiện task`, `nhân sự thực hiện output` không còn là ba nhóm phân công độc lập ở cấp task. Khi đọc data cũ, UI/API gộp các staff legacy này vào danh sách `Nhân sự thực hiện`; khi sửa task, backend ghi lại về `staff_lesson_task` và xóa `lesson_task.created_by`.
 
+## Lớp và gia sư
+
+- **Nghỉ dạy theo lớp**: trạng thái hiển thị khi gia sư không còn nằm trong phân công hiện tại của lớp, nhưng vẫn còn thu nhập/trợ cấp liên quan tới lớp trong kỳ hoặc snapshot chưa nhận. Trạng thái này không đồng nghĩa lớp đã kết thúc.
+
+## Lịch học và Google Calendar
+
+- **Lịch học hệ thống**: lịch học chính thức của lớp được lưu trong hệ thống; đây là nguồn sự thật cho lịch định kỳ của lớp.
+- **Bản chiếu Google Calendar**: event Google Calendar được tạo từ lịch học hệ thống để nhắc lịch và mở lớp; không phải nguồn sự thật khi có sai khác.
+- **Đồng bộ lại lịch học**: thao tác tạo, cập nhật hoặc xoá các bản chiếu Google Calendar để khớp lại với lịch học hệ thống.
+- Mỗi slot trong **lịch học hệ thống** có thể có một **bản chiếu Google Calendar** dạng recurring event.
+- Khi **lịch học hệ thống** và **bản chiếu Google Calendar** lệch nhau, **đồng bộ lại lịch học** phải giữ nguyên dữ liệu hệ thống và sửa Google Calendar theo dữ liệu hệ thống.
+
 ## Ví học sinh
 
 - **Yêu cầu nạp thẳng**: thao tác do CSKH, kế toán hoặc trợ lí tạo khi cần ghi nhận tiền vào ví học sinh ngoài luồng QR/webhook. Yêu cầu này không làm đổi số dư ngay.
