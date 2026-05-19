@@ -18,7 +18,7 @@ type Props = {
 };
 
 const STATUS_OPTIONS: { value: StaffDetail["status"]; label: string; hint: string }[] = [
-  { value: "active", label: "Đang hoạt động", hint: "Nhân sự đang làm việc và hiển thị bình thường." },
+  { value: "active", label: "Hoạt động", hint: "Nhân sự đang làm việc và hiển thị bình thường." },
   { value: "inactive", label: "Ngừng hoạt động", hint: "Ẩn khỏi luồng làm việc chính, không dùng cho phân công mới." },
 ];
 
@@ -100,6 +100,15 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
     event.preventDefault();
     const trimmedName = fullName.trim();
     const normalizedCccd = cccdNumber.trim();
+    const isMarkingInactive = staff.status !== "inactive" && status === "inactive";
+    if (
+      isMarkingInactive &&
+      !window.confirm(
+        "Chuyển nhân sự sang Ngừng hoạt động? Nhân sự sẽ không thể truy cập workspace nhân sự hoặc nhận phân công mới, nhưng lịch sử vẫn được giữ.",
+      )
+    ) {
+      return;
+    }
 
     onClose();
     runBackgroundSave({
@@ -113,7 +122,6 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
           cccd_number: normalizedCccd || undefined,
           cccd_issued_date: cccdIssuedDateInput.trim() || undefined,
           cccd_issued_place: cccdIssuedPlace.trim() || undefined,
-          status,
           birth_date: birthDateInput.trim() || undefined,
           university: university.trim() || undefined,
           high_school: highSchool.trim() || undefined,
@@ -126,6 +134,9 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
             ? (managedByStaffId || null)
             : null,
         });
+        if (status !== staff.status) {
+          await staffApi.updateStaffStatus(staff.id, status);
+        }
 
         if ((frontImage || backImage) && staff.user?.id) {
           await staffApi.uploadStaffCccdImages({

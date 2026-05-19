@@ -10,6 +10,7 @@ import * as staffApi from "@/lib/apis/staff.api";
 import { ROLE_LABELS } from "@/lib/staff.constants";
 import { StaffListTableSkeleton } from "@/components/admin/staff";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
+import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { StaffListResponse, StaffStatus } from "@/dtos/staff.dto";
 import {
   buildAdminLikePath,
@@ -21,6 +22,15 @@ import { cn } from "@/lib/utils";
 const PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE_MS = 1000;
 const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }));
+const STATUS_LABELS: Record<StaffStatus, string> = {
+  active: "Hoạt động",
+  inactive: "Ngừng hoạt động",
+};
+const STATUS_OPTIONS: Array<{ value: "" | StaffStatus; label: string }> = [
+  { value: "", label: "Tất cả trạng thái" },
+  { value: "active", label: STATUS_LABELS.active },
+  { value: "inactive", label: STATUS_LABELS.inactive },
+];
 
 function formatCurrency(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return "—";
@@ -45,6 +55,7 @@ export default function AdminStaffPage() {
   const filterUniversity = getSearchParam("university") ?? "";
   const filterHighSchool = getSearchParam("thpt") ?? "";
   const filterRole = getSearchParam("role") ?? "";
+  const filterStatus = (getSearchParam("status") ?? "") as "" | StaffStatus;
   const filterClass = getSearchParam("class") ?? "";
 
   const [searchInput, setSearchInput] = useState(search);
@@ -58,6 +69,7 @@ export default function AdminStaffPage() {
     university: "",
     thpt: "",
     className: "",
+    status: "" as "" | StaffStatus,
   });
   const { data: fullProfile } = useQuery({
     queryKey: ["auth", "full-profile"],
@@ -85,6 +97,7 @@ export default function AdminStaffPage() {
       university: filterUniversity,
       thpt: filterHighSchool,
       className: filterClass,
+      status: filterStatus,
     });
     setFilterPopupOpen(true);
   };
@@ -110,18 +123,22 @@ export default function AdminStaffPage() {
     if (filterDraft.className.trim()) params.set("class", filterDraft.className.trim());
     else params.delete("class");
 
+    if (filterDraft.status.trim()) params.set("status", filterDraft.status.trim());
+    else params.delete("status");
+
     replace(`${pathname}?${params.toString()}`);
     setFilterPopupOpen(false);
     setRoleMenuOpen(false);
   };
 
   const clearFilter = () => {
-    setFilterDraft({ province: "", university: "", thpt: "", className: "" });
+    setFilterDraft({ province: "", university: "", thpt: "", className: "", status: "" });
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.delete("province");
     params.delete("university");
     params.delete("thpt");
     params.delete("role");
+    params.delete("status");
     params.delete("class");
     params.set("page", "1");
     replace(`${pathname}?${params.toString()}`);
@@ -134,6 +151,7 @@ export default function AdminStaffPage() {
     filterUniversity ||
     filterHighSchool ||
     filterRole ||
+    filterStatus ||
     filterClass
   );
 
@@ -193,6 +211,7 @@ export default function AdminStaffPage() {
       filterUniversity,
       filterHighSchool,
       filterRole,
+      filterStatus,
       filterClass,
     ],
     queryFn: () =>
@@ -204,6 +223,7 @@ export default function AdminStaffPage() {
         university: filterUniversity.trim() || undefined,
         highSchool: filterHighSchool.trim() || undefined,
         role: filterRole.trim() || undefined,
+        status: filterStatus.trim() ? filterStatus : undefined,
         className: filterClass.trim() || undefined,
       }),
     placeholderData: keepPreviousData,
@@ -222,6 +242,7 @@ export default function AdminStaffPage() {
     if (filterUniversity) params.set("university", filterUniversity);
     if (filterHighSchool) params.set("thpt", filterHighSchool);
     if (filterRole) params.set("role", filterRole);
+    if (filterStatus) params.set("status", filterStatus);
     if (filterClass) params.set("class", filterClass);
     return params;
   };
@@ -431,6 +452,11 @@ export default function AdminStaffPage() {
                 Role: {ROLE_LABELS[filterRole] ?? filterRole}
               </span>
             ) : null}
+            {filterStatus ? (
+              <span className="inline-flex rounded-full bg-bg-secondary px-2.5 py-1 text-xs font-medium text-text-secondary ring-1 ring-border-default">
+                Trạng thái: {STATUS_LABELS[filterStatus]}
+              </span>
+            ) : null}
             {filterClass ? (
               <span className="inline-flex rounded-full bg-bg-secondary px-2.5 py-1 text-xs font-medium text-text-secondary ring-1 ring-border-default">
                 Lớp: {filterClass}
@@ -519,6 +545,22 @@ export default function AdminStaffPage() {
                     className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   />
                 </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-text-secondary">Trạng thái</span>
+                  <UpgradedSelect
+                    name="staff-filter-status"
+                    value={filterDraft.status}
+                    onValueChange={(nextValue) =>
+                      setFilterDraft((d) => ({
+                        ...d,
+                        status: nextValue as "" | StaffStatus,
+                      }))
+                    }
+                    options={STATUS_OPTIONS}
+                    buttonClassName="w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  />
+                </label>
               </div>
 
               <div className="mt-5 grid grid-cols-2 gap-2">
@@ -560,7 +602,7 @@ export default function AdminStaffPage() {
           ) : staffRows.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-text-muted" aria-live="polite">
               <p className="text-sm">
-                {search || filterProvince || filterUniversity || filterHighSchool || filterRole || filterClass
+                {search || filterProvince || filterUniversity || filterHighSchool || filterRole || filterStatus || filterClass
                   ? "Không có kết quả phù hợp bộ lọc."
                   : "Chưa có nhân sự nào."}
               </p>
@@ -604,7 +646,7 @@ export default function AdminStaffPage() {
                         <div className="flex min-w-0 flex-1 items-center gap-2">
                           <span
                             className={`inline-block size-2 shrink-0 rounded-full ${statusDotColor(row.status)}`}
-                            title={row.status === "active" ? "Hoạt động" : "Ngừng"}
+                            title={STATUS_LABELS[row.status]}
                             aria-hidden
                           />
                           <span className="min-w-0 truncate font-semibold text-text-primary">
@@ -743,7 +785,7 @@ export default function AdminStaffPage() {
                           <td className="w-[6%] min-w-10 px-2 py-3 align-middle">
                             <span
                               className={`inline-block size-2 shrink-0 rounded-full ${statusDotColor(row.status)}`}
-                              title={row.status === "active" ? "Hoạt động" : "Ngừng"}
+                              title={STATUS_LABELS[row.status]}
                               aria-hidden
                             />
                           </td>

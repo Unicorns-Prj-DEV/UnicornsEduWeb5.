@@ -9,7 +9,9 @@ import {
   ClassStatus,
   ClassType,
   StaffRole,
+  StaffStatus,
   StudentClassStatus,
+  StudentStatus,
   UserRole,
 } from 'generated/enums';
 import {
@@ -39,6 +41,10 @@ import {
   resolveDerivedTuitionPerSession,
   resolveEffectiveTuitionPerSession,
 } from 'src/common/student-class-tuition.util';
+import {
+  assertStaffCanReceiveAssignment,
+  assertStudentCanJoinActiveWorkflow,
+} from 'src/common/profile-status.policy';
 
 /** `0` is stored as unlimited (same semantics as `null`) across SQL aggregates. */
 function normalizeMaxAllowancePerSessionWrite(
@@ -742,6 +748,52 @@ export class ClassService {
     return [];
   }
 
+  private async assertActiveStaffIds(
+    db: Prisma.TransactionClient | PrismaService,
+    staffIds: string[],
+  ) {
+    const uniqueStaffIds = Array.from(new Set(staffIds.filter(Boolean)));
+    if (uniqueStaffIds.length === 0) {
+      return;
+    }
+
+    const staff = await db.staffInfo.findMany({
+      where: { id: { in: uniqueStaffIds } },
+      select: { id: true, status: true },
+    });
+
+    if (staff.length !== uniqueStaffIds.length) {
+      throw new NotFoundException('One or more staff not found');
+    }
+
+    for (const item of staff) {
+      assertStaffCanReceiveAssignment(item.status);
+    }
+  }
+
+  private async assertActiveStudentIds(
+    db: Prisma.TransactionClient | PrismaService,
+    studentIds: string[],
+  ) {
+    const uniqueStudentIds = Array.from(new Set(studentIds.filter(Boolean)));
+    if (uniqueStudentIds.length === 0) {
+      return;
+    }
+
+    const students = await db.studentInfo.findMany({
+      where: { id: { in: uniqueStudentIds } },
+      select: { id: true, status: true },
+    });
+
+    if (students.length !== uniqueStudentIds.length) {
+      throw new NotFoundException('One or more students not found');
+    }
+
+    for (const student of students) {
+      assertStudentCanJoinActiveWorkflow(student.status);
+    }
+  }
+
   async getStudentsByClassId(classId: string) {
     const classInfo = await this.prisma.class.findUnique({
       where: { id: classId },
@@ -860,6 +912,12 @@ export class ClassService {
       });
 
       const teacherPayload = this.getTeacherPayload(data);
+      await this.assertActiveStaffIds(
+        tx,
+        teacherPayload.map((teacher) => teacher.teacherId),
+      );
+      await this.assertActiveStudentIds(tx, data.student_ids ?? []);
+
       if (teacherPayload.length > 0) {
         await tx.classTeacher.createMany({
           data: teacherPayload.map((t) => ({
@@ -966,6 +1024,11 @@ export class ClassService {
       let removedTeacherIds: string[] = [];
 
       if (teacherPayload !== null) {
+        await this.assertActiveStaffIds(
+          tx,
+          teacherPayload.map((teacher) => teacher.teacherId),
+        );
+
         const existingTeachers = await tx.classTeacher.findMany({
           where: { classId: data.id },
           select: {
@@ -1034,6 +1097,8 @@ export class ClassService {
 
       if (data.student_ids !== undefined) {
         const normalizedStudentIds = Array.from(new Set(data.student_ids));
+        await this.assertActiveStudentIds(tx, normalizedStudentIds);
+
         const existingStudentClasses = await tx.studentClass.findMany({
           where: { classId: data.id },
           select: { studentId: true },
@@ -1280,6 +1345,11 @@ export class ClassService {
       const beforeValue = auditActor
         ? await this.getClassAuditSnapshot(tx, id)
         : null;
+      await this.assertActiveStaffIds(
+        tx,
+        teacherPayload.map((teacher) => teacher.teacherId),
+      );
+
       const existingTeachers = await tx.classTeacher.findMany({
         where: { classId: id },
         select: {
@@ -1521,6 +1591,8 @@ export class ClassService {
       const beforeValue = auditActor
         ? await this.getClassAuditSnapshot(tx, id)
         : null;
+      await this.assertActiveStudentIds(tx, normalizedStudentIds);
+
       const existingStudentClasses = await tx.studentClass.findMany({
         where: { classId: id },
         select: { studentId: true },

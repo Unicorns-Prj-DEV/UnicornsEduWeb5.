@@ -29,7 +29,7 @@ const SEARCH_DEBOUNCE_MS = 1000;
 
 const STATUS_LABELS: Record<StudentStatus, string> = {
   active: "Đang học",
-  inactive: "Ngừng theo dõi",
+  inactive: "Nghỉ học",
 };
 
 const GENDER_LABELS: Record<StudentGender, string> = {
@@ -43,10 +43,17 @@ const GENDER_OPTIONS: Array<{ value: "" | StudentGender; label: string }> = [
   { value: "female", label: GENDER_LABELS.female },
 ];
 
+const STATUS_OPTIONS: Array<{ value: "" | StudentStatus; label: string }> = [
+  { value: "", label: "Tất cả trạng thái" },
+  { value: "active", label: STATUS_LABELS.active },
+  { value: "inactive", label: STATUS_LABELS.inactive },
+];
+
 type FilterDraft = {
   province: string;
   school: string;
   className: string;
+  status: "" | StudentStatus;
   gender: "" | StudentGender;
 };
 
@@ -109,6 +116,7 @@ export default function AdminStudentsPage() {
   const page = parsePositiveInt(getSearchParam("page"));
   const search = getSearchParam("search") ?? "";
   const filterGender = (getSearchParam("gender") ?? "") as "" | StudentGender;
+  const filterStatus = (getSearchParam("status") ?? "") as "" | StudentStatus;
   const filterProvince = getSearchParam("province") ?? "";
   const filterSchool = getSearchParam("school") ?? "";
   const filterClass = getSearchParam("class") ?? "";
@@ -121,6 +129,7 @@ export default function AdminStudentsPage() {
     province: "",
     school: "",
     className: "",
+    status: "",
     gender: "",
   });
 
@@ -148,6 +157,7 @@ export default function AdminStudentsPage() {
       province: filterProvince,
       school: filterSchool,
       className: filterClass,
+      status: filterStatus,
       gender: filterGender,
     });
     setFilterPopupOpen(true);
@@ -175,18 +185,22 @@ export default function AdminStudentsPage() {
     if (filterDraft.gender.trim()) params.set("gender", filterDraft.gender.trim());
     else params.delete("gender");
 
+    if (filterDraft.status.trim()) params.set("status", filterDraft.status.trim());
+    else params.delete("status");
+
     replaceWithParams(params);
     setFilterPopupOpen(false);
   };
 
   const clearFilter = () => {
-    setFilterDraft({ province: "", school: "", className: "", gender: "" });
+    setFilterDraft({ province: "", school: "", className: "", status: "", gender: "" });
 
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.delete("province");
     params.delete("school");
     params.delete("class");
     params.delete("gender");
+    params.delete("status");
     params.set("page", "1");
 
     replaceWithParams(params);
@@ -194,7 +208,7 @@ export default function AdminStudentsPage() {
   };
 
   const hasActiveFilter = Boolean(
-    filterGender || filterProvince || filterSchool || filterClass,
+    filterGender || filterStatus || filterProvince || filterSchool || filterClass,
   );
 
   const {
@@ -214,6 +228,7 @@ export default function AdminStudentsPage() {
       filterProvince,
       filterSchool,
       filterClass,
+      filterStatus,
     ],
     queryFn: () =>
       studentApi.getStudentList({
@@ -221,6 +236,7 @@ export default function AdminStudentsPage() {
         limit: PAGE_SIZE,
         search: search.trim() || undefined,
         gender: filterGender.trim() ? filterGender : undefined,
+        status: filterStatus.trim() ? filterStatus : undefined,
         province: filterProvince.trim() || undefined,
         school: filterSchool.trim() || undefined,
         className: filterClass.trim() || undefined,
@@ -243,6 +259,7 @@ export default function AdminStudentsPage() {
     if (filterProvince) params.set("province", filterProvince);
     if (filterSchool) params.set("school", filterSchool);
     if (filterClass) params.set("class", filterClass);
+    if (filterStatus) params.set("status", filterStatus);
     return params;
   };
 
@@ -374,6 +391,11 @@ export default function AdminStudentsPage() {
                 Giới tính: {GENDER_LABELS[filterGender]}
               </span>
             ) : null}
+            {filterStatus ? (
+              <span className="inline-flex rounded-full bg-bg-secondary px-2.5 py-1 text-xs font-medium text-text-secondary ring-1 ring-border-default">
+                Trạng thái: {STATUS_LABELS[filterStatus]}
+              </span>
+            ) : null}
             {filterProvince ? (
               <span className="inline-flex rounded-full bg-bg-secondary px-2.5 py-1 text-xs font-medium text-text-secondary ring-1 ring-border-default">
                 Tỉnh: {filterProvince}
@@ -461,6 +483,22 @@ export default function AdminStudentsPage() {
                       }))
                     }
                     options={GENDER_OPTIONS}
+                    buttonClassName="w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-text-secondary">Trạng thái</span>
+                  <UpgradedSelect
+                    name="students-filter-status"
+                    value={filterDraft.status}
+                    onValueChange={(nextValue) =>
+                      setFilterDraft((current) => ({
+                        ...current,
+                        status: nextValue as "" | StudentStatus,
+                      }))
+                    }
+                    options={STATUS_OPTIONS}
                     buttonClassName="w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   />
                 </label>

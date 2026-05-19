@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 
 const STATUS_LABELS: Record<StudentStatus, string> = {
     active: "Đang học",
-    inactive: "Ngừng theo dõi",
+    inactive: "Nghỉ học",
 };
 
 const GENDER_LABELS: Record<StudentGender, string> = {

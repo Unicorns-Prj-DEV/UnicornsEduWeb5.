@@ -192,6 +192,12 @@ export class UpdateStaffDto extends PartialType(CreateStaffDto) {
   status?: StaffStatus;
 }
 
+export class UpdateStaffStatusDto {
+  @ApiProperty({ enum: StaffStatus })
+  @IsEnum(StaffStatus)
+  status: StaffStatus;
+}
+
 export class PatchStaffClassTeacherOperatingDeductionDto {
   @ApiProperty({
     description:

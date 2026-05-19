@@ -40,6 +40,7 @@ import {
   UpdateStudentBodyDto,
   UpdateStudentClassesDto,
   UpdateStudentDto,
+  UpdateStudentStatusDto,
 } from 'src/dtos/student.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { getUserFullNameFromParts } from 'src/common/user-name.util';
@@ -56,6 +57,7 @@ import {
 } from 'src/sepay/sepay.service';
 import { MailService } from 'src/mail/mail.service';
 import { NotificationService } from 'src/notification/notification.service';
+import { AuthIdentityCacheService } from 'src/auth/auth-identity-cache.service';
 
 const RECENT_TOP_UP_DAYS = 21;
 const RECENT_TOP_UP_THRESHOLD = 300_000;
@@ -268,7 +270,14 @@ export class StudentService {
     private readonly configService: ConfigService,
     private readonly mailService: MailService,
     private readonly notificationService: NotificationService,
+    private readonly authIdentityCacheService: AuthIdentityCacheService,
   ) {}
+
+  private invalidateStudentAuthIdentity(userId: string | null | undefined) {
+    if (userId) {
+      this.authIdentityCacheService.invalidateUser(userId);
+    }
+  }
 
   private formatVND(amount: number) {
     return `${Math.round(amount).toLocaleString('vi-VN')}đ`;
@@ -623,23 +632,24 @@ export class StudentService {
     };
 
     try {
-      const notification = await this.notificationService.createNotificationDraft(
-        {
-          title: 'Yêu cầu nạp thẳng ví mới',
-          message: [
-            `<p><strong>${this.escapeNotificationHtml(params.studentName)}</strong> vừa có yêu cầu nạp thẳng ${this.escapeNotificationHtml(this.formatVND(params.amount))}.</p>`,
-            `<p>Người yêu cầu: ${this.escapeNotificationHtml(params.requestedByEmail ?? 'không có email')}</p>`,
-            `<p>Lý do: ${this.escapeNotificationHtml(params.reason)}</p>`,
-            `<p>Mã yêu cầu: <code data-direct-topup-request-id="${this.escapeNotificationHtml(params.requestId)}">${this.escapeNotificationHtml(params.requestId)}</code></p>`,
-            '<p>Vào Admin → Duyệt nạp ví để kiểm tra và phê duyệt.</p>',
-          ].join(''),
-          targetAll: false,
-          targetRoleTypes: [UserRole.admin],
-          targetStaffRoles: [StaffRole.admin],
-          targetUserIds: [],
-        },
-        actor,
-      );
+      const notification =
+        await this.notificationService.createNotificationDraft(
+          {
+            title: 'Yêu cầu nạp thẳng ví mới',
+            message: [
+              `<p><strong>${this.escapeNotificationHtml(params.studentName)}</strong> vừa có yêu cầu nạp thẳng ${this.escapeNotificationHtml(this.formatVND(params.amount))}.</p>`,
+              `<p>Người yêu cầu: ${this.escapeNotificationHtml(params.requestedByEmail ?? 'không có email')}</p>`,
+              `<p>Lý do: ${this.escapeNotificationHtml(params.reason)}</p>`,
+              `<p>Mã yêu cầu: <code data-direct-topup-request-id="${this.escapeNotificationHtml(params.requestId)}">${this.escapeNotificationHtml(params.requestId)}</code></p>`,
+              '<p>Vào Admin → Duyệt nạp ví để kiểm tra và phê duyệt.</p>',
+            ].join(''),
+            targetAll: false,
+            targetRoleTypes: [UserRole.admin],
+            targetStaffRoles: [StaffRole.admin],
+            targetUserIds: [],
+          },
+          actor,
+        );
 
       await this.notificationService.pushNotification(
         notification.id,
@@ -810,6 +820,26 @@ export class StudentService {
     }
 
     return data as Parameters<typeof this.prisma.studentInfo.update>[0]['data'];
+  }
+
+  private async applyStudentStatusSideEffects(
+    tx: Prisma.TransactionClient,
+    studentId: string,
+    status: StudentStatus,
+  ) {
+    if (status !== StudentStatus.inactive) {
+      return;
+    }
+
+    await tx.studentClass.updateMany({
+      where: {
+        studentId,
+        status: StudentClassStatus.active,
+      },
+      data: {
+        status: StudentClassStatus.inactive,
+      },
+    });
   }
 
   private async syncCustomerCareAssignment(
@@ -1461,7 +1491,8 @@ export class StudentService {
     const now = new Date();
     const page = Math.max(1, Math.floor(query.page ?? 1));
     const limit = Math.min(100, Math.max(1, Math.floor(query.limit ?? 20)));
-    const status = query.status ?? StudentWalletDirectTopUpRequestStatus.pending;
+    const status =
+      query.status ?? StudentWalletDirectTopUpRequestStatus.pending;
     const where = this.buildDirectTopUpRequestStatusWhere(status, now);
 
     const [total, requests] = await Promise.all([
@@ -1683,12 +1714,11 @@ export class StudentService {
 
       if (beforeValue) {
         await this.actionHistoryService.recordUpdate(tx, {
-          actor:
-            params.actor ?? {
-              userId: null,
-              userEmail: null,
-              roleType: UserRole.admin,
-            },
+          actor: params.actor ?? {
+            userId: null,
+            userEmail: null,
+            roleType: UserRole.admin,
+          },
           entityType: 'student',
           entityId: request.studentId,
           description: `Duyệt yêu cầu nạp thẳng ví học sinh từ ${request.requestedByUserEmail ?? 'nhân sự'}`,
@@ -2016,6 +2046,10 @@ export class StudentService {
         });
       }
 
+      if (dto.status !== undefined) {
+        await this.applyStudentStatusSideEffects(tx, id, dto.status);
+      }
+
       await this.syncCustomerCareAssignment(tx, id, dto);
 
       const nextStudent = await tx.studentInfo.findUnique({
@@ -2042,6 +2076,66 @@ export class StudentService {
       return nextStudent;
     });
 
+    if (dto.status !== undefined) {
+      this.invalidateStudentAuthIdentity(student.userId);
+    }
+
+    return this.serializeStudentDetail(updated);
+  }
+
+  async updateStudentStatus(
+    id: string,
+    dto: UpdateStudentStatusDto,
+    auditActor?: ActionHistoryActor,
+  ) {
+    const student = await this.prisma.studentInfo.findUnique({
+      where: { id },
+      select: { id: true, status: true, userId: true },
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    const beforeValue = auditActor
+      ? await this.getStudentAuditSnapshot(this.prisma, id)
+      : null;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.studentInfo.update({
+        where: { id },
+        data: { status: dto.status },
+      });
+
+      await this.applyStudentStatusSideEffects(tx, id, dto.status);
+
+      const nextStudent = await tx.studentInfo.findUnique({
+        where: { id },
+        include: studentDetailInclude,
+      });
+
+      if (!nextStudent) {
+        throw new NotFoundException('Student not found');
+      }
+
+      if (auditActor && beforeValue) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor: auditActor,
+          entityType: 'student',
+          entityId: id,
+          description:
+            dto.status === StudentStatus.inactive
+              ? 'Chuyển học sinh sang nghỉ học'
+              : 'Chuyển học sinh sang đang học',
+          beforeValue,
+          afterValue: this.serializeStudentDetail(nextStudent),
+        });
+      }
+
+      return nextStudent;
+    });
+
+    this.invalidateStudentAuthIdentity(student.userId);
     return this.serializeStudentDetail(updated);
   }
 

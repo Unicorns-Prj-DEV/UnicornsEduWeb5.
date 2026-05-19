@@ -47,6 +47,7 @@ import {
   SearchAssignableStaffUsersDto,
   SearchStaffOptionsDto,
   UpdateStaffDto,
+  UpdateStaffStatusDto,
   PatchStaffClassTeacherOperatingDeductionDto,
 } from 'src/dtos/staff.dto';
 import {
@@ -582,6 +583,33 @@ export class StaffController {
         roleType: user.roleType,
       },
     );
+  }
+
+  @Patch(':id/status')
+  @AllowStaffRolesOnAdminRoutes()
+  @ApiOperation({
+    summary: 'Update staff operational status',
+    description:
+      'Admin-only status transition. Inactive staff remain in historical records but cannot receive new assignments.',
+  })
+  @ApiParam({ name: 'id', description: 'Staff ID' })
+  @ApiBody({
+    type: UpdateStaffStatusDto,
+    description: 'Staff status transition payload',
+  })
+  @ApiResponse({ status: 200, description: 'Staff status updated.' })
+  @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({ status: 404, description: 'Staff not found.' })
+  async updateStaffStatus(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: UpdateStaffStatusDto,
+  ) {
+    return this.staffService.updateStaffStatus(id, body, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Delete(':id')

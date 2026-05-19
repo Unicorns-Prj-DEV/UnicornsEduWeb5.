@@ -48,6 +48,7 @@ import {
   UpdateStudentClassesDto,
   UpdateStudentExamSchedulesDto,
   UpdateStudentDto,
+  UpdateStudentStatusDto,
 } from 'src/dtos/student.dto';
 import { StudentService } from './student.service';
 
@@ -497,6 +498,32 @@ export class StudentController {
     @Body() body: UpdateStudentBodyDto,
   ) {
     return this.studentService.updateStudentById(id, body, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
+  }
+
+  @Patch(':id/status')
+  @ApiOperation({
+    summary: 'Update student operational status',
+    description:
+      'Admin-only status transition. Marking inactive closes active class memberships; reactivating does not restore old class memberships.',
+  })
+  @ApiParam({ name: 'id', description: 'Student ID' })
+  @ApiBody({
+    type: UpdateStudentStatusDto,
+    description: 'Student status transition payload',
+  })
+  @ApiResponse({ status: 200, description: 'Student status updated.' })
+  @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({ status: 404, description: 'Student not found.' })
+  async updateStudentStatus(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: UpdateStudentStatusDto,
+  ) {
+    return this.studentService.updateStudentStatus(id, body, {
       userId: user.id,
       userEmail: user.email,
       roleType: user.roleType,

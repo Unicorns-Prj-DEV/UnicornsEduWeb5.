@@ -136,6 +136,15 @@ export async function updateStaff(payload: {
     return response.data;
 }
 
+export async function updateStaffStatus(
+    id: string,
+    status: StaffStatus,
+): Promise<StaffDetail> {
+    const safeId = encodeURIComponent(id);
+    const response = await api.patch(`/staff/${safeId}/status`, { status });
+    return response.data as StaffDetail;
+}
+
 /** Xóa bản ghi staff (StaffInfo) theo id */
 export async function deleteStaffById(id: string) {
     const safeId = encodeURIComponent(id);

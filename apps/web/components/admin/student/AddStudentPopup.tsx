@@ -39,7 +39,7 @@ const USER_STATUS_LABELS: Record<string, string> = {
 
 const STATUS_OPTIONS: Array<{ value: StudentStatus; label: string }> = [
   { value: "active", label: "Đang học" },
-  { value: "inactive", label: "Ngừng theo dõi" },
+  { value: "inactive", label: "Nghỉ học" },
 ];
 
 const GENDER_OPTIONS: Array<{ value: StudentGender; label: string }> = [

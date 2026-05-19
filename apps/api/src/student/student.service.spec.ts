@@ -60,6 +60,7 @@ describe('StudentService', () => {
     },
     studentClass: {
       findMany: jest.fn(),
+      updateMany: jest.fn(),
       deleteMany: jest.fn(),
       createMany: jest.fn(),
     },
@@ -90,6 +91,9 @@ describe('StudentService', () => {
   const notificationService = {
     createNotificationDraft: jest.fn(),
     pushNotification: jest.fn(),
+  };
+  const authIdentityCacheService = {
+    invalidateUser: jest.fn(),
   };
 
   let service: StudentService;
@@ -122,6 +126,7 @@ describe('StudentService', () => {
       configService as never,
       mailService as never,
       notificationService as never,
+      authIdentityCacheService as never,
     );
   });
 
@@ -1443,5 +1448,61 @@ describe('StudentService', () => {
     expect(
       mockPrisma.walletTransactionsHistory.findMany,
     ).not.toHaveBeenCalled();
+  });
+
+  it('marks a student inactive and closes active class memberships', async () => {
+    mockPrisma.studentInfo.findUnique.mockResolvedValueOnce({
+      id: 'student-1',
+      status: StudentStatus.active,
+      userId: 'user-1',
+    });
+    mockPrisma.studentInfo.findUnique.mockResolvedValueOnce({
+      id: 'student-1',
+      fullName: 'Nguyen Van A',
+      email: 'student@example.com',
+      parentEmail: 'parent@example.com',
+      accountBalance: 0,
+      school: null,
+      province: null,
+      status: StudentStatus.inactive,
+      gender: 'male',
+      birthYear: 2010,
+      parentName: null,
+      parentPhone: null,
+      goal: null,
+      dropOutDate: null,
+      createdAt: new Date('2026-03-20T10:00:00.000Z'),
+      updatedAt: new Date('2026-03-21T10:00:00.000Z'),
+      studentClasses: [],
+      examSchedules: [],
+      customerCareServices: null,
+    });
+    mockPrisma.studentInfo.update.mockResolvedValue({
+      id: 'student-1',
+      status: StudentStatus.inactive,
+    });
+    mockPrisma.studentClass.updateMany.mockResolvedValue({ count: 2 });
+
+    await expect(
+      service.updateStudentStatus('student-1', {
+        status: StudentStatus.inactive,
+      }),
+    ).resolves.toMatchObject({
+      id: 'student-1',
+      status: StudentStatus.inactive,
+    });
+
+    expect(mockPrisma.studentClass.updateMany).toHaveBeenCalledWith({
+      where: {
+        studentId: 'student-1',
+        status: 'active',
+      },
+      data: {
+        status: 'inactive',
+      },
+    });
+    expect(authIdentityCacheService.invalidateUser).toHaveBeenCalledWith(
+      'user-1',
+    );
   });
 });

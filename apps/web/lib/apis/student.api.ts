@@ -154,6 +154,17 @@ export async function updateStudentById(
   return response.data;
 }
 
+export async function updateStudentStatus(
+  id: string,
+  status: StudentStatus,
+): Promise<StudentDetail> {
+  const safeId = encodeURIComponent(id);
+  const response = await api.patch<StudentDetail>(`/student/${safeId}/status`, {
+    status,
+  });
+  return response.data;
+}
+
 export async function updateStudentExamSchedules(
   id: string,
   payload: UpdateStudentExamSchedulesPayload,

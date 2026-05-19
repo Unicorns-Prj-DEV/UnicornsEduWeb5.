@@ -242,6 +242,16 @@ export class UpdateStudentDto extends UpdateStudentBodyDto {
   id: string;
 }
 
+export class UpdateStudentStatusDto {
+  @ApiProperty({
+    enum: StudentStatus,
+    description:
+      'Operational student profile status. inactive closes active class memberships.',
+  })
+  @IsEnum(StudentStatus)
+  status: StudentStatus;
+}
+
 export class UpdateStudentAccountBalanceCreateDto {
   @ApiProperty({ description: 'Student id' })
   @IsUUID()

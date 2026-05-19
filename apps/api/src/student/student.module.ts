@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ActionHistoryModule } from 'src/action-history/action-history.module';
+import { AuthModule } from 'src/auth/auth.module';
 import { GoogleCalendarModule } from 'src/google-calendar/google-calendar.module';
 import { MailModule } from 'src/mail/mail.module';
 import { NotificationModule } from 'src/notification/notification.module';
@@ -14,6 +15,7 @@ import { StudentService } from './student.service';
     PrismaModule,
     ConfigModule,
     ActionHistoryModule,
+    AuthModule,
     GoogleCalendarModule,
     MailModule,
     NotificationModule,

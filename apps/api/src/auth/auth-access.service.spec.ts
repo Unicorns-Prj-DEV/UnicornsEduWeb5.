@@ -2,7 +2,12 @@ jest.mock('../prisma/prisma.service', () => ({
   PrismaService: class PrismaServiceMock {},
 }));
 
-import { StaffRole, UserRole } from '../../generated/enums';
+import {
+  StaffRole,
+  StaffStatus,
+  StudentStatus,
+  UserRole,
+} from '../../generated/enums';
 import { AuthAccessService } from './auth-access.service';
 
 describe('AuthAccessService', () => {
@@ -40,6 +45,7 @@ describe('AuthAccessService', () => {
       ...currentConsent,
       staffInfo: {
         id: 'staff-1',
+        status: StaffStatus.active,
         cccdNumber: '012345678901',
         cccdIssuedDate: new Date('2026-01-01T00:00:00.000Z'),
         cccdIssuedPlace: 'Ha Noi',
@@ -52,7 +58,7 @@ describe('AuthAccessService', () => {
         cccdFrontPath: 'front.png',
         cccdBackPath: 'back.png',
       },
-      studentInfo: { id: 'student-1' },
+      studentInfo: { id: 'student-1', status: StudentStatus.active },
     });
     authIdentityCacheService.getStaffRoles.mockResolvedValue([StaffRole.admin]);
 
@@ -93,6 +99,7 @@ describe('AuthAccessService', () => {
       ...currentConsent,
       staffInfo: {
         id: 'staff-2',
+        status: StaffStatus.active,
         cccdNumber: '012345678901',
         cccdIssuedDate: new Date('2026-01-01T00:00:00.000Z'),
         cccdIssuedPlace: 'Ha Noi',
@@ -176,7 +183,7 @@ describe('AuthAccessService', () => {
   it('does not grant staff workspace from primary role alone without a staff profile', async () => {
     prisma.user.findUnique.mockResolvedValue({
       staffInfo: null,
-      studentInfo: { id: 'student-1' },
+      studentInfo: { id: 'student-1', status: StudentStatus.active },
     });
 
     await expect(
@@ -212,6 +219,7 @@ describe('AuthAccessService', () => {
       ...missingConsent,
       staffInfo: {
         id: 'staff-3',
+        status: StaffStatus.active,
         cccdNumber: '012345678901',
         cccdIssuedDate: new Date('2026-01-01T00:00:00.000Z'),
         cccdIssuedPlace: 'Ha Noi',
@@ -246,6 +254,89 @@ describe('AuthAccessService', () => {
       staffProfileComplete: false,
       access: {
         staff: { canAccess: true, profileComplete: false },
+      },
+    });
+  });
+
+  it('does not grant staff or staff-derived admin access from an inactive staff profile', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      ...currentConsent,
+      staffInfo: {
+        id: 'staff-inactive',
+        status: StaffStatus.inactive,
+        cccdNumber: '012345678901',
+        cccdIssuedDate: new Date('2026-01-01T00:00:00.000Z'),
+        cccdIssuedPlace: 'Ha Noi',
+        birthDate: new Date('2000-01-01T00:00:00.000Z'),
+        university: 'UE University',
+        highSchool: 'UE High',
+        specialization: 'Math',
+        bankAccount: '123456789',
+        bankQrLink: 'qr-link',
+        cccdFrontPath: 'front.png',
+        cccdBackPath: 'back.png',
+      },
+      studentInfo: null,
+    });
+
+    await expect(
+      service.resolveForIdentity({
+        id: 'inactive-staff-user',
+        email: 'inactive-staff@example.com',
+        accountHandle: 'inactive-staff',
+        roleType: UserRole.staff,
+        status: 'active',
+        emailVerified: true,
+        avatarPath: null,
+        requiresPasswordSetup: false,
+      }),
+    ).resolves.toMatchObject({
+      effectiveRoleTypes: [UserRole.staff],
+      staffRoles: [],
+      hasStaffProfile: false,
+      hasStudentProfile: false,
+      availableWorkspaces: [],
+      defaultWorkspace: null,
+      preferredRedirect: '/',
+      access: {
+        admin: { canAccess: false, tier: null },
+        staff: { canAccess: false, profileComplete: false },
+        student: { canAccess: false },
+      },
+    });
+    expect(authIdentityCacheService.getStaffRoles).not.toHaveBeenCalled();
+  });
+
+  it('does not grant student workspace access from an inactive student profile', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      ...currentConsent,
+      staffInfo: null,
+      studentInfo: { id: 'student-inactive', status: StudentStatus.inactive },
+    });
+
+    await expect(
+      service.resolveForIdentity({
+        id: 'inactive-student-user',
+        email: 'inactive-student@example.com',
+        accountHandle: 'inactive-student',
+        roleType: UserRole.student,
+        status: 'active',
+        emailVerified: true,
+        avatarPath: null,
+        requiresPasswordSetup: false,
+      }),
+    ).resolves.toMatchObject({
+      effectiveRoleTypes: [UserRole.student],
+      staffRoles: [],
+      hasStaffProfile: false,
+      hasStudentProfile: false,
+      availableWorkspaces: [],
+      defaultWorkspace: null,
+      preferredRedirect: '/user-profile',
+      access: {
+        admin: { canAccess: false, tier: null },
+        staff: { canAccess: false, profileComplete: false },
+        student: { canAccess: false },
       },
     });
   });

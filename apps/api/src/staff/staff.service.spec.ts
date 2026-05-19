@@ -8,16 +8,20 @@ jest.mock('../../generated/client', () => ({
   },
 }));
 jest.mock('src/storage/supabase-storage', () => ({
-  createSignedStorageUrl: jest.fn(
-    async (options: { path?: string | null }) =>
-      options.path ? `signed:${options.path}` : null,
+  createSignedStorageUrl: jest.fn(async (options: { path?: string | null }) =>
+    options.path ? `signed:${options.path}` : null,
   ),
   getSupabaseAdminClient: jest.fn(),
   validateImageFile: jest.fn(),
 }));
 
 import { BadRequestException } from '@nestjs/common';
-import { PaymentStatus, StaffRole, UserRole } from '../../generated/enums';
+import {
+  PaymentStatus,
+  StaffRole,
+  StaffStatus,
+  UserRole,
+} from '../../generated/enums';
 import { createSignedStorageUrl } from 'src/storage/supabase-storage';
 import { StaffService } from './staff.service';
 
@@ -242,6 +246,75 @@ describe('StaffService', () => {
         entityId: 'staff-1',
       }),
     );
+    expect(authIdentityCacheService.invalidateUser).toHaveBeenCalledWith(
+      'user-1',
+    );
+  });
+
+  it('returns only active customer-care staff options', async () => {
+    mockPrisma.staffInfo.findMany.mockResolvedValue([]);
+
+    await service.searchCustomerCareStaff({ limit: 10 });
+
+    expect(mockPrisma.staffInfo.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          roles: {
+            hasSome: [StaffRole.customer_care],
+          },
+          status: StaffStatus.active,
+        }),
+      }),
+    );
+  });
+
+  it('returns only active general staff options', async () => {
+    mockPrisma.staffInfo.findMany.mockResolvedValue([]);
+
+    await service.searchStaffOptions({ limit: 10 });
+
+    expect(mockPrisma.staffInfo.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: StaffStatus.active,
+        }),
+      }),
+    );
+  });
+
+  it('updates staff status and invalidates linked auth cache', async () => {
+    jest
+      .spyOn(service as any, 'getStaffAuditSnapshot')
+      .mockResolvedValueOnce({
+        id: 'staff-1',
+        userId: 'user-1',
+        status: StaffStatus.active,
+      })
+      .mockResolvedValueOnce({
+        id: 'staff-1',
+        userId: 'user-1',
+        status: StaffStatus.inactive,
+      });
+    jest.spyOn(service, 'getStaffById').mockResolvedValue({
+      id: 'staff-1',
+      status: StaffStatus.inactive,
+    } as never);
+    mockPrisma.staffInfo.update.mockResolvedValue({
+      id: 'staff-1',
+      status: StaffStatus.inactive,
+    });
+
+    await expect(
+      service.updateStaffStatus('staff-1', { status: StaffStatus.inactive }),
+    ).resolves.toMatchObject({
+      id: 'staff-1',
+      status: StaffStatus.inactive,
+    });
+
+    expect(mockPrisma.staffInfo.update).toHaveBeenCalledWith({
+      where: { id: 'staff-1' },
+      data: { status: StaffStatus.inactive },
+    });
     expect(authIdentityCacheService.invalidateUser).toHaveBeenCalledWith(
       'user-1',
     );
@@ -2057,8 +2130,8 @@ describe('StaffService', () => {
       status: 'active',
       roles: [StaffRole.teacher],
       user: {
-        first_name: 'Teacher',
-        last_name: 'A',
+        first_name: 'A',
+        last_name: 'Teacher',
         accountHandle: 'teacher-a',
         email: 'teacher@example.com',
         province: 'Hanoi',

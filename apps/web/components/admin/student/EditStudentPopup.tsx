@@ -35,7 +35,7 @@ type Props = {
 
 const STATUS_OPTIONS: Array<{ value: StudentStatus; label: string }> = [
   { value: "active", label: "Đang học" },
-  { value: "inactive", label: "Ngừng theo dõi" },
+  { value: "inactive", label: "Nghỉ học" },
 ];
 
 const GENDER_OPTIONS: Array<{ value: StudentGender; label: string }> = [
@@ -272,6 +272,17 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
       return;
     }
 
+    const isMarkingInactive =
+      student.status !== "inactive" && status === "inactive";
+    if (
+      isMarkingInactive &&
+      !window.confirm(
+        "Chuyển học sinh sang Nghỉ học? Học sinh sẽ được gỡ khỏi các roster lớp đang active, nhưng lịch sử học tập và tài chính vẫn được giữ.",
+      )
+    ) {
+      return;
+    }
+
     const normalizedExamItems = examItems
       .map((item) => ({
         ...item,
@@ -296,7 +307,6 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
           parent_email: parentEmail.trim() || undefined,
           parent_phone: parentPhone.trim() || undefined,
           gender,
-          status,
           goal: goal.trim() || undefined,
           drop_out_date: dropOutDate.trim() || undefined,
           customer_care_staff_id: selectedCustomerCare?.id ?? null,
@@ -304,6 +314,9 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
             ? parsedCustomerCareProfitPercent
             : null,
         });
+        if (status !== student.status) {
+          await studentApi.updateStudentStatus(student.id, status);
+        }
         await studentApi.updateStudentExamSchedules(student.id, {
           items: normalizedExamItems.map((item) => ({
             ...(item.id && !item.id.startsWith("local-exam-") ? { id: item.id } : {}),

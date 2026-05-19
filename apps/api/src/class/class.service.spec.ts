@@ -19,7 +19,12 @@ jest.mock('../../generated/client', () => ({
 }));
 
 import { ClassService } from './class.service';
-import { StaffRole, UserRole } from '../../generated/enums';
+import {
+  StaffRole,
+  StaffStatus,
+  StudentStatus,
+  UserRole,
+} from '../../generated/enums';
 
 type ClassServiceTestAccess = {
   getClassAuditSnapshot: (
@@ -39,6 +44,17 @@ describe('ClassService', () => {
     },
     classTeacherOperatingDeductionRate: {
       upsert: jest.fn(),
+    },
+    staffInfo: {
+      findMany: jest.fn(),
+    },
+    studentInfo: {
+      findMany: jest.fn(),
+    },
+    studentClass: {
+      findMany: jest.fn(),
+      updateMany: jest.fn(),
+      create: jest.fn(),
     },
   };
 
@@ -85,6 +101,17 @@ describe('ClassService', () => {
     mockTx.classTeacherOperatingDeductionRate.upsert.mockResolvedValue({
       id: 'history-1',
     });
+    mockTx.staffInfo.findMany.mockImplementation((args: any) => {
+      const ids = args?.where?.id?.in ?? [];
+      return ids.map((id: string) => ({ id, status: StaffStatus.active }));
+    });
+    mockTx.studentInfo.findMany.mockImplementation((args: any) => {
+      const ids = args?.where?.id?.in ?? [];
+      return ids.map((id: string) => ({ id, status: StudentStatus.active }));
+    });
+    mockTx.studentClass.findMany.mockResolvedValue([]);
+    mockTx.studentClass.updateMany.mockResolvedValue({ count: 0 });
+    mockTx.studentClass.create.mockResolvedValue({});
     mockPrisma.classTeacher.findMany.mockResolvedValue([]);
 
     service = new ClassService(
@@ -359,6 +386,20 @@ describe('ClassService', () => {
         oldSchedule,
       );
     });
+
+    it('rejects inactive teachers for class assignment updates', async () => {
+      mockTx.staffInfo.findMany.mockResolvedValue([
+        { id: 'teacher-1', status: StaffStatus.inactive },
+      ]);
+
+      await expect(
+        service.updateClassTeachers('class-1', {
+          teachers: [{ teacher_id: 'teacher-1' }],
+        }),
+      ).rejects.toThrow('Nhân sự đang ở trạng thái ngừng hoạt động.');
+
+      expect(mockTx.classTeacher.createMany).not.toHaveBeenCalled();
+    });
   });
 
   describe('updateClassSchedule', () => {
@@ -401,6 +442,22 @@ describe('ClassService', () => {
       );
 
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateClassStudents', () => {
+    it('rejects inactive students for class assignment updates', async () => {
+      mockTx.studentInfo.findMany.mockResolvedValue([
+        { id: 'student-1', status: StudentStatus.inactive },
+      ]);
+
+      await expect(
+        service.updateClassStudents('class-1', {
+          students: [{ id: 'student-1' }],
+        }),
+      ).rejects.toThrow('Học sinh đang ở trạng thái nghỉ học.');
+
+      expect(mockTx.studentClass.create).not.toHaveBeenCalled();
     });
   });
 });

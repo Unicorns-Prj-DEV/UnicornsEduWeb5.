@@ -1,5 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { StaffRole, UserRole } from 'generated/enums';
+import {
+  StaffRole,
+  StaffStatus,
+  StudentStatus,
+  UserRole,
+} from 'generated/enums';
+import {
+  isActiveStaffProfile,
+  isActiveStudentProfile,
+} from 'src/common/profile-status.policy';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AuthIdentityCacheService } from './auth-identity-cache.service';
 import type {
@@ -42,6 +51,7 @@ export interface ResolvedAuthAccess {
 
 type StaffProfileForAccess = {
   id: string;
+  status: StaffStatus;
   cccdNumber: string | null;
   cccdIssuedDate: Date | string | null;
   cccdIssuedPlace: string | null;
@@ -53,6 +63,11 @@ type StaffProfileForAccess = {
   bankQrLink: string | null;
   cccdFrontPath: string | null;
   cccdBackPath: string | null;
+};
+
+type StudentProfileForAccess = {
+  id: string;
+  status: StudentStatus;
 };
 
 type StaffConsentForAccess = {
@@ -222,6 +237,7 @@ export class AuthAccessService {
         staffInfo: {
           select: {
             id: true,
+            status: true,
             cccdNumber: true,
             cccdIssuedDate: true,
             cccdIssuedPlace: true,
@@ -235,12 +251,19 @@ export class AuthAccessService {
             cccdBackPath: true,
           },
         },
-        studentInfo: { select: { id: true } },
+        studentInfo: { select: { id: true, status: true } },
       },
     });
 
-    const hasStaffProfile = Boolean(profileLinks?.staffInfo?.id);
-    const hasStudentProfile = Boolean(profileLinks?.studentInfo?.id);
+    const staffProfile = profileLinks?.staffInfo ?? null;
+    const studentProfile =
+      (profileLinks?.studentInfo as StudentProfileForAccess | null) ?? null;
+    const hasStaffProfile = Boolean(
+      staffProfile?.id && isActiveStaffProfile(staffProfile.status),
+    );
+    const hasStudentProfile = Boolean(
+      studentProfile?.id && isActiveStudentProfile(studentProfile.status),
+    );
     const staffRoles = hasStaffProfile
       ? await this.authIdentityCacheService.getStaffRoles(user.id, request)
       : [];
@@ -285,7 +308,8 @@ export class AuthAccessService {
       hasStudentProfile,
     );
     const staffProfileComplete =
-      isStaffProfileComplete(profileLinks?.staffInfo ?? null) &&
+      hasStaffProfile &&
+      isStaffProfileComplete(staffProfile) &&
       hasCurrentStaffDataConsent({
         dataProcessingConsentAcceptedAt:
           profileLinks?.dataProcessingConsentAcceptedAt ?? null,

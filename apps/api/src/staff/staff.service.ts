@@ -39,6 +39,7 @@ import {
   type StaffIncomeRoleSummaryDto,
   type StaffIncomeSummaryDto,
   UpdateStaffDto,
+  UpdateStaffStatusDto,
   PatchStaffClassTeacherOperatingDeductionDto,
 } from 'src/dtos/staff.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -646,7 +647,7 @@ export class StaffService {
           return rawEntry;
         }
 
-        const entry = rawEntry as Prisma.JsonObject;
+        const entry = rawEntry;
         const entryTeacherId =
           typeof entry.teacherId === 'string' ? entry.teacherId : undefined;
         const isResponsibleEntry =
@@ -879,6 +880,7 @@ export class StaffService {
         roles: {
           hasSome: [StaffRole.customer_care],
         },
+        status: StaffStatus.active,
         ...nameSearchWhere,
       },
       select: {
@@ -895,7 +897,6 @@ export class StaffService {
         },
       },
       orderBy: [
-        { status: 'asc' },
         { user: { first_name: 'asc' } },
         { user: { last_name: 'asc' } },
       ],
@@ -1210,7 +1211,10 @@ export class StaffService {
         : 20;
 
     const rows = await this.prisma.staffInfo.findMany({
-      where: buildNameSearchWhere(query.search),
+      where: {
+        status: StaffStatus.active,
+        ...buildNameSearchWhere(query.search),
+      },
       take: limit,
       orderBy: [
         { user: { first_name: 'asc' } },
@@ -4352,6 +4356,45 @@ export class StaffService {
     return this.getStaffById(staffId);
   }
 
+  async updateStaffStatus(
+    id: string,
+    dto: UpdateStaffStatusDto,
+    auditActor?: ActionHistoryActor,
+  ) {
+    const existingStaff = await this.getStaffAuditSnapshot(this.prisma, id);
+
+    if (!existingStaff) {
+      throw new NotFoundException('Staff not found');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.staffInfo.update({
+        where: { id },
+        data: { status: dto.status },
+      });
+
+      if (auditActor) {
+        const afterValue = await this.getStaffAuditSnapshot(tx, id);
+        if (afterValue) {
+          await this.actionHistoryService.recordUpdate(tx, {
+            actor: auditActor,
+            entityType: 'staff',
+            entityId: id,
+            description:
+              dto.status === StaffStatus.inactive
+                ? 'Chuyển nhân sự sang ngừng hoạt động'
+                : 'Chuyển nhân sự sang hoạt động',
+            beforeValue: existingStaff,
+            afterValue,
+          });
+        }
+      }
+    });
+
+    this.invalidateStaffAuthIdentities(existingStaff.userId);
+    return this.getStaffById(id);
+  }
+
   async updateStaff(data: UpdateStaffDto, auditActor?: ActionHistoryActor) {
     const existingStaff = await this.getStaffAuditSnapshot(
       this.prisma,
@@ -4468,6 +4511,11 @@ export class StaffService {
           if (!manager.roles.includes(StaffRole.assistant)) {
             throw new BadRequestException(
               'Nhân sự được chỉ định phải có role trợ lí.',
+            );
+          }
+          if (manager.status !== StaffStatus.active) {
+            throw new BadRequestException(
+              'Nhân sự đang ở trạng thái ngừng hoạt động.',
             );
           }
         }
