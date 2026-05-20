@@ -16,6 +16,86 @@ function resolveErrorMessage(error: unknown, fallback: string) {
   );
 }
 
+function SkeletonLine({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`block animate-pulse rounded bg-bg-tertiary ${className}`}
+      aria-hidden
+    />
+  );
+}
+
+function NotificationStatValue({
+  isLoading,
+  value,
+}: {
+  isLoading: boolean;
+  value: number;
+}) {
+  if (isLoading) {
+    return (
+      <span
+        className="block h-8 w-12 animate-pulse rounded-md bg-bg-tertiary"
+        aria-label="Đang tải số liệu"
+      />
+    );
+  }
+
+  return <>{value}</>;
+}
+
+function StaffNotificationFeedCardSkeleton() {
+  return (
+    <article
+      className="rounded-3xl border border-border-default bg-bg-surface p-5 shadow-sm"
+      aria-hidden
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <SkeletonLine className="h-7 w-32 rounded-full" />
+            <SkeletonLine className="h-7 w-20 rounded-full" />
+            <SkeletonLine className="h-7 w-28 rounded-full" />
+          </div>
+
+          <SkeletonLine className="mt-3 h-6 w-3/4 max-w-md" />
+          <div className="mt-3 space-y-2">
+            <SkeletonLine className="h-4 w-full max-w-xl" />
+            <SkeletonLine className="h-4 w-11/12 max-w-lg" />
+            <SkeletonLine className="h-4 w-2/3 max-w-sm" />
+          </div>
+        </div>
+
+        <div className="grid shrink-0 gap-3 sm:min-w-[220px]">
+          {Array.from({ length: 2 }).map((_, index) => (
+            <div
+              key={index}
+              className="rounded-2xl border border-border-default bg-bg-secondary/45 px-3 py-2"
+            >
+              <SkeletonLine className="h-3 w-20" />
+              <SkeletonLine className="mt-2 h-4 w-32" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function StaffNotificationFeedSkeleton() {
+  return (
+    <div
+      className="mt-5 space-y-4"
+      role="status"
+      aria-label="Đang tải feed thông báo"
+    >
+      {Array.from({ length: 4 }).map((_, index) => (
+        <StaffNotificationFeedCardSkeleton key={index} />
+      ))}
+    </div>
+  );
+}
+
 function NotificationFeedCard({ item }: { item: NotificationFeedItem }) {
   return (
     <article className="rounded-3xl border border-border-default bg-bg-surface p-5 shadow-sm">
@@ -118,7 +198,10 @@ export default function StaffNotificationPage() {
                 Tổng thông báo
               </p>
               <p className="mt-2 text-2xl font-semibold text-text-primary">
-                {notifications.length}
+                <NotificationStatValue
+                  isLoading={notificationsQuery.isLoading}
+                  value={notifications.length}
+                />
               </p>
             </div>
             <div className="rounded-2xl border border-border-default bg-bg-surface/85 px-4 py-3 shadow-sm">
@@ -126,7 +209,10 @@ export default function StaffNotificationPage() {
                 Bản điều chỉnh
               </p>
               <p className="mt-2 text-2xl font-semibold text-text-primary">
-                {adjustedCount}
+                <NotificationStatValue
+                  isLoading={notificationsQuery.isLoading}
+                  value={adjustedCount}
+                />
               </p>
             </div>
           </div>
@@ -154,14 +240,7 @@ export default function StaffNotificationPage() {
         </div>
 
         {notificationsQuery.isLoading ? (
-          <div className="mt-5 space-y-3">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div
-                key={index}
-                className="h-44 animate-pulse rounded-3xl border border-border-default bg-bg-secondary/60"
-              />
-            ))}
-          </div>
+          <StaffNotificationFeedSkeleton />
         ) : notificationsQuery.isError ? (
           <div className="mt-5 rounded-2xl border border-error/20 bg-error/10 px-4 py-5 text-sm text-error">
             {resolveErrorMessage(

@@ -258,6 +258,121 @@ function formatRecipientUserLabel(user: NotificationRecipientOption) {
   }`;
 }
 
+function SkeletonLine({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`block animate-pulse rounded bg-bg-tertiary ${className}`}
+      aria-hidden
+    />
+  );
+}
+
+function NotificationStatValue({
+  isLoading,
+  value,
+}: {
+  isLoading: boolean;
+  value: number;
+}) {
+  if (isLoading) {
+    return (
+      <span
+        className="block h-7 w-10 animate-pulse rounded-md bg-bg-tertiary"
+        aria-label="Đang tải số liệu"
+      />
+    );
+  }
+
+  return <>{value}</>;
+}
+
+function AdminNotificationCardSkeleton({
+  actionCount,
+}: {
+  actionCount: number;
+}) {
+  return (
+    <article
+      className="rounded-xl border border-border-default bg-bg-surface p-3 shadow-sm"
+      aria-hidden
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <SkeletonLine className="h-7 w-20 rounded-full" />
+            <SkeletonLine className="h-7 w-10 rounded-full" />
+            <SkeletonLine className="h-7 w-16 rounded-full" />
+          </div>
+
+          <SkeletonLine className="mt-3 h-6 w-3/4 max-w-md" />
+          <div className="mt-3 space-y-2">
+            <SkeletonLine className="h-4 w-full max-w-lg" />
+            <SkeletonLine className="h-4 w-5/6 max-w-md" />
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            <SkeletonLine className="h-4 w-16" />
+            <SkeletonLine className="h-7 w-16 rounded-full" />
+            <SkeletonLine className="h-7 w-20 rounded-full" />
+            <SkeletonLine className="h-7 w-14 rounded-full" />
+          </div>
+        </div>
+
+        <div className="flex shrink-0 flex-wrap gap-2">
+          {Array.from({ length: actionCount }).map((_, index) => (
+            <span
+              key={index}
+              className="size-10 animate-pulse rounded-xl border border-border-default bg-bg-secondary"
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1">
+        <SkeletonLine className="h-3 w-28" />
+        <SkeletonLine className="h-3 w-32" />
+        <SkeletonLine className="h-3 w-24" />
+      </div>
+    </article>
+  );
+}
+
+function AdminNotificationListSkeleton() {
+  const groups = [
+    { title: "Bản nháp", cards: 2, actionCount: 3 },
+    { title: "Đã phát", cards: 1, actionCount: 2 },
+  ] as const;
+
+  return (
+    <div
+      className="mt-5 space-y-5"
+      role="status"
+      aria-label="Đang tải danh sách thông báo"
+    >
+      {groups.map((group) => (
+        <div key={group.title}>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-text-muted">
+              {group.title}
+            </h3>
+            <span
+              className="h-6 w-8 animate-pulse rounded-full border border-border-default bg-bg-secondary"
+              aria-hidden
+            />
+          </div>
+          <div className="space-y-3">
+            {Array.from({ length: group.cards }).map((_, index) => (
+              <AdminNotificationCardSkeleton
+                key={`${group.title}-${index}`}
+                actionCount={group.actionCount}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function NotificationListCard({
   item,
   onEditDraft,
@@ -758,7 +873,10 @@ export default function AdminNotificationPage() {
                   Tổng
                 </p>
                 <p className="mt-1 text-xl font-semibold text-text-primary">
-                  {notifications.length}
+                  <NotificationStatValue
+                    isLoading={notificationsQuery.isLoading}
+                    value={notifications.length}
+                  />
                 </p>
               </div>
               <div className="rounded-xl border border-border-default bg-bg-secondary/35 px-3 py-2.5">
@@ -766,7 +884,10 @@ export default function AdminNotificationPage() {
                   Nháp
                 </p>
                 <p className="mt-1 text-xl font-semibold text-text-primary">
-                  {draftNotifications.length}
+                  <NotificationStatValue
+                    isLoading={notificationsQuery.isLoading}
+                    value={draftNotifications.length}
+                  />
                 </p>
               </div>
               <div className="rounded-xl border border-border-default bg-bg-secondary/35 px-3 py-2.5">
@@ -774,7 +895,10 @@ export default function AdminNotificationPage() {
                   Đã phát
                 </p>
                 <p className="mt-1 text-xl font-semibold text-text-primary">
-                  {publishedNotifications.length}
+                  <NotificationStatValue
+                    isLoading={notificationsQuery.isLoading}
+                    value={publishedNotifications.length}
+                  />
                 </p>
               </div>
             </div>
@@ -1078,14 +1202,7 @@ export default function AdminNotificationPage() {
             </div>
 
             {notificationsQuery.isLoading ? (
-              <div className="mt-5 space-y-3">
-                {Array.from({ length: 3 }).map((_, index) => (
-                  <div
-                    key={index}
-                    className="h-40 animate-pulse rounded-2xl border border-border-default bg-bg-secondary/60"
-                  />
-                ))}
-              </div>
+              <AdminNotificationListSkeleton />
             ) : notificationsQuery.isError ? (
               <div className="mt-5 rounded-2xl border border-error/20 bg-error/10 px-4 py-5 text-sm text-error">
                 {resolveErrorMessage(

@@ -33,6 +33,7 @@ import * as studentApi from "@/lib/apis/student.api";
 import { formatCurrency } from "@/lib/class.helpers";
 import { copyQrImageOrLink } from "@/lib/clipboard-qr";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const SESSION_DAYS = 30;
 const STUDENT_PAGE_SIZE = 10;
@@ -65,6 +66,144 @@ const TAB_PANEL_TRANSITION: Transition = {
   duration: 0.24,
   ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
 };
+
+function CustomerCareCardSkeleton({
+  rows = 3,
+  variant = "student",
+}: {
+  rows?: number;
+  variant?: "student" | "payment" | "commission";
+}) {
+  return (
+    <div className="space-y-3 lg:hidden" aria-hidden>
+      {Array.from({ length: rows }).map((_, index) => (
+        <article
+          key={`${variant}-mobile-skeleton-${index}`}
+          className="rounded-[1.5rem] border border-border-default bg-bg-surface p-4 shadow-sm"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="flex items-center gap-2">
+                <Skeleton className="size-2.5 rounded-full bg-bg-tertiary" />
+                <Skeleton className="h-4 w-36 rounded bg-bg-tertiary" />
+              </div>
+              <Skeleton className="h-3 w-48 rounded bg-bg-tertiary" />
+            </div>
+            <Skeleton className="h-7 w-20 rounded-full bg-bg-tertiary" />
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <Skeleton className="h-4 w-full rounded bg-bg-tertiary" />
+            <Skeleton className="h-4 w-4/5 rounded bg-bg-tertiary" />
+            <Skeleton className="h-4 w-5/6 rounded bg-bg-tertiary" />
+            <Skeleton className="h-4 w-3/4 rounded bg-bg-tertiary" />
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function CustomerCareTableSkeleton({
+  columns,
+  rows = 5,
+  minWidthClass = "min-w-[760px]",
+}: {
+  columns: string[];
+  rows?: number;
+  minWidthClass?: string;
+}) {
+  return (
+    <div
+      className="hidden overflow-x-auto rounded-[1.5rem] border border-border-default bg-bg-surface shadow-sm lg:block"
+      aria-hidden
+    >
+      <table className={cn("w-full border-collapse text-left text-sm", minWidthClass)}>
+        <thead>
+          <tr className="border-b border-border-default bg-bg-secondary/80">
+            {columns.map((width, index) => (
+              <th key={`customer-care-table-skeleton-head-${index}`} className="px-3 py-3">
+                <Skeleton className={cn("h-3 rounded bg-bg-tertiary", width)} />
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border-subtle">
+          {Array.from({ length: rows }).map((_, rowIndex) => (
+            <tr key={`customer-care-table-skeleton-row-${rowIndex}`}>
+              {columns.map((width, columnIndex) => (
+                <td
+                  key={`customer-care-table-skeleton-cell-${rowIndex}-${columnIndex}`}
+                  className="px-3 py-3"
+                >
+                  <Skeleton className={cn("h-4 rounded bg-bg-tertiary", width)} />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function CustomerCareListSkeleton({
+  variant,
+  columns,
+  rows = 5,
+  minWidthClass,
+}: {
+  variant: "student" | "payment" | "commission";
+  columns: string[];
+  rows?: number;
+  minWidthClass?: string;
+}) {
+  return (
+    <div className="space-y-3">
+      <CustomerCareCardSkeleton rows={Math.min(rows, 3)} variant={variant} />
+      <CustomerCareTableSkeleton columns={columns} rows={rows} minWidthClass={minWidthClass} />
+    </div>
+  );
+}
+
+function PaymentHistorySkeleton() {
+  return (
+    <ul className="divide-y divide-border-subtle" aria-hidden>
+      {Array.from({ length: 4 }).map((_, index) => (
+        <li
+          key={`payment-history-skeleton-${index}`}
+          className="grid gap-2 py-3 text-sm sm:grid-cols-[9rem_8rem_8.5rem_minmax(0,1fr)] sm:items-start"
+        >
+          <Skeleton className="h-4 w-28 rounded bg-bg-tertiary" />
+          <Skeleton className="h-4 w-20 rounded bg-bg-tertiary" />
+          <Skeleton className="h-5 w-24 rounded-full bg-bg-tertiary" />
+          <Skeleton className="h-4 w-full rounded bg-bg-tertiary" />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function SessionCommissionSkeleton() {
+  return (
+    <div className="overflow-x-auto" aria-hidden>
+      <div className="min-w-[720px] space-y-2">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            key={`session-commission-skeleton-${index}`}
+            className={`grid items-center gap-3 rounded-xl bg-bg-surface px-3 py-2 ${SESSION_COMMISSION_GRID_CLASS}`}
+          >
+            <Skeleton className="h-4 w-20 rounded bg-bg-tertiary" />
+            <Skeleton className="h-4 w-full rounded bg-bg-tertiary" />
+            <Skeleton className="h-4 w-24 rounded bg-bg-tertiary" />
+            <Skeleton className="h-5 w-16 rounded-full bg-bg-tertiary" />
+            <Skeleton className="h-4 w-24 rounded bg-bg-tertiary" />
+            <Skeleton className="h-5 w-20 rounded-full bg-bg-tertiary" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function formatDate(iso?: string | null): string {
   if (!iso) return "—";
@@ -491,9 +630,7 @@ export default function CustomerCareDetailPanels({
 
             <div className="min-h-0 overflow-y-auto px-5 py-4 sm:px-6">
               {paymentHistoryLoading ? (
-                <p className="text-sm text-text-muted">
-                  Đang tải lịch sử tiền vào…
-                </p>
+                <PaymentHistorySkeleton />
               ) : paymentHistoryError ? (
                 <p className="text-sm text-error">
                   Không tải được lịch sử tiền vào.
@@ -617,9 +754,12 @@ export default function CustomerCareDetailPanels({
             </p>
           )}
           {studentsLoading && (
-            <div className="rounded-[1.5rem] border border-border-default bg-bg-surface p-6 text-center text-sm text-text-muted shadow-sm">
-              Đang tải…
-            </div>
+            <CustomerCareListSkeleton
+              variant="student"
+              columns={["w-16", "w-36", "w-20", "w-24", "w-20", "w-24", "w-16"]}
+              rows={STUDENT_PAGE_SIZE}
+              minWidthClass="min-w-[840px]"
+            />
           )}
           {!studentsLoading && !studentsError && students.length === 0 && (
             <div className="rounded-[1.5rem] border border-border-default bg-bg-surface p-6 text-center text-sm text-text-muted shadow-sm">
@@ -842,9 +982,12 @@ export default function CustomerCareDetailPanels({
             </p>
           )}
           {topUpHistoryLoading && (
-            <div className="rounded-[1.5rem] border border-border-default bg-bg-surface p-6 text-center text-sm text-text-muted shadow-sm">
-              Đang tải…
-            </div>
+            <CustomerCareListSkeleton
+              variant="payment"
+              columns={["w-28", "w-36", "w-24", "w-64"]}
+              rows={TOP_UP_HISTORY_PAGE_SIZE}
+              minWidthClass="min-w-[760px]"
+            />
           )}
           {!topUpHistoryLoading && !topUpHistoryError && topUpHistory.length === 0 && (
             <div className="rounded-[1.5rem] border border-border-default bg-bg-surface p-6 text-center text-sm text-text-muted shadow-sm">
@@ -979,9 +1122,12 @@ export default function CustomerCareDetailPanels({
             </p>
           )}
           {commissionsLoading && (
-            <div className="rounded-[1.5rem] border border-border-default bg-bg-surface p-6 text-center text-sm text-text-muted shadow-sm">
-              Đang tải…
-            </div>
+            <CustomerCareListSkeleton
+              variant="commission"
+              columns={["w-40", "w-28", "w-5"]}
+              rows={5}
+              minWidthClass="min-w-[560px]"
+            />
           )}
           {!commissionsLoading && !commissionsError && commissions.length === 0 && (
             <div className="rounded-[1.5rem] border border-border-default bg-bg-surface p-6 text-center text-sm text-text-muted shadow-sm">
@@ -1035,7 +1181,7 @@ export default function CustomerCareDetailPanels({
                         Buổi học trong 30 ngày qua
                       </p>
                       {sessionCommissionsLoading ? (
-                        <p className="text-sm text-text-muted">Đang tải…</p>
+                        <SessionCommissionSkeleton />
                       ) : sessionCommissions.length === 0 ? (
                         <p className="text-sm text-text-muted">
                           Không có buổi học trong 30 ngày qua.
