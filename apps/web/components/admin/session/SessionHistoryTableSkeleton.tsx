@@ -6,6 +6,8 @@ type Props = {
   entityMode?: SessionEntityMode;
   variant?: SessionTableVariant;
   className?: string;
+  /** Khi true, skeleton có cột chọn hàng loạt để khớp layout với bảng thật. */
+  showBulkSelectionColumn?: boolean;
   /** Khi true, skeleton có cột Thao tác để khớp layout với bảng thật. */
   showActionsColumn?: boolean;
 };
@@ -23,32 +25,40 @@ export default function SessionHistoryTableSkeleton({
   entityMode = "none",
   variant = "default",
   className = "",
+  showBulkSelectionColumn = false,
   showActionsColumn = false,
 }: Props) {
   const shouldShowEntity = entityMode !== "none";
   const isTeacher = entityMode === "teacher";
   const isClassDetailRowLayout = variant === "classDetail";
+  const skeletonRows = Array.from({ length: rows });
 
   if (isClassDetailRowLayout) {
     return (
       <div className={className} aria-hidden>
         <div className="space-y-2 md:hidden">
-          {Array.from({ length: rows }).map((_, rowIndex) => (
+          {skeletonRows.map((_, rowIndex) => (
             <article
               key={rowIndex}
               className="rounded-lg border border-border-default bg-bg-surface p-3 shadow-sm"
             >
               <div className="flex items-start gap-2">
+                {showBulkSelectionColumn ? (
+                  <span className="mt-0.5 inline-block size-5 shrink-0 animate-pulse rounded bg-bg-tertiary" />
+                ) : null}
                 <div className="space-y-1">
                   <span className="inline-block h-3 w-12 animate-pulse rounded bg-bg-tertiary" />
                   <span className="block h-4 w-20 animate-pulse rounded bg-bg-tertiary" />
                   <span className="block h-3 w-24 animate-pulse rounded bg-bg-tertiary" />
                 </div>
-                <div className="ml-auto flex flex-col items-end gap-2">
+                <div className="ml-auto flex min-w-0 flex-col items-end gap-2">
                   <span className="inline-block h-4 w-28 animate-pulse rounded bg-bg-tertiary" />
                   <span className="inline-block h-5 w-24 animate-pulse rounded-full bg-bg-tertiary" />
                   <span className="inline-block h-3 w-14 animate-pulse rounded bg-bg-tertiary" />
                 </div>
+                {showActionsColumn ? (
+                  <span className="inline-block size-7 shrink-0 animate-pulse rounded bg-bg-tertiary" />
+                ) : null}
               </div>
               <div className="mt-3 border-t border-border-subtle pt-2 space-y-1">
                 <span className="block h-3 w-5/6 animate-pulse rounded bg-bg-tertiary" />
@@ -60,8 +70,21 @@ export default function SessionHistoryTableSkeleton({
 
         <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[880px] border-collapse text-left text-sm">
+            <caption className="sr-only">Đang tải lịch sử buổi học</caption>
+            <colgroup>
+              {showBulkSelectionColumn ? <col className="w-10" /> : null}
+              <col className="w-[16%]" />
+              <col />
+              <col className="w-[26%]" />
+              {showActionsColumn ? <col className="w-10" /> : null}
+            </colgroup>
             <thead>
               <tr className="border-b border-border-default bg-bg-secondary">
+                {showBulkSelectionColumn ? (
+                  <th className="px-2 py-2 text-center" aria-label="Chọn hàng loạt">
+                    <span className="mx-auto block size-5 animate-pulse rounded bg-bg-tertiary" />
+                  </th>
+                ) : null}
                 <th className="px-2.5 py-2 text-xs font-medium text-text-primary">
                   Thời gian
                 </th>
@@ -79,8 +102,13 @@ export default function SessionHistoryTableSkeleton({
               </tr>
             </thead>
             <tbody>
-              {Array.from({ length: rows }).map((_, rowIndex) => (
+              {skeletonRows.map((_, rowIndex) => (
                 <tr key={rowIndex} className="border-b border-border-default bg-bg-surface">
+                  {showBulkSelectionColumn ? (
+                    <td className="px-2 py-1.5 text-center align-middle">
+                      <span className="mx-auto block size-5 animate-pulse rounded bg-bg-tertiary" />
+                    </td>
+                  ) : null}
                   <td className="px-2.5 py-1.5">
                     <span className="inline-block h-10 w-20 animate-pulse rounded bg-bg-tertiary" />
                   </td>
@@ -92,7 +120,7 @@ export default function SessionHistoryTableSkeleton({
                   </td>
                   {showActionsColumn ? (
                     <td className="px-1.5 py-1.5">
-                      <span className="inline-block h-5 w-5 animate-pulse rounded bg-bg-tertiary" />
+                      <span className="inline-block size-5 animate-pulse rounded bg-bg-tertiary" />
                     </td>
                   ) : null}
                 </tr>
@@ -108,12 +136,15 @@ export default function SessionHistoryTableSkeleton({
     <div className={className} aria-hidden>
       {/* Mobile skeleton: card list */}
       <div className="space-y-3 md:hidden">
-        {Array.from({ length: rows }).map((_, rowIndex) => (
+        {skeletonRows.map((_, rowIndex) => (
           <article
             key={rowIndex}
             className="rounded-lg border border-border-default bg-bg-surface p-3 shadow-sm"
           >
             <div className="flex items-start justify-between gap-2">
+              {showBulkSelectionColumn ? (
+                <span className="mt-0.5 inline-block size-5 shrink-0 animate-pulse rounded bg-bg-tertiary" />
+              ) : null}
               <div className="space-y-2">
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
@@ -163,12 +194,46 @@ export default function SessionHistoryTableSkeleton({
         <table
           className={
             entityMode === "class"
-              ? "w-full min-w-[400px] table-fixed border-collapse text-left text-sm"
-              : "w-full min-w-[520px] border-collapse text-left text-sm"
+              ? "w-full min-w-[440px] table-fixed border-collapse text-left text-sm"
+              : "w-full min-w-[560px] border-collapse text-left text-sm"
           }
         >
+          <caption className="sr-only">Đang tải lịch sử buổi học</caption>
+          <colgroup>
+            {showBulkSelectionColumn ? <col className="w-12" /> : null}
+            {entityMode === "teacher" ? (
+              <>
+                <col className="w-[10%]" />
+                <col className="w-[24%]" />
+                <col className="w-[14%]" />
+                <col className="w-[18%]" />
+                <col className="w-[22%]" />
+                {showActionsColumn ? <col className="w-[12%]" /> : null}
+              </>
+            ) : shouldShowEntity ? (
+              <>
+                <col className="w-[16%]" />
+                <col className="w-[12%]" />
+                <col className="w-[32%]" />
+                <col className="min-w-30 w-[26%]" />
+                {showActionsColumn ? <col className="w-[12%]" /> : null}
+              </>
+            ) : (
+              <>
+                <col className="w-[25%]" />
+                <col className="w-[25%]" />
+                <col className="w-[38%]" />
+                {showActionsColumn ? <col className="w-[12%]" /> : null}
+              </>
+            )}
+          </colgroup>
           <thead>
             <tr className="border-b border-border-default bg-bg-secondary">
+              {showBulkSelectionColumn ? (
+                <th className="px-3 py-3 text-center" aria-label="Chọn hàng loạt">
+                  <span className="mx-auto block size-5 animate-pulse rounded bg-bg-tertiary" />
+                </th>
+              ) : null}
               <th className="px-4 py-3 font-medium text-text-primary">Ngày học</th>
               {isTeacher ? (
                 <th className="px-4 py-3 font-medium text-text-primary">Note</th>
@@ -188,8 +253,13 @@ export default function SessionHistoryTableSkeleton({
             </tr>
           </thead>
           <tbody>
-            {Array.from({ length: rows }).map((_, rowIndex) => (
+            {skeletonRows.map((_, rowIndex) => (
               <tr key={rowIndex} className="border-b border-border-default bg-bg-surface">
+                {showBulkSelectionColumn ? (
+                  <td className="px-3 py-3 text-center align-middle">
+                    <span className="mx-auto block size-5 animate-pulse rounded bg-bg-tertiary" />
+                  </td>
+                ) : null}
                 <td className="px-4 py-3">
                   <span className="inline-block h-5 w-24 animate-pulse rounded bg-bg-tertiary" />
                 </td>

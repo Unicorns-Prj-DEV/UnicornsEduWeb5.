@@ -14,6 +14,7 @@ import {
     StudentWalletCard,
     StudentWalletHistoryPopup,
 } from "@/components/admin/student";
+import { StudentDashboardSkeleton } from "@/components/student/StudentDashboardSkeleton";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import type {
     StudentGender,
@@ -267,24 +268,7 @@ export default function StudentSelfPage() {
     );
 
     if (isLoading) {
-        return (
-            <div className="flex min-h-0 flex-1 flex-col" aria-busy="true">
-                <div className="mb-4 h-8 w-44 animate-pulse rounded bg-bg-tertiary" />
-                <div className="rounded-[1.75rem] border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5">
-                    <div className="h-24 animate-pulse rounded-2xl bg-bg-secondary" />
-                    <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-                        <div className="space-y-4">
-                            <div className="h-56 animate-pulse rounded-2xl bg-bg-secondary" />
-                            <div className="h-52 animate-pulse rounded-2xl bg-bg-secondary" />
-                        </div>
-                        <div className="space-y-4">
-                            <div className="h-40 animate-pulse rounded-2xl bg-bg-secondary" />
-                            <div className="h-64 animate-pulse rounded-2xl bg-bg-secondary" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
+        return <StudentDashboardSkeleton />;
     }
 
     if (isError || !student) {

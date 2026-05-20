@@ -547,7 +547,7 @@ export default function AdminStudentsPage() {
             className="mb-3"
           />
           {isLoading ? (
-            <StudentListTableSkeleton rows={5} />
+            <StudentListTableSkeleton rows={PAGE_SIZE} />
           ) : isError ? (
             <div className="py-16 text-center text-error" role="alert" aria-live="assertive">
               <p className="text-sm">

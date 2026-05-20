@@ -86,6 +86,28 @@ function parseRatePercentOrThrow(rawValue: string) {
   return Number(numericValue.toFixed(2));
 }
 
+function RoleDefaultHistorySkeleton() {
+  return (
+    <div
+      className="mt-3 max-h-64 overflow-hidden rounded-lg border border-border-default bg-bg-surface"
+      aria-hidden
+    >
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div
+          key={index}
+          className="flex items-start justify-between gap-3 border-b border-border-default/70 px-3 py-2 last:border-b-0"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="h-4 w-40 animate-pulse rounded bg-bg-tertiary" />
+            <div className="mt-2 h-3 w-60 max-w-full animate-pulse rounded bg-bg-secondary" />
+          </div>
+          <div className="h-9 w-20 shrink-0 animate-pulse rounded-lg border border-border-default bg-bg-secondary" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function AdminDeductionsPage() {
   const queryClient = useQueryClient();
   const [today] = useState(() => getTodayDateString());
@@ -116,6 +138,7 @@ export default function AdminDeductionsPage() {
 
   const {
     data: settings,
+    isLoading: isSettingsLoading,
     isError: isSettingsError,
   } = useQuery({
     queryKey: ["deduction-settings", "tax", asOfDate],
@@ -347,7 +370,9 @@ export default function AdminDeductionsPage() {
             <h2 className="text-sm font-semibold uppercase tracking-wide text-text-primary">
               Lịch sử mức theo role
             </h2>
-            {roleDefaultHistory.length === 0 ? (
+            {isSettingsLoading ? (
+              <RoleDefaultHistorySkeleton />
+            ) : isSettingsError ? null : roleDefaultHistory.length === 0 ? (
               <p className="mt-3 text-sm text-text-muted">Chưa có lịch sử.</p>
             ) : (
               <div className="mt-3 max-h-64 overflow-auto rounded-lg border border-border-default bg-bg-surface">

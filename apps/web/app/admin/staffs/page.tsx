@@ -590,7 +590,7 @@ export default function AdminStaffPage() {
             className="mb-3"
           />
           {isLoading ? (
-            <StaffListTableSkeleton rows={5} />
+            <StaffListTableSkeleton rows={5} showActions={canDeleteStaff} />
           ) : isError ? (
             <div className="py-16 text-center text-error" role="alert" aria-live="assertive">
               <p className="text-sm">

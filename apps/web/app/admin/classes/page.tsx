@@ -280,7 +280,7 @@ export default function AdminClassesPage() {
             className="mb-3"
           />
           {isLoading ? (
-            <ClassListTableSkeleton rows={6} />
+            <ClassListTableSkeleton rows={PAGE_SIZE} />
           ) : isError ? (
             <div className="py-16 text-center text-error" role="alert" aria-live="assertive">
               <p className="text-sm">

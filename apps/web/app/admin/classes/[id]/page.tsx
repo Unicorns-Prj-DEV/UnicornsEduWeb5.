@@ -207,7 +207,7 @@ export default function AdminClassDetailPage() {
         month: selectedMonthValue,
         year: selectedYear,
       }),
-    enabled: !!id,
+    enabled: !!id && activeTab === "sessions",
     placeholderData: keepPreviousData,
   });
   const {
@@ -222,7 +222,7 @@ export default function AdminClassDetailPage() {
         month: selectedMonthValue,
         year: selectedYear,
       }),
-    enabled: !!id,
+    enabled: !!id && activeTab === "surveys",
     placeholderData: keepPreviousData,
   });
 
@@ -376,7 +376,13 @@ export default function AdminClassDetailPage() {
 
         <div className="mt-4 rounded-lg border border-border-default bg-bg-surface p-4">
           <div className="mb-4 h-5 w-56 animate-pulse rounded bg-bg-tertiary" />
-          <SessionHistoryTableSkeleton rows={1} entityMode="none" variant="classDetail" showActionsColumn />
+          <SessionHistoryTableSkeleton
+            rows={1}
+            entityMode="none"
+            variant="classDetail"
+            showBulkSelectionColumn
+            showActionsColumn
+          />
         </div>
       </div>
     );
@@ -1022,7 +1028,13 @@ export default function AdminClassDetailPage() {
               {...panelMotionProps}
             >
               {isSessionsLoading ? (
-                <SessionHistoryTableSkeleton rows={5} entityMode="none" variant="classDetail" showActionsColumn />
+                <SessionHistoryTableSkeleton
+                  rows={5}
+                  entityMode="none"
+                  variant="classDetail"
+                  showBulkSelectionColumn
+                  showActionsColumn
+                />
               ) : (
                 <SessionHistoryTable
                   sessions={sessionsInMonth}

@@ -116,6 +116,126 @@ function normalizeBonusRecord(item: BonusListItem): BonusRecord {
   };
 }
 
+function StaffProfileIdentitySkeleton() {
+  return (
+    <section className="rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <div key={index} className="rounded-lg border border-border-default bg-bg-secondary/40 p-3">
+            <div className="h-3 w-20 animate-pulse rounded bg-bg-tertiary" />
+            <div className="mt-2 h-4 w-32 animate-pulse rounded bg-bg-tertiary" />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function StaffProfileIncomeSkeleton({
+  canViewBeforeDeduction,
+}: {
+  canViewBeforeDeduction: boolean;
+}) {
+  return (
+    <>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <article
+            key={index}
+            className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3"
+          >
+            <div className="h-3 w-20 animate-pulse rounded bg-bg-tertiary" />
+            <div className="mt-2 h-6 w-28 animate-pulse rounded bg-bg-tertiary" />
+          </article>
+        ))}
+      </div>
+      {canViewBeforeDeduction ? (
+        <div className="mt-3 rounded-xl border border-border-default bg-bg-tertiary/70 px-4 py-3">
+          <div className="h-3 w-28 animate-pulse rounded bg-bg-tertiary" />
+          <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div
+                key={index}
+                className="rounded-lg border border-border-default/70 bg-bg-surface px-3 py-2"
+              >
+                <div className="h-3 w-20 animate-pulse rounded bg-bg-tertiary" />
+                <div className="mt-2 h-4 w-24 animate-pulse rounded bg-bg-tertiary" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function StaffProfileSummaryTableSkeleton() {
+  return (
+    <>
+      <div className="space-y-3 md:hidden">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div key={index} className="rounded-lg border border-border-default bg-bg-secondary px-4 py-3">
+            <div className="h-4 w-36 animate-pulse rounded bg-bg-tertiary" />
+            <div className="mt-3 flex flex-wrap gap-3">
+              <div className="h-4 w-20 animate-pulse rounded bg-bg-tertiary" />
+              <div className="h-4 w-20 animate-pulse rounded bg-bg-tertiary" />
+              <div className="h-4 w-20 animate-pulse rounded bg-bg-tertiary" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="hidden overflow-x-auto md:block">
+        <table className="w-full min-w-[480px] border-collapse text-left text-sm">
+          <caption className="sr-only">Đang tải bảng tổng hợp</caption>
+          <thead>
+            <tr className="border-b border-border-default bg-bg-secondary">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <th key={index} scope="col" className="px-4 py-3">
+                  <div className="h-4 w-24 animate-pulse rounded bg-bg-tertiary" />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: 3 }).map((_, rowIndex) => (
+              <tr key={rowIndex} className="border-b border-border-default bg-bg-surface">
+                {Array.from({ length: 4 }).map((_, cellIndex) => (
+                  <td key={cellIndex} className="px-4 py-3">
+                    <div className="h-4 w-28 animate-pulse rounded bg-bg-tertiary" />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+function StaffProfileBonusSkeleton() {
+  return (
+    <StaffCard title="Thưởng thêm">
+      <div className="grid gap-3 sm:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div key={index} className="rounded-lg border border-border-default bg-bg-secondary px-3 py-2">
+            <div className="h-3 w-20 animate-pulse rounded bg-bg-tertiary" />
+            <div className="mt-2 h-5 w-24 animate-pulse rounded bg-bg-tertiary" />
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 space-y-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div key={index} className="rounded-lg border border-border-default bg-bg-secondary/60 p-3">
+            <div className="h-4 w-36 animate-pulse rounded bg-bg-tertiary" />
+            <div className="mt-2 h-3 w-48 animate-pulse rounded bg-bg-tertiary" />
+          </div>
+        ))}
+      </div>
+    </StaffCard>
+  );
+}
+
 function getOtherRoleDetailHref(role: string) {
   if (role === "customer_care") {
     return "/staff/customer-care-detail";
@@ -541,46 +661,36 @@ export default function StaffSelfDetailPage() {
         <div className="mb-4 h-8 w-48 animate-pulse rounded bg-bg-tertiary" />
         <div className="mb-6 flex h-8 w-64 animate-pulse rounded bg-bg-tertiary" />
 
-        <div className="rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="h-5 w-40 animate-pulse rounded bg-bg-tertiary" />
-            <div className="size-12 shrink-0 animate-pulse rounded-md bg-bg-tertiary" />
-          </div>
-          <div className="mt-3 h-4 w-full max-w-md animate-pulse rounded bg-bg-tertiary" />
-          <div className="mt-5 border-t border-border-default pt-4">
-            <div className="h-5 w-48 animate-pulse rounded bg-bg-tertiary" />
-            <div className="mt-3 rounded-lg border border-border-default bg-bg-secondary/40 px-3 py-3">
-              <div className="space-y-2.5">
-                <div className="h-3.5 w-full animate-pulse rounded bg-bg-tertiary" />
-                <div className="h-3.5 w-11/12 animate-pulse rounded bg-bg-tertiary" />
-              </div>
-            </div>
-          </div>
-        </div>
+        <div className="flex flex-col gap-4">
+          <StaffProfileIdentitySkeleton />
 
-        <div className="mt-4 rounded-lg border border-border-default bg-bg-surface p-4">
-          <div className="mb-4 h-5 w-40 animate-pulse rounded bg-bg-tertiary" />
-          <div className="space-y-3">
-            <div className="h-10 w-full animate-pulse rounded bg-bg-tertiary" />
-            <div className="h-10 w-full animate-pulse rounded bg-bg-tertiary" />
-          </div>
-        </div>
+          <section className="rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="h-4 w-40 animate-pulse rounded bg-bg-tertiary" />
+              <div className="h-9 w-36 animate-pulse rounded-md bg-bg-tertiary" />
+            </div>
+            <StaffProfileIncomeSkeleton canViewBeforeDeduction={false} />
+          </section>
 
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <div className="rounded-lg border border-border-default bg-bg-surface p-4">
-            <div className="mb-4 h-5 w-36 animate-pulse rounded bg-bg-tertiary" />
-            <div className="space-y-3">
-              <div className="h-10 w-full animate-pulse rounded bg-bg-tertiary" />
-              <div className="h-10 w-full animate-pulse rounded bg-bg-tertiary" />
-            </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <StaffCard title="Lớp phụ trách">
+              <StaffProfileSummaryTableSkeleton />
+            </StaffCard>
+            <StaffProfileBonusSkeleton />
           </div>
-          <div className="rounded-lg border border-border-default bg-bg-surface p-4">
-            <div className="mb-4 h-5 w-32 animate-pulse rounded bg-bg-tertiary" />
-            <div className="space-y-3">
-              <div className="h-10 w-full animate-pulse rounded bg-bg-tertiary" />
-              <div className="h-10 w-full animate-pulse rounded bg-bg-tertiary" />
-            </div>
-          </div>
+
+          <StaffCard title="Công việc khác">
+            <StaffProfileSummaryTableSkeleton />
+          </StaffCard>
+
+          <StaffCard title="Lịch sử buổi học">
+            <SessionHistoryTableSkeleton
+              rows={5}
+              entityMode="class"
+              variant="classDetail"
+              showActionsColumn
+            />
+          </StaffCard>
         </div>
       </div>
     );
@@ -825,94 +935,97 @@ export default function StaffSelfDetailPage() {
               />
             </div>
           </div>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
-              <p className="text-xs uppercase tracking-wide text-text-muted">
-                Tổng nhận
-              </p>
-              <p className="mt-1 tabular-nums text-lg font-semibold text-primary">
-                {formatCurrency(incomeStatsTotalNet)}
-              </p>
-            </article>
-            <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
-              <p className="text-xs uppercase tracking-wide text-text-muted">
-                Chưa nhận
-              </p>
-              <p className="mt-1 tabular-nums text-lg font-semibold text-error">
-                {formatCurrency(snapshotUnpaidNetTotal)}
-              </p>
-            </article>
-            <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
-              <p className="text-xs uppercase tracking-wide text-text-muted">
-                Đã nhận
-              </p>
-              <p className="mt-1 tabular-nums text-lg font-semibold text-success">
-                {formatCurrency(monthlyIncomeTotals.paid)}
-              </p>
-            </article>
-            <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
-              <p className="text-xs uppercase tracking-wide text-text-muted">
-                Tổng năm
-              </p>
-              <p className="mt-1 tabular-nums text-lg font-semibold text-warning">
-                {formatCurrency(yearIncomeTotal)}
-              </p>
-            </article>
-            <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
-              <p className="text-xs uppercase tracking-wide text-text-muted">
-                Ghi cọc
-              </p>
-              {depositYearTotal > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => setDepositPopupOpen(true)}
-                  className="mt-1 tabular-nums text-lg font-semibold text-warning underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
-                  aria-label="Xem danh sách buổi cọc theo lớp"
-                >
-                  {formatCurrency(depositYearTotal)}
-                </button>
-              ) : (
-                <p className="mt-1 tabular-nums text-lg font-semibold text-text-muted">
-                  0
-                </p>
-              )}
-            </article>
-          </div>
-          {canViewBeforeDeduction && beforeDeductionCards.length > 0 ? (
-            <div className="mt-3 rounded-xl border border-border-default bg-bg-tertiary/70 px-4 py-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
-                Trước khấu trừ
-              </p>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                {beforeDeductionCards.map((card) => (
-                  <div
-                    key={card.key}
-                    className="rounded-lg border border-border-default/70 bg-bg-surface px-3 py-2"
-                  >
-                    <p className="text-[11px] text-text-muted">{card.label}</p>
-                    <p className="tabular-nums text-sm font-semibold text-text-primary">
-                      {formatCurrency(card.value)}
+          {isIncomeSummaryLoading && !incomeSummary ? (
+            <StaffProfileIncomeSkeleton canViewBeforeDeduction={canViewBeforeDeduction} />
+          ) : (
+            <>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-text-muted">
+                    Tổng nhận
+                  </p>
+                  <p className="mt-1 tabular-nums text-lg font-semibold text-primary">
+                    {formatCurrency(incomeStatsTotalNet)}
+                  </p>
+                </article>
+                <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-text-muted">
+                    Chưa nhận
+                  </p>
+                  <p className="mt-1 tabular-nums text-lg font-semibold text-error">
+                    {formatCurrency(snapshotUnpaidNetTotal)}
+                  </p>
+                </article>
+                <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-text-muted">
+                    Đã nhận
+                  </p>
+                  <p className="mt-1 tabular-nums text-lg font-semibold text-success">
+                    {formatCurrency(monthlyIncomeTotals.paid)}
+                  </p>
+                </article>
+                <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-text-muted">
+                    Tổng năm
+                  </p>
+                  <p className="mt-1 tabular-nums text-lg font-semibold text-warning">
+                    {formatCurrency(yearIncomeTotal)}
+                  </p>
+                </article>
+                <article className="rounded-xl border border-border-default bg-bg-secondary/45 px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-text-muted">
+                    Ghi cọc
+                  </p>
+                  {depositYearTotal > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setDepositPopupOpen(true)}
+                      className="mt-1 tabular-nums text-lg font-semibold text-warning underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
+                      aria-label="Xem danh sách buổi cọc theo lớp"
+                    >
+                      {formatCurrency(depositYearTotal)}
+                    </button>
+                  ) : (
+                    <p className="mt-1 tabular-nums text-lg font-semibold text-text-muted">
+                      0
                     </p>
-                  </div>
-                ))}
+                  )}
+                </article>
               </div>
-            </div>
-          ) : null}
+              {canViewBeforeDeduction && beforeDeductionCards.length > 0 ? (
+                <div className="mt-3 rounded-xl border border-border-default bg-bg-tertiary/70 px-4 py-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                    Trước khấu trừ
+                  </p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                    {beforeDeductionCards.map((card) => (
+                      <div
+                        key={card.key}
+                        className="rounded-lg border border-border-default/70 bg-bg-surface px-3 py-2"
+                      >
+                        <p className="text-[11px] text-text-muted">{card.label}</p>
+                        <p className="tabular-nums text-sm font-semibold text-text-primary">
+                          {formatCurrency(card.value)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </>
+          )}
           {isIncomeSummaryError ? (
             <p className="mt-3 text-sm text-error" role="alert">
               Không tải được tổng hợp thu nhập từ backend.
-            </p>
-          ) : null}
-          {isIncomeSummaryLoading && !incomeSummary ? (
-            <p className="mt-3 text-xs text-text-muted" aria-live="polite">
-              Đang tải tổng hợp thu nhập từ backend.
             </p>
           ) : null}
         </section>
 
         <div className="grid gap-4 lg:grid-cols-2">
           <StaffCard title="Lớp phụ trách">
-            {classMonthlySummaries.length === 0 ? (
+            {isIncomeSummaryLoading && !incomeSummary ? (
+              <StaffProfileSummaryTableSkeleton />
+            ) : classMonthlySummaries.length === 0 ? (
               <p className="text-text-muted">Chưa gán lớp nào.</p>
             ) : (
               <>
@@ -1079,20 +1192,19 @@ export default function StaffSelfDetailPage() {
             )}
           </StaffCard>
           <div className="space-y-2">
-            <StaffBonusCard
-              bonuses={bonuses}
-              totalMonth={bonusTotals.total}
-              paid={bonusTotals.paid}
-              unpaid={bonusTotals.unpaid}
-              onAddBonus={openAddBonusPopup}
-              onEditBonus={(bonus) => openEditBonusPopup(bonus.id)}
-              canManage
-            />
-            {isBonusLoading ? (
-              <p className="text-sm text-text-muted" aria-live="polite">
-                Đang tải dữ liệu thưởng…
-              </p>
-            ) : null}
+            {isBonusLoading && !bonusListResponse ? (
+              <StaffProfileBonusSkeleton />
+            ) : (
+              <StaffBonusCard
+                bonuses={bonuses}
+                totalMonth={bonusTotals.total}
+                paid={bonusTotals.paid}
+                unpaid={bonusTotals.unpaid}
+                onAddBonus={openAddBonusPopup}
+                onEditBonus={(bonus) => openEditBonusPopup(bonus.id)}
+                canManage
+              />
+            )}
             {isBonusError ? (
               <p className="text-sm text-error" role="alert">
                 Không tải được dữ liệu thưởng.
@@ -1104,11 +1216,7 @@ export default function StaffSelfDetailPage() {
         <StaffCard title="Công việc khác">
           {(() => {
             if (isIncomeSummaryLoading && !incomeSummary) {
-              return (
-                <p className="text-text-muted" aria-live="polite">
-                  Đang tải dữ liệu công việc khác…
-                </p>
-              );
+              return <StaffProfileSummaryTableSkeleton />;
             }
 
             if (isIncomeSummaryError) {
@@ -1296,13 +1404,17 @@ export default function StaffSelfDetailPage() {
               <div className="space-y-2">
                 <div className="rounded-full bg-bg-secondary px-3 py-1 text-xs text-text-muted sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm">
                   Đang xem {selectedMonthLabel} ·{" "}
-                  {sessionsInCurrentMonth.length} buổi
+                  {isSessionsLoading ? (
+                    <span className="inline-block h-3 w-12 animate-pulse rounded bg-bg-tertiary align-middle" />
+                  ) : (
+                    `${sessionsInCurrentMonth.length} buổi`
+                  )}
                 </div>
               </div>
             </div>
             {isSessionsLoading ? (
               <SessionHistoryTableSkeleton
-                rows={1}
+                rows={5}
                 entityMode="class"
                 variant="classDetail"
                 showActionsColumn

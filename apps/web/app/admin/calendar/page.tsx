@@ -13,6 +13,7 @@ import {
 import FilterBar from "./components/FilterBar";
 import CalendarView from "./components/CalendarView";
 import CalendarScheduleList from "./components/CalendarScheduleList";
+import CalendarLoadingSkeleton from "./components/CalendarLoadingSkeleton";
 import EventPopup from "./components/EventPopup";
 
 type CalendarFilterState = {
@@ -30,6 +31,12 @@ type CurrentWeekRange = {
   label: string;
 };
 
+const WEEK_LABEL_FORMATTER = new Intl.DateTimeFormat("vi-VN", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
+
 const formatLocalDate = (date: Date): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -38,13 +45,8 @@ const formatLocalDate = (date: Date): string => {
 };
 
 const formatWeekLabel = (start: Date, end: Date, weekVariant: CalendarWeekVariant): string => {
-  const formatter = new Intl.DateTimeFormat("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
   const prefix = weekVariant === "next" ? "Tuần sau" : "Tuần này";
-  return `${prefix}: CN ${formatter.format(start)} - T7 ${formatter.format(end)}`;
+  return `${prefix}: CN ${WEEK_LABEL_FORMATTER.format(start)} - T7 ${WEEK_LABEL_FORMATTER.format(end)}`;
 };
 
 const getWeekRange = (
@@ -204,12 +206,7 @@ export default function AdminCalendarPage() {
         {/* Calendar View */}
         <section className="min-w-0 flex-1 overflow-hidden px-0.5 py-1">
           {isLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="space-y-3 text-center">
-                <div className="mx-auto size-10 animate-spin rounded-full border-4 border-primary/30 border-t-primary" />
-                <p className="text-sm text-text-secondary">Đang tải lịch…</p>
-              </div>
-            </div>
+            <CalendarLoadingSkeleton viewMode={viewMode} />
           ) : isError ? (
             <div
               className="py-16 text-center text-error"

@@ -106,6 +106,170 @@ const staffOpsKeys = {
   updateSession: (classId: string) => ["staff-ops", "sessions", "update", classId] as const,
 };
 
+function StudentListSkeleton() {
+  return (
+    <ClassCard title="Danh sách học sinh" className="w-full">
+      <div className="space-y-2 md:hidden">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div
+            key={index}
+            className="rounded-lg border border-border-default bg-bg-surface p-2.5 shadow-sm"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="h-4 w-32 animate-pulse rounded bg-bg-tertiary" />
+              <div className="h-5 w-16 animate-pulse rounded-full bg-bg-tertiary" />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden overflow-x-auto md:block">
+        <table className="w-full min-w-[400px] border-collapse text-left text-sm">
+          <caption className="sr-only">Đang tải danh sách học sinh</caption>
+          <thead>
+            <tr className="border-b border-border-default bg-bg-secondary">
+              <th scope="col" className="px-3 py-2 text-xs font-medium text-text-primary">
+                Họ tên
+              </th>
+              <th scope="col" className="px-3 py-2 text-xs font-medium text-text-primary">
+                Trạng thái
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: 4 }).map((_, index) => (
+              <tr key={index} className="border-b border-border-default bg-bg-surface">
+                <td className="px-3 py-2">
+                  <div className="h-4 w-40 animate-pulse rounded bg-bg-tertiary" />
+                </td>
+                <td className="px-3 py-2">
+                  <div className="h-5 w-16 animate-pulse rounded-full bg-bg-tertiary" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mt-3 rounded-lg border border-border-default bg-bg-secondary/40 p-3">
+        <div className="mb-2 h-3.5 w-32 animate-pulse rounded bg-bg-tertiary" />
+        <div className="flex flex-wrap gap-2">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div
+              key={index}
+              className="h-7 w-24 animate-pulse rounded-full border border-border-default bg-bg-surface"
+            />
+          ))}
+        </div>
+      </div>
+    </ClassCard>
+  );
+}
+
+function MakeupScheduleSkeleton() {
+  return (
+    <ClassCard title="Lịch học bù" className="w-full">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="h-5 w-40 animate-pulse rounded bg-bg-tertiary" />
+        <div className="h-9 w-32 animate-pulse rounded-md bg-bg-tertiary" />
+      </div>
+      <div className="space-y-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div
+            key={index}
+            className="h-24 animate-pulse rounded-xl border border-border-default bg-bg-secondary/60"
+          />
+        ))}
+      </div>
+    </ClassCard>
+  );
+}
+
+function ClassSurveyRegionSkeleton() {
+  return (
+    <div className="rounded-lg border border-border-default bg-bg-surface">
+      <div className="border-b border-border-default bg-bg-secondary px-4 py-3">
+        <div className="h-4 w-36 animate-pulse rounded bg-bg-tertiary" />
+      </div>
+      <div className="divide-y divide-border-default">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div key={index} className="grid gap-3 px-4 py-3 md:grid-cols-[1fr_120px]">
+            <div>
+              <div className="h-4 w-36 animate-pulse rounded bg-bg-tertiary" />
+              <div className="mt-2 h-3 w-full animate-pulse rounded bg-bg-tertiary" />
+              <div className="mt-2 h-3 w-2/3 animate-pulse rounded bg-bg-tertiary" />
+            </div>
+            <div className="h-6 w-20 animate-pulse rounded-full bg-bg-tertiary" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StaffClassDetailLoadingSkeleton({
+  showActionsColumn,
+}: {
+  showActionsColumn: boolean;
+}) {
+  return (
+    <div
+      className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 sm:p-6"
+      aria-busy="true"
+      aria-live="polite"
+    >
+      <div className="mb-4 h-8 w-48 animate-pulse rounded bg-bg-tertiary" />
+      <div className="mb-6 h-8 w-72 animate-pulse rounded bg-bg-tertiary" />
+      <div className="mb-2 h-5 max-w-xl animate-pulse rounded bg-bg-tertiary" />
+
+      <div className="flex flex-col gap-3">
+        <div className="grid gap-3 lg:grid-cols-2">
+          <ClassCard title="Gia sư phụ trách" className="flex-1">
+            <div className="space-y-3">
+              {Array.from({ length: 2 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="rounded-lg border border-border-default bg-bg-secondary/50 p-3"
+                >
+                  <div className="h-4 w-36 animate-pulse rounded bg-bg-tertiary" />
+                  <div className="mt-2 h-3 w-48 animate-pulse rounded bg-bg-tertiary" />
+                </div>
+              ))}
+            </div>
+          </ClassCard>
+
+          <ClassCard title="Khung giờ học" className="flex-1">
+            <div className="space-y-2">
+              {Array.from({ length: 2 }).map((_, index) => (
+                <div key={index} className="h-16 animate-pulse rounded-lg bg-bg-tertiary" />
+              ))}
+            </div>
+          </ClassCard>
+        </div>
+
+        <StudentListSkeleton />
+        <MakeupScheduleSkeleton />
+
+        <ClassCard title="Lịch sử & Khảo sát" className="w-full">
+          <div className="mb-3 inline-flex w-fit items-center border-b border-border-default">
+            <div className="h-9 w-20 animate-pulse border-b-2 border-primary bg-bg-tertiary" />
+            <div className="h-9 w-20 animate-pulse bg-bg-tertiary/70" />
+          </div>
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <SessionHistoryTableSkeleton
+              rows={5}
+              entityMode="teacher"
+              variant="classDetail"
+              showActionsColumn={showActionsColumn}
+            />
+            <ClassSurveyRegionSkeleton />
+          </div>
+        </ClassCard>
+      </div>
+    </div>
+  );
+}
+
 function toStaffCreateSessionPayload(payload: SessionCreatePayload) {
   return {
     date: payload.date,
@@ -210,7 +374,7 @@ export default function StaffClassDetailPage() {
         month: selectedMonthValue,
         year: selectedYear,
       }),
-    enabled: !!id && canAccessClassWorkspace,
+    enabled: !!id && canAccessClassWorkspace && activeTab === "sessions",
     placeholderData: keepPreviousData,
     retry: false,
   });
@@ -226,7 +390,7 @@ export default function StaffClassDetailPage() {
         month: selectedMonthValue,
         year: selectedYear,
       }),
-    enabled: !!id && canAccessClassWorkspace,
+    enabled: !!id && canAccessClassWorkspace && activeTab === "surveys",
     placeholderData: keepPreviousData,
     retry: false,
   });
@@ -435,36 +599,7 @@ export default function StaffClassDetailPage() {
   };
 
   if (isProfileLoading) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 sm:p-6" aria-busy="true" aria-live="polite">
-        <div className="mb-4 h-8 w-48 animate-pulse rounded bg-bg-tertiary" />
-        <div className="mb-6 h-8 w-72 animate-pulse rounded bg-bg-tertiary" />
-
-        <div className="mb-2 h-5 max-w-xl animate-pulse rounded bg-bg-tertiary" />
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-lg border border-border-default bg-bg-surface p-4">
-            <div className="mb-4 h-5 w-32 animate-pulse rounded bg-bg-tertiary" />
-            <div className="space-y-3">
-              <div className="h-10 w-full animate-pulse rounded bg-bg-tertiary" />
-              <div className="h-10 w-full animate-pulse rounded bg-bg-tertiary" />
-            </div>
-          </div>
-          <div className="rounded-lg border border-border-default bg-bg-surface p-4">
-            <div className="mb-4 h-5 w-28 animate-pulse rounded bg-bg-tertiary" />
-            <div className="space-y-3">
-              <div className="h-10 w-full animate-pulse rounded bg-bg-tertiary" />
-              <div className="h-10 w-full animate-pulse rounded bg-bg-tertiary" />
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4 rounded-lg border border-border-default bg-bg-surface p-4">
-          <div className="mb-4 h-5 w-56 animate-pulse rounded bg-bg-tertiary" />
-          <SessionHistoryTableSkeleton rows={1} entityMode="teacher" variant="classDetail" showActionsColumn={canManageSessions} />
-        </div>
-      </div>
-    );
+    return <StaffClassDetailLoadingSkeleton showActionsColumn={false} />;
   }
 
   if (shouldUseAdminClassDetailPage) {
@@ -472,36 +607,7 @@ export default function StaffClassDetailPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 sm:p-6" aria-busy="true" aria-live="polite">
-        <div className="mb-4 h-8 w-48 animate-pulse rounded bg-bg-tertiary" />
-        <div className="mb-6 h-8 w-72 animate-pulse rounded bg-bg-tertiary" />
-
-        <div className="mb-2 h-5 max-w-xl animate-pulse rounded bg-bg-tertiary" />
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-lg border border-border-default bg-bg-surface p-4">
-            <div className="mb-4 h-5 w-32 animate-pulse rounded bg-bg-tertiary" />
-            <div className="space-y-3">
-              <div className="h-10 w-full animate-pulse rounded bg-bg-tertiary" />
-              <div className="h-10 w-full animate-pulse rounded bg-bg-tertiary" />
-            </div>
-          </div>
-          <div className="rounded-lg border border-border-default bg-bg-surface p-4">
-            <div className="mb-4 h-5 w-28 animate-pulse rounded bg-bg-tertiary" />
-            <div className="space-y-3">
-              <div className="h-10 w-full animate-pulse rounded bg-bg-tertiary" />
-              <div className="h-10 w-full animate-pulse rounded bg-bg-tertiary" />
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4 rounded-lg border border-border-default bg-bg-surface p-4">
-          <div className="mb-4 h-5 w-56 animate-pulse rounded bg-bg-tertiary" />
-          <SessionHistoryTableSkeleton rows={1} entityMode="teacher" variant="classDetail" showActionsColumn={canManageSessions} />
-        </div>
-      </div>
-    );
+    return <StaffClassDetailLoadingSkeleton showActionsColumn={canManageSessions} />;
   }
 
   if (!id || !canAccessClassWorkspace || isError || !classDetail) {
