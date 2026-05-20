@@ -1680,7 +1680,9 @@ export default function AdminStaffDetailPage({
                         return (
                           <div
                             key={item.classId}
-                            className="rounded-lg border border-border-default bg-bg-secondary px-4 py-3"
+                            className={`rounded-lg border border-border-default bg-bg-secondary px-4 py-3 ${
+                              isRetiredTeaching ? "opacity-60 cursor-not-allowed" : ""
+                            }`}
                           >
                             <button
                               type="button"
@@ -1850,7 +1852,9 @@ export default function AdminStaffDetailPage({
                                     );
                                   }
                                 }}
-                                className="cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                className={`border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
+                                  isRetiredTeaching ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
+                                }`}
                               >
                                 <td className="px-4 py-3 text-text-primary">
                                   <div className="flex flex-col items-start">

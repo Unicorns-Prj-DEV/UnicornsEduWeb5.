@@ -948,6 +948,8 @@ export default function StaffSelfDetailPage() {
                             : undefined
                         }
                         className={`rounded-lg border border-border-default bg-bg-secondary px-4 py-3 ${
+                          isRetiredTeaching ? "opacity-60 cursor-not-allowed" : ""
+                        } ${
                           isInteractive
                             ? "cursor-pointer transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                             : ""
@@ -1043,6 +1045,8 @@ export default function StaffSelfDetailPage() {
                                 : undefined
                             }
                             className={`border-b border-border-default bg-bg-surface transition-colors duration-200 ${
+                              isRetiredTeaching ? "opacity-60 cursor-not-allowed" : ""
+                            } ${
                               isInteractive
                                 ? "cursor-pointer hover:bg-bg-secondary"
                                 : ""

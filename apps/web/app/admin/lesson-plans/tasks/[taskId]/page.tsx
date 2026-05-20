@@ -17,7 +17,6 @@ import LessonTaskFormPopup from "@/components/admin/lesson-plans/LessonTaskFormP
 import {
   formatLessonDateOnly,
   formatLessonStaffRoleLabel,
-  formatLessonStaffStatusLabel,
   LESSON_OUTPUT_STATUS_LABELS,
   LESSON_TASK_PRIORITY_LABELS,
   LESSON_TASK_STATUS_LABELS,
@@ -31,7 +30,6 @@ import type {
   CreateLessonTaskPayload,
   LessonResourceOption,
   LessonTaskDetail,
-  LessonTaskItem,
 } from "@/dtos/lesson.dto";
 import * as lessonApi from "@/lib/apis/lesson.api";
 
@@ -58,44 +56,6 @@ function getErrorMessage(error: unknown, fallback: string) {
       ?.message ??
     (error as Error)?.message ??
     fallback
-  );
-}
-
-function TaskMetaCard({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint: string;
-}) {
-  return (
-    <article className="rounded-[1.4rem] border border-border-default bg-bg-surface p-4 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-text-muted">
-        {label}
-      </p>
-      <p className="mt-3 text-lg font-semibold text-text-primary">{value}</p>
-      <p className="mt-1 text-sm text-text-secondary">{hint}</p>
-    </article>
-  );
-}
-
-function StaffCard({
-  staff,
-}: {
-  staff: LessonTaskItem["assignees"][number];
-}) {
-  return (
-    <article className="rounded-[1.35rem] border border-border-default bg-bg-secondary/55 p-4">
-      <p className="text-sm font-semibold text-text-primary">{staff.fullName}</p>
-      <p className="mt-1 text-sm text-text-secondary">
-        {formatLessonStaffRoleLabel(staff.roles)}
-      </p>
-      <p className="mt-2 text-xs text-text-muted">
-        {formatLessonStaffStatusLabel(staff.status)}
-      </p>
-    </article>
   );
 }
 
@@ -163,8 +123,6 @@ export function LessonTaskDetailPage({
     data: resourceOptions = [],
     isFetching: isResourceOptionsFetching,
     isError: isResourceOptionsError,
-    error: resourceOptionsError,
-    refetch: refetchResourceOptions,
   } = useQuery<LessonResourceOption[]>({
     queryKey: ["lesson", "resource-options", taskId, deferredResourceSearch],
     queryFn: () =>
@@ -484,236 +442,136 @@ export function LessonTaskDetailPage({
           </section>
         ) : (
           <>
-            <section className="relative overflow-hidden rounded-[2rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
-              <div
-                className="pointer-events-none absolute inset-0 "
-                aria-hidden
-              />
-
-              <div className="relative flex flex-col gap-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="max-w-3xl">
-                    <p className="text-xs font-semibold uppercase tracking-[0.28em] text-text-muted">
-                      Chi tiết công việc giáo án
-                    </p>
-                    <h1 className="mt-3 text-3xl font-semibold tracking-tight text-text-primary text-balance sm:text-4xl">
-                      {task.title ?? "Công việc chưa đặt tên"}
-                    </h1>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <span
-                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ring-1 ${lessonTaskStatusChipClass(
-                          task.status,
-                        )}`}
-                      >
-                        {LESSON_TASK_STATUS_LABELS[task.status]}
-                      </span>
-                      <span
-                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ring-1 ${lessonTaskPriorityChipClass(
-                          task.priority,
-                        )}`}
-                      >
-                        {LESSON_TASK_PRIORITY_LABELS[task.priority]}
-                      </span>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left Column: Main content */}
+              <div className="lg:col-span-2 flex flex-col gap-6">
+                {/* Hero / Header Card */}
+                <section className="relative overflow-hidden rounded-[1.5rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
+                  <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
+                          Chi tiết công việc giáo án
+                        </p>
+                        <h1 className="mt-2 text-2xl font-bold tracking-tight text-text-primary sm:text-3xl">
+                          {task.title ?? "Công việc chưa đặt tên"}
+                        </h1>
+                      </div>
+                      
+                      {canManageTask ? (
+                        <button
+                          type="button"
+                          onClick={() => setEditPopupOpen(true)}
+                          className="inline-flex h-9 items-center justify-center rounded-xl bg-primary px-4 text-xs font-semibold text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none shrink-0"
+                        >
+                          Chỉnh sửa công việc
+                        </button>
+                      ) : null}
                     </div>
-                    <p className="mt-4 max-w-2xl text-sm leading-6 text-text-secondary">
-                      {task.description?.trim() ||
-                        (participantMode
+
+                    {task.description?.trim() ? (
+                      <div className="rounded-xl border border-border-default bg-bg-secondary/45 p-4">
+                        <p className="whitespace-pre-wrap text-sm leading-6 text-text-secondary">
+                          {task.description}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-sm italic text-text-muted">
+                        {participantMode
                           ? "Chưa có mô tả chi tiết."
-                          : "Chưa có mô tả chi tiết — mở chỉnh sửa để bổ sung.")}
-                    </p>
+                          : "Chưa có mô tả chi tiết — mở chỉnh sửa để bổ sung."}
+                      </p>
+                    )}
                   </div>
+                </section>
 
-                  {canManageTask ? (
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setEditPopupOpen(true)}
-                        className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                      >
-                        Chỉnh sửa công việc
-                      </button>
+                {/* Sản phẩm bài học (Outputs) */}
+                <section className="rounded-[1.5rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-lg font-bold text-text-primary">
+                        Sản phẩm bài học
+                      </h2>
+                      <p className="mt-1 text-xs text-text-muted">
+                        {task.outputProgress.completed}/{task.outputProgress.total} hoàn thành
+                      </p>
                     </div>
-                  ) : null}
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  <TaskMetaCard
-                    label="Hạn xử lý"
-                    value={formatLessonDateOnly(task.dueDate)}
-                    hint="Ngày hệ thống đang dùng để điều phối nhịp xử lý."
-                  />
-                  <TaskMetaCard
-                    label="Nhân sự thực hiện"
-                    value={String(task.assignees.length)}
-                    hint="Số nhân sự đang được giao thực hiện task."
-                  />
-                </div>
-              </div>
-            </section>
-
-            <section className="rounded-[1.75rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
-                    Ghi chú
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold text-text-primary">
-                    Mô tả
-                  </h2>
-                </div>
-              </div>
-
-              <div className="mt-4 rounded-[1.35rem] border border-border-default bg-bg-secondary/45 p-4">
-                <p className="whitespace-pre-wrap text-sm leading-7 text-text-secondary">
-                  {task.description?.trim() ||
-                    "Chưa có mô tả chi tiết."}
-                </p>
-              </div>
-            </section>
-
-            <div className="grid gap-6">
-              <section className="rounded-[1.75rem] flex-1 border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
-                    Execution
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold text-text-primary">
-                    Nhân sự thực hiện
-                  </h2>
-                  <p className="mt-2 text-sm leading-6 text-text-secondary">
-                    Danh sách nhân sự đang được giao thực hiện task giáo án này.
-                  </p>
-                </div>
-
-                <div className="mt-4 space-y-3">
-                  {task.assignees.length > 0 ? (
-                    task.assignees.map((assignee) => (
-                      <StaffCard key={assignee.id} staff={assignee} />
-                    ))
-                  ) : (
-                    <div className="rounded-[1.35rem] border border-dashed border-border-default bg-bg-secondary/40 px-4 py-8 text-sm text-text-muted">
-                      {participantMode
-                        ? "Task này hiện chưa được gán thêm nhân sự nào ngoài bạn trong workspace participant."
-                        : "Chưa có nhân sự thực hiện. Mở popup chỉnh sửa để gán nhân sự."}
-                    </div>
-                  )}
-                </div>
-              </section>
-            </div>
-
-            <div className="gap-6 flex flex-col">
-              <section className="rounded-[1.75rem] flex-1 border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
-                      Sản phẩm
-                    </p>
-                    <h2 className="mt-2 text-2xl font-semibold text-text-primary">
-                      Sản phẩm bài học
-                    </h2>
-                    <p className="mt-2 text-sm leading-6 text-text-secondary">
-                      {participantMode
-                        ? "Danh sách sản phẩm thuộc công việc này; bạn có thể thêm output mới cho đúng task mình đang tham gia."
-                        : "Danh sách sản phẩm thuộc công việc này; có thể tạo thêm sản phẩm mới tại đây."}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm text-text-secondary">
-                      {task.outputProgress.completed}/{task.outputProgress.total} hoàn
-                      thành
-                    </p>
                     <button
                       type="button"
                       onClick={() => setCreateOutputOpen(true)}
-                      className="inline-flex min-h-11 items-center rounded-xl border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                      className="inline-flex h-9 items-center justify-center rounded-xl bg-primary px-4 text-xs font-semibold text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none"
                     >
                       Tạo sản phẩm
                     </button>
                   </div>
-                </div>
 
-                <div className="mt-4 space-y-3">
-                  {task.outputs.length > 0 ? (
-                    task.outputs.map((output) => (
-                      <button
-                        key={output.id}
-                        type="button"
-                        onClick={() => openOutputDetail(output.id)}
-                        className="flex w-full flex-col gap-3 rounded-[1.35rem] border border-border-default bg-bg-secondary/45 p-4 text-left transition-colors hover:bg-bg-secondary/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                        aria-label={`Mở chi tiết lesson output ${output.lessonName}`}
-                      >
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
-                            <p className="text-sm font-semibold text-text-primary">
+                  <div className="mt-4 space-y-3">
+                    {task.outputs.length > 0 ? (
+                      task.outputs.map((output) => (
+                        <div
+                          key={output.id}
+                          onClick={() => openOutputDetail(output.id)}
+                          className="group flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-border-default bg-bg-secondary/35 p-4 transition-all hover:bg-bg-secondary/65"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <h4 className="truncate text-sm font-semibold text-text-primary group-hover:text-primary transition-colors">
                               {output.lessonName}
-                            </p>
-                            <p className="mt-1 text-sm text-text-secondary">
+                            </h4>
+                            <p className="mt-1 truncate text-xs text-text-secondary">
                               {output.contestUploaded ?? "Chưa ghi cuộc thi/đề"}
                             </p>
+                            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-muted">
+                              <span>Ngày: {formatLessonDateOnly(output.date)}</span>
+                              {!participantMode && output.staffDisplayName && (
+                                <span>Nhân sự: {output.staffDisplayName}</span>
+                              )}
+                            </div>
                           </div>
-                          <span
-                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.16em] ring-1 ${lessonOutputStatusChipClass(
-                              output.status,
-                            )}`}
-                          >
-                            {LESSON_OUTPUT_STATUS_LABELS[output.status]}
-                          </span>
-                        </div>
-
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="flex flex-wrap gap-3 text-xs text-text-muted">
-                            <span>Ngày: {formatLessonDateOnly(output.date)}</span>
-                            {!participantMode ? (
-                              <span>
-                                Nhân sự nhận thanh toán:{" "}
-                                {output.staffDisplayName ?? output.staffId ?? "Chưa gán"}
-                              </span>
-                            ) : null}
-                          </div>
-                          {canOpenOutputPopup ? (
-                            <span className="inline-flex rounded-full border border-primary/15 bg-primary/8 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
-                              {participantMode ? "Xem chi tiết" : "Mở popup"}
+                          <div className="flex flex-col items-end gap-2 shrink-0">
+                            <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] ring-1 ${lessonOutputStatusChipClass(output.status)}`}>
+                              {LESSON_OUTPUT_STATUS_LABELS[output.status]}
                             </span>
-                          ) : null}
+                            <span className="text-[10px] text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                              Chi tiết →
+                            </span>
+                          </div>
                         </div>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="rounded-[1.35rem] border border-dashed border-border-default bg-bg-secondary/40 px-4 py-8 text-sm text-text-muted">
-                      Chưa có sản phẩm bài học nào.
-                    </div>
-                  )}
-                </div>
-              </section>
-
-              <section className="rounded-[1.75rem] flex-1 border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
-                      Tài nguyên
-                    </p>
-                    <h2 className="mt-2 text-2xl font-semibold text-text-primary">
-                      Tài nguyên liên quan
-                    </h2>
+                      ))
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-border-default bg-bg-secondary/20 py-8 text-center text-sm text-text-muted">
+                        Chưa có sản phẩm bài học nào.
+                      </div>
+                    )}
                   </div>
-                  {canCreateResource ? (
+                </section>
+
+                {/* Tài nguyên liên quan */}
+                <section className="rounded-[1.5rem] border border-border-default bg-bg-surface p-5 shadow-sm sm:p-6">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-lg font-bold text-text-primary">
+                        Tài nguyên liên quan
+                      </h2>
+                      <p className="mt-1 text-xs text-text-muted">
+                        Tài nguyên, đề thi hoặc link tài liệu phục vụ cho giáo án.
+                      </p>
+                    </div>
                     <div className="flex flex-wrap items-center gap-2">
                       {canManageTask ? (
                         <button
                           type="button"
                           onClick={() => {
-                            setAttachResourceOpen((previous) => {
-                              const next = !previous;
-                              if (!next) {
-                                setResourceSearch("");
-                              }
+                            setAttachResourceOpen((prev) => {
+                              const next = !prev;
+                              if (!next) setResourceSearch("");
                               return next;
                             });
                           }}
-                          className={`inline-flex min-h-11 items-center rounded-xl border px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${attachResourceOpen
-                            ? "border-primary/20 bg-primary/10 text-primary hover:bg-primary/15"
-                            : "border-border-default bg-bg-surface text-text-primary hover:bg-bg-tertiary"
-                            }`}
+                          className={`inline-flex h-9 items-center justify-center rounded-xl border px-4 text-xs font-semibold transition-colors focus:outline-none ${
+                            attachResourceOpen
+                              ? "border-primary/20 bg-primary/10 text-primary hover:bg-primary/15"
+                              : "border-border-default bg-bg-surface text-text-primary hover:bg-bg-tertiary"
+                          }`}
                         >
                           Đính kèm từ DB
                         </button>
@@ -721,224 +579,182 @@ export function LessonTaskDetailPage({
                       <button
                         type="button"
                         onClick={() => setCreateResourceOpen(true)}
-                        className="inline-flex min-h-11 items-center rounded-xl border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                        className="inline-flex h-9 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-4 text-xs font-semibold text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none"
                       >
                         Thêm tài nguyên
                       </button>
                     </div>
-                  ) : null}
-                </div>
+                  </div>
 
-                {canManageTask && attachResourceOpen ? (
-                    <div className="mt-4 rounded-[1.5rem] border border-border-default bg-bg-surface p-4 shadow-sm">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                      <div className="max-w-2xl">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-text-muted">
-                          LessonResources
-                        </p>
-                        <h3 className="mt-2 text-lg font-semibold text-text-primary">
-                          Đính kèm tài nguyên đã có
-                        </h3>
-                        <p className="mt-2 text-sm leading-6 text-text-secondary">
-                          Tìm trực tiếp từ bảng tài nguyên hiện có trong database.
-                          Nếu một resource đang thuộc task khác, thao tác đính kèm
-                          sẽ chuyển nó sang task hiện tại.
-                        </p>
+                  {canManageTask && attachResourceOpen && (
+                    <div className="mt-4 rounded-xl border border-border-default bg-bg-secondary/20 p-4">
+                      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-3">
+                        <h3 className="text-sm font-semibold text-text-primary">Đính kèm tài nguyên có sẵn</h3>
+                        <span className="text-xs text-text-muted">{resourceOptionsSummary}</span>
                       </div>
-                      <p className="text-sm text-text-secondary">
-                        {resourceOptionsSummary}
-                      </p>
-                    </div>
-
-                    <div className="mt-4 gap-3">
-                      <label className="flex flex-col gap-1 text-sm text-text-secondary">
-                        <span>Tìm tài nguyên</span>
-                        <input
-                          type="text"
-                          value={resourceSearch}
-                          onChange={(event) => setResourceSearch(event.target.value)}
-                          placeholder="Tìm theo tiêu đề hoặc link tài nguyên…"
-                          className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                        />
-                      </label>
-                    </div>
-
-                    <div className="mt-4 space-y-3">
-                      {isResourceOptionsError ? (
-                        <div className="rounded-[1.35rem] border border-dashed border-border-default bg-bg-surface/80 px-4 py-8 text-center">
-                          <p className="text-sm font-semibold text-text-primary">
-                            Không tải được tài nguyên để đính kèm
-                          </p>
-                          <p className="mt-2 text-sm leading-6 text-text-secondary">
-                            {getErrorMessage(
-                              resourceOptionsError,
-                              "Đã có lỗi khi tải dữ liệu từ bảng LessonResources.",
-                            )}
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => void refetchResourceOptions()}
-                            className="mt-4 inline-flex min-h-11 items-center rounded-xl border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                          >
-                            Tải lại danh sách
-                          </button>
-                        </div>
-                      ) : resourceOptions.length > 0 ? (
-                        resourceOptions.map((resource) => {
-                          const actionLabel = resource.lessonTaskId
-                            ? "Chuyển sang task này"
-                            : "Đính kèm vào task";
-                          const relationLabel = resource.lessonTaskId
-                            ? `Đang thuộc: ${resource.lessonTaskTitle ?? "Task khác"}`
-                            : "Chưa gắn task";
-                          const isPendingCurrent =
-                            attachExistingResourceMutation.isPending &&
-                            attachExistingResourceMutation.variables?.resourceId ===
-                            resource.id;
-
-                          return (
-                            <div
-                              key={resource.id}
-                              className="rounded-[1.35rem] border border-border-default bg-bg-surface px-4 py-4 shadow-sm"
-                            >
-                              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                                <button
-                                  type="button"
-                                  onClick={() => openEditResource(resource.id)}
-                                  className="min-w-0 flex-1 rounded-[1.2rem] text-left transition-colors hover:bg-bg-secondary/45 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                                >
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <p className="truncate text-sm font-semibold text-text-primary">
-                                      {resource.title ?? resource.resourceLink}
-                                    </p>
-                                    <span
-                                      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${resource.lessonTaskId
-                                        ? "bg-warning/10 text-warning ring-1 ring-warning/25"
-                                        : "bg-success/10 text-success ring-1 ring-success/25"
-                                        }`}
-                                    >
-                                      {relationLabel}
-                                    </span>
-                                  </div>
-                                  <span className="mt-2 block truncate text-sm text-primary transition-colors hover:text-primary-hover">
-                                    {resource.resourceLink}
-                                  </span>
-
-                                  {resource.tags.length > 0 ? (
-                                    <div className="mt-3 flex flex-wrap gap-2">
-                                      {resource.tags.slice(0, 4).map((tag) => (
-                                        <span
-                                          key={`${resource.id}-${tag}`}
-                                          className="rounded-full border border-border-default bg-bg-secondary px-2.5 py-1 text-[11px] font-medium text-text-secondary"
-                                        >
-                                          {tag}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  ) : null}
-                                </button>
-
+                      <input
+                        type="text"
+                        value={resourceSearch}
+                        onChange={(e) => setResourceSearch(e.target.value)}
+                        placeholder="Tìm theo tiêu đề hoặc link tài nguyên…"
+                        className="w-full min-h-10 rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                      
+                      <div className="mt-3 space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                        {resourceOptions.length > 0 ? (
+                          resourceOptions.map((resource) => {
+                            const isPending = attachExistingResourceMutation.isPending && attachExistingResourceMutation.variables?.resourceId === resource.id;
+                            const actionLabel = resource.lessonTaskId ? "Chuyển sang task này" : "Đính kèm vào task";
+                            return (
+                              <div key={resource.id} className="flex items-center justify-between gap-4 rounded-lg border border-border-default bg-bg-surface p-3 text-xs">
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate font-semibold text-text-primary">{resource.title || resource.resourceLink}</p>
+                                  <p className="truncate text-text-muted mt-0.5">{resource.resourceLink}</p>
+                                </div>
                                 <button
                                   type="button"
                                   onClick={() => void handleAttachExistingResource(resource)}
                                   disabled={attachExistingResourceMutation.isPending}
-                                  className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60"
+                                  className="shrink-0 rounded-lg bg-primary px-3 py-1.5 font-medium text-text-inverse hover:bg-primary-hover transition-colors disabled:opacity-50"
                                 >
-                                  {isPendingCurrent ? "Đang đính kèm…" : actionLabel}
+                                  {isPending ? "Đang đính kèm…" : actionLabel}
                                 </button>
                               </div>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div className="rounded-[1.35rem] border border-dashed border-border-default bg-bg-surface/70 px-4 py-8 text-sm text-text-muted">
-                          {deferredResourceSearch
-                            ? "Không có tài nguyên nào khớp tìm kiếm hiện tại."
-                            : "Chưa có gợi ý phù hợp ngoài task này. Bạn vẫn có thể tạo tài nguyên mới ngay bên cạnh."}
-                        </div>
-                      )}
+                            );
+                          })
+                        ) : (
+                          <p className="text-xs text-text-muted italic text-center py-4">
+                            {deferredResourceSearch ? "Không tìm thấy tài nguyên khớp." : "Không có gợi ý tài nguyên khác."}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ) : null}
+                  )}
 
-                <div className="mt-4 space-y-3">
-                  {task.resourcePreview.length > 0 ? (
-                    task.resourcePreview.map((resource) => (
-                      <article
-                        key={resource.id}
-                        className="rounded-[1.35rem] border border-border-default bg-bg-secondary/45 px-4 py-4 transition-colors hover:bg-bg-secondary/65"
-                      >
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          {canManageTask ? (
-                            <>
+                  <div className="mt-4 space-y-2">
+                    {task.resourcePreview.length > 0 ? (
+                      task.resourcePreview.map((resource) => (
+                        <div key={resource.id} className="flex items-center justify-between gap-4 rounded-xl border border-border-default bg-bg-secondary/35 p-3.5 transition-colors hover:bg-bg-secondary/65">
+                          <div className="min-w-0 flex-1">
+                            {canManageTask ? (
                               <button
                                 type="button"
                                 onClick={() => openEditResource(resource.id)}
-                                className="group min-w-0 flex-1 rounded-[1.1rem] px-1 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                className="group w-full text-left focus:outline-none"
                               >
-                                <span className="block truncate text-sm font-medium text-text-primary">
-                                  {resource.title ?? resource.resourceLink}
-                                </span>
-                                <span className="mt-2 block truncate text-sm text-primary transition-colors group-hover:text-primary-hover">
+                                <p className="truncate text-sm font-semibold text-text-primary group-hover:text-primary transition-colors">
+                                  {resource.title || resource.resourceLink}
+                                </p>
+                                <p className="mt-1 truncate text-xs text-primary group-hover:underline">
                                   {resource.resourceLink}
-                                </span>
+                                </p>
                               </button>
-
-                              <button
-                                type="button"
-                                onClick={() => void handleDetachResource(resource.id)}
-                                disabled={
-                                  detachResourceMutation.isPending ||
-                                  updateResourceMutation.isPending
-                                }
-                                className="inline-flex min-h-11 items-center justify-center rounded-xl border border-warning/25 bg-warning/10 px-4 py-2 text-sm font-medium text-warning transition-colors hover:bg-warning/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60 sm:shrink-0"
-                              >
-                                {detachResourceMutation.isPending &&
-                                  detachResourceMutation.variables === resource.id
-                                  ? "Đang gỡ…"
-                                  : "Gỡ khỏi task"}
-                              </button>
-                            </>
-                          ) : (
-                            <div className="min-w-0 flex-1 px-1 py-1">
-                              <span className="block truncate text-sm font-medium text-text-primary">
-                                {resource.title ?? resource.resourceLink}
-                              </span>
-                              <span className="mt-2 block truncate text-sm text-primary">
-                                {resource.resourceLink}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </article>
-                    ))
-                  ) : (
-                    <div className="rounded-[1.35rem] border border-dashed border-border-default bg-bg-secondary/40 px-4 py-8 text-sm text-text-muted">
-                      <p>Chưa có tài nguyên nào gắn với công việc này.</p>
-                      {canCreateResource ? (
-                        <>
-                          {canManageTask ? (
+                            ) : (
+                              <div>
+                                <p className="truncate text-sm font-semibold text-text-primary">
+                                  {resource.title || resource.resourceLink}
+                                </p>
+                                <a
+                                  href={resource.resourceLink}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="mt-1 block truncate text-xs text-primary hover:underline"
+                                >
+                                  {resource.resourceLink}
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                          {canManageTask && (
                             <button
                               type="button"
-                              onClick={() => setAttachResourceOpen(true)}
-                              className="mt-4 mr-2 inline-flex min-h-11 items-center rounded-xl border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                              onClick={() => void handleDetachResource(resource.id)}
+                              disabled={detachResourceMutation.isPending}
+                              className="shrink-0 rounded-lg border border-warning/20 bg-warning/10 px-3 py-1.5 text-xs font-semibold text-warning hover:bg-warning/20 transition-colors disabled:opacity-50"
                             >
-                              Đính kèm từ DB
+                              {detachResourceMutation.isPending && detachResourceMutation.variables === resource.id ? "Đang gỡ…" : "Gỡ"}
                             </button>
-                          ) : null}
-                          <button
-                            type="button"
-                            onClick={() => setCreateResourceOpen(true)}
-                            className="mt-4 inline-flex min-h-11 items-center rounded-xl border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                          >
-                            Tạo tài nguyên đầu tiên
-                          </button>
-                        </>
-                      ) : null}
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-border-default bg-bg-secondary/20 py-8 text-center text-sm text-text-muted">
+                        Chưa có tài nguyên nào gắn với công việc này.
+                      </div>
+                    )}
+                  </div>
+                </section>
+              </div>
+
+              {/* Right Column: Sidebar */}
+              <div className="flex flex-col gap-6">
+                {/* Meta Panel */}
+                <section className="rounded-[1.5rem] border border-border-default bg-bg-surface p-5 shadow-sm">
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.15em] text-text-muted mb-4">
+                    Thông tin công việc
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <span className="text-xs text-text-muted block">Hạn xử lý</span>
+                      <span className="text-base font-semibold text-text-primary mt-1 block">
+                        {formatLessonDateOnly(task.dueDate)}
+                      </span>
                     </div>
-                  )}
-                </div>
-              </section>
+                    <hr className="border-border-default" />
+                    <div>
+                      <span className="text-xs text-text-muted block">Độ ưu tiên</span>
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] mt-1 ring-1 ${lessonTaskPriorityChipClass(task.priority)}`}>
+                        {LESSON_TASK_PRIORITY_LABELS[task.priority]}
+                      </span>
+                    </div>
+                    <hr className="border-border-default" />
+                    <div>
+                      <span className="text-xs text-text-muted block">Trạng thái</span>
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] mt-1 ring-1 ${lessonTaskStatusChipClass(task.status)}`}>
+                        {LESSON_TASK_STATUS_LABELS[task.status]}
+                      </span>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Assignees Panel */}
+                <section className="rounded-[1.5rem] border border-border-default bg-bg-surface p-5 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.15em] text-text-muted">
+                      Nhân sự thực hiện
+                    </h3>
+                    <span className="rounded-full bg-bg-secondary px-2.5 py-0.5 text-xs font-medium text-text-secondary">
+                      {task.assignees.length}
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {task.assignees.length > 0 ? (
+                      task.assignees.map((assignee) => (
+                        <article key={assignee.id} className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-secondary/25 p-3">
+                          <div className="flex size-9 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary shrink-0">
+                            {assignee.fullName.split(" ").pop()?.substring(0, 2).toUpperCase() || "?"}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-text-primary leading-tight">
+                              {assignee.fullName}
+                            </p>
+                            <p className="mt-1 truncate text-xs text-text-secondary">
+                              {formatLessonStaffRoleLabel(assignee.roles)}
+                            </p>
+                          </div>
+                        </article>
+                      ))
+                    ) : (
+                      <p className="text-xs text-text-muted italic py-2">
+                        {participantMode
+                          ? "Task này hiện chưa được gán nhân sự nào ngoài bạn."
+                          : "Chưa có nhân sự thực hiện. Mở popup chỉnh sửa để gán nhân sự."}
+                      </p>
+                    )}
+                  </div>
+                </section>
+              </div>
             </div>
           </>
         )}

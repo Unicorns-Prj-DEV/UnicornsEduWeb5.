@@ -27,6 +27,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- FE `LessonTaskDetailPage` (/admin/lesson-plans/tasks/[taskId] & /staff/lesson-plans/tasks/[taskId]): Đơn giản hoá, thiết kế lại trang chi tiết công việc giáo án theo bố cục 2 cột (Main content + Sidebar) cao cấp và responsive trên desktop. Gộp mô tả thừa, thu gọn danh sách nhân sự thực hiện (avatar tròn nhỏ) và tài nguyên liên quan (DB search mở rộng dạng inline) giúp trang gọn gàng, tăng diện tích thao tác và đạt 0 lỗi/cảnh báo tsc/eslint.
+
 - FE sidebars: Tối ưu hóa tương tác chuyển trang Sidebar (`AdminSidebar.tsx`, `StaffSidebar.tsx`, `StudentSidebar.tsx`) tức thì (<16ms) thông qua trạng thái cục bộ `activeHrefState` và trì hoãn điều hướng thực tế bất đồng bộ `await Promise.resolve()`. Áp dụng pattern **điều chỉnh state tại thời điểm render** (Render-time State Adjustment) thay cho `useEffect` để loại bỏ render trùng lặp và vượt qua kiểm tra tĩnh ESLint `react-hooks/set-state-in-effect` sạch sẽ.
 
 - Auth password flows: forgot/reset/setup pages now show full Unicorns Edu logo lockup; reset-password email uses React Email branded template with CTA/fallback link; reset tokens are bound to the current password hash so old links are invalid after a password change.
