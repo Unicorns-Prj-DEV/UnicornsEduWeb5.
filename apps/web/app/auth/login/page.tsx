@@ -11,6 +11,7 @@ import * as authApi from "@/lib/apis/auth.api";
 import type { LoginDto, UserInfoDto } from "@/dtos/Auth.dto";
 import { useAuth } from "@/context/AuthContext";
 import { BrandLogoLockup } from "@/components/BrandLogoLockup";
+import { AuthCardSkeleton } from "@/components/auth/AuthCardSkeleton";
 import {
   buildSetupPasswordHref,
   resolvePostLoginRedirect,
@@ -71,6 +72,7 @@ function LoginPageContent() {
   const [accountHandle, setAccountHandle] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const { setUser } = useAuth();
 
   useEffect(() => {
@@ -84,6 +86,7 @@ function LoginPageContent() {
       return loginResponse;
     },
     onSuccess: async (loginResponse) => {
+      setIsRedirecting(true);
       toast.success("Đăng nhập thành công.");
 
       let session: UserInfoDto = {
@@ -118,6 +121,7 @@ function LoginPageContent() {
       );
     },
     onError: (error) => {
+      setIsRedirecting(false);
       toast.error(getLoginErrorToastMessage(error));
     },
   });
@@ -199,10 +203,10 @@ function LoginPageContent() {
 
             <button
               type="submit"
-              disabled={loginMutation.isPending}
+              disabled={loginMutation.isPending || isRedirecting}
               className="w-full rounded-lg bg-primary py-2.5 font-medium text-text-inverse hover:bg-primary-hover active:bg-primary-active focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-offset-2 disabled:opacity-60 transition-colors duration-200"
             >
-              {loginMutation.isPending ? "Đang đăng nhập…" : "Đăng nhập"}
+              {loginMutation.isPending ? "Đang đăng nhập…" : isRedirecting ? "Đang chuyển tiếp…" : "Đăng nhập"}
             </button>
 
             <div className="relative my-4">
@@ -259,7 +263,16 @@ function LoginPageContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <AuthCardSkeleton
+          showInlineActions
+          showDivider
+          showSecondaryButton
+          footerRows={2}
+        />
+      }
+    >
       <LoginPageContent />
     </Suspense>
   );

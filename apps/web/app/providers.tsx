@@ -46,6 +46,7 @@ import {
   invalidateNotificationFeedScopedQueries,
 } from "@/lib/query-invalidation";
 import { SidebarThemePicker } from "@/components/shell";
+import NextTopLoader from "nextjs-toploader";
 
 const defaultUser: UserInfoDto = createGuestUser();
 
@@ -405,10 +406,28 @@ export function Providers({
   children: React.ReactNode;
   initialUser?: UserInfoDto;
 }>) {
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        refetchOnWindowFocus: false, // Stop query spam when tab-focusing
+        staleTime: 30000,            // 30 seconds default stale time
+      }
+    }
+  }));
 
   return (
     <QueryClientProvider client={queryClient}>
+      <NextTopLoader
+        color="var(--ue-primary, #2563EB)"
+        initialPosition={0.08}
+        crawlSpeed={200}
+        height={3}
+        crawl={true}
+        showSpinner={false}
+        easing="ease"
+        speed={200}
+        shadow="0 0 10px var(--ue-primary, #2563EB),0 0 5px var(--ue-primary, #2563EB)"
+      />
       <ThemeProvider>
         <ActionHistoryInvalidationBridge />
         <RateLimitToastBridge />

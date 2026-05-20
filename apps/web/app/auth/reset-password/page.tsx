@@ -8,6 +8,7 @@ import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as authApi from "@/lib/apis/auth.api";
 import { BrandLogoLockup } from "@/components/BrandLogoLockup";
+import { AuthCardSkeleton } from "@/components/auth/AuthCardSkeleton";
 
 function ResetPasswordForm() {
   const { push } = useRouter();
@@ -166,11 +167,7 @@ function ResetPasswordForm() {
 export default function ResetPasswordPage() {
   return (
     <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center bg-bg-primary">
-          <p className="text-text-muted">Đang tải…</p>
-        </div>
-      }
+      fallback={<AuthCardSkeleton footerRows={1} />}
     >
       <ResetPasswordForm />
     </Suspense>

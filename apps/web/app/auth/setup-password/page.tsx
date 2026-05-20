@@ -9,6 +9,7 @@ import { createGuestUser, type UserInfoDto } from "@/dtos/Auth.dto";
 import { useAuth } from "@/context/AuthContext";
 import * as authApi from "@/lib/apis/auth.api";
 import { BrandLogoLockup } from "@/components/BrandLogoLockup";
+import { AuthCardSkeleton } from "@/components/auth/AuthCardSkeleton";
 import {
   readSafeNextPath,
   resolvePostLoginRedirect,
@@ -48,6 +49,7 @@ function SetupPasswordPageContent() {
   const { user, setUser, isAuthReady } = useAuth();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const source = getSearchParam("source");
   const nextPath = readSafeNextPath(getSearchParam("next"));
   const hasSession = hasAuthenticatedSession(user);
@@ -63,6 +65,7 @@ function SetupPasswordPageContent() {
     }
 
     if (!user.requiresPasswordSetup) {
+      setIsRedirecting(true);
       void redirectAfterSetup({
         nextPath,
         queryClient,
@@ -76,6 +79,7 @@ function SetupPasswordPageContent() {
   const setupPasswordMutation = useMutation({
     mutationFn: authApi.setupPassword,
     onSuccess: async () => {
+      setIsRedirecting(true);
       const nextUser = {
         ...user,
         requiresPasswordSetup: false,
@@ -92,6 +96,7 @@ function SetupPasswordPageContent() {
       });
     },
     onError: (err: unknown) => {
+      setIsRedirecting(false);
       const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data
           ?.message ?? "Không thể thiết lập mật khẩu. Vui lòng thử lại.";
@@ -116,15 +121,15 @@ function SetupPasswordPageContent() {
   };
 
   if (!isAuthReady) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-bg-primary">
-        <p className="text-text-muted">Đang xác thực phiên đăng nhập…</p>
-      </div>
-    );
+    return <AuthCardSkeleton footerRows={2} />;
   }
 
   if (!hasSession) {
-    return null;
+    return <AuthCardSkeleton footerRows={2} />;
+  }
+
+  if (isRedirecting && !user.requiresPasswordSetup) {
+    return <AuthCardSkeleton footerRows={2} />;
   }
 
   return (
@@ -188,12 +193,14 @@ function SetupPasswordPageContent() {
 
             <button
               type="submit"
-              disabled={setupPasswordMutation.isPending}
+              disabled={setupPasswordMutation.isPending || isRedirecting}
               className="w-full rounded-lg bg-primary py-2.5 font-medium text-text-inverse hover:bg-primary-hover active:bg-primary-active focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-offset-2 disabled:opacity-60 transition-colors duration-200"
             >
               {setupPasswordMutation.isPending
                 ? "Đang lưu mật khẩu…"
-                : "Hoàn tất và tiếp tục"}
+                : isRedirecting
+                  ? "Đang chuyển tiếp…"
+                  : "Hoàn tất và tiếp tục"}
             </button>
           </form>
 
@@ -225,11 +232,7 @@ function SetupPasswordPageContent() {
 export default function SetupPasswordPage() {
   return (
     <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center bg-bg-primary">
-          <p className="text-text-muted">Đang tải…</p>
-        </div>
-      }
+      fallback={<AuthCardSkeleton footerRows={2} />}
     >
       <SetupPasswordPageContent />
     </Suspense>

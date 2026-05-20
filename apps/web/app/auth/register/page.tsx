@@ -19,14 +19,17 @@ export default function RegisterPage() {
   const [province, setProvince] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const registerMutation = useMutation({
     mutationFn: authApi.register,
     onSuccess: () => {
+      setIsRedirecting(true);
       toast.success("Đăng ký thành công. Vui lòng kiểm tra email để xác thực tài khoản trước khi đăng nhập.");
       setTimeout(() => push("/auth/login"), 3000);
     },
     onError: (err: unknown) => {
+      setIsRedirecting(false);
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Đăng ký thất bại. Email hoặc account handle có thể đã được sử dụng.";
       toast.error(msg);
     },
@@ -222,10 +225,10 @@ export default function RegisterPage() {
 
             <button
               type="submit"
-              disabled={registerMutation.isPending}
+              disabled={registerMutation.isPending || isRedirecting}
               className="w-full rounded-lg bg-primary py-2.5 font-medium text-text-inverse hover:bg-primary-hover active:bg-primary-active focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-offset-2 disabled:opacity-60 transition-colors duration-200"
             >
-              {registerMutation.isPending ? "Đang đăng ký..." : "Đăng ký"}
+              {registerMutation.isPending ? "Đang đăng ký..." : isRedirecting ? "Đang chuyển tiếp…" : "Đăng ký"}
             </button>
           </form>
 
