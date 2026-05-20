@@ -196,6 +196,13 @@ export default function AdminSidebar() {
   const isMobile = useMediaQuery("(max-width: 767px)");
   const prefersReducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const { setUser } = useAuth();
+
+  const [activeHrefState, setActiveHrefState] = useState<string | null>(null);
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
+    setActiveHrefState(null);
+  }
   const {
     data: fullProfile,
     isError: isProfileError,
@@ -380,13 +387,20 @@ export default function AdminSidebar() {
                       pathname === assistantDashboardHref
                     ? false
                     : pathname.startsWith(item.href);
+              const isItemActive = activeHrefState
+                ? activeHrefState === resolvedHref
+                : isActive;
               return (
                 <li key={`${item.href}-${resolvedHref}`} className="sidebar-item">
                   <Link
                     href={resolvedHref}
                     prefetch={false}
-                    onClick={handleMobileClose}
-                    className={`flex items-center rounded-lg py-2.5 text-sm font-medium transition-[gap,padding,background-color,color] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "gap-0 px-2.5" : "gap-3 px-3"} ${isActive
+                    onClick={async () => {
+                      handleMobileClose();
+                      setActiveHrefState(resolvedHref);
+                      await Promise.resolve();
+                    }}
+                    className={`flex items-center rounded-lg py-2.5 text-sm font-medium transition-[gap,padding,background-color,color] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "gap-0 px-2.5" : "gap-3 px-3"} ${isItemActive
                       ? "bg-primary text-text-inverse"
                       : "hover:bg-bg-tertiary hover:text-text-primary"
                       }`}
@@ -411,8 +425,12 @@ export default function AdminSidebar() {
           <Link
             href="/"
             prefetch={false}
-            onClick={handleMobileClose}
-            className={`sidebar-item flex items-center rounded-lg py-2.5 text-sm font-medium transition-[gap,padding,background-color,color] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "gap-0 px-2.5" : "gap-3 px-3"} ${pathname === "/"
+            onClick={async () => {
+              handleMobileClose();
+              setActiveHrefState("/");
+              await Promise.resolve();
+            }}
+            className={`sidebar-item flex items-center rounded-lg py-2.5 text-sm font-medium transition-[gap,padding,background-color,color] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "gap-0 px-2.5" : "gap-3 px-3"} ${(activeHrefState ? activeHrefState === "/" : pathname === "/")
               ? "bg-primary text-text-inverse"
               : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
               }`}

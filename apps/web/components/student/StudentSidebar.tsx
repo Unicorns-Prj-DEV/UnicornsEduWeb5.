@@ -100,6 +100,13 @@ export default function StudentSidebar() {
   const isMobile = useMediaQuery("(max-width: 767px)");
   const prefersReducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const { setUser } = useAuth();
+  const [activeHrefState, setActiveHrefState] = useState<string | null>(null);
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
+    setActiveHrefState(null);
+  }
+
   const { data: fullProfile } = useQuery({
     queryKey: ["auth", "full-profile"],
     queryFn: authApi.getFullProfile,
@@ -108,6 +115,7 @@ export default function StudentSidebar() {
   });
 
   const activeHref = resolveActiveHref(pathname);
+  const resolvedActiveHref = activeHrefState || activeHref;
 
   useEffect(() => {
     if (!isMobile) {
@@ -242,13 +250,17 @@ export default function StudentSidebar() {
         <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 overscroll-contain">
           <ul ref={navListRef} className="space-y-0.5 px-2">
             {MENU_ITEMS.map((item) => {
-              const isActive = item.href === activeHref;
+              const isActive = item.href === resolvedActiveHref;
               return (
                 <li key={item.href} className="sidebar-item">
                   <Link
                     href={item.href}
                     prefetch={false}
-                    onClick={handleMobileClose}
+                    onClick={async () => {
+                      handleMobileClose();
+                      setActiveHrefState(item.href);
+                      await Promise.resolve();
+                    }}
                     className={`flex items-center rounded-lg py-2.5 text-sm font-medium transition-[gap,padding,background-color,color] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "gap-0 px-2.5" : "gap-3 px-3"} ${isActive ? "bg-primary text-text-inverse" : "hover:bg-bg-tertiary hover:text-text-primary"}`}
                     aria-label={collapsed && !isMobile ? item.label : undefined}
                     title={collapsed && !isMobile ? item.label : undefined}
@@ -272,8 +284,12 @@ export default function StudentSidebar() {
           <Link
             href="/"
             prefetch={false}
-            onClick={handleMobileClose}
-            className={`sidebar-item flex items-center rounded-lg py-2.5 text-sm font-medium transition-[gap,padding,background-color,color] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "gap-0 px-2.5" : "gap-3 px-3"} ${pathname === "/" ? "bg-primary text-text-inverse" : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"}`}
+            onClick={async () => {
+              handleMobileClose();
+              setActiveHrefState("/");
+              await Promise.resolve();
+            }}
+            className={`sidebar-item flex items-center rounded-lg py-2.5 text-sm font-medium transition-[gap,padding,background-color,color] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "gap-0 px-2.5" : "gap-3 px-3"} ${(activeHrefState ? activeHrefState === "/" : pathname === "/") ? "bg-primary text-text-inverse" : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"}`}
             aria-label={collapsed && !isMobile ? "Trang chủ" : undefined}
             title={collapsed && !isMobile ? "Trang chủ" : undefined}
           >

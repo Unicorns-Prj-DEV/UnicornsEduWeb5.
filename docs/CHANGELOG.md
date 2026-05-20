@@ -21,7 +21,13 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Added
+
+- FE loading state: Thêm các tệp loading suspense boundaries (`loading.tsx`) tại `/admin`, `/staff`, và `/student` hiển thị khung skeleton SaaS cao cấp phẳng siêu mượt khi bấm chuyển trang tức thì.
+
 ### Changed
+
+- FE sidebars: Tối ưu hóa tương tác chuyển trang Sidebar (`AdminSidebar.tsx`, `StaffSidebar.tsx`, `StudentSidebar.tsx`) tức thì (<16ms) thông qua trạng thái cục bộ `activeHrefState` và trì hoãn điều hướng thực tế bất đồng bộ `await Promise.resolve()`. Áp dụng pattern **điều chỉnh state tại thời điểm render** (Render-time State Adjustment) thay cho `useEffect` để loại bỏ render trùng lặp và vượt qua kiểm tra tĩnh ESLint `react-hooks/set-state-in-effect` sạch sẽ.
 
 - Auth password flows: forgot/reset/setup pages now show full Unicorns Edu logo lockup; reset-password email uses React Email branded template with CTA/fallback link; reset tokens are bound to the current password hash so old links are invalid after a password change.
 

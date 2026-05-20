@@ -430,6 +430,12 @@ export default function StaffSidebar() {
   const isMobile = useMediaQuery("(max-width: 767px)");
   const prefersReducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const { setUser } = useAuth();
+  const [activeHrefState, setActiveHrefState] = useState<string | null>(null);
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
+    setActiveHrefState(null);
+  }
   const { data: fullProfile } = useQuery({
     queryKey: ["auth", "full-profile"],
     queryFn: authApi.getFullProfile,
@@ -469,6 +475,7 @@ export default function StaffSidebar() {
     }),
   );
   const activeMenuHref = resolveActiveMenuHref(pathname, menuItems);
+  const resolvedActiveMenuHref = activeHrefState || activeMenuHref;
 
   useEffect(() => {
     if (!isMobile) {
@@ -631,14 +638,18 @@ export default function StaffSidebar() {
               </li>
             )}
             {menuItems.map((item) => {
-              const isActive = item.href === activeMenuHref;
+              const isActive = item.href === resolvedActiveMenuHref;
 
               return (
                 <li key={item.href} className="sidebar-item">
                   <Link
                     href={item.href}
                     prefetch={false}
-                    onClick={handleMobileClose}
+                    onClick={async () => {
+                      handleMobileClose();
+                      setActiveHrefState(item.href);
+                      await Promise.resolve();
+                    }}
                     className={`flex items-center rounded-lg py-2.5 text-sm font-medium transition-[gap,padding,background-color,color] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "gap-0 px-2.5" : "gap-3 px-3"
                       } ${isActive
                         ? "bg-primary text-text-inverse"
@@ -667,9 +678,13 @@ export default function StaffSidebar() {
           <Link
             href="/"
             prefetch={false}
-            onClick={handleMobileClose}
+            onClick={async () => {
+              handleMobileClose();
+              setActiveHrefState("/");
+              await Promise.resolve();
+            }}
             className={`sidebar-item flex items-center rounded-lg py-2.5 text-sm font-medium transition-[gap,padding,background-color,color] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "gap-0 px-2.5" : "gap-3 px-3"
-              } ${pathname === "/"
+              } ${(activeHrefState ? activeHrefState === "/" : pathname === "/")
                 ? "bg-primary text-text-inverse"
                 : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
               }`}
