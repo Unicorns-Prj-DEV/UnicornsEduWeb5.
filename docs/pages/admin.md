@@ -13,6 +13,8 @@
 
 ## Features
 
+- **Loading:** Segment fallback for `/admin/**` is a neutral shell only; route-specific `loading.tsx` files and shared component skeletons own table/card/calendar/form fidelity so dashboards, forms, and tabs are not shown as a generic table.
+
 - **Save/refetch UX cho CRUD class/staff/student:** mọi action **Save** không mang tính destructive (tạo/sửa lớp, gia sư, học sinh, session, khảo sát, học phí, ví, gán lớp, hồ sơ tự sửa tương ứng ở route mirror) dùng fast-close UX: pass client validation là đóng popup/thoát edit mode ngay, hiện `toast.loading`, backend mutation chạy nền rồi resolve cùng toast sang success/error; lỗi chỉ hiện toast, không tự mở lại form. Khi list/detail đang refetch mà đã có dữ liệu cũ, UI giữ nguyên dữ liệu cũ, dim nhẹ section và hiện refresh strip/skeleton mảnh thay vì thay cả trang bằng loading skeleton.
 - **Dashboard:** route canonical là `/admin/dashboard`; `/admin` là alias render cùng nội dung để tránh lỗi dev runtime khi đo performance trên redirect page. Dashboard đồng bộ layout tối giản: thanh lọc thời gian + nút xuất, cụm KPI card ngang, bảng **Báo cáo tài chính** (card trắng, tiêu đề trái, bảng 3 cột **Danh mục / Giá trị / Ghi chú** với header chữ nhỏ xám xanh, dòng mỏng; chín dòng: Tổng nạp, Học phí đã học, Nợ học phí chưa dạy, Chưa thu, Chờ thanh toán trợ cấp, Chi phí nhân sự, Chi phí khác, Lợi nhuận, Tổng nhận), section **Cảnh báo & hành động** dạng card group, và section **Chế độ xem nhanh theo phân hệ** (tab Tài chính/Vận hành/Học viên + chọn năm). Dữ liệu lấy thật từ backend qua `GET /dashboard`; frontend dùng TanStack Query (`apps/web/lib/apis/dashboard.api.ts`) và chỉ render dữ liệu aggregate authoritative từ BE. Mọi giá trị tiền trong bảng tài chính hiển thị dạng link (màu xanh) để mở popup chi tiết theo đúng từng dòng. Từ breakpoint mobile trở xuống, khối **Báo cáo tài chính** đổi sang danh sách card 1 cột để tránh scroll ngang; từ `md` trở lên giữ desktop table 3 cột.
   - **Bộ lọc thời gian – 2 mode:**
@@ -298,26 +300,27 @@
   - Filter hỗ trợ `search` theo `category` bằng `contains`, không phân biệt hoa/thường; trang FE còn đồng bộ thêm `month` theo `MonthNav`.
   - FE `/admin/costs` dùng TanStack Query `useQuery` với query params (`page`, `limit`, `search`, `year`, `month`) và đồng bộ URL query (`page`, `search`, `month`).
   - FE `/admin/costs` debounce search 1s, reset `page=1` khi đổi search, và sync lại `page` theo `meta.page` từ server khi cần.
-  - FE `/admin/costs` có reusable popup `CostFormPopup` cho cả create/edit; bấm **Thêm chi phí** mở mode create cho admin/assistant/accountant, bấm vào row mở mode edit (nút xóa hoạt động độc lập và vẫn ẩn với accountant).
+  - FE `/admin/costs` có reusable popup `CostFormPopup` cho cả create/edit; bấm **Thêm chi phí** mở mode create cho admin/assistant/accountant, bấm vào row mở mode edit, và nút xóa hoạt động độc lập cho admin/assistant/accountant.
   - FE `/admin/costs` hỗ trợ chọn nhiều qua nhiều page trong cùng bộ lọc bằng checkbox custom; thao tác **Chọn cả trang** chỉ áp dụng cho page hiện tại, selection được giữ khi đổi page và reset khi đổi `search` hoặc `month`.
   - Khi bấm **Sửa trạng thái thanh toán**, FE mở popup xác nhận với `UpgradedSelect` trạng thái có màu, mặc định là **Đã thanh toán**, và submit một request `PATCH /cost/status/bulk`.
   - Create/update cost ở FE dùng TanStack Query `useMutation`; khi thành công sẽ invalidate `queryKey: ["cost", "list"]`, hiện Sonner toast success và đóng popup.
-  - Khi tạo cost mới, FE chỉ gửi `category`, `month`, `date`, `status`, `amount`; `id` được backend/DB sinh trong `POST /cost`. Flow edit vẫn gửi `id` hiện có trong `PATCH /cost`.
+  - Khi tạo cost mới, FE chỉ gửi `category`, `month`, `date`, `status`, `amount`; `date` là ISO date string dạng `YYYY-MM-DD` và backend normalize thành `Date` trước khi ghi Prisma `cost_extend.date` (`@db.Date`); `id` được backend/DB sinh trong `POST /cost`. Flow edit vẫn gửi `id` hiện có trong `PATCH /cost`.
   - Xóa cost ở FE `/admin/costs` dùng TanStack Query `useMutation`; khi thành công invalidate query danh sách và hiển thị Sonner toast success/error.
   - Các endpoint đi qua global JWT guard (không `@Public`) và yêu cầu role `admin`.
 - **Trợ cấp thêm (FE `/admin/accountant_detail`, `/admin/assistant_detail`, `/admin/communication_detail`, `/admin/technical_detail`):**
   - API mới:
     - `GET /extra-allowance?page=&limit=&search=&year=&month=&roleType=&staffId=&status=` trả `{ data, meta }`; filter tháng dùng trực tiếp cột indexed `month = YYYY-MM`, không ép filter qua FE.
     - `GET /extra-allowance/:id`
-    - `POST /extra-allowance` (payload bắt buộc `staffId`, `month`, `roleType`; `id` do backend tự sinh)
+    - `POST /extra-allowance` (payload bắt buộc `staffId`, `month`, `roleType`; `id` do backend tự sinh; mở cho admin đầy đủ, `staff.assistant`, và `staff.accountant`)
     - `PATCH /extra-allowance` (payload bắt buộc `id`)
     - `PATCH /extra-allowance/status/bulk` với payload `{ allowanceIds, status }`, trả `{ requestedCount, updatedCount }`
-    - `DELETE /extra-allowance/:id`
+    - `DELETE /extra-allowance/:id` (mở cho admin đầy đủ, `staff.assistant`, và `staff.accountant`)
     - `GET /staff/options?search=&limit=` trả option nhân sự `active` dạng nhẹ cho popup chọn staff, không dùng `GET /staff` nặng
   - FE admin đã bỏ route `/admin/extra_allowances`; sidebar/detail dùng các route cố định theo role: `/admin/accountant_detail`, `/admin/assistant_detail`, `/admin/communication_detail`, `/admin/technical_detail`.
   - Bốn route này dùng cùng layout với `/admin/lesson_plan_detail/[staffId]`: 3 card tổng hợp, action strip **Thanh toán hàng loạt**, mobile card + desktop table. Mỗi page cố định `roleType` tương ứng (`accountant`, `assistant`, `communication` hoặc `technical`) và nhận optional query `staffId` để thu hẹp theo một nhân sự khi đi từ `/admin/staffs/:id`.
-  - Khi page có `staffId`, FE tải đúng hồ sơ `GET /staff/:id` theo khóa chính để khóa ngữ cảnh popup **Thêm trợ cấp**; popup không cho đổi sang nhân sự/role khác, chỉ nhập `month`, `status`, `amount`, `note`, rồi submit `POST /extra-allowance`.
-  - FE dùng TanStack Query gọi `GET /extra-allowance` với `roleType` cố định và `staffId` nếu có; thao tác **Sửa trạng thái thanh toán** gọi `PATCH /extra-allowance/status/bulk`. Sau khi tạo mới hoặc cập nhật trạng thái ở page có `staffId`, FE invalidate thêm `["staff","income-summary",staffId]` để bảng **Công việc khác** trong staff detail cập nhật ngay.
+  - Nút **Thêm trợ cấp** hiển thị cho admin/assistant/accountant. Nếu page không có `staffId`, popup cho chọn nhân sự active qua `GET /staff/options` nhưng vẫn khóa `roleType` theo page hiện tại; nếu page có `staffId`, FE tải đúng hồ sơ `GET /staff/:id` theo khóa chính để khóa cả nhân sự và role, chỉ nhập `month`, `status`, `amount`, `note`, rồi submit `POST /extra-allowance`.
+  - FE dùng TanStack Query gọi `GET /extra-allowance` với `roleType` cố định và `staffId` nếu có; thao tác **Sửa trạng thái thanh toán** gọi `PATCH /extra-allowance/status/bulk`; nút xóa từng dòng/card gọi `DELETE /extra-allowance/:id` sau popup xác nhận.
+  - Sau khi tạo mới, xóa hoặc cập nhật trạng thái ở page có `staffId` hoặc record trả về có `staffId`, FE invalidate thêm `["staff","income-summary",staffId]` để bảng **Công việc khác** trong staff detail cập nhật ngay.
   - Filter role và chip hiển thị vẫn dựa trên enum `StaffRole` (`assistant`, `communication`, …); danh sách được render recent-first theo `month desc, createdAt desc` từ backend.
   - Mutation `extra_allowance` tiếp tục ghi `action_history`, nên `/admin/history` đọc được thay đổi trạng thái của khoản trợ cấp thêm.
 - **Quy định (FE `/admin/notes-subject`):**

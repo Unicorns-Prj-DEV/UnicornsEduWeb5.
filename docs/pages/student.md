@@ -11,6 +11,8 @@
 
 ## Features
 
+- **Loading:** `/student/loading.tsx` uses `StudentDashboardSkeleton`; this stays route-specific because `/student` is a single self-service dashboard rather than a broad segment with many child layouts.
+
 - **Sidebar (`StudentSidebar`):** như staff: chuông trong sidebar, **panel/popup thông báo portal** ra `document.body`, mobile full màn hình; realtime toast hiển thị dạng tóm tắt và bấm vào toast mở đúng popup chi tiết thông báo tương ứng.
 - **Thông tin cá nhân:** Dùng cùng bố cục với `/admin/students/[id]` (grid profile `xl` + thẻ ví/lịch thi), nhưng chỉ hiển thị hồ sơ của chính học sinh đang đăng nhập và cho phép học sinh tự chỉnh sửa các thông tin cơ bản của mình. Cùng ràng buộc layout để số dư VND dài không tràn card (xem ghi chú trang chi tiết trong `docs/pages/admin.md`).
 - **Save/refetch UX:** form tự sửa hồ sơ và popup ví dùng fast-close UX: pass validate là thoát edit mode/đóng popup ngay, hiện `toast.loading`, rồi resolve success/error khi backend xong; lỗi chỉ hiện toast, không tự mở lại form. Khi self detail refetch mà đã có dữ liệu cũ, section giữ nguyên nội dung, dim nhẹ và hiện refresh strip nhỏ.

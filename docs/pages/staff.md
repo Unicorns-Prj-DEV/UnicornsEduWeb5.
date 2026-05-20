@@ -16,7 +16,7 @@
   - `/staff/notification`: tài khoản hiện tại phải có linked `staffInfo.status = active`; đây là feed chỉ đọc để xem các notification admin đã push
   - `/staff/users`, `/staff/history`: chỉ mở cho linked staff có role `assistant`; đây là mirror route của admin workspace nhưng giữ nguyên staff shell
   - `/staff/staffs`, `/staff/staffs/[id]`, `/staff/classes`, `/staff/classes/[id]`, `/staff/students`, `/staff/students/[id]`: mở cho linked staff có role `assistant` hoặc `accountant`; kế toán dùng quyền xem để mở link nhân sự/lớp/học sinh từ các màn chi tiết, còn mutation vẫn do backend route tương ứng kiểm soát; riêng duyệt/thay roster học sinh vào lớp (`PATCH /class/:id/students`) là strict admin-only
-  - `/staff/deductions` và `/staff/costs`: mở cho `staff.assistant` và `staff.accountant` (admin-like module tài chính trong staff shell)
+  - `/staff/deductions` và `/staff/costs`: mở cho `staff.assistant` và `staff.accountant` (admin-like module tài chính trong staff shell); tại `/staff/costs`, kế toán có thể tạo/sửa/cập nhật trạng thái/xóa chi phí
   - `/staff/students/[id]`: linked staff có role `assistant` hoặc `accountant`; linked staff có role `customer_care` chỉ mở khi học sinh đang thuộc phạm vi CSKH của chính staff hiện tại
   - `/staff/classes/[id]`: `admin`, linked staff có `teacher`, `assistant`, `accountant`, hoặc `customer_care` khi lớp có ít nhất một học sinh thuộc phạm vi CSKH của staff hiện tại
   - `/staff/customer-care-detail`: hồ sơ staff hiện tại có role `customer_care`
@@ -41,6 +41,8 @@
 - **Scope hiện tại:** dashboard gốc `/staff` là dashboard phân quyền theo role của staff hiện tại; sidebar trợ lí có thêm **Cá nhân** → `/staff/staffs/:ownStaffId` (chi tiết nhân sự mirror admin); assistant admin-mirror tree trong `/staff/**`; self-service chỉnh hồ sơ nhẹ tại `/staff/profile`; teacher workflow cho lớp học; lesson workspace dùng chung dưới `/staff/lesson-plans*` với tab/route khóa theo role
 
 ## Features
+
+- **Loading:** Segment fallback for `/staff/**` is a neutral shell only; route-specific `loading.tsx` files and shared component skeletons own table/card/calendar/form fidelity so dashboards, forms, and tabs are not shown as a generic table.
 
 - **Save/refetch UX cho staff mirror + self-service:** các flow **Save** không destructive ở route mirror `/staff/classes`, `/staff/staffs`, `/staff/students` và self route như `/staff/profile` dùng fast-close UX: pass validate là đóng popup/thoát edit mode ngay, hiện `toast.loading`, rồi mutation tiếp tục chạy nền và resolve success/error bằng chính toast đó; lỗi chỉ hiện toast, không tự mở lại form. Áp dụng cả thao tác tạo/sửa khảo sát lớp. Khi query refetch mà đã có dữ liệu cũ, section giữ nguyên nội dung, dim nhẹ và hiện refresh strip/skeleton mảnh thay vì loading toàn trang.
 - `/staff`
@@ -156,7 +158,7 @@
   - layout giữ cùng visual language với admin extra allowance detail; `assistant` và `accountant` không có create / bulk / edit; `communication` có **Thêm trợ cấp** và được bấm vào từng khoản của chính mình để **chỉnh sửa** `month / amount / note`
   - self-service `communication` vẫn không có xóa, không có bulk, không tự đổi `payment status`; trạng thái thanh toán tiếp tục do admin/kế toán xử lý
   - hiển thị lịch sử trợ cấp, trạng thái thanh toán và số tiền của chính mình
-  - nếu actor là `staff.assistant` và route có query `staffId`, trang sẽ chuyển sang admin-like detail của staff được chọn nhưng vẫn giữ staff shell
+  - nếu actor là `staff.assistant` và route có query `staffId`, trang sẽ chuyển sang admin-like detail của staff được chọn nhưng vẫn giữ staff shell; mode này có **Thêm trợ cấp**, cập nhật trạng thái hàng loạt và xóa từng khoản giống admin role detail
 - `/staff/notes-subject`
   - với `staff.assistant`, route render nguyên admin **Quy định** workspace ngay trong staff shell
   - với các staff role khác, route chỉ còn phần `Quy định` read-only, đọc dữ liệu thật từ `GET /regulations`; backend tự lọc theo `audiences` nên staff chỉ thấy bài dành cho role của mình hoặc `all`
