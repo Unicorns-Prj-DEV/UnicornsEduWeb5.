@@ -77,6 +77,15 @@ type StudentInfoDelegate = {
     parentName?: string | null;
     parentEmail?: string | null;
   } | null>;
+  findMany(args: unknown): Promise<
+    Array<{
+      id: string;
+      accountBalance?: number | null;
+      fullName?: string | null;
+      parentName?: string | null;
+      parentEmail?: string | null;
+    }>
+  >;
   update(args: unknown): Promise<unknown>;
 };
 
@@ -90,7 +99,13 @@ type SePayWebhookPrismaClient = {
 
 type StaticQrContext = {
   studentId: string;
+  studentIdIsPartial: boolean;
   classIds: string[];
+};
+
+type NormalizedPrefixedIdToken = {
+  id: string;
+  isPartial: boolean;
 };
 
 @Injectable()
@@ -122,9 +137,7 @@ export class SePayWebhookService {
     const order = await this.findMatchingOrder(client, payload);
     const staticQrContext = order ? null : this.getStaticQrContext(payload);
     if (!order && !staticQrContext) {
-      this.logger.warn(
-        `SePay webhook unmatched: id=${payload.id} reference=${payload.referenceCode}`,
-      );
+      this.logUnmatchedWebhook(payload);
       return { action: 'unmatched' };
     }
 
@@ -142,6 +155,9 @@ export class SePayWebhookService {
         this.logMismatch(preflightMismatch, order.orderCode, payload);
         return { action: preflightMismatch, orderCode: order.orderCode };
       }
+    } else if (this.isStaticQrAccountMismatch(payload)) {
+      this.logStaticQrAccountMismatch(payload);
+      return { action: 'account_mismatch' };
     } else if (payload.transferAmount <= 0) {
       this.logger.warn(
         `SePay webhook unmatched: non-positive static QR amount id=${payload.id} reference=${payload.referenceCode}`,
@@ -165,25 +181,26 @@ export class SePayWebhookService {
           return { action: 'unmatched' as const, order: null };
         }
 
-        const student = await txClient.studentInfo.findUnique({
-          where: { id: staticQrContext.studentId },
-          select: {
-            id: true,
-            fullName: true,
-            parentName: true,
-            parentEmail: true,
-          },
-        });
+        const student = await this.findStaticQrStudent(
+          txClient,
+          staticQrContext,
+        );
         if (!student) {
           return { action: 'unmatched' as const, order: null };
         }
 
         const orderCode = this.buildStaticQrOrderCode(payload);
-        const transferNote = this.buildStaticQrTransferNote(staticQrContext);
+        const resolvedStaticQrContext = {
+          ...staticQrContext,
+          studentId: student.id,
+        };
+        const transferNote = this.buildStaticQrTransferNote(
+          resolvedStaticQrContext,
+        );
         const completedAt = new Date();
         await txClient.studentWalletSepayOrder.create({
           data: {
-            studentId: staticQrContext.studentId,
+            studentId: student.id,
             orderCode,
             status: 'completed',
             amountRequested: payload.transferAmount,
@@ -199,16 +216,16 @@ export class SePayWebhookService {
           include: { student: true },
         });
 
-        const walletTransaction = await txClient.walletTransactionsHistory.create(
-          {
+        const walletTransaction =
+          await txClient.walletTransactionsHistory.create({
             data: {
-              studentId: staticQrContext.studentId,
+              studentId: student.id,
               type: 'topup',
               amount: payload.transferAmount,
               note: this.buildWalletTransactionNote(
                 {
                   orderCode,
-                  studentId: staticQrContext.studentId,
+                  studentId: student.id,
                   status: 'completed',
                   amountRequested: payload.transferAmount,
                   amountReceived: payload.transferAmount,
@@ -218,11 +235,10 @@ export class SePayWebhookService {
               ),
               date: this.parseTransactionDate(payload.transactionDate),
             },
-          },
-        );
+          });
 
         await txClient.studentInfo.update({
-          where: { id: staticQrContext.studentId },
+          where: { id: student.id },
           data: { accountBalance: { increment: payload.transferAmount } },
         });
 
@@ -402,28 +418,139 @@ export class SePayWebhookService {
     return this.extractStaticQrContextFromText(text);
   }
 
+  private async findStaticQrStudent(
+    client: SePayWebhookPrismaClient,
+    context: StaticQrContext,
+  ): Promise<{
+    id: string;
+    fullName?: string | null;
+    parentName?: string | null;
+    parentEmail?: string | null;
+  } | null> {
+    const select = {
+      id: true,
+      fullName: true,
+      parentName: true,
+      parentEmail: true,
+    };
+
+    if (!context.studentIdIsPartial) {
+      const student = await client.studentInfo.findUnique({
+        where: { id: context.studentId },
+        select,
+      });
+      return student?.id ? { ...student, id: student.id } : null;
+    }
+
+    const matches = await client.studentInfo.findMany({
+      where: { id: { startsWith: context.studentId } },
+      select,
+      take: 2,
+    });
+
+    if (matches.length !== 1) {
+      this.logger.warn(
+        `SePay webhook unmatched: static QR partial student id ${context.studentId} matched ${matches.length} students`,
+      );
+      return null;
+    }
+
+    return matches[0];
+  }
+
   private extractStaticQrContextFromText(text: string): StaticQrContext | null {
     const uuid =
       '[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
-    const studentPart = `UNIST-${uuid}`;
-    const classPart = `UNICL-${uuid}`;
+    const compactUuidPrefix = '[0-9a-f]{24,32}';
+    const studentPart = `(?:UNIST-${uuid}|UNIST-?${compactUuidPrefix})`;
+    const classPart = `(?:UNICL-${uuid}|UNICL-?${compactUuidPrefix})`;
+    const marker = 'NAP\\s*VI';
     const match = text.match(
       new RegExp(
-        `\\bNAPVI\\s+(${studentPart})((?:\\s+${classPart})*)`,
+        `\\b${marker}\\s+(${studentPart})((?:[\\s-]+${classPart})*)`,
         'i',
       ),
     );
-    const studentId = match?.[1];
+    const studentToken = match?.[1];
+    const studentId = this.normalizePrefixedIdToken(studentToken, 'UNIST');
     if (!studentId) {
       return null;
     }
 
     const classPattern = new RegExp(classPart, 'gi');
     const classIds = Array.from(
-      new Set(match?.[2]?.match(classPattern) ?? []),
+      new Set(
+        (match?.[2]?.match(classPattern) ?? [])
+          .map((classToken) =>
+            this.normalizePrefixedIdToken(classToken, 'UNICL'),
+          )
+          .filter((classId): classId is NormalizedPrefixedIdToken =>
+            Boolean(classId?.id && !classId.isPartial),
+          )
+          .map((classId) => classId.id),
+      ),
     );
 
-    return { studentId, classIds };
+    return {
+      studentId: studentId.id,
+      studentIdIsPartial: studentId.isPartial,
+      classIds,
+    };
+  }
+
+  private normalizePrefixedIdToken(
+    token: string | null | undefined,
+    prefix: 'UNIST' | 'UNICL',
+  ): NormalizedPrefixedIdToken | null {
+    const value = token?.trim();
+    if (!value) {
+      return null;
+    }
+
+    const uuid =
+      '[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
+    const exactMatch = value.match(new RegExp(`^${prefix}-(${uuid})$`, 'i'));
+    if (exactMatch?.[1]) {
+      return {
+        id: `${prefix}-${exactMatch[1].toLowerCase()}`,
+        isPartial: false,
+      };
+    }
+
+    const compactMatch = value.match(
+      new RegExp(`^${prefix}-?([0-9a-f]{24,32})$`, 'i'),
+    );
+    const compactHex = compactMatch?.[1]?.toLowerCase();
+    if (!compactHex) {
+      return null;
+    }
+
+    return {
+      id: `${prefix}-${this.hyphenateCompactUuidPrefix(compactHex)}`,
+      isPartial: compactHex.length !== 32,
+    };
+  }
+
+  private hyphenateCompactUuidPrefix(compactHex: string): string {
+    const breakpoints = [8, 12, 16, 20];
+    const segments: string[] = [];
+    let cursor = 0;
+
+    for (const breakpoint of breakpoints) {
+      if (compactHex.length <= cursor) {
+        break;
+      }
+
+      const next = Math.min(breakpoint, compactHex.length);
+      segments.push(compactHex.slice(cursor, next));
+      cursor = next;
+    }
+
+    if (cursor < compactHex.length) {
+      segments.push(compactHex.slice(cursor));
+    }
+
+    return segments.filter(Boolean).join('-');
   }
 
   private buildStaticQrTransferNote(context: StaticQrContext): string {
@@ -482,6 +609,22 @@ export class SePayWebhookService {
     order: StudentWalletSepayOrderRecord,
   ): string | null {
     return this.normalizeAccountNumber(order.sepayAccountNumber);
+  }
+
+  private getExpectedStaticQrAccountNumber(): string | null {
+    return this.normalizeAccountNumber(
+      process.env.SEPAY_TRANSFER_ACCOUNT_NUMBER,
+    );
+  }
+
+  private isStaticQrAccountMismatch(payload: SePayWebhookDto): boolean {
+    const expectedAccountNumber = this.getExpectedStaticQrAccountNumber();
+    const receivedAccountNumber = this.normalizeAccountNumber(
+      payload.accountNumber,
+    );
+    return (
+      !expectedAccountNumber || receivedAccountNumber !== expectedAccountNumber
+    );
   }
 
   private normalizeAccountNumber(
@@ -652,5 +795,46 @@ export class SePayWebhookService {
     this.logger.warn(
       `SePay webhook ${action}: order=${orderCode ?? 'unknown'} id=${payload.id} reference=${payload.referenceCode}`,
     );
+  }
+
+  private logUnmatchedWebhook(payload: SePayWebhookDto): void {
+    this.logger.warn(
+      `SePay webhook unmatched: ${JSON.stringify({
+        id: payload.id,
+        referenceCode: payload.referenceCode,
+        accountNumber: this.maskAccountNumber(payload.accountNumber),
+        transferAmount: payload.transferAmount,
+        code: payload.code,
+        orderCandidates: this.getOrderCodeCandidates(payload).slice(0, 5),
+        hasNapviMarker: /\bNAP\s*VI\b/i.test(
+          `${payload.content ?? ''} ${payload.description ?? ''}`,
+        ),
+        contentSnippet: this.toLogSnippet(payload.content),
+        descriptionSnippet: this.toLogSnippet(payload.description),
+      })}`,
+    );
+  }
+
+  private logStaticQrAccountMismatch(payload: SePayWebhookDto): void {
+    this.logger.warn(
+      `SePay webhook account_mismatch: static QR id=${payload.id} reference=${payload.referenceCode} account=${payload.accountNumber}`,
+    );
+  }
+
+  private maskAccountNumber(value: string | null | undefined): string | null {
+    const normalized = this.normalizeAccountNumber(value);
+    if (!normalized) {
+      return null;
+    }
+
+    if (normalized.length <= 4) {
+      return '*'.repeat(normalized.length);
+    }
+
+    return `${'*'.repeat(Math.max(normalized.length - 4, 0))}${normalized.slice(-4)}`;
+  }
+
+  private toLogSnippet(value: string | null | undefined): string {
+    return (value ?? '').replace(/\s+/g, ' ').trim().slice(0, 160);
   }
 }

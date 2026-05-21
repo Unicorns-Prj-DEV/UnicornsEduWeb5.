@@ -36,6 +36,7 @@ function createPrismaMock() {
     studentInfo: {
       update: jest.fn<Promise<unknown>, [unknown]>(),
       findUnique: jest.fn<Promise<unknown>, [unknown]>(),
+      findMany: jest.fn<Promise<unknown[]>, [unknown]>(),
     },
     customerCareService: {
       findUnique: jest.fn<Promise<unknown>, [unknown]>(),
@@ -60,7 +61,18 @@ type ObjectArg = {
   data?: Record<string, unknown>;
 };
 
+const originalTransferAccountNumber = process.env.SEPAY_TRANSFER_ACCOUNT_NUMBER;
+
 describe('SePayWebhookService', () => {
+  afterEach(() => {
+    if (originalTransferAccountNumber === undefined) {
+      delete process.env.SEPAY_TRANSFER_ACCOUNT_NUMBER;
+      return;
+    }
+
+    process.env.SEPAY_TRANSFER_ACCOUNT_NUMBER = originalTransferAccountNumber;
+  });
+
   it('acknowledges non-inbound events without touching wallet data', async () => {
     const prisma = createPrismaMock();
     const mail = { sendStudentWalletTopUpReceiptEmail: jest.fn() };
@@ -195,6 +207,8 @@ describe('SePayWebhookService', () => {
   });
 
   it('credits a static student QR payment from NAPVI student id without a pending order', async () => {
+    process.env.SEPAY_TRANSFER_ACCOUNT_NUMBER = '0123499999';
+
     const prisma = createPrismaMock();
     const mail = { sendStudentWalletTopUpReceiptEmail: jest.fn() };
     const studentId = 'UNIST-0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7';
@@ -323,6 +337,208 @@ describe('SePayWebhookService', () => {
         extensionClassNames: ['Toan 8A', 'Ly 8A'],
       }),
     );
+  });
+
+  it('does not credit a static student QR payment sent to another receiver account', async () => {
+    process.env.SEPAY_TRANSFER_ACCOUNT_NUMBER = '0123499999';
+
+    const prisma = createPrismaMock();
+    const mail = { sendStudentWalletTopUpReceiptEmail: jest.fn() };
+    const studentId = 'UNIST-0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7';
+    const service = new SePayWebhookService(prisma as never, mail as never);
+
+    prisma.studentWalletSepayOrder.findFirst.mockResolvedValue(null);
+    prisma.studentWalletSepayOrder.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.reconcile(
+        buildPayload({
+          accountNumber: '0000000000',
+          code: null,
+          content: `NAPVI ${studentId}`,
+          description: `Thanh toan NAPVI ${studentId}`,
+          transferAmount: 88_000,
+        }),
+      ),
+    ).resolves.toEqual({ action: 'account_mismatch' });
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.walletTransactionsHistory.create).not.toHaveBeenCalled();
+    expect(prisma.studentInfo.update).not.toHaveBeenCalled();
+    expect(mail.sendStudentWalletTopUpReceiptEmail).not.toHaveBeenCalled();
+  });
+
+  it('credits a static student QR payment when the transfer marker is typed as NAP VI', async () => {
+    process.env.SEPAY_TRANSFER_ACCOUNT_NUMBER = '0123499999';
+
+    const prisma = createPrismaMock();
+    const mail = { sendStudentWalletTopUpReceiptEmail: jest.fn() };
+    const studentId = 'UNIST-0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7';
+    const staticOrderCode = 'STATICfedcba9876543210fedcba9876543210fedcba98';
+    const completedOrder = {
+      orderCode: staticOrderCode,
+      studentId,
+      status: 'completed',
+      amountRequested: 88_000,
+      amountReceived: 88_000,
+      transferNote: `NAPVI ${studentId}`,
+      sepayTransactionId: '92704',
+      sepayReferenceCode: 'MBVCB.3278907687',
+      walletTransactionId: 'wallet-tx-static-space',
+      receiptEmailSentAt: null,
+      student: {
+        fullName: 'Nguyen Van A',
+        parentName: null,
+        parentEmail: null,
+      },
+    };
+
+    prisma.studentWalletSepayOrder.findFirst.mockResolvedValue(null);
+    prisma.studentWalletSepayOrder.findUnique.mockResolvedValue(null);
+    prisma.studentInfo.findUnique
+      .mockResolvedValueOnce({
+        id: studentId,
+        fullName: 'Nguyen Van A',
+        parentName: null,
+        parentEmail: null,
+      })
+      .mockResolvedValueOnce({ accountBalance: 188_000 });
+    prisma.studentWalletSepayOrder.create.mockResolvedValue({
+      ...completedOrder,
+      walletTransactionId: null,
+    });
+    prisma.walletTransactionsHistory.create.mockResolvedValue({
+      id: 'wallet-tx-static-space',
+    });
+    prisma.studentInfo.update.mockResolvedValue({ id: studentId });
+    prisma.studentWalletSepayOrder.update.mockResolvedValue(completedOrder);
+    prisma.customerCareService.findUnique.mockResolvedValue(null);
+
+    const service = new SePayWebhookService(prisma as never, mail as never);
+
+    await expect(
+      service.reconcile(
+        buildPayload({
+          code: null,
+          content: `NAP VI ${studentId}`,
+          description: '',
+          transferAmount: 88_000,
+        }),
+      ),
+    ).resolves.toEqual({
+      action: 'credited',
+      orderCode: staticOrderCode,
+      walletTransactionId: 'wallet-tx-static-space',
+    });
+
+    expect(prisma.studentWalletSepayOrder.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        studentId,
+        transferNote: `NAPVI ${studentId}`,
+      }),
+      include: { student: true },
+    });
+    expect(prisma.studentInfo.update).toHaveBeenCalledWith({
+      where: { id: studentId },
+      data: { accountBalance: { increment: 88_000 } },
+    });
+  });
+
+  it('credits a static student QR payment when bank content strips prefix separators and UUID dashes', async () => {
+    process.env.SEPAY_TRANSFER_ACCOUNT_NUMBER = '0123499999';
+
+    const prisma = createPrismaMock();
+    const mail = { sendStudentWalletTopUpReceiptEmail: jest.fn() };
+    const compactStudentPrefix = '56e9f4adea274f4fa1d03e386d9e2';
+    const studentId = 'UNIST-56e9f4ad-ea27-4f4f-a1d0-3e386d9e2aa';
+    const staticOrderCode =
+      'STATIC11111111111111111111111111111111111111111111';
+    const completedOrder = {
+      orderCode: staticOrderCode,
+      studentId,
+      status: 'completed',
+      amountRequested: 3_000,
+      amountReceived: 3_000,
+      transferNote: `NAPVI ${studentId}`,
+      sepayTransactionId: '59913790',
+      sepayReferenceCode: 'FT26142344360806',
+      walletTransactionId: 'wallet-tx-compact',
+      receiptEmailSentAt: null,
+      student: {
+        fullName: 'Nguyen Van A',
+        parentName: null,
+        parentEmail: null,
+      },
+    };
+
+    prisma.studentWalletSepayOrder.findFirst.mockResolvedValue(null);
+    prisma.studentWalletSepayOrder.findUnique.mockResolvedValue(null);
+    prisma.studentInfo.findMany.mockResolvedValueOnce([
+      {
+        id: studentId,
+        fullName: 'Nguyen Van A',
+        parentName: null,
+        parentEmail: null,
+      },
+    ]);
+    prisma.studentInfo.findUnique.mockResolvedValueOnce({
+      accountBalance: 191_000,
+    });
+    prisma.studentWalletSepayOrder.create.mockResolvedValue({
+      ...completedOrder,
+      walletTransactionId: null,
+    });
+    prisma.walletTransactionsHistory.create.mockResolvedValue({
+      id: 'wallet-tx-compact',
+    });
+    prisma.studentInfo.update.mockResolvedValue({ id: studentId });
+    prisma.studentWalletSepayOrder.update.mockResolvedValue(completedOrder);
+    prisma.customerCareService.findUnique.mockResolvedValue(null);
+
+    const service = new SePayWebhookService(prisma as never, mail as never);
+
+    await expect(
+      service.reconcile(
+        buildPayload({
+          id: 59913790,
+          code: null,
+          referenceCode: 'FT26142344360806',
+          content: `130159577380-NAPVI UNIST${compactStudentPrefix}-CHUYEN TIEN`,
+          description: '',
+          transferAmount: 3_000,
+        }),
+      ),
+    ).resolves.toEqual({
+      action: 'credited',
+      orderCode: staticOrderCode,
+      walletTransactionId: 'wallet-tx-compact',
+    });
+
+    expect(prisma.studentInfo.findMany).toHaveBeenCalledWith({
+      where: {
+        id: { startsWith: 'UNIST-56e9f4ad-ea27-4f4f-a1d0-3e386d9e2' },
+      },
+      select: {
+        id: true,
+        fullName: true,
+        parentName: true,
+        parentEmail: true,
+      },
+      take: 2,
+    });
+    expect(prisma.studentWalletSepayOrder.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        studentId,
+        amountRequested: 3_000,
+        amountReceived: 3_000,
+        transferNote: `NAPVI ${studentId}`,
+      }),
+      include: { student: true },
+    });
+    expect(prisma.studentInfo.update).toHaveBeenCalledWith({
+      where: { id: studentId },
+      data: { accountBalance: { increment: 3_000 } },
+    });
   });
 
   it('ignores unmatched and amount-mismatched inbound events without crediting', async () => {

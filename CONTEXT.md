@@ -20,6 +20,8 @@
 
 ## Ví học sinh
 
+- **Nạp ví qua QR tĩnh SePay**: phụ huynh/học sinh quét QR riêng của học sinh và chuyển khoản số tiền muốn nạp. Giao dịch ngân hàng được coi là nạp ví khi nội dung chuyển khoản nhận diện đúng học sinh và tiền đi vào đúng tài khoản nhận SePay chính thức.
+- **Tài khoản nhận SePay**: tài khoản ngân hàng chính thức của Unicorns Edu dùng để nhận tiền nạp ví tự động. Giao dịch vào tài khoản khác không được cộng ví tự động, kể cả khi nội dung chuyển khoản có mã học sinh.
 - **Yêu cầu nạp thẳng**: thao tác do CSKH, kế toán hoặc trợ lí tạo khi cần ghi nhận tiền vào ví học sinh ngoài luồng QR/webhook. Yêu cầu này không làm đổi số dư ngay.
 - Mỗi yêu cầu nạp thẳng gồm `student_id`, số tiền VND nguyên dương và lý do đối soát. Backend gửi email React Email tới `ADMIN_EMAIL`; `ADMIN_EMAIL` phải là mailbox thật, và production `FRONTEND_URL` phải là origin public HTTPS để tạo link duyệt.
 - Admin mở link trong email để xem trang xác nhận public. Link dùng token chỉ lưu dạng hash trong DB, hết hạn sau 14 ngày và chỉ cộng ví sau khi admin bấm nút xác nhận cuối cùng trên trang.
