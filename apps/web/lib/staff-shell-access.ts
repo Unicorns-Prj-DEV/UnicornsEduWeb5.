@@ -41,6 +41,7 @@ export type StaffShellAccessContext = {
   roleType: string | undefined;
   staffRoles: string[];
   hasStaffProfile: boolean;
+  staffProfileComplete: boolean;
   canBypassStaffProfileRequirement: boolean;
   isStaffOrAdmin: boolean;
   shouldRedirectToUserProfile: boolean;
@@ -80,12 +81,71 @@ function hasLinkedStaffProfile(profile: StaffShellProfile): boolean {
   return Boolean((profile as FullProfileDto | undefined)?.staffInfo?.id);
 }
 
+function hasText(value: unknown): boolean {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isValidCccd(value: string | null | undefined): boolean {
+  return typeof value === "string" && /^\d{12}$/.test(value.trim());
+}
+
+function isCompleteFullProfileStaffInfo(profile: FullProfileDto): boolean {
+  const staffInfo = profile.staffInfo;
+  if (!staffInfo) return false;
+
+  return (
+    hasText(profile.first_name) &&
+    hasText(profile.last_name) &&
+    hasText(profile.email) &&
+    hasText(profile.phone) &&
+    hasText(profile.province) &&
+    hasText(profile.dataConsentAcceptedAt) &&
+    hasText(profile.dataConsentVersion) &&
+    profile.requiresStaffDataConsent !== true &&
+    isValidCccd(staffInfo.cccdNumber) &&
+    hasText(staffInfo.cccdIssuedDate) &&
+    hasText(staffInfo.cccdIssuedPlace) &&
+    hasText(staffInfo.birthDate) &&
+    hasText(staffInfo.university) &&
+    hasText(staffInfo.highSchool) &&
+    hasText(staffInfo.specialization) &&
+    hasText(staffInfo.bankAccount) &&
+    hasText(staffInfo.bankQrLink) &&
+    hasText(staffInfo.cccdFrontPath ?? staffInfo.cccdFrontUrl) &&
+    hasText(staffInfo.cccdBackPath ?? staffInfo.cccdBackUrl)
+  );
+}
+
+function hasCompletedStaffProfile(profile: StaffShellProfile): boolean {
+  if (!hasLinkedStaffProfile(profile)) return false;
+
+  const sessionProfile = profile as UserInfoDto | undefined;
+  if (typeof sessionProfile?.access?.staff?.profileComplete === "boolean") {
+    return sessionProfile.access.staff.profileComplete;
+  }
+
+  if (typeof sessionProfile?.staffProfileComplete === "boolean") {
+    return sessionProfile.staffProfileComplete;
+  }
+
+  return isCompleteFullProfileStaffInfo(profile as FullProfileDto);
+}
+
+function buildUserProfileRequirementHref(pathname: string): string {
+  const params = new URLSearchParams({
+    profile_required: "1",
+    from: pathname,
+  });
+  return `/user-profile?${params.toString()}`;
+}
+
 function resolveStaffShellContext(
   profile: StaffShellProfile,
 ): StaffShellAccessContext {
   const roleType = profile?.roleType;
   const staffRoles = getStaffRoles(profile);
   const hasStaffProfile = hasLinkedStaffProfile(profile);
+  const staffProfileComplete = hasCompletedStaffProfile(profile);
   const effectiveRoleTypes =
     (profile as UserInfoDto | undefined)?.effectiveRoleTypes ?? [];
   const isStaffOrAdmin =
@@ -109,9 +169,13 @@ function resolveStaffShellContext(
     roleType,
     staffRoles,
     hasStaffProfile,
+    staffProfileComplete,
     canBypassStaffProfileRequirement: isAdmin,
     isStaffOrAdmin,
-    shouldRedirectToUserProfile: isStaffOrAdmin && !hasStaffProfile && !isAdmin,
+    shouldRedirectToUserProfile:
+      isStaffOrAdmin &&
+      !isAdmin &&
+      (!hasStaffProfile || !staffProfileComplete),
     isAdmin,
     isTeacher,
     isCustomerCare,
@@ -119,7 +183,7 @@ function resolveStaffShellContext(
     isAccountant,
     isCommunication,
     isTechnical,
-    isAssistantStaff: hasStaffProfile && isAssistant,
+    isAssistantStaff: hasStaffProfile && staffProfileComplete && isAssistant,
     isLessonPlanner:
       staffRoles.includes("lesson_plan") ||
       staffRoles.includes("lesson_plan_head"),
@@ -237,7 +301,8 @@ export function resolveStaffShellRouteAccess(
     isLessonPlanner,
   } = context;
   const hasStaffWorkspaceAccess =
-    hasStaffProfile || canBypassStaffProfileRequirement;
+    canBypassStaffProfileRequirement ||
+    (hasStaffProfile && context.staffProfileComplete);
 
   const isAllowed =
     flags.isDashboardRoute ||
@@ -324,13 +389,13 @@ export function resolveStaffShellRouteAccess(
 
   const redirectHref = isAllowed
     ? null
-    : isAssistantStaff
-      ? "/staff"
-      : context.shouldRedirectToUserProfile
-        ? "/user-profile"
-        : !isStaffOrAdmin
-          ? "/"
-          : null;
+    : context.shouldRedirectToUserProfile
+        ? buildUserProfileRequirementHref(pathname)
+        : isAssistantStaff
+          ? "/staff"
+          : !isStaffOrAdmin
+            ? "/"
+            : null;
 
   return {
     isAllowed,

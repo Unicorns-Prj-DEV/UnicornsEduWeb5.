@@ -52,6 +52,31 @@ const authRedirect = compileModule("lib/auth-redirect.ts", {
   "@/lib/staff-shell-access": staffShellAccess,
 });
 
+const completedStaffAccess = {
+  staffProfileComplete: true,
+  access: {
+    admin: { canAccess: false, tier: null },
+    staff: { canAccess: true, profileComplete: true },
+    student: { canAccess: false },
+  },
+};
+
+const incompleteStaffAccess = {
+  staffProfileComplete: false,
+  requiresStaffDataConsent: true,
+  dataConsentAcceptedAt: null,
+  dataConsentVersion: null,
+  access: {
+    admin: { canAccess: false, tier: null },
+    staff: { canAccess: true, profileComplete: false },
+    student: { canAccess: false },
+  },
+};
+
+function userProfileRequiredHref(from) {
+  return `/user-profile?profile_required=1&from=${encodeURIComponent(from)}`;
+}
+
 test("post-login redirect sends accountant to staff shell", () => {
   assert.equal(
     authRedirect.resolvePostLoginRedirect({
@@ -63,12 +88,13 @@ test("post-login redirect sends accountant to staff shell", () => {
       staffRoles: ["accountant"],
       hasStaffProfile: true,
       hasStudentProfile: false,
+      ...completedStaffAccess,
     }),
     "/staff",
   );
 });
 
-test("post-login redirect no longer sends missing data consent to standalone consent page", () => {
+test("post-login redirect sends incomplete staff profile to user profile", () => {
   assert.equal(
     authRedirect.resolvePostLoginRedirect({
       id: "staff-user",
@@ -80,9 +106,57 @@ test("post-login redirect no longer sends missing data consent to standalone con
       staffRoles: ["teacher"],
       hasStaffProfile: true,
       hasStudentProfile: false,
+      ...incompleteStaffAccess,
     }),
-    "/staff",
+    userProfileRequiredHref("/staff"),
   );
+});
+
+test("non-admin staff roles are blocked from staff shell until profile and data consent are complete", () => {
+  const roleRoutes = [
+    ["teacher", "/staff/classes/class-1"],
+    ["lesson_plan", "/staff/lesson-plans"],
+    ["lesson_plan_head", "/staff/lesson-plans"],
+    ["accountant", "/staff/accountant-detail"],
+    ["communication", "/staff/communication-detail"],
+    ["technical", "/staff/technical-detail"],
+    ["customer_care", "/staff/customer-care-detail"],
+    ["assistant", "/staff/users"],
+  ];
+
+  for (const [staffRole, pathname] of roleRoutes) {
+    const session = {
+      id: `${staffRole}-user`,
+      accountHandle: staffRole,
+      roleType: "staff",
+      requiresPasswordSetup: false,
+      canAccessRestrictedRoutes: true,
+      staffRoles: [staffRole],
+      hasStaffProfile: true,
+      hasStudentProfile: false,
+      effectiveRoleTypes: ["staff"],
+      preferredRedirect: "/staff",
+      ...incompleteStaffAccess,
+    };
+
+    assert.equal(
+      staffShellAccess.resolveStaffShellRouteAccess(session, "/staff")
+        .redirectHref,
+      userProfileRequiredHref("/staff"),
+      staffRole,
+    );
+    assert.equal(
+      staffShellAccess.resolveStaffShellRouteAccess(session, pathname)
+        .redirectHref,
+      userProfileRequiredHref(pathname),
+      staffRole,
+    );
+    assert.equal(
+      authRedirect.resolvePostLoginRedirect(session),
+      userProfileRequiredHref("/staff"),
+      staffRole,
+    );
+  }
 });
 
 test("post-login redirect ignores admin next paths for non-admin staff", () => {
@@ -97,6 +171,7 @@ test("post-login redirect ignores admin next paths for non-admin staff", () => {
         staffRoles: ["accountant"],
         hasStaffProfile: true,
         hasStudentProfile: false,
+        ...completedStaffAccess,
       },
       "/admin/classes",
     ),
@@ -195,6 +270,12 @@ test("linked staff roles unlock staff shell even when primary role is student", 
         staffRoles: ["technical"],
         hasStaffProfile: true,
         hasStudentProfile: true,
+        staffProfileComplete: true,
+        access: {
+          admin: { canAccess: false, tier: null },
+          staff: { canAccess: true, profileComplete: true },
+          student: { canAccess: true },
+        },
       },
       "/staff/technical-detail",
     ).isAllowed,
@@ -215,6 +296,7 @@ test("staff data consent route is no longer a staff workspace route", () => {
         staffRoles: ["teacher"],
         hasStaffProfile: true,
         hasStudentProfile: false,
+        ...incompleteStaffAccess,
       },
       "/staff/data-consent",
     ).isAllowed,
@@ -234,6 +316,12 @@ test("linked staff teacher unlocks class detail when primary role is student", (
         staffRoles: ["teacher"],
         hasStaffProfile: true,
         hasStudentProfile: true,
+        staffProfileComplete: true,
+        access: {
+          admin: { canAccess: false, tier: null },
+          staff: { canAccess: true, profileComplete: true },
+          student: { canAccess: true },
+        },
       },
       "/staff/classes/class-1",
     ).isAllowed,

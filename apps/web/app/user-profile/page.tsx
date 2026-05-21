@@ -23,7 +23,6 @@ import type {
   UpdateMyStaffProfileDto,
   UpdateMyStudentProfileDto,
 } from "@/dtos/profile.dto";
-import { Role } from "@/dtos/Auth.dto";
 import { resolveCanonicalUserName } from "@/dtos/user-name.dto";
 import { OPEN_EMAIL_VERIFICATION_MODAL_EVENT } from "@/lib/email-verification-access";
 
@@ -144,12 +143,6 @@ function getGenderLabel(gender: string | null | undefined): string {
   if (gender === "female") return "Nữ";
   if (gender === "male") return "Nam";
   return "—";
-}
-
-function normalizeRoleType(value: string | undefined, fallback: Role): Role {
-  return Object.values(Role).includes(value as Role)
-    ? (value as Role)
-    : fallback;
 }
 
 function getToneColor(tone: Tone): string {
@@ -551,7 +544,7 @@ function ErrorState({ status }: { status?: number }) {
 
 export default function UserProfilePage() {
   const queryClient = useQueryClient();
-  const { user, setUser } = useAuth();
+  const { setUser } = useAuth();
   const searchParams = useSearchParams();
   const getSearchParam = searchParams.get.bind(searchParams);
   const [editUser, setEditUser] = useState(false);
@@ -604,31 +597,20 @@ export default function UserProfilePage() {
     },
   });
 
-  const syncFullProfile = (
-    data: FullProfileDto,
-    options?: { syncAuthUser?: boolean },
-  ) => {
+  const refreshAuthSession = async () => {
+    try {
+      const nextUser = await authApi.getSession();
+      setUser(nextUser);
+      queryClient.setQueryData(["auth", "session"], nextUser);
+      return nextUser;
+    } catch {
+      return null;
+    }
+  };
+
+  const syncFullProfile = (data: FullProfileDto) => {
     queryClient.setQueryData(["profile", "full"], data);
     queryClient.setQueryData(["auth", "full-profile"], data);
-
-    if (!options?.syncAuthUser) {
-      return;
-    }
-
-    setUser({
-      ...user,
-      id: data.id,
-      accountHandle: data.accountHandle,
-      roleType: normalizeRoleType(data.roleType, user.roleType),
-      requiresPasswordSetup: user.requiresPasswordSetup,
-      avatarUrl: data.avatarUrl ?? null,
-      dataConsentAcceptedAt: data.dataConsentAcceptedAt ?? null,
-      dataConsentVersion: data.dataConsentVersion ?? null,
-      requiresStaffDataConsent: Boolean(data.requiresStaffDataConsent),
-      staffRoles: data.staffInfo?.roles ?? [],
-      hasStaffProfile: Boolean(data.staffInfo?.id),
-      hasStudentProfile: Boolean(data.studentInfo?.id),
-    });
 
     void queryClient.invalidateQueries({
       queryKey: ["staff", "self", "detail"],
@@ -642,8 +624,9 @@ export default function UserProfilePage() {
 
   const updateProfileMutation = useMutation({
     mutationFn: authApi.updateMyProfile,
-    onSuccess: (data) => {
-      syncFullProfile(data, { syncAuthUser: true });
+    onSuccess: async (data) => {
+      syncFullProfile(data);
+      await refreshAuthSession();
       setEditUser(false);
       toast.success("Đã cập nhật thông tin tài khoản.");
     },
@@ -655,8 +638,9 @@ export default function UserProfilePage() {
 
   const updateStaffMutation = useMutation({
     mutationFn: authApi.updateMyStaffProfile,
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       syncFullProfile(data);
+      await refreshAuthSession();
       setEditStaff(false);
       toast.success("Đã cập nhật thông tin nhân sự.");
     },
@@ -668,9 +652,10 @@ export default function UserProfilePage() {
 
   const uploadStaffCccdMutation = useMutation({
     mutationFn: authApi.uploadMyStaffCccdImages,
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["profile", "full"] });
       queryClient.invalidateQueries({ queryKey: ["auth", "full-profile"] });
+      await refreshAuthSession();
       setStaffFrontImage(null);
       setStaffBackImage(null);
       toast.success("Đã cập nhật ảnh CCCD.");
@@ -696,8 +681,9 @@ export default function UserProfilePage() {
 
   const uploadAvatarMutation = useMutation({
     mutationFn: authApi.uploadMyAvatar,
-    onSuccess: (data) => {
-      syncFullProfile(data, { syncAuthUser: true });
+    onSuccess: async (data) => {
+      syncFullProfile(data);
+      await refreshAuthSession();
       setAvatarFile(null);
       toast.success("Đã cập nhật avatar.");
     },
@@ -709,8 +695,9 @@ export default function UserProfilePage() {
 
   const deleteAvatarMutation = useMutation({
     mutationFn: authApi.deleteMyAvatar,
-    onSuccess: (data) => {
-      syncFullProfile(data, { syncAuthUser: true });
+    onSuccess: async (data) => {
+      syncFullProfile(data);
+      await refreshAuthSession();
       setAvatarFile(null);
       toast.success("Đã xoá avatar.");
     },
