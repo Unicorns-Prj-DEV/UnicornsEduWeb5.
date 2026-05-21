@@ -142,7 +142,11 @@ describe('SePayService', () => {
         '4d560c5e-c3df-4470-b59a-2fd273ef95ef',
         '71f0d9ec-c497-4d67-9256-c09e5d5d4334',
       ],
+      classNames: ['Toan 8A', 'Ly 8A'],
     });
+
+    const expectedTransferNote =
+      'NAPVI 0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7 4d560c5e-c3df-4470-b59a-2fd273ef95ef 71f0d9ec-c497-4d67-9256-c09e5d5d4334 LOP Toan 8A, Ly 8A';
 
     expect(result).toMatchObject({
       studentId: '0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7',
@@ -150,8 +154,7 @@ describe('SePayService', () => {
         '4d560c5e-c3df-4470-b59a-2fd273ef95ef',
         '71f0d9ec-c497-4d67-9256-c09e5d5d4334',
       ],
-      transferNote:
-        'NAPVI 0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7 4d560c5e-c3df-4470-b59a-2fd273ef95ef 71f0d9ec-c497-4d67-9256-c09e5d5d4334',
+      transferNote: expectedTransferNote,
       bankName: 'MBBank',
       accountNumber: '722732006',
       accountHolderName: 'VU MINH PHUONG',
@@ -160,8 +163,8 @@ describe('SePayService', () => {
       'https://img.vietqr.io/image/970422-722732006-compact2.png',
     );
     expect(result.qrCodeUrl).not.toContain('amount=');
-    expect(result.qrCodeUrl).toContain(
-      'addInfo=NAPVI+0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7+4d560c5e-c3df-4470-b59a-2fd273ef95ef+71f0d9ec-c497-4d67-9256-c09e5d5d4334',
+    expect(new URL(result.qrCodeUrl).searchParams.get('addInfo')).toBe(
+      expectedTransferNote,
     );
     expect(http.post).not.toHaveBeenCalled();
   });

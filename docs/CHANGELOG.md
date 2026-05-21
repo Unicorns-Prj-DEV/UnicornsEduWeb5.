@@ -23,6 +23,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- **BREAKING – Prefixed Entity IDs:** PK của `student_info`, `staff_info`, `classes` chuyển từ bare UUID sang định dạng có prefix: `UNIST-{uuid}`, `UNISTAFF-{uuid}`, `UNICL-{uuid}`. ID được sinh bởi `generateStudentId()` / `generateStaffId()` / `generateClassId()` trong `apps/api/src/common/entity-id.ts`. API và SePay webhook **chỉ** chấp nhận prefixed ID sau deploy; QR cũ (bare UUID trong NAPVI note) không còn reconcile được — cần tái phát hành QR tĩnh sau chạy migration. Migration SQL: `20260521100000_prefixed_student_staff_class_ids`. Sau deploy: chạy resync Google Calendar cho các lớp có lịch.
+
 - FE loading state: Thêm các tệp loading suspense boundaries (`loading.tsx`) tại `/admin`, `/staff`, và `/student` hiển thị khung skeleton SaaS cao cấp phẳng siêu mượt khi bấm chuyển trang tức thì.
 
 ### Changed
@@ -62,6 +64,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
+- BE SePay QR tĩnh nạp ví học sinh: nội dung chuyển khoản giữ `NAPVI <student_info.id> <active_class_id...>` ở đầu để webhook reconcile, đồng thời bổ sung hậu tố `LOP <tên lớp...>` để QR copy/hiển thị thể hiện rõ các lớp đang học.
+
+- FE `/admin/students`: nút QR copy nhanh trên danh sách học sinh dùng `studentClasses` active có sẵn trong row để bổ sung các `UNICL-*` còn thiếu trước hậu tố `LOP <tên lớp...>` trong `addInfo` trước khi fetch ảnh VietQR, tránh nội dung trong ảnh QR thiếu id lớp active.
+
 - BE `GET /staff/:id/income-summary` — `classMonthlySummaries` (card **Lớp phụ trách**) trả `total` / `paid` / `unpaid` đều là gross allowance trước CPVH và trước thuế; tổng hợp thu nhập chung vẫn giữ net theo contract hiện tại. Docs: `docs/README.md`, `docs/pages/staff.md`; DTO comment `StaffIncomeClassSummary`.
 
 - BE Google Meet link cố định cho staff: sau khi admin OAuth tạo Meet setup event, backend gọi Google Meet API `v2/spaces` để set `config.accessType=OPEN` cho link mới, rồi gọi `v2beta/spaces/{space}/members` để cấp role `COHOST` cho email staff; bỏ field `role: "CO_HOST"` khỏi Calendar attendees vì Calendar API không hỗ trợ field này. Nếu set `OPEN` hoặc cấp `COHOST` lỗi, link vẫn được lưu vào `staff_info.google_meet_link`; regenerate/auto-create backfill link vào `Class.schedule` và `makeup_schedule_events` do staff phụ trách, còn calendar feed ưu tiên link cố định của staff thay vì link cũ theo từng buổi. Docs/env cập nhật scope `meetings.space.settings`.
@@ -74,10 +80,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 - FE card **Lịch dạy bù** (`/admin/classes/[id]`, `/staff/classes/[id]`): danh sách chỉ tải buổi có `date >= hôm nay` (ẩn buổi đã qua); tổng và phân trang khớp filter. Docs: `docs/pages/admin.md`, `docs/pages/staff.md`.
 - CI Docker deploy: build API/Web chuyển sang runner ARM64 native `ubuntu-24.04-arm` với `platforms: linux/arm64` và Dockerfile dùng BuildKit cache mount cho pnpm store, tránh `pnpm install --frozen-lockfile` trên ARM64 qua QEMU chạy quá lâu nhưng vẫn có manifest đúng cho VPS ARM64.
-- SePay QR tĩnh nạp ví học sinh đổi nội dung chuyển khoản sang `NAPVI <student_info.id> <active_class_id...>`; webhook gửi biên lai riêng cho phụ huynh và CSKH, kèm dòng nội dung tiếng Việt trong email để nhận diện học sinh/lớp/số tiền.
+- SePay QR tĩnh nạp ví học sinh đổi nội dung chuyển khoản sang `NAPVI <student_info.id> <active_class_id...> LOP <tên lớp...>`; webhook gửi biên lai riêng cho phụ huynh và CSKH, kèm dòng nội dung tiếng Việt trong email để nhận diện học sinh/lớp/số tiền.
 - BE `GET /student` và `GET /customer-care/staff/:staffId/students`: trả thêm tổng `topup` 21 ngày gần nhất và cờ đạt ngưỡng `300.000` VND; endpoint CSKH đổi sang response phân trang `{ data, meta }`.
 - BE `GET /student/:id/wallet-history`: mở quyền cho `staff.customer_care` xem lịch sử ví của học sinh được phân công, dùng cùng assignment check với chi tiết học sinh.
-- SePay nạp ví học sinh: UI `/student` và popup ví admin/staff chuyển từ nhập số tiền + tạo order sang QR tĩnh theo học sinh (`GET /users/me/student-wallet-sepay-static-qr`, `GET /student/:id/wallet-sepay-static-qr`) với nội dung `NAPVI <student_info.id> <active_class_id...>`; webhook cộng ví theo số tiền thực nhận và tạo ledger completed để chống cộng trùng. Docs: `docs/pages/auth.md`, `docs/pages/student.md`, `docs/pages/admin.md`, `docs/pages/staff.md`, `docs/pages/README.md`, `docs/Cách làm việc.md`.
+- SePay nạp ví học sinh: UI `/student` và popup ví admin/staff chuyển từ nhập số tiền + tạo order sang QR tĩnh theo học sinh (`GET /users/me/student-wallet-sepay-static-qr`, `GET /student/:id/wallet-sepay-static-qr`) với nội dung `NAPVI <student_info.id> <active_class_id...> LOP <tên lớp...>`; webhook cộng ví theo số tiền thực nhận và tạo ledger completed để chống cộng trùng. Docs: `docs/pages/auth.md`, `docs/pages/student.md`, `docs/pages/admin.md`, `docs/pages/staff.md`, `docs/pages/README.md`, `docs/Cách làm việc.md`.
 - Deploy/Nginx: production chuyển sang Cloudflare Tunnel; NGINX chỉ bind `127.0.0.1:80`, bỏ vhost HTTPS/certbot/domain cũ, preserve `X-Forwarded-Proto`, deploy smoke test qua loopback local thay vì `VPS_PUBLIC_HOST`. Docs `docs/Cách làm việc.md`.
 - CI: job **`mirror-nginx`** copy manifest `docker.io/library/nginx:1.27-alpine` → **`ghcr.io/unicorns-prj-dev/nginx:1.27-alpine`** (`buildx imagetools create`); `docker-compose.prod.yml` trỏ `nginx` sang GHCR; `deploy` chờ `mirror-nginx`. VPS không còn phụ thuộc pull trực tiếp Docker Hub cho nginx. Docs `docs/Cách làm việc.md`.
 - Deploy VPS script [`scripts/gha-deploy-remote.sh`](../scripts/gha-deploy-remote.sh): **retry** `docker compose pull` (mặc định 5 lần, backoff) cho lỗi mạng/ghcr tạm thời. Docs `docs/Cách làm việc.md`.

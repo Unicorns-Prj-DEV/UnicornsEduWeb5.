@@ -2,7 +2,7 @@
 /// `INCLUDE (id, roles)` for index-only scans (auth/session); Prisma has no INCLUDE syntax — see
 /// migration `20260506140000_staff_info_user_id_covering_index`.
 model StaffInfo {
-  id                                  String                               @id @default(uuid())
+  id                                  String                               @id
   cccdNumber                          String?                              @unique @map("cccd_number")
   cccdIssuedDate                      DateTime?                            @map("cccd_issued_date") @db.Date
   cccdIssuedPlace                     String?                              @map("cccd_issued_place")
@@ -48,7 +48,7 @@ model StaffInfo {
 }
 
 model StudentInfo {
-  id                   String                            @id @default(uuid())
+  id                   String                            @id
   fullName             String                            @map("full_name")
   email                String?
   school               String?

@@ -14,6 +14,10 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import {
+  ParseStaffIdPipe,
+  ParseClassIdPipe,
+} from 'src/common/pipes/parse-entity-id.pipe';
+import {
   ApiBody,
   ApiCookieAuth,
   ApiConsumes,
@@ -309,7 +313,7 @@ export class StaffController {
   @ApiResponse({ status: 400, description: 'month/year/days invalid.' })
   @ApiResponse({ status: 404, description: 'Staff not found.' })
   async getStaffIncomeSummary(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseStaffIdPipe()) id: string,
     @Query('month') month: string,
     @Query('year') year: string,
     @Query('days') days?: string,
@@ -352,7 +356,7 @@ export class StaffController {
   @ApiResponse({ status: 400, description: 'month/year invalid.' })
   @ApiResponse({ status: 404, description: 'Staff not found.' })
   async getStaffPaymentPreview(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseStaffIdPipe()) id: string,
     @Query() query: StaffPaymentMonthDto,
   ): Promise<StaffPaymentPreviewDto> {
     return this.staffService.getPaymentPreview(id, query);
@@ -379,7 +383,7 @@ export class StaffController {
   @ApiResponse({ status: 400, description: 'year invalid.' })
   @ApiResponse({ status: 404, description: 'Staff not found.' })
   async getStaffDepositPaymentPreview(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseStaffIdPipe()) id: string,
     @Query() query: StaffDepositPaymentYearDto,
   ): Promise<StaffDepositPaymentPreviewDto> {
     return this.staffService.getDepositPaymentPreview(id, query);
@@ -405,7 +409,7 @@ export class StaffController {
   @ApiResponse({ status: 404, description: 'Staff not found.' })
   async payAllStaffPayments(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseStaffIdPipe()) id: string,
     @Body() data: StaffPayAllPaymentsDto,
   ): Promise<StaffPayAllPaymentsResultDto> {
     return this.staffService.payAllPayments(id, data, {
@@ -434,7 +438,7 @@ export class StaffController {
   @ApiResponse({ status: 404, description: 'Staff not found.' })
   async payStaffDepositSessions(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseStaffIdPipe()) id: string,
     @Body() data: StaffPayDepositSessionsDto,
   ): Promise<StaffPayDepositSessionsResultDto> {
     return this.staffService.payDepositSessions(id, data, {
@@ -466,8 +470,8 @@ export class StaffController {
   })
   async patchStaffClassTeacherOperatingDeduction(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Param('classId', new ParseUUIDPipe()) classId: string,
+    @Param('id', new ParseStaffIdPipe()) id: string,
+    @Param('classId', new ParseClassIdPipe()) classId: string,
     @Body() body: PatchStaffClassTeacherOperatingDeductionDto,
   ) {
     return this.staffService.patchStaffClassTeacherOperatingDeduction(
@@ -492,7 +496,7 @@ export class StaffController {
     description: 'New Google Meet link generated and saved.',
   })
   @ApiResponse({ status: 404, description: 'Staff not found.' })
-  async regenerateMeetLink(@Param('id', new ParseUUIDPipe()) id: string) {
+  async regenerateMeetLink(@Param('id', new ParseStaffIdPipe()) id: string) {
     return this.staffService.regenerateMeetLink(id);
   }
 
@@ -504,7 +508,7 @@ export class StaffController {
   @ApiParam({ name: 'id', description: 'Staff id' })
   @ApiResponse({ status: 200, description: 'Staff found.' })
   @ApiResponse({ status: 404, description: 'Staff not found.' })
-  async getStaffById(@Param('id', new ParseUUIDPipe()) id: string) {
+  async getStaffById(@Param('id', new ParseStaffIdPipe()) id: string) {
     return this.staffService.getStaffById(id);
   }
 
@@ -602,7 +606,7 @@ export class StaffController {
   @ApiResponse({ status: 404, description: 'Staff not found.' })
   async updateStaffStatus(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseStaffIdPipe()) id: string,
     @Body() body: UpdateStaffStatusDto,
   ) {
     return this.staffService.updateStaffStatus(id, body, {
@@ -623,7 +627,7 @@ export class StaffController {
   @ApiResponse({ status: 404, description: 'Staff not found.' })
   async deleteStaff(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseStaffIdPipe()) id: string,
   ) {
     return this.staffService.deleteStaff(id, {
       userId: user.id,

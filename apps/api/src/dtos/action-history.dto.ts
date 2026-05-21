@@ -30,11 +30,13 @@ export class ActionHistoryQueryDto extends PaginationQueryDto {
   actionType?: 'create' | 'update' | 'delete';
 
   @ApiPropertyOptional({
-    description: 'Filter by exact entity id.',
-    example: '97b2dbfc-f6bb-4b2f-bd36-46e820f6f4c8',
+    description:
+      'Filter by exact entity id. Accepts prefixed IDs (UNIST-…, UNICL-…, UNISTAFF-…) or plain UUIDs for other entity types (session, user, …).',
+    example: 'UNIST-0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7',
   })
   @IsOptional()
-  @IsUUID()
+  @IsString()
+  @MaxLength(120)
   entityId?: string;
 
   @ApiPropertyOptional({

@@ -15,6 +15,7 @@ export interface StudentListMeta {
 }
 
 export interface StudentClassItem {
+  status?: "active" | "inactive" | null;
   class: {
     id: string;
     name: string;

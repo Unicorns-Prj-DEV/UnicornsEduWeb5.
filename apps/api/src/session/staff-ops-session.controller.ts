@@ -8,6 +8,7 @@ import {
   Put,
   Query,
 } from '@nestjs/common';
+import { ParseClassIdPipe } from 'src/common/pipes/parse-entity-id.pipe';
 import {
   ApiBody,
   ApiCookieAuth,
@@ -50,7 +51,7 @@ export class StaffOpsSessionController {
   })
   async getSessionsByClassId(
     @CurrentUser() user: JwtPayload,
-    @Param('classId', new ParseUUIDPipe()) classId: string,
+    @Param('classId', new ParseClassIdPipe()) classId: string,
     @Query('month') month: string,
     @Query('year') year: string,
   ) {
@@ -74,7 +75,7 @@ export class StaffOpsSessionController {
   @ApiResponse({ status: 201, description: 'Session created.' })
   async createSession(
     @CurrentUser() user: JwtPayload,
-    @Param('classId', new ParseUUIDPipe()) classId: string,
+    @Param('classId', new ParseClassIdPipe()) classId: string,
     @Body() dto: CreateStaffOpsSessionDto,
   ) {
     return this.sessionService.createSessionForStaff(

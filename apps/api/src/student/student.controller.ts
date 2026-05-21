@@ -10,6 +10,7 @@ import {
   Put,
   Query,
 } from '@nestjs/common';
+import { ParseStudentIdPipe } from 'src/common/pipes/parse-entity-id.pipe';
 import {
   ApiBody,
   ApiCookieAuth,
@@ -376,7 +377,7 @@ export class StudentController {
   )
   async createStudentWalletDirectTopUpRequest(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseStudentIdPipe()) id: string,
     @Body() body: CreateStudentWalletDirectTopUpRequestDto,
   ): Promise<StudentWalletDirectTopUpRequestResponseDto> {
     return this.studentService.createStudentWalletDirectTopUpRequest(id, body, {
@@ -409,7 +410,7 @@ export class StudentController {
   )
   async createStudentSePayTopUpOrder(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseStudentIdPipe()) id: string,
     @Body() body: CreateStudentSePayTopUpOrderDto,
   ): Promise<StudentSePayTopUpOrderResponseDto> {
     return this.studentService.createStudentSePayTopUpOrder(id, body, {
@@ -423,7 +424,7 @@ export class StudentController {
   @ApiOperation({
     summary: 'Get static SePay QR for a student wallet top-up',
     description:
-      'Return a static bank-transfer QR for a student. The QR has no amount and uses transfer note NAPVI <studentId> <activeClassId...> for webhook reconciliation.',
+      'Return a static bank-transfer QR for a student. The QR has no amount and uses transfer note NAPVI <studentId> <activeClassId...> LOP <activeClassName...>; webhook reconciliation uses the id tokens before the class-name suffix.',
   })
   @ApiParam({ name: 'id', description: 'Student ID' })
   @ApiResponse({
@@ -444,7 +445,7 @@ export class StudentController {
   )
   async getStudentSePayStaticQr(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseStudentIdPipe()) id: string,
   ): Promise<StudentSePayStaticQrResponseDto> {
     return this.studentService.getStudentSePayStaticQr(id, {
       userId: user.id,
@@ -469,7 +470,7 @@ export class StudentController {
   @ApiResponse({ status: 404, description: 'Student or class not found.' })
   async updateStudentClasses(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseStudentIdPipe()) id: string,
     @Body() body: UpdateStudentClassesDto,
   ) {
     return this.studentService.updateStudentClasses(id, body, {
@@ -494,7 +495,7 @@ export class StudentController {
   @ApiResponse({ status: 404, description: 'Student not found.' })
   async updateStudentById(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseStudentIdPipe()) id: string,
     @Body() body: UpdateStudentBodyDto,
   ) {
     return this.studentService.updateStudentById(id, body, {
@@ -520,7 +521,7 @@ export class StudentController {
   @ApiResponse({ status: 404, description: 'Student not found.' })
   async updateStudentStatus(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseStudentIdPipe()) id: string,
     @Body() body: UpdateStudentStatusDto,
   ) {
     return this.studentService.updateStudentStatus(id, body, {
@@ -563,7 +564,7 @@ export class StudentController {
   )
   async getStudentWalletHistory(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseStudentIdPipe()) id: string,
     @Query() query: StudentWalletHistoryQueryDto,
   ) {
     return this.studentService.getStudentWalletHistory(id, query, {
@@ -587,7 +588,7 @@ export class StudentController {
   )
   async getStudentById(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseStudentIdPipe()) id: string,
   ) {
     return this.studentService.getStudentById(id, {
       userId: user.id,
@@ -614,7 +615,7 @@ export class StudentController {
   )
   async getStudentExamSchedules(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseStudentIdPipe()) id: string,
   ) {
     return this.studentService.getStudentExamSchedules(id, {
       userId: user.id,
@@ -642,7 +643,7 @@ export class StudentController {
   @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   async updateStudentExamSchedules(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseStudentIdPipe()) id: string,
     @Body() body: UpdateStudentExamSchedulesDto,
   ) {
     return this.studentService.updateStudentExamSchedules(id, body.items, {
@@ -662,7 +663,7 @@ export class StudentController {
   @ApiResponse({ status: 404, description: 'Student not found.' })
   async deleteStudent(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseStudentIdPipe()) id: string,
   ) {
     return this.studentService.deleteStudent(id, {
       userId: user.id,

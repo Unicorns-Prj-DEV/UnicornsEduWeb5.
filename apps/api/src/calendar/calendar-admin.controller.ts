@@ -12,6 +12,7 @@ import {
   Put,
   Query,
 } from '@nestjs/common';
+import { ParseClassIdPipe } from 'src/common/pipes/parse-entity-id.pipe';
 import {
   ApiBody,
   ApiCookieAuth,
@@ -134,7 +135,7 @@ export class CalendarAdminController {
   })
   @ApiResponse({ status: 404, description: 'Class không tồn tại' })
   async getClassSchedulePattern(
-    @Param('classId', new ParseUUIDPipe()) classId: string,
+    @Param('classId', new ParseClassIdPipe()) classId: string,
   ) {
     return this.calendarService.getClassSchedulePattern(classId);
   }
@@ -153,7 +154,7 @@ export class CalendarAdminController {
   })
   @ApiResponse({ status: 404, description: 'Class không tồn tại' })
   async updateClassSchedulePattern(
-    @Param('classId', new ParseUUIDPipe()) classId: string,
+    @Param('classId', new ParseClassIdPipe()) classId: string,
     @Body() dto: ClassSchedulePatternDto,
   ) {
     return this.calendarService.updateClassSchedulePattern(

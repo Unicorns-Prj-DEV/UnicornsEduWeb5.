@@ -17,6 +17,11 @@ import {
   Matches,
   ValidateNested,
 } from 'class-validator';
+import {
+  IsClassId,
+  IsStaffId,
+  IsStudentId,
+} from '../common/entity-id.validators';
 import { Type } from 'class-transformer';
 
 const CALENDAR_EVENT_TYPES = ['fixed', 'makeup', 'exam'] as const;
@@ -59,10 +64,10 @@ export class ClassScheduleEntryDto {
 
   @ApiPropertyOptional({
     description: 'Responsible tutor for this weekly schedule entry',
-    example: '660e8400-e29b-41d4-a716-446655440001',
+    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
   })
   @IsOptional()
-  @IsUUID()
+  @IsStaffId()
   teacherId?: string;
 
   @ApiPropertyOptional({
@@ -129,9 +134,9 @@ export class GoogleCalendarResyncWarningDto {
 export class ClassScheduleGoogleCalendarResyncSummaryDto {
   @ApiProperty({
     description: 'Class id that was resynced',
-    example: '550e8400-e29b-41d4-a716-446655440000',
+    example: 'UNICL-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
   })
-  @IsUUID()
+  @IsClassId()
   classId: string;
 
   @ApiProperty({
@@ -145,10 +150,10 @@ export class ClassScheduleGoogleCalendarResyncSummaryDto {
 
   @ApiPropertyOptional({
     description: 'Teacher id for teacher-scoped resync',
-    example: '660e8400-e29b-41d4-a716-446655440001',
+    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
   })
   @IsOptional()
-  @IsUUID()
+  @IsStaffId()
   teacherId?: string;
 
   @ApiProperty({
@@ -244,9 +249,9 @@ export class ClassScheduleGoogleCalendarResyncResponseDto {
 export class MakeupGoogleCalendarResyncSummaryDto {
   @ApiProperty({
     description: 'Class id that owns the makeup event',
-    example: '550e8400-e29b-41d4-a716-446655440000',
+    example: 'UNICL-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
   })
-  @IsUUID()
+  @IsClassId()
   classId: string;
 
   @ApiProperty({
@@ -258,9 +263,9 @@ export class MakeupGoogleCalendarResyncSummaryDto {
 
   @ApiProperty({
     description: 'Teacher id responsible for the makeup event',
-    example: '770e8400-e29b-41d4-a716-446655440000',
+    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
   })
-  @IsUUID()
+  @IsStaffId()
   teacherId: string;
 
   @ApiPropertyOptional({
@@ -337,19 +342,19 @@ export class ClassScheduleEventDto {
 
   @ApiPropertyOptional({
     description: 'Primary class id for this event if available',
-    example: '550e8400-e29b-41d4-a716-446655440000',
+    example: 'UNICL-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
   })
   @IsOptional()
-  @IsUUID()
+  @IsClassId()
   classId?: string;
 
   @ApiProperty({
     description: 'Related class ids for filter matching',
     type: [String],
-    example: ['550e8400-e29b-41d4-a716-446655440000'],
+    example: ['UNICL-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'],
   })
   @IsArray()
-  @IsUUID(undefined, { each: true })
+  @IsClassId({ each: true })
   classIds: string[];
 
   @ApiPropertyOptional({
@@ -371,11 +376,11 @@ export class ClassScheduleEventDto {
 
   @ApiProperty({
     description: 'Teacher IDs assigned to this event',
-    example: ['660e8400-e29b-41d4-a716-446655440001'],
+    example: ['UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'],
     type: [String],
   })
   @IsArray()
-  @IsUUID(undefined, { each: true })
+  @IsStaffId({ each: true })
   teacherIds: string[];
 
   @ApiProperty({
@@ -389,10 +394,10 @@ export class ClassScheduleEventDto {
 
   @ApiPropertyOptional({
     description: 'Student ID for exam events',
-    example: '770e8400-e29b-41d4-a716-446655440001',
+    example: 'UNIST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
   })
   @IsOptional()
-  @IsUUID()
+  @IsStudentId()
   studentId?: string;
 
   @ApiPropertyOptional({
@@ -467,27 +472,27 @@ export class ClassScheduleEventDto {
 
 export class ClassScheduleFilterDto {
   @ApiPropertyOptional({
-    description: 'Filter by class ID (UUID)',
-    example: '550e8400-e29b-41d4-a716-446655440000',
+    description: 'Filter by class ID',
+    example: 'UNICL-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
   })
   @IsOptional()
-  @IsUUID()
+  @IsClassId()
   classId?: string;
 
   @ApiPropertyOptional({
-    description: 'Filter by teacher ID (UUID)',
-    example: '660e8400-e29b-41d4-a716-446655440001',
+    description: 'Filter by teacher ID',
+    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
   })
   @IsOptional()
-  @IsUUID()
+  @IsStaffId()
   teacherId?: string;
 
   @ApiPropertyOptional({
-    description: 'Filter by student ID (UUID)',
-    example: '770e8400-e29b-41d4-a716-446655440001',
+    description: 'Filter by student ID',
+    example: 'UNIST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
   })
   @IsOptional()
-  @IsUUID()
+  @IsStudentId()
   studentId?: string;
 
   @ApiProperty({
@@ -540,16 +545,16 @@ export class MakeupScheduleEventDto {
 
   @ApiProperty({
     description: 'Class id',
-    example: '660e8400-e29b-41d4-a716-446655440000',
+    example: 'UNICL-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
   })
-  @IsUUID()
+  @IsClassId()
   classId: string;
 
   @ApiProperty({
     description: 'Teacher id',
-    example: '770e8400-e29b-41d4-a716-446655440000',
+    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
   })
-  @IsUUID()
+  @IsStaffId()
   teacherId: string;
 
   @ApiPropertyOptional({
@@ -687,16 +692,16 @@ export class MakeupScheduleEventDto {
 export class CreateMakeupScheduleEventDto {
   @ApiProperty({
     description: 'Class id',
-    example: '660e8400-e29b-41d4-a716-446655440000',
+    example: 'UNICL-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
   })
-  @IsUUID()
+  @IsClassId()
   classId: string;
 
   @ApiProperty({
     description: 'Teacher id',
-    example: '770e8400-e29b-41d4-a716-446655440000',
+    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
   })
-  @IsUUID()
+  @IsStaffId()
   teacherId: string;
 
   @ApiProperty({

@@ -17,6 +17,11 @@ import {
   ValidateNested,
 } from 'class-validator';
 import {
+  IsStudentId,
+  IsStaffId,
+  IsClassId,
+} from '../common/entity-id.validators';
+import {
   Gender,
   StudentStatus,
   StudentWalletDirectTopUpRequestStatus,
@@ -148,12 +153,12 @@ export class UpdateStudentBodyDto {
   drop_out_date?: string;
 
   @ApiPropertyOptional({
-    example: '20bf3b10-a7a1-43da-bbd2-f7a1d55b5ca7',
+    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
     description: 'Assigned customer care staff ID. Set null to clear.',
     nullable: true,
   })
   @IsOptional()
-  @IsUUID()
+  @IsStaffId()
   customer_care_staff_id?: string | null;
 
   @ApiPropertyOptional({
@@ -237,8 +242,11 @@ export class CreateStudentDto {
 }
 
 export class UpdateStudentDto extends UpdateStudentBodyDto {
-  @ApiProperty({ description: 'Student id' })
-  @IsUUID()
+  @ApiProperty({
+    description: 'Student id',
+    example: 'UNIST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+  })
+  @IsStudentId()
   id: string;
 }
 
@@ -253,8 +261,11 @@ export class UpdateStudentStatusDto {
 }
 
 export class UpdateStudentAccountBalanceCreateDto {
-  @ApiProperty({ description: 'Student id' })
-  @IsUUID()
+  @ApiProperty({
+    description: 'Student id',
+    example: 'UNIST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+  })
+  @IsStudentId()
   student_id: string;
 
   @ApiProperty({
@@ -386,7 +397,7 @@ export class StudentSePayStaticQrResponseDto {
   @ApiProperty({
     description: 'Nội dung chuyển khoản cố định để webhook map về học sinh.',
     example:
-      'NAPVI 0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7 4d560c5e-c3df-4470-b59a-2fd273ef95ef',
+      'NAPVI UNIST-0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7 UNICL-4d560c5e-c3df-4470-b59a-2fd273ef95ef LOP Toan 8A',
   })
   transferNote!: string;
 
@@ -534,10 +545,13 @@ export class UpdateStudentClassesDto {
     description:
       'Class ids assigned to the student. Replaces current memberships.',
     type: [String],
-    example: ['uuid-1', 'uuid-2'],
+    example: [
+      'UNICL-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+      'UNICL-yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy',
+    ],
   })
   @IsArray()
-  @IsUUID('4', { each: true })
+  @IsClassId({ each: true })
   class_ids: string[];
 }
 

@@ -15,12 +15,16 @@ import {
   Matches,
   MaxLength,
 } from 'class-validator';
+import { IsStaffId } from '../common/entity-id.validators';
 
 const MONTH_KEY_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 export class CreateExtraAllowanceDto {
-  @ApiProperty({ description: 'Staff id' })
-  @IsUUID()
+  @ApiProperty({
+    description: 'Staff id',
+    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+  })
+  @IsStaffId()
   staffId: string;
 
   @ApiProperty({

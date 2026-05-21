@@ -44,6 +44,7 @@ import {
 } from 'src/dtos/student.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { getUserFullNameFromParts } from 'src/common/user-name.util';
+import { generateStudentId } from 'src/common/entity-id';
 import {
   hasCustomTuitionOverride,
   normalizeNullableMoney,
@@ -339,6 +340,7 @@ export class StudentService {
       createdAt: student.createdAt,
       updatedAt: student.updatedAt,
       studentClasses: (student.studentClasses ?? []).map((studentClass) => ({
+        ...(studentClass.status ? { status: studentClass.status } : {}),
         class: {
           id: studentClass.class.id,
           name: studentClass.class.name,
@@ -376,6 +378,7 @@ export class StudentService {
     });
 
     return {
+      ...(studentClass.status ? { status: studentClass.status } : {}),
       class: {
         id: studentClass.class.id,
         name: studentClass.class.name,
@@ -1368,7 +1371,7 @@ export class StudentService {
           select: {
             status: true,
             class: {
-              select: { id: true },
+              select: { id: true, name: true },
             },
           },
         },
@@ -1378,13 +1381,18 @@ export class StudentService {
       throw new NotFoundException('Student not found');
     }
 
+    const activeStudentClasses = student.studentClasses.filter(
+      (studentClass) => studentClass.status === StudentClassStatus.active,
+    );
+
     return this.sePayService.createStudentWalletStaticQr({
       studentId: student.id,
-      classIds: student.studentClasses
-        .filter(
-          (studentClass) => studentClass.status === StudentClassStatus.active,
-        )
-        .map((studentClass) => studentClass.class.id),
+      classIds: activeStudentClasses.map(
+        (studentClass) => studentClass.class.id,
+      ),
+      classNames: activeStudentClasses.map(
+        (studentClass) => studentClass.class.name,
+      ),
     });
   }
 
@@ -2407,6 +2415,7 @@ export class StudentService {
     return this.prisma.$transaction(async (tx) => {
       const createdStudent = await tx.studentInfo.create({
         data: {
+          id: generateStudentId(),
           fullName: trimmedFullName,
           email: normalizeOptionalText(data.email) ?? user.email,
           school: normalizeOptionalText(data.school),

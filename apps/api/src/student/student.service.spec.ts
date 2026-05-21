@@ -617,7 +617,7 @@ describe('StudentService', () => {
     sePayService.createStudentWalletStaticQr.mockReturnValue({
       studentId: 'student-1',
       classIds: ['class-active-1'],
-      transferNote: 'NAPVI student-1 class-active-1',
+      transferNote: 'NAPVI student-1 class-active-1 LOP Toan 8A',
       accountNumber: '722732006',
       qrCodeUrl: 'https://img.vietqr.io/image/qr.png',
     });
@@ -631,12 +631,13 @@ describe('StudentService', () => {
     ).resolves.toMatchObject({
       studentId: 'student-1',
       classIds: ['class-active-1'],
-      transferNote: 'NAPVI student-1 class-active-1',
+      transferNote: 'NAPVI student-1 class-active-1 LOP Toan 8A',
     });
 
     expect(sePayService.createStudentWalletStaticQr).toHaveBeenCalledWith({
       studentId: 'student-1',
       classIds: ['class-active-1'],
+      classNames: ['Toan 8A'],
     });
   });
 

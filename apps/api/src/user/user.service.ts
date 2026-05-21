@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { Prisma } from '../../generated/client';
+import { generateStudentId, generateStaffId } from 'src/common/entity-id';
 import { StaffRole, StudentClassStatus, UserRole } from 'generated/enums';
 import {
   ActionHistoryActor,
@@ -461,7 +462,7 @@ export class UserService {
           `${data.last_name ?? ''} ${data.first_name ?? ''}`.trim() ||
           this.getPreferredProfileFullName(createdUser);
 
-        const profileData: Prisma.StudentInfoUncheckedCreateInput = {
+        const profileData: Omit<Prisma.StudentInfoUncheckedCreateInput, 'id'> = {
           fullName,
           email: data.email,
           school: normalizeOptionalText(data.school),
@@ -481,7 +482,7 @@ export class UserService {
               data: profileData,
             })
           : await tx.studentInfo.create({
-              data: profileData,
+              data: { ...profileData, id: generateStudentId() },
             });
 
         const existingMemberships = await tx.studentClass.findMany({
@@ -626,6 +627,7 @@ export class UserService {
           if (!existingUser.staffInfo) {
             const createdStaff = await tx.staffInfo.create({
               data: {
+                id: generateStaffId(),
                 cccdNumber: await this.generateAutoStaffCccdNumber(tx),
                 roles: normalizedStaffRoles ?? [],
                 userId: data.id,
@@ -678,6 +680,7 @@ export class UserService {
         if (nextRoleType === UserRole.student && !existingUser.studentInfo) {
           const createdStudent = await tx.studentInfo.create({
             data: {
+              id: generateStudentId(),
               fullName: this.getPreferredProfileFullName(updatedUser),
               email: updatedUser.email,
               province: normalizeOptionalText(updatedUser.province),

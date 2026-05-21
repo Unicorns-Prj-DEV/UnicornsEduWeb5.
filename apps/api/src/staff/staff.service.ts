@@ -43,6 +43,7 @@ import {
   PatchStaffClassTeacherOperatingDeductionDto,
 } from 'src/dtos/staff.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { generateStaffId } from 'src/common/entity-id';
 import {
   createSignedStorageUrl,
   getSupabaseAdminClient,
@@ -4662,6 +4663,7 @@ export class StaffService {
         }
 
         const createPayload: Record<string, unknown> = {
+          id: generateStaffId(),
           cccdNumber: data.cccd_number,
           cccdIssuedDate: toDateOrNull(data.cccd_issued_date) ?? undefined,
           cccdIssuedPlace: data.cccd_issued_place,

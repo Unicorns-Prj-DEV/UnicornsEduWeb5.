@@ -17,6 +17,7 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
+import { IsStaffId } from '../common/entity-id.validators';
 
 export class SearchAssignableStaffUsersDto {
   @ApiProperty({
@@ -157,9 +158,10 @@ export class CreateStaffDto {
   @ApiPropertyOptional({
     description:
       'Staff id of the assistant who manages this CSKH staff (only valid when staff has customer_care role)',
+    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
   })
   @IsOptional()
-  @IsUUID()
+  @IsStaffId()
   customer_care_managed_by_staff_id?: string | null;
 
   @ApiPropertyOptional({
@@ -182,8 +184,11 @@ export class CreateStaffDto {
 }
 
 export class UpdateStaffDto extends PartialType(CreateStaffDto) {
-  @ApiProperty({ description: 'Staff id' })
-  @IsUUID()
+  @ApiProperty({
+    description: 'Staff id',
+    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+  })
+  @IsStaffId()
   id: string;
 
   @ApiPropertyOptional({ enum: StaffStatus })

@@ -7,10 +7,14 @@ import {
 import { Type } from 'class-transformer';
 import { PaymentStatus } from 'generated/enums';
 import { IsEnum, IsInt, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsStaffId } from '../common/entity-id.validators';
 
 export class CreateBonusDto {
-  @ApiProperty({ description: 'Staff id' })
-  @IsUUID()
+  @ApiProperty({
+    description: 'Staff id',
+    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+  })
+  @IsStaffId()
   staffId: string;
 
   @ApiProperty({ description: 'Work type', example: 'cham_bai' })

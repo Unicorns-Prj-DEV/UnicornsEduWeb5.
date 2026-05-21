@@ -5,9 +5,9 @@ import {
   IsInt,
   IsOptional,
   IsString,
-  IsUUID,
   Min,
 } from 'class-validator';
+import { IsStaffId } from '../common/entity-id.validators';
 
 export class CreateClassSurveyDto {
   @ApiProperty({
@@ -30,9 +30,9 @@ export class CreateClassSurveyDto {
 
   @ApiProperty({
     description: 'Staff id của gia sư phụ trách trong lớp.',
-    example: '550e8400-e29b-41d4-a716-446655440000',
+    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
   })
-  @IsUUID()
+  @IsStaffId()
   teacher_id: string;
 
   @ApiProperty({

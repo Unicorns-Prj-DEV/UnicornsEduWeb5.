@@ -13,6 +13,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { IsStaffId } from '../common/entity-id.validators';
 
 export class TaxDeductionSettingsQueryDto {
   @ApiPropertyOptional({
@@ -34,10 +35,10 @@ export class TaxDeductionSettingsQueryDto {
 
   @ApiPropertyOptional({
     description: 'Filter staff overrides by a specific staff id.',
-    example: '550e8400-e29b-41d4-a716-446655440000',
+    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
   })
   @IsOptional()
-  @IsUUID()
+  @IsStaffId()
   staffId?: string;
 }
 
@@ -93,9 +94,9 @@ export class UpdateRoleTaxDeductionRateDto {
 export class CreateStaffTaxDeductionOverrideDto {
   @ApiProperty({
     description: 'Staff id this override applies to.',
-    example: '550e8400-e29b-41d4-a716-446655440000',
+    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
   })
-  @IsUUID()
+  @IsStaffId()
   staffId: string;
 
   @ApiProperty({
@@ -186,9 +187,9 @@ export class BulkUpsertStaffTaxDeductionOverrideItemDto {
 export class BulkUpsertStaffTaxDeductionOverridesDto {
   @ApiProperty({
     description: 'Staff id this bulk upsert applies to.',
-    example: '550e8400-e29b-41d4-a716-446655440000',
+    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
   })
-  @IsUUID()
+  @IsStaffId()
   staffId: string;
 
   @ApiProperty({

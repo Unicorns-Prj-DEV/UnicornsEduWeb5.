@@ -1,5 +1,5 @@
 model Class {
-  id                             String                               @id @default(uuid())
+  id                             String                               @id
   name                           String
   type                           ClassType                            @default(basic)
   status                         ClassStatus                          @default(running)

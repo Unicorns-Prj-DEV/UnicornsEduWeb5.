@@ -668,7 +668,7 @@ export class UserProfileController {
   @ApiOperation({
     summary: 'Get static SePay QR for current student wallet top-up',
     description:
-      'Trả QR chuyển khoản tĩnh cho học sinh hiện tại. QR không chứa số tiền; webhook SePay cộng ví theo số tiền ngân hàng xác nhận và nội dung NAPVI <studentId> <activeClassId...>.',
+      'Trả QR chuyển khoản tĩnh cho học sinh hiện tại. QR không chứa số tiền; nội dung là NAPVI <studentId> <activeClassId...> LOP <activeClassName...>, webhook SePay cộng ví theo các id ở đầu nội dung và số tiền ngân hàng xác nhận.',
   })
   @ApiResponse({
     status: 200,

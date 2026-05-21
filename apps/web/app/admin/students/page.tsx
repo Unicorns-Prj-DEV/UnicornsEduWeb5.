@@ -22,6 +22,10 @@ import {
 import * as studentApi from "@/lib/apis/student.api";
 import { formatCurrency } from "@/lib/class.helpers";
 import { copyQrImageOrLink } from "@/lib/clipboard-qr";
+import {
+  ensureStaticQrUrlIncludesClassNames,
+  getActiveClassItemsFromStudent,
+} from "@/lib/student-static-qr";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
@@ -69,21 +73,6 @@ function buildUrl(pathname: string, params: URLSearchParams): string {
 
 function normalizeStatus(status?: StudentStatus): StudentStatus {
   return status === "inactive" ? "inactive" : "active";
-}
-
-function getClassItems(student: StudentListItem) {
-  const classes = new Map<string, string>();
-
-  for (const item of student.studentClasses ?? []) {
-    const id = item.class?.id;
-    const name = item.class?.name?.trim();
-    if (!id || !name || classes.has(id)) continue;
-    classes.set(id, name);
-  }
-
-  return Array.from(classes, ([id, name]) => ({ id, name })).sort((a, b) =>
-    a.name.localeCompare(b.name, "vi"),
-  );
 }
 
 function statusDotColor(status: StudentStatus): string {
@@ -293,7 +282,12 @@ export default function AdminStudentsPage() {
   const handleCopyQr = async (student: StudentListItem) => {
     try {
       const qr = await studentApi.getStudentSePayStaticQr(student.id);
-      const copied = await copyQrImageOrLink(qr.qrCodeUrl);
+      const classItems = getActiveClassItemsFromStudent(student);
+      const qrCodeUrl = ensureStaticQrUrlIncludesClassNames(
+        qr.qrCodeUrl,
+        classItems,
+      );
+      const copied = await copyQrImageOrLink(qrCodeUrl);
       toast.success(
         copied === "image"
           ? "Đã sao chép ảnh QR."
@@ -578,7 +572,7 @@ export default function AdminStudentsPage() {
                 <div className="block space-y-3 md:hidden" role="list" aria-label="Danh sách học sinh">
                 {list.map((student) => {
                   const status = normalizeStatus(student.status);
-                  const classItems = getClassItems(student);
+                  const classItems = getActiveClassItemsFromStudent(student);
                   const province = student.province?.trim() || "—";
                   const balance = student.accountBalance ?? 0;
                   const balanceClassName = balanceTextClass(balance);
@@ -709,7 +703,7 @@ export default function AdminStudentsPage() {
                   <tbody>
                     {list.map((student) => {
                       const status = normalizeStatus(student.status);
-                      const classItems = getClassItems(student);
+                      const classItems = getActiveClassItemsFromStudent(student);
                       const balance = student.accountBalance ?? 0;
                       const balanceClassName = balanceTextClass(balance);
                       const recentTopUpTotal = student.recentTopUpTotalLast21Days ?? 0;

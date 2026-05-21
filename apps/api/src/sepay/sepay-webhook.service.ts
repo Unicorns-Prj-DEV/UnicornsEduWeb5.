@@ -405,21 +405,23 @@ export class SePayWebhookService {
   private extractStaticQrContextFromText(text: string): StaticQrContext | null {
     const uuid =
       '[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
+    const studentPart = `UNIST-${uuid}`;
+    const classPart = `UNICL-${uuid}`;
     const match = text.match(
-      new RegExp(`\\bNAPVI\\s+(${uuid})((?:\\s+${uuid})*)`, 'i'),
+      new RegExp(
+        `\\bNAPVI\\s+(${studentPart})((?:\\s+${classPart})*)`,
+        'i',
+      ),
     );
-    const studentId = match?.[1]?.toLowerCase();
+    const studentId = match?.[1];
     if (!studentId) {
       return null;
     }
 
+    const classPattern = new RegExp(classPart, 'gi');
     const classIds = Array.from(
-      new Set(
-        (match?.[2]?.match(new RegExp(uuid, 'gi')) ?? []).map((classId) =>
-          classId.toLowerCase(),
-        ),
-      ),
-    ).filter((classId) => classId !== studentId);
+      new Set(match?.[2]?.match(classPattern) ?? []),
+    );
 
     return { studentId, classIds };
   }

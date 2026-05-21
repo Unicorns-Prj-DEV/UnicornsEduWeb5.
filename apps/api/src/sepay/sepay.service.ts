@@ -20,6 +20,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function normalizeUniqueTextList(values: string[] | undefined): string[] {
+  return Array.from(
+    new Set(
+      (values ?? [])
+        .map((value) => value.trim().replace(/\s+/g, ' '))
+        .filter(Boolean),
+    ),
+  );
+}
+
 export class SePayDuplicateOrderCodeException extends ConflictException {
   constructor(message = 'SePay order_code already exists.') {
     super(message);
@@ -64,7 +74,9 @@ export class SePayService {
    */
   buildStudentWalletOrderCode(studentId: string): string {
     const hex = randomBytes(4).toString('hex').toUpperCase();
-    const compact = studentId.replace(/-/g, '').slice(0, 10);
+    // Strip prefix (e.g. "UNIST-") and dashes to get the UUID hex chars
+    const uuidPart = studentId.replace(/^[A-Z]+-/i, '').replace(/-/g, '');
+    const compact = uuidPart.slice(0, 10).toUpperCase();
     const code = `U${compact}${hex}`;
     return code.slice(0, 50);
   }
@@ -113,13 +125,21 @@ export class SePayService {
   buildStudentWalletStaticTransferNote(
     studentId: string,
     classIds: string[] = [],
+    classNames: string[] = [],
   ): string {
-    return ['NAPVI', studentId, ...classIds].join(' ').trim();
+    const baseTransferNote = ['NAPVI', studentId, ...classIds]
+      .join(' ')
+      .trim();
+    if (classNames.length === 0) {
+      return baseTransferNote;
+    }
+    return `${baseTransferNote} LOP ${classNames.join(', ')}`.trim();
   }
 
   createStudentWalletStaticQr(params: {
     studentId: string;
     classIds?: string[];
+    classNames?: string[];
   }): SePayStudentWalletStaticQrResult {
     const bankBin = process.env.SEPAY_TRANSFER_BANK_BIN?.trim();
     const accountNumber = process.env.SEPAY_TRANSFER_ACCOUNT_NUMBER?.trim();
@@ -136,16 +156,12 @@ export class SePayService {
     const baseUrl =
       process.env.SEPAY_VIETQR_IMAGE_BASE_URL?.trim() ||
       'https://img.vietqr.io/image';
-    const classIds = Array.from(
-      new Set(
-        (params.classIds ?? [])
-          .map((classId) => classId.trim())
-          .filter(Boolean),
-      ),
-    );
+    const classIds = normalizeUniqueTextList(params.classIds);
+    const classNames = normalizeUniqueTextList(params.classNames);
     const transferNote = this.buildStudentWalletStaticTransferNote(
       params.studentId,
       classIds,
+      classNames,
     );
     const qrUrl = new URL(
       `${baseUrl.replace(/\/$/, '')}/${encodeURIComponent(bankBin)}-${encodeURIComponent(accountNumber)}-${encodeURIComponent(template)}.png`,

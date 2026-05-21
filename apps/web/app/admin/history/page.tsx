@@ -15,8 +15,13 @@ import * as actionHistoryApi from "@/lib/apis/action-history.api";
 
 const PAGE_SIZE = 20;
 const EMPTY_HISTORY_ENTRIES: ActionHistoryListItem[] = [];
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_PART =
+  "[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
+// Accepts prefixed entity IDs (UNIST-, UNICL-, UNISTAFF-) or bare UUIDs for other entity types
+const ENTITY_ID_PATTERN = new RegExp(
+  `^(?:UNIST-${UUID_PART}|UNICL-${UUID_PART}|UNISTAFF-${UUID_PART}|${UUID_PART})$`,
+  "i"
+);
 
 const ACTION_LABELS: Record<ActionHistoryActionType, string> = {
   create: "Tạo mới",
@@ -86,8 +91,8 @@ function parsePage(value: string | null) {
   return Number.isInteger(parsed) && parsed >= 1 ? parsed : 1;
 }
 
-function isUuid(value: string | null | undefined): value is string {
-  return !!value && UUID_PATTERN.test(value);
+function isEntityId(value: string | null | undefined): value is string {
+  return !!value && ENTITY_ID_PATTERN.test(value);
 }
 
 function normalizeDateParam(value: string | null, fallback: string) {
@@ -631,7 +636,7 @@ function HistoryFilterCard({
   const [startDate, setStartDate] = useState(initialDraft.startDate);
   const [endDate, setEndDate] = useState(initialDraft.endDate);
 
-  const isEntityIdValid = entityId.trim() === "" || isUuid(entityId.trim());
+  const isEntityIdValid = entityId.trim() === "" || isEntityId(entityId.trim());
   const isDateRangeValid = startDate <= endDate;
   const canApplyFilters = isEntityIdValid && isDateRangeValid;
 
@@ -732,7 +737,7 @@ function HistoryFilterCard({
               value={entityId}
               onChange={(event) => setEntityId(event.target.value)}
               aria-invalid={!isEntityIdValid}
-              placeholder="Dán UUID chính xác…"
+              placeholder="Dán mã entity (UNIST-…, UNICL-…, UNISTAFF-…)…"
               className={`min-h-11 w-full rounded-lg border bg-bg-surface px-3 py-2 text-sm text-text-primary shadow-sm outline-none transition-[border-color,box-shadow] duration-200 ${
                 isEntityIdValid
                   ? "border-border-default focus:border-border-focus focus:ring-2 focus:ring-border-focus"
@@ -741,7 +746,7 @@ function HistoryFilterCard({
             />
 
             {!isEntityIdValid ? (
-              <span className="mt-2 block text-xs text-error">Entity ID cần là UUID hợp lệ.</span>
+              <span className="mt-2 block text-xs text-error">Entity ID cần là mã hợp lệ (UNIST-…, UNICL-…, UNISTAFF-…, hoặc UUID).</span>
             ) : !isDateRangeValid ? (
               <span className="mt-2 block text-xs text-error">
                 Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc.

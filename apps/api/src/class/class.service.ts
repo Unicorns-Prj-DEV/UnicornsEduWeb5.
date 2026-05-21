@@ -34,6 +34,7 @@ import { StaffOperationsAccessService } from 'src/staff-ops/staff-operations-acc
 import { CalendarService } from 'src/calendar/calendar.service';
 import { Logger } from '@nestjs/common';
 import { getUserFullNameFromParts } from 'src/common/user-name.util';
+import { generateClassId } from 'src/common/entity-id';
 import {
   hasCustomTuitionOverride,
   normalizeNullableMoney,
@@ -895,6 +896,7 @@ export class ClassService {
     return await this.prisma.$transaction(async (tx) => {
       const createdClass = await tx.class.create({
         data: {
+          id: generateClassId(),
           name: data.name,
           type: data.type,
           status: data.status,

@@ -19,10 +19,18 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import {
+  IsStudentId,
+  IsStaffId,
+  IsClassId,
+} from '../common/entity-id.validators';
 
 export class ClassTeacherItemDto {
-  @ApiProperty({ description: 'Teacher (staff) id', example: 'uuid' })
-  @IsUUID()
+  @ApiProperty({
+    description: 'Teacher (staff) id',
+    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+  })
+  @IsStaffId()
   teacher_id: string;
 
   @ApiPropertyOptional({
@@ -154,11 +162,11 @@ export class CreateClassDto {
     description:
       'Staff ids (gia sư phụ trách). Ignored if teachers[] is provided.',
     type: [String],
-    example: ['uuid-1', 'uuid-2'],
+    example: ['UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'],
   })
   @IsOptional()
   @IsArray()
-  @IsUUID('4', { each: true })
+  @IsStaffId({ each: true })
   teacher_ids?: string[];
 
   @ApiPropertyOptional({
@@ -167,7 +175,7 @@ export class CreateClassDto {
     type: [ClassTeacherItemDto],
     example: [
       {
-        teacher_id: 'uuid-1',
+        teacher_id: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
         custom_allowance: 150000,
         operating_deduction_rate_percent: 10,
       },
@@ -182,11 +190,11 @@ export class CreateClassDto {
   @ApiPropertyOptional({
     description: 'Student ids (học sinh trong lớp).',
     type: [String],
-    example: ['uuid-1', 'uuid-2'],
+    example: ['UNIST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'],
   })
   @IsOptional()
   @IsArray()
-  @IsUUID('4', { each: true })
+  @IsStudentId({ each: true })
   student_ids?: string[];
 }
 
@@ -256,10 +264,10 @@ export class ScheduleSlotDto {
   @ApiPropertyOptional({
     description:
       'Responsible tutor for this schedule slot. PATCH /class/:id/schedule requires this field and it must belong to the class teachers.',
-    example: '660e8400-e29b-41d4-a716-446655440001',
+    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
   })
   @IsOptional()
-  @IsUUID()
+  @IsStaffId()
   teacherId?: string;
 }
 
@@ -295,8 +303,11 @@ export class CreateStaffOpsClassDto extends PickType(CreateClassDto, [
 }
 
 export class StudentClassCreateDto {
-  @ApiProperty({ description: 'Student id', example: 'uuid' })
-  @IsUUID()
+  @ApiProperty({
+    description: 'Student id',
+    example: 'UNIST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+  })
+  @IsStudentId()
   id: string;
 
   @ApiPropertyOptional({ example: 300000, minimum: 0 })
@@ -327,7 +338,12 @@ export class UpdateClassStudentsDto {
     description:
       'Student memberships in the class. Replaces current list and lets backend derive effective tuition overrides.',
     type: [StudentClassCreateDto],
-    example: [{ id: 'uuid-1', custom_tuition_package_total: 3600000 }],
+    example: [
+      {
+        id: 'UNIST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+        custom_tuition_package_total: 3600000,
+      },
+    ],
   })
   @IsArray()
   @ValidateNested({ each: true })
@@ -336,19 +352,22 @@ export class UpdateClassStudentsDto {
 }
 
 export class UpdateClassDto extends PartialType(CreateClassDto) {
-  @ApiProperty({ description: 'Class id' })
-  @IsUUID()
+  @ApiProperty({
+    description: 'Class id',
+    example: 'UNICL-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+  })
+  @IsClassId()
   id: string;
 
   @ApiPropertyOptional({
     description:
       'Staff ids (gia sư phụ trách). Ignored if teachers[] is provided.',
     type: [String],
-    example: ['uuid-1', 'uuid-2'],
+    example: ['UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'],
   })
   @IsOptional()
   @IsArray()
-  @IsUUID('4', { each: true })
+  @IsStaffId({ each: true })
   teacher_ids?: string[];
 
   @ApiPropertyOptional({
@@ -366,10 +385,10 @@ export class UpdateClassDto extends PartialType(CreateClassDto) {
     description:
       'Student ids (học sinh trong lớp). Sync replaces current list.',
     type: [String],
-    example: ['uuid-1', 'uuid-2'],
+    example: ['UNIST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'],
   })
   @IsOptional()
   @IsArray()
-  @IsUUID('4', { each: true })
+  @IsStudentId({ each: true })
   student_ids?: string[];
 }

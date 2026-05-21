@@ -9,6 +9,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { ParseClassIdPipe } from 'src/common/pipes/parse-entity-id.pipe';
 import {
   ApiBody,
   ApiCookieAuth,
@@ -126,7 +127,7 @@ export class ClassController {
   @ApiParam({ name: 'id', description: 'Class id' })
   @ApiResponse({ status: 200, description: 'List of students in the class.' })
   @ApiResponse({ status: 404, description: 'Class not found.' })
-  async getStudentsByClassId(@Param('id', new ParseUUIDPipe()) id: string) {
+  async getStudentsByClassId(@Param('id', new ParseClassIdPipe()) id: string) {
     return this.classService.getStudentsByClassId(id);
   }
 
@@ -140,7 +141,7 @@ export class ClassController {
   @ApiQuery({ name: 'year', required: true, description: 'Năm (YYYY)' })
   @ApiResponse({ status: 200, description: 'List of class surveys.' })
   async getClassSurveys(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
     @Query('month') month: string,
     @Query('year') year: string,
   ) {
@@ -160,7 +161,7 @@ export class ClassController {
   @ApiResponse({ status: 404, description: 'Class not found.' })
   async updateClassBasicInfo(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
     @Body() dto: UpdateClassBasicInfoDto,
   ) {
     return this.classService.updateClassBasicInfo(id, dto, {
@@ -183,7 +184,7 @@ export class ClassController {
   @ApiResponse({ status: 404, description: 'Class not found.' })
   async updateClassTeachers(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
     @Body() dto: UpdateClassTeachersDto,
   ) {
     return this.classService.updateClassTeachers(id, dto, {
@@ -206,7 +207,7 @@ export class ClassController {
   @ApiResponse({ status: 404, description: 'Class not found.' })
   async updateClassSchedule(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
     @Body() dto: UpdateClassScheduleDto,
   ) {
     return this.classService.updateClassSchedule(id, dto, {
@@ -229,7 +230,7 @@ export class ClassController {
   @AllowStaffRolesOnAdminRoutes()
   async updateClassStudents(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
     @Body() dto: UpdateClassStudentsDto,
   ) {
     return this.classService.updateClassStudents(id, dto, {
@@ -263,7 +264,7 @@ export class ClassController {
     },
   })
   async listMakeupEventsByClassId(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
     @Query() filters: ClassScheduleFilterDto,
   ): Promise<{
     success: boolean;
@@ -287,7 +288,7 @@ export class ClassController {
     type: ClassScheduleGoogleCalendarResyncResponseDto,
   })
   async resyncClassScheduleGoogleCalendar(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
   ): Promise<ClassScheduleGoogleCalendarResyncResponseDto> {
     return this.calendarService.resyncClassScheduleWithGoogleCalendar(id);
   }
@@ -308,7 +309,7 @@ export class ClassController {
   })
   async resyncClassMakeupGoogleCalendar(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
     @Param('eventId', new ParseUUIDPipe()) eventId: string,
   ): Promise<MakeupGoogleCalendarResyncResponseDto> {
     return this.calendarService.resyncMakeupScheduleEventWithGoogleCalendarForClass(
@@ -332,7 +333,7 @@ export class ClassController {
   @ApiParam({ name: 'id', description: 'Class id' })
   @ApiResponse({ status: 200, description: 'Class found.' })
   @ApiResponse({ status: 404, description: 'Class not found.' })
-  async getClassById(@Param('id', new ParseUUIDPipe()) id: string) {
+  async getClassById(@Param('id', new ParseClassIdPipe()) id: string) {
     return this.classService.getClassById(id);
   }
 
@@ -371,7 +372,7 @@ export class ClassController {
   @ApiResponse({ status: 404, description: 'Class not found.' })
   async createClassSurvey(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
     @Body() dto: CreateClassSurveyDto,
   ) {
     return this.classSurveyService.createClassSurvey(id, dto, {
@@ -402,7 +403,7 @@ export class ClassController {
   })
   async createMakeupEventByClassId(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
     @Body() dto: CreateClassScopedMakeupScheduleEventDto,
   ): Promise<{ success: boolean; data: MakeupScheduleEventDto }> {
     return this.calendarService.createMakeupScheduleEventForClass(id, dto, {
@@ -451,7 +452,7 @@ export class ClassController {
   @ApiResponse({ status: 404, description: 'Class survey not found.' })
   async updateClassSurvey(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
     @Param('surveyId', new ParseUUIDPipe()) surveyId: string,
     @Body() dto: UpdateClassSurveyDto,
   ) {
@@ -484,7 +485,7 @@ export class ClassController {
   })
   async updateMakeupEventByClassId(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
     @Param('eventId', new ParseUUIDPipe()) eventId: string,
     @Body() dto: UpdateClassScopedMakeupScheduleEventDto,
   ): Promise<{ success: boolean; data: MakeupScheduleEventDto }> {
@@ -511,7 +512,7 @@ export class ClassController {
   @ApiResponse({ status: 404, description: 'Class not found.' })
   async deleteClass(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
   ) {
     return this.classService.deleteClass(id, {
       userId: user.id,
@@ -532,7 +533,7 @@ export class ClassController {
   @ApiResponse({ status: 404, description: 'Class survey not found.' })
   async deleteClassSurvey(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
     @Param('surveyId', new ParseUUIDPipe()) surveyId: string,
   ) {
     return this.classSurveyService.deleteClassSurvey(id, surveyId, {
@@ -562,7 +563,7 @@ export class ClassController {
   })
   async deleteMakeupEventByClassId(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
     @Param('eventId', new ParseUUIDPipe()) eventId: string,
   ): Promise<{ success: boolean }> {
     return this.calendarService.deleteMakeupScheduleEventForClass(id, eventId, {

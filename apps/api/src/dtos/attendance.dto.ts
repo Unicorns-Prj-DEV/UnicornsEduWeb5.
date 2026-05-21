@@ -5,14 +5,17 @@ import {
   IsNumber,
   IsOptional,
   IsString,
-  IsUUID,
   Min,
 } from 'class-validator';
 import { AttendanceStatus } from '../../generated/enums';
+import { IsStudentId } from '../common/entity-id.validators';
 
 export class AttendanceCreateDto {
-  @ApiProperty({ description: 'Student id', example: 'uuid' })
-  @IsUUID()
+  @ApiProperty({
+    description: 'Student id',
+    example: 'UNIST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+  })
+  @IsStudentId()
   studentId: string;
 
   @ApiProperty({ enum: AttendanceStatus, example: AttendanceStatus.present })

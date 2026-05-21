@@ -1,5 +1,9 @@
 import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
 import {
+  ParseStaffIdPipe,
+  ParseStudentIdPipe,
+} from 'src/common/pipes/parse-entity-id.pipe';
+import {
   ApiCookieAuth,
   ApiOperation,
   ApiParam,
@@ -51,7 +55,7 @@ export class CustomerCareController {
   @ApiResponse({ status: 404, description: 'Staff not found.' })
   async getStudentsByStaffId(
     @CurrentUser() user: JwtPayload,
-    @Param('staffId', new ParseUUIDPipe()) staffId: string,
+    @Param('staffId', new ParseStaffIdPipe()) staffId: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ): Promise<CustomerCareStudentListDto> {
@@ -89,7 +93,7 @@ export class CustomerCareController {
   @ApiResponse({ status: 404, description: 'Staff not found.' })
   async getTopUpHistoryByStaffId(
     @CurrentUser() user: JwtPayload,
-    @Param('staffId', new ParseUUIDPipe()) staffId: string,
+    @Param('staffId', new ParseStaffIdPipe()) staffId: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ): Promise<CustomerCareTopUpHistoryListDto> {
@@ -124,7 +128,7 @@ export class CustomerCareController {
   @ApiResponse({ status: 404, description: 'Staff not found.' })
   async getCommissionsByStaffId(
     @CurrentUser() user: JwtPayload,
-    @Param('staffId', new ParseUUIDPipe()) staffId: string,
+    @Param('staffId', new ParseStaffIdPipe()) staffId: string,
     @Query('days') days?: string,
   ): Promise<CustomerCareCommissionDto[]> {
     const parsed = days ? parseInt(days, 10) : 30;
@@ -160,8 +164,8 @@ export class CustomerCareController {
   @ApiResponse({ status: 404, description: 'Staff not found.' })
   async getSessionCommissionsByStudent(
     @CurrentUser() user: JwtPayload,
-    @Param('staffId', new ParseUUIDPipe()) staffId: string,
-    @Param('studentId', new ParseUUIDPipe()) studentId: string,
+    @Param('staffId', new ParseStaffIdPipe()) staffId: string,
+    @Param('studentId', new ParseStudentIdPipe()) studentId: string,
     @Query('days') days?: string,
   ): Promise<CustomerCareSessionCommissionDto[]> {
     const parsed = days ? parseInt(days, 10) : 30;

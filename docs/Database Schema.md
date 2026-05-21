@@ -113,6 +113,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 ### 4.2 `staff_info`
 
+- **PK format:** `UNISTAFF-{uuid}` — ví dụ `UNISTAFF-71f0d9ec-c497-4d67-9256-c09e5d5d4334`. Được sinh bởi `generateStaffId()` trong `apps/api/src/common/entity-id.ts`. Không còn dùng `@default(uuid())` trong Prisma.
 - Thông tin nhân sự: hồ sơ cá nhân, CCCD, ngân hàng, `roles` (`StaffRole[]` dạng Postgres enum array), `status`
 - `status` là trạng thái vận hành hồ sơ nhân sự: `active` = **Hoạt động**, `inactive` = **Ngừng hoạt động**. Chỉ staff `active` được resolve staff/admin-through-staff workspace và được chọn cho phân công mới (gia sư lớp, trợ lí quản lí CSKH, giáo án, trợ cấp thêm). Staff `inactive` vẫn giữ trong lịch sử, payroll và các bản ghi đã phát sinh.
 - Index: unique B-tree `staff_info_user_id_key` trên `user_id` kèm **`INCLUDE ("id", "roles")`** (covering) để tối ưu các đọc theo `user_id` (auth/session, roles guard). Trong Prisma: `@@unique([userId], map: "staff_info_user_id_key")` trên model `StaffInfo` (phần `INCLUDE` chỉ có trong migration SQL, Prisma chưa có DSL tương ứng).
@@ -132,6 +133,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 ### 4.3 `student_info`
 
+- **PK format:** `UNIST-{uuid}` — ví dụ `UNIST-0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7`. Được sinh bởi `generateStudentId()` trong `apps/api/src/common/entity-id.ts`. Không còn dùng `@default(uuid())` trong Prisma.
 - Hồ sơ học viên: liên hệ phụ huynh (`parent_name`, `parent_phone`, `parent_email`), trạng thái, giới tính, mục tiêu
 - `status` là trạng thái học tập của hồ sơ học sinh: `active` = **Đang học**, `inactive` = **Nghỉ học**. Chỉ học sinh `active` được resolve student workspace và được thêm vào roster/lớp mới. Khi chuyển sang `inactive`, backend chuyển các `student_classes` còn `active` của học sinh đó sang `inactive`; bật lại `active` không tự khôi phục các membership cũ.
 - `parent_email` là email nhận biên nhận nạp ví SePay của phụ huynh; không fallback sang email học sinh.
@@ -155,6 +157,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 ### 4.4 `classes`
 
+- **PK format:** `UNICL-{uuid}` — ví dụ `UNICL-4d560c5e-c3df-4470-b59a-2fd273ef95ef`. Được sinh bởi `generateClassId()` trong `apps/api/src/common/entity-id.ts`. Không còn dùng `@default(uuid())` trong Prisma.
 - Trường nghiệp vụ chính:
   - `type` (`ClassType`), `status` (`ClassStatus`)
   - `max_students`, `allowance_per_session_per_student`, `max_allowance_per_session`, `scale_amount`

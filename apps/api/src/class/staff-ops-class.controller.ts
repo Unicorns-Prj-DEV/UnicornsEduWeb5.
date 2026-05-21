@@ -10,6 +10,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { ParseClassIdPipe } from 'src/common/pipes/parse-entity-id.pipe';
 import {
   ApiBody,
   ApiCookieAuth,
@@ -159,7 +160,7 @@ export class StaffOpsClassController {
   @ApiResponse({ status: 404, description: 'Class not found.' })
   async getClassById(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
   ) {
     return this.classService.getClassByIdForStaff(user.id, user.roleType, id);
   }
@@ -177,7 +178,7 @@ export class StaffOpsClassController {
   })
   async getClassSurveys(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
     @Query('month') month: string,
     @Query('year') year: string,
   ) {
@@ -213,7 +214,7 @@ export class StaffOpsClassController {
   })
   async listMakeupEventsByClassId(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
     @Query() filters: ClassScheduleFilterDto,
   ): Promise<{
     success: boolean;
@@ -256,7 +257,7 @@ export class StaffOpsClassController {
   @ApiResponse({ status: 201, description: 'Makeup event created.' })
   async createMakeupEventByClassId(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
     @Body() dto: CreateClassScopedMakeupScheduleEventDto,
   ): Promise<{ success: boolean; data: MakeupScheduleEventDto }> {
     const actor = await this.staffOperationsAccess.resolveActor(
@@ -294,7 +295,7 @@ export class StaffOpsClassController {
   @ApiResponse({ status: 201, description: 'Class survey created.' })
   async createClassSurvey(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
     @Body() dto: CreateClassSurveyDto,
   ) {
     return this.classSurveyService.createClassSurveyForStaff(
@@ -319,7 +320,7 @@ export class StaffOpsClassController {
   @ApiResponse({ status: 200, description: 'Class schedule updated.' })
   async updateClassSchedule(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
     @Body() dto: UpdateClassScheduleDto,
   ) {
     return this.classService.updateClassScheduleForStaff(
@@ -349,7 +350,7 @@ export class StaffOpsClassController {
   })
   async resyncClassScheduleGoogleCalendar(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
   ): Promise<ClassScheduleGoogleCalendarResyncResponseDto> {
     if (user.roleType === UserRole.admin) {
       return this.calendarService.resyncClassScheduleWithGoogleCalendar(id);
@@ -381,7 +382,7 @@ export class StaffOpsClassController {
   })
   async resyncClassMakeupGoogleCalendar(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
     @Param('eventId', new ParseUUIDPipe()) eventId: string,
   ): Promise<MakeupGoogleCalendarResyncResponseDto> {
     if (user.roleType === UserRole.admin) {
@@ -427,7 +428,7 @@ export class StaffOpsClassController {
   @ApiResponse({ status: 200, description: 'Makeup event updated.' })
   async updateMakeupEventByClassId(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
     @Param('eventId', new ParseUUIDPipe()) eventId: string,
     @Body() dto: UpdateClassScopedMakeupScheduleEventDto,
   ): Promise<{ success: boolean; data: MakeupScheduleEventDto }> {
@@ -460,7 +461,7 @@ export class StaffOpsClassController {
   @ApiResponse({ status: 200, description: 'Class survey updated.' })
   async updateClassSurvey(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
     @Param('surveyId', new ParseUUIDPipe()) surveyId: string,
     @Body() dto: UpdateClassSurveyDto,
   ) {
@@ -487,7 +488,7 @@ export class StaffOpsClassController {
   @ApiResponse({ status: 200, description: 'Makeup event deleted.' })
   async deleteMakeupEventByClassId(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
     @Param('eventId', new ParseUUIDPipe()) eventId: string,
   ): Promise<{ success: boolean }> {
     await this.resolveMakeupManagementTeacherScope(user, id, eventId);
@@ -508,7 +509,7 @@ export class StaffOpsClassController {
   @ApiResponse({ status: 200, description: 'Class survey deleted.' })
   async deleteClassSurvey(
     @CurrentUser() user: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', new ParseClassIdPipe()) id: string,
     @Param('surveyId', new ParseUUIDPipe()) surveyId: string,
   ) {
     return this.classSurveyService.deleteClassSurveyForStaff(
