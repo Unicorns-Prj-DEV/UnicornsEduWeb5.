@@ -6,9 +6,9 @@ model StaffInfo {
   cccdNumber                          String?                              @unique @map("cccd_number")
   cccdIssuedDate                      DateTime?                            @map("cccd_issued_date") @db.Date
   cccdIssuedPlace                     String?                              @map("cccd_issued_place")
-  cccdFrontPath                       String?                              @map("cccd_front_path")
-  cccdBackPath                        String?                              @map("cccd_back_path")
-  cccdVerifiedAt                      DateTime?                            @map("cccd_verified_at") @db.Timestamptz(6)
+  ethnicity                           String?
+  gender                              Gender?
+  currentAddress                      String?                              @map("current_address")
   birthDate                           DateTime?                            @map("birth_date") @db.Date
   university                          String?
   highSchool                          String?                              @map("high_school")
