@@ -10,6 +10,13 @@
 
 - **Nghỉ dạy theo lớp**: trạng thái hiển thị khi gia sư không còn nằm trong phân công hiện tại của lớp, nhưng vẫn còn thu nhập/trợ cấp liên quan tới lớp trong kỳ hoặc snapshot chưa nhận. Trạng thái này không đồng nghĩa lớp đã kết thúc.
 
+## Hồ sơ nhân sự
+
+- **Dân tộc nhân sự**: field `staff_info.ethnicity`, là thông tin định danh nhập tay trong hồ sơ nhân sự, không nằm trên hồ sơ user chung.
+- **Giới tính nhân sự**: field `staff_info.gender`, dùng enum `Gender` chung (`male`, `female`) giống hồ sơ học viên.
+- **Địa chỉ hiện tại của nhân sự**: field `staff_info.current_address`, là địa chỉ liên hệ hiện tại nhập tay trong hồ sơ nhân sự. Field này khác với `users.province`, vốn chỉ là tỉnh/thành phố cấp user.
+- **Ảnh CCCD legacy**: hệ thống không còn nhận upload hoặc lưu path ảnh CCCD trong `staff_info`; object cũ trong bucket Supabase Storage `id-cards` nếu còn tồn tại chỉ là dữ liệu legacy và không được tự dọn bởi flow hồ sơ nhân sự.
+
 ## Lịch học và Google Calendar
 
 - **Lịch học hệ thống**: lịch học chính thức của lớp được lưu trong hệ thống; đây là nguồn sự thật cho lịch định kỳ của lớp.

@@ -352,7 +352,6 @@
   - `POST /student/:id/wallet-direct-topup-requests`
     - `staff.assistant`, `staff.accountant` và `staff.customer_care` được tạo yêu cầu nạp thẳng cho học sinh trong phạm vi xem hiện tại. Body `{ amount, reason }`; backend gửi React Email tới `ADMIN_EMAIL` và notification tới admin, token hết hạn sau 14 ngày, và chỉ cộng ví sau khi admin xác nhận trên trang public `/wallet-direct-topup-approval?token=...`, duyệt trong hàng chờ `/admin/wallet-direct-topup-requests`, hoặc duyệt từ popup mở bằng notification.
   - `GET /student/:id/wallet-history?type=topup&limit=` — dùng cho popup lịch sử tiền vào trong màn CSKH; `staff.customer_care` chỉ xem được học sinh đang thuộc CSKH của chính staff hiện tại
-  - `POST /staff/:userId/cccd-images` (admin/staff.assistant upload CCCD): chỉ nhận JPEG/PNG/WEBP, tối đa 5MB mỗi file
 - **Guard**
   - controller mở cho `UserRole.staff` và `UserRole.admin`
   - root `/staff` chỉ coi là hợp lệ khi actor có `staffInfo`

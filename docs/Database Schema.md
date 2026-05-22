@@ -121,11 +121,12 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - Không còn lưu cột tên riêng trong `staff_info` (đã bỏ `full_name`); tên staff canonical được đọc từ `users.first_name` + `users.last_name`. Một số API vẫn có thể trả `staffInfo.fullName` dưới dạng derived field để tương thích ngược.
 - CCCD:
   - `cccd_number` (`TEXT`, nullable, unique): số CCCD 12 chữ số (rule validate ở BE/FE)
+  - `ethnicity` (`TEXT`, nullable): dân tộc nhân sự
+  - `gender` (`Gender`, nullable): giới tính nhân sự, dùng enum chung `male` / `female`
+  - `current_address` (`TEXT`, nullable): địa chỉ hiện tại của nhân sự
   - `cccd_issued_date` (`DATE`, nullable): ngày cấp CCCD
   - `cccd_issued_place` (`TEXT`, nullable): nơi cấp CCCD
-  - `cccd_front_path` (`TEXT`, nullable): object path ảnh CCCD mặt trước trong bucket `id-cards` theo format `${userId}-front`
-  - `cccd_back_path` (`TEXT`, nullable): object path ảnh CCCD mặt sau trong bucket `id-cards` theo format `${userId}-back`
-  - `cccd_verified_at` (`TIMESTAMPTZ`, nullable): thời điểm xác minh CCCD (dành cho flow verify sau này)
+  - Không còn lưu `cccd_front_path`, `cccd_back_path`, `cccd_verified_at`; ảnh CCCD legacy trong bucket `id-cards` không được schema hoặc API hiện tại sử dụng.
 - `google_meet_link` (`TEXT`, nullable): link Google Meet cố định của gia sư; là nguồn authoritative cho Meet link của tất cả lịch học và buổi bù mà gia sư này phụ trách. Được tạo tự động qua Google Calendar API lần đầu khi gia sư được gán vào lịch nếu chưa có; có thể regenerate thủ công qua `POST /staff/:id/regenerate-meet-link`.
 - `personal_achievement_link` (`TEXT`, nullable): link Google Drive hoặc URL lưu trữ thành tích cá nhân của nhân sự. Không bắt buộc; chỉ accept URL hợp lệ dạng `http/https`. Hiển thị ở trang chi tiết nhân sự (admin + staff self-service) và cột bảng danh sách nhân sự.
 - `customer_care_managed_by_staff_id` (nullable FK → `staff_info.id`): trỏ tới trợ lí quản lí CSKH này; trợ lí được hưởng 3% học phí đã học của học sinh thuộc CSKH quản lí. Index: `(customer_care_managed_by_staff_id)`
