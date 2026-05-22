@@ -1,8 +1,4 @@
-import {
-  registerDecorator,
-  ValidationArguments,
-  ValidationOptions,
-} from 'class-validator';
+import { registerDecorator, ValidationOptions } from 'class-validator';
 import { isStudentId, isClassId, isStaffId } from './entity-id';
 
 function makeEntityIdDecorator(
@@ -21,12 +17,9 @@ function makeEntityIdDecorator(
           ...validationOptions,
         },
         validator: {
-          validate(value: unknown, args: ValidationArguments) {
-            if (args.constraints?.[0]?.each) {
-              return Array.isArray(value) && value.every((v) => check(v));
-            }
-            if (validationOptions?.each) {
-              return Array.isArray(value) && value.every((v) => check(v));
+          validate(value: unknown) {
+            if (Array.isArray(value)) {
+              return value.every((v) => check(v));
             }
             return check(value);
           },
