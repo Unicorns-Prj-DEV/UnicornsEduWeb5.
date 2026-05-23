@@ -30,7 +30,7 @@ export class CreateClassSurveyDto {
 
   @ApiProperty({
     description: 'Staff id của gia sư phụ trách trong lớp.',
-    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+    example: 'UNISTAFF-c3d4e5f6a7',
   })
   @IsStaffId()
   teacher_id: string;

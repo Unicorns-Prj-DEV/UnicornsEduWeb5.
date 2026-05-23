@@ -44,7 +44,10 @@ import {
 } from 'src/dtos/student.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { getUserFullNameFromParts } from 'src/common/user-name.util';
-import { generateStudentId } from 'src/common/entity-id';
+import {
+  generateStudentId,
+  isEntityIdUniqueConstraintError,
+} from 'src/common/entity-id';
 import {
   hasCustomTuitionOverride,
   normalizeNullableMoney,
@@ -2412,6 +2415,22 @@ export class StudentService {
       throw new BadRequestException('Student full name is required.');
     }
 
+    return this.withEntityIdRetry(() =>
+      this.createStudentOnce(data, auditActor, user, trimmedFullName),
+    );
+  }
+
+  private async createStudentOnce(
+    data: CreateStudentDto,
+    auditActor: ActionHistoryActor | undefined,
+    user: {
+      id: string;
+      email: string;
+      province: string | null;
+      roleType: UserRole;
+    },
+    trimmedFullName: string,
+  ) {
     return this.prisma.$transaction(async (tx) => {
       const createdStudent = await tx.studentInfo.create({
         data: {
@@ -2463,5 +2482,26 @@ export class StudentService {
 
       return createdStudent;
     });
+  }
+
+  private async withEntityIdRetry<T>(operation: () => Promise<T>): Promise<T> {
+    const maxAttempts = 5;
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await operation();
+      } catch (error) {
+        if (!isEntityIdUniqueConstraintError(error)) {
+          throw error;
+        }
+        lastError = error;
+      }
+    }
+
+    throw new BadRequestException(
+      'Could not generate a unique student id. Please retry.',
+      { cause: lastError },
+    );
   }
 }

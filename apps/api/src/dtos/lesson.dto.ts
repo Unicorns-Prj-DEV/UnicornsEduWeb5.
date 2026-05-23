@@ -23,6 +23,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { IsStaffId, IsLessonTaskId, IsLessonOutputId } from '../common/entity-id.validators';
 
 export interface LessonListMetaDto {
   total: number;
@@ -318,10 +319,11 @@ export class LessonWorkQueryDto {
   tag?: string;
 
   @ApiPropertyOptional({
+    example: 'UNISTAFF-c3d4e5f6a7',
     description: 'Lọc theo nhân sự nhận thanh toán output.',
   })
   @IsOptional()
-  @IsUUID('4')
+  @IsStaffId()
   staffId?: string;
 
   @ApiPropertyOptional({
@@ -417,12 +419,12 @@ export class LessonResourceOptionsQueryDto {
   limit?: number;
 
   @ApiPropertyOptional({
-    example: '99e2effd-fab2-42e1-8b17-43c0d840e1be',
+    example: 'UNILTK-a1b2c3d4e5',
     description:
       'Optional task id to exclude resources already linked to that task from the search result.',
   })
   @IsOptional()
-  @IsUUID('4')
+  @IsLessonTaskId()
   excludeTaskId?: string;
 }
 
@@ -485,12 +487,12 @@ export class CreateLessonResourceDto {
   description?: string | null;
 
   @ApiPropertyOptional({
-    example: '99e2effd-fab2-42e1-8b17-43c0d840e1be',
+    example: 'UNILTK-a1b2c3d4e5',
     description:
       'Optional parent lesson task id. Khi có giá trị, resource sẽ được gắn trực tiếp vào task này.',
   })
   @IsOptional()
-  @IsUUID('4')
+  @IsLessonTaskId()
   lessonTaskId?: string | null;
 
   @ApiPropertyOptional({
@@ -546,20 +548,17 @@ export class CreateLessonTaskDto {
   dueDate?: string | null;
 
   @ApiPropertyOptional({
-    example: '99e2effd-fab2-42e1-8b17-43c0d840e1be',
+    example: 'UNISTAFF-c3d4e5f6a7',
     description:
       'Deprecated legacy staff id. New writes merge this staff into assigneeStaffIds and do not store a separate task-level personnel group.',
   })
   @IsOptional()
-  @IsUUID('4')
+  @IsStaffId()
   createdByStaffId?: string | null;
 
   @ApiPropertyOptional({
     type: [String],
-    example: [
-      '99e2effd-fab2-42e1-8b17-43c0d840e1be',
-      'f6b9f3f2-5a72-4ab7-8895-66b77a92f24d',
-    ],
+    example: ['UNISTAFF-c3d4e5f6a7', 'UNISTAFF-d4e5f6a7b8'],
     description:
       'Danh sách nhân sự thực hiện giáo án của task. Đây là nguồn điều phối task chính thức.',
   })
@@ -567,7 +566,7 @@ export class CreateLessonTaskDto {
   @IsArray()
   @ArrayMaxSize(20)
   @ArrayUnique()
-  @IsUUID('4', { each: true })
+  @IsStaffId({ each: true })
   assigneeStaffIds?: string[] | null;
 }
 
@@ -575,12 +574,12 @@ export class UpdateLessonTaskDto extends PartialType(CreateLessonTaskDto) {}
 
 export class CreateLessonOutputDto {
   @ApiPropertyOptional({
-    example: '99e2effd-fab2-42e1-8b17-43c0d840e1be',
+    example: 'UNILTK-a1b2c3d4e5',
     description:
       'Parent lesson task id. Có thể bỏ qua để tạo output chưa gắn công việc.',
   })
   @IsOptional()
-  @IsUUID('4')
+  @IsLessonTaskId()
   lessonTaskId?: string | null;
 
   @ApiProperty({ example: 'Bài 1 - Tổ hợp cơ bản' })
@@ -664,12 +663,12 @@ export class CreateLessonOutputDto {
   link?: string | null;
 
   @ApiPropertyOptional({
-    example: '99e2effd-fab2-42e1-8b17-43c0d840e1be',
+    example: 'UNISTAFF-c3d4e5f6a7',
     description:
       'Nhân sự nhận thanh toán / đứng tên output. Không phải nhóm điều phối task.',
   })
   @IsOptional()
-  @IsUUID('4')
+  @IsStaffId()
   staffId?: string | null;
 
   @ApiPropertyOptional({
@@ -688,13 +687,13 @@ export class BulkUpdateLessonOutputPaymentStatusDto {
     description:
       'Danh sách id lesson output cần cập nhật trạng thái thanh toán.',
     type: [String],
-    example: ['550e8400-e29b-41d4-a716-446655440000'],
+    example: ['UNILOT-a1b2c3d4e5'],
   })
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(200)
   @ArrayUnique()
-  @IsUUID('4', { each: true })
+  @IsLessonOutputId({ each: true })
   outputIds: string[];
 
   @ApiProperty({

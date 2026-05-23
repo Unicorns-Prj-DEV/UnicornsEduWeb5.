@@ -140,11 +140,9 @@ export class SePayService {
     classIds: string[] = [],
     classNames: string[] = [],
   ): string {
-    const baseTransferNote = [studentId, ...classIds].join(' ').trim();
-    if (classNames.length === 0) {
-      return baseTransferNote;
-    }
-    return `${baseTransferNote} LOP ${classNames.join(', ')}`.trim();
+    void classIds;
+    void classNames;
+    return studentId.trim();
   }
 
   createStudentWalletStaticQr(params: {

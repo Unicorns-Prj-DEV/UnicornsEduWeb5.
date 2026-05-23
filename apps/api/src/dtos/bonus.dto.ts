@@ -12,7 +12,7 @@ import { IsStaffId } from '../common/entity-id.validators';
 export class CreateBonusDto {
   @ApiProperty({
     description: 'Staff id',
-    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+    example: 'UNISTAFF-c3d4e5f6a7',
   })
   @IsStaffId()
   staffId: string;

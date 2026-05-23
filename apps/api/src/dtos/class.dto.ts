@@ -28,7 +28,7 @@ import {
 export class ClassTeacherItemDto {
   @ApiProperty({
     description: 'Teacher (staff) id',
-    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+    example: 'UNISTAFF-c3d4e5f6a7',
   })
   @IsStaffId()
   teacher_id: string;
@@ -162,7 +162,7 @@ export class CreateClassDto {
     description:
       'Staff ids (gia sư phụ trách). Ignored if teachers[] is provided.',
     type: [String],
-    example: ['UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'],
+    example: ['UNISTAFF-c3d4e5f6a7'],
   })
   @IsOptional()
   @IsArray()
@@ -175,7 +175,7 @@ export class CreateClassDto {
     type: [ClassTeacherItemDto],
     example: [
       {
-        teacher_id: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+        teacher_id: 'UNISTAFF-c3d4e5f6a7',
         custom_allowance: 150000,
         operating_deduction_rate_percent: 10,
       },
@@ -190,7 +190,7 @@ export class CreateClassDto {
   @ApiPropertyOptional({
     description: 'Student ids (học sinh trong lớp).',
     type: [String],
-    example: ['UNIST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'],
+    example: ['UNIST-a1b2c3d4e5'],
   })
   @IsOptional()
   @IsArray()
@@ -264,7 +264,7 @@ export class ScheduleSlotDto {
   @ApiPropertyOptional({
     description:
       'Responsible tutor for this schedule slot. PATCH /class/:id/schedule requires this field and it must belong to the class teachers.',
-    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+    example: 'UNISTAFF-c3d4e5f6a7',
   })
   @IsOptional()
   @IsStaffId()
@@ -305,7 +305,7 @@ export class CreateStaffOpsClassDto extends PickType(CreateClassDto, [
 export class StudentClassCreateDto {
   @ApiProperty({
     description: 'Student id',
-    example: 'UNIST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+    example: 'UNIST-a1b2c3d4e5',
   })
   @IsStudentId()
   id: string;
@@ -340,7 +340,7 @@ export class UpdateClassStudentsDto {
     type: [StudentClassCreateDto],
     example: [
       {
-        id: 'UNIST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+        id: 'UNIST-a1b2c3d4e5',
         custom_tuition_package_total: 3600000,
       },
     ],
@@ -354,7 +354,7 @@ export class UpdateClassStudentsDto {
 export class UpdateClassDto extends PartialType(CreateClassDto) {
   @ApiProperty({
     description: 'Class id',
-    example: 'UNICL-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+    example: 'UNICL-b2c3d4e5f6',
   })
   @IsClassId()
   id: string;
@@ -363,7 +363,7 @@ export class UpdateClassDto extends PartialType(CreateClassDto) {
     description:
       'Staff ids (gia sư phụ trách). Ignored if teachers[] is provided.',
     type: [String],
-    example: ['UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'],
+    example: ['UNISTAFF-c3d4e5f6a7'],
   })
   @IsOptional()
   @IsArray()
@@ -385,7 +385,7 @@ export class UpdateClassDto extends PartialType(CreateClassDto) {
     description:
       'Student ids (học sinh trong lớp). Sync replaces current list.',
     type: [String],
-    example: ['UNIST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'],
+    example: ['UNIST-a1b2c3d4e5'],
   })
   @IsOptional()
   @IsArray()

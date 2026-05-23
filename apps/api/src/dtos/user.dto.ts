@@ -19,6 +19,7 @@ import {
   UserRole,
   UserStatus,
 } from 'generated/enums';
+import { IsClassId } from '../common/entity-id.validators';
 import { PaginationQueryDto } from './pagination.dto';
 
 export class CreateUserDto {
@@ -148,10 +149,10 @@ export class AdminCreateStudentUserDto extends CreateUserDto {
   @ApiProperty({
     description: 'Class ids assigned to the student at creation time.',
     type: [String],
-    example: ['uuid-1', 'uuid-2'],
+    example: ['UNICL-b2c3d4e5f6', 'UNICL-c3d4e5f6a7'],
   })
   @IsArray()
-  @IsUUID('4', { each: true })
+  @IsClassId({ each: true })
   class_ids: string[];
 }
 

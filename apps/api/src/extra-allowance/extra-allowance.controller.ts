@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -130,7 +131,7 @@ export class ExtraAllowanceController {
   @ApiParam({ name: 'id', description: 'Extra allowance id' })
   @ApiResponse({ status: 200, description: 'Extra allowance found.' })
   @ApiResponse({ status: 404, description: 'Extra allowance not found.' })
-  async getExtraAllowanceById(@Param('id') id: string) {
+  async getExtraAllowanceById(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.extraAllowanceService.getExtraAllowanceById(id);
   }
 
@@ -228,7 +229,7 @@ export class ExtraAllowanceController {
   @ApiResponse({ status: 404, description: 'Extra allowance not found.' })
   async deleteExtraAllowance(
     @CurrentUser() user: JwtPayload,
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
   ) {
     return this.extraAllowanceService.deleteExtraAllowance(id, {
       userId: user.id,

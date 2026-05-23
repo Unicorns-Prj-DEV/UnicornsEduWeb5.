@@ -173,7 +173,7 @@ export class CreateStaffDto {
   @ApiPropertyOptional({
     description:
       'Staff id of the assistant who manages this CSKH staff (only valid when staff has customer_care role)',
-    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+    example: 'UNISTAFF-c3d4e5f6a7',
   })
   @IsOptional()
   @IsStaffId()
@@ -201,7 +201,7 @@ export class CreateStaffDto {
 export class UpdateStaffDto extends PartialType(CreateStaffDto) {
   @ApiProperty({
     description: 'Staff id',
-    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+    example: 'UNISTAFF-c3d4e5f6a7',
   })
   @IsStaffId()
   id: string;

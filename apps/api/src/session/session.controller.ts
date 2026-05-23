@@ -5,6 +5,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Put,
@@ -33,6 +34,10 @@ import {
   SessionUnpaidSummaryItem,
   SessionUpdateDto,
 } from 'src/dtos/session.dto';
+import {
+  ParseClassIdPipe,
+  ParseStaffIdPipe,
+} from 'src/common/pipes/parse-entity-id.pipe';
 import { SessionService } from './session.service';
 
 @Controller('sessions')
@@ -69,7 +74,7 @@ export class SessionController {
   @ApiResponse({ status: 404, description: 'Session không tồn tại.' })
   async updateSession(
     @CurrentUser() user: JwtPayload,
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body() data: SessionUpdateDto,
   ) {
     return this.sessionService.updateSession(
@@ -130,7 +135,7 @@ export class SessionController {
   @ApiResponse({ status: 404, description: 'Session không tồn tại.' })
   async deleteSession(
     @CurrentUser() user: JwtPayload,
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
   ) {
     return this.sessionService.deleteSession(id, {
       userId: user.id,
@@ -146,7 +151,11 @@ export class SessionController {
     summary:
       'Lấy tổng phụ cấp session chưa nhận theo staff trong N ngày gần nhất',
   })
-  @ApiParam({ name: 'staffId', description: 'ID staff' })
+  @ApiParam({
+    name: 'staffId',
+    description: 'ID staff',
+    example: 'UNISTAFF-c3d4e5f6a7',
+  })
   @ApiQuery({
     name: 'days',
     required: false,
@@ -164,7 +173,7 @@ export class SessionController {
     description: 'days phải là số nguyên dương nếu được truyền vào.',
   })
   async getUnpaidSessionsByTeacherId(
-    @Param('staffId') teacherId: string,
+    @Param('staffId', new ParseStaffIdPipe()) teacherId: string,
     @Query('days') days?: string,
   ): Promise<SessionUnpaidSummaryItem[]> {
     if (days == null) {
@@ -186,7 +195,11 @@ export class SessionController {
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.accountant)
   @ApiOperation({ summary: 'Lấy session theo staff + tháng/năm' })
-  @ApiParam({ name: 'staffId', description: 'ID staff' })
+  @ApiParam({
+    name: 'staffId',
+    description: 'ID staff',
+    example: 'UNISTAFF-c3d4e5f6a7',
+  })
   @ApiQuery({ name: 'month', required: true, description: 'Tháng (01-12)' })
   @ApiQuery({ name: 'year', required: true, description: 'Năm (YYYY)' })
   @ApiResponse({
@@ -195,7 +208,7 @@ export class SessionController {
   })
   @ApiResponse({ status: 400, description: 'month/year không hợp lệ.' })
   async getSessionsByTeacherId(
-    @Param('staffId') teacherId: string,
+    @Param('staffId', new ParseStaffIdPipe()) teacherId: string,
     @Query('month') month: string,
     @Query('year') year: string,
   ) {
@@ -206,7 +219,11 @@ export class SessionController {
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.accountant)
   @ApiOperation({ summary: 'Lấy session theo class + tháng/năm' })
-  @ApiParam({ name: 'classId', description: 'ID lớp học' })
+  @ApiParam({
+    name: 'classId',
+    description: 'ID lớp học',
+    example: 'UNICL-b2c3d4e5f6',
+  })
   @ApiQuery({ name: 'month', required: true, description: 'Tháng (01-12)' })
   @ApiQuery({ name: 'year', required: true, description: 'Năm (YYYY)' })
   @ApiResponse({
@@ -215,7 +232,7 @@ export class SessionController {
   })
   @ApiResponse({ status: 400, description: 'month/year không hợp lệ.' })
   async getSessionsByClassId(
-    @Param('classId') classId: string,
+    @Param('classId', new ParseClassIdPipe()) classId: string,
     @Query('month') month: string,
     @Query('year') year: string,
   ) {

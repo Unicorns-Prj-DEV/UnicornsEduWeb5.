@@ -153,7 +153,7 @@ export class UpdateStudentBodyDto {
   drop_out_date?: string;
 
   @ApiPropertyOptional({
-    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+    example: 'UNISTAFF-c3d4e5f6a7',
     description: 'Assigned customer care staff ID. Set null to clear.',
     nullable: true,
   })
@@ -244,7 +244,7 @@ export class CreateStudentDto {
 export class UpdateStudentDto extends UpdateStudentBodyDto {
   @ApiProperty({
     description: 'Student id',
-    example: 'UNIST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+    example: 'UNIST-a1b2c3d4e5',
   })
   @IsStudentId()
   id: string;
@@ -263,7 +263,7 @@ export class UpdateStudentStatusDto {
 export class UpdateStudentAccountBalanceCreateDto {
   @ApiProperty({
     description: 'Student id',
-    example: 'UNIST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+    example: 'UNIST-a1b2c3d4e5',
   })
   @IsStudentId()
   student_id: string;
@@ -396,8 +396,7 @@ export class StudentSePayStaticQrResponseDto {
 
   @ApiProperty({
     description: 'Nội dung chuyển khoản cố định để webhook map về học sinh.',
-    example:
-      'SEVQR NAPVI UNIST-0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7 UNICL-4d560c5e-c3df-4470-b59a-2fd273ef95ef LOP Toan 8A',
+    example: 'SEVQR UNIST-a1b2c3d4e5 UNICL-b2c3d4e5f6 LOP Toan 8A',
   })
   transferNote!: string;
 
@@ -545,10 +544,7 @@ export class UpdateStudentClassesDto {
     description:
       'Class ids assigned to the student. Replaces current memberships.',
     type: [String],
-    example: [
-      'UNICL-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
-      'UNICL-yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy',
-    ],
+    example: ['UNICL-b2c3d4e5f6', 'UNICL-c3d4e5f6a7'],
   })
   @IsArray()
   @IsClassId({ each: true })

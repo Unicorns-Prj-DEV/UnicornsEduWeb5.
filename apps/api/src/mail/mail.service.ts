@@ -428,8 +428,13 @@ export class MailService {
       ? this.formatDateVNFromTransactionString(args.transactionDate)
       : this.formatNowVNDate();
 
+    const receiptSummary = this.buildReceiptSummary(
+      args.studentCode,
+      args.studentName,
+      args.extensionClassNames,
+    );
     const memoParts = [
-      args.transferNote || null,
+      receiptSummary || args.transferNote || null,
       args.balanceAfter != null
         ? `Số dư ví sau nạp: ${this.formatVnd(args.balanceAfter)} VND`
         : null,
@@ -449,11 +454,6 @@ export class MailService {
     ];
 
     const payerDisplay = args.parentName.trim() || args.studentName;
-    const receiptSummary = this.buildReceiptSummary(
-      args.studentName,
-      args.extensionClassNames,
-      args.amount,
-    );
 
     return {
       documentTitle,
@@ -472,18 +472,22 @@ export class MailService {
   }
 
   private buildReceiptSummary(
+    studentCode: string | null,
     studentName: string,
     extensionClassNames: string[],
-    amount: number,
   ): string {
+    const studentIdentifier =
+      this.normalizeReceiptText(studentCode) ||
+      this.normalizeReceiptText(studentName) ||
+      'học sinh';
     const normalizedClassNames = extensionClassNames
       .map((name) => this.normalizeReceiptText(name))
       .filter(Boolean);
     const classText =
       normalizedClassNames.length > 0
-        ? ` gia hạn khoá ${this.joinVietnameseList(normalizedClassNames)}`
-        : '';
-    return `Em học sinh ${studentName}${classText} số tiền ${this.formatVnd(amount)} VNĐ.`;
+        ? this.joinVietnameseList(normalizedClassNames)
+        : 'chưa có lớp active';
+    return `Học sinh ${studentIdentifier} gia hạn học phí các gói ${classText}`;
   }
 
   private joinVietnameseList(items: string[]): string {

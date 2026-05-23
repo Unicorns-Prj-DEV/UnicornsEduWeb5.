@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -86,7 +87,7 @@ export class UserController {
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   @ApiResponse({ status: 403, description: 'Forbidden. Admin only.' })
   @ApiResponse({ status: 404, description: 'User not found.' })
-  async getUserById(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+  async getUserById(@CurrentUser() user: JwtPayload, @Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.userService.getUserById(id);
   }
 
@@ -200,7 +201,7 @@ export class UserController {
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   @ApiResponse({ status: 403, description: 'Forbidden. Admin only.' })
   @ApiResponse({ status: 404, description: 'User not found.' })
-  async deleteUser(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+  async deleteUser(@CurrentUser() user: JwtPayload, @Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.userService.deleteUser(id, {
       userId: user.id,
       userEmail: user.email,

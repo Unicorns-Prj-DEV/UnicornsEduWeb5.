@@ -43,7 +43,10 @@ import {
   PatchStaffClassTeacherOperatingDeductionDto,
 } from 'src/dtos/staff.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { generateStaffId } from 'src/common/entity-id';
+import {
+  generateStaffId,
+  isEntityIdUniqueConstraintError,
+} from 'src/common/entity-id';
 import { createSignedStorageUrl } from 'src/storage/supabase-storage';
 import {
   getPreferredUserFullName,
@@ -4611,84 +4614,86 @@ export class StaffService {
     }
 
     try {
-      const createdStaffId = await this.prisma.$transaction(async (tx) => {
-        if (
-          data.customer_care_managed_by_staff_id != null &&
-          data.customer_care_managed_by_staff_id.trim() !== ''
-        ) {
-          const manager = await tx.staffInfo.findUnique({
-            where: { id: data.customer_care_managed_by_staff_id },
-            select: { roles: true },
-          });
-          if (!manager || !manager.roles.includes(StaffRole.assistant)) {
-            throw new BadRequestException(
-              'Nhân sự được chỉ định phải có role trợ lí.',
-            );
+      const createdStaffId = await this.withEntityIdRetry(() =>
+        this.prisma.$transaction(async (tx) => {
+          if (
+            data.customer_care_managed_by_staff_id != null &&
+            data.customer_care_managed_by_staff_id.trim() !== ''
+          ) {
+            const manager = await tx.staffInfo.findUnique({
+              where: { id: data.customer_care_managed_by_staff_id },
+              select: { roles: true },
+            });
+            if (!manager || !manager.roles.includes(StaffRole.assistant)) {
+              throw new BadRequestException(
+                'Nhân sự được chỉ định phải có role trợ lí.',
+              );
+            }
           }
-        }
 
-        const createPayload: Record<string, unknown> = {
-          id: generateStaffId(),
-          cccdNumber: data.cccd_number,
-          ethnicity: data.ethnicity,
-          gender: data.gender,
-          currentAddress: data.current_address,
-          cccdIssuedDate: toDateOrNull(data.cccd_issued_date) ?? undefined,
-          cccdIssuedPlace: data.cccd_issued_place,
-          birthDate: toDateOrNull(data.birth_date) ?? undefined,
-          university: data.university,
-          highSchool: data.high_school,
-          specialization: data.specialization,
-          bankAccount: data.bank_account,
-          bankQrLink: data.bank_qr_link,
-          personalAchievementLink: data.personal_achievement_link ?? null,
-          roles: data.roles,
-          userId: data.user_id,
-          customerCareManagedByStaffId:
-            data.customer_care_managed_by_staff_id ?? null,
-        };
+          const createPayload: Record<string, unknown> = {
+            id: generateStaffId(),
+            cccdNumber: data.cccd_number,
+            ethnicity: data.ethnicity,
+            gender: data.gender,
+            currentAddress: data.current_address,
+            cccdIssuedDate: toDateOrNull(data.cccd_issued_date) ?? undefined,
+            cccdIssuedPlace: data.cccd_issued_place,
+            birthDate: toDateOrNull(data.birth_date) ?? undefined,
+            university: data.university,
+            highSchool: data.high_school,
+            specialization: data.specialization,
+            bankAccount: data.bank_account,
+            bankQrLink: data.bank_qr_link,
+            personalAchievementLink: data.personal_achievement_link ?? null,
+            roles: data.roles,
+            userId: data.user_id,
+            customerCareManagedByStaffId:
+              data.customer_care_managed_by_staff_id ?? null,
+          };
 
-        if (
-          Object.keys(userNamePayload).length > 0 ||
-          user.roleType !== UserRole.staff
-        ) {
-          await tx.user.update({
-            where: {
-              id: data.user_id,
-            },
-            data: {
-              ...(Object.keys(userNamePayload).length > 0
-                ? userNamePayload
-                : {}),
-              ...(user.roleType !== UserRole.staff
-                ? { roleType: UserRole.staff }
-                : {}),
-            },
-          });
-        }
-
-        const createdStaff = await tx.staffInfo.create({
-          data: createPayload as Prisma.StaffInfoCreateArgs['data'],
-        });
-
-        if (auditActor) {
-          const afterValue = await this.getStaffAuditSnapshot(
-            tx,
-            createdStaff.id,
-          );
-          if (afterValue) {
-            await this.actionHistoryService.recordCreate(tx, {
-              actor: auditActor,
-              entityType: 'staff',
-              entityId: createdStaff.id,
-              description: 'Tạo nhân sự',
-              afterValue,
+          if (
+            Object.keys(userNamePayload).length > 0 ||
+            user.roleType !== UserRole.staff
+          ) {
+            await tx.user.update({
+              where: {
+                id: data.user_id,
+              },
+              data: {
+                ...(Object.keys(userNamePayload).length > 0
+                  ? userNamePayload
+                  : {}),
+                ...(user.roleType !== UserRole.staff
+                  ? { roleType: UserRole.staff }
+                  : {}),
+              },
             });
           }
-        }
 
-        return createdStaff.id;
-      });
+          const createdStaff = await tx.staffInfo.create({
+            data: createPayload as Prisma.StaffInfoCreateArgs['data'],
+          });
+
+          if (auditActor) {
+            const afterValue = await this.getStaffAuditSnapshot(
+              tx,
+              createdStaff.id,
+            );
+            if (afterValue) {
+              await this.actionHistoryService.recordCreate(tx, {
+                actor: auditActor,
+                entityType: 'staff',
+                entityId: createdStaff.id,
+                description: 'Tạo nhân sự',
+                afterValue,
+              });
+            }
+          }
+
+          return createdStaff.id;
+        }),
+      );
 
       const createdStaff = await this.getStaffById(createdStaffId);
       this.invalidateStaffAuthIdentities(data.user_id);
@@ -4699,6 +4704,27 @@ export class StaffService {
       }
       throw error;
     }
+  }
+
+  private async withEntityIdRetry<T>(operation: () => Promise<T>): Promise<T> {
+    const maxAttempts = 5;
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await operation();
+      } catch (error) {
+        if (!isEntityIdUniqueConstraintError(error)) {
+          throw error;
+        }
+        lastError = error;
+      }
+    }
+
+    throw new BadRequestException(
+      'Could not generate a unique staff id. Please retry.',
+      { cause: lastError },
+    );
   }
 
   /**

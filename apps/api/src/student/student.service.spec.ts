@@ -617,7 +617,7 @@ describe('StudentService', () => {
     sePayService.createStudentWalletStaticQr.mockReturnValue({
       studentId: 'student-1',
       classIds: ['class-active-1'],
-      transferNote: 'NAPVI student-1 class-active-1 LOP Toan 8A',
+      transferNote: 'student-1',
       accountNumber: '722732006',
       qrCodeUrl: 'https://img.vietqr.io/image/qr.png',
     });
@@ -631,7 +631,7 @@ describe('StudentService', () => {
     ).resolves.toMatchObject({
       studentId: 'student-1',
       classIds: ['class-active-1'],
-      transferNote: 'NAPVI student-1 class-active-1 LOP Toan 8A',
+      transferNote: 'student-1',
     });
 
     expect(sePayService.createStudentWalletStaticQr).toHaveBeenCalledWith({
@@ -731,14 +731,15 @@ describe('StudentService', () => {
         expiresAt: new Date('2026-05-30T03:00:00.000Z'),
       }),
     );
+    const expectedNotificationDraft = expect.objectContaining({
+      title: expect.stringContaining('Yêu cầu nạp thẳng ví mới') as unknown,
+      message: expect.stringContaining('Nguyen Van A') as unknown,
+      targetAll: false,
+      targetRoleTypes: [UserRole.admin],
+      targetStaffRoles: [StaffRole.admin],
+    }) as unknown;
     expect(notificationService.createNotificationDraft).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: expect.stringContaining('Yêu cầu nạp thẳng ví mới'),
-        message: expect.stringContaining('Nguyen Van A'),
-        targetAll: false,
-        targetRoleTypes: [UserRole.admin],
-        targetStaffRoles: [StaffRole.admin],
-      }),
+      expectedNotificationDraft,
       {
         userId: 'staff-user-1',
         userEmail: 'care@example.com',

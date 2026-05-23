@@ -69,6 +69,13 @@ type ClassDelegate = {
   findMany(args: unknown): Promise<Array<{ id: string; name: string }>>;
 };
 
+type StudentClassNameRecord = {
+  status?: string | null;
+  class?: {
+    name?: string | null;
+  } | null;
+};
+
 type StudentInfoDelegate = {
   findUnique(args: unknown): Promise<{
     id?: string;
@@ -76,6 +83,7 @@ type StudentInfoDelegate = {
     fullName?: string | null;
     parentName?: string | null;
     parentEmail?: string | null;
+    studentClasses?: StudentClassNameRecord[];
   } | null>;
   findMany(args: unknown): Promise<
     Array<{
@@ -99,13 +107,7 @@ type SePayWebhookPrismaClient = {
 
 type StaticQrContext = {
   studentId: string;
-  studentIdIsPartial: boolean;
   classIds: string[];
-};
-
-type NormalizedPrefixedIdToken = {
-  id: string;
-  isPartial: boolean;
 };
 
 @Injectable()
@@ -434,36 +436,18 @@ export class SePayWebhookService {
       parentEmail: true,
     };
 
-    if (!context.studentIdIsPartial) {
-      const student = await client.studentInfo.findUnique({
-        where: { id: context.studentId },
-        select,
-      });
-      return student?.id ? { ...student, id: student.id } : null;
-    }
-
-    const matches = await client.studentInfo.findMany({
-      where: { id: { startsWith: context.studentId } },
+    const student = await client.studentInfo.findUnique({
+      where: { id: context.studentId },
       select,
-      take: 2,
     });
 
-    if (matches.length !== 1) {
-      this.logger.warn(
-        `SePay webhook unmatched: static QR partial student id ${context.studentId} matched ${matches.length} students`,
-      );
-      return null;
-    }
-
-    return matches[0];
+    return student?.id ? { ...student, id: student.id } : null;
   }
 
   private extractStaticQrContextFromText(text: string): StaticQrContext | null {
-    const uuid =
-      '[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
-    const compactUuidPrefix = '[0-9a-f]{20,32}';
-    const studentPart = `(?:UNIST-${uuid}|UNIST-?${compactUuidPrefix})`;
-    const classPart = `(?:UNICL-${uuid}|UNICL-?${compactUuidPrefix})`;
+    const shortHex = '[0-9a-f]{10}(?![0-9a-f])';
+    const studentPart = `UNIST-?${shortHex}`;
+    const classPart = `UNICL-?${shortHex}`;
     const optionalMarker = '(?:NAP\\s*VI\\s+)?';
     const match = text.match(
       new RegExp(
@@ -478,22 +462,19 @@ export class SePayWebhookService {
     }
 
     const classPattern = new RegExp(classPart, 'gi');
+    const classTokens: string[] = match?.[2]?.match(classPattern) ?? [];
     const classIds = Array.from(
       new Set(
-        (match?.[2]?.match(classPattern) ?? [])
+        classTokens
           .map((classToken) =>
             this.normalizePrefixedIdToken(classToken, 'UNICL'),
           )
-          .filter((classId): classId is NormalizedPrefixedIdToken =>
-            Boolean(classId?.id && !classId.isPartial),
-          )
-          .map((classId) => classId.id),
+          .filter((classId): classId is string => Boolean(classId)),
       ),
     );
 
     return {
-      studentId: studentId.id,
-      studentIdIsPartial: studentId.isPartial,
+      studentId,
       classIds,
     };
   }
@@ -501,56 +482,21 @@ export class SePayWebhookService {
   private normalizePrefixedIdToken(
     token: string | null | undefined,
     prefix: 'UNIST' | 'UNICL',
-  ): NormalizedPrefixedIdToken | null {
+  ): string | null {
     const value = token?.trim();
     if (!value) {
       return null;
     }
 
-    const uuid =
-      '[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
-    const exactMatch = value.match(new RegExp(`^${prefix}-(${uuid})$`, 'i'));
-    if (exactMatch?.[1]) {
-      return {
-        id: `${prefix}-${exactMatch[1].toLowerCase()}`,
-        isPartial: false,
-      };
-    }
-
     const compactMatch = value.match(
-      new RegExp(`^${prefix}-?([0-9a-f]{20,32})$`, 'i'),
+      new RegExp(`^${prefix}-?([0-9a-f]{10})$`, 'i'),
     );
     const compactHex = compactMatch?.[1]?.toLowerCase();
     if (!compactHex) {
       return null;
     }
 
-    return {
-      id: `${prefix}-${this.hyphenateCompactUuidPrefix(compactHex)}`,
-      isPartial: compactHex.length !== 32,
-    };
-  }
-
-  private hyphenateCompactUuidPrefix(compactHex: string): string {
-    const breakpoints = [8, 12, 16, 20];
-    const segments: string[] = [];
-    let cursor = 0;
-
-    for (const breakpoint of breakpoints) {
-      if (compactHex.length <= cursor) {
-        break;
-      }
-
-      const next = Math.min(breakpoint, compactHex.length);
-      segments.push(compactHex.slice(cursor, next));
-      cursor = next;
-    }
-
-    if (cursor < compactHex.length) {
-      segments.push(compactHex.slice(cursor));
-    }
-
-    return segments.filter(Boolean).join('-');
+    return `${prefix}-${compactHex}`;
   }
 
   private buildStaticQrTransferNote(context: StaticQrContext): string {
@@ -752,6 +698,14 @@ export class SePayWebhookService {
       this.extractStaticQrContextFromText(order.transferNote ?? '')?.classIds ??
       [];
     if (classIds.length === 0) {
+      return this.getActiveStudentClassNames(order.studentId);
+    }
+
+    return this.getClassNamesByIds(classIds);
+  }
+
+  private async getClassNamesByIds(classIds: string[]): Promise<string[]> {
+    if (classIds.length === 0) {
       return [];
     }
 
@@ -763,9 +717,52 @@ export class SePayWebhookService {
       })) ?? [];
     const namesById = new Map(classes.map((item) => [item.id, item.name]));
 
-    return classIds
-      .map((classId) => namesById.get(classId))
-      .filter((name): name is string => Boolean(name?.trim()));
+    return this.normalizeUniqueClassNames(
+      classIds.map((classId) => namesById.get(classId)),
+    );
+  }
+
+  private async getActiveStudentClassNames(
+    studentId: string,
+  ): Promise<string[]> {
+    const client = this.getPrismaClient(this.prisma);
+    const student = await client.studentInfo.findUnique({
+      where: { id: studentId },
+      select: {
+        studentClasses: {
+          where: { status: 'active' },
+          select: {
+            status: true,
+            class: {
+              select: { name: true },
+            },
+          },
+        },
+      },
+    });
+
+    return this.normalizeUniqueClassNames(
+      student?.studentClasses
+        ?.filter((item) => item.status === 'active')
+        .map((item) => item.class?.name) ?? [],
+    );
+  }
+
+  private normalizeUniqueClassNames(
+    values: Array<string | null | undefined>,
+  ): string[] {
+    const names = new Map<string, string>();
+    for (const value of values) {
+      const name = value?.trim();
+      if (!name) {
+        continue;
+      }
+      const key = name.toLocaleLowerCase('vi-VN');
+      if (!names.has(key)) {
+        names.set(key, name);
+      }
+    }
+    return Array.from(names.values());
   }
 
   private getReceiptRecipients(

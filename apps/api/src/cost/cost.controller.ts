@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -105,7 +106,7 @@ export class CostController {
   @ApiParam({ name: 'id', description: 'Cost id' })
   @ApiResponse({ status: 200, description: 'Cost found.' })
   @ApiResponse({ status: 404, description: 'Cost not found.' })
-  async getCostById(@Param('id') id: string) {
+  async getCostById(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.costService.getCostById(id);
   }
 
@@ -194,7 +195,7 @@ export class CostController {
   @ApiParam({ name: 'id', description: 'Cost id' })
   @ApiResponse({ status: 200, description: 'Cost deleted.' })
   @ApiResponse({ status: 404, description: 'Cost not found.' })
-  async deleteCost(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+  async deleteCost(@CurrentUser() user: JwtPayload, @Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.costService.deleteCost(id, {
       userId: user.id,
       userEmail: user.email,

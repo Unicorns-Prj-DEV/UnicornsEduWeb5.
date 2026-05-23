@@ -246,9 +246,10 @@ export class CalendarController {
   })
   @ApiQuery({
     name: 'classId',
-    description: 'Lọc theo class ID (UUID)',
+    description: 'Lọc theo class ID (UNICL-xxxxxxxxxx)',
     required: false,
     type: String,
+    example: 'UNICL-b2c3d4e5f6',
   })
   @ApiResponse({
     status: 200,

@@ -9,9 +9,7 @@ import {
   ClassStatus,
   ClassType,
   StaffRole,
-  StaffStatus,
   StudentClassStatus,
-  StudentStatus,
   UserRole,
 } from 'generated/enums';
 import {
@@ -34,7 +32,10 @@ import { StaffOperationsAccessService } from 'src/staff-ops/staff-operations-acc
 import { CalendarService } from 'src/calendar/calendar.service';
 import { Logger } from '@nestjs/common';
 import { getUserFullNameFromParts } from 'src/common/user-name.util';
-import { generateClassId } from 'src/common/entity-id';
+import {
+  generateClassId,
+  isEntityIdUniqueConstraintError,
+} from 'src/common/entity-id';
 import {
   hasCustomTuitionOverride,
   normalizeNullableMoney,
@@ -104,6 +105,8 @@ type TeacherAssignmentPayload = {
 };
 
 type TeacherAssignmentRecord = {
+  classId?: string;
+  teacherId?: string;
   customAllowance: number | null;
   operatingDeductionRatePercent: Prisma.Decimal | number | string | null;
   teacher: {
@@ -113,7 +116,7 @@ type TeacherAssignmentRecord = {
       last_name: string | null;
     } | null;
     status: string | null;
-  };
+  } | null;
 };
 
 @Injectable()
@@ -137,6 +140,13 @@ export class ClassService {
   }
 
   private mapTeacherAssignment(record: TeacherAssignmentRecord) {
+    if (!record.teacher) {
+      this.logger.warn(
+        `Skipping class teacher assignment with missing teacher relation: classId=${record.classId ?? 'unknown'} teacherId=${record.teacherId ?? 'unknown'}`,
+      );
+      return null;
+    }
+
     const operatingDeductionRatePercent = normalizeRatePercent(
       record.operatingDeductionRatePercent,
     );
@@ -149,6 +159,13 @@ export class ClassService {
       operatingDeductionRatePercent,
       taxRatePercent: operatingDeductionRatePercent,
     };
+  }
+
+  private mapTeacherAssignments(records: TeacherAssignmentRecord[]) {
+    return records.flatMap((record) => {
+      const assignment = this.mapTeacherAssignment(record);
+      return assignment ? [assignment] : [];
+    });
   }
 
   private async appendOperatingDeductionRateHistory(
@@ -360,8 +377,13 @@ export class ClassService {
     }
 
     const classRecord = await db.classTeacher.findMany({
-      where: { classId: id },
+      where: {
+        classId: id,
+        teacher: { is: {} },
+      },
       select: {
+        classId: true,
+        teacherId: true,
         customAllowance: true,
         operatingDeductionRatePercent: true,
         teacher: {
@@ -380,9 +402,7 @@ export class ClassService {
       orderBy: [{ createdAt: 'asc' }, { teacherId: 'asc' }],
     });
 
-    const teachers = classRecord.map((record) =>
-      this.mapTeacherAssignment(record),
-    );
+    const teachers = this.mapTeacherAssignments(classRecord);
 
     const classStudents = await db.studentClass.findMany({
       where: { classId: id },
@@ -544,9 +564,11 @@ export class ClassService {
               classId: {
                 in: classIds,
               },
+              teacher: { is: {} },
             },
             select: {
               classId: true,
+              teacherId: true,
               customAllowance: true,
               operatingDeductionRatePercent: true,
               teacher: {
@@ -603,9 +625,7 @@ export class ClassService {
       data: data.map((item) => ({
         ...item,
         studentCount: studentCountByClassId[item.id] ?? 0,
-        teachers: (teachersByClassId[item.id] ?? []).map((record) =>
-          this.mapTeacherAssignment(record),
-        ),
+        teachers: this.mapTeacherAssignments(teachersByClassId[item.id] ?? []),
       })),
       meta: {
         total,
@@ -625,8 +645,13 @@ export class ClassService {
     }
 
     const classRecord = await this.prisma.classTeacher.findMany({
-      where: { classId: id },
+      where: {
+        classId: id,
+        teacher: { is: {} },
+      },
       select: {
+        classId: true,
+        teacherId: true,
         customAllowance: true,
         operatingDeductionRatePercent: true,
         teacher: {
@@ -644,9 +669,7 @@ export class ClassService {
       },
     });
 
-    const teachers = classRecord.map((record) =>
-      this.mapTeacherAssignment(record),
-    );
+    const teachers = this.mapTeacherAssignments(classRecord);
 
     const classStudents = await this.prisma.studentClass.findMany({
       where: { classId: id },
@@ -893,6 +916,13 @@ export class ClassService {
   }
 
   async createClass(data: CreateClassDto, auditActor?: ActionHistoryActor) {
+    return this.withEntityIdRetry(() => this.createClassOnce(data, auditActor));
+  }
+
+  private async createClassOnce(
+    data: CreateClassDto,
+    auditActor?: ActionHistoryActor,
+  ) {
     return await this.prisma.$transaction(async (tx) => {
       const createdClass = await tx.class.create({
         data: {
@@ -952,8 +982,13 @@ export class ClassService {
       }
 
       const classRecord = await tx.classTeacher.findMany({
-        where: { classId: createdClass.id },
+        where: {
+          classId: createdClass.id,
+          teacher: { is: {} },
+        },
         select: {
+          classId: true,
+          teacherId: true,
           customAllowance: true,
           operatingDeductionRatePercent: true,
           teacher: {
@@ -989,11 +1024,30 @@ export class ClassService {
 
       return {
         ...createdClass,
-        teachers: classRecord.map((record) =>
-          this.mapTeacherAssignment(record),
-        ),
+        teachers: this.mapTeacherAssignments(classRecord),
       };
     });
+  }
+
+  private async withEntityIdRetry<T>(operation: () => Promise<T>): Promise<T> {
+    const maxAttempts = 5;
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await operation();
+      } catch (error) {
+        if (!isEntityIdUniqueConstraintError(error)) {
+          throw error;
+        }
+        lastError = error;
+      }
+    }
+
+    throw new BadRequestException(
+      'Could not generate a unique class id. Please retry.',
+      { cause: lastError },
+    );
   }
 
   async updateClass(data: UpdateClassDto, auditActor?: ActionHistoryActor) {
@@ -1185,8 +1239,13 @@ export class ClassService {
       });
 
       const classRecord = await tx.classTeacher.findMany({
-        where: { classId: data.id },
+        where: {
+          classId: data.id,
+          teacher: { is: {} },
+        },
         select: {
+          classId: true,
+          teacherId: true,
           customAllowance: true,
           operatingDeductionRatePercent: true,
           teacher: {
@@ -1221,9 +1280,7 @@ export class ClassService {
       return {
         response: {
           ...updatedClass,
-          teachers: classRecord.map((record) =>
-            this.mapTeacherAssignment(record),
-          ),
+          teachers: this.mapTeacherAssignments(classRecord),
         },
         removedScheduleEntries,
         oldSchedule,

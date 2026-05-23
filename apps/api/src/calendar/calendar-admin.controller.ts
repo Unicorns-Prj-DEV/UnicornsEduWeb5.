@@ -18,7 +18,6 @@ import {
   ApiCookieAuth,
   ApiOperation,
   ApiParam,
-  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -127,7 +126,11 @@ export class CalendarAdminController {
 
   @Get('classes/:classId/schedule')
   @ApiOperation({ summary: 'Lấy weekly schedule pattern của một lớp' })
-  @ApiParam({ name: 'classId', description: 'Class ID (UUID)' })
+  @ApiParam({
+    name: 'classId',
+    description: 'Class ID (UNICL-xxxxxxxxxx)',
+    example: 'UNICL-b2c3d4e5f6',
+  })
   @ApiResponse({
     status: 200,
     description: 'Lịch học định kỳ của lớp',
@@ -142,7 +145,11 @@ export class CalendarAdminController {
 
   @Put('classes/:classId/schedule')
   @ApiOperation({ summary: 'Cập nhật weekly schedule pattern của một lớp' })
-  @ApiParam({ name: 'classId', description: 'Class ID (UUID)' })
+  @ApiParam({
+    name: 'classId',
+    description: 'Class ID (UNICL-xxxxxxxxxx)',
+    example: 'UNICL-b2c3d4e5f6',
+  })
   @ApiBody({
     description: 'Weekly schedule pattern payload',
     type: ClassSchedulePatternDto,

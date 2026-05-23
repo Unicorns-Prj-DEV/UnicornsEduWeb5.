@@ -35,7 +35,7 @@ export class TaxDeductionSettingsQueryDto {
 
   @ApiPropertyOptional({
     description: 'Filter staff overrides by a specific staff id.',
-    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+    example: 'UNISTAFF-c3d4e5f6a7',
   })
   @IsOptional()
   @IsStaffId()
@@ -94,7 +94,7 @@ export class UpdateRoleTaxDeductionRateDto {
 export class CreateStaffTaxDeductionOverrideDto {
   @ApiProperty({
     description: 'Staff id this override applies to.',
-    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+    example: 'UNISTAFF-c3d4e5f6a7',
   })
   @IsStaffId()
   staffId: string;
@@ -187,7 +187,7 @@ export class BulkUpsertStaffTaxDeductionOverrideItemDto {
 export class BulkUpsertStaffTaxDeductionOverridesDto {
   @ApiProperty({
     description: 'Staff id this bulk upsert applies to.',
-    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+    example: 'UNISTAFF-c3d4e5f6a7',
   })
   @IsStaffId()
   staffId: string;

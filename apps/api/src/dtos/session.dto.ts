@@ -16,21 +16,25 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { IsClassId, IsStaffId, IsStudentId } from '../common/entity-id.validators';
+import {
+  IsClassId,
+  IsStaffId,
+  IsStudentId,
+} from '../common/entity-id.validators';
 import { AttendanceStatus, SessionPaymentStatus } from '../../generated/enums';
 import { AttendanceCreateDto, AttendanceUpdateDto } from './attendance.dto';
 
 export class SessionCreateDto {
   @ApiProperty({
     description: 'Class id',
-    example: 'UNICL-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+    example: 'UNICL-b2c3d4e5f6',
   })
   @IsClassId()
   classId: string;
 
   @ApiProperty({
     description: 'Teacher id',
-    example: 'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+    example: 'UNISTAFF-c3d4e5f6a7',
   })
   @IsStaffId()
   teacherId: string;
@@ -168,7 +172,7 @@ export interface SessionUnpaidSummaryItem {
 export class StaffOpsAttendanceDto {
   @ApiProperty({
     description: 'Student id',
-    example: 'UNIST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+    example: 'UNIST-a1b2c3d4e5',
   })
   @IsStudentId()
   studentId: string;

@@ -60,10 +60,15 @@ describe('ClassService', () => {
 
   const mockPrisma = {
     class: {
+      count: jest.fn(),
+      findMany: jest.fn(),
       findUnique: jest.fn(),
     },
     classTeacher: {
       findMany: jest.fn(),
+    },
+    studentClass: {
+      groupBy: jest.fn(),
     },
     $transaction: jest.fn(),
   };
@@ -112,7 +117,10 @@ describe('ClassService', () => {
     mockTx.studentClass.findMany.mockResolvedValue([]);
     mockTx.studentClass.updateMany.mockResolvedValue({ count: 0 });
     mockTx.studentClass.create.mockResolvedValue({});
+    mockPrisma.class.count.mockResolvedValue(0);
+    mockPrisma.class.findMany.mockResolvedValue([]);
     mockPrisma.classTeacher.findMany.mockResolvedValue([]);
+    mockPrisma.studentClass.groupBy.mockResolvedValue([]);
 
     service = new ClassService(
       mockPrisma as never,
@@ -129,6 +137,85 @@ describe('ClassService', () => {
         id: 'class-1',
         teachers: [],
       });
+  });
+
+  describe('getClasses', () => {
+    it('skips stale teacher assignments with missing teacher relation', async () => {
+      const logger = (service as unknown as { logger: { warn: jest.Mock } })
+        .logger;
+      jest.spyOn(logger, 'warn').mockImplementation();
+
+      mockPrisma.class.count.mockResolvedValue(1);
+      mockPrisma.class.findMany.mockResolvedValue([
+        {
+          id: 'class-1',
+          name: 'Math 10A',
+        },
+      ]);
+      mockPrisma.classTeacher.findMany.mockResolvedValue([
+        {
+          classId: 'class-1',
+          teacherId: 'missing-teacher',
+          customAllowance: null,
+          operatingDeductionRatePercent: null,
+          teacher: null,
+        },
+        {
+          classId: 'class-1',
+          teacherId: 'teacher-1',
+          customAllowance: 100000,
+          operatingDeductionRatePercent: 10,
+          teacher: {
+            id: 'teacher-1',
+            status: StaffStatus.active,
+            user: {
+              first_name: 'Ada',
+              last_name: 'Lovelace',
+            },
+          },
+        },
+      ]);
+      mockPrisma.studentClass.groupBy.mockResolvedValue([
+        {
+          classId: 'class-1',
+          _count: {
+            _all: 2,
+          },
+        },
+      ]);
+
+      await expect(
+        service.getClasses({
+          page: 1,
+          limit: 20,
+        }),
+      ).resolves.toMatchObject({
+        data: [
+          {
+            id: 'class-1',
+            studentCount: 2,
+            teachers: [
+              {
+                id: 'teacher-1',
+                fullName: 'Lovelace Ada',
+                status: StaffStatus.active,
+                customAllowance: 100000,
+                operatingDeductionRatePercent: 10,
+                taxRatePercent: 10,
+              },
+            ],
+          },
+        ],
+        meta: {
+          total: 1,
+          page: 1,
+          limit: 20,
+        },
+      });
+      expect(logger.warn).toHaveBeenCalledWith(
+        'Skipping class teacher assignment with missing teacher relation: classId=class-1 teacherId=missing-teacher',
+      );
+    });
   });
 
   describe('getClassesForStaff', () => {

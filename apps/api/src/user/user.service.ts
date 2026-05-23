@@ -6,7 +6,11 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { Prisma } from '../../generated/client';
-import { generateStudentId, generateStaffId } from 'src/common/entity-id';
+import {
+  generateStudentId,
+  generateStaffId,
+  isEntityIdUniqueConstraintError,
+} from 'src/common/entity-id';
 import { StaffRole, StudentClassStatus, UserRole } from 'generated/enums';
 import {
   ActionHistoryActor,
@@ -141,6 +145,27 @@ export class UserService {
       error !== null &&
       'code' in error &&
       (error as { code?: string }).code === 'P2002'
+    );
+  }
+
+  private async withEntityIdRetry<T>(operation: () => Promise<T>): Promise<T> {
+    const maxAttempts = 5;
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await operation();
+      } catch (error) {
+        if (!isEntityIdUniqueConstraintError(error)) {
+          throw error;
+        }
+        lastError = error;
+      }
+    }
+
+    throw new BadRequestException(
+      'Could not generate a unique entity id. Please retry.',
+      { cause: lastError },
     );
   }
 
@@ -431,146 +456,151 @@ export class UserService {
     }
 
     try {
-      await this.prisma.$transaction(async (tx) => {
-        const beforeUserValue = await this.getUserAuditSnapshot(
-          tx,
-          createdUser.id,
-        );
-        if (!beforeUserValue) {
-          throw new NotFoundException('User not found');
-        }
-        const beforeStudentValue = createdUser.studentInfo
-          ? await this.getStudentAuditSnapshot(tx, createdUser.studentInfo.id)
-          : null;
-
-        await tx.user.update({
-          where: { id: createdUser.id },
-          data: { roleType: UserRole.student },
-        });
-
-        const fullName =
-          `${data.last_name ?? ''} ${data.first_name ?? ''}`.trim() ||
-          this.getPreferredProfileFullName(createdUser);
-
-        const profileData: Omit<Prisma.StudentInfoUncheckedCreateInput, 'id'> = {
-          fullName,
-          email: data.email,
-          school: normalizeOptionalText(data.school),
-          province: normalizeOptionalText(data.province),
-          birthYear: data.birth_year,
-          parentName: normalizeOptionalText(data.parent_name),
-          parentPhone: normalizeOptionalText(data.parent_phone),
-          status: data.status,
-          gender: data.gender,
-          goal: normalizeOptionalText(data.goal),
-          userId: createdUser.id,
-        };
-
-        const student = createdUser.studentInfo
-          ? await tx.studentInfo.update({
-              where: { id: createdUser.studentInfo.id },
-              data: profileData,
-            })
-          : await tx.studentInfo.create({
-              data: { ...profileData, id: generateStudentId() },
-            });
-
-        const existingMemberships = await tx.studentClass.findMany({
-          where: { studentId: student.id },
-          select: { classId: true },
-        });
-        const existingClassIdSet = new Set(
-          existingMemberships.map((membership) => membership.classId),
-        );
-        const normalizedClassIds = Array.from(new Set(classIds));
-        const nextClassIdSet = new Set(normalizedClassIds);
-        const classIdsToInactive = existingMemberships
-          .map((membership) => membership.classId)
-          .filter((classId) => !nextClassIdSet.has(classId));
-        const classIdsToActivate = normalizedClassIds.filter((classId) =>
-          existingClassIdSet.has(classId),
-        );
-        const classIdsToCreate = normalizedClassIds.filter(
-          (classId) => !existingClassIdSet.has(classId),
-        );
-
-        if (classIdsToInactive.length > 0) {
-          await tx.studentClass.updateMany({
-            where: {
-              studentId: student.id,
-              classId: { in: classIdsToInactive },
-            },
-            data: { status: StudentClassStatus.inactive },
-          });
-        }
-
-        if (classIdsToActivate.length > 0) {
-          await tx.studentClass.updateMany({
-            where: {
-              studentId: student.id,
-              classId: { in: classIdsToActivate },
-            },
-            data: {
-              status: StudentClassStatus.active,
-              customStudentTuitionPerSession: null,
-              customTuitionPackageTotal: null,
-              customTuitionPackageSession: null,
-            },
-          });
-        }
-
-        if (classIdsToCreate.length > 0) {
-          await tx.studentClass.createMany({
-            data: classIdsToCreate.map((classId) => ({
-              classId,
-              studentId: student.id,
-              status: StudentClassStatus.active,
-            })),
-          });
-        }
-
-        if (auditActor) {
-          const afterUserValue = await this.getUserAuditSnapshot(
+      await this.withEntityIdRetry(() =>
+        this.prisma.$transaction(async (tx) => {
+          const beforeUserValue = await this.getUserAuditSnapshot(
             tx,
             createdUser.id,
           );
-          if (afterUserValue) {
-            await this.actionHistoryService.recordUpdate(tx, {
-              actor: auditActor,
-              entityType: 'user',
-              entityId: createdUser.id,
-              description: 'Tạo user học sinh với hồ sơ đầy đủ',
-              beforeValue: beforeUserValue,
-              afterValue: afterUserValue,
+          if (!beforeUserValue) {
+            throw new NotFoundException('User not found');
+          }
+          const beforeStudentValue = createdUser.studentInfo
+            ? await this.getStudentAuditSnapshot(tx, createdUser.studentInfo.id)
+            : null;
+
+          await tx.user.update({
+            where: { id: createdUser.id },
+            data: { roleType: UserRole.student },
+          });
+
+          const fullName =
+            `${data.last_name ?? ''} ${data.first_name ?? ''}`.trim() ||
+            this.getPreferredProfileFullName(createdUser);
+
+          const profileData: Omit<
+            Prisma.StudentInfoUncheckedCreateInput,
+            'id'
+          > = {
+            fullName,
+            email: data.email,
+            school: normalizeOptionalText(data.school),
+            province: normalizeOptionalText(data.province),
+            birthYear: data.birth_year,
+            parentName: normalizeOptionalText(data.parent_name),
+            parentPhone: normalizeOptionalText(data.parent_phone),
+            status: data.status,
+            gender: data.gender,
+            goal: normalizeOptionalText(data.goal),
+            userId: createdUser.id,
+          };
+
+          const student = createdUser.studentInfo
+            ? await tx.studentInfo.update({
+                where: { id: createdUser.studentInfo.id },
+                data: profileData,
+              })
+            : await tx.studentInfo.create({
+                data: { ...profileData, id: generateStudentId() },
+              });
+
+          const existingMemberships = await tx.studentClass.findMany({
+            where: { studentId: student.id },
+            select: { classId: true },
+          });
+          const existingClassIdSet = new Set(
+            existingMemberships.map((membership) => membership.classId),
+          );
+          const normalizedClassIds = Array.from(new Set(classIds));
+          const nextClassIdSet = new Set(normalizedClassIds);
+          const classIdsToInactive = existingMemberships
+            .map((membership) => membership.classId)
+            .filter((classId) => !nextClassIdSet.has(classId));
+          const classIdsToActivate = normalizedClassIds.filter((classId) =>
+            existingClassIdSet.has(classId),
+          );
+          const classIdsToCreate = normalizedClassIds.filter(
+            (classId) => !existingClassIdSet.has(classId),
+          );
+
+          if (classIdsToInactive.length > 0) {
+            await tx.studentClass.updateMany({
+              where: {
+                studentId: student.id,
+                classId: { in: classIdsToInactive },
+              },
+              data: { status: StudentClassStatus.inactive },
             });
           }
 
-          const afterStudentValue = await this.getStudentAuditSnapshot(
-            tx,
-            student.id,
-          );
-          if (afterStudentValue) {
-            if (createdUser.studentInfo && beforeStudentValue) {
+          if (classIdsToActivate.length > 0) {
+            await tx.studentClass.updateMany({
+              where: {
+                studentId: student.id,
+                classId: { in: classIdsToActivate },
+              },
+              data: {
+                status: StudentClassStatus.active,
+                customStudentTuitionPerSession: null,
+                customTuitionPackageTotal: null,
+                customTuitionPackageSession: null,
+              },
+            });
+          }
+
+          if (classIdsToCreate.length > 0) {
+            await tx.studentClass.createMany({
+              data: classIdsToCreate.map((classId) => ({
+                classId,
+                studentId: student.id,
+                status: StudentClassStatus.active,
+              })),
+            });
+          }
+
+          if (auditActor) {
+            const afterUserValue = await this.getUserAuditSnapshot(
+              tx,
+              createdUser.id,
+            );
+            if (afterUserValue) {
               await this.actionHistoryService.recordUpdate(tx, {
                 actor: auditActor,
-                entityType: 'student',
-                entityId: student.id,
-                description: 'Cập nhật hồ sơ học sinh khi tạo user',
-                beforeValue: beforeStudentValue,
-                afterValue: afterStudentValue,
-              });
-            } else {
-              await this.actionHistoryService.recordCreate(tx, {
-                actor: auditActor,
-                entityType: 'student',
-                entityId: student.id,
-                description: 'Tạo hồ sơ học sinh đầy đủ từ trang quản trị',
-                afterValue: afterStudentValue,
+                entityType: 'user',
+                entityId: createdUser.id,
+                description: 'Tạo user học sinh với hồ sơ đầy đủ',
+                beforeValue: beforeUserValue,
+                afterValue: afterUserValue,
               });
             }
+
+            const afterStudentValue = await this.getStudentAuditSnapshot(
+              tx,
+              student.id,
+            );
+            if (afterStudentValue) {
+              if (createdUser.studentInfo && beforeStudentValue) {
+                await this.actionHistoryService.recordUpdate(tx, {
+                  actor: auditActor,
+                  entityType: 'student',
+                  entityId: student.id,
+                  description: 'Cập nhật hồ sơ học sinh khi tạo user',
+                  beforeValue: beforeStudentValue,
+                  afterValue: afterStudentValue,
+                });
+              } else {
+                await this.actionHistoryService.recordCreate(tx, {
+                  actor: auditActor,
+                  entityType: 'student',
+                  entityId: student.id,
+                  description: 'Tạo hồ sơ học sinh đầy đủ từ trang quản trị',
+                  afterValue: afterStudentValue,
+                });
+              }
+            }
           }
-        }
-      });
+        }),
+      );
     } catch (error) {
       if (this.isUniqueConstraintError(error)) {
         throw new BadRequestException('Email or account handle already exists');
@@ -607,113 +637,115 @@ export class UserService {
       updateData.phoneVerified = data.phoneVerified;
 
     try {
-      const updatedUser = await this.prisma.$transaction(async (tx) => {
-        const updatedUser = await tx.user.update({
-          where: { id: data.id },
-          data: updateData,
-        });
+      const updatedUser = await this.withEntityIdRetry(() =>
+        this.prisma.$transaction(async (tx) => {
+          const updatedUser = await tx.user.update({
+            where: { id: data.id },
+            data: updateData,
+          });
 
-        if (nextRoleType === UserRole.staff) {
-          if (!existingUser.staffInfo) {
-            const createdStaff = await tx.staffInfo.create({
+          if (nextRoleType === UserRole.staff) {
+            if (!existingUser.staffInfo) {
+              const createdStaff = await tx.staffInfo.create({
+                data: {
+                  id: generateStaffId(),
+                  cccdNumber: await this.generateAutoStaffCccdNumber(tx),
+                  roles: normalizedStaffRoles ?? [],
+                  userId: data.id,
+                },
+              });
+
+              if (auditActor) {
+                const afterStaffValue = await this.getStaffAuditSnapshot(
+                  tx,
+                  createdStaff.id,
+                );
+                if (afterStaffValue) {
+                  await this.actionHistoryService.recordCreate(tx, {
+                    actor: auditActor,
+                    entityType: 'staff',
+                    entityId: createdStaff.id,
+                    description:
+                      'Tự động tạo hồ sơ nhân sự khi cập nhật phân quyền user',
+                    afterValue: afterStaffValue,
+                  });
+                }
+              }
+            } else if (normalizedStaffRoles !== undefined) {
+              await tx.staffInfo.update({
+                where: { id: existingUser.staffInfo.id },
+                data: {
+                  roles: normalizedStaffRoles,
+                },
+              });
+
+              if (auditActor) {
+                const afterStaffValue = await this.getStaffAuditSnapshot(
+                  tx,
+                  existingUser.staffInfo.id,
+                );
+                if (afterStaffValue) {
+                  await this.actionHistoryService.recordUpdate(tx, {
+                    actor: auditActor,
+                    entityType: 'staff',
+                    entityId: existingUser.staffInfo.id,
+                    description: 'Cập nhật staff roles từ tab phân quyền user',
+                    beforeValue: existingUser.staffInfo,
+                    afterValue: afterStaffValue,
+                  });
+                }
+              }
+            }
+          }
+
+          if (nextRoleType === UserRole.student && !existingUser.studentInfo) {
+            const createdStudent = await tx.studentInfo.create({
               data: {
-                id: generateStaffId(),
-                cccdNumber: await this.generateAutoStaffCccdNumber(tx),
-                roles: normalizedStaffRoles ?? [],
+                id: generateStudentId(),
+                fullName: this.getPreferredProfileFullName(updatedUser),
+                email: updatedUser.email,
+                province: normalizeOptionalText(updatedUser.province),
                 userId: data.id,
               },
             });
 
             if (auditActor) {
-              const afterStaffValue = await this.getStaffAuditSnapshot(
+              const afterStudentValue = await this.getStudentAuditSnapshot(
                 tx,
-                createdStaff.id,
+                createdStudent.id,
               );
-              if (afterStaffValue) {
+              if (afterStudentValue) {
                 await this.actionHistoryService.recordCreate(tx, {
                   actor: auditActor,
-                  entityType: 'staff',
-                  entityId: createdStaff.id,
+                  entityType: 'student',
+                  entityId: createdStudent.id,
                   description:
-                    'Tự động tạo hồ sơ nhân sự khi cập nhật phân quyền user',
-                  afterValue: afterStaffValue,
-                });
-              }
-            }
-          } else if (normalizedStaffRoles !== undefined) {
-            await tx.staffInfo.update({
-              where: { id: existingUser.staffInfo.id },
-              data: {
-                roles: normalizedStaffRoles,
-              },
-            });
-
-            if (auditActor) {
-              const afterStaffValue = await this.getStaffAuditSnapshot(
-                tx,
-                existingUser.staffInfo.id,
-              );
-              if (afterStaffValue) {
-                await this.actionHistoryService.recordUpdate(tx, {
-                  actor: auditActor,
-                  entityType: 'staff',
-                  entityId: existingUser.staffInfo.id,
-                  description: 'Cập nhật staff roles từ tab phân quyền user',
-                  beforeValue: existingUser.staffInfo,
-                  afterValue: afterStaffValue,
+                    'Tự động tạo hồ sơ học sinh khi cập nhật phân quyền user',
+                  afterValue: afterStudentValue,
                 });
               }
             }
           }
-        }
 
-        if (nextRoleType === UserRole.student && !existingUser.studentInfo) {
-          const createdStudent = await tx.studentInfo.create({
-            data: {
-              id: generateStudentId(),
-              fullName: this.getPreferredProfileFullName(updatedUser),
-              email: updatedUser.email,
-              province: normalizeOptionalText(updatedUser.province),
-              userId: data.id,
-            },
-          });
+          const afterValue = await this.getUserAuditSnapshot(tx, data.id);
+          if (!afterValue) {
+            throw new NotFoundException('User not found');
+          }
 
           if (auditActor) {
-            const afterStudentValue = await this.getStudentAuditSnapshot(
-              tx,
-              createdStudent.id,
-            );
-            if (afterStudentValue) {
-              await this.actionHistoryService.recordCreate(tx, {
-                actor: auditActor,
-                entityType: 'student',
-                entityId: createdStudent.id,
-                description:
-                  'Tự động tạo hồ sơ học sinh khi cập nhật phân quyền user',
-                afterValue: afterStudentValue,
-              });
-            }
+            await this.actionHistoryService.recordUpdate(tx, {
+              actor: auditActor,
+              entityType: 'user',
+              entityId: data.id,
+              description: 'Cập nhật người dùng',
+              beforeValue: existingUser,
+              afterValue,
+            });
           }
-        }
 
-        const afterValue = await this.getUserAuditSnapshot(tx, data.id);
-        if (!afterValue) {
-          throw new NotFoundException('User not found');
-        }
-
-        if (auditActor) {
-          await this.actionHistoryService.recordUpdate(tx, {
-            actor: auditActor,
-            entityType: 'user',
-            entityId: data.id,
-            description: 'Cập nhật người dùng',
-            beforeValue: existingUser,
-            afterValue,
-          });
-        }
-
-        return this.serializeUserDetail(afterValue);
-      });
+          return this.serializeUserDetail(afterValue);
+        }),
+      );
 
       this.authService.invalidateAuthIdentityCache(data.id);
       return updatedUser;

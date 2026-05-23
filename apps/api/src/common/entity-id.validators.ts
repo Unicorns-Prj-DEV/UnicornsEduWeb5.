@@ -1,5 +1,5 @@
 import { registerDecorator, ValidationOptions } from 'class-validator';
-import { isStudentId, isClassId, isStaffId } from './entity-id';
+import { isStudentId, isClassId, isStaffId, isLessonTaskId, isLessonResourceId, isLessonOutputId, isStaffLessonTaskId } from './entity-id';
 
 function makeEntityIdDecorator(
   name: string,
@@ -32,17 +32,41 @@ function makeEntityIdDecorator(
 export const IsStudentId = makeEntityIdDecorator(
   'IsStudentId',
   isStudentId,
-  'UNIST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+  'UNIST-xxxxxxxxxx',
 );
 
 export const IsClassId = makeEntityIdDecorator(
   'IsClassId',
   isClassId,
-  'UNICL-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+  'UNICL-xxxxxxxxxx',
 );
 
 export const IsStaffId = makeEntityIdDecorator(
   'IsStaffId',
   isStaffId,
-  'UNISTAFF-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+  'UNISTAFF-xxxxxxxxxx',
+);
+
+export const IsLessonTaskId = makeEntityIdDecorator(
+  'IsLessonTaskId',
+  isLessonTaskId,
+  'UNILTK-xxxxxxxxxx',
+);
+
+export const IsLessonResourceId = makeEntityIdDecorator(
+  'IsLessonResourceId',
+  isLessonResourceId,
+  'UNILRS-xxxxxxxxxx',
+);
+
+export const IsLessonOutputId = makeEntityIdDecorator(
+  'IsLessonOutputId',
+  isLessonOutputId,
+  'UNILOT-xxxxxxxxxx',
+);
+
+export const IsStaffLessonTaskId = makeEntityIdDecorator(
+  'IsStaffLessonTaskId',
+  isStaffLessonTaskId,
+  'UNISLT-xxxxxxxxxx',
 );

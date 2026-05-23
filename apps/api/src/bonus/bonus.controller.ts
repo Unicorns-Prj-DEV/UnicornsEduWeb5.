@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -105,7 +106,7 @@ export class BonusController {
   @ApiParam({ name: 'id', description: 'Bonus id' })
   @ApiResponse({ status: 200, description: 'Bonus found.' })
   @ApiResponse({ status: 404, description: 'Bonus not found.' })
-  async getBonusById(@Param('id') id: string) {
+  async getBonusById(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.bonusService.getBonusById(id);
   }
 
@@ -165,7 +166,7 @@ export class BonusController {
   @ApiParam({ name: 'id', description: 'Bonus id' })
   @ApiResponse({ status: 200, description: 'Bonus deleted.' })
   @ApiResponse({ status: 404, description: 'Bonus not found.' })
-  async deleteBonus(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+  async deleteBonus(@CurrentUser() user: JwtPayload, @Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.bonusService.deleteBonus(id, {
       userId: user.id,
       userEmail: user.email,

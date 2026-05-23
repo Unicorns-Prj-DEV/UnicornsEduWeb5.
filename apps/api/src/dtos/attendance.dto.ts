@@ -1,19 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import {
-  IsEnum,
-  IsNumber,
-  IsOptional,
-  IsString,
-  Min,
-} from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { AttendanceStatus } from '../../generated/enums';
 import { IsStudentId } from '../common/entity-id.validators';
 
 export class AttendanceCreateDto {
   @ApiProperty({
     description: 'Student id',
-    example: 'UNIST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+    example: 'UNIST-a1b2c3d4e5',
   })
   @IsStudentId()
   studentId: string;

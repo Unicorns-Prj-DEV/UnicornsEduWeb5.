@@ -213,6 +213,7 @@ describe('MailService', () => {
       to: 'parent@example.com',
       parentName: 'Phụ huynh A',
       studentName: 'Nguyễn Minh',
+      studentCode: 'UNIST-a1b2c3d4e5',
       amountReceived: 150000,
       orderCode: 'UEDU-20260511-001',
       transactionDate: '2026-05-11 09:30:00',
@@ -232,7 +233,7 @@ describe('MailService', () => {
     expect(sent.text).toContain('UEDU-20260511-001');
     expect(sent.text).toContain('FT26069ABC');
     expect(sent.text).toContain(
-      'Em học sinh Nguyễn Minh gia hạn khoá Toán 8A và Lý 8A số tiền 150.000 VNĐ.',
+      'Học sinh UNIST-a1b2c3d4e5 gia hạn học phí các gói Toán 8A và Lý 8A',
     );
     expect(sent.html).toContain('150.000');
     expect(sent.html).toContain('UEDU-20260511-001');

@@ -31,8 +31,8 @@ export class ActionHistoryQueryDto extends PaginationQueryDto {
 
   @ApiPropertyOptional({
     description:
-      'Filter by exact entity id. Accepts prefixed IDs (UNIST-…, UNICL-…, UNISTAFF-…) or plain UUIDs for other entity types (session, user, …).',
-    example: 'UNIST-0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7',
+      'Filter by exact entity id. Accepts short system IDs (UNIST-xxxxxxxxxx, UNICL-xxxxxxxxxx, UNISTAFF-xxxxxxxxxx) or plain UUIDs for other entity types (session, user, …).',
+    example: 'UNIST-a1b2c3d4e5',
   })
   @IsOptional()
   @IsString()

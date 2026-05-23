@@ -73,6 +73,13 @@ describe('SePayService', () => {
       qrCodeUrl: 'https://qr.sepay.vn/img?template=compact',
     });
 
+    const expectedAuthHeaders = expect.objectContaining({
+      Authorization: 'Bearer token-123',
+    }) as unknown;
+    const expectedRequestConfig = expect.objectContaining({
+      headers: expectedAuthHeaders,
+    }) as unknown;
+
     expect(http.post).toHaveBeenCalledWith(
       'https://userapi.test/v2/bank-accounts/bank-xid-123/orders',
       {
@@ -83,11 +90,7 @@ describe('SePayService', () => {
         description: 'Nap vi ABC123',
         duration: 900,
       },
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer token-123',
-        }),
-      }),
+      expectedRequestConfig,
     );
   });
 
@@ -163,23 +166,16 @@ describe('SePayService', () => {
     process.env.SEPAY_TRANSFER_BANK_NAME = 'MBBank';
 
     const result = service.createStudentWalletStaticQr({
-      studentId: '0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7',
-      classIds: [
-        '4d560c5e-c3df-4470-b59a-2fd273ef95ef',
-        '71f0d9ec-c497-4d67-9256-c09e5d5d4334',
-      ],
+      studentId: 'UNIST-a1b2c3d4e5',
+      classIds: ['UNICL-b1b2c3d4e5', 'UNICL-c1b2c3d4e5'],
       classNames: ['Toan 8A', 'Ly 8A'],
     });
 
-    const expectedTransferNote =
-      '0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7 4d560c5e-c3df-4470-b59a-2fd273ef95ef 71f0d9ec-c497-4d67-9256-c09e5d5d4334 LOP Toan 8A, Ly 8A';
+    const expectedTransferNote = 'UNIST-a1b2c3d4e5';
 
     expect(result).toMatchObject({
-      studentId: '0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7',
-      classIds: [
-        '4d560c5e-c3df-4470-b59a-2fd273ef95ef',
-        '71f0d9ec-c497-4d67-9256-c09e5d5d4334',
-      ],
+      studentId: 'UNIST-a1b2c3d4e5',
+      classIds: ['UNICL-b1b2c3d4e5', 'UNICL-c1b2c3d4e5'],
       transferNote: expectedTransferNote,
       bankName: 'MBBank',
       accountNumber: '722732006',
@@ -203,15 +199,13 @@ describe('SePayService', () => {
     process.env.SEPAY_VIETQR_IMAGE_BASE_URL = 'https://qr.sepay.vn/img';
 
     const result = service.createStudentWalletStaticQr({
-      studentId: 'UNIST-0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7',
-      classIds: ['UNICL-4d560c5e-c3df-4470-b59a-2fd273ef95ef'],
+      studentId: 'UNIST-a1b2c3d4e5',
+      classIds: ['UNICL-b1b2c3d4e5'],
       classNames: ['Toan 8A'],
     });
     const qrUrl = new URL(result.qrCodeUrl);
 
-    expect(result.transferNote).toBe(
-      'SEVQR UNIST-0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7 UNICL-4d560c5e-c3df-4470-b59a-2fd273ef95ef LOP Toan 8A',
-    );
+    expect(result.transferNote).toBe('SEVQR UNIST-a1b2c3d4e5');
     expect(qrUrl.searchParams.get('acc')).toBe('1234567890');
     expect(qrUrl.searchParams.get('bank')).toBe('VietinBank');
     expect(qrUrl.searchParams.get('amount')).toBeNull();
