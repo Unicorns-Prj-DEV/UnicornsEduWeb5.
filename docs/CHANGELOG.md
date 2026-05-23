@@ -23,13 +23,15 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
-- **BREAKING – Prefixed Entity IDs:** PK của `student_info`, `staff_info`, `classes` chuyển từ bare UUID sang định dạng có prefix: `UNIST-{uuid}`, `UNISTAFF-{uuid}`, `UNICL-{uuid}`. ID được sinh bởi `generateStudentId()` / `generateStaffId()` / `generateClassId()` trong `apps/api/src/common/entity-id.ts`. API và SePay webhook **chỉ** chấp nhận prefixed ID sau deploy; QR cũ (bare UUID trong NAPVI note) không còn reconcile được — cần tái phát hành QR tĩnh sau chạy migration. Migration SQL: `20260521100000_prefixed_student_staff_class_ids`. Sau deploy: chạy resync Google Calendar cho các lớp có lịch.
+- **BREAKING – Short System Entity IDs (Lesson entities):** PK của `lesson_task`, `lesson_resources`, `lesson_outputs`, `staff_lesson_task` chuyển sang mã định danh hệ thống ngắn: `UNILTK-[0-9a-f]{10}`, `UNILRS-[0-9a-f]{10}`, `UNILOT-[0-9a-f]{10}`, `UNISLT-[0-9a-f]{10}`. Existing rows nhận ID mới sinh bằng `pgcrypto.gen_random_bytes(5)`, không cắt từ UUID cũ; old API links không redirect. Migration SQL: `20260524110000_lesson_short_system_entity_ids`. Docs: `docs/Database Schema.md` updated with PK format notes and summary table for all lesson entity IDs.
+
+- **BREAKING – Short System Entity IDs:** PK của `student_info`, `staff_info`, `classes` chuyển sang mã định danh hệ thống ngắn: `UNIST-[0-9a-f]{10}`, `UNISTAFF-[0-9a-f]{10}`, `UNICL-[0-9a-f]{10}`. Existing rows nhận ID mới sinh bằng `pgcrypto.gen_random_bytes(5)`, không cắt từ UUID cũ; old API links không redirect. Migration SQL: `20260523110000_short_system_entity_ids`. Sau deploy: tái phát hành QR tĩnh học sinh và resync/update Google Calendar metadata theo runbook, không delete/recreate calendar events mặc định.
 
 - FE loading state: Thêm các tệp loading suspense boundaries (`loading.tsx`) tại `/admin`, `/staff`, và `/student` hiển thị khung skeleton SaaS cao cấp phẳng siêu mượt khi bấm chuyển trang tức thì.
 
 ### Changed
 
-- SePay static QR nạp ví: bỏ marker `NAPVI` khỏi nội dung QR tĩnh để ưu tiên hiển thị đủ token `UNIST-{uuid}` trên VietinBank/SePay; webhook vẫn tương thích QR cũ có `NAPVI`/`NAP VI`, đồng thời nhận compact/truncated `UNIST<hex>` khi prefix khớp duy nhất một học sinh và tài khoản nhận đúng `SEPAY_TRANSFER_ACCOUNT_NUMBER`.
+- SePay static QR nạp ví: nội dung QR tĩnh mới chỉ còn `[SEPAY_TRANSFER_NOTE_PREFIX] UNIST-[0-9a-f]{10}` để đồng bộ list/detail học sinh và tránh memo dài; webhook vẫn tương thích QR cũ có `NAPVI`/`NAP VI`, `UNICL-*`, `LOP ...`, đồng thời nhận token đã bị ngân hàng strip dấu như `UNIST<10hex>`/`UNICL<10hex>` khi tài khoản nhận đúng `SEPAY_TRANSFER_ACCOUNT_NUMBER`. Biên lai nạp ví hiển thị nội dung `Học sinh <id học sinh> gia hạn học phí các gói <tên lớp active...>`.
 
 - Staff CCCD profile: bỏ flow upload ảnh CCCD ở admin/self-service, thay bằng field nhập tay `ethnicity`, `gender`, `current_address`; staff workspace gate kiểm tra các field này thay vì ảnh 2 mặt. Prisma migration `20260522100000_replace_staff_cccd_images_with_identity_fields` drop các cột path ảnh CCCD legacy.
 
@@ -68,9 +70,9 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
-- BE SePay QR tĩnh nạp ví học sinh: nội dung chuyển khoản giữ `NAPVI <student_info.id> <active_class_id...>` ở đầu để webhook reconcile, đồng thời bổ sung hậu tố `LOP <tên lớp...>` để QR copy/hiển thị thể hiện rõ các lớp đang học.
+- BE SePay QR tĩnh nạp ví học sinh: nội dung chuyển khoản mới chỉ giữ prefix cấu hình + `<student_info.id>`; webhook vẫn reconcile được QR cũ có class id/hậu tố lớp.
 
-- FE `/admin/students`: nút QR copy nhanh trên danh sách học sinh dùng `studentClasses` active có sẵn trong row để bổ sung các `UNICL-*` còn thiếu trước hậu tố `LOP <tên lớp...>` trong `addInfo` trước khi fetch ảnh VietQR, tránh nội dung trong ảnh QR thiếu id lớp active.
+- FE `/admin/students`: nút QR copy nhanh trên danh sách học sinh dùng nguyên QR URL backend trả về để đồng bộ với QR trong trang chi tiết học sinh.
 
 - BE `GET /staff/:id/income-summary` — `classMonthlySummaries` (card **Lớp phụ trách**) trả `total` / `paid` / `unpaid` đều là gross allowance trước CPVH và trước thuế; tổng hợp thu nhập chung vẫn giữ net theo contract hiện tại. Docs: `docs/README.md`, `docs/pages/staff.md`; DTO comment `StaffIncomeClassSummary`.
 

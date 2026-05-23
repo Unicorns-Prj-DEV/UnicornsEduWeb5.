@@ -8,6 +8,7 @@
 
 ## Lớp và gia sư
 
+- **Mã định danh hệ thống**: ID nội bộ hiển thị trong URL/API/QR cho hồ sơ học sinh, lớp và nhân sự. Định dạng hiện hành là `UNIST-[0-9a-f]{10}` cho học sinh, `UNICL-[0-9a-f]{10}` cho lớp, và `UNISTAFF-[0-9a-f]{10}` cho nhân sự; đây là định danh hệ thống, không phải mã tuyển sinh, mã kế toán hay giấy tờ cá nhân.
 - **Nghỉ dạy theo lớp**: trạng thái hiển thị khi gia sư không còn nằm trong phân công hiện tại của lớp, nhưng vẫn còn thu nhập/trợ cấp liên quan tới lớp trong kỳ hoặc snapshot chưa nhận. Trạng thái này không đồng nghĩa lớp đã kết thúc.
 
 ## Hồ sơ nhân sự

@@ -29,6 +29,8 @@ Các mutation thay đổi user/staff role boundary phải dùng quyền admin đ
 
 **Nguồn sự thật:** `docs/Database Schema.md` + Prisma schema là chuẩn cho single-tenant schema; `admin.md` là baseline UX/quyền admin; `staff.md` và `student.md` chỉ ghi các route mirror hoặc self-service khác baseline.
 
+**Route IDs:** Các route detail dùng mã định danh hệ thống ngắn hiện hành: học sinh `UNIST-[0-9a-f]{10}`, lớp `UNICL-[0-9a-f]{10}`, nhân sự `UNISTAFF-[0-9a-f]{10}`. Link/API URL chứa UUID hoặc prefixed UUID cũ không redirect sau migration short-ID.
+
 ## Route index
 
 | Route                                 | Status          | Role                                                                                        | Owner (Workplan) | Plan file                                                                                                                                                                                                 |
