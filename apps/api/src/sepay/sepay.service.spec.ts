@@ -130,6 +130,34 @@ describe('SePayService', () => {
     expect(http.post).not.toHaveBeenCalled();
   });
 
+  it('prefixes bank-transfer notes when SEPAY_TRANSFER_NOTE_PREFIX is configured', async () => {
+    process.env.SEPAY_TOPUP_MODE = 'bank_transfer';
+    process.env.SEPAY_TRANSFER_NOTE_PREFIX = 'SEVQR';
+    process.env.SEPAY_TRANSFER_BANK_BIN = '970415';
+    process.env.SEPAY_TRANSFER_ACCOUNT_NUMBER = '1234567890';
+    process.env.SEPAY_TRANSFER_ACCOUNT_NAME = 'UNICORNS EDU';
+    process.env.SEPAY_TRANSFER_BANK_NAME = 'VietinBank';
+    process.env.SEPAY_VIETQR_IMAGE_BASE_URL = 'https://qr.sepay.vn/img';
+
+    const result = await service.createStudentWalletTopUpPayment({
+      amountVnd: 120000,
+      orderCode: 'UABCDEF1234567890',
+      baseTransferNote: 'ignored in bank_transfer mode',
+    });
+    expect(result.qrCodeUrl).toBeTruthy();
+    const qrUrl = new URL(result.qrCodeUrl!);
+
+    expect(result.transferNote).toBe('SEVQR NAPVI UABCDEF1234567890');
+    expect(qrUrl.toString()).toContain('https://qr.sepay.vn/img?');
+    expect(qrUrl.searchParams.get('acc')).toBe('1234567890');
+    expect(qrUrl.searchParams.get('bank')).toBe('VietinBank');
+    expect(qrUrl.searchParams.get('amount')).toBe('120000');
+    expect(qrUrl.searchParams.get('des')).toBe(
+      'SEVQR NAPVI UABCDEF1234567890',
+    );
+    expect(http.post).not.toHaveBeenCalled();
+  });
+
   it('creates a static student wallet QR without requiring an amount', () => {
     process.env.SEPAY_TRANSFER_BANK_BIN = '970422';
     process.env.SEPAY_TRANSFER_ACCOUNT_NUMBER = '722732006';
@@ -167,6 +195,29 @@ describe('SePayService', () => {
       expectedTransferNote,
     );
     expect(http.post).not.toHaveBeenCalled();
+  });
+
+  it('prefixes static student wallet QR notes when SEPAY_TRANSFER_NOTE_PREFIX is configured', () => {
+    process.env.SEPAY_TRANSFER_NOTE_PREFIX = 'SEVQR';
+    process.env.SEPAY_TRANSFER_BANK_BIN = '970415';
+    process.env.SEPAY_TRANSFER_ACCOUNT_NUMBER = '1234567890';
+    process.env.SEPAY_TRANSFER_BANK_NAME = 'VietinBank';
+    process.env.SEPAY_VIETQR_IMAGE_BASE_URL = 'https://qr.sepay.vn/img';
+
+    const result = service.createStudentWalletStaticQr({
+      studentId: 'UNIST-0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7',
+      classIds: ['UNICL-4d560c5e-c3df-4470-b59a-2fd273ef95ef'],
+      classNames: ['Toan 8A'],
+    });
+    const qrUrl = new URL(result.qrCodeUrl);
+
+    expect(result.transferNote).toBe(
+      'SEVQR NAPVI UNIST-0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7 UNICL-4d560c5e-c3df-4470-b59a-2fd273ef95ef LOP Toan 8A',
+    );
+    expect(qrUrl.searchParams.get('acc')).toBe('1234567890');
+    expect(qrUrl.searchParams.get('bank')).toBe('VietinBank');
+    expect(qrUrl.searchParams.get('amount')).toBeNull();
+    expect(qrUrl.searchParams.get('des')).toBe(result.transferNote);
   });
 
   it('rejects invalid order codes before calling SePay', async () => {

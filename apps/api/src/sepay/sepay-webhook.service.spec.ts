@@ -206,7 +206,7 @@ describe('SePayWebhookService', () => {
     expect(mail.sendStudentWalletTopUpReceiptEmail).not.toHaveBeenCalled();
   });
 
-  it('credits a static student QR payment from NAPVI student id without a pending order', async () => {
+  it('credits a static student QR payment from prefixed NAPVI student id without a pending order', async () => {
     process.env.SEPAY_TRANSFER_ACCOUNT_NUMBER = '0123499999';
 
     const prisma = createPrismaMock();
@@ -214,7 +214,7 @@ describe('SePayWebhookService', () => {
     const studentId = 'UNIST-0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7';
     const classId1 = 'UNICL-4d560c5e-c3df-4470-b59a-2fd273ef95ef';
     const classId2 = 'UNICL-71f0d9ec-c497-4d67-9256-c09e5d5d4334';
-    const qrTransferNote = `NAPVI ${studentId} ${classId1} ${classId2} LOP Toan 8A, Ly 8A`;
+    const qrTransferNote = `SEVQR NAPVI ${studentId} ${classId1} ${classId2} LOP Toan 8A, Ly 8A`;
     const staticOrderCode = 'STATIC0123456789abcdef0123456789abcdef01234567';
     const staticOrder = {
       orderCode: staticOrderCode,

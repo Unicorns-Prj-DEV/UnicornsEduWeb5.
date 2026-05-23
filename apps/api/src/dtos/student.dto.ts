@@ -397,7 +397,7 @@ export class StudentSePayStaticQrResponseDto {
   @ApiProperty({
     description: 'Nội dung chuyển khoản cố định để webhook map về học sinh.',
     example:
-      'NAPVI UNIST-0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7 UNICL-4d560c5e-c3df-4470-b59a-2fd273ef95ef LOP Toan 8A',
+      'SEVQR NAPVI UNIST-0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7 UNICL-4d560c5e-c3df-4470-b59a-2fd273ef95ef LOP Toan 8A',
   })
   transferNote!: string;
 

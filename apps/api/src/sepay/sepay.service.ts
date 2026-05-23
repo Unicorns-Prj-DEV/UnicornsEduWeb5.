@@ -30,6 +30,11 @@ function normalizeUniqueTextList(values: string[] | undefined): string[] {
   );
 }
 
+function normalizeTransferNotePrefix(value: string | undefined): string | null {
+  const normalized = value?.trim().replace(/\s+/g, ' ');
+  return normalized || null;
+}
+
 export class SePayDuplicateOrderCodeException extends ConflictException {
   constructor(message = 'SePay order_code already exists.') {
     super(message);
@@ -111,10 +116,18 @@ export class SePayService {
     baseTransferNote: string,
     orderCode: string,
   ): string {
-    if (this.getWalletTopUpMode() === 'bank_transfer') {
-      return `NAPVI ${orderCode}`.trim();
-    }
+    const transferNote =
+      this.getWalletTopUpMode() === 'bank_transfer'
+        ? `NAPVI ${orderCode}`.trim()
+        : this.buildVaOrderTransferNote(baseTransferNote, orderCode);
 
+    return this.applyTransferNotePrefix(transferNote);
+  }
+
+  private buildVaOrderTransferNote(
+    baseTransferNote: string,
+    orderCode: string,
+  ): string {
     const trimmed = baseTransferNote.trim();
     if (trimmed.includes(orderCode)) {
       return trimmed;
@@ -163,18 +176,21 @@ export class SePayService {
       classIds,
       classNames,
     );
-    const qrUrl = new URL(
-      `${baseUrl.replace(/\/$/, '')}/${encodeURIComponent(bankBin)}-${encodeURIComponent(accountNumber)}-${encodeURIComponent(template)}.png`,
-    );
-    qrUrl.searchParams.set('addInfo', transferNote);
-    if (accountName) {
-      qrUrl.searchParams.set('accountName', accountName);
-    }
+    const prefixedTransferNote = this.applyTransferNotePrefix(transferNote);
+    const qrUrl = this.buildBankTransferQrUrl({
+      baseUrl,
+      bank: bankName ?? bankBin,
+      bankBin,
+      accountNumber,
+      accountName,
+      template,
+      transferNote: prefixedTransferNote,
+    });
 
     return {
       studentId: params.studentId,
       classIds,
-      transferNote,
+      transferNote: prefixedTransferNote,
       bankName,
       accountNumber,
       accountHolderName: accountName,
@@ -279,14 +295,16 @@ export class SePayService {
     const baseUrl =
       process.env.SEPAY_VIETQR_IMAGE_BASE_URL?.trim() ||
       'https://img.vietqr.io/image';
-    const qrUrl = new URL(
-      `${baseUrl.replace(/\/$/, '')}/${encodeURIComponent(bankBin)}-${encodeURIComponent(accountNumber)}-${encodeURIComponent(template)}.png`,
-    );
-    qrUrl.searchParams.set('amount', String(params.amountVnd));
-    qrUrl.searchParams.set('addInfo', params.transferNote);
-    if (accountName) {
-      qrUrl.searchParams.set('accountName', accountName);
-    }
+    const qrUrl = this.buildBankTransferQrUrl({
+      baseUrl,
+      bank: bankName ?? bankBin,
+      bankBin,
+      accountNumber,
+      accountName,
+      template,
+      transferNote: params.transferNote,
+      amountVnd: params.amountVnd,
+    });
 
     return {
       orderId: null,
@@ -310,6 +328,66 @@ export class SePayService {
         template,
       },
     };
+  }
+
+  private applyTransferNotePrefix(transferNote: string): string {
+    const note = transferNote.trim();
+    const prefix = normalizeTransferNotePrefix(
+      process.env.SEPAY_TRANSFER_NOTE_PREFIX,
+    );
+    if (!prefix) {
+      return note;
+    }
+
+    const lowerNote = note.toLowerCase();
+    const lowerPrefix = prefix.toLowerCase();
+    if (lowerNote === lowerPrefix || lowerNote.startsWith(`${lowerPrefix} `)) {
+      return note;
+    }
+
+    return `${prefix} ${note}`.trim();
+  }
+
+  private buildBankTransferQrUrl(params: {
+    baseUrl: string;
+    bank: string;
+    bankBin: string;
+    accountNumber: string;
+    accountName: string | null;
+    template: string;
+    transferNote: string;
+    amountVnd?: number;
+  }): URL {
+    const normalizedBaseUrl = params.baseUrl.replace(/\/$/, '');
+    const usesSePayQr =
+      normalizedBaseUrl === 'https://qr.sepay.vn/img' ||
+      normalizedBaseUrl.endsWith('/qr.sepay.vn/img');
+
+    if (usesSePayQr) {
+      const qrUrl = new URL(normalizedBaseUrl);
+      qrUrl.searchParams.set('acc', params.accountNumber);
+      qrUrl.searchParams.set('bank', params.bank);
+      qrUrl.searchParams.set('des', params.transferNote);
+      if (params.amountVnd !== undefined) {
+        qrUrl.searchParams.set('amount', String(params.amountVnd));
+      }
+      if (params.template) {
+        qrUrl.searchParams.set('template', params.template);
+      }
+      return qrUrl;
+    }
+
+    const qrUrl = new URL(
+      `${normalizedBaseUrl}/${encodeURIComponent(params.bankBin)}-${encodeURIComponent(params.accountNumber)}-${encodeURIComponent(params.template)}.png`,
+    );
+    if (params.amountVnd !== undefined) {
+      qrUrl.searchParams.set('amount', String(params.amountVnd));
+    }
+    qrUrl.searchParams.set('addInfo', params.transferNote);
+    if (params.accountName) {
+      qrUrl.searchParams.set('accountName', params.accountName);
+    }
+    return qrUrl;
   }
 
   private extractSePayErrorMessage(data: unknown): string | undefined {

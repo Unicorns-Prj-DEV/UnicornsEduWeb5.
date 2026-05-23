@@ -424,7 +424,7 @@ export class StudentController {
   @ApiOperation({
     summary: 'Get static SePay QR for a student wallet top-up',
     description:
-      'Return a static bank-transfer QR for a student. The QR has no amount and uses transfer note NAPVI <studentId> <activeClassId...> LOP <activeClassName...>; webhook reconciliation uses the id tokens before the class-name suffix.',
+      'Return a static bank-transfer QR for a student. The QR has no amount and uses transfer note [SEPAY_TRANSFER_NOTE_PREFIX] NAPVI <studentId> <activeClassId...> LOP <activeClassName...>; webhook reconciliation uses the NAPVI marker and id tokens before the class-name suffix.',
   })
   @ApiParam({ name: 'id', description: 'Student ID' })
   @ApiResponse({

@@ -59,6 +59,40 @@ test("backfills missing class ids before an existing static QR class suffix", ()
   );
 });
 
+test("preserves transfer note prefix while backfilling static QR addInfo", () => {
+  const { ensureStaticQrUrlIncludesClassNames } = compileModule(
+    "lib/student-static-qr.ts",
+  );
+
+  const output = ensureStaticQrUrlIncludesClassNames(
+    "https://img.vietqr.io/image/970415-123-compact2.png?addInfo=SEVQR+NAPVI+UNIST-1",
+    [{ id: "UNICL-1", name: "Toan 8A" }],
+  );
+
+  assert.equal(
+    new URL(output).searchParams.get("addInfo"),
+    "SEVQR NAPVI UNIST-1 UNICL-1 LOP Toan 8A",
+  );
+});
+
+test("updates SePay QR des parameter while preserving transfer note prefix", () => {
+  const { ensureStaticQrUrlIncludesClassNames } = compileModule(
+    "lib/student-static-qr.ts",
+  );
+
+  const output = ensureStaticQrUrlIncludesClassNames(
+    "https://qr.sepay.vn/img?acc=123&bank=VietinBank&des=SEVQR+NAPVI+UNIST-1",
+    [{ id: "UNICL-1", name: "Toan 8A" }],
+  );
+
+  const url = new URL(output);
+  assert.equal(
+    url.searchParams.get("des"),
+    "SEVQR NAPVI UNIST-1 UNICL-1 LOP Toan 8A",
+  );
+  assert.equal(url.searchParams.get("bank"), "VietinBank");
+});
+
 test("extracts sorted active class items from student list row data", () => {
   const { getActiveClassItemsFromStudent } = compileModule(
     "lib/student-static-qr.ts",
