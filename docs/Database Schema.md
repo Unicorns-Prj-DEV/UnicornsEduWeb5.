@@ -113,7 +113,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 ### 4.2 `staff_info`
 
-- **PK format:** `UNISTAFF-{uuid}` — ví dụ `UNISTAFF-71f0d9ec-c497-4d67-9256-c09e5d5d4334`. Được sinh bởi `generateStaffId()` trong `apps/api/src/common/entity-id.ts`. Không còn dùng `@default(uuid())` trong Prisma.
+- **PK format:** `UNISTAFF-[0-9a-f]{10}` — ví dụ `UNISTAFF-1a2b3c4d5e`. Đây là **mã định danh hệ thống** ngắn cho nhân sự; migration `20260523110000_short_system_entity_ids` dùng `pgcrypto.gen_random_bytes(5)` để sinh ID mới cho dữ liệu hiện có, không cắt từ UUID cũ. Không còn dùng `@default(uuid())` trong Prisma cho PK này.
 - Thông tin nhân sự: hồ sơ cá nhân, CCCD, ngân hàng, `roles` (`StaffRole[]` dạng Postgres enum array), `status`
 - `status` là trạng thái vận hành hồ sơ nhân sự: `active` = **Hoạt động**, `inactive` = **Ngừng hoạt động**. Chỉ staff `active` được resolve staff/admin-through-staff workspace và được chọn cho phân công mới (gia sư lớp, trợ lí quản lí CSKH, giáo án, trợ cấp thêm). Staff `inactive` vẫn giữ trong lịch sử, payroll và các bản ghi đã phát sinh.
 - Index: unique B-tree `staff_info_user_id_key` trên `user_id` kèm **`INCLUDE ("id", "roles")`** (covering) để tối ưu các đọc theo `user_id` (auth/session, roles guard). Trong Prisma: `@@unique([userId], map: "staff_info_user_id_key")` trên model `StaffInfo` (phần `INCLUDE` chỉ có trong migration SQL, Prisma chưa có DSL tương ứng).
@@ -134,7 +134,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 ### 4.3 `student_info`
 
-- **PK format:** `UNIST-{uuid}` — ví dụ `UNIST-0b45b3cc-6d67-4d7b-9c78-7f346c9a6fd7`. Được sinh bởi `generateStudentId()` trong `apps/api/src/common/entity-id.ts`. Không còn dùng `@default(uuid())` trong Prisma.
+- **PK format:** `UNIST-[0-9a-f]{10}` — ví dụ `UNIST-1a2b3c4d5e`. Đây là **mã định danh hệ thống** ngắn cho học sinh; migration `20260523110000_short_system_entity_ids` dùng `pgcrypto.gen_random_bytes(5)` để sinh ID mới cho dữ liệu hiện có, không cắt từ UUID cũ. Không còn dùng `@default(uuid())` trong Prisma cho PK này.
 - Hồ sơ học viên: liên hệ phụ huynh (`parent_name`, `parent_phone`, `parent_email`), trạng thái, giới tính, mục tiêu
 - `status` là trạng thái học tập của hồ sơ học sinh: `active` = **Đang học**, `inactive` = **Nghỉ học**. Chỉ học sinh `active` được resolve student workspace và được thêm vào roster/lớp mới. Khi chuyển sang `inactive`, backend chuyển các `student_classes` còn `active` của học sinh đó sang `inactive`; bật lại `active` không tự khôi phục các membership cũ.
 - `parent_email` là email nhận biên nhận nạp ví SePay của phụ huynh; không fallback sang email học sinh.
@@ -158,7 +158,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 ### 4.4 `classes`
 
-- **PK format:** `UNICL-{uuid}` — ví dụ `UNICL-4d560c5e-c3df-4470-b59a-2fd273ef95ef`. Được sinh bởi `generateClassId()` trong `apps/api/src/common/entity-id.ts`. Không còn dùng `@default(uuid())` trong Prisma.
+- **PK format:** `UNICL-[0-9a-f]{10}` — ví dụ `UNICL-1a2b3c4d5e`. Đây là **mã định danh hệ thống** ngắn cho lớp; migration `20260523110000_short_system_entity_ids` dùng `pgcrypto.gen_random_bytes(5)` để sinh ID mới cho dữ liệu hiện có, không cắt từ UUID cũ. Không còn dùng `@default(uuid())` trong Prisma cho PK này.
 - Trường nghiệp vụ chính:
   - `type` (`ClassType`), `status` (`ClassStatus`)
   - `max_students`, `allowance_per_session_per_student`, `max_allowance_per_session`, `scale_amount`
@@ -172,7 +172,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
       "dayOfWeek": "number (0=Sunday, 6=Saturday)",
       "from": "string in HH:mm format (e.g., '19:00')",
       "to": "string in HH:mm format (e.g., '20:30')",
-      "teacherId": "string? (UUID of the responsible tutor for this slot)",
+      "teacherId": "string? (UNISTAFF-[0-9a-f]{10} of the responsible tutor for this slot)",
       "calendarEventId": "string? (optional, stores Google Calendar recurring event ID)",
       "meetLink": "string? (optional, stores Google Meet link returned when recurring event is synced)"
     }
@@ -282,7 +282,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `staff_tax_deduction_overrides`: lịch sử append-only override khấu trừ thuế theo staff + role + `effective_from`
 - `class_teacher_operating_deduction_rates`: lịch sử append-only mức khấu trừ vận hành theo cặp `class-teacher` + `effective_from`
 - `wallet_transactions_history`: lịch sử ví học viên + thông tin chia lợi nhuận CSKH
-- `student_wallet_sepay_orders`: yêu cầu nạp ví SePay đã tạo cho học sinh; lưu `order_code`, trạng thái `pending/completed/expired/failed`, `amount_requested`, `amount_received`, `transfer_note`, snapshot `parent_email`, dữ liệu QR/VA từ SePay hoặc QR chuyển khoản thường, metadata người tạo đơn (`created_by_user_id`, `created_by_user_email`, `created_by_role_type`, `created_by_staff_roles`), `sepay_transaction_id`, `sepay_reference_code`, `wallet_transaction_id`, `completed_at`, `receipt_email_sent_at`, và `webhook_payload`.
+- `student_wallet_sepay_orders`: yêu cầu nạp ví SePay đã tạo cho học sinh; lưu `order_code`, trạng thái `pending/completed/expired/failed`, `amount_requested`, `amount_received`, `transfer_note` (QR tĩnh mới chỉ chứa prefix cấu hình + mã ngắn `UNIST-*`; đơn/QR legacy có thể còn `UNICL-*` và `LOP ...`), snapshot `parent_email`, dữ liệu QR/VA từ SePay hoặc QR chuyển khoản thường, metadata người tạo đơn (`created_by_user_id`, `created_by_user_email`, `created_by_role_type`, `created_by_staff_roles`), `sepay_transaction_id`, `sepay_reference_code`, `wallet_transaction_id`, `completed_at`, `receipt_email_sent_at`, và `webhook_payload`.
 - `student_wallet_direct_topup_requests`: yêu cầu nạp thẳng do admin/staff tạo trước khi cộng ví; lưu `student_id`, `amount`, `reason`, trạng thái `pending/approved/expired`, `token_hash` duy nhất, `expires_at` (token hiện hết hạn sau 14 ngày), `approved_at`, `wallet_transaction_id`, metadata người yêu cầu (`requested_by_user_id`, email, role type, staff roles). Chỉ khi duyệt thành công mới liên kết sang `wallet_transactions_history`.
 - `customer_care_service`: map staff chăm sóc theo học viên + % profit
 - `staff_monthly_stats`: số liệu tổng hợp lương/việc theo tháng
@@ -318,6 +318,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - Dùng để lưu thao tác `create | update | delete` ở backend cho các entity nghiệp vụ.
 - Actor: `user_id`, `user_email`
 - Phân loại: `entity_type`, `entity_id`, `action_type`
+- `entity_id` lưu mã định danh hệ thống hiện hành cho `student`, `class`, `staff`. Migration short-ID backfill cập nhật cả `entity_id` và các snapshot JSON chứa ID cũ.
 - Snapshot:
   - `before_value`: toàn bộ dữ liệu trước khi thay đổi
   - `after_value`: toàn bộ dữ liệu sau khi thay đổi
@@ -405,15 +406,19 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 ### 4.10 Lesson models
 
 - `lesson_task`: task nội dung (status, priority, due date, created_at, updated_at)
+  - **PK format:** `UNILTK-[0-9a-f]{10}` — ví dụ `UNILTK-a1b2c3d4e5`. Đây là **mã định danh hệ thống** ngắn cho task giáo án; migration `20260524110000_lesson_short_system_entity_ids` dùng `pgcrypto.gen_random_bytes(5)` để sinh ID mới cho dữ liệu hiện có, không cắt từ UUID cũ. Không còn dùng `@default(uuid())` trong Prisma cho PK này.
   - quan hệ optional `created_by -> staff_info.id`
   - `created_by` là field legacy; flow mới không ghi field này và task edit sẽ clear về `null`
   - danh sách `nhân sự thực hiện giáo án` đi qua `staff_lesson_task`; response task có thể gộp legacy `created_by` và `lesson_outputs.staff_id` để hiển thị data cũ trước khi edit
   - index read path hiện có cho tab tổng quan giáo án admin: `(status, due_date)`, `updated_at`
 - `staff_lesson_task`: junction assignment chính thức giữa task và nhân sự thực hiện giáo án
+  - **PK format:** `UNISLT-[0-9a-f]{10}` — ví dụ `UNISLT-a1b2c3d4e5`. Đây là **mã định danh hệ thống** ngắn cho assignment task-nhân sự; migration `20260524110000_lesson_short_system_entity_ids` dùng `pgcrypto.gen_random_bytes(5)` để sinh ID mới cho dữ liệu hiện có, không cắt từ UUID cũ. Không còn dùng `@default(uuid())` trong Prisma cho PK này.
 - `lesson_resources`: thư viện tài nguyên học tập
+  - **PK format:** `UNILRS-[0-9a-f]{10}` — ví dụ `UNILRS-a1b2c3d4e5`. Đây là **mã định danh hệ thống** ngắn cho tài nguyên giáo án; migration `20260524110000_lesson_short_system_entity_ids` dùng `pgcrypto.gen_random_bytes(5)` để sinh ID mới cho dữ liệu hiện có, không cắt từ UUID cũ. Không còn dùng `@default(uuid())` trong Prisma cho PK này.
   - field chính cho admin lesson overview: `title`, `description`, `resource_link`, `tags`, `updated_at`
   - index read path hiện có: `created_at`, `updated_at`
 - `lesson_outputs`: sản phẩm bài học gắn optional với `lesson_task`
+  - **PK format:** `UNILOT-[0-9a-f]{10}` — ví dụ `UNILOT-a1b2c3d4e5`. Đây là **mã định danh hệ thống** ngắn cho output bài học; migration `20260524110000_lesson_short_system_entity_ids` dùng `pgcrypto.gen_random_bytes(5)` để sinh ID mới cho dữ liệu hiện có, không cắt từ UUID cũ. Không còn dùng `@default(uuid())` trong Prisma cho PK này.
   - field chính cho work tab / popup chi tiết output: `lesson_task_id`, `lesson_name`, `contest_uploaded`, `date`, `status`, `payment_status`, `staff_id`, `cost`, `link`, `original_link`, `source`, `level`, `tags`
   - `staff_id` là nhân sự nhận thanh toán / đứng tên output
   - relation optional:
@@ -432,10 +437,24 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
     - `level`
     - `updated_at`
 
-### 4.11 Contract notes for authoritative UUID generation
+### 4.11 Contract notes for authoritative ID generation
 
-- `classes.schedule` (JSON): slot `id` là optional trong payload create/update; nếu thiếu, backend sẽ tự sinh UUID trước khi merge để vẫn giữ được `googleCalendarEventId`/`meetLink` của slot cũ.
+- `student_info.id`, `classes.id`, `staff_info.id`: dùng mã định danh hệ thống ngắn (`UNIST-*`, `UNICL-*`, `UNISTAFF-*`), không dùng UUID trần và không derive từ UUID cũ.
+- `lesson_task.id`, `lesson_resources.id`, `lesson_outputs.id`, `staff_lesson_task.id`: dùng mã định danh hệ thống ngắn (`UNILTK-*`, `UNILRS-*`, `UNILOT-*`, `UNISLT-*`), không dùng UUID trần và không derive từ UUID cũ.
+- `classes.schedule` (JSON): slot `id` là optional trong payload create/update; nếu thiếu, backend sẽ tự sinh UUID cho slot lịch trước khi merge để vẫn giữ được `googleCalendarEventId`/`meetLink` của slot cũ.
 - `student_exam_schedules`: endpoint replace-all vẫn chấp nhận `id?`; item mới có thể omit `id` để DB tự sinh UUID, item cũ tiếp tục gửi `id` để giữ identity.
+
+#### Summary table: Short system entity ID formats
+
+| Entity | Prefix | Format | Example |
+|--------|--------|--------|---------|
+| StudentInfo | UNIST- | UNIST-[0-9a-f]{10} | UNIST-1a2b3c4d5e |
+| StaffInfo | UNISTAFF- | UNISTAFF-[0-9a-f]{10} | UNISTAFF-1a2b3c4d5e |
+| Class | UNICL- | UNICL-[0-9a-f]{10} | UNICL-1a2b3c4d5e |
+| LessonTask | UNILTK- | UNILTK-[0-9a-f]{10} | UNILTK-a1b2c3d4e5 |
+| LessonResource | UNILRS- | UNILRS-[0-9a-f]{10} | UNILRS-a1b2c3d4e5 |
+| LessonOutput | UNILOT- | UNILOT-[0-9a-f]{10} | UNILOT-a1b2c3d4e5 |
+| StaffLessonTask | UNISLT- | UNISLT-[0-9a-f]{10} | UNISLT-a1b2c3d4e5 |
 
 ---
 
