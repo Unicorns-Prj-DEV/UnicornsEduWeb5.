@@ -592,9 +592,26 @@ export default function MakeupScheduleCard({
   );
   const todayDate = useMemo(() => getTodayDateValue(), []);
   const selectedMonthRange = useMemo(() => getMonthDateRange(month), [month]);
-  const rangeStartDate = selectedMonthRange?.startDate ?? todayDate;
-  const rangeEndDate = selectedMonthRange?.endDate ?? "2100-12-31";
-  const rangeKey = `${rangeStartDate}:${rangeEndDate}`;
+  const upcomingRange = useMemo(() => {
+    const endDate = selectedMonthRange?.endDate ?? "2100-12-31";
+
+    if (endDate < todayDate) {
+      return null;
+    }
+
+    const selectedStartDate = selectedMonthRange?.startDate;
+    const startDate =
+      selectedStartDate && selectedStartDate > todayDate
+        ? selectedStartDate
+        : todayDate;
+
+    return { startDate, endDate };
+  }, [selectedMonthRange, todayDate]);
+  const rangeStartDate = upcomingRange?.startDate ?? todayDate;
+  const rangeEndDate = upcomingRange?.endDate ?? todayDate;
+  const rangeKey = upcomingRange
+    ? `${rangeStartDate}:${rangeEndDate}`
+    : `${month ?? "all"}:empty-from:${todayDate}`;
   const [pageState, setPageState] = useState({ rangeKey, page: 1 });
   const page = pageState.rangeKey === rangeKey ? pageState.page : 1;
   const setPageForCurrentRange = (getNextPage: (currentPage: number) => number) => {
@@ -636,7 +653,7 @@ export default function MakeupScheduleCard({
         page,
         limit: MAKEUP_EVENTS_PAGE_SIZE,
       }),
-    enabled: Boolean(classId),
+    enabled: Boolean(classId && upcomingRange),
     staleTime: 60_000,
   });
   const items = data?.data ?? [];
@@ -754,7 +771,7 @@ export default function MakeupScheduleCard({
       }
     >
       <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border-default bg-bg-secondary/55 px-3 py-2 text-xs text-text-secondary">
-        <span>Buổi gần nhất</span>
+        <span>Buổi sắp tới</span>
         <span className="text-text-muted/80" aria-hidden>
           ·
         </span>

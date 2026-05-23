@@ -22,10 +22,7 @@ import {
 import * as studentApi from "@/lib/apis/student.api";
 import { formatCurrency } from "@/lib/class.helpers";
 import { copyQrImageOrLink } from "@/lib/clipboard-qr";
-import {
-  ensureStaticQrUrlIncludesClassNames,
-  getActiveClassItemsFromStudent,
-} from "@/lib/student-static-qr";
+import { getActiveClassItemsFromStudent } from "@/lib/student-static-qr";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
@@ -282,12 +279,7 @@ export default function AdminStudentsPage() {
   const handleCopyQr = async (student: StudentListItem) => {
     try {
       const qr = await studentApi.getStudentSePayStaticQr(student.id);
-      const classItems = getActiveClassItemsFromStudent(student);
-      const qrCodeUrl = ensureStaticQrUrlIncludesClassNames(
-        qr.qrCodeUrl,
-        classItems,
-      );
-      const copied = await copyQrImageOrLink(qrCodeUrl);
+      const copied = await copyQrImageOrLink(qr.qrCodeUrl);
       toast.success(
         copied === "image"
           ? "Đã sao chép ảnh QR."

@@ -17,10 +17,19 @@ const PAGE_SIZE = 20;
 const EMPTY_HISTORY_ENTRIES: ActionHistoryListItem[] = [];
 const UUID_PART =
   "[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
-// Accepts prefixed entity IDs (UNIST-, UNICL-, UNISTAFF-) or bare UUIDs for other entity types
+const SHORT_ENTITY_ID_PART = "[0-9a-f]{10}";
+const SHORT_ENTITY_ID_PREFIXES = [
+  "UNIST",
+  "UNICL",
+  "UNISTAFF",
+  "UNILTK",
+  "UNILRS",
+  "UNILOT",
+  "UNISLT",
+] as const;
+// Accepts short system entity IDs or bare UUIDs for other entity types.
 const ENTITY_ID_PATTERN = new RegExp(
-  `^(?:UNIST-${UUID_PART}|UNICL-${UUID_PART}|UNISTAFF-${UUID_PART}|${UUID_PART})$`,
-  "i"
+  `^(?:(?:${SHORT_ENTITY_ID_PREFIXES.join("|")})-${SHORT_ENTITY_ID_PART}|${UUID_PART})$`
 );
 
 const ACTION_LABELS: Record<ActionHistoryActionType, string> = {
@@ -737,7 +746,7 @@ function HistoryFilterCard({
               value={entityId}
               onChange={(event) => setEntityId(event.target.value)}
               aria-invalid={!isEntityIdValid}
-              placeholder="Dán mã entity (UNIST-…, UNICL-…, UNISTAFF-…)…"
+              placeholder="Dán mã entity hoặc UUID…"
               className={`min-h-11 w-full rounded-lg border bg-bg-surface px-3 py-2 text-sm text-text-primary shadow-sm outline-none transition-[border-color,box-shadow] duration-200 ${
                 isEntityIdValid
                   ? "border-border-default focus:border-border-focus focus:ring-2 focus:ring-border-focus"
@@ -746,7 +755,9 @@ function HistoryFilterCard({
             />
 
             {!isEntityIdValid ? (
-              <span className="mt-2 block text-xs text-error">Entity ID cần là mã hợp lệ (UNIST-…, UNICL-…, UNISTAFF-…, hoặc UUID).</span>
+              <span className="mt-2 block text-xs text-error">
+                Entity ID cần là mã UNIST/UNICL/UNISTAFF/UNILTK/UNILRS/UNILOT/UNISLT-xxxxxxxxxx hoặc UUID.
+              </span>
             ) : !isDateRangeValid ? (
               <span className="mt-2 block text-xs text-error">
                 Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc.
