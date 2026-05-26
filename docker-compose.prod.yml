@@ -59,3 +59,5 @@ services:
 networks:
   app-net:
     driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: "1280"
