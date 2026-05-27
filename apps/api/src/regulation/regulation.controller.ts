@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -105,6 +106,37 @@ export class RegulationController {
     @Body() data: UpdateRegulationDto,
   ): Promise<RegulationItemDto> {
     return this.regulationService.updateRegulation(id, user, data, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.admin)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @ApiOperation({
+    summary: 'Delete a regulation',
+    description:
+      'Hard delete an existing regulation post from the notes-subject regulations tab.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Regulation id',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Regulation deleted.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Regulation not found.',
+  })
+  async deleteRegulation(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<RegulationItemDto> {
+    return this.regulationService.deleteRegulation(id, user, {
       userId: user.id,
       userEmail: user.email,
       roleType: user.roleType,

@@ -48,6 +48,7 @@ import {
 } from "@/lib/admin-shell-paths";
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
+import { classKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import type { ClassScheduleGoogleCalendarResyncSummary } from "@/dtos/class-schedule.dto";
 
@@ -178,6 +179,7 @@ export default function AdminClassDetailPage() {
         exit: { opacity: 0, y: -10 },
         transition: TAB_PANEL_TRANSITION,
       };
+  const classDetailQueryKey = useMemo(() => classKeys.detail(id), [id]);
 
   const {
     data: classDetail,
@@ -185,7 +187,7 @@ export default function AdminClassDetailPage() {
     isFetching: isClassDetailFetching,
     isError,
   } = useQuery<ClassDetail>({
-    queryKey: ["class", "detail", id],
+    queryKey: classDetailQueryKey,
     queryFn: () => classApi.getClassById(id),
     enabled: !!id,
   });
@@ -337,7 +339,7 @@ export default function AdminClassDetailPage() {
     mutationFn: () => classApi.resyncClassScheduleGoogleCalendar(id),
     onSuccess: async (result) => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["class", "detail", id] }),
+        queryClient.invalidateQueries({ queryKey: classDetailQueryKey }),
         invalidateCalendarScopedQueries(queryClient),
       ]);
       toast.success(getScheduleResyncToastMessage(result.data));
@@ -893,7 +895,7 @@ export default function AdminClassDetailPage() {
           disabledCreateMessage={makeupScheduleDisabledMessage}
           month={selectedMonth}
           scheduleItems={scheduleItems}
-          queryKeyPrefix={["class", "detail", id]}
+          queryKeyPrefix={classDetailQueryKey}
           listFn={classApi.getClassMakeupEvents}
           createFn={classApi.createClassMakeupEvent}
           updateFn={classApi.updateClassMakeupEvent}

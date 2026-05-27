@@ -171,6 +171,45 @@ export class RegulationService {
     return this.mapRegulationItem(updatedRegulation);
   }
 
+  async deleteRegulation(
+    id: string,
+    user: JwtPayload,
+    auditActor?: ActionHistoryActor,
+  ): Promise<RegulationItemDto> {
+    const actor = auditActor ?? {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    };
+
+    const deletedRegulation = await this.prisma.$transaction(async (tx) => {
+      const beforeValue = await tx.regulation.findUnique({
+        where: { id },
+      });
+
+      if (!beforeValue) {
+        throw new NotFoundException('Regulation not found');
+      }
+
+      const regulation = await tx.regulation.delete({
+        where: { id },
+        include: REGULATION_INCLUDE,
+      });
+
+      await this.actionHistoryService.recordDelete(tx, {
+        actor,
+        entityType: 'regulation',
+        entityId: id,
+        description: 'Xóa quy định',
+        beforeValue,
+      });
+
+      return regulation;
+    });
+
+    return this.mapRegulationItem(deletedRegulation);
+  }
+
   private buildAudienceWhere(audiences: RegulationAudience[]) {
     const allowedAudiences = Array.from(new Set(audiences));
 

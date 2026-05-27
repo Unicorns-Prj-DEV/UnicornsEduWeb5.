@@ -364,7 +364,7 @@ export class ClassService {
     }));
   }
 
-  private async getClassAuditSnapshot(
+  private async getClassDetailSnapshot(
     db: Pick<PrismaService, 'class' | 'classTeacher' | 'studentClass'>,
     id: string,
   ) {
@@ -473,6 +473,13 @@ export class ClassService {
         0,
       ),
     };
+  }
+
+  private async getClassAuditSnapshot(
+    db: Pick<PrismaService, 'class' | 'classTeacher' | 'studentClass'>,
+    id: string,
+  ) {
+    return this.getClassDetailSnapshot(db, id);
   }
 
   async getClasses(
@@ -636,112 +643,13 @@ export class ClassService {
   }
 
   async getClassById(id: string) {
-    const classInfo = await this.prisma.class.findUnique({
-      where: { id },
-    });
+    const classInfo = await this.getClassDetailSnapshot(this.prisma, id);
 
     if (!classInfo) {
       throw new NotFoundException('Class not found');
     }
 
-    const classRecord = await this.prisma.classTeacher.findMany({
-      where: {
-        classId: id,
-        teacher: { is: {} },
-      },
-      select: {
-        classId: true,
-        teacherId: true,
-        customAllowance: true,
-        operatingDeductionRatePercent: true,
-        teacher: {
-          select: {
-            id: true,
-            user: {
-              select: {
-                first_name: true,
-                last_name: true,
-              },
-            },
-            status: true,
-          },
-        },
-      },
-    });
-
-    const teachers = this.mapTeacherAssignments(classRecord);
-
-    const classStudents = await this.prisma.studentClass.findMany({
-      where: { classId: id },
-      include: {
-        student: true,
-      },
-      orderBy: {
-        createdAt: 'asc',
-      },
-    });
-
-    const students = classStudents.map((student) => {
-      const customTuitionPerSession = normalizeStudentClassCustomTuitionMoney(
-        student.customStudentTuitionPerSession,
-      );
-      const customTuitionPackageTotal = normalizeStudentClassCustomTuitionMoney(
-        student.customTuitionPackageTotal,
-      );
-      const customTuitionPackageSession =
-        normalizeStudentClassCustomTuitionMoney(
-          student.customTuitionPackageSession,
-        );
-      const effectiveTuitionPackageTotal =
-        customTuitionPackageTotal ??
-        normalizeNullableMoney(classInfo.tuitionPackageTotal);
-      const effectiveTuitionPackageSession =
-        customTuitionPackageSession ??
-        normalizeNullableMoney(classInfo.tuitionPackageSession);
-      const effectiveTuitionPerSession = resolveEffectiveTuitionPerSession({
-        customTuitionPerSession,
-        classTuitionPerSession: classInfo.studentTuitionPerSession,
-        effectivePackageTotal: effectiveTuitionPackageTotal,
-        effectivePackageSession: effectiveTuitionPackageSession,
-      });
-
-      return {
-        ...student.student,
-        status: student.status,
-        customTuitionPerSession,
-        customTuitionPackageTotal,
-        customTuitionPackageSession,
-        effectiveTuitionPerSession,
-        effectiveTuitionPackageTotal,
-        effectiveTuitionPackageSession,
-        tuitionPackageSource: hasCustomTuitionOverride({
-          customTuitionPerSession,
-          customTuitionPackageTotal,
-          customTuitionPackageSession,
-        })
-          ? 'custom'
-          : effectiveTuitionPackageTotal != null ||
-              effectiveTuitionPackageSession != null ||
-              normalizeNullableMoney(classInfo.studentTuitionPerSession) != null
-            ? 'class'
-            : 'unset',
-        totalAttendedSession: student.totalAttendedSession,
-      };
-    });
-
-    return {
-      ...classInfo,
-      teachers,
-      students,
-      sessionTuitionTotal: students.reduce(
-        (sum, student) =>
-          sum +
-          (isStudentClassActiveStatus(student.status)
-            ? (student.effectiveTuitionPerSession ?? 0)
-            : 0),
-        0,
-      ),
-    };
+    return classInfo;
   }
 
   private getTeacherPayload(data: {
@@ -981,51 +889,25 @@ export class ClassService {
         });
       }
 
-      const classRecord = await tx.classTeacher.findMany({
-        where: {
-          classId: createdClass.id,
-          teacher: { is: {} },
-        },
-        select: {
-          classId: true,
-          teacherId: true,
-          customAllowance: true,
-          operatingDeductionRatePercent: true,
-          teacher: {
-            select: {
-              id: true,
-              user: {
-                select: {
-                  first_name: true,
-                  last_name: true,
-                },
-              },
-              status: true,
-            },
-          },
-        },
-      });
-
-      if (auditActor) {
-        const afterValue = await this.getClassAuditSnapshot(
-          tx,
-          createdClass.id,
-        );
-        if (afterValue) {
-          await this.actionHistoryService.recordCreate(tx, {
-            actor: auditActor,
-            entityType: 'class',
-            entityId: createdClass.id,
-            description: 'Tạo lớp học',
-            afterValue,
-          });
-        }
+      const classDetail = await this.getClassDetailSnapshot(
+        tx,
+        createdClass.id,
+      );
+      if (!classDetail) {
+        throw new NotFoundException('Class not found');
       }
 
-      return {
-        ...createdClass,
-        teachers: this.mapTeacherAssignments(classRecord),
-      };
+      if (auditActor) {
+        await this.actionHistoryService.recordCreate(tx, {
+          actor: auditActor,
+          entityType: 'class',
+          entityId: createdClass.id,
+          description: 'Tạo lớp học',
+          afterValue: classDetail,
+        });
+      }
+
+      return classDetail;
     });
   }
 

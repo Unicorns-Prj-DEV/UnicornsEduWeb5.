@@ -10,6 +10,7 @@ import RulePostFormPopup, {
 import RegulationsTabPanel from "@/components/admin/notes-subject/RegulationsTabPanel";
 import {
   createRegulation,
+  deleteRegulation,
   getRegulations,
   updateRegulation,
 } from "@/lib/apis/regulation.api";
@@ -55,6 +56,17 @@ export default function AdminNotesSubjectPage() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: deleteRegulation,
+    onSuccess: async () => {
+      toast.success("Đã xóa quy định");
+      await queryClient.invalidateQueries({ queryKey: ["regulations"] });
+    },
+    onError: () => {
+      toast.error("Không xóa được quy định");
+    },
+  });
+
   useEffect(() => {
     if (typeof document === "undefined") return;
 
@@ -84,6 +96,14 @@ export default function AdminNotesSubjectPage() {
     },
     [updateMutation],
   );
+
+  const handleDeleteRulePost = useCallback(
+    async (id: string) => {
+      await deleteMutation.mutateAsync(id);
+    },
+    [deleteMutation],
+  );
+
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-3 pb-8 sm:p-6">
       <div className="flex min-w-0 flex-1 flex-col rounded-xl border border-border-default bg-bg-surface p-3 shadow-sm sm:rounded-lg sm:p-5">
@@ -123,6 +143,10 @@ export default function AdminNotesSubjectPage() {
               isError={regulationsError}
               onRetry={() => refetchRegulations()}
               onUpdateRule={handleUpdateRulePost}
+              onDeleteRule={handleDeleteRulePost}
+              deletingRuleId={
+                deleteMutation.isPending ? deleteMutation.variables ?? null : null
+              }
             />
           </section>
         </div>

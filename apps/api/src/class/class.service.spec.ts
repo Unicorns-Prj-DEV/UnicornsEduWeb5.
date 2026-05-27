@@ -20,8 +20,11 @@ jest.mock('../../generated/client', () => ({
 
 import { ClassService } from './class.service';
 import {
+  ClassStatus,
+  ClassType,
   StaffRole,
   StaffStatus,
+  StudentClassStatus,
   StudentStatus,
   UserRole,
 } from '../../generated/enums';
@@ -35,6 +38,8 @@ type ClassServiceTestAccess = {
 describe('ClassService', () => {
   const mockTx = {
     class: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
       update: jest.fn(),
     },
     classTeacher: {
@@ -54,6 +59,7 @@ describe('ClassService', () => {
     studentClass: {
       findMany: jest.fn(),
       updateMany: jest.fn(),
+      createMany: jest.fn(),
       create: jest.fn(),
     },
   };
@@ -99,6 +105,38 @@ describe('ClassService', () => {
       async (callback: (tx: typeof mockTx) => Promise<unknown>) =>
         callback(mockTx),
     );
+    mockTx.class.create.mockResolvedValue({
+      id: 'class-1',
+      name: 'Math 10A',
+      type: ClassType.basic,
+      status: ClassStatus.running,
+      maxStudents: null,
+      allowancePerSessionPerStudent: null,
+      maxAllowancePerSession: null,
+      scaleAmount: null,
+      schedule: [],
+      studentTuitionPerSession: null,
+      tuitionPackageTotal: null,
+      tuitionPackageSession: null,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+    mockTx.class.findUnique.mockResolvedValue({
+      id: 'class-1',
+      name: 'Math 10A',
+      type: ClassType.basic,
+      status: ClassStatus.running,
+      maxStudents: null,
+      allowancePerSessionPerStudent: null,
+      maxAllowancePerSession: null,
+      scaleAmount: null,
+      schedule: [],
+      studentTuitionPerSession: null,
+      tuitionPackageTotal: null,
+      tuitionPackageSession: null,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
     mockTx.class.update.mockResolvedValue({ id: 'class-1' });
     mockTx.classTeacher.findMany.mockResolvedValue([]);
     mockTx.classTeacher.deleteMany.mockResolvedValue({ count: 1 });
@@ -116,6 +154,7 @@ describe('ClassService', () => {
     });
     mockTx.studentClass.findMany.mockResolvedValue([]);
     mockTx.studentClass.updateMany.mockResolvedValue({ count: 0 });
+    mockTx.studentClass.createMany.mockResolvedValue({ count: 0 });
     mockTx.studentClass.create.mockResolvedValue({});
     mockPrisma.class.count.mockResolvedValue(0);
     mockPrisma.class.findMany.mockResolvedValue([]);
@@ -311,6 +350,91 @@ describe('ClassService', () => {
           status: 'running',
         } as never),
       ).rejects.toThrow('Giáo viên không được phép tạo lớp học.');
+    });
+  });
+
+  describe('createClass', () => {
+    it('returns selected students in the created class detail', async () => {
+      mockTx.class.create.mockResolvedValue({
+        id: 'class-1',
+        name: 'Math 10A',
+        type: ClassType.basic,
+        status: ClassStatus.running,
+        maxStudents: 12,
+        allowancePerSessionPerStudent: null,
+        maxAllowancePerSession: null,
+        scaleAmount: null,
+        schedule: [],
+        studentTuitionPerSession: 250000,
+        tuitionPackageTotal: null,
+        tuitionPackageSession: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+      mockTx.class.findUnique.mockResolvedValue({
+        id: 'class-1',
+        name: 'Math 10A',
+        type: ClassType.basic,
+        status: ClassStatus.running,
+        maxStudents: 12,
+        allowancePerSessionPerStudent: null,
+        maxAllowancePerSession: null,
+        scaleAmount: null,
+        schedule: [],
+        studentTuitionPerSession: 250000,
+        tuitionPackageTotal: null,
+        tuitionPackageSession: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+      mockTx.studentClass.findMany.mockResolvedValue([
+        {
+          classId: 'class-1',
+          studentId: 'student-1',
+          status: StudentClassStatus.active,
+          customStudentTuitionPerSession: null,
+          customTuitionPackageTotal: null,
+          customTuitionPackageSession: null,
+          totalAttendedSession: 0,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          student: {
+            id: 'student-1',
+            fullName: 'Jane Student',
+          },
+        },
+      ]);
+
+      const result = await service.createClass({
+        name: 'Math 10A',
+        type: ClassType.basic,
+        status: ClassStatus.running,
+        max_students: 12,
+        student_tuition_per_session: 250000,
+        student_ids: ['student-1'],
+      });
+
+      expect(mockTx.studentClass.createMany).toHaveBeenCalledWith({
+        data: [
+          {
+            classId: 'class-1',
+            studentId: 'student-1',
+            status: StudentClassStatus.active,
+          },
+        ],
+      });
+      expect(result).toMatchObject({
+        id: 'class-1',
+        students: [
+          {
+            id: 'student-1',
+            fullName: 'Jane Student',
+            status: StudentClassStatus.active,
+            effectiveTuitionPerSession: 250000,
+            tuitionPackageSource: 'class',
+          },
+        ],
+        sessionTuitionTotal: 250000,
+      });
     });
   });
 

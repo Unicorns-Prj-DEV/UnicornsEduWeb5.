@@ -99,7 +99,6 @@ function normalizeTimeInput(value: string): string {
   return `${h}:${m}:${s}`;
 }
 
-const MAX_SESSION_NOTES_LENGTH = 2000;
 const MAX_ATTENDANCE_NOTES_LENGTH = 500;
 function toAttendancePayload(
   items: AttendanceFormItem[],
@@ -419,11 +418,6 @@ export default function AddSessionPopup({
     if (!notesTextContent) {
       setNotesError("Vui lòng nhập nhận xét cho buổi học.");
       toast.error("Vui lòng nhập nhận xét cho buổi học.");
-      return;
-    }
-
-    if (trimmedSessionNotes.length > MAX_SESSION_NOTES_LENGTH) {
-      toast.error(`Ghi chú buổi học tối đa ${MAX_SESSION_NOTES_LENGTH} ký tự.`);
       return;
     }
 

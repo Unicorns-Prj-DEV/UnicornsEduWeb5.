@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { useDebounce } from "use-debounce";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import type { ClassStatus, ClassType, CreateClassPayload } from "@/dtos/class.dto";
+import type { ClassDetail, ClassStatus, ClassType, CreateClassPayload } from "@/dtos/class.dto";
 import { TimeInput } from "@/components/ui/TimeInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import * as classApi from "@/lib/apis/class.api";
@@ -85,6 +85,14 @@ function normalizeOperatingDeductionRatePercent(value?: number): number {
   if ((value ?? 0) < 0) return 0;
   if ((value ?? 0) > 100) return 100;
   return Number((value ?? 0).toFixed(2));
+}
+
+function isFullClassDetail(classDetail: ClassDetail): boolean {
+  return (
+    Array.isArray(classDetail.teachers) &&
+    Array.isArray(classDetail.students) &&
+    typeof classDetail.sessionTuitionTotal === "number"
+  );
 }
 
 export default function AddClassPopup({ open, onClose, onCreated }: Props) {
@@ -264,7 +272,14 @@ function AddClassDialog({ onClose, onCreated }: Omit<Props, "open">) {
       errorMessage: "Không thể tạo lớp học.",
       action: () => classApi.createClass(payload),
       onSuccess: async (createdClass) => {
-        queryClient.setQueryData(classKeys.detail(createdClass.id), createdClass);
+        if (isFullClassDetail(createdClass)) {
+          queryClient.setQueryData(classKeys.detail(createdClass.id), createdClass);
+        } else {
+          queryClient.removeQueries({
+            queryKey: classKeys.detail(createdClass.id),
+            exact: true,
+          });
+        }
         await queryClient.invalidateQueries({ queryKey: classKeys.lists() });
         onCreated?.(createdClass.id);
       },

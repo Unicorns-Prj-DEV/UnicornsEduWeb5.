@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+} from "react";
+import { CheckIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import RegulationAudienceBadges from "./RegulationAudienceBadges";
 import RegulationResourceLink from "./RegulationResourceLink";
@@ -21,6 +28,8 @@ type Props = {
   isError: boolean;
   onRetry: () => void;
   onUpdateRule: (id: string, values: RulePostFormValues) => Promise<void>;
+  onDeleteRule: (id: string) => Promise<void>;
+  deletingRuleId?: string | null;
 };
 
 function truncate(text: string, max: number) {
@@ -29,39 +38,98 @@ function truncate(text: string, max: number) {
   return `${t.slice(0, max - 1)}…`;
 }
 
+function isInteractiveEventTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+
+  return Boolean(
+    target.closest(
+      "button,a,input,textarea,select,[role='button'],[role='link'],[contenteditable='true']",
+    ),
+  );
+}
+
 export default function RegulationsTabPanel({
   rulePosts,
   isLoading,
   isError,
   onRetry,
   onUpdateRule,
+  onDeleteRule,
+  deletingRuleId = null,
 }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  const selectedRule = selectedId
-    ? rulePosts.find((r) => r.id === selectedId) ?? null
-    : null;
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const handleRowActivate = useCallback((id: string) => {
     setSelectedId(id);
+    setConfirmDeleteId((current) => (current === id ? current : null));
   }, []);
 
   const handleSave = useCallback(
-    async (values: RulePostFormValues) => {
-      if (!selectedId) return;
+    async (id: string, values: RulePostFormValues) => {
       try {
-        await onUpdateRule(selectedId, values);
+        await onUpdateRule(id, values);
         toast.success("Đã cập nhật quy định");
       } catch {
         return;
       }
     },
-    [onUpdateRule, selectedId],
+    [onUpdateRule],
   );
 
   const handleDiscard = useCallback(() => {
     setSelectedId(null);
   }, []);
+
+  const handleRowKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLTableRowElement>, id: string) => {
+      if (isInteractiveEventTarget(event.target)) return;
+
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        handleRowActivate(id);
+      }
+    },
+    [handleRowActivate],
+  );
+
+  const stopRowActivation = (
+    event: MouseEvent<HTMLElement> | KeyboardEvent<HTMLElement>,
+  ) => {
+    event.stopPropagation();
+  };
+
+  const handleRequestDelete = useCallback(
+    (event: MouseEvent<HTMLButtonElement>, id: string) => {
+      event.stopPropagation();
+      setConfirmDeleteId(id);
+    },
+    [],
+  );
+
+  const handleCancelDelete = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+      setConfirmDeleteId(null);
+    },
+    [],
+  );
+
+  const handleConfirmDelete = useCallback(
+    async (event: MouseEvent<HTMLButtonElement>, id: string) => {
+      event.stopPropagation();
+
+      try {
+        await onDeleteRule(id);
+        setSelectedId((current) => (current === id ? null : current));
+      } catch {
+        return;
+      } finally {
+        setConfirmDeleteId(null);
+      }
+    },
+    [onDeleteRule],
+  );
 
   if (isLoading) {
     return (
@@ -131,77 +199,119 @@ export default function RegulationsTabPanel({
               <TableHead className="hidden min-w-[12rem] md:table-cell">
                 Mô tả
               </TableHead>
+              <TableHead className="w-[9rem] text-right">Thao tác</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rulePosts.map((post, index) => {
               const isSelected = selectedId === post.id;
+              const isConfirmingDelete = confirmDeleteId === post.id;
+              const isDeleting = deletingRuleId === post.id;
               return (
-                <TableRow
-                  key={post.id}
-                  tabIndex={0}
-                  aria-label={`Quy định: ${post.title}. ${isSelected ? "Đang chọn" : "Nhấn để chỉnh sửa"}`}
-                  onClick={() => handleRowActivate(post.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      handleRowActivate(post.id);
-                    }
-                  }}
-                  className={`cursor-pointer border-l-4 border-l-transparent ${
-                    isSelected
-                      ? "border-l-primary bg-primary/8 hover:bg-primary/10"
-                      : ""
-                  }`}
-                >
-                  <TableCell className="tabular-nums text-text-muted">
-                    {String(index + 1).padStart(2, "0")}
-                  </TableCell>
-                  <TableCell className="max-w-[12rem] font-medium text-text-primary whitespace-normal sm:max-w-none">
-                    {post.title}
-                  </TableCell>
-                  <TableCell className="whitespace-normal">
-                    <RegulationAudienceBadges audiences={post.audiences} />
-                  </TableCell>
-                  <TableCell className="hidden whitespace-normal lg:table-cell">
-                    {post.resourceLink ? (
-                      <RegulationResourceLink
-                        resourceLink={post.resourceLink}
-                        resourceLinkLabel={post.resourceLinkLabel}
-                        className="text-xs"
-                      />
-                    ) : (
-                      <span className="text-sm text-text-muted">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="hidden max-w-xl text-text-secondary whitespace-normal md:table-cell">
-                    {post.description
-                      ? truncate(post.description, 120)
-                      : "—"}
-                  </TableCell>
-                </TableRow>
+                <Fragment key={post.id}>
+                  <TableRow
+                    tabIndex={0}
+                    aria-label={`Quy định: ${post.title}. ${isSelected ? "Đang chọn" : "Nhấn để chỉnh sửa"}`}
+                    aria-selected={isSelected}
+                    onClick={() => handleRowActivate(post.id)}
+                    onKeyDown={(event) => handleRowKeyDown(event, post.id)}
+                    className={`cursor-pointer border-l-4 border-l-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-inset ${
+                      isSelected
+                        ? "border-l-primary bg-primary/8 hover:bg-primary/10"
+                        : ""
+                    }`}
+                  >
+                    <TableCell className="tabular-nums text-text-muted">
+                      {String(index + 1).padStart(2, "0")}
+                    </TableCell>
+                    <TableCell className="max-w-[12rem] font-medium text-text-primary whitespace-normal sm:max-w-none">
+                      {post.title}
+                    </TableCell>
+                    <TableCell className="whitespace-normal">
+                      <RegulationAudienceBadges audiences={post.audiences} />
+                    </TableCell>
+                    <TableCell className="hidden whitespace-normal lg:table-cell">
+                      {post.resourceLink ? (
+                        <RegulationResourceLink
+                          resourceLink={post.resourceLink}
+                          resourceLinkLabel={post.resourceLinkLabel}
+                          className="text-xs"
+                        />
+                      ) : (
+                        <span className="text-sm text-text-muted">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="hidden max-w-xl text-text-secondary whitespace-normal md:table-cell">
+                      {post.description
+                        ? truncate(post.description, 120)
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="min-w-[9rem] text-right align-top">
+                      {isConfirmingDelete ? (
+                        <fieldset
+                          className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0 sm:flex-row sm:justify-end"
+                        >
+                          <legend className="sr-only">
+                            Xác nhận xóa quy định {post.title}
+                          </legend>
+                          <button
+                            type="button"
+                            onClick={(event) =>
+                              handleConfirmDelete(event, post.id)
+                            }
+                            onKeyDown={stopRowActivation}
+                            disabled={isDeleting}
+                            className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md bg-danger px-3 py-2 text-xs font-medium text-text-inverse transition-colors hover:bg-danger/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:pointer-events-none disabled:opacity-50"
+                          >
+                            <CheckIcon className="size-4" aria-hidden="true" />
+                            {isDeleting ? "Đang xóa…" : "Xác nhận"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleCancelDelete}
+                            onKeyDown={stopRowActivation}
+                            disabled={isDeleting}
+                            className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md border border-border-default bg-bg-surface px-3 py-2 text-xs font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:pointer-events-none disabled:opacity-50"
+                          >
+                            <XMarkIcon className="size-4" aria-hidden="true" />
+                            Hủy
+                          </button>
+                        </fieldset>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(event) =>
+                            handleRequestDelete(event, post.id)
+                          }
+                          onKeyDown={stopRowActivation}
+                          disabled={deletingRuleId !== null}
+                          className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md border border-danger/30 bg-bg-surface px-3 py-2 text-xs font-medium text-danger transition-colors hover:bg-danger/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:pointer-events-none disabled:opacity-50"
+                          aria-label={`Xóa quy định ${post.title}`}
+                          title="Xóa quy định"
+                        >
+                          <TrashIcon className="size-4" aria-hidden="true" />
+                          <span className="hidden sm:inline">Xóa</span>
+                        </button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                  {isSelected ? (
+                    <TableRow className="bg-primary/8 hover:bg-primary/8">
+                      <TableCell colSpan={6} className="p-2 sm:p-4">
+                        <RulePostEditTable
+                          key={post.id}
+                          rule={post}
+                          onSave={(values) => handleSave(post.id, values)}
+                          onDiscard={handleDiscard}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </Fragment>
               );
             })}
           </TableBody>
         </Table>
-      </div>
-
-      <div className="min-h-[4rem]">
-        {selectedRule ? (
-          <RulePostEditTable
-            key={selectedRule.id}
-            rule={selectedRule}
-            onSave={handleSave}
-            onDiscard={handleDiscard}
-          />
-        ) : (
-          <div
-            className="rounded-lg border border-dashed border-border-default bg-bg-secondary/30 px-4 py-8 text-center text-sm text-text-muted"
-            role="status"
-          >
-            Chọn một quy định trong bảng phía trên để hiển thị bảng chỉnh sửa.
-          </div>
-        )}
       </div>
     </div>
   );

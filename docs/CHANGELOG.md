@@ -23,6 +23,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- BE/API `regulations`: thêm hard-delete `DELETE /regulations/:id` cho admin và `staff.assistant`, có ghi `action_history`; FE `/admin/notes-subject` và assistant `/staff/notes-subject` có nút xóa quy định kèm xác nhận.
+
 - **BREAKING – Short System Entity IDs (Lesson entities):** PK của `lesson_task`, `lesson_resources`, `lesson_outputs`, `staff_lesson_task` chuyển sang mã định danh hệ thống ngắn: `UNILTK-[0-9a-f]{10}`, `UNILRS-[0-9a-f]{10}`, `UNILOT-[0-9a-f]{10}`, `UNISLT-[0-9a-f]{10}`. Existing rows nhận ID mới sinh bằng `pgcrypto.gen_random_bytes(5)`, không cắt từ UUID cũ; old API links không redirect. Migration SQL: `20260524110000_lesson_short_system_entity_ids`. Docs: `docs/Database Schema.md` updated with PK format notes and summary table for all lesson entity IDs.
 
 - **BREAKING – Short System Entity IDs:** PK của `student_info`, `staff_info`, `classes` chuyển sang mã định danh hệ thống ngắn: `UNIST-[0-9a-f]{10}`, `UNISTAFF-[0-9a-f]{10}`, `UNICL-[0-9a-f]{10}`. Existing rows nhận ID mới sinh bằng `pgcrypto.gen_random_bytes(5)`, không cắt từ UUID cũ; old API links không redirect. Migration SQL: `20260523110000_short_system_entity_ids`. Sau deploy: tái phát hành QR tĩnh học sinh và resync/update Google Calendar metadata theo runbook, không delete/recreate calendar events mặc định.
@@ -30,6 +32,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - FE loading state: Thêm các tệp loading suspense boundaries (`loading.tsx`) tại `/admin`, `/staff`, và `/student` hiển thị khung skeleton SaaS cao cấp phẳng siêu mượt khi bấm chuyển trang tức thì.
 
 ### Changed
+
+- FE `/admin/notes-subject`: form chỉnh sửa quy định hiển thị ngay bên dưới item đang chọn thay vì ở cuối danh sách.
 
 - SePay static QR nạp ví: nội dung QR tĩnh mới chỉ còn `[SEPAY_TRANSFER_NOTE_PREFIX] UNIST-[0-9a-f]{10}` để đồng bộ list/detail học sinh và tránh memo dài; webhook vẫn tương thích QR cũ có `NAPVI`/`NAP VI`, `UNICL-*`, `LOP ...`, đồng thời nhận token đã bị ngân hàng strip dấu như `UNIST<10hex>`/`UNICL<10hex>` khi tài khoản nhận đúng `SEPAY_TRANSFER_ACCOUNT_NUMBER`. Biên lai nạp ví hiển thị nội dung `Học sinh <id học sinh> gia hạn học phí các gói <tên lớp active...>`.
 
@@ -69,6 +73,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - **Parent email self-service & hiển thị toàn hệ thống:** Thêm `parent_email` vào `UpdateMyStudentProfileDto` (backend `apps/api/src/dtos/profile.dto.ts` + `UserService.updateMyStudentProfile`) để học sinh tự cập nhật email phụ huynh qua `PATCH /users/me/student` (truyền `null`/chuỗi rỗng để xoá). FE: `ProfileStudentInfoDto`/`UpdateMyStudentProfileDto` (`apps/web/dtos/profile.dto.ts`) bổ sung `parentEmail`/`parent_email`; `/admin/students/[id]` (cũng dùng cho `/staff/students/[id]`) hiển thị dòng **Email nhận biên nhận** trong thẻ "Liên hệ phụ huynh"; `/student` self-service thêm input + dòng đọc cho email phụ huynh và tính `isStudentProfileDirty` theo field mới; `/user-profile` section Học viên thêm `TextField`/`DetailRows` `parent_email` và đưa field vào `studentCompletion`/`allProfileValues`. Docs: `docs/pages/auth.md`, `docs/pages/student.md`.
 
 ### Fixed
+
+- FE tạo buổi học (`AddSessionPopup`): gỡ giới hạn 2000 ký tự cho nhận xét buổi học, vẫn giữ bắt buộc nhập nhận xét và giới hạn ghi chú điểm danh.
+
+- BE/FE tạo lớp: `POST /class` trả detail đầy đủ gồm học sinh vừa gán để trang `/admin/classes/:id` hiển thị danh sách học sinh ngay sau redirect, không cần reload.
 
 - BE SePay QR tĩnh nạp ví học sinh: nội dung chuyển khoản mới chỉ giữ prefix cấu hình + `<student_info.id>`; webhook vẫn reconcile được QR cũ có class id/hậu tố lớp.
 

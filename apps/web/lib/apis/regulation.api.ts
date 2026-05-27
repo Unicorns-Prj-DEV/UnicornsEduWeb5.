@@ -24,3 +24,8 @@ export async function updateRegulation(
   const response = await api.patch<RegulationItem>(`/regulations/${id}`, payload);
   return response.data;
 }
+
+export async function deleteRegulation(id: string): Promise<void> {
+  const safeId = encodeURIComponent(id);
+  await api.delete(`/regulations/${safeId}`);
+}

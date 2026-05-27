@@ -162,7 +162,7 @@
 - `/staff/notes-subject`
   - với `staff.assistant`, route render nguyên admin **Quy định** workspace ngay trong staff shell
   - với các staff role khác, route chỉ còn phần `Quy định` read-only, đọc dữ liệu thật từ `GET /regulations`; backend tự lọc theo `audiences` nên staff chỉ thấy bài dành cho role của mình hoặc `all`
-  - card quy định ở staff read-only hiển thị `role tag`, `link tài nguyên` ở phía trên mô tả, rồi đến nội dung rich text đã sanitize; `assistant` dùng cùng UI admin (bảng + chỉnh sửa inline)
+  - card quy định ở staff read-only hiển thị `role tag`, `link tài nguyên` ở phía trên mô tả, rồi đến nội dung rich text đã sanitize; `assistant` dùng cùng UI admin (bảng + chỉnh sửa inline ngay dưới item đang chọn + xóa có xác nhận)
   - backend mở thêm `GET /regulations` cho `UserRole.staff`
 - `/staff/lesson-plan-detail`, `/staff/lesson_plan_detail`
   - dùng self-service endpoint đọc thống kê lesson output của chính staff hiện tại trong 30 ngày gần nhất

@@ -18,12 +18,14 @@ describe('RegulationService', () => {
       findUnique: jest.fn(),
       findUniqueOrThrow: jest.fn(),
       update: jest.fn(),
+      delete: jest.fn(),
     },
     $transaction: jest.fn(),
   };
   const mockActionHistoryService = {
     recordCreate: jest.fn(),
     recordUpdate: jest.fn(),
+    recordDelete: jest.fn(),
   };
 
   beforeEach(() => {
@@ -257,6 +259,85 @@ describe('RegulationService', () => {
     });
     expect(mockActionHistoryService.recordUpdate).toHaveBeenCalledTimes(1);
     expect(result.id).toBe('reg-1');
+  });
+
+  it('deletes a regulation and records action history', async () => {
+    const beforeValue = makeRegulationSnapshot({
+      id: 'reg-1',
+      title: 'Quy định cần xóa',
+    });
+    const row = makeRegulationRow({
+      id: 'reg-1',
+      title: 'Quy định cần xóa',
+    });
+    const actor = {
+      userId: 'assistant-user',
+      userEmail: 'assistant@example.com',
+      roleType: UserRole.staff,
+    };
+
+    mockPrisma.regulation.findUnique.mockResolvedValue(beforeValue);
+    mockPrisma.regulation.delete.mockResolvedValue(row);
+
+    const result = await service.deleteRegulation(
+      'reg-1',
+      {
+        id: 'assistant-user',
+        email: 'assistant@example.com',
+        accountHandle: 'assistant',
+        roleType: UserRole.staff,
+      },
+      actor,
+    );
+
+    expect(mockPrisma.regulation.findUnique).toHaveBeenCalledWith({
+      where: { id: 'reg-1' },
+    });
+    expect(mockPrisma.regulation.delete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'reg-1' },
+        include: expect.objectContaining({
+          createdBy: expect.any(Object),
+          updatedBy: expect.any(Object),
+        }),
+      }),
+    );
+    expect(mockActionHistoryService.recordDelete).toHaveBeenCalledWith(
+      mockPrisma,
+      {
+        actor,
+        entityType: 'regulation',
+        entityId: 'reg-1',
+        description: 'Xóa quy định',
+        beforeValue,
+      },
+    );
+    expect(result.id).toBe('reg-1');
+    expect(result.title).toBe('Quy định cần xóa');
+  });
+
+  it('throws NotFound when deleting a missing regulation', async () => {
+    mockPrisma.regulation.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.deleteRegulation(
+        'missing-regulation',
+        {
+          id: 'admin-user',
+          email: 'admin@example.com',
+          accountHandle: 'admin',
+          roleType: UserRole.admin,
+        },
+        {
+          userId: 'admin-user',
+          userEmail: 'admin@example.com',
+          roleType: UserRole.admin,
+        },
+      ),
+    ).rejects.toThrow('Regulation not found');
+
+    expect(mockPrisma.regulation.delete).not.toHaveBeenCalled();
+    expect(mockActionHistoryService.recordDelete).not.toHaveBeenCalled();
   });
 });
 
