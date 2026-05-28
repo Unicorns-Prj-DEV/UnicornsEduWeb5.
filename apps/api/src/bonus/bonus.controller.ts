@@ -158,7 +158,11 @@ export class BonusController {
   }
 
   @Delete(':id')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(
+    StaffRole.admin,
+    StaffRole.assistant,
+    StaffRole.accountant,
+  )
   @ApiOperation({
     summary: 'Delete bonus',
     description: 'Delete a bonus record by id.',

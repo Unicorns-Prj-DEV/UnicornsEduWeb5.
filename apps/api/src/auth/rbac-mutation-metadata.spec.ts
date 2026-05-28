@@ -82,6 +82,14 @@ describe('RBAC route metadata', () => {
     ]);
   });
 
+  it('allows staff admin, assistant, and accountant to delete bonuses', () => {
+    expect(getAllowedStaffRoles(BonusController, 'deleteBonus')).toEqual([
+      StaffRole.admin,
+      StaffRole.assistant,
+      StaffRole.accountant,
+    ]);
+  });
+
   it('allows assistant and accountant to create extra allowances', () => {
     expect(
       getAllowedStaffRoles(ExtraAllowanceController, 'createExtraAllowance'),

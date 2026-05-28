@@ -208,7 +208,7 @@
   - xem thống kê thu nhập, thưởng, ghi cọc, lịch sử buổi học và tổng trợ cấp theo role của chính mình
   - tự sửa thông tin cơ bản và thông tin nhận thanh toán cơ bản
   - tự thêm thưởng cho chính mình từ `/staff/profile`; backend luôn tạo ở trạng thái `pending`
-  - tự điều chỉnh `workType`, `month`, `amount`, `note` của thưởng chính mình từ `/staff/profile`; trạng thái thanh toán vẫn do admin/quản trị xử lý
+  - tự điều chỉnh hoặc xóa thưởng chính mình từ `/staff/profile`; trạng thái thanh toán vẫn do admin/quản trị xử lý
   - tự thêm và chỉnh sửa buổi học của lớp mình trực tiếp từ `/staff/classes/[id]`; backend vẫn tự áp dụng `customAllowance` hiện có của lớp, còn UI self-service chỉ được gửi `coefficient` (0.0–1.0)
   - tự tạo/sửa/xóa khảo sát của lớp mình trực tiếp từ tab `Khảo sát`; backend khóa `teacher_id` về chính staff hiện tại đối với teacher-scoped actor
   - mở các link detail tự phục vụ đúng theo staff roles hiện tại khi route self-service tương ứng tồn tại
@@ -231,8 +231,8 @@
   - dùng đầy đủ CRUD và bulk actions của module giáo án như admin
 - Staff `accountant` **được phép**
   - vào `/staff/deductions`
-  - vào `/staff/costs` và tạo khoản chi mới; không xóa khoản chi
-  - vào `/staff/staffs/[id]` để tạo thưởng cho nhân sự; không xóa thưởng
+  - vào `/staff/costs` và tạo/xóa khoản chi
+  - vào `/staff/staffs/[id]` để tạo/xóa thưởng cho nhân sự
   - vào `/staff/lesson-plans`
   - chỉ dùng tab `Công việc`
   - xem toàn bộ lesson output và cập nhật trạng thái thanh toán theo policy accountant
@@ -274,7 +274,7 @@
   - tự suy diễn số aggregate của admin từ broad admin datasets
 - Staff self profile **không được phép**
   - sửa role staff, status staff hoặc quyền hệ thống
-  - xóa thưởng đã có hoặc tự đổi trạng thái thanh toán thưởng
+  - tự đổi trạng thái thanh toán thưởng
   - chuyển trạng thái thanh toán buổi học, bonus, lesson output hoặc extra allowance
   - chỉnh học phí, trợ cấp, `custom allowance`, `operating_deduction_rate_percent` hoặc bất kỳ field finance nào khác ngoài `coefficient` (0.0–1.0) buổi học
   - xem hoặc thao tác dữ liệu của staff khác qua route `/staff`
@@ -308,6 +308,7 @@
   - `GET /users/me/staff-bonuses?page=&limit=&month=&status=`
   - `POST /users/me/staff-bonuses`
   - `PATCH /users/me/staff-bonuses`
+  - `DELETE /users/me/staff-bonuses/:id`
   - `GET /users/me/staff-sessions?month=&year=`
   - `GET /users/me/staff-extra-allowances?page=&limit=&year=&month=&roleType=&status=`
   - `POST /users/me/staff-extra-allowances` — staff có role `communication` hoặc `technical` tự tạo khoản trợ cấp của chính mình (body: `roleType`, `month` YYYY-MM, optional `amount`, `note`; luôn `pending`, `id` do backend tự sinh)
@@ -380,7 +381,7 @@
 - `/staff` tái sử dụng shared staff detail components của admin (`StaffCard`, `StaffIdentityOverview`, `StaffQrCard`, `StaffBonusCard`, `SessionHistoryTable`, `MonthNav`) để giữ layout gần như trùng admin detail
 - root `/staff` giữ layout summary cũ, nhưng dòng tiền đầu tiên hiển thị `Thực nhận` từ dữ liệu authoritative `staff-income-summary`
 - card **Lớp phụ trách** dùng `classMonthlySummaries` từ `staff-income-summary`; các cột **Tổng / Chưa nhận / Đã nhận** đều là gross allowance trước CPVH/thuế, trong đó **Chưa nhận** là toàn bộ trợ cấp `unpaid/pending` hiện tại của từng lớp, không còn giới hạn 14 ngày gần nhất; `classMonthlySummaries.isCurrentTeacherAssignment=false` hiển thị **NGHỈ DẠY**
-- popup self-edit thay cho `EditStaffPopup`; bonus card trên `/staff` dùng `canManage=true`, giữ CTA thêm thưởng và truyền callback sửa để bấm từng dòng mở popup điều chỉnh, nhưng vẫn không có callback xóa
+- popup self-edit thay cho `EditStaffPopup`; bonus card trên `/staff` dùng `canManage=true`, giữ CTA thêm thưởng và truyền callback sửa/xóa để bấm từng dòng mở popup điều chỉnh hoặc xóa khoản thưởng/phạt
 - `/staff` không còn CTA thêm buổi học; teacher/admin phải vào từng route `/staff/classes/[id]` từ section `Lớp phụ trách` để tạo buổi học
 - popup chỉnh sửa session trong bảng `Lịch sử buổi học` trên `/staff` chạy với `allowFinancialEdits=false` và `allowCoefficientEdit=true`, nên chỉ mở riêng field hệ số
 - các route trợ cấp role phụ và lesson-plan dùng cùng visual language với admin; mọi CTA mutate vẫn bị bỏ, **ngoại trừ** `/staff/communication-detail`: nút **Thêm trợ cấp** + popup và click vào từng khoản để **chỉnh sửa** (reuse `ExtraAllowanceFormPopup` với ngữ cảnh khóa nhân sự + role, trạng thái bị khóa theo dữ liệu hiện tại, không có xóa)

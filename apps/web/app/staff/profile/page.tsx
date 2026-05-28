@@ -25,6 +25,7 @@ import { SessionItem, SessionUpdatePayload } from "@/dtos/session.dto";
 import { StaffIncomeSummary, StaffStatus } from "@/dtos/staff.dto";
 import {
   createMyStaffBonus,
+  deleteMyStaffBonus,
   getFullProfile,
   getMyStaffBonuses,
   getMyStaffDetail,
@@ -455,6 +456,40 @@ export default function StaffSelfDetailPage() {
     },
   });
 
+  const deleteBonusMutation = useMutation({
+    mutationFn: deleteMyStaffBonus,
+    onSuccess: async (_result, bonusId) => {
+      toast.success("Đã xóa thưởng.");
+      if (editingBonusId === bonusId) {
+        setAddBonusPopupOpen(false);
+        setBonusFormMode("create");
+        setEditingBonusId(null);
+        setBonusForm(DEFAULT_BONUS_FORM);
+        setWorkTypeMenuOpen(false);
+        setWorkTypeSearch("");
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["bonus", "self", selectedMonth],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["staff", "self", "income-summary"],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["staff", "self", "detail"],
+        }),
+      ]);
+    },
+    onError: (error: unknown) => {
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response
+          ?.data?.message ??
+        (error as Error)?.message ??
+        "Không thể xóa thưởng.";
+      toast.error(message);
+    },
+  });
+
   const handleStaffEditSuccess = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["staff", "self", "detail"] });
   }, [queryClient]);
@@ -614,7 +649,7 @@ export default function StaffSelfDetailPage() {
     }
 
     const parsedAmount = Number(bonusForm.amount);
-    if (!Number.isFinite(parsedAmount) || parsedAmount < 0) {
+    if (!Number.isFinite(parsedAmount)) {
       toast.error("Số tiền không hợp lệ.");
       return;
     }
@@ -1205,6 +1240,7 @@ export default function StaffSelfDetailPage() {
                 unpaid={bonusTotals.unpaid}
                 onAddBonus={openAddBonusPopup}
                 onEditBonus={(bonus) => openEditBonusPopup(bonus.id)}
+                onDeleteBonus={(bonusId) => deleteBonusMutation.mutate(bonusId)}
                 canManage
               />
             )}
@@ -1561,12 +1597,11 @@ export default function StaffSelfDetailPage() {
 
               <label className="block">
                 <span className="mb-1 block text-sm font-medium text-text-secondary">
-                  Số tiền
+                  Số tiền thưởng/phạt
                 </span>
                 <input
                   type="number"
-                  min={0}
-                  inputMode="numeric"
+                  aria-label="Số tiền thưởng/phạt"
                   value={bonusForm.amount}
                   onChange={(e) =>
                     setBonusForm((prev) => ({
@@ -1574,7 +1609,7 @@ export default function StaffSelfDetailPage() {
                       amount: e.target.value,
                     }))
                   }
-                  placeholder="Ví dụ: 500000"
+                  placeholder="Ví dụ: 500000 hoặc -100000"
                   className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />
               </label>

@@ -1,5 +1,6 @@
 "use client";
 
+import { TrashIcon } from "@heroicons/react/24/outline";
 import { formatCurrency } from "@/lib/class.helpers";
 
 export type MockBonus = {
@@ -109,7 +110,7 @@ export default function StaffBonusCard({
                   key={b.id}
                   role={isInteractive ? "button" : undefined}
                   tabIndex={isInteractive ? 0 : undefined}
-                  className={`rounded-lg border border-border-default bg-bg-surface p-3 transition-colors duration-200 ${
+                  className={`group/bonus-item rounded-lg border border-border-default bg-bg-surface p-3 transition-colors duration-200 ${
                     isInteractive
                       ? "hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                       : ""
@@ -145,13 +146,11 @@ export default function StaffBonusCard({
                             onDeleteBonus(b.id);
                           }
                         }}
-                        className="rounded p-1 text-text-muted transition-colors hover:bg-error/15 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                        className="inline-flex size-8 items-center justify-center rounded-full border border-transparent text-text-muted opacity-100 transition-[opacity,border-color,background-color,color] hover:border-error/25 hover:bg-error/10 hover:text-error focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:opacity-0 sm:group-hover/bonus-item:opacity-100 sm:group-focus-within/bonus-item:opacity-100"
                         aria-label={`Xóa thưởng ${b.workType}`}
+                        title="Xóa thưởng"
                       >
-                        <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <polyline points="3 6 5 6 21 6" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
-                          <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
-                        </svg>
+                        <TrashIcon className="size-4" aria-hidden="true" />
                       </button>
                     ) : null}
                   </div>
@@ -181,7 +180,7 @@ export default function StaffBonusCard({
                   {bonuses.map((b) => (
                     <tr
                       key={b.id}
-                      className={`border-b border-border-default bg-bg-surface transition-colors ${
+                      className={`group/bonus-item border-b border-border-default bg-bg-surface transition-colors ${
                         isInteractive ? "cursor-pointer hover:bg-bg-secondary" : ""
                       }`}
                       onClick={() => {
@@ -214,13 +213,11 @@ export default function StaffBonusCard({
                                   onDeleteBonus(b.id);
                                 }
                               }}
-                              className="rounded p-1 text-text-muted transition-colors hover:bg-error/15 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                              className="inline-flex size-8 items-center justify-center rounded-full border border-transparent text-text-muted opacity-0 transition-[opacity,border-color,background-color,color] hover:border-error/25 hover:bg-error/10 hover:text-error focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus group-hover/bonus-item:opacity-100 group-focus-within/bonus-item:opacity-100"
                               aria-label={`Xóa thưởng ${b.workType}`}
+                              title="Xóa thưởng"
                             >
-                              <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <polyline points="3 6 5 6 21 6" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
-                                <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
-                              </svg>
+                              <TrashIcon className="size-4" aria-hidden="true" />
                             </button>
                           ) : null}
                         </div>

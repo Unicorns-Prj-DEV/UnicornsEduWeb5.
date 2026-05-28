@@ -303,7 +303,7 @@ export default function AdminStaffDetailPage({
     routeBase === "/staff" && Boolean(ownStaffId) && ownStaffId === id;
   const canViewBeforeDeduction = isAdmin || isAccountant;
   const canCreateBonus = isAdmin || isAssistant || isAccountant;
-  const canDeleteBonus = !isAccountant;
+  const canDeleteBonus = canCreateBonus;
   const canEditTaxSettings = isAdmin || isAssistant || isAccountant;
   const canPayAll = isAdmin || isAssistant || isAccountant;
 
@@ -1259,7 +1259,7 @@ export default function AdminStaffDetailPage({
     }
 
     const parsedAmount = Number(bonusForm.amount);
-    if (!Number.isFinite(parsedAmount) || parsedAmount < 0) {
+    if (!Number.isFinite(parsedAmount)) {
       toast.error("Số tiền không hợp lệ.");
       return;
     }
@@ -2939,12 +2939,11 @@ export default function AdminStaffDetailPage({
 
               <label className="block">
                 <span className="mb-1 block text-sm font-medium text-text-secondary">
-                  Số tiền
+                  Số tiền thưởng/phạt
                 </span>
                 <input
                   type="number"
-                  min={0}
-                  inputMode="numeric"
+                  aria-label="Số tiền thưởng/phạt"
                   value={bonusForm.amount}
                   onChange={(e) =>
                     setBonusForm((prev) => ({
@@ -2952,7 +2951,7 @@ export default function AdminStaffDetailPage({
                       amount: e.target.value,
                     }))
                   }
-                  placeholder="Ví dụ: 500000"
+                  placeholder="Ví dụ: 500000 hoặc -100000"
                   className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />
               </label>

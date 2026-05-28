@@ -80,18 +80,18 @@ export default function RulePostEditTable({
       onSubmit={handleSubmit(async (values) => {
         await onSave(values);
       })}
-      className="overflow-hidden rounded-lg border border-border-default bg-bg-surface shadow-sm"
+      className="overflow-hidden rounded-lg border border-border-focus/50 bg-bg-surface shadow-sm ring-1 ring-primary/10"
       aria-labelledby={`rule-edit-heading-${rule.id}`}
     >
-      <div className="border-b border-border-default bg-bg-secondary/50 px-4 py-3 sm:px-5">
+      <div className="border-b border-border-default bg-primary/5 px-4 py-3 sm:px-5">
         <h3
           id={`rule-edit-heading-${rule.id}`}
           className="text-sm font-semibold text-text-primary"
         >
-          Chỉnh sửa quy định
+          Điều chỉnh quy định
         </h3>
-        <p className="mt-0.5 text-xs text-text-muted">
-          Cập nhật trực tiếp trong bảng; nhấn Lưu để áp dụng.
+        <p className="mt-0.5 break-words text-xs text-text-muted">
+          Đang chỉnh “{rule.title}”. Nhấn Lưu để áp dụng thay đổi.
         </p>
       </div>
 

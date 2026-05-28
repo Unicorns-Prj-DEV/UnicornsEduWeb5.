@@ -8,6 +8,8 @@ import {
   HttpStatus,
   NotFoundException,
   Patch,
+  Param,
+  ParseUUIDPipe,
   Post,
   Put,
   Query,
@@ -19,6 +21,7 @@ import {
   ApiBody,
   ApiCookieAuth,
   ApiConsumes,
+  ApiParam,
   ApiOperation,
   ApiQuery,
   ApiResponse,
@@ -341,6 +344,44 @@ export class UserProfileController {
         roleType: user.roleType,
       },
     );
+  }
+
+  @Delete('staff-bonuses/:id')
+  @ApiOperation({
+    summary: 'Delete current staff bonus',
+    description:
+      'Deletes a bonus record belonging to the current linked staff profile.',
+  })
+  @ApiParam({ name: 'id', description: 'Bonus id' })
+  @ApiResponse({
+    status: 200,
+    description: 'Bonus deleted for current staff.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error or no staff record.',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({
+    status: 404,
+    description: 'Bonus not found for current staff.',
+  })
+  async deleteMyStaffBonus(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ) {
+    const staffId = await this.userService.getLinkedStaffId(user.id);
+    const bonus = await this.bonusService.getBonusOwnershipById(id);
+
+    if (bonus.staffId !== staffId) {
+      throw new NotFoundException('Bonus not found');
+    }
+
+    return this.bonusService.deleteBonus(id, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Get('staff-sessions')

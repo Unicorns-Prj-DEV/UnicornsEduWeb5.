@@ -1,9 +1,15 @@
+import { NotFoundException } from '@nestjs/common';
 import { UserRole } from 'generated/enums';
 import { UserProfileController } from './user-profile.controller';
 
 describe('UserProfileController', () => {
   const userService = {
     getLinkedStudentId: jest.fn(),
+    getLinkedStaffId: jest.fn(),
+  };
+  const bonusService = {
+    getBonusOwnershipById: jest.fn(),
+    deleteBonus: jest.fn(),
   };
   const studentService = {
     createStudentSePayTopUpOrder: jest.fn(),
@@ -17,7 +23,7 @@ describe('UserProfileController', () => {
     controller = new UserProfileController(
       userService as never,
       {} as never,
-      {} as never,
+      bonusService as never,
       {} as never,
       {} as never,
       {} as never,
@@ -113,5 +119,50 @@ describe('UserProfileController', () => {
         roleType: UserRole.student,
       },
     );
+  });
+
+  it('deletes a bonus that belongs to the current linked staff profile', async () => {
+    userService.getLinkedStaffId.mockResolvedValue('staff-1');
+    bonusService.getBonusOwnershipById.mockResolvedValue({ staffId: 'staff-1' });
+    bonusService.deleteBonus.mockResolvedValue({ id: 'bonus-1' });
+
+    await expect(
+      controller.deleteMyStaffBonus(
+        {
+          id: 'user-1',
+          email: 'staff@example.com',
+          accountHandle: 'staff',
+          roleType: UserRole.staff,
+        },
+        'bonus-1',
+      ),
+    ).resolves.toEqual({ id: 'bonus-1' });
+
+    expect(userService.getLinkedStaffId).toHaveBeenCalledWith('user-1');
+    expect(bonusService.getBonusOwnershipById).toHaveBeenCalledWith('bonus-1');
+    expect(bonusService.deleteBonus).toHaveBeenCalledWith('bonus-1', {
+      userId: 'user-1',
+      userEmail: 'staff@example.com',
+      roleType: UserRole.staff,
+    });
+  });
+
+  it('does not delete another staff profile bonus from self-service', async () => {
+    userService.getLinkedStaffId.mockResolvedValue('staff-1');
+    bonusService.getBonusOwnershipById.mockResolvedValue({ staffId: 'staff-2' });
+
+    await expect(
+      controller.deleteMyStaffBonus(
+        {
+          id: 'user-1',
+          email: 'staff@example.com',
+          accountHandle: 'staff',
+          roleType: UserRole.staff,
+        },
+        'bonus-1',
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(bonusService.deleteBonus).not.toHaveBeenCalled();
   });
 });

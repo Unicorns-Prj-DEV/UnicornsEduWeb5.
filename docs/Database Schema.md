@@ -276,7 +276,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 ### 4.7 Finance models
 
-- `bonuses`: khoản thưởng theo staff/tháng/trạng thái thanh toán
+- `bonuses`: khoản thưởng/phạt theo staff/tháng/trạng thái thanh toán; `amount` có thể dương (thưởng) hoặc âm (phạt/điều chỉnh giảm).
   - API create bonus không còn nhận `id` từ frontend; backend/DB luôn tự sinh UUID authoritative bằng default của bảng.
 - `role_tax_deduction_rates`: lịch sử append-only mức khấu trừ thuế mặc định theo role + `effective_from`
 - `staff_tax_deduction_overrides`: lịch sử append-only override khấu trừ thuế theo staff + role + `effective_from`

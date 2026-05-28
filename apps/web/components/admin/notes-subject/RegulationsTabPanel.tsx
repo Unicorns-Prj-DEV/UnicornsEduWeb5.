@@ -61,7 +61,7 @@ export default function RegulationsTabPanel({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const handleRowActivate = useCallback((id: string) => {
-    setSelectedId(id);
+    setSelectedId((current) => (current === id ? null : id));
     setConfirmDeleteId((current) => (current === id ? current : null));
   }, []);
 
@@ -182,8 +182,21 @@ export default function RegulationsTabPanel({
 
   return (
     <div className="space-y-5">
-      <div className="rounded-md border border-border-default bg-bg-secondary/60 px-3 py-2 text-sm text-text-secondary">
-        {rulePosts.length} quy định, chọn một dòng để mở bảng chỉnh sửa.
+      <div
+        className="flex flex-col gap-1 rounded-md border border-border-default bg-bg-secondary/60 px-3 py-2 text-sm text-text-secondary sm:flex-row sm:items-center sm:justify-between"
+        aria-live="polite"
+      >
+        <span>
+          <span className="font-medium text-text-primary">
+            {rulePosts.length} quy định
+          </span>
+          , chọn một dòng để mở form điều chỉnh.
+        </span>
+        {selectedId ? (
+          <span className="text-xs font-medium text-primary">
+            Form đang mở dưới dòng được chọn
+          </span>
+        ) : null}
       </div>
 
       <div className="rounded-xl border border-border-default bg-bg-surface shadow-sm">
@@ -211,11 +224,15 @@ export default function RegulationsTabPanel({
                 <Fragment key={post.id}>
                   <TableRow
                     tabIndex={0}
-                    aria-label={`Quy định: ${post.title}. ${isSelected ? "Đang chọn" : "Nhấn để chỉnh sửa"}`}
+                    aria-label={`Quy định: ${post.title}. ${
+                      isSelected
+                        ? "Nhấn để đóng form chỉnh sửa"
+                        : "Nhấn để chỉnh sửa"
+                    }`}
                     aria-selected={isSelected}
                     onClick={() => handleRowActivate(post.id)}
                     onKeyDown={(event) => handleRowKeyDown(event, post.id)}
-                    className={`cursor-pointer border-l-4 border-l-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-inset ${
+                    className={`cursor-pointer border-l-4 border-l-transparent transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-inset ${
                       isSelected
                         ? "border-l-primary bg-primary/8 hover:bg-primary/10"
                         : ""
@@ -298,12 +315,14 @@ export default function RegulationsTabPanel({
                   {isSelected ? (
                     <TableRow className="bg-primary/8 hover:bg-primary/8">
                       <TableCell colSpan={6} className="p-2 sm:p-4">
-                        <RulePostEditTable
-                          key={post.id}
-                          rule={post}
-                          onSave={(values) => handleSave(post.id, values)}
-                          onDiscard={handleDiscard}
-                        />
+                        <div className="motion-panel-enter transform-gpu">
+                          <RulePostEditTable
+                            key={post.id}
+                            rule={post}
+                            onSave={(values) => handleSave(post.id, values)}
+                            onDiscard={handleDiscard}
+                          />
+                        </div>
                       </TableCell>
                     </TableRow>
                   ) : null}

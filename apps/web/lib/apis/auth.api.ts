@@ -294,6 +294,13 @@ export async function updateMyStaffBonus(dto: UpdateMyBonusPayload) {
   return response.data;
 }
 
+/** Delete a bonus for current linked staff. */
+export async function deleteMyStaffBonus(id: string) {
+  const safeId = encodeURIComponent(id);
+  const response = await api.delete(`/users/me/staff-bonuses/${safeId}`);
+  return response.data;
+}
+
 /** Current linked staff sessions for self-service pages. */
 export async function getMyStaffSessions(params: {
   month: string;
