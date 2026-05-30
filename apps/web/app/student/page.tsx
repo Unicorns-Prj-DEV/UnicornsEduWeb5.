@@ -799,7 +799,7 @@ export default function StudentSelfPage() {
                                                 key={item.class.id}
                                                 className="rounded-[1.1rem] border border-border-default bg-bg-surface px-3.5 py-3 shadow-sm"
                                             >
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex min-w-0 flex-col gap-2 min-[380px]:flex-row min-[380px]:items-start">
                                                     <span
                                                         className={`inline-block size-2 shrink-0 rounded-full ${item.class.status === "running"
                                                             ? "bg-success"
@@ -809,33 +809,33 @@ export default function StudentSelfPage() {
                                                             }`}
                                                         aria-hidden
                                                     />
-                                                    <p className="font-medium text-text-primary">{item.class.name}</p>
+                                                    <p className="min-w-0 break-words font-medium text-text-primary">{item.class.name}</p>
                                                     <span
-                                                        className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] ring-1 ${getTuitionSourceClass(item.tuitionPackageSource)}`}
+                                                        className={`inline-flex w-fit shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] ring-1 ${getTuitionSourceClass(item.tuitionPackageSource)}`}
                                                     >
                                                         {getTuitionSourceLabel(item.tuitionPackageSource)}
                                                     </span>
                                                 </div>
                                                 <div className="mt-3 grid gap-2 text-sm text-text-secondary">
-                                                    <div className="flex items-center justify-between gap-3">
+                                                    <div className="flex flex-col gap-1 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between min-[380px]:gap-3">
                                                         <span>Trạng thái lớp</span>
                                                         <span className="font-medium text-text-primary">
                                                             {getClassStatusLabel(item.class.status)}
                                                         </span>
                                                     </div>
-                                                    <div className="flex items-center justify-between gap-3">
+                                                    <div className="flex flex-col gap-1 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between min-[380px]:gap-3">
                                                         <span>Học phí / buổi</span>
                                                         <span className="font-medium tabular-nums text-text-primary">
                                                             {formatTuitionPerSession(item.effectiveTuitionPerSession)}
                                                         </span>
                                                     </div>
-                                                    <div className="flex items-center justify-between gap-3">
+                                                    <div className="flex flex-col gap-1 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between min-[380px]:gap-3">
                                                         <span>Gói học phí</span>
-                                                        <span className="text-right font-medium text-text-primary">
+                                                        <span className="break-words font-medium text-text-primary min-[380px]:text-right">
                                                             {formatTuitionPackage(item)}
                                                         </span>
                                                     </div>
-                                                    <div className="flex items-center justify-between gap-3">
+                                                    <div className="flex flex-col gap-1 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between min-[380px]:gap-3">
                                                         <span>Số buổi đã vào học</span>
                                                         <span className="font-medium tabular-nums text-text-primary">
                                                             {item.totalAttendedSession ?? "—"}

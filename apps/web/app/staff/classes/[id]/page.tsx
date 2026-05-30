@@ -15,6 +15,8 @@ import {
   ClassSurveyPanel,
   EditClassSchedulePopup,
   MakeupScheduleCard,
+  MissedTeachingAlertsCard,
+  PastMakeupEventsPopup,
   ScheduleTimeCard,
   SessionHistoryTableSkeleton,
   TutorCard,
@@ -38,7 +40,12 @@ import type {
   ClassScheduleGoogleCalendarResyncSummary,
   MakeupScheduleEventRecord,
 } from "@/dtos/class-schedule.dto";
-import type { SessionCreatePayload, SessionItem, SessionUpdatePayload } from "@/dtos/session.dto";
+import type {
+  MissedTeachingAlert,
+  SessionCreatePayload,
+  SessionItem,
+  SessionUpdatePayload,
+} from "@/dtos/session.dto";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as staffOpsApi from "@/lib/apis/staff-ops.api";
 import { formatCurrency } from "@/lib/class.helpers";
@@ -310,6 +317,7 @@ export default function StaffClassDetailPage() {
   const [activeTab, setActiveTab] = useState<TabId>("sessions");
   const [schedulePopupOpen, setSchedulePopupOpen] = useState(false);
   const [addSessionPopupOpen, setAddSessionPopupOpen] = useState(false);
+  const [pastMakeupPopupOpen, setPastMakeupPopupOpen] = useState(false);
   const [addSurveyPopupOpen, setAddSurveyPopupOpen] = useState(false);
   const [monthPopupOpen, setMonthPopupOpen] = useState(false);
 
@@ -318,6 +326,10 @@ export default function StaffClassDetailPage() {
   const sessionsQueryKey = useMemo(
     () => staffOpsKeys.classSessions(id, selectedYear, selectedMonthValue),
     [id, selectedMonthValue, selectedYear],
+  );
+  const missedAlertsQueryKey = useMemo(
+    () => ["staff-ops", "class", id, "missed-teaching-alerts"] as const,
+    [id],
   );
   const surveysQueryKey = useMemo(
     () => staffOpsKeys.classSurveys(id, selectedYear, selectedMonthValue),
@@ -335,7 +347,9 @@ export default function StaffClassDetailPage() {
   const isTeacher = getTeacherRole(profile);
   const isAccountant =
     profile?.roleType === "staff" &&
-    (profile.staffInfo?.roles ?? []).includes("accountant");
+    (profile.staffInfo?.roles ?? []).some((role) =>
+      ["accountant", "accountant_income", "accountant_expense"].includes(role),
+    );
   const isAssistant =
     profile?.roleType === "staff" &&
     (profile.staffInfo?.roles ?? []).includes("assistant");
@@ -375,6 +389,13 @@ export default function StaffClassDetailPage() {
         year: selectedYear,
       }),
     enabled: !!id && canAccessClassWorkspace && activeTab === "sessions",
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
+  const { data: missedTeachingAlerts = [] } = useQuery<MissedTeachingAlert[]>({
+    queryKey: missedAlertsQueryKey,
+    queryFn: () => staffOpsApi.getMissedTeachingAlertsByClassId(id, { days: 31 }),
+    enabled: !!id && canAccessClassWorkspace,
     placeholderData: keepPreviousData,
     retry: false,
   });
@@ -484,12 +505,16 @@ export default function StaffClassDetailPage() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: classDetailQueryKey }),
       queryClient.invalidateQueries({ queryKey: staffOpsKeys.classList() }),
+      queryClient.invalidateQueries({ queryKey: missedAlertsQueryKey }),
     ]);
-  }, [classDetailQueryKey, queryClient]);
+  }, [classDetailQueryKey, missedAlertsQueryKey, queryClient]);
 
   const invalidateSessionQueries = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: sessionsQueryKey });
-  }, [queryClient, sessionsQueryKey]);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: sessionsQueryKey }),
+      queryClient.invalidateQueries({ queryKey: missedAlertsQueryKey }),
+    ]);
+  }, [missedAlertsQueryKey, queryClient, sessionsQueryKey]);
 
   const getClassStudentsForEditor = async (classId: string) => {
     if (classId !== id) return [];
@@ -994,6 +1019,7 @@ export default function StaffClassDetailPage() {
           canResyncEvent={(event) =>
             isAdmin || (Boolean(actorStaffId) && event.teacherId === actorStaffId)
           }
+          onOpenPastEvents={() => setPastMakeupPopupOpen(true)}
           disabledCreateMessage={makeupScheduleDisabledMessage}
           month={selectedMonth}
           scheduleItems={scheduleItems}
@@ -1003,6 +1029,27 @@ export default function StaffClassDetailPage() {
           updateFn={staffOpsApi.updateClassMakeupEvent}
           deleteFn={staffOpsApi.deleteClassMakeupEvent}
           resyncFn={staffOpsApi.resyncClassMakeupGoogleCalendar}
+        />
+
+        <PastMakeupEventsPopup
+          open={pastMakeupPopupOpen}
+          onClose={() => setPastMakeupPopupOpen(false)}
+          classId={id}
+          queryKeyPrefix={["staff-ops", "class", "detail", id]}
+          listFn={staffOpsApi.getClassMakeupEvents}
+        />
+
+        <MissedTeachingAlertsCard
+          alerts={missedTeachingAlerts}
+          canCreateMakeup={canCreateMakeupSchedule}
+          createMakeupFn={staffOpsApi.createClassMakeupEvent}
+          onMakeupCreated={async () => {
+            await Promise.all([
+              invalidateClassOpsQueries(),
+              invalidateSessionQueries(),
+              invalidateCalendarScopedQueries(queryClient),
+            ]);
+          }}
         />
 
         <ClassCard

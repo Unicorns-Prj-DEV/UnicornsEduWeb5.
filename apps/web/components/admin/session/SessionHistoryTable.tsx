@@ -81,6 +81,7 @@ type Props = {
   allowPaymentStatusEdit?: boolean;
   allowDeleteSession?: boolean;
   enableBulkPaymentStatusEdit?: boolean;
+  readOnlySessionDetails?: boolean;
   updateSessionFn?: (
     id: string,
     data: SessionUpdatePayload,
@@ -778,6 +779,7 @@ export default function SessionHistoryTable({
   allowPaymentStatusEdit = true,
   allowDeleteSession = true,
   enableBulkPaymentStatusEdit = false,
+  readOnlySessionDetails = false,
   updateSessionFn = sessionApi.updateSession,
   deleteSessionFn = sessionApi.deleteSession,
 }: Props) {
@@ -800,7 +802,6 @@ export default function SessionHistoryTable({
   const showBulkPaymentStatusBar =
     enableBulkPaymentStatusEdit &&
     statusMode === "payment" &&
-    allowPaymentStatusEdit &&
     Boolean(onSessionUpdated);
   const [editingSession, setEditingSession] = useState<SessionItem | null>(
     null,
@@ -1357,7 +1358,9 @@ export default function SessionHistoryTable({
   const canViewTuitionHeader =
     fullProfile?.roleType === "admin" ||
     (fullProfile?.roleType === "staff" &&
-      (fullProfile.staffInfo?.roles ?? []).includes("accountant"));
+      (fullProfile.staffInfo?.roles ?? []).some((role) =>
+        ["accountant", "accountant_income"].includes(role),
+      ));
   const coefficientInput = editCoefficient.trim();
   const coefficientInputValue =
     coefficientInput === "" ? null : Number(editCoefficient);
@@ -1554,7 +1557,7 @@ export default function SessionHistoryTable({
 
       {/* Mobile layout: card list */}
       <div
-        className={`${isClassDetailRowLayout ? "space-y-2" : "space-y-3"} ${className} md:hidden`}
+        className={`${isClassDetailRowLayout ? "space-y-2" : "space-y-3"} ${className} lg:hidden`}
       >
         {sessions.length > 0 ? (
           sessions.map((session) => {
@@ -1827,7 +1830,7 @@ export default function SessionHistoryTable({
       </div>
 
       {/* Desktop / tablet layout: table */}
-      <div className={`hidden overflow-x-auto md:block ${className}`}>
+      <div className={`hidden overflow-x-auto lg:block ${className}`}>
         {isClassDetailRowLayout ? (
           <table className="w-full min-w-[880px] border-collapse text-left text-sm">
             <caption className="sr-only">Lịch sử buổi học</caption>
@@ -2367,7 +2370,7 @@ export default function SessionHistoryTable({
                       />
                     </label>
 
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
                       <button
                         type="button"
                         onClick={closeBulkEditPopup}
@@ -2483,7 +2486,7 @@ export default function SessionHistoryTable({
                 className="my-auto flex max-h-[calc(100dvh-1rem)] min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-surface p-4 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:p-6"
               >
                 <SessionFormDialogHeader
-                  title="Chỉnh sửa buổi học"
+                  title={readOnlySessionDetails ? "Chi tiết buổi học" : "Chỉnh sửa buổi học"}
                   tuitionText={editHeaderTuition}
                   allowanceText={editHeaderAllowance}
                   onClose={closeEdit}
@@ -2734,7 +2737,7 @@ export default function SessionHistoryTable({
                           </p>
                         ) : (
                           <>
-                            <div className="space-y-3 md:hidden">
+                            <div className="space-y-3 lg:hidden">
                               {attendanceItems.map((item) => (
                                 <article
                                   key={item.studentId}
@@ -2932,7 +2935,7 @@ export default function SessionHistoryTable({
                   </div>
                 </div>
 
-                <div className="mt-4 grid shrink-0 grid-cols-2 gap-2 border-t border-border-default pt-4 sm:flex sm:justify-end">
+                <div className="mt-4 grid shrink-0 grid-cols-1 gap-2 border-t border-border-default pt-4 min-[380px]:grid-cols-2 sm:flex sm:justify-end">
                   <button
                     type="button"
                     onClick={closeEdit}
@@ -2940,13 +2943,15 @@ export default function SessionHistoryTable({
                   >
                     Hủy
                   </button>
-                  <button
-                    type="button"
-                    onClick={handleSaveEdit}
-                    className="min-h-11 rounded-xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  >
-                    Lưu
-                  </button>
+                  {readOnlySessionDetails ? null : (
+                    <button
+                      type="button"
+                      onClick={handleSaveEdit}
+                      className="min-h-11 rounded-xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    >
+                      Lưu
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

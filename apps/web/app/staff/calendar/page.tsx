@@ -1,10 +1,13 @@
 "use client";
 
+import { ArrowsRightLeftIcon } from "@heroicons/react/24/outline";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as staffCalendarApi from "@/lib/apis/staff-calendar.api";
 import { staffCalendarKeys } from "@/lib/query-keys";
+import { useAuth } from "@/context/AuthContext";
+import { selectRandomCheckEvent } from "@/lib/staff-calendar-random";
 import {
   CalendarWeekVariant,
   ClassScheduleEvent,
@@ -72,6 +75,8 @@ const getWeekRange = (
 
 export default function StaffCalendarPage() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const isTraining = user.staffRoles?.includes("training") ?? false;
 
   const [filters, setFilters] = useState<CalendarFilterState>({ classIds: [] });
   const [viewMode, setViewMode] = useState<CalendarViewMode>("calendar");
@@ -142,6 +147,16 @@ export default function StaffCalendarPage() {
     setSelectedEvent(null);
   }, []);
 
+  const handleRandomCheck = useCallback(() => {
+    const selected = selectRandomCheckEvent(visibleEvents);
+    if (!selected) {
+      toast.info("Không có lớp đang diễn ra có link Meet trong bộ lọc hiện tại.");
+      return;
+    }
+
+    setSelectedEvent(selected);
+  }, [visibleEvents]);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-2 sm:p-3 lg:p-5">
       <div className="flex min-w-0 flex-1 flex-col rounded-xl border border-border-default bg-bg-surface p-2 shadow-sm sm:p-3 lg:rounded-2xl lg:p-4">
@@ -149,18 +164,37 @@ export default function StaffCalendarPage() {
           <div className="flex flex-wrap items-end justify-between gap-2 gap-y-1">
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/85">
-                Lịch Cá Nhân
+                {isTraining ? "Lịch lớp" : "Lịch Cá Nhân"}
               </p>
               <h1 className="mt-0.5 text-lg font-semibold leading-tight text-text-primary sm:text-xl">
-                Lịch Dạy Và Lịch Thi
+                {isTraining ? "Lịch Toàn Bộ Lớp" : "Lịch Dạy Và Lịch Thi"}
               </h1>
             </div>
-            <p
-              className="max-w-md text-right text-[11px] leading-snug text-text-muted sm:text-left sm:text-xs"
-              title="Lịch các lớp bạn phụ trách, gồm lịch dạy, buổi bù và lịch thi của học sinh."
-            >
-              Tuần hiện tại · lớp bạn phụ trách · có lịch thi
-            </p>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {isTraining ? (
+                <button
+                  type="button"
+                  onClick={handleRandomCheck}
+                  disabled={isLoading || visibleEvents.length === 0}
+                  className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-primary/25 bg-primary px-3 py-1.5 text-xs font-semibold text-text-inverse shadow-sm transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-55"
+                >
+                  <ArrowsRightLeftIcon className="size-4" aria-hidden />
+                  Kiểm tra ngẫu nhiên
+                </button>
+              ) : null}
+              <p
+                className="max-w-md text-right text-[11px] leading-snug text-text-muted sm:text-left sm:text-xs"
+                title={
+                  isTraining
+                    ? "Lịch toàn bộ lớp đang chạy, gồm lịch cố định, lịch bù và lịch thi."
+                    : "Lịch các lớp bạn phụ trách, gồm lịch dạy, buổi bù và lịch thi của học sinh."
+                }
+              >
+                {isTraining
+                  ? "Tuần hiện tại · toàn bộ lớp · có lịch thi"
+                  : "Tuần hiện tại · lớp bạn phụ trách · có lịch thi"}
+              </p>
+            </div>
           </div>
         </section>
 

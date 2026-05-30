@@ -22,6 +22,7 @@ export type StaffLessonWorkspaceAccess = {
   createOutputAccessMode: Exclude<StaffLessonEndpointAccessMode, "account"> | null;
   isAssistant: boolean;
   isAccountant: boolean;
+  isAccountantExpense: boolean;
   isLessonPlan: boolean;
   isLessonPlanHead: boolean;
 };
@@ -49,7 +50,9 @@ export function resolveStaffLessonWorkspace(
   const isAssistant = isStaff && staffRoles.includes("assistant");
   const isLessonPlanHead = isStaff && staffRoles.includes("lesson_plan_head");
   const isLessonPlan = isStaff && staffRoles.includes("lesson_plan");
-  const isAccountant = isStaff && staffRoles.includes("accountant");
+  const isAccountantExpense =
+    isStaff && staffRoles.includes("accountant_expense");
+  const isAccountant = isAccountantExpense;
 
   const workspacePolicy: StaffLessonWorkspacePolicy | null = isAdmin || isAssistant
     ? "admin"
@@ -85,13 +88,15 @@ export function resolveStaffLessonWorkspace(
     canAccessTaskDetail:
       workspacePolicy === "admin" ||
       workspacePolicy === "lesson_plan_head" ||
-      workspacePolicy === "lesson_plan",
+      workspacePolicy === "lesson_plan" ||
+      workspacePolicy === "accountant",
     canAccessManageDetails:
       workspacePolicy === "admin" || workspacePolicy === "lesson_plan_head",
     workAccessMode,
     createOutputAccessMode,
     isAssistant,
     isAccountant,
+    isAccountantExpense,
     isLessonPlan,
     isLessonPlanHead,
   };

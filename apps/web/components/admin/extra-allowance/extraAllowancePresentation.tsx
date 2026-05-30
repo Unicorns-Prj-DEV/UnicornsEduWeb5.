@@ -70,6 +70,18 @@ export const EXTRA_ALLOWANCE_ROLE_META = {
     pillClassName:
       `border border-success/20 bg-success/10 text-success ${insetSurfaceShadow}`,
   },
+  accountant_income: {
+    label: ROLE_LABELS.accountant_income,
+    badgeClassName: "bg-success/12 text-success ring-1 ring-success/20",
+    pillClassName:
+      `border border-success/20 bg-success/10 text-success ${insetSurfaceShadow}`,
+  },
+  accountant_expense: {
+    label: ROLE_LABELS.accountant_expense,
+    badgeClassName: "bg-warning/15 text-warning ring-1 ring-warning/25",
+    pillClassName:
+      `border border-warning/25 bg-warning/10 text-warning ${insetSurfaceShadow}`,
+  },
   communication: {
     label: ROLE_LABELS.communication,
     badgeClassName: "bg-error/12 text-error ring-1 ring-error/20",
@@ -87,6 +99,12 @@ export const EXTRA_ALLOWANCE_ROLE_META = {
     badgeClassName: "bg-primary/10 text-primary ring-1 ring-primary/15",
     pillClassName:
       `border border-primary/15 bg-primary/8 text-primary ${insetSurfaceShadow}`,
+  },
+  training: {
+    label: ROLE_LABELS.training,
+    badgeClassName: "bg-secondary/12 text-secondary ring-1 ring-secondary/20",
+    pillClassName:
+      `border border-secondary/20 bg-secondary/10 text-secondary ${insetSurfaceShadow}`,
   },
 } satisfies Record<
   ExtraAllowanceRoleType,
@@ -158,8 +176,12 @@ export const EXTRA_ALLOWANCE_ROLE_OPTIONS = (
       label: renderExtraAllowanceRoleOptionLabel("lesson_plan_head"),
     },
     {
-      value: "accountant",
-      label: renderExtraAllowanceRoleOptionLabel("accountant"),
+      value: "accountant_income",
+      label: renderExtraAllowanceRoleOptionLabel("accountant_income"),
+    },
+    {
+      value: "accountant_expense",
+      label: renderExtraAllowanceRoleOptionLabel("accountant_expense"),
     },
     {
       value: "communication",
@@ -168,6 +190,10 @@ export const EXTRA_ALLOWANCE_ROLE_OPTIONS = (
     {
       value: "technical",
       label: renderExtraAllowanceRoleOptionLabel("technical"),
+    },
+    {
+      value: "training",
+      label: renderExtraAllowanceRoleOptionLabel("training"),
     },
     {
       value: "customer_care",

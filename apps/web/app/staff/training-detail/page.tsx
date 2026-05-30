@@ -1,11 +1,11 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import ExtraAllowanceRoleDetailPage from "@/components/admin/extra-allowance/ExtraAllowanceRoleDetailPage";
 import StaffSelfExtraAllowanceRoleDetailPage from "@/components/staff/StaffSelfExtraAllowanceRoleDetailPage";
 import { getFullProfile } from "@/lib/apis/auth.api";
-import type { ExtraAllowanceRoleType } from "@/dtos/extra-allowance.dto";
 
 function StaffRoleDetailLoadingShell() {
   return (
@@ -30,7 +30,7 @@ function StaffRoleDetailLoadingShell() {
   );
 }
 
-export default function StaffAccountantDetailPage() {
+function StaffTrainingDetailContent() {
   const searchParams = useSearchParams();
   const getSearchParam = searchParams.get.bind(searchParams);
   const { data: profile, isLoading: isProfileLoading } = useQuery({
@@ -40,31 +40,25 @@ export default function StaffAccountantDetailPage() {
     staleTime: 60_000,
   });
   const staffId = getSearchParam("staffId");
-  const roleTypeParam = getSearchParam("roleType");
-  const selfRoles = profile?.staffInfo?.roles ?? [];
-  const resolvedRoleType: Extract<
-    ExtraAllowanceRoleType,
-    "accountant" | "accountant_income" | "accountant_expense"
-  > =
-    roleTypeParam === "accountant_income" ||
-    roleTypeParam === "accountant_expense"
-      ? roleTypeParam
-      : selfRoles.includes("accountant_expense")
-        ? "accountant_expense"
-        : selfRoles.includes("accountant_income")
-          ? "accountant_income"
-          : "accountant";
   const isAssistant =
     profile?.roleType === "staff" &&
-    selfRoles.includes("assistant");
+    (profile.staffInfo?.roles ?? []).includes("assistant");
 
   if (isProfileLoading && !profile) {
     return <StaffRoleDetailLoadingShell />;
   }
 
   if (isAssistant && staffId?.trim()) {
-    return <ExtraAllowanceRoleDetailPage roleType={resolvedRoleType} staffId={staffId} />;
+    return <ExtraAllowanceRoleDetailPage roleType="training" staffId={staffId} />;
   }
 
-  return <StaffSelfExtraAllowanceRoleDetailPage roleType={resolvedRoleType} />;
+  return <StaffSelfExtraAllowanceRoleDetailPage roleType="training" allowCreate />;
+}
+
+export default function StaffTrainingDetailPage() {
+  return (
+    <Suspense fallback={<StaffRoleDetailLoadingShell />}>
+      <StaffTrainingDetailContent />
+    </Suspense>
+  );
 }

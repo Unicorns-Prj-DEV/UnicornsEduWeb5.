@@ -15,10 +15,12 @@ import {
   type StaffDashboardAssistantSection,
   type StaffDashboardCustomerCareSection,
   type StaffDashboardDto,
+  type StaffDashboardExpenseSection,
   type StaffDashboardLessonPlanHeadSection,
   type StaffDashboardLessonPlanSection,
   type StaffDashboardTaskItem,
   type StaffDashboardTeacherSection,
+  type StaffDashboardTrainingSection,
   type StaffDashboardUnpaidStaffItem,
 } from "@/dtos/dashboard.dto";
 import { resolveCanonicalUserName } from "@/dtos/user-name.dto";
@@ -241,12 +243,12 @@ function EmptyState({
 }
 
 function SectionTitle({
-  role,
+  staffRole,
   description,
   href,
   linkLabel,
 }: {
-  role: string;
+  staffRole: string;
   description?: string;
   href?: string;
   linkLabel?: string;
@@ -255,7 +257,7 @@ function SectionTitle({
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/80">
-          {ROLE_LABELS[role] ?? role}
+          {ROLE_LABELS[staffRole] ?? staffRole}
         </p>
         {description ? (
           <p className="mt-0.5 text-xs leading-snug text-text-secondary">
@@ -350,7 +352,11 @@ function TeacherSection({
 }) {
   return (
     <section className="space-y-2">
-      <SectionTitle role="teacher" href="/staff/profile" linkLabel="Hồ sơ" />
+      <SectionTitle
+        staffRole="teacher"
+        href="/staff/profile"
+        linkLabel="Hồ sơ"
+      />
       <div className="grid gap-3 xl:grid-cols-3">
         <SurfaceCard
           eyebrow="Lớp phụ trách"
@@ -367,7 +373,7 @@ function TeacherSection({
                 <Link
                   key={item.id}
                   href={`/staff/classes/${encodeURIComponent(item.id)}`}
-                  className="flex items-start justify-between gap-2 rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  className="flex flex-col gap-2 rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:flex-row sm:items-start sm:justify-between"
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-semibold leading-snug text-text-primary">
@@ -427,7 +433,7 @@ function TeacherSection({
                   href={`/staff/classes/${encodeURIComponent(session.classId)}`}
                   className="block rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 >
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold leading-snug text-text-primary">
                         {session.className}
@@ -463,7 +469,7 @@ function LessonPlanSection({
   return (
     <section className="space-y-2">
       <SectionTitle
-        role="lesson_plan"
+        staffRole="lesson_plan"
         href="/staff/lesson-plans"
         linkLabel="Giáo án"
       />
@@ -513,7 +519,7 @@ function LessonPlanHeadSection({
   return (
     <section className="space-y-2">
       <SectionTitle
-        role="lesson_plan_head"
+        staffRole="lesson_plan_head"
         href="/staff/lesson-plans"
         linkLabel="Giáo án"
       />
@@ -560,7 +566,7 @@ function AssistantSection({
 }) {
   return (
     <section className="space-y-2">
-      <SectionTitle role="assistant" />
+      <SectionTitle staffRole="assistant" />
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
         <SurfaceCard eyebrow="Hành động" title="Cảnh báo">
           {section.actionAlerts.length === 0 ? (
@@ -575,7 +581,7 @@ function AssistantSection({
 
                 const content = (
                   <div className="rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45">
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold leading-snug text-text-primary">
                           {alert.subject}
@@ -706,7 +712,7 @@ function StudentAlertList({
           href={`/staff/students/${encodeURIComponent(item.studentId)}`}
           className="block rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
         >
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold leading-snug text-text-primary">
                 {item.studentName}
@@ -736,7 +742,7 @@ function CustomerCareSection({
   return (
     <section className="space-y-2">
       <SectionTitle
-        role="customer_care"
+        staffRole="customer_care"
         href="/staff/customer-care-detail"
         linkLabel="Chi tiết CSKH"
       />
@@ -824,6 +830,9 @@ function UnpaidStaffList({
           item.extraAllowanceAmount > 0
             ? `Trợ cấp ${formatCurrency(item.extraAllowanceAmount)}`
             : null,
+          (item.assistantAmount ?? 0) > 0
+            ? `Trợ lí ${formatCurrency(item.assistantAmount ?? 0)}`
+            : null,
         ].filter((value): value is string => value != null);
         const staffDetailHref = `/staff/staffs/${encodeURIComponent(item.staffId)}`;
 
@@ -892,7 +901,7 @@ function AccountantSection({
 
   return (
     <section className="space-y-2">
-      <SectionTitle role="accountant" />
+      <SectionTitle staffRole="accountant_income" />
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
         <SurfaceCard
           eyebrow="Tài chính"
@@ -916,7 +925,7 @@ function AccountantSection({
               {section.financialOverview.breakdown.map((item) => (
                 <div
                   key={item.key}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-border-default bg-bg-surface px-2.5 py-2"
+                  className="flex flex-col gap-1 rounded-lg border border-border-default bg-bg-surface px-2.5 py-2 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between min-[380px]:gap-2"
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-semibold leading-snug text-text-primary">
@@ -939,6 +948,191 @@ function AccountantSection({
           <UnpaidStaffList items={section.unpaidStaff} />
         </SurfaceCard>
       </div>
+    </section>
+  );
+}
+
+function PendingOperatingCostsCard({
+  costs,
+}: {
+  costs: StaffDashboardExpenseSection["pendingOperatingCosts"];
+}) {
+  return (
+    <SurfaceCard eyebrow="Chi phí vận hành" title="Pending">
+      <div className="mb-3 grid gap-2 sm:grid-cols-2">
+        <MiniStat
+          label="Tổng pending"
+          value={formatCurrency(costs.totalAmount)}
+          tone="danger"
+        />
+        <MiniStat
+          label="Số khoản"
+          value={String(costs.totalCount)}
+          tone="warning"
+        />
+      </div>
+
+      {costs.items.length > 0 ? (
+        <div className="space-y-2">
+          {costs.items.map((item) => (
+            <Link
+              key={item.id}
+              href={`/staff/costs?status=pending`}
+              className="block rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:border-border-focus hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            >
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-text-primary">
+                    {item.category || "Chi phí vận hành"}
+                  </p>
+                  <p className="text-[11px] text-text-secondary">
+                    {[item.date, item.description].filter(Boolean).join(" · ") ||
+                      "Chưa có ghi chú"}
+                  </p>
+                </div>
+                <span className="shrink-0 text-sm font-semibold text-error">
+                  {formatCurrency(item.amount)}
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          title="Không có chi phí pending"
+          description="Hiện chưa có khoản chi phí vận hành nào chờ xử lý."
+        />
+      )}
+
+      <Link
+        href="/staff/costs?status=pending"
+        className="mt-3 inline-flex min-h-10 items-center justify-center rounded-lg bg-primary px-3 text-sm font-semibold text-text-inverse transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+      >
+        Mở chi phí pending
+      </Link>
+    </SurfaceCard>
+  );
+}
+
+function AccountantExpenseSection({
+  section,
+}: {
+  section: StaffDashboardExpenseSection;
+}) {
+  const summaryRows = [
+    {
+      label: "Tổng phát sinh",
+      value: section.summary.totalIncurred,
+      tone: "primary" as const,
+    },
+    {
+      label: "Đã chi",
+      value: section.summary.totalPaid,
+      tone: "success" as const,
+    },
+    {
+      label: "Chờ chi",
+      value: section.summary.totalPending,
+      tone: "danger" as const,
+    },
+    {
+      label: "Backlog nhân sự",
+      value: section.summary.pendingStaffTotal,
+      tone: "warning" as const,
+    },
+  ];
+
+  return (
+    <section className="space-y-2">
+      <SectionTitle staffRole="accountant_expense" />
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
+        <SurfaceCard eyebrow="Tổng hợp chi" title={section.period.monthLabel}>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {summaryRows.map((item) => (
+              <MiniStat
+                key={item.label}
+                label={item.label}
+                value={formatCurrency(item.value)}
+                tone={item.tone}
+              />
+            ))}
+          </div>
+          <div className="mt-3 space-y-2 rounded-xl border border-border-default bg-bg-secondary/20 p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+              Breakdown chi tháng
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {section.breakdown.map((item) => (
+                <div
+                  key={item.key}
+                  className="flex flex-col gap-1 rounded-lg border border-border-default bg-bg-surface px-2.5 py-2 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between min-[380px]:gap-2"
+                >
+                  <span className="min-w-0 truncate text-sm font-semibold text-text-primary">
+                    {item.label}
+                  </span>
+                  <span className="shrink-0 text-sm font-semibold tabular-nums text-text-primary">
+                    {formatCurrency(item.amount)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </SurfaceCard>
+
+        <SurfaceCard
+          eyebrow={`${section.summary.pendingStaffCount} nhân sự`}
+          title="Backlog chờ chi"
+        >
+          <UnpaidStaffList items={section.pendingStaff} />
+        </SurfaceCard>
+      </div>
+
+      <PendingOperatingCostsCard costs={section.pendingOperatingCosts} />
+    </section>
+  );
+}
+
+function TrainingSection({
+  section,
+}: {
+  section: StaffDashboardTrainingSection;
+}) {
+  return (
+    <section className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(240px,0.45fr)]">
+      <SurfaceCard
+        eyebrow="Đào Tạo"
+        title="Kiểm tra lịch lớp"
+        action={
+          <Link
+            href="/staff/calendar"
+            className="inline-flex min-h-9 items-center rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-10 sm:text-sm"
+          >
+            Mở lịch
+          </Link>
+        }
+      >
+        <div className="grid gap-2 sm:grid-cols-2">
+          <MiniStat
+            label="Lớp hôm nay"
+            value={String(section.todayClassCount)}
+            tone="primary"
+          />
+          <MiniStat
+            label="Sự kiện hôm nay"
+            value={String(section.todayEventCount)}
+            tone="success"
+          />
+          <MiniStat
+            label="Lớp đang chạy"
+            value={String(section.runningClassCount)}
+          />
+          <MiniStat
+            label="Khung cố định"
+            value={String(section.fixedScheduleSlotCount)}
+            tone="warning"
+          />
+        </div>
+      </SurfaceCard>
     </section>
   );
 }
@@ -1081,13 +1275,18 @@ export default function StaffDashboardPage() {
   const hasLessonPlanHead = staffRoles.includes("lesson_plan_head");
   const hasLessonPlan =
     staffRoles.includes("lesson_plan") && !hasLessonPlanHead;
+  const hasIncomeAccountantDashboard =
+    staffRoles.includes("accountant_income") || staffRoles.includes("accountant");
+  const hasExpenseAccountantDashboard = staffRoles.includes("accountant_expense");
   const hasExtraSections =
     staffRoles.includes("teacher") ||
     hasLessonPlan ||
     hasLessonPlanHead ||
     staffRoles.includes("assistant") ||
     staffRoles.includes("customer_care") ||
-    staffRoles.includes("accountant");
+    hasIncomeAccountantDashboard ||
+    hasExpenseAccountantDashboard ||
+    staffRoles.includes("training");
 
   const incomeDetailHref =
     isAssistant && linkedStaffId
@@ -1209,8 +1408,16 @@ export default function StaffDashboardPage() {
               />
             ) : null}
 
-            {staffRoles.includes("accountant") && dashboard?.accountant ? (
+            {hasIncomeAccountantDashboard && dashboard?.accountant ? (
               <AccountantSection section={dashboard.accountant} />
+            ) : null}
+
+            {hasExpenseAccountantDashboard && dashboard?.accountantExpense ? (
+              <AccountantExpenseSection section={dashboard.accountantExpense} />
+            ) : null}
+
+            {staffRoles.includes("training") && dashboard?.training ? (
+              <TrainingSection section={dashboard.training} />
             ) : null}
 
             {!hasExtraSections ? (

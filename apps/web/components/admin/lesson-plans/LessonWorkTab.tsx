@@ -323,6 +323,7 @@ export default function LessonWorkTab({
   outputAccessMode = "manage",
   createAccessMode = "manage",
   allowCreate = true,
+  allowPaymentStatusEdit = true,
   allowBulkPaymentStatusEdit = true,
   allowDelete = true,
 }: {
@@ -330,6 +331,7 @@ export default function LessonWorkTab({
   outputAccessMode?: StaffLessonEndpointAccessMode;
   createAccessMode?: Exclude<StaffLessonEndpointAccessMode, "account"> | null;
   allowCreate?: boolean;
+  allowPaymentStatusEdit?: boolean;
   allowBulkPaymentStatusEdit?: boolean;
   allowDelete?: boolean;
 }) {
@@ -340,16 +342,21 @@ export default function LessonWorkTab({
   const canManageOutputs = outputAccessMode !== "participant";
   const canCreateOutputs = createAccessMode !== null && allowCreate;
   const canBulkEditPaymentStatus =
-    outputAccessMode !== "participant" && allowBulkPaymentStatusEdit;
+    outputAccessMode !== "participant" &&
+    allowPaymentStatusEdit &&
+    allowBulkPaymentStatusEdit;
   const canDeleteOutputs = outputAccessMode === "manage" && allowDelete;
   const canOpenOutputPopup = true;
   const canShowStaffSummary = outputAccessMode !== "participant";
-  const canEditTasklessOutput = outputAccessMode !== "participant";
-  const canEditPaymentStatus = outputAccessMode !== "participant";
-  const canEditCost = outputAccessMode !== "participant";
+  const canEditTasklessOutput = outputAccessMode === "manage";
+  const canEditPaymentStatus =
+    outputAccessMode !== "participant" && allowPaymentStatusEdit;
+  const canEditCost = outputAccessMode === "manage";
+  const paymentStatusOnly = outputAccessMode === "account";
   const createRequiresTaskSelection = createAccessMode === "participant";
   const createAllowsTasklessOutput = createAccessMode === "manage";
-  const createAllowsPaymentStatusEdit = createAccessMode === "manage";
+  const createAllowsPaymentStatusEdit =
+    createAccessMode === "manage" && allowPaymentStatusEdit;
   const createOpenAfterCreate = createAccessMode === "manage" ? "popup" : "none";
   const workPage = normalizePositiveInt(getSearchParam("workPage"));
   const { year: workYear, month: workMonth } = normalizeMonthYear(
@@ -1169,6 +1176,7 @@ export default function LessonWorkTab({
           allowTasklessOutput={canEditTasklessOutput}
           allowPaymentStatusEdit={canEditPaymentStatus}
           allowCostEdit={canEditCost}
+          paymentStatusOnly={paymentStatusOnly}
           allowDelete={canDeleteOutputs}
           onClose={() => setSelectedOutputId(null)}
         />

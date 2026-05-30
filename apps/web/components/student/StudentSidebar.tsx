@@ -187,7 +187,7 @@ export default function StudentSidebar() {
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        className="fixed left-3 top-3 z-30 flex size-10 items-center justify-center rounded-md border border-border-default bg-bg-surface text-text-primary shadow-sm transition-transform duration-200 hover:scale-105 active:scale-95 md:hidden"
+        className="fixed left-3 top-3 z-30 flex size-11 items-center justify-center rounded-md border border-border-default bg-bg-surface text-text-primary shadow-sm transition-transform duration-200 hover:scale-105 active:scale-95 md:hidden"
         aria-label="Mở menu"
       >
         <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -228,7 +228,7 @@ export default function StudentSidebar() {
           <button
             type="button"
             onClick={isMobile ? () => setMobileOpen(false) : toggleCollapse}
-            className="flex size-9 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors duration-200 hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary"
+            className="flex size-11 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors duration-200 hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary md:size-9"
             aria-label={isMobile ? "Đóng menu" : collapsed ? "Mở rộng menu" : "Thu gọn menu"}
           >
             <svg

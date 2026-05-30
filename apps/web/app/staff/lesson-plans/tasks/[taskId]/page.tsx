@@ -13,8 +13,14 @@ export default function StaffLessonTaskDetailPage() {
     retry: false,
     staleTime: 60_000,
   });
-  const { canAccessTaskDetail, isAssistant, participantMode } =
-    resolveStaffLessonWorkspace(profile);
+  const {
+    canAccessTaskDetail,
+    isAssistant,
+    isAccountant,
+    isAccountantExpense,
+    participantMode,
+    workspacePolicy,
+  } = resolveStaffLessonWorkspace(profile);
 
   if (isProfileLoading && !profile) {
     return <LessonTaskDetailPageSkeleton />;
@@ -28,6 +34,8 @@ export default function StaffLessonTaskDetailPage() {
     <LessonTaskDetailPage
       workspaceBasePath="/staff/lesson-plans"
       participantMode={participantMode}
+      accountantMode={isAccountant}
+      allowPaymentStatusEdit={workspacePolicy === "admin" || isAccountantExpense}
       allowDelete={isAssistant}
     />
   );

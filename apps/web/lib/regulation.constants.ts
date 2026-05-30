@@ -10,9 +10,12 @@ export const REGULATION_AUDIENCE_LABELS: Record<RegulationAudience, string> = {
   staff_lesson_plan: ROLE_LABELS.lesson_plan,
   staff_lesson_plan_head: ROLE_LABELS.lesson_plan_head,
   staff_accountant: ROLE_LABELS.accountant,
+  staff_accountant_income: ROLE_LABELS.accountant_income,
+  staff_accountant_expense: ROLE_LABELS.accountant_expense,
   staff_communication: ROLE_LABELS.communication,
   staff_technical: ROLE_LABELS.technical,
   staff_customer_care: ROLE_LABELS.customer_care,
+  staff_training: ROLE_LABELS.training,
 };
 
 export const REGULATION_AUDIENCE_OPTIONS: Array<{
@@ -28,7 +31,14 @@ export const REGULATION_AUDIENCE_OPTIONS: Array<{
     value: "staff_lesson_plan_head",
     label: REGULATION_AUDIENCE_LABELS.staff_lesson_plan_head,
   },
-  { value: "staff_accountant", label: REGULATION_AUDIENCE_LABELS.staff_accountant },
+  {
+    value: "staff_accountant_income",
+    label: REGULATION_AUDIENCE_LABELS.staff_accountant_income,
+  },
+  {
+    value: "staff_accountant_expense",
+    label: REGULATION_AUDIENCE_LABELS.staff_accountant_expense,
+  },
   {
     value: "staff_communication",
     label: REGULATION_AUDIENCE_LABELS.staff_communication,
@@ -40,6 +50,10 @@ export const REGULATION_AUDIENCE_OPTIONS: Array<{
   {
     value: "staff_customer_care",
     label: REGULATION_AUDIENCE_LABELS.staff_customer_care,
+  },
+  {
+    value: "staff_training",
+    label: REGULATION_AUDIENCE_LABELS.staff_training,
   },
   { value: "staff_admin", label: REGULATION_AUDIENCE_LABELS.staff_admin },
 ];

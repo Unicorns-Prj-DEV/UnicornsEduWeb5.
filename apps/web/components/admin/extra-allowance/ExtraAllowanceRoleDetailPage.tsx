@@ -44,7 +44,13 @@ const EMPTY_ALLOWANCES: ExtraAllowanceListItem[] = [];
 
 type SupportedRoleType = Extract<
   ExtraAllowanceRoleType,
-  "assistant" | "communication" | "technical" | "accountant"
+  | "assistant"
+  | "communication"
+  | "technical"
+  | "training"
+  | "accountant"
+  | "accountant_income"
+  | "accountant_expense"
 >;
 
 type RoleTheme = {
@@ -92,6 +98,18 @@ const ROLE_THEMES: Record<SupportedRoleType, RoleTheme> = {
       "border-info/15 bg-info/5 hover:bg-info/8",
     popupGlowClassName: "bg-info/10",
   },
+  training: {
+    listGradientClassName: "bg-bg-surface",
+    listGlowTopClassName: "bg-secondary/12",
+    listGlowBottomClassName: "bg-info/10",
+    selectionBadgeClassName:
+      "border-secondary/15 bg-secondary/8 text-secondary",
+    activeCardClassName:
+      "border-secondary/35 bg-secondary/5 shadow-[0_20px_36px_-26px_color-mix(in_srgb,var(--ue-secondary)_40%,transparent)]",
+    activeRowClassName:
+      "border-secondary/15 bg-secondary/5 hover:bg-secondary/8",
+    popupGlowClassName: "bg-secondary/10",
+  },
   accountant: {
     listGradientClassName: "bg-bg-surface",
     listGlowTopClassName: "bg-success/12",
@@ -103,6 +121,30 @@ const ROLE_THEMES: Record<SupportedRoleType, RoleTheme> = {
     activeRowClassName:
       "border-success/15 bg-success/5 hover:bg-success/8",
     popupGlowClassName: "bg-success/10",
+  },
+  accountant_income: {
+    listGradientClassName: "bg-bg-surface",
+    listGlowTopClassName: "bg-success/12",
+    listGlowBottomClassName: "bg-primary/10",
+    selectionBadgeClassName:
+      "border-success/15 bg-success/8 text-success",
+    activeCardClassName:
+      "border-success/35 bg-success/5 shadow-[0_20px_36px_-26px_color-mix(in_srgb,var(--ue-success)_40%,transparent)]",
+    activeRowClassName:
+      "border-success/15 bg-success/5 hover:bg-success/8",
+    popupGlowClassName: "bg-success/10",
+  },
+  accountant_expense: {
+    listGradientClassName: "bg-bg-surface",
+    listGlowTopClassName: "bg-warning/12",
+    listGlowBottomClassName: "bg-success/10",
+    selectionBadgeClassName:
+      "border-warning/15 bg-warning/8 text-warning",
+    activeCardClassName:
+      "border-warning/35 bg-warning/5 shadow-[0_20px_36px_-26px_color-mix(in_srgb,var(--ue-warning)_40%,transparent)]",
+    activeRowClassName:
+      "border-warning/15 bg-warning/5 hover:bg-warning/8",
+    popupGlowClassName: "bg-warning/10",
   },
 };
 

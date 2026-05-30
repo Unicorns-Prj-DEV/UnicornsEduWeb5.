@@ -54,6 +54,11 @@ const minutesToSlotTime = (minutes: number) => {
   return `${String(hours).padStart(2, "0")}:${String(remainingMinutes).padStart(2, "0")}:00`;
 };
 
+const formatDisplayTime = (value?: string) => {
+  if (!value) return "Cả ngày";
+  return value.slice(0, 5);
+};
+
 /**
  * CalendarView component using FullCalendar
  * Displays the current week in a fixed Google Calendar-like time grid
@@ -97,6 +102,15 @@ export default function CalendarView({
             palette,
           },
         };
+      }),
+    [events],
+  );
+  const mobileAgendaEvents = useMemo(
+    () =>
+      events.toSorted((a, b) => {
+        const dateCompare = a.date.localeCompare(b.date);
+        if (dateCompare !== 0) return dateCompare;
+        return (a.startTime ?? "").localeCompare(b.startTime ?? "");
       }),
     [events],
   );
@@ -212,31 +226,63 @@ export default function CalendarView({
 
   return (
     <div className={`${styles.calendarShell} rounded-xl border border-border-default bg-bg-surface p-1.5 text-sm shadow-sm sm:p-2.5`}>
-      <div className="mb-2 flex items-center justify-between gap-2 px-0.5 sm:hidden">
+      <div className="mb-2 flex items-center justify-between gap-2 px-0.5 lg:hidden">
         <div>
           <p className="text-xs font-semibold text-text-primary">Lịch tuần</p>
-          <p className="text-[11px] text-text-muted">Vuốt ngang để xem 7 ngày.</p>
+          <p className="text-[11px] text-text-muted">Agenda theo ngày, chạm để xem chi tiết.</p>
         </div>
-        <div className="inline-flex items-center gap-1 rounded-full border border-border-default bg-bg-secondary px-2.5 py-1 text-[11px] font-medium text-text-secondary">
-          <svg
-            className="size-3.5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M13 5l7 7-7 7M5 5l7 7-7 7"
-            />
-          </svg>
-          Scroll
+        <div className="inline-flex items-center rounded-full border border-border-default bg-bg-secondary px-2.5 py-1 text-[11px] font-medium text-text-secondary">
+          {mobileAgendaEvents.length} mục
         </div>
       </div>
 
-      <div className="overflow-x-auto overscroll-x-contain pb-1">
+      <div className="space-y-2 lg:hidden">
+        {mobileAgendaEvents.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border-default bg-bg-secondary/70 px-3 py-8 text-center text-sm text-text-muted">
+            Không có sự kiện trong tuần này.
+          </div>
+        ) : (
+          mobileAgendaEvents.map((event) => {
+            const palette = getCalendarEventPalette(event);
+            const typeLabel = getCalendarEventTypeLabel(event.eventType);
+            return (
+              <button
+                key={event.occurrenceId}
+                type="button"
+                onClick={() => onEventClick(event)}
+                className="w-full rounded-lg border border-border-default bg-bg-secondary/70 p-3 text-left transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                style={{
+                  borderColor: palette.ring,
+                  background: `linear-gradient(90deg, ${palette.start}, ${palette.end})`,
+                  color: palette.text,
+                }}
+              >
+                <div className="flex flex-col gap-1 min-[380px]:flex-row min-[380px]:items-start min-[380px]:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold opacity-80">
+                      {event.date} · {formatDisplayTime(event.startTime)}
+                      {event.endTime ? `-${formatDisplayTime(event.endTime)}` : ""}
+                    </p>
+                    <p className="mt-1 break-words text-sm font-semibold">
+                      {event.title || event.className}
+                    </p>
+                  </div>
+                  <span className="w-fit rounded-full bg-bg-surface/80 px-2 py-0.5 text-[11px] font-semibold text-text-primary">
+                    {typeLabel}
+                  </span>
+                </div>
+                {event.teacherNames.length > 0 ? (
+                  <p className="mt-2 break-words text-xs opacity-85">
+                    GV: {event.teacherNames.join(", ")}
+                  </p>
+                ) : null}
+              </button>
+            );
+          })
+        )}
+      </div>
+
+      <div className="hidden overflow-x-auto overscroll-x-contain pb-1 lg:block">
         <div className={styles.calendarScroller}>
           <FullCalendar
             key={calendarKey}

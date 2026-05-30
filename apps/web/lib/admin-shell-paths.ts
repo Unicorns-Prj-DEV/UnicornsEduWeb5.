@@ -30,8 +30,12 @@ export function buildStaffRoleDetailHref(
       return `/staff/assistant-detail?staffId=${normalizedStaffId}`;
     }
 
-    if (role === "accountant") {
-      return `/staff/accountant-detail?staffId=${normalizedStaffId}`;
+    if (
+      role === "accountant" ||
+      role === "accountant_income" ||
+      role === "accountant_expense"
+    ) {
+      return `/staff/accountant-detail?staffId=${normalizedStaffId}&roleType=${encodeURIComponent(role)}`;
     }
 
     if (role === "communication") {
@@ -40,6 +44,10 @@ export function buildStaffRoleDetailHref(
 
     if (role === "technical") {
       return `/staff/technical-detail?staffId=${normalizedStaffId}`;
+    }
+
+    if (role === "training") {
+      return `/staff/training-detail?staffId=${normalizedStaffId}`;
     }
 
     if (role === "lesson_plan" || role === "lesson_plan_head") {
@@ -57,8 +65,12 @@ export function buildStaffRoleDetailHref(
     return `/admin/assistant_detail?staffId=${normalizedStaffId}`;
   }
 
-  if (role === "accountant") {
-    return `/admin/accountant_detail?staffId=${normalizedStaffId}`;
+  if (
+    role === "accountant" ||
+    role === "accountant_income" ||
+    role === "accountant_expense"
+  ) {
+    return `/admin/accountant_detail?staffId=${normalizedStaffId}&roleType=${encodeURIComponent(role)}`;
   }
 
   if (role === "communication") {
@@ -67,6 +79,10 @@ export function buildStaffRoleDetailHref(
 
   if (role === "technical") {
     return `/admin/technical_detail?staffId=${normalizedStaffId}`;
+  }
+
+  if (role === "training") {
+    return `/admin/training_detail?staffId=${normalizedStaffId}`;
   }
 
   if (role === "lesson_plan" || role === "lesson_plan_head") {

@@ -22,6 +22,7 @@ import {
   QrLinkPopup,
   SessionHistoryTableSkeleton,
 } from "@/components/admin/staff";
+import { MissedTeachingAlertsCard } from "@/components/admin/class";
 import { BonusListItem } from "@/dtos/bonus.dto";
 import {
   StaffDepositPaymentPreview,
@@ -43,7 +44,7 @@ import {
 import * as sessionApi from "@/lib/apis/session.api";
 import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable";
 import MonthNav from "@/components/admin/MonthNav";
-import { SessionItem } from "@/dtos/session.dto";
+import { MissedTeachingAlert, SessionItem } from "@/dtos/session.dto";
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
 import UserAvatar from "@/components/ui/UserAvatar";
 import { pickAvatarUrl } from "@/lib/avatar";
@@ -296,16 +297,19 @@ export default function AdminStaffDetailPage({
     retry: false,
     staleTime: 60_000,
   });
-  const { isAdmin, isAssistant, isAccountant } =
+  const { isAdmin, isAssistant, isAccountant, isAccountantExpense } =
     resolveAdminShellAccess(fullProfile);
   const ownStaffId = fullProfile?.staffInfo?.id;
   const viewingOwnStaffRecordOnStaffShell =
     routeBase === "/staff" && Boolean(ownStaffId) && ownStaffId === id;
   const canViewBeforeDeduction = isAdmin || isAccountant;
-  const canCreateBonus = isAdmin || isAssistant || isAccountant;
+  const canCreateBonus = isAdmin || isAssistant || isAccountantExpense;
   const canDeleteBonus = canCreateBonus;
-  const canEditTaxSettings = isAdmin || isAssistant || isAccountant;
-  const canPayAll = isAdmin || isAssistant || isAccountant;
+  const canEditTaxSettings = isAdmin || isAssistant || isAccountantExpense;
+  const canPayAll = isAdmin || isAssistant || isAccountantExpense;
+  const canEditSessionDetails = isAdmin || isAssistant;
+  const canEditStaffProfile =
+    (isAdmin || isAssistant) && !viewingOwnStaffRecordOnStaffShell;
 
   const {
     data: staff,
@@ -341,6 +345,14 @@ export default function AdminStaffDetailPage({
       }),
     enabled: !!id,
     placeholderData: keepPreviousData,
+  });
+  const { data: missedTeachingAlerts = [] } = useQuery<
+    MissedTeachingAlert[]
+  >({
+    queryKey: ["sessions", "staff", id, "missed-teaching-alerts"],
+    queryFn: () => sessionApi.getMissedTeachingAlertsByStaffId(id, { days: 31 }),
+    enabled: !!id,
+    staleTime: 60_000,
   });
   const {
     data: incomeSummary,
@@ -445,6 +457,26 @@ export default function AdminStaffDetailPage({
     queryClient.invalidateQueries({ queryKey: ["staff", "detail", id] });
     queryClient.invalidateQueries({ queryKey: ["staff", "list"] });
   }, [queryClient, id]);
+
+  const statusMutation = useMutation({
+    mutationFn: (payload: { status: StaffStatus; reason?: string }) =>
+      staffApi.updateStaffStatus(id, payload.status, payload.reason),
+    onSuccess: async (_updatedStaff, payload) => {
+      toast.success(
+        payload.status === "inactive"
+          ? "Đã chuyển nhân sự sang ngừng hoạt động."
+          : "Đã chuyển nhân sự sang hoạt động.",
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["staff", "detail", id] }),
+        queryClient.invalidateQueries({ queryKey: ["staff", "list"] }),
+        queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
+      ]);
+    },
+    onError: (err: unknown) => {
+      toast.error(getApiErrorMessage(err, "Không thể cập nhật trạng thái nhân sự."));
+    },
+  });
 
   const updateQrLinkMutation = useMutation({
     mutationFn: (link: string) =>
@@ -551,8 +583,8 @@ export default function AdminStaffDetailPage({
     () => incomeSummary?.classMonthlySummaries ?? [],
     [incomeSummary?.classMonthlySummaries],
   );
-  const showClassOperatingColumn = routeBase === "/admin";
-  const canEditClassOperatingDeduction = isAdmin && routeBase === "/admin";
+  const showClassOperatingColumn = isAdmin || isAccountantExpense;
+  const canEditClassOperatingDeduction = isAdmin || isAccountantExpense;
   const operatingPercentByClassId = useMemo(() => {
     const m = new Map<string, number>();
     for (const row of staff?.classTeachers ?? []) {
@@ -1406,6 +1438,18 @@ export default function AdminStaffDetailPage({
     staff.id === ownStaffId ? fullProfile?.avatarUrl : null,
     staff.user?.id === authUser.id ? authUser.avatarUrl : null,
   );
+  const handleToggleStaffStatus = () => {
+    const nextStatus: StaffStatus = staff.status === "active" ? "inactive" : "active";
+    const confirmed = window.confirm(
+      nextStatus === "inactive"
+        ? "Chuyển nhân sự sang ngừng hoạt động? Các phân công vận hành hiện tại sẽ được đóng."
+        : "Chuyển nhân sự sang hoạt động? Hệ thống sẽ không tự khôi phục phân công cũ.",
+    );
+    if (!confirmed) return;
+
+    const reason = window.prompt("Lý do (không bắt buộc)") ?? undefined;
+    statusMutation.mutate({ status: nextStatus, reason });
+  };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 pb-8 sm:p-6">
@@ -1451,7 +1495,7 @@ export default function AdminStaffDetailPage({
               <h1 className="min-w-0 truncate text-lg font-semibold text-text-primary sm:text-xl">
                 {staffDisplayName}
               </h1>
-              {!viewingOwnStaffRecordOnStaffShell ? (
+              {canEditStaffProfile ? (
                 <button
                   type="button"
                   onClick={() => setEditPopupOpen(true)}
@@ -1473,6 +1517,20 @@ export default function AdminStaffDetailPage({
                       d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                     />
                   </svg>
+                </button>
+              ) : null}
+              {canEditStaffProfile ? (
+                <button
+                  type="button"
+                  onClick={handleToggleStaffStatus}
+                  disabled={statusMutation.isPending}
+                  className="inline-flex min-h-9 shrink-0 items-center rounded-full border border-border-default bg-bg-surface px-3 text-xs font-semibold text-text-secondary transition hover:bg-bg-tertiary hover:text-primary disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                >
+                  {statusMutation.isPending
+                    ? "Đang lưu..."
+                    : staff.status === "active"
+                      ? "Ngừng hoạt động"
+                      : "Mở lại"}
                 </button>
               ) : null}
             </div>
@@ -1504,7 +1562,7 @@ export default function AdminStaffDetailPage({
         ) : null}
       </header>
 
-      {!viewingOwnStaffRecordOnStaffShell ? (
+      {canEditStaffProfile ? (
         <EditStaffPopup
           key={`${staff.id}:${editPopupOpen ? "open" : "closed"}`}
           open={editPopupOpen}
@@ -2336,6 +2394,17 @@ export default function AdminStaffDetailPage({
           ) : null}
         </StaffCard>
 
+        <MissedTeachingAlertsCard
+          alerts={missedTeachingAlerts}
+          canCreateMakeup={false}
+          getClassHref={(classId) =>
+            buildAdminLikePath(
+              routeBase,
+              `classes/${encodeURIComponent(classId)}`,
+            )
+          }
+        />
+
         <StaffCard title="Lịch sử buổi học">
           <div className="min-w-0 overflow-x-auto">
             {isSessionsLoading ? (
@@ -2352,7 +2421,15 @@ export default function AdminStaffDetailPage({
                 variant="classDetail"
                 emptyText="Không có buổi học trong tháng này."
                 editorLayout="wide"
-                enableBulkPaymentStatusEdit
+                enableBulkPaymentStatusEdit={canPayAll}
+                allowTeacherSelection={canEditSessionDetails}
+                allowFinancialEdits={canEditSessionDetails}
+                allowCoefficientEdit={canEditSessionDetails}
+                allowAllowanceEdit={canEditSessionDetails}
+                allowAttendanceTuitionEdits={canEditSessionDetails}
+                allowPaymentStatusEdit={canEditSessionDetails}
+                readOnlySessionDetails={!canEditSessionDetails}
+                allowDeleteSession={canEditSessionDetails}
                 onSessionUpdated={handleSessionUpdated}
                 getTeachersForClass={getTeachersForClass}
                 getClassStudents={getClassStudents}
@@ -2506,7 +2583,7 @@ export default function AdminStaffDetailPage({
                     </article>
                     <article className="rounded-xl border border-border-default bg-primary/8 px-4 py-3">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
-                        Sau Thuế
+                         Sau Cuối
                       </p>
                       <p className="mt-2 text-xl font-semibold text-success">
                         {formatCurrency(paymentPreviewSummary.netTotal)}
@@ -2538,7 +2615,7 @@ export default function AdminStaffDetailPage({
                               </h3>
                               <p className="mt-1 text-sm text-text-muted">
                                 {section.itemCount} khoản · Trước thuế{" "}
-                                {formatCurrency(section.grossTotal)} · Sau thuế{" "}
+                                {formatCurrency(section.grossTotal)} · Sau cuối{" "}
                                 {formatCurrency(section.netTotal)}
                               </p>
                             </div>
@@ -2591,7 +2668,7 @@ export default function AdminStaffDetailPage({
                                       <p className="text-xs text-text-muted">
                                         {source.itemCount} khoản · Trước thuế{" "}
                                         {formatCurrency(source.grossTotal)} ·
-                                        Sau thuế{" "}
+                                         Sau cuối{" "}
                                         {formatCurrency(source.netTotal)}
                                       </p>
                                     </div>
@@ -2619,7 +2696,39 @@ export default function AdminStaffDetailPage({
                                     {source.items.map((item) => (
                                       <article
                                         key={item.id}
-                                        className="rounded-xl border border-border-default bg-bg-surface px-4 py-3"
+                                        role={item.classId ? "button" : undefined}
+                                        tabIndex={item.classId ? 0 : undefined}
+                                        onClick={
+                                          item.classId
+                                            ? () =>
+                                                push(
+                                                  buildAdminLikePath(
+                                                    routeBase,
+                                                    `classes/${encodeURIComponent(item.classId ?? "")}`,
+                                                  ),
+                                                )
+                                            : undefined
+                                        }
+                                        onKeyDown={
+                                          item.classId
+                                            ? (event) => {
+                                                if (event.key === "Enter" || event.key === " ") {
+                                                  event.preventDefault();
+                                                  push(
+                                                    buildAdminLikePath(
+                                                      routeBase,
+                                                      `classes/${encodeURIComponent(item.classId ?? "")}`,
+                                                    ),
+                                                  );
+                                                }
+                                              }
+                                            : undefined
+                                        }
+                                        className={`rounded-xl border border-border-default bg-bg-surface px-4 py-3 ${
+                                          item.classId
+                                            ? "cursor-pointer transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                            : ""
+                                        }`}
                                       >
                                         <div className="flex items-start justify-between gap-3">
                                           <div className="min-w-0">
@@ -2658,7 +2767,7 @@ export default function AdminStaffDetailPage({
                                           </div>
                                           <div className="rounded-lg bg-bg-secondary/60 px-3 py-2">
                                             <p className="text-[11px] uppercase tracking-wide text-text-muted">
-                                              Sau thuế
+                                              Sau cuối
                                             </p>
                                             <p className="mt-1 font-semibold text-success">
                                               {formatCurrency(item.netAmount)}
@@ -2721,7 +2830,7 @@ export default function AdminStaffDetailPage({
                                             </th>
                                           ) : null}
                                           <th className="px-4 py-3 font-medium text-text-primary tabular-nums">
-                                            Sau thuế
+                                            Sau cuối
                                           </th>
                                         </tr>
                                       </thead>
@@ -2729,7 +2838,39 @@ export default function AdminStaffDetailPage({
                                         {source.items.map((item) => (
                                           <tr
                                             key={item.id}
-                                            className="border-b border-border-default bg-bg-surface"
+                                            role={item.classId ? "button" : undefined}
+                                            tabIndex={item.classId ? 0 : undefined}
+                                            onClick={
+                                              item.classId
+                                                ? () =>
+                                                    push(
+                                                      buildAdminLikePath(
+                                                        routeBase,
+                                                        `classes/${encodeURIComponent(item.classId ?? "")}`,
+                                                      ),
+                                                    )
+                                                : undefined
+                                            }
+                                            onKeyDown={
+                                              item.classId
+                                                ? (event) => {
+                                                    if (event.key === "Enter" || event.key === " ") {
+                                                      event.preventDefault();
+                                                      push(
+                                                        buildAdminLikePath(
+                                                          routeBase,
+                                                          `classes/${encodeURIComponent(item.classId ?? "")}`,
+                                                        ),
+                                                      );
+                                                    }
+                                                  }
+                                                : undefined
+                                            }
+                                            className={`border-b border-border-default bg-bg-surface ${
+                                              item.classId
+                                                ? "cursor-pointer transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                                : ""
+                                            }`}
                                           >
                                             <td className="px-4 py-3 text-text-primary">
                                               <div className="font-medium">

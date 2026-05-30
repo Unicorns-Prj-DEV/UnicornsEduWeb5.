@@ -60,6 +60,11 @@ export default function AdminCostsPage() {
   const page = normalizePage(getSearchParam("page"));
   const search = getSearchParam("search") ?? "";
   const monthParam = getSearchParam("month") ?? "";
+  const rawStatusParam = getSearchParam("status");
+  const statusFilter: CostStatus | undefined =
+    rawStatusParam === "pending" || rawStatusParam === "paid"
+      ? rawStatusParam
+      : undefined;
 
   const [selectedMonth, setSelectedMonth] = useState(() => {
     if (monthParam && /^\d{4}-(0[1-9]|1[0-2])$/.test(monthParam)) return monthParam;
@@ -130,7 +135,16 @@ export default function AdminCostsPage() {
     isError,
     error,
   } = useQuery<CostListResponse>({
-    queryKey: ["cost", "list", page, PAGE_SIZE, search, selectedYear, selectedMonthValue],
+    queryKey: [
+      "cost",
+      "list",
+      page,
+      PAGE_SIZE,
+      search,
+      selectedYear,
+      selectedMonthValue,
+      statusFilter,
+    ],
     queryFn: () =>
       costApi.getCosts({
         page,
@@ -138,6 +152,7 @@ export default function AdminCostsPage() {
         search: search.trim() || undefined,
         year: selectedYear,
         month: selectedMonthValue,
+        status: statusFilter,
       }),
   });
 
@@ -543,7 +558,7 @@ export default function AdminCostsPage() {
             </div>
           ) : (
             <>
-              <div className="space-y-3 sm:hidden">
+              <div className="space-y-3 lg:hidden">
                 {list.map((row) => (
                   <article
                     key={row.id}
@@ -617,7 +632,7 @@ export default function AdminCostsPage() {
                 ))}
               </div>
 
-              <div className="hidden overflow-x-auto sm:block">
+              <div className="hidden overflow-x-auto lg:block">
                 <table className="w-full min-w-[700px] border-collapse text-left text-sm">
                   <caption className="sr-only">Danh sách chi phí mở rộng</caption>
                   <thead>
@@ -721,7 +736,7 @@ export default function AdminCostsPage() {
                   <p className="text-sm text-text-muted" aria-live="polite">
                     Hiển thị {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, total)} trong {total} khoản
                   </p>
-                  <div className="grid grid-cols-3 items-center gap-2 sm:flex sm:items-center">
+                  <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 sm:flex sm:items-center">
                     <button
                       type="button"
                       className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50"
@@ -846,7 +861,7 @@ export default function AdminCostsPage() {
                       />
                     </label>
 
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
                       <button
                         type="button"
                         onClick={closeBulkEditPopup}
@@ -882,10 +897,10 @@ export default function AdminCostsPage() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="delete-cost-title"
-            className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border-default bg-bg-surface p-4 shadow-2xl sm:p-5"
+            className="fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-border-default bg-bg-surface p-4 shadow-2xl sm:p-5"
           >
             <div className="flex items-start gap-3">
-              <div className="mt-1 flex size-9 items-center justify-center rounded-full bg-error/10 text-error">
+              <div className="mt-1 flex size-11 items-center justify-center rounded-full bg-error/10 text-error sm:size-9">
                 <svg
                   className="size-5"
                   viewBox="0 0 24 24"

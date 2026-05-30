@@ -26,6 +26,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   classDetail: ClassDetail;
+  mode?: "roster" | "tuition";
 };
 
 type SelectedStudent = {
@@ -113,13 +114,28 @@ function toStudentPayload(student: SelectedStudent): UpdateClassStudentsPayload[
   };
 }
 
-export default function EditClassStudentsPopup({ open, onClose, classDetail }: Props) {
+export default function EditClassStudentsPopup({
+  open,
+  onClose,
+  classDetail,
+  mode = "roster",
+}: Props) {
   if (!open) return null;
 
-  return <EditClassStudentsDialog onClose={onClose} classDetail={classDetail} />;
+  return (
+    <EditClassStudentsDialog
+      onClose={onClose}
+      classDetail={classDetail}
+      mode={mode}
+    />
+  );
 }
 
-function EditClassStudentsDialog({ onClose, classDetail }: Omit<Props, "open">) {
+function EditClassStudentsDialog({
+  onClose,
+  classDetail,
+  mode = "roster",
+}: Omit<Props, "open">) {
   const queryClient = useQueryClient();
   const studentSearchRef = useRef<HTMLDivElement>(null);
   const scrollableRef = useRef<HTMLDivElement>(null);
@@ -146,6 +162,7 @@ function EditClassStudentsDialog({ onClose, classDetail }: Omit<Props, "open">) 
   const filteredStudents = (studentSearchResult ?? []).filter(
     (student) => !selectedStudents.some((selectedStudent) => selectedStudent.id === student.id),
   );
+  const isTuitionOnlyMode = mode === "tuition";
 
   useLayoutEffect(() => {
     if (!studentSearchFocused) return;
@@ -198,10 +215,34 @@ function EditClassStudentsDialog({ onClose, classDetail }: Omit<Props, "open">) 
 
     onClose();
     runBackgroundSave({
-      loadingMessage: "Đang lưu danh sách học sinh...",
-      successMessage: "Đã lưu danh sách học sinh.",
-      errorMessage: "Không thể cập nhật danh sách học sinh.",
-      action: () => classApi.updateClassStudents(classDetail.id, { students }),
+      loadingMessage: isTuitionOnlyMode
+        ? "Đang lưu gói học phí..."
+        : "Đang lưu danh sách học sinh...",
+      successMessage: isTuitionOnlyMode
+        ? "Đã lưu gói học phí."
+        : "Đã lưu danh sách học sinh.",
+      errorMessage: isTuitionOnlyMode
+        ? "Không thể cập nhật gói học phí."
+        : "Không thể cập nhật danh sách học sinh.",
+      action: async () => {
+        if (isTuitionOnlyMode) {
+          await Promise.all(
+            selectedStudents.map((student) =>
+              classApi.updateClassStudentTuition(classDetail.id, {
+                student_id: student.id,
+                custom_tuition_package_total:
+                  student.customTuitionPackageTotal ?? 0,
+                custom_tuition_package_session:
+                  student.customTuitionPackageSession ?? 0,
+                custom_tuition_per_session: student.customTuitionPerSession ?? 0,
+              }),
+            ),
+          );
+          return;
+        }
+
+        await classApi.updateClassStudents(classDetail.id, { students });
+      },
       onSuccess: async () => {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["class", "detail", classDetail.id] }),
@@ -245,10 +286,12 @@ function EditClassStudentsDialog({ onClose, classDetail }: Omit<Props, "open">) 
         <div className={classEditorModalHeaderClassName}>
           <div className="space-y-1">
             <h2 id="edit-class-students-title" className={classEditorModalTitleClassName}>
-              Chỉnh sửa học sinh trong lớp
+              {isTuitionOnlyMode ? "Chỉnh sửa gói học phí" : "Chỉnh sửa học sinh trong lớp"}
             </h2>
             <p className="text-xs text-text-muted">
-              Chỉ chỉnh tổng gói và số buổi của từng học sinh. Học phí mỗi buổi sẽ tự tính khi lưu.
+              {isTuitionOnlyMode
+                ? "Chỉ chỉnh tổng gói và số buổi của từng học sinh."
+                : "Chỉ chỉnh tổng gói và số buổi của từng học sinh. Học phí mỗi buổi sẽ tự tính khi lưu."}
             </p>
           </div>
           <button
@@ -293,6 +336,7 @@ function EditClassStudentsDialog({ onClose, classDetail }: Omit<Props, "open">) 
             </div>
           </section>
 
+          {!isTuitionOnlyMode ? (
           <div className="space-y-2">
             <div>
               <p className="text-sm font-semibold text-text-primary">Thêm học sinh</p>
@@ -369,12 +413,15 @@ function EditClassStudentsDialog({ onClose, classDetail }: Omit<Props, "open">) 
               )}
           </div>
           </div>
+          ) : null}
 
           {selectedStudents.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border-default bg-bg-surface px-4 py-8 text-center">
               <p className="text-sm font-medium text-text-primary">Chưa có học sinh nào trong lớp</p>
               <p className="mt-1 text-sm text-text-muted">
-                Tìm và thêm học sinh ở ô phía trên để cấu hình danh sách và học phí riêng.
+                {isTuitionOnlyMode
+                  ? "Lớp chưa có học sinh đang học để chỉnh gói học phí."
+                  : "Tìm và thêm học sinh ở ô phía trên để cấu hình danh sách và học phí riêng."}
               </p>
             </div>
           ) : (
@@ -409,18 +456,20 @@ function EditClassStudentsDialog({ onClose, classDetail }: Omit<Props, "open">) 
                           Để trống ô nào thì ô đó sẽ quay về gói mặc định của lớp khi lưu.
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setSelectedStudents((prev) =>
-                            prev.filter((selectedStudent) => selectedStudent.id !== student.id),
-                          )
-                        }
-                        className="inline-flex min-h-10 w-full items-center justify-center rounded-md border border-border-default px-3 py-2 text-sm font-medium text-text-muted transition-colors hover:bg-bg-tertiary hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:w-auto"
-                        aria-label={`Bỏ ${student.name}`}
-                      >
-                        Bỏ khỏi lớp
-                      </button>
+                      {!isTuitionOnlyMode ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSelectedStudents((prev) =>
+                              prev.filter((selectedStudent) => selectedStudent.id !== student.id),
+                            )
+                          }
+                          className="inline-flex min-h-10 w-full items-center justify-center rounded-md border border-border-default px-3 py-2 text-sm font-medium text-text-muted transition-colors hover:bg-bg-tertiary hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:w-auto"
+                          aria-label={`Bỏ ${student.name}`}
+                        >
+                          Bỏ khỏi lớp
+                        </button>
+                      ) : null}
                     </div>
 
                     <div className="mt-4 grid gap-3 md:grid-cols-2">

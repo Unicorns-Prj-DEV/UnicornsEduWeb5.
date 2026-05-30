@@ -55,7 +55,10 @@ export default function AdminStaffPage() {
   const filterUniversity = getSearchParam("university") ?? "";
   const filterHighSchool = getSearchParam("thpt") ?? "";
   const filterRole = getSearchParam("role") ?? "";
-  const filterStatus = (getSearchParam("status") ?? "") as "" | StaffStatus;
+  const hasExplicitStatusParam = searchParams.has("status");
+  const filterStatus = (
+    hasExplicitStatusParam ? (getSearchParam("status") ?? "") : "active"
+  ) as "" | StaffStatus;
   const filterClass = getSearchParam("class") ?? "";
 
   const [searchInput, setSearchInput] = useState(search);
@@ -124,7 +127,7 @@ export default function AdminStaffPage() {
     else params.delete("class");
 
     if (filterDraft.status.trim()) params.set("status", filterDraft.status.trim());
-    else params.delete("status");
+    else params.set("status", "");
 
     replace(`${pathname}?${params.toString()}`);
     setFilterPopupOpen(false);
@@ -243,6 +246,7 @@ export default function AdminStaffPage() {
     if (filterHighSchool) params.set("thpt", filterHighSchool);
     if (filterRole) params.set("role", filterRole);
     if (filterStatus) params.set("status", filterStatus);
+    else if (hasExplicitStatusParam) params.set("status", "");
     if (filterClass) params.set("class", filterClass);
     return params;
   };
@@ -494,7 +498,7 @@ export default function AdminStaffPage() {
               role="dialog"
               aria-modal="true"
               aria-labelledby="filter-dialog-title"
-              className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border-default bg-bg-surface p-4 shadow-xl sm:p-5"
+              className="fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-border-default bg-bg-surface p-4 shadow-xl sm:p-5"
             >
               <h2 id="filter-dialog-title" className="text-lg font-semibold text-text-primary">
                 Lọc tìm kiếm nâng cao
@@ -563,7 +567,7 @@ export default function AdminStaffPage() {
                 </label>
               </div>
 
-              <div className="mt-5 grid grid-cols-2 gap-2">
+              <div className="mt-5 grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
                 <button
                   type="button"
                   onClick={clearFilter}
@@ -887,7 +891,7 @@ export default function AdminStaffPage() {
                     <p className="text-sm text-text-muted" aria-live="polite">
                       Hiển thị {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, total)} trong {total} nhân sự
                     </p>
-                    <div className="grid grid-cols-3 items-center gap-2 sm:flex sm:items-center">
+                    <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 sm:flex sm:items-center">
                       <button
                         type="button"
                         className="min-h-11 rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50 sm:py-2"
@@ -927,10 +931,10 @@ export default function AdminStaffPage() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="delete-staff-title"
-            className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border-default bg-bg-surface p-4 shadow-2xl sm:p-5"
+            className="fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-border-default bg-bg-surface p-4 shadow-2xl sm:p-5"
           >
             <div className="flex items-start gap-3">
-              <div className="mt-1 flex size-9 items-center justify-center rounded-full bg-error/10 text-error">
+              <div className="mt-1 flex size-11 items-center justify-center rounded-full bg-error/10 text-error sm:size-9">
                 <svg
                   className="size-5"
                   viewBox="0 0 24 24"

@@ -163,7 +163,7 @@
   background: color-mix(in srgb, var(--ue-primary) 8%, transparent);
 }
 
-@media (min-width: 640px) {
+@media (min-width: 1024px) {
   .calendarScroller {
     min-width: 980px;
   }

@@ -19,6 +19,8 @@ import {
   buildAdminLikePath,
   resolveAdminLikeRouteBase,
 } from "@/lib/admin-shell-paths";
+import { resolveStudentAdminCapabilities } from "@/lib/admin-shell-access";
+import { getFullProfile } from "@/lib/apis/auth.api";
 import * as studentApi from "@/lib/apis/student.api";
 import { formatCurrency } from "@/lib/class.helpers";
 import { copyQrImageOrLink } from "@/lib/clipboard-qr";
@@ -98,11 +100,22 @@ export default function AdminStudentsPage() {
   const getSearchParam = searchParams.get.bind(searchParams);
   const queryClient = useQueryClient();
   const routeBase = resolveAdminLikeRouteBase(pathname);
+  const { data: fullProfile } = useQuery({
+    queryKey: ["auth", "full-profile"],
+    queryFn: getFullProfile,
+    retry: false,
+    staleTime: 60_000,
+  });
+  const { canCreateWalletQr, canDeleteStudent } =
+    resolveStudentAdminCapabilities(fullProfile, routeBase);
 
   const page = parsePositiveInt(getSearchParam("page"));
   const search = getSearchParam("search") ?? "";
   const filterGender = (getSearchParam("gender") ?? "") as "" | StudentGender;
-  const filterStatus = (getSearchParam("status") ?? "") as "" | StudentStatus;
+  const hasExplicitStatusParam = searchParams.has("status");
+  const filterStatus = (
+    hasExplicitStatusParam ? (getSearchParam("status") ?? "") : "active"
+  ) as "" | StudentStatus;
   const filterProvince = getSearchParam("province") ?? "";
   const filterSchool = getSearchParam("school") ?? "";
   const filterClass = getSearchParam("class") ?? "";
@@ -172,7 +185,7 @@ export default function AdminStudentsPage() {
     else params.delete("gender");
 
     if (filterDraft.status.trim()) params.set("status", filterDraft.status.trim());
-    else params.delete("status");
+    else params.set("status", "");
 
     replaceWithParams(params);
     setFilterPopupOpen(false);
@@ -246,6 +259,7 @@ export default function AdminStudentsPage() {
     if (filterSchool) params.set("school", filterSchool);
     if (filterClass) params.set("class", filterClass);
     if (filterStatus) params.set("status", filterStatus);
+    else if (hasExplicitStatusParam) params.set("status", "");
     return params;
   };
 
@@ -291,6 +305,7 @@ export default function AdminStudentsPage() {
   };
 
   const openDeleteConfirm = (id: string, name: string) => {
+    if (!canDeleteStudent) return;
     setStudentToDelete({ id, name });
     setDeleteConfirmOpen(true);
   };
@@ -301,7 +316,7 @@ export default function AdminStudentsPage() {
   };
 
   const handleDeleteConfirmed = async () => {
-    if (!studentToDelete) return;
+    if (!studentToDelete || !canDeleteStudent) return;
     try {
       await deleteMutation.mutateAsync({ id: studentToDelete.id });
       closeDeleteConfirm();
@@ -408,7 +423,7 @@ export default function AdminStudentsPage() {
               role="dialog"
               aria-modal="true"
               aria-labelledby="student-filter-dialog-title"
-              className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border-default bg-bg-surface p-4 shadow-xl sm:p-5"
+              className="fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-border-default bg-bg-surface p-4 shadow-xl sm:p-5"
             >
               <h2
                 id="student-filter-dialog-title"
@@ -506,7 +521,7 @@ export default function AdminStudentsPage() {
                 </label>
               </div>
 
-              <div className="mt-5 grid grid-cols-2 gap-2">
+              <div className="mt-5 grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
                 <button
                   type="button"
                   onClick={clearFilter}
@@ -602,19 +617,21 @@ export default function AdminStudentsPage() {
                           </span>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              void handleCopyQr(student);
-                            }}
-                            onKeyDown={(event) => event.stopPropagation()}
-                            className="inline-flex size-10 items-center justify-center rounded-lg border border-border-default bg-bg-surface text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                            aria-label={`Sao chép QR thanh toán của ${student.fullName?.trim() || "học sinh"}`}
-                            title="Sao chép QR thanh toán"
-                          >
-                            <QrCodeIcon className="size-5" aria-hidden />
-                          </button>
+                          {canCreateWalletQr ? (
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void handleCopyQr(student);
+                              }}
+                              onKeyDown={(event) => event.stopPropagation()}
+                              className="inline-flex size-10 items-center justify-center rounded-lg border border-border-default bg-bg-surface text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                              aria-label={`Sao chép QR thanh toán của ${student.fullName?.trim() || "học sinh"}`}
+                              title="Sao chép QR thanh toán"
+                            >
+                              <QrCodeIcon className="size-5" aria-hidden />
+                            </button>
+                          ) : null}
                           <span
                             className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ${statusBadgeClass(status)}`}
                           >
@@ -734,15 +751,17 @@ export default function AdminStudentsPage() {
                             </p>
                           </td>
                           <td className="px-2 py-3 text-center align-middle" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              type="button"
-                              onClick={() => void handleCopyQr(student)}
-                              className="inline-flex size-10 items-center justify-center rounded-lg border border-border-default bg-bg-surface text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                              aria-label={`Sao chép QR thanh toán của ${student.fullName?.trim() || "học sinh"}`}
-                              title="Sao chép QR thanh toán"
-                            >
-                              <QrCodeIcon className="size-5" aria-hidden />
-                            </button>
+                            {canCreateWalletQr ? (
+                              <button
+                                type="button"
+                                onClick={() => void handleCopyQr(student)}
+                                className="inline-flex size-10 items-center justify-center rounded-lg border border-border-default bg-bg-surface text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                aria-label={`Sao chép QR thanh toán của ${student.fullName?.trim() || "học sinh"}`}
+                                title="Sao chép QR thanh toán"
+                              >
+                                <QrCodeIcon className="size-5" aria-hidden />
+                              </button>
+                            ) : null}
                           </td>
                           <td className="px-4 py-3 text-right align-middle">
                             <span className={`inline-block whitespace-nowrap tabular-nums font-semibold ${balanceClassName}`}>
@@ -776,18 +795,20 @@ export default function AdminStudentsPage() {
                             )}
                           </td>
                           <td className="px-2 py-3 align-middle text-right" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              type="button"
-                              title="Xóa học sinh"
-                              disabled={deleteMutation.isPending}
-                              onClick={() => openDeleteConfirm(student.id, student.fullName?.trim() || "")}
-                              className="rounded-lg p-2 text-text-muted opacity-0 transition-all duration-200 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-error/10 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
-                              aria-label={`Xóa học sinh ${student.fullName?.trim() || ""}`}
-                            >
-                              <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
+                            {canDeleteStudent ? (
+                              <button
+                                type="button"
+                                title="Xóa học sinh"
+                                disabled={deleteMutation.isPending}
+                                onClick={() => openDeleteConfirm(student.id, student.fullName?.trim() || "")}
+                                className="rounded-lg p-2 text-text-muted opacity-0 transition-all duration-200 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-error/10 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                                aria-label={`Xóa học sinh ${student.fullName?.trim() || ""}`}
+                              >
+                                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            ) : null}
                           </td>
                         </tr>
                       );
@@ -804,7 +825,7 @@ export default function AdminStudentsPage() {
                     <p className="text-sm text-text-muted" aria-live="polite">
                       Hiển thị {rangeStart}-{rangeEnd} trong {total} học sinh
                     </p>
-                    <div className="grid grid-cols-3 items-center gap-2 sm:flex sm:items-center">
+                    <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 sm:flex sm:items-center">
                       <button
                         type="button"
                         className="min-h-11 rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50 sm:py-2"
@@ -846,10 +867,10 @@ export default function AdminStudentsPage() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="delete-student-title"
-            className="fixed left-1/2 top-1/2 z-[70] w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border-default bg-bg-surface p-4 shadow-2xl sm:p-5"
+            className="fixed left-1/2 top-1/2 z-[70] max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-border-default bg-bg-surface p-4 shadow-2xl sm:p-5"
           >
             <div className="flex items-start gap-3">
-              <div className="mt-1 flex size-9 items-center justify-center rounded-full bg-error/10 text-error">
+              <div className="mt-1 flex size-11 items-center justify-center rounded-full bg-error/10 text-error sm:size-9">
                 <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v4m0 4h.01M5.1 19h13.8a2 2 0 001.79-2.89L13.79 4.79a2 2 0 00-3.58 0L3.31 16.11A2 2 0 005.1 19z" />
                 </svg>

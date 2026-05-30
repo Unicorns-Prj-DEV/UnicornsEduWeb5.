@@ -27,10 +27,12 @@ const ROLE_OPTIONS: { value: string; label: string }[] = [
   { value: "assistant", label: "Trợ lí" },
   { value: "lesson_plan", label: "Giáo án" },
   { value: "lesson_plan_head", label: "Trưởng giáo án" },
-  { value: "accountant", label: "Kế toán" },
+  { value: "accountant_income", label: "Kế toán thu" },
+  { value: "accountant_expense", label: "Kế toán chi" },
   { value: "communication", label: "Truyền thông" },
   { value: "technical", label: "Kỹ thuật" },
   { value: "customer_care", label: "CSKH" },
+  { value: "training", label: "Đào Tạo" },
 ];
 
 function formatDateInput(iso?: string | null): string {

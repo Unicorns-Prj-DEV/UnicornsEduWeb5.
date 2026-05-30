@@ -14,6 +14,7 @@ type TutorItem = {
   id: string;
   name: string;
   status: string | null;
+  assignmentStatus?: string | null;
   customAllowance: number | null;
   operatingDeductionRatePercent: number | null;
 };
@@ -27,6 +28,9 @@ type Props = {
   className?: string;
   action?: React.ReactNode;
   enableTeacherNavigation?: boolean;
+  canStopTeaching?: boolean;
+  onStopTeaching?: (teacherId: string) => void;
+  stopTeachingPendingTeacherId?: string | null;
 };
 
 function normalizeMoneyAmount(value?: number | null): number | null {
@@ -73,9 +77,12 @@ function normalizeTutors(
         id: teacher.id,
         name,
         status:
-          teacher.status && teacher.status in TEACHER_STATUS_LABELS
+          teacher.assignmentStatus === "inactive"
+            ? "Nghỉ dạy"
+            : teacher.status && teacher.status in TEACHER_STATUS_LABELS
             ? TEACHER_STATUS_LABELS[teacher.status]
             : null,
+        assignmentStatus: teacher.assignmentStatus,
         customAllowance: resolveEffectiveAllowance(
           normalizeMoneyAmount(teacher.customAllowance),
           defaultAllowancePerStudent,
@@ -93,6 +100,9 @@ export default function TutorCard({
   className = "",
   action,
   enableTeacherNavigation = true,
+  canStopTeaching = false,
+  onStopTeaching,
+  stopTeachingPendingTeacherId = null,
 }: Props) {
   const tutorItems = normalizeTutors(
     teachers,
@@ -185,6 +195,21 @@ export default function TutorCard({
                       {formatRatePercent(teacher.operatingDeductionRatePercent)}
                     </p>
                   </div>
+                  {canStopTeaching && teacher.assignmentStatus !== "inactive" ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onStopTeaching?.(teacher.id);
+                      }}
+                      disabled={stopTeachingPendingTeacherId === teacher.id}
+                      className="col-span-2 inline-flex min-h-9 items-center justify-center rounded-md border border-border-default bg-bg-surface px-3 text-xs font-semibold text-text-secondary transition hover:bg-bg-tertiary hover:text-primary disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    >
+                      {stopTeachingPendingTeacherId === teacher.id
+                        ? "Đang lưu..."
+                        : "Nghỉ dạy"}
+                    </button>
+                  ) : null}
                 </div>
               ) : null}
             </div>

@@ -23,12 +23,14 @@ type RoleDefaultFormState = {
 const STAFF_ROLE_OPTIONS: { value: StaffRoleType; label: string }[] = [
   { value: "teacher", label: ROLE_LABELS.teacher },
   { value: "assistant", label: ROLE_LABELS.assistant },
-  { value: "accountant", label: ROLE_LABELS.accountant },
+  { value: "accountant_income", label: ROLE_LABELS.accountant_income },
+  { value: "accountant_expense", label: ROLE_LABELS.accountant_expense },
   { value: "customer_care", label: ROLE_LABELS.customer_care },
   { value: "lesson_plan", label: ROLE_LABELS.lesson_plan },
   { value: "lesson_plan_head", label: ROLE_LABELS.lesson_plan_head },
   { value: "communication", label: ROLE_LABELS.communication },
   { value: "technical", label: ROLE_LABELS.technical },
+  { value: "training", label: ROLE_LABELS.training },
 ];
 
 function formatDateTime(value: string): string {
@@ -132,9 +134,8 @@ export default function AdminDeductionsPage() {
     retry: false,
     staleTime: 60_000,
   });
-  const { isAdmin, isAssistant, isAccountant } =
-    resolveAdminShellAccess(fullProfile);
-  const canEditSettings = isAdmin || isAssistant || isAccountant;
+  const { isAdmin } = resolveAdminShellAccess(fullProfile);
+  const canEditSettings = isAdmin;
 
   const {
     data: settings,
@@ -283,8 +284,8 @@ export default function AdminDeductionsPage() {
 
         {!canEditSettings ? (
           <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
-            Bạn đang ở chế độ chỉ xem. Chỉ admin, assistant hoặc accountant mới
-            có quyền thêm hoặc chỉnh sửa mức khấu trừ.
+            Bạn đang ở chế độ chỉ xem. Chỉ admin mới có quyền thêm hoặc chỉnh
+            sửa mức khấu trừ.
           </div>
         ) : null}
 

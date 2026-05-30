@@ -676,11 +676,11 @@ export default function CustomerCareDetailPanels({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div
-        className="mb-4 inline-flex w-fit rounded-[1.35rem] border border-border-default bg-gradient-to-b from-bg-surface to-bg-secondary/90 p-1 shadow-sm"
+        className="mb-4 inline-flex w-full rounded-[1.35rem] border border-border-default bg-gradient-to-b from-bg-surface to-bg-secondary/90 p-1 shadow-sm sm:w-fit"
         role="tablist"
         aria-label="Học sinh, Thanh Toán hoặc Hoa hồng"
       >
-        <div className="relative grid min-w-[336px] grid-cols-3">
+        <div className="relative grid w-full min-w-0 grid-cols-3 sm:min-w-[336px]">
           <motion.span
             aria-hidden
             className="pointer-events-none absolute inset-y-0 left-0 z-0 w-1/3 rounded-[1rem] bg-primary shadow-sm ring-1 ring-primary/10"

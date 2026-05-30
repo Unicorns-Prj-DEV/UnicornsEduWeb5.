@@ -157,10 +157,12 @@ export async function updateStudentById(
 export async function updateStudentStatus(
   id: string,
   status: StudentStatus,
+  reason?: string,
 ): Promise<StudentDetail> {
   const safeId = encodeURIComponent(id);
   const response = await api.patch<StudentDetail>(`/student/${safeId}/status`, {
     status,
+    ...(reason?.trim() ? { reason: reason.trim() } : {}),
   });
   return response.data;
 }

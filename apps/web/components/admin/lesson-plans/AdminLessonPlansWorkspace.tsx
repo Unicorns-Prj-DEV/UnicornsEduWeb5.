@@ -295,6 +295,7 @@ export default function AdminLessonPlansWorkspace({
   workspacePolicy = "admin",
   workAccessMode,
   createOutputAccessMode,
+  currentUserId,
 }: {
   basePath?: string;
   manageDetailsPath?: string;
@@ -303,6 +304,7 @@ export default function AdminLessonPlansWorkspace({
   workspacePolicy?: WorkspacePolicy;
   workAccessMode?: StaffLessonEndpointAccessMode;
   createOutputAccessMode?: Exclude<StaffLessonEndpointAccessMode, "account"> | null;
+  currentUserId?: string | null;
 }) {
   const pathname = usePathname();
   const { push, replace } = useRouter();
@@ -327,6 +329,8 @@ export default function AdminLessonPlansWorkspace({
   const canManageWorkspace = !participantMode && workspacePolicy !== "accountant";
   const canCreate = workspacePolicy === "admin" || workspacePolicy === "lesson_plan_head" || (participantMode && workspacePolicy !== "accountant");
   const canDelete = workspacePolicy === "admin";
+  const canEditOutputPaymentStatus =
+    workspacePolicy === "admin" || workspacePolicy === "accountant";
   const visibleTabs = POLICY_VISIBLE_TABS[workspacePolicy];
   const resolvedActiveTab = visibleTabs.includes(activeTab) ? activeTab : visibleTabs[0];
   const [activeTabState, setActiveTabState] = useState<LessonTabId>(resolvedActiveTab);
@@ -515,7 +519,17 @@ export default function AdminLessonPlansWorkspace({
     setResourcePopupOpen(true);
   };
 
+  const canEditResource = (resource: LessonResourceItem) =>
+    canManageWorkspace ||
+    (participantMode &&
+      Boolean(currentUserId) &&
+      resource.createdBy === currentUserId);
+
   const openEditResource = (resource: LessonResourceItem) => {
+    if (!canEditResource(resource)) {
+      return;
+    }
+
     setResourceMode("edit");
     setSelectedResource(resource);
     setResourcePopupOpen(true);
@@ -525,7 +539,7 @@ export default function AdminLessonPlansWorkspace({
     resource: LessonResourceItem,
     target: EventTarget | null,
   ) => {
-    if (!canManageWorkspace || isNestedInteractiveElement(target)) {
+    if (!canEditResource(resource) || isNestedInteractiveElement(target)) {
       return;
     }
 
@@ -748,12 +762,15 @@ export default function AdminLessonPlansWorkspace({
                       ) : (
                         <div className="overflow-hidden rounded-[1.4rem] border border-border-default">
                           <div className="grid grid-cols-1 gap-3 p-3 md:grid-cols-1 xl:hidden">
-                            {resources.map((resource) => (
+                            {resources.map((resource) => {
+                              const canEditThisResource = canEditResource(resource);
+
+                              return (
                               <article
                                 key={resource.id}
-                                role={canManageWorkspace ? "button" : undefined}
-                                tabIndex={canManageWorkspace ? 0 : undefined}
-                                className={`rounded-[1.35rem] border border-border-default bg-bg-surface p-4 shadow-sm transition-colors ${canManageWorkspace
+                                role={canEditThisResource ? "button" : undefined}
+                                tabIndex={canEditThisResource ? 0 : undefined}
+                                className={`rounded-[1.35rem] border border-border-default bg-bg-surface p-4 shadow-sm transition-colors ${canEditThisResource
                                   ? "cursor-pointer hover:bg-bg-secondary/35 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
                                   : ""
                                   }`}
@@ -765,7 +782,7 @@ export default function AdminLessonPlansWorkspace({
                                 }
                                 onKeyDown={(event) => {
                                   if (
-                                    !canManageWorkspace ||
+                                    !canEditThisResource ||
                                     isNestedInteractiveElement(event.target)
                                   ) {
                                     return;
@@ -780,7 +797,7 @@ export default function AdminLessonPlansWorkspace({
                                   }
                                 }}
                                 aria-label={
-                                  canManageWorkspace
+                                  canEditThisResource
                                     ? `Mở popup chỉnh sửa tài nguyên ${resource.title?.trim() || "tài nguyên chưa đặt tên"}`
                                     : undefined
                                 }
@@ -800,7 +817,7 @@ export default function AdminLessonPlansWorkspace({
                                     </p>
                                   </div>
 
-                                  {canManageWorkspace ? (
+                                  {canEditThisResource ? (
                                     <div className="flex shrink-0 items-center gap-2">
                                       <OverviewActionButton
                                         label={`Sửa tài nguyên ${resource.title?.trim() || ""}`}
@@ -822,7 +839,7 @@ export default function AdminLessonPlansWorkspace({
                                           </svg>
                                         }
                                       />
-                                      {canDelete ? (
+                                      {canEditThisResource ? (
                                       <OverviewActionButton
                                         label={`Xóa tài nguyên ${resource.title?.trim() || ""}`}
                                         tone="danger"
@@ -892,7 +909,8 @@ export default function AdminLessonPlansWorkspace({
                                   </OverviewMetaBlock>
                                 </div>
                               </article>
-                            ))}
+                              );
+                            })}
                           </div>
 
                           <div className="hidden overflow-x-auto xl:block">
@@ -926,12 +944,15 @@ export default function AdminLessonPlansWorkspace({
                                 </tr>
                               </thead>
                               <tbody>
-                                {resources.map((resource) => (
+                                {resources.map((resource) => {
+                                  const canEditThisResource = canEditResource(resource);
+
+                                  return (
                                   <tr
                                     key={resource.id}
-                                    role={canManageWorkspace ? "button" : undefined}
-                                    tabIndex={canManageWorkspace ? 0 : undefined}
-                                    className={`group border-t border-border-default bg-bg-surface align-top transition-colors ${canManageWorkspace
+                                    role={canEditThisResource ? "button" : undefined}
+                                    tabIndex={canEditThisResource ? 0 : undefined}
+                                    className={`group border-t border-border-default bg-bg-surface align-top transition-colors ${canEditThisResource
                                       ? "cursor-pointer hover:bg-bg-secondary/50 focus-within:bg-bg-secondary/50 focus:outline-none focus-visible:bg-bg-secondary/50"
                                       : ""
                                       }`}
@@ -943,7 +964,7 @@ export default function AdminLessonPlansWorkspace({
                                     }
                                     onKeyDown={(event) => {
                                       if (
-                                        !canManageWorkspace ||
+                                        !canEditThisResource ||
                                         isNestedInteractiveElement(event.target)
                                       ) {
                                         return;
@@ -958,7 +979,7 @@ export default function AdminLessonPlansWorkspace({
                                       }
                                     }}
                                     aria-label={
-                                      canManageWorkspace
+                                      canEditThisResource
                                         ? `Mở popup chỉnh sửa tài nguyên ${resource.title?.trim() || "tài nguyên chưa đặt tên"}`
                                         : undefined
                                     }
@@ -1005,7 +1026,7 @@ export default function AdminLessonPlansWorkspace({
                                       </div>
                                     </td>
                                     <td className="px-4 py-4">
-                                      {canManageWorkspace ? (
+                                      {canEditThisResource ? (
                                         <div className="flex items-center justify-end gap-1 opacity-100 transition-opacity duration-150 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
                                           <button
                                             type="button"
@@ -1031,7 +1052,7 @@ export default function AdminLessonPlansWorkspace({
                                               />
                                             </svg>
                                           </button>
-                                          {canDelete ? (
+                                          {canEditThisResource ? (
                                           <button
                                             type="button"
                                             onClick={() =>
@@ -1067,7 +1088,8 @@ export default function AdminLessonPlansWorkspace({
                                       ) : null}
                                     </td>
                                   </tr>
-                                ))}
+                                  );
+                                })}
                               </tbody>
                             </table>
                           </div>
@@ -1457,7 +1479,8 @@ export default function AdminLessonPlansWorkspace({
                 outputAccessMode={resolvedWorkAccessMode}
                 createAccessMode={resolvedCreateOutputAccessMode}
                 allowCreate={canCreate}
-                allowBulkPaymentStatusEdit={resolvedWorkAccessMode !== "participant"}
+                allowPaymentStatusEdit={canEditOutputPaymentStatus}
+                allowBulkPaymentStatusEdit={canEditOutputPaymentStatus}
                 allowDelete={canDelete}
               />
             </motion.div>
@@ -1479,7 +1502,7 @@ export default function AdminLessonPlansWorkspace({
         open={resourcePopupOpen}
         mode={resourceMode}
         initialData={selectedResource}
-        requireTaskSelection={participantMode}
+        requireTaskSelection={false}
         isSubmitting={
           createResourceMutation.isPending || updateResourceMutation.isPending
         }

@@ -36,6 +36,7 @@ type MakeupScheduleCardProps = {
   canDeleteEvent?: (event: MakeupScheduleEventRecord) => boolean;
   canResync?: boolean;
   canResyncEvent?: (event: MakeupScheduleEventRecord) => boolean;
+  onOpenPastEvents?: () => void;
   disabledCreateMessage?: string;
   month?: string;
   scheduleItems?: ClassScheduleItem[];
@@ -575,6 +576,7 @@ export default function MakeupScheduleCard({
   canDeleteEvent,
   canResync = false,
   canResyncEvent,
+  onOpenPastEvents,
   disabledCreateMessage,
   month,
   scheduleItems = [],
@@ -751,23 +753,34 @@ export default function MakeupScheduleCard({
       title="Lịch dạy bù"
       className="w-full"
       action={
-        canCreate ? (
-          <button
-            type="button"
-            onClick={() => {
-              setEditorMode("create");
-              setEditingEvent(null);
-              setIsEditorOpen(true);
-            }}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:w-auto"
-          >
-            Thêm buổi bù
-          </button>
-        ) : (
-          <div className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary sm:min-h-0 sm:w-auto">
-            Chỉ xem
-          </div>
-        )
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+          {onOpenPastEvents ? (
+            <button
+              type="button"
+              onClick={onOpenPastEvents}
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:w-auto"
+            >
+              Xem buổi bù đã qua
+            </button>
+          ) : null}
+          {canCreate ? (
+            <button
+              type="button"
+              onClick={() => {
+                setEditorMode("create");
+                setEditingEvent(null);
+                setIsEditorOpen(true);
+              }}
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:w-auto"
+            >
+              Thêm buổi bù
+            </button>
+          ) : (
+            <div className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary sm:min-h-0 sm:w-auto">
+              Chỉ xem
+            </div>
+          )}
+        </div>
       }
     >
       <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border-default bg-bg-secondary/55 px-3 py-2 text-xs text-text-secondary">

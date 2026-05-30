@@ -37,6 +37,7 @@ export default function StaffLessonPlansPage() {
       workspacePolicy={workspacePolicy}
       workAccessMode={workAccessMode ?? undefined}
       createOutputAccessMode={createOutputAccessMode}
+      currentUserId={profile?.id ?? null}
     />
   );
 }

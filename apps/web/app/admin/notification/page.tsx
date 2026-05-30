@@ -81,16 +81,28 @@ const PRESET_TARGET_TAGS: AudiencePresetTag[] = [
     value: "assistant",
   },
   {
-    key: "@accountant",
-    label: "@accountant",
+    key: "@accountant_income",
+    label: "@accountant_income",
     kind: "staffRole",
-    value: "accountant",
+    value: "accountant_income",
+  },
+  {
+    key: "@accountant_expense",
+    label: "@accountant_expense",
+    kind: "staffRole",
+    value: "accountant_expense",
   },
   {
     key: "@customer_care",
     label: "@customer_care",
     kind: "staffRole",
     value: "customer_care",
+  },
+  {
+    key: "@training",
+    label: "@training",
+    kind: "staffRole",
+    value: "training",
   },
   {
     key: "@lesson_plan",

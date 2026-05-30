@@ -246,7 +246,11 @@ function getOtherRoleDetailHref(role: string) {
     return "/staff/assistant-detail";
   }
 
-  if (role === "accountant") {
+  if (
+    role === "accountant" ||
+    role === "accountant_income" ||
+    role === "accountant_expense"
+  ) {
     return "/staff/accountant-detail";
   }
 
@@ -256,6 +260,10 @@ function getOtherRoleDetailHref(role: string) {
 
   if (role === "technical") {
     return "/staff/technical-detail";
+  }
+
+  if (role === "training") {
+    return "/staff/training-detail";
   }
 
   if (role === "lesson_plan_head") {
@@ -322,11 +330,14 @@ export default function StaffSelfDetailPage() {
     profile?.roleType === "admin" ||
     (profile?.roleType === "staff" &&
       ((profile.staffInfo?.roles ?? []).includes("teacher") ||
-        (profile.staffInfo?.roles ?? []).includes("accountant")));
+        (profile.staffInfo?.roles ?? []).includes("accountant") ||
+        (profile.staffInfo?.roles ?? []).includes("accountant_income") ||
+        (profile.staffInfo?.roles ?? []).includes("accountant_expense")));
   const canViewBeforeDeduction =
     profile?.roleType === "admin" ||
     (profile?.roleType === "staff" &&
-      (profile.staffInfo?.roles ?? []).includes("accountant"));
+      ((profile.staffInfo?.roles ?? []).includes("accountant") ||
+        (profile.staffInfo?.roles ?? []).includes("accountant_expense")));
 
   const {
     data: staff,

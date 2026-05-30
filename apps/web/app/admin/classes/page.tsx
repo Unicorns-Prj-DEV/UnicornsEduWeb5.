@@ -9,6 +9,7 @@ import { getFullProfile } from "@/lib/apis/auth.api";
 import * as classApi from "@/lib/apis/class.api";
 import { AddClassPopup, ClassListTableSkeleton } from "@/components/admin/class";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
+import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { ClassListResponse, ClassStatus, ClassType } from "@/dtos/class.dto";
 import {
   buildAdminLikePath,
@@ -33,6 +34,17 @@ const TYPE_LABELS: Record<ClassType, string> = {
   advance: "Advance",
   hardcore: "Hardcore",
 };
+
+const STATUS_LABELS: Record<ClassStatus, string> = {
+  running: "Đang chạy",
+  ended: "Đã kết thúc",
+};
+
+const STATUS_OPTIONS: Array<{ value: "" | ClassStatus; label: string }> = [
+  { value: "", label: "Tất cả trạng thái" },
+  { value: "running", label: STATUS_LABELS.running },
+  { value: "ended", label: STATUS_LABELS.ended },
+];
 
 function statusBadgeClass(status: ClassStatus): string {
   return status === "running"
@@ -88,6 +100,10 @@ export default function AdminClassesPage() {
 
   const page = normalizePage(getSearchParam("page"));
   const search = getSearchParam("search") ?? "";
+  const hasExplicitStatusParam = searchParams.has("status");
+  const filterStatus = (
+    hasExplicitStatusParam ? (getSearchParam("status") ?? "") : "running"
+  ) as "" | ClassStatus;
 
   const [searchInput, setSearchInput] = useState(search);
   const [addPopupOpen, setAddPopupOpen] = useState(false);
@@ -122,6 +138,13 @@ export default function AdminClassesPage() {
     applySearchToUrl(value, searchParams?.toString() ?? "", pathname);
   };
 
+  const handleStatusFilterChange = (nextValue: string) => {
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.set("page", "1");
+    params.set("status", nextValue);
+    replace(`${pathname}?${params.toString()}`);
+  };
+
   const {
     data: classListResponse,
     isLoading,
@@ -129,12 +152,18 @@ export default function AdminClassesPage() {
     isError,
     error,
   } = useQuery<ClassListResponse>({
-    queryKey: classKeys.list({ page, limit: PAGE_SIZE, search }),
+    queryKey: classKeys.list({
+      page,
+      limit: PAGE_SIZE,
+      search,
+      status: filterStatus,
+    }),
     queryFn: () =>
       classApi.getClasses({
         page,
         limit: PAGE_SIZE,
         search: search.trim() || undefined,
+        status: filterStatus.trim() ? filterStatus : undefined,
       }),
     placeholderData: keepPreviousData,
   });
@@ -152,8 +181,7 @@ export default function AdminClassesPage() {
 
   const statusDotColor = (status: ClassStatus) =>
     status === "running" ? "bg-success" : "bg-error";
-  const statusLabel = (status: ClassStatus) =>
-    status === "running" ? "Đang chạy" : "Đã kết thúc";
+  const statusLabel = (status: ClassStatus) => STATUS_LABELS[status] ?? status;
 
   const total = classListResponse?.meta?.total ?? 0;
   const serverPage = classListResponse?.meta?.page;
@@ -171,12 +199,14 @@ export default function AdminClassesPage() {
   const handlePreviousPage = () => {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("page", String(Math.max(1, currentPage - 1)));
+    if (!params.has("status")) params.set("status", filterStatus);
     replace(`${pathname}?${params.toString()}`);
   };
 
   const handleNextPage = () => {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("page", String(Math.min(totalPages, currentPage + 1)));
+    if (!params.has("status")) params.set("status", filterStatus);
     replace(`${pathname}?${params.toString()}`);
   };
 
@@ -253,23 +283,37 @@ export default function AdminClassesPage() {
           </div>
 
           <div className="relative mt-4">
-            <label className="block min-w-0" htmlFor="class-search-input">
-              <span className="text-sm font-medium text-text-secondary">Tìm kiếm</span>
-              <div className="mt-1 flex items-center rounded-md border border-border-default bg-bg-surface/90 px-3 focus-within:border-border-focus focus-within:ring-2 focus-within:ring-border-focus">
-                <svg className="size-4 shrink-0 text-text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m21 21-4.35-4.35m1.85-5.15a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" />
-                </svg>
-                <input
-                  id="class-search-input"
-                  type="search"
-                  value={searchInput}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  placeholder="Theo tên lớp…"
-                  className="min-w-0 flex-1 border-0 bg-transparent px-2 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-0"
-                  aria-label="Tìm theo tên lớp"
+            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px] md:items-end">
+              <label className="block min-w-0" htmlFor="class-search-input">
+                <span className="text-sm font-medium text-text-secondary">Tìm kiếm</span>
+                <div className="mt-1 flex items-center rounded-md border border-border-default bg-bg-surface/90 px-3 focus-within:border-border-focus focus-within:ring-2 focus-within:ring-border-focus">
+                  <svg className="size-4 shrink-0 text-text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m21 21-4.35-4.35m1.85-5.15a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" />
+                  </svg>
+                  <input
+                    id="class-search-input"
+                    type="search"
+                    value={searchInput}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    placeholder="Theo tên lớp…"
+                    className="min-w-0 flex-1 border-0 bg-transparent px-2 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-0"
+                    aria-label="Tìm theo tên lớp"
+                  />
+                </div>
+              </label>
+              <label className="block min-w-0">
+                <span className="text-sm font-medium text-text-secondary">
+                  Trạng thái
+                </span>
+                <UpgradedSelect
+                  name="classes-filter-status"
+                  value={filterStatus}
+                  onValueChange={handleStatusFilterChange}
+                  options={STATUS_OPTIONS}
+                  buttonClassName="mt-1 w-full rounded-md border border-border-default bg-bg-surface/90 px-3 py-2.5 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />
-              </div>
-            </label>
+              </label>
+            </div>
           </div>
         </section>
 
@@ -305,7 +349,7 @@ export default function AdminClassesPage() {
                   isFetching && list.length > 0 && "opacity-70",
                 )}
               >
-                <div className="space-y-3 sm:hidden">
+                <div className="space-y-3 md:hidden">
                 {list.map((row) => (
                   <article
                     key={row.id}
@@ -376,7 +420,7 @@ export default function AdminClassesPage() {
                 ))}
                 </div>
 
-                <div className="hidden overflow-x-auto sm:block">
+                <div className="hidden overflow-x-auto md:block">
                   <table className="w-full min-w-[620px] border-collapse text-left text-sm">
                   <caption className="sr-only">Danh sách lớp học</caption>
                   <thead>
@@ -476,7 +520,7 @@ export default function AdminClassesPage() {
                     <p className="text-sm text-text-muted" aria-live="polite">
                       Hiển thị {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, total)} trong {total} lớp học
                     </p>
-                    <div className="grid grid-cols-3 items-center gap-2 sm:flex sm:items-center">
+                    <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 sm:flex sm:items-center">
                       <button
                         type="button"
                         className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50"
@@ -526,10 +570,10 @@ export default function AdminClassesPage() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="delete-class-title"
-            className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border-default bg-bg-surface p-4 shadow-2xl sm:p-5"
+            className="fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-border-default bg-bg-surface p-4 shadow-2xl sm:p-5"
           >
             <div className="flex items-start gap-3">
-              <div className="mt-1 flex size-9 items-center justify-center rounded-full bg-error/10 text-error">
+              <div className="mt-1 flex size-11 items-center justify-center rounded-full bg-error/10 text-error sm:size-9">
                 <svg
                   className="size-5"
                   viewBox="0 0 24 24"

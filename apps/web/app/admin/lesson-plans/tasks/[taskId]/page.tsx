@@ -63,11 +63,15 @@ function getErrorMessage(error: unknown, fallback: string) {
 export function LessonTaskDetailPage({
   workspaceBasePath = "/admin/lesson-plans",
   participantMode = false,
+  accountantMode = false,
   allowDelete: allowDeleteProp,
+  allowPaymentStatusEdit = true,
 }: {
   workspaceBasePath?: string;
   participantMode?: boolean;
+  accountantMode?: boolean;
   allowDelete?: boolean;
+  allowPaymentStatusEdit?: boolean;
 }) {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -85,10 +89,11 @@ export function LessonTaskDetailPage({
   );
   const [resourceSearch, setResourceSearch] = useState("");
   const deferredResourceSearch = useDeferredValue(resourceSearch.trim());
-  const canManageTask = !participantMode;
+  const canManageTask = !participantMode && !accountantMode;
   const canDeleteInPage = allowDeleteProp ?? canManageTask;
+  const canCreateOutput = canManageTask || participantMode;
   const canCreateResource = canManageTask || participantMode;
-  const canOpenOutputPopup = canManageTask || participantMode;
+  const canOpenOutputPopup = canManageTask || participantMode || accountantMode;
 
   const backHref = useMemo(() => {
     const nextParams = new URLSearchParams();
@@ -482,13 +487,15 @@ export function LessonTaskDetailPage({
                         {task.outputProgress.completed}/{task.outputProgress.total} hoàn thành
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setCreateOutputOpen(true)}
-                      className="inline-flex h-9 items-center justify-center rounded-xl bg-primary px-4 text-xs font-semibold text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none"
-                    >
-                      Tạo sản phẩm
-                    </button>
+                    {canCreateOutput ? (
+                      <button
+                        type="button"
+                        onClick={() => setCreateOutputOpen(true)}
+                        className="inline-flex h-9 items-center justify-center rounded-xl bg-primary px-4 text-xs font-semibold text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none"
+                      >
+                        Tạo sản phẩm
+                      </button>
+                    ) : null}
                   </div>
 
                   <div className="mt-4 space-y-3">
@@ -773,7 +780,7 @@ export function LessonTaskDetailPage({
             hideStaffFields={participantMode}
             forceSharedLayout={participantMode}
             allowTasklessOutput={false}
-            allowPaymentStatusEdit={!participantMode}
+            allowPaymentStatusEdit={allowPaymentStatusEdit}
             isSubmitting={createOutputMutation.isPending}
             onClose={() => {
               if (createOutputMutation.isPending) return;
@@ -807,8 +814,9 @@ export function LessonTaskDetailPage({
               forceSharedLayout={participantMode}
               allowTasklessOutput={false}
               allowDelete={canDeleteInPage}
-              allowPaymentStatusEdit={!participantMode}
-              allowCostEdit={!participantMode}
+              allowPaymentStatusEdit={allowPaymentStatusEdit}
+              allowCostEdit={!participantMode && !accountantMode}
+              paymentStatusOnly={accountantMode}
               relatedTaskIds={[task.id]}
               onClose={() => setSelectedOutputId(null)}
             />

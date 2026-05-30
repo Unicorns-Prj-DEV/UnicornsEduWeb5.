@@ -35,7 +35,13 @@ const MAX_VISIBLE_ALLOWANCES = 20;
 
 type SupportedRoleType = Extract<
   ExtraAllowanceRoleType,
-  "assistant" | "communication" | "technical" | "accountant"
+  | "assistant"
+  | "communication"
+  | "technical"
+  | "training"
+  | "accountant"
+  | "accountant_income"
+  | "accountant_expense"
 >;
 
 type RoleTheme = {
@@ -60,10 +66,25 @@ const ROLE_THEMES: Record<SupportedRoleType, RoleTheme> = {
     listGlowTopClassName: "bg-info/12",
     listGlowBottomClassName: "bg-primary/10",
   },
+  training: {
+    listGradientClassName: "bg-bg-surface",
+    listGlowTopClassName: "bg-primary/12",
+    listGlowBottomClassName: "bg-success/10",
+  },
   accountant: {
     listGradientClassName: "bg-bg-surface",
     listGlowTopClassName: "bg-success/12",
     listGlowBottomClassName: "bg-info/10",
+  },
+  accountant_income: {
+    listGradientClassName: "bg-bg-surface",
+    listGlowTopClassName: "bg-success/12",
+    listGlowBottomClassName: "bg-primary/10",
+  },
+  accountant_expense: {
+    listGradientClassName: "bg-bg-surface",
+    listGlowTopClassName: "bg-warning/12",
+    listGlowBottomClassName: "bg-success/10",
   },
 };
 
@@ -170,9 +191,15 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
   const roleLabel = getExtraAllowanceRoleLabel(roleType);
   const canSelfCreateAllowance = Boolean(allowCreate);
   const canSelfEditAllowance =
-    roleType === "communication" || roleType === "technical";
+    roleType === "communication" ||
+    roleType === "technical" ||
+    roleType === "training";
   const selfManagedRoleType: SelfManagedExtraAllowanceRoleType | null =
-    roleType === "communication" || roleType === "technical" ? roleType : null;
+    roleType === "communication" ||
+    roleType === "technical" ||
+    roleType === "training"
+      ? roleType
+      : null;
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [createFormKey, setCreateFormKey] = useState(0);

@@ -140,7 +140,7 @@ export default function StaffSelfEditPopup({
         aria-modal="true"
         aria-labelledby="staff-self-edit-title"
         aria-busy={isSaving}
-        className="fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden overscroll-contain rounded-[1.4rem] border border-border-default bg-bg-surface p-5 shadow-2xl"
+        className="fixed inset-x-3 top-1/2 z-50 flex max-h-[calc(100dvh-1.5rem)] w-auto -translate-y-1/2 flex-col overflow-hidden overscroll-contain rounded-[1.4rem] border border-border-default bg-bg-surface p-5 shadow-2xl sm:left-1/2 sm:w-full sm:max-w-2xl sm:-translate-x-1/2"
       >
         <div className="mb-4 flex items-center justify-between gap-3 border-b border-border-default pb-4">
           <div className="min-w-0">

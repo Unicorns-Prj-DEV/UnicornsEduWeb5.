@@ -3,10 +3,16 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import type { CreateLessonOutputPayload } from "@/dtos/lesson.dto";
+import UpgradedSelect from "@/components/ui/UpgradedSelect";
+import type { CreateLessonOutputPayload, LessonPaymentStatus } from "@/dtos/lesson.dto";
 import * as lessonApi from "@/lib/apis/lesson.api";
 import LessonDeleteConfirmPopup from "./LessonDeleteConfirmPopup";
 import LessonOutputEditorForm from "./LessonOutputEditorForm";
+import {
+  LESSON_PAYMENT_STATUS_LABELS,
+  LESSON_PAYMENT_STATUS_OPTIONS,
+  lessonPaymentStatusChipClass,
+} from "./lessonTaskUi";
 
 type Props = {
   open: boolean;
@@ -20,6 +26,7 @@ type Props = {
   allowDelete?: boolean;
   allowPaymentStatusEdit?: boolean;
   allowCostEdit?: boolean;
+  paymentStatusOnly?: boolean;
   relatedTaskIds?: string[];
 };
 
@@ -61,10 +68,15 @@ export default function LessonOutputQuickPopup({
   allowDelete = false,
   allowPaymentStatusEdit = true,
   allowCostEdit = true,
+  paymentStatusOnly = false,
   relatedTaskIds = [],
 }: Props) {
   const queryClient = useQueryClient();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [paymentStatusDraft, setPaymentStatusDraft] = useState<{
+    outputId: string | null;
+    value: LessonPaymentStatus;
+  }>({ outputId: null, value: "pending" });
 
   const {
     data: outputDetail,
@@ -113,6 +125,21 @@ export default function LessonOutputQuickPopup({
     },
   });
 
+  const paymentStatusMutation = useMutation({
+    mutationFn: (paymentStatus: LessonPaymentStatus) =>
+      lessonApi.updateLessonOutput(outputId as string, { paymentStatus }),
+    onSuccess: () => {
+      toast.success("Đã cập nhật trạng thái thanh toán bài.");
+      onClose();
+      void invalidateRelatedQueries(outputDetail?.lessonTaskId);
+    },
+    onError: (err: unknown) => {
+      toast.error(
+        getErrorMessage(err, "Không cập nhật được trạng thái thanh toán."),
+      );
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: () => lessonApi.deleteLessonOutput(outputId as string),
     onSuccess: () => {
@@ -127,7 +154,11 @@ export default function LessonOutputQuickPopup({
   });
 
   const handleClose = () => {
-    if (updateMutation.isPending || deleteMutation.isPending) {
+    if (
+      updateMutation.isPending ||
+      deleteMutation.isPending ||
+      paymentStatusMutation.isPending
+    ) {
       return;
     }
     onClose();
@@ -136,6 +167,11 @@ export default function LessonOutputQuickPopup({
   if (!open || !outputId) {
     return null;
   }
+
+  const resolvedPaymentStatusDraft =
+    paymentStatusDraft.outputId === outputId
+      ? paymentStatusDraft.value
+      : outputDetail?.paymentStatus ?? "pending";
 
   return (
     <>
@@ -206,34 +242,127 @@ export default function LessonOutputQuickPopup({
                 </div>
               )}
             </div>
-            <LessonOutputEditorForm
-              mode="edit"
-              initialData={outputDetail}
-              showParentTaskBanner={showParentTaskBanner}
-              hideStaffFields={hideStaffFields}
-              forceSharedLayout={forceSharedLayout}
-              allowTasklessOutput={allowTasklessOutput}
-              allowPaymentStatusEdit={allowPaymentStatusEdit}
-              allowCostEdit={allowCostEdit}
-              isSubmitting={updateMutation.isPending}
-              submitLabel="Lưu thay đổi"
-              footerLeadingActions={
-                allowDelete ? (
+            {paymentStatusOnly ? (
+              <div className="space-y-4 rounded-xl border border-border-default bg-bg-secondary/20 p-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                      Tên bài
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-text-primary">
+                      {outputDetail.lessonName || "Chưa đặt tên"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                      Chi phí
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-text-primary">
+                      {new Intl.NumberFormat("vi-VN").format(outputDetail.cost ?? 0)} đ
+                    </p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                      Link output
+                    </p>
+                    {outputDetail.link ? (
+                      <a
+                        href={outputDetail.link}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 inline-flex min-w-0 max-w-full text-sm font-medium text-primary underline-offset-4 hover:underline"
+                      >
+                        <span className="truncate">{outputDetail.link}</span>
+                      </a>
+                    ) : (
+                      <p className="mt-1 text-sm text-text-muted">Chưa có link</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-medium text-text-secondary">
+                      Trạng thái thanh toán
+                    </span>
+                    <UpgradedSelect
+                      name="lesson-output-payment-status"
+                      value={resolvedPaymentStatusDraft}
+                      onValueChange={(value) =>
+                        setPaymentStatusDraft({
+                          outputId,
+                          value: value as LessonPaymentStatus,
+                        })
+                      }
+                      options={LESSON_PAYMENT_STATUS_OPTIONS}
+                      ariaLabel="Trạng thái thanh toán output"
+                      buttonClassName="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3.5 py-2.5 text-sm text-text-primary shadow-sm"
+                    />
+                  </label>
+                  <span
+                    className={`inline-flex h-10 items-center justify-center rounded-full px-3 text-xs font-semibold uppercase tracking-[0.16em] ring-1 ${lessonPaymentStatusChipClass(
+                      outputDetail.paymentStatus,
+                    )}`}
+                  >
+                    {LESSON_PAYMENT_STATUS_LABELS[outputDetail.paymentStatus]}
+                  </span>
+                </div>
+
+                <div className="flex flex-col-reverse gap-2 border-t border-border-default pt-4 sm:flex-row sm:justify-end">
                   <button
                     type="button"
-                    onClick={() => setDeleteOpen(true)}
-                    disabled={updateMutation.isPending || deleteMutation.isPending}
-                    className="inline-flex min-h-11 items-center justify-center rounded-xl border border-error/25 bg-error/8 px-4 py-2 text-sm font-medium text-error transition-colors hover:bg-error/12 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50"
+                    onClick={handleClose}
+                    disabled={paymentStatusMutation.isPending}
+                    className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60"
                   >
-                    Xóa bài
+                    Đóng
                   </button>
-                ) : null
-              }
-              onCancel={handleClose}
-              onSubmit={async (payload) => {
-                await updateMutation.mutateAsync(payload);
-              }}
-            />
+                  {allowPaymentStatusEdit ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await paymentStatusMutation.mutateAsync(
+                          resolvedPaymentStatusDraft,
+                        );
+                      }}
+                      disabled={paymentStatusMutation.isPending}
+                      className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60"
+                    >
+                      {paymentStatusMutation.isPending ? "Đang lưu…" : "Lưu thanh toán"}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ) : (
+              <LessonOutputEditorForm
+                mode="edit"
+                initialData={outputDetail}
+                showParentTaskBanner={showParentTaskBanner}
+                hideStaffFields={hideStaffFields}
+                forceSharedLayout={forceSharedLayout}
+                allowTasklessOutput={allowTasklessOutput}
+                allowPaymentStatusEdit={allowPaymentStatusEdit}
+                allowCostEdit={allowCostEdit}
+                isSubmitting={updateMutation.isPending}
+                submitLabel="Lưu thay đổi"
+                footerLeadingActions={
+                  allowDelete ? (
+                    <button
+                      type="button"
+                      onClick={() => setDeleteOpen(true)}
+                      disabled={updateMutation.isPending || deleteMutation.isPending}
+                      className="inline-flex min-h-11 items-center justify-center rounded-xl border border-error/25 bg-error/8 px-4 py-2 text-sm font-medium text-error transition-colors hover:bg-error/12 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50"
+                    >
+                      Xóa bài
+                    </button>
+                  ) : null
+                }
+                onCancel={handleClose}
+                onSubmit={async (payload) => {
+                  await updateMutation.mutateAsync(payload);
+                }}
+              />
+            )}
           </>
         ) : null}
       </div>

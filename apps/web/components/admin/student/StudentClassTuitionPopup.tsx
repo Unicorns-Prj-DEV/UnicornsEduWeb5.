@@ -4,7 +4,6 @@ import { useState, type SyntheticEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as classApi from "@/lib/apis/class.api";
-import { formatCurrency } from "@/lib/class.helpers";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
 
 type Props = {
@@ -16,9 +15,6 @@ type Props = {
   /** Giá trị hiện tại từ class detail (student trong lớp). */
   initialPackageTotal: number | null;
   initialPackageSession: number | null;
-  initialTuitionPerSession: number | null;
-  /** Giá trị mặc định của lớp (khi học sinh chưa set riêng). */
-  classDefaultTuitionPerSession: number | null;
   onSuccess?: () => void | Promise<void>;
 };
 
@@ -35,8 +31,6 @@ function StudentClassTuitionPopupContent({
   studentId,
   initialPackageTotal,
   initialPackageSession,
-  initialTuitionPerSession,
-  classDefaultTuitionPerSession,
   onSuccess,
 }: Omit<Props, "open">) {
   const queryClient = useQueryClient();
@@ -46,15 +40,11 @@ function StudentClassTuitionPopupContent({
   const [packageSession, setPackageSession] = useState(
     () => (initialPackageSession != null ? String(initialPackageSession) : ""),
   );
-  const [tuitionPerSession, setTuitionPerSession] = useState(
-    () => (initialTuitionPerSession != null ? String(initialTuitionPerSession) : ""),
-  );
 
   const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     const totalNum = toNum(packageTotal.trim());
     const sessionNum = toNum(packageSession.trim());
-    const perSessionNum = tuitionPerSession.trim() === "" ? null : toNum(tuitionPerSession.trim());
     if (totalNum != null && (sessionNum == null || sessionNum < 1)) {
       toast.error("Số buổi trong gói phải là số nguyên dương.");
       return;
@@ -63,44 +53,20 @@ function StudentClassTuitionPopupContent({
       toast.error("Tổng gói học phí không hợp lệ.");
       return;
     }
-    if (perSessionNum != null && perSessionNum < 0) {
-      toast.error("Học phí/buổi không được âm.");
-      return;
-    }
     onClose();
     runBackgroundSave({
       loadingMessage: "Đang lưu gói học phí...",
       successMessage: "Đã lưu gói học phí.",
       errorMessage: "Không thể cập nhật gói học phí.",
       action: async () => {
-        const classDetail = await classApi.getClassById(classId);
-        const existingStudents = (classDetail.students ?? []).map((s) => ({
-          id: s.id,
-          ...(s.customTuitionPerSession != null
-            ? { custom_tuition_per_session: s.customTuitionPerSession }
-            : {}),
-          ...(s.customTuitionPackageTotal != null
-            ? { custom_tuition_package_total: s.customTuitionPackageTotal }
-            : {}),
-          ...(s.customTuitionPackageSession != null
-            ? { custom_tuition_package_session: s.customTuitionPackageSession }
-            : {}),
-        }));
         const totalNum = toNum(packageTotal.trim());
         const sessionNum = toNum(packageSession.trim());
-        const perSessionNum = toNum(tuitionPerSession.trim());
 
-        const nextStudents = existingStudents.map((stu) => {
-          if (stu.id !== studentId) return stu;
-          return {
-            id: stu.id,
-            ...(totalNum != null ? { custom_tuition_package_total: totalNum } : {}),
-            ...(sessionNum != null ? { custom_tuition_package_session: sessionNum } : {}),
-            ...(perSessionNum != null ? { custom_tuition_per_session: perSessionNum } : {}),
-          };
+        await classApi.updateClassStudentTuition(classId, {
+          student_id: studentId,
+          custom_tuition_package_total: totalNum ?? 0,
+          custom_tuition_package_session: sessionNum ?? 0,
         });
-
-        await classApi.updateClassStudents(classId, { students: nextStudents });
       },
       onSuccess: async () => {
         await Promise.all([
@@ -112,9 +78,6 @@ function StudentClassTuitionPopupContent({
       },
     });
   };
-
-  const defaultPerSession =
-    initialTuitionPerSession ?? classDefaultTuitionPerSession ?? null;
 
   return (
     <>
@@ -176,22 +139,6 @@ function StudentClassTuitionPopupContent({
                   className="w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />
               </label>
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium text-text-secondary">Học phí/buổi (VNĐ)</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={tuitionPerSession}
-                  onChange={(e) => setTuitionPerSession(e.target.value)}
-                  placeholder={
-                    defaultPerSession != null
-                      ? `Mặc định: ${formatCurrency(defaultPerSession)}`
-                      : "Để trống = theo lớp"
-                  }
-                  className="w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                />
-              </label>
-
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
@@ -222,7 +169,6 @@ export default function StudentClassTuitionPopup(props: Props) {
     studentId,
     initialPackageTotal,
     initialPackageSession,
-    initialTuitionPerSession,
   } = props;
 
   if (!open) return null;
@@ -232,7 +178,6 @@ export default function StudentClassTuitionPopup(props: Props) {
     studentId,
     initialPackageTotal ?? "no-total",
     initialPackageSession ?? "no-session",
-    initialTuitionPerSession ?? "no-per-session",
   ].join(":");
 
   return <StudentClassTuitionPopupContent key={popupKey} {...props} />;

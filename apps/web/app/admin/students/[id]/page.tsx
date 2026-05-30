@@ -21,6 +21,7 @@ import {
     buildAdminLikePath,
     resolveAdminLikeRouteBase,
 } from "@/lib/admin-shell-paths";
+import { resolveStudentAdminCapabilities } from "@/lib/admin-shell-access";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as studentApi from "@/lib/apis/student.api";
 import { formatCurrency } from "@/lib/class.helpers";
@@ -110,34 +111,14 @@ export default function AdminStudentDetailPage() {
         retry: false,
         staleTime: 60_000,
     });
-    const staffRoles = fullProfile?.staffInfo?.roles ?? [];
-    const isAssistantStaff =
-        routeBase === "/staff" &&
-        fullProfile?.roleType === "staff" &&
-        staffRoles.includes("assistant");
-    const isAccountantStaff =
-        routeBase === "/staff" &&
-        fullProfile?.roleType === "staff" &&
-        staffRoles.includes("accountant");
-    const isCustomerCareStaff =
-        routeBase === "/staff" &&
-        fullProfile?.roleType === "staff" &&
-        staffRoles.includes("customer_care");
-    const isCustomerCareReadOnlyView =
-        routeBase === "/staff" &&
-        fullProfile?.roleType === "staff" &&
-        !isAssistantStaff &&
-        isCustomerCareStaff;
-    const canManageStudent =
-        routeBase === "/admin" || fullProfile?.roleType === "admin" || isAssistantStaff;
-    const canCreateWalletQr =
-        canManageStudent || isAccountantStaff || isCustomerCareStaff;
-    const canDirectlyAdjustWallet =
-        routeBase === "/admin" || fullProfile?.roleType === "admin";
-    const canRequestDirectTopUp =
-        routeBase === "/staff" &&
-        fullProfile?.roleType === "staff" &&
-        (isAssistantStaff || isAccountantStaff || isCustomerCareStaff);
+    const {
+        isCustomerCareReadOnlyView,
+        canManageStudent,
+        canCreateWalletQr,
+        canDirectlyAdjustWallet,
+        canRequestDirectTopUp,
+        canEditStudentClassTuition,
+    } = resolveStudentAdminCapabilities(fullProfile, routeBase);
     const backLabel = isCustomerCareReadOnlyView
         ? "Quay lại trang CSKH"
         : "Quay lại danh sách học sinh";
@@ -237,6 +218,26 @@ export default function AdminStudentDetailPage() {
         },
     });
 
+    const statusMutation = useMutation({
+        mutationFn: async (payload: { status: StudentStatus; reason?: string }) =>
+            studentApi.updateStudentStatus(id, payload.status, payload.reason),
+        onSuccess: async (_updated, payload) => {
+            toast.success(payload.status === "inactive" ? "Đã chuyển học sinh sang nghỉ học." : "Đã chuyển học sinh sang đang học.");
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ["student", "detail", id] }),
+                queryClient.invalidateQueries({ queryKey: ["student", "list"] }),
+                queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
+            ]);
+        },
+        onError: (err: unknown) => {
+            const msg =
+                (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+                (err as Error)?.message ??
+                "Không thể cập nhật trạng thái học sinh.";
+            toast.error(msg);
+        },
+    });
+
     const handleTopUp = () => setBalancePopupMode("topup");
 
     const handleWithdraw = () => setBalancePopupMode("withdraw");
@@ -291,6 +292,18 @@ export default function AdminStudentDetailPage() {
     const normalizedStatus = normalizeStatus(student.status);
     const normalizedGender = normalizeGender(student.gender);
     const primaryChipClass = statusBadgeClass(normalizedStatus);
+    const handleToggleStudentStatus = () => {
+        const nextStatus: StudentStatus = normalizedStatus === "active" ? "inactive" : "active";
+        const confirmed = window.confirm(
+            nextStatus === "inactive"
+                ? "Chuyển học sinh sang nghỉ học? Các lớp đang học sẽ được đóng khỏi roster active."
+                : "Chuyển học sinh sang đang học? Hệ thống sẽ không tự thêm lại lớp cũ.",
+        );
+        if (!confirmed) return;
+
+        const reason = window.prompt("Lý do (không bắt buộc)") ?? undefined;
+        statusMutation.mutate({ status: nextStatus, reason });
+    };
     const initials = (student.fullName?.trim() || student.email || "?").charAt(0).toUpperCase();
     const contactEmail = student.email?.trim() || "Chưa có email";
     const sePayStaticQrErrorMessage =
@@ -397,7 +410,7 @@ export default function AdminStudentDetailPage() {
                     currentBalance={student.accountBalance ?? 0}
                 />
             ) : null}
-            {canManageStudent && editingPackageForClassId ? (() => {
+            {canEditStudentClassTuition && editingPackageForClassId ? (() => {
                 const item = classItemsWithTuition.find((classItem) => classItem.classId === editingPackageForClassId);
 
                 return (
@@ -409,8 +422,6 @@ export default function AdminStudentDetailPage() {
                         studentId={student.id}
                         initialPackageTotal={item?.packageTotal ?? null}
                         initialPackageSession={item?.packageSession ?? null}
-                        initialTuitionPerSession={item?.tuitionPerSession ?? null}
-                        classDefaultTuitionPerSession={item?.tuitionPerSession ?? null}
                         onSuccess={() => setEditingPackageForClassId(null)}
                     />
                 );
@@ -459,6 +470,20 @@ export default function AdminStudentDetailPage() {
                                                 <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586Z" />
                                                 </svg>
+                                            </button>
+                                        ) : null}
+                                        {canManageStudent ? (
+                                            <button
+                                                type="button"
+                                                onClick={handleToggleStudentStatus}
+                                                disabled={statusMutation.isPending}
+                                                className="inline-flex min-h-9 shrink-0 items-center rounded-full border border-border-default bg-bg-surface px-3 text-xs font-semibold text-text-secondary transition hover:bg-bg-tertiary hover:text-primary disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
+                                            >
+                                                {statusMutation.isPending
+                                                    ? "Đang lưu..."
+                                                    : normalizedStatus === "active"
+                                                      ? "Nghỉ học"
+                                                      : "Mở lại"}
                                             </button>
                                         ) : null}
                                     </div>
@@ -655,7 +680,7 @@ export default function AdminStudentDetailPage() {
                                                             <p className="font-medium text-text-primary">{item.className}</p>
                                                         </div>
                                                         <div className="mt-2 flex flex-col gap-1.5 text-sm text-text-secondary">
-                                                            {canManageStudent ? (
+                                                            {canEditStudentClassTuition ? (
                                                                 <button
                                                                     type="button"
                                                                     onClick={(e) => {
@@ -776,7 +801,7 @@ export default function AdminStudentDetailPage() {
                                                             </div>
                                                         </td>
                                                         <td className="px-4 py-3 text-text-secondary">
-                                                            {canManageStudent ? (
+                                                            {canEditStudentClassTuition ? (
                                                                 <button
                                                                     type="button"
                                                                     onClick={(e) => {
