@@ -2,11 +2,14 @@ export type StaffRoleType =
   | "teacher"
   | "assistant"
   | "accountant"
+  | "accountant_income"
+  | "accountant_expense"
   | "customer_care"
   | "lesson_plan"
   | "lesson_plan_head"
   | "communication"
-  | "technical";
+  | "technical"
+  | "training";
 
 export interface TaxDeductionSettingsQuery {
   asOfDate?: string;

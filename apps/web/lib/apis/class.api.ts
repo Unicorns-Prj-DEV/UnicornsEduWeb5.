@@ -2,6 +2,7 @@ import {
   ClassListItem,
   ClassListResponse,
   ClassStatus,
+  ClassStatusActionPayload,
   ClassTeacher,
   ClassTeacherPayload,
   ClassType,
@@ -12,7 +13,9 @@ import {
   UpdateClassBasicInfoPayload,
   UpdateClassPayload,
   UpdateClassSchedulePayload,
+  UpdateClassStudentTuitionPayload,
   UpdateClassStudentsPayload,
+  UpdateClassTeacherCompensationPayload,
   UpdateClassTeachersPayload,
 } from '@/dtos/class.dto';
 import type {
@@ -227,6 +230,29 @@ export async function deleteClassById(id: string) {
   return response.data;
 }
 
+export async function endClass(
+  id: string,
+  data: ClassStatusActionPayload = {},
+): Promise<ClassDetail> {
+  const safeId = encodeURIComponent(id);
+  const response = await api.post(`/class/${safeId}/end`, data);
+  return normalizeClassRecord(response.data as ClassDetail);
+}
+
+export async function stopClassTeacher(
+  classId: string,
+  teacherId: string,
+  data: ClassStatusActionPayload = {},
+): Promise<ClassDetail> {
+  const safeClassId = encodeURIComponent(classId);
+  const safeTeacherId = encodeURIComponent(teacherId);
+  const response = await api.post(
+    `/class/${safeClassId}/teachers/${safeTeacherId}/stop-teaching`,
+    data,
+  );
+  return normalizeClassRecord(response.data as ClassDetail);
+}
+
 export async function updateClass(data: UpdateClassPayload): Promise<ClassDetail> {
   const response = await api.patch("/class", normalizeTeachersPayload(data));
   return normalizeClassRecord(response.data as ClassDetail);
@@ -249,6 +275,18 @@ export async function updateClassTeachers(
   const response = await api.patch(
     `/class/${safeId}/teachers`,
     normalizeTeachersPayload(data),
+  );
+  return normalizeClassRecord(response.data as ClassDetail);
+}
+
+export async function updateClassTeacherCompensation(
+  id: string,
+  data: UpdateClassTeacherCompensationPayload,
+): Promise<ClassDetail> {
+  const safeId = encodeURIComponent(id);
+  const response = await api.patch(
+    `/class/${safeId}/teacher-compensation`,
+    data,
   );
   return normalizeClassRecord(response.data as ClassDetail);
 }
@@ -281,6 +319,15 @@ export async function updateClassStudents(
   const safeId = encodeURIComponent(id);
   const response = await api.patch(`/class/${safeId}/students`, data);
   return response.data;
+}
+
+export async function updateClassStudentTuition(
+  id: string,
+  data: UpdateClassStudentTuitionPayload,
+): Promise<ClassDetail> {
+  const safeId = encodeURIComponent(id);
+  const response = await api.patch(`/class/${safeId}/student-tuition`, data);
+  return normalizeClassRecord(response.data as ClassDetail);
 }
 
 export async function getClassMakeupEvents(

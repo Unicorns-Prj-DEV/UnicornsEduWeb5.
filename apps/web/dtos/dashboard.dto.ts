@@ -250,6 +250,7 @@ export interface StaffDashboardUnpaidStaffItem {
   customerCareAmount: number;
   lessonAmount: number;
   extraAllowanceAmount: number;
+  assistantAmount?: number;
   totalUnpaid: number;
 }
 
@@ -264,6 +265,56 @@ export interface StaffDashboardAccountantSection {
   financialOverview: StaffDashboardFinancialOverview;
 }
 
+export interface StaffDashboardExpenseSummary {
+  totalIncurred: number;
+  totalPaid: number;
+  totalPending: number;
+  pendingStaffCount: number;
+  pendingStaffTotal: number;
+}
+
+export interface StaffDashboardExpenseBreakdownItem {
+  key:
+    | "teacherCost"
+    | "customerCareCost"
+    | "assistantCost"
+    | "lessonCost"
+    | "bonusCost"
+    | "extraAllowanceCost"
+    | "operatingCost";
+  label: string;
+  amount: number;
+}
+
+export interface StaffDashboardPendingOperatingCostItem {
+  id: string;
+  category: string | null;
+  amount: number;
+  date: string | null;
+  description: string | null;
+}
+
+export interface StaffDashboardPendingOperatingCosts {
+  totalAmount: number;
+  totalCount: number;
+  items: StaffDashboardPendingOperatingCostItem[];
+}
+
+export interface StaffDashboardExpenseSection {
+  period: AdminDashboardPeriod;
+  summary: StaffDashboardExpenseSummary;
+  breakdown: StaffDashboardExpenseBreakdownItem[];
+  pendingStaff: StaffDashboardUnpaidStaffItem[];
+  pendingOperatingCosts: StaffDashboardPendingOperatingCosts;
+}
+
+export interface StaffDashboardTrainingSection {
+  todayClassCount: number;
+  todayEventCount: number;
+  runningClassCount: number;
+  fixedScheduleSlotCount: number;
+}
+
 export interface StaffDashboardDto {
   teacher?: StaffDashboardTeacherSection;
   lessonPlan?: StaffDashboardLessonPlanSection;
@@ -271,4 +322,6 @@ export interface StaffDashboardDto {
   assistant?: StaffDashboardAssistantSection;
   customerCare?: StaffDashboardCustomerCareSection;
   accountant?: StaffDashboardAccountantSection;
+  accountantExpense?: StaffDashboardExpenseSection;
+  training?: StaffDashboardTrainingSection;
 }

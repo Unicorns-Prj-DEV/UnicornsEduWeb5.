@@ -9,9 +9,12 @@ export type StaffRole =
   | "lesson_plan"
   | "lesson_plan_head"
   | "accountant"
+  | "accountant_income"
+  | "accountant_expense"
   | "communication"
   | "technical"
-  | "customer_care";
+  | "customer_care"
+  | "training";
 
 export interface CreateUserPayload {
   email: string;

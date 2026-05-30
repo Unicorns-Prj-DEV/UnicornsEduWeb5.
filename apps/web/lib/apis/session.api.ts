@@ -3,6 +3,7 @@ import {
   SessionBulkPaymentStatusUpdateResult,
   SessionCreatePayload,
   SessionItem,
+  MissedTeachingAlert,
   SessionMonthYearParams,
   SessionUnpaidSummaryItem,
   SessionUnpaidSummaryParams,
@@ -44,6 +45,30 @@ export async function getUnpaidSessionsByStaffId(
   });
   const payload = response.data;
   return Array.isArray(payload) ? payload : [];
+}
+
+export async function getMissedTeachingAlertsByClassId(
+  classId: string,
+  params?: { days?: number },
+): Promise<MissedTeachingAlert[]> {
+  const safeId = encodeURIComponent(classId);
+  const response = await api.get(`/sessions/class/${safeId}/missed-teaching-alerts`, {
+    params,
+  });
+  const payload = response.data;
+  return Array.isArray(payload) ? (payload as MissedTeachingAlert[]) : [];
+}
+
+export async function getMissedTeachingAlertsByStaffId(
+  staffId: string,
+  params?: { days?: number },
+): Promise<MissedTeachingAlert[]> {
+  const safeId = encodeURIComponent(staffId);
+  const response = await api.get(`/sessions/staff/${safeId}/missed-teaching-alerts`, {
+    params,
+  });
+  const payload = response.data;
+  return Array.isArray(payload) ? (payload as MissedTeachingAlert[]) : [];
 }
 
 export async function createSession(

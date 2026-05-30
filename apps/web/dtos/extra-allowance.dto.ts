@@ -39,10 +39,10 @@ export type ExtraAllowanceDetailResponse = ExtraAllowanceListItem;
 
 export type SelfManagedExtraAllowanceRoleType = Extract<
   ExtraAllowanceRoleType,
-  "communication" | "technical"
+  "communication" | "technical" | "training"
 >;
 
-/** POST /users/me/staff-extra-allowances — self-service for communication/technical */
+/** POST /users/me/staff-extra-allowances — self-service for communication/technical/training */
 export interface CreateMyStaffExtraAllowancePayload {
   roleType: SelfManagedExtraAllowanceRoleType;
   month: string;
@@ -50,7 +50,7 @@ export interface CreateMyStaffExtraAllowancePayload {
   note?: string;
 }
 
-/** PATCH /users/me/staff-extra-allowances — self-service for communication/technical */
+/** PATCH /users/me/staff-extra-allowances — self-service for communication/technical/training */
 export interface UpdateMyStaffExtraAllowancePayload {
   id: string;
   roleType: SelfManagedExtraAllowanceRoleType;

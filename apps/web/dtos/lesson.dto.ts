@@ -16,9 +16,12 @@ export type LessonStaffRole =
   | "lesson_plan"
   | "lesson_plan_head"
   | "accountant"
+  | "accountant_income"
+  | "accountant_expense"
   | "communication"
   | "technical"
-  | "customer_care";
+  | "customer_care"
+  | "training";
 
 export interface LessonOverviewSummary {
   resourceCount: number;
@@ -41,6 +44,7 @@ export interface LessonResourceItem {
   resourceLink: string;
   lessonTaskId: string | null;
   tags: string[];
+  createdBy: string | null;
   createdAt: string;
   updatedAt: string;
 }

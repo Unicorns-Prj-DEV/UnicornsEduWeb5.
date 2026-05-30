@@ -13,7 +13,7 @@ import type {
   CreateClassSurveyPayload,
   UpdateClassSurveyPayload,
 } from "@/dtos/class-survey.dto";
-import type { SessionItem } from "@/dtos/session.dto";
+import type { MissedTeachingAlert, SessionItem } from "@/dtos/session.dto";
 import type {
   StaffOpsCreateClassPayload,
   StaffOpsCreateSessionPayload,
@@ -144,6 +144,18 @@ export async function getSessionsByClassId(
     params,
   });
   return Array.isArray(response.data) ? (response.data as SessionItem[]) : [];
+}
+
+export async function getMissedTeachingAlertsByClassId(
+  classId: string,
+  params?: { days?: number },
+): Promise<MissedTeachingAlert[]> {
+  const safeId = encodeURIComponent(classId);
+  const response = await api.get(
+    `/staff-ops/classes/${safeId}/missed-teaching-alerts`,
+    { params },
+  );
+  return Array.isArray(response.data) ? (response.data as MissedTeachingAlert[]) : [];
 }
 
 export async function createSession(

@@ -185,7 +185,7 @@ export interface StaffIncomeSummary {
     depositYearByClass: StaffIncomeDepositClassSummary[];
     /** Card "Lớp phụ trách": `total` / `paid` / `unpaid` đều là gross allowance, chưa trừ CPVH/thuế. */
     classMonthlySummaries: StaffIncomeClassSummary[];
-    /** Thưởng tháng đang xem: sau thuế (không KH VH); gross/tax xem `monthlyGrossTotals` / `monthlyTaxTotals`. */
+    /** Thưởng tháng đang xem: sau khấu trừ thuế (không KH VH); gross/tax xem `monthlyGrossTotals` / `monthlyTaxTotals`. */
     bonusMonthlyTotals: StaffIncomeAmountSummary;
     otherRoleSummaries: StaffIncomeRoleSummary[];
 }
@@ -202,6 +202,7 @@ export interface StaffPaymentPreviewItem {
     id: string;
     label: string;
     secondaryLabel: string | null;
+    classId?: string | null;
     date: string | null;
     currentStatus: string | null;
     taxRatePercent: number;

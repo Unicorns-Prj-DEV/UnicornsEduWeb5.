@@ -48,6 +48,7 @@ export interface ClassTeacher {
     id: string;
     fullName: string;
     status?: StaffStatus;
+    assignmentStatus?: "active" | "inactive" | string | null;
     /** Custom allowance for this teacher in this class (VNĐ). From class_teachers.custom_allowance. */
     customAllowance?: number | null;
     /** Operating deduction rate for this teacher in this class in percent. */
@@ -133,6 +134,20 @@ export interface UpdateClassTeachersPayload {
     teachers: ClassTeacherPayload[];
 }
 
+export interface UpdateClassTeacherCompensationPayload {
+    teachers: Array<{
+        teacher_id: string;
+        custom_allowance: number;
+        operating_deduction_rate_percent?: number;
+        /** @deprecated Compatibility alias for legacy API contracts. */
+        tax_rate_percent?: number;
+    }>;
+}
+
+export interface ClassStatusActionPayload {
+    reason?: string;
+}
+
 export interface ClassTeacherPayload {
     teacher_id: string;
     custom_allowance?: number;
@@ -157,6 +172,14 @@ export interface UpdateClassStudentItemPayload {
 /** Payload for PATCH /class/:id/students */
 export interface UpdateClassStudentsPayload {
     students: UpdateClassStudentItemPayload[];
+}
+
+/** Payload for PATCH /class/:id/student-tuition */
+export interface UpdateClassStudentTuitionPayload {
+    student_id: string;
+    custom_tuition_per_session?: number;
+    custom_tuition_package_total?: number;
+    custom_tuition_package_session?: number;
 }
 
 export interface ClassListItemDto {

@@ -7,9 +7,12 @@ export type RegulationAudience =
   | "staff_lesson_plan"
   | "staff_lesson_plan_head"
   | "staff_accountant"
+  | "staff_accountant_income"
+  | "staff_accountant_expense"
   | "staff_communication"
   | "staff_technical"
-  | "staff_customer_care";
+  | "staff_customer_care"
+  | "staff_training";
 
 export interface RegulationAuthor {
   userId: string | null;

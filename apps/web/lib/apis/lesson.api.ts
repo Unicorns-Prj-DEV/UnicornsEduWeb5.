@@ -160,6 +160,7 @@ function normalizeLessonResourceItem(
     resourceLink: value.resourceLink,
     lessonTaskId: value.lessonTaskId ?? null,
     tags: normalizeStringList(value.tags),
+    createdBy: value.createdBy ?? null,
     createdAt: value.createdAt ?? "",
     updatedAt: value.updatedAt ?? "",
   };

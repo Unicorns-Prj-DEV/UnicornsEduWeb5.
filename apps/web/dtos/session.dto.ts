@@ -33,6 +33,18 @@ export interface SessionUnpaidSummaryItem {
   totalAllowance: number | string;
 }
 
+export interface MissedTeachingAlert {
+  id: string;
+  classId: string;
+  className: string;
+  teacherId: string;
+  teacherName?: string | null;
+  scheduleEntryId: string;
+  originalDate: string;
+  scheduledStartTime: string;
+  scheduledEndTime?: string | null;
+}
+
 export interface SessionCreatePayload {
   classId: string;
   teacherId: string;

@@ -141,9 +141,13 @@ export async function updateStaff(payload: {
 export async function updateStaffStatus(
     id: string,
     status: StaffStatus,
+    reason?: string,
 ): Promise<StaffDetail> {
     const safeId = encodeURIComponent(id);
-    const response = await api.patch(`/staff/${safeId}/status`, { status });
+    const response = await api.patch(`/staff/${safeId}/status`, {
+        status,
+        ...(reason?.trim() ? { reason: reason.trim() } : {}),
+    });
     return response.data as StaffDetail;
 }
 

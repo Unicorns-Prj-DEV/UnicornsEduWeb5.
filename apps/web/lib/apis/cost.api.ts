@@ -14,6 +14,7 @@ export async function getCosts(params: {
   search?: string;
   year?: string;
   month?: string;
+  status?: string;
 }): Promise<CostListResponse> {
   const response = await api.get("/cost", {
     params: {
@@ -22,6 +23,7 @@ export async function getCosts(params: {
       ...(params.search ? { search: params.search } : {}),
       ...(params.year ? { year: params.year } : {}),
       ...(params.month ? { month: params.month } : {}),
+      ...(params.status ? { status: params.status } : {}),
     },
   });
 
