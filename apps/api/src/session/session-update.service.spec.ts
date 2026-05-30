@@ -26,9 +26,6 @@ describe('SessionUpdateService', () => {
     classTeacher: {
       findUnique: jest.fn(),
     },
-    classTeacherOperatingDeductionRate: {
-      findFirst: jest.fn(),
-    },
     roleTaxDeductionRate: {
       findFirst: jest.fn(),
     },
@@ -76,9 +73,6 @@ describe('SessionUpdateService', () => {
     mockPrisma.session.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma.session.update.mockResolvedValue({ id: 'session-1' });
     mockPrisma.classTeacher.findUnique.mockResolvedValue(null);
-    mockPrisma.classTeacherOperatingDeductionRate.findFirst.mockResolvedValue(
-      null,
-    );
     mockPrisma.roleTaxDeductionRate.findFirst.mockResolvedValue(null);
     mockPrisma.staffTaxDeductionOverride.findFirst.mockResolvedValue(null);
     service = new SessionUpdateService(
@@ -180,8 +174,8 @@ describe('SessionUpdateService', () => {
         teacherPaymentStatus: SessionPaymentStatus.paid,
       },
     ]);
-    mockPrisma.classTeacherOperatingDeductionRate.findFirst.mockResolvedValue({
-      ratePercent: 7,
+    mockPrisma.classTeacher.findUnique.mockResolvedValue({
+      operatingDeductionRatePercent: 7,
     });
     mockPrisma.roleTaxDeductionRate.findFirst.mockResolvedValue({
       ratePercent: 12,
@@ -339,8 +333,8 @@ describe('SessionUpdateService', () => {
         id: 'session-1',
         attendance: [],
       });
-    mockPrisma.classTeacherOperatingDeductionRate.findFirst.mockResolvedValue({
-      ratePercent: 6,
+    mockPrisma.classTeacher.findUnique.mockResolvedValue({
+      operatingDeductionRatePercent: 6,
     });
     mockPrisma.roleTaxDeductionRate.findFirst.mockResolvedValue({
       ratePercent: 11,

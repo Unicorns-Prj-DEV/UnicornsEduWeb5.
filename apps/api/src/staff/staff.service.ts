@@ -55,7 +55,6 @@ import {
 } from 'src/common/user-name.util';
 import {
   normalizePercent,
-  resolveOperatingDeductionRate,
   resolveTaxDeductionRate,
   roundMoney,
 } from 'src/payroll/deduction-rates';
@@ -2392,8 +2391,8 @@ export class StaffService {
 
   /**
    * Resolve % vận hành hiện hành (server now) cho từng classId của giáo viên.
-   * Ưu tiên bảng `class_teacher_operating_deduction_rates` (effective-date),
-   * fallback về `class_teachers.operatingDeductionRatePercent`.
+   * Source of truth: `class_teachers.tax_rate_percent`
+   * (Prisma `operatingDeductionRatePercent`).
    */
   private async resolveCurrentOperatingRates(
     db: StaffPaymentClient,
@@ -2403,28 +2402,23 @@ export class StaffService {
     if (classIds.length === 0) {
       return new Map();
     }
-    const effectiveDate = new Date();
-    const entries = await Promise.all(
-      classIds.map(async (classId) => {
-        const fromTable = await resolveOperatingDeductionRate(db, {
-          classId,
-          teacherId,
-          effectiveDate,
-        });
-        if (fromTable > 0) {
-          return [classId, fromTable] as const;
-        }
-        const classTeacher = await db.classTeacher.findUnique({
-          where: { classId_teacherId: { classId, teacherId } },
-          select: { operatingDeductionRatePercent: true },
-        });
-        return [
-          classId,
-          normalizePercent(classTeacher?.operatingDeductionRatePercent),
-        ] as const;
-      }),
+    const classTeachers = await db.classTeacher.findMany({
+      where: {
+        teacherId,
+        classId: { in: classIds },
+      },
+      select: {
+        classId: true,
+        operatingDeductionRatePercent: true,
+      },
+    });
+
+    return new Map(
+      classTeachers.map((classTeacher) => [
+        classTeacher.classId,
+        normalizePercent(classTeacher.operatingDeductionRatePercent),
+      ]),
     );
-    return new Map(entries);
   }
 
   private finalizePaymentPreviewRecords(
@@ -4317,7 +4311,11 @@ export class StaffService {
     staffId: string,
     classId: string,
     dto: PatchStaffClassTeacherOperatingDeductionDto,
-    actor: { roleType: UserRole; staffRoles?: StaffRole[] },
+    actor: {
+      roleType: UserRole;
+      staffRoles?: StaffRole[];
+      auditActor?: ActionHistoryActor;
+    },
   ) {
     const canPatchOperatingDeduction =
       actor.roleType === UserRole.admin ||
@@ -4333,7 +4331,6 @@ export class StaffService {
     }
 
     const ratePercent = normalizePercent(dto.operating_deduction_rate_percent);
-    const effectiveFrom = toDateOnly(new Date());
 
     const assignment = await this.prisma.classTeacher.findUnique({
       where: {
@@ -4342,7 +4339,7 @@ export class StaffService {
           teacherId: staffId,
         },
       },
-      select: { id: true },
+      select: { id: true, operatingDeductionRatePercent: true },
     });
 
     if (!assignment) {
@@ -4352,6 +4349,14 @@ export class StaffService {
     }
 
     await this.prisma.$transaction(async (tx) => {
+      const beforeValue = {
+        staffId,
+        classId,
+        operatingDeductionRatePercent: normalizePercent(
+          assignment.operatingDeductionRatePercent,
+        ),
+      };
+
       await tx.classTeacher.update({
         where: {
           classId_teacherId: {
@@ -4364,24 +4369,20 @@ export class StaffService {
         },
       });
 
-      await tx.classTeacherOperatingDeductionRate.upsert({
-        where: {
-          classId_teacherId_effectiveFrom: {
+      if (actor.auditActor) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor: actor.auditActor,
+          entityType: 'class_teacher',
+          entityId: assignment.id,
+          description: 'Cập nhật % khấu trừ vận hành gia sư-lớp',
+          beforeValue,
+          afterValue: {
             classId,
-            teacherId: staffId,
-            effectiveFrom,
+            staffId,
+            operatingDeductionRatePercent: ratePercent,
           },
-        },
-        create: {
-          classId,
-          teacherId: staffId,
-          ratePercent,
-          effectiveFrom,
-        },
-        update: {
-          ratePercent,
-        },
-      });
+        });
+      }
     });
 
     return this.getStaffById(staffId);

@@ -78,10 +78,6 @@ describe('StaffService', () => {
       update: jest.fn(),
       updateMany: jest.fn(),
     },
-    classTeacherOperatingDeductionRate: {
-      findFirst: jest.fn(),
-      upsert: jest.fn(),
-    },
     session: {
       findMany: jest.fn(),
       updateMany: jest.fn(),
@@ -145,13 +141,10 @@ describe('StaffService', () => {
     mockPrisma.extraAllowance.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma.roleTaxDeductionRate.findFirst.mockResolvedValue(null);
     mockPrisma.staffTaxDeductionOverride.findFirst.mockResolvedValue(null);
+    mockPrisma.classTeacher.findMany.mockResolvedValue([]);
     mockPrisma.classTeacher.findUnique.mockResolvedValue(null);
     mockPrisma.classTeacher.update.mockResolvedValue({});
     mockPrisma.classTeacher.updateMany.mockResolvedValue({ count: 0 });
-    mockPrisma.classTeacherOperatingDeductionRate.findFirst.mockResolvedValue(
-      null,
-    );
-    mockPrisma.classTeacherOperatingDeductionRate.upsert.mockResolvedValue({});
     mockPrisma.class.findMany.mockResolvedValue([]);
     mockPrisma.class.update.mockResolvedValue({});
     mockPrisma.makeupScheduleEvent.updateMany.mockResolvedValue({ count: 0 });
@@ -1307,10 +1300,6 @@ describe('StaffService', () => {
           taxableBaseAmount: 50000,
         },
       ]);
-    mockPrisma.classTeacher.findUnique.mockResolvedValue({
-      operatingDeductionRatePercent: 0,
-    });
-
     const result = await service.getIncomeSummary('staff-1', {
       month: '03',
       year: '2026',
@@ -1488,9 +1477,12 @@ describe('StaffService', () => {
     mockPrisma.staffTaxDeductionOverride.findFirst.mockResolvedValue({
       ratePercent: 10,
     });
-    mockPrisma.classTeacher.findUnique.mockResolvedValue({
-      operatingDeductionRatePercent: 10,
-    });
+    mockPrisma.classTeacher.findMany.mockResolvedValue([
+      {
+        classId: 'class-1',
+        operatingDeductionRatePercent: 10,
+      },
+    ]);
     jest
       .spyOn(
         service as any,
@@ -1682,9 +1674,12 @@ describe('StaffService', () => {
     mockPrisma.staffTaxDeductionOverride.findFirst.mockResolvedValue({
       ratePercent: 10,
     });
-    mockPrisma.classTeacher.findUnique.mockResolvedValue({
-      operatingDeductionRatePercent: 20,
-    });
+    mockPrisma.classTeacher.findMany.mockResolvedValue([
+      {
+        classId: 'class-1',
+        operatingDeductionRatePercent: 20,
+      },
+    ]);
     const testAccess = service as unknown as StaffServiceTestAccess;
     jest
       .spyOn(testAccess, 'getTeacherAllowanceSourceRowsByStatusAndTaxBucket')
@@ -2267,6 +2262,7 @@ describe('StaffService', () => {
   it('lets expense accountants update class operating deduction rates', async () => {
     mockPrisma.classTeacher.findUnique.mockResolvedValue({
       id: 'assignment-1',
+      operatingDeductionRatePercent: 5,
     });
     jest
       .spyOn(service, 'getStaffById')
@@ -2279,6 +2275,11 @@ describe('StaffService', () => {
       {
         roleType: UserRole.staff,
         staffRoles: [StaffRole.accountant_expense],
+        auditActor: {
+          userId: 'admin-1',
+          userEmail: 'admin@example.com',
+          roleType: UserRole.admin,
+        },
       },
     );
 
@@ -2293,24 +2294,24 @@ describe('StaffService', () => {
         operatingDeductionRatePercent: 12.5,
       },
     });
-    expect(
-      mockPrisma.classTeacherOperatingDeductionRate.upsert,
-    ).toHaveBeenCalledWith({
-      where: {
-        classId_teacherId_effectiveFrom: {
-          classId: 'class-1',
-          teacherId: 'staff-1',
-          effectiveFrom: expect.any(Date),
-        },
+    expect(actionHistoryService.recordUpdate).toHaveBeenCalledWith(mockPrisma, {
+      actor: {
+        userId: 'admin-1',
+        userEmail: 'admin@example.com',
+        roleType: UserRole.admin,
       },
-      create: {
+      entityType: 'class_teacher',
+      entityId: 'assignment-1',
+      description: 'Cập nhật % khấu trừ vận hành gia sư-lớp',
+      beforeValue: {
+        staffId: 'staff-1',
         classId: 'class-1',
-        teacherId: 'staff-1',
-        ratePercent: 12.5,
-        effectiveFrom: expect.any(Date),
+        operatingDeductionRatePercent: 5,
       },
-      update: {
-        ratePercent: 12.5,
+      afterValue: {
+        staffId: 'staff-1',
+        classId: 'class-1',
+        operatingDeductionRatePercent: 12.5,
       },
     });
   });

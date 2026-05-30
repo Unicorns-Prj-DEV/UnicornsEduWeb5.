@@ -12,11 +12,6 @@ type PrismaLike = {
       ratePercent: Prisma.Decimal | number | string;
     } | null>;
   };
-  classTeacherOperatingDeductionRate?: {
-    findFirst(args: unknown): Promise<{
-      ratePercent: Prisma.Decimal | number | string;
-    } | null>;
-  };
 };
 
 export type DeductionAmounts = {
@@ -115,44 +110,18 @@ export function createMemoizedTaxDeductionResolver(
   };
 }
 
-export async function resolveOperatingDeductionRate(
-  prisma: PrismaLike,
-  params: {
-    classId: string;
-    teacherId: string;
-    effectiveDate: Date;
-  },
-) {
-  if (!prisma.classTeacherOperatingDeductionRate) {
-    return 0;
-  }
-
-  const operatingRate =
-    await prisma.classTeacherOperatingDeductionRate.findFirst({
-      where: {
-        classId: params.classId,
-        teacherId: params.teacherId,
-        effectiveFrom: {
-          lte: params.effectiveDate,
-        },
-      },
-      orderBy: [{ effectiveFrom: 'desc' }, { createdAt: 'desc' }],
-    });
-
-  return normalizePercent(operatingRate?.ratePercent);
-}
-
 export function calculateDeductionAmounts(params: {
   grossAmount: number;
   taxRatePercent?: number | null;
   operatingRatePercent?: number | null;
 }) {
   const grossAmount = roundMoney(params.grossAmount);
-  const taxDeductionAmount = roundMoney(
-    (grossAmount * normalizePercent(params.taxRatePercent)) / 100,
-  );
   const operatingDeductionAmount = roundMoney(
     (grossAmount * normalizePercent(params.operatingRatePercent)) / 100,
+  );
+  const taxableBaseAmount = grossAmount - operatingDeductionAmount;
+  const taxDeductionAmount = roundMoney(
+    (taxableBaseAmount * normalizePercent(params.taxRatePercent)) / 100,
   );
 
   return {

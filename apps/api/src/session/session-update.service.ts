@@ -30,7 +30,6 @@ import { SessionValidationService } from './session-validation.service';
 import {
   createMemoizedTaxDeductionResolver,
   normalizePercent,
-  resolveOperatingDeductionRate,
   resolveTaxDeductionRate,
 } from '../payroll/deduction-rates';
 import { computeDefaultSessionAllowanceAmountVnd } from './session-allowance.util';
@@ -101,27 +100,20 @@ export class SessionUpdateService {
       effectiveDate: Date;
     },
   ): Promise<TeacherPaymentRateSnapshot> {
-    const resolvedOperatingDeductionRatePercent =
-      await resolveOperatingDeductionRate(db, params);
-    let teacherOperatingDeductionRatePercent =
-      resolvedOperatingDeductionRatePercent;
-
-    if (teacherOperatingDeductionRatePercent <= 0) {
-      const classTeacher = await db.classTeacher.findUnique({
-        where: {
-          classId_teacherId: {
-            classId: params.classId,
-            teacherId: params.teacherId,
-          },
+    const classTeacher = await db.classTeacher.findUnique({
+      where: {
+        classId_teacherId: {
+          classId: params.classId,
+          teacherId: params.teacherId,
         },
-        select: {
-          operatingDeductionRatePercent: true,
-        },
-      });
-      teacherOperatingDeductionRatePercent = normalizePercent(
-        classTeacher?.operatingDeductionRatePercent,
-      );
-    }
+      },
+      select: {
+        operatingDeductionRatePercent: true,
+      },
+    });
+    const teacherOperatingDeductionRatePercent = normalizePercent(
+      classTeacher?.operatingDeductionRatePercent,
+    );
 
     const teacherTaxDeductionRatePercent = await resolveTaxDeductionRate(db, {
       staffId: params.teacherId,
@@ -506,20 +498,11 @@ export class SessionUpdateService {
             const currentTeacherOperatingDeductionRatePercent = Number(
               classTeacher.operatingDeductionRatePercent ?? 0,
             );
-            const resolvedTeacherOperatingDeductionRatePercent =
-              await resolveOperatingDeductionRate(tx, {
-                classId: nextClassId,
-                teacherId: nextTeacherId,
-                effectiveDate: effectiveSessionDate,
-              });
             teacherOperatingDeductionRatePercentUpdate =
-              resolvedTeacherOperatingDeductionRatePercent > 0
-                ? resolvedTeacherOperatingDeductionRatePercent
-                : Number.isFinite(currentTeacherOperatingDeductionRatePercent)
-                  ? Math.round(
-                      currentTeacherOperatingDeductionRatePercent * 100,
-                    ) / 100
-                  : 0;
+              Number.isFinite(currentTeacherOperatingDeductionRatePercent)
+                ? Math.round(currentTeacherOperatingDeductionRatePercent * 100) /
+                  100
+                : 0;
             teacherTaxDeductionRatePercentUpdate =
               await resolveTaxDeductionRate(tx, {
                 staffId: nextTeacherId,

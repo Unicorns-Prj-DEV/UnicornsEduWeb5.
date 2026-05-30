@@ -184,7 +184,6 @@ export class ClassService {
       assignmentStatus: record.status,
       customAllowance: record.customAllowance,
       operatingDeductionRatePercent,
-      taxRatePercent: operatingDeductionRatePercent,
     };
   }
 
@@ -193,55 +192,6 @@ export class ClassService {
       const assignment = this.mapTeacherAssignment(record);
       return assignment ? [assignment] : [];
     });
-  }
-
-  private async appendOperatingDeductionRateHistory(
-    db: Pick<PrismaService, 'classTeacherOperatingDeductionRate'>,
-    rows: Array<{
-      classId: string;
-      teacherId: string;
-      operatingDeductionRatePercent: number;
-      effectiveFrom?: Date;
-    }>,
-  ) {
-    if (rows.length === 0) {
-      return;
-    }
-
-    const deduplicatedRows = Array.from(
-      new Map(
-        rows.map((row) => {
-          const effectiveFrom = toDateOnly(row.effectiveFrom);
-          return [
-            `${row.classId}:${row.teacherId}:${effectiveFrom.toISOString()}`,
-            {
-              classId: row.classId,
-              teacherId: row.teacherId,
-              ratePercent: row.operatingDeductionRatePercent,
-              effectiveFrom,
-            },
-          ] as const;
-        }),
-      ).values(),
-    );
-
-    await Promise.all(
-      deduplicatedRows.map((row) =>
-        db.classTeacherOperatingDeductionRate.upsert({
-          where: {
-            classId_teacherId_effectiveFrom: {
-              classId: row.classId,
-              teacherId: row.teacherId,
-              effectiveFrom: row.effectiveFrom,
-            },
-          },
-          create: row,
-          update: {
-            ratePercent: row.ratePercent,
-          },
-        }),
-      ),
-    );
   }
 
   private isTeacherActor(roles: string[]) {
@@ -946,15 +896,6 @@ export class ClassService {
           })),
         });
 
-        await this.appendOperatingDeductionRateHistory(
-          tx,
-          teacherPayload.map((teacher) => ({
-            classId: createdClass.id,
-            teacherId: teacher.teacherId,
-            operatingDeductionRatePercent:
-              teacher.operatingDeductionRatePercent,
-          })),
-        );
       }
 
       if (data.student_ids && data.student_ids.length > 0) {
@@ -1052,12 +993,6 @@ export class ClassService {
             operatingDeductionRatePercent: true,
           },
         });
-        const existingRateByTeacherId = new Map(
-          existingTeachers.map((teacher) => [
-            teacher.teacherId,
-            normalizeRatePercent(teacher.operatingDeductionRatePercent),
-          ]),
-        );
         const nextTeacherIds = new Set(
           teacherPayload.map((teacher) => teacher.teacherId),
         );
@@ -1094,21 +1029,6 @@ export class ClassService {
             })),
           });
 
-          await this.appendOperatingDeductionRateHistory(
-            tx,
-            teacherPayload
-              .filter(
-                (teacher) =>
-                  existingRateByTeacherId.get(teacher.teacherId) !==
-                  teacher.operatingDeductionRatePercent,
-              )
-              .map((teacher) => ({
-                classId: data.id,
-                teacherId: teacher.teacherId,
-                operatingDeductionRatePercent:
-                  teacher.operatingDeductionRatePercent,
-              })),
-          );
         }
       }
 
@@ -1379,12 +1299,6 @@ export class ClassService {
           operatingDeductionRatePercent: true,
         },
       });
-      const existingRateByTeacherId = new Map(
-        existingTeachers.map((teacher) => [
-          teacher.teacherId,
-          normalizeRatePercent(teacher.operatingDeductionRatePercent),
-        ]),
-      );
       const nextTeacherIds = new Set(
         teacherPayload.map((teacher) => teacher.teacherId),
       );
@@ -1407,21 +1321,6 @@ export class ClassService {
           })),
         });
 
-        await this.appendOperatingDeductionRateHistory(
-          tx,
-          teacherPayload
-            .filter(
-              (teacher) =>
-                existingRateByTeacherId.get(teacher.teacherId) !==
-                teacher.operatingDeductionRatePercent,
-            )
-            .map((teacher) => ({
-              classId: id,
-              teacherId: teacher.teacherId,
-              operatingDeductionRatePercent:
-                teacher.operatingDeductionRatePercent,
-            })),
-        );
       }
 
       const { oldSchedule, nextSchedule, removedScheduleEntries } =
@@ -1546,18 +1445,6 @@ export class ClassService {
           },
         });
 
-        if (
-          nextOperatingDeductionRatePercent !==
-          currentOperatingDeductionRatePercent
-        ) {
-          await this.appendOperatingDeductionRateHistory(tx, [
-            {
-              classId: id,
-              teacherId: teacher.teacher_id,
-              operatingDeductionRatePercent: nextOperatingDeductionRatePercent,
-            },
-          ]);
-        }
       }
 
       const afterValue = await this.getClassAuditSnapshot(tx, id);

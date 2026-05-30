@@ -473,7 +473,15 @@ export class StaffController {
       id,
       classId,
       body,
-      { roleType: user.roleType, staffRoles: req.resolvedStaffRoles ?? [] },
+      {
+        roleType: user.roleType,
+        staffRoles: req.resolvedStaffRoles ?? [],
+        auditActor: {
+          userId: user.id,
+          userEmail: user.email,
+          roleType: user.roleType,
+        },
+      },
     );
   }
 

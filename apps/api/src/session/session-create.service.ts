@@ -23,10 +23,7 @@ import { SessionSnapshotService } from './session-snapshot.service';
 import { SessionStudentBalanceService } from './session-student-balance.service';
 import { SessionValidationService } from './session-validation.service';
 import { SessionScheduleRulesService } from './session-schedule-rules.service';
-import {
-  createMemoizedTaxDeductionResolver,
-  resolveOperatingDeductionRate,
-} from '../payroll/deduction-rates';
+import { createMemoizedTaxDeductionResolver } from '../payroll/deduction-rates';
 import { computeDefaultSessionAllowanceAmountVnd } from './session-allowance.util';
 
 /** Interactive tx: create runs many reads, balance/wallet writes, nested attendance create, optional audit snapshot. */
@@ -207,19 +204,11 @@ export class SessionCreateService {
         const currentTeacherOperatingDeductionRatePercent = Number(
           classTeacher.operatingDeductionRatePercent ?? 0,
         );
-        const resolvedTeacherOperatingDeductionRatePercent =
-          await resolveOperatingDeductionRate(tx, {
-            classId: data.classId,
-            teacherId: data.teacherId,
-            effectiveDate: sessionDate,
-          });
-        const teacherOperatingDeductionRatePercent =
-          resolvedTeacherOperatingDeductionRatePercent > 0
-            ? resolvedTeacherOperatingDeductionRatePercent
-            : Number.isFinite(currentTeacherOperatingDeductionRatePercent)
-              ? Math.round(currentTeacherOperatingDeductionRatePercent * 100) /
-                100
-              : 0;
+        const teacherOperatingDeductionRatePercent = Number.isFinite(
+          currentTeacherOperatingDeductionRatePercent,
+        )
+          ? Math.round(currentTeacherOperatingDeductionRatePercent * 100) / 100
+          : 0;
         const teacherTaxDeductionRatePercent = await getTaxRate(
           data.teacherId,
           StaffRole.teacher,

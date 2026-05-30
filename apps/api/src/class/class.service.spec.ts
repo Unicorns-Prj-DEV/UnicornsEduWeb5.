@@ -55,9 +55,6 @@ describe('ClassService', () => {
       updateMany: jest.fn(),
       findUnique: jest.fn(),
     },
-    classTeacherOperatingDeductionRate: {
-      upsert: jest.fn(),
-    },
     staffInfo: {
       findMany: jest.fn(),
     },
@@ -156,9 +153,6 @@ describe('ClassService', () => {
     mockTx.classTeacher.update.mockResolvedValue({});
     mockTx.classTeacher.updateMany.mockResolvedValue({ count: 0 });
     mockTx.classTeacher.findUnique.mockResolvedValue(null);
-    mockTx.classTeacherOperatingDeductionRate.upsert.mockResolvedValue({
-      id: 'history-1',
-    });
     mockTx.staffInfo.findMany.mockImplementation((args: any) => {
       const ids = args?.where?.id?.in ?? [];
       return ids.map((id: string) => ({ id, status: StaffStatus.active }));
@@ -290,7 +284,6 @@ describe('ClassService', () => {
                 status: StaffStatus.active,
                 customAllowance: 100000,
                 operatingDeductionRatePercent: 10,
-                taxRatePercent: 10,
               },
             ],
           },
@@ -715,9 +708,7 @@ describe('ClassService', () => {
       });
     });
 
-    it('upserts same-day operating deduction history rows', async () => {
-      const expectedEffectiveFrom = expect.any(Date) as unknown as Date;
-
+    it('persists operating deduction on the class-teacher assignment', async () => {
       await service.updateClassTeachers('class-1', {
         teachers: [
           {
@@ -738,26 +729,6 @@ describe('ClassService', () => {
             status: 'active',
           },
         ],
-      });
-      expect(
-        mockTx.classTeacherOperatingDeductionRate.upsert,
-      ).toHaveBeenCalledWith({
-        where: {
-          classId_teacherId_effectiveFrom: {
-            classId: 'class-1',
-            teacherId: 'teacher-1',
-            effectiveFrom: expectedEffectiveFrom,
-          },
-        },
-        create: {
-          classId: 'class-1',
-          teacherId: 'teacher-1',
-          ratePercent: 7.5,
-          effectiveFrom: expectedEffectiveFrom,
-        },
-        update: {
-          ratePercent: 7.5,
-        },
       });
     });
 
@@ -877,26 +848,6 @@ describe('ClassService', () => {
         data: {
           customAllowance: 150000,
           operatingDeductionRatePercent: 7.5,
-        },
-      });
-      expect(
-        mockTx.classTeacherOperatingDeductionRate.upsert,
-      ).toHaveBeenCalledWith({
-        where: {
-          classId_teacherId_effectiveFrom: {
-            classId: 'class-1',
-            teacherId: 'teacher-1',
-            effectiveFrom: expect.any(Date),
-          },
-        },
-        create: {
-          classId: 'class-1',
-          teacherId: 'teacher-1',
-          ratePercent: 7.5,
-          effectiveFrom: expect.any(Date),
-        },
-        update: {
-          ratePercent: 7.5,
         },
       });
     });
