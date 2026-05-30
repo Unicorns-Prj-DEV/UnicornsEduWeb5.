@@ -60,6 +60,13 @@
 - Layout: `StudentSidebar` + vùng main (`#student-main-content`), skip link “Bỏ qua điều hướng”; không còn `Navbar` trong shell học sinh.
 - Nội dung trang bám admin student detail nhưng đổi CTA và copy về hướng self-service.
 
+## Mobile responsive notes
+
+- Student shell uses sidebar + main content like other protected workspaces; mobile controls should maintain at least 44px touch targets.
+- Student class cards wrap long class/package names and stack label/value rows below narrow-phone width.
+- The current runtime includes self-profile, wallet, linked classes, and exam schedule data. A full student timetable/session schedule remains a planned surface and should reuse existing class/session/calendar data instead of calculating authoritative facts in the frontend.
+- `StudentSidebar` still links account management to shared `/user-profile`; if a dedicated `/student/profile` route is introduced, keep nav and notification context inside the student shell.
+
 ## DoD and week
 
 - **Tuần 5:** Student sees only own data; basic self-profile editing and SePay QR wallet top-up available for own account only; tuition on linked classes is visible in read-only mode; frontend `/student` connected to real API.

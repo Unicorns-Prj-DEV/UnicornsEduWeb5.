@@ -23,7 +23,13 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- BE/FE Đào Tạo role: thêm `StaffRole.training` / nhãn **Đào Tạo**, mở `/staff/calendar` cho lịch toàn bộ lớp đang chạy với redaction học sinh, random-check lớp đang diễn ra có Meet, dashboard Đào Tạo và docs route/schema tương ứng.
+
 - BE/API `regulations`: thêm hard-delete `DELETE /regulations/:id` cho admin và `staff.assistant`, có ghi `action_history`; FE `/admin/notes-subject` và assistant `/staff/notes-subject` có nút xóa quy định kèm xác nhận.
+
+- BE/FE RBAC kế toán: tách role kế toán legacy thành `accountant_income` (kế toán thu) và `accountant_expense` (kế toán chi). Dữ liệu legacy `accountant` được migration sang `accountant_income`; kế toán thu chỉ xem/chỉnh dữ liệu học phí theo lớp ở trang học sinh và xem dashboard thu, còn kế toán chi xử lý nhân sự/thanh toán/chi phí/trợ cấp/lương gia sư/giáo án payment status. Thêm redaction tài chính lớp/buổi học theo role và docs quyền mới.
+
+- BE/FE class compensation: `accountant_expense` được chỉnh thêm `% vận hành` của gia sư theo lớp trong popup trợ cấp gia sư và cột **KH vận hành (%)** ở chi tiết nhân sự; backend lưu vào `class_teachers.operating_deduction_rate_percent` và ghi lịch sử `class_teacher_operating_deduction_rates`.
 
 - **BREAKING – Short System Entity IDs (Lesson entities):** PK của `lesson_task`, `lesson_resources`, `lesson_outputs`, `staff_lesson_task` chuyển sang mã định danh hệ thống ngắn: `UNILTK-[0-9a-f]{10}`, `UNILRS-[0-9a-f]{10}`, `UNILOT-[0-9a-f]{10}`, `UNISLT-[0-9a-f]{10}`. Existing rows nhận ID mới sinh bằng `pgcrypto.gen_random_bytes(5)`, không cắt từ UUID cũ; old API links không redirect. Migration SQL: `20260524110000_lesson_short_system_entity_ids`. Docs: `docs/Database Schema.md` updated with PK format notes and summary table for all lesson entity IDs.
 
@@ -34,6 +40,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 ### Changed
 
 - FE `/admin/notes-subject`: form chỉnh sửa quy định hiển thị ngay bên dưới item đang chọn thay vì ở cuối danh sách.
+
+- FE thanh toán nhân sự: đổi nhãn cột/tổng “Sau thuế” thành “Sau cuối” và cho các dòng lớp trong payment preview bấm chuyển sang chi tiết lớp.
 
 - SePay static QR nạp ví: nội dung QR tĩnh mới chỉ còn `[SEPAY_TRANSFER_NOTE_PREFIX] UNIST-[0-9a-f]{10}` để đồng bộ list/detail học sinh và tránh memo dài; webhook vẫn tương thích QR cũ có `NAPVI`/`NAP VI`, `UNICL-*`, `LOP ...`, đồng thời nhận token đã bị ngân hàng strip dấu như `UNIST<10hex>`/`UNICL<10hex>` khi tài khoản nhận đúng `SEPAY_TRANSFER_ACCOUNT_NUMBER`. Biên lai nạp ví hiển thị nội dung `Học sinh <id học sinh> gia hạn học phí các gói <tên lớp active...>`.
 
