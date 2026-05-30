@@ -62,7 +62,7 @@ export function Navbar({ showHomeMenu = true }: { showHomeMenu?: boolean }) {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border-default bg-bg-primary/90 backdrop-blur transition-colors duration-300 supports-[backdrop-filter]:bg-bg-primary/75">
-      <div className="mx-auto flex h-[4.5rem] sm:h-20 max-w-6xl items-center justify-between px-4 sm:px-6">
+      <div className="mx-auto flex h-[4.5rem] max-w-6xl items-center justify-between gap-2 px-3 sm:h-20 sm:px-6">
         <button
           type="button"
           onClick={() => scrollToSection("hero")}
@@ -72,6 +72,7 @@ export function Navbar({ showHomeMenu = true }: { showHomeMenu?: boolean }) {
           <BrandLogoLockup
             variant="navbar"
             className="transition-opacity duration-200 group-hover:opacity-[0.97]"
+            wordmarkClassName="hidden min-[390px]:inline"
           />
         </button>
 
@@ -108,7 +109,7 @@ export function Navbar({ showHomeMenu = true }: { showHomeMenu?: boolean }) {
                     new Event(OPEN_EMAIL_VERIFICATION_MODAL_EVENT),
                   );
                 }}
-                className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-tertiary font-semibold text-text-primary ring-2 ring-border-default transition hover:bg-primary hover:text-text-inverse hover:ring-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-tertiary font-semibold text-text-primary ring-2 ring-border-default transition hover:bg-primary hover:text-text-inverse hover:ring-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary sm:size-10"
               >
                 <UserAvatar
                   src={user.avatarUrl}
@@ -170,13 +171,13 @@ export function Navbar({ showHomeMenu = true }: { showHomeMenu?: boolean }) {
             <>
               <Link
                 href="/auth/login"
-                className="rounded-md px-3 py-2 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)]"
+                className="hidden min-h-11 items-center rounded-md px-3 py-2 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)] min-[380px]:inline-flex"
               >
                 Đăng nhập
               </Link>
               <Link
                 href="/auth/register"
-                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors duration-200 hover:bg-[var(--ue-primary-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)]"
+                className="inline-flex min-h-11 items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors duration-200 hover:bg-[var(--ue-primary-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)]"
               >
                 Đăng ký
               </Link>

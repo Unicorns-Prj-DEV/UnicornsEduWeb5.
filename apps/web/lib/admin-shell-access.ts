@@ -5,33 +5,82 @@ export type AdminShellAccess = {
   isAdmin: boolean;
   isAssistant: boolean;
   isAccountant: boolean;
+  isAccountantIncome: boolean;
+  isAccountantExpense: boolean;
   isCustomerCare: boolean;
   isLessonPlanHead: boolean;
   staffId: string | null;
   staffRoles: string[];
 };
 
-export const ACCOUNTANT_VISIBLE_HREFS = new Set([
+export type StudentAdminCapabilities = {
+  isCustomerCareReadOnlyView: boolean;
+  canManageStudent: boolean;
+  canCreateWalletQr: boolean;
+  canDirectlyAdjustWallet: boolean;
+  canRequestDirectTopUp: boolean;
+  canEditStudentClassTuition: boolean;
+  canDeleteStudent: boolean;
+};
+
+export const ACCOUNTANT_INCOME_VISIBLE_HREFS = new Set([
+  "/admin/classes",
+  "/admin/students",
+]);
+
+export const ACCOUNTANT_EXPENSE_VISIBLE_HREFS = new Set([
   "/admin/classes",
   "/admin/staffs",
-  "/admin/deductions",
   "/admin/costs",
   "/admin/lesson-plans",
 ]);
 
-const ACCOUNTANT_ALLOWED_ROUTE_PATTERNS = [
+export const ACCOUNTANT_VISIBLE_HREFS = new Set([
+  ...ACCOUNTANT_INCOME_VISIBLE_HREFS,
+  ...ACCOUNTANT_EXPENSE_VISIBLE_HREFS,
+]);
+
+export function getAccountantVisibleAdminHrefs(
+  access: Pick<AdminShellAccess, "isAccountantIncome" | "isAccountantExpense">,
+): Set<string> {
+  const hrefs = new Set<string>();
+
+  if (access.isAccountantIncome) {
+    ACCOUNTANT_INCOME_VISIBLE_HREFS.forEach((href) => hrefs.add(href));
+  }
+
+  if (access.isAccountantExpense) {
+    ACCOUNTANT_EXPENSE_VISIBLE_HREFS.forEach((href) => hrefs.add(href));
+  }
+
+  return hrefs;
+}
+
+const ACCOUNTANT_INCOME_ALLOWED_ROUTE_PATTERNS = [
   /^\/admin\/dashboard$/,
   /^\/admin\/classes(?:\/[^/]+)?$/,
+  /^\/admin\/students(?:\/[^/]+)?$/,
+  /^\/admin\/accountant_detail$/,
+] as const;
+
+const ACCOUNTANT_EXPENSE_ALLOWED_ROUTE_PATTERNS = [
+  /^\/admin\/classes(?:\/[^/]+)?$/,
   /^\/admin\/staffs(?:\/[^/]+)?$/,
-  /^\/admin\/deductions$/,
   /^\/admin\/costs$/,
   /^\/admin\/lesson-plans$/,
+  /^\/admin\/lesson-plans\/tasks\/[^/]+$/,
   /^\/admin\/accountant_detail$/,
   /^\/admin\/assistant_detail$/,
   /^\/admin\/communication_detail$/,
   /^\/admin\/technical_detail$/,
+  /^\/admin\/training_detail$/,
   /^\/admin\/customer_care_detail\/[^/]+$/,
   /^\/admin\/lesson_plan_detail\/[^/]+$/,
+] as const;
+
+const ACCOUNTANT_ALLOWED_ROUTE_PATTERNS = [
+  ...ACCOUNTANT_INCOME_ALLOWED_ROUTE_PATTERNS,
+  ...ACCOUNTANT_EXPENSE_ALLOWED_ROUTE_PATTERNS,
 ] as const;
 
 export const LESSON_MANAGEMENT_ROUTE_PREFIXES = [
@@ -43,6 +92,7 @@ export const LESSON_MANAGEMENT_ROUTE_PREFIXES = [
 export const STRICT_ADMIN_ROUTE_PREFIXES = [
   "/admin/notification",
   "/admin/wallet-direct-topup-requests",
+  "/admin/deductions",
 ] as const;
 
 export function resolveAdminShellAccess(
@@ -62,6 +112,15 @@ export function resolveAdminShellAccess(
     effectiveRoleTypes.includes(Role.staff) ||
     (hasStaffProfile && profile?.roleType !== "guest");
   const adminTier = (profile as UserInfoDto | undefined)?.access?.admin?.tier;
+  const isAccountantIncome =
+    isStaff &&
+    hasStaffProfile &&
+    (staffRoles.includes("accountant") ||
+      staffRoles.includes("accountant_income"));
+  const isAccountantExpense =
+    isStaff && hasStaffProfile && staffRoles.includes("accountant_expense");
+  const isAccountant =
+    adminTier === "accountant" || isAccountantIncome || isAccountantExpense;
 
   return {
     isAdmin:
@@ -71,9 +130,9 @@ export function resolveAdminShellAccess(
     isAssistant:
       adminTier === "assistant" ||
       (isStaff && hasStaffProfile && staffRoles.includes("assistant")),
-    isAccountant:
-      adminTier === "accountant" ||
-      (isStaff && hasStaffProfile && staffRoles.includes("accountant")),
+    isAccountant,
+    isAccountantIncome,
+    isAccountantExpense,
     isCustomerCare: isStaff && hasStaffProfile && staffRoles.includes("customer_care"),
     isLessonPlanHead:
       adminTier === "lesson_plan_head" ||
@@ -87,6 +146,18 @@ export function resolveAdminShellAccess(
 
 export function isAccountantAllowedAdminRoute(pathname: string): boolean {
   return ACCOUNTANT_ALLOWED_ROUTE_PATTERNS.some((pattern) =>
+    pattern.test(pathname),
+  );
+}
+
+export function isAccountantIncomeAllowedAdminRoute(pathname: string): boolean {
+  return ACCOUNTANT_INCOME_ALLOWED_ROUTE_PATTERNS.some((pattern) =>
+    pattern.test(pathname),
+  );
+}
+
+export function isAccountantExpenseAllowedAdminRoute(pathname: string): boolean {
+  return ACCOUNTANT_EXPENSE_ALLOWED_ROUTE_PATTERNS.some((pattern) =>
     pattern.test(pathname),
   );
 }
@@ -114,13 +185,39 @@ export function canAccessAdminShellRoute(
   return (
     access.isAdmin ||
     access.isAssistant ||
-    (access.isAccountant && isAccountantAllowedAdminRoute(pathname)) ||
+    (access.isAccountantIncome &&
+      isAccountantIncomeAllowedAdminRoute(pathname)) ||
+    (access.isAccountantExpense &&
+      isAccountantExpenseAllowedAdminRoute(pathname)) ||
     (access.isLessonPlanHead && isLessonManagementRoute(pathname))
   );
 }
 
 export function canManageAdminExtraAllowance(access: AdminShellAccess): boolean {
-  return access.isAdmin || access.isAssistant || access.isAccountant;
+  return access.isAdmin || access.isAssistant || access.isAccountantExpense;
+}
+
+export function resolveStudentAdminCapabilities(
+  profile?: FullProfileDto | UserInfoDto | null,
+  routeBase: string = "/admin",
+): StudentAdminCapabilities {
+  const access = resolveAdminShellAccess(profile);
+  const isStaffRoute = routeBase === "/staff";
+  const isCustomerCareStaff = isStaffRoute && access.isCustomerCare;
+  const isAssistantStaff = isStaffRoute && access.isAssistant;
+  const canManageStudent = access.isAdmin || access.isAssistant;
+
+  return {
+    isCustomerCareReadOnlyView:
+      isStaffRoute && !access.isAssistant && access.isCustomerCare,
+    canManageStudent,
+    canCreateWalletQr:
+      access.isAdmin || access.isAssistant || isCustomerCareStaff,
+    canDirectlyAdjustWallet: access.isAdmin,
+    canRequestDirectTopUp: isAssistantStaff || isCustomerCareStaff,
+    canEditStudentClassTuition: canManageStudent || access.isAccountantIncome,
+    canDeleteStudent: access.isAdmin,
+  };
 }
 
 export function resolveAdminShellFallbackHref(
@@ -135,7 +232,11 @@ export function resolveAdminShellFallbackHref(
     return "/admin/dashboard";
   }
 
-  if (access.isAccountant) {
+  if (access.isAccountantIncome) {
+    return "/admin/classes";
+  }
+
+  if (access.isAccountantExpense) {
     return "/admin/classes";
   }
 
@@ -155,7 +256,11 @@ export function getAdminShellEntryHref(
     return "/admin/dashboard";
   }
 
-  if (access.isAccountant) {
+  if (access.isAccountantIncome) {
+    return "/admin/classes";
+  }
+
+  if (access.isAccountantExpense) {
     return "/admin/classes";
   }
 

@@ -17,10 +17,13 @@ export function AuthCardSkeleton({
   footerRows = 1,
 }: AuthCardSkeletonProps) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg-primary px-4" aria-busy="true">
+    <div
+      className="flex min-h-dvh items-start justify-center bg-bg-primary px-4 py-6 sm:items-center sm:py-10"
+      aria-busy="true"
+    >
       <div className="w-full max-w-md motion-fade-up">
-        <div className="rounded-2xl border border-border-default bg-bg-surface p-8 shadow-lg">
-          <div className="mb-8 flex justify-center px-1">
+        <div className="rounded-2xl border border-border-default bg-bg-surface p-5 shadow-lg sm:p-8">
+          <div className="mb-6 flex justify-center px-1 sm:mb-8">
             <BrandLogoLockup
               variant="auth"
               className="max-w-full flex-wrap justify-center"

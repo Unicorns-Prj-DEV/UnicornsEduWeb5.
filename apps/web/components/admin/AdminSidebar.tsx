@@ -11,7 +11,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Role } from "@/dtos/Auth.dto";
 import { SidebarNotificationTray, SidebarThemePicker } from "@/components/shell";
 import {
-  ACCOUNTANT_VISIBLE_HREFS,
+  getAccountantVisibleAdminHrefs,
   resolveAdminShellAccess,
 } from "@/lib/admin-shell-access";
 import { clearLogoutScopedQueries } from "@/lib/query-invalidation";
@@ -38,7 +38,12 @@ const MENU_ITEMS: {
   { href: "/admin/costs", label: "Chi phí", icon: <IconCosts /> },
   { href: "/admin/lesson-plans", label: "Giáo Án", icon: <IconLessonPlans /> },
   { href: "/admin/calendar", label: "Lịch", icon: <IconCalendar /> },
-  { href: "/admin/deductions", label: "Khấu trừ", icon: <IconDeductions /> },
+  {
+    href: "/admin/deductions",
+    label: "Khấu trừ",
+    icon: <IconDeductions />,
+    adminOnly: true,
+  },
   { href: "/admin/notes-subject", label: "Quy định", icon: <IconNotesSubject /> },
   {
     href: "/admin/wallet-direct-topup-requests",
@@ -213,19 +218,22 @@ export default function AdminSidebar() {
     retry: false,
     staleTime: 60_000,
   });
-  const { isAdmin, isAssistant, isAccountant, isLessonPlanHead, staffId } =
+  const adminShellAccess =
     resolveAdminShellAccess(fullProfile);
+  const { isAdmin, isAssistant, isAccountant, isLessonPlanHead, staffId } =
+    adminShellAccess;
   const assistantDashboardHref =
     isAssistant && staffId
       ? `/admin/staffs/${encodeURIComponent(staffId)}`
       : "/admin/dashboard";
+  const accountantVisibleHrefs = getAccountantVisibleAdminHrefs(adminShellAccess);
 
   const menuItems = isProfileLoading || isProfileError || !fullProfile
     ? []
     : isAssistant || isAdmin
       ? MENU_ITEMS.filter((item) => isAdmin || !item.adminOnly)
       : isAccountant
-        ? MENU_ITEMS.filter((item) => ACCOUNTANT_VISIBLE_HREFS.has(item.href))
+        ? MENU_ITEMS.filter((item) => accountantVisibleHrefs.has(item.href))
         : isLessonPlanHead
           ? MENU_ITEMS.filter((item) => item.href === "/admin/lesson-plans")
           : [];
@@ -303,7 +311,7 @@ export default function AdminSidebar() {
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        className="fixed left-3 top-3 z-30 flex size-10 items-center justify-center rounded-md border border-border-default bg-bg-surface text-text-primary shadow-sm transition-transform duration-200 hover:scale-105 active:scale-95 md:hidden"
+        className="fixed left-3 top-3 z-30 flex size-11 items-center justify-center rounded-md border border-border-default bg-bg-surface text-text-primary shadow-sm transition-transform duration-200 hover:scale-105 active:scale-95 md:hidden"
         aria-label="Mở menu"
       >
         <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -343,7 +351,7 @@ export default function AdminSidebar() {
           <button
             type="button"
             onClick={isMobile ? () => setMobileOpen(false) : toggleCollapse}
-            className="flex size-9 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors duration-200 hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary"
+            className="flex size-11 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors duration-200 hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary md:size-9"
             aria-label={isMobile ? "Đóng menu" : collapsed ? "Mở rộng menu" : "Thu gọn menu"}
           >
             <svg

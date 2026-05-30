@@ -6,7 +6,10 @@ export const ROLE_LABELS: Record<string, string> = {
   lesson_plan: "Giáo án",
   lesson_plan_head: "Trưởng giáo án",
   accountant: "Kế toán",
+  accountant_income: "Kế toán thu",
+  accountant_expense: "Kế toán chi",
   communication: "Truyền thông",
   technical: "Kỹ thuật",
   customer_care: "CSKH",
+  training: "Đào Tạo",
 };

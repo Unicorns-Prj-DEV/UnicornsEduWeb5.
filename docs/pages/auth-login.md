@@ -10,12 +10,12 @@ Cho phép người dùng đăng nhập bằng email/password hoặc Google OAuth
 - Backend set `access_token` + `refresh_token` qua HTTP-only cookies; frontend chỉ cập nhật auth state và gọi `authApi.getSession()` để resolve redirect.
 - Tài khoản **chưa xác minh email** vẫn đăng nhập thành công (nếu đúng mật khẩu + handle/email) để tạo cảm giác đã đăng nhập.
 - Nếu session trả về `canAccessRestrictedRoutes=false`, frontend giữ user ở `/` (Home-only mode). Admin đầy đủ (`roleType=admin` hoặc `staff.admin`) được backend trả `canAccessRestrictedRoutes=true` kể cả khi email chưa verify.
-- Nếu URL có query `next` hợp lệ (internal path, không phải `/auth/*`) và route đó khớp shell đăng nhập của role chính, login thành công ưu tiên redirect về `next`; nếu không khớp (ví dụ staff/accountant có `next=/admin/*`) thì bỏ `next` và dùng `preferredRedirect`/workspace entrypoint. Primary admin được giữ `next=/staff/**` để bypass vào staff workspace khi cần kiểm tra/hỗ trợ.
+- Nếu URL có query `next` hợp lệ (internal path, không phải `/auth/*`) và route đó khớp shell đăng nhập của role chính, login thành công ưu tiên redirect về `next`; nếu không khớp (ví dụ staff kế toán có `next=/admin/*` nhưng session chỉ nên vào staff shell mặc định) thì bỏ `next` và dùng `preferredRedirect`/workspace entrypoint. Primary admin được giữ `next=/staff/**` để bypass vào staff workspace khi cần kiểm tra/hỗ trợ.
 - Nếu session trả `requiresPasswordSetup=true`, login chuyển thẳng sang `/auth/setup-password?next=<redirect đích>` để giữ đúng đích sau bước tạo mật khẩu.
 - Redirect theo role:
   - `admin` -> `/admin/dashboard`
   - `student` -> `/student` khi đã có linked student profile; nếu chưa có profile -> `/user-profile`
-  - mọi staff role không phải `roleType=admin`, kể cả `staff.admin`, `staff.assistant`, `staff.accountant`, `staff.lesson_plan_head`, và multi-role như `teacher + lesson_plan`, -> `/staff` khi đã có linked staff profile; nếu chưa có profile -> `/user-profile`
+  - mọi staff role không phải `roleType=admin`, kể cả `staff.admin`, `staff.assistant`, `staff.accountant_income`, `staff.accountant_expense`, `staff.lesson_plan_head`, và multi-role như `teacher + lesson_plan`, -> `/staff` khi đã có linked staff profile; nếu chưa có profile -> `/user-profile`
   - linked `studentInfo` -> `/student` khi user không có linked staff profile
   - fallback -> `/`
 - Trường hợp query `error=google_no_user`: hiển thị `toast.error`.

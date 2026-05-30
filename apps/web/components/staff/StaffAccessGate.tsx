@@ -118,15 +118,15 @@ export default function StaffAccessGate({
       : isStaffNotificationRoute
         ? "Route `/staff/notification` chỉ mở khi tài khoản có linked staff profile hợp lệ. Đây là feed chỉ đọc dành cho nhân sự xem các thông báo admin đã push."
         : isStaffClassesRoute
-          ? "Route `/staff/classes` hiện mở danh sách cho `staff.assistant` và `staff.accountant`; riêng `staff.teacher`, `admin`, và `staff.customer_care` chỉ mở trực tiếp trang chi tiết `/staff/classes/[id]`. Với customer care, backend tiếp tục khóa theo các lớp có ít nhất một học sinh đang do chính staff đó phụ trách."
+          ? "Route `/staff/classes` hiện mở danh sách cho `staff.assistant`, `staff.accountant_income`, và `staff.accountant_expense`; riêng `staff.teacher`, `admin`, và `staff.customer_care` chỉ mở trực tiếp trang chi tiết `/staff/classes/[id]`. Với customer care, backend tiếp tục khóa theo các lớp có ít nhất một học sinh đang do chính staff đó phụ trách."
           : isStaffDeductionsRoute
-            ? "Route `/staff/deductions` hiện mở cho `staff.assistant` và `staff.accountant` để theo dõi/cấu hình tỷ lệ khấu trừ. Các role staff khác tiếp tục bị khóa."
+            ? "Route `/staff/deductions` không còn mở cho staff role; cấu hình khấu trừ chỉ nằm ở admin shell cho admin đầy đủ."
             : isStaffStudentsRoute
-              ? "Route `/staff/students` hiện mở danh sách/chi tiết cho `staff.assistant` và `staff.accountant`; riêng `staff.customer_care` chỉ mở trực tiếp trang chi tiết `/staff/students/[id]` và backend sẽ khóa học sinh vào đúng hồ sơ CSKH hiện tại."
+              ? "Route `/staff/students` hiện mở danh sách/chi tiết cho `staff.assistant` và `staff.accountant_income`; riêng `staff.customer_care` chỉ mở trực tiếp trang chi tiết `/staff/students/[id]` và backend sẽ khóa học sinh vào đúng hồ sơ CSKH hiện tại."
               : isStaffCostsRoute
-                ? "Route `/staff/costs` hiện mở cho `staff.assistant` và `staff.accountant`. Kế toán dùng admin-like cost workspace trong staff shell, bao gồm tạo mới, chỉnh sửa, cập nhật trạng thái và xóa chi phí."
+                ? "Route `/staff/costs` hiện mở cho `staff.assistant` và `staff.accountant_expense`. Kế toán chi dùng admin-like cost workspace trong staff shell, bao gồm tạo mới, chỉnh sửa, cập nhật trạng thái và xóa chi phí."
                 : isAssistantStaffsRoute
-                  ? "Route `/staff/staffs` hiện mở danh sách/chi tiết cho `staff.assistant` và `staff.accountant` trong staff shell."
+                  ? "Route `/staff/staffs` hiện mở danh sách/chi tiết cho `staff.assistant` và `staff.accountant_expense` trong staff shell."
                   : isAssistantAdminLikeRoute
                     ? "Nhóm route này mirror lại các module quản trị trong staff shell. Nó chỉ mở cho `roleType=staff` có role `assistant`; các staff role khác tiếp tục dùng self-service hoặc workspace chuyên biệt của riêng mình."
                     : isCustomerCareSelfRoute
@@ -134,18 +134,18 @@ export default function StaffAccessGate({
                       : isAssistantSelfRoute
                         ? "Màn này chỉ mở khi hồ sơ nhân sự hiện tại có role `assistant`. Nó chỉ hiển thị trợ cấp của chính bạn và không cho phép chỉnh sửa."
                         : isAccountantSelfRoute
-                          ? "Màn này chỉ mở khi hồ sơ nhân sự hiện tại có role `accountant`. Nó chỉ hiển thị trợ cấp của chính bạn và không cho phép chỉnh sửa."
+                          ? "Màn này chỉ mở khi hồ sơ nhân sự hiện tại có role `accountant_income` hoặc `accountant_expense`. Nó chỉ hiển thị trợ cấp của chính bạn và không cho phép chỉnh sửa."
                           : isCommunicationSelfRoute
                             ? "Màn này chỉ mở khi hồ sơ nhân sự hiện tại có role `communication`. Nó hiển thị trợ cấp của chính bạn và cho phép tự khai báo/chỉnh sửa theo policy hiện tại."
                             : isTechnicalSelfRoute
                               ? "Màn này chỉ mở khi hồ sơ nhân sự hiện tại có role `technical`. Nó hiển thị trợ cấp của chính bạn và cho phép tự khai báo/chỉnh sửa theo policy hiện tại."
                               : isLessonPlanLegacyRoute
-                                ? "Các route legacy `/staff/lesson-plan-tasks*` đã được gộp vào `/staff/lesson-plans`. Workspace mới mở cho `admin`, `staff.assistant`, `staff.lesson_plan_head`, `staff.lesson_plan`, và `staff.accountant`, nhưng mỗi role chỉ thấy đúng các tab và route detail được backend cho phép."
+                                ? "Các route legacy `/staff/lesson-plan-tasks*` đã được gộp vào `/staff/lesson-plans`. Workspace mới mở cho `admin`, `staff.assistant`, `staff.lesson_plan_head`, `staff.lesson_plan`, và `staff.accountant_expense`, nhưng mỗi role chỉ thấy đúng các tab và route detail được backend cho phép."
                                 : isStaffLessonPlansTaskDetailRoute
-                                  ? "Route `/staff/lesson-plans/tasks/[taskId]` mở cho `lesson_plan`, `lesson_plan_head`, `admin`, và `staff.assistant`. Accountant chỉ dùng tab `Công việc`, không mở route task detail."
+                                  ? "Route `/staff/lesson-plans/tasks/[taskId]` mở cho `lesson_plan`, `lesson_plan_head`, `admin`, `staff.assistant`, và `staff.accountant_expense`; kế toán chi chỉ xem output và chỉnh trạng thái thanh toán."
                                   : isLessonPlanManageDetailsRoute ||
                                       isStaffLessonPlansHomeRoute
-                                    ? "Workspace `/staff/lesson-plans` là entrypoint chung cho lesson module trong staff shell. `lesson_plan_head` thấy 3 tab `Tổng quan / Công việc / Giáo Án`; `lesson_plan` chỉ thấy `Tổng quan / Công việc` và dữ liệu cá nhân; `accountant` chỉ thấy tab `Công việc` với toàn bộ lesson output."
+                                    ? "Workspace `/staff/lesson-plans` là entrypoint chung cho lesson module trong staff shell. `lesson_plan_head` thấy 3 tab `Tổng quan / Công việc / Giáo Án`; `lesson_plan` chỉ thấy `Tổng quan / Công việc` và dữ liệu cá nhân; `accountant_expense` chỉ thấy tab `Công việc` với toàn bộ lesson output."
                                     : isLessonPlanSelfRoute
                                       ? "Màn này chỉ mở khi hồ sơ nhân sự hiện tại có role `lesson_plan` hoặc `lesson_plan_head`. Nó chỉ hiển thị lesson output của chính bạn và không cho phép chỉnh sửa."
                                       : "Màn này hiện mở cho `admin` hoặc `staff.teacher`. Teacher dùng nó để xem lớp phụ trách và thao tác buổi học; admin có thể truy cập để theo dõi hoặc hỗ trợ vận hành.";

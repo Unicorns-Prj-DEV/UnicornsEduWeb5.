@@ -32,10 +32,10 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg-primary px-4">
+    <div className="flex min-h-dvh items-start justify-center bg-bg-primary px-4 py-6 sm:items-center sm:py-10">
       <div className="w-full max-w-md motion-fade-up">
-        <div className="rounded-2xl border border-border-default bg-bg-surface p-8 shadow-lg motion-hover-lift">
-          <div className="mb-8 flex justify-center px-1">
+        <div className="rounded-2xl border border-border-default bg-bg-surface p-5 shadow-lg motion-hover-lift sm:p-8">
+          <div className="mb-6 flex justify-center px-1 sm:mb-8">
             <BrandLogoLockup
               variant="auth"
               className="max-w-full flex-wrap justify-center"
@@ -83,7 +83,7 @@ export default function ForgotPasswordPage() {
           <p className="mt-6 text-center">
             <Link
               href="/auth/login"
-              className="text-sm text-primary hover:text-primary-hover font-medium"
+              className="inline-flex min-h-11 items-center rounded-md px-3 py-2 text-sm font-medium text-primary hover:text-primary-hover"
             >
               ← Quay lại đăng nhập
             </Link>
@@ -91,7 +91,7 @@ export default function ForgotPasswordPage() {
           <p className="mt-2 text-center">
             <Link
               href="/"
-              className="text-sm text-text-secondary hover:text-text-primary"
+              className="inline-flex min-h-11 items-center rounded-md px-3 py-2 text-sm text-text-secondary hover:text-text-primary"
             >
               Về trang chủ
             </Link>

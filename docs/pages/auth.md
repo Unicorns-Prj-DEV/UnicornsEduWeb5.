@@ -26,7 +26,7 @@
   - `roleType=admin` -> `/admin/dashboard`
   - `roleType=student` -> `/student` khi session contract xác nhận `hasStudentProfile=true`; nếu chưa có profile thì fallback `/user-profile`
   - staff admin đầy đủ (`roleType=admin`, `staff.admin`, hoặc `access.admin.tier=full`) bypass staff profile completion khi vào staff/admin support shell
-  - mọi staff role vận hành không phải admin (`teacher`, `lesson_plan`, `lesson_plan_head`, `assistant`, `accountant`, `communication`, `technical`, `customer_care`, kể cả multi-role như `teacher + lesson_plan`) -> `/staff` chỉ khi session contract xác nhận `hasStaffProfile=true` và `staffProfileComplete=true` / `access.staff.profileComplete=true`; nếu thiếu profile, thiếu field bắt buộc, hoặc chưa đồng ý phiên bản data-consent hiện hành thì fallback `/user-profile?profile_required=1&from=/staff`
+  - mọi staff role vận hành không phải admin (`teacher`, `lesson_plan`, `lesson_plan_head`, `assistant`, `accountant_income`, `accountant_expense`, `communication`, `technical`, `customer_care`, `training`, kể cả multi-role như `teacher + lesson_plan`) -> `/staff` chỉ khi session contract xác nhận `hasStaffProfile=true` và `staffProfileComplete=true` / `access.staff.profileComplete=true`; nếu thiếu profile, thiếu field bắt buộc, hoặc chưa đồng ý phiên bản data-consent hiện hành thì fallback `/user-profile?profile_required=1&from=/staff`
   - linked `studentInfo` -> `/student` khi user không có linked staff profile
   - `guest -> /`
 - Google OAuth thành công:

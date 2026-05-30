@@ -77,7 +77,7 @@ function userProfileRequiredHref(from) {
   return `/user-profile?profile_required=1&from=${encodeURIComponent(from)}`;
 }
 
-test("post-login redirect sends accountant to staff shell", () => {
+test("post-login redirect sends income accountant to staff shell", () => {
   assert.equal(
     authRedirect.resolvePostLoginRedirect({
       id: "accountant-user",
@@ -85,7 +85,7 @@ test("post-login redirect sends accountant to staff shell", () => {
       roleType: "staff",
       requiresPasswordSetup: false,
       canAccessRestrictedRoutes: true,
-      staffRoles: ["accountant"],
+      staffRoles: ["accountant_income"],
       hasStaffProfile: true,
       hasStudentProfile: false,
       ...completedStaffAccess,
@@ -117,10 +117,12 @@ test("non-admin staff roles are blocked from staff shell until profile and data 
     ["teacher", "/staff/classes/class-1"],
     ["lesson_plan", "/staff/lesson-plans"],
     ["lesson_plan_head", "/staff/lesson-plans"],
-    ["accountant", "/staff/accountant-detail"],
+    ["accountant_income", "/staff/accountant-detail"],
+    ["accountant_expense", "/staff/accountant-detail"],
     ["communication", "/staff/communication-detail"],
     ["technical", "/staff/technical-detail"],
     ["customer_care", "/staff/customer-care-detail"],
+    ["training", "/staff/training-detail"],
     ["assistant", "/staff/users"],
   ];
 
@@ -168,7 +170,7 @@ test("post-login redirect ignores admin next paths for non-admin staff", () => {
         roleType: "staff",
         requiresPasswordSetup: false,
         canAccessRestrictedRoutes: true,
-        staffRoles: ["accountant"],
+        staffRoles: ["accountant_income"],
         hasStaffProfile: true,
         hasStudentProfile: false,
         ...completedStaffAccess,
@@ -329,6 +331,47 @@ test("linked staff teacher unlocks class detail when primary role is student", (
   );
 });
 
+test("training staff can open staff dashboard, calendar, and allowance detail but not class detail", () => {
+  const session = {
+    id: "training-user",
+    accountHandle: "training",
+    roleType: "staff",
+    requiresPasswordSetup: false,
+    canAccessRestrictedRoutes: true,
+    staffRoles: ["training"],
+    hasStaffProfile: true,
+    hasStudentProfile: false,
+    staffProfileComplete: true,
+    access: {
+      admin: { canAccess: false, tier: null },
+      staff: { canAccess: true, profileComplete: true },
+      student: { canAccess: false },
+    },
+  };
+
+  assert.equal(
+    staffShellAccess.resolveStaffShellRouteAccess(session, "/staff").isAllowed,
+    true,
+  );
+  assert.equal(
+    staffShellAccess.resolveStaffShellRouteAccess(session, "/staff/calendar")
+      .isAllowed,
+    true,
+  );
+  assert.equal(
+    staffShellAccess.resolveStaffShellRouteAccess(session, "/staff/training-detail")
+      .isAllowed,
+    true,
+  );
+  assert.equal(
+    staffShellAccess.resolveStaffShellRouteAccess(
+      session,
+      "/staff/classes/class-1",
+    ).isAllowed,
+    false,
+  );
+});
+
 test("primary admin bypasses staff shell profile requirement", () => {
   const session = {
     id: "admin-user",
@@ -381,7 +424,7 @@ test("linked staff admin gets full admin shell even when primary role is student
   );
 });
 
-test("admin extra allowance management is open to admin, assistant, and accountant", () => {
+test("admin extra allowance management is open to admin, assistant, and expense accountant", () => {
   const fullAdmin = adminShellAccess.resolveAdminShellAccess({
     roleType: "admin",
   });
@@ -390,9 +433,14 @@ test("admin extra allowance management is open to admin, assistant, and accounta
     staffRoles: ["assistant"],
     hasStaffProfile: true,
   });
-  const accountant = adminShellAccess.resolveAdminShellAccess({
+  const expenseAccountant = adminShellAccess.resolveAdminShellAccess({
     roleType: "staff",
-    staffRoles: ["accountant"],
+    staffRoles: ["accountant_expense"],
+    hasStaffProfile: true,
+  });
+  const incomeAccountant = adminShellAccess.resolveAdminShellAccess({
+    roleType: "staff",
+    staffRoles: ["accountant_income"],
     hasStaffProfile: true,
   });
 
@@ -405,9 +453,202 @@ test("admin extra allowance management is open to admin, assistant, and accounta
     true,
   );
   assert.equal(
-    adminShellAccess.canManageAdminExtraAllowance(accountant),
+    adminShellAccess.canManageAdminExtraAllowance(expenseAccountant),
     true,
   );
+  assert.equal(
+    adminShellAccess.canManageAdminExtraAllowance(incomeAccountant),
+    false,
+  );
+});
+
+test("split accountant roles get only their route families", () => {
+  const incomeAccountant = {
+    roleType: "staff",
+    staffRoles: ["accountant_income"],
+    hasStaffProfile: true,
+    ...completedStaffAccess,
+  };
+  const expenseAccountant = {
+    roleType: "staff",
+    staffRoles: ["accountant_expense"],
+    hasStaffProfile: true,
+    ...completedStaffAccess,
+  };
+
+  assert.equal(
+    staffShellAccess.resolveStaffShellRouteAccess(incomeAccountant, "/staff/students").isAllowed,
+    true,
+  );
+  assert.equal(
+    staffShellAccess.resolveStaffShellRouteAccess(incomeAccountant, "/staff/costs").isAllowed,
+    false,
+  );
+  assert.equal(
+    staffShellAccess.resolveStaffShellRouteAccess(expenseAccountant, "/staff/staffs").isAllowed,
+    true,
+  );
+  assert.equal(
+    staffShellAccess.resolveStaffShellRouteAccess(expenseAccountant, "/staff/students").isAllowed,
+    false,
+  );
+  assert.equal(
+    staffShellAccess.resolveStaffShellRouteAccess(expenseAccountant, "/staff/deductions").isAllowed,
+    false,
+  );
+  assert.equal(
+    adminShellAccess.canAccessAdminShellRoute(
+      adminShellAccess.resolveAdminShellAccess(incomeAccountant),
+      "/admin/students/student-1",
+    ),
+    true,
+  );
+  assert.equal(
+    adminShellAccess.canAccessAdminShellRoute(
+      adminShellAccess.resolveAdminShellAccess(incomeAccountant),
+      "/admin/staffs/staff-1",
+    ),
+    false,
+  );
+  assert.equal(
+    adminShellAccess.canAccessAdminShellRoute(
+      adminShellAccess.resolveAdminShellAccess(expenseAccountant),
+      "/admin/staffs/staff-1",
+    ),
+    true,
+  );
+  assert.equal(
+    adminShellAccess.canAccessAdminShellRoute(
+      adminShellAccess.resolveAdminShellAccess(expenseAccountant),
+      "/admin/lesson-plans/tasks/task-1",
+    ),
+    true,
+  );
+  assert.equal(
+    adminShellAccess.canAccessAdminShellRoute(
+      adminShellAccess.resolveAdminShellAccess(expenseAccountant),
+      "/admin/training_detail",
+    ),
+    true,
+  );
+});
+
+test("combined accountant roles get additive income and expense routes without strict admin", () => {
+  const combinedAccountant = {
+    roleType: "staff",
+    staffRoles: ["accountant_income", "accountant_expense"],
+    hasStaffProfile: true,
+    ...completedStaffAccess,
+  };
+  const access = adminShellAccess.resolveAdminShellAccess(combinedAccountant);
+  const visibleHrefs = adminShellAccess.getAccountantVisibleAdminHrefs(access);
+
+  assert.equal(visibleHrefs.has("/admin/students"), true);
+  assert.equal(visibleHrefs.has("/admin/costs"), true);
+  assert.equal(
+    adminShellAccess.canAccessAdminShellRoute(access, "/admin/students/student-1"),
+    true,
+  );
+  assert.equal(
+    adminShellAccess.canAccessAdminShellRoute(access, "/admin/costs"),
+    true,
+  );
+  assert.equal(
+    adminShellAccess.canAccessAdminShellRoute(access, "/admin/deductions"),
+    false,
+  );
+});
+
+test("teacher plus split accountant roles gets additive staff routes", () => {
+  const teacherAccountant = {
+    roleType: "staff",
+    staffRoles: ["teacher", "accountant_income", "accountant_expense"],
+    hasStaffProfile: true,
+    ...completedStaffAccess,
+  };
+
+  assert.equal(
+    staffShellAccess.resolveStaffShellRouteAccess(teacherAccountant, "/staff/calendar")
+      .isAllowed,
+    true,
+  );
+  assert.equal(
+    staffShellAccess.resolveStaffShellRouteAccess(teacherAccountant, "/staff/students")
+      .isAllowed,
+    true,
+  );
+  assert.equal(
+    staffShellAccess.resolveStaffShellRouteAccess(teacherAccountant, "/staff/costs")
+      .isAllowed,
+    true,
+  );
+  assert.equal(
+    staffShellAccess.resolveStaffShellRouteAccess(
+      teacherAccountant,
+      "/staff/lesson-plans/tasks/task-1",
+    ).isAllowed,
+    true,
+  );
+});
+
+test("student admin capabilities do not treat admin shell accountant as full admin", () => {
+  const incomeAccountantCapabilities =
+    adminShellAccess.resolveStudentAdminCapabilities(
+      {
+        roleType: "staff",
+        staffRoles: ["accountant_income"],
+        hasStaffProfile: true,
+        ...completedStaffAccess,
+      },
+      "/admin",
+    );
+
+  assert.equal(incomeAccountantCapabilities.canManageStudent, false);
+  assert.equal(incomeAccountantCapabilities.canCreateWalletQr, false);
+  assert.equal(incomeAccountantCapabilities.canDirectlyAdjustWallet, false);
+  assert.equal(incomeAccountantCapabilities.canEditStudentClassTuition, true);
+  assert.equal(incomeAccountantCapabilities.canDeleteStudent, false);
+
+  const fullAdminCapabilities = adminShellAccess.resolveStudentAdminCapabilities(
+    { roleType: "admin" },
+    "/admin",
+  );
+  assert.equal(fullAdminCapabilities.canManageStudent, true);
+  assert.equal(fullAdminCapabilities.canDirectlyAdjustWallet, true);
+  assert.equal(fullAdminCapabilities.canDeleteStudent, true);
+});
+
+test("student admin capabilities give staff assistant and customer care request-only wallet access", () => {
+  const assistantCapabilities = adminShellAccess.resolveStudentAdminCapabilities(
+    {
+      roleType: "staff",
+      staffRoles: ["assistant"],
+      hasStaffProfile: true,
+      ...completedStaffAccess,
+    },
+    "/staff",
+  );
+  const customerCareCapabilities =
+    adminShellAccess.resolveStudentAdminCapabilities(
+      {
+        roleType: "staff",
+        staffRoles: ["customer_care"],
+        hasStaffProfile: true,
+        ...completedStaffAccess,
+      },
+      "/staff",
+    );
+
+  assert.equal(assistantCapabilities.canManageStudent, true);
+  assert.equal(assistantCapabilities.canCreateWalletQr, true);
+  assert.equal(assistantCapabilities.canDirectlyAdjustWallet, false);
+  assert.equal(assistantCapabilities.canRequestDirectTopUp, true);
+  assert.equal(assistantCapabilities.canDeleteStudent, false);
+
+  assert.equal(customerCareCapabilities.isCustomerCareReadOnlyView, true);
+  assert.equal(customerCareCapabilities.canCreateWalletQr, true);
+  assert.equal(customerCareCapabilities.canRequestDirectTopUp, true);
+  assert.equal(customerCareCapabilities.canEditStudentClassTuition, false);
 });
 
 test("admin extra allowance management remains closed to unrelated staff roles", () => {

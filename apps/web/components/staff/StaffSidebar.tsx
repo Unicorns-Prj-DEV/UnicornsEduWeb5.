@@ -21,14 +21,17 @@ type MenuVisibility = {
   canAccessClassWorkspace: boolean;
   canAccessCustomerCareSelf: boolean;
   canAccessLessonPlanWorkspace: boolean;
+  isTraining: boolean;
   isAccountant: boolean;
+  isAccountantIncome: boolean;
+  isAccountantExpense: boolean;
   isCommunication: boolean;
   isTechnical: boolean;
 };
 
 type MenuItem = {
   href: string;
-  label: string;
+  label: string | ((options: MenuVisibility) => string);
   icon: React.ReactNode;
   isActive: (pathname: string) => boolean;
   isVisible: (options: MenuVisibility) => boolean;
@@ -89,7 +92,7 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
       label: "Nhân sự",
       icon: <IconStaff />,
       isActive: (pathname) => pathname.startsWith("/staff/staffs"),
-      isVisible: ({ isAccountant }) => isAccountant,
+      isVisible: ({ isAccountantExpense }) => isAccountantExpense,
     },
     {
       href: "/staff/classes",
@@ -104,29 +107,30 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
       label: "Học sinh",
       icon: <IconStudents />,
       isActive: (pathname) => pathname.startsWith("/staff/students"),
-      isVisible: ({ isAccountant }) => isAccountant,
+      isVisible: ({ isAccountantIncome }) => isAccountantIncome,
     },
     {
       href: "/staff/calendar",
-      label: "Lịch dạy",
+      label: ({ isTraining }) => (isTraining ? "Lịch lớp" : "Lịch dạy"),
       icon: <IconCalendar />,
       isActive: (pathname) =>
         pathname === "/staff/calendar" || pathname.startsWith("/staff/calendar/"),
-      isVisible: ({ canAccessClassWorkspace }) => canAccessClassWorkspace,
+      isVisible: ({ canAccessClassWorkspace, isTraining }) =>
+        canAccessClassWorkspace || isTraining,
     },
     {
       href: "/staff/deductions",
       label: "Khấu trừ",
       icon: <IconDeductions />,
       isActive: (pathname) => pathname.startsWith("/staff/deductions"),
-      isVisible: ({ isAccountant }) => isAccountant,
+      isVisible: () => false,
     },
     {
       href: "/staff/costs",
       label: "Chi phí",
       icon: <IconCosts />,
       isActive: (pathname) => pathname.startsWith("/staff/costs"),
-      isVisible: ({ isAccountant }) => isAccountant,
+      isVisible: ({ isAccountantExpense }) => isAccountantExpense,
     },
     {
       href: "/staff/customer-care-detail",
@@ -144,8 +148,8 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
         pathname.startsWith("/staff/lesson-plan-manage-details") ||
         pathname.startsWith("/staff/lesson-plans") ||
         pathname.startsWith("/staff/lesson-manage-details"),
-      isVisible: ({ canAccessLessonPlanWorkspace }) =>
-        canAccessLessonPlanWorkspace,
+      isVisible: ({ canAccessLessonPlanWorkspace, isAccountantExpense }) =>
+        canAccessLessonPlanWorkspace || isAccountantExpense,
     },
     {
       href: "/staff/communication-detail",
@@ -160,6 +164,13 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
       icon: <IconCommunication />,
       isActive: (pathname) => pathname.startsWith("/staff/technical-detail"),
       isVisible: ({ isTechnical }) => isTechnical,
+    },
+    {
+      href: "/staff/training-detail",
+      label: "Đào Tạo",
+      icon: <IconCalendar />,
+      isActive: (pathname) => pathname.startsWith("/staff/training-detail"),
+      isVisible: ({ isTraining }) => isTraining,
     },
     {
       href: "/staff/notes-subject",
@@ -235,7 +246,7 @@ function buildAssistantMenuItems(ownStaffId: string): MenuItem[] {
       label: "Khấu trừ",
       icon: <IconDeductions />,
       isActive: (pathname) => pathname.startsWith("/staff/deductions"),
-      isVisible: () => true,
+      isVisible: () => false,
     },
     {
       href: "/staff/costs",
@@ -450,11 +461,16 @@ export default function StaffSidebar() {
   const isAssistant = hasStaffProfile && staffRoles.includes("assistant");
   const canAccessClassWorkspace =
     fullProfile?.roleType === "admin" || staffRoles.includes("teacher");
+  const isTraining = staffRoles.includes("training");
   const canAccessCustomerCareSelf =
     hasStaffProfile && staffRoles.includes("customer_care");
   const lessonWorkspace = resolveStaffLessonWorkspace(fullProfile);
-  const canAccessLessonPlanWorkspace = lessonWorkspace.canAccessWorkspace;
-  const isAccountant = staffRoles.includes("accountant");
+  const isAccountantIncome =
+    staffRoles.includes("accountant_income") || staffRoles.includes("accountant");
+  const isAccountantExpense = staffRoles.includes("accountant_expense");
+  const isAccountant = isAccountantIncome || isAccountantExpense;
+  const canAccessLessonPlanWorkspace =
+    lessonWorkspace.canAccessWorkspace || isAccountantExpense;
   const isCommunication = staffRoles.includes("communication");
   const isTechnical = staffRoles.includes("technical");
   const baseMenuItems = isFullAdmin || isAssistant
@@ -469,7 +485,10 @@ export default function StaffSidebar() {
       canAccessClassWorkspace,
       canAccessCustomerCareSelf,
       canAccessLessonPlanWorkspace,
+      isTraining,
       isAccountant,
+      isAccountantIncome,
+      isAccountantExpense,
       isCommunication,
       isTechnical,
     }),
@@ -558,7 +577,7 @@ export default function StaffSidebar() {
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        className="fixed left-3 top-3 z-30 flex size-10 items-center justify-center rounded-md border border-border-default bg-bg-surface text-text-primary shadow-sm transition-transform duration-200 hover:scale-105 active:scale-95 md:hidden"
+        className="fixed left-3 top-3 z-30 flex size-11 items-center justify-center rounded-md border border-border-default bg-bg-surface text-text-primary shadow-sm transition-transform duration-200 hover:scale-105 active:scale-95 md:hidden"
         aria-label="Mở menu"
       >
         <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -600,7 +619,7 @@ export default function StaffSidebar() {
           <button
             type="button"
             onClick={isMobile ? () => setMobileOpen(false) : toggleCollapse}
-            className="flex size-9 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors duration-200 hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary"
+            className="flex size-11 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors duration-200 hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary md:size-9"
             aria-label={isMobile ? "Đóng menu" : collapsed ? "Mở rộng menu" : "Thu gọn menu"}
           >
             <svg
@@ -639,6 +658,21 @@ export default function StaffSidebar() {
             )}
             {menuItems.map((item) => {
               const isActive = item.href === resolvedActiveMenuHref;
+              const itemLabel =
+                typeof item.label === "function"
+                  ? item.label({
+                      hasStaffProfile,
+                      canAccessClassWorkspace,
+                      canAccessCustomerCareSelf,
+                      canAccessLessonPlanWorkspace,
+                      isTraining,
+                      isAccountant,
+                      isAccountantIncome,
+                      isAccountantExpense,
+                      isCommunication,
+                      isTechnical,
+                    })
+                  : item.label;
 
               return (
                 <li key={item.href} className="sidebar-item">
@@ -655,8 +689,8 @@ export default function StaffSidebar() {
                         ? "bg-primary text-text-inverse"
                         : "hover:bg-bg-tertiary hover:text-text-primary"
                       }`}
-                    aria-label={collapsed && !isMobile ? item.label : undefined}
-                    title={collapsed && !isMobile ? item.label : undefined}
+                    aria-label={collapsed && !isMobile ? itemLabel : undefined}
+                    title={collapsed && !isMobile ? itemLabel : undefined}
                   >
                     <span className="flex size-5 shrink-0 items-center justify-center [&>svg]:size-5">
                       {item.icon}
@@ -665,7 +699,7 @@ export default function StaffSidebar() {
                       className={`truncate whitespace-nowrap transition-[max-width,opacity] duration-300 ease-out ${compact ? "max-w-0 opacity-0" : "max-w-[140px] opacity-100"
                         }`}
                     >
-                      {item.label}
+                      {itemLabel}
                     </span>
                   </Link>
                 </li>

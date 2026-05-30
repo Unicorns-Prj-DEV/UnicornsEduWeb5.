@@ -79,7 +79,7 @@ export function SidebarThemePicker({ compact, onMobileClose }: Props) {
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`sidebar-item flex size-10 shrink-0 items-center justify-center rounded-full border border-transparent text-text-muted transition-colors duration-200 hover:border-border-default hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "" : ""}`}
+        className={`sidebar-item flex size-11 shrink-0 items-center justify-center rounded-full border border-transparent text-text-muted transition-colors duration-200 hover:border-border-default hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary md:size-10 ${compact ? "" : ""}`}
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-controls={open ? titleId : undefined}

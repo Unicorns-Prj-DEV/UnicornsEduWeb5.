@@ -21,7 +21,7 @@ export function SidebarNotificationBellButton({
     <button
       type="button"
       onClick={onClick}
-      className={`relative flex shrink-0 items-center justify-center rounded-full border border-border-default bg-bg-surface text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "size-9" : "size-10"}`}
+      className={`relative flex shrink-0 items-center justify-center rounded-full border border-border-default bg-bg-surface text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "size-10 md:size-9" : "size-11 md:size-10"}`}
       aria-label={label}
       title={label}
     >
