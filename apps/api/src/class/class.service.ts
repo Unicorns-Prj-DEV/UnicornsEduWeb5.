@@ -9,6 +9,7 @@ import {
   ClassStatus,
   ClassType,
   StaffRole,
+  StaffStatus,
   StudentClassStatus,
   UserRole,
 } from 'generated/enums';
@@ -20,10 +21,13 @@ import { PaginationQueryDto } from 'src/dtos/pagination.dto';
 import {
   CreateClassDto,
   CreateStaffOpsClassDto,
+  ClassStatusActionDto,
   UpdateClassBasicInfoDto,
   UpdateClassDto,
   UpdateClassScheduleDto,
   UpdateClassStudentsDto,
+  UpdateClassStudentTuitionDto,
+  UpdateClassTeacherCompensationDto,
   UpdateClassTeachersDto,
 } from 'src/dtos/class.dto';
 import { Prisma } from '../../generated/client';
@@ -43,6 +47,11 @@ import {
   resolveDerivedTuitionPerSession,
   resolveEffectiveTuitionPerSession,
 } from 'src/common/student-class-tuition.util';
+import {
+  redactClassForAccountantView,
+  redactClassListForAccountantView,
+  resolveAccountantFinanceView,
+} from 'src/common/accountant-finance-redaction.util';
 import {
   assertStaffCanReceiveAssignment,
   assertStudentCanJoinActiveWorkflow,
@@ -81,10 +90,19 @@ function isStudentClassActiveStatus(
   return status === StudentClassStatus.active;
 }
 
+function isClassTeacherActiveStatus(status: string | null | undefined): boolean {
+  return status == null || status === 'active';
+}
+
 function toDateOnly(value = new Date()) {
   return new Date(
     Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()),
   );
+}
+
+function withOptionalReason(description: string, reason?: string | null) {
+  const trimmedReason = reason?.trim();
+  return trimmedReason ? `${description} - Lý do: ${trimmedReason}` : description;
 }
 
 type StoredClassScheduleEntry = {
@@ -107,6 +125,7 @@ type TeacherAssignmentPayload = {
 type TeacherAssignmentRecord = {
   classId?: string;
   teacherId?: string;
+  status: string | null;
   customAllowance: number | null;
   operatingDeductionRatePercent: Prisma.Decimal | number | string | null;
   teacher: {
@@ -147,6 +166,13 @@ export class ClassService {
       return null;
     }
 
+    if (
+      !isClassTeacherActiveStatus(record.status) ||
+      record.teacher.status !== StaffStatus.active
+    ) {
+      return null;
+    }
+
     const operatingDeductionRatePercent = normalizeRatePercent(
       record.operatingDeductionRatePercent,
     );
@@ -155,6 +181,7 @@ export class ClassService {
       id: record.teacher.id,
       fullName: this.buildStaffDisplayName(record.teacher),
       status: record.teacher.status,
+      assignmentStatus: record.status,
       customAllowance: record.customAllowance,
       operatingDeductionRatePercent,
       taxRatePercent: operatingDeductionRatePercent,
@@ -227,7 +254,9 @@ export class ClassService {
     return (
       roles.includes(StaffRole.admin) ||
       roles.includes(StaffRole.assistant) ||
-      roles.includes(StaffRole.accountant)
+      roles.includes(StaffRole.accountant) ||
+      roles.includes(StaffRole.accountant_income) ||
+      roles.includes(StaffRole.accountant_expense)
     );
   }
 
@@ -355,6 +384,39 @@ export class ClassService {
     };
   }
 
+  private getActiveClassTeacherWhere(
+    classId: string,
+    teacherId?: string,
+  ): Prisma.ClassTeacherWhereInput {
+    return {
+      classId,
+      ...(teacherId ? { teacherId } : {}),
+      OR: [{ status: null }, { status: 'active' }],
+    };
+  }
+
+  private async deleteFutureMakeupEvents(
+    classId: string,
+    actor: ActionHistoryActor | undefined,
+    teacherId?: string,
+  ) {
+    const futureMakeupEvents = await this.prisma.makeupScheduleEvent.findMany({
+      where: {
+        classId,
+        ...(teacherId ? { teacherId } : {}),
+        date: { gte: toDateOnly() },
+      },
+      select: { id: true },
+      orderBy: { date: 'asc' },
+    });
+
+    for (const event of futureMakeupEvents) {
+      await this.calendarService.deleteMakeupScheduleEvent(event.id, actor);
+    }
+
+    return futureMakeupEvents.length;
+  }
+
   private ensureScheduleEntryIds(
     schedule: UpdateClassScheduleDto['schedule'],
   ): UpdateClassScheduleDto['schedule'] {
@@ -379,11 +441,13 @@ export class ClassService {
     const classRecord = await db.classTeacher.findMany({
       where: {
         classId: id,
-        teacher: { is: {} },
+        OR: [{ status: null }, { status: 'active' }],
+        teacher: { is: { status: StaffStatus.active } },
       },
       select: {
         classId: true,
         teacherId: true,
+        status: true,
         customAllowance: true,
         operatingDeductionRatePercent: true,
         teacher: {
@@ -538,6 +602,8 @@ export class ClassService {
             teachers: {
               some: {
                 teacherId,
+                OR: [{ status: null }, { status: 'active' }],
+                teacher: { is: { status: StaffStatus.active } },
               },
             },
           }
@@ -571,11 +637,13 @@ export class ClassService {
               classId: {
                 in: classIds,
               },
-              teacher: { is: {} },
+              OR: [{ status: null }, { status: 'active' }],
+              teacher: { is: { status: StaffStatus.active } },
             },
             select: {
               classId: true,
               teacherId: true,
+              status: true,
               customAllowance: true,
               operatingDeductionRatePercent: true,
               teacher: {
@@ -760,12 +828,17 @@ export class ClassService {
       userId,
       roleType,
     );
-    return this.getClasses({
+    const classes = await this.getClasses({
       ...query,
       ...(this.shouldScopeStaffClassesToTeacher(actor.roles)
         ? { teacherId: actor.id }
         : {}),
     });
+
+    return redactClassListForAccountantView(
+      classes,
+      resolveAccountantFinanceView(roleType, actor.roles),
+    );
   }
 
   async getClassByIdForStaff(userId: string, roleType: UserRole, id: string) {
@@ -775,7 +848,11 @@ export class ClassService {
     );
     await this.staffOperationsAccess.resolveClassViewAccessMode(actor, id);
 
-    return this.getClassById(id);
+    const classDetail = await this.getClassById(id);
+    return redactClassForAccountantView(
+      classDetail,
+      resolveAccountantFinanceView(roleType, actor.roles),
+    );
   }
 
   async createClassForStaff(
@@ -865,6 +942,7 @@ export class ClassService {
             teacherId: t.teacherId,
             customAllowance: t.customAllowance,
             operatingDeductionRatePercent: t.operatingDeductionRatePercent,
+            status: 'active',
           })),
         });
 
@@ -1012,6 +1090,7 @@ export class ClassService {
               teacherId: t.teacherId,
               customAllowance: t.customAllowance,
               operatingDeductionRatePercent: t.operatingDeductionRatePercent,
+              status: 'active',
             })),
           });
 
@@ -1123,11 +1202,13 @@ export class ClassService {
       const classRecord = await tx.classTeacher.findMany({
         where: {
           classId: data.id,
-          teacher: { is: {} },
+          OR: [{ status: null }, { status: 'active' }],
+          teacher: { is: { status: StaffStatus.active } },
         },
         select: {
           classId: true,
           teacherId: true,
+          status: true,
           customAllowance: true,
           operatingDeductionRatePercent: true,
           teacher: {
@@ -1322,6 +1403,7 @@ export class ClassService {
             teacherId: t.teacherId,
             customAllowance: t.customAllowance,
             operatingDeductionRatePercent: t.operatingDeductionRatePercent,
+            status: 'active',
           })),
         });
 
@@ -1392,6 +1474,172 @@ export class ClassService {
     }
 
     return result.afterValue;
+  }
+
+  async updateClassTeacherCompensation(
+    id: string,
+    dto: UpdateClassTeacherCompensationDto,
+    auditActor?: ActionHistoryActor,
+  ) {
+    const teacherIds = dto.teachers.map((teacher) => teacher.teacher_id);
+    const existing = await this.prisma.class.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        teachers: {
+          select: {
+            teacherId: true,
+            operatingDeductionRatePercent: true,
+          },
+        },
+      },
+    });
+    if (!existing) {
+      throw new NotFoundException('Class not found');
+    }
+
+    const existingTeacherIds = new Set(
+      existing.teachers.map((teacher) => teacher.teacherId),
+    );
+    const existingRateByTeacherId = new Map(
+      existing.teachers.map((teacher) => [
+        teacher.teacherId,
+        normalizeRatePercent(teacher.operatingDeductionRatePercent),
+      ]),
+    );
+    const invalidTeacherIds = teacherIds.filter(
+      (teacherId) => !existingTeacherIds.has(teacherId),
+    );
+    if (invalidTeacherIds.length > 0) {
+      throw new BadRequestException(
+        'Only existing class teachers can have compensation updated',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const beforeValue = auditActor
+        ? await this.getClassAuditSnapshot(tx, id)
+        : null;
+
+      for (const teacher of dto.teachers) {
+        const currentOperatingDeductionRatePercent =
+          existingRateByTeacherId.get(teacher.teacher_id) ?? 0;
+        const nextOperatingDeductionRatePercent =
+          teacher.operating_deduction_rate_percent == null &&
+          teacher.tax_rate_percent == null
+            ? currentOperatingDeductionRatePercent
+            : normalizeRatePercent(
+                teacher.operating_deduction_rate_percent ??
+                  teacher.tax_rate_percent,
+              );
+
+        await tx.classTeacher.update({
+          where: {
+            classId_teacherId: {
+              classId: id,
+              teacherId: teacher.teacher_id,
+            },
+          },
+          data: {
+            customAllowance: normalizeNullableMoney(teacher.custom_allowance),
+            operatingDeductionRatePercent: nextOperatingDeductionRatePercent,
+          },
+        });
+
+        if (
+          nextOperatingDeductionRatePercent !==
+          currentOperatingDeductionRatePercent
+        ) {
+          await this.appendOperatingDeductionRateHistory(tx, [
+            {
+              classId: id,
+              teacherId: teacher.teacher_id,
+              operatingDeductionRatePercent: nextOperatingDeductionRatePercent,
+            },
+          ]);
+        }
+      }
+
+      const afterValue = await this.getClassAuditSnapshot(tx, id);
+      if (!afterValue) {
+        throw new NotFoundException('Class not found');
+      }
+
+      if (auditActor) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor: auditActor,
+          entityType: 'class',
+          entityId: id,
+          description: 'Cập nhật trợ cấp và % vận hành gia sư của lớp học',
+          beforeValue,
+          afterValue,
+        });
+      }
+
+      return afterValue;
+    });
+  }
+
+  async updateClassStudentTuition(
+    id: string,
+    dto: UpdateClassStudentTuitionDto,
+    auditActor?: ActionHistoryActor,
+  ) {
+    const existing = await this.prisma.class.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new NotFoundException('Class not found');
+    }
+
+    const studentClass = await this.prisma.studentClass.findFirst({
+      where: { classId: id, studentId: dto.student_id },
+      select: { id: true },
+    });
+    if (!studentClass) {
+      throw new NotFoundException('Student is not enrolled in this class');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const beforeValue = auditActor
+        ? await this.getClassAuditSnapshot(tx, id)
+        : null;
+
+      await tx.studentClass.update({
+        where: { id: studentClass.id },
+        data: {
+          customTuitionPackageTotal: normalizeStudentClassCustomTuitionMoney(
+            dto.custom_tuition_package_total,
+          ),
+          customTuitionPackageSession: normalizeStudentClassCustomTuitionMoney(
+            dto.custom_tuition_package_session,
+          ),
+          customStudentTuitionPerSession:
+            normalizeStudentClassCustomTuitionMoney(
+              dto.custom_tuition_per_session,
+            ),
+        },
+      });
+
+      const afterValue = await this.getClassAuditSnapshot(tx, id);
+      if (!afterValue) {
+        throw new NotFoundException('Class not found');
+      }
+
+      if (auditActor) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor: auditActor,
+          entityType: 'class',
+          entityId: id,
+          description: 'Cập nhật học phí riêng học sinh trong lớp',
+          beforeValue,
+          afterValue,
+        });
+      }
+
+      return afterValue;
+    });
   }
 
   async updateClassSchedule(
@@ -1619,6 +1867,145 @@ export class ClassService {
 
       return afterValue;
     });
+  }
+
+  async endClass(
+    id: string,
+    dto: ClassStatusActionDto = {},
+    auditActor?: ActionHistoryActor,
+  ) {
+    const result = await this.prisma.$transaction(async (tx) => {
+      const beforeValue = await this.getClassAuditSnapshot(tx, id);
+      if (!beforeValue) {
+        throw new NotFoundException('Class not found');
+      }
+      if (beforeValue.status === ClassStatus.ended) {
+        throw new BadRequestException('Lớp đã kết thúc.');
+      }
+
+      const oldSchedule = this.getStoredClassScheduleEntries(
+        beforeValue.schedule as Prisma.JsonValue | null | undefined,
+      );
+
+      await tx.class.update({
+        where: { id },
+        data: {
+          status: ClassStatus.ended,
+          schedule: [],
+        },
+      });
+      await tx.studentClass.updateMany({
+        where: { classId: id, status: StudentClassStatus.active },
+        data: { status: StudentClassStatus.inactive },
+      });
+      await tx.classTeacher.updateMany({
+        where: this.getActiveClassTeacherWhere(id),
+        data: { status: 'inactive' },
+      });
+
+      const afterValue = await this.getClassAuditSnapshot(tx, id);
+      if (!afterValue) {
+        throw new NotFoundException('Class not found');
+      }
+
+      if (auditActor) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor: auditActor,
+          entityType: 'class',
+          entityId: id,
+          description: withOptionalReason('Kết thúc lớp học', dto.reason),
+          beforeValue,
+          afterValue,
+        });
+      }
+
+      return { oldSchedule };
+    });
+
+    await this.calendarService.syncScheduleWithCalendar(id, result.oldSchedule);
+    await this.deleteFutureMakeupEvents(id, auditActor);
+
+    return this.getClassById(id);
+  }
+
+  async stopClassTeacher(
+    classId: string,
+    teacherId: string,
+    dto: ClassStatusActionDto = {},
+    auditActor?: ActionHistoryActor,
+  ) {
+    const result = await this.prisma.$transaction(async (tx) => {
+      const beforeValue = await this.getClassAuditSnapshot(tx, classId);
+      if (!beforeValue) {
+        throw new NotFoundException('Class not found');
+      }
+      if (beforeValue.status === ClassStatus.ended) {
+        throw new BadRequestException('Lớp đã kết thúc.');
+      }
+
+      const assignment = await tx.classTeacher.findUnique({
+        where: { classId_teacherId: { classId, teacherId } },
+        select: { status: true },
+      });
+      if (!assignment) {
+        throw new NotFoundException('Không tìm thấy phân công gia sư cho lớp.');
+      }
+      if (assignment.status === 'inactive') {
+        throw new BadRequestException('Gia sư đã nghỉ dạy lớp này.');
+      }
+
+      const scheduleRemoval = this.removeScheduleEntriesForTeachers(
+        beforeValue.schedule as Prisma.JsonValue | null | undefined,
+        new Set([teacherId]),
+      );
+
+      await tx.classTeacher.update({
+        where: { classId_teacherId: { classId, teacherId } },
+        data: { status: 'inactive' },
+      });
+
+      if (scheduleRemoval.removedScheduleEntries > 0) {
+        await tx.class.update({
+          where: { id: classId },
+          data: {
+            schedule: this.serializeStoredClassScheduleEntries(
+              scheduleRemoval.nextSchedule,
+            ),
+          },
+        });
+      }
+
+      const afterValue = await this.getClassAuditSnapshot(tx, classId);
+      if (!afterValue) {
+        throw new NotFoundException('Class not found');
+      }
+
+      if (auditActor) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor: auditActor,
+          entityType: 'class',
+          entityId: classId,
+          description: withOptionalReason(
+            'Chuyển gia sư sang nghỉ dạy theo lớp',
+            dto.reason,
+          ),
+          beforeValue,
+          afterValue,
+        });
+      }
+
+      return { scheduleRemoval };
+    });
+
+    if (result.scheduleRemoval.removedScheduleEntries > 0) {
+      await this.calendarService.syncScheduleWithCalendar(
+        classId,
+        result.scheduleRemoval.oldSchedule,
+      );
+    }
+    await this.deleteFutureMakeupEvents(classId, auditActor, teacherId);
+
+    return this.getClassById(classId);
   }
 
   async deleteClass(id: string, auditActor?: ActionHistoryActor) {

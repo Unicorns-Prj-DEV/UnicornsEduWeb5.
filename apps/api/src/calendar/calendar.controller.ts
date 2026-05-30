@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, ForbiddenException, Get, Query } from '@nestjs/common';
 import {
   ApiCookieAuth,
   ApiOperation,
@@ -35,6 +35,11 @@ interface StudentItem {
   fullName: string;
 }
 
+type CalendarActorScope = {
+  teacherId?: string;
+  redactStudentFields?: boolean;
+};
+
 @Controller('calendar')
 @ApiTags('calendar')
 @ApiCookieAuth('access_token')
@@ -45,18 +50,23 @@ export class CalendarController {
     private readonly staffOperationsAccess: StaffOperationsAccessService,
   ) {}
 
-  private async resolveTeacherActorId(
+  private async resolveCalendarActorScope(
     user: JwtPayload,
-  ): Promise<string | undefined> {
+  ): Promise<CalendarActorScope> {
     if (user.roleType !== UserRole.staff) {
-      return undefined;
+      return {};
     }
 
-    const actor = await this.staffOperationsAccess.resolveActor(
+    const actor = await this.staffOperationsAccess.resolveCalendarActor(
       user.id,
       user.roleType,
     );
-    return actor.id;
+
+    if (actor.calendarAccessMode === 'training') {
+      return { redactStudentFields: true };
+    }
+
+    return { teacherId: actor.id };
   }
 
   @Get('classes')
@@ -104,7 +114,7 @@ export class CalendarController {
   @ApiResponse({
     status: 403,
     description:
-      'Staff không có role teacher không được dùng filter calendar này.',
+      'Staff không có role teacher hoặc training không được dùng filter calendar này.',
   })
   async getClasses(
     @CurrentUser() user: JwtPayload,
@@ -112,9 +122,14 @@ export class CalendarController {
     @Query('search') search?: string,
   ): Promise<PaginatedResponse<ClassItem>> {
     const { page, limit } = pagination;
-    const actorId = await this.resolveTeacherActorId(user);
+    const scope = await this.resolveCalendarActorScope(user);
 
-    return this.calendarService.getClasses(page, limit, search, actorId);
+    return this.calendarService.getClasses(
+      page,
+      limit,
+      search,
+      scope.teacherId,
+    );
   }
 
   @Get('teachers')
@@ -212,7 +227,7 @@ export class CalendarController {
   @ApiResponse({
     status: 403,
     description:
-      'Staff không có role teacher không được dùng filter calendar này.',
+      'Staff không có role teacher không được dùng filter học sinh calendar này.',
   })
   async getStudentsForFilter(
     @CurrentUser() user: JwtPayload,
@@ -220,18 +235,25 @@ export class CalendarController {
     @Query('search') search?: string,
   ): Promise<PaginatedResponse<StudentItem>> {
     const { page, limit } = pagination;
-    const actorId = await this.resolveTeacherActorId(user);
+    const scope = await this.resolveCalendarActorScope(user);
+    if (scope.redactStudentFields) {
+      throw new ForbiddenException(
+        'Đào Tạo không được dùng filter học sinh trên calendar.',
+      );
+    }
 
     return this.calendarService.getStudentsForCalendar(
       page,
       limit,
       search,
-      actorId,
+      scope.teacherId,
     );
   }
 
   @Get('staff/events')
-  @ApiOperation({ summary: 'Lấy lịch dạy của staff hiện tại (teacher role)' })
+  @ApiOperation({
+    summary: 'Lấy lịch staff hiện tại (teacher hoặc Đào Tạo)',
+  })
   @ApiQuery({
     name: 'startDate',
     description: 'Ngày bắt đầu (YYYY-MM-DD)',
@@ -274,13 +296,21 @@ export class CalendarController {
     data: ClassScheduleEventDto[];
     total: number;
   }> {
-    const actor = await this.staffOperationsAccess.resolveActor(
+    const actor = await this.staffOperationsAccess.resolveCalendarActor(
       user.id,
       user.roleType,
     );
+    if (actor.calendarAccessMode === 'training' && filters.studentId) {
+      throw new ForbiddenException(
+        'Đào Tạo không được lọc lịch theo học sinh.',
+      );
+    }
+
     const result = await this.calendarService.getStaffScheduleEvents(
-      actor.id,
       filters,
+      actor.calendarAccessMode === 'teacher'
+        ? { teacherId: actor.id }
+        : { redactStudentFields: actor.calendarAccessMode === 'training' },
     );
     return result;
   }

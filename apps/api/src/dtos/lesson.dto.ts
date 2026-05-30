@@ -23,7 +23,11 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { IsStaffId, IsLessonTaskId, IsLessonOutputId } from '../common/entity-id.validators';
+import {
+  IsStaffId,
+  IsLessonTaskId,
+  IsLessonOutputId,
+} from '../common/entity-id.validators';
 
 export interface LessonListMetaDto {
   total: number;
@@ -46,6 +50,7 @@ export interface LessonResourceResponseDto {
   resourceLink: string;
   lessonTaskId: string | null;
   tags: string[];
+  createdBy: string | null;
   createdAt: string;
   updatedAt: string;
 }

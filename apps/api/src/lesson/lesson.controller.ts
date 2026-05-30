@@ -184,10 +184,17 @@ export class LessonController {
     summary: 'Get lesson task detail',
     description: 'Load a single lesson task detail by id.',
   })
-  @ApiParam({ name: 'id', description: 'Lesson task id', example: 'UNILTK-a1b2c3d4e5' })
+  @ApiParam({
+    name: 'id',
+    description: 'Lesson task id',
+    example: 'UNILTK-a1b2c3d4e5',
+  })
   @ApiResponse({ status: 200, description: 'Lesson task loaded.' })
   @ApiResponse({ status: 404, description: 'Lesson task not found.' })
-  async getTaskById(@CurrentUser() user: JwtPayload, @Param('id', new ParseLessonTaskIdPipe()) id: string) {
+  async getTaskById(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseLessonTaskIdPipe()) id: string,
+  ) {
     return this.lessonService.getTaskById(id, user);
   }
 
@@ -197,7 +204,11 @@ export class LessonController {
     description:
       'Load a single lesson output detail by id. Participant staff can only access outputs inside assigned lesson tasks.',
   })
-  @ApiParam({ name: 'id', description: 'Lesson output id', example: 'UNILOT-a1b2c3d4e5' })
+  @ApiParam({
+    name: 'id',
+    description: 'Lesson output id',
+    example: 'UNILOT-a1b2c3d4e5',
+  })
   @ApiResponse({ status: 200, description: 'Lesson output loaded.' })
   @ApiResponse({ status: 404, description: 'Lesson output not found.' })
   async getOutputById(
@@ -212,11 +223,17 @@ export class LessonController {
     summary: 'Get lesson resource detail',
     description: 'Load a single lesson resource detail by id.',
   })
-  @ApiParam({ name: 'id', description: 'Lesson resource id', example: 'UNILRS-a1b2c3d4e5' })
+  @ApiParam({
+    name: 'id',
+    description: 'Lesson resource id',
+    example: 'UNILRS-a1b2c3d4e5',
+  })
   @ApiResponse({ status: 200, description: 'Lesson resource loaded.' })
   @ApiResponse({ status: 404, description: 'Lesson resource not found.' })
   @UseGuards(LessonManagementGuard)
-  async getResourceById(@Param('id', new ParseLessonResourceIdPipe()) id: string) {
+  async getResourceById(
+    @Param('id', new ParseLessonResourceIdPipe()) id: string,
+  ) {
     return this.lessonService.getResourceById(id);
   }
 
@@ -253,24 +270,32 @@ export class LessonController {
     description:
       'Update a lesson resource by id, including changing its linked lesson task.',
   })
-  @ApiParam({ name: 'id', description: 'Lesson resource id', example: 'UNILRS-a1b2c3d4e5' })
+  @ApiParam({
+    name: 'id',
+    description: 'Lesson resource id',
+    example: 'UNILRS-a1b2c3d4e5',
+  })
   @ApiBody({
     type: UpdateLessonResourceDto,
     description: 'Lesson resource update payload',
   })
   @ApiResponse({ status: 200, description: 'Lesson resource updated.' })
   @ApiResponse({ status: 404, description: 'Lesson resource not found.' })
-  @UseGuards(LessonManagementGuard)
   async updateResource(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseLessonResourceIdPipe()) id: string,
     @Body() data: UpdateLessonResourceDto,
   ) {
-    return this.lessonService.updateResource(id, data, {
-      userId: user.id,
-      userEmail: user.email,
-      roleType: user.roleType,
-    });
+    return this.lessonService.updateResource(
+      id,
+      data,
+      {
+        userId: user.id,
+        userEmail: user.email,
+        roleType: user.roleType,
+      },
+      user,
+    );
   }
 
   @Delete('lesson-resources/:id')
@@ -278,19 +303,26 @@ export class LessonController {
     summary: 'Delete lesson resource',
     description: 'Delete a lesson resource by id.',
   })
-  @ApiParam({ name: 'id', description: 'Lesson resource id', example: 'UNILRS-a1b2c3d4e5' })
+  @ApiParam({
+    name: 'id',
+    description: 'Lesson resource id',
+    example: 'UNILRS-a1b2c3d4e5',
+  })
   @ApiResponse({ status: 200, description: 'Lesson resource deleted.' })
   @ApiResponse({ status: 404, description: 'Lesson resource not found.' })
-  @UseGuards(LessonManagementGuard, AdminOnlyDeleteGuard)
   async deleteResource(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseLessonResourceIdPipe()) id: string,
   ) {
-    return this.lessonService.deleteResource(id, {
-      userId: user.id,
-      userEmail: user.email,
-      roleType: user.roleType,
-    });
+    return this.lessonService.deleteResource(
+      id,
+      {
+        userId: user.id,
+        userEmail: user.email,
+        roleType: user.roleType,
+      },
+      user,
+    );
   }
 
   @Post('lesson-outputs')
@@ -324,7 +356,11 @@ export class LessonController {
     summary: 'Update lesson output',
     description: 'Update a lesson output by id.',
   })
-  @ApiParam({ name: 'id', description: 'Lesson output id', example: 'UNILOT-a1b2c3d4e5' })
+  @ApiParam({
+    name: 'id',
+    description: 'Lesson output id',
+    example: 'UNILOT-a1b2c3d4e5',
+  })
   @ApiBody({
     type: UpdateLessonOutputDto,
     description: 'Lesson output update payload',
@@ -389,11 +425,18 @@ export class LessonController {
     summary: 'Delete lesson output',
     description: 'Delete a lesson output by id.',
   })
-  @ApiParam({ name: 'id', description: 'Lesson output id', example: 'UNILOT-a1b2c3d4e5' })
+  @ApiParam({
+    name: 'id',
+    description: 'Lesson output id',
+    example: 'UNILOT-a1b2c3d4e5',
+  })
   @ApiResponse({ status: 200, description: 'Lesson output deleted.' })
   @ApiResponse({ status: 404, description: 'Lesson output not found.' })
   @UseGuards(LessonManagementGuard, AdminOnlyDeleteGuard)
-  async deleteOutput(@CurrentUser() user: JwtPayload, @Param('id', new ParseLessonOutputIdPipe()) id: string) {
+  async deleteOutput(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseLessonOutputIdPipe()) id: string,
+  ) {
     return this.lessonService.deleteOutput(id, {
       userId: user.id,
       userEmail: user.email,
@@ -431,7 +474,11 @@ export class LessonController {
     description:
       'Update a lesson task by id and normalize legacy staff fields into the unified execution staff list.',
   })
-  @ApiParam({ name: 'id', description: 'Lesson task id', example: 'UNILTK-a1b2c3d4e5' })
+  @ApiParam({
+    name: 'id',
+    description: 'Lesson task id',
+    example: 'UNILTK-a1b2c3d4e5',
+  })
   @ApiBody({
     type: UpdateLessonTaskDto,
     description: 'Lesson task update payload',
@@ -456,11 +503,18 @@ export class LessonController {
     summary: 'Delete lesson task',
     description: 'Delete a lesson task by id.',
   })
-  @ApiParam({ name: 'id', description: 'Lesson task id', example: 'UNILTK-a1b2c3d4e5' })
+  @ApiParam({
+    name: 'id',
+    description: 'Lesson task id',
+    example: 'UNILTK-a1b2c3d4e5',
+  })
   @ApiResponse({ status: 200, description: 'Lesson task deleted.' })
   @ApiResponse({ status: 404, description: 'Lesson task not found.' })
   @UseGuards(LessonManagementGuard, AdminOnlyDeleteGuard)
-  async deleteTask(@CurrentUser() user: JwtPayload, @Param('id', new ParseLessonTaskIdPipe()) id: string) {
+  async deleteTask(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseLessonTaskIdPipe()) id: string,
+  ) {
     return this.lessonService.deleteTask(id, {
       userId: user.id,
       userEmail: user.email,

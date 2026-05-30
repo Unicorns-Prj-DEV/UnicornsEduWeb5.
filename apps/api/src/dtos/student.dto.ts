@@ -258,6 +258,14 @@ export class UpdateStudentStatusDto {
   })
   @IsEnum(StudentStatus)
   status: StudentStatus;
+
+  @ApiPropertyOptional({
+    description: 'Optional audit reason for the student status transition.',
+    example: 'Phụ huynh báo học sinh nghỉ học.',
+  })
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }
 
 export class UpdateStudentAccountBalanceCreateDto {

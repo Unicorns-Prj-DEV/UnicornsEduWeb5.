@@ -14,7 +14,7 @@ describe('CalendarController', () => {
     getStaffScheduleEvents: jest.fn(),
   };
   const staffOperationsAccess = {
-    resolveActor: jest.fn(),
+    resolveCalendarActor: jest.fn(),
   };
 
   let controller: CalendarController;
@@ -28,9 +28,10 @@ describe('CalendarController', () => {
   });
 
   it('scopes class filters to the current teacher for staff users', async () => {
-    staffOperationsAccess.resolveActor.mockResolvedValue({
+    staffOperationsAccess.resolveCalendarActor.mockResolvedValue({
       id: 'teacher-1',
       roles: [StaffRole.teacher],
+      calendarAccessMode: 'teacher',
     });
     calendarService.getClasses.mockResolvedValue({
       data: [],
@@ -48,7 +49,7 @@ describe('CalendarController', () => {
       'math',
     );
 
-    expect(staffOperationsAccess.resolveActor).toHaveBeenCalledWith(
+    expect(staffOperationsAccess.resolveCalendarActor).toHaveBeenCalledWith(
       'user-1',
       UserRole.staff,
     );
@@ -61,7 +62,7 @@ describe('CalendarController', () => {
   });
 
   it('rejects non-teacher staff from class filters instead of falling back to unscoped data', async () => {
-    staffOperationsAccess.resolveActor.mockRejectedValue(
+    staffOperationsAccess.resolveCalendarActor.mockRejectedValue(
       new ForbiddenException(
         'Màn /staff hiện chỉ mở cho staff có role teacher.',
       ),
@@ -81,7 +82,7 @@ describe('CalendarController', () => {
   });
 
   it('rejects non-teacher staff from student filters instead of falling back to unscoped data', async () => {
-    staffOperationsAccess.resolveActor.mockRejectedValue(
+    staffOperationsAccess.resolveCalendarActor.mockRejectedValue(
       new ForbiddenException(
         'Màn /staff hiện chỉ mở cho staff có role teacher.',
       ),
@@ -117,12 +118,94 @@ describe('CalendarController', () => {
       'physics',
     );
 
-    expect(staffOperationsAccess.resolveActor).not.toHaveBeenCalled();
+    expect(staffOperationsAccess.resolveCalendarActor).not.toHaveBeenCalled();
     expect(calendarService.getClasses).toHaveBeenCalledWith(
       1,
       20,
       'physics',
       undefined,
+    );
+  });
+
+  it('lets training staff fetch all running class filters', async () => {
+    staffOperationsAccess.resolveCalendarActor.mockResolvedValue({
+      id: 'training-1',
+      roles: [StaffRole.training],
+      calendarAccessMode: 'training',
+    });
+    calendarService.getClasses.mockResolvedValue({
+      data: [],
+      total: 0,
+      page: 1,
+      limit: 20,
+    });
+
+    await controller.getClasses(
+      {
+        id: 'training-user',
+        roleType: UserRole.staff,
+      } as never,
+      { page: 1, limit: 20 } as never,
+      'math',
+    );
+
+    expect(calendarService.getClasses).toHaveBeenCalledWith(
+      1,
+      20,
+      'math',
+      undefined,
+    );
+  });
+
+  it('redacts student fields for training staff calendar events', async () => {
+    staffOperationsAccess.resolveCalendarActor.mockResolvedValue({
+      id: 'training-1',
+      roles: [StaffRole.training],
+      calendarAccessMode: 'training',
+    });
+    calendarService.getStaffScheduleEvents.mockResolvedValue({
+      success: true,
+      data: [],
+      total: 0,
+    });
+
+    await controller.getStaffEvents(
+      {
+        id: 'training-user',
+        roleType: UserRole.staff,
+      } as never,
+      { startDate: '2026-05-29', endDate: '2026-05-29' } as never,
+    );
+
+    expect(calendarService.getStaffScheduleEvents).toHaveBeenCalledWith(
+      { startDate: '2026-05-29', endDate: '2026-05-29' },
+      { redactStudentFields: true },
+    );
+  });
+
+  it('keeps teacher staff calendar scoped to their own staff id', async () => {
+    staffOperationsAccess.resolveCalendarActor.mockResolvedValue({
+      id: 'teacher-1',
+      roles: [StaffRole.teacher],
+      calendarAccessMode: 'teacher',
+    });
+    calendarService.getStaffScheduleEvents.mockResolvedValue({
+      success: true,
+      data: [],
+      total: 0,
+    });
+
+    await controller.getStaffEvents(
+      {
+        id: 'teacher-user',
+        roleType: UserRole.staff,
+      } as never,
+      { startDate: '2026-05-29', endDate: '2026-05-29' } as never,
+    );
+
+    expect(calendarService.getStaffScheduleEvents).toHaveBeenCalledWith(
+      { startDate: '2026-05-29', endDate: '2026-05-29' },
+      { teacherId: 'teacher-1' },
     );
   });
 

@@ -14,6 +14,7 @@ import { SessionStudentBalanceService } from './session-student-balance.service'
 import { SessionLedgerService } from './session-ledger.service';
 import { SessionRosterService } from './session-roster.service';
 import { SessionSnapshotService } from './session-snapshot.service';
+import { SessionScheduleRulesService } from './session-schedule-rules.service';
 
 @Module({
   imports: [PrismaModule, StaffOperationsModule, ActionHistoryModule],
@@ -29,6 +30,7 @@ import { SessionSnapshotService } from './session-snapshot.service';
     SessionLedgerService,
     SessionRosterService,
     SessionSnapshotService,
+    SessionScheduleRulesService,
   ],
   exports: [SessionService],
 })

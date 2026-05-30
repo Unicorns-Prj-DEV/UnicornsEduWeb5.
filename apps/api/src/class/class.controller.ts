@@ -8,8 +8,12 @@ import {
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
-import { ParseClassIdPipe } from 'src/common/pipes/parse-entity-id.pipe';
+import {
+  ParseClassIdPipe,
+  ParseStaffIdPipe,
+} from 'src/common/pipes/parse-entity-id.pipe';
 import {
   ApiBody,
   ApiCookieAuth,
@@ -28,11 +32,14 @@ import {
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { PaginationQueryDto } from 'src/dtos/pagination.dto';
 import {
+  ClassStatusActionDto,
   CreateClassDto,
   UpdateClassBasicInfoDto,
   UpdateClassDto,
   UpdateClassScheduleDto,
   UpdateClassStudentsDto,
+  UpdateClassStudentTuitionDto,
+  UpdateClassTeacherCompensationDto,
   UpdateClassTeachersDto,
 } from 'src/dtos/class.dto';
 import {
@@ -50,11 +57,23 @@ import {
 import { CalendarService } from 'src/calendar/calendar.service';
 import { ClassService } from './class.service';
 import { ClassSurveyService } from './class-survey.service';
+import type { RequestWithResolvedAuthContext } from 'src/auth/auth-request-context';
+import {
+  redactClassForAccountantView,
+  redactClassListForAccountantView,
+  redactStudentClassRowsForAccountantView,
+  resolveAccountantFinanceView,
+} from 'src/common/accountant-finance-redaction.util';
 
 @Controller('class')
 @ApiTags('class')
 @ApiCookieAuth('access_token')
-@AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.accountant)
+@AllowStaffRolesOnAdminRoutes(
+  StaffRole.assistant,
+  StaffRole.accountant,
+  StaffRole.accountant_income,
+  StaffRole.accountant_expense,
+)
 @Roles(UserRole.admin)
 export class ClassController {
   constructor(
@@ -106,17 +125,23 @@ export class ClassController {
     description: 'Paginated class list with data and meta.',
   })
   async getClasses(
+    @CurrentUser() user: JwtPayload,
+    @Req() req: RequestWithResolvedAuthContext,
     @Query() query: PaginationQueryDto,
     @Query('search') search?: string,
     @Query('status') status?: string,
     @Query('type') type?: string,
   ) {
-    return this.classService.getClasses({
+    const classes = await this.classService.getClasses({
       ...query,
       search,
       status,
       type,
     });
+    return redactClassListForAccountantView(
+      classes,
+      resolveAccountantFinanceView(user.roleType, req.resolvedStaffRoles ?? []),
+    );
   }
 
   @Get(':id/students')
@@ -127,8 +152,16 @@ export class ClassController {
   @ApiParam({ name: 'id', description: 'Class id' })
   @ApiResponse({ status: 200, description: 'List of students in the class.' })
   @ApiResponse({ status: 404, description: 'Class not found.' })
-  async getStudentsByClassId(@Param('id', new ParseClassIdPipe()) id: string) {
-    return this.classService.getStudentsByClassId(id);
+  async getStudentsByClassId(
+    @CurrentUser() user: JwtPayload,
+    @Req() req: RequestWithResolvedAuthContext,
+    @Param('id', new ParseClassIdPipe()) id: string,
+  ) {
+    const students = await this.classService.getStudentsByClassId(id);
+    return redactStudentClassRowsForAccountantView(
+      students,
+      resolveAccountantFinanceView(user.roleType, req.resolvedStaffRoles ?? []),
+    );
   }
 
   @Get(':id/surveys')
@@ -149,6 +182,7 @@ export class ClassController {
   }
 
   @Patch(':id/basic-info')
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   @ApiOperation({
     summary: 'Update class basic info',
     description:
@@ -172,6 +206,7 @@ export class ClassController {
   }
 
   @Patch(':id/teachers')
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   @ApiOperation({
     summary: 'Update class teachers',
     description:
@@ -194,7 +229,38 @@ export class ClassController {
     });
   }
 
+  @Patch(':id/teacher-compensation')
+  @AllowStaffRolesOnAdminRoutes(
+    StaffRole.assistant,
+    StaffRole.accountant_expense,
+  )
+  @ApiOperation({
+    summary: 'Update class teacher compensation',
+    description:
+      'Update custom allowance and operating deduction rate for existing class teachers only. Does not change teacher roster.',
+  })
+  @ApiParam({ name: 'id', description: 'Class id' })
+  @ApiBody({ type: UpdateClassTeacherCompensationDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Class teacher compensation updated.',
+  })
+  @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({ status: 404, description: 'Class not found.' })
+  async updateClassTeacherCompensation(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseClassIdPipe()) id: string,
+    @Body() dto: UpdateClassTeacherCompensationDto,
+  ) {
+    return this.classService.updateClassTeacherCompensation(id, dto, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
+  }
+
   @Patch(':id/schedule')
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   @ApiOperation({
     summary: 'Update class schedule',
     description:
@@ -227,13 +293,93 @@ export class ClassController {
   @ApiResponse({ status: 200, description: 'Class updated.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({ status: 404, description: 'Class not found.' })
-  @AllowStaffRolesOnAdminRoutes()
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   async updateClassStudents(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseClassIdPipe()) id: string,
     @Body() dto: UpdateClassStudentsDto,
   ) {
     return this.classService.updateClassStudents(id, dto, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
+  }
+
+  @Post(':id/end')
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @ApiOperation({
+    summary: 'End class operations',
+    description:
+      'Set class status to ended, close active roster/teacher assignments, clear fixed schedule, and remove future makeup events.',
+  })
+  @ApiParam({ name: 'id', description: 'Class id' })
+  @ApiBody({ type: ClassStatusActionDto, required: false })
+  @ApiResponse({ status: 200, description: 'Class ended.' })
+  @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({ status: 404, description: 'Class not found.' })
+  async endClass(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseClassIdPipe()) id: string,
+    @Body() dto: ClassStatusActionDto,
+  ) {
+    return this.classService.endClass(id, dto ?? {}, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
+  }
+
+  @Post(':id/teachers/:teacherId/stop-teaching')
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @ApiOperation({
+    summary: 'Mark a teacher as stopped teaching this class',
+    description:
+      'Marks the class-teacher assignment inactive, removes future fixed schedule slots for that teacher, and removes related future makeup events.',
+  })
+  @ApiParam({ name: 'id', description: 'Class id' })
+  @ApiParam({ name: 'teacherId', description: 'Staff id of the teacher' })
+  @ApiBody({ type: ClassStatusActionDto, required: false })
+  @ApiResponse({ status: 200, description: 'Teacher assignment stopped.' })
+  @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({ status: 404, description: 'Class or teacher assignment not found.' })
+  async stopClassTeacher(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseClassIdPipe()) id: string,
+    @Param('teacherId', new ParseStaffIdPipe()) teacherId: string,
+    @Body() dto: ClassStatusActionDto,
+  ) {
+    return this.classService.stopClassTeacher(id, teacherId, dto ?? {}, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
+  }
+
+  @Patch(':id/student-tuition')
+  @AllowStaffRolesOnAdminRoutes(
+    StaffRole.assistant,
+    StaffRole.accountant_income,
+  )
+  @ApiOperation({
+    summary: 'Update one student tuition in class',
+    description:
+      'Update tuition override/package fields for one existing student-class relation. Does not change roster.',
+  })
+  @ApiParam({ name: 'id', description: 'Class id' })
+  @ApiBody({ type: UpdateClassStudentTuitionDto })
+  @ApiResponse({ status: 200, description: 'Student tuition updated.' })
+  @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({
+    status: 404,
+    description: 'Class or student-class relation not found.',
+  })
+  async updateClassStudentTuition(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseClassIdPipe()) id: string,
+    @Body() dto: UpdateClassStudentTuitionDto,
+  ) {
+    return this.classService.updateClassStudentTuition(id, dto, {
       userId: user.id,
       userEmail: user.email,
       roleType: user.roleType,
@@ -333,8 +479,16 @@ export class ClassController {
   @ApiParam({ name: 'id', description: 'Class id' })
   @ApiResponse({ status: 200, description: 'Class found.' })
   @ApiResponse({ status: 404, description: 'Class not found.' })
-  async getClassById(@Param('id', new ParseClassIdPipe()) id: string) {
-    return this.classService.getClassById(id);
+  async getClassById(
+    @CurrentUser() user: JwtPayload,
+    @Req() req: RequestWithResolvedAuthContext,
+    @Param('id', new ParseClassIdPipe()) id: string,
+  ) {
+    const classDetail = await this.classService.getClassById(id);
+    return redactClassForAccountantView(
+      classDetail,
+      resolveAccountantFinanceView(user.roleType, req.resolvedStaffRoles ?? []),
+    );
   }
 
   @Post()

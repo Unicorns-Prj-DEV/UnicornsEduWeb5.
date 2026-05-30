@@ -32,7 +32,12 @@ import {
 type ClassServiceTestAccess = {
   getClassAuditSnapshot: (
     ...args: unknown[]
-  ) => Promise<{ id: string; teachers: never[] }>;
+  ) => Promise<{
+    id: string;
+    status: ClassStatus;
+    schedule: unknown[];
+    teachers: never[];
+  } | null>;
 };
 
 describe('ClassService', () => {
@@ -46,6 +51,9 @@ describe('ClassService', () => {
       findMany: jest.fn(),
       deleteMany: jest.fn(),
       createMany: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+      findUnique: jest.fn(),
     },
     classTeacherOperatingDeductionRate: {
       upsert: jest.fn(),
@@ -73,6 +81,9 @@ describe('ClassService', () => {
     classTeacher: {
       findMany: jest.fn(),
     },
+    makeupScheduleEvent: {
+      findMany: jest.fn(),
+    },
     studentClass: {
       groupBy: jest.fn(),
     },
@@ -88,6 +99,7 @@ describe('ClassService', () => {
   };
   const mockCalendarService = {
     syncScheduleWithCalendar: jest.fn().mockResolvedValue(undefined),
+    deleteMakeupScheduleEvent: jest.fn().mockResolvedValue(undefined),
   };
 
   let service: ClassService;
@@ -141,6 +153,9 @@ describe('ClassService', () => {
     mockTx.classTeacher.findMany.mockResolvedValue([]);
     mockTx.classTeacher.deleteMany.mockResolvedValue({ count: 1 });
     mockTx.classTeacher.createMany.mockResolvedValue({ count: 1 });
+    mockTx.classTeacher.update.mockResolvedValue({});
+    mockTx.classTeacher.updateMany.mockResolvedValue({ count: 0 });
+    mockTx.classTeacher.findUnique.mockResolvedValue(null);
     mockTx.classTeacherOperatingDeductionRate.upsert.mockResolvedValue({
       id: 'history-1',
     });
@@ -159,6 +174,7 @@ describe('ClassService', () => {
     mockPrisma.class.count.mockResolvedValue(0);
     mockPrisma.class.findMany.mockResolvedValue([]);
     mockPrisma.classTeacher.findMany.mockResolvedValue([]);
+    mockPrisma.makeupScheduleEvent.findMany.mockResolvedValue([]);
     mockPrisma.studentClass.groupBy.mockResolvedValue([]);
 
     service = new ClassService(
@@ -174,12 +190,14 @@ describe('ClassService', () => {
       )
       .mockResolvedValue({
         id: 'class-1',
+        status: ClassStatus.running,
+        schedule: [],
         teachers: [],
       });
   });
 
   describe('getClasses', () => {
-    it('skips stale teacher assignments with missing teacher relation', async () => {
+    it('returns only active class teacher assignments for active staff', async () => {
       const logger = (service as unknown as { logger: { warn: jest.Mock } })
         .logger;
       jest.spyOn(logger, 'warn').mockImplementation();
@@ -195,13 +213,45 @@ describe('ClassService', () => {
         {
           classId: 'class-1',
           teacherId: 'missing-teacher',
+          status: 'active',
           customAllowance: null,
           operatingDeductionRatePercent: null,
           teacher: null,
         },
         {
           classId: 'class-1',
+          teacherId: 'stopped-teacher',
+          status: 'inactive',
+          customAllowance: null,
+          operatingDeductionRatePercent: null,
+          teacher: {
+            id: 'stopped-teacher',
+            status: StaffStatus.active,
+            user: {
+              first_name: 'Grace',
+              last_name: 'Hopper',
+            },
+          },
+        },
+        {
+          classId: 'class-1',
+          teacherId: 'inactive-staff',
+          status: 'active',
+          customAllowance: null,
+          operatingDeductionRatePercent: null,
+          teacher: {
+            id: 'inactive-staff',
+            status: StaffStatus.inactive,
+            user: {
+              first_name: 'Alan',
+              last_name: 'Turing',
+            },
+          },
+        },
+        {
+          classId: 'class-1',
           teacherId: 'teacher-1',
+          status: 'active',
           customAllowance: 100000,
           operatingDeductionRatePercent: 10,
           teacher: {
@@ -251,6 +301,14 @@ describe('ClassService', () => {
           limit: 20,
         },
       });
+      expect(mockPrisma.classTeacher.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: [{ status: null }, { status: 'active' }],
+            teacher: { is: { status: StaffStatus.active } },
+          }),
+        }),
+      );
       expect(logger.warn).toHaveBeenCalledWith(
         'Skipping class teacher assignment with missing teacher relation: classId=class-1 teacherId=missing-teacher',
       );
@@ -438,6 +496,178 @@ describe('ClassService', () => {
     });
   });
 
+  describe('operational status actions', () => {
+    it('ends a class and closes active roster plus teacher assignments', async () => {
+      const beforeSnapshot = {
+        id: 'class-1',
+        status: ClassStatus.running,
+        schedule: [
+          {
+            id: 'slot-1',
+            dayOfWeek: 1,
+            from: '19:00',
+            to: '20:30',
+            teacherId: 'teacher-1',
+            googleCalendarEventId: 'calendar-1',
+          },
+        ],
+        teachers: [],
+      };
+      const afterSnapshot = {
+        ...beforeSnapshot,
+        status: ClassStatus.ended,
+        schedule: [],
+      };
+      (
+        service as unknown as {
+          getClassAuditSnapshot: jest.Mock;
+        }
+      ).getClassAuditSnapshot
+        .mockResolvedValueOnce(beforeSnapshot)
+        .mockResolvedValueOnce(afterSnapshot);
+      mockPrisma.makeupScheduleEvent.findMany.mockResolvedValue([
+        { id: 'makeup-1' },
+      ]);
+      jest
+        .spyOn(service, 'getClassById')
+        .mockResolvedValue({ id: 'class-1', status: ClassStatus.ended } as never);
+
+      await expect(
+        service.endClass(
+          'class-1',
+          { reason: 'Kết thúc khóa' },
+          { userId: 'admin-1', roleType: UserRole.admin },
+        ),
+      ).resolves.toMatchObject({
+        id: 'class-1',
+        status: ClassStatus.ended,
+      });
+
+      expect(mockTx.class.update).toHaveBeenCalledWith({
+        where: { id: 'class-1' },
+        data: {
+          status: ClassStatus.ended,
+          schedule: [],
+        },
+      });
+      expect(mockTx.studentClass.updateMany).toHaveBeenCalledWith({
+        where: { classId: 'class-1', status: StudentClassStatus.active },
+        data: { status: StudentClassStatus.inactive },
+      });
+      expect(mockTx.classTeacher.updateMany).toHaveBeenCalledWith({
+        where: {
+          classId: 'class-1',
+          OR: [{ status: null }, { status: 'active' }],
+        },
+        data: { status: 'inactive' },
+      });
+      expect(mockActionHistoryService.recordUpdate).toHaveBeenCalledWith(
+        mockTx,
+        expect.objectContaining({
+          description: 'Kết thúc lớp học - Lý do: Kết thúc khóa',
+        }),
+      );
+      expect(mockCalendarService.syncScheduleWithCalendar).toHaveBeenCalledWith(
+        'class-1',
+        expect.arrayContaining([
+          expect.objectContaining({ id: 'slot-1', teacherId: 'teacher-1' }),
+        ]),
+      );
+      expect(
+        mockCalendarService.deleteMakeupScheduleEvent,
+      ).toHaveBeenCalledWith('makeup-1', {
+        userId: 'admin-1',
+        roleType: UserRole.admin,
+      });
+    });
+
+    it('stops one teacher assignment and prunes that teacher from the schedule', async () => {
+      const beforeSnapshot = {
+        id: 'class-1',
+        status: ClassStatus.running,
+        schedule: [
+          {
+            id: 'slot-1',
+            dayOfWeek: 1,
+            from: '19:00',
+            to: '20:30',
+            teacherId: 'teacher-1',
+          },
+          {
+            id: 'slot-2',
+            dayOfWeek: 3,
+            from: '19:00',
+            to: '20:30',
+            teacherId: 'teacher-2',
+          },
+        ],
+        teachers: [],
+      };
+      const afterSnapshot = {
+        ...beforeSnapshot,
+        schedule: [beforeSnapshot.schedule[1]],
+      };
+      (
+        service as unknown as {
+          getClassAuditSnapshot: jest.Mock;
+        }
+      ).getClassAuditSnapshot
+        .mockResolvedValueOnce(beforeSnapshot)
+        .mockResolvedValueOnce(afterSnapshot);
+      mockTx.classTeacher.findUnique.mockResolvedValue({ status: 'active' });
+      mockPrisma.makeupScheduleEvent.findMany.mockResolvedValue([
+        { id: 'makeup-2' },
+      ]);
+      jest
+        .spyOn(service, 'getClassById')
+        .mockResolvedValue({ id: 'class-1', status: ClassStatus.running } as never);
+
+      await service.stopClassTeacher(
+        'class-1',
+        'teacher-1',
+        { reason: 'Đổi người phụ trách' },
+        { userId: 'assistant-1', roleType: UserRole.staff },
+      );
+
+      expect(mockTx.classTeacher.update).toHaveBeenCalledWith({
+        where: { classId_teacherId: { classId: 'class-1', teacherId: 'teacher-1' } },
+        data: { status: 'inactive' },
+      });
+      expect(mockTx.class.update).toHaveBeenCalledWith({
+        where: { id: 'class-1' },
+        data: {
+          schedule: [
+            expect.objectContaining({
+              id: 'slot-2',
+              teacherId: 'teacher-2',
+            }),
+          ],
+        },
+      });
+      expect(mockActionHistoryService.recordUpdate).toHaveBeenCalledWith(
+        mockTx,
+        expect.objectContaining({
+          description:
+            'Chuyển gia sư sang nghỉ dạy theo lớp - Lý do: Đổi người phụ trách',
+        }),
+      );
+      expect(mockPrisma.makeupScheduleEvent.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            classId: 'class-1',
+            teacherId: 'teacher-1',
+          }),
+        }),
+      );
+      expect(
+        mockCalendarService.deleteMakeupScheduleEvent,
+      ).toHaveBeenCalledWith('makeup-2', {
+        userId: 'assistant-1',
+        roleType: UserRole.staff,
+      });
+    });
+  });
+
   describe('updateClassScheduleForStaff', () => {
     it('does not apply teacher assignment scope to elevated multi-role staff', async () => {
       mockStaffOperationsAccess.resolveActor.mockResolvedValue({
@@ -479,6 +709,7 @@ describe('ClassService', () => {
             teacherId: 'teacher-1',
             customAllowance: 120000,
             operatingDeductionRatePercent: 0,
+            status: 'active',
           },
         ],
       });
@@ -504,6 +735,7 @@ describe('ClassService', () => {
             teacherId: 'teacher-1',
             customAllowance: 150000,
             operatingDeductionRatePercent: 7.5,
+            status: 'active',
           },
         ],
       });
@@ -610,6 +842,63 @@ describe('ClassService', () => {
       ).rejects.toThrow('Nhân sự đang ở trạng thái ngừng hoạt động.');
 
       expect(mockTx.classTeacher.createMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateClassTeacherCompensation', () => {
+    it('updates custom allowance and operating deduction rate for existing teachers', async () => {
+      mockPrisma.class.findUnique.mockResolvedValue({
+        id: 'class-1',
+        teachers: [
+          {
+            teacherId: 'teacher-1',
+            operatingDeductionRatePercent: 5,
+          },
+        ],
+      });
+
+      await service.updateClassTeacherCompensation('class-1', {
+        teachers: [
+          {
+            teacher_id: 'teacher-1',
+            custom_allowance: 150000,
+            operating_deduction_rate_percent: 7.5,
+          },
+        ],
+      });
+
+      expect(mockTx.classTeacher.update).toHaveBeenCalledWith({
+        where: {
+          classId_teacherId: {
+            classId: 'class-1',
+            teacherId: 'teacher-1',
+          },
+        },
+        data: {
+          customAllowance: 150000,
+          operatingDeductionRatePercent: 7.5,
+        },
+      });
+      expect(
+        mockTx.classTeacherOperatingDeductionRate.upsert,
+      ).toHaveBeenCalledWith({
+        where: {
+          classId_teacherId_effectiveFrom: {
+            classId: 'class-1',
+            teacherId: 'teacher-1',
+            effectiveFrom: expect.any(Date),
+          },
+        },
+        create: {
+          classId: 'class-1',
+          teacherId: 'teacher-1',
+          ratePercent: 7.5,
+          effectiveFrom: expect.any(Date),
+        },
+        update: {
+          ratePercent: 7.5,
+        },
+      });
     });
   });
 

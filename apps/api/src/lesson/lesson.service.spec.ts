@@ -230,6 +230,7 @@ describe('LessonService', () => {
       description: 'Tài liệu mở đầu',
       resourceLink: 'https://example.com/resource',
       tags: ['resource', 'math'],
+      createdBy: null,
       createdAt: '2026-03-20T10:00:00.000Z',
       updatedAt: '2026-03-21T10:00:00.000Z',
     });
@@ -342,8 +343,20 @@ describe('LessonService', () => {
         resourceLink: 'https://example.com/resource-participant-1',
         lessonTaskId: 'task-participant-1',
         tags: [' participant ', ' geometry '],
+        createdBy: 'other-user',
         createdAt: new Date('2026-03-27T08:00:00.000Z'),
         updatedAt: new Date('2026-03-28T08:00:00.000Z'),
+      },
+      {
+        id: 'resource-global-1',
+        title: 'Tài nguyên tổng',
+        description: 'Không gắn task participant',
+        resourceLink: 'https://example.com/resource-global-1',
+        lessonTaskId: null,
+        tags: [' global '],
+        createdBy: 'user-participant',
+        createdAt: new Date('2026-03-26T08:00:00.000Z'),
+        updatedAt: new Date('2026-03-29T08:00:00.000Z'),
       },
     ]);
     mockPrisma.lessonTask.findMany.mockResolvedValue([
@@ -424,8 +437,20 @@ describe('LessonService', () => {
         resourceLink: 'https://example.com/resource-participant-1',
         lessonTaskId: 'task-participant-1',
         tags: ['participant', 'geometry'],
+        createdBy: 'other-user',
         createdAt: '2026-03-27T08:00:00.000Z',
         updatedAt: '2026-03-28T08:00:00.000Z',
+      },
+      {
+        id: 'resource-global-1',
+        title: 'Tài nguyên tổng',
+        description: 'Không gắn task participant',
+        resourceLink: 'https://example.com/resource-global-1',
+        lessonTaskId: null,
+        tags: ['global'],
+        createdBy: 'user-participant',
+        createdAt: '2026-03-26T08:00:00.000Z',
+        updatedAt: '2026-03-29T08:00:00.000Z',
       },
     ]);
     expect(result.resourcesMeta).toEqual({
@@ -440,27 +465,8 @@ describe('LessonService', () => {
       limit: 6,
       totalPages: 1,
     });
-    expect(mockPrisma.lessonResource.count).toHaveBeenCalledWith({
-      where: {
-        lessonTask: {
-          staffLessonTasks: {
-            some: {
-              staffId: 'staff-participant',
-            },
-          },
-        },
-      },
-    });
+    expect(mockPrisma.lessonResource.count).toHaveBeenCalledWith();
     expect(mockPrisma.lessonResource.findMany).toHaveBeenCalledWith({
-      where: {
-        lessonTask: {
-          staffLessonTasks: {
-            some: {
-              staffId: 'staff-participant',
-            },
-          },
-        },
-      },
       skip: 0,
       take: 6,
       orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
@@ -586,17 +592,7 @@ describe('LessonService', () => {
       openTaskCount: 1,
       completedTaskCount: 0,
     });
-    expect(mockPrisma.lessonResource.count).toHaveBeenCalledWith({
-      where: {
-        lessonTask: {
-          staffLessonTasks: {
-            some: {
-              staffId: 'staff-mixed-role',
-            },
-          },
-        },
-      },
-    });
+    expect(mockPrisma.lessonResource.count).toHaveBeenCalledWith();
     expect(mockPrisma.lessonTask.findMany).toHaveBeenCalledWith({
       where: {
         staffLessonTasks: {
@@ -794,10 +790,10 @@ describe('LessonService', () => {
     });
   });
 
-  it('uses accountant scope for work board when staff has both lesson planner and accountant roles', async () => {
+  it('uses accountant scope for work board when staff has both lesson planner and expense accountant roles', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-mixed-role',
-      roles: ['lesson_plan', 'accountant'],
+      roles: ['lesson_plan', 'accountant_expense'],
     });
     mockPrisma.lessonTask.count.mockResolvedValue(5);
     mockPrisma.lessonOutput.groupBy.mockResolvedValue([
@@ -2162,10 +2158,10 @@ describe('LessonService', () => {
     });
   });
 
-  it('loads lesson output detail with accountant scope for staff who has both lesson planner and accountant roles', async () => {
+  it('loads lesson output detail with accountant scope for staff who has both lesson planner and expense accountant roles', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-mixed-role',
-      roles: ['lesson_plan', 'accountant'],
+      roles: ['lesson_plan', 'accountant_expense'],
     });
     mockPrisma.lessonOutput.findUnique.mockResolvedValue({
       id: 'output-mixed-1',
@@ -2341,10 +2337,10 @@ describe('LessonService', () => {
     expect(result.paymentStatus).toBe(PaymentStatus.pending);
   });
 
-  it('allows accountant-level output updates for staff who has both lesson planner and accountant roles', async () => {
+  it('allows expense accountant output payment updates for staff who has both lesson planner and expense accountant roles', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-mixed-role',
-      roles: ['lesson_plan', 'accountant'],
+      roles: ['lesson_plan', 'accountant_expense'],
     });
     mockPrisma.lessonOutput.findUnique.mockResolvedValue({
       id: 'output-mixed-update',
@@ -2386,7 +2382,7 @@ describe('LessonService', () => {
       originalLink: null,
       level: 'Level 2',
       tags: ['mixed'],
-      cost: 230000,
+      cost: 100000,
       date: new Date('2026-03-30T00:00:00.000Z'),
       contestUploaded: 'ABC 999',
       link: 'https://example.com/old-mixed-output',
@@ -2412,7 +2408,6 @@ describe('LessonService', () => {
     const result = await service.updateOutput(
       'output-mixed-update',
       {
-        cost: 230000,
         paymentStatus: PaymentStatus.paid,
       },
       undefined,
@@ -2442,7 +2437,6 @@ describe('LessonService', () => {
     expect(mockPrisma.lessonOutput.update).toHaveBeenCalledWith({
       where: { id: 'output-mixed-update' },
       data: {
-        cost: 230000,
         paymentStatus: PaymentStatus.paid,
         roleType: 'lesson_plan',
         taxDeductionRatePercent: 0,
@@ -2461,7 +2455,7 @@ describe('LessonService', () => {
         },
       },
     });
-    expect(result.cost).toBe(230000);
+    expect(result.cost).toBe(100000);
     expect(result.paymentStatus).toBe(PaymentStatus.paid);
   });
 
@@ -2551,6 +2545,7 @@ describe('LessonService', () => {
       resourceLink: 'https://example.com/resource-detail-1',
       lessonTaskId: 'task-9',
       tags: ['combinatorics', 'olympic'],
+      createdBy: null,
       createdAt: '2026-03-24T07:00:00.000Z',
       updatedAt: '2026-03-24T08:15:00.000Z',
     });
@@ -2614,6 +2609,7 @@ describe('LessonService', () => {
       resourceLink: 'https://example.com/resource-participant-1',
       lessonTaskId: 'task-participant-1',
       tags: ['algebra'],
+      createdBy: 'user-participant',
       createdAt: new Date('2026-03-28T10:00:00.000Z'),
       updatedAt: new Date('2026-03-28T10:00:00.000Z'),
     });
@@ -2667,31 +2663,54 @@ describe('LessonService', () => {
     expect(result.lessonTaskId).toBe('task-participant-1');
   });
 
-  it('rejects participant resource creation when no parent task is provided', async () => {
+  it('allows participant resource creation without a parent task', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-participant',
       roles: ['lesson_plan'],
     });
+    mockPrisma.lessonResource.create.mockResolvedValue({
+      id: 'resource-participant-global-1',
+      title: 'Bộ note participant',
+      description: null,
+      resourceLink: 'https://example.com/resource-participant-1',
+      lessonTaskId: null,
+      tags: [],
+      createdBy: 'user-participant',
+      createdAt: new Date('2026-03-28T10:00:00.000Z'),
+      updatedAt: new Date('2026-03-28T10:00:00.000Z'),
+    });
 
-    await expect(
-      service.createResource(
-        {
-          title: 'Bộ note participant',
-          resourceLink: 'https://example.com/resource-participant-1',
-        },
-        {
-          userId: 'user-participant',
-          userEmail: 'participant@example.com',
-          roleType: 'staff',
-        },
-        {
-          id: 'user-participant',
-          email: 'participant@example.com',
-          accountHandle: 'participant',
-          roleType: 'staff',
-        },
-      ),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    const result = await service.createResource(
+      {
+        title: 'Bộ note participant',
+        resourceLink: 'https://example.com/resource-participant-1',
+      },
+      {
+        userId: 'user-participant',
+        userEmail: 'participant@example.com',
+        roleType: 'staff',
+      },
+      {
+        id: 'user-participant',
+        email: 'participant@example.com',
+        accountHandle: 'participant',
+        roleType: 'staff',
+      },
+    );
+
+    expect(mockPrisma.lessonTask.findFirst).not.toHaveBeenCalled();
+    expect(mockPrisma.lessonResource.create).toHaveBeenCalledWith({
+      data: {
+        title: 'Bộ note participant',
+        resourceLink: 'https://example.com/resource-participant-1',
+        description: null,
+        tags: [],
+        lessonTask: undefined,
+        createdBy: 'user-participant',
+      },
+    });
+    expect(result.lessonTaskId).toBeNull();
+    expect(result.createdBy).toBe('user-participant');
   });
 
   it('updates the linked lesson task for a resource when lessonTaskId changes', async () => {
@@ -2768,6 +2787,182 @@ describe('LessonService', () => {
       },
     });
     expect(result.lessonTaskId).toBeNull();
+  });
+
+  it('allows participant to update their own lesson resource', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-participant',
+      roles: ['lesson_plan'],
+    });
+    mockPrisma.lessonResource.findUnique.mockResolvedValue({
+      id: 'resource-own-1',
+      title: 'Bộ note cũ',
+      description: null,
+      resourceLink: 'https://example.com/resource-own-1',
+      lessonTaskId: null,
+      tags: [],
+      createdBy: 'user-participant',
+      createdAt: new Date('2026-03-24T09:00:00.000Z'),
+      updatedAt: new Date('2026-03-24T09:00:00.000Z'),
+    });
+    mockPrisma.lessonResource.update.mockResolvedValue({
+      id: 'resource-own-1',
+      title: 'Bộ note mới',
+      description: null,
+      resourceLink: 'https://example.com/resource-own-1',
+      lessonTaskId: null,
+      tags: [],
+      createdBy: 'user-participant',
+      createdAt: new Date('2026-03-24T09:00:00.000Z'),
+      updatedAt: new Date('2026-03-24T10:00:00.000Z'),
+    });
+
+    const result = await service.updateResource(
+      'resource-own-1',
+      {
+        title: 'Bộ note mới',
+      },
+      {
+        userId: 'user-participant',
+        userEmail: 'participant@example.com',
+        roleType: 'staff',
+      },
+      {
+        id: 'user-participant',
+        email: 'participant@example.com',
+        accountHandle: 'participant',
+        roleType: 'staff',
+      },
+    );
+
+    expect(mockPrisma.lessonResource.update).toHaveBeenCalledWith({
+      where: { id: 'resource-own-1' },
+      data: {
+        title: 'Bộ note mới',
+      },
+    });
+    expect(result.createdBy).toBe('user-participant');
+  });
+
+  it('rejects participant update for another user resource', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-participant',
+      roles: ['lesson_plan'],
+    });
+    mockPrisma.lessonResource.findUnique.mockResolvedValue({
+      id: 'resource-other-1',
+      title: 'Bộ note người khác',
+      description: null,
+      resourceLink: 'https://example.com/resource-other-1',
+      lessonTaskId: null,
+      tags: [],
+      createdBy: 'other-user',
+      createdAt: new Date('2026-03-24T09:00:00.000Z'),
+      updatedAt: new Date('2026-03-24T09:00:00.000Z'),
+    });
+
+    await expect(
+      service.updateResource(
+        'resource-other-1',
+        { title: 'Không được sửa' },
+        {
+          userId: 'user-participant',
+          userEmail: 'participant@example.com',
+          roleType: 'staff',
+        },
+        {
+          id: 'user-participant',
+          email: 'participant@example.com',
+          accountHandle: 'participant',
+          roleType: 'staff',
+        },
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(mockPrisma.lessonResource.update).not.toHaveBeenCalled();
+  });
+
+  it('allows participant to delete their own lesson resource', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-participant',
+      roles: ['lesson_plan'],
+    });
+    mockPrisma.lessonResource.findUnique.mockResolvedValue({
+      id: 'resource-own-delete-1',
+      title: 'Bộ note tự tạo',
+      description: null,
+      resourceLink: 'https://example.com/resource-own-delete-1',
+      lessonTaskId: null,
+      tags: [],
+      createdBy: 'user-participant',
+      createdAt: new Date('2026-03-24T09:00:00.000Z'),
+      updatedAt: new Date('2026-03-24T09:00:00.000Z'),
+    });
+    mockPrisma.lessonResource.delete.mockResolvedValue({
+      id: 'resource-own-delete-1',
+      title: 'Bộ note tự tạo',
+      description: null,
+      resourceLink: 'https://example.com/resource-own-delete-1',
+      lessonTaskId: null,
+      tags: [],
+      createdBy: 'user-participant',
+      createdAt: new Date('2026-03-24T09:00:00.000Z'),
+      updatedAt: new Date('2026-03-24T09:00:00.000Z'),
+    });
+
+    await service.deleteResource(
+      'resource-own-delete-1',
+      {
+        userId: 'user-participant',
+        userEmail: 'participant@example.com',
+        roleType: 'staff',
+      },
+      {
+        id: 'user-participant',
+        email: 'participant@example.com',
+        accountHandle: 'participant',
+        roleType: 'staff',
+      },
+    );
+
+    expect(mockPrisma.lessonResource.delete).toHaveBeenCalledWith({
+      where: { id: 'resource-own-delete-1' },
+    });
+  });
+
+  it('rejects participant delete for another user resource', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-participant',
+      roles: ['lesson_plan'],
+    });
+    mockPrisma.lessonResource.findUnique.mockResolvedValue({
+      id: 'resource-other-delete-1',
+      title: 'Bộ note người khác',
+      description: null,
+      resourceLink: 'https://example.com/resource-other-delete-1',
+      lessonTaskId: null,
+      tags: [],
+      createdBy: 'other-user',
+      createdAt: new Date('2026-03-24T09:00:00.000Z'),
+      updatedAt: new Date('2026-03-24T09:00:00.000Z'),
+    });
+
+    await expect(
+      service.deleteResource(
+        'resource-other-delete-1',
+        {
+          userId: 'user-participant',
+          userEmail: 'participant@example.com',
+          roleType: 'staff',
+        },
+        {
+          id: 'user-participant',
+          email: 'participant@example.com',
+          accountHandle: 'participant',
+          roleType: 'staff',
+        },
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(mockPrisma.lessonResource.delete).not.toHaveBeenCalled();
   });
 
   it('searches existing lesson resources for task linking with lightweight task context', async () => {
@@ -2866,6 +3061,89 @@ describe('LessonService', () => {
         lessonTaskTitle: null,
       },
     ]);
+  });
+
+  it('rejects lesson_plan_head changing a single output payment status', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-head',
+      roles: [StaffRole.lesson_plan_head],
+    });
+    mockPrisma.lessonOutput.findUnique.mockResolvedValue({
+      id: 'output-head-1',
+      lessonTaskId: 'task-1',
+      lessonName: 'Bài hình học 1',
+      originalTitle: null,
+      source: 'internal',
+      originalLink: 'https://example.com/original-1',
+      level: 'Level 3',
+      tags: ['checker'],
+      cost: 120000,
+      paymentStatus: PaymentStatus.pending,
+      date: new Date('2026-03-21T00:00:00.000Z'),
+      contestUploaded: 'HSG tỉnh',
+      link: 'https://example.com/output-1',
+      staffId: 'staff-1',
+      status: LessonOutputStatus.completed,
+      createdAt: new Date('2026-03-21T08:00:00.000Z'),
+      updatedAt: new Date('2026-03-21T08:00:00.000Z'),
+      staff: {
+        id: 'staff-1',
+        fullName: 'Planner 1',
+        roles: ['lesson_plan'],
+        status: 'active',
+      },
+      lessonTask: {
+        id: 'task-1',
+        title: 'Soạn đề hình học',
+        status: LessonTaskStatus.in_progress,
+        priority: LessonTaskPriority.high,
+      },
+    });
+
+    await expect(
+      service.updateOutput(
+        'output-head-1',
+        { paymentStatus: PaymentStatus.paid },
+        {
+          userId: 'user-head',
+          userEmail: 'head@example.com',
+          roleType: 'staff',
+        },
+        {
+          id: 'user-head',
+          email: 'head@example.com',
+          accountHandle: 'head',
+          roleType: 'staff',
+        },
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(mockPrisma.lessonOutput.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects lesson_plan_head bulk output payment status updates', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-head',
+      roles: [StaffRole.lesson_plan_head],
+    });
+
+    await expect(
+      service.bulkUpdateOutputPaymentStatus(
+        ['output-1'],
+        PaymentStatus.paid,
+        {
+          userId: 'user-head',
+          userEmail: 'head@example.com',
+          roleType: 'staff',
+        },
+        {
+          id: 'user-head',
+          email: 'head@example.com',
+          accountHandle: 'head',
+          roleType: 'staff',
+        },
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(mockPrisma.lessonOutput.findMany).not.toHaveBeenCalled();
   });
 
   it('bulk updates lesson output payment status only for outputs that change', async () => {

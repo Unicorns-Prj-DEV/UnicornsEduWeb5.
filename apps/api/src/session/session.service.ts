@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   SessionBulkPaymentStatusUpdateResult,
   SessionCreateDto,
+  MissedTeachingAlertDto,
   SessionUnpaidSummaryItem,
   SessionUpdateDto,
 } from '../dtos/session.dto';
@@ -11,6 +12,8 @@ import { SessionCreateService } from './session-create.service';
 import { SessionDeleteService } from './session-delete.service';
 import { SessionReportingService } from './session-reporting.service';
 import { SessionUpdateService } from './session-update.service';
+import { SessionScheduleRulesService } from './session-schedule-rules.service';
+import { StaffOperationsAccessService } from '../staff-ops/staff-operations-access.service';
 
 @Injectable()
 export class SessionService {
@@ -19,6 +22,8 @@ export class SessionService {
     private readonly sessionUpdateService: SessionUpdateService,
     private readonly sessionDeleteService: SessionDeleteService,
     private readonly sessionReportingService: SessionReportingService,
+    private readonly sessionScheduleRulesService: SessionScheduleRulesService,
+    private readonly staffOperationsAccess: StaffOperationsAccessService,
   ) {}
 
   createSession(data: SessionCreateDto, actor?: ActionHistoryActor) {
@@ -136,6 +141,49 @@ export class SessionService {
     days?: number,
   ): Promise<SessionUnpaidSummaryItem[]> {
     return this.sessionReportingService.getUnpaidSessionsByTeacherId(
+      teacherId,
+      days,
+    );
+  }
+
+  getMissedTeachingAlertsByClass(
+    classId: string,
+    days?: number,
+  ): Promise<MissedTeachingAlertDto[]> {
+    return this.sessionScheduleRulesService.getMissedTeachingAlertsByClass(
+      classId,
+      days,
+    );
+  }
+
+  async getMissedTeachingAlertsByClassForStaff(
+    userId: string,
+    roleType: UserRole,
+    classId: string,
+    days?: number,
+  ): Promise<MissedTeachingAlertDto[]> {
+    const actor = await this.staffOperationsAccess.resolveClassViewerActor(
+      userId,
+      roleType,
+    );
+    const accessMode =
+      await this.staffOperationsAccess.resolveClassViewAccessMode(
+        actor,
+        classId,
+      );
+
+    return this.sessionScheduleRulesService.getMissedTeachingAlertsByClass(
+      classId,
+      days,
+      accessMode === 'teacher' ? actor.id : undefined,
+    );
+  }
+
+  getMissedTeachingAlertsByTeacher(
+    teacherId: string,
+    days?: number,
+  ): Promise<MissedTeachingAlertDto[]> {
+    return this.sessionScheduleRulesService.getMissedTeachingAlertsByTeacher(
       teacherId,
       days,
     );

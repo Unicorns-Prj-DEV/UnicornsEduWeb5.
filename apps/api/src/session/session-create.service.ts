@@ -22,6 +22,7 @@ import { SessionRosterService } from './session-roster.service';
 import { SessionSnapshotService } from './session-snapshot.service';
 import { SessionStudentBalanceService } from './session-student-balance.service';
 import { SessionValidationService } from './session-validation.service';
+import { SessionScheduleRulesService } from './session-schedule-rules.service';
 import {
   createMemoizedTaxDeductionResolver,
   resolveOperatingDeductionRate,
@@ -42,6 +43,7 @@ export class SessionCreateService {
     private readonly sessionStudentBalanceService: SessionStudentBalanceService,
     private readonly sessionLedgerService: SessionLedgerService,
     private readonly sessionSnapshotService: SessionSnapshotService,
+    private readonly sessionScheduleRulesService: SessionScheduleRulesService,
     private readonly actionHistoryService: ActionHistoryService,
   ) {}
 
@@ -169,6 +171,17 @@ export class SessionCreateService {
             'Class teacher not found for this class and teacher.',
           );
         }
+
+        const scheduleMatch =
+          await this.sessionScheduleRulesService.assertSessionMatchesDeclaredSchedule(
+            tx,
+            {
+              classId: data.classId,
+              teacherId: data.teacherId,
+              date: sessionDate,
+              startTime: data.startTime,
+            },
+          );
 
         const uniqueAttendanceStudentIds = new Set(attendanceStudentIds);
         if (studentClasses.length !== uniqueAttendanceStudentIds.size) {
@@ -373,6 +386,14 @@ export class SessionCreateService {
             attendance: true,
           },
         });
+
+        if (scheduleMatch.makeupEventId) {
+          await this.sessionScheduleRulesService.linkMakeupEventToSession(
+            tx,
+            scheduleMatch.makeupEventId,
+            createdSession.id,
+          );
+        }
 
         if (actor) {
           const afterValue =

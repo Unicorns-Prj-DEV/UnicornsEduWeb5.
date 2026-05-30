@@ -216,6 +216,14 @@ export class UpdateStaffStatusDto {
   @ApiProperty({ enum: StaffStatus })
   @IsEnum(StaffStatus)
   status: StaffStatus;
+
+  @ApiPropertyOptional({
+    description: 'Optional audit reason for the staff status transition.',
+    example: 'Nhân sự kết thúc hợp tác.',
+  })
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }
 
 export class PatchStaffClassTeacherOperatingDeductionDto {
@@ -363,6 +371,7 @@ export interface StaffPaymentPreviewItemDto {
   id: string;
   label: string;
   secondaryLabel: string | null;
+  classId?: string | null;
   date: string | null;
   currentStatus: string | null;
   taxRatePercent: number;

@@ -193,10 +193,13 @@ describe('CalendarService', () => {
       },
     ]);
 
-    const result = await service.getStaffScheduleEvents('teacher-1', {
-      startDate: '2026-05-01',
-      endDate: '2026-05-31',
-    } as never);
+    const result = await service.getStaffScheduleEvents(
+      {
+        startDate: '2026-05-01',
+        endDate: '2026-05-31',
+      } as never,
+      { teacherId: 'teacher-1' },
+    );
 
     const examQuery = getStudentExamFindManyArgs();
     const examWhere = examQuery.where as StudentExamWhereWithDate;
@@ -253,12 +256,57 @@ describe('CalendarService', () => {
     });
   });
 
+  it('redacts student identity fields from training calendar exam events', async () => {
+    mockPrisma.studentExamSchedule.findMany.mockResolvedValue([
+      {
+        id: 'exam-1',
+        studentId: 'student-1',
+        examDate: new Date('2026-05-29T00:00:00.000Z'),
+        note: 'Thi cuối kỳ',
+        student: {
+          fullName: 'Nguyễn Minh Anh',
+          studentClasses: [
+            {
+              class: {
+                id: 'class-1',
+                name: 'Toán 9A',
+              },
+            },
+          ],
+        },
+      },
+    ]);
+
+    const result = await service.getStaffScheduleEvents(
+      {
+        startDate: '2026-05-29',
+        endDate: '2026-05-29',
+      } as never,
+      { redactStudentFields: true },
+    );
+
+    expect(result.data).toEqual([
+      expect.not.objectContaining({
+        studentId: expect.any(String),
+        studentName: expect.any(String),
+      }),
+    ]);
+    expect(result.data[0]).toMatchObject({
+      title: 'Lịch thi',
+      className: 'Toán 9A',
+      type: 'exam',
+    });
+  });
+
   it('includes classId filters when building teacher exam scope', async () => {
-    await service.getStaffScheduleEvents('teacher-7', {
-      startDate: '2026-06-01',
-      endDate: '2026-06-30',
-      classId: 'class-7',
-    } as never);
+    await service.getStaffScheduleEvents(
+      {
+        startDate: '2026-06-01',
+        endDate: '2026-06-30',
+        classId: 'class-7',
+      } as never,
+      { teacherId: 'teacher-7' },
+    );
 
     const examQuery = getStudentExamFindManyArgs();
 
@@ -390,10 +438,13 @@ describe('CalendarService', () => {
       },
     ]);
 
-    const result = await service.getStaffScheduleEvents('teacher-1', {
-      startDate: '2026-05-18',
-      endDate: '2026-05-18',
-    } as never);
+    const result = await service.getStaffScheduleEvents(
+      {
+        startDate: '2026-05-18',
+        endDate: '2026-05-18',
+      } as never,
+      { teacherId: 'teacher-1' },
+    );
 
     expect(result.data).toEqual([
       expect.objectContaining({

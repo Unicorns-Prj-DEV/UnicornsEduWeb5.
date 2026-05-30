@@ -234,6 +234,106 @@ export class UpdateClassTeachersDto {
   teachers: ClassTeacherItemDto[];
 }
 
+export class ClassStatusActionDto {
+  @ApiPropertyOptional({
+    description: 'Optional audit reason for the operational status action.',
+    example: 'Lớp đã hoàn thành chương trình.',
+  })
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}
+
+export class ClassTeacherCompensationItemDto {
+  @ApiProperty({
+    description: 'Teacher (staff) id already assigned to the class',
+    example: 'UNISTAFF-c3d4e5f6a7',
+  })
+  @IsStaffId()
+  teacher_id: string;
+
+  @ApiProperty({
+    description: 'Custom allowance for this teacher in this class (VNĐ).',
+    example: 150000,
+    minimum: 0,
+  })
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  custom_allowance: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Operating deduction rate for this teacher-class relation in percent. Omitted value keeps the current rate.',
+    example: 10,
+    minimum: 0,
+    maximum: 100,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  operating_deduction_rate_percent?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Deprecated alias for operating_deduction_rate_percent. Backend still accepts it during transition.',
+    example: 10,
+    minimum: 0,
+    maximum: 100,
+    deprecated: true,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  tax_rate_percent?: number;
+}
+
+export class UpdateClassTeacherCompensationDto {
+  @ApiProperty({
+    description:
+      'Teacher compensation updates. Does not change teacher roster.',
+    type: [ClassTeacherCompensationItemDto],
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ClassTeacherCompensationItemDto)
+  teachers: ClassTeacherCompensationItemDto[];
+}
+
+export class UpdateClassStudentTuitionDto {
+  @ApiProperty({
+    description: 'Student id already enrolled in the class',
+    example: 'UNIST-a1b2c3d4e5',
+  })
+  @IsStudentId()
+  student_id: string;
+
+  @ApiPropertyOptional({ example: 3600000, minimum: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  custom_tuition_package_total?: number;
+
+  @ApiPropertyOptional({ example: 12, minimum: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  custom_tuition_package_session?: number;
+
+  @ApiPropertyOptional({ example: 300000, minimum: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  custom_tuition_per_session?: number;
+}
+
 /** Schedule slot for UpdateClassScheduleDto */
 export class ScheduleSlotDto {
   @ApiPropertyOptional({

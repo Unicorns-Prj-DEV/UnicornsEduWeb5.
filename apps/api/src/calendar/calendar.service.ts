@@ -55,6 +55,7 @@ type DiscoveredRecurringGoogleEvent = {
 
 type CalendarScope = {
   teacherId?: string;
+  redactStudentFields?: boolean;
 };
 
 type CalendarSyncStatus = 'pending' | 'synced' | 'error';
@@ -821,6 +822,21 @@ export class CalendarService {
     });
   }
 
+  private redactCalendarStudentFields(
+    events: ClassScheduleEventDto[],
+  ): ClassScheduleEventDto[] {
+    return events.map((event) => {
+      const redacted = { ...event };
+      delete redacted.studentId;
+      delete redacted.studentName;
+
+      return {
+        ...redacted,
+        title: event.type === 'exam' ? 'Lịch thi' : event.title,
+      };
+    });
+  }
+
   private async buildCalendarEvents(
     filters: ClassScheduleFilterDto,
     scope: CalendarScope = {},
@@ -915,11 +931,15 @@ export class CalendarService {
       this.toCalendarExamEvent(item),
     );
 
-    return this.sortCalendarEvents([
+    const events = this.sortCalendarEvents([
       ...fixedEvents,
       ...calendarMakeupEvents,
       ...calendarExamEvents,
     ]);
+
+    return scope.redactStudentFields
+      ? this.redactCalendarStudentFields(events)
+      : events;
   }
 
   async getClasses(
@@ -1119,16 +1139,14 @@ export class CalendarService {
   }
 
   async getStaffScheduleEvents(
-    staffId: string,
     filters: ClassScheduleFilterDto,
+    scope: CalendarScope,
   ): Promise<{
     success: boolean;
     data: ClassScheduleEventDto[];
     total: number;
   }> {
-    const events = await this.buildCalendarEvents(filters, {
-      teacherId: staffId,
-    });
+    const events = await this.buildCalendarEvents(filters, scope);
     return { success: true, data: events, total: events.length };
   }
 

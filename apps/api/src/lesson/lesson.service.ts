@@ -269,14 +269,9 @@ export class LessonService {
       const taskWhere = this.buildParticipantTaskWhere(
         participantAccess.staffId,
       );
-      const resourceWhere = this.buildParticipantResourceWhere(
-        participantAccess.staffId,
-      );
       const [resourceCount, taskCount, openTaskCount, completedTaskCount] =
         await this.prisma.$transaction([
-          this.prisma.lessonResource.count({
-            where: resourceWhere,
-          }),
+          this.prisma.lessonResource.count(),
           this.prisma.lessonTask.count({ where: taskWhere }),
           this.prisma.lessonTask.count({
             where: {
@@ -312,7 +307,6 @@ export class LessonService {
       );
       const [resources, tasks] = await this.prisma.$transaction([
         this.prisma.lessonResource.findMany({
-          where: resourceWhere,
           skip: (resourceMeta.page - 1) * resourceMeta.limit,
           take: resourceMeta.limit,
           orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
@@ -613,13 +607,7 @@ export class LessonService {
     const description = toTrimmedString(data.description);
     const tags = normalizeTags(data.tags);
 
-    if (access?.canParticipate && !access.canManage) {
-      if (!lessonTaskId) {
-        throw new BadRequestException(
-          'Staff giáo án chỉ được thêm tài nguyên vào task của mình.',
-        );
-      }
-
+    if (access?.canParticipate && !access.canManage && lessonTaskId) {
       lessonTaskId = await this.assertParticipantTaskAccess(
         this.prisma,
         lessonTaskId,
@@ -661,7 +649,9 @@ export class LessonService {
     id: string,
     data: UpdateLessonResourceDto,
     auditActor?: ActionHistoryActor,
+    actor?: JwtPayload,
   ): Promise<LessonResourceResponseDto> {
+    const access = await this.resolveLessonActorContext(actor);
     const existingResource = await this.prisma.lessonResource.findUnique({
       where: { id },
     });
@@ -669,6 +659,12 @@ export class LessonService {
     if (!existingResource) {
       throw new NotFoundException('Lesson resource not found');
     }
+
+    this.assertResourceWriteAccess(
+      existingResource,
+      access,
+      'cập nhật tài nguyên giáo án',
+    );
 
     const updateData: Prisma.LessonResourceUpdateInput = {};
 
@@ -694,7 +690,16 @@ export class LessonService {
       );
       updateData.lessonTask = lessonTaskId
         ? {
-            connect: { id: lessonTaskId },
+            connect: {
+              id:
+                access?.canParticipate && !access.canManage
+                  ? await this.assertParticipantTaskAccess(
+                      this.prisma,
+                      lessonTaskId,
+                      access,
+                    )
+                  : lessonTaskId,
+            },
           }
         : {
             disconnect: true,
@@ -726,7 +731,12 @@ export class LessonService {
     });
   }
 
-  async deleteResource(id: string, auditActor?: ActionHistoryActor) {
+  async deleteResource(
+    id: string,
+    auditActor?: ActionHistoryActor,
+    actor?: JwtPayload,
+  ) {
+    const access = await this.resolveLessonActorContext(actor);
     const existingResource = await this.prisma.lessonResource.findUnique({
       where: { id },
     });
@@ -734,6 +744,12 @@ export class LessonService {
     if (!existingResource) {
       throw new NotFoundException('Lesson resource not found');
     }
+
+    this.assertResourceWriteAccess(
+      existingResource,
+      access,
+      'xóa tài nguyên giáo án',
+    );
 
     return this.prisma.$transaction(async (tx) => {
       const deletedResource = await tx.lessonResource.delete({
@@ -1046,6 +1062,33 @@ export class LessonService {
 
     const updateData: Prisma.LessonOutputUpdateInput = {};
     const participantEditing = accessMode === 'participant';
+    const accountantPaymentOnlyEditing = accessMode === 'account';
+
+    if (accountantPaymentOnlyEditing) {
+      const disallowedFields: Array<keyof UpdateLessonOutputDto> = [
+        'lessonTaskId',
+        'lessonName',
+        'originalTitle',
+        'source',
+        'originalLink',
+        'level',
+        'tags',
+        'cost',
+        'date',
+        'contestUploaded',
+        'link',
+        'staffId',
+        'status',
+      ];
+      const touchedField = disallowedFields.find(
+        (field) => data[field] !== undefined,
+      );
+      if (touchedField) {
+        throw new ForbiddenException(
+          'Kế toán chi chỉ được cập nhật trạng thái thanh toán output.',
+        );
+      }
+    }
 
     if (data.lessonTaskId !== undefined) {
       const lessonTaskId = await this.resolveOptionalLessonTaskId(
@@ -1106,9 +1149,9 @@ export class LessonService {
     }
 
     if (data.paymentStatus !== undefined) {
-      if (participantEditing) {
+      if (!this.canEditOutputPaymentStatus(access)) {
         throw new ForbiddenException(
-          'Staff giáo án không được cập nhật trạng thái thanh toán output.',
+          'Tài khoản hiện tại không có quyền cập nhật trạng thái thanh toán output.',
         );
       }
       updateData.paymentStatus = data.paymentStatus;
@@ -1194,7 +1237,7 @@ export class LessonService {
   ): Promise<BulkUpdateLessonOutputPaymentStatusResultDto> {
     const access = await this.resolveLessonActorContext(actor);
 
-    if (access && !access.canManage && !access.canAccountWork) {
+    if (!this.canEditOutputPaymentStatus(access)) {
       throw new ForbiddenException(
         'Tài khoản hiện tại không có quyền cập nhật trạng thái thanh toán output.',
       );
@@ -1704,6 +1747,7 @@ export class LessonService {
     resourceLink: string;
     lessonTaskId: string | null;
     tags: unknown;
+    createdBy?: string | null;
     createdAt: Date;
     updatedAt: Date;
   }): LessonResourceResponseDto {
@@ -1714,6 +1758,7 @@ export class LessonService {
       resourceLink: resource.resourceLink,
       lessonTaskId: resource.lessonTaskId,
       tags: parseJsonStringArray(resource.tags),
+      createdBy: resource.createdBy ?? null,
       createdAt: resource.createdAt.toISOString(),
       updatedAt: resource.updatedAt.toISOString(),
     };
@@ -1993,6 +2038,41 @@ export class LessonService {
     };
   }
 
+  private assertResourceWriteAccess(
+    resource: { createdBy?: string | null },
+    access: LessonActorContext | null,
+    action: string,
+  ) {
+    if (!access) {
+      return;
+    }
+
+    if (access.canManage) {
+      return;
+    }
+
+    if (access.canParticipate && resource.createdBy === access.userId) {
+      return;
+    }
+
+    throw new ForbiddenException(
+      `Tài khoản hiện tại không có quyền ${action}.`,
+    );
+  }
+
+  private canEditOutputPaymentStatus(access: LessonActorContext | null) {
+    if (!access) {
+      return true;
+    }
+
+    return (
+      access.roleType === UserRole.admin ||
+      access.staffRoles.includes(StaffRole.admin) ||
+      access.staffRoles.includes(StaffRole.assistant) ||
+      access.staffRoles.includes(StaffRole.accountant_expense)
+    );
+  }
+
   private mapOutput(output: LessonOutputRecord): LessonOutputResponseDto {
     return {
       id: output.id,
@@ -2225,7 +2305,7 @@ export class LessonService {
       staff.roles.includes(StaffRole.lesson_plan_head);
     const canParticipate =
       canManage || staff.roles.includes(StaffRole.lesson_plan);
-    const canAccountWork = staff.roles.includes(StaffRole.accountant);
+    const canAccountWork = staff.roles.includes(StaffRole.accountant_expense);
 
     return {
       userId: actor.id,

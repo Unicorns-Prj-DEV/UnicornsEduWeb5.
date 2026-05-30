@@ -10,6 +10,7 @@ import {
   Post,
   Put,
   Query,
+  Req,
 } from '@nestjs/common';
 import {
   ApiBody,
@@ -31,6 +32,7 @@ import {
   SessionBulkPaymentStatusUpdateDto,
   SessionBulkPaymentStatusUpdateResult,
   SessionCreateDto,
+  MissedTeachingAlertDto,
   SessionUnpaidSummaryItem,
   SessionUpdateDto,
 } from 'src/dtos/session.dto';
@@ -39,12 +41,30 @@ import {
   ParseStaffIdPipe,
 } from 'src/common/pipes/parse-entity-id.pipe';
 import { SessionService } from './session.service';
+import type { RequestWithResolvedAuthContext } from 'src/auth/auth-request-context';
+import {
+  redactSessionsForAccountantView,
+  resolveAccountantFinanceView,
+} from 'src/common/accountant-finance-redaction.util';
 
 @Controller('sessions')
 @ApiTags('sessions')
 @ApiCookieAuth('access_token')
 export class SessionController {
   constructor(private readonly sessionService: SessionService) {}
+
+  private parseOptionalPositiveDays(days?: string) {
+    if (days == null || days === '') {
+      return undefined;
+    }
+
+    const parsedDays = Number(days);
+    if (!Number.isInteger(parsedDays) || parsedDays < 1) {
+      throw new BadRequestException('days must be a positive integer.');
+    }
+
+    return parsedDays;
+  }
 
   @Post()
   @Roles(UserRole.admin)
@@ -65,7 +85,7 @@ export class SessionController {
 
   @Put(':id')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.accountant)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   @ApiOperation({ summary: 'Cập nhật session' })
   @ApiParam({ name: 'id', description: 'ID session' })
   @ApiBody({ type: SessionUpdateDto, description: 'Session update payload' })
@@ -89,7 +109,10 @@ export class SessionController {
 
   @Patch('payment-status/bulk')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.accountant)
+  @AllowStaffRolesOnAdminRoutes(
+    StaffRole.assistant,
+    StaffRole.accountant_expense,
+  )
   @ApiOperation({
     summary: 'Cập nhật trạng thái thanh toán cho nhiều session',
     description:
@@ -146,7 +169,10 @@ export class SessionController {
 
   @Get('/staff/:staffId/unpaid')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.accountant)
+  @AllowStaffRolesOnAdminRoutes(
+    StaffRole.assistant,
+    StaffRole.accountant_expense,
+  )
   @ApiOperation({
     summary:
       'Lấy tổng phụ cấp session chưa nhận theo staff trong N ngày gần nhất',
@@ -191,9 +217,48 @@ export class SessionController {
     );
   }
 
+  @Get('/staff/:staffId/missed-teaching-alerts')
+  @Roles(UserRole.admin)
+  @AllowStaffRolesOnAdminRoutes(
+    StaffRole.assistant,
+    StaffRole.accountant_expense,
+  )
+  @ApiOperation({
+    summary: 'Lấy cảnh báo chưa dạy theo nhân sự',
+  })
+  @ApiParam({
+    name: 'staffId',
+    description: 'ID staff',
+    example: 'UNISTAFF-c3d4e5f6a7',
+  })
+  @ApiQuery({
+    name: 'days',
+    required: false,
+    description: 'Số ngày gần nhất cần rà. Mặc định 31 ngày.',
+    example: 31,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Danh sách cảnh báo chưa dạy của staff.',
+    type: MissedTeachingAlertDto,
+    isArray: true,
+  })
+  async getMissedTeachingAlertsByTeacherId(
+    @Param('staffId', new ParseStaffIdPipe()) teacherId: string,
+    @Query('days') days?: string,
+  ): Promise<MissedTeachingAlertDto[]> {
+    return this.sessionService.getMissedTeachingAlertsByTeacher(
+      teacherId,
+      this.parseOptionalPositiveDays(days),
+    );
+  }
+
   @Get('/staff/:staffId')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.accountant)
+  @AllowStaffRolesOnAdminRoutes(
+    StaffRole.assistant,
+    StaffRole.accountant_expense,
+  )
   @ApiOperation({ summary: 'Lấy session theo staff + tháng/năm' })
   @ApiParam({
     name: 'staffId',
@@ -217,7 +282,11 @@ export class SessionController {
 
   @Get('/class/:classId')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.accountant)
+  @AllowStaffRolesOnAdminRoutes(
+    StaffRole.assistant,
+    StaffRole.accountant_income,
+    StaffRole.accountant_expense,
+  )
   @ApiOperation({ summary: 'Lấy session theo class + tháng/năm' })
   @ApiParam({
     name: 'classId',
@@ -232,10 +301,56 @@ export class SessionController {
   })
   @ApiResponse({ status: 400, description: 'month/year không hợp lệ.' })
   async getSessionsByClassId(
+    @CurrentUser() user: JwtPayload,
+    @Req() req: RequestWithResolvedAuthContext,
     @Param('classId', new ParseClassIdPipe()) classId: string,
     @Query('month') month: string,
     @Query('year') year: string,
   ) {
-    return this.sessionService.getSessionsByClassId(classId, month, year);
+    const sessions = await this.sessionService.getSessionsByClassId(
+      classId,
+      month,
+      year,
+    );
+    return redactSessionsForAccountantView(
+      sessions,
+      resolveAccountantFinanceView(user.roleType, req.resolvedStaffRoles ?? []),
+    );
+  }
+
+  @Get('/class/:classId/missed-teaching-alerts')
+  @Roles(UserRole.admin)
+  @AllowStaffRolesOnAdminRoutes(
+    StaffRole.assistant,
+    StaffRole.accountant_expense,
+  )
+  @ApiOperation({
+    summary: 'Lấy cảnh báo chưa dạy theo lớp',
+  })
+  @ApiParam({
+    name: 'classId',
+    description: 'ID lớp học',
+    example: 'UNICL-b2c3d4e5f6',
+  })
+  @ApiQuery({
+    name: 'days',
+    required: false,
+    description: 'Số ngày gần nhất cần rà. Mặc định 31 ngày.',
+    example: 31,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Danh sách cảnh báo chưa dạy của lớp.',
+    type: MissedTeachingAlertDto,
+    isArray: true,
+  })
+  async getMissedTeachingAlertsByClassId(
+    @Param('classId', new ParseClassIdPipe()) classId: string,
+    @Query('days') days?: string,
+  ): Promise<MissedTeachingAlertDto[]> {
+    return this.sessionService.getMissedTeachingAlertsByClass(
+      classId,
+      this.parseOptionalPositiveDays(days),
+    );
   }
 }

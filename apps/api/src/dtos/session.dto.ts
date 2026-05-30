@@ -24,6 +24,45 @@ import {
 import { AttendanceStatus, SessionPaymentStatus } from '../../generated/enums';
 import { AttendanceCreateDto, AttendanceUpdateDto } from './attendance.dto';
 
+export class MissedTeachingAlertDto {
+  @ApiProperty({ example: 'UNICL-a:UNISTAFF-b:slot-1:2026-05-18' })
+  id: string;
+
+  @ApiProperty({ example: 'UNICL-b2c3d4e5f6' })
+  @IsClassId()
+  classId: string;
+
+  @ApiProperty({ example: 'IELTS Foundation A' })
+  @IsString()
+  className: string;
+
+  @ApiProperty({ example: 'UNISTAFF-c3d4e5f6a7' })
+  @IsStaffId()
+  teacherId: string;
+
+  @ApiPropertyOptional({ example: 'Nguyen Van A', nullable: true })
+  @IsOptional()
+  @IsString()
+  teacherName: string | null;
+
+  @ApiProperty({ example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' })
+  @IsUUID()
+  scheduleEntryId: string;
+
+  @ApiProperty({ example: '2026-05-18' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  originalDate: string;
+
+  @ApiProperty({ example: '19:00:00' })
+  @IsString()
+  scheduledStartTime: string;
+
+  @ApiPropertyOptional({ example: '20:30:00', nullable: true })
+  @IsOptional()
+  @IsString()
+  scheduledEndTime: string | null;
+}
+
 export class SessionCreateDto {
   @ApiProperty({
     description: 'Class id',

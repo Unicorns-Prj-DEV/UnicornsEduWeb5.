@@ -45,6 +45,11 @@ describe('SessionCreateService', () => {
     getSessionAuditSnapshot: jest.fn(),
   };
 
+  const scheduleRulesService = {
+    assertSessionMatchesDeclaredSchedule: jest.fn(),
+    linkMakeupEventToSession: jest.fn(),
+  };
+
   const actionHistoryService = {
     recordCreate: jest.fn(),
   };
@@ -61,6 +66,7 @@ describe('SessionCreateService', () => {
       balanceService as never,
       ledgerService as never,
       snapshotService as never,
+      scheduleRulesService as never,
       actionHistoryService as never,
     );
   });
