@@ -16,7 +16,7 @@ Plan này chọn hướng triển khai tối thiểu nhưng nhất quán với c
 - `communication` đã được wire đầy đủ từ enum, form chọn role, route, sidebar, access gate, self-service API, admin detail page đến payroll aggregation.
 - `communication` hiện là `extra_allowance`-backed role, không dùng `cost_extend`.
 - `ExtraAllowance` hiện đã snapshot `taxDeductionRatePercent`; với `technical`, đây là field payroll cần dùng.
-- Teacher operating deduction hiện phụ thuộc vào `classId + teacherId + effectiveDate` qua `class_teacher_operating_deduction_rates`, và nên tiếp tục tách biệt khỏi `technical`.
+- Teacher operating deduction hiện phụ thuộc vào `class_teachers.tax_rate_percent` theo cặp `classId + teacherId`, và nên tiếp tục tách biệt khỏi `technical`.
 - `staff.service.ts` đã có hạ tầng tổng hợp net/gross/tax/operating theo bucket; nhánh extra allowance hiện đổ `operatingAmount = 0`, phù hợp với `technical`.
 - FE có nhiều union/type hard-code role staff ở `user.dto`, `notification.dto`, `regulation.dto`, `deduction-settings.dto`, extra allowance presentation, sidebar, access gate và deep-link helpers.
 
@@ -38,14 +38,14 @@ Sau khi hoàn tất:
 - `StaffRole.communication` hiện là enum thật ở [apps/api/prisma/schema/enums.prisma](/Users/sunny/workspace/UnicornsEduWeb5./apps/api/prisma/schema/enums.prisma:14) và được mirror ở FE labels tại [apps/web/lib/staff.constants.ts](/Users/sunny/workspace/UnicornsEduWeb5./apps/web/lib/staff.constants.ts:1).
 - Self-service `communication` đang khóa cứng trong service/controller ở [apps/api/src/extra-allowance/extra-allowance.service.ts](/Users/sunny/workspace/UnicornsEduWeb5./apps/api/src/extra-allowance/extra-allowance.service.ts:238) và [apps/api/src/user/user-profile.controller.ts](/Users/sunny/workspace/UnicornsEduWeb5./apps/api/src/user/user-profile.controller.ts:383).
 - Extra allowance chỉ snapshot thuế tại [apps/api/src/extra-allowance/extra-allowance.service.ts](/Users/sunny/workspace/UnicornsEduWeb5./apps/api/src/extra-allowance/extra-allowance.service.ts:335), và điều này đã đúng với payroll mong muốn của `technical`.
-- Resolver operating deduction hiện chỉ support teacher/class tại [apps/api/src/payroll/deduction-rates.ts](/Users/sunny/workspace/UnicornsEduWeb5./apps/api/src/payroll/deduction-rates.ts:94), nên không cần lôi vào flow `technical`.
+- Operating deduction hiện chỉ support teacher/class qua `class_teachers.tax_rate_percent`, nên không cần lôi vào flow `technical`.
 - `cost_extend` không có `staffId` hay `roleType`, nên không phù hợp để làm source of truth cho payroll role detail của `technical` tại [apps/api/prisma/schema/finance.prisma](/Users/sunny/workspace/UnicornsEduWeb5./apps/api/prisma/schema/finance.prisma:127) và [apps/api/src/cost/cost.service.ts](/Users/sunny/workspace/UnicornsEduWeb5./apps/api/src/cost/cost.service.ts:22).
 - `staff.service.ts` đã có pattern `EXTRA_ALLOWANCE_BACKED_OTHER_ROLES` và bucket net calculation đủ gần để mở rộng cho `technical` tại [apps/api/src/staff/staff.service.ts](/Users/sunny/workspace/UnicornsEduWeb5./apps/api/src/staff/staff.service.ts:126).
 
 ## What We're NOT Doing
 
 - Không chuyển `technical` sang dùng `cost_extend` hoặc route `/costs` như source dữ liệu payroll.
-- Không tái sử dụng bảng `class_teacher_operating_deduction_rates` cho `technical`.
+- Không thêm cơ chế operating deduction hay bảng rate riêng cho `technical`.
 - Không thêm `operatingDeductionRatePercent` vào `extra_allowances` hay tạo bảng operating-deduction mới cho `technical`.
 - Không thay đổi teacher payroll flow hiện có.
 - Không redesign staff dashboard để thêm card riêng cho `communication`/`technical`; chỉ đảm bảo route/detail và payroll summary đúng.

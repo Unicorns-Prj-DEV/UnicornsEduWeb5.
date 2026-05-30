@@ -27,10 +27,9 @@ Tài liệu này mô tả codebase **đang tồn tại hôm nay**, tập trung v
   - `role_tax_deduction_rates`
   - hoặc `staff_tax_deduction_overrides`
   tại `apps/api/src/payroll/deduction-rates.ts:58-92` và `apps/api/src/extra-allowance/extra-allowance.service.ts:335-355`.
-- Khấu trừ vận hành hiện chỉ có nhánh thật sự cho `teacher`, dựa trên `class_teacher_operating_deduction_rates` và logic session/class, không có nhánh tương đương cho `communication` hoặc các role extra-allowance khác:
-  - schema: `apps/api/prisma/schema/finance.prisma:47-62`
-  - resolver: `apps/api/src/payroll/deduction-rates.ts:94-119`
-  - class writer: `apps/api/src/class/class.service.ts:166-213`
+- Khấu trừ vận hành hiện chỉ có nhánh thật sự cho `teacher`, dựa trên `class_teachers.tax_rate_percent` và logic session/class, không có nhánh tương đương cho `communication` hoặc các role extra-allowance khác:
+  - schema: `apps/api/prisma/schema/learning.prisma`
+  - class writer: `apps/api/src/class/class.service.ts`
   - teacher payroll aggregation: `apps/api/src/staff/staff.service.ts:1061+`, `3026+`
 
 ## 1. Role `communication` hiện được khai báo ở đâu
@@ -160,7 +159,7 @@ Schema finance hiện có 3 nhóm rate liên quan:
 
 - `role_tax_deduction_rates`: `apps/api/prisma/schema/finance.prisma:18-29`
 - `staff_tax_deduction_overrides`: `apps/api/prisma/schema/finance.prisma:31-45`
-- `class_teacher_operating_deduction_rates`: `apps/api/prisma/schema/finance.prisma:47-62`
+- `class_teachers.tax_rate_percent`: source of truth cho % vận hành theo cặp lớp-gia sư
 
 ### Resolver
 
@@ -267,9 +266,8 @@ Nói cách khác, trang `communication_detail` hiện là trang **trợ cấp / 
 
 ### Dữ liệu
 
-- table `class_teacher_operating_deduction_rates`: `apps/api/prisma/schema/finance.prisma:47-62`
-- helper resolve operating rate: `apps/api/src/payroll/deduction-rates.ts:94-119`
-- class service append history rows: `apps/api/src/class/class.service.ts:166-213`
+- column `class_teachers.tax_rate_percent`: source of truth cho % vận hành theo cặp lớp-gia sư
+- class/session/staff services đọc/ghi trực tiếp qua Prisma `ClassTeacher.operatingDeductionRatePercent`
 
 ### Teacher session calculation
 

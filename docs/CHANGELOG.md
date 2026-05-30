@@ -29,7 +29,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 - BE/FE RBAC kế toán: tách role kế toán legacy thành `accountant_income` (kế toán thu) và `accountant_expense` (kế toán chi). Dữ liệu legacy `accountant` được migration sang `accountant_income`; kế toán thu chỉ xem/chỉnh dữ liệu học phí theo lớp ở trang học sinh và xem dashboard thu, còn kế toán chi xử lý nhân sự/thanh toán/chi phí/trợ cấp/lương gia sư/giáo án payment status. Thêm redaction tài chính lớp/buổi học theo role và docs quyền mới.
 
-- BE/FE class compensation: `accountant_expense` được chỉnh thêm `% vận hành` của gia sư theo lớp trong popup trợ cấp gia sư và cột **KH vận hành (%)** ở chi tiết nhân sự; backend lưu vào `class_teachers.operating_deduction_rate_percent` và ghi lịch sử `class_teacher_operating_deduction_rates`.
+- BE/FE class compensation: `accountant_expense` được chỉnh thêm `% vận hành` của gia sư theo lớp trong popup trợ cấp gia sư và cột **KH vận hành (%)** ở chi tiết nhân sự; backend lưu nguồn duy nhất tại `class_teachers.tax_rate_percent` (Prisma `operatingDeductionRatePercent`).
 
 - **BREAKING – Short System Entity IDs (Lesson entities):** PK của `lesson_task`, `lesson_resources`, `lesson_outputs`, `staff_lesson_task` chuyển sang mã định danh hệ thống ngắn: `UNILTK-[0-9a-f]{10}`, `UNILRS-[0-9a-f]{10}`, `UNILOT-[0-9a-f]{10}`, `UNISLT-[0-9a-f]{10}`. Existing rows nhận ID mới sinh bằng `pgcrypto.gen_random_bytes(5)`, không cắt từ UUID cũ; old API links không redirect. Migration SQL: `20260524110000_lesson_short_system_entity_ids`. Docs: `docs/Database Schema.md` updated with PK format notes and summary table for all lesson entity IDs.
 
@@ -65,6 +65,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 - FE `SessionHistoryTable` `variant="classDetail"`: layout dòng buổi học 3 cột (thời gian | nhận xét | thông tin + xóa) dùng chung cho `/admin/classes/[id]`, `/admin/staffs/[id]`, `/staff/profile`, `/staff/classes/[id]`; `entityMode="class"` hiển thị tên lớp ở cột phải thay vì gia sư.
 - FE `SessionHistoryTable` `variant="classDetail"`: phần **Thông tin** trên trang lớp luôn hiển thị gia sư của từng buổi học, kể cả khi layout cha đang ẩn cột thực thể riêng.
+- FE `SessionHistoryTable`: đổi trạng thái thanh toán buổi học không gửi lại `attendance` nếu người dùng không sửa điểm danh; payload điểm danh khi sửa chỉ gồm học sinh thuộc roster hiện tại để giữ lịch sử cũ không làm lỗi chuyển `deposit` → `paid`.
 
 ### Added
 
@@ -219,7 +220,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - BE/FE student exams + Google Calendar: thêm persistence `student_exam_schedules`, popup/card chỉnh lịch thi học sinh, aggregate calendar event type `exam`, và sync all-day event lên Google Calendar theo `studentId + examScheduleId`.
 - BE/FE makeup schedules: thêm bảng `makeup_schedule_events`, API CRUD theo lớp cho admin/staff workspace, render one-off event `makeup` trong aggregate calendar và sync riêng lên Google Calendar.
 - BE schema/migration: thêm `class_teachers.tax_rate_percent` (default `0`) và `sessions.teacher_tax_rate_percent` (default `0`) để cấu hình thuế theo từng cặp gia sư-lớp và snapshot mức thuế tại thời điểm tạo/cập nhật buổi học.
-- BE/FE class teachers: payload cập nhật gia sư lớp nhận thêm tỷ lệ khấu trừ vận hành; FE chuyển sang key semantic `operating_deduction_rate_percent` và vẫn gửi kèm key tương thích `tax_rate_percent` trong giai đoạn migration contract.
+- BE/FE class teachers: payload cập nhật gia sư lớp nhận thêm tỷ lệ khấu trừ vận hành; FE dùng key semantic `operating_deduction_rate_percent`, backend vẫn nhận `tax_rate_percent` như alias legacy.
 - FE admin/staff: thêm màn `Khấu trừ` tại `/admin/deductions` và mirror `/staff/deductions` để quản lý khấu trừ thuế theo role (effective-date), kèm wire sidebar + access gate cho admin/assistant/accountant theo policy shell; chỉnh riêng từng staff được thực hiện tại trang chi tiết nhân sự.
 - FE: `BrandLogoLockup` — khung mark + tách màu **Edu** (`text-primary`), khoảng cách chặt, hover lockup; Navbar / auth / sidebar (`dense` khi thu gọn).
 - BE/FE: `notification_reads` (per-user đã đọc) + `GET /notifications/feed` trả `readStatus` + `PATCH /notifications/feed/:id/read`. Feed mở cho `student` (studentInfo active) và `admin` không bắt buộc staff profile. Sidebar `StaffSidebar` / `StudentSidebar`: `SidebarNotificationTray` (TanStack Query), panel phải + popup chi tiết giữa màn hình (Framer), auto mark read khi mở chi tiết; `@heroicons/react` `BellIcon`.
