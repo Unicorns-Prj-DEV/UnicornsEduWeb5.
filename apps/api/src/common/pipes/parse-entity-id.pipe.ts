@@ -1,5 +1,13 @@
 import { BadRequestException, Injectable, PipeTransform } from '@nestjs/common';
-import { isStudentId, isClassId, isStaffId, isLessonTaskId, isLessonResourceId, isLessonOutputId, isStaffLessonTaskId } from '../entity-id';
+import {
+  isStudentId,
+  isClassId,
+  isStaffId,
+  isLessonTaskId,
+  isLessonResourceId,
+  isLessonOutputId,
+  isStaffLessonTaskId,
+} from '../entity-id';
 
 @Injectable()
 export class ParseStudentIdPipe implements PipeTransform<string, string> {
@@ -50,7 +58,10 @@ export class ParseLessonTaskIdPipe implements PipeTransform<string, string> {
 }
 
 @Injectable()
-export class ParseLessonResourceIdPipe implements PipeTransform<string, string> {
+export class ParseLessonResourceIdPipe implements PipeTransform<
+  string,
+  string
+> {
   transform(value: string): string {
     if (!isLessonResourceId(value)) {
       throw new BadRequestException(
@@ -74,7 +85,10 @@ export class ParseLessonOutputIdPipe implements PipeTransform<string, string> {
 }
 
 @Injectable()
-export class ParseStaffLessonTaskIdPipe implements PipeTransform<string, string> {
+export class ParseStaffLessonTaskIdPipe implements PipeTransform<
+  string,
+  string
+> {
   transform(value: string): string {
     if (!isStaffLessonTaskId(value)) {
       throw new BadRequestException(

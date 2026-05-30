@@ -13,10 +13,18 @@ export const STAFF_LESSON_TASK_ID_PREFIX = 'UNISLT-';
 const STUDENT_ID_RE = new RegExp(`^${STUDENT_ID_PREFIX}${SHORT_ID_PART}$`);
 const CLASS_ID_RE = new RegExp(`^${CLASS_ID_PREFIX}${SHORT_ID_PART}$`);
 const STAFF_ID_RE = new RegExp(`^${STAFF_ID_PREFIX}${SHORT_ID_PART}$`);
-const LESSON_TASK_ID_RE = new RegExp(`^${LESSON_TASK_ID_PREFIX}${SHORT_ID_PART}$`);
-const LESSON_RESOURCE_ID_RE = new RegExp(`^${LESSON_RESOURCE_ID_PREFIX}${SHORT_ID_PART}$`);
-const LESSON_OUTPUT_ID_RE = new RegExp(`^${LESSON_OUTPUT_ID_PREFIX}${SHORT_ID_PART}$`);
-const STAFF_LESSON_TASK_ID_RE = new RegExp(`^${STAFF_LESSON_TASK_ID_PREFIX}${SHORT_ID_PART}$`);
+const LESSON_TASK_ID_RE = new RegExp(
+  `^${LESSON_TASK_ID_PREFIX}${SHORT_ID_PART}$`,
+);
+const LESSON_RESOURCE_ID_RE = new RegExp(
+  `^${LESSON_RESOURCE_ID_PREFIX}${SHORT_ID_PART}$`,
+);
+const LESSON_OUTPUT_ID_RE = new RegExp(
+  `^${LESSON_OUTPUT_ID_PREFIX}${SHORT_ID_PART}$`,
+);
+const STAFF_LESSON_TASK_ID_RE = new RegExp(
+  `^${STAFF_LESSON_TASK_ID_PREFIX}${SHORT_ID_PART}$`,
+);
 
 function generateShortIdPart(): string {
   return randomBytes(5).toString('hex');
@@ -102,7 +110,9 @@ export function assertLessonTaskId(value: unknown): asserts value is string {
   }
 }
 
-export function assertLessonResourceId(value: unknown): asserts value is string {
+export function assertLessonResourceId(
+  value: unknown,
+): asserts value is string {
   if (!isLessonResourceId(value)) {
     throw new Error(`Invalid lesson resource id: ${String(value)}`);
   }
@@ -114,7 +124,9 @@ export function assertLessonOutputId(value: unknown): asserts value is string {
   }
 }
 
-export function assertStaffLessonTaskId(value: unknown): asserts value is string {
+export function assertStaffLessonTaskId(
+  value: unknown,
+): asserts value is string {
   if (!isStaffLessonTaskId(value)) {
     throw new Error(`Invalid staff lesson task id: ${String(value)}`);
   }

@@ -1,5 +1,13 @@
 import { validateSync } from 'class-validator';
-import { IsClassId, IsStaffId, IsStudentId, IsLessonTaskId, IsLessonResourceId, IsLessonOutputId, IsStaffLessonTaskId } from './entity-id.validators';
+import {
+  IsClassId,
+  IsStaffId,
+  IsStudentId,
+  IsLessonTaskId,
+  IsLessonResourceId,
+  IsLessonOutputId,
+  IsStaffLessonTaskId,
+} from './entity-id.validators';
 
 const STUDENT_ID = 'UNIST-0b45b3cc6d';
 const CLASS_ID = 'UNICL-0b45b3cc6d';

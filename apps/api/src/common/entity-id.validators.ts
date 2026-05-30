@@ -1,5 +1,13 @@
 import { registerDecorator, ValidationOptions } from 'class-validator';
-import { isStudentId, isClassId, isStaffId, isLessonTaskId, isLessonResourceId, isLessonOutputId, isStaffLessonTaskId } from './entity-id';
+import {
+  isStudentId,
+  isClassId,
+  isStaffId,
+  isLessonTaskId,
+  isLessonResourceId,
+  isLessonOutputId,
+  isStaffLessonTaskId,
+} from './entity-id';
 
 function makeEntityIdDecorator(
   name: string,
