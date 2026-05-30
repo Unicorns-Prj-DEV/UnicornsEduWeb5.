@@ -478,11 +478,11 @@ describe('StudentService', () => {
     );
   });
 
-  it('creates a SePay top-up order for accountant staff and stores creator metadata', async () => {
+  it('creates a SePay top-up order for assistant staff and stores creator metadata', async () => {
     sePayService.isWalletTopUpConfigured.mockReturnValue(true);
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-1',
-      roles: [StaffRole.accountant],
+      roles: [StaffRole.assistant],
     });
     mockPrisma.studentInfo.findUnique
       .mockResolvedValueOnce({
@@ -544,9 +544,9 @@ describe('StudentService', () => {
       sepayQrCodeUrl: 'https://qr.sepay.vn/img?template=compact',
       sepayExpiredAt: null,
       createdByUserId: 'staff-user-1',
-      createdByUserEmail: 'accountant@example.com',
+      createdByUserEmail: 'assistant@example.com',
       createdByRoleType: UserRole.staff,
-      createdByStaffRoles: [StaffRole.accountant],
+      createdByStaffRoles: [StaffRole.assistant],
       createdAt: new Date('2026-05-11T09:15:00.000Z'),
       updatedAt: new Date('2026-05-11T09:15:00.000Z'),
     });
@@ -557,7 +557,7 @@ describe('StudentService', () => {
         { amount: 500000 },
         {
           userId: 'staff-user-1',
-          userEmail: 'accountant@example.com',
+          userEmail: 'assistant@example.com',
           roleType: UserRole.staff,
         },
       ),
@@ -584,11 +584,11 @@ describe('StudentService', () => {
     expect(orderCreateArg?.data.studentId).toBe('student-1');
     expect(orderCreateArg?.data.createdByUserId).toBe('staff-user-1');
     expect(orderCreateArg?.data.createdByUserEmail).toBe(
-      'accountant@example.com',
+      'assistant@example.com',
     );
     expect(orderCreateArg?.data.createdByRoleType).toBe(UserRole.staff);
     expect(orderCreateArg?.data.createdByStaffRoles).toEqual([
-      StaffRole.accountant,
+      StaffRole.assistant,
     ]);
   });
 
@@ -762,7 +762,7 @@ describe('StudentService', () => {
     configService.get.mockReturnValue(undefined);
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-1',
-      roles: [StaffRole.accountant],
+      roles: [StaffRole.assistant],
     });
 
     await expect(
@@ -774,7 +774,7 @@ describe('StudentService', () => {
         },
         {
           userId: 'staff-user-1',
-          userEmail: 'accountant@example.com',
+          userEmail: 'assistant@example.com',
           roleType: UserRole.staff,
         },
       ),
@@ -794,7 +794,7 @@ describe('StudentService', () => {
     );
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-1',
-      roles: [StaffRole.accountant],
+      roles: [StaffRole.assistant],
     });
     mockPrisma.studentInfo.findUnique.mockResolvedValue({
       id: 'student-1',
@@ -812,9 +812,9 @@ describe('StudentService', () => {
       approvedAt: null,
       walletTransactionId: null,
       requestedByUserId: 'staff-user-1',
-      requestedByUserEmail: 'accountant@example.com',
+      requestedByUserEmail: 'assistant@example.com',
       requestedByRoleType: UserRole.staff,
-      requestedByStaffRoles: [StaffRole.accountant],
+      requestedByStaffRoles: [StaffRole.assistant],
       createdAt: new Date('2026-05-16T03:00:00.000Z'),
       updatedAt: new Date('2026-05-16T03:00:00.000Z'),
       student: {
@@ -833,7 +833,7 @@ describe('StudentService', () => {
         },
         {
           userId: 'staff-user-1',
-          userEmail: 'accountant@example.com',
+          userEmail: 'assistant@example.com',
           roleType: UserRole.staff,
         },
       ),
@@ -853,7 +853,7 @@ describe('StudentService', () => {
       .mockImplementation();
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-1',
-      roles: [StaffRole.accountant],
+      roles: [StaffRole.assistant],
     });
     mockPrisma.studentInfo.findUnique.mockResolvedValue({
       id: 'student-1',
@@ -871,9 +871,9 @@ describe('StudentService', () => {
       approvedAt: null,
       walletTransactionId: null,
       requestedByUserId: 'staff-user-1',
-      requestedByUserEmail: 'accountant@example.com',
+      requestedByUserEmail: 'assistant@example.com',
       requestedByRoleType: UserRole.staff,
-      requestedByStaffRoles: [StaffRole.accountant],
+      requestedByStaffRoles: [StaffRole.assistant],
       createdAt: new Date('2026-05-16T03:00:00.000Z'),
       updatedAt: new Date('2026-05-16T03:00:00.000Z'),
       student: {
@@ -895,7 +895,7 @@ describe('StudentService', () => {
         },
         {
           userId: 'staff-user-1',
-          userEmail: 'accountant@example.com',
+          userEmail: 'assistant@example.com',
           roleType: UserRole.staff,
         },
       ),
@@ -1323,10 +1323,10 @@ describe('StudentService', () => {
     });
   });
 
-  it('allows accountant staff to read any student detail without customer care assignment', async () => {
+  it('allows income accountant staff to read any student detail without customer care assignment', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-1',
-      roles: [StaffRole.accountant],
+      roles: [StaffRole.accountant_income],
     });
     mockPrisma.studentInfo.findUnique.mockResolvedValue({
       id: 'student-1',
@@ -1479,6 +1479,27 @@ describe('StudentService', () => {
       examSchedules: [],
       customerCareServices: null,
     });
+    mockPrisma.studentInfo.findUnique.mockResolvedValueOnce({
+      id: 'student-1',
+      fullName: 'Nguyen Van A',
+      email: 'student@example.com',
+      parentEmail: 'parent@example.com',
+      accountBalance: 0,
+      school: null,
+      province: null,
+      status: StudentStatus.inactive,
+      gender: 'male',
+      birthYear: 2010,
+      parentName: null,
+      parentPhone: null,
+      goal: null,
+      dropOutDate: null,
+      createdAt: new Date('2026-03-20T10:00:00.000Z'),
+      updatedAt: new Date('2026-03-21T10:00:00.000Z'),
+      studentClasses: [],
+      examSchedules: [],
+      customerCareServices: null,
+    });
     mockPrisma.studentInfo.update.mockResolvedValue({
       id: 'student-1',
       status: StudentStatus.inactive,
@@ -1488,6 +1509,10 @@ describe('StudentService', () => {
     await expect(
       service.updateStudentStatus('student-1', {
         status: StudentStatus.inactive,
+        reason: 'Gia đình báo nghỉ',
+      }, {
+        userId: 'assistant-1',
+        roleType: UserRole.staff,
       }),
     ).resolves.toMatchObject({
       id: 'student-1',
@@ -1505,6 +1530,12 @@ describe('StudentService', () => {
     });
     expect(authIdentityCacheService.invalidateUser).toHaveBeenCalledWith(
       'user-1',
+    );
+    expect(actionHistoryService.recordUpdate).toHaveBeenCalledWith(
+      mockPrisma,
+      expect.objectContaining({
+        description: 'Chuyển học sinh sang nghỉ học - Lý do: Gia đình báo nghỉ',
+      }),
     );
   });
 });

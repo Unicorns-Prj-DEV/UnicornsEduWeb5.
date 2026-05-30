@@ -65,6 +65,7 @@ export class CostService {
       search?: string;
       year?: string;
       month?: string;
+      status?: string;
     },
   ) {
     const parsedPage = Number(query.page);
@@ -79,6 +80,11 @@ export class CostService {
     const trimmedSearch = query.search?.trim();
     const year = query.year?.trim();
     const month = query.month?.trim();
+    const status = query.status?.trim();
+    const normalizedStatus =
+      status === PaymentStatus.pending || status === PaymentStatus.paid
+        ? status
+        : undefined;
     const hasMonthFilter =
       year && month && /^\d{4}$/.test(year) && /^(0?[1-9]|1[0-2])$/.test(month);
     const normalizedMonth = hasMonthFilter
@@ -118,6 +124,7 @@ export class CostService {
             },
           }
         : {}),
+      ...(normalizedStatus ? { status: normalizedStatus } : {}),
     };
 
     const total = await this.prisma.costExtend.count({ where });
@@ -197,7 +204,8 @@ export class CostService {
     if (data.month !== undefined) updateData.month = data.month;
     if (data.category !== undefined) updateData.category = data.category;
     if (data.amount !== undefined) updateData.amount = data.amount;
-    if (data.date !== undefined) updateData.date = parseCostDateInput(data.date);
+    if (data.date !== undefined)
+      updateData.date = parseCostDateInput(data.date);
     if (data.status !== undefined) updateData.status = data.status;
 
     return this.prisma.$transaction(async (tx) => {

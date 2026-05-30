@@ -10,6 +10,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
 import {
   ParseStaffIdPipe,
@@ -52,11 +53,12 @@ import {
 } from 'src/dtos/staff.dto';
 import { normalizeHttpHttpsUrl } from 'src/storage/supabase-storage';
 import { StaffService } from './staff.service';
+import type { RequestWithResolvedAuthContext } from 'src/auth/auth-request-context';
 
 @Controller('staff')
 @ApiTags('staff')
 @ApiCookieAuth('access_token')
-@AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.accountant)
+@AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.accountant_expense)
 @Roles(UserRole.admin)
 export class StaffController {
   constructor(private readonly staffService: StaffService) {}
@@ -444,7 +446,7 @@ export class StaffController {
   @ApiOperation({
     summary: 'Update operating deduction rate for a staff-class assignment',
     description:
-      'Updates `class_teachers.tax_rate_percent` (operating deduction on session allowance). Restricted to admin users.',
+      'Updates operating deduction on session allowance for a staff-class assignment. Restricted to admin users and accountant_expense staff.',
   })
   @ApiParam({ name: 'id', description: 'Staff id (teacher)' })
   @ApiParam({ name: 'classId', description: 'Class id' })
@@ -455,13 +457,14 @@ export class StaffController {
       'Full staff profile after update (same shape as GET /staff/:id).',
   })
   @ApiResponse({ status: 400, description: 'Validation error.' })
-  @ApiResponse({ status: 403, description: 'Not admin.' })
+  @ApiResponse({ status: 403, description: 'Not allowed.' })
   @ApiResponse({
     status: 404,
     description: 'Staff or class–teacher row not found.',
   })
   async patchStaffClassTeacherOperatingDeduction(
     @CurrentUser() user: JwtPayload,
+    @Req() req: RequestWithResolvedAuthContext,
     @Param('id', new ParseStaffIdPipe()) id: string,
     @Param('classId', new ParseClassIdPipe()) classId: string,
     @Body() body: PatchStaffClassTeacherOperatingDeductionDto,
@@ -470,7 +473,7 @@ export class StaffController {
       id,
       classId,
       body,
-      { roleType: user.roleType },
+      { roleType: user.roleType, staffRoles: req.resolvedStaffRoles ?? [] },
     );
   }
 
@@ -582,7 +585,7 @@ export class StaffController {
   }
 
   @Patch(':id/status')
-  @AllowStaffRolesOnAdminRoutes()
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   @ApiOperation({
     summary: 'Update staff operational status',
     description:

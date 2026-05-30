@@ -27,9 +27,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import {
-  FileInterceptor,
-} from '@nestjs/platform-express';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { BonusService } from 'src/bonus/bonus.service';
 import { PaymentStatus } from 'generated/enums';
 import { ExtraAllowanceService } from 'src/extra-allowance/extra-allowance.service';

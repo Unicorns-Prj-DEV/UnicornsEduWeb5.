@@ -519,6 +519,7 @@ export interface StaffDashboardUnpaidStaffItemDto {
   customerCareAmount: number;
   lessonAmount: number;
   extraAllowanceAmount: number;
+  assistantAmount?: number;
   totalUnpaid: number;
 }
 
@@ -533,6 +534,56 @@ export interface StaffDashboardAccountantSectionDto {
   financialOverview: StaffDashboardFinancialOverviewDto;
 }
 
+export interface StaffDashboardExpenseSummaryDto {
+  totalIncurred: number;
+  totalPaid: number;
+  totalPending: number;
+  pendingStaffCount: number;
+  pendingStaffTotal: number;
+}
+
+export interface StaffDashboardExpenseBreakdownItemDto {
+  key:
+    | 'teacherCost'
+    | 'customerCareCost'
+    | 'assistantCost'
+    | 'lessonCost'
+    | 'bonusCost'
+    | 'extraAllowanceCost'
+    | 'operatingCost';
+  label: string;
+  amount: number;
+}
+
+export interface StaffDashboardPendingOperatingCostItemDto {
+  id: string;
+  category: string | null;
+  amount: number;
+  date: string | null;
+  description: string | null;
+}
+
+export interface StaffDashboardPendingOperatingCostsDto {
+  totalAmount: number;
+  totalCount: number;
+  items: StaffDashboardPendingOperatingCostItemDto[];
+}
+
+export interface StaffDashboardExpenseSectionDto {
+  period: AdminDashboardPeriodDto;
+  summary: StaffDashboardExpenseSummaryDto;
+  breakdown: StaffDashboardExpenseBreakdownItemDto[];
+  pendingStaff: StaffDashboardUnpaidStaffItemDto[];
+  pendingOperatingCosts: StaffDashboardPendingOperatingCostsDto;
+}
+
+export interface StaffDashboardTrainingSectionDto {
+  todayClassCount: number;
+  todayEventCount: number;
+  runningClassCount: number;
+  fixedScheduleSlotCount: number;
+}
+
 export interface StaffDashboardDto {
   teacher?: StaffDashboardTeacherSectionDto;
   lessonPlan?: StaffDashboardLessonPlanSectionDto;
@@ -540,4 +591,6 @@ export interface StaffDashboardDto {
   assistant?: StaffDashboardAssistantSectionDto;
   customerCare?: StaffDashboardCustomerCareSectionDto;
   accountant?: StaffDashboardAccountantSectionDto;
+  accountantExpense?: StaffDashboardExpenseSectionDto;
+  training?: StaffDashboardTrainingSectionDto;
 }

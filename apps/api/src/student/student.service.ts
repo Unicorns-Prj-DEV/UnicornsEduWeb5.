@@ -75,6 +75,11 @@ const ADMIN_EMAIL_PLACEHOLDER_DOMAINS = new Set([
 ]);
 const ADMIN_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+function withOptionalReason(description: string, reason?: string | null) {
+  const trimmedReason = reason?.trim();
+  return trimmedReason ? `${description} - Lý do: ${trimmedReason}` : description;
+}
+
 const studentClassDetailInclude = {
   include: {
     class: {
@@ -773,7 +778,8 @@ export class StudentService {
 
     if (
       staff.roles.includes(StaffRole.assistant) ||
-      staff.roles.includes(StaffRole.accountant)
+      staff.roles.includes(StaffRole.accountant) ||
+      staff.roles.includes(StaffRole.accountant_income)
     ) {
       return;
     }
@@ -1235,10 +1241,7 @@ export class StudentService {
       );
     }
 
-    if (
-      staff.roles.includes(StaffRole.assistant) ||
-      staff.roles.includes(StaffRole.accountant)
-    ) {
+    if (staff.roles.includes(StaffRole.assistant)) {
       return { staffRoles: staff.roles };
     }
 
@@ -2136,8 +2139,8 @@ export class StudentService {
           entityId: id,
           description:
             dto.status === StudentStatus.inactive
-              ? 'Chuyển học sinh sang nghỉ học'
-              : 'Chuyển học sinh sang đang học',
+              ? withOptionalReason('Chuyển học sinh sang nghỉ học', dto.reason)
+              : withOptionalReason('Chuyển học sinh sang đang học', dto.reason),
           beforeValue,
           afterValue: this.serializeStudentDetail(nextStudent),
         });

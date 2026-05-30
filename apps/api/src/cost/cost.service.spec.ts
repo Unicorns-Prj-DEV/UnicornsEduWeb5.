@@ -89,6 +89,27 @@ describe('CostService', () => {
     });
   });
 
+  it('filters costs by payment status when provided', async () => {
+    mockPrisma.costExtend.count.mockResolvedValue(0);
+    mockPrisma.costExtend.findMany.mockResolvedValue([]);
+
+    await service.getCosts({
+      page: 1,
+      limit: 20,
+      status: PaymentStatus.pending,
+    });
+
+    expect(mockPrisma.costExtend.count).toHaveBeenCalledWith({
+      where: { status: PaymentStatus.pending },
+    });
+    expect(mockPrisma.costExtend.findMany).toHaveBeenCalledWith({
+      where: { status: PaymentStatus.pending },
+      skip: 0,
+      take: 20,
+      orderBy: { createdAt: 'desc' },
+    });
+  });
+
   it('throws NotFoundException when get by id misses', async () => {
     mockPrisma.costExtend.findUnique.mockResolvedValue(null);
 
@@ -189,7 +210,9 @@ describe('CostService', () => {
         category: 'Marketing',
         date: '2026-02-31',
       }),
-    ).rejects.toThrow(new BadRequestException('Cost date must be a valid ISO date'));
+    ).rejects.toThrow(
+      new BadRequestException('Cost date must be a valid ISO date'),
+    );
 
     expect(mockPrisma.costExtend.create).not.toHaveBeenCalled();
   });

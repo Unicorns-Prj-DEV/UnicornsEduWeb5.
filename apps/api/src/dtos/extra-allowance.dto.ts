@@ -105,6 +105,7 @@ export interface ExtraAllowanceBulkStatusUpdateResult {
 const SELF_MANAGED_EXTRA_ALLOWANCE_ROLES = [
   StaffRole.communication,
   StaffRole.technical,
+  StaffRole.training,
 ] as const;
 
 /** Self-service: supported staff roles create their own pending allowance. */
@@ -112,7 +113,7 @@ export class CreateMyStaffExtraAllowanceDto {
   @ApiProperty({
     description: 'Self-managed staff role this allowance belongs to.',
     enum: SELF_MANAGED_EXTRA_ALLOWANCE_ROLES,
-    example: StaffRole.communication,
+    example: StaffRole.training,
   })
   @IsEnum(StaffRole)
   @IsIn(SELF_MANAGED_EXTRA_ALLOWANCE_ROLES)
@@ -153,7 +154,7 @@ export class UpdateMyStaffExtraAllowanceDto extends PartialType(
   @ApiProperty({
     description: 'Self-managed staff role this allowance belongs to.',
     enum: SELF_MANAGED_EXTRA_ALLOWANCE_ROLES,
-    example: StaffRole.communication,
+    example: StaffRole.training,
   })
   @IsEnum(StaffRole)
   @IsIn(SELF_MANAGED_EXTRA_ALLOWANCE_ROLES)

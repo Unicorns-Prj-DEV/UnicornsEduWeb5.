@@ -26,7 +26,7 @@ import { DashboardService } from './dashboard.service';
 @ApiTags('dashboard')
 @ApiCookieAuth('access_token')
 @AllowAssistantOnAdminRoutes(false)
-@AllowStaffRolesOnAdminRoutes(StaffRole.accountant)
+@AllowStaffRolesOnAdminRoutes(StaffRole.accountant_income)
 @Roles(UserRole.admin)
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}

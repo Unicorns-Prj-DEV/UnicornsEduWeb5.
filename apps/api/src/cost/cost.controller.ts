@@ -18,7 +18,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { StaffRole, UserRole } from 'generated/enums';
+import { PaymentStatus, StaffRole, UserRole } from 'generated/enums';
 import {
   CurrentUser,
   type JwtPayload,
@@ -37,7 +37,7 @@ import { CostService } from './cost.service';
 @Controller('cost')
 @ApiTags('cost')
 @ApiCookieAuth('access_token')
-@AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.accountant)
+@AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.accountant_expense)
 @Roles(UserRole.admin)
 export class CostController {
   constructor(private readonly costService: CostService) {}
@@ -80,6 +80,12 @@ export class CostController {
     type: String,
     description: 'Filter by month 1-12. Use with year.',
   })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: PaymentStatus,
+    description: 'Filter by payment status.',
+  })
   @ApiResponse({
     status: 200,
     description: 'Paginated cost list with data and meta.',
@@ -89,12 +95,14 @@ export class CostController {
     @Query('search') search?: string,
     @Query('year') year?: string,
     @Query('month') month?: string,
+    @Query('status') status?: string,
   ) {
     return this.costService.getCosts({
       ...query,
       search,
       year,
       month,
+      status,
     });
   }
 
@@ -106,12 +114,17 @@ export class CostController {
   @ApiParam({ name: 'id', description: 'Cost id' })
   @ApiResponse({ status: 200, description: 'Cost found.' })
   @ApiResponse({ status: 404, description: 'Cost not found.' })
-  async getCostById(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
+  async getCostById(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ) {
     return this.costService.getCostById(id);
   }
 
   @Post()
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.accountant)
+  @AllowStaffRolesOnAdminRoutes(
+    StaffRole.assistant,
+    StaffRole.accountant_expense,
+  )
   @ApiOperation({
     summary: 'Create cost',
     description: 'Create a new cost record.',
@@ -187,7 +200,10 @@ export class CostController {
   }
 
   @Delete(':id')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.accountant)
+  @AllowStaffRolesOnAdminRoutes(
+    StaffRole.assistant,
+    StaffRole.accountant_expense,
+  )
   @ApiOperation({
     summary: 'Delete cost',
     description: 'Delete a cost record by id.',
@@ -195,7 +211,10 @@ export class CostController {
   @ApiParam({ name: 'id', description: 'Cost id' })
   @ApiResponse({ status: 200, description: 'Cost deleted.' })
   @ApiResponse({ status: 404, description: 'Cost not found.' })
-  async deleteCost(@CurrentUser() user: JwtPayload, @Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
+  async deleteCost(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ) {
     return this.costService.deleteCost(id, {
       userId: user.id,
       userEmail: user.email,

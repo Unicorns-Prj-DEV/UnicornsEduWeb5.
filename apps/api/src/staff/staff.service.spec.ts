@@ -66,10 +66,21 @@ describe('StaffService', () => {
     },
     makeupScheduleEvent: {
       updateMany: jest.fn(),
+      findMany: jest.fn(),
+      deleteMany: jest.fn(),
+    },
+    customerCareService: {
+      deleteMany: jest.fn(),
     },
     classTeacher: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+    },
+    classTeacherOperatingDeductionRate: {
+      findFirst: jest.fn(),
+      upsert: jest.fn(),
     },
     session: {
       findMany: jest.fn(),
@@ -111,6 +122,7 @@ describe('StaffService', () => {
   };
   const googleCalendarService = {
     generateTutorMeetLink: jest.fn(),
+    deleteCalendarEvent: jest.fn(),
   };
 
   let service: StaffService;
@@ -134,12 +146,22 @@ describe('StaffService', () => {
     mockPrisma.roleTaxDeductionRate.findFirst.mockResolvedValue(null);
     mockPrisma.staffTaxDeductionOverride.findFirst.mockResolvedValue(null);
     mockPrisma.classTeacher.findUnique.mockResolvedValue(null);
+    mockPrisma.classTeacher.update.mockResolvedValue({});
+    mockPrisma.classTeacher.updateMany.mockResolvedValue({ count: 0 });
+    mockPrisma.classTeacherOperatingDeductionRate.findFirst.mockResolvedValue(
+      null,
+    );
+    mockPrisma.classTeacherOperatingDeductionRate.upsert.mockResolvedValue({});
     mockPrisma.class.findMany.mockResolvedValue([]);
     mockPrisma.class.update.mockResolvedValue({});
     mockPrisma.makeupScheduleEvent.updateMany.mockResolvedValue({ count: 0 });
+    mockPrisma.makeupScheduleEvent.findMany.mockResolvedValue([]);
+    mockPrisma.makeupScheduleEvent.deleteMany.mockResolvedValue({ count: 0 });
+    mockPrisma.customerCareService.deleteMany.mockResolvedValue({ count: 0 });
     googleCalendarService.generateTutorMeetLink.mockResolvedValue(
       'https://meet.google.com/fixed-staff-link',
     );
+    googleCalendarService.deleteCalendarEvent.mockResolvedValue(undefined);
     mockPrisma.$queryRaw.mockResolvedValue([]);
     mockPrisma.$transaction.mockImplementation(
       (callback: (db: typeof mockPrisma) => unknown) => callback(mockPrisma),
@@ -317,6 +339,80 @@ describe('StaffService', () => {
     });
     expect(authIdentityCacheService.invalidateUser).toHaveBeenCalledWith(
       'user-1',
+    );
+  });
+
+  it('deactivates active operational assignments when staff stops working', async () => {
+    jest
+      .spyOn(service as any, 'getStaffAuditSnapshot')
+      .mockResolvedValueOnce({
+        id: 'staff-1',
+        userId: 'user-1',
+        status: StaffStatus.active,
+      })
+      .mockResolvedValueOnce({
+        id: 'staff-1',
+        userId: 'user-1',
+        status: StaffStatus.inactive,
+      });
+    jest.spyOn(service, 'getStaffById').mockResolvedValue({
+      id: 'staff-1',
+      status: StaffStatus.inactive,
+    } as never);
+    mockPrisma.class.findMany.mockResolvedValue([
+      {
+        id: 'class-1',
+        schedule: [
+          {
+            id: 'slot-1',
+            teacherId: 'staff-1',
+            googleCalendarEventId: 'calendar-1',
+          },
+          { id: 'slot-2', teacherId: 'staff-2' },
+        ],
+      },
+    ]);
+    mockPrisma.makeupScheduleEvent.findMany.mockResolvedValue([
+      { id: 'makeup-1', googleCalendarEventId: 'makeup-calendar-1' },
+    ]);
+
+    await service.updateStaffStatus(
+      'staff-1',
+      { status: StaffStatus.inactive, reason: 'Nghỉ việc' },
+      { userId: 'assistant-1', roleType: UserRole.staff },
+    );
+
+    expect(mockPrisma.class.update).toHaveBeenCalledWith({
+      where: { id: 'class-1' },
+      data: {
+        schedule: [expect.objectContaining({ id: 'slot-2' })],
+      },
+    });
+    expect(mockPrisma.classTeacher.updateMany).toHaveBeenCalledWith({
+      where: {
+        teacherId: 'staff-1',
+        OR: [{ status: null }, { status: 'active' }],
+      },
+      data: { status: 'inactive' },
+    });
+    expect(mockPrisma.customerCareService.deleteMany).toHaveBeenCalledWith({
+      where: { staffId: 'staff-1' },
+    });
+    expect(mockPrisma.makeupScheduleEvent.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ['makeup-1'] } },
+    });
+    expect(actionHistoryService.recordUpdate).toHaveBeenCalledWith(
+      mockPrisma,
+      expect.objectContaining({
+        description:
+          'Chuyển nhân sự sang ngừng hoạt động - Lý do: Nghỉ việc',
+      }),
+    );
+    expect(googleCalendarService.deleteCalendarEvent).toHaveBeenCalledWith(
+      'calendar-1',
+    );
+    expect(googleCalendarService.deleteCalendarEvent).toHaveBeenCalledWith(
+      'makeup-calendar-1',
     );
   });
 
@@ -2165,6 +2261,57 @@ describe('StaffService', () => {
       bucket: 'avatars',
       path: 'users/user-1/avatar',
       expiresIn: 3600,
+    });
+  });
+
+  it('lets expense accountants update class operating deduction rates', async () => {
+    mockPrisma.classTeacher.findUnique.mockResolvedValue({
+      id: 'assignment-1',
+    });
+    jest
+      .spyOn(service, 'getStaffById')
+      .mockResolvedValue({ id: 'staff-1' } as never);
+
+    await service.patchStaffClassTeacherOperatingDeduction(
+      'staff-1',
+      'class-1',
+      { operating_deduction_rate_percent: 12.5 },
+      {
+        roleType: UserRole.staff,
+        staffRoles: [StaffRole.accountant_expense],
+      },
+    );
+
+    expect(mockPrisma.classTeacher.update).toHaveBeenCalledWith({
+      where: {
+        classId_teacherId: {
+          classId: 'class-1',
+          teacherId: 'staff-1',
+        },
+      },
+      data: {
+        operatingDeductionRatePercent: 12.5,
+      },
+    });
+    expect(
+      mockPrisma.classTeacherOperatingDeductionRate.upsert,
+    ).toHaveBeenCalledWith({
+      where: {
+        classId_teacherId_effectiveFrom: {
+          classId: 'class-1',
+          teacherId: 'staff-1',
+          effectiveFrom: expect.any(Date),
+        },
+      },
+      create: {
+        classId: 'class-1',
+        teacherId: 'staff-1',
+        ratePercent: 12.5,
+        effectiveFrom: expect.any(Date),
+      },
+      update: {
+        ratePercent: 12.5,
+      },
     });
   });
 });

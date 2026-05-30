@@ -104,9 +104,7 @@ describe('ExtraAllowanceService', () => {
       },
     );
 
-    const adminCreateCall = mockPrisma.extraAllowance.create.mock.calls[0]?.[0];
-    expect(adminCreateCall?.data).not.toHaveProperty('id');
-    expect(adminCreateCall).toEqual({
+    expect(mockPrisma.extraAllowance.create).toHaveBeenCalledWith({
       data: {
         staffId: 'staff-1',
         month: '2026-04',
@@ -194,9 +192,7 @@ describe('ExtraAllowanceService', () => {
       },
     );
 
-    const selfCreateCall = mockPrisma.extraAllowance.create.mock.calls[0]?.[0];
-    expect(selfCreateCall?.data).not.toHaveProperty('id');
-    expect(selfCreateCall).toEqual({
+    expect(mockPrisma.extraAllowance.create).toHaveBeenCalledWith({
       data: {
         staffId: 'staff-1',
         month: '2026-04',
@@ -216,6 +212,76 @@ describe('ExtraAllowanceService', () => {
       note: 'Hỗ trợ kỹ thuật tháng 4',
       month: '2026-04',
       roleType: StaffRole.technical,
+      taxDeductionRatePercent: 7.5,
+    });
+  });
+
+  it('allows training staff to create their own pending extra allowance', async () => {
+    mockPrisma.staffInfo.findFirst.mockResolvedValue({
+      id: 'staff-training-1',
+      roles: [StaffRole.training],
+    });
+    mockPrisma.extraAllowance.create.mockResolvedValue({
+      id: 'allowance-training-1',
+      staffId: 'staff-training-1',
+      amount: 220000,
+      status: PaymentStatus.pending,
+      note: 'Hỗ trợ đào tạo tháng 5',
+      month: '2026-05',
+      roleType: StaffRole.training,
+      taxDeductionRatePercent: 7.5,
+    });
+    mockPrisma.extraAllowance.findUnique.mockResolvedValue({
+      id: 'allowance-training-1',
+      staffId: 'staff-training-1',
+      amount: 220000,
+      status: PaymentStatus.pending,
+      note: 'Hỗ trợ đào tạo tháng 5',
+      month: '2026-05',
+      roleType: StaffRole.training,
+      taxDeductionRatePercent: 7.5,
+      staff: {
+        id: 'staff-training-1',
+        fullName: 'Training A',
+        roles: [StaffRole.training],
+        status: 'active',
+      },
+    });
+
+    const result = await service.createMyStaffExtraAllowance(
+      {
+        id: 'training-user-1',
+        email: 'training@example.com',
+        roleType: UserRole.staff,
+      },
+      {
+        roleType: StaffRole.training,
+        month: '2026-05',
+        amount: 220000,
+        note: 'Hỗ trợ đào tạo tháng 5',
+      },
+    );
+
+    expect(mockPrisma.extraAllowance.create).toHaveBeenCalledWith({
+      data: {
+        staffId: 'staff-training-1',
+        month: '2026-05',
+        amount: 220000,
+        status: PaymentStatus.pending,
+        note: 'Hỗ trợ đào tạo tháng 5',
+        roleType: StaffRole.training,
+        taxDeductionRatePercent: 7.5,
+      },
+    });
+    expect(actionHistoryService.recordCreate).toHaveBeenCalled();
+    expect(result).toEqual({
+      id: 'allowance-training-1',
+      staffId: 'staff-training-1',
+      amount: 220000,
+      status: PaymentStatus.pending,
+      note: 'Hỗ trợ đào tạo tháng 5',
+      month: '2026-05',
+      roleType: StaffRole.training,
       taxDeductionRatePercent: 7.5,
     });
   });
@@ -305,6 +371,94 @@ describe('ExtraAllowanceService', () => {
       note: 'Ghi chú mới',
       month: '2026-04',
       roleType: StaffRole.communication,
+    });
+  });
+
+  it('allows training staff to update their own extra allowance without changing payment status', async () => {
+    mockPrisma.staffInfo.findFirst.mockResolvedValue({
+      id: 'staff-training-1',
+      roles: [StaffRole.training],
+    });
+    mockPrisma.extraAllowance.findUnique
+      .mockResolvedValueOnce({
+        id: 'allowance-training-1',
+        staffId: 'staff-training-1',
+        amount: 180000,
+        status: PaymentStatus.pending,
+        note: 'Ghi chú cũ',
+        month: '2026-05',
+        roleType: StaffRole.training,
+        staff: {
+          id: 'staff-training-1',
+          fullName: 'Training A',
+          roles: [StaffRole.training],
+          status: 'active',
+        },
+      })
+      .mockResolvedValueOnce({
+        id: 'allowance-training-1',
+        staffId: 'staff-training-1',
+        amount: 260000,
+        status: PaymentStatus.pending,
+        note: 'Ghi chú đào tạo mới',
+        month: '2026-06',
+        roleType: StaffRole.training,
+        staff: {
+          id: 'staff-training-1',
+          fullName: 'Training A',
+          roles: [StaffRole.training],
+          status: 'active',
+        },
+      });
+    mockPrisma.extraAllowance.update.mockResolvedValue({
+      id: 'allowance-training-1',
+      staffId: 'staff-training-1',
+      amount: 260000,
+      status: PaymentStatus.pending,
+      note: 'Ghi chú đào tạo mới',
+      month: '2026-06',
+      roleType: StaffRole.training,
+    });
+
+    const result = await service.updateMyStaffExtraAllowance(
+      {
+        id: 'training-user-1',
+        email: 'training@example.com',
+        roleType: UserRole.staff,
+      },
+      {
+        id: 'allowance-training-1',
+        roleType: StaffRole.training,
+        month: '2026-06',
+        amount: 260000,
+        note: 'Ghi chú đào tạo mới',
+      },
+    );
+
+    expect(mockPrisma.extraAllowance.update).toHaveBeenCalledWith({
+      where: { id: 'allowance-training-1' },
+      data: {
+        month: '2026-06',
+        amount: 260000,
+        note: 'Ghi chú đào tạo mới',
+        taxDeductionRatePercent: 7.5,
+      },
+    });
+    expect(actionHistoryService.recordUpdate).toHaveBeenCalledWith(
+      mockPrisma,
+      expect.objectContaining({
+        entityType: 'extra_allowance',
+        entityId: 'allowance-training-1',
+      }),
+    );
+    expect(result).toEqual({
+      id: 'allowance-training-1',
+      staffId: 'staff-training-1',
+      amount: 260000,
+      status: PaymentStatus.pending,
+      note: 'Ghi chú đào tạo mới',
+      month: '2026-06',
+      roleType: StaffRole.training,
     });
   });
 

@@ -82,7 +82,8 @@ export class CustomerCareService {
 
     if (
       staff.roles.includes(StaffRole.assistant) ||
-      staff.roles.includes(StaffRole.accountant)
+      staff.roles.includes(StaffRole.accountant) ||
+      staff.roles.includes(StaffRole.accountant_income)
     ) {
       return requestedStaffId;
     }
@@ -170,8 +171,7 @@ export class CustomerCareService {
 
     return {
       data: list.map((row) => {
-        const recentTopUpTotal =
-          recentTopUpTotals.get(row.student.id) ?? 0;
+        const recentTopUpTotal = recentTopUpTotals.get(row.student.id) ?? 0;
         return {
           id: row.student.id,
           fullName: row.student.fullName ?? '',
@@ -215,9 +215,7 @@ export class CustomerCareService {
       _sum: { amount: true },
     });
 
-    return new Map(
-      rows.map((row) => [row.studentId, row._sum.amount ?? 0]),
-    );
+    return new Map(rows.map((row) => [row.studentId, row._sum.amount ?? 0]));
   }
 
   async getTopUpHistoryByStaffId(

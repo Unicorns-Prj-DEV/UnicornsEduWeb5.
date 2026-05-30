@@ -5,12 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Prisma } from '../../generated/client';
-import {
-  PaymentStatus,
-  StaffRole,
-  StaffStatus,
-  UserRole,
-} from 'generated/enums';
+import { PaymentStatus, StaffRole, UserRole } from 'generated/enums';
 import {
   ActionHistoryActor,
   ActionHistoryService,
@@ -34,7 +29,11 @@ import { assertStaffCanReceiveAssignment } from '../common/profile-status.policy
 @Injectable()
 export class ExtraAllowanceService {
   private static readonly SELF_MANAGED_EXTRA_ALLOWANCE_ROLES =
-    new Set<StaffRole>([StaffRole.communication, StaffRole.technical]);
+    new Set<StaffRole>([
+      StaffRole.communication,
+      StaffRole.technical,
+      StaffRole.training,
+    ]);
 
   constructor(
     private readonly prisma: PrismaService,
@@ -268,6 +267,8 @@ export class ExtraAllowanceService {
         return 'Truyền thông';
       case StaffRole.technical:
         return 'Kỹ thuật';
+      case StaffRole.training:
+        return 'Đào Tạo';
       default:
         return roleType;
     }

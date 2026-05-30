@@ -123,7 +123,9 @@ describe('UserProfileController', () => {
 
   it('deletes a bonus that belongs to the current linked staff profile', async () => {
     userService.getLinkedStaffId.mockResolvedValue('staff-1');
-    bonusService.getBonusOwnershipById.mockResolvedValue({ staffId: 'staff-1' });
+    bonusService.getBonusOwnershipById.mockResolvedValue({
+      staffId: 'staff-1',
+    });
     bonusService.deleteBonus.mockResolvedValue({ id: 'bonus-1' });
 
     await expect(
@@ -149,7 +151,9 @@ describe('UserProfileController', () => {
 
   it('does not delete another staff profile bonus from self-service', async () => {
     userService.getLinkedStaffId.mockResolvedValue('staff-1');
-    bonusService.getBonusOwnershipById.mockResolvedValue({ staffId: 'staff-2' });
+    bonusService.getBonusOwnershipById.mockResolvedValue({
+      staffId: 'staff-2',
+    });
 
     await expect(
       controller.deleteMyStaffBonus(

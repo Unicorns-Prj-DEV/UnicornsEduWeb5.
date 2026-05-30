@@ -3,7 +3,11 @@ jest.mock('src/prisma/prisma.service', () => ({
 }));
 
 import { NotFoundException } from '@nestjs/common';
-import { StudentStatus, UserRole, WalletTransactionType } from 'generated/enums';
+import {
+  StudentStatus,
+  UserRole,
+  WalletTransactionType,
+} from 'generated/enums';
 import { CustomerCareService } from './customer-care.service';
 
 describe('CustomerCareService', () => {

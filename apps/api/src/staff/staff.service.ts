@@ -72,6 +72,30 @@ function toDateOrNull(
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
+function toDateOnly(value = new Date()) {
+  return new Date(
+    Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()),
+  );
+}
+
+function withOptionalReason(description: string, reason?: string | null) {
+  const trimmedReason = reason?.trim();
+  return trimmedReason ? `${description} - Lý do: ${trimmedReason}` : description;
+}
+
+function getScheduleEntriesForStaff(
+  schedule: Prisma.JsonValue | null | undefined,
+) {
+  if (!Array.isArray(schedule)) {
+    return [];
+  }
+
+  return schedule.filter(
+    (entry): entry is Prisma.JsonObject =>
+      typeof entry === 'object' && entry !== null && !Array.isArray(entry),
+  );
+}
+
 function buildNameSearchWhere(search?: string): Prisma.StaffInfoWhereInput {
   const tokens = (search ?? '')
     .trim()
@@ -130,16 +154,22 @@ const STAFF_ROLE_LABELS: Record<string, string> = {
   lesson_plan: 'Giáo án',
   lesson_plan_head: 'Trưởng giáo án',
   accountant: 'Kế toán',
+  accountant_income: 'Kế toán thu',
+  accountant_expense: 'Kế toán chi',
   communication: 'Truyền thông',
   technical: 'Kỹ thuật',
   customer_care: 'CSKH',
+  training: 'Đào Tạo',
 };
 
 const EXTRA_ALLOWANCE_BACKED_OTHER_ROLES = new Set<StaffRole>([
   StaffRole.assistant,
   StaffRole.accountant,
+  StaffRole.accountant_income,
+  StaffRole.accountant_expense,
   StaffRole.communication,
   StaffRole.technical,
+  StaffRole.training,
 ]);
 
 const DEPOSIT_PAYMENT_STATUSES = ['deposit', 'deposite', 'coc', 'cọc'] as const;
@@ -409,6 +439,7 @@ type StaffPaymentPreviewRecord = {
   sourceLabel: string;
   label: string;
   secondaryLabel: string | null;
+  classId?: string | null;
   date: string | null;
   currentStatus: string | null;
   grossAmount: number;
@@ -1628,6 +1659,7 @@ export class StaffService {
         sourceLabel: 'Buổi dạy',
         label: row.className?.trim() || 'Lớp chưa đặt tên',
         secondaryLabel: row.classId?.trim() ? `Mã lớp: ${row.classId}` : null,
+        classId: row.classId?.trim() || null,
         date: toIsoDateString(row.date),
         currentStatus: row.paymentStatus,
         grossAmount,
@@ -1700,6 +1732,7 @@ export class StaffService {
         sourceLabel: 'Buổi dạy',
         label: row.className?.trim() || 'Lớp chưa đặt tên',
         secondaryLabel: row.classId?.trim() ? `Mã lớp: ${row.classId}` : null,
+        classId: row.classId?.trim() || null,
         date: toIsoDateString(row.date),
         currentStatus: row.paymentStatus,
         grossAmount,
@@ -2287,8 +2320,11 @@ export class StaffService {
       StaffRole.lesson_plan,
       StaffRole.assistant,
       StaffRole.accountant,
+      StaffRole.accountant_income,
+      StaffRole.accountant_expense,
       StaffRole.communication,
       StaffRole.technical,
+      StaffRole.training,
     ];
 
     for (const role of priority) {
@@ -2580,6 +2616,7 @@ export class StaffService {
         id: record.id,
         label: record.label,
         secondaryLabel: record.secondaryLabel,
+        classId: record.classId ?? null,
         date: record.date,
         currentStatus: record.currentStatus,
         taxRatePercent: record.taxRatePercent,
@@ -4280,15 +4317,23 @@ export class StaffService {
     staffId: string,
     classId: string,
     dto: PatchStaffClassTeacherOperatingDeductionDto,
-    actor: { roleType: UserRole },
+    actor: { roleType: UserRole; staffRoles?: StaffRole[] },
   ) {
-    if (actor.roleType !== UserRole.admin) {
+    const canPatchOperatingDeduction =
+      actor.roleType === UserRole.admin ||
+      (actor.staffRoles ?? []).some(
+        (role) =>
+          role === StaffRole.admin || role === StaffRole.accountant_expense,
+      );
+
+    if (!canPatchOperatingDeduction) {
       throw new ForbiddenException(
-        'Chỉ admin được chỉnh % khấu trừ vận hành theo lớp.',
+        'Chỉ admin hoặc kế toán chi được chỉnh % khấu trừ vận hành theo lớp.',
       );
     }
 
     const ratePercent = normalizePercent(dto.operating_deduction_rate_percent);
+    const effectiveFrom = toDateOnly(new Date());
 
     const assignment = await this.prisma.classTeacher.findUnique({
       where: {
@@ -4306,19 +4351,105 @@ export class StaffService {
       );
     }
 
-    await this.prisma.classTeacher.update({
-      where: {
-        classId_teacherId: {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.classTeacher.update({
+        where: {
+          classId_teacherId: {
+            classId,
+            teacherId: staffId,
+          },
+        },
+        data: {
+          operatingDeductionRatePercent: ratePercent,
+        },
+      });
+
+      await tx.classTeacherOperatingDeductionRate.upsert({
+        where: {
+          classId_teacherId_effectiveFrom: {
+            classId,
+            teacherId: staffId,
+            effectiveFrom,
+          },
+        },
+        create: {
           classId,
           teacherId: staffId,
+          ratePercent,
+          effectiveFrom,
         },
-      },
-      data: {
-        operatingDeductionRatePercent: ratePercent,
-      },
+        update: {
+          ratePercent,
+        },
+      });
     });
 
     return this.getStaffById(staffId);
+  }
+
+  private async applyInactiveStaffOperationalSideEffects(
+    tx: Prisma.TransactionClient,
+    staffId: string,
+  ) {
+    const today = toDateOnly();
+    const classes = await tx.class.findMany({
+      where: {
+        teachers: {
+          some: {
+            teacherId: staffId,
+            OR: [{ status: null }, { status: 'active' }],
+          },
+        },
+      },
+      select: { id: true, schedule: true },
+    });
+
+    const googleCalendarEventIds: string[] = [];
+    for (const classRecord of classes) {
+      const scheduleEntries = getScheduleEntriesForStaff(classRecord.schedule);
+      const nextSchedule = scheduleEntries.filter((entry) => {
+        if (entry.teacherId !== staffId) return true;
+        if (typeof entry.googleCalendarEventId === 'string') {
+          googleCalendarEventIds.push(entry.googleCalendarEventId);
+        }
+        return false;
+      });
+
+      if (nextSchedule.length !== scheduleEntries.length) {
+        await tx.class.update({
+          where: { id: classRecord.id },
+          data: { schedule: nextSchedule as Prisma.InputJsonValue },
+        });
+      }
+    }
+
+    const futureMakeupEvents = await tx.makeupScheduleEvent.findMany({
+      where: { teacherId: staffId, date: { gte: today } },
+      select: { id: true, googleCalendarEventId: true },
+    });
+    for (const event of futureMakeupEvents) {
+      if (event.googleCalendarEventId) {
+        googleCalendarEventIds.push(event.googleCalendarEventId);
+      }
+    }
+
+    await tx.classTeacher.updateMany({
+      where: {
+        teacherId: staffId,
+        OR: [{ status: null }, { status: 'active' }],
+      },
+      data: { status: 'inactive' },
+    });
+    await tx.customerCareService.deleteMany({
+      where: { staffId },
+    });
+    if (futureMakeupEvents.length > 0) {
+      await tx.makeupScheduleEvent.deleteMany({
+        where: { id: { in: futureMakeupEvents.map((event) => event.id) } },
+      });
+    }
+
+    return Array.from(new Set(googleCalendarEventIds));
   }
 
   async updateStaffStatus(
@@ -4332,11 +4463,16 @@ export class StaffService {
       throw new NotFoundException('Staff not found');
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    const googleCalendarEventIds = await this.prisma.$transaction(async (tx) => {
       await tx.staffInfo.update({
         where: { id },
         data: { status: dto.status },
       });
+
+      const removedGoogleCalendarEventIds =
+        dto.status === StaffStatus.inactive
+          ? await this.applyInactiveStaffOperationalSideEffects(tx, id)
+          : [];
 
       if (auditActor) {
         const afterValue = await this.getStaffAuditSnapshot(tx, id);
@@ -4347,14 +4483,34 @@ export class StaffService {
             entityId: id,
             description:
               dto.status === StaffStatus.inactive
-                ? 'Chuyển nhân sự sang ngừng hoạt động'
-                : 'Chuyển nhân sự sang hoạt động',
+                ? withOptionalReason(
+                    'Chuyển nhân sự sang ngừng hoạt động',
+                    dto.reason,
+                  )
+                : withOptionalReason(
+                    'Chuyển nhân sự sang hoạt động',
+                    dto.reason,
+                  ),
             beforeValue: existingStaff,
             afterValue,
           });
         }
       }
+
+      return removedGoogleCalendarEventIds;
     });
+
+    for (const eventId of googleCalendarEventIds) {
+      try {
+        await this.googleCalendarService.deleteCalendarEvent(eventId);
+      } catch (error) {
+        this.logger.warn(
+          `Failed to delete Google Calendar event ${eventId} while deactivating staff ${id}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
 
     this.invalidateStaffAuthIdentities(existingStaff.userId);
     return this.getStaffById(id);
