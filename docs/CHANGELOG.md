@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- FE/BE session payment status: Bổ sung lại field điều chỉnh trạng thái thanh toán của buổi học (`teacherPaymentStatus`) trong form tạo buổi học (`AddSessionPopup`) cho admin/kế toán và form chỉnh sửa buổi học (`SessionHistoryTable`) cho nhân sự có quyền (admin, trợ lý, kế toán chi), đồng thời khóa tất cả các trường thông tin cơ bản khác (ngày, giờ, gia sư, nhận xét, điểm danh) khi ở chế độ xem chi tiết/kế toán chi để bảo vệ tính toàn vẹn của dữ liệu buổi học.
 - BE/FE Đào Tạo role: thêm `StaffRole.training` / nhãn **Đào Tạo**, mở `/staff/calendar` cho lịch toàn bộ lớp đang chạy với redaction học sinh, random-check lớp đang diễn ra có Meet, dashboard Đào Tạo và docs route/schema tương ứng.
 
 - BE/API `regulations`: thêm hard-delete `DELETE /regulations/:id` cho admin và `staff.assistant`, có ghi `action_history`; FE `/admin/notes-subject` và assistant `/staff/notes-subject` có nút xóa quy định kèm xác nhận.

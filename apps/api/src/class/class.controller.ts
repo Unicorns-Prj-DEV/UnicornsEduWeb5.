@@ -342,7 +342,10 @@ export class ClassController {
   @ApiBody({ type: ClassStatusActionDto, required: false })
   @ApiResponse({ status: 200, description: 'Teacher assignment stopped.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
-  @ApiResponse({ status: 404, description: 'Class or teacher assignment not found.' })
+  @ApiResponse({
+    status: 404,
+    description: 'Class or teacher assignment not found.',
+  })
   async stopClassTeacher(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseClassIdPipe()) id: string,

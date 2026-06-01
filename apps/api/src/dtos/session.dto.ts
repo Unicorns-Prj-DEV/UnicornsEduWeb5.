@@ -139,6 +139,15 @@ export class SessionCreateDto {
   @Min(0)
   allowanceAmount?: number | null;
 
+  @ApiPropertyOptional({
+    description: 'Teacher payment status',
+    example: 'unpaid',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  teacherPaymentStatus?: string | null;
+
   @ApiProperty({
     description: 'Attendance items for this session.',
     type: [AttendanceCreateDto],

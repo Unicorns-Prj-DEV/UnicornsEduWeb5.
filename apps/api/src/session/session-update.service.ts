@@ -498,11 +498,12 @@ export class SessionUpdateService {
             const currentTeacherOperatingDeductionRatePercent = Number(
               classTeacher.operatingDeductionRatePercent ?? 0,
             );
-            teacherOperatingDeductionRatePercentUpdate =
-              Number.isFinite(currentTeacherOperatingDeductionRatePercent)
-                ? Math.round(currentTeacherOperatingDeductionRatePercent * 100) /
-                  100
-                : 0;
+            teacherOperatingDeductionRatePercentUpdate = Number.isFinite(
+              currentTeacherOperatingDeductionRatePercent,
+            )
+              ? Math.round(currentTeacherOperatingDeductionRatePercent * 100) /
+                100
+              : 0;
             teacherTaxDeductionRatePercentUpdate =
               await resolveTaxDeductionRate(tx, {
                 staffId: nextTeacherId,

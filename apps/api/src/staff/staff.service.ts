@@ -79,7 +79,9 @@ function toDateOnly(value = new Date()) {
 
 function withOptionalReason(description: string, reason?: string | null) {
   const trimmedReason = reason?.trim();
-  return trimmedReason ? `${description} - Lý do: ${trimmedReason}` : description;
+  return trimmedReason
+    ? `${description} - Lý do: ${trimmedReason}`
+    : description;
 }
 
 function getScheduleEntriesForStaff(
@@ -4464,42 +4466,44 @@ export class StaffService {
       throw new NotFoundException('Staff not found');
     }
 
-    const googleCalendarEventIds = await this.prisma.$transaction(async (tx) => {
-      await tx.staffInfo.update({
-        where: { id },
-        data: { status: dto.status },
-      });
+    const googleCalendarEventIds = await this.prisma.$transaction(
+      async (tx) => {
+        await tx.staffInfo.update({
+          where: { id },
+          data: { status: dto.status },
+        });
 
-      const removedGoogleCalendarEventIds =
-        dto.status === StaffStatus.inactive
-          ? await this.applyInactiveStaffOperationalSideEffects(tx, id)
-          : [];
+        const removedGoogleCalendarEventIds =
+          dto.status === StaffStatus.inactive
+            ? await this.applyInactiveStaffOperationalSideEffects(tx, id)
+            : [];
 
-      if (auditActor) {
-        const afterValue = await this.getStaffAuditSnapshot(tx, id);
-        if (afterValue) {
-          await this.actionHistoryService.recordUpdate(tx, {
-            actor: auditActor,
-            entityType: 'staff',
-            entityId: id,
-            description:
-              dto.status === StaffStatus.inactive
-                ? withOptionalReason(
-                    'Chuyển nhân sự sang ngừng hoạt động',
-                    dto.reason,
-                  )
-                : withOptionalReason(
-                    'Chuyển nhân sự sang hoạt động',
-                    dto.reason,
-                  ),
-            beforeValue: existingStaff,
-            afterValue,
-          });
+        if (auditActor) {
+          const afterValue = await this.getStaffAuditSnapshot(tx, id);
+          if (afterValue) {
+            await this.actionHistoryService.recordUpdate(tx, {
+              actor: auditActor,
+              entityType: 'staff',
+              entityId: id,
+              description:
+                dto.status === StaffStatus.inactive
+                  ? withOptionalReason(
+                      'Chuyển nhân sự sang ngừng hoạt động',
+                      dto.reason,
+                    )
+                  : withOptionalReason(
+                      'Chuyển nhân sự sang hoạt động',
+                      dto.reason,
+                    ),
+              beforeValue: existingStaff,
+              afterValue,
+            });
+          }
         }
-      }
 
-      return removedGoogleCalendarEventIds;
-    });
+        return removedGoogleCalendarEventIds;
+      },
+    );
 
     for (const eventId of googleCalendarEventIds) {
       try {

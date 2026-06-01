@@ -1431,8 +1431,8 @@ export default function AdminClassDetailPage() {
                    allowCoefficientEdit={canEditSessions}
                    allowAllowanceEdit={canEditSessions}
                    allowAttendanceTuitionEdits={canEditSessions}
-                   allowPaymentStatusEdit={canEditSessions}
-                   readOnlySessionDetails={!canEditSessions}
+                   allowPaymentStatusEdit={canEditSessionPaymentStatus}
+                   readOnlySessionDetails={!canEditSessions && !canEditSessionPaymentStatus}
                    allowDeleteSession={canEditSessions && !isAccountant}
                   onSessionUpdated={handleSessionUpdated}
                   teachers={popupTeachers}

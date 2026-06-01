@@ -397,8 +397,7 @@ describe('StaffService', () => {
     expect(actionHistoryService.recordUpdate).toHaveBeenCalledWith(
       mockPrisma,
       expect.objectContaining({
-        description:
-          'Chuyển nhân sự sang ngừng hoạt động - Lý do: Nghỉ việc',
+        description: 'Chuyển nhân sự sang ngừng hoạt động - Lý do: Nghỉ việc',
       }),
     );
     expect(googleCalendarService.deleteCalendarEvent).toHaveBeenCalledWith(

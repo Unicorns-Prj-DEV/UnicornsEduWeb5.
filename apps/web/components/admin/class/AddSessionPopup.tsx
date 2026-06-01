@@ -80,6 +80,61 @@ type Props = {
   onCreated?: (session: SessionItem) => void;
 };
 
+const PAYMENT_STATUS_META = {
+  unpaid: {
+    label: "Chưa thanh toán",
+    dotClassName: "bg-warning",
+    pillClassName:
+      "border border-warning/25 bg-warning/10 text-warning shadow-[inset_0_1px_0_color-mix(in_srgb,var(--ue-bg-surface)_35%,transparent)]",
+  },
+  deposit: {
+    label: "Cọc",
+    dotClassName: "bg-info",
+    pillClassName:
+      "border border-info/25 bg-info/10 text-info shadow-[inset_0_1px_0_color-mix(in_srgb,var(--ue-bg-surface)_35%,transparent)]",
+  },
+  paid: {
+    label: "Đã thanh toán",
+    dotClassName: "bg-success",
+    pillClassName:
+      "border border-success/25 bg-success/10 text-success shadow-[inset_0_1px_0_color-mix(in_srgb,var(--ue-bg-surface)_35%,transparent)]",
+  },
+} satisfies Record<
+  "unpaid" | "deposit" | "paid",
+  {
+    label: string;
+    dotClassName: string;
+    pillClassName: string;
+  }
+>;
+
+function renderPaymentStatusOptionLabel(status: "unpaid" | "deposit" | "paid") {
+  const meta = PAYMENT_STATUS_META[status];
+
+  return (
+    <span
+      className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-semibold ${meta.pillClassName}`}
+    >
+      <span
+        className={`size-2 rounded-full ${meta.dotClassName}`}
+        aria-hidden
+      />
+      {meta.label}
+    </span>
+  );
+}
+
+const PAYMENT_STATUS_OPTIONS = (
+  [
+    { value: "unpaid", label: renderPaymentStatusOptionLabel("unpaid") },
+    { value: "deposit", label: renderPaymentStatusOptionLabel("deposit") },
+    { value: "paid", label: renderPaymentStatusOptionLabel("paid") },
+  ] as const
+).map((option) => ({
+  value: option.value,
+  label: option.label,
+}));
+
 function getTodayDateInputValue(): string {
   const now = new Date();
   const year = now.getFullYear();
@@ -203,6 +258,7 @@ export default function AddSessionPopup({
   const [notesError, setNotesError] = useState("");
   const [coefficient, setCoefficient] = useState<string>("1");
   const [allowanceAmount, setAllowanceAmount] = useState<string>("");
+  const [teacherPaymentStatus, setTeacherPaymentStatus] = useState<string>("unpaid");
   const [selectedTeacherId, setSelectedTeacherId] = useState(
     resolveSelectedTeacherId({
       defaultTeacherId,
@@ -480,6 +536,7 @@ export default function AddSessionPopup({
         allowanceNum >= 0
         ? { allowanceAmount: Math.floor(allowanceNum) }
         : {}),
+      ...(allowFinancialFields ? { teacherPaymentStatus } : {}),
       attendance: toAttendancePayload(
         attendanceItems,
         canEditAttendanceTuition,
@@ -678,11 +735,15 @@ export default function AddSessionPopup({
                           <span>
                             Trạng thái thanh toán <RequiredMark />
                           </span>
-                          <div className="flex min-h-11 items-center rounded-lg border border-border-default bg-bg-secondary/60 px-3 py-2 text-sm text-text-secondary">
-                            Chưa thanh toán
-                          </div>
+                          <UpgradedSelect
+                            name="add-session-payment-status"
+                            value={teacherPaymentStatus}
+                            onValueChange={setTeacherPaymentStatus}
+                            options={PAYMENT_STATUS_OPTIONS}
+                            buttonClassName="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                          />
                           <span className="text-xs font-normal text-text-muted">
-                            Khi tạo mới, trạng thái mặc định là chưa thanh toán. Đổi trạng thái sau khi lưu từ bảng lịch sử buổi học nếu cần.
+                            Chọn trạng thái thanh toán cho buổi dạy này
                           </span>
                         </label>
                       </div>

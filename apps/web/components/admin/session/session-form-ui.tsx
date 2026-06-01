@@ -131,12 +131,15 @@ type QuickPickProps = {
   value: SessionAttendanceStatus;
   onChange: (next: SessionAttendanceStatus) => void;
   namePrefix: string;
+  disabled?: boolean;
 };
 
-export function AttendanceStatusQuickPick({ value, onChange, namePrefix }: QuickPickProps) {
+export function AttendanceStatusQuickPick({ value, onChange, namePrefix, disabled = false }: QuickPickProps) {
   return (
     <div
-      className="inline-flex shrink-0 gap-0.5 rounded-lg border border-border-default bg-bg-secondary/80 p-0.5"
+      className={`inline-flex shrink-0 gap-0.5 rounded-lg border border-border-default p-0.5 ${
+        disabled ? "bg-bg-secondary/60 opacity-70 cursor-not-allowed" : "bg-bg-secondary/80"
+      }`}
       role="group"
       aria-label="Trạng thái điểm danh"
     >
@@ -147,9 +150,16 @@ export function AttendanceStatusQuickPick({ value, onChange, namePrefix }: Quick
             key={status}
             type="button"
             name={`${namePrefix}-${status}`}
-            onClick={() => onChange(status)}
+            disabled={disabled}
+            onClick={() => !disabled && onChange(status)}
             className={`flex size-9 items-center justify-center rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
-              active ? "bg-bg-surface text-text-primary shadow-sm ring-1 ring-border-default/80" : "text-text-muted hover:bg-bg-tertiary/80"
+              active
+                ? disabled
+                  ? "bg-bg-secondary text-text-secondary border border-border-default/60 shadow-sm"
+                  : "bg-bg-surface text-text-primary shadow-sm ring-1 ring-border-default/80"
+                : disabled
+                ? "text-text-muted cursor-not-allowed"
+                : "text-text-muted hover:bg-bg-tertiary/80"
             }`}
             title={
               status === "present" ? "Học" : status === "excused" ? "Phép" : "Vắng"
@@ -157,15 +167,15 @@ export function AttendanceStatusQuickPick({ value, onChange, namePrefix }: Quick
             aria-pressed={active}
           >
             {status === "present" ? (
-              <svg className="size-4 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+              <svg className={`size-4 ${disabled ? "text-success/50" : "text-success"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M5 13l4 4L19 7" />
               </svg>
             ) : status === "excused" ? (
-              <span className="text-xs font-bold text-warning" aria-hidden>
+              <span className={`text-xs font-bold ${disabled ? "text-warning/50" : "text-warning"}`} aria-hidden>
                 p
               </span>
             ) : (
-              <svg className="size-4 text-error" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+              <svg className={`size-4 ${disabled ? "text-error/50" : "text-error"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M6 6l12 12M18 6L6 18" />
               </svg>
             )}

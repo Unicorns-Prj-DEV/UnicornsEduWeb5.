@@ -30,9 +30,7 @@ import {
 } from '../../generated/enums';
 
 type ClassServiceTestAccess = {
-  getClassAuditSnapshot: (
-    ...args: unknown[]
-  ) => Promise<{
+  getClassAuditSnapshot: (...args: unknown[]) => Promise<{
     id: string;
     status: ClassStatus;
     schedule: unknown[];
@@ -521,9 +519,10 @@ describe('ClassService', () => {
       mockPrisma.makeupScheduleEvent.findMany.mockResolvedValue([
         { id: 'makeup-1' },
       ]);
-      jest
-        .spyOn(service, 'getClassById')
-        .mockResolvedValue({ id: 'class-1', status: ClassStatus.ended } as never);
+      jest.spyOn(service, 'getClassById').mockResolvedValue({
+        id: 'class-1',
+        status: ClassStatus.ended,
+      } as never);
 
       await expect(
         service.endClass(
@@ -611,9 +610,10 @@ describe('ClassService', () => {
       mockPrisma.makeupScheduleEvent.findMany.mockResolvedValue([
         { id: 'makeup-2' },
       ]);
-      jest
-        .spyOn(service, 'getClassById')
-        .mockResolvedValue({ id: 'class-1', status: ClassStatus.running } as never);
+      jest.spyOn(service, 'getClassById').mockResolvedValue({
+        id: 'class-1',
+        status: ClassStatus.running,
+      } as never);
 
       await service.stopClassTeacher(
         'class-1',
@@ -623,7 +623,9 @@ describe('ClassService', () => {
       );
 
       expect(mockTx.classTeacher.update).toHaveBeenCalledWith({
-        where: { classId_teacherId: { classId: 'class-1', teacherId: 'teacher-1' } },
+        where: {
+          classId_teacherId: { classId: 'class-1', teacherId: 'teacher-1' },
+        },
         data: { status: 'inactive' },
       });
       expect(mockTx.class.update).toHaveBeenCalledWith({

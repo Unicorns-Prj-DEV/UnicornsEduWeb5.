@@ -52,6 +52,7 @@ export interface SessionCreatePayload {
   startTime?: string;
   endTime?: string;
   notes?: string | null;
+  teacherPaymentStatus?: string | null;
   /** Coefficient from 0.0 to 1.0. Default 1.0. */
   coefficient?: number;
   /** Allowance amount (VNĐ). If omitted, uses class teacher custom allowance. */

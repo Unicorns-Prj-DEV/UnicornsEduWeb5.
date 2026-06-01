@@ -1507,13 +1507,17 @@ describe('StudentService', () => {
     mockPrisma.studentClass.updateMany.mockResolvedValue({ count: 2 });
 
     await expect(
-      service.updateStudentStatus('student-1', {
-        status: StudentStatus.inactive,
-        reason: 'Gia đình báo nghỉ',
-      }, {
-        userId: 'assistant-1',
-        roleType: UserRole.staff,
-      }),
+      service.updateStudentStatus(
+        'student-1',
+        {
+          status: StudentStatus.inactive,
+          reason: 'Gia đình báo nghỉ',
+        },
+        {
+          userId: 'assistant-1',
+          roleType: UserRole.staff,
+        },
+      ),
     ).resolves.toMatchObject({
       id: 'student-1',
       status: StudentStatus.inactive,

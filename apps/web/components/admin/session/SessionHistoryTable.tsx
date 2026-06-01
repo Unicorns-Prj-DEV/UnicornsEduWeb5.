@@ -2491,6 +2491,7 @@ export default function SessionHistoryTable({
                           value={editDate}
                           autoComplete="off"
                           onChange={(e) => setEditDate(e.target.value)}
+                          disabled={readOnlySessionDetails}
                           className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                         />
                       </label>
@@ -2507,6 +2508,7 @@ export default function SessionHistoryTable({
                               value={editStartTime}
                               autoComplete="off"
                               onChange={(e) => setEditStartTime(e.target.value)}
+                              disabled={readOnlySessionDetails}
                               className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 font-mono text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                             />
                           </label>
@@ -2523,6 +2525,7 @@ export default function SessionHistoryTable({
                               value={editEndTime}
                               autoComplete="off"
                               onChange={(e) => setEditEndTime(e.target.value)}
+                              disabled={readOnlySessionDetails}
                               className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 font-mono text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                             />
                           </label>
@@ -2545,7 +2548,7 @@ export default function SessionHistoryTable({
                             name="edit-session-teacher"
                             value={editTeacherId}
                             onValueChange={setEditTeacherId}
-                            disabled={teachersLoading}
+                            disabled={teachersLoading || readOnlySessionDetails}
                             options={teachersList.map((teacher) => ({
                               value: teacher.id,
                               label: teacher.fullName?.trim() || "Gia sư",
@@ -2671,6 +2674,7 @@ export default function SessionHistoryTable({
                         <RichTextEditor
                           value={editNotes}
                           onChange={setEditNotes}
+                          disabled={readOnlySessionDetails}
                           minHeight="min-h-[160px]"
                           ariaLabel="Nhận xét buổi học"
                         />
@@ -2750,6 +2754,7 @@ export default function SessionHistoryTable({
                                     <AttendanceStatusQuickPick
                                       namePrefix={`edit-att-${item.studentId}`}
                                       value={item.status}
+                                      disabled={readOnlySessionDetails}
                                       onChange={(next) =>
                                         setAttendanceStatus(
                                           item.studentId,
@@ -2767,6 +2772,7 @@ export default function SessionHistoryTable({
                                         min={0}
                                         value={item.tuitionFee}
                                         autoComplete="off"
+                                        disabled={!canEditAttendanceTuition || readOnlySessionDetails}
                                         onChange={(e) =>
                                           setAttendanceTuitionFee(
                                             item.studentId,
@@ -2789,6 +2795,7 @@ export default function SessionHistoryTable({
                                       onChange={(html) =>
                                         setAttendanceNotes(item.studentId, html)
                                       }
+                                      disabled={readOnlySessionDetails}
                                       minHeight="min-h-[120px]"
                                       ariaLabel={`Ghi chú học sinh ${item.fullName}`}
                                     />
@@ -2844,6 +2851,7 @@ export default function SessionHistoryTable({
                                         <AttendanceStatusQuickPick
                                           namePrefix={`edit-att-d-${item.studentId}`}
                                           value={item.status}
+                                          disabled={readOnlySessionDetails}
                                           onChange={(next) =>
                                             setAttendanceStatus(
                                               item.studentId,
@@ -2864,6 +2872,7 @@ export default function SessionHistoryTable({
                                               html,
                                             )
                                           }
+                                          disabled={readOnlySessionDetails}
                                           minHeight="min-h-[96px]"
                                           ariaLabel={`Ghi chú học sinh ${item.fullName}`}
                                         />
@@ -2877,6 +2886,7 @@ export default function SessionHistoryTable({
                                               min={0}
                                               value={item.tuitionFee}
                                               autoComplete="off"
+                                              disabled={!canEditAttendanceTuition || readOnlySessionDetails}
                                               onChange={(e) =>
                                                 setAttendanceTuitionFee(
                                                   item.studentId,
@@ -2929,7 +2939,7 @@ export default function SessionHistoryTable({
                   >
                     Hủy
                   </button>
-                  {readOnlySessionDetails ? null : (
+                  {readOnlySessionDetails && !allowPaymentStatusEdit ? null : (
                     <button
                       type="button"
                       onClick={handleSaveEdit}

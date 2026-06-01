@@ -77,7 +77,9 @@ const ADMIN_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function withOptionalReason(description: string, reason?: string | null) {
   const trimmedReason = reason?.trim();
-  return trimmedReason ? `${description} - Lý do: ${trimmedReason}` : description;
+  return trimmedReason
+    ? `${description} - Lý do: ${trimmedReason}`
+    : description;
 }
 
 const studentClassDetailInclude = {

@@ -11,6 +11,7 @@ export type RichTextEditorProps = {
   minHeight?: string;
   placeholder?: string;
   ariaLabel?: string;
+  disabled?: boolean;
 };
 
 const DEFAULT_MIN_HEIGHT = "min-h-[180px]";
@@ -20,6 +21,7 @@ export default function RichTextEditor({
   onChange,
   minHeight = DEFAULT_MIN_HEIGHT,
   ariaLabel = "Nội dung soạn thảo",
+  disabled = false,
 }: RichTextEditorProps) {
   const onChangeRef = useRef(onChange);
   const editorContent = useMemo(
@@ -45,6 +47,11 @@ export default function RichTextEditor({
   }, [editorContent, editor]);
 
   useEffect(() => {
+    if (!editor) return;
+    editor.setEditable(!disabled);
+  }, [editor, disabled]);
+
+  useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
 
@@ -63,7 +70,11 @@ export default function RichTextEditor({
 
   return (
     <div
-      className={`rounded-md border border-border-default bg-bg-surface transition-colors focus-within:border-border-focus focus-within:ring-2 focus-within:ring-border-focus [&_.ProseMirror]:outline-none ${minHeight}`}
+      className={`rounded-md border border-border-default transition-colors ${
+        disabled
+          ? "bg-bg-secondary/60 text-text-secondary cursor-not-allowed opacity-75"
+          : "bg-bg-surface focus-within:border-border-focus focus-within:ring-2 focus-within:ring-border-focus"
+      } [&_.ProseMirror]:outline-none ${minHeight}`}
     >
       <EditorContent editor={editor} />
     </div>

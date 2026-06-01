@@ -90,7 +90,9 @@ function isStudentClassActiveStatus(
   return status === StudentClassStatus.active;
 }
 
-function isClassTeacherActiveStatus(status: string | null | undefined): boolean {
+function isClassTeacherActiveStatus(
+  status: string | null | undefined,
+): boolean {
   return status == null || status === 'active';
 }
 
@@ -102,7 +104,9 @@ function toDateOnly(value = new Date()) {
 
 function withOptionalReason(description: string, reason?: string | null) {
   const trimmedReason = reason?.trim();
-  return trimmedReason ? `${description} - Lý do: ${trimmedReason}` : description;
+  return trimmedReason
+    ? `${description} - Lý do: ${trimmedReason}`
+    : description;
 }
 
 type StoredClassScheduleEntry = {
@@ -895,7 +899,6 @@ export class ClassService {
             status: 'active',
           })),
         });
-
       }
 
       if (data.student_ids && data.student_ids.length > 0) {
@@ -1028,7 +1031,6 @@ export class ClassService {
               status: 'active',
             })),
           });
-
         }
       }
 
@@ -1320,7 +1322,6 @@ export class ClassService {
             status: 'active',
           })),
         });
-
       }
 
       const { oldSchedule, nextSchedule, removedScheduleEntries } =
@@ -1444,7 +1445,6 @@ export class ClassService {
             operatingDeductionRatePercent: nextOperatingDeductionRatePercent,
           },
         });
-
       }
 
       const afterValue = await this.getClassAuditSnapshot(tx, id);

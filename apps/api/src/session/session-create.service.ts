@@ -365,6 +365,7 @@ export class SessionCreateService {
                 )
               : null,
             notes: data.notes ?? null,
+            teacherPaymentStatus: data.teacherPaymentStatus ?? undefined,
             attendance: {
               createMany: {
                 data: attendanceCreateData,
