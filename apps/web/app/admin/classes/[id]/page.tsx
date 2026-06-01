@@ -224,7 +224,9 @@ export default function AdminClassDetailPage() {
   const canOpenStudentDetails = true;
   const canManageMakeupSchedule = adminAccess.isAdmin || adminAccess.isAssistant;
   const canEditSessionPaymentStatus =
-    isAdmin || isAssistant || adminAccess.isAccountantExpense;
+    isAdmin || isAssistant || adminAccess.isAccountantExpense || adminAccess.isAccountantIncome;
+  const canEditSessionCoefficient =
+    isAdmin || isAssistant || adminAccess.isAccountantExpense || adminAccess.isAccountantIncome;
   const canEditSessions = isAdmin || isAssistant;
   const canManageClassStatus = isAdmin || isAssistant;
 
@@ -1428,11 +1430,11 @@ export default function AdminClassDetailPage() {
                    enableBulkPaymentStatusEdit={canEditSessionPaymentStatus}
                    allowTeacherSelection={canEditSessions}
                    allowFinancialEdits={canEditSessions}
-                   allowCoefficientEdit={canEditSessions}
+                   allowCoefficientEdit={canEditSessionCoefficient}
                    allowAllowanceEdit={canEditSessions}
                    allowAttendanceTuitionEdits={canEditSessions}
                    allowPaymentStatusEdit={canEditSessionPaymentStatus}
-                   readOnlySessionDetails={!canEditSessions && !canEditSessionPaymentStatus}
+                   readOnlySessionDetails={!canEditSessions && !canEditSessionPaymentStatus && !canEditSessionCoefficient}
                    allowDeleteSession={canEditSessions && !isAccountant}
                   onSessionUpdated={handleSessionUpdated}
                   teachers={popupTeachers}

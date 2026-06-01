@@ -92,9 +92,9 @@ describe('RBAC route metadata', () => {
     expect(
       getAllowedStaffRoles(StudentController, 'updateStudentStatus'),
     ).toEqual([StaffRole.assistant]);
-    expect(getAllowedStaffRoles(ClassController, 'updateClassStudents')).toEqual(
-      [StaffRole.assistant],
-    );
+    expect(
+      getAllowedStaffRoles(ClassController, 'updateClassStudents'),
+    ).toEqual([StaffRole.assistant]);
     expect(getAllowedStaffRoles(ClassController, 'endClass')).toEqual([
       StaffRole.assistant,
     ]);

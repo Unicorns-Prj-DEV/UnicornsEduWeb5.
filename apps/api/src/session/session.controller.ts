@@ -85,7 +85,11 @@ export class SessionController {
 
   @Put(':id')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(
+    StaffRole.assistant,
+    StaffRole.accountant_income,
+    StaffRole.accountant_expense,
+  )
   @ApiOperation({ summary: 'Cập nhật session' })
   @ApiParam({ name: 'id', description: 'ID session' })
   @ApiBody({ type: SessionUpdateDto, description: 'Session update payload' })
@@ -111,6 +115,7 @@ export class SessionController {
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
     StaffRole.assistant,
+    StaffRole.accountant_income,
     StaffRole.accountant_expense,
   )
   @ApiOperation({

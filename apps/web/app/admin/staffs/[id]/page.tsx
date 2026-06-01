@@ -297,7 +297,7 @@ export default function AdminStaffDetailPage({
     retry: false,
     staleTime: 60_000,
   });
-  const { isAdmin, isAssistant, isAccountant, isAccountantExpense } =
+  const { isAdmin, isAssistant, isAccountant, isAccountantExpense, isAccountantIncome } =
     resolveAdminShellAccess(fullProfile);
   const ownStaffId = fullProfile?.staffInfo?.id;
   const viewingOwnStaffRecordOnStaffShell =
@@ -306,8 +306,12 @@ export default function AdminStaffDetailPage({
   const canCreateBonus = isAdmin || isAssistant || isAccountantExpense;
   const canDeleteBonus = canCreateBonus;
   const canEditTaxSettings = isAdmin || isAssistant || isAccountantExpense;
-  const canPayAll = isAdmin || isAssistant || isAccountantExpense;
+  const canPayAll = isAdmin || isAssistant || isAccountantExpense || isAccountantIncome;
   const canEditSessionDetails = isAdmin || isAssistant;
+  const canEditSessionPaymentStatus =
+    isAdmin || isAssistant || isAccountantExpense || isAccountantIncome;
+  const canEditSessionCoefficient =
+    isAdmin || isAssistant || isAccountantExpense || isAccountantIncome;
   const canEditStaffProfile =
     (isAdmin || isAssistant) && !viewingOwnStaffRecordOnStaffShell;
 
@@ -2424,11 +2428,11 @@ export default function AdminStaffDetailPage({
                 enableBulkPaymentStatusEdit={canPayAll}
                 allowTeacherSelection={canEditSessionDetails}
                 allowFinancialEdits={canEditSessionDetails}
-                allowCoefficientEdit={canEditSessionDetails}
+                allowCoefficientEdit={canEditSessionCoefficient}
                 allowAllowanceEdit={canEditSessionDetails}
                 allowAttendanceTuitionEdits={canEditSessionDetails}
-                allowPaymentStatusEdit={canEditSessionDetails}
-                readOnlySessionDetails={!canEditSessionDetails}
+                allowPaymentStatusEdit={canEditSessionPaymentStatus}
+                readOnlySessionDetails={!canEditSessionDetails && !canEditSessionPaymentStatus && !canEditSessionCoefficient}
                 allowDeleteSession={canEditSessionDetails}
                 onSessionUpdated={handleSessionUpdated}
                 getTeachersForClass={getTeachersForClass}
