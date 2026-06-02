@@ -36,6 +36,7 @@ export interface ProfileStudentInfoDto {
   parentName?: string | null;
   parentPhone?: string | null;
   parentEmail?: string | null;
+  parentReceiptEmailEnabled?: boolean;
   status: StudentStatus;
   gender: StudentGender;
   goal?: string | null;
@@ -126,6 +127,7 @@ export interface UpdateMyStudentProfileDto {
   parent_name?: string;
   parent_phone?: string;
   parent_email?: string;
+  parent_receipt_email_enabled?: boolean;
   status?: StudentStatus;
   gender?: StudentGender;
   goal?: string;

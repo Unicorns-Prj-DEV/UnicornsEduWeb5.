@@ -1193,6 +1193,9 @@ export class UserService {
         data.parentEmail = trimmed ? trimmed : null;
       }
     }
+    if (dto.parent_receipt_email_enabled !== undefined) {
+      data.parentReceiptEmailEnabled = dto.parent_receipt_email_enabled;
+    }
     if (dto.gender !== undefined) data.gender = dto.gender;
     if (dto.goal !== undefined) data.goal = dto.goal;
     if (Object.keys(data).length === 0) {

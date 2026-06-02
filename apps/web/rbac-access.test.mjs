@@ -606,6 +606,7 @@ test("student admin capabilities do not treat admin shell accountant as full adm
   assert.equal(incomeAccountantCapabilities.canManageStudent, false);
   assert.equal(incomeAccountantCapabilities.canCreateWalletQr, false);
   assert.equal(incomeAccountantCapabilities.canDirectlyAdjustWallet, false);
+  assert.equal(incomeAccountantCapabilities.canDirectlyWithdrawWallet, false);
   assert.equal(incomeAccountantCapabilities.canEditStudentClassTuition, true);
   assert.equal(incomeAccountantCapabilities.canDeleteStudent, false);
 
@@ -615,10 +616,11 @@ test("student admin capabilities do not treat admin shell accountant as full adm
   );
   assert.equal(fullAdminCapabilities.canManageStudent, true);
   assert.equal(fullAdminCapabilities.canDirectlyAdjustWallet, true);
+  assert.equal(fullAdminCapabilities.canDirectlyWithdrawWallet, true);
   assert.equal(fullAdminCapabilities.canDeleteStudent, true);
 });
 
-test("student admin capabilities give staff assistant and customer care request-only wallet access", () => {
+test("student admin capabilities keep assistant on request-only direct-topup while preserving admin-like student management", () => {
   const assistantCapabilities = adminShellAccess.resolveStudentAdminCapabilities(
     {
       roleType: "staff",
@@ -642,13 +644,39 @@ test("student admin capabilities give staff assistant and customer care request-
   assert.equal(assistantCapabilities.canManageStudent, true);
   assert.equal(assistantCapabilities.canCreateWalletQr, true);
   assert.equal(assistantCapabilities.canDirectlyAdjustWallet, false);
+  assert.equal(assistantCapabilities.canDirectlyWithdrawWallet, true);
   assert.equal(assistantCapabilities.canRequestDirectTopUp, true);
-  assert.equal(assistantCapabilities.canDeleteStudent, false);
+  assert.equal(assistantCapabilities.canDeleteStudent, true);
 
   assert.equal(customerCareCapabilities.isCustomerCareReadOnlyView, true);
   assert.equal(customerCareCapabilities.canCreateWalletQr, true);
   assert.equal(customerCareCapabilities.canRequestDirectTopUp, true);
   assert.equal(customerCareCapabilities.canEditStudentClassTuition, false);
+});
+
+test("assistant keeps admin shell access to deductions and notifications but not direct-topup queue", () => {
+  const access = adminShellAccess.resolveAdminShellAccess({
+    roleType: "staff",
+    staffRoles: ["assistant"],
+    hasStaffProfile: true,
+    ...completedStaffAccess,
+  });
+
+  assert.equal(
+    adminShellAccess.canAccessAdminShellRoute(access, "/admin/notification"),
+    true,
+  );
+  assert.equal(
+    adminShellAccess.canAccessAdminShellRoute(access, "/admin/deductions"),
+    true,
+  );
+  assert.equal(
+    adminShellAccess.canAccessAdminShellRoute(
+      access,
+      "/admin/wallet-direct-topup-requests",
+    ),
+    false,
+  );
 });
 
 test("admin extra allowance management remains closed to unrelated staff roles", () => {

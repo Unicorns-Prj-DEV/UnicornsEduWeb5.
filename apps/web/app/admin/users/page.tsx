@@ -294,7 +294,7 @@ export default function AdminUsersPage() {
   const queryClient = useQueryClient();
   const { replace } = useRouter();
   const pathname = usePathname();
-  const isStaffShell = pathname?.startsWith("/staff") ?? false;
+  const canManageUsers = true;
   const searchParams = useSearchParams();
   const getSearchParam = searchParams.get.bind(searchParams);
   const page = parsePage(getSearchParam("page"));
@@ -500,12 +500,8 @@ export default function AdminUsersPage() {
     : null;
   const showCreateUserStaffRoles = createUserForm.roleType === "staff";
   const showCreateUserStudentName = createUserForm.roleType === "student";
-  const createRoleTypeOptions = isStaffShell
-    ? ROLE_TYPE_OPTIONS.filter((opt) => opt.value !== "admin")
-    : ROLE_TYPE_OPTIONS;
-  const createStaffRoles = isStaffShell
-    ? STAFF_ROLES.filter((role) => role !== "admin")
-    : STAFF_ROLES;
+  const createRoleTypeOptions = ROLE_TYPE_OPTIONS;
+  const createStaffRoles = STAFF_ROLES;
 
   useEffect(() => {
     if (currentPage === page) return;
@@ -516,6 +512,10 @@ export default function AdminUsersPage() {
   }, [currentPage, page, pathname, replace, searchParams]);
 
   const handleRowClick = (u: UserListItem) => {
+    if (!canManageUsers) {
+      return;
+    }
+
     setAssignModalUser({
       ...u,
       staffInfo: undefined,
@@ -555,18 +555,20 @@ export default function AdminUsersPage() {
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={handleCreatePanelToggle}
-                aria-expanded={isCreatePanelOpen}
-                aria-controls="create-user-dialog"
-                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse shadow-[0_14px_35px_-18px_color-mix(in_srgb,var(--ue-primary)_52%,transparent)] transition-[background-color,box-shadow] duration-200 hover:bg-primary-hover hover:shadow-[0_18px_40px_-18px_color-mix(in_srgb,var(--ue-primary)_60%,transparent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-              >
-                <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                {isCreatePanelOpen ? "Đóng form" : "Thêm user"}
-              </button>
+              {canManageUsers ? (
+                <button
+                  type="button"
+                  onClick={handleCreatePanelToggle}
+                  aria-expanded={isCreatePanelOpen}
+                  aria-controls="create-user-dialog"
+                  className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse shadow-[0_14px_35px_-18px_color-mix(in_srgb,var(--ue-primary)_52%,transparent)] transition-[background-color,box-shadow] duration-200 hover:bg-primary-hover hover:shadow-[0_18px_40px_-18px_color-mix(in_srgb,var(--ue-primary)_60%,transparent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                >
+                  <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  {isCreatePanelOpen ? "Đóng form" : "Thêm user"}
+                </button>
+              ) : null}
             </div>
 
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -594,7 +596,7 @@ export default function AdminUsersPage() {
           </div>
         </section>
 
-        {isCreatePanelOpen ? (
+        {canManageUsers && isCreatePanelOpen ? (
           <>
             <div
               className="fixed inset-0 z-40 bg-bg-primary/75 backdrop-blur-[2px]"
@@ -992,17 +994,28 @@ export default function AdminUsersPage() {
                     className="rounded-xl"
                   >
                     <div
-                      role="button"
-                      tabIndex={0}
+                      role={canManageUsers ? "button" : undefined}
+                      tabIndex={canManageUsers ? 0 : -1}
                       onClick={() => handleRowClick(u)}
                       onKeyDown={(e) => {
+                        if (!canManageUsers) {
+                          return;
+                        }
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
                           handleRowClick(u);
                         }
                       }}
-                      aria-label={`Mở form phân quyền cho ${u.accountHandle}`}
-                      className="group cursor-pointer rounded-xl border border-border-default bg-bg-surface p-4 shadow-sm transition-[border-color,background-color,box-shadow] duration-200 hover:border-border-focus hover:bg-bg-secondary/70 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                      aria-label={
+                        canManageUsers
+                          ? `Mở form phân quyền cho ${u.accountHandle}`
+                          : undefined
+                      }
+                      className={`group rounded-xl border border-border-default bg-bg-surface p-4 shadow-sm transition-[border-color,background-color,box-shadow] duration-200 ${
+                        canManageUsers
+                          ? "cursor-pointer hover:border-border-focus hover:bg-bg-secondary/70 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                          : ""
+                      }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -1029,9 +1042,15 @@ export default function AdminUsersPage() {
                       </div>
 
                       <div className="mt-4 flex items-center justify-between border-t border-border-default/80 pt-3 text-sm text-text-secondary">
-                        <span>Chạm để phân quyền</span>
+                        <span>
+                          {canManageUsers ? "Chạm để phân quyền" : "Chỉ xem thông tin"}
+                        </span>
                         <span
-                          className="inline-flex size-8 items-center justify-center rounded-full border border-border-default bg-bg-surface text-text-muted transition-[transform,border-color,color] duration-200 group-hover:translate-x-0.5 group-hover:border-border-focus group-hover:text-text-primary"
+                          className={`inline-flex size-8 items-center justify-center rounded-full border bg-bg-surface text-text-muted transition-[transform,border-color,color] duration-200 ${
+                            canManageUsers
+                              ? "border-border-default group-hover:translate-x-0.5 group-hover:border-border-focus group-hover:text-text-primary"
+                              : "border-border-default/70"
+                          }`}
                           aria-hidden
                         >
                           <svg
@@ -1094,17 +1113,28 @@ export default function AdminUsersPage() {
                     {list.map((u) => (
                       <tr
                         key={u.id}
-                        role="button"
-                        tabIndex={0}
+                        role={canManageUsers ? "button" : undefined}
+                        tabIndex={canManageUsers ? 0 : -1}
                         onClick={() => handleRowClick(u)}
                         onKeyDown={(e) => {
+                          if (!canManageUsers) {
+                            return;
+                          }
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
                             handleRowClick(u);
                           }
                         }}
-                        aria-label={`Mở form phân quyền cho ${u.accountHandle}`}
-                        className="group cursor-pointer border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary/70 focus:bg-bg-secondary/70 focus:outline-none"
+                        aria-label={
+                          canManageUsers
+                            ? `Mở form phân quyền cho ${u.accountHandle}`
+                            : undefined
+                        }
+                        className={`group border-b border-border-default bg-bg-surface transition-colors duration-200 ${
+                          canManageUsers
+                            ? "cursor-pointer hover:bg-bg-secondary/70 focus:bg-bg-secondary/70 focus:outline-none"
+                            : ""
+                        }`}
                       >
                         <td className="w-[3%] min-w-10 px-2 py-3 align-middle">
                           <span
@@ -1198,13 +1228,13 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {assignModalUser && (
+      {canManageUsers && assignModalUser && (
         <AssignRoleModal
           key={assignRoleUserKey}
           user={assignRoleUser}
           onClose={handleCloseModal}
           onSaved={() => { }}
-          hideAdminOptions={isStaffShell}
+          hideAdminOptions={false}
         />
       )}
     </div>

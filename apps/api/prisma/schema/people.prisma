@@ -55,8 +55,9 @@ model StudentInfo {
   birthYear            Int?                              @map("birth_year")
   parentName           String?                           @map("parent_name")
   parentPhone          String?                           @map("parent_phone")
-  parentEmail          String?                           @map("parent_email")
-  status               StudentStatus                     @default(active)
+  parentEmail                String?                           @map("parent_email")
+  parentReceiptEmailEnabled  Boolean                           @default(true) @map("parent_receipt_email_enabled")
+  status                     StudentStatus                     @default(active)
   gender               Gender                            @default(male)
   goal                 String?
   dropOutDate          DateTime?                         @map("drop_out_date") @db.Date

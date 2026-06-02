@@ -297,6 +297,7 @@ describe('StudentService', () => {
       parentName: 'Parent A',
       parentPhone: '0900000000',
       parentEmail: 'parent@example.com',
+      parentReceiptEmailEnabled: true,
       status: StudentStatus.active,
       gender: 'male',
       goal: 'Top 1',
@@ -348,6 +349,7 @@ describe('StudentService', () => {
       parentName: 'Parent A',
       parentPhone: '0900000000',
       parentEmail: 'parent@example.com',
+      parentReceiptEmailEnabled: true,
       goal: 'Top 1',
       studentClasses: [
         {

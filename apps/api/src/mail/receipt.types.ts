@@ -12,7 +12,6 @@ export interface TuitionReceiptEmailProps {
   issueDate: string;
   studentName: string;
   studentCode?: string | null;
-  payerName: string;
   receiverName: string;
   receiverBankName?: string | null;
   receiverBankAccount?: string | null;

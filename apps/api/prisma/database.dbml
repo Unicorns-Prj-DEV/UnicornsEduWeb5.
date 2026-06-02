@@ -60,6 +60,8 @@ Table studentInfo {
   birth_year int
   parent_name varchar
   parent_phone varchar
+  parent_email varchar
+  parent_receipt_email_enabled boolean [not null, default: true]
   status varchar [note: 'active , inactive']
   gender varchar [note: 'male , female']
   goal varchar

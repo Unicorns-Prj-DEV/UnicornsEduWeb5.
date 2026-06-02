@@ -342,6 +342,7 @@ export class StudentService {
       fullName: student.fullName,
       email: student.email,
       parentEmail: student.parentEmail,
+      parentReceiptEmailEnabled: student.parentReceiptEmailEnabled,
       accountBalance: student.accountBalance,
       school: student.school,
       province: student.province,
@@ -424,6 +425,7 @@ export class StudentService {
       parentName: student.parentName,
       parentPhone: student.parentPhone,
       parentEmail: student.parentEmail,
+      parentReceiptEmailEnabled: student.parentReceiptEmailEnabled,
       goal: student.goal,
       dropOutDate: student.dropOutDate,
       customerCare: student.customerCareServices
@@ -539,6 +541,7 @@ export class StudentService {
       parentName: student.parentName,
       parentPhone: student.parentPhone,
       parentEmail: student.parentEmail,
+      parentReceiptEmailEnabled: student.parentReceiptEmailEnabled,
       goal: student.goal,
       studentClasses: student.studentClasses.map((studentClass) =>
         this.serializeStudentClass(studentClass),
@@ -823,6 +826,9 @@ export class StudentService {
         dto.parent_email === null
           ? null
           : (normalizeOptionalText(dto.parent_email) ?? null);
+    }
+    if (dto.parent_receipt_email_enabled !== undefined) {
+      data.parentReceiptEmailEnabled = dto.parent_receipt_email_enabled;
     }
     if (dto.status !== undefined) data.status = dto.status;
     if (dto.gender !== undefined) data.gender = dto.gender;
@@ -2450,6 +2456,7 @@ export class StudentService {
           parentName: normalizeOptionalText(data.parent_name),
           parentPhone: normalizeOptionalText(data.parent_phone),
           parentEmail: normalizeOptionalText(data.parent_email),
+          parentReceiptEmailEnabled: data.parent_receipt_email_enabled ?? true,
           status: data.status ?? StudentStatus.active,
           gender: data.gender ?? Gender.male,
           goal: normalizeOptionalText(data.goal),

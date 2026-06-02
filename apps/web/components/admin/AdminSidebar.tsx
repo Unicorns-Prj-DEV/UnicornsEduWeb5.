@@ -29,7 +29,6 @@ const MENU_ITEMS: {
     href: "/admin/notification",
     label: "Thông báo",
     icon: <IconNotifications />,
-    adminOnly: true,
   },
   { href: "/admin/users", label: "User", icon: <IconUsers /> },
   { href: "/admin/staffs", label: "Nhân sự", icon: <IconStaff /> },
@@ -42,7 +41,6 @@ const MENU_ITEMS: {
     href: "/admin/deductions",
     label: "Khấu trừ",
     icon: <IconDeductions />,
-    adminOnly: true,
   },
   { href: "/admin/notes-subject", label: "Quy định", icon: <IconNotesSubject /> },
   {

@@ -594,6 +594,22 @@ describe('UserService', () => {
     });
   });
 
+  it('updates parent_receipt_email_enabled through self student profile updates', async () => {
+    jest.spyOn(service, 'getFullProfile').mockResolvedValue({} as never);
+    mockPrisma.studentInfo.findFirst.mockResolvedValue({ id: 'student-1' });
+
+    await service.updateMyStudentProfile('user-1', {
+      parent_receipt_email_enabled: false,
+    });
+
+    expect(mockPrisma.studentInfo.update).toHaveBeenCalledWith({
+      where: { id: 'student-1' },
+      data: expect.objectContaining({
+        parentReceiptEmailEnabled: false,
+      }),
+    });
+  });
+
   it('gets linked student id via unique user mapping', async () => {
     mockPrisma.studentInfo.findUnique.mockResolvedValue({
       id: 'student-1',

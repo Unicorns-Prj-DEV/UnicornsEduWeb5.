@@ -238,6 +238,8 @@ describe('MailService', () => {
     expect(sent.html).toContain('150.000');
     expect(sent.html).toContain('UEDU-20260511-001');
     expect(sent.html).toContain('Toán 8A và Lý 8A');
+    expect(sent.html).not.toContain('Người thanh toán');
+    expect(sent.text).not.toContain('Người thanh toán');
     expect(receiptPdfService.renderToPdf).toHaveBeenCalled();
   });
 
@@ -298,10 +300,10 @@ describe('MailService', () => {
     const sent = getLastSendMailOptions(sendMail);
     expect(sent.html).not.toContain('<script>');
     expect(sent.html).not.toContain('<img');
-    expect(sent.html).not.toContain('<img src=x onerror=alert(1)>');
-    expect(sent.html).toContain('&lt;img src=x onerror=alert(1)&gt;');
+    expect(sent.html).not.toContain('Người thanh toán');
     expect(sent.html).toContain('&lt;script&gt;');
     expect(sent.html).toContain('&lt;b&gt;REF&lt;/b&gt;');
+    expect(sent.text).toContain('Kính gửi <img src=x onerror=alert(1)>');
   });
 
   it('maps receipt SMTP authentication failures as service unavailable', async () => {

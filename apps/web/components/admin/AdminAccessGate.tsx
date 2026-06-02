@@ -77,7 +77,7 @@ export default function AdminAccessGate({
         ? "Role Trưởng giáo án chỉ mở được module Giáo Án."
         : "Tài khoản này không mở được khu quản trị.";
     const description = strictAdminRoute
-      ? "Trang quản lý notification là nơi phát thông báo toàn hệ thống. Assistant và các staff role khác chỉ dùng `/staff/notification` để xem feed."
+      ? "Flow nạp thẳng tiền cho học sinh chỉ mở cho admin đầy đủ. Assistant vẫn dùng các luồng QR/SePay thông thường và không được mở queue duyệt nạp ví."
       : access.isLessonPlanHead
         ? "Bạn có toàn quyền trên phần giáo án, nhưng các module admin khác vẫn bị khóa."
         : "Route này hiện chỉ mở cho admin, hoặc các staff role được cấp quyền riêng trên từng module admin.";
@@ -98,7 +98,7 @@ export default function AdminAccessGate({
               className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
             >
               {strictAdminRoute
-                ? "Đi tới feed staff"
+                ? "Đi tới học sinh"
                 : access.isLessonPlanHead
                   ? "Đi tới Giáo Án"
                   : "Về trang chủ"}

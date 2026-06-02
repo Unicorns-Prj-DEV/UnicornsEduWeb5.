@@ -22,7 +22,6 @@ import {
   CurrentUser,
   type JwtPayload,
 } from '../auth/decorators/current-user.decorator';
-import { AllowAssistantOnAdminRoutes } from '../auth/decorators/allow-assistant-on-admin.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import {
   BulkUpsertStaffTaxDeductionOverridesDto,
@@ -38,7 +37,6 @@ import { DeductionSettingsService } from './deduction-settings.service';
 @ApiTags('deduction-settings')
 @ApiCookieAuth('access_token')
 @Roles(UserRole.admin)
-@AllowAssistantOnAdminRoutes(false)
 export class DeductionSettingsController {
   constructor(
     private readonly deductionSettingsService: DeductionSettingsService,

@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsDateString,
   IsEmail,
   IsEnum,
@@ -132,6 +133,15 @@ export class UpdateStudentBodyDto {
   @IsEmail()
   parent_email?: string | null;
 
+  @ApiPropertyOptional({
+    example: true,
+    description:
+      'Khi false: webhook SePay không gửi email biên lai nạp ví (phụ huynh và CSKH).',
+  })
+  @IsOptional()
+  @IsBoolean()
+  parent_receipt_email_enabled?: boolean;
+
   @ApiPropertyOptional({ enum: StudentStatus })
   @IsOptional()
   @IsEnum(StudentStatus)
@@ -215,6 +225,15 @@ export class CreateStudentDto {
   @IsOptional()
   @IsEmail()
   parent_email?: string | null;
+
+  @ApiPropertyOptional({
+    example: true,
+    description:
+      'Khi false: webhook SePay không gửi email biên lai nạp ví (phụ huynh và CSKH).',
+  })
+  @IsOptional()
+  @IsBoolean()
+  parent_receipt_email_enabled?: boolean;
 
   @ApiPropertyOptional({ enum: StudentStatus })
   @IsOptional()

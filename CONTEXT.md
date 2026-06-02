@@ -16,11 +16,17 @@
 
 ## Hồ sơ nhân sự
 
+- **Trợ lí**: staff role `assistant` trên linked `staffInfo` còn `active`. Trợ lí là role vận hành admin-mirror gần tương đương admin trên `/admin/**` và `/staff/**`, trừ dashboard tổng admin và bước cộng tiền trực tiếp vào ví học sinh. Trợ lí được tạo `yêu cầu nạp thẳng` để admin duyệt và được rút/giảm số dư trực tiếp khi cần, nhưng không được tự duyệt queue hay tự nạp tiền vào ví.
 - **Nhân sự ngừng hoạt động**: hồ sơ nhân sự không còn tham gia vận hành hiện tại hoặc nhận phân công mới, nhưng lịch sử công việc và thanh toán đã phát sinh vẫn được giữ lại. Trạng thái này không đồng nghĩa khóa tài khoản user.
 - **Dân tộc nhân sự**: field `staff_info.ethnicity`, là thông tin định danh nhập tay trong hồ sơ nhân sự, không nằm trên hồ sơ user chung.
 - **Giới tính nhân sự**: field `staff_info.gender`, dùng enum `Gender` chung (`male`, `female`) giống hồ sơ học viên.
 - **Địa chỉ hiện tại của nhân sự**: field `staff_info.current_address`, là địa chỉ liên hệ hiện tại nhập tay trong hồ sơ nhân sự. Field này khác với `users.province`, vốn chỉ là tỉnh/thành phố cấp user.
 - **Ảnh CCCD legacy**: hệ thống không còn nhận upload hoặc lưu path ảnh CCCD trong `staff_info`; object cũ trong bucket Supabase Storage `id-cards` nếu còn tồn tại chỉ là dữ liệu legacy và không được tự dọn bởi flow hồ sơ nhân sự.
+
+## Quyền vận hành
+
+- **Admin-mirror route**: route dưới `/admin/**` hoặc `/staff/**` reuse cùng business flow quản trị. Với policy hiện tại, `staff.assistant` được phép như admin trên hầu hết admin-mirror route, trừ các route bị deny tường minh bằng `AllowAssistantOnAdminRoutes(false)`.
+- **Strict-admin route**: route hoặc mutation chỉ dành cho admin đầy đủ. Trong policy hiện tại, bước duyệt/queue nạp thẳng ví học sinh, cộng tiền thủ công trực tiếp vào ví, và dashboard tổng admin vẫn là strict-admin ngay cả khi trợ lí thấy các mirror workspace khác.
 
 ## Hồ sơ học sinh
 
@@ -41,7 +47,7 @@
 
 - **Nạp ví qua QR tĩnh SePay**: phụ huynh/học sinh quét QR riêng của học sinh và chuyển khoản số tiền muốn nạp. Giao dịch ngân hàng được coi là nạp ví khi nội dung chuyển khoản nhận diện đúng học sinh và tiền đi vào đúng tài khoản nhận SePay chính thức.
 - **Tài khoản nhận SePay**: tài khoản ngân hàng chính thức của Unicorns Edu dùng để nhận tiền nạp ví tự động. Giao dịch vào tài khoản khác không được cộng ví tự động, kể cả khi nội dung chuyển khoản có mã học sinh.
-- **Yêu cầu nạp thẳng**: thao tác do CSKH hoặc trợ lí tạo khi cần ghi nhận tiền vào ví học sinh ngoài luồng QR/webhook. Yêu cầu này không làm đổi số dư ngay; kế toán thu chỉ xem thông tin thu/học phí và không tạo yêu cầu nạp thẳng.
+- **Yêu cầu nạp thẳng**: thao tác do CSKH, trợ lí, hoặc admin tạo khi cần ghi nhận tiền vào ví học sinh ngoài luồng QR/webhook. Yêu cầu không làm đổi số dư ngay và chỉ cộng ví sau bước duyệt/confirm của admin.
 - Mỗi yêu cầu nạp thẳng gồm `student_id`, số tiền VND nguyên dương và lý do đối soát. Backend gửi email React Email tới `ADMIN_EMAIL`; `ADMIN_EMAIL` phải là mailbox thật, và production `FRONTEND_URL` phải là origin public HTTPS để tạo link duyệt.
 - Admin mở link trong email để xem trang xác nhận public. Link dùng token chỉ lưu dạng hash trong DB, hết hạn sau 14 ngày và chỉ cộng ví sau khi admin bấm nút xác nhận cuối cùng trên trang.
 - Khi duyệt thành công, hệ thống tạo `wallet_transactions_history` loại `topup`, tăng `student_info.account_balance`, liên kết request với transaction và ghi action history cho hồ sơ học sinh.

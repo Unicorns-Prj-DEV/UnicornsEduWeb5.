@@ -1,4 +1,5 @@
 import {
+  ForbiddenException,
   Body,
   Controller,
   Delete,
@@ -23,10 +24,12 @@ import {
 import { StaffRole, UserRole } from 'generated/enums';
 import { AllowStaffRolesOnAdminRoutes } from 'src/auth/decorators/allow-staff-roles-on-admin.decorator';
 import { AllowAssistantOnAdminRoutes } from 'src/auth/decorators/allow-assistant-on-admin.decorator';
+import { CurrentAuth } from 'src/auth/decorators/current-auth.decorator';
 import {
   CurrentUser,
   type JwtPayload,
 } from 'src/auth/decorators/current-user.decorator';
+import type { ResolvedAuthAccess } from 'src/auth/auth-access.service';
 import { Public } from 'src/auth/decorators/public.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import {
@@ -77,6 +80,7 @@ export class StudentController {
     status: 200,
     description: 'Matching users with eligibility metadata.',
   })
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   async searchAssignableUsers(@Query() query: SearchAssignableStudentUsersDto) {
     return this.studentService.searchAssignableUsersByEmail(query.email);
   }
@@ -93,6 +97,7 @@ export class StudentController {
   @ApiResponse({ status: 201, description: 'Created student.' })
   @ApiResponse({ status: 400, description: 'Validation or eligibility error.' })
   @ApiResponse({ status: 404, description: 'User not found.' })
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   async createStudent(
     @CurrentUser() user: JwtPayload,
     @Body() data: CreateStudentDto,
@@ -192,6 +197,7 @@ export class StudentController {
   @ApiResponse({ status: 200, description: 'Updated student.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({ status: 404, description: 'Student not found.' })
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   async updateStudent(
     @CurrentUser() user: JwtPayload,
     @Body() data: UpdateStudentDto,
@@ -214,12 +220,24 @@ export class StudentController {
   })
   @ApiResponse({ status: 200, description: 'Student account balance updated.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Assistant can only submit negative balance deltas (withdraw). Positive manual top-up remains admin-only.',
+  })
   @ApiResponse({ status: 404, description: 'Student not found.' })
-  @AllowAssistantOnAdminRoutes(false)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   async updateStudentAccountBalance(
     @CurrentUser() user: JwtPayload,
+    @CurrentAuth() auth: ResolvedAuthAccess | null,
     @Body() data: UpdateStudentAccountBalanceCreateDto,
   ) {
+    if (auth?.access.admin.tier === 'assistant' && data.amount > 0) {
+      throw new ForbiddenException(
+        'Assistant cannot top up student balance directly.',
+      );
+    }
+
     return this.studentService.updateStudentAccountBalance(data, {
       userId: user.id,
       userEmail: user.email,
@@ -462,6 +480,7 @@ export class StudentController {
   @ApiResponse({ status: 200, description: 'Student classes updated.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({ status: 404, description: 'Student or class not found.' })
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   async updateStudentClasses(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseStudentIdPipe()) id: string,
@@ -487,6 +506,7 @@ export class StudentController {
   @ApiResponse({ status: 200, description: 'Updated student.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({ status: 404, description: 'Student not found.' })
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   async updateStudentById(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseStudentIdPipe()) id: string,
@@ -654,7 +674,7 @@ export class StudentController {
   @ApiParam({ name: 'id', description: 'Student ID' })
   @ApiResponse({ status: 200, description: 'Student deleted.' })
   @ApiResponse({ status: 404, description: 'Student not found.' })
-  @AllowAssistantOnAdminRoutes(false)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   async deleteStudent(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseStudentIdPipe()) id: string,

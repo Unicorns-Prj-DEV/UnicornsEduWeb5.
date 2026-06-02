@@ -299,7 +299,7 @@ export class MailService {
     const amount =
       'amountReceived' in params ? params.amountReceived : params.amountVnd;
     const parentName = this.normalizeReceiptText(
-      'parentName' in params ? params.parentName : null,
+      'parentName' in params ? (params.parentName ?? null) : null,
     );
     const studentName =
       this.normalizeReceiptText(params.studentName) || 'Học sinh';
@@ -325,7 +325,6 @@ export class MailService {
         : [];
 
     const receiptProps = this.buildTuitionReceiptProps({
-      parentName,
       studentName,
       studentCode: studentCode || null,
       orderCode,
@@ -393,7 +392,6 @@ export class MailService {
   }
 
   private buildTuitionReceiptProps(args: {
-    parentName: string;
     studentName: string;
     studentCode: string | null;
     orderCode: string;
@@ -453,15 +451,12 @@ export class MailService {
       },
     ];
 
-    const payerDisplay = args.parentName.trim() || args.studentName;
-
     return {
       documentTitle,
       invoiceCode: args.orderCode,
       issueDate,
       studentName: args.studentName,
       studentCode: args.studentCode,
-      payerName: payerDisplay,
       receiverName,
       receiverBankName,
       receiverBankAccount,
@@ -552,7 +547,6 @@ export class MailService {
       `Mã biên lai: ${props.invoiceCode}`,
       `Ngày lập: ${props.issueDate}`,
       `Học viên: ${props.studentName}`,
-      `Người thanh toán: ${props.payerName}`,
       `Người nhận: ${props.receiverName}`,
       props.receiverBankName ? `Ngân hàng: ${props.receiverBankName}` : null,
       props.receiverBankAccount ? `STK: ${props.receiverBankAccount}` : null,

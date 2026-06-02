@@ -424,7 +424,7 @@ export class ClassController {
   }
 
   @Post(':id/schedule/google-calendar/resync')
-  @AllowStaffRolesOnAdminRoutes()
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   @ApiOperation({
     summary: 'Resync class schedule to Google Calendar',
     description:
@@ -443,7 +443,7 @@ export class ClassController {
   }
 
   @Post(':id/makeup-events/:eventId/google-calendar/resync')
-  @AllowStaffRolesOnAdminRoutes()
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   @ApiOperation({
     summary: 'Resync one makeup event to Google Calendar',
     description:

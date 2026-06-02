@@ -37,6 +37,7 @@ export interface StudentListItem {
   fullName: string;
   email?: string | null;
   parentEmail?: string | null;
+  parentReceiptEmailEnabled?: boolean;
   accountBalance?: number | null;
   recentTopUpTotalLast21Days?: number;
   recentTopUpMeetsThreshold?: boolean;
@@ -185,6 +186,7 @@ export interface StudentSelfDetail {
   fullName: string;
   email?: string | null;
   parentEmail?: string | null;
+  parentReceiptEmailEnabled?: boolean;
   accountBalance?: number | null;
   school?: string | null;
   province?: string | null;
@@ -203,6 +205,7 @@ export interface UpdateStudentPayload {
   full_name?: string;
   email?: string;
   parent_email?: string;
+  parent_receipt_email_enabled?: boolean;
   school?: string;
   province?: string;
   birth_year?: number;
@@ -220,6 +223,7 @@ export interface CreateStudentPayload {
   full_name: string;
   email?: string;
   parent_email?: string;
+  parent_receipt_email_enabled?: boolean;
   school?: string;
   province?: string;
   birth_year?: number;

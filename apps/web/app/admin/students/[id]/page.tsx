@@ -15,6 +15,7 @@ import {
     StudentWalletCard,
     StudentClassTuitionPopup,
 } from "@/components/admin/student";
+import ParentReceiptEmailSwitch from "@/components/student/ParentReceiptEmailSwitch";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import type { StudentDetail, StudentGender, StudentStatus } from "@/dtos/student.dto";
 import {
@@ -116,6 +117,7 @@ export default function AdminStudentDetailPage() {
         canManageStudent,
         canCreateWalletQr,
         canDirectlyAdjustWallet,
+        canDirectlyWithdrawWallet,
         canRequestDirectTopUp,
         canEditStudentClassTuition,
     } = resolveStudentAdminCapabilities(fullProfile, routeBase);
@@ -141,6 +143,32 @@ export default function AdminStudentDetailPage() {
         queryKey: ["student", "detail", id],
         queryFn: () => studentApi.getStudentById(id),
         enabled: !!id,
+    });
+
+    const receiptEmailMutation = useMutation({
+        mutationFn: (enabled: boolean) =>
+            studentApi.updateStudentById(id, { parent_receipt_email_enabled: enabled }),
+        onMutate: async (enabled) => {
+            await queryClient.cancelQueries({ queryKey: ["student", "detail", id] });
+            const previous = queryClient.getQueryData<StudentDetail>(["student", "detail", id]);
+            if (previous) {
+                queryClient.setQueryData<StudentDetail>(["student", "detail", id], {
+                    ...previous,
+                    parentReceiptEmailEnabled: enabled,
+                });
+            }
+            return { previous };
+        },
+        onError: (_error, _enabled, context) => {
+            if (context?.previous) {
+                queryClient.setQueryData(["student", "detail", id], context.previous);
+            }
+            toast.error("Không thể cập nhật cài đặt gửi biên lai.");
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["student", "detail", id] });
+            toast.success("Đã cập nhật cài đặt gửi biên lai.");
+        },
     });
 
     const {
@@ -292,6 +320,8 @@ export default function AdminStudentDetailPage() {
     const normalizedStatus = normalizeStatus(student.status);
     const normalizedGender = normalizeGender(student.gender);
     const primaryChipClass = statusBadgeClass(normalizedStatus);
+    const parentReceiptEmailEnabled = student.parentReceiptEmailEnabled !== false;
+    const isReceiptTogglePending = receiptEmailMutation.isPending;
     const handleToggleStudentStatus = () => {
         const nextStatus: StudentStatus = normalizedStatus === "active" ? "inactive" : "active";
         const confirmed = window.confirm(
@@ -339,7 +369,7 @@ export default function AdminStudentDetailPage() {
                     student={student}
                 />
             ) : null}
-            {balancePopupMode && (canCreateWalletQr || canDirectlyAdjustWallet || canRequestDirectTopUp) ? (
+            {balancePopupMode && (canCreateWalletQr || canDirectlyAdjustWallet || canDirectlyWithdrawWallet || canRequestDirectTopUp) ? (
                 <StudentBalancePopup
                     key={`${student.id}-${student.updatedAt ?? "stable"}-balance-${balancePopupMode ?? "closed"}`}
                     open={balancePopupMode !== null}
@@ -350,33 +380,47 @@ export default function AdminStudentDetailPage() {
                     isSePayStaticQrLoading={isSePayStaticQrLoading}
                     sePayStaticQrErrorMessage={sePayStaticQrErrorMessage}
                     submitBalanceChange={
-                        canRequestDirectTopUp && !canDirectlyAdjustWallet
+                        canRequestDirectTopUp || canDirectlyWithdrawWallet
                             ? (amount, reason) =>
-                                studentApi.createStudentWalletDirectTopUpRequest(student.id, {
-                                    amount,
-                                    reason: reason ?? "",
-                                })
+                                amount > 0 && canRequestDirectTopUp && !canDirectlyAdjustWallet
+                                    ? studentApi.createStudentWalletDirectTopUpRequest(student.id, {
+                                        amount,
+                                        reason: reason ?? "",
+                                    })
+                                    : studentApi.updateStudentAccountBalance({
+                                        student_id: student.id,
+                                        amount,
+                                        reason: reason ?? "",
+                                    })
                             : undefined
                     }
-                    directBalanceChangeEnabled={canDirectlyAdjustWallet || canRequestDirectTopUp}
-                    directReasonRequired={canDirectlyAdjustWallet || canRequestDirectTopUp}
+                    directBalanceChangeEnabled={
+                        balancePopupMode === "withdraw"
+                            ? canDirectlyAdjustWallet || canDirectlyWithdrawWallet
+                            : canDirectlyAdjustWallet || canRequestDirectTopUp
+                    }
+                    directReasonRequired={
+                        balancePopupMode === "withdraw"
+                            ? canDirectlyAdjustWallet || canDirectlyWithdrawWallet
+                            : canDirectlyAdjustWallet || canRequestDirectTopUp
+                    }
                     directBalanceChangeLoadingMessage={
-                        canRequestDirectTopUp && !canDirectlyAdjustWallet
+                        balancePopupMode === "topup" && canRequestDirectTopUp && !canDirectlyAdjustWallet
                             ? "Đang gửi yêu cầu nạp thẳng..."
                             : undefined
                     }
                     directBalanceChangeSuccessMessage={
-                        canRequestDirectTopUp && !canDirectlyAdjustWallet
+                        balancePopupMode === "topup" && canRequestDirectTopUp && !canDirectlyAdjustWallet
                             ? "Đã gửi yêu cầu nạp thẳng tới admin."
                             : undefined
                     }
                     directReasonLabel={
-                        canRequestDirectTopUp && !canDirectlyAdjustWallet
+                        balancePopupMode === "topup" && canRequestDirectTopUp && !canDirectlyAdjustWallet
                             ? "Lý do nạp thẳng"
                             : undefined
                     }
                     directReasonPlaceholder={
-                        canRequestDirectTopUp && !canDirectlyAdjustWallet
+                        balancePopupMode === "topup" && canRequestDirectTopUp && !canDirectlyAdjustWallet
                             ? "Ví dụ: Phụ huynh chuyển khoản ngoài SePay, cần đối soát thủ công"
                             : undefined
                     }
@@ -568,13 +612,29 @@ export default function AdminStudentDetailPage() {
                                         }
                                     />
                                 </dl>
+                                {canManageStudent ? (
+                                    <div className="mt-4">
+                                        <ParentReceiptEmailSwitch
+                                            enabled={parentReceiptEmailEnabled}
+                                            disabled={isReceiptTogglePending}
+                                            onToggle={(enabled) => receiptEmailMutation.mutate(enabled)}
+                                        />
+                                    </div>
+                                ) : (
+                                    <p className="mt-4 border-t border-border-subtle pt-3 text-sm text-text-secondary">
+                                        Gửi biên lai qua email:{" "}
+                                        <span className="font-medium text-text-primary">
+                                            {parentReceiptEmailEnabled ? "Bật" : "Tắt"}
+                                        </span>
+                                    </p>
+                                )}
                             </StudentInfoCard>
 
                             <div className="min-w-0 space-y-3.5 xl:col-span-1 xl:space-y-4">
                                 <StudentWalletCard
                                     balance={student.accountBalance ?? 0}
                                     onTopUp={canCreateWalletQr || canDirectlyAdjustWallet ? handleTopUp : undefined}
-                                    onWithdraw={canDirectlyAdjustWallet ? handleWithdraw : undefined}
+                                    onWithdraw={canDirectlyWithdrawWallet ? handleWithdraw : undefined}
                                     onOpenHistory={canManageStudent ? () => setWalletHistoryOpen(true) : undefined}
                                 />
                                 <StudentExamCard key={student.id} studentId={student.id} />

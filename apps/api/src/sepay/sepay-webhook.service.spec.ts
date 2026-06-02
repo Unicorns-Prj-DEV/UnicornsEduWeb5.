@@ -133,6 +133,7 @@ describe('SePayWebhookService', () => {
     prisma.studentInfo.update.mockResolvedValue({ id: 'student-1' });
     prisma.studentInfo.findUnique.mockResolvedValue({
       accountBalance: 1_320_000,
+      parentReceiptEmailEnabled: true,
     });
 
     const service = new SePayWebhookService(prisma as never, mail as never);
@@ -181,6 +182,67 @@ describe('SePayWebhookService', () => {
         balanceAfter: 1_320_000,
       }),
     );
+  });
+
+  it('does not send receipt emails when parent receipt email is disabled', async () => {
+    const prisma = createPrismaMock();
+    const mail = { sendStudentWalletTopUpReceiptEmail: jest.fn() };
+    const pendingOrder = {
+      orderCode: 'UABCDEF1234567890',
+      studentId: 'student-1',
+      status: 'pending',
+      amountRequested: 120_000,
+      amountReceived: null,
+      transferNote: 'NAPVI UABCDEF1234567890',
+      sepayTransactionId: null,
+      sepayReferenceCode: null,
+      walletTransactionId: null,
+      receiptEmailSentAt: null,
+      accountNumber: '0123499999',
+      student: {
+        fullName: 'Nguyen Van A',
+        parentName: 'Nguyen Thi B',
+        parentEmail: 'parent@example.com',
+      },
+    };
+    const completedOrder = {
+      ...pendingOrder,
+      status: 'completed',
+      amountReceived: 120_000,
+      sepayTransactionId: '92704',
+      sepayReferenceCode: 'MBVCB.3278907687',
+      walletTransactionId: 'wallet-tx-1',
+      completedAt: new Date('2026-05-11T02:15:00.000Z'),
+    };
+
+    prisma.studentWalletSepayOrder.findFirst.mockResolvedValue(null);
+    prisma.studentWalletSepayOrder.findUnique.mockResolvedValue(pendingOrder);
+    prisma.studentWalletSepayOrder.updateMany.mockResolvedValue({ count: 1 });
+    prisma.walletTransactionsHistory.create.mockResolvedValue({
+      id: 'wallet-tx-1',
+    });
+    prisma.studentWalletSepayOrder.update.mockResolvedValue(completedOrder);
+    prisma.studentInfo.update.mockResolvedValue({ id: 'student-1' });
+    prisma.studentInfo.findUnique.mockResolvedValue({
+      accountBalance: 1_320_000,
+      parentReceiptEmailEnabled: false,
+    });
+    prisma.customerCareService.findUnique.mockResolvedValue({
+      staff: {
+        user: { email: 'care@example.com' },
+      },
+    });
+
+    const service = new SePayWebhookService(prisma as never, mail as never);
+
+    await expect(service.reconcile(buildPayload())).resolves.toEqual({
+      action: 'credited',
+      orderCode: 'UABCDEF1234567890',
+      walletTransactionId: 'wallet-tx-1',
+    });
+
+    expect(mail.sendStudentWalletTopUpReceiptEmail).not.toHaveBeenCalled();
+    expect(prisma.studentWalletSepayOrder.update).toHaveBeenCalledTimes(1);
   });
 
   it('does not create a second wallet transaction for duplicate SePay id/reference deliveries', async () => {
@@ -247,7 +309,10 @@ describe('SePayWebhookService', () => {
         parentName: 'Nguyen Thi B',
         parentEmail: 'parent@example.com',
       })
-      .mockResolvedValueOnce({ accountBalance: 188_000 })
+      .mockResolvedValueOnce({
+        accountBalance: 188_000,
+        parentReceiptEmailEnabled: true,
+      })
       .mockResolvedValueOnce({
         studentClasses: [
           {
@@ -416,7 +481,10 @@ describe('SePayWebhookService', () => {
         parentName: null,
         parentEmail: null,
       })
-      .mockResolvedValueOnce({ accountBalance: 188_000 });
+      .mockResolvedValueOnce({
+        accountBalance: 188_000,
+        parentReceiptEmailEnabled: true,
+      });
     prisma.studentWalletSepayOrder.create.mockResolvedValue({
       ...completedOrder,
       walletTransactionId: null,
@@ -494,7 +562,10 @@ describe('SePayWebhookService', () => {
         parentName: null,
         parentEmail: null,
       })
-      .mockResolvedValueOnce({ accountBalance: 188_000 });
+      .mockResolvedValueOnce({
+        accountBalance: 188_000,
+        parentReceiptEmailEnabled: true,
+      });
     prisma.studentWalletSepayOrder.create.mockResolvedValue({
       ...completedOrder,
       walletTransactionId: null,
@@ -618,6 +689,7 @@ describe('SePayWebhookService', () => {
       })
       .mockResolvedValueOnce({
         accountBalance: 191_000,
+        parentReceiptEmailEnabled: true,
       });
     prisma.studentWalletSepayOrder.create.mockResolvedValue({
       ...completedOrder,

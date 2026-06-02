@@ -618,8 +618,14 @@ export class SePayWebhookService {
     try {
       const studentRow = await this.prisma.studentInfo.findUnique({
         where: { id: order.studentId },
-        select: { accountBalance: true },
+        select: {
+          accountBalance: true,
+          parentReceiptEmailEnabled: true,
+        },
       });
+      if (!studentRow?.parentReceiptEmailEnabled) {
+        return;
+      }
       const customerCareEmail = await this.getCustomerCareEmail(order);
       const recipients = this.getReceiptRecipients(order, customerCareEmail);
       if (recipients.length === 0) {

@@ -36,7 +36,6 @@ export function TuitionReceiptEmail({
   issueDate,
   studentName,
   studentCode,
-  payerName,
   receiverName,
   receiverBankName,
   receiverBankAccount,
@@ -189,7 +188,6 @@ export function TuitionReceiptEmail({
                 </Column>
                 <Column style={{ width: '50%', verticalAlign: 'top' }}>
                   <MetaBlock label="Ngày lập" value={issueDate} />
-                  <MetaBlock label="Người thanh toán" value={payerName} />
                 </Column>
               </Row>
             </Section>

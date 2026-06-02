@@ -17,10 +17,10 @@
   - `/staff/notification`: tài khoản hiện tại phải có linked `staffInfo.status = active`; đây là feed chỉ đọc để xem các notification admin đã push
   - `/staff/users`, `/staff/history`: chỉ mở cho linked staff có role `assistant`; đây là mirror route của admin workspace nhưng giữ nguyên staff shell
   - `/staff/classes`, `/staff/classes/[id]`: mở cho `assistant`, `accountant_income`, `accountant_expense`; assistant được dùng các thao tác vận hành lớp như thêm/sửa lớp, thay roster, kết thúc lớp và cho gia sư nghỉ dạy theo lớp. Kế toán chỉ xem lớp/buổi học, không CRUD lớp/session. `accountant_income` thấy học phí và bị ẩn lương/trợ cấp gia sư; `accountant_expense` thấy trợ cấp/lương, được chỉnh trợ cấp gia sư và `% vận hành` theo lớp, và bị ẩn học phí/top-up.
-  - `/staff/students`, `/staff/students/[id]`: mở cho `assistant` hoặc `accountant_income`; assistant được chuyển học sinh **Nghỉ học / Mở lại** bằng endpoint status riêng. `accountant_income` được xem thông tin thu/học phí và chỉnh gói học phí học sinh theo lớp (tổng gói + số buổi), nhưng không tạo QR/nạp thẳng/chỉnh số dư.
-  - `/staff/staffs`, `/staff/staffs/[id]`: mở cho `assistant` hoặc `accountant_expense`; assistant được chuyển nhân sự **Ngừng hoạt động / Mở lại** bằng endpoint status riêng. Kế toán chi xem nhân sự, thanh toán, note thưởng, trợ cấp, được chỉnh **KH vận hành (%)** của các dòng gia sư - lớp qua `PATCH /staff/:id/class-teachers/:classId/operating-deduction`, và không chỉnh hồ sơ/role/status nhân sự.
+  - `/staff/students`, `/staff/students/[id]`: mở cho `assistant` hoặc `accountant_income`; assistant mirror gần như toàn bộ thao tác admin trên học sinh, nhưng không được duyệt queue nạp thẳng và không được nạp tiền thủ công trực tiếp vào ví. Assistant vẫn được rút/giảm số dư trực tiếp khi cần. `accountant_income` được xem thông tin thu/học phí và chỉnh gói học phí học sinh theo lớp (tổng gói + số buổi), nhưng không tạo QR/chỉnh số dư.
+  - `/staff/staffs`, `/staff/staffs/[id]`: mở cho `assistant` hoặc `accountant_expense`; assistant mirror gần như toàn bộ thao tác admin trên nhân sự. Kế toán chi xem nhân sự, thanh toán, note thưởng, trợ cấp, được chỉnh **KH vận hành (%)** của các dòng gia sư - lớp qua `PATCH /staff/:id/class-teachers/:classId/operating-deduction`, và không chỉnh hồ sơ/role/status nhân sự.
   - `/staff/costs`: mở cho `assistant` hoặc `accountant_expense`; kế toán chi có thể tạo/sửa/cập nhật trạng thái/xóa chi phí.
-  - `/staff/deductions`: không mở cho staff role; cấu hình khấu trừ là admin-only.
+  - `/staff/deductions`: mở cho `assistant` như admin-mirror; các staff role khác vẫn bị chặn.
   - `/staff/classes/[id]`: `admin`, linked staff có `teacher`, `assistant`, `accountant_income`, `accountant_expense`, hoặc `customer_care` khi lớp có ít nhất một học sinh thuộc phạm vi CSKH của staff hiện tại
   - `/staff/customer-care-detail`: hồ sơ staff hiện tại có role `customer_care`
   - `/staff/customer-care-detail/[staffId]`: chỉ mở cho linked staff có role `assistant`
@@ -81,7 +81,7 @@
 - `/staff/users`, `/staff/staffs`, `/staff/staffs/[id]`, `/staff/classes`, `/staff/students`, `/staff/students/[id]`, `/staff/costs`, `/staff/history`
   - là các mirror route của admin workspace nhưng chạy trong staff shell
   - internal link, pagination, search và các deep-link nội bộ đều giữ route-base `/staff`
-  - `/staff/deductions` không còn mirror cho assistant hoặc kế toán; admin-only tại `/admin/deductions`
+  - `/staff/deductions` là mirror route cho `assistant`; kế toán và các staff role khác vẫn không mở được
   - riêng `/staff/staffs/[id]` mirror đầy đủ staff detail cho `assistant` và `accountant_expense`, gồm nút **Copy & vào lớp** trong card `Hồ sơ nhân sự` và nút **Thanh toán** ở header. Assistant có thêm action **Ngừng hoạt động / Mở lại** ở header chi tiết nhân sự; kế toán chi chỉ xem/chạy thanh toán/bonus/trợ cấp, không chỉnh hồ sơ/role/status nhân sự. Popup **Thanh toán** dùng cùng contract backend `GET /staff/:id/payment-preview` và `PATCH /staff/:id/payment-status/pay-all`, giữ nguyên rule: **buổi dạy (GV)** trong popup/pay-all là **mọi buổi chưa thanh toán** (không giới hạn tháng đang xem), các nguồn khác vẫn theo tháng query; **bonus** là section riêng, session `deposit` không nằm trong đợt thanh toán, và thuế trong popup luôn tính theo mức hiện hành của staff theo từng role tại thời điểm thanh toán
   - khi `id` trùng `staffInfo.id` của user hiện tại (trang **Cá nhân**): **không** hiển thị chỉnh sửa kiểu admin (nút **Chỉnh sửa thông tin nhân sự**, popup `EditStaffPopup`, chỉnh QR thanh toán trong `Hồ sơ nhân sự`); tự cập nhật hồ sơ qua `/staff/profile` hoặc khối Nhân sự trên `/user-profile`
   - chỉ số **Ghi cọc** trên `/staff/staffs/[id]` mở popup **Thanh toán cọc theo lớp**, dùng `GET /staff/:id/deposit-payment-preview?year=` để liệt kê buổi cọc theo lớp theo semantics `không vận hành / không thuế`, cho chọn từng buổi hoặc chọn cả lớp, rồi gọi `PATCH /staff/:id/payment-status/pay-deposit` với `sessionIds[]`; backend zero snapshot deductions trước khi chuyển riêng các buổi được chọn sang `paid`
@@ -209,7 +209,9 @@
   - thấy shortcut sang `/staff/profile`, `/staff/assistant-detail`, `/staff/notes-subject` và các self route tương ứng của role phụ nếu có
 - Assistant admin-mirror routes **được phép**
   - vào `/staff/dashboard`, `/staff/users`, `/staff/staffs`, `/staff/staffs/[id]`, `/staff/classes`, `/staff/students`, `/staff/students/[id]`, `/staff/costs`, `/staff/history`
+  - route `/staff/users` mirror đầy đủ quản trị user cho `assistant`, gồm create/update/delete/gán role
   - kết thúc lớp, cho gia sư nghỉ dạy theo lớp, chuyển nhân sự ngừng hoạt động/mở lại, và chuyển học sinh nghỉ học/mở lại bằng các endpoint status/action riêng có thể ghi lý do
+  - ở nhánh học sinh, được tạo hồ sơ học sinh từ user có sẵn, sửa hồ sơ, sửa memberships/lịch thi, tạo QR SePay, gửi yêu cầu nạp thẳng cho admin duyệt, rút/giảm số dư trực tiếp và xóa học sinh; không được nạp tiền thủ công trực tiếp hoặc duyệt queue nạp thẳng admin-only
   - vào `/staff/customer-care-detail/[staffId]`, `/staff/lesson-plan-detail/[staffId]`, và `/staff/lesson_plan_detail/[staffId]`
   - vào `/staff/accountant-detail?staffId=...`, `/staff/communication-detail?staffId=...`, `/staff/technical-detail?staffId=...`, `/staff/training-detail?staffId=...`, `/staff/assistant-detail?staffId=...`
   - dùng `/staff/lesson-plans*` với đầy đủ quyền như admin
@@ -362,7 +364,9 @@
   - `GET /student/:id/wallet-sepay-static-qr`
     - `staff.assistant` xem QR SePay tĩnh cho học sinh xem được; `staff.customer_care` chỉ xem được khi học sinh đang thuộc CSKH của chính staff hiện tại. `accountant_income` không gọi endpoint QR. QR note là `[SEPAY_TRANSFER_NOTE_PREFIX] UNIST-[0-9a-f]{10}` và không chứa số tiền/class id/tên lớp; webhook reconcile theo student id ở đầu nội dung và vẫn tương thích marker `NAPVI`, `UNICL-*`, `LOP ...` cũ. Không role staff nào được gọi `PATCH /student/update-student-account-balance` để chỉnh thẳng số dư.
   - `POST /student/:id/wallet-direct-topup-requests`
-    - `staff.assistant` và `staff.customer_care` được tạo yêu cầu nạp thẳng cho học sinh trong phạm vi xem hiện tại. `accountant_income` không tạo yêu cầu nạp thẳng. Body `{ amount, reason }`; backend gửi React Email tới `ADMIN_EMAIL` và notification tới admin, token hết hạn sau 14 ngày, và chỉ cộng ví sau khi admin xác nhận trên trang public `/wallet-direct-topup-approval?token=...`, duyệt trong hàng chờ `/admin/wallet-direct-topup-requests`, hoặc duyệt từ popup mở bằng notification.
+    - `staff.assistant` và `staff.customer_care` được tạo yêu cầu nạp thẳng cho học sinh trong phạm vi xem hiện tại. `accountant_income` không tạo yêu cầu nạp thẳng. Body `{ amount, reason }`; backend gửi React Email tới `ADMIN_EMAIL` và notification tới admin, token hết hạn sau 14 ngày, và chỉ cộng ví sau khi admin xác nhận trên trang public `/wallet-direct-topup-approval?token=...`, duyệt trong hàng chờ `/admin/wallet-direct-topup-requests`, hoặc duyệt từ popup mở bằng notification. Assistant không có quyền duyệt hàng chờ này.
+  - `PATCH /student/update-student-account-balance`
+    - `staff.assistant` được dùng payload `amount < 0` để rút/giảm số dư thủ công, bắt buộc có `reason`; payload `amount > 0` vẫn bị backend chặn vì nạp tiền thủ công là admin-only. `admin` dùng cả hai chiều, `accountant_income` không dùng endpoint này.
   - `GET /student/:id/wallet-history?type=topup&limit=` — dùng cho popup lịch sử tiền vào trong màn CSKH; `staff.customer_care` chỉ xem được học sinh đang thuộc CSKH của chính staff hiện tại
 - **Guard**
   - controller mở cho `UserRole.staff` và `UserRole.admin`
@@ -382,7 +386,7 @@
 ## UI notes
 
 - `/staff`, `/staff/classes/[id]` và `/staff/customer-care-detail` cùng dùng staff shell: mobile drawer, collapse desktop, footer avatar + logout
-- các route `/staff/dashboard`, `/staff/users`, `/staff/staffs`, `/staff/staffs/[id]`, `/staff/students`, `/staff/students/[id]`, `/staff/costs`, `/staff/history`, `/staff/assistant-detail`, `/staff/accountant-detail`, `/staff/communication-detail`, `/staff/technical-detail`, `/staff/training-detail`, `/staff/lesson-plan-detail`, `/staff/lesson-plan-detail/[staffId]`, `/staff/lesson_plan_detail`, `/staff/lesson_plan_detail/[staffId]`, `/staff/lesson-plan-tasks`, `/staff/lesson-plan-tasks/[taskId]`, `/staff/lesson-plan-manage-details`, `/staff/lesson-plans`, `/staff/lesson-plans/tasks/[taskId]`, `/staff/lesson-manage-details` cũng đi chung staff shell; `/staff/deductions` là route legacy bị chặn vì khấu trừ admin-only
+- các route `/staff/dashboard`, `/staff/users`, `/staff/staffs`, `/staff/staffs/[id]`, `/staff/students`, `/staff/students/[id]`, `/staff/costs`, `/staff/history`, `/staff/deductions`, `/staff/assistant-detail`, `/staff/accountant-detail`, `/staff/communication-detail`, `/staff/technical-detail`, `/staff/training-detail`, `/staff/lesson-plan-detail`, `/staff/lesson-plan-detail/[staffId]`, `/staff/lesson_plan_detail`, `/staff/lesson_plan_detail/[staffId]`, `/staff/lesson-plan-tasks`, `/staff/lesson-plan-tasks/[taskId]`, `/staff/lesson-plan-manage-details`, `/staff/lesson-plans`, `/staff/lesson-plans/tasks/[taskId]`, `/staff/lesson-manage-details` cũng đi chung staff shell; riêng direct-topup queue vẫn ở admin-only flow
 - các CTA `Quay lại` trong staff shell ưu tiên `router.back()` để trả người dùng về đúng màn trước đó trong lịch sử duyệt, thay vì ép cứng về `/staff` hoặc `/staff/profile`
 - Điều hướng của staff sidebar vẫn hiển thị theo role của staff hiện tại:
   - `assistant`: menu admin-like gồm `Dashboard`, `User`, `Nhân sự`, `Lớp học`, `Quy định`, `Học sinh`, `Chi phí`, `Giáo Án`, `Lịch sử`; không có `Khấu trừ`
@@ -422,7 +426,7 @@
 - `staff.communication` hiện chỉ thấy phần thu nhập tháng, không có card role-specific riêng
 - các shortcut admin-like nằm trong sidebar `/staff/**`, không link tới `/admin/dashboard`
 - `/staff/dashboard` redirect về `/staff` (bookmark cũ)
-- `staff.assistant` vào được `/staff/dashboard` (redirect), `/staff/users`, `/staff/staffs`, `/staff/classes`, `/staff/students`, `/staff/costs`, `/staff/history`; `/staff/deductions` bị chặn vì admin-only
+- `staff.assistant` vào được `/staff/dashboard` (redirect), `/staff/users`, `/staff/staffs`, `/staff/classes`, `/staff/students`, `/staff/costs`, `/staff/history`, `/staff/deductions`; direct-topup queue và dashboard tổng admin vẫn bị chặn
 - `/staff/profile` hiển thị self-detail của staff hiện tại với layout chính bám admin staff detail
 - `/staff/profile` chỉ cho chỉnh thông tin cơ bản, ngân hàng và QR
 - `/staff/profile` giữ layout thống kê thu nhập cũ nhưng đổi dòng tiền đầu thành `Thực nhận tháng` authoritative, kèm popup ghi cọc, khối thưởng self-service, công việc khác và lịch sử buổi học (`SessionHistoryTable` `variant="classDetail"`, `entityMode="class"` — cột phải hiển thị tên lớp)

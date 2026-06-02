@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsBoolean,
   IsDateString,
   IsEmail,
   IsEnum,
@@ -190,6 +191,15 @@ export class UpdateMyStudentProfileDto {
   @IsOptional()
   @IsEmail()
   parent_email?: string | null;
+
+  @ApiPropertyOptional({
+    example: true,
+    description:
+      'Khi false: webhook SePay không gửi email biên lai nạp ví (phụ huynh và CSKH).',
+  })
+  @IsOptional()
+  @IsBoolean()
+  parent_receipt_email_enabled?: boolean;
 
   @ApiPropertyOptional({ enum: Gender })
   @IsOptional()

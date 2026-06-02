@@ -4,7 +4,7 @@ import UpgradedSelect, { type UpgradedSelectOption } from "@/components/ui/Upgra
 import type { UpdateMyStudentProfileDto } from "@/dtos/profile.dto";
 import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
     StudentBalancePopup,
@@ -14,6 +14,7 @@ import {
     StudentWalletCard,
     StudentWalletHistoryPopup,
 } from "@/components/admin/student";
+import ParentReceiptEmailSwitch from "@/components/student/ParentReceiptEmailSwitch";
 import { StudentDashboardSkeleton } from "@/components/student/StudentDashboardSkeleton";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import type {
@@ -247,6 +248,39 @@ export default function StudentSelfPage() {
         staleTime: 60_000,
     });
 
+    const receiptEmailMutation = useMutation({
+        mutationFn: (enabled: boolean) =>
+            updateMyStudentProfile({ parent_receipt_email_enabled: enabled }),
+        onMutate: async (enabled) => {
+            await queryClient.cancelQueries({ queryKey: ["student", "self", "detail"] });
+            const previous = queryClient.getQueryData<StudentSelfDetail>([
+                "student",
+                "self",
+                "detail",
+            ]);
+            if (previous) {
+                queryClient.setQueryData<StudentSelfDetail>(["student", "self", "detail"], {
+                    ...previous,
+                    parentReceiptEmailEnabled: enabled,
+                });
+            }
+            return { previous };
+        },
+        onError: (_error, _enabled, context) => {
+            if (context?.previous) {
+                queryClient.setQueryData(["student", "self", "detail"], context.previous);
+            }
+            toast.error("Không thể cập nhật cài đặt gửi biên lai.");
+        },
+        onSuccess: async () => {
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ["student", "self", "detail"] }),
+                queryClient.invalidateQueries({ queryKey: ["profile", "full"] }),
+            ]);
+            toast.success("Đã cập nhật cài đặt gửi biên lai.");
+        },
+    });
+
     const {
         data: sePayStaticQr,
         isLoading: isSePayStaticQrLoading,
@@ -304,6 +338,8 @@ export default function StudentSelfPage() {
     const contactEmail = student.email?.trim() || "Chưa có email";
     const profileDirty = isStudentProfileDirty(student, profileDraft);
     const isSavingProfile = false;
+    const parentReceiptEmailEnabled = student.parentReceiptEmailEnabled !== false;
+    const isReceiptTogglePending = receiptEmailMutation.isPending;
     const sePayStaticQrErrorMessage =
         (sePayStaticQrError as { response?: { data?: { message?: string } } } | null)?.response?.data?.message ??
         (sePayStaticQrError ? "Không tải được QR SePay. Vui lòng thử lại sau." : null);
@@ -709,6 +745,12 @@ export default function StudentSelfPage() {
                                                 </EditableField>
                                             </div>
 
+                                            <ParentReceiptEmailSwitch
+                                                enabled={parentReceiptEmailEnabled}
+                                                disabled={isReceiptTogglePending}
+                                                onToggle={(enabled) => receiptEmailMutation.mutate(enabled)}
+                                            />
+
                                             <div className="rounded-[1.15rem] border border-border-default bg-bg-secondary/60 px-4 py-4">
                                                 <p className={fieldLabelClassName}>Trạng thái hồ sơ</p>
                                                 <div className="mt-3 flex items-center justify-between gap-3">
@@ -760,6 +802,13 @@ export default function StudentSelfPage() {
                                                 }
                                             />
                                         </dl>
+                                        <div className="mt-4">
+                                            <ParentReceiptEmailSwitch
+                                                enabled={parentReceiptEmailEnabled}
+                                                disabled={isReceiptTogglePending}
+                                                onToggle={(enabled) => receiptEmailMutation.mutate(enabled)}
+                                            />
+                                        </div>
                                     </StudentInfoCard>
                                 </>
                             )}

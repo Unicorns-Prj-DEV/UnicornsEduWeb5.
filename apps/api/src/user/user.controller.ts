@@ -24,7 +24,7 @@ import {
 } from 'src/auth/decorators/current-user.decorator';
 import { AllowStaffRolesOnAdminRoutes } from 'src/auth/decorators/allow-staff-roles-on-admin.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
-import { UserRole } from 'generated/enums';
+import { StaffRole, UserRole } from 'generated/enums';
 import {
   AdminCreateStudentUserDto,
   AdminCreateUserDto,
@@ -43,7 +43,7 @@ export class UserController {
   @Get()
   @ApiOperation({
     summary: 'List users',
-    description: 'Get all users. Admin only.',
+    description: 'Get all users. Full admin and assistant read-only.',
   })
   @ApiResponse({ status: 200, description: 'List of users.' })
   @ApiQuery({
@@ -70,6 +70,7 @@ export class UserController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   @ApiResponse({ status: 403, description: 'Forbidden. Admin only.' })
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   async getUsers(
     @CurrentUser() user: JwtPayload,
     @Query() query: GetUsersQueryDto,
@@ -80,13 +81,14 @@ export class UserController {
   @Get(':id')
   @ApiOperation({
     summary: 'Get user by ID',
-    description: 'Get a user by ID. Admin only.',
+    description: 'Get a user by ID. Full admin and assistant read-only.',
   })
   @ApiParam({ name: 'id', description: 'User ID' })
   @ApiResponse({ status: 200, description: 'User found.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   @ApiResponse({ status: 403, description: 'Forbidden. Admin only.' })
   @ApiResponse({ status: 404, description: 'User not found.' })
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   async getUserById(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
@@ -95,10 +97,11 @@ export class UserController {
   }
 
   @Post()
-  @AllowStaffRolesOnAdminRoutes()
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   @ApiOperation({
     summary: 'Create user',
-    description: 'Create a new user. Admin only.',
+    description:
+      'Create a new user. Admin and assistant can assign roleType/staffRoles immediately.',
   })
   @ApiBody({
     type: AdminCreateUserDto,
@@ -127,7 +130,7 @@ export class UserController {
   }
 
   @Post('student')
-  @AllowStaffRolesOnAdminRoutes()
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   @ApiOperation({
     summary: 'Create student user with profile and classes',
     description:
@@ -161,7 +164,7 @@ export class UserController {
   }
 
   @Patch()
-  @AllowStaffRolesOnAdminRoutes()
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   @ApiOperation({
     summary: 'Update user',
     description: 'Update a user. Admin only.',
@@ -190,7 +193,7 @@ export class UserController {
   }
 
   @Delete(':id')
-  @AllowStaffRolesOnAdminRoutes()
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   @ApiOperation({
     summary: 'Delete user',
     description: 'Delete a user by ID. Admin only.',

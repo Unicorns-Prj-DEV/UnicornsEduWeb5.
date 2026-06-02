@@ -23,7 +23,6 @@ import {
   CurrentUser,
   type JwtPayload,
 } from 'src/auth/decorators/current-user.decorator';
-import { AllowAssistantOnAdminRoutes } from 'src/auth/decorators/allow-assistant-on-admin.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import {
   type DeleteNotificationResponseDto,
@@ -43,7 +42,6 @@ import { NotificationService } from './notification.service';
 @Controller('notifications')
 @ApiTags('notifications')
 @ApiCookieAuth('access_token')
-@AllowAssistantOnAdminRoutes(false)
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
 

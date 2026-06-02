@@ -68,6 +68,7 @@ export class SessionController {
 
   @Post()
   @Roles(UserRole.admin)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   @ApiOperation({ summary: 'Tạo session' })
   @ApiBody({ type: SessionCreateDto, description: 'Session create payload' })
   @ApiResponse({ status: 201, description: 'Session đã được tạo.' })

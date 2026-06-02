@@ -18,6 +18,7 @@ export type StudentAdminCapabilities = {
   canManageStudent: boolean;
   canCreateWalletQr: boolean;
   canDirectlyAdjustWallet: boolean;
+  canDirectlyWithdrawWallet: boolean;
   canRequestDirectTopUp: boolean;
   canEditStudentClassTuition: boolean;
   canDeleteStudent: boolean;
@@ -90,9 +91,7 @@ export const LESSON_MANAGEMENT_ROUTE_PREFIXES = [
 ] as const;
 
 export const STRICT_ADMIN_ROUTE_PREFIXES = [
-  "/admin/notification",
   "/admin/wallet-direct-topup-requests",
-  "/admin/deductions",
 ] as const;
 
 export function resolveAdminShellAccess(
@@ -214,9 +213,10 @@ export function resolveStudentAdminCapabilities(
     canCreateWalletQr:
       access.isAdmin || access.isAssistant || isCustomerCareStaff,
     canDirectlyAdjustWallet: access.isAdmin,
-    canRequestDirectTopUp: isAssistantStaff || isCustomerCareStaff,
+    canDirectlyWithdrawWallet: access.isAdmin || access.isAssistant,
+    canRequestDirectTopUp: access.isAssistant || isCustomerCareStaff,
     canEditStudentClassTuition: canManageStudent || access.isAccountantIncome,
-    canDeleteStudent: access.isAdmin,
+    canDeleteStudent: access.isAdmin || access.isAssistant,
   };
 }
 
@@ -224,8 +224,8 @@ export function resolveAdminShellFallbackHref(
   access: AdminShellAccess,
   pathname: string,
 ): string {
-  if (pathname.startsWith("/admin/notification") && access.isAssistant) {
-    return "/staff/notification";
+  if (pathname.startsWith("/admin/wallet-direct-topup-requests") && access.isAssistant) {
+    return "/admin/students";
   }
 
   if (access.isAssistant) {

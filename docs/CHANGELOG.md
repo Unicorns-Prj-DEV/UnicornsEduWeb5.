@@ -21,6 +21,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Changed
+
+- BE/FE biên lai nạp ví SePay: thêm `student_info.parent_receipt_email_enabled` (mặc định bật); khi tắt, webhook vẫn cộng ví nhưng không gửi email biên lai cho phụ huynh lẫn CSKH. Switch trên `/student` và trang chi tiết học sinh admin/staff. Biên lai email/PDF bỏ trường “Người thanh toán”.
+
 ### Added
 
 - FE/BE class session permissions: Bổ sung quyền điều chỉnh trường hệ số (multiplier/coefficient) và trạng thái thanh toán (payment status) cho quản lý (Admin/Trợ lý) cùng cả 2 vai trò kế toán (Kế toán thu `accountant_income` và Kế toán chi `accountant_expense`) trong các API `PUT /sessions/:id` và `PATCH /sessions/payment-status/bulk` cũng như UI quản lý buổi học tại trang chi tiết lớp học và chi tiết nhân sự.
