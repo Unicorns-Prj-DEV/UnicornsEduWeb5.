@@ -45,6 +45,8 @@ interface StoredClassScheduleEntry {
   teacherId?: string;
   googleCalendarEventId?: string;
   meetLink?: string;
+  createdAt?: string;
+  deletedAt?: string;
 }
 
 type DiscoveredRecurringGoogleEvent = {
@@ -121,6 +123,10 @@ export class CalendarService {
               : undefined,
           meetLink:
             typeof entry.meetLink === 'string' ? entry.meetLink : undefined,
+          createdAt:
+            typeof entry.createdAt === 'string' ? entry.createdAt : undefined,
+          deletedAt:
+            typeof entry.deletedAt === 'string' ? entry.deletedAt : undefined,
         };
       });
   }
@@ -134,6 +140,8 @@ export class CalendarService {
       teacherId?: string;
       googleCalendarEventId?: string;
       meetLink?: string;
+      createdAt?: string;
+      deletedAt?: string;
     }>,
   ): Prisma.InputJsonValue {
     return entries.map((entry) => ({
@@ -148,6 +156,8 @@ export class CalendarService {
         ? { googleCalendarEventId: entry.googleCalendarEventId }
         : {}),
       ...(entry.meetLink ? { meetLink: entry.meetLink } : {}),
+      ...(entry.createdAt ? { createdAt: entry.createdAt } : {}),
+      ...(entry.deletedAt ? { deletedAt: entry.deletedAt } : {}),
     })) as Prisma.InputJsonValue;
   }
 
@@ -341,6 +351,12 @@ export class CalendarService {
     const minutes = String(value.getMinutes()).padStart(2, '0');
     const seconds = String(value.getSeconds()).padStart(2, '0');
     return `${hours}:${minutes}:${seconds}`;
+  }
+
+  private startOfSessionDay(value: Date): Date {
+    return new Date(
+      Date.UTC(value.getFullYear(), value.getMonth(), value.getDate()),
+    );
   }
 
   private formatDate(
@@ -671,6 +687,20 @@ export class CalendarService {
         );
         for (const occurrenceDate of occurrenceDates) {
           const date = this.formatDate(occurrenceDate) ?? '';
+
+          if (entry.createdAt) {
+            const entryCreatedKey = this.formatDate(new Date(entry.createdAt));
+            if (entryCreatedKey && date < entryCreatedKey) {
+              continue;
+            }
+          }
+          if (entry.deletedAt) {
+            const entryDeletedKey = this.formatDate(new Date(entry.deletedAt));
+            if (entryDeletedKey && date >= entryDeletedKey) {
+              continue;
+            }
+          }
+
           const entryId = entry.id ?? `${cls.id}-${dayOfWeek}-${startTime}`;
           events.push({
             occurrenceId: `fixed:${cls.id}:${entryId}:${date}`,
@@ -1189,15 +1219,15 @@ export class CalendarService {
       throw new NotFoundException(`Class not found: ${classId}`);
     }
 
-    const entries = this.getStoredClassScheduleEntries(cls.schedule).map(
-      (entry) => ({
+    const entries = this.getStoredClassScheduleEntries(cls.schedule)
+      .filter((entry) => !entry.deletedAt)
+      .map((entry) => ({
         id: entry.id,
         dayOfWeek: entry.dayOfWeek ?? 0,
         from: entry.from ?? '',
         end: this.normalizeTimeValue(entry.to || entry.end) ?? '',
         teacherId: entry.teacherId,
-      }),
-    );
+      }));
 
     return { success: true, data: entries };
   }
@@ -1205,7 +1235,11 @@ export class CalendarService {
   async updateClassSchedulePattern(
     classId: string,
     entries: ClassScheduleEntryDto[],
-  ): Promise<{ success: boolean; data: ClassScheduleEntryDto[] }> {
+  ): Promise<{
+    success: boolean;
+    data: ClassScheduleEntryDto[];
+    warnings?: string[];
+  }> {
     const cls = await this.prisma.class.findUnique({
       where: { id: classId },
     });
@@ -1222,23 +1256,133 @@ export class CalendarService {
         )
         .map((entry) => [entry.id, entry]),
     );
-    const entriesWithIds = entries.map((entry) => ({
-      ...entry,
-      id: entry.id || uuidv4(),
-    }));
 
-    const storageEntries = this.serializeStoredClassScheduleEntries(
-      entriesWithIds.map((entry) => ({
-        id: entry.id,
+    const deletedEntries: StoredClassScheduleEntry[] = [];
+    const activeEntries: StoredClassScheduleEntry[] = [];
+    const handledExistingIds = new Set<string>();
+
+    for (const entry of entries) {
+      const existingEntry = entry.id
+        ? oldScheduleById.get(entry.id)
+        : undefined;
+
+      if (existingEntry) {
+        const fromNormalized = this.normalizeTimeValue(entry.from);
+        const toNormalized = this.normalizeTimeValue(entry.end);
+        const existingFrom = this.normalizeTimeValue(existingEntry.from);
+        const existingTo = this.normalizeTimeValue(
+          existingEntry.to || existingEntry.end,
+        );
+
+        const hasChanged =
+          existingEntry.dayOfWeek !== entry.dayOfWeek ||
+          existingFrom !== fromNormalized ||
+          existingTo !== toNormalized ||
+          existingEntry.teacherId !== entry.teacherId;
+
+        if (hasChanged) {
+          deletedEntries.push({
+            ...existingEntry,
+            deletedAt: existingEntry.deletedAt ?? new Date().toISOString(),
+          });
+          handledExistingIds.add(existingEntry.id);
+
+          activeEntries.push({
+            id: uuidv4(),
+            dayOfWeek: entry.dayOfWeek,
+            from: fromNormalized,
+            to: toNormalized,
+            teacherId: entry.teacherId,
+            googleCalendarEventId: undefined,
+            meetLink: undefined,
+            createdAt: new Date().toISOString(),
+          });
+          continue;
+        }
+      }
+
+      activeEntries.push({
+        id: entry.id ?? uuidv4(),
         dayOfWeek: entry.dayOfWeek,
         from: this.normalizeTimeValue(entry.from),
         to: this.normalizeTimeValue(entry.end),
         teacherId: entry.teacherId,
-        googleCalendarEventId: oldScheduleById.get(entry.id)
-          ?.googleCalendarEventId,
-        meetLink: oldScheduleById.get(entry.id)?.meetLink,
-      })),
+        googleCalendarEventId: existingEntry?.googleCalendarEventId,
+        meetLink: existingEntry?.meetLink,
+        createdAt: existingEntry?.createdAt ?? new Date().toISOString(),
+      });
+    }
+
+    const nextEntryIds = new Set(
+      activeEntries.map((entry) => entry.id).filter(Boolean),
     );
+    for (const existingEntry of oldScheduleById.values()) {
+      if (
+        !nextEntryIds.has(existingEntry.id) &&
+        !handledExistingIds.has(existingEntry.id)
+      ) {
+        deletedEntries.push({
+          ...existingEntry,
+          deletedAt: existingEntry.deletedAt ?? new Date().toISOString(),
+        });
+      }
+    }
+
+    // Find modified/deleted entry IDs to check for affected future makeup events
+    const changedOrDeletedEntryIds = new Set<string>();
+    for (const entry of [...activeEntries, ...deletedEntries]) {
+      if (entry.id && entry.deletedAt) {
+        const oldEntry = oldScheduleById.get(entry.id);
+        if (oldEntry && !oldEntry.deletedAt) {
+          changedOrDeletedEntryIds.add(entry.id);
+        }
+      }
+    }
+
+    const warnings: string[] = [];
+    if (changedOrDeletedEntryIds.size > 0) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const affectedMakeupEvents =
+        await this.prisma.makeupScheduleEvent.findMany({
+          where: {
+            classId: classId,
+            baselineScheduleEntryId: {
+              in: Array.from(changedOrDeletedEntryIds),
+            },
+            date: { gte: today },
+          },
+          include: {
+            teacher: {
+              include: {
+                user: {
+                  select: { first_name: true, last_name: true },
+                },
+              },
+            },
+          },
+        });
+
+      for (const event of affectedMakeupEvents) {
+        const eventDateStr = event.date.toLocaleDateString('vi-VN', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        });
+        const teacherName = event.teacher
+          ? `${event.teacher.user?.first_name ?? ''} ${event.teacher.user?.last_name ?? ''}`.trim()
+          : 'chưa xác định';
+        warnings.push(
+          `Buổi học bù ngày ${eventDateStr} do gia sư ${teacherName} phụ trách bị ảnh hưởng do lịch học cố định gốc bị thay đổi/xoá.`,
+        );
+      }
+    }
+
+    const storageEntries = this.serializeStoredClassScheduleEntries([
+      ...activeEntries,
+      ...deletedEntries,
+    ]);
 
     await this.prisma.class.update({
       where: { id: classId },
@@ -1247,7 +1391,15 @@ export class CalendarService {
 
     await this.syncScheduleWithCalendar(classId, oldSchedule);
 
-    return { success: true, data: entriesWithIds };
+    const resultEntries = activeEntries.map((entry) => ({
+      id: entry.id,
+      dayOfWeek: entry.dayOfWeek ?? 0,
+      from: entry.from ?? '',
+      end: entry.to ?? '',
+      teacherId: entry.teacherId,
+    }));
+
+    return { success: true, data: resultEntries, warnings };
   }
 
   async syncScheduleWithCalendar(
@@ -1325,7 +1477,9 @@ export class CalendarService {
       quotaLimited: false,
       warnings: [],
     };
-    const currentSchedule = this.getStoredClassScheduleEntries(cls.schedule);
+    const currentSchedule = this.getStoredClassScheduleEntries(
+      cls.schedule,
+    ).filter((entry) => !entry.deletedAt);
     const targetEntryIds = new Set<string>();
     if (scopedTeacherId) {
       for (const entry of currentSchedule) {
@@ -2254,6 +2408,136 @@ export class CalendarService {
     };
   }
 
+  private async checkMakeupScheduleConflicts(
+    excludeEventId: string | null,
+    classId: string,
+    teacherId: string,
+    date: Date,
+    startTime: Date,
+    endTime: Date,
+  ): Promise<string[]> {
+    const warnings: string[] = [];
+    const dateKey = this.formatDate(date);
+    if (!dateKey) return [];
+    const dayOfWeek = date.getDay();
+
+    const sameDateMakeupEvents = await this.prisma.makeupScheduleEvent.findMany(
+      {
+        where: {
+          date,
+          id: excludeEventId ? { not: excludeEventId } : undefined,
+        },
+        include: {
+          class: { select: { name: true } },
+          teacher: {
+            include: {
+              user: { select: { first_name: true, last_name: true } },
+            },
+          },
+        },
+      },
+    );
+
+    const startVal = startTime.getTime();
+    const endVal = endTime.getTime();
+
+    for (const other of sameDateMakeupEvents) {
+      if (!other.startTime || !other.endTime) continue;
+      const otherStart = other.startTime.getTime();
+      const otherEnd = other.endTime.getTime();
+
+      const hasOverlap = startVal < otherEnd && endVal > otherStart;
+      if (hasOverlap) {
+        const otherTimeRange = `${this.normalizeTimeValue(other.startTime)} - ${this.normalizeTimeValue(other.endTime)}`;
+        if (other.classId === classId) {
+          warnings.push(
+            `Trùng lịch: Lớp học đã có buổi dạy bù khác vào khung giờ ${otherTimeRange} ngày này.`,
+          );
+        }
+        if (other.teacherId === teacherId) {
+          const teacherName = other.teacher
+            ? `${other.teacher.user?.first_name ?? ''} ${other.teacher.user?.last_name ?? ''}`.trim()
+            : 'Giáo viên';
+          warnings.push(
+            `Trùng lịch: Giáo viên ${teacherName} đã có buổi dạy bù ở lớp "${other.class.name}" vào khung giờ ${otherTimeRange} ngày này.`,
+          );
+        }
+      }
+    }
+
+    const activeClasses = await this.prisma.class.findMany({
+      where: {
+        status: 'running',
+      },
+      include: {
+        teachers: {
+          include: {
+            teacher: {
+              include: {
+                user: { select: { first_name: true, last_name: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    for (const cls of activeClasses) {
+      const scheduleEntries = this.getStoredClassScheduleEntries(cls.schedule);
+      for (const entry of scheduleEntries) {
+        if (entry.dayOfWeek !== dayOfWeek) continue;
+
+        if (entry.createdAt) {
+          const entryCreated = this.formatDate(new Date(entry.createdAt));
+          if (entryCreated && dateKey < entryCreated) continue;
+        }
+        if (entry.deletedAt) {
+          const entryDeleted = this.formatDate(new Date(entry.deletedAt));
+          if (entryDeleted && dateKey >= entryDeleted) continue;
+        }
+
+        if (!entry.from || !(entry.to || entry.end)) continue;
+
+        const entryFrom = this.parseTimeOnly(entry.from, 'startTime');
+        const entryTo = this.parseTimeOnly(
+          entry.to || entry.end || '',
+          'endTime',
+        );
+        const entryStartVal = entryFrom.getTime();
+        const entryEndVal = entryTo.getTime();
+
+        const hasOverlap = startVal < entryEndVal && endVal > entryStartVal;
+        if (hasOverlap) {
+          const entryTimeRange = `${this.normalizeTimeValue(entryFrom)} - ${this.normalizeTimeValue(entryTo)}`;
+          if (cls.id === classId) {
+            warnings.push(
+              `Trùng lịch: Lớp học đã có lịch học cố định vào khung giờ ${entryTimeRange} ngày này.`,
+            );
+          }
+
+          const matchesTeacher = entry.teacherId === teacherId;
+          const isClassTeacher =
+            !entry.teacherId &&
+            cls.teachers.some((t) => t.teacherId === teacherId);
+
+          if (matchesTeacher || isClassTeacher) {
+            const matchedTeacherRecord = cls.teachers.find(
+              (t) => t.teacherId === teacherId,
+            );
+            const teacherName = matchedTeacherRecord?.teacher
+              ? `${matchedTeacherRecord.teacher.user?.first_name ?? ''} ${matchedTeacherRecord.teacher.user?.last_name ?? ''}`.trim()
+              : 'Giáo viên';
+            warnings.push(
+              `Trùng lịch: Giáo viên ${teacherName} đã có lịch dạy cố định lớp "${cls.name}" vào khung giờ ${entryTimeRange} ngày này.`,
+            );
+          }
+        }
+      }
+    }
+
+    return Array.from(new Set(warnings));
+  }
+
   async createMakeupScheduleEvent(
     dto: CreateMakeupScheduleEventDto,
     actor?: ActionHistoryActor,
@@ -2265,12 +2549,30 @@ export class CalendarService {
           teacherId: dto.teacherId,
         },
       },
-      select: { classId: true },
+      include: {
+        class: {
+          select: {
+            createdAt: true,
+          },
+        },
+      },
     });
 
     if (!classTeacher) {
       throw new BadRequestException(
         'Gia sư chịu trách nhiệm phải thuộc danh sách gia sư của lớp.',
+      );
+    }
+
+    const eventDate = this.parseDateOnly(dto.date);
+    const classCreatedDate = classTeacher.class?.createdAt
+      ? this.startOfSessionDay(classTeacher.class.createdAt)
+      : new Date(0);
+    const eventDateStart = this.startOfSessionDay(eventDate);
+
+    if (eventDateStart < classCreatedDate) {
+      throw new BadRequestException(
+        'Ngày xếp lịch bù không được trước ngày tạo lớp học.',
       );
     }
 
@@ -2281,6 +2583,15 @@ export class CalendarService {
       dto.classId,
       dto.baselineScheduleEntryId,
       dto.originalDate,
+    );
+
+    const overlaps = await this.checkMakeupScheduleConflicts(
+      null,
+      dto.classId,
+      dto.teacherId,
+      eventDate,
+      startTime,
+      endTime,
     );
 
     const created = await this.prisma.makeupScheduleEvent.create({
@@ -2323,7 +2634,10 @@ export class CalendarService {
 
     return {
       success: true,
-      data: this.serializeMakeupScheduleEvent(refreshed),
+      data: {
+        ...this.serializeMakeupScheduleEvent(refreshed),
+        warnings: overlaps,
+      },
     };
   }
 
@@ -2354,6 +2668,9 @@ export class CalendarService {
     }
 
     const nextClassId = dto.classId ?? existing.classId;
+    const nextDateStr = dto.date ?? this.formatDate(existing.date) ?? '';
+    const nextDate = this.parseDateOnly(nextDateStr);
+
     const nextTeacherId = dto.teacherId ?? existing.teacherId;
     const classTeacher = await this.prisma.classTeacher.findUnique({
       where: {
@@ -2362,11 +2679,28 @@ export class CalendarService {
           teacherId: nextTeacherId,
         },
       },
-      select: { classId: true },
+      include: {
+        class: {
+          select: {
+            createdAt: true,
+          },
+        },
+      },
     });
     if (!classTeacher) {
       throw new BadRequestException(
         'Gia sư chịu trách nhiệm phải thuộc danh sách gia sư của lớp.',
+      );
+    }
+
+    const classCreatedDate = classTeacher.class?.createdAt
+      ? this.startOfSessionDay(classTeacher.class.createdAt)
+      : new Date(0);
+    const eventDateStart = this.startOfSessionDay(nextDate);
+
+    if (eventDateStart < classCreatedDate) {
+      throw new BadRequestException(
+        'Ngày xếp lịch bù không được trước ngày tạo lớp học.',
       );
     }
 
@@ -2378,7 +2712,20 @@ export class CalendarService {
       dto.endTime !== undefined
         ? this.parseTimeOnly(dto.endTime, 'endTime')
         : existing.endTime;
+    if (!nextStartTime || !nextEndTime) {
+      throw new BadRequestException('Giờ bắt đầu và giờ kết thúc là bắt buộc.');
+    }
     this.assertValidMakeupTimeRange(nextStartTime, nextEndTime);
+
+    const overlaps = await this.checkMakeupScheduleConflicts(
+      id,
+      nextClassId,
+      nextTeacherId,
+      nextDate,
+      nextStartTime,
+      nextEndTime,
+    );
+
     const nextBaselineScheduleEntryId =
       dto.baselineScheduleEntryId !== undefined
         ? dto.baselineScheduleEntryId?.trim() || null
@@ -2449,7 +2796,10 @@ export class CalendarService {
 
     return {
       success: true,
-      data: this.serializeMakeupScheduleEvent(refreshed),
+      data: {
+        ...this.serializeMakeupScheduleEvent(refreshed),
+        warnings: overlaps,
+      },
     };
   }
 

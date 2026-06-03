@@ -21,6 +21,8 @@ type StoredClassScheduleEntry = {
   from: string;
   to?: string | null;
   teacherId?: string;
+  createdAt?: string;
+  deletedAt?: string;
 };
 
 type ScheduleCandidate = {
@@ -33,6 +35,7 @@ type ScheduleCandidate = {
 type AlertClassRecord = {
   id: string;
   name: string;
+  createdAt: Date;
   schedule: Prisma.JsonValue | null;
   teachers: Array<{
     teacherId: string;
@@ -72,7 +75,6 @@ export class SessionScheduleRulesService {
       startTime?: string | null;
     },
   ): Promise<{ makeupEventId?: string }> {
-    const dateKey = this.formatDate(data.date);
     const candidates = await this.getScheduleCandidates(db, {
       classId: data.classId,
       teacherId: data.teacherId,
@@ -139,6 +141,7 @@ export class SessionScheduleRulesService {
       select: {
         id: true,
         name: true,
+        createdAt: true,
         schedule: true,
         teachers: {
           where: teacherId ? { teacherId } : undefined,
@@ -183,6 +186,7 @@ export class SessionScheduleRulesService {
       select: {
         id: true,
         name: true,
+        createdAt: true,
         schedule: true,
         teachers: {
           where: { teacherId },
@@ -220,12 +224,36 @@ export class SessionScheduleRulesService {
       where: { id: params.classId },
       select: { schedule: true },
     });
+    const dateKey = this.formatDate(params.date);
     const fixedCandidates = this.getStoredClassScheduleEntries(cls?.schedule)
-      .filter(
-        (entry) =>
-          entry.teacherId === params.teacherId &&
-          entry.dayOfWeek === params.date.getUTCDay(),
-      )
+      .filter((entry) => {
+        if (
+          entry.teacherId !== params.teacherId ||
+          entry.dayOfWeek !== params.date.getUTCDay()
+        ) {
+          return false;
+        }
+
+        if (entry.createdAt) {
+          const entryCreatedDateKey = this.formatDate(
+            this.startOfSessionDay(new Date(entry.createdAt)),
+          );
+          if (dateKey < entryCreatedDateKey) {
+            return false;
+          }
+        }
+
+        if (entry.deletedAt) {
+          const entryDeletedDateKey = this.formatDate(
+            this.startOfSessionDay(new Date(entry.deletedAt)),
+          );
+          if (dateKey >= entryDeletedDateKey) {
+            return false;
+          }
+        }
+
+        return true;
+      })
       .map((entry) => ({
         source: 'fixed' as const,
         startMinutes: this.timeStringToMinutes(entry.from),
@@ -352,9 +380,35 @@ export class SessionScheduleRulesService {
         date = this.addDays(date, 1)
       ) {
         const dateKey = this.formatDate(date);
+
+        const classCreatedDateKey = cls.createdAt
+          ? this.formatDate(this.startOfSessionDay(cls.createdAt))
+          : '1970-01-01';
+        if (dateKey < classCreatedDateKey) {
+          continue;
+        }
+
         for (const entry of scheduleEntries) {
           if (entry.dayOfWeek !== date.getUTCDay()) {
             continue;
+          }
+
+          if (entry.createdAt) {
+            const entryCreatedDateKey = this.formatDate(
+              this.startOfSessionDay(new Date(entry.createdAt)),
+            );
+            if (dateKey < entryCreatedDateKey) {
+              continue;
+            }
+          }
+
+          if (entry.deletedAt) {
+            const entryDeletedDateKey = this.formatDate(
+              this.startOfSessionDay(new Date(entry.deletedAt)),
+            );
+            if (dateKey >= entryDeletedDateKey) {
+              continue;
+            }
           }
 
           const scheduledStartMinutes = this.timeStringToMinutes(entry.from);
@@ -439,6 +493,14 @@ export class SessionScheduleRulesService {
           typeof record.id === 'string' && record.id.trim()
             ? record.id.trim()
             : undefined;
+        const createdAt =
+          typeof record.createdAt === 'string' && record.createdAt.trim()
+            ? record.createdAt.trim()
+            : undefined;
+        const deletedAt =
+          typeof record.deletedAt === 'string' && record.deletedAt.trim()
+            ? record.deletedAt.trim()
+            : undefined;
 
         if (dayOfWeek == null || !from) {
           return null;
@@ -450,6 +512,8 @@ export class SessionScheduleRulesService {
           from,
           to,
           teacherId,
+          createdAt,
+          deletedAt,
         };
       },
     );

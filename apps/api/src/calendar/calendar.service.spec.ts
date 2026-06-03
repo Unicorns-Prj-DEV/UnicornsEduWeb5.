@@ -1028,6 +1028,52 @@ describe('CalendarService', () => {
     ).not.toHaveBeenCalled();
   });
 
+  it('rejects creating a makeup event when date is before class creation date', async () => {
+    mockPrisma.classTeacher.findUnique.mockResolvedValueOnce({
+      classId: 'class-1',
+      class: {
+        createdAt: new Date('2026-05-25T00:00:00.000Z'),
+      },
+    });
+
+    await expect(
+      service.createMakeupScheduleEvent({
+        classId: 'class-1',
+        teacherId: 'teacher-1',
+        date: '2026-05-24',
+        startTime: '19:00:00',
+        endTime: '20:30:00',
+      }),
+    ).rejects.toThrow('Ngày xếp lịch bù không được trước ngày tạo lớp học.');
+
+    expect(mockPrisma.makeupScheduleEvent.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects updating a makeup event when new date is before class creation date', async () => {
+    mockPrisma.makeupScheduleEvent.findUnique.mockResolvedValueOnce({
+      id: 'makeup-1',
+      classId: 'class-1',
+      teacherId: 'teacher-1',
+      date: new Date('2026-05-26T00:00:00.000Z'),
+      startTime: new Date('1970-01-01T19:00:00'),
+      endTime: new Date('1970-01-01T20:30:00'),
+    });
+    mockPrisma.classTeacher.findUnique.mockResolvedValueOnce({
+      classId: 'class-1',
+      class: {
+        createdAt: new Date('2026-05-25T00:00:00.000Z'),
+      },
+    });
+
+    await expect(
+      service.updateMakeupScheduleEvent('makeup-1', {
+        date: '2026-05-24',
+      }),
+    ).rejects.toThrow('Ngày xếp lịch bù không được trước ngày tạo lớp học.');
+
+    expect(mockPrisma.makeupScheduleEvent.update).not.toHaveBeenCalled();
+  });
+
   it('rejects creating a makeup event from a missing fixed schedule baseline', async () => {
     mockPrisma.class.findUnique.mockResolvedValueOnce({
       schedule: [

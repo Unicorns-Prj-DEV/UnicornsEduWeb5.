@@ -687,6 +687,15 @@ export class MakeupScheduleEventDto {
   @IsOptional()
   @IsIn(['pending', 'synced', 'error'])
   calendarSyncStatus?: 'pending' | 'synced' | 'error';
+
+  @ApiPropertyOptional({
+    description: 'Warnings for schedule conflicts/overlaps',
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  warnings?: string[];
 }
 
 export class CreateMakeupScheduleEventDto {

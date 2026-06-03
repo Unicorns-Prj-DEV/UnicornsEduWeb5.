@@ -2731,7 +2731,10 @@ export class DashboardService {
     return schedule
       .filter(
         (entry) =>
-          typeof entry === 'object' && entry !== null && !Array.isArray(entry),
+          typeof entry === 'object' &&
+          entry !== null &&
+          !Array.isArray(entry) &&
+          !('deletedAt' in entry),
       )
       .map((entry) => entry as Prisma.JsonObject)
       .map((entry) => ({

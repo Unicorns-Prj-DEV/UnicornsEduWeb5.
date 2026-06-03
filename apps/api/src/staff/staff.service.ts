@@ -4410,15 +4410,22 @@ export class StaffService {
     const googleCalendarEventIds: string[] = [];
     for (const classRecord of classes) {
       const scheduleEntries = getScheduleEntriesForStaff(classRecord.schedule);
-      const nextSchedule = scheduleEntries.filter((entry) => {
-        if (entry.teacherId !== staffId) return true;
+      let scheduleChanged = false;
+      const nextSchedule = scheduleEntries.map((entry) => {
+        if (entry.teacherId !== staffId) return entry;
+        if (entry.deletedAt) return entry;
+
+        scheduleChanged = true;
         if (typeof entry.googleCalendarEventId === 'string') {
           googleCalendarEventIds.push(entry.googleCalendarEventId);
         }
-        return false;
+        return {
+          ...entry,
+          deletedAt: new Date().toISOString(),
+        };
       });
 
-      if (nextSchedule.length !== scheduleEntries.length) {
+      if (scheduleChanged) {
         await tx.class.update({
           where: { id: classRecord.id },
           data: { schedule: nextSchedule as Prisma.InputJsonValue },

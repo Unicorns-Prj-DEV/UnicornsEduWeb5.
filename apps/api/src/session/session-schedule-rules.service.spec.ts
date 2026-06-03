@@ -166,4 +166,87 @@ describe('SessionScheduleRulesService', () => {
       service.getMissedTeachingAlertsByClass('class-1', 7),
     ).resolves.toEqual([]);
   });
+
+  it('omits missed alerts for dates before the class creation date', async () => {
+    prisma.class.findUnique.mockResolvedValue({
+      id: 'class-1',
+      name: 'IELTS Foundation',
+      createdAt: new Date('2026-05-27T00:00:00.000Z'), // Created Wednesday May 27th
+      schedule: [
+        {
+          id: 'slot-1',
+          dayOfWeek: 1, // Monday May 25th
+          from: '08:00:00',
+          to: '09:30:00',
+          teacherId: 'teacher-1',
+        },
+      ],
+      teachers: [
+        {
+          teacherId: 'teacher-1',
+          teacher: {
+            id: 'teacher-1',
+            user: {
+              first_name: 'An',
+              last_name: 'Nguyen',
+              email: 'an@example.com',
+            },
+          },
+        },
+      ],
+    });
+    prisma.session.findMany.mockResolvedValue([]);
+    prisma.makeupScheduleEvent.findMany.mockResolvedValue([]);
+
+    // Checking last 7 days (May 23 to May 29). Monday May 25 is before May 27, so it should be omitted.
+    await expect(
+      service.getMissedTeachingAlertsByClass('class-1', 7),
+    ).resolves.toEqual([]);
+  });
+
+  it('respects schedule entry active range (createdAt and deletedAt)', async () => {
+    prisma.class.findUnique.mockResolvedValue({
+      id: 'class-1',
+      name: 'IELTS Foundation',
+      createdAt: new Date('2026-05-20T00:00:00.000Z'),
+      schedule: [
+        {
+          id: 'slot-1',
+          dayOfWeek: 1, // Monday May 25
+          from: '08:00:00',
+          to: '09:30:00',
+          teacherId: 'teacher-1',
+          createdAt: '2026-05-26T00:00:00.000Z', // Active from May 26 (after May 25)
+        },
+        {
+          id: 'slot-2',
+          dayOfWeek: 1, // Monday May 25
+          from: '10:00:00',
+          to: '11:30:00',
+          teacherId: 'teacher-1',
+          deletedAt: '2026-05-24T00:00:00.000Z', // Deleted before May 25
+        },
+      ],
+      teachers: [
+        {
+          teacherId: 'teacher-1',
+          teacher: {
+            id: 'teacher-1',
+            user: {
+              first_name: 'An',
+              last_name: 'Nguyen',
+              email: 'an@example.com',
+            },
+          },
+        },
+      ],
+    });
+    prisma.session.findMany.mockResolvedValue([]);
+    prisma.makeupScheduleEvent.findMany.mockResolvedValue([]);
+
+    // Checking last 7 days (May 23 to May 29). Both Monday slots should be omitted since one starts in future and one is deleted.
+    await expect(
+      service.getMissedTeachingAlertsByClass('class-1', 7),
+    ).resolves.toEqual([]);
+  });
 });

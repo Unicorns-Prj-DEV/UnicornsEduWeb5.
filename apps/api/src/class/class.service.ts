@@ -118,6 +118,8 @@ type StoredClassScheduleEntry = {
   teacherId?: string;
   googleCalendarEventId?: string;
   meetLink?: string;
+  createdAt?: string;
+  deletedAt?: string;
 };
 
 type TeacherAssignmentPayload = {
@@ -250,6 +252,10 @@ export class ClassService {
               : undefined,
           meetLink:
             typeof entry.meetLink === 'string' ? entry.meetLink : undefined,
+          createdAt:
+            typeof entry.createdAt === 'string' ? entry.createdAt : undefined,
+          deletedAt:
+            typeof entry.deletedAt === 'string' ? entry.deletedAt : undefined,
         };
       });
   }
@@ -264,6 +270,8 @@ export class ClassService {
       teacherId?: string;
       googleCalendarEventId?: string;
       meetLink?: string;
+      createdAt?: string;
+      deletedAt?: string;
     }>,
   ): Prisma.InputJsonValue {
     return entries.map((entry) => ({
@@ -278,7 +286,31 @@ export class ClassService {
         ? { googleCalendarEventId: entry.googleCalendarEventId }
         : {}),
       ...(entry.meetLink ? { meetLink: entry.meetLink } : {}),
+      ...(entry.createdAt ? { createdAt: entry.createdAt } : {}),
+      ...(entry.deletedAt ? { deletedAt: entry.deletedAt } : {}),
     })) as Prisma.InputJsonValue;
+  }
+
+  private normalizeTimeValue(
+    value: Date | string | null | undefined,
+  ): string | undefined {
+    if (!value) {
+      return undefined;
+    }
+
+    if (typeof value === 'string') {
+      const match = /^(\d{2}:\d{2})(?::(\d{2}))?$/.exec(value.trim());
+      if (!match) {
+        return undefined;
+      }
+
+      return `${match[1]}:${match[2] ?? '00'}`;
+    }
+
+    const hours = String(value.getHours()).padStart(2, '0');
+    const minutes = String(value.getMinutes()).padStart(2, '0');
+    const seconds = String(value.getSeconds()).padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
   }
 
   private mergeScheduleEntriesWithExisting(
@@ -294,20 +326,80 @@ export class ClassService {
         .map((entry) => [entry.id, entry]),
     );
 
-    return nextEntries.map((entry) => {
+    const deletedEntries: StoredClassScheduleEntry[] = [];
+    const activeEntries: StoredClassScheduleEntry[] = [];
+    const handledExistingIds = new Set<string>();
+
+    for (const entry of nextEntries) {
       const existingEntry =
         entry.id != null ? existingById.get(entry.id) : undefined;
 
-      return {
-        id: entry.id,
+      if (existingEntry) {
+        const fromNormalized = this.normalizeTimeValue(entry.from);
+        const toNormalized = this.normalizeTimeValue(entry.to);
+        const existingFrom = this.normalizeTimeValue(existingEntry.from);
+        const existingTo = this.normalizeTimeValue(
+          existingEntry.to || existingEntry.end,
+        );
+
+        const hasChanged =
+          existingEntry.dayOfWeek !== entry.dayOfWeek ||
+          existingFrom !== fromNormalized ||
+          existingTo !== toNormalized ||
+          existingEntry.teacherId !== entry.teacherId;
+
+        if (hasChanged) {
+          deletedEntries.push({
+            ...existingEntry,
+            deletedAt: existingEntry.deletedAt ?? new Date().toISOString(),
+          });
+          handledExistingIds.add(existingEntry.id);
+
+          activeEntries.push({
+            id: randomUUID(),
+            dayOfWeek: entry.dayOfWeek,
+            from: fromNormalized,
+            to: toNormalized,
+            teacherId: entry.teacherId,
+            googleCalendarEventId: undefined,
+            meetLink: undefined,
+            createdAt: new Date().toISOString(),
+          });
+          continue;
+        }
+      }
+
+      activeEntries.push({
+        id: entry.id ?? randomUUID(),
         dayOfWeek: entry.dayOfWeek,
-        from: entry.from,
-        to: entry.to,
+        from: this.normalizeTimeValue(entry.from),
+        to: this.normalizeTimeValue(entry.to),
         teacherId: entry.teacherId,
         googleCalendarEventId: existingEntry?.googleCalendarEventId,
         meetLink: existingEntry?.meetLink,
-      };
-    });
+        createdAt:
+          existingEntry?.createdAt ??
+          entry.createdAt ??
+          new Date().toISOString(),
+      });
+    }
+
+    const nextEntryIds = new Set(
+      activeEntries.map((entry) => entry.id).filter(Boolean),
+    );
+    for (const existingEntry of existingById.values()) {
+      if (
+        !nextEntryIds.has(existingEntry.id) &&
+        !handledExistingIds.has(existingEntry.id)
+      ) {
+        deletedEntries.push({
+          ...existingEntry,
+          deletedAt: existingEntry.deletedAt ?? new Date().toISOString(),
+        });
+      }
+    }
+
+    return [...activeEntries, ...deletedEntries];
   }
 
   private removeScheduleEntriesForTeachers(
@@ -327,14 +419,24 @@ export class ClassService {
       };
     }
 
-    const nextSchedule = oldSchedule.filter(
-      (entry) => !entry.teacherId || !removedTeacherIds.has(entry.teacherId),
-    );
+    let removedCount = 0;
+    const nextSchedule = oldSchedule.map((entry) => {
+      if (entry.teacherId && removedTeacherIds.has(entry.teacherId)) {
+        if (!entry.deletedAt) {
+          removedCount++;
+          return {
+            ...entry,
+            deletedAt: new Date().toISOString(),
+          };
+        }
+      }
+      return entry;
+    });
 
     return {
       oldSchedule,
       nextSchedule,
-      removedScheduleEntries: oldSchedule.length - nextSchedule.length,
+      removedScheduleEntries: removedCount,
     };
   }
 
@@ -377,6 +479,7 @@ export class ClassService {
     return schedule.map((entry) => ({
       ...entry,
       id: entry.id ?? randomUUID(),
+      createdAt: entry.createdAt ?? new Date().toISOString(),
     }));
   }
 
@@ -1593,6 +1696,67 @@ export class ClassService {
       normalizedScheduleEntries,
     );
 
+    // Find modified/deleted entry IDs to check for affected future makeup events
+    const oldSchedule = this.getStoredClassScheduleEntries(existing.schedule);
+    const oldScheduleById = new Map(
+      oldSchedule
+        .filter(
+          (entry): entry is StoredClassScheduleEntry & { id: string } =>
+            !!entry.id,
+        )
+        .map((entry) => [entry.id, entry]),
+    );
+
+    const changedOrDeletedEntryIds = new Set<string>();
+    for (const entry of normalizedScheduleEntries) {
+      if (entry.id && entry.deletedAt) {
+        const oldEntry = oldScheduleById.get(entry.id);
+        if (oldEntry && !oldEntry.deletedAt) {
+          changedOrDeletedEntryIds.add(entry.id);
+        }
+      }
+    }
+
+    const warnings: string[] = [];
+    if (changedOrDeletedEntryIds.size > 0) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const affectedMakeupEvents =
+        await this.prisma.makeupScheduleEvent.findMany({
+          where: {
+            classId: id,
+            baselineScheduleEntryId: {
+              in: Array.from(changedOrDeletedEntryIds),
+            },
+            date: { gte: today },
+          },
+          include: {
+            teacher: {
+              include: {
+                user: {
+                  select: { first_name: true, last_name: true },
+                },
+              },
+            },
+          },
+        });
+
+      for (const event of affectedMakeupEvents) {
+        const eventDateStr = event.date.toLocaleDateString('vi-VN', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        });
+        const teacherName = event.teacher
+          ? `${event.teacher.user?.first_name ?? ''} ${event.teacher.user?.last_name ?? ''}`.trim()
+          : 'chưa xác định';
+        warnings.push(
+          `Buổi học bù ngày ${eventDateStr} do gia sư ${teacherName} phụ trách bị ảnh hưởng do lịch học cố định gốc bị thay đổi/xoá.`,
+        );
+      }
+    }
+
     const result = await this.prisma.$transaction(async (tx) => {
       const beforeValue = auditActor
         ? await this.getClassAuditSnapshot(tx, id)
@@ -1624,11 +1788,16 @@ export class ClassService {
     // Sync with Google Calendar after schedule change
     // Pass old schedule so sync can delete old events before creating new ones
     try {
-      const oldSchedule = this.getStoredClassScheduleEntries(existing.schedule);
-      this.logger.log(
-        `[ClassService] Calling syncScheduleWithCalendar for class ${id} after schedule update, oldSchedule entries: ${oldSchedule.length}`,
+      const oldScheduleEntries = this.getStoredClassScheduleEntries(
+        existing.schedule,
       );
-      await this.calendarService.syncScheduleWithCalendar(id, oldSchedule);
+      this.logger.log(
+        `[ClassService] Calling syncScheduleWithCalendar for class ${id} after schedule update, oldSchedule entries: ${oldScheduleEntries.length}`,
+      );
+      await this.calendarService.syncScheduleWithCalendar(
+        id,
+        oldScheduleEntries,
+      );
       this.logger.log(
         `[ClassService] syncScheduleWithCalendar completed for class ${id}`,
       );
@@ -1640,7 +1809,10 @@ export class ClassService {
       throw err;
     }
 
-    return result;
+    return {
+      class: result,
+      warnings,
+    };
   }
 
   async updateClassStudents(

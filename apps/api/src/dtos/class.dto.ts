@@ -369,6 +369,22 @@ export class ScheduleSlotDto {
   @IsOptional()
   @IsStaffId()
   teacherId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Creation ISO timestamp',
+    example: '2026-06-03T14:12:42.000Z',
+  })
+  @IsOptional()
+  @IsString()
+  createdAt?: string;
+
+  @ApiPropertyOptional({
+    description: 'Deletion ISO timestamp',
+    example: '2026-06-03T14:12:42.000Z',
+  })
+  @IsOptional()
+  @IsString()
+  deletedAt?: string;
 }
 
 /** DTO for PATCH /class/:id/schedule – replace schedule */
