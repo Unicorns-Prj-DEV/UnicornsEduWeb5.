@@ -400,6 +400,10 @@ export default function AdminClassDetailPage() {
   );
 
   const scheduleItems = (classDetail?.schedule ?? []).filter(
+    (item) => item?.from && item?.to && !item?.deletedAt,
+  );
+
+  const allScheduleItems = (classDetail?.schedule ?? []).filter(
     (item) => item?.from && item?.to,
   );
 
@@ -1261,7 +1265,7 @@ export default function AdminClassDetailPage() {
           onOpenPastEvents={() => setPastMakeupPopupOpen(true)}
           disabledCreateMessage={makeupScheduleDisabledMessage}
           month={selectedMonth}
-          scheduleItems={scheduleItems}
+          scheduleItems={allScheduleItems}
           queryKeyPrefix={classDetailQueryKey}
           listFn={classApi.getClassMakeupEvents}
           createFn={classApi.createClassMakeupEvent}

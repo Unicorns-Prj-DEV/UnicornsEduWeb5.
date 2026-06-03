@@ -117,10 +117,10 @@ export async function createClass(
 export async function updateClassSchedule(
   id: string,
   data: StaffOpsUpdateClassSchedulePayload,
-): Promise<ClassDetail> {
+): Promise<{ class: ClassDetail; warnings: string[] }> {
   const safeId = encodeURIComponent(id);
-  const response = await api.patch(`/staff-ops/classes/${safeId}/schedule`, data);
-  return response.data as ClassDetail;
+  const response = await api.patch<{ class: ClassDetail; warnings: string[] }>(`/staff-ops/classes/${safeId}/schedule`, data);
+  return response.data;
 }
 
 export async function resyncClassScheduleGoogleCalendar(

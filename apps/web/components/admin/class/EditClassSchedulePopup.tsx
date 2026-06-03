@@ -219,7 +219,13 @@ function EditClassScheduleDialog({
           : classApi.updateClassSchedule(classDetail.id, {
               schedule: schedulePayload,
             }),
-      onSuccess: async () => {
+      onSuccess: async (result) => {
+        const resObj = result as Record<string, unknown> | null;
+        if (resObj && "warnings" in resObj && Array.isArray(resObj.warnings)) {
+          resObj.warnings.forEach((warning) => {
+            toast.warning(String(warning), { duration: 10000 });
+          });
+        }
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["class", "detail", classDetail.id] }),
           queryClient.invalidateQueries({ queryKey: ["class", "list"] }),

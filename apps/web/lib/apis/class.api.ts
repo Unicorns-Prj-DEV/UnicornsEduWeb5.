@@ -291,9 +291,9 @@ export async function updateClassTeacherCompensation(
 export async function updateClassSchedule(
   id: string,
   data: UpdateClassSchedulePayload,
-): Promise<ClassDetail> {
+): Promise<{ class: ClassDetail; warnings: string[] }> {
   const safeId = encodeURIComponent(id);
-  const response = await api.patch(`/class/${safeId}/schedule`, data);
+  const response = await api.patch<{ class: ClassDetail; warnings: string[] }>(`/class/${safeId}/schedule`, data);
   return response.data;
 }
 

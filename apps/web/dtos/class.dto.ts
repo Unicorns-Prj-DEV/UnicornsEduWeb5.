@@ -12,6 +12,8 @@ export interface ClassScheduleItem {
     teacherId?: string;
     googleCalendarEventId?: string | null;
     meetLink?: string | null;
+    createdAt?: string | null;
+    deletedAt?: string | null;
 }
 
 export interface ClassListItem {
