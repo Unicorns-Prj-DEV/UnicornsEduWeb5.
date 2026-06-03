@@ -349,7 +349,7 @@
   - `GET /staff-ops/classes`
   - `GET /staff-ops/classes/:id`
     - với `staff.customer_care`, backend chỉ trả lớp khi tồn tại ít nhất một `student_classes` row mà học sinh tương ứng đang map tới chính staff đó trong `customer_care_service`
-  - `PATCH /staff-ops/classes/:id/schedule`
+  - `PATCH /staff-ops/classes/:id/schedule` — cập nhật khung giờ học tương tự admin (hỗ trợ lưu vết lịch sử slot và trả về danh sách cảnh báo `warnings` cho các buổi bù tương lai).
   - `GET /staff-ops/classes/:classId/sessions?month=&year=`
     - với `staff.teacher`, backend chỉ trả các buổi trong lớp đó do chính teacher hiện tại phụ trách; `admin` và `staff.customer_care` thấy toàn bộ buổi của lớp, nhưng `customer_care` vẫn chỉ ở chế độ đọc
   - `POST /staff-ops/classes/:classId/sessions`

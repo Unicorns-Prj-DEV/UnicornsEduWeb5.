@@ -24,8 +24,12 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 ### Fixed
 
 - FE popup nạp ví SePay (`StudentBalancePopup` trên `/student` và chi tiết học sinh admin/staff): đổi từ sao chép nội dung chuyển khoản sang **Sao chép QR** (ảnh/link), gỡ khối hiển thị `transferNote`; tái sử dụng `copyStudentWalletQrWithToast` trong `apps/web/lib/clipboard-qr.ts`.
+- BE test: Sửa các unit test lỗi liên quan đến việc giữ lại lịch sử khung giờ (ClassService, StaffService) và name ordering discrepancy trong DeductionSettingsService test, đồng thời cập nhật test rbac-mutation-metadata để tương thích với các decorator RBAC mới.
+- FE typecheck: Sửa lỗi kiểu dữ liệu ClassScheduleItem trên frontend (bổ sung thuộc tính optional `createdAt` và `deletedAt`) và ép kiểu result trong EditClassSchedulePopup để pass check tsc.
 
 ### Changed
+
+- BE/FE class schedule history & makeup validation: Lưu vết lịch sử thay đổi lịch cố định của lớp học dưới dạng snapshot (thêm trường `createdAt` và `deletedAt` trong JSON `Class.schedule`). Cảnh báo chưa dạy (missed teaching alerts) và các hiển thị calendar tuần chỉ đối chiếu với các slot lịch cố định còn hoạt động tại thời điểm tương ứng trong quá khứ. Đồng thời, bổ sung ràng buộc kiểm tra lịch bù (cả cảnh báo và tạo thủ công) phải có ngày học lớn hơn hoặc bằng ngày tạo lớp học (`Class.createdAt`).
 
 - BE/FE biên lai nạp ví SePay: thêm `student_info.parent_receipt_email_enabled` (mặc định bật); khi tắt, webhook vẫn cộng ví nhưng không gửi email biên lai cho phụ huynh lẫn CSKH. Switch trên `/student` và trang chi tiết học sinh admin/staff. Biên lai email/PDF bỏ trường “Người thanh toán”.
 

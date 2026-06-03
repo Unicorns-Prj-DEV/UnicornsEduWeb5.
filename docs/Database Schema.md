@@ -177,7 +177,9 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
       "to": "string in HH:mm format (e.g., '20:30')",
       "teacherId": "string? (UNISTAFF-[0-9a-f]{10} of the responsible tutor for this slot)",
       "calendarEventId": "string? (optional, stores Google Calendar recurring event ID)",
-      "meetLink": "string? (optional, stores Google Meet link returned when recurring event is synced)"
+      "meetLink": "string? (optional, stores Google Meet link returned when recurring event is synced)",
+      "createdAt": "string? (optional ISO timestamp when this schedule entry was created/activated)",
+      "deletedAt": "string? (optional ISO timestamp when this schedule entry was deleted/deactivated)"
     }
     ```
     Mảng này định nghĩa mẫu lịch học lặp lại hàng tuần. Calendar admin có thể expand pattern này thành các occurrence để render lịch trong một khoảng ngày, và có thể đồng bộ từng entry thành recurring event trên Google Calendar.
@@ -235,6 +237,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - Ghi chú:
   - Buổi bù không thay thế recurring slot trong `Class.schedule`; nó chỉ bổ sung thêm vào feed lịch.
   - Khi người dùng chọn **buổi học gốc**, frontend gửi `baseline_schedule_entry_id` + `original_date`; backend validate slot đó còn tồn tại trong `Class.schedule` và `original_date` khớp `dayOfWeek` của slot.
+  - Lịch bù (bao gồm cả cảnh báo chưa dạy và lịch bù tạo thủ công) phải có ngày học lớn hơn hoặc bằng ngày tạo lớp học (`Class.createdAt`).
   - FE hiện quản lý CRUD buổi bù theo từng lớp tại `/admin/classes/:id` và `/staff/classes/:id`; calendar chỉ còn hiển thị aggregate event.
   - Backend sync one-off event này lên Google Calendar riêng, độc lập với recurring event của `Class.schedule`.
   - Buổi bù tương lai bị xóa khi lớp kết thúc hoặc khi gia sư phụ trách buổi đó nghỉ dạy/ngừng hoạt động; buổi đã qua vẫn là lịch sử vận hành.
