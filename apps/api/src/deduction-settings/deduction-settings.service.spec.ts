@@ -101,8 +101,8 @@ describe('DeductionSettingsService', () => {
       createdAt: new Date('2026-03-20T00:00:00.000Z'),
       staff: {
         user: {
-          first_name: 'Nguyen',
-          last_name: 'Van A',
+          first_name: 'Van A',
+          last_name: 'Nguyen',
         },
       },
     });
@@ -115,8 +115,8 @@ describe('DeductionSettingsService', () => {
       createdAt: new Date('2026-03-20T00:00:00.000Z'),
       staff: {
         user: {
-          first_name: 'Nguyen',
-          last_name: 'Van A',
+          first_name: 'Van A',
+          last_name: 'Nguyen',
         },
       },
     });

@@ -597,7 +597,13 @@ describe('ClassService', () => {
       };
       const afterSnapshot = {
         ...beforeSnapshot,
-        schedule: [beforeSnapshot.schedule[1]],
+        schedule: [
+          {
+            ...beforeSnapshot.schedule[0],
+            deletedAt: '2026-06-03T15:20:38.775Z',
+          },
+          beforeSnapshot.schedule[1],
+        ],
       };
       (
         service as unknown as {
@@ -632,6 +638,11 @@ describe('ClassService', () => {
         where: { id: 'class-1' },
         data: {
           schedule: [
+            expect.objectContaining({
+              id: 'slot-1',
+              teacherId: 'teacher-1',
+              deletedAt: expect.any(String),
+            }),
             expect.objectContaining({
               id: 'slot-2',
               teacherId: 'teacher-2',
@@ -785,7 +796,11 @@ describe('ClassService', () => {
         where: { id: 'class-1' },
         data: {
           schedule: [
-            {
+            expect.objectContaining({
+              id: 'slot-removed',
+              deletedAt: expect.any(String),
+            }),
+            expect.objectContaining({
               id: 'slot-kept',
               dayOfWeek: 3,
               from: '18:00:00',
@@ -793,7 +808,7 @@ describe('ClassService', () => {
               teacherId: 'teacher-kept',
               googleCalendarEventId: 'google-kept',
               meetLink: 'https://meet.google.com/kept',
-            },
+            }),
           ],
         },
       });

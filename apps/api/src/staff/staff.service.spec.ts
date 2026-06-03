@@ -378,7 +378,17 @@ describe('StaffService', () => {
     expect(mockPrisma.class.update).toHaveBeenCalledWith({
       where: { id: 'class-1' },
       data: {
-        schedule: [expect.objectContaining({ id: 'slot-2' })],
+        schedule: [
+          expect.objectContaining({
+            id: 'slot-1',
+            teacherId: 'staff-1',
+            deletedAt: expect.any(String),
+          }),
+          expect.objectContaining({
+            id: 'slot-2',
+            teacherId: 'staff-2',
+          }),
+        ],
       },
     });
     expect(mockPrisma.classTeacher.updateMany).toHaveBeenCalledWith({

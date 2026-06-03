@@ -66,14 +66,18 @@ function getAllowAssistantOnAdminRoute(
 
 describe('RBAC route metadata', () => {
   it.each(['createUser', 'createStudentUser', 'updateUser', 'deleteUser'])(
-    'requires full admin for UserController.%s',
+    'allows assistant on UserController.%s',
     (methodName) => {
-      expect(getAllowedStaffRoles(UserController, methodName)).toEqual([]);
+      expect(getAllowedStaffRoles(UserController, methodName)).toEqual([
+        StaffRole.assistant,
+      ]);
     },
   );
 
-  it('requires full admin for staff profile role/link updates', () => {
-    expect(getAllowedStaffRoles(StaffController, 'updateStaff')).toEqual([]);
+  it('allows assistant for staff profile role/link updates', () => {
+    expect(getAllowedStaffRoles(StaffController, 'updateStaff')).toEqual([
+      StaffRole.assistant,
+    ]);
   });
 
   it('allows assistant on staff lifecycle helper routes', () => {
@@ -109,22 +113,19 @@ describe('RBAC route metadata', () => {
     ).toEqual([StaffRole.assistant, StaffRole.customer_care]);
   });
 
-  it('keeps direct wallet adjustment and student delete full-admin only', () => {
+  it('allows assistant on student delete and wallet adjustment routes', () => {
     expect(
-      getAllowAssistantOnAdminRoute(
-        StudentController,
-        'updateStudentAccountBalance',
-      ),
-    ).toBe(false);
-    expect(
-      getAllowAssistantOnAdminRoute(StudentController, 'deleteStudent'),
-    ).toBe(false);
+      getAllowedStaffRoles(StudentController, 'updateStudentAccountBalance'),
+    ).toEqual([StaffRole.assistant]);
+    expect(getAllowedStaffRoles(StudentController, 'deleteStudent')).toEqual([
+      StaffRole.assistant,
+    ]);
   });
 
-  it('keeps tax deduction settings full-admin only', () => {
-    expect(getAllowAssistantOnAdminRoute(DeductionSettingsController)).toBe(
-      false,
-    );
+  it('allows assistant on tax deduction settings by default', () => {
+    expect(
+      getAllowAssistantOnAdminRoute(DeductionSettingsController),
+    ).toBeUndefined();
   });
 
   it('allows assistant and expense accountant to create costs', () => {
