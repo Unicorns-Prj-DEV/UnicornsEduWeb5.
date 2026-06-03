@@ -21,6 +21,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Fixed
+
+- FE popup nạp ví SePay (`StudentBalancePopup` trên `/student` và chi tiết học sinh admin/staff): đổi từ sao chép nội dung chuyển khoản sang **Sao chép QR** (ảnh/link), gỡ khối hiển thị `transferNote`; tái sử dụng `copyStudentWalletQrWithToast` trong `apps/web/lib/clipboard-qr.ts`.
+
 ### Changed
 
 - BE/FE biên lai nạp ví SePay: thêm `student_info.parent_receipt_email_enabled` (mặc định bật); khi tắt, webhook vẫn cộng ví nhưng không gửi email biên lai cho phụ huynh lẫn CSKH. Switch trên `/student` và trang chi tiết học sinh admin/staff. Biên lai email/PDF bỏ trường “Người thanh toán”.

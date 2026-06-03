@@ -1,4 +1,18 @@
+import { toast } from "sonner";
+
 export type CopyQrResult = "image" | "link";
+
+export async function copyStudentWalletQrWithToast(
+  qrCodeUrl: string,
+): Promise<CopyQrResult> {
+  const copied = await copyQrImageOrLink(qrCodeUrl);
+  toast.success(
+    copied === "image"
+      ? "Đã sao chép ảnh QR."
+      : "Không thể copy ảnh QR, đã sao chép link QR.",
+  );
+  return copied;
+}
 
 export async function copyQrImageOrLink(qrCodeUrl: string): Promise<CopyQrResult> {
   const safeQrCodeUrl = qrCodeUrl.trim();

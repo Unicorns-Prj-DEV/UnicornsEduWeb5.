@@ -23,7 +23,7 @@ import { resolveStudentAdminCapabilities } from "@/lib/admin-shell-access";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as studentApi from "@/lib/apis/student.api";
 import { formatCurrency } from "@/lib/class.helpers";
-import { copyQrImageOrLink } from "@/lib/clipboard-qr";
+import { copyStudentWalletQrWithToast } from "@/lib/clipboard-qr";
 import { getActiveClassItemsFromStudent } from "@/lib/student-static-qr";
 import { cn } from "@/lib/utils";
 
@@ -293,12 +293,7 @@ export default function AdminStudentsPage() {
   const handleCopyQr = async (student: StudentListItem) => {
     try {
       const qr = await studentApi.getStudentSePayStaticQr(student.id);
-      const copied = await copyQrImageOrLink(qr.qrCodeUrl);
-      toast.success(
-        copied === "image"
-          ? "Đã sao chép ảnh QR."
-          : "Không thể copy ảnh QR, đã sao chép link QR.",
-      );
+      await copyStudentWalletQrWithToast(qr.qrCodeUrl);
     } catch {
       toast.error("Không thể sao chép QR. Vui lòng thử lại.");
     }

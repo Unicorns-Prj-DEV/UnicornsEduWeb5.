@@ -31,7 +31,7 @@ import {
 import * as customerCareApi from "@/lib/apis/customer-care.api";
 import * as studentApi from "@/lib/apis/student.api";
 import { formatCurrency } from "@/lib/class.helpers";
-import { copyQrImageOrLink } from "@/lib/clipboard-qr";
+import { copyStudentWalletQrWithToast } from "@/lib/clipboard-qr";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -480,12 +480,7 @@ export default function CustomerCareDetailPanels({
   const handleCopyQr = async (student: CustomerCareStudentItem) => {
     try {
       const qr = await studentApi.getStudentSePayStaticQr(student.id);
-      const copied = await copyQrImageOrLink(qr.qrCodeUrl);
-      toast.success(
-        copied === "image"
-          ? "Đã sao chép ảnh QR."
-          : "Không thể copy ảnh QR, đã sao chép link QR.",
-      );
+      await copyStudentWalletQrWithToast(qr.qrCodeUrl);
     } catch {
       toast.error("Không thể sao chép QR. Vui lòng thử lại.");
     }

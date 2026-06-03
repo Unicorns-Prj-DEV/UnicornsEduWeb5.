@@ -6,6 +6,7 @@ import { useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { StudentSePayStaticQrResponse } from "@/dtos/student.dto";
 import * as studentApi from "@/lib/apis/student.api";
+import { copyStudentWalletQrWithToast } from "@/lib/clipboard-qr";
 import { formatCurrency } from "@/lib/class.helpers";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
 
@@ -118,6 +119,7 @@ export default function StudentBalancePopup({
   const [amountInput, setAmountInput] = useState("");
   const [topUpMethod, setTopUpMethod] = useState<TopUpMethod>(preferredTopUpMethod);
   const [reasonInput, setReasonInput] = useState("");
+  const [isCopyingQr, setIsCopyingQr] = useState(false);
 
   const sePayTopupEnabled =
     mode === "topup" && topUpMethod === "sepay" && hasSePayStaticQrSource;
@@ -204,15 +206,19 @@ export default function StudentBalancePopup({
     onClose();
   };
 
-  const handleCopyTransferNote = async (text: string) => {
-    if (!text) {
+  const handleCopyQr = async (qrCodeUrl: string | null | undefined) => {
+    const safeQrCodeUrl = qrCodeUrl?.trim();
+    if (!safeQrCodeUrl || isSePayStaticQrLoading || isCopyingQr) {
       return;
     }
+
+    setIsCopyingQr(true);
     try {
-      await navigator.clipboard.writeText(text);
-      toast.success("Đã sao chép nội dung chuyển khoản.");
+      await copyStudentWalletQrWithToast(safeQrCodeUrl);
     } catch {
-      toast.error("Không thể sao chép. Vui lòng chọn và copy thủ công.");
+      toast.error("Không thể sao chép QR. Vui lòng thử lại.");
+    } finally {
+      setIsCopyingQr(false);
     }
   };
 
@@ -395,22 +401,15 @@ export default function StudentBalancePopup({
                   <p className="mt-4 text-sm text-error">Không có ảnh QR SePay.</p>
                 )}
 
-                <div className="mt-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
-                    Nội dung chuyển khoản (sao chép khi cần)
-                  </p>
-                  <p className="mt-2 rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-sm leading-relaxed text-text-primary">
-                    {sePayStaticQr?.transferNote || "—"}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => handleCopyTransferNote(sePayStaticQr?.transferNote ?? "")}
-                    disabled={!sePayStaticQr?.transferNote}
-                    className="mt-3 min-h-10 w-full rounded-md border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Sao chép nội dung
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopyQr(qrImageSrc)}
+                  disabled={!qrImageSrc || isSePayStaticQrLoading || isCopyingQr}
+                  aria-label="Sao chép mã QR chuyển khoản nạp ví"
+                  className="mt-4 min-h-11 w-full rounded-md border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isCopyingQr ? "Đang sao chép…" : "Sao chép QR"}
+                </button>
               </section>
             </div>
             <div
