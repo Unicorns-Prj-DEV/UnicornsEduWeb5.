@@ -480,7 +480,17 @@ export default function CustomerCareDetailPanels({
   const handleCopyQr = async (student: CustomerCareStudentItem) => {
     try {
       const qr = await studentApi.getStudentSePayStaticQr(student.id);
-      await copyStudentWalletQrWithToast(qr.qrCodeUrl);
+      await copyStudentWalletQrWithToast(qr.qrCodeUrl, {
+        id: student.id,
+        fullName: student.fullName,
+        studentClasses: student.classes?.map((c) => ({
+          class: {
+            id: c.id,
+            name: c.name,
+          },
+          status: "active",
+        })),
+      });
     } catch {
       toast.error("Không thể sao chép QR. Vui lòng thử lại.");
     }

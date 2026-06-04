@@ -214,7 +214,7 @@ export default function StudentBalancePopup({
 
     setIsCopyingQr(true);
     try {
-      await copyStudentWalletQrWithToast(safeQrCodeUrl);
+      await copyStudentWalletQrWithToast(safeQrCodeUrl, student);
     } catch {
       toast.error("Không thể sao chép QR. Vui lòng thử lại.");
     } finally {

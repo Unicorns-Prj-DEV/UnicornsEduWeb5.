@@ -35,6 +35,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- FE copy QR: Tự động dùng Canvas để vẽ thêm thông tin học sinh (Tên, Mã học sinh, các Lớp học đang hoạt động) ở phần chân ảnh (footer) của VietQR khi copy vào clipboard từ trang quản lý học sinh admin, ví học sinh, và màn hình chăm sóc khách hàng.
 - FE/BE class session permissions: Bổ sung quyền điều chỉnh trường hệ số (multiplier/coefficient) và trạng thái thanh toán (payment status) cho quản lý (Admin/Trợ lý) cùng cả 2 vai trò kế toán (Kế toán thu `accountant_income` và Kế toán chi `accountant_expense`) trong các API `PUT /sessions/:id` và `PATCH /sessions/payment-status/bulk` cũng như UI quản lý buổi học tại trang chi tiết lớp học và chi tiết nhân sự.
 
 - FE/BE session payment status: Bổ sung lại field điều chỉnh trạng thái thanh toán của buổi học (`teacherPaymentStatus`) trong form tạo buổi học (`AddSessionPopup`) cho admin/kế toán và form chỉnh sửa buổi học (`SessionHistoryTable`) cho nhân sự có quyền (admin, trợ lý, kế toán chi), đồng thời khóa tất cả các trường thông tin cơ bản khác (ngày, giờ, gia sư, nhận xét, điểm danh) khi ở chế độ xem chi tiết/kế toán chi để bảo vệ tính toàn vẹn của dữ liệu buổi học.

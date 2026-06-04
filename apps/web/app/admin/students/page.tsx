@@ -293,7 +293,7 @@ export default function AdminStudentsPage() {
   const handleCopyQr = async (student: StudentListItem) => {
     try {
       const qr = await studentApi.getStudentSePayStaticQr(student.id);
-      await copyStudentWalletQrWithToast(qr.qrCodeUrl);
+      await copyStudentWalletQrWithToast(qr.qrCodeUrl, student);
     } catch {
       toast.error("Không thể sao chép QR. Vui lòng thử lại.");
     }
