@@ -2459,6 +2459,149 @@ export class StaffService {
     });
   }
 
+  private resolveLessonRoleForOutputs(roles: StaffRole[]) {
+    if (roles.includes(StaffRole.lesson_plan_head)) {
+      return StaffRole.lesson_plan_head;
+    }
+
+    if (roles.includes(StaffRole.lesson_plan)) {
+      return StaffRole.lesson_plan;
+    }
+
+    return null;
+  }
+
+  private async loadAllPendingPaymentPreviewDraftRecords(
+    db: StaffPaymentClient,
+    staffId: string,
+    roles: StaffRole[],
+  ): Promise<StaffPaymentPreviewDraftRecord[]> {
+    const isAssistant = roles.includes(StaffRole.assistant);
+    const lessonRoleForOutputs = this.resolveLessonRoleForOutputs(roles);
+
+    const draftRecordGroups = await Promise.all([
+      this.getTeacherSnapshotPaymentPreviewRecords(db, {
+        teacherId: staffId,
+      }),
+      this.getBonusAllPendingPreviewRecords(db, staffId),
+      roles.includes(StaffRole.customer_care)
+        ? this.getCustomerCareAllPendingPreviewRecords(db, staffId)
+        : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
+      lessonRoleForOutputs
+        ? this.getLessonOutputAllPendingPreviewRecords(db, {
+            staffId,
+            role: lessonRoleForOutputs,
+          })
+        : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
+      isAssistant
+        ? this.getAssistantAllPendingPreviewRecords(db, staffId)
+        : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
+      this.getExtraAllowanceAllPendingPreviewRecords(db, staffId),
+    ]);
+
+    return draftRecordGroups.flat();
+  }
+
+  private async loadNonTeacherNonBonusPendingPreviewDraftRecords(
+    db: StaffPaymentClient,
+    staffId: string,
+    roles: StaffRole[],
+    isAssistant: boolean,
+  ): Promise<StaffPaymentPreviewDraftRecord[]> {
+    const lessonRoleForOutputs = this.resolveLessonRoleForOutputs(roles);
+
+    const draftRecordGroups = await Promise.all([
+      roles.includes(StaffRole.customer_care)
+        ? this.getCustomerCareAllPendingPreviewRecords(db, staffId)
+        : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
+      lessonRoleForOutputs
+        ? this.getLessonOutputAllPendingPreviewRecords(db, {
+            staffId,
+            role: lessonRoleForOutputs,
+          })
+        : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
+      isAssistant
+        ? this.getAssistantAllPendingPreviewRecords(db, staffId)
+        : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
+      this.getExtraAllowanceAllPendingPreviewRecords(db, staffId),
+    ]);
+
+    return draftRecordGroups.flat();
+  }
+
+  private async finalizePendingPaymentPreviewRecords(
+    db: StaffPaymentClient,
+    staffId: string,
+    roles: StaffRole[],
+    draftRecords: StaffPaymentPreviewDraftRecord[],
+  ): Promise<{
+    records: StaffPaymentPreviewRecord[];
+    taxAsOfDate: string;
+  }> {
+    const taxAsOfDate = new Date().toISOString().slice(0, 10);
+
+    if (draftRecords.length === 0) {
+      return {
+        records: [],
+        taxAsOfDate,
+      };
+    }
+
+    const { taxAsOfDate: resolvedTaxAsOfDate, taxRateByRole } =
+      await this.resolveCurrentPaymentTaxRates(db, staffId, draftRecords);
+    const bonusIncomeTaxRatePercent =
+      await this.resolveBonusIncomeTaxRatePercent(staffId, roles);
+
+    return {
+      records: this.finalizePaymentPreviewRecords(
+        draftRecords,
+        taxRateByRole,
+        bonusIncomeTaxRatePercent,
+      ),
+      taxAsOfDate: resolvedTaxAsOfDate,
+    };
+  }
+
+  private async computeOtherRoleUnpaidNetByRole(
+    staffId: string,
+    roles: StaffRole[],
+    isAssistant: boolean,
+  ): Promise<Map<StaffRole, number>> {
+    const db = this.prisma;
+    const draftRecords = await this.loadNonTeacherNonBonusPendingPreviewDraftRecords(
+      db,
+      staffId,
+      roles,
+      isAssistant,
+    );
+
+    if (draftRecords.length === 0) {
+      return new Map();
+    }
+
+    const finalized = await this.finalizePendingPaymentPreviewRecords(
+      db,
+      staffId,
+      roles,
+      draftRecords,
+    );
+
+    const unpaidByRole = new Map<StaffRole, number>();
+    finalized.records.forEach((record) => {
+      if (record.role == null) {
+        return;
+      }
+
+      unpaidByRole.set(
+        record.role,
+        (unpaidByRole.get(record.role) ?? 0) +
+          normalizeMoneyAmount(record.netAmount),
+      );
+    });
+
+    return unpaidByRole;
+  }
+
   private async loadStaffPaymentPreviewRecords(
     db: StaffPaymentClient,
     id: string,
@@ -2480,74 +2623,24 @@ export class StaffService {
       throw new NotFoundException('Staff not found');
     }
 
-    const lessonRoleForOutputs = staff.roles.includes(
-      StaffRole.lesson_plan_head,
-    )
-      ? StaffRole.lesson_plan_head
-      : staff.roles.includes(StaffRole.lesson_plan)
-        ? StaffRole.lesson_plan
-        : StaffRole.lesson_plan;
-
-    const [
-      teacherRecords,
-      customerCareRecords,
-      assistantShareRecords,
-      lessonOutputRecords,
-      extraAllowanceRecords,
-      bonusRecords,
-    ] = await Promise.all([
-      this.getTeacherPaymentPreviewRecords(db, {
-        teacherId: id,
-      }),
-      this.getCustomerCarePaymentPreviewRecords(db, {
-        staffId: id,
-        start: range.start,
-        end: range.end,
-      }),
-      this.getAssistantSharePaymentPreviewRecords(db, {
-        staffId: id,
-        start: range.start,
-        end: range.end,
-      }),
-      this.getLessonOutputPaymentPreviewRecords(db, {
-        staffId: id,
-        start: range.start,
-        end: range.end,
-        role: lessonRoleForOutputs,
-      }),
-      this.getExtraAllowancePaymentPreviewRecords(db, {
-        staffId: id,
-        monthKey: range.monthKey,
-      }),
-      this.getBonusPaymentPreviewRecords(db, {
-        staffId: id,
-        monthKey: range.monthKey,
-      }),
-    ]);
-
-    const draftRecords = [
-      ...teacherRecords,
-      ...customerCareRecords,
-      ...assistantShareRecords,
-      ...lessonOutputRecords,
-      ...extraAllowanceRecords,
-      ...bonusRecords,
-    ];
-    const { taxAsOfDate, taxRateByRole } =
-      await this.resolveCurrentPaymentTaxRates(db, id, draftRecords);
-
-    const bonusIncomeTaxRatePercent =
-      await this.resolveBonusIncomeTaxRatePercent(id, staff.roles);
+    const draftRecords = await this.loadAllPendingPaymentPreviewDraftRecords(
+      db,
+      id,
+      staff.roles,
+    );
+    const { records, taxAsOfDate } =
+      await this.finalizePendingPaymentPreviewRecords(
+        db,
+        id,
+        staff.roles,
+        draftRecords,
+      );
 
     return {
       staff,
       monthKey: range.monthKey,
       taxAsOfDate,
-      records: this.finalizePaymentPreviewRecords(
-        draftRecords,
-        taxRateByRole,
-        bonusIncomeTaxRatePercent,
-      ),
+      records,
     };
   }
 
@@ -3461,53 +3554,24 @@ export class StaffService {
     isAssistant: boolean,
   ): Promise<number> {
     const db = this.prisma;
-    const lessonRoleForOutputs = roles.includes(StaffRole.lesson_plan_head)
-      ? StaffRole.lesson_plan_head
-      : roles.includes(StaffRole.lesson_plan)
-        ? StaffRole.lesson_plan
-        : null;
+    const draftRecords = await this.loadAllPendingPaymentPreviewDraftRecords(
+      db,
+      staffId,
+      roles,
+    );
 
-    const draftRecordGroups = await Promise.all([
-      this.getTeacherSnapshotPaymentPreviewRecords(db, {
-        teacherId: staffId,
-      }),
-      this.getBonusAllPendingPreviewRecords(db, staffId),
-      roles.includes(StaffRole.customer_care)
-        ? this.getCustomerCareAllPendingPreviewRecords(db, staffId)
-        : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
-      lessonRoleForOutputs
-        ? this.getLessonOutputAllPendingPreviewRecords(db, {
-            staffId,
-            role: lessonRoleForOutputs,
-          })
-        : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
-      isAssistant
-        ? this.getAssistantAllPendingPreviewRecords(db, staffId)
-        : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
-      this.getExtraAllowanceAllPendingPreviewRecords(db, staffId),
-    ]);
-
-    const draftRecords = draftRecordGroups.flat();
     if (draftRecords.length === 0) {
       return 0;
     }
 
-    const { taxRateByRole } = await this.resolveCurrentPaymentTaxRates(
+    const finalized = await this.finalizePendingPaymentPreviewRecords(
       db,
       staffId,
+      roles,
       draftRecords,
     );
 
-    const bonusIncomeTaxRatePercent =
-      await this.resolveBonusIncomeTaxRatePercent(staffId, roles);
-
-    const finalized = this.finalizePaymentPreviewRecords(
-      draftRecords,
-      taxRateByRole,
-      bonusIncomeTaxRatePercent,
-    );
-
-    return finalized.reduce(
+    return finalized.records.reduce(
       (sum, record) => sum + normalizeMoneyAmount(record.netAmount),
       0,
     );
@@ -4125,6 +4189,15 @@ export class StaffService {
         assistantSummary.unpaid += assistantShareMonthlyTotals.unpaid;
       }
     }
+
+    const otherRoleUnpaidNetByRole = await this.computeOtherRoleUnpaidNetByRole(
+      id,
+      staff.roles,
+      isAssistant,
+    );
+    otherRoleSummaryMap.forEach((summary, role) => {
+      summary.unpaid = otherRoleUnpaidNetByRole.get(role as StaffRole) ?? 0;
+    });
 
     const otherRoleSummaries: StaffIncomeRoleSummaryDto[] = staff.roles
       .filter((role) => role !== StaffRole.teacher)

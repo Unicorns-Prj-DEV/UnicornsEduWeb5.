@@ -16,6 +16,8 @@
 
 ## Hồ sơ nhân sự
 
+- **Thanh toán tất cả**: thao tác thanh toán một lần mọi khoản `pending/unpaid` của mọi role trên hồ sơ nhân sự, không giới hạn theo tháng đang xem trên UI; buổi ghi cọc vẫn thanh toán qua luồng cọc riêng.
+- **Công việc khác (tổng hợp)**: breakdown thu nhập theo từng role ngoài giáo viên trên trang chi tiết nhân sự; **Tổng nhận** và **Đã nhận** phản ánh tháng đang chọn, **Chưa nhận** phản ánh toàn bộ khoản pending/unpaid hiện tại của role đó.
 - **Trợ lí**: staff role `assistant` trên linked `staffInfo` còn `active`. Trợ lí là role vận hành admin-mirror gần tương đương admin trên `/admin/**` và `/staff/**`, trừ dashboard tổng admin và bước cộng tiền trực tiếp vào ví học sinh. Trợ lí được tạo `yêu cầu nạp thẳng` để admin duyệt và được rút/giảm số dư trực tiếp khi cần, nhưng không được tự duyệt queue hay tự nạp tiền vào ví.
 - **Nhân sự ngừng hoạt động**: hồ sơ nhân sự không còn tham gia vận hành hiện tại hoặc nhận phân công mới, nhưng lịch sử công việc và thanh toán đã phát sinh vẫn được giữ lại. Trạng thái này không đồng nghĩa khóa tài khoản user.
 - **Dân tộc nhân sự**: field `staff_info.ethnicity`, là thông tin định danh nhập tay trong hồ sơ nhân sự, không nằm trên hồ sơ user chung.

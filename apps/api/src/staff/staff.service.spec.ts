@@ -182,6 +182,12 @@ describe('StaffService', () => {
     jest.spyOn(service as any, 'getDepositSessionRows').mockResolvedValue([]);
   }
 
+  function mockOtherRoleUnpaidByRole(entries: Array<[StaffRole, number]>) {
+    jest
+      .spyOn(service as any, 'computeOtherRoleUnpaidNetByRole')
+      .mockResolvedValue(new Map(entries));
+  }
+
   it('records action history after creating a staff profile', async () => {
     mockPrisma.user.findUnique.mockResolvedValue({
       id: 'user-1',
@@ -675,6 +681,11 @@ describe('StaffService', () => {
         },
       ]);
 
+    mockOtherRoleUnpaidByRole([
+      [StaffRole.customer_care, 12000],
+      [StaffRole.lesson_plan, 20000],
+    ]);
+
     const result = await service.getIncomeSummary('staff-1', {
       month: '03',
       year: '2026',
@@ -793,6 +804,11 @@ describe('StaffService', () => {
         },
       ]);
 
+    mockOtherRoleUnpaidByRole([
+      [StaffRole.assistant, 13000],
+      [StaffRole.communication, 15000],
+    ]);
+
     const result = await service.getIncomeSummary('staff-1', {
       month: '03',
       year: '2026',
@@ -873,6 +889,8 @@ describe('StaffService', () => {
         },
       ]);
 
+    mockOtherRoleUnpaidByRole([[StaffRole.communication, 15000]]);
+
     const result = await service.getIncomeSummary('staff-1', {
       month: '03',
       year: '2026',
@@ -946,6 +964,8 @@ describe('StaffService', () => {
           taxDeductionRatePercent: 0,
         },
       ]);
+
+    mockOtherRoleUnpaidByRole([[StaffRole.accountant, 3000]]);
 
     const result = await service.getIncomeSummary('staff-1', {
       month: '03',
@@ -1097,6 +1117,11 @@ describe('StaffService', () => {
         },
       ]);
 
+    mockOtherRoleUnpaidByRole([
+      [StaffRole.technical, 45],
+      [StaffRole.communication, 95],
+    ]);
+
     const result = await service.getIncomeSummary('staff-1', {
       month: '03',
       year: '2026',
@@ -1186,6 +1211,8 @@ describe('StaffService', () => {
         },
       ]);
 
+    mockOtherRoleUnpaidByRole([[StaffRole.assistant, 6000]]);
+
     const result = await service.getIncomeSummary('staff-1', {
       month: '03',
       year: '2026',
@@ -1206,6 +1233,89 @@ describe('StaffService', () => {
         paid: 9000,
         unpaid: 6000,
       },
+    ]);
+  });
+
+  it('uses full-scope unpaid per role in other-role summaries while keeping monthly total and paid', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      roles: [StaffRole.communication],
+      classTeachers: [],
+    });
+    mockEmptyTeacherIncome();
+    mockPrisma.bonus.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    mockPrisma.extraAllowance.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValue([
+        {
+          id: 'allowance-old',
+          roleType: StaffRole.communication,
+          month: '2026-02',
+          amount: 15000,
+          status: PaymentStatus.pending,
+          note: 'Pending tháng trước',
+        },
+      ]);
+    jest
+      .spyOn(service as any, 'getUnpaidTotalsByStaffIds')
+      .mockResolvedValue(new Map([['staff-1', 0]]));
+    jest
+      .spyOn(service as any, 'computeSnapshotUnpaidNetTotal')
+      .mockResolvedValue(15000);
+
+    const result = await service.getIncomeSummary('staff-1', {
+      month: '03',
+      year: '2026',
+      days: 14,
+    });
+
+    expect(result.otherRoleSummaries).toEqual([
+      {
+        role: StaffRole.communication,
+        label: 'Truyền thông',
+        total: 0,
+        paid: 0,
+        unpaid: 15000,
+      },
+    ]);
+  });
+
+  it('includes all pending bonus months in payment preview regardless of query month', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      roles: [StaffRole.communication],
+    });
+    jest.spyOn(service as any, 'loadAllPendingPaymentPreviewDraftRecords').mockResolvedValue([
+      {
+        id: 'bonus-old',
+        role: null,
+        sourceType: 'bonus',
+        sourceLabel: 'Thưởng',
+        label: 'Truyền thông',
+        secondaryLabel: '2026-02',
+        date: null,
+        currentStatus: PaymentStatus.pending,
+        grossAmount: 7000,
+        operatingAmount: 0,
+      },
+    ]);
+
+    const result = await service.getPaymentPreview('staff-1', {
+      month: '03',
+      year: '2026',
+    });
+
+    expect(result.summary.itemCount).toBe(1);
+    expect(result.sections).toEqual([
+      expect.objectContaining({
+        role: null,
+        label: 'Thưởng',
+        itemCount: 1,
+        grossTotal: 7000,
+      }),
     ]);
   });
 
@@ -1851,7 +1961,7 @@ describe('StaffService', () => {
       ratePercent: 10,
     });
     jest
-      .spyOn(service as any, 'getTeacherPaymentPreviewRecords')
+      .spyOn(service as any, 'loadAllPendingPaymentPreviewDraftRecords')
       .mockResolvedValue([
         {
           id: 'session-1',
@@ -1860,28 +1970,15 @@ describe('StaffService', () => {
           sourceLabel: 'Buổi dạy',
           label: 'Toán 10A',
           secondaryLabel: 'Mã lớp: class-1',
+          classId: 'class-1',
           date: '2026-03-15T00:00:00.000Z',
           currentStatus: 'unpaid',
           grossAmount: 100,
           operatingAmount: 10,
+          operatingRatePercent: 10,
           taxableBaseAmount: 90,
         },
       ]);
-    jest
-      .spyOn(service as any, 'getCustomerCarePaymentPreviewRecords')
-      .mockResolvedValue([]);
-    jest
-      .spyOn(service as any, 'getAssistantSharePaymentPreviewRecords')
-      .mockResolvedValue([]);
-    jest
-      .spyOn(service as any, 'getLessonOutputPaymentPreviewRecords')
-      .mockResolvedValue([]);
-    jest
-      .spyOn(service as any, 'getExtraAllowancePaymentPreviewRecords')
-      .mockResolvedValue([]);
-    jest
-      .spyOn(service as any, 'getBonusPaymentPreviewRecords')
-      .mockResolvedValue([]);
 
     const result = await service.getPaymentPreview('staff-1', {
       month: '03',

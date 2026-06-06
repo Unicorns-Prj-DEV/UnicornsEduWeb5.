@@ -2057,6 +2057,10 @@ export default function AdminStaffDetailPage({
         </div>
 
         <StaffCard title="Công việc khác">
+          <p className="mb-3 text-xs text-text-muted">
+            Tổng nhận và Đã nhận theo tháng đang xem; Chưa nhận gồm mọi khoản
+            pending hiện tại.
+          </p>
           {(() => {
             if (isIncomeSummaryLoading && !incomeSummary) {
               return (
@@ -2485,17 +2489,9 @@ export default function AdminStaffDetailPage({
                     {staff.fullName?.trim() || "Nhân sự"} · Thanh toán hàng loạt
                   </h2>
                   <p className="mt-1 text-sm text-text-muted">
-                    <span className="font-medium text-text-secondary">
-                      Buổi dạy (GV):
-                    </span>{" "}
-                    tất cả buổi chưa thanh toán, mọi tháng.{" "}
-                    <span className="font-medium text-text-secondary">
-                      Các khoản khác
-                    </span>{" "}
-                    (thưởng, trợ cấp, bài giáo án, hoa hồng CSKH, chia trợ lí…)
-                    theo {selectedMonthLabel}. Thuế trong popup theo mức hiện
-                    hành tại {paymentPreviewTaxAsOfDate}. Buổi ghi cọc không nằm
-                    trong đợt này.
+                    Mọi khoản chưa thanh toán của mọi role, mọi tháng (trừ cọc).
+                    Thuế trong popup theo mức hiện hành tại{" "}
+                    {paymentPreviewTaxAsOfDate}.
                   </p>
                 </div>
                 <button

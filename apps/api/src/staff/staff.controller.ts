@@ -326,7 +326,7 @@ export class StaffController {
   @ApiOperation({
     summary: 'Get staff payment preview',
     description:
-      'Get backend-authoritative payable items grouped by role/source. Teacher sessions (`unpaid`) include every unpaid teaching session for the staff, not limited to the selected month; other sources (bonus, extra allowance, lesson outputs, CSKH/assistant shares on attendance, etc.) are scoped to the selected month/year. Teacher tax is recalculated from the current teacher rate on the post-operating amount, while other roles keep their current per-role tax behavior. Bonus items use the same prioritized staff-role tax rate as income-summary (no operating deduction on bonus).',
+      'Get backend-authoritative payable items grouped by role/source. Every pending/unpaid item across all roles and months is included (deposit sessions excluded). Query month/year are UI context only and do not limit the payable set. Teacher tax is recalculated from the current teacher rate on the post-operating amount, while other roles keep their current per-role tax behavior. Bonus items use the same prioritized staff-role tax rate as income-summary (no operating deduction on bonus).',
   })
   @ApiParam({ name: 'id', description: 'Staff id' })
   @ApiQuery({
@@ -387,13 +387,13 @@ export class StaffController {
   @ApiOperation({
     summary: 'Pay all listed staff payments',
     description:
-      'Refresh each listed item tax snapshot before marking items paid. Teacher sessions: every current `unpaid` session for the staff (any date). Other payable sources are recomputed for the requested month/year. For teacher sessions, tax is applied on the post-operating amount; other roles keep their current per-role tax behavior. Teacher deposit sessions are excluded.',
+      'Refresh each listed item tax snapshot before marking items paid. Recomputes every pending/unpaid item across all roles and months (deposit sessions excluded). Body month/year are UI context only. For teacher sessions, tax is applied on the post-operating amount; other roles keep their current per-role tax behavior.',
   })
   @ApiParam({ name: 'id', description: 'Staff id' })
   @ApiBody({
     type: StaffPayAllPaymentsDto,
     description:
-      'Month/year for non-teacher-session sources; teacher sessions are always all unpaid regardless of month.',
+      'Month/year for UI context; payable set includes all pending/unpaid items regardless of month.',
   })
   @ApiResponse({
     status: 200,

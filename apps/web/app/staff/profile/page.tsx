@@ -1264,6 +1264,10 @@ export default function StaffSelfDetailPage() {
         </div>
 
         <StaffCard title="Công việc khác">
+          <p className="mb-3 text-xs text-text-muted">
+            Tổng nhận và Đã nhận theo tháng đang xem; Chưa nhận gồm mọi khoản
+            pending hiện tại.
+          </p>
           {(() => {
             if (isIncomeSummaryLoading && !incomeSummary) {
               return <StaffProfileSummaryTableSkeleton />;
