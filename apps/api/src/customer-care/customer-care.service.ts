@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -12,11 +13,13 @@ import {
   WalletTransactionType,
 } from 'generated/enums';
 import type {
+  CustomerCareBulkPaymentStatusUpdateResultDto,
   CustomerCareCommissionDto,
   CustomerCareSessionCommissionDto,
   CustomerCareStudentListDto,
   CustomerCareTopUpHistoryListDto,
 } from 'src/dtos/customer-care.dto';
+import { resolveTaxDeductionRate } from 'src/payroll/deduction-rates';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 const DEFAULT_DAYS = 30;
@@ -101,6 +104,32 @@ export class CustomerCareService {
     }
 
     return staff.id;
+  }
+
+  private async canUpdateCommissionPaymentStatus(
+    userId: string,
+    roleType: UserRole,
+  ) {
+    if (roleType === UserRole.admin) {
+      return true;
+    }
+
+    if (roleType !== UserRole.staff) {
+      return false;
+    }
+
+    const staff = await this.resolveStaffProfile(userId);
+    if (!staff) {
+      return false;
+    }
+
+    return (
+      staff.roles.includes(StaffRole.admin) ||
+      staff.roles.includes(StaffRole.assistant) ||
+      staff.roles.includes(StaffRole.accountant) ||
+      staff.roles.includes(StaffRole.accountant_income) ||
+      staff.roles.includes(StaffRole.accountant_expense)
+    );
   }
 
   /** List students assigned to this staff in customer_care_service, sorted by accountBalance asc. */
@@ -391,6 +420,7 @@ export class CustomerCareService {
         session: { date: { gte: since } },
       },
       select: {
+        id: true,
         tuitionFee: true,
         customerCareCoef: true,
         customerCarePaymentStatus: true,
@@ -410,6 +440,7 @@ export class CustomerCareService {
       const coef = toNumber(attendance.customerCareCoef);
       const commission = Math.round(tuition * coef);
       return {
+        attendanceId: attendance.id,
         sessionId: attendance.session.id,
         date: attendance.session.date.toISOString(),
         className: attendance.session.class?.name ?? null,
@@ -418,6 +449,144 @@ export class CustomerCareService {
         commission,
         paymentStatus:
           attendance.customerCarePaymentStatus ?? PaymentStatus.pending,
+      };
+    });
+  }
+
+  async bulkUpdateCommissionPaymentStatus(
+    userId: string,
+    roleType: UserRole,
+    staffId: string,
+    attendanceIds: string[],
+    paymentStatus: PaymentStatus,
+  ): Promise<CustomerCareBulkPaymentStatusUpdateResultDto> {
+    const canUpdate = await this.canUpdateCommissionPaymentStatus(
+      userId,
+      roleType,
+    );
+    if (!canUpdate) {
+      throw new ForbiddenException(
+        'Tài khoản hiện tại không có quyền cập nhật trạng thái thanh toán hoa hồng CSKH.',
+      );
+    }
+
+    const accessibleStaffId = await this.resolveAccessibleStaffId(
+      userId,
+      roleType,
+      staffId,
+    );
+
+    const uniqueAttendanceIds = Array.from(
+      new Set(
+        attendanceIds.filter(
+          (attendanceId): attendanceId is string =>
+            typeof attendanceId === 'string' && attendanceId.trim().length > 0,
+        ),
+      ),
+    );
+
+    if (uniqueAttendanceIds.length === 0) {
+      throw new BadRequestException(
+        'attendanceIds must contain at least one id.',
+      );
+    }
+
+    if (
+      paymentStatus !== PaymentStatus.pending &&
+      paymentStatus !== PaymentStatus.paid
+    ) {
+      throw new BadRequestException(
+        'paymentStatus must be either pending or paid.',
+      );
+    }
+
+    const staff = await this.prisma.staffInfo.findUnique({
+      where: { id: accessibleStaffId },
+      select: { id: true },
+    });
+    if (!staff) {
+      throw new NotFoundException('Staff not found');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const existingAttendances = await tx.attendance.findMany({
+        where: {
+          id: { in: uniqueAttendanceIds },
+          customerCareStaffId: accessibleStaffId,
+        },
+        select: {
+          id: true,
+          customerCarePaymentStatus: true,
+        },
+      });
+
+      if (existingAttendances.length !== uniqueAttendanceIds.length) {
+        const existingIds = new Set(
+          existingAttendances.map((attendance) => attendance.id),
+        );
+        const missingAttendanceId = uniqueAttendanceIds.find(
+          (attendanceId) => !existingIds.has(attendanceId),
+        );
+
+        throw new NotFoundException(
+          missingAttendanceId
+            ? `Attendance not found for customer-care staff: ${missingAttendanceId}`
+            : 'Attendance not found for customer-care staff',
+        );
+      }
+
+      const changedAttendanceIds = existingAttendances
+        .filter(
+          (attendance) =>
+            (attendance.customerCarePaymentStatus ?? PaymentStatus.pending) !==
+            paymentStatus,
+        )
+        .map((attendance) => attendance.id);
+
+      if (changedAttendanceIds.length === 0) {
+        return {
+          staffId: accessibleStaffId,
+          requestedCount: uniqueAttendanceIds.length,
+          updatedCount: 0,
+        };
+      }
+
+      let updatedCount = 0;
+
+      if (paymentStatus === PaymentStatus.paid) {
+        const taxRatePercent = await resolveTaxDeductionRate(tx, {
+          staffId: accessibleStaffId,
+          roleType: StaffRole.customer_care,
+          effectiveDate: new Date(),
+        });
+
+        const updateResult = await tx.attendance.updateMany({
+          where: {
+            id: { in: changedAttendanceIds },
+          },
+          data: {
+            customerCarePaymentStatus: PaymentStatus.paid,
+            customerCareTaxDeductionRatePercent: taxRatePercent,
+          },
+        });
+        updatedCount = updateResult.count;
+      } else {
+        const updateResult = await tx.attendance.updateMany({
+          where: {
+            id: { in: changedAttendanceIds },
+          },
+          data: {
+            customerCarePaymentStatus: PaymentStatus.pending,
+            customerCareTaxDeductionRatePercent: 0,
+          },
+        });
+        updatedCount = updateResult.count;
+      }
+
+      return {
+        staffId: accessibleStaffId,
+        requestedCount: uniqueAttendanceIds.length,
+        updatedCount,
       };
     });
   }

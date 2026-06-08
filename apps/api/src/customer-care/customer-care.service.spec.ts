@@ -2,8 +2,17 @@ jest.mock('src/prisma/prisma.service', () => ({
   PrismaService: class PrismaServiceMock {},
 }));
 
-import { NotFoundException } from '@nestjs/common';
+jest.mock('src/payroll/deduction-rates', () => ({
+  resolveTaxDeductionRate: jest.fn().mockResolvedValue(10),
+}));
+
 import {
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  PaymentStatus,
+  StaffRole,
   StudentStatus,
   UserRole,
   WalletTransactionType,
@@ -27,15 +36,21 @@ describe('CustomerCareService', () => {
     },
     attendance: {
       findMany: jest.fn(),
+      updateMany: jest.fn(),
     },
     $queryRaw: jest.fn(),
+    $transaction: jest.fn(),
   };
 
   let service: CustomerCareService;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(
+      async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma),
+    );
     mockPrisma.attendance.findMany.mockResolvedValue([]);
+    mockPrisma.attendance.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma.customerCareService.count.mockResolvedValue(0);
     mockPrisma.customerCareService.findMany.mockResolvedValue([]);
     mockPrisma.walletTransactionsHistory.groupBy.mockResolvedValue([]);
@@ -232,6 +247,73 @@ describe('CustomerCareService', () => {
         },
       ],
       meta: { total: 11, page: 2, limit: 10 },
+    });
+  });
+
+  it('rejects bulk payment updates for customer-care-only staff', async () => {
+    mockPrisma.staffInfo.findFirst.mockResolvedValue({
+      id: 'staff-1',
+      roles: [StaffRole.customer_care],
+    });
+
+    await expect(
+      service.bulkUpdateCommissionPaymentStatus(
+        'staff-user',
+        UserRole.staff,
+        'staff-1',
+        ['attendance-1'],
+        PaymentStatus.paid,
+      ),
+    ).rejects.toThrow(ForbiddenException);
+
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('bulk updates only customer-care attendances that change status', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({ id: 'staff-1' });
+    mockPrisma.attendance.findMany.mockResolvedValue([
+      {
+        id: 'attendance-1',
+        customerCarePaymentStatus: PaymentStatus.pending,
+      },
+      {
+        id: 'attendance-2',
+        customerCarePaymentStatus: PaymentStatus.paid,
+      },
+    ]);
+    mockPrisma.attendance.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await service.bulkUpdateCommissionPaymentStatus(
+      'admin-user',
+      UserRole.admin,
+      'staff-1',
+      ['attendance-1', 'attendance-2'],
+      PaymentStatus.paid,
+    );
+
+    expect(mockPrisma.attendance.findMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ['attendance-1', 'attendance-2'] },
+        customerCareStaffId: 'staff-1',
+      },
+      select: {
+        id: true,
+        customerCarePaymentStatus: true,
+      },
+    });
+    expect(mockPrisma.attendance.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ['attendance-1'] },
+      },
+      data: {
+        customerCarePaymentStatus: PaymentStatus.paid,
+        customerCareTaxDeductionRatePercent: 10,
+      },
+    });
+    expect(result).toEqual({
+      staffId: 'staff-1',
+      requestedCount: 2,
+      updatedCount: 1,
     });
   });
 });

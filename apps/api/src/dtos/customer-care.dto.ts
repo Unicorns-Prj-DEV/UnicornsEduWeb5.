@@ -49,6 +49,7 @@ export interface CustomerCareCommissionDto {
 }
 
 export interface CustomerCareSessionCommissionDto {
+  attendanceId: string;
   sessionId: string;
   date: string;
   className: string | null;
@@ -56,4 +57,15 @@ export interface CustomerCareSessionCommissionDto {
   customerCareCoef: number;
   commission: number;
   paymentStatus: PaymentStatus;
+}
+
+export interface CustomerCareBulkPaymentStatusUpdateDto {
+  attendanceIds: string[];
+  paymentStatus: PaymentStatus;
+}
+
+export interface CustomerCareBulkPaymentStatusUpdateResultDto {
+  staffId: string;
+  requestedCount: number;
+  updatedCount: number;
 }
