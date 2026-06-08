@@ -246,26 +246,6 @@ export default function AdminStudentDetailPage() {
         },
     });
 
-    const statusMutation = useMutation({
-        mutationFn: async (payload: { status: StudentStatus; reason?: string }) =>
-            studentApi.updateStudentStatus(id, payload.status, payload.reason),
-        onSuccess: async (_updated, payload) => {
-            toast.success(payload.status === "inactive" ? "Đã chuyển học sinh sang nghỉ học." : "Đã chuyển học sinh sang đang học.");
-            await Promise.all([
-                queryClient.invalidateQueries({ queryKey: ["student", "detail", id] }),
-                queryClient.invalidateQueries({ queryKey: ["student", "list"] }),
-                queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
-            ]);
-        },
-        onError: (err: unknown) => {
-            const msg =
-                (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-                (err as Error)?.message ??
-                "Không thể cập nhật trạng thái học sinh.";
-            toast.error(msg);
-        },
-    });
-
     const handleTopUp = () => setBalancePopupMode("topup");
 
     const handleWithdraw = () => setBalancePopupMode("withdraw");
@@ -322,18 +302,6 @@ export default function AdminStudentDetailPage() {
     const primaryChipClass = statusBadgeClass(normalizedStatus);
     const parentReceiptEmailEnabled = student.parentReceiptEmailEnabled !== false;
     const isReceiptTogglePending = receiptEmailMutation.isPending;
-    const handleToggleStudentStatus = () => {
-        const nextStatus: StudentStatus = normalizedStatus === "active" ? "inactive" : "active";
-        const confirmed = window.confirm(
-            nextStatus === "inactive"
-                ? "Chuyển học sinh sang nghỉ học? Các lớp đang học sẽ được đóng khỏi roster active."
-                : "Chuyển học sinh sang đang học? Hệ thống sẽ không tự thêm lại lớp cũ.",
-        );
-        if (!confirmed) return;
-
-        const reason = window.prompt("Lý do (không bắt buộc)") ?? undefined;
-        statusMutation.mutate({ status: nextStatus, reason });
-    };
     const initials = (student.fullName?.trim() || student.email || "?").charAt(0).toUpperCase();
     const contactEmail = student.email?.trim() || "Chưa có email";
     const sePayStaticQrErrorMessage =
@@ -514,20 +482,6 @@ export default function AdminStudentDetailPage() {
                                                 <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586Z" />
                                                 </svg>
-                                            </button>
-                                        ) : null}
-                                        {canManageStudent ? (
-                                            <button
-                                                type="button"
-                                                onClick={handleToggleStudentStatus}
-                                                disabled={statusMutation.isPending}
-                                                className="inline-flex min-h-9 shrink-0 items-center rounded-full border border-border-default bg-bg-surface px-3 text-xs font-semibold text-text-secondary transition hover:bg-bg-tertiary hover:text-primary disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
-                                            >
-                                                {statusMutation.isPending
-                                                    ? "Đang lưu..."
-                                                    : normalizedStatus === "active"
-                                                      ? "Nghỉ học"
-                                                      : "Mở lại"}
                                             </button>
                                         ) : null}
                                     </div>

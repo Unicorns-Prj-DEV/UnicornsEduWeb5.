@@ -122,6 +122,7 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
   const [parentPhone, setParentPhone] = useState(student.parentPhone ?? "");
   const [gender, setGender] = useState<StudentGender>(student.gender ?? "male");
   const [status, setStatus] = useState<StudentStatus>(student.status ?? "active");
+  const [statusReason, setStatusReason] = useState("");
   const [goal, setGoal] = useState(student.goal ?? "");
   const [dropOutDate, setDropOutDate] = useState(student.dropOutDate ?? "");
   const [selectedCustomerCare, setSelectedCustomerCare] = useState<CustomerCareStaffOption | null>(
@@ -314,8 +315,13 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
             ? parsedCustomerCareProfitPercent
             : null,
         });
-        if (status !== student.status) {
-          await studentApi.updateStudentStatus(student.id, status);
+        const statusChanged = status !== student.status;
+        if (statusChanged) {
+          await studentApi.updateStudentStatus(
+            student.id,
+            status,
+            statusReason.trim() || undefined,
+          );
         }
         await studentApi.updateStudentExamSchedules(student.id, {
           items: normalizedExamItems.map((item) => ({
@@ -326,12 +332,19 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
         });
       },
       onSuccess: async () => {
+        const statusChanged = status !== student.status;
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["student", "detail", student.id] }),
           queryClient.invalidateQueries({ queryKey: ["student", "list"] }),
           queryClient.invalidateQueries({ queryKey: ["customer-care"] }),
           queryClient.invalidateQueries({ queryKey: ["student", "exam-schedules", student.id] }),
           invalidateCalendarScopedQueries(queryClient),
+          ...(statusChanged
+            ? [
+                queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
+                queryClient.invalidateQueries({ queryKey: ["class", "detail"] }),
+              ]
+            : []),
         ]);
         await onSuccess?.();
       },
@@ -508,6 +521,20 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
                     buttonClassName="rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   />
                 </label>
+
+                {status !== (student.status ?? "active") ? (
+                  <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
+                    <span>Lý do đổi trạng thái (không bắt buộc)</span>
+                    <textarea
+                      name="status-reason"
+                      rows={2}
+                      value={statusReason}
+                      onChange={(event) => setStatusReason(event.target.value)}
+                      className="resize-none rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                      placeholder="Ví dụ: Chuyển trường, tạm nghỉ học kỳ này…"
+                    />
+                  </label>
+                ) : null}
 
                 <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
                   <span>Mục tiêu học tập</span>

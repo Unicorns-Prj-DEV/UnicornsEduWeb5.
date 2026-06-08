@@ -65,6 +65,7 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
     staff.cccdIssuedPlace ?? "",
   );
   const [status, setStatus] = useState<StaffDetail["status"]>(staff.status ?? "active");
+  const [statusReason, setStatusReason] = useState("");
   const [birthDateInput, setBirthDateInput] = useState(formatDateInput(staff.birthDate));
   const [university, setUniversity] = useState(staff.university ?? "");
   const [highSchool, setHighSchool] = useState(staff.highSchool ?? "");
@@ -141,14 +142,23 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
             ? (managedByStaffId || null)
             : null,
         });
-        if (status !== staff.status) {
-          await staffApi.updateStaffStatus(staff.id, status);
+        const statusChanged = status !== staff.status;
+        if (statusChanged) {
+          await staffApi.updateStaffStatus(
+            staff.id,
+            status,
+            statusReason.trim() || undefined,
+          );
         }
       },
       onSuccess: async () => {
+        const statusChanged = status !== staff.status;
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["staff", "detail", staff.id] }),
           queryClient.invalidateQueries({ queryKey: ["staff", "list"] }),
+          ...(statusChanged
+            ? [queryClient.invalidateQueries({ queryKey: ["class", "list"] })]
+            : []),
         ]);
         await onSuccess?.();
       },
@@ -213,6 +223,20 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
                   {STATUS_OPTIONS.find((o) => o.value === status)?.hint ?? ""}
                 </p>
               </label>
+
+              {status !== (staff.status ?? "active") ? (
+                <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
+                  <span>Lý do đổi trạng thái (không bắt buộc)</span>
+                  <textarea
+                    name="status-reason"
+                    rows={2}
+                    value={statusReason}
+                    onChange={(event) => setStatusReason(event.target.value)}
+                    className="resize-none rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    placeholder="Ví dụ: Nghỉ việc, chuyển công tác…"
+                  />
+                </label>
+              ) : null}
 
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
                 <span>Số CCCD</span>
