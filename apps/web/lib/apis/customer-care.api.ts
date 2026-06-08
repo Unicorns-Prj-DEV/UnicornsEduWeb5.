@@ -1,4 +1,6 @@
 import type {
+  CustomerCareBulkPaymentStatusUpdatePayload,
+  CustomerCareBulkPaymentStatusUpdateResult,
   CustomerCarePaymentStatus,
   CustomerCareStudentListResponse,
   CustomerCareCommissionItem,
@@ -81,4 +83,15 @@ export async function getCustomerCareSessionCommissions(
     ...item,
     paymentStatus: normalizeCustomerCarePaymentStatus(item.paymentStatus),
   }));
+}
+
+export async function bulkUpdateCustomerCarePaymentStatus(
+  staffId: string,
+  payload: CustomerCareBulkPaymentStatusUpdatePayload,
+): Promise<CustomerCareBulkPaymentStatusUpdateResult> {
+  const res = await api.patch<CustomerCareBulkPaymentStatusUpdateResult>(
+    `/customer-care/staff/${encodeURIComponent(staffId)}/payment-status/bulk`,
+    payload,
+  );
+  return res.data;
 }

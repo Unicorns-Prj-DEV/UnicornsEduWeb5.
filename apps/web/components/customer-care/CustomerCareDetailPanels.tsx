@@ -1,9 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   ClockIcon,
   QrCodeIcon,
@@ -29,11 +35,14 @@ import {
   resolveAdminLikeRouteBase,
 } from "@/lib/admin-shell-paths";
 import * as customerCareApi from "@/lib/apis/customer-care.api";
+import { getFullProfile } from "@/lib/apis/auth.api";
 import * as studentApi from "@/lib/apis/student.api";
 import { formatCurrency } from "@/lib/class.helpers";
 import { copyStudentWalletQrWithToast } from "@/lib/clipboard-qr";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import SelectionCheckbox from "@/components/ui/SelectionCheckbox";
+import UpgradedSelect from "@/components/ui/UpgradedSelect";
 
 const SESSION_DAYS = 30;
 const STUDENT_PAGE_SIZE = 10;
@@ -56,6 +65,13 @@ const COMMISSION_ROW_GRID_CLASS =
   "grid-cols-[minmax(0,1fr)_auto_1.25rem] md:grid-cols-[minmax(0,1fr)_minmax(10rem,12rem)_1.5rem]";
 const SESSION_COMMISSION_GRID_CLASS =
   "grid-cols-[7.5rem_minmax(14rem,1.85fr)_8.5rem_6.5rem_10rem_8.5rem]";
+const SESSION_COMMISSION_GRID_WITH_SELECTION_CLASS =
+  "grid-cols-[2.75rem_7.5rem_minmax(14rem,1.85fr)_8.5rem_6.5rem_10rem_8.5rem]";
+const DEFAULT_BULK_PAYMENT_STATUS: CustomerCarePaymentStatus = "paid";
+const BULK_PAYMENT_STATUS_OPTIONS = [
+  { value: "pending", label: "Chưa thanh toán" },
+  { value: "paid", label: "Đã thanh toán" },
+] as const;
 const TAB_INDICATOR_TRANSITION: Transition = {
   type: "spring",
   stiffness: 420,
@@ -276,14 +292,38 @@ export default function CustomerCareDetailPanels({
 }) {
   const pathname = usePathname();
   const routeBase = resolveAdminLikeRouteBase(pathname);
+  const queryClient = useQueryClient();
   const prefersReducedMotion = useReducedMotion();
   const [activeTab, setActiveTab] = useState<TabId>("students");
-  const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
+  const [expandedStudentIds, setExpandedStudentIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [paymentHistoryStudent, setPaymentHistoryStudent] =
     useState<CustomerCareStudentItem | null>(null);
+  const [selectedAttendanceIds, setSelectedAttendanceIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [bulkPaymentPopupOpen, setBulkPaymentPopupOpen] = useState(false);
+  const [bulkPaymentStatusDraft, setBulkPaymentStatusDraft] =
+    useState<CustomerCarePaymentStatus>(DEFAULT_BULK_PAYMENT_STATUS);
   const studentLoadMoreRef = useRef<HTMLDivElement | null>(null);
   const topUpLoadMoreRef = useRef<HTMLDivElement | null>(null);
   const isAdminWorkspace = workspaceMode === "admin";
+
+  const { data: fullProfile } = useQuery({
+    queryKey: ["auth", "full-profile"],
+    queryFn: getFullProfile,
+    retry: false,
+    staleTime: 60_000,
+  });
+  const staffRoles = fullProfile?.staffInfo?.roles ?? [];
+  const canEditCommissionPaymentStatus =
+    fullProfile?.roleType === "admin" ||
+    staffRoles.includes("assistant") ||
+    staffRoles.includes("accountant_income") ||
+    staffRoles.includes("accountant_expense") ||
+    staffRoles.includes("accountant") ||
+    staffRoles.includes("admin");
 
   const {
     data: studentListPages,
@@ -378,15 +418,100 @@ export default function CustomerCareDetailPanels({
     enabled: !!staffId && activeTab === "commissions",
   });
 
-  const { data: sessionCommissions = [], isLoading: sessionCommissionsLoading } = useQuery({
-    queryKey: ["customer-care", "session-commissions", staffId, expandedStudentId, SESSION_DAYS],
-    queryFn: () =>
-      customerCareApi.getCustomerCareSessionCommissions(
+  const expandedStudentIdList = useMemo(
+    () => Array.from(expandedStudentIds).sort(),
+    [expandedStudentIds],
+  );
+
+  const sessionCommissionQueries = useQueries({
+    queries: expandedStudentIdList.map((studentId) => ({
+      queryKey: [
+        "customer-care",
+        "session-commissions",
         staffId,
-        expandedStudentId!,
+        studentId,
         SESSION_DAYS,
+      ],
+      queryFn: () =>
+        customerCareApi.getCustomerCareSessionCommissions(
+          staffId,
+          studentId,
+          SESSION_DAYS,
+        ),
+      enabled: !!staffId && activeTab === "commissions",
+      staleTime: 30_000,
+    })),
+  });
+
+  const sessionCommissionsByStudentId = useMemo(() => {
+    const map = new Map<string, CustomerCareSessionCommissionItem[]>();
+    expandedStudentIdList.forEach((studentId, index) => {
+      map.set(studentId, sessionCommissionQueries[index]?.data ?? []);
+    });
+    return map;
+  }, [expandedStudentIdList, sessionCommissionQueries]);
+
+  const sessionCommissionsLoadingByStudentId = useMemo(() => {
+    const map = new Map<string, boolean>();
+    expandedStudentIdList.forEach((studentId, index) => {
+      map.set(studentId, sessionCommissionQueries[index]?.isLoading ?? false);
+    });
+    return map;
+  }, [expandedStudentIdList, sessionCommissionQueries]);
+
+  const expandedAttendanceIds = useMemo(() => {
+    const ids: string[] = [];
+    sessionCommissionQueries.forEach((query) => {
+      (query.data ?? []).forEach((session) => {
+        if (session.attendanceId) {
+          ids.push(session.attendanceId);
+        }
+      });
+    });
+    return ids;
+  }, [sessionCommissionQueries]);
+
+  const visibleSelectedAttendanceIds = useMemo(
+    () =>
+      new Set(
+        expandedAttendanceIds.filter((attendanceId) =>
+          selectedAttendanceIds.has(attendanceId),
+        ),
       ),
-    enabled: !!staffId && activeTab === "commissions" && !!expandedStudentId,
+    [expandedAttendanceIds, selectedAttendanceIds],
+  );
+
+  const selectedCount = selectedAttendanceIds.size;
+  const allExpandedSessionsSelected =
+    expandedAttendanceIds.length > 0 &&
+    visibleSelectedAttendanceIds.size === expandedAttendanceIds.length;
+  const someExpandedSessionsSelected =
+    visibleSelectedAttendanceIds.size > 0 && !allExpandedSessionsSelected;
+
+  const bulkPaymentStatusMutation = useMutation({
+    mutationFn: (payload: {
+      attendanceIds: string[];
+      paymentStatus: CustomerCarePaymentStatus;
+    }) =>
+      customerCareApi.bulkUpdateCustomerCarePaymentStatus(staffId, payload),
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({
+        queryKey: ["customer-care", "commissions", staffId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["customer-care", "session-commissions", staffId],
+      });
+      setSelectedAttendanceIds(new Set());
+      setBulkPaymentPopupOpen(false);
+      toast.success(
+        result.updatedCount > 0
+          ? `Đã cập nhật ${result.updatedCount} khoản hoa hồng.`
+          : "Các khoản đã chọn đang ở trạng thái này.",
+      );
+    },
+    onError: () => {
+      toast.error("Không thể cập nhật trạng thái thanh toán. Vui lòng thử lại.");
+    },
   });
 
   useEffect(() => {
@@ -466,7 +591,94 @@ export default function CustomerCareDetailPanels({
   }
 
   const toggleExpand = (studentId: string) => {
-    setExpandedStudentId((prev) => (prev === studentId ? null : studentId));
+    setExpandedStudentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(studentId)) {
+        next.delete(studentId);
+      } else {
+        next.add(studentId);
+      }
+      return next;
+    });
+  };
+
+  const getStudentAttendanceIds = (studentId: string) =>
+    (sessionCommissionsByStudentId.get(studentId) ?? [])
+      .map((session) => session.attendanceId)
+      .filter((attendanceId): attendanceId is string => !!attendanceId);
+
+  const isAllStudentSessionsSelected = (studentId: string) => {
+    const attendanceIds = getStudentAttendanceIds(studentId);
+    return (
+      attendanceIds.length > 0 &&
+      attendanceIds.every((attendanceId) =>
+        selectedAttendanceIds.has(attendanceId),
+      )
+    );
+  };
+
+  const isSomeStudentSessionsSelected = (studentId: string) => {
+    const attendanceIds = getStudentAttendanceIds(studentId);
+    const selectedInStudent = attendanceIds.filter((attendanceId) =>
+      selectedAttendanceIds.has(attendanceId),
+    ).length;
+    return selectedInStudent > 0 && selectedInStudent < attendanceIds.length;
+  };
+
+  const toggleAllStudentSessions = (studentId: string) => {
+    const attendanceIds = getStudentAttendanceIds(studentId);
+    const allSelected = isAllStudentSessionsSelected(studentId);
+    setSelectedAttendanceIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) {
+        attendanceIds.forEach((attendanceId) => next.delete(attendanceId));
+      } else {
+        attendanceIds.forEach((attendanceId) => next.add(attendanceId));
+      }
+      return next;
+    });
+  };
+
+  const toggleAttendanceSelection = (attendanceId: string) => {
+    setSelectedAttendanceIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(attendanceId)) {
+        next.delete(attendanceId);
+      } else {
+        next.add(attendanceId);
+      }
+      return next;
+    });
+  };
+
+  const toggleAllExpandedSessions = () => {
+    setSelectedAttendanceIds((prev) => {
+      const next = new Set(prev);
+      if (allExpandedSessionsSelected) {
+        expandedAttendanceIds.forEach((attendanceId) => next.delete(attendanceId));
+      } else {
+        expandedAttendanceIds.forEach((attendanceId) => next.add(attendanceId));
+      }
+      return next;
+    });
+  };
+
+  const openBulkPaymentPopup = () => {
+    setBulkPaymentStatusDraft(DEFAULT_BULK_PAYMENT_STATUS);
+    setBulkPaymentPopupOpen(true);
+  };
+
+  const closeBulkPaymentPopup = () => {
+    if (bulkPaymentStatusMutation.isPending) return;
+    setBulkPaymentPopupOpen(false);
+  };
+
+  const confirmBulkPaymentStatusUpdate = () => {
+    if (selectedCount === 0 || bulkPaymentStatusMutation.isPending) return;
+    bulkPaymentStatusMutation.mutate({
+      attendanceIds: Array.from(selectedAttendanceIds),
+      paymentStatus: bulkPaymentStatusDraft,
+    });
   };
 
   const openPaymentHistory = (student: CustomerCareStudentItem) => {
@@ -1121,6 +1333,53 @@ export default function CustomerCareDetailPanels({
         >
           <h2 className="ml-5 mb-3 text-base font-medium text-text-primary">Hoa hồng</h2>
 
+          {canEditCommissionPaymentStatus && selectedCount > 0 ? (
+            <div className="mb-4 rounded-xl border border-border-default bg-bg-secondary/55 px-3 py-2">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="inline-flex min-h-10 items-center rounded-lg bg-bg-surface px-3 text-sm font-medium text-text-secondary">
+                  Đã chọn: {selectedCount} khoản
+                </div>
+                {expandedStudentIds.size > 0 && expandedAttendanceIds.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={toggleAllExpandedSessions}
+                    disabled={bulkPaymentStatusMutation.isPending}
+                    className="touch-manipulation inline-flex min-h-10 items-center justify-center rounded-lg px-1 text-sm font-medium text-text-muted transition-colors hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {allExpandedSessionsSelected
+                      ? "Bỏ chọn tất cả buổi đang mở"
+                      : `Chọn tất cả ${expandedAttendanceIds.length} buổi đang mở`}
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={openBulkPaymentPopup}
+                  disabled={
+                    selectedCount === 0 || bulkPaymentStatusMutation.isPending
+                  }
+                  className="touch-manipulation ml-auto inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label={`Sửa trạng thái thanh toán cho ${selectedCount} khoản hoa hồng đã chọn`}
+                >
+                  <svg
+                    className="size-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                    />
+                  </svg>
+                  <span>Chuyển trạng thái thanh toán</span>
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           {commissionsError && (
             <p className="text-sm text-error" role="alert">
               Không tải được danh sách hoa hồng.
@@ -1149,7 +1408,15 @@ export default function CustomerCareDetailPanels({
                 <span className="text-right">Tổng tiền hoa hồng</span>
                 <span className="sr-only">Mở rộng</span>
               </div>
-              {commissions.map((item: CustomerCareCommissionItem) => (
+              {commissions.map((item: CustomerCareCommissionItem) => {
+                const isExpanded = expandedStudentIds.has(item.studentId);
+                const studentSessions =
+                  sessionCommissionsByStudentId.get(item.studentId) ?? [];
+                const studentSessionsLoading =
+                  sessionCommissionsLoadingByStudentId.get(item.studentId) ??
+                  false;
+
+                return (
                 <div
                   key={item.studentId}
                   className="overflow-hidden rounded-[1.5rem] border border-border-default bg-bg-surface shadow-sm"
@@ -1157,6 +1424,7 @@ export default function CustomerCareDetailPanels({
                   <button
                     type="button"
                     onClick={() => toggleExpand(item.studentId)}
+                    aria-expanded={isExpanded}
                     className={`grid w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-inset ${COMMISSION_ROW_GRID_CLASS}`}
                   >
                     <span className="min-w-0 truncate font-medium text-text-primary" title={item.fullName}>
@@ -1166,7 +1434,7 @@ export default function CustomerCareDetailPanels({
                       {formatCurrency(item.totalCommission)}
                     </span>
                     <svg
-                      className={`size-4 justify-self-end text-text-muted transition-transform ${expandedStudentId === item.studentId ? "rotate-180" : ""}`}
+                      className={`size-4 justify-self-end text-text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`}
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -1180,29 +1448,66 @@ export default function CustomerCareDetailPanels({
                       />
                     </svg>
                   </button>
-                  {expandedStudentId === item.studentId && (
+                  {isExpanded ? (
                     <div className="border-t border-border-subtle bg-bg-secondary px-4 py-3">
                       <p className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
                         Buổi học trong 30 ngày qua
                       </p>
-                      {sessionCommissionsLoading ? (
+                      {studentSessionsLoading ? (
                         <SessionCommissionSkeleton />
-                      ) : sessionCommissions.length === 0 ? (
+                      ) : studentSessions.length === 0 ? (
                         <p className="text-sm text-text-muted">
                           Không có buổi học trong 30 ngày qua.
                         </p>
                       ) : (
                         <div className="space-y-3">
                           <div className="space-y-3 lg:hidden">
-                            {sessionCommissions.map(
+                            {studentSessions.map(
                               (
                                 session: CustomerCareSessionCommissionItem,
-                              ) => (
+                              ) => {
+                                const isSelected = selectedAttendanceIds.has(
+                                  session.attendanceId,
+                                );
+
+                                return (
                                 <article
-                                  key={`mobile-${session.sessionId}`}
-                                  className="rounded-[1.15rem] border border-border-default bg-bg-surface px-4 py-3 shadow-sm"
+                                  key={`mobile-${session.attendanceId}`}
+                                  className={cn(
+                                    "rounded-[1.15rem] border bg-bg-surface px-4 py-3 shadow-sm",
+                                    canEditCommissionPaymentStatus && isSelected
+                                      ? "border-primary/35 bg-primary/5"
+                                      : "border-border-default",
+                                  )}
                                 >
                                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                    {canEditCommissionPaymentStatus ? (
+                                      <div className="flex items-start gap-3">
+                                        <SelectionCheckbox
+                                          checked={isSelected}
+                                          onChange={() =>
+                                            toggleAttendanceSelection(
+                                              session.attendanceId,
+                                            )
+                                          }
+                                          disabled={
+                                            bulkPaymentStatusMutation.isPending
+                                          }
+                                          ariaLabel={`Chọn buổi học ${formatDate(session.date)}`}
+                                        />
+                                        <div className="min-w-0 flex-1">
+                                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                                            Buổi học
+                                          </p>
+                                          <p className="mt-1 text-sm font-semibold text-text-primary">
+                                            {formatDate(session.date)}
+                                          </p>
+                                          <p className="mt-1 break-words text-sm text-text-secondary">
+                                            {session.className ?? "Chưa gắn lớp"}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    ) : (
                                     <div className="min-w-0">
                                       <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
                                         Buổi học
@@ -1214,6 +1519,7 @@ export default function CustomerCareDetailPanels({
                                         {session.className ?? "Chưa gắn lớp"}
                                       </p>
                                     </div>
+                                    )}
                                     <span
                                       className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${paymentStatusChipClass(
                                         session.paymentStatus,
@@ -1252,15 +1558,32 @@ export default function CustomerCareDetailPanels({
                                     </div>
                                   </div>
                                 </article>
-                              ),
+                              );
+                              },
                             )}
                           </div>
 
                           <div className="hidden overflow-x-auto rounded-[1.1rem] border border-border-default bg-bg-surface lg:block">
                             <div className="min-w-[46rem]">
                             <div
-                              className={`grid gap-3 border-b border-border-default bg-bg-secondary/75 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted ${SESSION_COMMISSION_GRID_CLASS}`}
+                              className={`grid gap-3 border-b border-border-default bg-bg-secondary/75 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted ${canEditCommissionPaymentStatus ? SESSION_COMMISSION_GRID_WITH_SELECTION_CLASS : SESSION_COMMISSION_GRID_CLASS}`}
                             >
+                              {canEditCommissionPaymentStatus ? (
+                                <span className="flex justify-center">
+                                  <SelectionCheckbox
+                                    checked={isAllStudentSessionsSelected(item.studentId)}
+                                    indeterminate={isSomeStudentSessionsSelected(item.studentId)}
+                                    onChange={() =>
+                                      toggleAllStudentSessions(item.studentId)
+                                    }
+                                    disabled={
+                                      studentSessions.length === 0 ||
+                                      bulkPaymentStatusMutation.isPending
+                                    }
+                                    ariaLabel={`Chọn tất cả buổi học của ${item.fullName}`}
+                                  />
+                                </span>
+                              ) : null}
                               <span>Ngày</span>
                               <span>Lớp</span>
                               <span className="text-right">Học phí</span>
@@ -1269,11 +1592,40 @@ export default function CustomerCareDetailPanels({
                               <span className="text-right">Hoa hồng</span>
                             </div>
                             <ul className="divide-y divide-border-subtle">
-                              {sessionCommissions.map((session: CustomerCareSessionCommissionItem) => (
+                              {studentSessions.map((session: CustomerCareSessionCommissionItem) => {
+                                const isSelected = selectedAttendanceIds.has(
+                                  session.attendanceId,
+                                );
+
+                                return (
                                 <li
-                                  key={`desktop-${session.sessionId}`}
-                                  className={`grid items-center gap-3 px-3 py-3 text-sm transition-colors hover:bg-bg-secondary/45 ${SESSION_COMMISSION_GRID_CLASS}`}
+                                  key={`desktop-${session.attendanceId}`}
+                                  className={cn(
+                                    "grid items-center gap-3 px-3 py-3 text-sm transition-colors",
+                                    canEditCommissionPaymentStatus && isSelected
+                                      ? "bg-primary/5 hover:bg-primary/10"
+                                      : "hover:bg-bg-secondary/45",
+                                    canEditCommissionPaymentStatus
+                                      ? SESSION_COMMISSION_GRID_WITH_SELECTION_CLASS
+                                      : SESSION_COMMISSION_GRID_CLASS,
+                                  )}
                                 >
+                                  {canEditCommissionPaymentStatus ? (
+                                    <span className="flex justify-center">
+                                      <SelectionCheckbox
+                                        checked={isSelected}
+                                        onChange={() =>
+                                          toggleAttendanceSelection(
+                                            session.attendanceId,
+                                          )
+                                        }
+                                        disabled={
+                                          bulkPaymentStatusMutation.isPending
+                                        }
+                                        ariaLabel={`Chọn buổi học ${formatDate(session.date)}`}
+                                      />
+                                    </span>
+                                  ) : null}
                                   <span className="font-semibold text-text-primary">
                                     {formatDate(session.date)}
                                   </span>
@@ -1297,22 +1649,102 @@ export default function CustomerCareDetailPanels({
                                     {formatCurrency(session.commission)}
                                   </span>
                                 </li>
-                              ))}
+                              );
+                              })}
                             </ul>
                             </div>
                           </div>
                         </div>
                       )}
                     </div>
-                  )}
+                  ) : null}
                 </div>
-              ))}
+              );
+              })}
             </div>
           )}
         </motion.section>
       )}
       </AnimatePresence>
       {renderPaymentHistoryModal()}
+      {bulkPaymentPopupOpen ? (
+        <>
+          <div
+            className="fixed inset-0 z-[60] bg-bg-primary/75 backdrop-blur-[1px]"
+            aria-hidden
+            onClick={closeBulkPaymentPopup}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="customer-care-bulk-payment-title"
+            className="fixed left-1/2 top-1/2 z-[70] w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border-default bg-bg-surface p-4 shadow-2xl sm:p-5"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p
+                  id="customer-care-bulk-payment-title"
+                  className="text-base font-semibold text-text-primary"
+                >
+                  Cập nhật trạng thái thanh toán
+                </p>
+                <p className="mt-1 text-sm text-text-secondary">
+                  Áp dụng cho {selectedCount} khoản hoa hồng đã chọn.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeBulkPaymentPopup}
+                className="rounded-xl p-2 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                aria-label="Đóng popup cập nhật trạng thái thanh toán"
+              >
+                <XMarkIcon className="size-5" aria-hidden />
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-text-secondary">
+                  Trạng thái muốn đổi
+                </span>
+                <UpgradedSelect
+                  name="bulk-customer-care-payment-status"
+                  value={bulkPaymentStatusDraft}
+                  onValueChange={(value) =>
+                    setBulkPaymentStatusDraft(value as CustomerCarePaymentStatus)
+                  }
+                  options={BULK_PAYMENT_STATUS_OPTIONS.map((option) => ({
+                    value: option.value,
+                    label: option.label,
+                  }))}
+                  buttonClassName="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                />
+              </label>
+
+              <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={closeBulkPaymentPopup}
+                  disabled={bulkPaymentStatusMutation.isPending}
+                  className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmBulkPaymentStatusUpdate}
+                  disabled={bulkPaymentStatusMutation.isPending}
+                  className="min-h-11 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {bulkPaymentStatusMutation.isPending
+                    ? "Đang cập nhật…"
+                    : "Xác nhận"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

@@ -49,6 +49,7 @@ export interface CustomerCareCommissionItem {
 
 /** One session commission in GET .../students/:studentId/session-commissions */
 export interface CustomerCareSessionCommissionItem {
+  attendanceId: string;
   sessionId: string;
   date: string;
   className: string | null;
@@ -56,4 +57,15 @@ export interface CustomerCareSessionCommissionItem {
   customerCareCoef: number;
   commission: number;
   paymentStatus: CustomerCarePaymentStatus;
+}
+
+export interface CustomerCareBulkPaymentStatusUpdatePayload {
+  attendanceIds: string[];
+  paymentStatus: CustomerCarePaymentStatus;
+}
+
+export interface CustomerCareBulkPaymentStatusUpdateResult {
+  staffId: string;
+  requestedCount: number;
+  updatedCount: number;
 }
