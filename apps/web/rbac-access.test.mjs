@@ -531,6 +531,34 @@ test("split accountant roles get only their route families", () => {
     ),
     true,
   );
+  assert.equal(
+    adminShellAccess.canAccessAdminShellRoute(
+      adminShellAccess.resolveAdminShellAccess(expenseAccountant),
+      "/admin/customer_care_detail/staff-1",
+    ),
+    true,
+  );
+  assert.equal(
+    staffShellAccess.resolveStaffShellRouteAccess(
+      expenseAccountant,
+      "/staff/customer-care-detail/staff-1",
+    ).isAllowed,
+    true,
+  );
+  assert.equal(
+    staffShellAccess.resolveStaffShellRouteAccess(
+      expenseAccountant,
+      "/staff/assistant-detail",
+    ).isAllowed,
+    true,
+  );
+  assert.equal(
+    staffShellAccess.resolveStaffShellRouteAccess(
+      expenseAccountant,
+      "/staff/lesson-plan-detail/staff-1",
+    ).isAllowed,
+    true,
+  );
 });
 
 test("combined accountant roles get additive income and expense routes without strict admin", () => {

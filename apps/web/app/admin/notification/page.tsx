@@ -249,13 +249,15 @@ function buildAudienceLabels(item: AdminNotificationItem) {
   }
 
   const userMap = new Map(item.targetUsers.map((user) => [user.userId, user]));
-  const labels = [
-    ...item.targetRoleTypes.map((role) => `@${role}`),
-    ...item.targetStaffRoles.map((role) => `@${role}`),
-    ...item.targetUserIds.map(
-      (userId) => `@${userMap.get(userId)?.displayName ?? userId}`,
-    ),
-  ];
+  const labels = Array.from(
+    new Set([
+      ...item.targetRoleTypes.map((role) => `@${role}`),
+      ...item.targetStaffRoles.map((role) => `@${role}`),
+      ...item.targetUserIds.map(
+        (userId) => `@${userMap.get(userId)?.displayName ?? userId}`,
+      ),
+    ]),
+  );
 
   if (labels.length <= 6) {
     return labels;
@@ -434,9 +436,9 @@ function NotificationListCard({
             <span className="text-xs font-medium text-text-muted">
               Người nhận:
             </span>
-            {audienceLabels.map((label) => (
+            {audienceLabels.map((label, index) => (
               <span
-                key={`${item.id}-${label}`}
+                key={`${item.id}-audience-${index}`}
                 className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary"
               >
                 {label}

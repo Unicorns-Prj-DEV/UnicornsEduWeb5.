@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import ExtraAllowanceRoleDetailPage from "@/components/admin/extra-allowance/ExtraAllowanceRoleDetailPage";
 import StaffSelfExtraAllowanceRoleDetailPage from "@/components/staff/StaffSelfExtraAllowanceRoleDetailPage";
 import { getFullProfile } from "@/lib/apis/auth.api";
+import { canViewCrossStaffRoleDetail } from "@/lib/staff-role-detail-access";
 import type { ExtraAllowanceRoleType } from "@/dtos/extra-allowance.dto";
 
 function StaffRoleDetailLoadingShell() {
@@ -54,15 +55,11 @@ export default function StaffAccountantDetailPage() {
         : selfRoles.includes("accountant_income")
           ? "accountant_income"
           : "accountant";
-  const isAssistant =
-    profile?.roleType === "staff" &&
-    selfRoles.includes("assistant");
-
   if (isProfileLoading && !profile) {
     return <StaffRoleDetailLoadingShell />;
   }
 
-  if (isAssistant && staffId?.trim()) {
+  if (canViewCrossStaffRoleDetail(profile, staffId)) {
     return <ExtraAllowanceRoleDetailPage roleType={resolvedRoleType} staffId={staffId} />;
   }
 

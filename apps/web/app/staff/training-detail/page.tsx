@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import ExtraAllowanceRoleDetailPage from "@/components/admin/extra-allowance/ExtraAllowanceRoleDetailPage";
 import StaffSelfExtraAllowanceRoleDetailPage from "@/components/staff/StaffSelfExtraAllowanceRoleDetailPage";
 import { getFullProfile } from "@/lib/apis/auth.api";
+import { canViewCrossStaffRoleDetail } from "@/lib/staff-role-detail-access";
 
 function StaffRoleDetailLoadingShell() {
   return (
@@ -40,15 +41,12 @@ function StaffTrainingDetailContent() {
     staleTime: 60_000,
   });
   const staffId = getSearchParam("staffId");
-  const isAssistant =
-    profile?.roleType === "staff" &&
-    (profile.staffInfo?.roles ?? []).includes("assistant");
 
   if (isProfileLoading && !profile) {
     return <StaffRoleDetailLoadingShell />;
   }
 
-  if (isAssistant && staffId?.trim()) {
+  if (canViewCrossStaffRoleDetail(profile, staffId)) {
     return <ExtraAllowanceRoleDetailPage roleType="training" staffId={staffId} />;
   }
 

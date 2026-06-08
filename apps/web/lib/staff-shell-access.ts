@@ -253,9 +253,7 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
     isAssistantUsersRoute ||
     isAssistantStaffsRoute ||
     isStaffStudentsListRoute ||
-    isAssistantHistoryRoute ||
-    isCustomerCareAdminRoute ||
-    isLessonPlanAdminDetailRoute;
+    isAssistantHistoryRoute;
 
   return {
     isDashboardRoute,
@@ -369,30 +367,43 @@ export function resolveStaffShellRouteAccess(
                         ? isAssistantStaff
                         : flags.isCustomerCareSelfRoute
                           ? flags.isCustomerCareAdminRoute
-                            ? isAssistantStaff
+                            ? isAssistantStaff ||
+                              (hasStaffWorkspaceAccess &&
+                                isStaffOrAdmin &&
+                                isAccountantExpense)
                             : hasStaffWorkspaceAccess &&
                               isStaffOrAdmin &&
                               isCustomerCare
                           : flags.isAssistantSelfRoute
                             ? hasStaffWorkspaceAccess &&
                               isStaffOrAdmin &&
-                              (isAssistant || isAssistantStaff)
+                              (isAssistant ||
+                                isAssistantStaff ||
+                                isAccountantExpense)
                             : flags.isAccountantSelfRoute
                               ? hasStaffWorkspaceAccess &&
                                 isStaffOrAdmin &&
-                                (isAccountant || isAssistantStaff)
+                                (isAccountant ||
+                                  isAssistantStaff ||
+                                  isAccountantExpense)
                               : flags.isCommunicationSelfRoute
                                 ? hasStaffWorkspaceAccess &&
                                   isStaffOrAdmin &&
-                                  (isCommunication || isAssistantStaff)
+                                  (isCommunication ||
+                                    isAssistantStaff ||
+                                    isAccountantExpense)
                                 : flags.isTechnicalSelfRoute
                                   ? hasStaffWorkspaceAccess &&
                                     isStaffOrAdmin &&
-                                    (isTechnical || isAssistantStaff)
+                                    (isTechnical ||
+                                      isAssistantStaff ||
+                                      isAccountantExpense)
                                   : flags.isTrainingSelfRoute
                                     ? hasStaffWorkspaceAccess &&
                                       isStaffOrAdmin &&
-                                      (isTraining || isAssistantStaff)
+                                      (isTraining ||
+                                        isAssistantStaff ||
+                                        isAccountantExpense)
                                     : flags.isLessonPlanLegacyRoute
                                       ? hasStaffWorkspaceAccess &&
                                         isStaffOrAdmin &&
@@ -411,7 +422,8 @@ export function resolveStaffShellRouteAccess(
                                             ? hasStaffWorkspaceAccess &&
                                               isStaffOrAdmin &&
                                               (flags.isLessonPlanAdminDetailRoute
-                                                ? isAssistantStaff
+                                                ? isAssistantStaff ||
+                                                  isAccountantExpense
                                                 : isLessonPlanner ||
                                                   isAssistantStaff)
                                             : false;
