@@ -21,7 +21,21 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Added
+
+- BE/FE thanh toán nhân sự theo khoản chọn: thêm `PATCH /staff/:id/payment-status/pay-selected` với body `{ month, year, items: [{ sourceType, id }] }`; popup **Thanh toán** trên `/admin/staffs/[id]` và mirror `/staff/staffs/[id]` có checkbox chọn từng khoản (gồm hoa hồng CSKH), nút **Thanh toán N khoản đã chọn**, và giữ shortcut **Thanh toán tất cả** qua `pay-all`.
+- BE/FE customer-care detail: thêm `PATCH /customer-care/staff/:staffId/payment-status/bulk` với body `{ attendanceIds, paymentStatus }`; tab **Hoa hồng** trên `/admin/customer_care_detail/[staffId]` và mirror `/staff/customer-care-detail/[staffId]` cho phép admin/assistant/kế toán chọn từng buổi hoa hồng và đổi trạng thái `pending`/`paid` (khi paid snapshot % thuế CSKH hiện hành; khi pending reset về 0). Response `session-commissions` bổ sung `attendanceId`.
+
+### Changed
+
+- FE customer-care detail tab **Hoa hồng**: cho phép mở rộng đồng thời nhiều học sinh (accordion độc lập, mỗi học sinh fetch `session-commissions` riêng qua TanStack `useQueries`); chọn khoản và đổi trạng thái thanh toán vẫn hoạt động xuyên suốt các học sinh đang mở.
+
 ### Fixed
+
+- FE `/admin/notification`: dedupe nhãn người nhận và dùng key theo index để tránh cảnh báo React duplicate key khi cùng một role (ví dụ `@admin`) xuất hiện ở cả `targetRoleTypes` và `targetStaffRoles`.
+- FE phân quyền `accountant_expense`: mở các trang chi tiết role của nhân sự khác trên staff shell (`/staff/customer-care-detail/[staffId]`, `/staff/lesson-plan-detail/[staffId]`, `/staff/*-detail?staffId=...`) và render admin-like detail thay vì self-service khi có `staffId`.
+- FE trang chi tiết học sinh/nhân sự: gỡ nút header **Nghỉ học / Mở lại** và **Ngừng hoạt động / Mở lại**; đổi trạng thái chỉ qua popup chỉnh sửa (confirm khi inactive, field lý do tùy chọn, invalidate query lớp khi đổi status học sinh). Nút **Nghỉ học** trên trang chi tiết lớp vẫn giữ nguyên.
+
 
 - BE/FE staff pay-all & Công việc khác: `payment-preview` và `pay-all` giờ lấy **mọi khoản pending/unpaid mọi role và mọi tháng** (trừ cọc), không còn giới hạn tháng query cho thưởng/trợ cấp/CSKH/giáo án/trợ lí; card **Công việc khác** dùng hybrid — **Tổng nhận/Đã nhận** theo tháng MonthNav, **Chưa nhận** full-scope theo role (net, thuế hiện hành). Cập nhật copy popup, helper card, Swagger và docs admin/staff.
 - FE/BE key collision & pagination sorting: Sửa lỗi trùng lặp React element keys (`UNIST-...` student IDs) trong các danh sách hiển thị phiên bản mobile và desktop tại trang Danh sách học sinh Admin, Chi tiết lớp học Admin/Staff, và màn hình Chăm sóc khách hàng (CSKH) bằng cách thêm tiền tố unique (`mobile-` và `desktop-`), đồng thời bổ sung tie-breaker `student.id ASC` vào `orderBy` của các câu truy vấn phân trang phía backend để đảm bảo thứ tự sắp xếp deterministic và không bị lặp bản ghi học sinh giữa các trang.
