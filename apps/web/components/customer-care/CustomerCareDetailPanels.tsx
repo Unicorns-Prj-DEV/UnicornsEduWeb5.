@@ -24,6 +24,7 @@ import {
 import { toast } from "sonner";
 import type {
   CustomerCareCommissionItem,
+  CustomerCareCommissionScope,
   CustomerCarePaymentStatus,
   CustomerCareSessionCommissionItem,
   CustomerCareStudentItem,
@@ -43,8 +44,13 @@ import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import SelectionCheckbox from "@/components/ui/SelectionCheckbox";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
+import { MonthInput } from "@/components/ui/MonthInput";
+import {
+  formatMonthKeyLabel,
+  getDefaultMonthKey,
+} from "@/lib/month-format";
 
-const SESSION_DAYS = 30;
+type CommissionFilterMode = "pending" | "month";
 const STUDENT_PAGE_SIZE = 10;
 const PAYMENT_HISTORY_LIMIT = 20;
 const TOP_UP_HISTORY_PAGE_SIZE = 20;
@@ -62,7 +68,7 @@ const PAYMENT_STATUS_LABELS: Record<CustomerCarePaymentStatus, string> = {
 type TabId = "students" | "payments" | "commissions";
 
 const COMMISSION_ROW_GRID_CLASS =
-  "grid-cols-[minmax(0,1fr)_auto_1.25rem] md:grid-cols-[minmax(0,1fr)_minmax(10rem,12rem)_1.5rem]";
+  "grid-cols-[minmax(0,1fr)_minmax(7rem,8.5rem)_minmax(7rem,8.5rem)_1.25rem]";
 const SESSION_COMMISSION_GRID_CLASS =
   "grid-cols-[7.5rem_minmax(14rem,1.85fr)_8.5rem_6.5rem_10rem_8.5rem]";
 const SESSION_COMMISSION_GRID_WITH_SELECTION_CLASS =
@@ -306,6 +312,9 @@ export default function CustomerCareDetailPanels({
   const [bulkPaymentPopupOpen, setBulkPaymentPopupOpen] = useState(false);
   const [bulkPaymentStatusDraft, setBulkPaymentStatusDraft] =
     useState<CustomerCarePaymentStatus>(DEFAULT_BULK_PAYMENT_STATUS);
+  const [commissionFilterMode, setCommissionFilterMode] =
+    useState<CommissionFilterMode>("pending");
+  const [commissionMonthKey, setCommissionMonthKey] = useState(getDefaultMonthKey);
   const studentLoadMoreRef = useRef<HTMLDivElement | null>(null);
   const topUpLoadMoreRef = useRef<HTMLDivElement | null>(null);
   const isAdminWorkspace = workspaceMode === "admin";
@@ -408,14 +417,32 @@ export default function CustomerCareDetailPanels({
     staleTime: 30_000,
   });
 
+  const commissionMonthLabel = formatMonthKeyLabel(commissionMonthKey);
+  const commissionScope: CustomerCareCommissionScope =
+    commissionFilterMode === "month" ? "month" : "pending";
+  const commissionQueryMonth =
+    commissionFilterMode === "month" ? commissionMonthKey : undefined;
+  const canQueryCommissions =
+    commissionFilterMode === "pending" || Boolean(commissionMonthKey?.trim());
+
   const {
     data: commissions = [],
     isLoading: commissionsLoading,
     isError: commissionsError,
   } = useQuery({
-    queryKey: ["customer-care", "commissions", staffId, SESSION_DAYS],
-    queryFn: () => customerCareApi.getCustomerCareCommissions(staffId, SESSION_DAYS),
-    enabled: !!staffId && activeTab === "commissions",
+    queryKey: [
+      "customer-care",
+      "commissions",
+      staffId,
+      commissionScope,
+      commissionQueryMonth,
+    ],
+    queryFn: () =>
+      customerCareApi.getCustomerCareCommissions(staffId, {
+        scope: commissionScope,
+        month: commissionQueryMonth,
+      }),
+    enabled: !!staffId && activeTab === "commissions" && canQueryCommissions,
   });
 
   const expandedStudentIdList = useMemo(
@@ -430,15 +457,16 @@ export default function CustomerCareDetailPanels({
         "session-commissions",
         staffId,
         studentId,
-        SESSION_DAYS,
+        commissionScope,
+        commissionQueryMonth,
       ],
       queryFn: () =>
-        customerCareApi.getCustomerCareSessionCommissions(
-          staffId,
-          studentId,
-          SESSION_DAYS,
-        ),
-      enabled: !!staffId && activeTab === "commissions",
+        customerCareApi.getCustomerCareSessionCommissions(staffId, studentId, {
+          scope: commissionScope,
+          month: commissionQueryMonth,
+        }),
+      enabled:
+        !!staffId && activeTab === "commissions" && canQueryCommissions,
       staleTime: 30_000,
     })),
   });
@@ -513,6 +541,11 @@ export default function CustomerCareDetailPanels({
       toast.error("Không thể cập nhật trạng thái thanh toán. Vui lòng thử lại.");
     },
   });
+
+  useEffect(() => {
+    setExpandedStudentIds(new Set());
+    setSelectedAttendanceIds(new Set());
+  }, [commissionFilterMode, commissionMonthKey]);
 
   useEffect(() => {
     if (
@@ -1331,7 +1364,50 @@ export default function CustomerCareDetailPanels({
           aria-label="Hoa hồng theo học sinh"
           {...panelMotionProps}
         >
-          <h2 className="ml-5 mb-3 text-base font-medium text-text-primary">Hoa hồng</h2>
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="ml-5">
+              <h2 className="text-base font-medium text-text-primary">Hoa hồng</h2>
+              <p className="mt-1 text-sm text-text-muted">
+                Hoa hồng CSKH theo học phí buổi học đã ghi nhận.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 px-4 sm:items-end sm:px-0">
+              <div className="inline-flex w-full rounded-xl border border-border-default bg-bg-surface p-1 sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setCommissionFilterMode("pending")}
+                  className={cn(
+                    "min-h-10 flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors sm:flex-none",
+                    commissionFilterMode === "pending"
+                      ? "bg-primary text-text-inverse"
+                      : "text-text-secondary hover:bg-bg-secondary",
+                  )}
+                >
+                  Chưa thanh toán
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCommissionFilterMode("month")}
+                  className={cn(
+                    "min-h-10 flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors sm:flex-none",
+                    commissionFilterMode === "month"
+                      ? "bg-primary text-text-inverse"
+                      : "text-text-secondary hover:bg-bg-secondary",
+                  )}
+                >
+                  Theo tháng
+                </button>
+              </div>
+              {commissionFilterMode === "month" ? (
+                <MonthInput
+                  value={commissionMonthKey}
+                  onChange={(event) => setCommissionMonthKey(event.target.value)}
+                  className="w-full sm:min-w-[18rem]"
+                  aria-label="Chọn tháng đối soát hoa hồng"
+                />
+              ) : null}
+            </div>
+          </div>
 
           {canEditCommissionPaymentStatus && selectedCount > 0 ? (
             <div className="mb-4 rounded-xl border border-border-default bg-bg-secondary/55 px-3 py-2">
@@ -1395,7 +1471,9 @@ export default function CustomerCareDetailPanels({
           )}
           {!commissionsLoading && !commissionsError && commissions.length === 0 && (
             <div className="rounded-[1.5rem] border border-border-default bg-bg-surface p-6 text-center text-sm text-text-muted shadow-sm">
-              Không có hoa hồng trong 30 ngày qua.
+              {commissionFilterMode === "pending"
+                ? "Không có khoản hoa hồng chưa thanh toán."
+                : `Không có hoa hồng trong ${commissionMonthLabel}.`}
             </div>
           )}
           {!commissionsLoading && !commissionsError && commissions.length > 0 && (
@@ -1405,7 +1483,8 @@ export default function CustomerCareDetailPanels({
                 aria-hidden
               >
                 <span>Tên</span>
-                <span className="text-right">Tổng tiền hoa hồng</span>
+                <span className="text-right">Chưa thanh toán</span>
+                <span className="text-right">Tổng hoa hồng</span>
                 <span className="sr-only">Mở rộng</span>
               </div>
               {commissions.map((item: CustomerCareCommissionItem) => {
@@ -1430,8 +1509,15 @@ export default function CustomerCareDetailPanels({
                     <span className="min-w-0 truncate font-medium text-text-primary" title={item.fullName}>
                       {item.fullName}
                     </span>
-                    <span className="w-full text-right tabular-nums font-semibold text-primary">
-                      {formatCurrency(item.totalCommission)}
+                    <span className="text-right tabular-nums font-semibold text-warning">
+                      {formatCurrency(item.pendingCommission)}
+                    </span>
+                    <span className="text-right tabular-nums font-semibold text-primary">
+                      {formatCurrency(
+                        commissionFilterMode === "pending"
+                          ? item.pendingCommission
+                          : item.totalCommission,
+                      )}
                     </span>
                     <svg
                       className={`size-4 justify-self-end text-text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`}
@@ -1451,13 +1537,17 @@ export default function CustomerCareDetailPanels({
                   {isExpanded ? (
                     <div className="border-t border-border-subtle bg-bg-secondary px-4 py-3">
                       <p className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
-                        Buổi học trong 30 ngày qua
+                        {commissionFilterMode === "pending"
+                          ? "Buổi học chưa thanh toán"
+                          : `Buổi học trong ${commissionMonthLabel}`}
                       </p>
                       {studentSessionsLoading ? (
                         <SessionCommissionSkeleton />
                       ) : studentSessions.length === 0 ? (
                         <p className="text-sm text-text-muted">
-                          Không có buổi học trong 30 ngày qua.
+                          {commissionFilterMode === "pending"
+                            ? "Không có buổi học chưa thanh toán."
+                            : `Không có buổi học trong ${commissionMonthLabel}.`}
                         </p>
                       ) : (
                         <div className="space-y-3">

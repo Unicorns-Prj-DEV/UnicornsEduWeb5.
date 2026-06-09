@@ -1,6 +1,7 @@
 import type {
   CustomerCareBulkPaymentStatusUpdatePayload,
   CustomerCareBulkPaymentStatusUpdateResult,
+  CustomerCareCommissionListParams,
   CustomerCarePaymentStatus,
   CustomerCareStudentListResponse,
   CustomerCareCommissionItem,
@@ -59,27 +60,29 @@ export async function getCustomerCareTopUpHistory(
 
 export async function getCustomerCareCommissions(
   staffId: string,
-  days?: number
+  params: CustomerCareCommissionListParams = {},
 ): Promise<CustomerCareCommissionItem[]> {
-  const params = days != null ? { days } : {};
   const res = await api.get<CustomerCareCommissionItem[]>(
     `/customer-care/staff/${encodeURIComponent(staffId)}/commissions`,
-    { params }
+    { params },
   );
-  return res.data;
+  return (res.data ?? []).map((item) => ({
+    ...item,
+    pendingCommission: item.pendingCommission ?? 0,
+    paidCommission: item.paidCommission ?? 0,
+  }));
 }
 
 export async function getCustomerCareSessionCommissions(
   staffId: string,
   studentId: string,
-  days?: number
+  params: CustomerCareCommissionListParams = {},
 ): Promise<CustomerCareSessionCommissionItem[]> {
-  const params = days != null ? { days } : {};
   const res = await api.get<CustomerCareSessionCommissionItem[]>(
     `/customer-care/staff/${encodeURIComponent(staffId)}/students/${encodeURIComponent(studentId)}/session-commissions`,
-    { params }
+    { params },
   );
-  return res.data.map((item) => ({
+  return (res.data ?? []).map((item) => ({
     ...item,
     paymentStatus: normalizeCustomerCarePaymentStatus(item.paymentStatus),
   }));

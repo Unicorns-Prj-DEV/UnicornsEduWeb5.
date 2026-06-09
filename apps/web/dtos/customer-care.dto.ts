@@ -40,11 +40,21 @@ export interface CustomerCareTopUpHistoryListResponse {
   meta: CustomerCareStudentListMeta;
 }
 
+export type CustomerCareCommissionScope = "pending" | "month";
+
+export interface CustomerCareCommissionListParams {
+  scope?: CustomerCareCommissionScope;
+  month?: string;
+  days?: number;
+}
+
 /** One row in GET /customer-care/staff/:staffId/commissions */
 export interface CustomerCareCommissionItem {
   studentId: string;
   fullName: string;
   totalCommission: number;
+  pendingCommission: number;
+  paidCommission: number;
 }
 
 /** One session commission in GET .../students/:studentId/session-commissions */
