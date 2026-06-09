@@ -208,6 +208,10 @@ function buildPaymentItemKey(sourceType: string, id: string): string {
   return `${sourceType}:${id}`;
 }
 
+function buildPaymentSectionKey(section: StaffPaymentPreview["sections"][number]): string {
+  return section.role ?? "bonus";
+}
+
 function normalizeMoneyAmount(value?: number | string | null): number {
   const amount = typeof value === "number" ? value : Number(value ?? 0);
   return Number.isFinite(amount) ? amount : 0;
@@ -295,6 +299,9 @@ export default function AdminStaffDetailPage({
     string[]
   >([]);
   const [paymentPreviewPopupOpen, setPaymentPreviewPopupOpen] = useState(false);
+  const [expandedPaymentSectionKeys, setExpandedPaymentSectionKeys] = useState(
+    () => new Set<string>(),
+  );
   const [selectedPaymentItemKeys, setSelectedPaymentItemKeys] = useState<
     string[]
   >([]);
@@ -1188,7 +1195,19 @@ export default function AdminStaffDetailPage({
       return;
     }
     setSelectedPaymentItemKeys([]);
+    setExpandedPaymentSectionKeys(new Set());
     setPaymentPreviewPopupOpen(false);
+  };
+  const togglePaymentSectionExpand = (sectionKey: string) => {
+    setExpandedPaymentSectionKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(sectionKey)) {
+        next.delete(sectionKey);
+      } else {
+        next.add(sectionKey);
+      }
+      return next;
+    });
   };
   const togglePaymentItem = (sourceType: StaffPaymentSourceType, itemId: string) => {
     const key = buildPaymentItemKey(sourceType, itemId);
@@ -2601,7 +2620,7 @@ export default function AdminStaffDetailPage({
             role="dialog"
             aria-modal="true"
             aria-labelledby="staff-payment-preview-title"
-            className="fixed left-1/2 top-1/2 z-50 flex max-h-[88vh] w-[calc(100%-1rem)] max-w-6xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-surface shadow-2xl"
+            className="fixed left-1/2 top-1/2 z-50 flex max-h-[88vh] min-h-[min(88vh,36rem)] w-[calc(100%-1rem)] min-w-[min(100%,48rem)] max-w-6xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-surface shadow-2xl"
           >
             <div className="border-b border-border-default bg-bg-secondary/65 px-4 py-4 sm:px-6">
               <div className="flex items-center justify-between gap-4">
@@ -2617,8 +2636,9 @@ export default function AdminStaffDetailPage({
                   </h2>
                   <p className="mt-1 text-sm text-text-muted">
                     Chọn từng khoản hoặc chọn cả nhóm. Mọi khoản chưa thanh toán
-                    của mọi role, mọi tháng (trừ cọc). Thuế theo mức hiện hành
-                    tại {paymentPreviewTaxAsOfDate}.
+                    của mọi role, mọi tháng (trừ cọc). Bấm từng role để mở danh
+                    sách chi tiết. Thuế theo mức hiện hành tại{" "}
+                    {paymentPreviewTaxAsOfDate}.
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -2736,6 +2756,9 @@ export default function AdminStaffDetailPage({
 
                   <div className="space-y-4">
                     {paymentPreviewSections.map((section) => {
+                      const sectionKey = buildPaymentSectionKey(section);
+                      const isSectionExpanded =
+                        expandedPaymentSectionKeys.has(sectionKey);
                       const showSectionOperating =
                         shouldShowPaymentOperatingColumn(section.role);
                       const showSectionTax = shouldShowPaymentTaxColumn(
@@ -2748,11 +2771,16 @@ export default function AdminStaffDetailPage({
 
                       return (
                         <section
-                          key={section.role ?? "bonus"}
-                          className="rounded-2xl border border-border-default bg-bg-primary/70"
+                          key={sectionKey}
+                          className="overflow-hidden rounded-2xl border border-border-default bg-bg-primary/70"
                         >
-                          <div className="flex flex-col gap-3 border-b border-border-default px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
-                            <div className="min-w-0">
+                          <button
+                            type="button"
+                            onClick={() => togglePaymentSectionExpand(sectionKey)}
+                            aria-expanded={isSectionExpanded}
+                            className="flex w-full flex-col gap-3 px-4 py-4 text-left transition-colors hover:bg-bg-secondary/45 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-inset sm:flex-row sm:items-start sm:justify-between sm:px-5"
+                          >
+                            <div className="min-w-0 flex-1">
                               <h3 className="text-base font-semibold text-text-primary">
                                 {section.label}
                               </h3>
@@ -2762,33 +2790,50 @@ export default function AdminStaffDetailPage({
                                 {formatCurrency(section.netTotal)}
                               </p>
                             </div>
-                            {showSectionMeta ? (
-                              <div className="flex flex-wrap gap-2 text-xs font-medium">
-                                {section.role ? (
-                                  <span className="rounded-full bg-bg-secondary px-3 py-1 text-text-secondary">
-                                    Thuế hiện hành{" "}
-                                    {formatRatePercent(
-                                      section.sources[0]?.items[0]
-                                        ?.taxRatePercent ?? 0,
-                                    )}
-                                  </span>
-                                ) : null}
-                                {showSectionOperating ? (
-                                  <span className="rounded-full bg-bg-secondary px-3 py-1 text-text-secondary">
-                                    Vận hành{" "}
-                                    {formatCurrency(section.operatingTotal)}
-                                  </span>
-                                ) : null}
-                                {showSectionTax ? (
-                                  <span className="rounded-full bg-error/10 px-3 py-1 text-error">
-                                    Thuế {formatCurrency(section.taxTotal)}
-                                  </span>
-                                ) : null}
-                              </div>
-                            ) : null}
-                          </div>
+                            <div className="flex shrink-0 items-start gap-2 sm:items-center">
+                              {showSectionMeta ? (
+                                <div className="flex flex-wrap gap-2 text-xs font-medium">
+                                  {section.role ? (
+                                    <span className="rounded-full bg-bg-secondary px-3 py-1 text-text-secondary">
+                                      Thuế hiện hành{" "}
+                                      {formatRatePercent(
+                                        section.sources[0]?.items[0]
+                                          ?.taxRatePercent ?? 0,
+                                      )}
+                                    </span>
+                                  ) : null}
+                                  {showSectionOperating ? (
+                                    <span className="rounded-full bg-bg-secondary px-3 py-1 text-text-secondary">
+                                      Vận hành{" "}
+                                      {formatCurrency(section.operatingTotal)}
+                                    </span>
+                                  ) : null}
+                                  {showSectionTax ? (
+                                    <span className="rounded-full bg-error/10 px-3 py-1 text-error">
+                                      Thuế {formatCurrency(section.taxTotal)}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                              <svg
+                                className={`mt-0.5 size-4 shrink-0 text-text-muted transition-transform sm:mt-0 ${isSectionExpanded ? "rotate-180" : ""}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                aria-hidden
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 9l-7 7-7-7"
+                                />
+                              </svg>
+                            </div>
+                          </button>
 
-                          <div className="space-y-4 px-4 py-4 sm:px-5">
+                          {isSectionExpanded ? (
+                          <div className="space-y-4 border-t border-border-default px-4 py-4 sm:px-5">
                             {section.sources.map((source) => {
                               const sourceType =
                                 source.sourceType as StaffPaymentSourceType;
@@ -3083,6 +3128,7 @@ export default function AdminStaffDetailPage({
                               );
                             })}
                           </div>
+                          ) : null}
                         </section>
                       );
                     })}
