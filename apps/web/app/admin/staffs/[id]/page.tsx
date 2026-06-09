@@ -22,6 +22,10 @@ import {
   QrLinkPopup,
   SessionHistoryTableSkeleton,
 } from "@/components/admin/staff";
+import {
+  AssistantDualRoleIncomeHelper,
+  hasAssistantAndCustomerCareRoles,
+} from "@/components/admin/staff/AssistantDualRoleIncomeHelper";
 import { MissedTeachingAlertsCard } from "@/components/admin/class";
 import { BonusListItem } from "@/dtos/bonus.dto";
 import {
@@ -730,6 +734,9 @@ export default function AdminStaffDetailPage({
   const depositByClass = incomeSummary?.depositYearByClass ?? [];
   const bonusTotals = incomeSummary?.bonusMonthlyTotals ?? EMPTY_AMOUNT_SUMMARY;
   const otherRoleSummaries = incomeSummary?.otherRoleSummaries ?? [];
+  const showAssistantDualRoleHelper =
+    hasAssistantAndCustomerCareRoles(staff?.roles) &&
+    otherRoleSummaries.some((item) => item.role === "assistant");
   const beforeDeductionCards = useMemo(() => {
     if (!incomeSummary) {
       return [] as { key: string; label: string; value: number }[];
@@ -2367,6 +2374,11 @@ export default function AdminStaffDetailPage({
                       })}
                     </tbody>
                   </table>
+                </div>
+                <div className="mt-3">
+                  <AssistantDualRoleIncomeHelper
+                    visible={showAssistantDualRoleHelper}
+                  />
                 </div>
               </>
             );

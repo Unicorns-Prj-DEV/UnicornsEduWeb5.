@@ -16,6 +16,10 @@ import {
   StaffIdentityOverview,
   SessionHistoryTableSkeleton,
 } from "@/components/admin/staff";
+import {
+  AssistantDualRoleIncomeHelper,
+  hasAssistantAndCustomerCareRoles,
+} from "@/components/admin/staff/AssistantDualRoleIncomeHelper";
 import MonthNav from "@/components/admin/MonthNav";
 import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable";
 import StaffSelfEditPopup from "@/components/staff/StaffSelfEditPopup";
@@ -805,6 +809,9 @@ export default function StaffSelfDetailPage() {
   const depositByClass = incomeSummary?.depositYearByClass ?? [];
   const bonusTotals = incomeSummary?.bonusMonthlyTotals ?? EMPTY_AMOUNT_SUMMARY;
   const otherRoleSummaries = incomeSummary?.otherRoleSummaries ?? [];
+  const showAssistantDualRoleHelper =
+    hasAssistantAndCustomerCareRoles(staff?.roles) &&
+    otherRoleSummaries.some((item) => item.role === "assistant");
   const staffDisplayName =
     resolveCanonicalUserName(profile, staff.user?.fullName || staff.fullName) ||
     profile.email ||
@@ -1446,6 +1453,11 @@ export default function StaffSelfDetailPage() {
                       })}
                     </tbody>
                   </table>
+                </div>
+                <div className="mt-3">
+                  <AssistantDualRoleIncomeHelper
+                    visible={showAssistantDualRoleHelper}
+                  />
                 </div>
               </>
             );

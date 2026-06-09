@@ -220,7 +220,10 @@ export interface StaffDashboardCustomerCarePortfolioItem {
 export interface StaffDashboardAssistantSection {
   actionAlerts: AdminDashboardActionAlert[];
   systemSummary: StaffDashboardSystemSummary;
+  /** @deprecated Use managedCustomerCarePortfolios */
   customerCarePortfolios: StaffDashboardCustomerCarePortfolioItem[];
+  myCustomerCarePortfolio: StaffDashboardCustomerCarePortfolioItem | null;
+  managedCustomerCarePortfolios: StaffDashboardCustomerCarePortfolioItem[];
 }
 
 export interface StaffDashboardStudentAlertItem {

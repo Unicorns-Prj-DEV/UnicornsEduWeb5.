@@ -547,11 +547,66 @@ function LessonPlanHeadSection({
   );
 }
 
+function CustomerCarePortfolioList({
+  items,
+  emptyTitle,
+  emptyDescription,
+  buildHref,
+}: {
+  items: StaffDashboardAssistantSection["managedCustomerCarePortfolios"];
+  emptyTitle: string;
+  emptyDescription: string;
+  buildHref: (staffId: string) => string;
+}) {
+  if (items.length === 0) {
+    return <EmptyState title={emptyTitle} description={emptyDescription} />;
+  }
+
+  return (
+    <div className="space-y-2">
+      {items.map((item) => (
+        <Link
+          key={item.staffId}
+          href={buildHref(item.staffId)}
+          className="block rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold leading-snug text-text-primary">
+                {item.staffName}
+              </p>
+              <p className="mt-0.5 text-[11px] text-text-secondary">
+                {item.activeStudentCount} HS đang chăm sóc
+              </p>
+            </div>
+            <span className="text-[11px] font-medium text-primary">Chi tiết</span>
+          </div>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            <MiniStat
+              label="Học phí đã học"
+              value={formatCurrency(item.learnedTuitionTotal)}
+              tone="success"
+            />
+            <MiniStat
+              label="Doanh thu đã nạp"
+              value={formatCurrency(item.topupTotal)}
+              tone="primary"
+            />
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 function AssistantSection({
   section,
 }: {
   section: StaffDashboardAssistantSection;
 }) {
+  const managedPortfolios =
+    section.managedCustomerCarePortfolios ?? section.customerCarePortfolios ?? [];
+
   return (
     <section className="space-y-2">
       <SectionTitle staffRole="assistant" />
@@ -629,49 +684,26 @@ function AssistantSection({
             </div>
           </SurfaceCard>
 
-          <SurfaceCard eyebrow="CSKH" title="Học phí đã học · Doanh thu nạp">
-            {section.customerCarePortfolios.length === 0 ? (
-              <EmptyState
-                title="Chưa có dữ liệu CSKH"
-                description="Khi có nhân sự CSKH phụ trách học sinh, số liệu sẽ hiện ở đây."
+          {section.myCustomerCarePortfolio ? (
+            <SurfaceCard eyebrow="CSKH của tôi" title="Portfolio cá nhân">
+              <CustomerCarePortfolioList
+                items={[section.myCustomerCarePortfolio]}
+                emptyTitle="Chưa có dữ liệu CSKH"
+                emptyDescription="Khi bạn được gán học sinh CSKH, số liệu sẽ hiện ở đây."
+                buildHref={() => "/staff/customer-care-detail"}
               />
-            ) : (
-              <div className="space-y-2">
-                {section.customerCarePortfolios.map((item) => (
-                  <Link
-                    key={item.staffId}
-                    href={`/staff/customer-care-detail/${encodeURIComponent(item.staffId)}`}
-                    className="block rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold leading-snug text-text-primary">
-                          {item.staffName}
-                        </p>
-                        <p className="mt-0.5 text-[11px] text-text-secondary">
-                          {item.activeStudentCount} HS đang chăm sóc
-                        </p>
-                      </div>
-                      <span className="text-[11px] font-medium text-primary">
-                        Chi tiết
-                      </span>
-                    </div>
-                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                      <MiniStat
-                        label="Học phí đã học"
-                        value={formatCurrency(item.learnedTuitionTotal)}
-                        tone="success"
-                      />
-                      <MiniStat
-                        label="Doanh thu đã nạp"
-                        value={formatCurrency(item.topupTotal)}
-                        tone="primary"
-                      />
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
+            </SurfaceCard>
+          ) : null}
+
+          <SurfaceCard eyebrow="CSKH tôi quản lí" title="Học phí đã học · Doanh thu nạp">
+            <CustomerCarePortfolioList
+              items={managedPortfolios}
+              emptyTitle="Chưa có CSKH thuộc phạm vi quản lí"
+              emptyDescription="Khi bạn được phân công quản lí CSKH khác, danh sách sẽ hiện ở đây."
+              buildHref={(staffId) =>
+                `/staff/customer-care-detail/${encodeURIComponent(staffId)}`
+              }
+            />
           </SurfaceCard>
         </div>
       </div>

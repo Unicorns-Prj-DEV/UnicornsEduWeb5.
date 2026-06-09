@@ -76,18 +76,30 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
   const [selectedRoles, setSelectedRoles] = useState<Set<string>>(
     () => new Set(staff.roles ?? []),
   );
-  const [managedByStaffId, setManagedByStaffId] = useState<string | null>(
-    staff.customerCareManagedByStaffId ?? null,
-  );
+  const [managedByStaffId, setManagedByStaffId] = useState<string | null>(() => {
+    if (
+      staff.customerCareManagedByStaffId &&
+      staff.customerCareManagedByStaffId === staff.id
+    ) {
+      return null;
+    }
+    return staff.customerCareManagedByStaffId ?? null;
+  });
 
   const hasCustomerCareRole = selectedRoles.has("customer_care");
+  const hasAssistantRole = selectedRoles.has("assistant");
+  const isDualRole = hasCustomerCareRole && hasAssistantRole;
+  const showManagedByField = hasCustomerCareRole && !isDualRole;
 
   const assistantOptionsQuery = useQuery({
     queryKey: ["staff", "assistant-options"],
     queryFn: () => staffApi.searchAssistantStaff({ limit: 50 }),
-    enabled: hasCustomerCareRole,
+    enabled: showManagedByField,
     staleTime: 60_000,
   });
+  const assistantOptions = (assistantOptionsQuery.data ?? []).filter(
+    (option) => option.id !== staff.id,
+  );
 
   const toggleRole = (role: string) => {
     setSelectedRoles((prev) => {
@@ -138,7 +150,7 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
           bank_qr_link: bankQrLink.trim() || undefined,
           personal_achievement_link: personalAchievementLink.trim() || null,
           roles: Array.from(selectedRoles),
-          customer_care_managed_by_staff_id: hasCustomerCareRole
+          customer_care_managed_by_staff_id: showManagedByField
             ? (managedByStaffId || null)
             : null,
         });
@@ -432,7 +444,7 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
                 </div>
               </div>
 
-              {hasCustomerCareRole && (
+              {showManagedByField && (
                 <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
                   <span>Trợ lí quản lí (3% học phí)</span>
                   <select
@@ -443,7 +455,7 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
                     className="cursor-pointer rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   >
                     <option value="">Chưa phân công</option>
-                    {(assistantOptionsQuery.data ?? []).map((opt) => (
+                    {assistantOptions.map((opt) => (
                       <option key={opt.id} value={opt.id}>
                         {opt.fullName}
                       </option>
