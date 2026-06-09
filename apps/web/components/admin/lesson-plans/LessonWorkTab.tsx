@@ -10,6 +10,7 @@ import type {
   LessonWorkResponse,
 } from "@/dtos/lesson.dto";
 import * as lessonApi from "@/lib/apis/lesson.api";
+import { formatMonthNumbersLabel } from "@/lib/month-format";
 import type { StaffLessonEndpointAccessMode } from "@/lib/staff-lesson-workspace";
 import LessonOutputQuickPopup from "./LessonOutputQuickPopup";
 import LessonWorkNewLessonPanel from "./LessonWorkNewLessonPanel";
@@ -65,10 +66,6 @@ function getErrorMessage(error: unknown, fallback: string) {
   );
 }
 
-function formatMonthLabel(year: number, month: number) {
-  const m = String(month).padStart(2, "0");
-  return `Tháng ${m}/${year}`;
-}
 
 function resolvePrimaryLink(output: LessonWorkOutputItem) {
   return output.link?.trim() || output.originalLink?.trim() || "";
@@ -133,19 +130,44 @@ function LevelPill({ level }: { level: string | null }) {
 function PaymentPill({
   paymentStatus,
   cost,
+  staffDisplayName,
 }: {
   paymentStatus: LessonWorkOutputItem["paymentStatus"];
   cost: number;
+  staffDisplayName?: string | null;
 }) {
+  const statusLabel = LESSON_PAYMENT_STATUS_LABELS[paymentStatus];
+  const recipient = staffDisplayName?.trim() || null;
+  const pendingAmount =
+    paymentStatus === "pending" ? `${formatCurrency(cost)}đ` : null;
+  const fullLabel = [statusLabel, recipient, pendingAmount]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <span
-      className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ${lessonPaymentStatusChipClass(
+      className={`inline-flex max-w-full flex-wrap items-center gap-x-1 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ${lessonPaymentStatusChipClass(
         paymentStatus,
       )}`}
+      title={fullLabel}
     >
-      {paymentStatus === "pending"
-        ? `${LESSON_PAYMENT_STATUS_LABELS[paymentStatus]} · ${formatCurrency(cost)}đ`
-        : LESSON_PAYMENT_STATUS_LABELS[paymentStatus]}
+      <span className="shrink-0">{statusLabel}</span>
+      {recipient ? (
+        <>
+          <span className="text-current/70" aria-hidden>
+            ·
+          </span>
+          <span className="min-w-0 max-w-[9rem] truncate">{recipient}</span>
+        </>
+      ) : null}
+      {pendingAmount ? (
+        <>
+          <span className="text-current/70" aria-hidden>
+            ·
+          </span>
+          <span className="shrink-0 tabular-nums">{pendingAmount}</span>
+        </>
+      ) : null}
     </span>
   );
 }
@@ -750,7 +772,7 @@ export default function LessonWorkTab({
               </button>
               <div className="min-w-0 rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-center">
                 <p className="truncate text-sm font-medium tabular-nums text-text-primary">
-                  {formatMonthLabel(workYear, workMonth)}
+                  {formatMonthNumbersLabel(workYear, workMonth)}
                 </p>
               </div>
               <button
@@ -911,6 +933,7 @@ export default function LessonWorkTab({
                         <PaymentPill
                           paymentStatus={output.paymentStatus}
                           cost={output.cost}
+                          staffDisplayName={output.staffDisplayName}
                         />
                         <span className="rounded-full border border-border-default bg-bg-secondary/70 px-2.5 py-1 text-xs text-text-secondary">
                           {output.contestUploaded?.trim() || "Chưa có contest"}
@@ -1087,6 +1110,7 @@ export default function LessonWorkTab({
                             <PaymentPill
                               paymentStatus={output.paymentStatus}
                               cost={output.cost}
+                              staffDisplayName={output.staffDisplayName}
                             />
                           </td>
                           <td className="px-2.5 py-2.5 align-top text-sm text-text-secondary">
