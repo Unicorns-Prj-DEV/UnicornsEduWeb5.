@@ -13,6 +13,7 @@ import {
   getAdminDashboardFinancialDetail,
 } from "@/lib/apis/dashboard.api";
 import { getFullProfile } from "@/lib/apis/auth.api";
+import { formatMonthPartsLabel } from "@/lib/month-format";
 import {
   buildAdminLikePath,
   resolveAdminLikeRouteBase,
@@ -393,10 +394,6 @@ function FinancialDetailModal({
   );
 }
 
-function monthLabel(month: string, year: string) {
-  const date = new Date(Number(year), Number(month) - 1, 1);
-  return new Intl.DateTimeFormat("vi-VN", { month: "long", year: "numeric" }).format(date);
-}
 
 function stepMonth(month: string, year: string, delta: number) {
   const d = new Date(Number(year), Number(month) - 1 + delta, 1);
@@ -892,7 +889,7 @@ export default function AdminDashboardTabPage() {
                     </svg>
                   </button>
                   <div className="min-w-[150px] rounded border border-border-default px-3 py-1.5 text-center text-sm font-medium text-text-primary">
-                    {monthLabel(month, year)}
+                    {formatMonthPartsLabel(month, year)}
                   </div>
                   <button
                     type="button"

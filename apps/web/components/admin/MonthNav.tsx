@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+import { VIETNAMESE_MONTH_OPTIONS } from "@/lib/month-format";
 
 export interface MonthNavProps {
   /** Giá trị YYYY-MM */
@@ -14,6 +14,7 @@ export interface MonthNavProps {
   countLabel?: string;
   /** Nút bên phải (vd. "+ Thêm buổi học") */
   actionButton?: React.ReactNode;
+  disabled?: boolean;
 }
 
 export default function MonthNav({
@@ -23,12 +24,17 @@ export default function MonthNav({
   setMonthPopupOpen,
   countLabel,
   actionButton,
+  disabled = false,
 }: MonthNavProps) {
   const [selectedYear, selectedMonthValue] = value.split("-");
   const monthNum = parseInt(selectedMonthValue, 10);
   const monthLabel = `Tháng ${monthNum}/${selectedYear}`;
 
   const handleMonthChange = (delta: number) => {
+    if (disabled) {
+      return;
+    }
+
     let newMonth = parseInt(selectedMonthValue, 10) + delta;
     let newYear = parseInt(selectedYear, 10);
     if (newMonth < 1) {
@@ -42,11 +48,19 @@ export default function MonthNav({
   };
 
   const handleYearChange = (delta: number) => {
+    if (disabled) {
+      return;
+    }
+
     const newYear = parseInt(selectedYear, 10) + delta;
     onChange(`${newYear}-${selectedMonthValue}`);
   };
 
   const handleMonthSelect = (monthVal: string) => {
+    if (disabled) {
+      return;
+    }
+
     onChange(`${selectedYear}-${monthVal}`);
     setMonthPopupOpen(false);
   };
@@ -87,7 +101,8 @@ export default function MonthNav({
             type="button"
             onClick={() => handleMonthChange(-1)}
             title="Tháng trước"
-            className="flex size-10 items-center justify-center rounded-lg border border-border-default bg-bg-surface text-text-primary shadow-sm transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:size-9"
+            disabled={disabled}
+            className="flex size-10 items-center justify-center rounded-lg border border-border-default bg-bg-surface text-text-primary shadow-sm transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50 sm:size-9"
             aria-label="Tháng trước"
           >
             <svg className="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
@@ -100,9 +115,15 @@ export default function MonthNav({
           </button>
           <button
             type="button"
-            onClick={() => setMonthPopupOpen(!monthPopupOpen)}
+            onClick={() => {
+              if (disabled) {
+                return;
+              }
+              setMonthPopupOpen(!monthPopupOpen);
+            }}
             title="Chọn tháng, năm"
-            className="min-h-10 min-w-[160px] rounded-lg border border-border-default bg-bg-surface px-4 text-sm font-semibold text-text-primary shadow-sm transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-9 sm:min-w-[140px] sm:px-3"
+            disabled={disabled}
+            className="min-h-10 min-w-[160px] rounded-lg border border-border-default bg-bg-surface px-4 text-sm font-semibold text-text-primary shadow-sm transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9 sm:min-w-[140px] sm:px-3"
             aria-expanded={monthPopupOpen}
             aria-haspopup="dialog"
           >
@@ -112,7 +133,8 @@ export default function MonthNav({
             type="button"
             onClick={() => handleMonthChange(1)}
             title="Tháng sau"
-            className="flex size-10 items-center justify-center rounded-lg border border-border-default bg-bg-surface text-text-primary shadow-sm transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:size-9"
+            disabled={disabled}
+            className="flex size-10 items-center justify-center rounded-lg border border-border-default bg-bg-surface text-text-primary shadow-sm transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50 sm:size-9"
             aria-label="Tháng sau"
           >
             <svg className="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
@@ -163,21 +185,20 @@ export default function MonthNav({
               </button>
             </div>
             <div className="grid grid-cols-4 gap-1">
-              {MONTH_NAMES.map((label, idx) => {
-                const val = String(idx + 1).padStart(2, "0");
-                const isActive = val === selectedMonthValue;
+              {VIETNAMESE_MONTH_OPTIONS.map((option) => {
+                const isActive = option.value === selectedMonthValue;
                 return (
                   <button
-                    key={val}
+                    key={option.value}
                     type="button"
-                    onClick={() => handleMonthSelect(val)}
+                    onClick={() => handleMonthSelect(option.value)}
                     className={`rounded-lg px-2 py-2 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
                       isActive
                         ? "border border-primary text-primary"
                         : "text-text-primary hover:bg-bg-tertiary"
                     }`}
                   >
-                    {label}
+                    {option.label}
                   </button>
                 );
               })}

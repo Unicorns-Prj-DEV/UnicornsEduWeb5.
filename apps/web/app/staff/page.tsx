@@ -25,6 +25,7 @@ import {
 } from "@/dtos/dashboard.dto";
 import { resolveCanonicalUserName } from "@/dtos/user-name.dto";
 import { formatCurrency, normalizeTimeOnly } from "@/lib/class.helpers";
+import { formatMonthPartsLabel } from "@/lib/month-format";
 import { ROLE_LABELS } from "@/lib/staff.constants";
 
 const TASK_STATUS_LABELS: Record<string, string> = {
@@ -54,19 +55,6 @@ function getCurrentMonth() {
   };
 }
 
-function formatMonthLabel(month: string, year: string) {
-  const monthIndex = Number(month) - 1;
-  const parsedYear = Number(year);
-
-  if (!Number.isFinite(monthIndex) || !Number.isFinite(parsedYear)) {
-    return `Tháng ${month}/${year}`;
-  }
-
-  return new Intl.DateTimeFormat("vi-VN", {
-    month: "long",
-    year: "numeric",
-  }).format(new Date(Date.UTC(parsedYear, monthIndex, 1)));
-}
 
 function formatShortDate(raw?: string | null) {
   if (!raw) return "Chưa đặt hạn";
@@ -1170,7 +1158,7 @@ function RootLoadingState() {
 export default function StaffDashboardPage() {
   const { replace } = useRouter();
   const { month, year } = getCurrentMonth();
-  const monthLabel = formatMonthLabel(month, year);
+  const monthLabel = formatMonthPartsLabel(month, year);
 
   const {
     data: profile,
