@@ -17,6 +17,7 @@ import { CodeforcesModule } from './codeforces/codeforces.module';
 import { CfProblemTutorialModule } from './cf-problem-tutorial/cf-problem-tutorial.module';
 import { SessionModule } from './session/session.module';
 import { CustomerCareModule } from './customer-care/customer-care.module';
+import { AssistantCommissionModule } from './assistant-commission/assistant-commission.module';
 import { ActionHistoryModule } from './action-history/action-history.module';
 import { LessonModule } from './lesson/lesson.module';
 import { DashboardModule } from './dashboard/dashboard.module';
@@ -67,6 +68,7 @@ function parsePositiveIntegerEnv(
     CfProblemTutorialModule,
     SessionModule,
     CustomerCareModule,
+    AssistantCommissionModule,
     ActionHistoryModule,
     LessonModule,
     DashboardModule,
