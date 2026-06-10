@@ -2,7 +2,8 @@
 
 ## Tổng quan
 
-- **Paths:** `/auth/login`, `/auth/register`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/setup-password`, `/verify-email`.
+- **Paths:** `/auth/login`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/setup-password`, `/verify-email`.
+- **Disabled:** `/auth/register` redirect về `/auth/login`; `POST /auth/register` trả `403`. Đăng ký công khai (email/password + Google OAuth tạo user mới) đã tắt; admin vẫn tạo user qua `POST /users`.
 - **State layer:** TanStack Query (`useMutation`) cho toàn bộ submit flow auth.
 - **Global providers:** `QueryClientProvider` + Sonner `Toaster` được mount tại `apps/web/app/providers.tsx`.
 - **Auth gate:** `apps/web/app/providers.tsx` có `AuthPasswordSetupGate`; nếu user có session hợp lệ (`id` + `accountHandle`) và `requiresPasswordSetup=true` thì mọi route client sẽ bị đẩy về `/auth/setup-password`, kể cả khi `roleType` hiện tại vẫn là `guest`. Khi gate chạy từ `/auth/*`, nó dùng query `next` hợp lệ nếu có, không lấy chính auth page làm đích sau setup.
@@ -29,14 +30,15 @@
   - mọi staff role vận hành không phải admin (`teacher`, `lesson_plan`, `lesson_plan_head`, `assistant`, `accountant_income`, `accountant_expense`, `communication`, `technical`, `customer_care`, `training`, kể cả multi-role như `teacher + lesson_plan`) -> `/staff` chỉ khi session contract xác nhận `hasStaffProfile=true` và `staffProfileComplete=true` / `access.staff.profileComplete=true`; nếu thiếu profile, thiếu field bắt buộc, hoặc chưa đồng ý phiên bản data-consent hiện hành thì fallback `/user-profile?profile_required=1&from=/staff`
   - linked `studentInfo` -> `/student` khi user không có linked staff profile
   - `guest -> /`
-- Google OAuth thành công:
+- Google OAuth thành công (chỉ khi email **đã tồn tại** trong hệ thống):
   - nếu user đã có `passwordHash`: backend set cookie và redirect về `FRONTEND_URL` như flow cũ
   - nếu user chưa có `passwordHash`: backend set cookie và redirect tới `/auth/setup-password?source=google`
   - trường hợp account mới vẫn có `roleType = guest` vẫn được coi là session hợp lệ để hoàn tất setup password, không bị đá về login chỉ vì role là `guest`
+- Google OAuth với email **chưa có** trong DB: redirect `/auth/login?error=registration_disabled`; frontend hiển thị toast hướng dẫn liên hệ quản trị viên.
 - Setup password thành công:
   - ưu tiên redirect về `next` hợp lệ nếu route đó bị gate chặn trước đó
   - nếu không có `next`, redirect theo role giống login thường
-- Register thành công: toast success, delay 3s rồi redirect `/auth/login`.
+- Register công khai: **disabled** — `/auth/register` redirect login; API trả `403`.
 - Reset password thành công: toast success, delay 2s rồi redirect `/auth/login`.
 - Forgot password thành công: luôn trả generic success message, không redirect, không tiết lộ email có tồn tại hay chưa.
 - Forgot/reset/setup password hiển thị đầy đủ logo mark + tên **Unicorns Edu**; email reset password dùng React Email cùng baseline với email xác thực, có CTA, fallback link, và link cũ vô hiệu sau khi mật khẩu đổi.
@@ -82,16 +84,14 @@ export default async function SomePage() {
 
 ## API endpoints đang dùng
 
-- **API (real only):** login, logout, me (profile + role + `requiresPasswordSetup`), register, verify email, forgot password, reset password, setup password đầu tiên cho user OAuth.
+- **API (real only):** login, logout, me (profile + role + `requiresPasswordSetup`), verify email, forgot password, reset password, setup password đầu tiên cho user OAuth. `POST /auth/register` vẫn tồn tại nhưng trả `403` (public registration disabled).
 - **Backend Auth endpoints hiện có:**
   - `POST /auth/login` body: `{ accountHandle, password, rememberMe? }`
     - Validation: `password` tối thiểu **6 ký tự** (`@MinLength(6)`). Nếu không đạt, API trả **400** (trước khi kiểm tra credentials); sai mật khẩu hợp lệ về độ dài thì **401**.
     - `accountHandle`: có thể là **email** hoặc **account handle** (username); backend tìm user theo accountHandle trước, không có thì theo email.
     - refresh token policy: mặc định 7 ngày, nếu `rememberMe=true` thì 30 ngày.
     - rate limit: `20` request / `5 phút` / IP.
-  - `POST /auth/register` body: `{ email, accountHandle, password, ... }`
-    - `accountHandle` phải unique; nếu trùng với user khác (khác email) sẽ trả 400.
-    - rate limit: `10` request / `1 giờ` / IP.
+  - `POST /auth/register` — **disabled**; luôn trả `403 Forbidden` với message đăng ký công khai không được hỗ trợ. Rate limit vẫn áp dụng nếu endpoint bị gọi.
   - `POST /auth/refresh` dùng `refresh_token` cookie
     - backend verify chữ ký refresh JWT **và** đối chiếu hash token đang trình bày với `user.refreshToken` đã lưu; refresh token cũ/đã rotate sẽ bị từ chối.
     - rate limit: `120` request / `1 phút` / IP.

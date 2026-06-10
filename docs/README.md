@@ -32,7 +32,8 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
 - Đã có:
   - `/`
   - `/landing-page`
-  - `/auth/login`, `/auth/register`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/setup-password`, `/verify-email`
+  - `/auth/login`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/setup-password`, `/verify-email`
+  - `/auth/register` (disabled — redirect về login; `POST /auth/register` trả 403)
   - `/student`
   - `/staff` (dashboard phân quyền theo role của staff hiện tại; mọi staff có `staffInfo` đều thấy thu nhập tháng, các khối còn lại bật theo role), `/staff/dashboard` (trợ lí: redirect về `/staff`), `/staff/profile`, `/staff/notification`
   - `/staff/users`, `/staff/staffs`, `/staff/staffs/[id]`, `/staff/classes`, `/staff/classes/[id]` (chi tiết lớp có tab `Buổi học` / `Khảo sát`; teacher nhập khảo sát lớp qua `staff-ops`), `/staff/students`, `/staff/students/[id]`, `/staff/calendar`, `/staff/costs`, `/staff/history`

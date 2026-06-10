@@ -19,6 +19,7 @@ Cho phép người dùng đăng nhập bằng email/password hoặc Google OAuth
   - linked `studentInfo` -> `/student` khi user không có linked staff profile
   - fallback -> `/`
 - Trường hợp query `error=google_no_user`: hiển thị `toast.error`.
+- Trường hợp query `error=registration_disabled`: hiển thị toast *"Tài khoản chưa tồn tại trong hệ thống. Vui lòng liên hệ quản trị viên để được cấp tài khoản."* (Google OAuth với email chưa được admin tạo).
 - Nếu user bấm Google OAuth và backend phát hiện tài khoản tương ứng chưa có `passwordHash`, flow sẽ bị chuyển sang `/auth/setup-password?source=google` thay vì cho vào app ngay.
 
 ## Feedback UI

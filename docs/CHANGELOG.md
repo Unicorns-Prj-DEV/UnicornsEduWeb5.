@@ -21,6 +21,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Changed
+
+- Auth: tắt đăng ký công khai — `POST /auth/register` trả `403`; `/auth/register` redirect login; Google OAuth không tạo user mới (email chưa có → `/auth/login?error=registration_disabled`); ẩn link Đăng ký trên Navbar/login/verify-email. Admin provisioning (`POST /users`) giữ nguyên.
+
 ### Added
 
 - FE popup **Thanh toán** trên `/admin/staffs/[id]` và mirror `/staff/staffs/[id]`: mỗi card role mặc định **thu gọn** (accordion); bấm header role để mở rộng và xem toàn bộ khoản/source bên trong.

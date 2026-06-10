@@ -1,28 +1,23 @@
-# Auth Register Page (`/auth/register`)
+# Auth Register Page (`/auth/register`) — DISABLED
 
-## Mục tiêu
+## Trạng thái
 
-Tạo tài khoản mới bằng email/password, hiển thị toàn bộ feedback bằng Sonner toast.
+**Đăng ký công khai đã tắt.** Route `/auth/register` redirect về `/auth/login`. Endpoint `POST /auth/register` trả `403 Forbidden`.
 
-## Hành vi chính
+Tài khoản mới chỉ được tạo qua admin (`POST /users`, `POST /users/student` trên `/admin/users`).
 
-- Form gồm: firstName, lastName, accountHandle, phone, email, password, confirmPassword, province.
-- `accountHandle`: định danh đăng nhập (username), **unique**; có thể dùng email hoặc tên tùy chọn. Backend từ chối nếu accountHandle đã thuộc user khác (khác email).
-- Validation client-side:
-  - Password và confirmPassword phải khớp.
-  - Password tối thiểu 6 ký tự.
-- Submit gọi `authApi.register`.
-- Thành công: `toast.success(...)`, chờ 3s rồi redirect `/auth/login`.
+## Hành vi hiện tại
 
-## Feedback UI
+- Truy cập `/auth/register` (browser) → server redirect `/auth/login`.
+- Gọi trực tiếp `POST /auth/register` → `403` với message: *"Đăng ký công khai hiện không được hỗ trợ. Vui lòng liên hệ quản trị viên."*
+- Navbar, login page, và verify-email page **không còn** link/nút Đăng ký.
 
-- Validation fail: `toast.error(...)`.
-- API fail: `toast.error(...)` với fallback message hiện có.
-- Nếu backend trả `429 Too Many Requests` do vượt rate limit (`10` lần / giờ / IP), frontend vẫn hiển thị lỗi qua toast hiện có.
-- Không còn alert box inline error/success trong form.
+## Google OAuth
 
-## Ghi chú
+- Google OAuth **không tạo** tài khoản mới cho email chưa có trong hệ thống.
+- Email chưa đăng ký → redirect `/auth/login?error=registration_disabled` + toast hướng dẫn liên hệ quản trị viên.
+- Email đã tồn tại (admin tạo trước) → đăng nhập/setup-password như flow cũ.
 
-- Giữ nguyên endpoint `POST /auth/register`; payload gồm `email`, `accountHandle`, `password`, `first_name`, `last_name`, `phone`, `province`.
-- Lỗi 400: email đã tồn tại (đã verify) hoặc accountHandle đã được user khác sử dụng; message từ API hiển thị qua toast.
-- Không thay đổi redirect timing/route.
+## Spec cũ (archived)
+
+Trước khi disable, form gồm: firstName, lastName, accountHandle, phone, email, password, confirmPassword, province; submit gọi `authApi.register`; thành công toast + redirect login sau 3s. Chi tiết validation/API contract vẫn nằm trong `apps/web/dtos/Auth.dto.ts` và `authService.createPendingUserWithVerificationEmail` (dùng nội bộ bởi admin provisioning).
