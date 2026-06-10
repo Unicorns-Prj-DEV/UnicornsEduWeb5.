@@ -12,6 +12,7 @@ import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { MailModule } from '../mail/mail.module';
 import { GoogleStrategy } from './strategies/google-oauth.strategy';
 import { AuthAccessService } from './auth-access.service';
+import { GoogleAuthExceptionFilter } from './filters/google-auth.exception-filter';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { AuthAccessService } from './auth-access.service';
     JwtStrategy,
     JwtRefreshStrategy,
     GoogleStrategy,
+    GoogleAuthExceptionFilter,
   ],
   exports: [AuthService, AuthAccessService, AuthIdentityCacheService],
 })

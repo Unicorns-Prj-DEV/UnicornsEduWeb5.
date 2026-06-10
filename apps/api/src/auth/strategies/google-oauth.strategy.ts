@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { UserRole } from 'generated/enums';
@@ -6,6 +6,7 @@ import { Profile, Strategy, VerifyCallback } from 'passport-google-oauth20';
 import { ActionHistoryService } from 'src/action-history/action-history.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AuthIdentityCacheService } from '../auth-identity-cache.service';
+import { REGISTRATION_DISABLED_CODE } from '../constants';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
@@ -46,8 +47,6 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       // accessToken: _access_token,
       // refreshToken: _refresh_token,
     };
-
-    const name = user.fullName?.split(' ') ?? ['', ''];
 
     const newUser = await this.prisma.$transaction(async (tx) => {
       const existingUser = await tx.user.findUnique({
@@ -95,39 +94,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
         return updatedUser;
       }
 
-      const createdUser = await tx.user.create({
-        data: {
-          email: user.email,
-          accountHandle: user.email,
-          first_name: name[0] ?? '',
-          last_name: name?.slice(1).join(' ') ?? '',
-          roleType: UserRole.guest,
-          emailVerified: true,
-        },
-      });
-
-      const afterValue = await tx.user.findUnique({
-        where: { id: createdUser.id },
-        include: {
-          staffInfo: true,
-          studentInfo: true,
-        },
-      });
-      if (afterValue) {
-        await this.actionHistoryService.recordCreate(tx, {
-          actor: {
-            userId: createdUser.id,
-            userEmail: createdUser.email,
-            roleType: createdUser.roleType,
-          },
-          entityType: 'user',
-          entityId: createdUser.id,
-          description: 'Tạo người dùng qua Google',
-          afterValue,
-        });
-      }
-
-      return createdUser;
+      throw new ForbiddenException(REGISTRATION_DISABLED_CODE);
     });
 
     this.authIdentityCacheService.invalidateUser(newUser.id);
