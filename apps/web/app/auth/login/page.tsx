@@ -77,6 +77,10 @@ function LoginPageContent() {
 
   useEffect(() => {
     const err = getSearchParam("error");
+    if (err === "registration_disabled") {
+      toast.error("Tài khoản chưa tồn tại trong hệ thống. Vui lòng liên hệ quản trị viên để được cấp tài khoản.");
+      return;
+    }
     if (err === "google_no_user") toast.error("Không lấy được thông tin từ Google. Vui lòng thử lại.");
   }, [getSearchParam]);
 
@@ -244,13 +248,7 @@ function LoginPageContent() {
             </a>
           </form>
 
-          <p className="mt-6 text-center text-sm text-text-muted">
-            Chưa có tài khoản?{" "}
-            <Link href="/auth/register" className="inline-flex min-h-11 items-center rounded-md px-3 py-2 font-medium text-primary hover:text-primary-hover">
-              Đăng ký
-            </Link>
-          </p>
-          <p className="mt-2 text-center">
+          <p className="mt-6 text-center">
             <Link href="/" className="inline-flex min-h-11 items-center rounded-md px-3 py-2 text-sm text-text-secondary hover:text-text-primary">
               ← Về trang chủ
             </Link>

@@ -168,20 +168,12 @@ export function Navbar({ showHomeMenu = true }: { showHomeMenu?: boolean }) {
               </button>
             </>
           ) : (
-            <>
-              <Link
-                href="/auth/login"
-                className="hidden min-h-11 items-center rounded-md px-3 py-2 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)] min-[380px]:inline-flex"
-              >
-                Đăng nhập
-              </Link>
-              <Link
-                href="/auth/register"
-                className="inline-flex min-h-11 items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors duration-200 hover:bg-[var(--ue-primary-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)]"
-              >
-                Đăng ký
-              </Link>
-            </>
+            <Link
+              href="/auth/login"
+              className="inline-flex min-h-11 items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors duration-200 hover:bg-[var(--ue-primary-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)]"
+            >
+              Đăng nhập
+            </Link>
           )}
         </div>
       </div>

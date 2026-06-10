@@ -56,18 +56,12 @@ function VerifyEmailPageContent() {
           {description}
         </p>
 
-        <div className="mt-8 flex flex-wrap gap-3">
+        <div className="mt-8">
           <Link
             href="/auth/login"
             className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
           >
             Đi tới đăng nhập
-          </Link>
-          <Link
-            href="/auth/register"
-            className="rounded-xl border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-          >
-            Tạo tài khoản khác
           </Link>
         </div>
       </div>
