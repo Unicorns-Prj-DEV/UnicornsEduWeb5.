@@ -33,6 +33,18 @@ export interface SessionUnpaidSummaryItem {
   totalAllowance: number | string;
 }
 
+export type MissedTeachingAlertStatus =
+  | "pending_explanation"
+  | "explained_pending_makeup";
+
+export interface MissedTeachingAlertExplanation {
+  id: string;
+  reason: string;
+  explainedAt: string;
+  explainedByName?: string | null;
+  canEdit: boolean;
+}
+
 export interface MissedTeachingAlert {
   id: string;
   classId: string;
@@ -43,6 +55,30 @@ export interface MissedTeachingAlert {
   originalDate: string;
   scheduledStartTime: string;
   scheduledEndTime?: string | null;
+  status: MissedTeachingAlertStatus;
+  explanation?: MissedTeachingAlertExplanation;
+}
+
+export interface CreateMissedTeachingExplanationPayload {
+  scheduleEntryId: string;
+  originalDate: string;
+  teacherId: string;
+  reason: string;
+}
+
+export interface UpdateMissedTeachingExplanationPayload {
+  reason: string;
+}
+
+export interface MissedTeachingExplanationRecord {
+  id: string;
+  classId: string;
+  teacherId: string;
+  baselineScheduleEntryId: string;
+  originalDate: string;
+  reason: string;
+  explainedAt: string;
+  explainedByName?: string | null;
 }
 
 export interface SessionCreatePayload {

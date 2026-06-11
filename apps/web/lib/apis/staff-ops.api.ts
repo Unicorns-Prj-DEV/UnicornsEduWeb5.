@@ -13,7 +13,13 @@ import type {
   CreateClassSurveyPayload,
   UpdateClassSurveyPayload,
 } from "@/dtos/class-survey.dto";
-import type { MissedTeachingAlert, SessionItem } from "@/dtos/session.dto";
+import type {
+  CreateMissedTeachingExplanationPayload,
+  MissedTeachingAlert,
+  MissedTeachingExplanationRecord,
+  SessionItem,
+  UpdateMissedTeachingExplanationPayload,
+} from "@/dtos/session.dto";
 import type {
   StaffOpsCreateClassPayload,
   StaffOpsCreateSessionPayload,
@@ -156,6 +162,30 @@ export async function getMissedTeachingAlertsByClassId(
     { params },
   );
   return Array.isArray(response.data) ? (response.data as MissedTeachingAlert[]) : [];
+}
+
+export async function createMissedTeachingExplanation(
+  classId: string,
+  data: CreateMissedTeachingExplanationPayload,
+): Promise<MissedTeachingExplanationRecord> {
+  const safeId = encodeURIComponent(classId);
+  const response = await api.post(
+    `/staff-ops/classes/${safeId}/missed-teaching-explanations`,
+    data,
+  );
+  return response.data as MissedTeachingExplanationRecord;
+}
+
+export async function updateMissedTeachingExplanation(
+  explanationId: string,
+  data: UpdateMissedTeachingExplanationPayload,
+): Promise<MissedTeachingExplanationRecord> {
+  const safeId = encodeURIComponent(explanationId);
+  const response = await api.patch(
+    `/staff-ops/missed-teaching-explanations/${safeId}`,
+    data,
+  );
+  return response.data as MissedTeachingExplanationRecord;
 }
 
 export async function createSession(

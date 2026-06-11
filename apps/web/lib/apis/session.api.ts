@@ -3,8 +3,11 @@ import {
   SessionBulkPaymentStatusUpdateResult,
   SessionCreatePayload,
   SessionItem,
+  CreateMissedTeachingExplanationPayload,
   MissedTeachingAlert,
+  MissedTeachingExplanationRecord,
   SessionMonthYearParams,
+  UpdateMissedTeachingExplanationPayload,
   SessionUnpaidSummaryItem,
   SessionUnpaidSummaryParams,
   SessionUpdatePayload,
@@ -69,6 +72,30 @@ export async function getMissedTeachingAlertsByStaffId(
   });
   const payload = response.data;
   return Array.isArray(payload) ? (payload as MissedTeachingAlert[]) : [];
+}
+
+export async function createMissedTeachingExplanation(
+  classId: string,
+  data: CreateMissedTeachingExplanationPayload,
+): Promise<MissedTeachingExplanationRecord> {
+  const safeId = encodeURIComponent(classId);
+  const response = await api.post(
+    `/sessions/class/${safeId}/missed-teaching-explanations`,
+    data,
+  );
+  return response.data as MissedTeachingExplanationRecord;
+}
+
+export async function updateMissedTeachingExplanation(
+  explanationId: string,
+  data: UpdateMissedTeachingExplanationPayload,
+): Promise<MissedTeachingExplanationRecord> {
+  const safeId = encodeURIComponent(explanationId);
+  const response = await api.patch(
+    `/sessions/missed-teaching-explanations/${safeId}`,
+    data,
+  );
+  return response.data as MissedTeachingExplanationRecord;
 }
 
 export async function createSession(
