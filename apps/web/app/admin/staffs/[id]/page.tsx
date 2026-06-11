@@ -51,6 +51,7 @@ import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable"
 import MonthNav from "@/components/admin/MonthNav";
 import { MissedTeachingAlert, SessionItem } from "@/dtos/session.dto";
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
+import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import UserAvatar from "@/components/ui/UserAvatar";
 import { pickAvatarUrl } from "@/lib/avatar";
 import { useAuth } from "@/context/AuthContext";
@@ -339,6 +340,7 @@ export default function AdminStaffDetailPage({
     isAdmin || isAssistant || isAccountantExpense || isAccountantIncome;
   const canEditSessionCoefficient =
     isAdmin || isAssistant || isAccountantExpense || isAccountantIncome;
+  const canManageMissedTeachingAlerts = isAdmin || isAssistant;
   const canEditStaffProfile =
     (isAdmin || isAssistant) && !viewingOwnStaffRecordOnStaffShell;
 
@@ -483,6 +485,15 @@ export default function AdminStaffDetailPage({
       queryKey: ["staff", "detail", id],
     });
   }, [queryClient, id, selectedYear, selectedMonthValue]);
+
+  const handleMissedTeachingAlertsChanged = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: ["sessions", "staff", id, "missed-teaching-alerts"],
+      }),
+      invalidateCalendarScopedQueries(queryClient),
+    ]);
+  }, [queryClient, id]);
 
   const handleStaffEditSuccess = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["staff", "detail", id] });
@@ -2562,7 +2573,11 @@ export default function AdminStaffDetailPage({
 
         <MissedTeachingAlertsCard
           alerts={missedTeachingAlerts}
-          canCreateMakeup={false}
+          canCreateMakeup={canManageMissedTeachingAlerts}
+          createMakeupFn={classApi.createClassMakeupEvent}
+          saveExplanationFn={sessionApi.createMissedTeachingExplanation}
+          updateExplanationFn={sessionApi.updateMissedTeachingExplanation}
+          onChanged={handleMissedTeachingAlertsChanged}
           getClassHref={(classId) =>
             buildAdminLikePath(
               routeBase,

@@ -1023,6 +1023,7 @@ export default function StaffClassDetailPage() {
           disabledCreateMessage={makeupScheduleDisabledMessage}
           month={selectedMonth}
           scheduleItems={scheduleItems}
+          missedTeachingAlerts={missedTeachingAlerts}
           queryKeyPrefix={["staff-ops", "class", "detail", id]}
           listFn={staffOpsApi.getClassMakeupEvents}
           createFn={staffOpsApi.createClassMakeupEvent}
@@ -1043,7 +1044,9 @@ export default function StaffClassDetailPage() {
           alerts={missedTeachingAlerts}
           canCreateMakeup={canCreateMakeupSchedule}
           createMakeupFn={staffOpsApi.createClassMakeupEvent}
-          onMakeupCreated={async () => {
+          saveExplanationFn={staffOpsApi.createMissedTeachingExplanation}
+          updateExplanationFn={staffOpsApi.updateMissedTeachingExplanation}
+          onChanged={async () => {
             await Promise.all([
               invalidateClassOpsQueries(),
               invalidateSessionQueries(),

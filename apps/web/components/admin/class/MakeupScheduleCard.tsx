@@ -11,6 +11,7 @@ import type {
   MakeupScheduleEventRecord,
 } from "@/dtos/class-schedule.dto";
 import type { ClassScheduleItem } from "@/dtos/class.dto";
+import type { MissedTeachingAlert } from "@/dtos/session.dto";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import { DateInput } from "@/components/ui/DateInput";
 import { TimeInput } from "@/components/ui/TimeInput";
@@ -40,6 +41,7 @@ type MakeupScheduleCardProps = {
   disabledCreateMessage?: string;
   month?: string;
   scheduleItems?: ClassScheduleItem[];
+  missedTeachingAlerts?: MissedTeachingAlert[];
   queryKeyPrefix: readonly unknown[];
   listFn: (
     classId: string,
@@ -92,6 +94,7 @@ type MakeupEditorDialogProps = {
   teacherMode: MakeupTeacherMode;
   month?: string;
   scheduleItems?: ClassScheduleItem[];
+  missedTeachingAlerts?: MissedTeachingAlert[];
   isSubmitting: boolean;
   canDelete: boolean;
   onClose: () => void;
@@ -279,6 +282,7 @@ function MakeupEditorDialog({
   teacherMode,
   month,
   scheduleItems = [],
+  missedTeachingAlerts = [],
   isSubmitting,
   canDelete,
   onClose,
@@ -528,6 +532,21 @@ function MakeupEditorDialog({
                     return;
                   }
 
+                  if (form.baselineScheduleEntryId && form.originalDate) {
+                    const pendingAlert = missedTeachingAlerts.find(
+                      (alert) =>
+                        alert.scheduleEntryId === form.baselineScheduleEntryId &&
+                        alert.originalDate === form.originalDate &&
+                        alert.status === "pending_explanation",
+                    );
+                    if (pendingAlert) {
+                      toast.error(
+                        "Vui lòng lưu giải trình vắng ở card Cảnh báo chưa dạy trước khi tạo buổi bù.",
+                      );
+                      return;
+                    }
+                  }
+
                   onSave({
                     teacherId: form.teacherId,
                     date: form.date,
@@ -580,6 +599,7 @@ export default function MakeupScheduleCard({
   disabledCreateMessage,
   month,
   scheduleItems = [],
+  missedTeachingAlerts = [],
   queryKeyPrefix,
   listFn,
   createFn,
@@ -979,6 +999,7 @@ export default function MakeupScheduleCard({
           teacherMode={teacherMode}
           month={month}
           scheduleItems={scheduleItems}
+          missedTeachingAlerts={missedTeachingAlerts}
           isSubmitting={isSubmitting}
           canDelete={
             editingEvent

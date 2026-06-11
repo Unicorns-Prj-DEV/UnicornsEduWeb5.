@@ -1266,6 +1266,7 @@ export default function AdminClassDetailPage() {
           disabledCreateMessage={makeupScheduleDisabledMessage}
           month={selectedMonth}
           scheduleItems={allScheduleItems}
+          missedTeachingAlerts={missedTeachingAlerts}
           queryKeyPrefix={classDetailQueryKey}
           listFn={classApi.getClassMakeupEvents}
           createFn={classApi.createClassMakeupEvent}
@@ -1286,7 +1287,9 @@ export default function AdminClassDetailPage() {
           alerts={missedTeachingAlerts}
           canCreateMakeup={canCreateMakeupSchedule}
           createMakeupFn={classApi.createClassMakeupEvent}
-          onMakeupCreated={handleMakeupScheduleChanged}
+          saveExplanationFn={sessionApi.createMissedTeachingExplanation}
+          updateExplanationFn={sessionApi.updateMissedTeachingExplanation}
+          onChanged={handleMakeupScheduleChanged}
         />
 
         {/* Row 3: Lịch sử buổi học và khảo sát – 2 tab */}
