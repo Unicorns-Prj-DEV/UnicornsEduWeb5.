@@ -1030,6 +1030,15 @@ export default function StaffClassDetailPage() {
           updateFn={staffOpsApi.updateClassMakeupEvent}
           deleteFn={staffOpsApi.deleteClassMakeupEvent}
           resyncFn={staffOpsApi.resyncClassMakeupGoogleCalendar}
+          saveExplanationFn={staffOpsApi.createMissedTeachingExplanation}
+          updateExplanationFn={staffOpsApi.updateMissedTeachingExplanation}
+          onChanged={async () => {
+            await Promise.all([
+              invalidateClassOpsQueries(),
+              invalidateSessionQueries(),
+              invalidateCalendarScopedQueries(queryClient),
+            ]);
+          }}
         />
 
         <PastMakeupEventsPopup

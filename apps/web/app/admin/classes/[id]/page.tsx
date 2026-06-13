@@ -1273,6 +1273,9 @@ export default function AdminClassDetailPage() {
           updateFn={classApi.updateClassMakeupEvent}
           deleteFn={classApi.deleteClassMakeupEvent}
           resyncFn={classApi.resyncClassMakeupGoogleCalendar}
+          saveExplanationFn={sessionApi.createMissedTeachingExplanation}
+          updateExplanationFn={sessionApi.updateMissedTeachingExplanation}
+          onChanged={handleMakeupScheduleChanged}
         />
 
         <PastMakeupEventsPopup
