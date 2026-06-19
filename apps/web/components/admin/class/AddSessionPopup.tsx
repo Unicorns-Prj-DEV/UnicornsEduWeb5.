@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type SyntheticEvent } from "react";
+import { useMemo, useRef, useState, type SyntheticEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -258,7 +258,10 @@ export default function AddSessionPopup({
   const [notesError, setNotesError] = useState("");
   const [coefficient, setCoefficient] = useState<string>("1");
   const [allowanceAmount, setAllowanceAmount] = useState<string>("");
+  const [includeTeacherOperatingDeduction, setIncludeTeacherOperatingDeduction] =
+    useState(true);
   const [teacherPaymentStatus, setTeacherPaymentStatus] = useState<string>("unpaid");
+  const allowanceInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedTeacherId, setSelectedTeacherId] = useState(
     resolveSelectedTeacherId({
       defaultTeacherId,
@@ -364,6 +367,24 @@ export default function AddSessionPopup({
     classPricing,
     coefficientForPreview,
   ]);
+  const manualAllowanceGrossPreview = useMemo(() => {
+    const trimmed = allowanceAmount.trim();
+    if (!canEditAllowance || trimmed === "") return null;
+    const rawBase = Number(trimmed);
+    if (!Number.isFinite(rawBase) || rawBase < 0) return null;
+    return computeTeacherSessionAllowanceGrossPreviewVnd({
+      rawBase: Math.floor(rawBase),
+      coefficient: coefficientForPreview,
+      maxAllowancePerSession: classPricing?.maxAllowancePerSession,
+    });
+  }, [
+    allowanceAmount,
+    canEditAllowance,
+    coefficientForPreview,
+    classPricing?.maxAllowancePerSession,
+  ]);
+  const finalAllowancePreview =
+    manualAllowanceGrossPreview ?? expectedAllowanceGrossPreview;
 
   const durationLabel = useMemo(
     () => formatVnSessionDuration(startTime, endTime),
@@ -379,20 +400,12 @@ export default function AddSessionPopup({
     return `Học phí: ${formatCurrency(resolvedSessionTuitionTotal)}`;
   }, [canViewTuitionHeader, resolvedSessionTuitionTotal]);
   const headerAllowanceDisplay = useMemo(() => {
-    if (canEditAllowance && allowanceAmount.trim() !== "") {
-      const n = Number(allowanceAmount);
-      if (Number.isFinite(n) && n >= 0) {
-        return `Trợ cấp gia sư: ${formatCurrency(Math.floor(n))}`;
-      }
-    }
-    if (expectedAllowanceGrossPreview != null && classPricing) {
-      return `Trợ cấp gia sư: ${formatCurrency(expectedAllowanceGrossPreview)}`;
+    if (finalAllowancePreview != null && classPricing) {
+      return `Trợ cấp gia sư: ${formatCurrency(finalAllowancePreview)}`;
     }
     return null;
   }, [
-    canEditAllowance,
-    allowanceAmount,
-    expectedAllowanceGrossPreview,
+    finalAllowancePreview,
     classPricing,
   ]);
 
@@ -536,6 +549,7 @@ export default function AddSessionPopup({
         allowanceNum >= 0
         ? { allowanceAmount: Math.floor(allowanceNum) }
         : {}),
+      ...(allowFinancialFields ? { includeTeacherOperatingDeduction } : {}),
       ...(allowFinancialFields ? { teacherPaymentStatus } : {}),
       attendance: toAttendancePayload(
         attendanceItems,
@@ -694,34 +708,44 @@ export default function AddSessionPopup({
                     ) : null}
 
                     {canEditAllowance ? (
-                      <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
-                        <span>Trợ cấp buổi (VNĐ)</span>
-                        <input
-                          name="add-session-allowance"
-                          type="number"
-                          min={0}
-                          value={allowanceAmount}
-                          autoComplete="off"
-                          onChange={(e) => setAllowanceAmount(e.target.value)}
-                          className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                          placeholder="Để trống = theo cấu hình lớp/gia sư"
+                      <div className="space-y-3">
+                        <SessionTeacherAllowanceEstimateCard
+                          amount={finalAllowancePreview}
+                          estimatedAmount={expectedAllowanceGrossPreview}
+                          breakdownText={
+                            allowanceRawBasePreview == null
+                              ? null
+                              : `${resolvedTeacherAllowanceBase.toLocaleString("vi-VN")}đ/hs × ${chargeableAttendanceCount} hs + ${(classPricing?.scaleAmount ?? 0).toLocaleString("vi-VN")}đ = ${allowanceRawBasePreview.toLocaleString("vi-VN")}đ`
+                          }
+                          showBreakdown={Boolean(classPricing)}
+                          usesSnapshot={false}
+                          isManualOverride={allowanceAmount.trim() !== ""}
+                          operatingDeductionEnabled={includeTeacherOperatingDeduction}
+                          onEditClick={() => allowanceInputRef.current?.focus()}
                         />
-                        <span className="text-xs font-normal text-text-muted">
-                          Để trống để tự điền: (trợ cấp/HS × số HS học hoặc phép) + scale lớp (lưu vào buổi; hệ số và trần max áp khi tính lương).
-                        </span>
-                        {classPricing ? (
+                        <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
+                          <span>Chỉnh trợ cấp buổi thủ công (VNĐ)</span>
+                          <input
+                            ref={allowanceInputRef}
+                            name="add-session-allowance"
+                            type="number"
+                            min={0}
+                            value={allowanceAmount}
+                            autoComplete="off"
+                            onChange={(e) => setAllowanceAmount(e.target.value)}
+                            className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                            placeholder="Để trống = theo cấu hình lớp/gia sư"
+                          />
                           <span className="text-xs font-normal text-text-muted">
-                            Gốc lưu buổi (ước tính):{" "}
-                            <span className="font-medium text-text-primary">
-                              {formatCurrency(allowanceRawBasePreview ?? 0)}
-                            </span>
-                            .
+                            Để trống để backend tự tính từ snapshot lớp/gia sư; nhập số để ghi đè buổi này.
                           </span>
-                        ) : null}
-                      </label>
+                        </label>
+                      </div>
                     ) : !canEditAllowance && classPricing ? (
                       <SessionTeacherAllowanceEstimateCard
                         amount={expectedAllowanceGrossPreview}
+                        estimatedAmount={expectedAllowanceGrossPreview}
+                        operatingDeductionEnabled={includeTeacherOperatingDeduction}
                       />
                     ) : isCoefficientOnlyMode ? (
                       <p className="rounded-lg border border-border-default/80 bg-bg-secondary/30 px-3 py-2 text-xs text-text-muted">
@@ -730,7 +754,7 @@ export default function AddSessionPopup({
                     ) : null}
 
                     {allowFinancialFields ? (
-                      <div>
+                      <div className="space-y-3">
                         <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
                           <span>
                             Trạng thái thanh toán <RequiredMark />
@@ -744,6 +768,22 @@ export default function AddSessionPopup({
                           />
                           <span className="text-xs font-normal text-text-muted">
                             Chọn trạng thái thanh toán cho buổi dạy này
+                          </span>
+                        </label>
+                        <label className="flex items-start gap-3 rounded-lg border border-border-default bg-bg-secondary/35 px-3 py-3 text-sm text-text-primary">
+                          <input
+                            type="checkbox"
+                            checked={includeTeacherOperatingDeduction}
+                            onChange={(event) =>
+                              setIncludeTeacherOperatingDeduction(event.target.checked)
+                            }
+                            className="mt-0.5 size-4 rounded border-border-default text-primary focus:ring-border-focus"
+                          />
+                          <span className="space-y-1">
+                            <span className="block font-medium">Tính phí vận hành</span>
+                            <span className="block text-xs text-text-muted">
+                              Bật để trừ theo % vận hành của gia sư trong lớp; tắt để snapshot phí vận hành = 0 cho buổi này.
+                            </span>
                           </span>
                         </label>
                       </div>

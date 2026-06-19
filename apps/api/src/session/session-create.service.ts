@@ -215,14 +215,18 @@ export class SessionCreateService {
                 scaleAmount: snapshotScaleAmount,
                 chargeableStudentCount: chargeableAttendanceStudentIds.length,
               });
-        const currentTeacherOperatingDeductionRatePercent = Number(
-          classTeacher.operatingDeductionRatePercent ?? 0,
-        );
-        const teacherOperatingDeductionRatePercent = Number.isFinite(
-          currentTeacherOperatingDeductionRatePercent,
-        )
-          ? Math.round(currentTeacherOperatingDeductionRatePercent * 100) / 100
-          : 0;
+        const includeTeacherOperatingDeduction =
+          data.includeTeacherOperatingDeduction !== false;
+        const currentTeacherOperatingDeductionRatePercent =
+          includeTeacherOperatingDeduction
+            ? Number(classTeacher.operatingDeductionRatePercent ?? 0)
+            : 0;
+        const teacherOperatingDeductionRatePercent =
+          includeTeacherOperatingDeduction &&
+          Number.isFinite(currentTeacherOperatingDeductionRatePercent)
+            ? Math.round(currentTeacherOperatingDeductionRatePercent * 100) /
+              100
+            : 0;
         const teacherTaxDeductionRatePercent = await getTaxRate(
           data.teacherId,
           StaffRole.teacher,

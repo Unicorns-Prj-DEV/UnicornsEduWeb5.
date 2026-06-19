@@ -5,6 +5,7 @@ import {
   ArrayMinSize,
   ArrayUnique,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsNumber,
   IsOptional,
@@ -223,6 +224,15 @@ export class SessionCreateDto {
   @IsNumber({ maxDecimalPlaces: 0 })
   @Min(0)
   allowanceAmount?: number | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Whether to apply teacher operating deduction for this session. Defaults to true.',
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  includeTeacherOperatingDeduction?: boolean;
 
   @ApiPropertyOptional({
     description: 'Teacher payment status',

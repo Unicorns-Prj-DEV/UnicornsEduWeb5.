@@ -93,6 +93,8 @@ export interface SessionCreatePayload {
   coefficient?: number;
   /** Allowance amount (VNĐ). If omitted, uses class teacher custom allowance. */
   allowanceAmount?: number | null;
+  /** Whether teacher operating deduction should be applied to this session. Defaults to true. */
+  includeTeacherOperatingDeduction?: boolean;
   attendance: SessionAttendanceItem[];
 }
 
@@ -107,6 +109,7 @@ export interface SessionUpdatePayload {
   teacherPaymentStatus?: string | null;
   coefficient?: number;
   allowanceAmount?: number | null;
+  includeTeacherOperatingDeduction?: boolean;
   attendance?: SessionAttendanceItem[];
 }
 
@@ -144,6 +147,8 @@ export interface SessionItem {
   tuitionFee?: number | null;
   /** Coefficient from 0.0 to 1.0. */
   coefficient?: number | null;
+  /** Snapshot operating deduction rate percent applied to teacher payout. */
+  teacherOperatingDeductionRatePercent?: number | string | null;
   notes?: string | null;
   createdAt?: string;
   updatedAt?: string;

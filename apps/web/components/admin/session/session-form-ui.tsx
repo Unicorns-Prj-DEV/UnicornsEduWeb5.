@@ -44,9 +44,13 @@ export function RequiredMark() {
 
 type SessionTeacherAllowanceEstimateCardProps = {
   amount?: number | null;
+  estimatedAmount?: number | null;
   breakdownText?: string | null;
   showBreakdown?: boolean;
   usesSnapshot?: boolean;
+  isManualOverride?: boolean;
+  operatingDeductionEnabled?: boolean;
+  onEditClick?: () => void;
   loading?: boolean;
   errorMessage?: string | null;
   className?: string;
@@ -116,30 +120,61 @@ export function SessionAttendanceAllowancePreviewStrip({
 
 export function SessionTeacherAllowanceEstimateCard({
   amount = null,
+  estimatedAmount = null,
   breakdownText = null,
   showBreakdown = false,
   usesSnapshot = false,
+  isManualOverride = false,
+  operatingDeductionEnabled,
+  onEditClick,
   loading = false,
   errorMessage = null,
   className = "",
 }: SessionTeacherAllowanceEstimateCardProps) {
   return (
     <div
-      className={`rounded-lg border border-border-default bg-bg-secondary/40 px-3 py-3 ${className}`.trim()}
+      className={`rounded-xl border border-border-default bg-bg-secondary/45 px-3.5 py-3.5 ${className}`.trim()}
     >
-      <p className="text-sm font-medium text-text-primary">Trợ cấp giáo viên (ước tính)</p>
-      {loading ? (
-        <p className="mt-2 text-sm text-text-muted">Đang tải cấu hình lớp…</p>
-      ) : errorMessage ? (
-        <p className="mt-2 text-sm text-warning">{errorMessage}</p>
-      ) : amount == null ? (
-        <p className="mt-2 text-sm text-text-muted">Chưa tính được</p>
-      ) : (
-        <p className="mt-2 text-lg font-semibold tabular-nums text-primary">
-          {formatCurrency(amount)}
-        </p>
-      )}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-medium text-text-secondary">Trợ cấp buổi</p>
+            {isManualOverride ? (
+              <span className="rounded-full border border-warning/25 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold text-warning">
+                Đã chỉnh tay
+              </span>
+            ) : null}
+          </div>
+          {loading ? (
+            <p className="mt-2 text-sm text-text-muted">Đang tải cấu hình lớp…</p>
+          ) : errorMessage ? (
+            <p className="mt-2 text-sm text-warning">{errorMessage}</p>
+          ) : amount == null ? (
+            <p className="mt-2 text-sm text-text-muted">Chưa tính được</p>
+          ) : (
+            <p className="mt-1.5 text-xl font-semibold tabular-nums text-text-primary">
+              {formatCurrency(amount)}
+            </p>
+          )}
+        </div>
+        {onEditClick ? (
+          <button
+            type="button"
+            onClick={onEditClick}
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-border-default bg-bg-surface text-text-secondary transition-colors hover:border-primary/40 hover:bg-primary/8 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            aria-label="Chỉnh trợ cấp buổi thủ công"
+            title="Chỉnh trợ cấp buổi thủ công"
+          >
+            <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+            </svg>
+          </button>
+        ) : null}
+      </div>
       <div className="mt-2 space-y-1 text-xs text-text-muted">
+        {estimatedAmount != null && estimatedAmount !== amount ? (
+          <p>Ước tính theo cấu hình: {formatCurrency(estimatedAmount)}</p>
+        ) : null}
         {showBreakdown && breakdownText ? (
           <p>{breakdownText}</p>
         ) : (
@@ -149,6 +184,13 @@ export function SessionTeacherAllowanceEstimateCard({
               : "Lấy trực tiếp từ allowance của buổi học (theo cấu hình gia sư/lớp)."}
           </p>
         )}
+        {operatingDeductionEnabled !== undefined ? (
+          <p>
+            {operatingDeductionEnabled
+              ? "Có trừ phí vận hành theo cấu hình lớp/gia sư."
+              : "Không trừ phí vận hành cho buổi này."}
+          </p>
+        ) : null}
       </div>
     </div>
   );

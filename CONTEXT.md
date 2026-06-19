@@ -13,6 +13,7 @@
 - **Kế toán chi**: staff role phụ trách các khoản phải trả và dòng chi outbound như trợ cấp, bonus, thanh toán nhân sự và chi phí vận hành; không phải kế toán tài chính chung và không bao gồm thu/top-up/học phí/lợi nhuận.
 - **Lớp kết thúc**: lớp không còn vận hành lịch học, roster và phân công gia sư hiện tại. Trạng thái này là quyết định ở cấp lớp, khác với việc một gia sư riêng lẻ **nghỉ dạy theo lớp**.
 - **Nghỉ dạy theo lớp**: trạng thái hiển thị khi gia sư không còn nằm trong phân công hiện tại của lớp, nhưng vẫn còn thu nhập/trợ cấp liên quan tới lớp trong kỳ hoặc snapshot chưa nhận. Trạng thái này không đồng nghĩa lớp đã kết thúc.
+- **Trợ cấp buổi**: khoản trợ cấp chính thức của gia sư cho một buổi học cụ thể. Khoản này có thể lấy theo cấu hình lớp/gia sư hoặc được admin chỉnh tay cho riêng buổi đó; số ước tính chỉ là tham chiếu, không phải giá trị thanh toán cuối cùng.
 
 ## Hồ sơ nhân sự
 

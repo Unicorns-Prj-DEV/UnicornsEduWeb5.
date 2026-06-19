@@ -419,6 +419,10 @@ export class SessionUpdateService {
         const hasTeacherPaymentStatusChange =
           data.teacherPaymentStatus !== undefined &&
           nextTeacherPaymentStatus !== currentTeacherPaymentStatus;
+        const hasTeacherOperatingDeductionPreference =
+          data.includeTeacherOperatingDeduction !== undefined;
+        const includeTeacherOperatingDeduction =
+          data.includeTeacherOperatingDeduction !== false;
 
         const shouldRefreshAttendanceAssignments =
           data.attendance !== undefined ||
@@ -458,6 +462,7 @@ export class SessionUpdateService {
         let allowanceAmountUpdate: number | null | undefined;
         let classTeacherForAllowance: {
           customAllowance: number | null;
+          operatingDeductionRatePercent?: Prisma.Decimal | number | string | null;
           class: {
             name: string;
             allowancePerSessionPerStudent: number;
@@ -502,20 +507,67 @@ export class SessionUpdateService {
             currentTeacherPaymentStatus !== SessionPaymentStatus.paid
           ) {
             const currentTeacherOperatingDeductionRatePercent = Number(
-              classTeacher.operatingDeductionRatePercent ?? 0,
+              includeTeacherOperatingDeduction
+                ? (classTeacher.operatingDeductionRatePercent ?? 0)
+                : 0,
             );
-            teacherOperatingDeductionRatePercentUpdate = Number.isFinite(
-              currentTeacherOperatingDeductionRatePercent,
-            )
-              ? Math.round(currentTeacherOperatingDeductionRatePercent * 100) /
-                100
-              : 0;
+            teacherOperatingDeductionRatePercentUpdate =
+              includeTeacherOperatingDeduction &&
+              Number.isFinite(currentTeacherOperatingDeductionRatePercent)
+                ? Math.round(
+                    currentTeacherOperatingDeductionRatePercent * 100,
+                  ) / 100
+                : 0;
             teacherTaxDeductionRatePercentUpdate =
               await resolveTaxDeductionRate(tx, {
                 staffId: nextTeacherId,
                 roleType: StaffRole.teacher,
                 effectiveDate: effectiveSessionDate,
               });
+          }
+        }
+
+        if (
+          hasTeacherOperatingDeductionPreference &&
+          !hasTeacherPaymentStatusChange &&
+          currentTeacherPaymentStatus !== SessionPaymentStatus.paid
+        ) {
+          if (!includeTeacherOperatingDeduction) {
+            teacherOperatingDeductionRatePercentUpdate = 0;
+          } else {
+            if (!classTeacherForAllowance) {
+              const classTeacher = await tx.classTeacher.findUnique({
+                where: {
+                  classId_teacherId: {
+                    classId: nextClassId,
+                    teacherId: nextTeacherId,
+                  },
+                },
+                select: {
+                  customAllowance: true,
+                  operatingDeductionRatePercent: true,
+                  class: {
+                    select: {
+                      name: true,
+                      allowancePerSessionPerStudent: true,
+                      scaleAmount: true,
+                    },
+                  },
+                },
+              });
+
+              if (!classTeacher) {
+                throw new NotFoundException(
+                  'Class teacher not found for this class and teacher.',
+                );
+              }
+
+              classTeacherForAllowance = classTeacher;
+            }
+
+            teacherOperatingDeductionRatePercentUpdate = normalizePercent(
+              classTeacherForAllowance.operatingDeductionRatePercent,
+            );
           }
         }
 
@@ -528,6 +580,14 @@ export class SessionUpdateService {
           ) {
             teacherOperatingDeductionRatePercentUpdate = 0;
             teacherTaxDeductionRatePercentUpdate = 0;
+          } else if (!includeTeacherOperatingDeduction) {
+            teacherOperatingDeductionRatePercentUpdate = 0;
+            teacherTaxDeductionRatePercentUpdate =
+              await resolveTaxDeductionRate(tx, {
+                staffId: nextTeacherId,
+                roleType: StaffRole.teacher,
+                effectiveDate: new Date(),
+              });
           } else {
             const paymentSnapshot =
               await this.resolveTeacherPaymentRateSnapshot(tx, {

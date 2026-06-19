@@ -818,6 +818,10 @@ export default function SessionHistoryTable({
   const [editPaymentStatus, setEditPaymentStatus] = useState("unpaid");
   const [editCoefficient, setEditCoefficient] = useState("");
   const [editAllowanceAmount, setEditAllowanceAmount] = useState("");
+  const [
+    editIncludeTeacherOperatingDeduction,
+    setEditIncludeTeacherOperatingDeduction,
+  ] = useState(true);
   const [editTeacherId, setEditTeacherId] = useState("");
   const [teachersList, setTeachersList] = useState<SessionTeacherOption[]>([]);
   const [teachersLoading, setTeachersLoading] = useState(false);
@@ -826,6 +830,7 @@ export default function SessionHistoryTable({
   );
   const attendanceDirtyRef = useRef(false);
   const allowanceDirtyRef = useRef(false);
+  const editAllowanceInputRef = useRef<HTMLInputElement | null>(null);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(
     new Set(),
@@ -1154,6 +1159,9 @@ export default function SessionHistoryTable({
       coeff != null && Number.isFinite(Number(coeff)) ? String(coeff) : "1",
     );
     setEditAllowanceAmount("");
+    setEditIncludeTeacherOperatingDeduction(
+      Number(session.teacherOperatingDeductionRatePercent ?? 0) > 0,
+    );
     allowanceDirtyRef.current = false;
     loadTeachersForEdit(session);
     loadAttendanceForEdit(session);
@@ -1251,6 +1259,12 @@ export default function SessionHistoryTable({
       allowanceNum >= 0
         ? { allowanceAmount: allowanceNum }
         : {}),
+      ...(allowFinancialEdits
+        ? {
+            includeTeacherOperatingDeduction:
+              editIncludeTeacherOperatingDeduction,
+          }
+        : {}),
       ...(attendanceDirtyRef.current && { attendance: attendancePayload }),
     };
 
@@ -1276,6 +1290,10 @@ export default function SessionHistoryTable({
         }
         if (payload.allowanceAmount !== undefined) {
           data.allowanceAmount = payload.allowanceAmount;
+        }
+        if (payload.includeTeacherOperatingDeduction !== undefined) {
+          data.includeTeacherOperatingDeduction =
+            payload.includeTeacherOperatingDeduction;
         }
         if (payload.attendance != null) {
           data.attendance = payload.attendance as SessionAttendanceItem[];
@@ -1400,6 +1418,13 @@ export default function SessionHistoryTable({
   const allowancePerStudentNumeric = allowancePreviewInputs?.perStudent ?? 0;
   const scaleAmountForAllowancePreview = allowancePreviewInputs?.scaleAmount ?? 0;
   const allowanceRawBaseEdit = allowancePreviewInputs?.rawBase ?? null;
+  const savedSessionAllowanceRawBase = normalizeMoneyValue(
+    editingSession?.allowanceAmount,
+  );
+  const hasSavedManualAllowance =
+    savedSessionAllowanceRawBase != null &&
+    allowanceRawBaseEdit != null &&
+    savedSessionAllowanceRawBase !== allowanceRawBaseEdit;
 
   const coefficientForAllowancePreview = useMemo(() => {
     if (
@@ -1425,12 +1450,16 @@ export default function SessionHistoryTable({
       if (!isAllowanceInputValid) return null;
       return Math.floor(allowanceInputValue!);
     }
+    if (!attendanceDirtyRef.current && savedSessionAllowanceRawBase != null) {
+      return savedSessionAllowanceRawBase;
+    }
     return allowanceRawBaseEdit;
   }, [
     allowanceInput,
     isAllowanceInputValid,
     allowanceInputValue,
     allowanceRawBaseEdit,
+    savedSessionAllowanceRawBase,
     attendanceItems,
   ]);
 
@@ -1449,21 +1478,39 @@ export default function SessionHistoryTable({
     editingClassDetail?.maxAllowancePerSession,
     coefficientForAllowancePreview,
   ]);
+  const estimatedTutorAllowanceTotal = useMemo(() => {
+    if (allowanceRawBaseEdit == null || allowancePreviewInputs == null) {
+      return null;
+    }
+    return computeTeacherSessionAllowanceGrossPreviewVnd({
+      rawBase: allowanceRawBaseEdit,
+      coefficient: coefficientForAllowancePreview,
+      maxAllowancePerSession: editingClassDetail?.maxAllowancePerSession,
+    });
+  }, [
+    allowanceRawBaseEdit,
+    allowancePreviewInputs,
+    editingClassDetail?.maxAllowancePerSession,
+    coefficientForAllowancePreview,
+  ]);
 
   const allowanceBreakdownText = useMemo(() => {
-    if (rawBaseForAllowancePreview == null) return null;
+    if (allowanceRawBaseEdit == null) return null;
     return formatSessionAllowanceBreakdownVnd({
       perStudent: allowancePerStudentNumeric,
       chargeableStudentCount: chargeableAttendanceCountForAllowance,
       scaleAmount: scaleAmountForAllowancePreview,
-      rawBase: rawBaseForAllowancePreview,
+      rawBase: allowanceRawBaseEdit,
     });
   }, [
-    rawBaseForAllowancePreview,
+    allowanceRawBaseEdit,
     allowancePerStudentNumeric,
     chargeableAttendanceCountForAllowance,
     scaleAmountForAllowancePreview,
   ]);
+  const isAllowanceManuallyEdited =
+    (canEditAllowance && allowanceDirtyRef.current && allowanceInput !== "") ||
+    hasSavedManualAllowance;
 
   const isAdminViewer = fullProfile?.roleType === "admin";
 
@@ -2594,23 +2641,45 @@ export default function SessionHistoryTable({
                       ) : null}
 
                       {allowPaymentStatusEdit ? (
-                        <label
-                          className={`flex flex-col gap-1.5 text-sm font-medium text-text-primary ${paymentStatusFieldClass}`}
-                        >
-                          <span>
-                            Trạng thái thanh toán <RequiredMark />
-                          </span>
-                          <UpgradedSelect
-                            name="edit-session-payment-status"
-                            value={editPaymentStatus}
-                            onValueChange={setEditPaymentStatus}
-                            options={PAYMENT_STATUS_OPTIONS}
-                            buttonClassName="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                          />
-                          <span className="text-xs font-normal text-text-muted">
-                            Chọn trạng thái thanh toán cho buổi dạy này
-                          </span>
-                        </label>
+                        <div className={`space-y-3 ${paymentStatusFieldClass}`}>
+                          <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
+                            <span>
+                              Trạng thái thanh toán <RequiredMark />
+                            </span>
+                            <UpgradedSelect
+                              name="edit-session-payment-status"
+                              value={editPaymentStatus}
+                              onValueChange={setEditPaymentStatus}
+                              options={PAYMENT_STATUS_OPTIONS}
+                              buttonClassName="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                            />
+                            <span className="text-xs font-normal text-text-muted">
+                              Chọn trạng thái thanh toán cho buổi dạy này
+                            </span>
+                          </label>
+                          {allowFinancialEdits ? (
+                            <label className="flex items-start gap-3 rounded-lg border border-border-default bg-bg-secondary/35 px-3 py-3 text-sm text-text-primary">
+                              <input
+                                type="checkbox"
+                                checked={editIncludeTeacherOperatingDeduction}
+                                onChange={(event) =>
+                                  setEditIncludeTeacherOperatingDeduction(
+                                    event.target.checked,
+                                  )
+                                }
+                                className="mt-0.5 size-4 rounded border-border-default text-primary focus:ring-border-focus"
+                              />
+                              <span className="space-y-1">
+                                <span className="block font-medium">
+                                  Tính phí vận hành
+                                </span>
+                                <span className="block text-xs text-text-muted">
+                                  Bật để trừ theo % vận hành của gia sư trong lớp; tắt để snapshot phí vận hành = 0 cho buổi này.
+                                </span>
+                              </span>
+                            </label>
+                          ) : null}
+                        </div>
                       ) : null}
 
                       {canEditCoefficient || canEditAllowance ? (
@@ -2643,24 +2712,41 @@ export default function SessionHistoryTable({
                           ) : null}
 
                           {canEditAllowance ? (
-                            <label
-                              className={`flex flex-col gap-1.5 text-sm font-medium text-text-primary ${allowanceFieldClass}`}
-                            >
-                              <span>Trợ cấp buổi (VNĐ)</span>
-                              <input
-                                name="edit-session-allowance"
-                                type="number"
-                                min={0}
-                                value={editAllowanceAmount}
-                                autoComplete="off"
-                                onChange={(e) => {
-                                  allowanceDirtyRef.current = true;
-                                  setEditAllowanceAmount(e.target.value);
-                                }}
-                                className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                                placeholder="Để trống = tự tính từ snapshot"
-                              />
-                            </label>
+                            <div className={`space-y-2 ${allowanceFieldClass}`}>
+                              <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
+                                <span>Chỉnh trợ cấp buổi thủ công (VNĐ)</span>
+                                <input
+                                  ref={editAllowanceInputRef}
+                                  name="edit-session-allowance"
+                                  type="number"
+                                  min={0}
+                                  value={editAllowanceAmount}
+                                  autoComplete="off"
+                                  onChange={(e) => {
+                                    allowanceDirtyRef.current = true;
+                                    setEditAllowanceAmount(e.target.value);
+                                  }}
+                                  className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                                  placeholder="Để trống = giữ số đã lưu/tự tính"
+                                />
+                              </label>
+                              {hasSavedManualAllowance && !allowanceDirtyRef.current ? (
+                                <p className="rounded-lg border border-warning/20 bg-warning/10 px-3 py-2 text-xs text-warning">
+                                  Buổi này đang dùng số trợ cấp đã chỉnh tay bởi admin:{" "}
+                                  <span className="font-semibold tabular-nums">
+                                    {formatCurrency(
+                                      computeTeacherSessionAllowanceGrossPreviewVnd({
+                                        rawBase: savedSessionAllowanceRawBase ?? 0,
+                                        coefficient: coefficientForAllowancePreview,
+                                        maxAllowancePerSession:
+                                          editingClassDetail?.maxAllowancePerSession,
+                                      }),
+                                    )}
+                                  </span>
+                                  .
+                                </p>
+                              ) : null}
+                            </div>
                           ) : null}
 
                           {canEditAllowance ? (
@@ -2684,9 +2770,19 @@ export default function SessionHistoryTable({
                           loading={shouldWaitForClassFormula}
                           errorMessage={editAllowanceEstimateError}
                           amount={editTutorAllowanceTotal}
+                          estimatedAmount={estimatedTutorAllowanceTotal}
                           breakdownText={allowanceBreakdownText}
                           showBreakdown={isAdminViewer}
                           usesSnapshot={usesSessionAllowanceSnapshot}
+                          isManualOverride={isAllowanceManuallyEdited}
+                          operatingDeductionEnabled={
+                            editIncludeTeacherOperatingDeduction
+                          }
+                          onEditClick={
+                            canEditAllowance
+                              ? () => editAllowanceInputRef.current?.focus()
+                              : undefined
+                          }
                         />
                       ) : null}
 
