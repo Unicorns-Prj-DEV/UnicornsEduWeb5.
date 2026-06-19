@@ -23,11 +23,13 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- BE/FE `POST /class/:id/end`: chỉ cho kết thúc lớp khi mọi session `teacher_payment_status = paid`; `GET /class/:id` trả `endClassEligibility`; FE disable nút **Kết thúc lớp** + toast khi chưa đủ điều kiện (admin + assistant mirror).
 - FE form **Thêm buổi bù** (`MakeupScheduleCard`): bỏ ràng buộc chọn buổi gốc từ card **Cảnh báo chưa dạy**; chỉ còn **Ngày gốc** (DateInput tuỳ chọn). Vẫn hiện textarea giải trình khi ngày gốc + gia sư khớp cảnh báo chưa dạy. BE cho phép lưu `originalDate` không kèm `baselineScheduleEntryId`.
 - Auth: tắt đăng ký công khai — `POST /auth/register` trả `403`; `/auth/register` redirect login; Google OAuth không tạo user mới (email chưa có → `/auth/login?error=registration_disabled`); ẩn link Đăng ký trên Navbar/login/verify-email. Admin provisioning (`POST /users`) giữ nguyên.
 
 ### Added
 
+- BE/FE dashboard alerts infinite scroll: thêm `GET /dashboard/action-alerts` (group `expiring|debt|payroll|class`, page/limit), `summary.classAlertCount` trên aggregate, và FE `/admin/dashboard` — mỗi card **Cảnh báo & hành động** scroll preview đầy đủ batch đã tải + nút **Xem tất cả** mở dialog full-list (`useInfiniteQuery`, 20 mục/trang).
 - BE/FE giải trình vắng trước lịch bù: bảng `missed_teaching_explanations`, API `POST/PATCH` giải trình (admin + staff-ops mirror), missed-alerts trả `status` + `explanation`, guard tạo makeup có `baselineScheduleEntryId` + `originalDate`; card **Cảnh báo chưa dạy** tách **Lưu giải trình** và **Xếp lịch bù**, giữ layout textarea + lưu ở cột phải trước/sau khi lưu; `/admin/staffs/[id]` hỗ trợ thao tác đầy đủ tại chỗ.
 - FE popup **Thêm buổi bù** (`MakeupScheduleCard`): khi chọn buổi gốc thuộc cảnh báo chưa dạy, hiện textarea **Lý do giải trình** bắt buộc; submit lưu giải trình rồi tạo buổi bù trong một flow, không bắt user quay sang card **Cảnh báo chưa dạy** (admin + staff class detail). Dropdown **Buổi học gốc** chỉ liệt kê các buổi từ card **Cảnh báo chưa dạy**, không còn sinh toàn bộ occurrence từ `Class.schedule`.
 - FE popup **Thanh toán** trên `/admin/staffs/[id]` và mirror `/staff/staffs/[id]`: mỗi card role mặc định **thu gọn** (accordion); bấm header role để mở rộng và xem toàn bộ khoản/source bên trong.
