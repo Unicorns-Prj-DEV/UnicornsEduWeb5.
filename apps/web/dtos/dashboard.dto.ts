@@ -22,6 +22,7 @@ export interface AdminDashboardSummary {
   expiringStudentsCount: number;
   debtStudentsCount: number;
   unpaidStaffCount: number;
+  classAlertCount: number;
   totalAlerts: number;
 }
 
@@ -58,6 +59,17 @@ export interface AdminDashboardActionAlert {
   severity: "warning" | "destructive" | "info";
   targetType: "student" | "staff" | "class";
   targetId: string;
+}
+
+export type AdminDashboardActionAlertGroup = "expiring" | "debt" | "payroll" | "class";
+
+export interface AdminDashboardActionAlertList {
+  data: AdminDashboardActionAlert[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+  };
 }
 
 export interface AdminDashboardClassPerformance {

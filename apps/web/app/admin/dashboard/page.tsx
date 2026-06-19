@@ -18,8 +18,12 @@ import {
   buildAdminLikePath,
   resolveAdminLikeRouteBase,
 } from "@/lib/admin-shell-paths";
+import AlertGroupCard from "@/components/admin/dashboard/AlertGroupCard";
+import DashboardAlertListDialog from "@/components/admin/dashboard/DashboardAlertListDialog";
+import type { AlertGroupTone } from "@/components/admin/dashboard/alert-group-styles";
 import type {
   AdminDashboardActionAlert,
+  AdminDashboardActionAlertGroup,
   AdminDashboardDto,
   AdminDashboardFinancialDetail,
   AdminDashboardFinancialDetailRowKey,
@@ -75,83 +79,6 @@ function KpiCard({
         <p className="mt-1 line-clamp-1 text-xs text-text-secondary">{note}</p>
       </div>
     </div>
-  );
-}
-
-function AlertGroupCard({
-  title,
-  alerts,
-  tone,
-  onOpenAlert,
-}: {
-  title: string;
-  alerts: AdminDashboardActionAlert[];
-  tone: "warning" | "destructive" | "info" | "class";
-  onOpenAlert: (alert: AdminDashboardActionAlert) => void;
-}) {
-  const toneClass =
-    tone === "warning"
-      ? "border-warning/35"
-      : tone === "destructive"
-        ? "border-error/35"
-        : tone === "info"
-          ? "border-info/35"
-          : "border-error/25";
-  const headerClass =
-    tone === "warning"
-      ? "bg-warning/10 text-warning"
-      : tone === "destructive"
-        ? "bg-error/10 text-error"
-        : tone === "info"
-          ? "bg-info/10 text-info"
-          : "bg-error/8 text-error";
-  const toneDotClass =
-    tone === "warning"
-        ? "bg-warning"
-      : tone === "destructive"
-        ? "bg-error"
-        : tone === "info"
-          ? "bg-info"
-          : "bg-error";
-  const itemToneClass =
-    tone === "warning"
-      ? "border-warning/25 bg-warning/5 hover:bg-warning/10"
-      : tone === "destructive"
-        ? "border-error/25 bg-error/5 hover:bg-error/10"
-        : tone === "info"
-          ? "border-info/25 bg-info/5 hover:bg-info/10"
-          : "border-error/20 bg-error/5 hover:bg-error/10";
-  return (
-    <article className={`rounded-xl border bg-bg-surface p-2.5 ${toneClass}`}>
-      <div className={`mb-2 rounded-md border px-2.5 py-2 ${headerClass}`}>
-        <div className="flex items-start gap-2">
-          <span className={`mt-1 inline-flex size-2 rounded-full ${toneDotClass}`} aria-hidden />
-          <div>
-            <p className="text-sm font-semibold leading-5">{title}</p>
-            <p className="mt-0.5 text-xs opacity-80">{alerts.length} mục</p>
-          </div>
-        </div>
-      </div>
-      <div className="max-h-52 space-y-1.5 overflow-y-auto pr-1">
-        {alerts.length > 0 ? (
-          alerts.slice(0, 5).map((item) => (
-            <button
-              key={`${title}-${item.targetId}-${item.subject}`}
-              type="button"
-              onClick={() => onOpenAlert(item)}
-              className={`w-full rounded-md border px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${itemToneClass}`}
-              title="Mở chi tiết"
-            >
-              <p className="line-clamp-2 text-xs font-semibold text-text-primary">{item.subject}</p>
-              <p className="mt-0.5 text-[11px] text-text-secondary">{item.owner ?? item.due}</p>
-              <p className="mt-0.5 text-[11px] font-medium text-text-primary">{formatCurrency(item.amount)}</p>
-            </button>
-          ))
-        ) : (
-          <div className="rounded-md bg-bg-secondary/45 px-2 py-2 text-xs text-text-muted">Không có mục cần xử lý.</div>
-        )}
-    </div>
-    </article>
   );
 }
 
@@ -554,6 +481,11 @@ export default function AdminDashboardTabPage() {
   const [year, setYear] = useState(defaultPeriod.year);
   const [quickView, setQuickView] = useState<QuickViewKey>("finance");
   const [selectedFinancialRowKey, setSelectedFinancialRowKey] = useState<AdminDashboardFinancialDetailRowKey | null>(null);
+  const [openAlertGroup, setOpenAlertGroup] = useState<{
+    group: AdminDashboardActionAlertGroup;
+    title: string;
+    tone: AlertGroupTone;
+  } | null>(null);
 
   // Date-range mode state
   const [viewMode, setViewMode] = useState<"month" | "range">("month");
@@ -576,7 +508,7 @@ export default function AdminDashboardTabPage() {
       getAdminDashboard({
         month,
         year,
-        alertLimit: 12,
+        alertLimit: 8,
         topClassLimit: 8,
       }),
     enabled: fullProfileQuery.isSuccess && !isAssistantStaff,
@@ -765,6 +697,43 @@ export default function AdminDashboardTabPage() {
   const debtAlerts = dashboard.actionAlerts.filter((item) => item.type === "Chưa thu");
   const payrollAlerts = dashboard.actionAlerts.filter((item) => item.type === "Nhân sự chưa thanh toán");
   const classAlerts = dashboard.actionAlerts.filter((item) => item.type === "Lớp cảnh báo");
+
+  const alertGroupCards: Array<{
+    group: AdminDashboardActionAlertGroup;
+    title: string;
+    alerts: AdminDashboardActionAlert[];
+    totalCount: number;
+    tone: AlertGroupTone;
+  }> = [
+    {
+      group: "expiring",
+      title: "Học sinh cần gia hạn",
+      alerts: expiringAlerts,
+      totalCount: dashboard.summary.expiringStudentsCount,
+      tone: "destructive",
+    },
+    {
+      group: "payroll",
+      title: "Chờ thanh toán trợ cấp",
+      alerts: payrollAlerts,
+      totalCount: dashboard.summary.unpaidStaffCount,
+      tone: "info",
+    },
+    {
+      group: "class",
+      title: "Lớp chưa báo cáo lần 4",
+      alerts: classAlerts,
+      totalCount: dashboard.summary.classAlertCount,
+      tone: "class",
+    },
+    {
+      group: "debt",
+      title: "Chưa thu học phí",
+      alerts: debtAlerts,
+      totalCount: dashboard.summary.debtStudentsCount,
+      tone: "warning",
+    },
+  ];
 
   const openAlertDetail = (alert: AdminDashboardActionAlert) => {
     if (alert.targetType === "student") {
@@ -1095,30 +1064,23 @@ export default function AdminDashboardTabPage() {
             <h2 className="text-base font-semibold text-text-primary">Cảnh báo & hành động</h2>
                     </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <AlertGroupCard
-              title="Học sinh cần gia hạn"
-              alerts={expiringAlerts}
-              tone="destructive"
-              onOpenAlert={openAlertDetail}
-            />
-            <AlertGroupCard
-              title="Chờ thanh toán trợ cấp"
-              alerts={payrollAlerts}
-              tone="info"
-              onOpenAlert={openAlertDetail}
-            />
-            <AlertGroupCard
-              title="Lớp chưa báo cáo lần 4"
-              alerts={classAlerts}
-              tone="class"
-              onOpenAlert={openAlertDetail}
-            />
-            <AlertGroupCard
-              title="Chưa thu học phí"
-              alerts={debtAlerts}
-              tone="warning"
-              onOpenAlert={openAlertDetail}
-            />
+            {alertGroupCards.map((card) => (
+              <AlertGroupCard
+                key={card.group}
+                title={card.title}
+                alerts={card.alerts}
+                totalCount={card.totalCount}
+                tone={card.tone}
+                onOpenAlert={openAlertDetail}
+                onViewAll={() =>
+                  setOpenAlertGroup({
+                    group: card.group,
+                    title: card.title,
+                    tone: card.tone,
+                  })
+                }
+              />
+            ))}
                   </div>
         </section>
 
@@ -1174,6 +1136,19 @@ export default function AdminDashboardTabPage() {
             isLoading={financialDetailQuery.isLoading}
             error={financialDetailQuery.error}
             onClose={() => setSelectedFinancialRowKey(null)}
+          />
+        ) : null}
+
+        {openAlertGroup ? (
+          <DashboardAlertListDialog
+            open
+            title={openAlertGroup.title}
+            group={openAlertGroup.group}
+            tone={openAlertGroup.tone}
+            month={month}
+            year={year}
+            onClose={() => setOpenAlertGroup(null)}
+            onOpenAlert={openAlertDetail}
           />
         ) : null}
 
