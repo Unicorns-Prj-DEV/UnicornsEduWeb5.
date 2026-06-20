@@ -8,6 +8,8 @@ import { ClassController } from './class.controller';
 import { ClassSurveyService } from './class-survey.service';
 import { ClassService } from './class.service';
 import { StaffOpsClassController } from './staff-ops-class.controller';
+import { SurveysController } from './surveys.controller';
+import { SurveyRoundService } from './survey-round.service';
 
 @Module({
   imports: [
@@ -17,8 +19,8 @@ import { StaffOpsClassController } from './staff-ops-class.controller';
     GoogleCalendarModule,
     CalendarModule,
   ],
-  controllers: [ClassController, StaffOpsClassController],
-  providers: [ClassService, ClassSurveyService],
-  exports: [ClassService, ClassSurveyService],
+  controllers: [ClassController, StaffOpsClassController, SurveysController],
+  providers: [ClassService, ClassSurveyService, SurveyRoundService],
+  exports: [ClassService, ClassSurveyService, SurveyRoundService],
 })
 export class ClassModule {}

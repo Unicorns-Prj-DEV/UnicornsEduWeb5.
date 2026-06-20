@@ -49,6 +49,7 @@ import {
 import { DashboardCacheService } from '../cache/dashboard-cache.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { getUserFullNameFromParts } from '../common/user-name.util';
+import { SurveyRoundService } from '../class/survey-round.service';
 
 type SummaryCountRow = {
   activeClasses: number | string | null;
@@ -135,7 +136,10 @@ type ClassPerformanceSqlRow = {
   balanceRisk: number | string | null;
 };
 
-type ClassAlertSqlRow = ClassPerformanceSqlRow & {
+type MissingSurveyClassSqlRow = {
+  classId: string;
+  name: string;
+  latestReportedRound: number | string | null;
   totalCount: number | string | null;
 };
 
@@ -465,15 +469,25 @@ function mapUnpaidStaffToActionAlert(
   };
 }
 
-function mapClassAlertToActionAlert(
-  row: ClassAlertSqlRow,
+function mapMissingSurveyClassToActionAlert(
+  row: MissingSurveyClassSqlRow,
+  currentRound: number,
 ): AdminDashboardActionAlertDto {
+  const latestReportedRound =
+    row.latestReportedRound == null
+      ? null
+      : normalizeInteger(row.latestReportedRound);
+
   return {
     type: 'Lớp cảnh báo',
     subject: row.name,
     owner: 'Vận hành',
-    due: 'Có rủi ro công nợ',
-    amount: normalizeMoneyAmount(row.balanceRisk),
+    due: `Chưa báo cáo lần ${currentRound}`,
+    amount: 0,
+    detail:
+      latestReportedRound != null
+        ? `Mới nhất: lần ${latestReportedRound}`
+        : 'Chưa có báo cáo nào',
     severity: 'warning',
     targetType: 'class',
     targetId: row.classId,
@@ -560,6 +574,7 @@ export class DashboardService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly dashboardCacheService: DashboardCacheService,
+    private readonly surveyRoundService: SurveyRoundService,
   ) {}
 
   private async getSummaryCounts(): Promise<SummaryCountRow> {
@@ -1580,92 +1595,35 @@ export class DashboardService {
     `);
   }
 
-  private async getClassAlertRows(params: {
-    monthStart: Date;
-    monthEnd: Date;
+  /**
+   * Running classes that have NOT reported the current survey round
+   * (no class_surveys row with test_number = currentRound).
+   */
+  private async getMissingSurveyClassAlertRows(params: {
+    currentRound: number;
     limit: number;
     offset?: number;
   }) {
     const offset = params.offset ?? 0;
 
-    return this.prisma.$queryRaw<ClassAlertSqlRow[]>(Prisma.sql`
-      WITH class_revenue AS (
-        SELECT
-          sessions.class_id AS class_id,
-          COALESCE(SUM(COALESCE(attendance.tuition_fee, 0)), 0) AS revenue
-        FROM attendance
-        INNER JOIN sessions ON sessions.id = attendance.session_id
-        WHERE sessions.date >= ${params.monthStart}
-          AND sessions.date < ${params.monthEnd}
-          AND attendance.status IN ('present', 'excused')
-        GROUP BY sessions.class_id
-      ),
-      class_allowances AS (
-        SELECT
-          sessions.class_id AS class_id,
-          sessions.id AS session_id,
-          LEAST(
-            COALESCE(
-              NULLIF(classes.max_allowance_per_session, 0),
-              COALESCE(sessions.allowance_amount, 0) *
-                COALESCE(sessions.coefficient, 1)
-            ),
-            COALESCE(sessions.allowance_amount, 0) *
-              COALESCE(sessions.coefficient, 1)
-          ) AS teacher_allowance_total
-        FROM attendance
-        INNER JOIN sessions ON sessions.id = attendance.session_id
-        INNER JOIN classes ON classes.id = sessions.class_id
-        WHERE sessions.date >= ${params.monthStart}
-          AND sessions.date < ${params.monthEnd}
-        GROUP BY
-          sessions.class_id,
-          sessions.id,
-          sessions.allowance_amount,
-          classes.max_allowance_per_session,
-          sessions.coefficient
-      ),
-      class_allowance_totals AS (
-        SELECT
-          class_id,
-          COALESCE(SUM(teacher_allowance_total), 0) AS teacher_cost
-        FROM class_allowances
-        GROUP BY class_id
-      ),
-      class_members AS (
-        SELECT
-          student_classes.class_id AS class_id,
-          COUNT(DISTINCT student_classes.student_id) FILTER (
-            WHERE student_info.status = 'active'
-          ) AS students,
-          COALESCE(
-            SUM(
-              CASE
-                WHEN COALESCE(student_info.account_balance, 0) < 0
-                  THEN ABS(COALESCE(student_info.account_balance, 0))
-                ELSE 0
-              END
-            ),
-            0
-          ) AS balance_risk
-        FROM student_classes
-        INNER JOIN student_info ON student_info.id = student_classes.student_id
-        GROUP BY student_classes.class_id
-      ),
-      eligible AS (
+    return this.prisma.$queryRaw<MissingSurveyClassSqlRow[]>(Prisma.sql`
+      WITH eligible AS (
         SELECT
           classes.id AS "classId",
           classes.name AS name,
-          COALESCE(class_members.students, 0) AS students,
-          COALESCE(class_revenue.revenue, 0) AS revenue,
-          COALESCE(class_revenue.revenue, 0) - COALESCE(class_allowance_totals.teacher_cost, 0) AS profit,
-          COALESCE(class_members.balance_risk, 0) AS "balanceRisk"
+          (
+            SELECT MAX(cs.test_number)
+            FROM class_surveys cs
+            WHERE cs.class_id = classes.id
+          ) AS "latestReportedRound"
         FROM classes
-        LEFT JOIN class_revenue ON class_revenue.class_id = classes.id
-        LEFT JOIN class_allowance_totals ON class_allowance_totals.class_id = classes.id
-        LEFT JOIN class_members ON class_members.class_id = classes.id
         WHERE classes.status = 'running'
-          AND COALESCE(class_members.balance_risk, 0) > 0
+          AND NOT EXISTS (
+            SELECT 1
+            FROM class_surveys cs2
+            WHERE cs2.class_id = classes.id
+              AND cs2.test_number = ${params.currentRound}
+          )
       ),
       counted AS (
         SELECT
@@ -1676,13 +1634,10 @@ export class DashboardService {
       SELECT
         "classId",
         name,
-        students,
-        revenue,
-        profit,
-        "balanceRisk",
+        "latestReportedRound",
         "totalCount"
       FROM counted
-      ORDER BY revenue DESC, name ASC
+      ORDER BY name ASC
       LIMIT ${params.limit}
       OFFSET ${offset}
     `);
@@ -1781,7 +1736,7 @@ export class DashboardService {
     staffId: string,
     todayRange: { start: Date; end: Date },
   ): Promise<StaffDashboardTeacherSectionDto> {
-    const [assignedClasses, latestSurveyAggregate, todaySessions] =
+    const [assignedClasses, currentSurveyRound, todaySessions] =
       await Promise.all([
         this.prisma.class.findMany({
           where: {
@@ -1804,16 +1759,7 @@ export class DashboardService {
             },
           },
         }),
-        this.prisma.classSurvey.aggregate({
-          where: {
-            class: {
-              status: ClassStatus.running,
-            },
-          },
-          _max: {
-            testNumber: true,
-          },
-        }),
+        this.surveyRoundService.getCurrentRound(),
         this.prisma.session.findMany({
           where: {
             teacherId: staffId,
@@ -1844,27 +1790,45 @@ export class DashboardService {
       ]);
 
     const assignedClassesIds = assignedClasses.map((item) => item.id);
-    const latestSurveyRows =
+    const [latestSurveyRows, reportedRoundRows] =
       assignedClassesIds.length > 0
-        ? await this.prisma.classSurvey.groupBy({
-            by: ['classId'],
-            where: {
-              classId: {
-                in: assignedClassesIds,
+        ? await Promise.all([
+            this.prisma.classSurvey.groupBy({
+              by: ['classId'],
+              where: {
+                classId: {
+                  in: assignedClassesIds,
+                },
               },
-            },
-            _max: {
-              testNumber: true,
-            },
-          })
-        : [];
+              _max: {
+                testNumber: true,
+              },
+            }),
+            this.prisma.classSurvey.findMany({
+              where: {
+                classId: {
+                  in: assignedClassesIds,
+                },
+                testNumber: currentSurveyRound,
+              },
+              select: {
+                classId: true,
+              },
+              distinct: ['classId'],
+            }),
+          ])
+        : [[], []];
 
-    const latestRequiredSurveyTestNumber =
-      latestSurveyAggregate._max.testNumber ?? null;
+    const latestRequiredSurveyTestNumber = currentSurveyRound;
     const latestSurveyByClassId = new Map(
       latestSurveyRows
         .filter((row) => row.classId != null)
         .map((row) => [row.classId as string, row._max.testNumber ?? null]),
+    );
+    const reportedCurrentRoundClassIds = new Set(
+      reportedRoundRows
+        .map((row) => row.classId)
+        .filter((classId): classId is string => classId != null),
     );
 
     const classItems: StaffDashboardClassItemDto[] = assignedClasses
@@ -1879,14 +1843,13 @@ export class DashboardService {
 
     const missingScheduleOrSurvey: StaffDashboardClassAlertItemDto[] =
       classItems
-        .map((item) => {
+        .map((item): StaffDashboardClassAlertItemDto | null => {
           const latestClassSurveyTestNumber =
             latestSurveyByClassId.get(item.id) ?? null;
           const missingSchedule = item.scheduleCount === 0;
           const missingSurvey =
-            (latestRequiredSurveyTestNumber ?? 0) > 0 &&
-            (latestClassSurveyTestNumber ?? 0) <
-              (latestRequiredSurveyTestNumber ?? 0);
+            latestRequiredSurveyTestNumber > 0 &&
+            !reportedCurrentRoundClassIds.has(item.id);
 
           if (!missingSchedule && !missingSurvey) {
             return null;
@@ -3216,6 +3179,9 @@ export class DashboardService {
           toMonthKeyExclusive: period.toMonthKeyExclusive,
         };
 
+        const currentSurveyRound =
+          await this.surveyRoundService.getCurrentRound();
+
         if (period.isDateRange) {
           // Date-range mode: financial data for the selected range only.
           // Trend / yearly summary are not applicable and return empty.
@@ -3248,9 +3214,8 @@ export class DashboardService {
               monthEnd: period.monthEnd,
               limit: topClassLimit,
             }),
-            this.getClassAlertRows({
-              monthStart: period.monthStart,
-              monthEnd: period.monthEnd,
+            this.getMissingSurveyClassAlertRows({
+              currentRound: currentSurveyRound,
               limit: alertLimit,
             }),
           ]);
@@ -3319,7 +3284,9 @@ export class DashboardService {
             ...expiringStudents.map(mapExpiringStudentToActionAlert),
             ...debtStudents.map(mapDebtStudentToActionAlert),
             ...unpaidStaff.map(mapUnpaidStaffToActionAlert),
-            ...classAlertRows.map(mapClassAlertToActionAlert),
+            ...classAlertRows.map((row) =>
+              mapMissingSurveyClassToActionAlert(row, currentSurveyRound),
+            ),
           ];
 
           const classPerformance: AdminDashboardClassPerformanceDto[] =
@@ -3356,6 +3323,7 @@ export class DashboardService {
               debtStudentsCount,
               unpaidStaffCount,
               classAlertCount,
+              currentSurveyRound,
               totalAlerts:
                 expiringStudentsCount + debtStudentsCount + unpaidStaffCount,
             },
@@ -3400,9 +3368,8 @@ export class DashboardService {
             monthEnd: period.monthEnd,
             limit: topClassLimit,
           }),
-          this.getClassAlertRows({
-            monthStart: period.monthStart,
-            monthEnd: period.monthEnd,
+          this.getMissingSurveyClassAlertRows({
+            currentRound: currentSurveyRound,
             limit: alertLimit,
           }),
           this.getQuarterClassCounts({
@@ -3489,7 +3456,9 @@ export class DashboardService {
           ...expiringStudents.map(mapExpiringStudentToActionAlert),
           ...debtStudents.map(mapDebtStudentToActionAlert),
           ...unpaidStaff.map(mapUnpaidStaffToActionAlert),
-          ...classAlertRows.map(mapClassAlertToActionAlert),
+          ...classAlertRows.map((row) =>
+            mapMissingSurveyClassToActionAlert(row, currentSurveyRound),
+          ),
         ];
 
         const classPerformance: AdminDashboardClassPerformanceDto[] =
@@ -3549,6 +3518,7 @@ export class DashboardService {
             debtStudentsCount,
             unpaidStaffCount,
             classAlertCount,
+            currentSurveyRound,
             totalAlerts:
               expiringStudentsCount + debtStudentsCount + unpaidStaffCount,
           },
@@ -3620,16 +3590,18 @@ export class DashboardService {
         };
       }
       case 'class': {
-        const rows = await this.getClassAlertRows({
-          monthStart: period.monthStart,
-          monthEnd: period.monthEnd,
+        const currentRound = await this.surveyRoundService.getCurrentRound();
+        const rows = await this.getMissingSurveyClassAlertRows({
+          currentRound,
           limit,
           offset,
         });
         const total = normalizeInteger(rows[0]?.totalCount);
 
         return {
-          data: rows.map(mapClassAlertToActionAlert),
+          data: rows.map((row) =>
+            mapMissingSurveyClassToActionAlert(row, currentRound),
+          ),
           meta: { total, page, limit },
         };
       }

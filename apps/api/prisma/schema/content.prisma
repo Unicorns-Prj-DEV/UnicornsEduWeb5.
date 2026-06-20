@@ -16,6 +16,16 @@ model ClassSurvey {
   @@map("class_surveys")
 }
 
+model SurveyRound {
+  id              String   @id @default("current")
+  currentRound    Int      @default(6) @map("current_round")
+  updatedByUserId String?  @map("updated_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("survey_round")
+}
+
 model ActionHistory {
   id            String   @id @default(uuid())
   userId        String?  @map("user_id")

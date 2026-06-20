@@ -55,6 +55,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 ### Content / Audit
 
 - `class_surveys`
+- `survey_round`
 - `action_history`
 - `documents`
 - `notifications`
@@ -271,7 +272,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `max_allowance_per_session` không snapshot tại `sessions`; các aggregate payroll/report đọc động từ `classes.max_allowance_per_session` tại thời điểm query, nên thay đổi cấu hình lớp có thể ảnh hưởng kết quả historical aggregate.
 - Snapshot khấu trừ theo buổi:
   - `teacher_tax_rate_percent` (`DECIMAL(5,2)`, default `0`, Prisma field `teacherOperatingDeductionRatePercent`): snapshot mức **khấu trừ vận hành** effective của cặp gia sư-lớp; trước thanh toán được refresh khi tạo/cập nhật session, khi chuyển sang `paid` được snapshot lại theo thời điểm thanh toán.
-    - `POST /sessions` và `PUT /sessions/:id` có thể gửi `includeTeacherOperatingDeduction=false` để snapshot khấu trừ vận hành của riêng buổi đó về `0` mà không đổi cấu hình `class_teachers.tax_rate_percent`.
+    - Buổi mới/cập nhật luôn snapshot theo `class_teachers.operatingDeductionRatePercent` hiện hành; FE không còn toggle tắt phí vận hành từng buổi. Field request `includeTeacherOperatingDeduction=false` vẫn tồn tại ở API (legacy) nhưng UI không gửi; buổi cũ đã snapshot `0%` giữ nguyên cho lịch sử thanh toán.
   - `teacher_tax_deduction_rate_percent` (`DECIMAL(5,2)`, default `0`, Prisma field `teacherTaxDeductionRatePercent`): snapshot mức **khấu trừ thuế** áp dụng cho khoản dạy học; trước thanh toán được refresh khi tạo/cập nhật session, khi chuyển sang `paid` được snapshot lại theo thời điểm thanh toán.
   - Semantics hiện tại: khấu trừ vận hành của gia sư vẫn được tính ở mức từng buổi; khấu trừ thuế được aggregate trên **tổng gross theo nguồn + rate bucket trong kỳ**, nên các view chi tiết lớp/buổi của gia sư dùng số **sau vận hành, trước thuế**.
 - Quan hệ con: `attendance`
@@ -336,6 +337,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 ### 4.8 Content & audit
 
 - `class_surveys`: báo cáo/đánh giá lớp theo mốc test; index `class_id`, `teacher_id`, `(class_id, test_number)`, `(teacher_id, report_date)`
+- `survey_round`: bảng single-row (`id = 'current'`) lưu **lần khảo sát hiện tại** toàn cục (`current_round`, mặc định/seed = 6) do admin đặt; `updated_by_user_id` ghi admin chỉnh gần nhất. Mọi lớp `running` được kỳ vọng đã có `class_surveys.test_number = current_round`
 - `action_history`: audit log thay đổi dữ liệu (`before_value`, `after_value`, `changed_fields` là JSON)
 - `documents`: metadata tài liệu (`file_url`, `tags` JSON)
 - `notifications`: bản ghi thông báo admin push cho feed admin/staff/student; lưu draft/published, audience target động, version, số lần push và thời điểm push gần nhất

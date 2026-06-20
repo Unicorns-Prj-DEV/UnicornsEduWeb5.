@@ -23,6 +23,7 @@ export interface AdminDashboardSummary {
   debtStudentsCount: number;
   unpaidStaffCount: number;
   classAlertCount: number;
+  currentSurveyRound: number;
   totalAlerts: number;
 }
 
@@ -56,6 +57,8 @@ export interface AdminDashboardActionAlert {
   owner: string | null;
   due: string;
   amount: number;
+  /** Non-money detail line (e.g. survey alerts). Rendered instead of currency. */
+  detail?: string | null;
   severity: "warning" | "destructive" | "info";
   targetType: "student" | "staff" | "class";
   targetId: string;

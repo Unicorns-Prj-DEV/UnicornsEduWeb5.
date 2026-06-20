@@ -24,6 +24,9 @@ describe('DashboardService staff training dashboard', () => {
         options.loader(),
     ),
   };
+  const surveyRoundService = {
+    getCurrentRound: jest.fn(async () => 6),
+  };
 
   let service: DashboardService;
 
@@ -31,9 +34,11 @@ describe('DashboardService staff training dashboard', () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-05-29T05:30:00.000Z'));
     jest.clearAllMocks();
     prisma.$queryRaw.mockResolvedValue([]);
+    surveyRoundService.getCurrentRound.mockResolvedValue(6);
     service = new DashboardService(
       prisma as never,
       dashboardCacheService as never,
+      surveyRoundService as never,
     );
   });
 
@@ -165,15 +170,13 @@ describe('DashboardService staff training dashboard', () => {
     ]);
   });
 
-  it('returns paginated class action alerts with meta total', async () => {
+  it('returns paginated missing-survey class action alerts with meta total', async () => {
+    surveyRoundService.getCurrentRound.mockResolvedValue(6);
     prisma.$queryRaw.mockResolvedValueOnce([
       {
         classId: 'class-1',
-        name: 'Lớp cảnh báo',
-        students: 5,
-        revenue: 1000000,
-        profit: 500000,
-        balanceRisk: 200000,
+        name: 'Lớp chưa báo cáo',
+        latestReportedRound: 4,
         totalCount: 2,
       },
     ]);
@@ -192,7 +195,9 @@ describe('DashboardService staff training dashboard', () => {
         type: 'Lớp cảnh báo',
         targetType: 'class',
         targetId: 'class-1',
-        amount: 200000,
+        amount: 0,
+        due: 'Chưa báo cáo lần 6',
+        detail: 'Mới nhất: lần 4',
       }),
     ]);
   });

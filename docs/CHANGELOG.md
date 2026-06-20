@@ -21,8 +21,19 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Added
+
+- BE: bảng single-row `survey_round` (`current_round`, seed = 6) + `SurveyRoundService` quản lý **lần khảo sát hiện tại** toàn cục; `SurveysController` strict-admin (`GET /surveys/round`, `GET /surveys/missing-classes`, `PATCH /surveys/round`) với Swagger đầy đủ, audit `action_history` entity `survey_round`.
+- FE: trang admin-only `/admin/surveys` (Khảo sát) — header KPI lần khảo sát + ô **Đặt lần khảo sát** (nhập trực tiếp số N), danh sách lớp `running` chưa báo cáo lần N (track-only, link `/admin/classes/:id`), TanStack Query + Sonner, mobile-first; thêm mục sidebar **Khảo sát** (adminOnly) và `/admin/surveys` vào `STRICT_ADMIN_ROUTE_PREFIXES`.
+
 ### Changed
 
+- BE/FE admin dashboard: thẻ cảnh báo lớp đổi sang **"Lớp chưa báo cáo lần {N}"** (tiêu đề động theo `summary.currentSurveyRound`), nguồn dữ liệu = lớp `running` thiếu `class_surveys.test_number = N` (bỏ wiring rủi ro công nợ cũ); action alert thêm trường `detail` ("Mới nhất: lần X") render thay số tiền.
+- BE staff dashboard `getTeacherSection`: khối "Lớp chưa điền lịch / khảo sát" dùng lần khảo sát hiện tại N chung (semantics `test_number == N`) thay cho `max(test_number)` toàn cục.
+
+- FE `MissedTeachingAlertsCard`: panel accordion mở chia 2 cột (trái giải trình, phải xếp bù); mobile stack 1 cột.
+- FE `MissedTeachingAlertsCard`: card **Cảnh báo chưa dạy** chuyển sang accordion thu gọn (title kèm số lượng, mặc định đóng, mở một dòng/lần); form **Lưu giải trình** + **Xếp lịch bù** chỉ trong panel mở — áp dụng `/admin/classes/[id]`, `/staff/classes/[id]`, `/admin/staffs/[id]`.
+- FE session form (`AddSessionPopup`, `SessionHistoryTable`): gỡ checkbox **Tính phí vận hành**; buổi mới/cập nhật luôn snapshot % vận hành theo cấu hình lớp/gia sư (API legacy `includeTeacherOperatingDeduction` giữ cho buổi cũ).
 - BE/FE `POST /class/:id/end`: chỉ cho kết thúc lớp khi mọi session `teacher_payment_status = paid`; `GET /class/:id` trả `endClassEligibility`; FE disable nút **Kết thúc lớp** + toast khi chưa đủ điều kiện (admin + assistant mirror).
 - FE form **Thêm buổi bù** (`MakeupScheduleCard`): bỏ ràng buộc chọn buổi gốc từ card **Cảnh báo chưa dạy**; chỉ còn **Ngày gốc** (DateInput tuỳ chọn). Vẫn hiện textarea giải trình khi ngày gốc + gia sư khớp cảnh báo chưa dạy. BE cho phép lưu `originalDate` không kèm `baselineScheduleEntryId`.
 - Auth: tắt đăng ký công khai — `POST /auth/register` trả `403`; `/auth/register` redirect login; Google OAuth không tạo user mới (email chưa có → `/auth/login?error=registration_disabled`); ẩn link Đăng ký trên Navbar/login/verify-email. Admin provisioning (`POST /users`) giữ nguyên.

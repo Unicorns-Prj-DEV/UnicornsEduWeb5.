@@ -279,6 +279,7 @@ export interface AdminDashboardSummaryDto {
   debtStudentsCount: number;
   unpaidStaffCount: number;
   classAlertCount: number;
+  currentSurveyRound: number;
   totalAlerts: number;
 }
 
@@ -324,6 +325,11 @@ export interface AdminDashboardActionAlertDto {
   owner: string | null;
   due: string;
   amount: number;
+  /**
+   * Optional non-money detail line. When set, the FE renders this instead of a
+   * currency-formatted amount (used by survey alerts, e.g. "Mới nhất: lần 5").
+   */
+  detail?: string | null;
   severity: 'warning' | 'destructive' | 'info';
   targetType: 'student' | 'staff' | 'class';
   targetId: string;

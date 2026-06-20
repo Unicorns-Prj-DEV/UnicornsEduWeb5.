@@ -92,6 +92,7 @@ export const LESSON_MANAGEMENT_ROUTE_PREFIXES = [
 
 export const STRICT_ADMIN_ROUTE_PREFIXES = [
   "/admin/wallet-direct-topup-requests",
+  "/admin/surveys",
 ] as const;
 
 export function resolveAdminShellAccess(

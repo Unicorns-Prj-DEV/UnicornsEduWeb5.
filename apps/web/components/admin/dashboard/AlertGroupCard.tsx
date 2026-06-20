@@ -59,7 +59,7 @@ export default function AlertGroupCard({
               <p className="line-clamp-2 text-xs font-semibold text-text-primary">{item.subject}</p>
               <p className="mt-0.5 text-[11px] text-text-secondary">{item.owner ?? item.due}</p>
               <p className="mt-0.5 text-[11px] font-medium text-text-primary">
-                {formatDashboardAlertCurrency(item.amount)}
+                {item.detail ?? formatDashboardAlertCurrency(item.amount)}
               </p>
             </button>
           ))
