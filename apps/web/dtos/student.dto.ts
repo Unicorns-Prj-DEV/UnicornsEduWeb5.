@@ -57,6 +57,7 @@ export interface StudentListResponse {
 
 /** Detail from GET /student/:id */
 export interface StudentDetail extends StudentListItem {
+  userId?: string | null;
   birthYear?: number | null;
   parentName?: string | null;
   parentPhone?: string | null;

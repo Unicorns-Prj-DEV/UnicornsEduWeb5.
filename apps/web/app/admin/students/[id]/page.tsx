@@ -15,6 +15,7 @@ import {
     StudentWalletCard,
     StudentClassTuitionPopup,
 } from "@/components/admin/student";
+import { UserLinkedProfileLinks } from "@/components/admin/user";
 import ParentReceiptEmailSwitch from "@/components/student/ParentReceiptEmailSwitch";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import type { StudentDetail, StudentGender, StudentStatus } from "@/dtos/student.dto";
@@ -22,7 +23,7 @@ import {
     buildAdminLikePath,
     resolveAdminLikeRouteBase,
 } from "@/lib/admin-shell-paths";
-import { resolveStudentAdminCapabilities } from "@/lib/admin-shell-access";
+import { resolveStudentAdminCapabilities, resolveUserAdminCapabilities } from "@/lib/admin-shell-access";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as studentApi from "@/lib/apis/student.api";
 import { formatCurrency } from "@/lib/class.helpers";
@@ -121,6 +122,7 @@ export default function AdminStudentDetailPage() {
         canRequestDirectTopUp,
         canEditStudentClassTuition,
     } = resolveStudentAdminCapabilities(fullProfile, routeBase);
+    const { canManageUsers } = resolveUserAdminCapabilities(fullProfile, routeBase);
     const backLabel = isCustomerCareReadOnlyView
         ? "Quay lại trang CSKH"
         : "Quay lại danh sách học sinh";
@@ -500,6 +502,15 @@ export default function AdminStudentDetailPage() {
                                             </span>
                                         ) : null}
                                     </div>
+                                    {canManageUsers && student.userId ? (
+                                        <div className="mt-3">
+                                            <UserLinkedProfileLinks
+                                                routeBase={routeBase}
+                                                userId={student.userId}
+                                                showManageLink
+                                            />
+                                        </div>
+                                    ) : null}
                                 </div>
                                 <div className="mt-4 grid gap-2 sm:hidden">
                                     <div className="rounded-2xl border border-border-default bg-bg-primary/80 px-4 py-3">

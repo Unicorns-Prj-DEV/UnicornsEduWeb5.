@@ -53,13 +53,17 @@ export interface CreateUserResponse {
   message: string;
 }
 
+export type UserStatus = "active" | "inactive" | "pending";
+
 export interface UpdateUserPayload {
   id: string;
   email?: string;
   phone?: string;
+  first_name?: string;
+  last_name?: string;
   name?: string;
   roleType?: UserRoleType;
-  status?: string;
+  status?: UserStatus;
   linkId?: string;
   province?: string;
   accountHandle?: string;
@@ -74,12 +78,16 @@ export interface UserListItem {
   email: string;
   phone?: string | null;
   roleType: UserRoleType;
-  status: string;
+  status: UserStatus | string;
   accountHandle: string;
   first_name?: string | null;
   last_name?: string | null;
+  province?: string | null;
+  emailVerified?: boolean;
   createdAt?: string;
   updatedAt?: string;
+  staffInfo?: { id: string } | null;
+  studentInfo?: { id: string } | null;
 }
 
 export interface UserListMeta {
@@ -95,6 +103,6 @@ export interface UserListResponse {
 
 /** User chi tiết (có staffInfo khi cần phân quyền nhân sự). */
 export interface UserDetailWithStaff extends UserListItem {
-  staffInfo?: { id: string; roles: StaffRole[] } | null;
+  staffInfo?: { id: string; roles?: StaffRole[] } | null;
   studentInfo?: { id: string } | null;
 }

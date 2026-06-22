@@ -24,6 +24,12 @@ export type StudentAdminCapabilities = {
   canDeleteStudent: boolean;
 };
 
+export type UserAdminCapabilities = {
+  canManageUsers: boolean;
+  canDeleteUser: boolean;
+  hideAdminRoleOptions: boolean;
+};
+
 export const ACCOUNTANT_INCOME_VISIBLE_HREFS = new Set([
   "/admin/classes",
   "/admin/students",
@@ -218,6 +224,21 @@ export function resolveStudentAdminCapabilities(
     canRequestDirectTopUp: access.isAssistant || isCustomerCareStaff,
     canEditStudentClassTuition: canManageStudent || access.isAccountantIncome,
     canDeleteStudent: access.isAdmin || access.isAssistant,
+  };
+}
+
+export function resolveUserAdminCapabilities(
+  profile?: FullProfileDto | UserInfoDto | null,
+  routeBase: string = "/admin",
+): UserAdminCapabilities {
+  const access = resolveAdminShellAccess(profile);
+  const isStaffRoute = routeBase === "/staff";
+
+  return {
+    canManageUsers: access.isAdmin || access.isAssistant,
+    canDeleteUser: access.isAdmin || access.isAssistant,
+    hideAdminRoleOptions:
+      isStaffRoute && access.isAssistant && !access.isAdmin,
   };
 }
 
