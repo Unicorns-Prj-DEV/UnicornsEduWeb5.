@@ -71,14 +71,22 @@ describe('AssistantCommissionService', () => {
       { id: 'cskh-1', user: buildStaffUserMock('CSKH', 'A') },
       { id: 'cskh-2', user: buildStaffUserMock('CSKH', 'B') },
     ]);
-    mockPrisma.$queryRaw.mockResolvedValue([
-      {
-        customerCareStaffId: 'cskh-1',
-        totalShareAmount: 300_000,
-        pendingShareAmount: 200_000,
-        paidShareAmount: 100_000,
-      },
-    ]);
+    mockPrisma.$queryRaw
+      .mockResolvedValueOnce([
+        {
+          customerCareStaffId: 'cskh-1',
+          totalShareAmount: 300_000,
+          pendingShareAmount: 200_000,
+          paidShareAmount: 100_000,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          staffId: 'cskh-1',
+          debtStudentCount: 2,
+          totalDebtAmount: 1_500_000,
+        },
+      ]);
 
     const result = await service.getManagedCustomerCare(
       'admin-user',
@@ -94,6 +102,8 @@ describe('AssistantCommissionService', () => {
         totalShareAmount: 300_000,
         pendingShareAmount: 200_000,
         paidShareAmount: 100_000,
+        debtStudentCount: 2,
+        totalDebtAmount: 1_500_000,
       },
       {
         customerCareStaffId: 'cskh-2',
@@ -101,6 +111,8 @@ describe('AssistantCommissionService', () => {
         totalShareAmount: 0,
         pendingShareAmount: 0,
         paidShareAmount: 0,
+        debtStudentCount: 0,
+        totalDebtAmount: 0,
       },
     ]);
   });
@@ -132,20 +144,22 @@ describe('AssistantCommissionService', () => {
       { id: 'cskh-1', user: buildStaffUserMock('CSKH', 'A') },
       { id: 'cskh-2', user: buildStaffUserMock('CSKH', 'B') },
     ]);
-    mockPrisma.$queryRaw.mockResolvedValue([
-      {
-        customerCareStaffId: 'cskh-1',
-        totalShareAmount: 300_000,
-        pendingShareAmount: 200_000,
-        paidShareAmount: 100_000,
-      },
-      {
-        customerCareStaffId: 'cskh-2',
-        totalShareAmount: 50_000,
-        pendingShareAmount: 0,
-        paidShareAmount: 50_000,
-      },
-    ]);
+    mockPrisma.$queryRaw
+      .mockResolvedValueOnce([
+        {
+          customerCareStaffId: 'cskh-1',
+          totalShareAmount: 300_000,
+          pendingShareAmount: 200_000,
+          paidShareAmount: 100_000,
+        },
+        {
+          customerCareStaffId: 'cskh-2',
+          totalShareAmount: 50_000,
+          pendingShareAmount: 0,
+          paidShareAmount: 50_000,
+        },
+      ])
+      .mockResolvedValueOnce([]);
 
     const result = await service.getManagedCustomerCare(
       'admin-user',
