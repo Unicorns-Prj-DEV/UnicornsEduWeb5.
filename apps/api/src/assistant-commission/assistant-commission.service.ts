@@ -55,6 +55,12 @@ type ManagedStudentAggregateRow = {
   paidShareAmount: unknown;
 };
 
+type CustomerCareStaffDebtAggregateRow = {
+  staffId: string;
+  debtStudentCount: unknown;
+  totalDebtAmount: unknown;
+};
+
 function toNumber(value: unknown): number {
   if (value == null) return 0;
   if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -285,6 +291,54 @@ export class AssistantCommissionService {
     };
   }
 
+  private async getDebtAggregateByCustomerCareStaffIds(staffIds: string[]) {
+    if (staffIds.length === 0) {
+      return new Map<
+        string,
+        { debtStudentCount: number; totalDebtAmount: number }
+      >();
+    }
+
+    const rows = await this.prisma.$queryRaw<CustomerCareStaffDebtAggregateRow[]>(
+      Prisma.sql`
+        WITH student_debt AS (
+          SELECT
+            customer_care_service.staff_id AS "staffId",
+            student_info.id AS "studentId",
+            ABS(student_info.account_balance) AS "debtAmount"
+          FROM customer_care_service
+          INNER JOIN student_info ON student_info.id = customer_care_service.student_id
+          INNER JOIN student_classes ON student_classes.student_id = student_info.id
+          INNER JOIN classes ON classes.id = student_classes.class_id
+          WHERE customer_care_service.staff_id IN (${Prisma.join(staffIds)})
+            AND classes.status = 'running'
+            AND student_info.status = 'active'
+            AND student_info.account_balance < 0
+          GROUP BY
+            customer_care_service.staff_id,
+            student_info.id,
+            student_info.account_balance
+        )
+        SELECT
+          "staffId",
+          COUNT(*)::int AS "debtStudentCount",
+          COALESCE(SUM("debtAmount"), 0) AS "totalDebtAmount"
+        FROM student_debt
+        GROUP BY "staffId"
+      `,
+    );
+
+    return new Map(
+      rows.map((row) => [
+        row.staffId,
+        {
+          debtStudentCount: toNumber(row.debtStudentCount),
+          totalDebtAmount: toNumber(row.totalDebtAmount),
+        },
+      ]),
+    );
+  }
+
   async getManagedCustomerCare(
     userId: string,
     roleType: UserRole,
@@ -368,18 +422,25 @@ export class AssistantCommissionService {
       GROUP BY attendance.customer_care_staff_id
     `);
 
+    const managedStaffIds = managedStaff.map((staff) => staff.id);
+    const debtByStaffId =
+      await this.getDebtAggregateByCustomerCareStaffIds(managedStaffIds);
+
     const aggregateByStaffId = new Map(
       aggregateRows.map((row) => [row.customerCareStaffId, row]),
     );
 
     const mergedRows = managedStaff.map((staff) => {
       const aggregate = aggregateByStaffId.get(staff.id);
+      const debt = debtByStaffId.get(staff.id);
       return {
         customerCareStaffId: staff.id,
         fullName: this.resolveStaffDisplayName(staff.user),
         totalShareAmount: toNumber(aggregate?.totalShareAmount),
         pendingShareAmount: toNumber(aggregate?.pendingShareAmount),
         paidShareAmount: toNumber(aggregate?.paidShareAmount),
+        debtStudentCount: debt?.debtStudentCount ?? 0,
+        totalDebtAmount: debt?.totalDebtAmount ?? 0,
       };
     });
 

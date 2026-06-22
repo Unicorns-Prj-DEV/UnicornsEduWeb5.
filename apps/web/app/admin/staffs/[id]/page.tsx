@@ -22,6 +22,7 @@ import {
   QrLinkPopup,
   SessionHistoryTableSkeleton,
 } from "@/components/admin/staff";
+import { UserLinkedProfileLinks } from "@/components/admin/user";
 import {
   AssistantDualRoleIncomeHelper,
   hasAssistantAndCustomerCareRoles,
@@ -50,7 +51,7 @@ import * as sessionApi from "@/lib/apis/session.api";
 import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable";
 import MonthNav from "@/components/admin/MonthNav";
 import { MissedTeachingAlert, SessionItem } from "@/dtos/session.dto";
-import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
+import { resolveAdminShellAccess, resolveUserAdminCapabilities } from "@/lib/admin-shell-access";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import UserAvatar from "@/components/ui/UserAvatar";
 import { pickAvatarUrl } from "@/lib/avatar";
@@ -327,6 +328,7 @@ export default function AdminStaffDetailPage({
   });
   const { isAdmin, isAssistant, isAccountant, isAccountantExpense, isAccountantIncome } =
     resolveAdminShellAccess(fullProfile);
+  const { canManageUsers } = resolveUserAdminCapabilities(fullProfile, routeBase);
   const ownStaffId = fullProfile?.staffInfo?.id;
   const viewingOwnStaffRecordOnStaffShell =
     routeBase === "/staff" && Boolean(ownStaffId) && ownStaffId === id;
@@ -337,8 +339,6 @@ export default function AdminStaffDetailPage({
   const canPayAll = isAdmin || isAssistant || isAccountantExpense || isAccountantIncome;
   const canEditSessionDetails = isAdmin || isAssistant;
   const canEditSessionPaymentStatus =
-    isAdmin || isAssistant || isAccountantExpense || isAccountantIncome;
-  const canEditSessionCoefficient =
     isAdmin || isAssistant || isAccountantExpense || isAccountantIncome;
   const canManageMissedTeachingAlerts = isAdmin || isAssistant;
   const canEditStaffProfile =
@@ -1715,6 +1715,15 @@ export default function AdminStaffDetailPage({
                 <span className="text-sm text-text-muted">Chưa có role</span>
               )}
             </div>
+            {canManageUsers && staff.user?.id ? (
+              <div className="mt-3">
+                <UserLinkedProfileLinks
+                  routeBase={routeBase}
+                  userId={staff.user.id}
+                  showManageLink
+                />
+              </div>
+            ) : null}
           </div>
         </div>
         {canPayAll ? (
@@ -2605,11 +2614,12 @@ export default function AdminStaffDetailPage({
                 enableBulkPaymentStatusEdit={canPayAll}
                 allowTeacherSelection={canEditSessionDetails}
                 allowFinancialEdits={canEditSessionDetails}
-                allowCoefficientEdit={canEditSessionCoefficient}
                 allowAllowanceEdit={canEditSessionDetails}
                 allowAttendanceTuitionEdits={canEditSessionDetails}
                 allowPaymentStatusEdit={canEditSessionPaymentStatus}
-                readOnlySessionDetails={!canEditSessionDetails && !canEditSessionPaymentStatus && !canEditSessionCoefficient}
+                readOnlySessionDetails={
+                  !canEditSessionDetails && !canEditSessionPaymentStatus
+                }
                 allowDeleteSession={canEditSessionDetails}
                 onSessionUpdated={handleSessionUpdated}
                 getTeachersForClass={getTeachersForClass}

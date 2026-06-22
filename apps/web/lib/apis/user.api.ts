@@ -3,6 +3,7 @@ import type {
   CreateUserPayload,
   CreateUserResponse,
   UserDetailWithStaff,
+  UserListItem,
   UserListResponse,
   UpdateUserPayload,
 } from "@/dtos/user.dto";
@@ -59,5 +60,12 @@ export async function createStudentUser(
 /** Cập nhật user (roleType, status, ...). */
 export async function updateUser(data: UpdateUserPayload): Promise<UserDetailWithStaff> {
   const response = await api.patch<UserDetailWithStaff>("/users", data);
+  return response.data;
+}
+
+/** Xóa user theo id (chỉ user chưa liên kết staff/student/history). */
+export async function deleteUser(id: string): Promise<UserListItem> {
+  const safeId = encodeURIComponent(id);
+  const response = await api.delete<UserListItem>(`/users/${safeId}`);
   return response.data;
 }

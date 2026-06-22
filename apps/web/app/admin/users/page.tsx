@@ -1,56 +1,30 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { useDebouncedCallback } from "use-debounce";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import UpgradedSelect from "@/components/ui/UpgradedSelect";
+import {
+  CreateUserDialog,
+  DeleteUserConfirmDialog,
+  UserLinkedProfileLinks,
+  UserManageModal,
+} from "@/components/admin/user";
+import { resolveUserAdminCapabilities } from "@/lib/admin-shell-access";
+import { resolveAdminLikeRouteBase } from "@/lib/admin-shell-paths";
+import { getFullProfile } from "@/lib/apis/auth.api";
 import * as userApi from "@/lib/apis/user.api";
 import {
-  type CreateUserPayload,
-  type UserListItem,
-  type UserRoleType,
-  type UserDetailWithStaff,
-  type StaffRole,
-} from "@/dtos/user.dto";
-import {
-  buildCreateUserPayload,
-  CREATE_USER_FIELD_ORDER,
-  EMPTY_CREATE_USER_FORM,
-  validateCreateUserForm,
-  type CreateUserField,
-  type CreateUserFormErrors,
-  type CreateUserFormState,
-} from "@/lib/user-create-form";
-import { USER_ROLE_LABELS } from "@/lib/user.constants";
-import { ROLE_LABELS } from "@/lib/staff.constants";
+  getDeleteUserSoftDeleteNotice,
+  getUserDisplayName,
+} from "@/lib/user-manage-form";
+import type { UserDetailWithStaff, UserListItem, UserRoleType } from "@/dtos/user.dto";
+import { USER_ROLE_LABELS, USER_STATUS_LABELS } from "@/lib/user.constants";
+import type { UserStatus } from "@/dtos/user.dto";
 
 const PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE_MS = 1000;
-const ROLE_TYPE_OPTIONS: Array<{ value: UserRoleType; label: string }> = [
-  { value: "guest", label: USER_ROLE_LABELS.guest },
-  { value: "staff", label: USER_ROLE_LABELS.staff },
-  { value: "student", label: USER_ROLE_LABELS.student },
-  { value: "admin", label: USER_ROLE_LABELS.admin },
-];
-
-const STAFF_ROLES: StaffRole[] = [
-  "admin",
-  "teacher",
-  "assistant",
-  "lesson_plan",
-  "lesson_plan_head",
-  "accountant_income",
-  "accountant_expense",
-  "communication",
-  "technical",
-  "customer_care",
-  "training",
-];
-
-const CREATE_USER_INPUT_CLASS =
-  "mt-1 min-h-11 w-full rounded-xl border border-border-default bg-bg-surface px-3.5 py-2.5 text-sm text-text-primary shadow-sm transition-[border-color,box-shadow,background-color] duration-200 placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus/40";
 
 function parsePage(value: string | null): number {
   const n = Number(value);
@@ -80,200 +54,10 @@ function statusDotColor(status: string): string {
 }
 
 function userStatusLabel(status: string): string {
-  if (status === "active") return "Hoạt động";
-  if (status === "inactive") return "Ngừng";
-  if (status === "pending") return "Chờ duyệt";
+  if (status in USER_STATUS_LABELS) {
+    return USER_STATUS_LABELS[status as UserStatus];
+  }
   return status;
-}
-
-function getUserDisplayName(user: {
-  first_name?: string | null;
-  last_name?: string | null;
-}) {
-  return [user.last_name, user.first_name].filter(Boolean).join(" ").trim();
-}
-
-function AssignRoleModal({
-  user,
-  onClose,
-  onSaved,
-  hideAdminOptions = false,
-}: {
-  user: UserDetailWithStaff | null;
-  onClose: () => void;
-  onSaved: () => void;
-  hideAdminOptions?: boolean;
-}) {
-  const queryClient = useQueryClient();
-  const [roleType, setRoleType] = useState<UserRoleType>(user?.roleType ?? "guest");
-  const [staffRoles, setStaffRoles] = useState<StaffRole[]>(
-    user?.staffInfo?.roles ?? []
-  );
-  const [saving, setSaving] = useState(false);
-
-  const visibleRoleTypeOptions = hideAdminOptions
-    ? ROLE_TYPE_OPTIONS.filter((opt) => opt.value !== "admin")
-    : ROLE_TYPE_OPTIONS;
-  const visibleStaffRoles = hideAdminOptions
-    ? STAFF_ROLES.filter((role) => role !== "admin")
-    : STAFF_ROLES;
-
-  const updateUserMutation = useMutation({
-    mutationFn: (payload: {
-      id: string;
-      roleType: UserRoleType;
-      staffRoles?: StaffRole[];
-    }) =>
-      userApi.updateUser(payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user", "list"] });
-      queryClient.invalidateQueries({ queryKey: ["user", user?.id] });
-      queryClient.invalidateQueries({ queryKey: ["staff"] });
-      queryClient.invalidateQueries({ queryKey: ["student"] });
-      queryClient.invalidateQueries({ queryKey: ["auth", "full-profile"] });
-    },
-  });
-
-  const handleSave = async () => {
-    if (!user) return;
-    setSaving(true);
-    try {
-      await updateUserMutation.mutateAsync({
-        id: user.id,
-        roleType,
-        ...(roleType === "staff" ? { staffRoles } : {}),
-      });
-      toast.success("Đã cập nhật phân quyền.");
-      onSaved();
-      onClose();
-    } catch (err) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message ?? (err as Error)?.message ?? "Cập nhật thất bại.";
-      toast.error(msg);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const hasStaffInfo = !!user?.staffInfo;
-  const showStaffRoles = roleType === "staff";
-  const willAutoCreateStaffProfile = showStaffRoles && !hasStaffInfo;
-
-  if (!user) return null;
-
-  return (
-    <>
-      <div
-        className="fixed inset-0 z-40 bg-bg-primary/75 backdrop-blur-[1px]"
-        aria-hidden
-        onClick={onClose}
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="assign-role-dialog-title"
-        className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border-default bg-bg-surface p-4 shadow-xl sm:p-5"
-      >
-        <h2
-          id="assign-role-dialog-title"
-          className="text-lg font-semibold text-text-primary"
-        >
-          Phân quyền
-        </h2>
-        <p className="mt-1 text-sm text-text-muted">
-          {user.accountHandle}
-          {getUserDisplayName(user) ? ` · ${getUserDisplayName(user)}` : ""}
-        </p>
-
-        <div className="mt-4 space-y-4">
-          <label className="block">
-            <span
-              id="assign-role-type-label"
-              className="mb-1.5 block text-sm font-medium text-text-secondary"
-            >
-              Loại tài khoản
-            </span>
-            <UpgradedSelect
-              value={roleType}
-              onValueChange={(value) => setRoleType(value as UserRoleType)}
-              options={visibleRoleTypeOptions}
-              labelId="assign-role-type-label"
-              ariaLabel="Chọn loại tài khoản"
-              buttonClassName="min-h-11 rounded-xl border border-border-default bg-gradient-to-b from-bg-surface to-bg-secondary/80 px-3.5 py-2.5 text-sm font-medium text-text-primary shadow-sm transition-[border-color,background-color,box-shadow] duration-200 hover:border-border-focus hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-              menuClassName="rounded-2xl border border-border-default bg-bg-surface p-1.5 shadow-2xl"
-            />
-          </label>
-
-
-
-          {showStaffRoles && (
-            <div className="block">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <span className="block text-sm font-medium text-text-secondary">
-                  Role nhân sự
-                </span>
-                <span className="rounded-full border border-border-default bg-bg-secondary px-2.5 py-1 text-xs font-medium text-text-secondary">
-                  {staffRoles.length} role
-                </span>
-              </div>
-              <div className="max-h-48 space-y-2 overflow-y-auto rounded-xl border border-border-default bg-bg-secondary/50 p-3">
-                {visibleStaffRoles.map((role) => (
-                  <label
-                    key={role}
-                    className="flex cursor-pointer items-center gap-2 text-sm text-text-primary"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={staffRoles.includes(role)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setStaffRoles((prev) =>
-                            prev.includes(role) ? prev : [...prev, role],
-                          );
-                        } else {
-                          setStaffRoles((prev) => prev.filter((r) => r !== role));
-                        }
-                      }}
-                      className="size-4 rounded border-border-default text-primary focus:ring-border-focus"
-                    />
-                    {ROLE_LABELS[role] ?? role}
-                  </label>
-                ))}
-              </div>
-              <p className="mt-2 text-xs leading-5 text-text-muted">
-                {willAutoCreateStaffProfile
-                  ? "Nếu user chưa có staff profile, hệ thống sẽ tạo mới và gắn các role đã chọn ngay trong lần lưu này."
-                  : "Các role chi tiết sẽ được cập nhật thẳng vào staff profile hiện có."}
-                {" "}
-                Bạn có thể để trống rồi bổ sung sau.
-              </p>
-            </div>
-          )}
-
-
-        </div>
-
-        <div className="mt-6 flex gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="min-h-11 flex-1 rounded-md border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-          >
-            Đóng
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="min-h-11 flex-1 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition hover:bg-[var(--ue-primary-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50"
-          >
-            {saving ? "Đang lưu…" : "Lưu"}
-          </button>
-        </div>
-      </div>
-    </>
-  );
 }
 
 function UserListTableSkeleton({ rows = 5 }: { rows?: number }) {
@@ -294,26 +78,46 @@ export default function AdminUsersPage() {
   const queryClient = useQueryClient();
   const { replace } = useRouter();
   const pathname = usePathname();
-  const canManageUsers = true;
+  const routeBase = resolveAdminLikeRouteBase(pathname);
   const searchParams = useSearchParams();
   const getSearchParam = searchParams.get.bind(searchParams);
   const page = parsePage(getSearchParam("page"));
   const search = getSearchParam("search") ?? "";
   const isCreatePanelOpen = getSearchParam("create") === "1";
+  const manageUserId = getSearchParam("manage");
+
+  const { data: fullProfile } = useQuery({
+    queryKey: ["auth", "full-profile"],
+    queryFn: getFullProfile,
+    retry: false,
+    staleTime: 60_000,
+  });
+  const { canManageUsers, canDeleteUser, hideAdminRoleOptions } =
+    resolveUserAdminCapabilities(fullProfile, routeBase);
+
   const [searchInput, setSearchInput] = useState(search);
-  const [createUserForm, setCreateUserForm] =
-    useState<CreateUserFormState>(EMPTY_CREATE_USER_FORM);
-  const [createUserErrors, setCreateUserErrors] =
-    useState<CreateUserFormErrors>({});
-  const createUserFieldRefs = useRef<
-    Partial<Record<CreateUserField, HTMLInputElement | null>>
-  >({});
-  const [assignModalUser, setAssignModalUser] =
+  const [manageModalUser, setManageModalUser] =
     useState<UserDetailWithStaff | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<UserDetailWithStaff | null>(
+    null,
+  );
 
   useEffect(() => {
     setSearchInput(search);
   }, [search]);
+
+  useEffect(() => {
+    if (!manageUserId || !canManageUsers) return;
+    if (manageModalUser?.id === manageUserId) return;
+
+    setManageModalUser({
+      id: manageUserId,
+      email: "",
+      accountHandle: "",
+      roleType: "guest",
+      status: "active",
+    });
+  }, [manageUserId, canManageUsers, manageModalUser?.id]);
 
   const replaceWithParams = (params: URLSearchParams) => {
     replace(buildUrl(pathname, params));
@@ -321,88 +125,17 @@ export default function AdminUsersPage() {
 
   const setCreatePanelOpen = (open: boolean) => {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
-
     if (open) params.set("create", "1");
     else params.delete("create");
-
     replaceWithParams(params);
-  };
-
-  const resetCreateUserForm = () => {
-    setCreateUserForm(EMPTY_CREATE_USER_FORM);
-    setCreateUserErrors({});
-  };
-
-  const focusFirstCreateUserError = (errors: CreateUserFormErrors) => {
-    const firstField = CREATE_USER_FIELD_ORDER.find((field) => errors[field]);
-    if (!firstField) return;
-
-    createUserFieldRefs.current[firstField]?.focus();
-  };
-
-  const setCreateUserFieldValue = (
-    field: CreateUserField,
-    value: string,
-  ) => {
-    setCreateUserForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-
-    setCreateUserErrors((prev) => {
-      const next = { ...prev };
-      if (field === "password" || field === "confirmPassword") {
-        delete next.password;
-        delete next.confirmPassword;
-        return next;
-      }
-
-      delete next[field];
-      return next;
-    });
-  };
-
-  const setCreateUserRoleType = (value: UserRoleType) => {
-    setCreateUserForm((prev) => ({
-      ...prev,
-      roleType: value,
-      staffRoles: value === "staff" ? prev.staffRoles : [],
-    }));
-    if (value !== "student") {
-      setCreateUserErrors((prev) => {
-        const next = { ...prev };
-        delete next.studentName;
-        return next;
-      });
-    }
-  };
-
-  const toggleCreateUserStaffRole = (role: StaffRole, checked: boolean) => {
-    setCreateUserForm((prev) => {
-      if (checked) {
-        return {
-          ...prev,
-          staffRoles: prev.staffRoles.includes(role)
-            ? prev.staffRoles
-            : [...prev.staffRoles, role],
-        };
-      }
-
-      return {
-        ...prev,
-        staffRoles: prev.staffRoles.filter((item) => item !== role),
-      };
-    });
   };
 
   const applySearchToUrl = useDebouncedCallback((value: string) => {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     const trimmed = value.trim();
-
     params.set("page", "1");
     if (trimmed) params.set("search", trimmed);
     else params.delete("search");
-
     replaceWithParams(params);
   }, SEARCH_DEBOUNCE_MS);
 
@@ -411,63 +144,10 @@ export default function AdminUsersPage() {
     applySearchToUrl(value);
   };
 
-  const handleCreatePanelToggle = () => {
-    if (isCreatePanelOpen) {
-      setCreatePanelOpen(false);
-      return;
-    }
-
-    setCreatePanelOpen(true);
-  };
-
-  useEffect(() => {
-    if (!isCreatePanelOpen) {
-      resetCreateUserForm();
-    }
-  }, [isCreatePanelOpen]);
-
   const replacePage = (newPage: number) => {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("page", String(newPage));
     replaceWithParams(params);
-  };
-
-  const createUserMutation = useMutation({
-    mutationFn: (payload: CreateUserPayload) => userApi.createUser(payload),
-    onSuccess: async (response) => {
-      await queryClient.invalidateQueries({ queryKey: ["user", "list"] });
-      toast.success(
-        response.message || "Tạo user thành công. Email xác thực đã được gửi.",
-      );
-      resetCreateUserForm();
-
-      const params = new URLSearchParams(searchParams?.toString() ?? "");
-      params.set("page", "1");
-      params.delete("create");
-      replaceWithParams(params);
-    },
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message ??
-        (err as Error)?.message ??
-        "Không tạo được user. Vui lòng kiểm tra dữ liệu và thử lại.";
-      toast.error(msg);
-    },
-  });
-
-  const handleCreateUserSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const errors = validateCreateUserForm(createUserForm);
-    setCreateUserErrors(errors);
-
-    if (Object.keys(errors).length > 0) {
-      focusFirstCreateUserError(errors);
-      return;
-    }
-
-    createUserMutation.mutate(buildCreateUserPayload(createUserForm));
   };
 
   const { data, isLoading, isError, error } = useQuery({
@@ -480,10 +160,31 @@ export default function AdminUsersPage() {
       }),
   });
 
-  const { data: detailUser, isLoading: detailLoading } = useQuery({
-    queryKey: ["user", assignModalUser?.id],
-    queryFn: () => userApi.getUserById(assignModalUser!.id),
-    enabled: !!assignModalUser?.id,
+  const { data: detailUser, isPending: detailPending } = useQuery({
+    queryKey: ["user", manageModalUser?.id],
+    queryFn: () => userApi.getUserById(manageModalUser!.id),
+    enabled: !!manageModalUser?.id,
+    refetchOnMount: "always",
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => userApi.deleteUser(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["user", "list"] });
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
+      await queryClient.invalidateQueries({ queryKey: ["staff"] });
+      await queryClient.invalidateQueries({ queryKey: ["student"] });
+      toast.success("Đã xóa user.");
+      setDeleteTarget(null);
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ??
+        (err as Error)?.message ??
+        "Không xóa được user.";
+      toast.error(msg);
+    },
   });
 
   const list = data?.data ?? [];
@@ -493,57 +194,52 @@ export default function AdminUsersPage() {
   const rangeStart = total === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
   const rangeEnd = total === 0 ? 0 : Math.min(currentPage * PAGE_SIZE, total);
   const hasActiveSearch = Boolean(search.trim());
-  const createUserFirstErrorField =
-    CREATE_USER_FIELD_ORDER.find((field) => createUserErrors[field]) ?? null;
-  const createUserFirstErrorMessage = createUserFirstErrorField
-    ? createUserErrors[createUserFirstErrorField]
-    : null;
-  const showCreateUserStaffRoles = createUserForm.roleType === "staff";
-  const showCreateUserStudentName = createUserForm.roleType === "student";
-  const createRoleTypeOptions = ROLE_TYPE_OPTIONS;
-  const createStaffRoles = STAFF_ROLES;
 
   useEffect(() => {
     if (currentPage === page) return;
-
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("page", String(currentPage));
     replace(buildUrl(pathname, params));
   }, [currentPage, page, pathname, replace, searchParams]);
 
-  const handleRowClick = (u: UserListItem) => {
-    if (!canManageUsers) {
-      return;
-    }
-
-    setAssignModalUser({
+  const openManageModal = (u: UserListItem) => {
+    if (!canManageUsers) return;
+    setManageModalUser({
       ...u,
-      staffInfo: undefined,
-      studentInfo: undefined,
+      staffInfo: u.staffInfo ?? undefined,
+      studentInfo: u.studentInfo ?? undefined,
     });
   };
 
-  const handleCloseModal = () => {
-    setAssignModalUser(null);
+  const handleCloseManageModal = () => {
+    setManageModalUser(null);
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    if (params.has("manage")) {
+      params.delete("manage");
+      replaceWithParams(params);
+    }
   };
 
-  const modalUser = detailUser ?? assignModalUser;
-  const assignRoleUser = detailLoading ? assignModalUser : modalUser;
-  const assignRoleUserKey = assignRoleUser
-    ? [
-        assignRoleUser.id,
-        assignRoleUser.roleType,
-        assignRoleUser.staffInfo?.roles?.join(",") ?? "",
-      ].join(":")
-    : "empty";
+  const openDeleteFromList = (u: UserListItem, event: MouseEvent) => {
+    event.stopPropagation();
+    if (!canDeleteUser) return;
+
+    setDeleteTarget({
+      ...u,
+      staffInfo: u.staffInfo ?? undefined,
+      studentInfo: u.studentInfo ?? undefined,
+    });
+  };
+
+  const handleDeleteConfirmed = async () => {
+    if (!deleteTarget) return;
+    await deleteMutation.mutateAsync(deleteTarget.id);
+  };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-3 pb-8 sm:p-6">
       <div className="flex min-w-0 flex-1 flex-col rounded-xl border border-border-default bg-bg-surface p-3 shadow-sm sm:rounded-lg sm:p-5">
         <section className="relative mb-4 overflow-visible rounded-2xl border border-border-default bg-gradient-to-br from-bg-secondary via-bg-surface to-bg-secondary/70 p-4 sm:p-5">
-          <div className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full bg-primary/10 blur-2xl" aria-hidden />
-          <div className="pointer-events-none absolute -bottom-10 left-16 size-28 rounded-full bg-warning/10 blur-2xl" aria-hidden />
-
           <div className="relative">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
@@ -551,17 +247,16 @@ export default function AdminUsersPage() {
                   User
                 </h1>
                 <p className="mt-1 text-sm text-text-secondary">
-                  Quản lý tài khoản hệ thống, tạo mới user bằng thông tin đăng nhập tối thiểu và phân quyền tập trung.
+                  Quản lý tài khoản hệ thống: tạo mới, chỉnh thông tin, phân quyền và xóa user (soft delete — giữ hồ sơ nhân sự/học sinh nếu có).
                 </p>
               </div>
 
               {canManageUsers ? (
                 <button
                   type="button"
-                  onClick={handleCreatePanelToggle}
+                  onClick={() => setCreatePanelOpen(!isCreatePanelOpen)}
                   aria-expanded={isCreatePanelOpen}
-                  aria-controls="create-user-dialog"
-                  className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse shadow-[0_14px_35px_-18px_color-mix(in_srgb,var(--ue-primary)_52%,transparent)] transition-[background-color,box-shadow] duration-200 hover:bg-primary-hover hover:shadow-[0_18px_40px_-18px_color-mix(in_srgb,var(--ue-primary)_60%,transparent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse shadow-sm transition hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 >
                   <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -571,8 +266,8 @@ export default function AdminUsersPage() {
               ) : null}
             </div>
 
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-              <label className="block min-w-0 flex-1" htmlFor="user-search-input">
+            <div className="mt-4">
+              <label className="block min-w-0" htmlFor="user-search-input">
                 <span className="text-sm font-medium text-text-secondary">Tìm kiếm</span>
                 <div className="mt-1 flex items-center rounded-md border border-border-default bg-bg-surface/90 px-3 focus-within:border-border-focus focus-within:ring-2 focus-within:ring-border-focus">
                   <svg className="size-4 shrink-0 text-text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
@@ -585,7 +280,6 @@ export default function AdminUsersPage() {
                     onChange={(event) => handleSearchChange(event.target.value)}
                     placeholder="Theo user, email, số điện thoại, tên…"
                     className="min-w-0 flex-1 border-0 bg-transparent px-2 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-0"
-                    aria-label="Tìm theo user, email, số điện thoại hoặc tên"
                     name="search"
                     autoComplete="off"
                     spellCheck={false}
@@ -596,354 +290,17 @@ export default function AdminUsersPage() {
           </div>
         </section>
 
-        {canManageUsers && isCreatePanelOpen ? (
-          <>
-            <div
-              className="fixed inset-0 z-40 bg-bg-primary/75 backdrop-blur-[2px]"
-              aria-hidden
-              onClick={handleCreatePanelToggle}
-            />
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5">
-              <div
-                id="create-user-dialog"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="create-user-dialog-title"
-                aria-describedby="create-user-dialog-description"
-                className="w-full max-w-3xl overflow-hidden rounded-2xl border border-border-default bg-bg-surface shadow-[0_32px_80px_-40px_color-mix(in_srgb,var(--ue-text-primary)_32%,transparent)] overscroll-contain"
-              >
-                <form
-                  onSubmit={handleCreateUserSubmit}
-                  className="max-h-[calc(100vh-1.5rem)] overflow-y-auto"
-                  noValidate
-                >
-                  <div className="border-b border-border-default/80 bg-bg-surface px-4 py-4 sm:px-6 sm:py-5">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-primary">
-                          Tạo user
-                        </span>
-                        <h3
-                          id="create-user-dialog-title"
-                          className="mt-3 text-lg font-semibold text-text-primary sm:text-xl"
-                        >
-                          Tạo tài khoản mới
-                        </h3>
-
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={handleCreatePanelToggle}
-                        className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-border-default bg-bg-surface text-text-secondary transition-[background-color,border-color,color] duration-200 hover:border-border-focus hover:bg-bg-secondary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                        aria-label="Đóng popup tạo user"
-                      >
-                        <svg
-                          className="size-4"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          aria-hidden
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="m6 6 12 12M18 6 6 18"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-5 px-4 py-4 sm:px-6 sm:py-5">
-                    {createUserFirstErrorMessage ? (
-                      <div
-                        className="rounded-xl border border-error/20 bg-error/10 px-3.5 py-3 text-sm text-error"
-                        aria-live="polite"
-                      >
-                        {createUserFirstErrorMessage}
-                      </div>
-                    ) : null}
-
-                    <section className="rounded-2xl border border-border-default bg-bg-secondary/40 p-4 sm:p-5">
-                      <div className="flex flex-col gap-4 ">
-                        <label className="block">
-                          <span
-                            id="create-user-role-type-label"
-                            className="mb-1.5 block text-sm font-medium text-text-secondary"
-                          >
-                            Loại tài khoản
-                          </span>
-                          <UpgradedSelect
-                            value={createUserForm.roleType}
-                            onValueChange={(value) =>
-                              setCreateUserRoleType(value as UserRoleType)
-                            }
-                            options={createRoleTypeOptions}
-                            labelId="create-user-role-type-label"
-                            ariaLabel="Chọn loại tài khoản khi tạo user"
-                            buttonClassName="min-h-11 rounded-xl border border-border-default bg-bg-surface px-3.5 py-2.5 text-sm font-medium text-text-primary shadow-sm transition-[border-color,background-color,box-shadow] duration-200 hover:border-border-focus hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                            menuClassName="rounded-2xl border border-border-default bg-bg-surface p-1.5 shadow-2xl"
-                          />
-                        </label>
-
-                        {showCreateUserStaffRoles ? (
-                          <div className="block">
-                            <div className="mb-2 flex items-center justify-between gap-3">
-                              <span className="block text-sm font-medium text-text-secondary">
-                                Role nhân sự
-                              </span>
-                              <span className="rounded-full border border-border-default bg-bg-surface px-2.5 py-1 text-xs font-medium text-text-secondary">
-                                {createUserForm.staffRoles.length} role
-                              </span>
-                            </div>
-                            <div className="grid gap-2 rounded-xl border border-border-default bg-bg-surface p-3 sm:grid-cols-2">
-                              {createStaffRoles.map((role) => (
-                                <label
-                                  key={role}
-                                  className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm text-text-primary transition-colors duration-200 hover:bg-bg-secondary/70"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={createUserForm.staffRoles.includes(role)}
-                                    onChange={(event) =>
-                                      toggleCreateUserStaffRole(role, event.target.checked)
-                                    }
-                                    className="size-4 rounded border-border-default text-primary focus:ring-border-focus"
-                                  />
-                                  {ROLE_LABELS[role] ?? role}
-                                </label>
-                              ))}
-                            </div>
-                            <p className="mt-2 text-xs leading-5 text-text-muted">
-                              Nếu để trống, hồ sơ staff vẫn được tạo nhưng chưa gán role chi tiết.
-                            </p>
-                          </div>
-                        ) : createUserForm.roleType === "student" ? null : (
-                          <div className="rounded-xl border border-dashed border-border-default bg-bg-surface px-4 py-3 text-sm leading-6 text-text-secondary">
-                            Chọn <span className="font-medium text-text-primary">staff</span> nếu
-                            cần gán vai trò nhân sự ngay trong lúc tạo tài khoản.
-                          </div>
-                        )}
-                      </div>
-                    </section>
-
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      {showCreateUserStudentName ? (
-                        <label className="block sm:col-span-2">
-                          <span className="text-sm font-medium text-text-secondary">
-                            Tên học sinh
-                          </span>
-                          <input
-                            ref={(node) => {
-                              createUserFieldRefs.current.studentName = node;
-                            }}
-                            id="create-user-student-name"
-                            name="studentName"
-                            type="text"
-                            autoComplete="name"
-                            value={createUserForm.studentName}
-                            onChange={(event) =>
-                              setCreateUserFieldValue("studentName", event.target.value)
-                            }
-                            placeholder="Vũ Minh Phương…"
-                            className={CREATE_USER_INPUT_CLASS}
-                            aria-invalid={Boolean(createUserErrors.studentName)}
-                            aria-describedby={
-                              createUserErrors.studentName
-                                ? "create-user-student-name-error"
-                                : undefined
-                            }
-                          />
-                          {createUserErrors.studentName ? (
-                            <p
-                              id="create-user-student-name-error"
-                              className="mt-1 text-sm text-error"
-                              aria-live="polite"
-                            >
-                              {createUserErrors.studentName}
-                            </p>
-                          ) : null}
-                        </label>
-                      ) : null}
-
-                      <label className="block">
-                        <span className="text-sm font-medium text-text-secondary">
-                          Account handle
-                        </span>
-                        <input
-                          ref={(node) => {
-                            createUserFieldRefs.current.accountHandle = node;
-                          }}
-                          id="create-user-account-handle"
-                          name="accountHandle"
-                          type="text"
-                          autoComplete="username"
-                          value={createUserForm.accountHandle}
-                          onChange={(event) =>
-                            setCreateUserFieldValue("accountHandle", event.target.value)
-                          }
-                          placeholder="nguyenvana…"
-                          className={CREATE_USER_INPUT_CLASS}
-                          aria-invalid={Boolean(createUserErrors.accountHandle)}
-                          aria-describedby={
-                            createUserErrors.accountHandle
-                              ? "create-user-account-handle-error"
-                              : undefined
-                          }
-                          spellCheck={false}
-                        />
-                        {createUserErrors.accountHandle ? (
-                          <p
-                            id="create-user-account-handle-error"
-                            className="mt-1 text-sm text-error"
-                            aria-live="polite"
-                          >
-                            {createUserErrors.accountHandle}
-                          </p>
-                        ) : null}
-                      </label>
-
-                      <label className="block">
-                        <span className="text-sm font-medium text-text-secondary">
-                          Email
-                        </span>
-                        <input
-                          ref={(node) => {
-                            createUserFieldRefs.current.email = node;
-                          }}
-                          id="create-user-email"
-                          name="email"
-                          type="email"
-                          autoComplete="email"
-                          inputMode="email"
-                          value={createUserForm.email}
-                          onChange={(event) =>
-                            setCreateUserFieldValue("email", event.target.value)
-                          }
-                          placeholder="user@example.com…"
-                          className={CREATE_USER_INPUT_CLASS}
-                          aria-invalid={Boolean(createUserErrors.email)}
-                          aria-describedby={
-                            createUserErrors.email
-                              ? "create-user-email-error"
-                              : undefined
-                          }
-                          spellCheck={false}
-                        />
-                        {createUserErrors.email ? (
-                          <p
-                            id="create-user-email-error"
-                            className="mt-1 text-sm text-error"
-                            aria-live="polite"
-                          >
-                            {createUserErrors.email}
-                          </p>
-                        ) : null}
-                      </label>
-
-                      <label className="block">
-                        <span className="text-sm font-medium text-text-secondary">
-                          Mật khẩu
-                        </span>
-                        <input
-                          ref={(node) => {
-                            createUserFieldRefs.current.password = node;
-                          }}
-                          id="create-user-password"
-                          name="password"
-                          type="password"
-                          autoComplete="new-password"
-                          value={createUserForm.password}
-                          onChange={(event) =>
-                            setCreateUserFieldValue("password", event.target.value)
-                          }
-                          placeholder="Ít nhất 6 ký tự…"
-                          className={CREATE_USER_INPUT_CLASS}
-                          aria-invalid={Boolean(createUserErrors.password)}
-                          aria-describedby={
-                            createUserErrors.password
-                              ? "create-user-password-error"
-                              : undefined
-                          }
-                        />
-                        {createUserErrors.password ? (
-                          <p
-                            id="create-user-password-error"
-                            className="mt-1 text-sm text-error"
-                            aria-live="polite"
-                          >
-                            {createUserErrors.password}
-                          </p>
-                        ) : null}
-                      </label>
-
-                      <label className="block">
-                        <span className="text-sm font-medium text-text-secondary">
-                          Xác nhận mật khẩu
-                        </span>
-                        <input
-                          ref={(node) => {
-                            createUserFieldRefs.current.confirmPassword = node;
-                          }}
-                          id="create-user-confirm-password"
-                          name="confirmPassword"
-                          type="password"
-                          autoComplete="new-password"
-                          value={createUserForm.confirmPassword}
-                          onChange={(event) =>
-                            setCreateUserFieldValue("confirmPassword", event.target.value)
-                          }
-                          placeholder="Nhập lại mật khẩu…"
-                          className={CREATE_USER_INPUT_CLASS}
-                          aria-invalid={Boolean(createUserErrors.confirmPassword)}
-                          aria-describedby={
-                            createUserErrors.confirmPassword
-                              ? "create-user-confirm-password-error"
-                              : undefined
-                          }
-                        />
-                        {createUserErrors.confirmPassword ? (
-                          <p
-                            id="create-user-confirm-password-error"
-                            className="mt-1 text-sm text-error"
-                            aria-live="polite"
-                          >
-                            {createUserErrors.confirmPassword}
-                          </p>
-                        ) : null}
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-3 border-t border-border-default/80 bg-bg-surface px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                    <p className="text-sm leading-6 text-text-secondary">
-                      Tài khoản mới sẽ ở trạng thái chờ xác thực email sau khi tạo.
-                    </p>
-
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <button
-                        type="button"
-                        onClick={handleCreatePanelToggle}
-                        className="min-h-11 touch-manipulation rounded-xl border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition-[background-color,border-color] duration-200 hover:border-border-focus hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                      >
-                        Hủy
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={createUserMutation.isPending}
-                        className="min-h-11 touch-manipulation rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse transition-[background-color,transform,box-shadow] duration-200 hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {createUserMutation.isPending ? "Đang tạo…" : "Tạo user"}
-                      </button>
-                    </div>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </>
-        ) : null}
+        <CreateUserDialog
+          open={canManageUsers && isCreatePanelOpen}
+          hideAdminOptions={hideAdminRoleOptions}
+          onClose={() => setCreatePanelOpen(false)}
+          onCreated={() => {
+            const params = new URLSearchParams(searchParams?.toString() ?? "");
+            params.set("page", "1");
+            params.delete("create");
+            replaceWithParams(params);
+          }}
+        />
 
         {hasActiveSearch ? (
           <div className="mb-4 flex flex-wrap gap-2">
@@ -957,11 +314,7 @@ export default function AdminUsersPage() {
           {isLoading ? (
             <UserListTableSkeleton rows={PAGE_SIZE} />
           ) : isError ? (
-            <div
-              className="py-16 text-center text-error"
-              role="alert"
-              aria-live="assertive"
-            >
+            <div className="py-16 text-center text-error" role="alert">
               <p className="text-sm">
                 {(error as { response?: { data?: { message?: string } } })?.response
                   ?.data?.message ??
@@ -970,143 +323,95 @@ export default function AdminUsersPage() {
               </p>
             </div>
           ) : list.length === 0 ? (
-            <div
-              className="flex flex-col items-center justify-center gap-2 py-16 text-text-muted"
-              aria-live="polite"
-            >
+            <div className="flex flex-col items-center justify-center gap-2 py-16 text-text-muted">
               <p className="text-sm">
                 {hasActiveSearch ? "Không có user nào khớp từ khóa tìm kiếm." : "Chưa có user nào."}
               </p>
             </div>
           ) : (
             <>
-
-
-              <div
-                className="grid grid-cols-1 gap-3 lg:hidden"
-                role="list"
-                aria-label="Danh sách user"
-              >
+              <div className="grid grid-cols-1 gap-3 lg:hidden" role="list" aria-label="Danh sách user">
                 {list.map((u) => (
-                  <article
-                    key={u.id}
-                    role="listitem"
-                    className="rounded-xl"
-                  >
+                  <article key={u.id} role="listitem" className="rounded-xl">
                     <div
                       role={canManageUsers ? "button" : undefined}
                       tabIndex={canManageUsers ? 0 : -1}
-                      onClick={() => handleRowClick(u)}
+                      onClick={() => openManageModal(u)}
                       onKeyDown={(e) => {
-                        if (!canManageUsers) {
-                          return;
-                        }
+                        if (!canManageUsers) return;
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          handleRowClick(u);
+                          openManageModal(u);
                         }
                       }}
-                      aria-label={
+                      className={`group rounded-xl border border-border-default bg-bg-surface p-4 shadow-sm transition ${
                         canManageUsers
-                          ? `Mở form phân quyền cho ${u.accountHandle}`
-                          : undefined
-                      }
-                      className={`group rounded-xl border border-border-default bg-bg-surface p-4 shadow-sm transition-[border-color,background-color,box-shadow] duration-200 ${
-                        canManageUsers
-                          ? "cursor-pointer hover:border-border-focus hover:bg-bg-secondary/70 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                          ? "cursor-pointer hover:border-border-focus hover:bg-bg-secondary/70"
                           : ""
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex min-w-0 flex-1 items-center gap-2">
-                          <span
-                            className={`inline-block size-2 shrink-0 rounded-full ${statusDotColor(u.status)}`}
-                            title={userStatusLabel(u.status)}
-                            aria-hidden
-                          />
-                          <span className="min-w-0 truncate font-semibold text-text-primary">
-                            {u.accountHandle}
-                          </span>
+                          <span className={`inline-block size-2 shrink-0 rounded-full ${statusDotColor(u.status)}`} aria-hidden />
+                          <span className="min-w-0 truncate font-semibold text-text-primary">{u.accountHandle}</span>
                         </div>
-                        <span
-                          className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${roleBadgeClass(u.roleType as UserRoleType)}`}
-                        >
-                          {USER_ROLE_LABELS[u.roleType as UserRoleType] ?? u.roleType}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${roleBadgeClass(u.roleType)}`}>
+                            {USER_ROLE_LABELS[u.roleType] ?? u.roleType}
+                          </span>
+                          {canDeleteUser ? (
+                            <button
+                              type="button"
+                              title="Xóa user"
+                              onClick={(e) => openDeleteFromList(u, e)}
+                              className="rounded-lg p-2 text-text-muted hover:bg-error/10 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                              aria-label={`Xóa user ${u.accountHandle}`}
+                            >
+                              <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
-
                       <div className="mt-2 flex flex-col gap-1 text-sm text-text-secondary">
                         <span className="truncate">Email: {u.email}</span>
                         <span className="truncate">Tên: {getUserDisplayName(u) || "—"}</span>
                         <span className="truncate">Trạng thái: {userStatusLabel(u.status)}</span>
                       </div>
-
-                      <div className="mt-4 flex items-center justify-between border-t border-border-default/80 pt-3 text-sm text-text-secondary">
-                        <span>
-                          {canManageUsers ? "Chạm để phân quyền" : "Chỉ xem thông tin"}
-                        </span>
-                        <span
-                          className={`inline-flex size-8 items-center justify-center rounded-full border bg-bg-surface text-text-muted transition-[transform,border-color,color] duration-200 ${
-                            canManageUsers
-                              ? "border-border-default group-hover:translate-x-0.5 group-hover:border-border-focus group-hover:text-text-primary"
-                              : "border-border-default/70"
-                          }`}
-                          aria-hidden
+                      {(u.staffInfo?.id || u.studentInfo?.id) ? (
+                        <div
+                          className="mt-3 border-t border-border-default/80 pt-3"
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
                         >
-                          <svg
-                            className="size-4"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="m9 6 6 6-6 6"
-                            />
-                          </svg>
-                        </span>
-                      </div>
+                          <UserLinkedProfileLinks
+                            routeBase={routeBase}
+                            staffId={u.staffInfo?.id}
+                            studentId={u.studentInfo?.id}
+                            layout="stack"
+                          />
+                        </div>
+                      ) : null}
+                      <p className="mt-3 text-sm text-text-muted">
+                        {canManageUsers ? "Chạm để quản lý user" : "Chỉ xem thông tin"}
+                      </p>
                     </div>
                   </article>
                 ))}
               </div>
 
               <div className="hidden overflow-x-auto lg:block">
-                <table className="w-full min-w-[700px] table-fixed border-collapse text-left text-sm">
+                <table className="w-full min-w-[760px] table-fixed border-collapse text-left text-sm">
                   <caption className="sr-only">Danh sách user</caption>
                   <thead>
                     <tr className="border-b border-border-default bg-bg-secondary/80">
-                      <th
-                        scope="col"
-                        className="w-[3%] min-w-10 px-2 py-3 overflow-x-hidden"
-                        aria-label="Trạng thái"
-                      />
-                      <th
-                        scope="col"
-                        className="w-[26%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary overflow-x-hidden"
-                      >
-                        User
-                      </th>
-                      <th
-                        scope="col"
-                        className="w-[28%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary overflow-x-hidden"
-                      >
-                        Email
-                      </th>
-                      <th
-                        scope="col"
-                        className="w-[21%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary overflow-x-hidden"
-                      >
-                        Loại tài khoản
-                      </th>
-                      <th
-                        scope="col"
-                        className="w-[21%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary overflow-x-hidden"
-                      >
-                        Trạng thái
-                      </th>
+                      <th scope="col" className="w-[3%] min-w-10 px-2 py-3" aria-label="Trạng thái" />
+                      <th scope="col" className="w-[24%] px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">User</th>
+                      <th scope="col" className="w-[26%] px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">Email</th>
+                      <th scope="col" className="w-[18%] px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">Loại tài khoản</th>
+                      <th scope="col" className="w-[18%] px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">Trạng thái</th>
+                      <th scope="col" className="w-[4%] min-w-10 px-2 py-3 text-right" aria-label="Xóa" />
                     </tr>
                   </thead>
                   <tbody>
@@ -1115,74 +420,67 @@ export default function AdminUsersPage() {
                         key={u.id}
                         role={canManageUsers ? "button" : undefined}
                         tabIndex={canManageUsers ? 0 : -1}
-                        onClick={() => handleRowClick(u)}
+                        onClick={() => openManageModal(u)}
                         onKeyDown={(e) => {
-                          if (!canManageUsers) {
-                            return;
-                          }
+                          if (!canManageUsers) return;
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
-                            handleRowClick(u);
+                            openManageModal(u);
                           }
                         }}
-                        aria-label={
-                          canManageUsers
-                            ? `Mở form phân quyền cho ${u.accountHandle}`
-                            : undefined
-                        }
-                        className={`group border-b border-border-default bg-bg-surface transition-colors duration-200 ${
-                          canManageUsers
-                            ? "cursor-pointer hover:bg-bg-secondary/70 focus:bg-bg-secondary/70 focus:outline-none"
-                            : ""
+                        className={`group border-b border-border-default bg-bg-surface transition-colors ${
+                          canManageUsers ? "cursor-pointer hover:bg-bg-secondary/70" : ""
                         }`}
                       >
-                        <td className="w-[3%] min-w-10 px-2 py-3 align-middle">
-                          <span
-                            className={`inline-block size-2 shrink-0 rounded-full ${statusDotColor(u.status)}`}
-                            title={userStatusLabel(u.status)}
-                            aria-hidden
-                          />
+                        <td className="px-2 py-3 align-middle">
+                          <span className={`inline-block size-2 rounded-full ${statusDotColor(u.status)}`} aria-hidden />
                         </td>
-                        <td className="w-[26%] min-w-0 px-4 py-3 text-text-primary">
-                          <span className="block truncate font-medium">
-                            {u.accountHandle}
-                          </span>
+                        <td className="px-4 py-3 text-text-primary">
+                          <span className="block truncate font-medium">{u.accountHandle}</span>
                           <span className="mt-0.5 block truncate text-text-secondary">
                             {getUserDisplayName(u) || "—"}
                           </span>
                         </td>
-                        <td className="w-[28%] min-w-0 px-4 py-3 text-text-primary">
+                        <td className="px-4 py-3 text-text-primary">
                           <span className="block truncate">{u.email}</span>
                         </td>
-                        <td className="w-[21%] min-w-0 px-4 py-3">
-                          <span
-                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${roleBadgeClass(u.roleType as UserRoleType)}`}
-                          >
-                            {USER_ROLE_LABELS[u.roleType as UserRoleType] ?? u.roleType}
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${roleBadgeClass(u.roleType)}`}>
+                            {USER_ROLE_LABELS[u.roleType] ?? u.roleType}
                           </span>
                         </td>
-                        <td className="w-[21%] min-w-0 px-4 py-3 text-text-secondary">
-                          <div className="flex items-center justify-between gap-3">
+                        <td className="px-4 py-3 text-text-secondary">
+                          <div className="flex flex-col gap-2">
                             <span className="block truncate">{userStatusLabel(u.status)}</span>
-                            <span
-                              className="inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-transparent text-text-muted transition-[transform,border-color,color,background-color] duration-200 group-hover:translate-x-0.5 group-hover:border-border-default group-hover:bg-bg-surface group-hover:text-text-primary"
-                              aria-hidden
-                            >
-                              <svg
-                                className="size-4"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
+                            {(u.staffInfo?.id || u.studentInfo?.id) ? (
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => e.stopPropagation()}
                               >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="m9 6 6 6-6 6"
+                                <UserLinkedProfileLinks
+                                  routeBase={routeBase}
+                                  staffId={u.staffInfo?.id}
+                                  studentId={u.studentInfo?.id}
                                 />
-                              </svg>
-                            </span>
+                              </div>
+                            ) : null}
                           </div>
+                        </td>
+                        <td className="px-2 py-3 text-right align-middle" onClick={(e) => e.stopPropagation()}>
+                          {canDeleteUser ? (
+                            <button
+                              type="button"
+                              title="Xóa user"
+                              disabled={deleteMutation.isPending}
+                              onClick={(e) => openDeleteFromList(u, e)}
+                              className="rounded-lg p-2 text-text-muted opacity-0 transition-all group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-error/10 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                              aria-label={`Xóa user ${u.accountHandle}`}
+                            >
+                              <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          ) : null}
                         </td>
                       </tr>
                     ))}
@@ -1191,19 +489,15 @@ export default function AdminUsersPage() {
               </div>
 
               {totalPages > 1 ? (
-                <nav
-                  className="mt-4 flex flex-col gap-3 border-t border-border-default pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between"
-                  aria-label="Phân trang"
-                >
-                  <p className="text-sm text-text-muted" aria-live="polite">
+                <nav className="mt-4 flex flex-col gap-3 border-t border-border-default pt-4 sm:flex-row sm:items-center sm:justify-between" aria-label="Phân trang">
+                  <p className="text-sm text-text-muted">
                     Hiển thị {rangeStart}-{rangeEnd} trong {total} user
                   </p>
-                  <div className="grid grid-cols-3 items-center gap-2 sm:flex sm:items-center">
+                  <div className="grid grid-cols-3 items-center gap-2 sm:flex">
                     <button
                       type="button"
-                      className="min-h-11 rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50 sm:py-2"
+                      className="min-h-11 rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-sm font-medium disabled:opacity-50"
                       disabled={currentPage <= 1}
-                      aria-label="Trang trước"
                       onClick={() => replacePage(currentPage - 1)}
                     >
                       Trước
@@ -1213,9 +507,8 @@ export default function AdminUsersPage() {
                     </span>
                     <button
                       type="button"
-                      className="min-h-11 rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50 sm:py-2"
+                      className="min-h-11 rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-sm font-medium disabled:opacity-50"
                       disabled={currentPage >= totalPages}
-                      aria-label="Trang sau"
                       onClick={() => replacePage(currentPage + 1)}
                     >
                       Sau
@@ -1228,15 +521,27 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {canManageUsers && assignModalUser && (
-        <AssignRoleModal
-          key={assignRoleUserKey}
-          user={assignRoleUser}
-          onClose={handleCloseModal}
-          onSaved={() => { }}
-          hideAdminOptions={false}
+      {canManageUsers && manageModalUser && !detailPending && detailUser ? (
+        <UserManageModal
+          key={detailUser.id}
+          user={detailUser}
+          routeBase={routeBase}
+          hideAdminOptions={hideAdminRoleOptions}
+          canDeleteUser={canDeleteUser}
+          onClose={handleCloseManageModal}
         />
-      )}
+      ) : null}
+
+      {deleteTarget ? (
+        <DeleteUserConfirmDialog
+          user={deleteTarget}
+          softDeleteNotice={getDeleteUserSoftDeleteNotice(deleteTarget)}
+          open={Boolean(deleteTarget)}
+          isPending={deleteMutation.isPending}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={() => void handleDeleteConfirmed()}
+        />
+      ) : null}
     </div>
   );
 }

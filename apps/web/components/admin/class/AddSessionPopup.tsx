@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type SyntheticEvent } from "react";
+import { useMemo, useState, type SyntheticEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -17,12 +17,23 @@ import {
   computeTeacherSessionAllowanceGrossPreviewVnd,
 } from "@/lib/session-allowance.helpers";
 import {
+  buildSessionCommentZaloText,
+  isRichTextNonEmpty,
+  SESSION_HOMEWORK_PLACEHOLDER,
+  SESSION_LESSON_CONTENT_PLACEHOLDER,
+} from "@/lib/session-comment-zalo.helpers";
+import {
   AttendanceInlineSummary,
-  AttendanceStatusQuickPick,
   formatVnSessionDuration,
   RequiredMark,
+  SessionAttendanceEditor,
+  SessionCopyCommentButton,
+  SessionFormDialog,
+  SessionFormDialogBody,
+  SessionFormDialogFooter,
   SessionFormDialogHeader,
   SessionTeacherAllowanceEstimateCard,
+  TrialLessonToggle,
 } from "@/components/admin/session/session-form-ui";
 import { DateInput } from "@/components/ui/DateInput";
 import RichTextEditor from "@/components/ui/RichTextEditor";
@@ -64,6 +75,7 @@ export type SessionClassPricingContext = {
 type Props = {
   open: boolean;
   classId: string;
+  className?: string;
   defaultTeacherId?: string;
   teachers?: SessionTeacherItem[];
   students: SessionStudentItem[];
@@ -72,7 +84,6 @@ type Props = {
   classPricing?: SessionClassPricingContext;
   teacherMode?: SessionTeacherMode;
   allowFinancialFields?: boolean;
-  allowCoefficientField?: boolean;
   allowAllowanceField?: boolean;
   allowAttendanceTuitionEdits?: boolean;
   createSessionFn?: (payload: SessionCreatePayload) => Promise<SessionItem>;
@@ -223,6 +234,7 @@ function resolveSelectedTeacherId(options: {
 export default function AddSessionPopup({
   open,
   classId,
+  className = "",
   defaultTeacherId,
   teachers = [],
   students,
@@ -230,7 +242,6 @@ export default function AddSessionPopup({
   classPricing,
   teacherMode = "select",
   allowFinancialFields = true,
-  allowCoefficientField,
   allowAllowanceField,
   allowAttendanceTuitionEdits,
   createSessionFn = sessionApi.createSession,
@@ -244,24 +255,19 @@ export default function AddSessionPopup({
     retry: false,
     staleTime: 60_000,
   });
-  const canEditCoefficient = allowCoefficientField ?? allowFinancialFields;
   const canEditAllowance = allowAllowanceField ?? allowFinancialFields;
   const canEditAttendanceTuition =
     allowAttendanceTuitionEdits ?? allowFinancialFields;
-  const isCoefficientOnlyMode =
-    canEditCoefficient && !canEditAllowance && !canEditAttendanceTuition;
 
   const [date, setDate] = useState(() => getTodayDateInputValue());
   const [startTime, setStartTime] = useState("18:00");
   const [endTime, setEndTime] = useState("20:00");
-  const [notes, setNotes] = useState("");
-  const [notesError, setNotesError] = useState("");
-  const [coefficient, setCoefficient] = useState<string>("1");
-  const [allowanceAmount, setAllowanceAmount] = useState<string>("");
-  const [includeTeacherOperatingDeduction, setIncludeTeacherOperatingDeduction] =
-    useState(true);
+  const [lessonContent, setLessonContent] = useState("");
+  const [homework, setHomework] = useState("");
+  const [lessonContentError, setLessonContentError] = useState("");
+  const [homeworkError, setHomeworkError] = useState("");
+  const [isTrialLesson, setIsTrialLesson] = useState(false);
   const [teacherPaymentStatus, setTeacherPaymentStatus] = useState<string>("unpaid");
-  const allowanceInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedTeacherId, setSelectedTeacherId] = useState(
     resolveSelectedTeacherId({
       defaultTeacherId,
@@ -348,12 +354,7 @@ export default function AddSessionPopup({
     });
   }, [classPricing, resolvedTeacherAllowanceBase, chargeableAttendanceCount]);
 
-  const coefficientForPreview = useMemo(() => {
-    if (!canEditCoefficient) return 1;
-    const n = Number(coefficient.trim());
-    if (Number.isFinite(n) && n >= 0 && n <= 1) return n;
-    return 1;
-  }, [canEditCoefficient, coefficient]);
+  const coefficientForPreview = isTrialLesson ? 0 : 1;
 
   const expectedAllowanceGrossPreview = useMemo(() => {
     if (allowanceRawBasePreview == null || !classPricing) return null;
@@ -367,24 +368,7 @@ export default function AddSessionPopup({
     classPricing,
     coefficientForPreview,
   ]);
-  const manualAllowanceGrossPreview = useMemo(() => {
-    const trimmed = allowanceAmount.trim();
-    if (!canEditAllowance || trimmed === "") return null;
-    const rawBase = Number(trimmed);
-    if (!Number.isFinite(rawBase) || rawBase < 0) return null;
-    return computeTeacherSessionAllowanceGrossPreviewVnd({
-      rawBase: Math.floor(rawBase),
-      coefficient: coefficientForPreview,
-      maxAllowancePerSession: classPricing?.maxAllowancePerSession,
-    });
-  }, [
-    allowanceAmount,
-    canEditAllowance,
-    coefficientForPreview,
-    classPricing?.maxAllowancePerSession,
-  ]);
-  const finalAllowancePreview =
-    manualAllowanceGrossPreview ?? expectedAllowanceGrossPreview;
+  const finalAllowancePreview = expectedAllowanceGrossPreview;
 
   const durationLabel = useMemo(
     () => formatVnSessionDuration(startTime, endTime),
@@ -400,14 +384,30 @@ export default function AddSessionPopup({
     return `Học phí: ${formatCurrency(resolvedSessionTuitionTotal)}`;
   }, [canViewTuitionHeader, resolvedSessionTuitionTotal]);
   const headerAllowanceDisplay = useMemo(() => {
+    if (!allowFinancialFields) return null;
     if (finalAllowancePreview != null && classPricing) {
       return `Trợ cấp gia sư: ${formatCurrency(finalAllowancePreview)}`;
     }
     return null;
-  }, [
-    finalAllowancePreview,
-    classPricing,
-  ]);
+  }, [allowFinancialFields, finalAllowancePreview, classPricing]);
+
+  const zaloCommentText = useMemo(
+    () =>
+      buildSessionCommentZaloText({
+        className,
+        date,
+        startTime,
+        endTime,
+        lessonContent,
+        homework,
+        students: attendanceItems.map((item) => ({
+          fullName: item.fullName,
+          status: item.status,
+          notes: item.notes,
+        })),
+      }),
+    [attendanceItems, className, date, endTime, homework, lessonContent, startTime],
+  );
 
   const handleAttendanceStatusChange = (
     studentId: string,
@@ -453,7 +453,8 @@ export default function AddSessionPopup({
 
   const handleSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setNotesError("");
+    setLessonContentError("");
+    setHomeworkError("");
 
     if (!selectedTeacherId) {
       toast.error(
@@ -482,12 +483,18 @@ export default function AddSessionPopup({
       return;
     }
 
-    const trimmedSessionNotes = notes.trim();
-    const notesTextContent = trimmedSessionNotes.replace(/<[^>]*>/g, "").trim();
+    const trimmedLessonContent = lessonContent.trim();
+    const trimmedHomework = homework.trim();
 
-    if (!notesTextContent) {
-      setNotesError("Vui lòng nhập nhận xét cho buổi học.");
-      toast.error("Vui lòng nhập nhận xét cho buổi học.");
+    if (!isRichTextNonEmpty(trimmedLessonContent)) {
+      setLessonContentError("Vui lòng nhập nội dung bài học.");
+      toast.error("Vui lòng nhập nội dung bài học.");
+      return;
+    }
+
+    if (!isRichTextNonEmpty(trimmedHomework)) {
+      setHomeworkError("Vui lòng nhập bài tập về nhà.");
+      toast.error("Vui lòng nhập bài tập về nhà.");
       return;
     }
 
@@ -509,26 +516,7 @@ export default function AddSessionPopup({
       return;
     }
 
-    const coeffStr = canEditCoefficient ? coefficient.trim() : "";
-    const allowanceStr = canEditAllowance ? allowanceAmount.trim() : "";
-    const coeffNum = coeffStr ? Number(coefficient) : 1;
-    const computedAllowanceNum =
-      canEditAllowance && allowanceStr === "" && allowanceRawBasePreview != null
-        ? allowanceRawBasePreview
-        : undefined;
-    const allowanceNum =
-      allowanceStr !== ""
-        ? Number(allowanceAmount)
-        : computedAllowanceNum;
-
-    if (coeffStr && (!Number.isFinite(coeffNum) || coeffNum < 0 || coeffNum > 1)) {
-      toast.error("Hệ số (coefficient) phải là số từ 0 đến 1.");
-      return;
-    }
-    if (allowanceStr && (allowanceNum === undefined || !Number.isFinite(allowanceNum) || allowanceNum < 0)) {
-      toast.error("Trợ cấp buổi phải là số không âm.");
-      return;
-    }
+    const coeffNum = isTrialLesson ? 0 : 1;
 
     const payload: SessionCreatePayload = {
       classId,
@@ -536,20 +524,9 @@ export default function AddSessionPopup({
       date,
       startTime: normalizedStartTime,
       endTime: normalizedEndTime,
-      notes: trimmedSessionNotes,
-      ...(canEditCoefficient &&
-        Number.isFinite(coeffNum) &&
-        coeffNum >= 0 &&
-        coeffNum <= 1
-        ? { coefficient: coeffNum }
-        : {}),
-      ...(canEditAllowance &&
-        allowanceNum !== undefined &&
-        Number.isFinite(allowanceNum) &&
-        allowanceNum >= 0
-        ? { allowanceAmount: Math.floor(allowanceNum) }
-        : {}),
-      ...(allowFinancialFields ? { includeTeacherOperatingDeduction } : {}),
+      lessonContent: trimmedLessonContent,
+      homework: trimmedHomework,
+      coefficient: coeffNum,
       ...(allowFinancialFields ? { teacherPaymentStatus } : {}),
       attendance: toAttendancePayload(
         attendanceItems,
@@ -557,7 +534,6 @@ export default function AddSessionPopup({
       ),
     };
 
-    onClose();
     runBackgroundSave({
       loadingMessage: "Đang thêm buổi học...",
       successMessage: "Đã thêm buổi học.",
@@ -565,37 +541,24 @@ export default function AddSessionPopup({
       action: () => createSessionFn(payload),
       onSuccess: async (createdSession) => {
         await queryClient.invalidateQueries({ queryKey: ["sessions", "class", classId] });
+        onClose();
         onCreated?.(createdSession);
       },
     });
   };
 
-  if (!open) {
-    return null;
-  }
-
   return (
-    <>
-      <div className="fixed inset-0 z-40 bg-bg-primary/75 backdrop-blur-[2px]" aria-hidden onClick={onClose} />
-      <div className="fixed inset-0 z-50 overflow-y-auto p-2 sm:p-4">
-        <div className="mx-auto flex min-h-full w-full max-w-3xl items-start py-2 sm:items-center sm:py-0">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="add-session-title"
-            className="my-auto flex max-h-[calc(100dvh-1rem)] min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-surface p-4 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:p-6"
-          >
-            <SessionFormDialogHeader
-              title="Thêm buổi học"
-              tuitionText={headerTuitionDisplay}
-              allowanceText={headerAllowanceDisplay}
-              onClose={onClose}
-              titleId="add-session-title"
-            />
+    <SessionFormDialog open={open} onClose={onClose} titleId="add-session-title">
+      <SessionFormDialogHeader
+        title="Thêm buổi học"
+        tuitionText={headerTuitionDisplay}
+        allowanceText={headerAllowanceDisplay}
+        onClose={onClose}
+        titleId="add-session-title"
+      />
 
-            <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <div className="min-h-0 flex-1 overflow-y-scroll">
-                <div className="min-h-0 h-full space-y-6 overflow-y-auto pr-1 sm:pr-2">
+      <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <SessionFormDialogBody>
                   <div className="space-y-5">
                     <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
                       <span>
@@ -686,141 +649,48 @@ export default function AddSessionPopup({
                       </div>
                     )}
 
-                    {canEditCoefficient ? (
-                      <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
-                        <span>
-                          Hệ số (0–1) <RequiredMark />
-                        </span>
-                        <input
-                          name="add-session-coefficient"
-                          type="number"
-                          min={0}
-                          max={1}
-                          step={0.1}
-                          value={coefficient}
-                          autoComplete="off"
-                          onChange={(e) => setCoefficient(e.target.value)}
-                          className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                          placeholder="1"
-                        />
-                        <span className="text-xs font-normal text-text-muted">Hệ số áp dụng theo cấu hình buổi học (0 đến 1).</span>
-                      </label>
-                    ) : null}
+                    <TrialLessonToggle
+                      checked={isTrialLesson}
+                      onChange={setIsTrialLesson}
+                    />
 
-                    {canEditAllowance ? (
-                      <div className="space-y-3">
-                        <SessionTeacherAllowanceEstimateCard
-                          amount={finalAllowancePreview}
-                          estimatedAmount={expectedAllowanceGrossPreview}
-                          breakdownText={
-                            allowanceRawBasePreview == null
-                              ? null
-                              : `${resolvedTeacherAllowanceBase.toLocaleString("vi-VN")}đ/hs × ${chargeableAttendanceCount} hs + ${(classPricing?.scaleAmount ?? 0).toLocaleString("vi-VN")}đ = ${allowanceRawBasePreview.toLocaleString("vi-VN")}đ`
-                          }
-                          showBreakdown={Boolean(classPricing)}
-                          usesSnapshot={false}
-                          isManualOverride={allowanceAmount.trim() !== ""}
-                          operatingDeductionEnabled={includeTeacherOperatingDeduction}
-                          onEditClick={() => allowanceInputRef.current?.focus()}
-                        />
-                        <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
-                          <span>Chỉnh trợ cấp buổi thủ công (VNĐ)</span>
-                          <input
-                            ref={allowanceInputRef}
-                            name="add-session-allowance"
-                            type="number"
-                            min={0}
-                            value={allowanceAmount}
-                            autoComplete="off"
-                            onChange={(e) => setAllowanceAmount(e.target.value)}
-                            className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                            placeholder="Để trống = theo cấu hình lớp/gia sư"
-                          />
-                          <span className="text-xs font-normal text-text-muted">
-                            Để trống để backend tự tính từ snapshot lớp/gia sư; nhập số để ghi đè buổi này.
-                          </span>
-                        </label>
-                      </div>
-                    ) : !canEditAllowance && classPricing ? (
+                    {canEditAllowance && classPricing ? (
                       <SessionTeacherAllowanceEstimateCard
-                        amount={expectedAllowanceGrossPreview}
+                        amount={finalAllowancePreview}
                         estimatedAmount={expectedAllowanceGrossPreview}
-                        operatingDeductionEnabled={includeTeacherOperatingDeduction}
+                        breakdownText={
+                          allowanceRawBasePreview == null
+                            ? null
+                            : `${resolvedTeacherAllowanceBase.toLocaleString("vi-VN")}đ/hs × ${chargeableAttendanceCount} hs + ${(classPricing?.scaleAmount ?? 0).toLocaleString("vi-VN")}đ = ${allowanceRawBasePreview.toLocaleString("vi-VN")}đ`
+                        }
+                        showBreakdown={Boolean(classPricing)}
+                        usesSnapshot={false}
                       />
-                    ) : isCoefficientOnlyMode ? (
-                      <p className="rounded-lg border border-border-default/80 bg-bg-secondary/30 px-3 py-2 text-xs text-text-muted">
-                        Bạn chỉ chỉnh được hệ số; trợ cấp do backend lấy theo cấu hình lớp/gia sư.
-                      </p>
                     ) : null}
 
                     {allowFinancialFields ? (
-                      <div className="space-y-3">
-                        <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
-                          <span>
-                            Trạng thái thanh toán <RequiredMark />
-                          </span>
-                          <UpgradedSelect
-                            name="add-session-payment-status"
-                            value={teacherPaymentStatus}
-                            onValueChange={setTeacherPaymentStatus}
-                            options={PAYMENT_STATUS_OPTIONS}
-                            buttonClassName="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                          />
-                          <span className="text-xs font-normal text-text-muted">
-                            Chọn trạng thái thanh toán cho buổi dạy này
-                          </span>
-                        </label>
-                        <label className="flex items-start gap-3 rounded-lg border border-border-default bg-bg-secondary/35 px-3 py-3 text-sm text-text-primary">
-                          <input
-                            type="checkbox"
-                            checked={includeTeacherOperatingDeduction}
-                            onChange={(event) =>
-                              setIncludeTeacherOperatingDeduction(event.target.checked)
-                            }
-                            className="mt-0.5 size-4 rounded border-border-default text-primary focus:ring-border-focus"
-                          />
-                          <span className="space-y-1">
-                            <span className="block font-medium">Tính phí vận hành</span>
-                            <span className="block text-xs text-text-muted">
-                              Bật để trừ theo % vận hành của gia sư trong lớp; tắt để snapshot phí vận hành = 0 cho buổi này.
-                            </span>
-                          </span>
-                        </label>
-                      </div>
+                      <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
+                        <span>
+                          Trạng thái thanh toán <RequiredMark />
+                        </span>
+                        <UpgradedSelect
+                          name="add-session-payment-status"
+                          value={teacherPaymentStatus}
+                          onValueChange={setTeacherPaymentStatus}
+                          options={PAYMENT_STATUS_OPTIONS}
+                          buttonClassName="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                        />
+                      </label>
                     ) : null}
-
-                    <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
-                      <span>
-                        Nhận xét <RequiredMark />
-                      </span>
-                      <RichTextEditor
-                        value={notes}
-                        onChange={(v) => {
-                          setNotes(v);
-                          if (notesError) setNotesError("");
-                        }}
-                        minHeight="min-h-[160px]"
-                        ariaLabel="Nhận xét buổi học"
-                      />
-                      {notesError ? (
-                        <span className="text-xs font-medium text-error" role="alert">
-                          {notesError}
-                        </span>
-                      ) : (
-                        <span className="text-xs font-normal text-text-muted">
-                          Nhận xét về buổi học, tiến độ học sinh…
-                        </span>
-                      )}
-                    </label>
                   </div>
 
                   <section className="space-y-3">
-                    <div>
+                    <div className="space-y-1">
                       <h3 className="text-sm font-semibold text-text-primary">
                         Điểm danh học sinh <RequiredMark />
                       </h3>
                       {canEditAttendanceTuition ? (
-                        <div className="mt-3 flex flex-wrap gap-2 rounded-lg border border-border-default bg-bg-secondary/40 p-3 text-xs">
+                        <div className="flex flex-wrap gap-2 rounded-lg border border-border-default bg-bg-secondary/40 p-3 text-xs">
                           <span className="text-text-muted">Học phí buổi:</span>
                           <span className="font-medium tabular-nums text-text-primary">
                             Mặc định {formatCurrency(attendanceDefaultTuitionTotal)}
@@ -843,156 +713,14 @@ export default function AddSessionPopup({
                       <p className="py-6 text-center text-sm text-text-muted">Lớp chưa có học sinh.</p>
                     ) : (
                       <>
-                        <div className="space-y-3 md:hidden">
-                          {attendanceItems.map((item) => (
-                            <article
-                              key={item.studentId}
-                              className="rounded-xl border border-border-default bg-bg-surface p-4"
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-                                  <p className="min-w-0 truncate text-sm font-semibold text-text-primary">
-                                    {item.fullName}
-                                  </p>
-                                  {canEditAttendanceTuition ? (
-                                    <p className="shrink-0 text-xs text-text-muted">
-                                      Mặc định:{" "}
-                                      <span className="font-medium tabular-nums text-text-primary">
-                                        {item.defaultTuitionFee != null
-                                          ? formatCurrency(item.defaultTuitionFee)
-                                          : "Chưa cấu hình"}
-                                      </span>
-                                    </p>
-                                  ) : null}
-                                </div>
-                                <AttendanceStatusQuickPick
-                                  namePrefix={`add-att-${item.studentId}`}
-                                  value={item.status}
-                                  onChange={(next) =>
-                                    handleAttendanceStatusChange(item.studentId, next)
-                                  }
-                                />
-                              </div>
-                              {canEditAttendanceTuition ? (
-                                <label className="mt-3 flex flex-col gap-1 text-xs text-text-secondary">
-                                  <span>Học phí buổi</span>
-                                  <input
-                                    name={`add-session-attendance-tuition-${item.studentId}`}
-                                    type="number"
-                                    min={0}
-                                    value={item.tuitionFee}
-                                    autoComplete="off"
-                                    onChange={(event) =>
-                                      handleAttendanceTuitionChange(item.studentId, event.target.value)
-                                    }
-                                    className="min-h-10 w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary"
-                                    placeholder={
-                                      item.defaultTuitionFee != null
-                                        ? String(item.defaultTuitionFee)
-                                        : "Theo học sinh"
-                                    }
-                                  />
-                                </label>
-                              ) : null}
-                              <div className="mt-3 flex flex-col gap-1 text-xs text-text-secondary">
-                                <span>Ghi chú</span>
-                                <RichTextEditor
-                                  value={item.notes}
-                                  onChange={(html) =>
-                                    handleAttendanceNotesChange(item.studentId, html)
-                                  }
-                                  minHeight="min-h-[120px]"
-                                  ariaLabel={`Ghi chú học sinh ${item.fullName}`}
-                                />
-                              </div>
-                            </article>
-                          ))}
-                        </div>
-
-                        <div className="hidden overflow-x-auto rounded-xl border border-border-default bg-bg-surface md:block">
-                          <table
-                            className={`w-full border-collapse text-left text-sm ${canEditAttendanceTuition ? "min-w-[720px]" : "min-w-[520px]"}`}
-                          >
-                            <caption className="sr-only">Điểm danh học sinh</caption>
-                            <thead>
-                              <tr className="border-b border-border-default bg-bg-secondary/80">
-                                <th scope="col" className="w-28 px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
-                                  Trạng thái
-                                </th>
-                                <th scope="col" className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
-                                  Tên học sinh
-                                </th>
-                                <th scope="col" className="min-w-[18rem] px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
-                                  Ghi chú
-                                </th>
-                                {canEditAttendanceTuition ? (
-                                  <th scope="col" className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
-                                    Học phí buổi
-                                  </th>
-                                ) : null}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {attendanceItems.map((item) => (
-                                <tr
-                                  key={item.studentId}
-                                  className="border-b border-border-default/80 bg-bg-surface last:border-0"
-                                >
-                                  <td className="px-3 py-2.5 align-middle">
-                                    <AttendanceStatusQuickPick
-                                      namePrefix={`add-att-d-${item.studentId}`}
-                                      value={item.status}
-                                      onChange={(next) =>
-                                        handleAttendanceStatusChange(item.studentId, next)
-                                      }
-                                    />
-                                  </td>
-                                  <td className="px-3 py-2.5 align-middle text-sm font-medium text-text-primary">
-                                    {item.fullName}
-                                  </td>
-                                  <td className="px-3 py-2.5 align-middle">
-                                    <RichTextEditor
-                                      value={item.notes}
-                                      onChange={(html) =>
-                                        handleAttendanceNotesChange(item.studentId, html)
-                                      }
-                                      minHeight="min-h-[96px]"
-                                      ariaLabel={`Ghi chú học sinh ${item.fullName}`}
-                                    />
-                                  </td>
-                                  {canEditAttendanceTuition ? (
-                                    <td className="px-3 py-2.5 align-middle">
-                                      <div className="space-y-1">
-                                        <input
-                                          name={`add-session-attendance-tuition-desktop-${item.studentId}`}
-                                          type="number"
-                                          min={0}
-                                          value={item.tuitionFee}
-                                          autoComplete="off"
-                                          onChange={(event) =>
-                                            handleAttendanceTuitionChange(item.studentId, event.target.value)
-                                          }
-                                          className="w-full rounded-lg border border-border-default bg-bg-surface px-2.5 py-1.5 text-sm tabular-nums text-text-primary"
-                                          placeholder={
-                                            item.defaultTuitionFee != null
-                                              ? String(item.defaultTuitionFee)
-                                              : "Theo học sinh"
-                                          }
-                                        />
-                                        <p className="text-[11px] text-text-muted">
-                                          Mặc định:{" "}
-                                          {item.defaultTuitionFee != null
-                                            ? formatCurrency(item.defaultTuitionFee)
-                                            : "—"}
-                                        </p>
-                                      </div>
-                                    </td>
-                                  ) : null}
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+                        <SessionAttendanceEditor
+                          items={attendanceItems}
+                          namePrefix="add-att"
+                          canEditTuition={canEditAttendanceTuition}
+                          onStatusChange={handleAttendanceStatusChange}
+                          onNotesChange={handleAttendanceNotesChange}
+                          onTuitionChange={handleAttendanceTuitionChange}
+                        />
 
                         <AttendanceInlineSummary
                           present={attendanceSummary.present}
@@ -1002,10 +730,53 @@ export default function AddSessionPopup({
                       </>
                     )}
                   </section>
-                </div>
-              </div>
 
-              <div className="mt-4 grid shrink-0 grid-cols-2 gap-2 border-t border-border-default pt-4 sm:flex sm:justify-end">
+                  <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
+                    <span>
+                      Nội dung bài học <RequiredMark />
+                    </span>
+                    <RichTextEditor
+                      value={lessonContent}
+                      onChange={(value) => {
+                        setLessonContent(value);
+                        if (lessonContentError) setLessonContentError("");
+                      }}
+                      minHeight="min-h-[140px]"
+                      placeholder={SESSION_LESSON_CONTENT_PLACEHOLDER}
+                      ariaLabel="Nội dung bài học"
+                    />
+                    {lessonContentError ? (
+                      <span className="text-xs font-medium text-error" role="alert">
+                        {lessonContentError}
+                      </span>
+                    ) : null}
+                  </label>
+
+                  <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
+                    <span>
+                      Bài tập về nhà <RequiredMark />
+                    </span>
+                    <RichTextEditor
+                      value={homework}
+                      onChange={(value) => {
+                        setHomework(value);
+                        if (homeworkError) setHomeworkError("");
+                      }}
+                      minHeight="min-h-[120px]"
+                      placeholder={SESSION_HOMEWORK_PLACEHOLDER}
+                      ariaLabel="Bài tập về nhà"
+                    />
+                    {homeworkError ? (
+                      <span className="text-xs font-medium text-error" role="alert">
+                        {homeworkError}
+                      </span>
+                    ) : null}
+                  </label>
+
+                  <SessionCopyCommentButton text={zaloCommentText} />
+        </SessionFormDialogBody>
+
+        <SessionFormDialogFooter className="grid-cols-2">
                 <button
                   type="button"
                   onClick={onClose}
@@ -1019,11 +790,8 @@ export default function AddSessionPopup({
                 >
                   Thêm buổi học
                 </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </>
+        </SessionFormDialogFooter>
+      </form>
+    </SessionFormDialog>
   );
 }

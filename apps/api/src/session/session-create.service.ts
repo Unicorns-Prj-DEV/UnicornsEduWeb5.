@@ -53,6 +53,13 @@ export class SessionCreateService {
     this.sessionValidationService.validateAttendanceItems(data.attendance, {
       required: true,
     });
+    this.sessionValidationService.validateSessionCommentFields(
+      {
+        lessonContent: data.lessonContent,
+        homework: data.homework,
+      },
+      { required: true },
+    );
 
     const createdSession = await this.prisma.$transaction(
       async (tx) => {
@@ -388,6 +395,8 @@ export class SessionCreateService {
                 )
               : null,
             notes: data.notes ?? null,
+            lessonContent: data.lessonContent ?? null,
+            homework: data.homework ?? null,
             teacherPaymentStatus: data.teacherPaymentStatus ?? undefined,
             attendance: {
               createMany: {
@@ -444,6 +453,8 @@ export class SessionCreateService {
       startTime?: string;
       endTime?: string;
       notes?: string | null;
+      lessonContent: string;
+      homework: string;
       coefficient?: number;
       attendance: Array<{
         studentId: string;
@@ -483,6 +494,8 @@ export class SessionCreateService {
         startTime: data.startTime,
         endTime: data.endTime,
         notes: data.notes ?? null,
+        lessonContent: data.lessonContent,
+        homework: data.homework,
         attendance: data.attendance.map((attendanceItem) => ({
           studentId: attendanceItem.studentId,
           status: attendanceItem.status,

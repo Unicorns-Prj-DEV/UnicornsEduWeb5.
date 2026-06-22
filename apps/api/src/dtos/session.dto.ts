@@ -196,11 +196,23 @@ export class SessionCreateDto {
   endTime?: string;
 
   @ApiPropertyOptional({
-    description: 'Session note (HTML/plain text accepted).',
+    description: 'Session note (HTML/plain text accepted). Legacy field; prefer lessonContent.',
   })
   @IsOptional()
   @IsString()
   notes?: string | null;
+
+  @ApiProperty({
+    description: 'Lesson content for the session (HTML/plain text accepted).',
+  })
+  @IsString()
+  lessonContent: string;
+
+  @ApiProperty({
+    description: 'Homework assignment for the session (HTML/plain text accepted).',
+  })
+  @IsString()
+  homework: string;
 
   @ApiPropertyOptional({
     description: 'Coefficient for this session, from 0.0 to 1.0.',
@@ -258,6 +270,20 @@ export class SessionUpdateDto extends PartialType(SessionCreateDto) {
   @IsOptional()
   @IsUUID()
   id?: string;
+
+  @ApiPropertyOptional({
+    description: 'Lesson content for the session (HTML/plain text accepted).',
+  })
+  @IsOptional()
+  @IsString()
+  declare lessonContent?: string;
+
+  @ApiPropertyOptional({
+    description: 'Homework assignment for the session (HTML/plain text accepted).',
+  })
+  @IsOptional()
+  @IsString()
+  declare homework?: string;
 
   @ApiPropertyOptional({
     description: 'Teacher payment status',
@@ -366,11 +392,23 @@ export class CreateStaffOpsSessionDto {
   endTime?: string;
 
   @ApiPropertyOptional({
-    description: 'Session note (HTML/plain text accepted).',
+    description: 'Session note (HTML/plain text accepted). Legacy field; prefer lessonContent.',
   })
   @IsOptional()
   @IsString()
   notes?: string | null;
+
+  @ApiProperty({
+    description: 'Lesson content for the session (HTML/plain text accepted).',
+  })
+  @IsString()
+  lessonContent: string;
+
+  @ApiProperty({
+    description: 'Homework assignment for the session (HTML/plain text accepted).',
+  })
+  @IsString()
+  homework: string;
 
   @ApiPropertyOptional({
     description:

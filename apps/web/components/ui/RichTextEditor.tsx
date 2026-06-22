@@ -2,6 +2,7 @@
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import Placeholder from "@tiptap/extension-placeholder";
 import { useEffect, useMemo, useRef } from "react";
 import { sanitizeRichTextContent } from "@/lib/sanitize";
 
@@ -20,6 +21,7 @@ export default function RichTextEditor({
   value,
   onChange,
   minHeight = DEFAULT_MIN_HEIGHT,
+  placeholder,
   ariaLabel = "Nội dung soạn thảo",
   disabled = false,
 }: RichTextEditorProps) {
@@ -30,12 +32,24 @@ export default function RichTextEditor({
   );
   const editor = useEditor({
     immediatelyRender: false,
-    extensions: [StarterKit],
+    extensions: [
+      StarterKit,
+      ...(placeholder
+        ? [
+            Placeholder.configure({
+              placeholder,
+              emptyEditorClass:
+                "before:content-[attr(data-placeholder)] before:float-left before:pointer-events-none before:text-text-muted before:opacity-70",
+            }),
+          ]
+        : []),
+    ],
     content: editorContent,
     editorProps: {
       attributes: {
         class: `px-3 py-2 text-text-primary [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_strong]:font-bold [&_h1]:text-xl [&_h2]:text-lg [&_h3]:text-base ${minHeight}`,
         "aria-label": ariaLabel,
+        ...(placeholder ? { "data-placeholder": placeholder } : {}),
       },
     },
   });

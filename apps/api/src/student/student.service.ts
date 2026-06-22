@@ -229,6 +229,12 @@ function normalizeOptionalText(value: string | null | undefined) {
   return trimmed ? trimmed : undefined;
 }
 
+function startOfUtcDay(value: Date): Date {
+  return new Date(
+    Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()),
+  );
+}
+
 function toDateOrNull(
   value: string | Date | null | undefined,
 ): Date | null | undefined {
@@ -422,6 +428,7 @@ export class StudentService {
   private serializeStudentDetail(student: StudentDetailEntity) {
     return {
       ...this.serializeStudentListItem(student),
+      userId: student.userId,
       birthYear: student.birthYear,
       parentName: student.parentName,
       parentPhone: student.parentPhone,
@@ -836,8 +843,12 @@ export class StudentService {
     if (dto.goal !== undefined) data.goal = dto.goal;
 
     if (dto.drop_out_date !== undefined) {
-      const date = new Date(dto.drop_out_date);
-      data.dropOutDate = Number.isNaN(date.getTime()) ? undefined : date;
+      const parsed = toDateOrNull(dto.drop_out_date);
+      if (parsed === null) {
+        data.dropOutDate = null;
+      } else if (parsed instanceof Date) {
+        data.dropOutDate = startOfUtcDay(parsed);
+      }
     }
 
     return data as Parameters<typeof this.prisma.studentInfo.update>[0]['data'];
@@ -848,6 +859,16 @@ export class StudentService {
     studentId: string,
     status: StudentStatus,
   ) {
+    if (status === StudentStatus.active) {
+      // Reactivating a student clears the drop-out marker so portfolio and
+      // dashboard "left this month" metrics stay consistent with status.
+      await tx.studentInfo.updateMany({
+        where: { id: studentId, dropOutDate: { not: null } },
+        data: { dropOutDate: null },
+      });
+      return;
+    }
+
     if (status !== StudentStatus.inactive) {
       return;
     }
@@ -860,6 +881,14 @@ export class StudentService {
       data: {
         status: StudentClassStatus.inactive,
       },
+    });
+
+    // Stamp the drop-out date from the status action itself when one was not
+    // provided explicitly, so "students who left this month" is derived from
+    // the authoritative status transition instead of a separate manual field.
+    await tx.studentInfo.updateMany({
+      where: { id: studentId, dropOutDate: null },
+      data: { dropOutDate: startOfUtcDay(new Date()) },
     });
   }
 

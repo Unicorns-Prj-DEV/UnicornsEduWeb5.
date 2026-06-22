@@ -286,7 +286,8 @@ function toStaffUpdateSessionPayload(payload: SessionUpdatePayload) {
     date: payload.date,
     startTime: payload.startTime,
     endTime: payload.endTime,
-    notes: payload.notes ?? null,
+    lessonContent: payload.lessonContent,
+    homework: payload.homework,
     coefficient: payload.coefficient,
     attendance: payload.attendance?.map((item) => ({
       studentId: item.studentId,
@@ -1497,7 +1498,6 @@ export default function StaffSelfDetailPage() {
                 getClassDetailForEdit={getClassDetailForSessionEditor}
                 allowTeacherSelection={false}
                 allowFinancialEdits={false}
-                allowCoefficientEdit
                 allowPaymentStatusEdit={false}
                 allowDeleteSession={false}
                 updateSessionFn={handleUpdateSessionFromStaffPage}

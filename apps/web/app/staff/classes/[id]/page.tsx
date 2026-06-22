@@ -282,7 +282,8 @@ function toStaffCreateSessionPayload(payload: SessionCreatePayload) {
     date: payload.date,
     startTime: payload.startTime,
     endTime: payload.endTime,
-    notes: payload.notes ?? null,
+    lessonContent: payload.lessonContent,
+    homework: payload.homework,
     coefficient: payload.coefficient,
     attendance: (payload.attendance ?? []).map((item) => ({
       studentId: item.studentId,
@@ -297,7 +298,8 @@ function toStaffUpdateSessionPayload(payload: SessionUpdatePayload) {
     date: payload.date,
     startTime: payload.startTime,
     endTime: payload.endTime,
-    notes: payload.notes ?? null,
+    lessonContent: payload.lessonContent,
+    homework: payload.homework,
     coefficient: payload.coefficient,
     attendance: payload.attendance?.map((item) => ({
       studentId: item.studentId,
@@ -803,6 +805,7 @@ export default function StaffClassDetailPage() {
         <AddSessionPopup
           open={addSessionPopupOpen}
           classId={id}
+          className={classDetail.name}
           defaultTeacherId={defaultTeacherId}
           teachers={popupTeachers}
           students={popupStudents}
@@ -816,7 +819,6 @@ export default function StaffClassDetailPage() {
           }}
           teacherMode="readOnly"
           allowFinancialFields={false}
-          allowCoefficientField
           createSessionFn={handleCreateSession}
           onClose={() => setAddSessionPopupOpen(false)}
         />
@@ -1180,7 +1182,6 @@ export default function StaffClassDetailPage() {
                     getClassDetailForEdit={getClassDetailForEdit}
                     allowTeacherSelection={false}
                     allowFinancialEdits={false}
-                    allowCoefficientEdit
                     allowPaymentStatusEdit={false}
                     allowDeleteSession={false}
                     updateSessionFn={handleUpdateSession}

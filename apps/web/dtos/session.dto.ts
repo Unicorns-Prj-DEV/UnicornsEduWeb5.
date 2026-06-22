@@ -88,6 +88,8 @@ export interface SessionCreatePayload {
   startTime?: string;
   endTime?: string;
   notes?: string | null;
+  lessonContent: string;
+  homework: string;
   teacherPaymentStatus?: string | null;
   /** Coefficient from 0.0 to 1.0. Default 1.0. */
   coefficient?: number;
@@ -106,6 +108,8 @@ export interface SessionUpdatePayload {
   startTime?: string;
   endTime?: string;
   notes?: string | null;
+  lessonContent?: string;
+  homework?: string;
   teacherPaymentStatus?: string | null;
   coefficient?: number;
   allowanceAmount?: number | null;
@@ -150,6 +154,9 @@ export interface SessionItem {
   /** Snapshot operating deduction rate percent applied to teacher payout. */
   teacherOperatingDeductionRatePercent?: number | string | null;
   notes?: string | null;
+  lessonContent?: string | null;
+  homework?: string | null;
+  makeupScheduleEvent?: { originalDate?: string | null } | null;
   createdAt?: string;
   updatedAt?: string;
   class?: SessionClassRef | null;
