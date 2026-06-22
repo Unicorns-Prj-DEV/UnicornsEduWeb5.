@@ -76,6 +76,8 @@ model Session {
   endTime                              DateTime?            @map("end_time") @db.Time(6)
   coefficient                          Decimal              @default(1.0) @db.Decimal(3, 1)
   notes                                String?
+  lessonContent                        String?              @map("lesson_content")
+  homework                             String?
   tuitionFee                           Int?                 @map("tuition_fee")
   googleMeetLink                       String?              @map("google_meet_link")
   googleCalendarEventId                String?              @map("google_calendar_event_id")
