@@ -14,6 +14,10 @@ import { DateInput } from "@/components/ui/DateInput";
 import { TimeInput } from "@/components/ui/TimeInput";
 import ClassCard from "./ClassCard";
 
+const MISSED_ALERT_SCROLL_THRESHOLD = 4;
+/** ~4 collapsed accordion rows (header + gap). */
+const MISSED_ALERT_LIST_MAX_HEIGHT = "max-h-[16.5rem]";
+
 type AlertDraft = {
   date: string;
   startTime: string;
@@ -71,6 +75,36 @@ function createDefaultDraft(alert: MissedTeachingAlert): AlertDraft {
   };
 }
 
+function AlertStatusBadge({ alert }: { alert: MissedTeachingAlert }) {
+  if (alert.status === "explained_pending_makeup") {
+    return (
+      <span className="rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold text-warning">
+        Đã giải trình · chưa bù
+      </span>
+    );
+  }
+
+  return (
+    <span className="rounded-full border border-error/25 bg-error/10 px-2 py-0.5 text-[11px] font-semibold text-error">
+      Chưa giải trình
+    </span>
+  );
+}
+
+function ChevronIcon({ expanded }: { expanded: boolean }) {
+  return (
+    <svg
+      className={`mt-0.5 size-4 shrink-0 text-text-muted transition-transform ${expanded ? "rotate-180" : ""}`}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+    </svg>
+  );
+}
+
 export default function MissedTeachingAlertsCard({
   alerts,
   canCreateMakeup = false,
@@ -82,11 +116,18 @@ export default function MissedTeachingAlertsCard({
 }: MissedTeachingAlertsCardProps) {
   const [drafts, setDrafts] = useState<Record<string, AlertDraft>>({});
   const [submittingAction, setSubmittingAction] = useState<string | null>(null);
+  const [expandedAlertId, setExpandedAlertId] = useState<string | null>(null);
   const visibleAlerts = useMemo(() => alerts.filter(Boolean), [alerts]);
 
   if (visibleAlerts.length === 0) {
     return null;
   }
+
+  const shouldScrollList = visibleAlerts.length > MISSED_ALERT_SCROLL_THRESHOLD;
+
+  const toggleExpanded = (alertId: string) => {
+    setExpandedAlertId((current) => (current === alertId ? null : alertId));
+  };
 
   const updateDraft = (
     alert: MissedTeachingAlert,
@@ -173,6 +214,7 @@ export default function MissedTeachingAlertsCard({
         delete next[alert.id];
         return next;
       });
+      setExpandedAlertId((current) => (current === alert.id ? null : current));
       await onChanged?.();
     } catch (error) {
       const message =
@@ -184,10 +226,16 @@ export default function MissedTeachingAlertsCard({
   };
 
   return (
-    <ClassCard title="Cảnh báo chưa dạy" className="w-full border-warning/35 bg-warning/5">
-      <div className="space-y-3">
+    <ClassCard
+      title={`Cảnh báo chưa dạy (${visibleAlerts.length})`}
+      className="w-full border-warning/35 bg-warning/5"
+    >
+      <div
+        className={`space-y-2 ${shouldScrollList ? `${MISSED_ALERT_LIST_MAX_HEIGHT} overflow-y-auto overscroll-contain pr-1` : ""}`}
+      >
         {visibleAlerts.map((alert) => {
           const draft = drafts[alert.id] ?? createDefaultDraft(alert);
+          const isExpanded = expandedAlertId === alert.id;
           const isExplained = alert.status === "explained_pending_makeup";
           const canEditExplanation =
             !isExplained || (alert.explanation?.canEdit ?? false);
@@ -195,6 +243,7 @@ export default function MissedTeachingAlertsCard({
             <Link
               href={getClassHref(alert.classId)}
               className="font-semibold text-primary hover:text-primary-hover"
+              onClick={(event) => event.stopPropagation()}
             >
               {alert.className}
             </Link>
@@ -205,93 +254,112 @@ export default function MissedTeachingAlertsCard({
           return (
             <article
               key={alert.id}
-              className="rounded-lg border border-warning/25 bg-bg-surface px-3 py-3"
+              className="overflow-hidden rounded-lg border border-warning/25 bg-bg-surface"
             >
-              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)]">
-                <div className="min-w-0 space-y-1.5">
+              <button
+                type="button"
+                onClick={() => toggleExpanded(alert.id)}
+                aria-expanded={isExpanded}
+                className="flex w-full items-start gap-2 px-3 py-2.5 text-left transition-colors hover:bg-warning/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-inset"
+              >
+                <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex flex-wrap items-center gap-2 text-sm text-text-primary">
                     {classLabel}
                     <span className="text-text-muted">·</span>
                     <span>{alert.teacherName ?? "Chưa rõ gia sư"}</span>
-                    {isExplained ? (
-                      <span className="rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold text-warning">
-                        Đã giải trình · chưa bù
-                      </span>
-                    ) : null}
+                    <AlertStatusBadge alert={alert} />
                   </div>
                   <div className="text-xs text-text-secondary">
                     Buổi gốc {formatDateLabel(alert.originalDate)} ·{" "}
                     {formatTime(alert.scheduledStartTime)}
                     {alert.scheduledEndTime ? `-${formatTime(alert.scheduledEndTime)}` : ""}
                   </div>
-                  {isExplained && alert.explanation && !canCreateMakeup ? (
+                </div>
+                <ChevronIcon expanded={isExpanded} />
+              </button>
+
+              {isExpanded ? (
+                <div className="border-t border-warning/20 px-3 py-3">
+                  {canCreateMakeup ? (
+                    <div className="grid gap-3 lg:grid-cols-2">
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-text-secondary">Lý do giải trình</p>
+                        <textarea
+                          value={draft.reason}
+                          onChange={(event) =>
+                            updateDraft(alert, { reason: event.target.value })
+                          }
+                          placeholder="Nhập lý do giải trình"
+                          readOnly={!canEditExplanation}
+                          className="min-h-20 w-full rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none transition focus:border-border-focus focus:ring-2 focus:ring-border-focus/25 read-only:cursor-default read-only:opacity-80"
+                          required
+                        />
+                        {canEditExplanation ? (
+                          <button
+                            type="button"
+                            onClick={() => handleSaveExplanation(alert)}
+                            disabled={submittingAction === `explain:${alert.id}`}
+                            className="inline-flex min-h-10 w-full items-center justify-center rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary transition hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {submittingAction === `explain:${alert.id}`
+                              ? "Đang lưu..."
+                              : isExplained
+                                ? "Lưu thay đổi giải trình"
+                                : "Lưu giải trình"}
+                          </button>
+                        ) : null}
+                      </div>
+
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-text-secondary">Xếp lịch bù</p>
+                        <div className="grid gap-2 sm:grid-cols-[1fr_0.8fr_0.8fr]">
+                          <DateInput
+                            value={draft.date}
+                            onChange={(event) => updateDraft(alert, { date: event.target.value })}
+                            className="min-h-10 rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none transition focus:border-border-focus focus:ring-2 focus:ring-border-focus/25"
+                            aria-label="Ngày học bù"
+                          />
+                          <TimeInput
+                            value={draft.startTime}
+                            onChange={(event) =>
+                              updateDraft(alert, { startTime: event.target.value })
+                            }
+                            className="min-h-10 rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none transition focus:border-border-focus focus:ring-2 focus:ring-border-focus/25"
+                            aria-label="Giờ bắt đầu học bù"
+                          />
+                          <TimeInput
+                            value={draft.endTime}
+                            onChange={(event) =>
+                              updateDraft(alert, { endTime: event.target.value })
+                            }
+                            className="min-h-10 rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none transition focus:border-border-focus focus:ring-2 focus:ring-border-focus/25"
+                            aria-label="Giờ kết thúc học bù"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleCreateMakeup(alert)}
+                            disabled={submittingAction === `makeup:${alert.id}`}
+                            className="inline-flex min-h-10 items-center justify-center rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-3"
+                          >
+                            {submittingAction === `makeup:${alert.id}`
+                              ? "Đang xếp..."
+                              : "Xếp lịch bù"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : isExplained && alert.explanation ? (
                     <div className="rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary">
                       <p className="text-xs font-medium text-text-secondary">Lý do giải trình</p>
                       <p className="mt-1 whitespace-pre-wrap">{alert.explanation.reason}</p>
                     </div>
-                  ) : null}
+                  ) : (
+                    <p className="text-sm text-text-secondary">
+                      Buổi này chưa có giải trình vắng.
+                    </p>
+                  )}
                 </div>
-
-                {canCreateMakeup ? (
-                  <div className="space-y-2">
-                    <textarea
-                      value={draft.reason}
-                      onChange={(event) =>
-                        updateDraft(alert, { reason: event.target.value })
-                      }
-                      placeholder="Lý do giải trình"
-                      readOnly={!canEditExplanation}
-                      className="min-h-20 w-full rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none transition focus:border-border-focus focus:ring-2 focus:ring-border-focus/25 read-only:cursor-default read-only:opacity-80"
-                      required
-                    />
-                    {canEditExplanation ? (
-                      <button
-                        type="button"
-                        onClick={() => handleSaveExplanation(alert)}
-                        disabled={submittingAction === `explain:${alert.id}`}
-                        className="inline-flex min-h-10 w-full items-center justify-center rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary transition hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {submittingAction === `explain:${alert.id}`
-                          ? "Đang lưu..."
-                          : isExplained
-                            ? "Lưu thay đổi giải trình"
-                            : "Lưu giải trình"}
-                      </button>
-                    ) : null}
-
-                    <div className="grid gap-2 sm:grid-cols-[1fr_0.8fr_0.8fr]">
-                      <DateInput
-                        value={draft.date}
-                        onChange={(event) => updateDraft(alert, { date: event.target.value })}
-                        className="min-h-10 rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none transition focus:border-border-focus focus:ring-2 focus:ring-border-focus/25"
-                        aria-label="Ngày học bù"
-                      />
-                      <TimeInput
-                        value={draft.startTime}
-                        onChange={(event) =>
-                          updateDraft(alert, { startTime: event.target.value })
-                        }
-                        className="min-h-10 rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none transition focus:border-border-focus focus:ring-2 focus:ring-border-focus/25"
-                        aria-label="Giờ bắt đầu học bù"
-                      />
-                      <TimeInput
-                        value={draft.endTime}
-                        onChange={(event) => updateDraft(alert, { endTime: event.target.value })}
-                        className="min-h-10 rounded-md border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none transition focus:border-border-focus focus:ring-2 focus:ring-border-focus/25"
-                        aria-label="Giờ kết thúc học bù"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleCreateMakeup(alert)}
-                        disabled={submittingAction === `makeup:${alert.id}`}
-                        className="inline-flex min-h-10 items-center justify-center rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-3"
-                      >
-                        {submittingAction === `makeup:${alert.id}` ? "Đang xếp..." : "Xếp lịch bù"}
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
+              ) : null}
             </article>
           );
         })}
