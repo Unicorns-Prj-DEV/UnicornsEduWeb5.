@@ -343,6 +343,18 @@ export class SessionUpdateService {
     this.sessionValidationService.validateAttendanceItems(data.attendance, {
       required: false,
     });
+    if (
+      data.lessonContent !== undefined ||
+      data.homework !== undefined
+    ) {
+      this.sessionValidationService.validateSessionCommentFields(
+        {
+          lessonContent: data.lessonContent,
+          homework: data.homework,
+        },
+        { required: true },
+      );
+    }
 
     const sessionId = data.id;
 
@@ -1041,6 +1053,12 @@ export class SessionUpdateService {
             }),
             ...(sessionEndTime !== undefined && { endTime: sessionEndTime }),
             ...(data.notes !== undefined && { notes: data.notes ?? null }),
+            ...(data.lessonContent !== undefined && {
+              lessonContent: data.lessonContent ?? null,
+            }),
+            ...(data.homework !== undefined && {
+              homework: data.homework ?? null,
+            }),
             ...(data.teacherPaymentStatus !== undefined && {
               teacherPaymentStatus: data.teacherPaymentStatus ?? 'unpaid',
             }),
@@ -1273,6 +1291,8 @@ export class SessionUpdateService {
       startTime?: string;
       endTime?: string;
       notes?: string | null;
+      lessonContent?: string;
+      homework?: string;
       coefficient?: number;
       attendance?: Array<{
         studentId: string;
@@ -1345,6 +1365,8 @@ export class SessionUpdateService {
         startTime: data.startTime,
         endTime: data.endTime,
         notes: data.notes,
+        lessonContent: data.lessonContent,
+        homework: data.homework,
         coefficient: data.coefficient,
         attendance: enrichedAttendance,
       },

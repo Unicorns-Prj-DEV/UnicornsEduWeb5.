@@ -27,6 +27,7 @@ describe('SessionCreateService', () => {
 
   const validationService = {
     validateAttendanceItems: jest.fn(),
+    validateSessionCommentFields: jest.fn(),
     resolveChargeableAttendanceTuitionFee: jest.fn(),
     parseSessionDate: jest.fn(),
     parseSessionTime: jest.fn(),
@@ -95,6 +96,8 @@ describe('SessionCreateService', () => {
         date: '2026-03-20',
         coefficient: 1.5,
         notes: 'Buổi thử',
+        lessonContent: '<p>Đã làm 2 bài LEVEL 2</p>',
+        homework: '<p>Làm bài 3</p>',
         attendance: [
           {
             studentId: 'student-1',
@@ -123,6 +126,8 @@ describe('SessionCreateService', () => {
         startTime: undefined,
         endTime: undefined,
         notes: 'Buổi thử',
+        lessonContent: '<p>Đã làm 2 bài LEVEL 2</p>',
+        homework: '<p>Làm bài 3</p>',
         attendance: [
           {
             studentId: 'student-1',
@@ -163,6 +168,8 @@ describe('SessionCreateService', () => {
       'class-1',
       {
         date: '2026-03-20',
+        lessonContent: '<p>Nội dung buổi</p>',
+        homework: '<p>BTVN</p>',
         attendance: [
           {
             studentId: 'student-1',
@@ -189,6 +196,8 @@ describe('SessionCreateService', () => {
         startTime: undefined,
         endTime: undefined,
         notes: null,
+        lessonContent: '<p>Nội dung buổi</p>',
+        homework: '<p>BTVN</p>',
         attendance: [
           {
             studentId: 'student-1',

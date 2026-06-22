@@ -62,6 +62,12 @@ export class SessionReportingService {
     },
   } as const;
 
+  private readonly makeupScheduleEventSelect = {
+    select: {
+      originalDate: true,
+    },
+  } as const;
+
   private withDerivedTeacherFullName<
     T extends {
       teacher: {
@@ -96,6 +102,7 @@ export class SessionReportingService {
           },
         },
         attendance: this.attendanceInclude,
+        makeupScheduleEvent: this.makeupScheduleEventSelect,
       },
       orderBy: {
         date: 'desc',
@@ -141,6 +148,7 @@ export class SessionReportingService {
           },
         },
         attendance: this.attendanceInclude,
+        makeupScheduleEvent: this.makeupScheduleEventSelect,
       },
       orderBy: {
         date: 'desc',
@@ -164,6 +172,7 @@ export class SessionReportingService {
       include: {
         class: true,
         attendance: this.attendanceInclude,
+        makeupScheduleEvent: this.makeupScheduleEventSelect,
         teacher: {
           include: {
             user: {

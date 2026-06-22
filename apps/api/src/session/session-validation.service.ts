@@ -176,4 +176,54 @@ export class SessionValidationService {
 
     return Math.max(0, Math.min(1, Number(value)));
   }
+
+  stripRichTextToPlainText(value: string | null | undefined): string {
+    if (value == null) {
+      return '';
+    }
+
+    return String(value)
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/\u00a0/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  assertRichTextNonEmpty(
+    value: string | null | undefined,
+    fieldLabel: string,
+  ): string {
+    const plainText = this.stripRichTextToPlainText(value);
+    if (!plainText) {
+      throw new BadRequestException(`${fieldLabel} là bắt buộc.`);
+    }
+
+    return plainText;
+  }
+
+  validateSessionCommentFields(
+    data: {
+      lessonContent?: string | null;
+      homework?: string | null;
+    },
+    options: { required: boolean },
+  ) {
+    const hasLessonContent = data.lessonContent !== undefined;
+    const hasHomework = data.homework !== undefined;
+
+    if (!options.required && !hasLessonContent && !hasHomework) {
+      return;
+    }
+
+    if (options.required || hasLessonContent || hasHomework) {
+      this.assertRichTextNonEmpty(data.lessonContent, 'Nội dung bài học');
+      this.assertRichTextNonEmpty(data.homework, 'Bài tập về nhà');
+    }
+  }
 }
