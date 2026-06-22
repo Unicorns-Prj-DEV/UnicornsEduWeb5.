@@ -210,8 +210,8 @@ export default function AdminClassDetailPage() {
   const canEditTeacherRoster = isAdmin || isAssistant;
   const canEditTeacherCompensation =
     canEditTeacherRoster || adminAccess.isAccountantExpense;
-  /** POST /sessions is admin-only; keep the CTA aligned with backend. */
-  const canCreateSession = isAdmin;
+  /** POST /sessions allows admin + assistant on admin routes; keep CTA aligned with backend. */
+  const canCreateSession = isAdmin || isAssistant;
   const canManageSurveys = adminAccess.isAdmin || adminAccess.isAssistant;
   const canManageClassStudents = isAdmin;
   const canManageStudentTuition =
@@ -224,8 +224,6 @@ export default function AdminClassDetailPage() {
   const canOpenStudentDetails = true;
   const canManageMakeupSchedule = adminAccess.isAdmin || adminAccess.isAssistant;
   const canEditSessionPaymentStatus =
-    isAdmin || isAssistant || adminAccess.isAccountantExpense || adminAccess.isAccountantIncome;
-  const canEditSessionCoefficient =
     isAdmin || isAssistant || adminAccess.isAccountantExpense || adminAccess.isAccountantIncome;
   const canEditSessions = isAdmin || isAssistant;
   const canManageClassStatus = isAdmin || isAssistant;
@@ -310,12 +308,20 @@ export default function AdminClassDetailPage() {
     placeholderData: keepPreviousData,
   });
 
-  const handleSessionUpdated = useCallback(() => {
-    queryClient.invalidateQueries({
-      queryKey: ["sessions", "class", id, selectedYear, selectedMonthValue],
-    });
-    queryClient.invalidateQueries({ queryKey: missedAlertsQueryKey });
-  }, [queryClient, id, selectedYear, selectedMonthValue, missedAlertsQueryKey]);
+  const handleSessionUpdated = useCallback(
+    (createdSession?: SessionItem) => {
+      if (createdSession?.date) {
+        const sessionMonth = createdSession.date.slice(0, 7);
+        if (/^\d{4}-\d{2}$/.test(sessionMonth) && sessionMonth !== selectedMonth) {
+          setSelectedMonth(sessionMonth);
+        }
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["sessions", "class", id] });
+      queryClient.invalidateQueries({ queryKey: missedAlertsQueryKey });
+    },
+    [queryClient, id, selectedMonth, missedAlertsQueryKey],
+  );
 
   const handleMakeupScheduleChanged = useCallback(async () => {
     await Promise.all([
@@ -496,7 +502,7 @@ export default function AdminClassDetailPage() {
   });
 
   const handleOpenAddSessionPopup = useCallback(() => {
-    if (!isAdmin) return;
+    if (!canCreateSession) return;
 
     if (popupTeachers.length === 0) {
       toast.error("Lớp chưa có gia sư phụ trách. Hãy phân công gia sư trước khi thêm buổi học.");
@@ -509,7 +515,7 @@ export default function AdminClassDetailPage() {
     }
 
     setAddSessionPopupOpen(true);
-  }, [activeClassStudents.length, isAdmin, popupTeachers.length]);
+  }, [activeClassStudents.length, canCreateSession, popupTeachers.length]);
 
   const resyncScheduleMutation = useMutation({
     mutationFn: () => classApi.resyncClassScheduleGoogleCalendar(id),
@@ -820,10 +826,11 @@ export default function AdminClassDetailPage() {
         />
       ) : null}
 
-      {canCreateSession && addSessionPopupOpen ? (
+      {addSessionPopupOpen ? (
         <AddSessionPopup
           open={addSessionPopupOpen}
           classId={id}
+          className={classDetail.name}
           defaultTeacherId={currentClassTeacherId}
           teachers={popupTeachers}
           students={popupStudents}
@@ -1449,11 +1456,10 @@ export default function AdminClassDetailPage() {
                    enableBulkPaymentStatusEdit={canEditSessionPaymentStatus}
                    allowTeacherSelection={canEditSessions}
                    allowFinancialEdits={canEditSessions}
-                   allowCoefficientEdit={canEditSessionCoefficient}
                    allowAllowanceEdit={canEditSessions}
                    allowAttendanceTuitionEdits={canEditSessions}
                    allowPaymentStatusEdit={canEditSessionPaymentStatus}
-                   readOnlySessionDetails={!canEditSessions && !canEditSessionPaymentStatus && !canEditSessionCoefficient}
+                   readOnlySessionDetails={!canEditSessions && !canEditSessionPaymentStatus}
                    allowDeleteSession={canEditSessions && !isAccountant}
                   onSessionUpdated={handleSessionUpdated}
                   teachers={popupTeachers}

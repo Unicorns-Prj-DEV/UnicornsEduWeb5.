@@ -340,8 +340,6 @@ export default function AdminStaffDetailPage({
   const canEditSessionDetails = isAdmin || isAssistant;
   const canEditSessionPaymentStatus =
     isAdmin || isAssistant || isAccountantExpense || isAccountantIncome;
-  const canEditSessionCoefficient =
-    isAdmin || isAssistant || isAccountantExpense || isAccountantIncome;
   const canManageMissedTeachingAlerts = isAdmin || isAssistant;
   const canEditStaffProfile =
     (isAdmin || isAssistant) && !viewingOwnStaffRecordOnStaffShell;
@@ -2616,11 +2614,12 @@ export default function AdminStaffDetailPage({
                 enableBulkPaymentStatusEdit={canPayAll}
                 allowTeacherSelection={canEditSessionDetails}
                 allowFinancialEdits={canEditSessionDetails}
-                allowCoefficientEdit={canEditSessionCoefficient}
                 allowAllowanceEdit={canEditSessionDetails}
                 allowAttendanceTuitionEdits={canEditSessionDetails}
                 allowPaymentStatusEdit={canEditSessionPaymentStatus}
-                readOnlySessionDetails={!canEditSessionDetails && !canEditSessionPaymentStatus && !canEditSessionCoefficient}
+                readOnlySessionDetails={
+                  !canEditSessionDetails && !canEditSessionPaymentStatus
+                }
                 allowDeleteSession={canEditSessionDetails}
                 onSessionUpdated={handleSessionUpdated}
                 getTeachersForClass={getTeachersForClass}
