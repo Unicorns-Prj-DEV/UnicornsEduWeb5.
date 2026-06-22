@@ -213,7 +213,8 @@ export default function AdminClassDetailPage() {
   /** POST /sessions allows admin + assistant on admin routes; keep CTA aligned with backend. */
   const canCreateSession = isAdmin || isAssistant;
   const canManageSurveys = adminAccess.isAdmin || adminAccess.isAssistant;
-  const canManageClassStudents = isAdmin;
+  /** PATCH /class/:id/students allows admin + assistant; keep roster CTA aligned with backend. */
+  const canManageClassStudents = isAdmin || isAssistant;
   const canManageStudentTuition =
     showStudentTuitionColumn &&
     (isAdmin || isAssistant || adminAccess.isAccountantIncome);

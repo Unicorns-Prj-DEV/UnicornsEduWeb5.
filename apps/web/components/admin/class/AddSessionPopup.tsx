@@ -28,6 +28,9 @@ import {
   RequiredMark,
   SessionAttendanceEditor,
   SessionCopyCommentButton,
+  SessionFormDialog,
+  SessionFormDialogBody,
+  SessionFormDialogFooter,
   SessionFormDialogHeader,
   SessionTeacherAllowanceEstimateCard,
   TrialLessonToggle,
@@ -544,32 +547,18 @@ export default function AddSessionPopup({
     });
   };
 
-  if (!open) {
-    return null;
-  }
-
   return (
-    <>
-      <div className="fixed inset-0 z-40 bg-bg-primary/75 backdrop-blur-[2px]" aria-hidden onClick={onClose} />
-      <div className="fixed inset-0 z-50 overflow-y-auto p-2 sm:p-4">
-        <div className="mx-auto flex min-h-full w-full max-w-3xl items-start py-2 sm:items-center sm:py-0">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="add-session-title"
-            className="my-auto flex max-h-[calc(100dvh-1rem)] min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-surface p-4 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:p-6"
-          >
-            <SessionFormDialogHeader
-              title="Thêm buổi học"
-              tuitionText={headerTuitionDisplay}
-              allowanceText={headerAllowanceDisplay}
-              onClose={onClose}
-              titleId="add-session-title"
-            />
+    <SessionFormDialog open={open} onClose={onClose} titleId="add-session-title">
+      <SessionFormDialogHeader
+        title="Thêm buổi học"
+        tuitionText={headerTuitionDisplay}
+        allowanceText={headerAllowanceDisplay}
+        onClose={onClose}
+        titleId="add-session-title"
+      />
 
-            <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <div className="min-h-0 flex-1 overflow-y-scroll">
-                <div className="min-h-0 h-full space-y-6 overflow-y-auto pr-1 sm:pr-2">
+      <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <SessionFormDialogBody>
                   <div className="space-y-5">
                     <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
                       <span>
@@ -785,10 +774,9 @@ export default function AddSessionPopup({
                   </label>
 
                   <SessionCopyCommentButton text={zaloCommentText} />
-                </div>
-              </div>
+        </SessionFormDialogBody>
 
-              <div className="mt-4 grid shrink-0 grid-cols-2 gap-2 border-t border-border-default pt-4 sm:flex sm:justify-end">
+        <SessionFormDialogFooter className="grid-cols-2">
                 <button
                   type="button"
                   onClick={onClose}
@@ -802,11 +790,8 @@ export default function AddSessionPopup({
                 >
                   Thêm buổi học
                 </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </>
+        </SessionFormDialogFooter>
+      </form>
+    </SessionFormDialog>
   );
 }

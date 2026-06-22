@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { cn } from "@/lib/utils";
 import type { SessionAttendanceStatus } from "@/dtos/session.dto";
 import { formatCurrency } from "@/lib/class.helpers";
 import RichTextEditor from "@/components/ui/RichTextEditor";
@@ -264,6 +265,99 @@ type SessionFormDialogHeaderProps = {
   onClose: () => void;
   titleId?: string;
 };
+
+type SessionFormDialogProps = {
+  open: boolean;
+  onClose: () => void;
+  titleId: string;
+  maxWidthClass?: string;
+  children: ReactNode;
+};
+
+/** Modal cố định giữa viewport; chỉ nội dung form cuộn bên trong. */
+export function SessionFormDialog({
+  open,
+  onClose,
+  titleId,
+  maxWidthClass = "max-w-3xl",
+  children,
+}: SessionFormDialogProps) {
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-40 bg-bg-primary/75 backdrop-blur-[2px]"
+        aria-hidden
+        onClick={onClose}
+      />
+      <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
+          className={cn(
+            "pointer-events-auto flex max-h-[calc(100dvh-1rem)] min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-surface p-4 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:p-6",
+            maxWidthClass,
+          )}
+        >
+          {children}
+        </div>
+      </div>
+    </>
+  );
+}
+
+type SessionFormDialogBodyProps = {
+  children: ReactNode;
+  className?: string;
+};
+
+export function SessionFormDialogBody({
+  children,
+  className,
+}: SessionFormDialogBodyProps) {
+  return (
+    <div
+      className={cn(
+        "min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain pr-1 sm:pr-2",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+type SessionFormDialogFooterProps = {
+  children: ReactNode;
+  className?: string;
+};
+
+export function SessionFormDialogFooter({
+  children,
+  className,
+}: SessionFormDialogFooterProps) {
+  return (
+    <div
+      className={cn(
+        "mt-4 grid shrink-0 grid-cols-1 gap-2 border-t border-border-default pt-4 min-[380px]:grid-cols-2 sm:flex sm:justify-end",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
 
 export function SessionFormDialogHeader({
   title,

@@ -28,6 +28,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- FE `/admin/classes/[id]` (và mirror `/staff/classes/[id]` cho trợ lí): mở quyền quản lý roster học sinh (`canManageClassStudents`) cho `assistant` — popup **Chỉnh sửa** ở mode `roster`, nút **Nghỉ học**, thêm/xóa học sinh khớp backend `PATCH /class/:id/students`.
 - BE/FE admin dashboard: thẻ cảnh báo lớp đổi sang **"Lớp chưa báo cáo lần {N}"** (tiêu đề động theo `summary.currentSurveyRound`), nguồn dữ liệu = lớp `running` thiếu `class_surveys.test_number = N` (bỏ wiring rủi ro công nợ cũ); action alert thêm trường `detail` ("Mới nhất: lần X") render thay số tiền.
 - BE staff dashboard `getTeacherSection`: khối "Lớp chưa điền lịch / khảo sát" dùng lần khảo sát hiện tại N chung (semantics `test_number == N`) thay cho `max(test_number)` toàn cục.
 - BE/FE session form: tối giản form tạo/sửa buổi học — thêm `sessions.lesson_content` + `sessions.homework` (bắt buộc), toggle **Dạy thử** (`coefficient=0|1`), **Điểm danh học sinh** (bảng Trạng thái | Tên | Ghi chú | Học phí), inline save trợ cấp (admin edit), nút **Copy nhận xét** format Zalo 4 phần; bỏ UI hệ số 0–1, checkbox phí vận hành, field `sessions.notes` và ô trợ cấp thủ công riêng.
@@ -61,6 +62,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
+- FE session form (`AddSessionPopup`, dialog chỉnh sửa trong `SessionHistoryTable`): modal cố định giữa viewport (`SessionFormDialog` trong `session-form-ui.tsx`), khóa scroll nền; chỉ nội dung form cuộn bên trong — không còn scroll cả trang phía sau popup.
 - BE cảnh báo chưa dạy: sửa so khớp `session.startTime` (`@db.Time`) dùng wall-clock từ ISO/UTC thay vì `getHours()` local — tránh false positive khi server TZ `Asia/Ho_Chi_Minh` khiến buổi đã ghi (ví dụ `01/06/2026 09:00`) vẫn hiện trong card **Cảnh báo chưa dạy**.
 - FE `/admin/notification`: dedupe nhãn người nhận và dùng key theo index để tránh cảnh báo React duplicate key khi cùng một role (ví dụ `@admin`) xuất hiện ở cả `targetRoleTypes` và `targetStaffRoles`.
 - FE phân quyền `accountant_expense`: mở các trang chi tiết role của nhân sự khác trên staff shell (`/staff/customer-care-detail/[staffId]`, `/staff/lesson-plan-detail/[staffId]`, `/staff/*-detail?staffId=...`) và render admin-like detail thay vì self-service khi có `staffId`.

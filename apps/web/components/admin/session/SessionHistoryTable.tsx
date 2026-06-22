@@ -39,6 +39,9 @@ import {
   SessionAttendanceAllowancePreviewStrip,
   SessionAttendanceEditor,
   SessionCopyCommentButton,
+  SessionFormDialog,
+  SessionFormDialogBody,
+  SessionFormDialogFooter,
   SessionFormDialogHeader,
   SessionTeacherAllowanceEstimateCard,
   TrialLessonToggle,
@@ -2515,36 +2518,22 @@ export default function SessionHistoryTable({
         </>
       ) : null}
 
-      {editingSession && (
-        <>
-          <div
-            className="fixed inset-0 z-40 bg-bg-primary/75 backdrop-blur-[2px]"
-            aria-hidden
-            onClick={closeEdit}
-          />
-          <div className="fixed inset-0 z-50 overflow-y-auto overscroll-contain p-2 sm:p-4">
-            <div
-              className={`mx-auto flex min-h-full w-full items-start py-2 sm:items-center sm:py-0 ${
-                isWideEditor ? "max-w-[72rem]" : "max-w-3xl"
-              }`}
-            >
-              <div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="edit-session-title"
-                className="my-auto flex max-h-[calc(100dvh-1rem)] min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-surface p-4 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:p-6"
-              >
-                <SessionFormDialogHeader
-                  title={readOnlySessionDetails ? "Chi tiết buổi học" : "Chỉnh sửa buổi học"}
-                  tuitionText={editHeaderTuition}
-                  allowanceText={editHeaderAllowance}
-                  onClose={closeEdit}
-                  titleId="edit-session-title"
-                />
+      <SessionFormDialog
+        open={Boolean(editingSession)}
+        onClose={closeEdit}
+        titleId="edit-session-title"
+        maxWidthClass={isWideEditor ? "max-w-[72rem]" : "max-w-3xl"}
+      >
+        <SessionFormDialogHeader
+          title={readOnlySessionDetails ? "Chi tiết buổi học" : "Chỉnh sửa buổi học"}
+          tuitionText={editHeaderTuition}
+          allowanceText={editHeaderAllowance}
+          onClose={closeEdit}
+          titleId="edit-session-title"
+        />
 
-                <div className="min-h-0 flex-1 overflow-y-scroll">
-                  <div className="min-h-0 h-full space-y-6 overflow-y-auto pr-1 sm:pr-2">
-                    <div className="space-y-5">
+        <SessionFormDialogBody>
+          <div className="space-y-5">
                       <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
                         <span>
                           Ngày học <RequiredMark />
@@ -2823,10 +2812,9 @@ export default function SessionHistoryTable({
                     </label>
 
                     <SessionCopyCommentButton text={zaloCommentText} />
-                  </div>
-                </div>
+        </SessionFormDialogBody>
 
-                <div className="mt-4 grid shrink-0 grid-cols-1 gap-2 border-t border-border-default pt-4 min-[380px]:grid-cols-2 sm:flex sm:justify-end">
+        <SessionFormDialogFooter>
                   <button
                     type="button"
                     onClick={closeEdit}
@@ -2843,12 +2831,8 @@ export default function SessionHistoryTable({
                       Lưu
                     </button>
                   )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+        </SessionFormDialogFooter>
+      </SessionFormDialog>
     </>
   );
 }
