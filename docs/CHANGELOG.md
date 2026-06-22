@@ -30,6 +30,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 - BE/FE admin dashboard: thẻ cảnh báo lớp đổi sang **"Lớp chưa báo cáo lần {N}"** (tiêu đề động theo `summary.currentSurveyRound`), nguồn dữ liệu = lớp `running` thiếu `class_surveys.test_number = N` (bỏ wiring rủi ro công nợ cũ); action alert thêm trường `detail` ("Mới nhất: lần X") render thay số tiền.
 - BE staff dashboard `getTeacherSection`: khối "Lớp chưa điền lịch / khảo sát" dùng lần khảo sát hiện tại N chung (semantics `test_number == N`) thay cho `max(test_number)` toàn cục.
+- BE/FE session form: tối giản form tạo/sửa buổi học — thêm `sessions.lesson_content` + `sessions.homework` (bắt buộc), toggle **Dạy thử** (`coefficient=0|1`), **Điểm danh học sinh** (bảng Trạng thái | Tên | Ghi chú | Học phí), inline save trợ cấp (admin edit), nút **Copy nhận xét** format Zalo 4 phần; bỏ UI hệ số 0–1, checkbox phí vận hành, field `sessions.notes` và ô trợ cấp thủ công riêng.
+- FE `/admin/classes/[id]`: mở quyền nút **Thêm buổi học** cho trợ lí (`assistant`, khớp backend); popup chỉ đóng sau khi `POST /sessions` thành công; tự chuyển tháng lịch sử nếu ngày buổi mới khác tháng đang xem.
 
 - FE `MissedTeachingAlertsCard`: khôi phục accordion thu gọn (title `Cảnh báo chưa dạy (n)`, badge **Chưa giải trình** / **Đã giải trình · chưa bù**, mặc định đóng, mở một dòng/lần); panel mở chia 2 cột desktop (trái giải trình, phải xếp bù), mobile stack 1 cột; khi >4 cảnh báo thì list accordion scroll trong card — áp dụng `/admin/classes/[id]`, `/staff/classes/[id]`, `/admin/staffs/[id]`.
 - FE session form (`AddSessionPopup`, `SessionHistoryTable`): gỡ checkbox **Tính phí vận hành**; buổi mới/cập nhật luôn snapshot % vận hành theo cấu hình lớp/gia sư (API legacy `includeTeacherOperatingDeduction` giữ cho buổi cũ).
@@ -121,7 +123,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 - FE `TutorCard` (`/admin/classes/[id]`, `/staff/classes/[id]` qua admin-like detail): **Trợ cấp** + **Vận hành** chỉ hiển thị với `admin`, `assistant`, `accountant`; các role khác giữ layout gia sư như trước (tên + trạng thái).
 
-- FE `/admin/classes/[id]`: nút thêm buổi học chỉ hiện với admin (khớp `POST /sessions`); validate lớp phải có gia sư phụ trách và học sinh `active` trước khi mở popup; sau tạo buổi invalidate lịch sử tháng hiện tại. `AddSessionPopup` gợi ý dropdown gia sư chỉ lấy từ roster lớp.
+- FE `/admin/classes/[id]`: nút thêm buổi học hiện với admin đầy đủ và trợ lí (khớp `POST /sessions`); validate lớp phải có gia sư phụ trách và học sinh `active` trước khi mở popup; sau tạo buổi invalidate lịch sử buổi học theo lớp. `AddSessionPopup` gợi ý dropdown gia sư chỉ lấy từ roster lớp.
 
 - FE `SessionHistoryTable` `variant="classDetail"`: layout dòng buổi học 3 cột (thời gian | nhận xét | thông tin + xóa) dùng chung cho `/admin/classes/[id]`, `/admin/staffs/[id]`, `/staff/profile`, `/staff/classes/[id]`; `entityMode="class"` hiển thị tên lớp ở cột phải thay vì gia sư.
 - FE `SessionHistoryTable` `variant="classDetail"`: phần **Thông tin** trên trang lớp luôn hiển thị gia sư của từng buổi học, kể cả khi layout cha đang ẩn cột thực thể riêng.

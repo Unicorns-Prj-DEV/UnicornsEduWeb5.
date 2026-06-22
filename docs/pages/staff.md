@@ -112,8 +112,8 @@
     - `Lịch sử buổi học` của chính mình, kèm điều hướng sang lớp phụ trách để tạo buổi học mới và nhập khảo sát lớp
   - popup thưởng trên `/staff/profile` dùng cùng bố cục/form với popup add bonus ở admin staff detail: `loại công việc` dạng dropdown có search, `số tiền`, `trạng thái thanh toán` dạng chỉ đọc, `ghi chú`; ở self-service bản ghi tạo ra vẫn luôn được backend khóa về `pending` và khi chỉnh sửa cũng không được tự đổi `payment status`
   - từ section `Lớp phụ trách` trên `/staff/profile`, teacher/admin chỉ đi vào `/staff/classes/[id]` với lớp còn phân công hiện tại; lớp hiển thị **NGHỈ DẠY** là read-only trong hồ sơ cá nhân
-  - popup thêm buổi học chỉ còn nằm ở `/staff/classes/[id]`, tiếp tục dùng flow `staff-ops` với các field ngày học, giờ học, `coefficient` (hệ số 0.0–1.0), ghi chú, điểm danh (mặc định trạng thái điểm danh khởi tạo là `vắng`); roster khi tạo buổi mới chỉ lấy học sinh trạng thái `active`; header popup hiển thị đồng thời **Học phí** (màu xanh, chỉ hiện với `admin`/`accountant_income`) và **Trợ cấp gia sư** (màu text chính, hiện với mọi role); các field tài chính còn lại như `allowanceAmount`, học phí override và mọi khả năng chỉnh `custom allowance` / `operating_deduction_rate_percent` vẫn bị khóa
-  - từ bảng `Lịch sử buổi học` trên `/staff/profile`, staff có thể bấm toàn bộ dòng/card buổi học để mở form chỉnh sửa buổi học, cập nhật lại ngày giờ, `coefficient` (hệ số 0.0–1.0), ghi chú và điểm danh; header popup chỉnh sửa cũng hiển thị **Học phí** theo policy role như trên và **Trợ cấp gia sư** cho mọi role; khối **Trợ cấp buổi** lấy cấu hình lớp qua `GET /staff-ops/classes/:id` (không gọi admin `/class/:id`) và chỉ hiển thị số/ước tính read-only. Popup này vẫn không cho chỉnh trợ cấp, học phí hay phí vận hành
+  - popup thêm buổi học chỉ còn nằm ở `/staff/classes/[id]`, tiếp tục dùng flow `staff-ops` với các field ngày học, giờ học, toggle **Dạy thử**, **Điểm danh học sinh** (bảng Trạng thái | Tên | Ghi chú | Học phí), **Nội dung bài học**, **Bài tập về nhà** (bắt buộc); roster khi tạo buổi mới chỉ lấy học sinh trạng thái `active`; header popup **không** hiển thị học phí/trợ cấp/trạng thái thanh toán cho gia sư; nút **Copy nhận xét** format Zalo 4 phần
+  - từ bảng `Lịch sử buổi học` trên `/staff/profile`, staff có thể bấm toàn bộ dòng/card buổi học để mở form chỉnh sửa buổi học, cập nhật lại ngày giờ, toggle **Dạy thử**, nội dung bài học, BTVN, nhận xét từng HS và điểm danh; header popup chỉnh sửa ẩn học phí/trạng thái thanh toán; khối **Trợ cấp buổi** (nếu hiện) read-only qua `GET /staff-ops/classes/:id`
   - nếu actor có role `teacher` hoặc là `admin`, các dòng trong section `Lớp phụ trách` mở sang `/staff/classes/[id]` khi lớp còn phân công hiện tại; riêng admin detail `/admin/staffs/[id]` vẫn cho mở lớp đã gắn nhãn **NGHỈ DẠY**
   - nếu actor có role `customer_care`, dòng `customer_care` trong section `Công việc khác` mở sang `/staff/customer-care-detail`
   - các role `assistant`, `accountant_income`, `accountant_expense`, `communication`, `technical`, `training` mở sang self route để xem chi tiết trợ cấp của chính mình; riêng `communication`, `technical` và `training` có thêm tạo mới (pending) trên `/staff/communication-detail`, `/staff/technical-detail` và `/staff/training-detail`
@@ -134,14 +134,14 @@
   - card `Danh sách học sinh` tách thành 2 phần: danh sách học sinh **đang học** và block riêng **Học sinh đã nghỉ** để tránh lẫn trạng thái
   - cho phép chỉnh `khung giờ học`
   - teacher chỉ thấy các session có `teacherId` đúng với hồ sơ staff hiện tại; admin vẫn thấy toàn bộ session của lớp trong tháng đang chọn
-  - cho phép thêm `session` với ngày học, giờ học, `coefficient` (0.0–1.0), note buổi học và điểm danh; note buổi học và ghi chú từng học sinh trong điểm danh dùng rich text editor
-  - cho phép chỉnh `session` gồm ngày học, giờ học, `coefficient` (0.0–1.0), note buổi học và điểm danh; khi mở session cũ, danh sách điểm danh luôn giữ các học sinh đã có attendance của buổi đó kể cả khi hiện tại đã nghỉ, và dữ liệu ghi chú plain text cũ có xuống dòng vẫn được khởi tạo lại đúng dòng trong editor
+  - cho phép thêm `session` với ngày học, giờ học, toggle **Dạy thử**, `lessonContent`, `homework`, nhận xét từng HS và điểm danh compact; rich text cho nội dung bài học/BTVN/nhận xét HS
+  - cho phép chỉnh `session` gồm ngày học, giờ học, toggle **Dạy thử**, `lessonContent`, `homework`, nhận xét từng HS và điểm danh; khi mở session cũ, danh sách điểm danh luôn giữ các học sinh đã có attendance của buổi đó kể cả khi hiện tại đã nghỉ
   - form chỉnh `session` vẫn hiển thị tên gia sư phụ trách ở chế độ chỉ đọc khi self-service không được đổi gia sư
-  - popup chỉnh `session` ở route này giữ cùng nhịp layout với form thêm buổi học: modal `wide`, phần cấu hình buổi học trải đều trước khi xuống block ghi chú và điểm danh
+  - popup chỉnh `session` ở route này mirror layout form thêm (wide modal): cấu hình buổi → điểm danh → nhận xét HS → nội dung/BTVN → copy Zalo
   - attendance `present` và `excused` đều tính học phí (trừ ví học sinh); chỉ `absent` không tạo charge ở backend
   - khi attendance không có học phí override, backend tự dùng mức mặc định hiệu lực của lớp theo thứ tự: custom của học sinh trong lớp → `student_tuition_per_session` của lớp → mức suy ra từ `tuitionPackageTotal / tuitionPackageSession`
   - khối **Lịch sử & Khảo sát** có 2 tab `Buổi học` và `Khảo sát`, dùng chung `MonthNav` theo tháng đang xem
-  - bảng lịch sử buổi học dùng `SessionHistoryTable` `variant="classDetail"` (thời gian | nhận xét | thông tin gồm gia sư, trạng thái, hệ số/điểm danh); hiển thị `trạng thái thanh toán` chỉ đọc; preview trợ cấp khi sửa buổi dùng cấu hình lớp đã tải trên trang hoặc `staff-ops`
+  - bảng lịch sử buổi học dùng `SessionHistoryTable` `variant="classDetail"`; hiển thị `trạng thái thanh toán` chỉ đọc; preview trợ cấp read-only khi sửa buổi
   - tab `Khảo sát` đọc `GET /staff-ops/classes/:id/surveys?month=&year=`; teacher được phân công lớp có thể tạo/sửa/xóa khảo sát do chính mình phụ trách, với trường `Khảo sát lần mấy`, `Ngày báo cáo`, `Người phụ trách` và `Nội dung báo cáo` rich text; `customer_care` chỉ xem
   - card khung giờ học hiển thị luôn `gia sư chịu trách nhiệm` của từng slot; trong staff shell, popup chỉnh lịch vẫn giữ tutor của slot ở chế độ chỉ đọc và không cho staff đổi assignment này
 - `/staff/students/[id]`
@@ -226,7 +226,7 @@
   - tự sửa thông tin cơ bản và thông tin nhận thanh toán cơ bản
   - tự thêm thưởng cho chính mình từ `/staff/profile`; backend luôn tạo ở trạng thái `pending`
   - tự điều chỉnh hoặc xóa thưởng chính mình từ `/staff/profile`; trạng thái thanh toán vẫn do admin/quản trị xử lý
-  - tự thêm và chỉnh sửa buổi học của lớp mình trực tiếp từ `/staff/classes/[id]`; backend vẫn tự áp dụng `customAllowance` hiện có của lớp, còn UI self-service chỉ được gửi `coefficient` (0.0–1.0)
+  - tự thêm và chỉnh sửa buổi học của lớp mình trực tiếp từ `/staff/classes/[id]`; backend vẫn tự áp dụng `customAllowance` hiện có của lớp; UI self-service gửi toggle **Dạy thử** (`coefficient=0|1`), `lessonContent`, `homework` và attendance
   - tự tạo/sửa/xóa khảo sát của lớp mình trực tiếp từ tab `Khảo sát`; backend khóa `teacher_id` về chính staff hiện tại đối với teacher-scoped actor
   - mở các link detail tự phục vụ đúng theo staff roles hiện tại khi route self-service tương ứng tồn tại
 - Staff self role detail pages **được phép**
@@ -298,7 +298,7 @@
   - sửa role staff, status staff hoặc quyền hệ thống
   - tự đổi trạng thái thanh toán thưởng
   - chuyển trạng thái thanh toán buổi học, bonus, lesson output hoặc extra allowance
-  - chỉnh học phí, trợ cấp, `custom allowance`, `operating_deduction_rate_percent` hoặc bất kỳ field finance nào khác ngoài `coefficient` (0.0–1.0) buổi học
+  - chỉnh học phí, trợ cấp, `custom allowance`, `operating_deduction_rate_percent` hoặc bất kỳ field finance nào khác trên buổi học (toggle **Dạy thử** chỉ đổi `coefficient` 0/1)
   - xem hoặc thao tác dữ liệu của staff khác qua route `/staff`
 
 ## Data and API
@@ -407,7 +407,7 @@
 - card **Lớp phụ trách** dùng `classMonthlySummaries` từ `staff-income-summary`; các cột **Tổng / Chưa nhận / Đã nhận** đều là gross allowance trước CPVH/thuế, trong đó **Chưa nhận** là toàn bộ trợ cấp `unpaid/pending` hiện tại của từng lớp, không còn giới hạn 14 ngày gần nhất; `classMonthlySummaries.isCurrentTeacherAssignment=false` hiển thị **NGHỈ DẠY**
 - popup self-edit thay cho `EditStaffPopup`; bonus card trên `/staff` dùng `canManage=true`, giữ CTA thêm thưởng và truyền callback sửa/xóa để bấm từng dòng mở popup điều chỉnh hoặc xóa khoản thưởng/phạt
 - `/staff` không còn CTA thêm buổi học; teacher/admin phải vào từng route `/staff/classes/[id]` từ section `Lớp phụ trách` để tạo buổi học
-- popup chỉnh sửa session trong bảng `Lịch sử buổi học` trên `/staff` chạy với `allowFinancialEdits=false` và `allowCoefficientEdit=true`, nên chỉ mở riêng field hệ số
+- popup chỉnh sửa session trong bảng `Lịch sử buổi học` trên `/staff/profile` chạy với `allowFinancialEdits=false`; form mirror layout mới (Dạy thử, nội dung/BTVN, nhận xét HS, copy Zalo)
 - các route trợ cấp role phụ và lesson-plan dùng cùng visual language với admin; mọi CTA mutate vẫn bị bỏ, **ngoại trừ** `/staff/communication-detail`, `/staff/technical-detail` và `/staff/training-detail`: nút **Thêm trợ cấp** + popup và click vào từng khoản để **chỉnh sửa** (reuse `ExtraAllowanceFormPopup` với ngữ cảnh khóa nhân sự + role, trạng thái bị khóa theo dữ liệu hiện tại, không có xóa)
 - Class detail dùng cùng layout header + card grid với admin class detail (đồng bộ mật độ UI: meta một hàng ·, card/table gọn); vẫn tái sử dụng shared admin components nhưng ẩn mọi thông tin/control liên quan tới finance hoặc thay teacher/student
 - Session editor và add-session popup chạy ở chế độ:
@@ -437,7 +437,7 @@
 - `/staff/profile` chỉ cho chỉnh thông tin cơ bản, ngân hàng và QR
 - `/staff/profile` giữ layout thống kê thu nhập cũ nhưng đổi dòng tiền đầu thành `Thực nhận tháng` authoritative, kèm popup ghi cọc, khối thưởng self-service, công việc khác và lịch sử buổi học (`SessionHistoryTable` `variant="classDetail"`, `entityMode="class"` — cột phải hiển thị tên lớp)
 - `/staff/profile` cho thêm và điều chỉnh thưởng của chính mình; bản ghi mới vẫn ở trạng thái `pending`, còn `payment status` hiện có chỉ hiển thị để xem
-- `/staff/profile` chỉ cho chỉnh sửa buổi học từ bảng lịch sử qua `staff-ops`, cho phép đổi `coefficient` nhưng không cho chỉnh `allowanceAmount`, học phí override hay `custom allowance`
+- `/staff/profile` chỉ cho chỉnh sửa buổi học từ bảng lịch sử qua `staff-ops` (layout form mới); không cho chỉnh `allowanceAmount`, học phí override hay `custom allowance`
 - các dòng role trong `Công việc khác` mở được self route tương ứng nếu actor có role đó
 - `admin` có linked `staffInfo` vào được `/staff`
 - `/staff/classes/[id]` là nơi tạo buổi học mới và cho sửa khung giờ + thêm/sửa session
