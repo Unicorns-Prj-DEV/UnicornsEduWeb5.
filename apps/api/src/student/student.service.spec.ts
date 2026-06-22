@@ -27,6 +27,7 @@ describe('StudentService', () => {
       findUnique: jest.fn(),
       delete: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       count: jest.fn(),
       findMany: jest.fn(),
     },
@@ -1543,6 +1544,59 @@ describe('StudentService', () => {
         description: 'Chuyển học sinh sang nghỉ học - Lý do: Gia đình báo nghỉ',
       }),
     );
+    expect(mockPrisma.studentInfo.updateMany).toHaveBeenCalledWith({
+      where: { id: 'student-1', dropOutDate: null },
+      data: { dropOutDate: expect.any(Date) },
+    });
+  });
+
+  it('clears the drop-out date when a student is reactivated', async () => {
+    mockPrisma.studentInfo.findUnique.mockResolvedValueOnce({
+      id: 'student-1',
+      status: StudentStatus.inactive,
+      userId: 'user-1',
+    });
+    const reactivatedStudent = {
+      id: 'student-1',
+      fullName: 'Nguyen Van A',
+      email: 'student@example.com',
+      parentEmail: 'parent@example.com',
+      accountBalance: 0,
+      school: null,
+      province: null,
+      status: StudentStatus.active,
+      gender: 'male',
+      birthYear: 2010,
+      parentName: null,
+      parentPhone: null,
+      goal: null,
+      dropOutDate: null,
+      createdAt: new Date('2026-03-20T10:00:00.000Z'),
+      updatedAt: new Date('2026-03-21T10:00:00.000Z'),
+      studentClasses: [],
+      examSchedules: [],
+      customerCareServices: null,
+    };
+    mockPrisma.studentInfo.findUnique.mockResolvedValueOnce(reactivatedStudent);
+    mockPrisma.studentInfo.findUnique.mockResolvedValueOnce(reactivatedStudent);
+    mockPrisma.studentInfo.update.mockResolvedValue({
+      id: 'student-1',
+      status: StudentStatus.active,
+    });
+
+    await expect(
+      service.updateStudentStatus(
+        'student-1',
+        { status: StudentStatus.active },
+        { userId: 'assistant-1', roleType: UserRole.staff },
+      ),
+    ).resolves.toMatchObject({ id: 'student-1', status: StudentStatus.active });
+
+    expect(mockPrisma.studentInfo.updateMany).toHaveBeenCalledWith({
+      where: { id: 'student-1', dropOutDate: { not: null } },
+      data: { dropOutDate: null },
+    });
+    expect(mockPrisma.studentClass.updateMany).not.toHaveBeenCalled();
   });
 
   it('returns sanitized student landing profiles with default active filter', async () => {
