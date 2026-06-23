@@ -16,7 +16,9 @@ import {
   resolveAdminLikeRouteBase,
 } from "@/lib/admin-shell-paths";
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
-import { authKeys, classKeys } from "@/lib/query-keys";
+import { authKeys, classKeys, uniojKeys } from "@/lib/query-keys";
+import { getClassesLevels } from "@/lib/apis/unioj.api";
+import { LevelBadge } from "@/components/ui/LevelBadge";
 import { cn } from "@/lib/utils";
 
 const SEARCH_DEBOUNCE_MS = 1000;
@@ -252,6 +254,16 @@ export default function AdminClassesPage() {
     push(buildAdminLikePath(routeBase, `classes/${classId}`));
   };
 
+  const classIds = useMemo(() => list.map((item) => item.id), [list]);
+
+  const { data: classesLevels, isLoading: isLoadingLevels } = useQuery({
+    queryKey: uniojKeys.classesLevels(classIds),
+    queryFn: () => getClassesLevels(classIds),
+    enabled: classIds.length > 0,
+    staleTime: 60_000,
+    retry: false,
+  });
+
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-3 sm:p-6">
       <div className="flex min-w-0 flex-1 flex-col rounded-xl border border-border-default bg-bg-surface p-3 shadow-sm sm:rounded-lg sm:p-5">
@@ -404,17 +416,25 @@ export default function AdminClassesPage() {
                         ) : null}
                       </div>
                     </div>
-                    <div className="mt-2 grid grid-cols-[56px_1fr] gap-x-2 gap-y-1 text-xs">
+                    <div className="mt-2 grid grid-cols-[56px_1fr] gap-x-2 gap-y-1 text-xs items-center">
                       <span className="text-text-muted">Loại</span>
                       <span className="text-text-secondary">{TYPE_LABELS[row.type] ?? row.type}</span>
                       <span className="text-text-muted">Sĩ số</span>
-                      <span>
+                      <div>
                         <span
                           className={`inline-flex rounded-full border px-2 py-0.5 font-medium ${seatBadgeClass(row.studentCount, row.maxStudents)}`}
                         >
                           {formatSeatSummary(row.studentCount, row.maxStudents)}
                         </span>
-                      </span>
+                      </div>
+                      <span className="text-text-muted">Level</span>
+                      <div>
+                        {isLoadingLevels ? (
+                          <span className="text-[11px] text-text-muted">Đang tải...</span>
+                        ) : (
+                          <LevelBadge level={classesLevels?.[row.id]} />
+                        )}
+                      </div>
                     </div>
                   </article>
                 ))}
@@ -434,6 +454,9 @@ export default function AdminClassesPage() {
                       </th>
                       <th scope="col" className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         Sĩ số / tối đa
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                        Level lớp
                       </th>
                       <th scope="col" className="w-16 px-4 py-3">
                         <span className="sr-only">Xóa</span>
@@ -479,6 +502,13 @@ export default function AdminClassesPage() {
                           >
                             {formatSeatSummary(row.studentCount, row.maxStudents)}
                           </span>
+                        </td>
+                        <td className="px-4 py-3 align-middle text-left text-text-secondary">
+                          {isLoadingLevels ? (
+                            <span className="text-[11px] text-text-muted">Đang tải...</span>
+                          ) : (
+                            <LevelBadge level={classesLevels?.[row.id]} />
+                          )}
                         </td>
                         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
