@@ -266,6 +266,7 @@ export default function AddSessionPopup({
   const [homework, setHomework] = useState("");
   const [lessonContentError, setLessonContentError] = useState("");
   const [homeworkError, setHomeworkError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isTrialLesson, setIsTrialLesson] = useState(false);
   const [teacherPaymentStatus, setTeacherPaymentStatus] = useState<string>("unpaid");
   const [selectedTeacherId, setSelectedTeacherId] = useState(
@@ -453,6 +454,7 @@ export default function AddSessionPopup({
 
   const handleSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isSubmitting) return;
     setLessonContentError("");
     setHomeworkError("");
 
@@ -535,6 +537,7 @@ export default function AddSessionPopup({
       ),
     };
 
+    setIsSubmitting(true);
     runBackgroundSave({
       loadingMessage: "Đang thêm buổi học...",
       successMessage: "Đã thêm buổi học.",
@@ -544,6 +547,9 @@ export default function AddSessionPopup({
         await queryClient.invalidateQueries({ queryKey: ["sessions", "class", classId] });
         onClose();
         onCreated?.(createdSession);
+      },
+      onError: () => {
+        setIsSubmitting(false);
       },
     });
   };
@@ -787,9 +793,10 @@ export default function AddSessionPopup({
                 </button>
                 <button
                   type="submit"
-                  className="min-h-11 rounded-xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  disabled={isSubmitting}
+                  className="min-h-11 rounded-xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Thêm buổi học
+                  {isSubmitting ? "Đang thêm..." : "Thêm buổi học"}
                 </button>
         </SessionFormDialogFooter>
       </form>
