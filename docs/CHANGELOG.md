@@ -26,6 +26,11 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - BE: bảng single-row `survey_round` (`current_round`, seed = 6) + `SurveyRoundService` quản lý **lần khảo sát hiện tại** toàn cục; `SurveysController` strict-admin (`GET /surveys/round`, `GET /surveys/missing-classes`, `PATCH /surveys/round`) với Swagger đầy đủ, audit `action_history` entity `survey_round`.
 - FE: trang admin-only `/admin/surveys` (Khảo sát) — header KPI lần khảo sát + ô **Đặt lần khảo sát** (nhập trực tiếp số N), danh sách lớp `running` chưa báo cáo lần N (track-only, link `/admin/classes/:id`), TanStack Query + Sonner, mobile-first; thêm mục sidebar **Khảo sát** (adminOnly) và `/admin/surveys` vào `STRICT_ADMIN_ROUTE_PREFIXES`.
 
+
+### Fixed
+
+- FE session history (`SessionHistoryTable`): cột/card **Nhận xét** hiển thị lại đúng sau khi form buổi học chuyển sang `lessonContent`/`homework`/nhận xét HS — fallback dựng text template Zalo khi `sessions.notes` trống; khi lưu tạo/sửa buổi học tự ghi template Zalo vào `sessions.notes` (đồng bộ với nút Copy nhận xét). Buổi cũ có `notes` HTML legacy vẫn sanitize và render rich text thay vì hiện raw tag dù đã có `lesson_content`. Template Zalo: tiêu đề `Nhận xét buổi học lớp …`, dòng `⏰ HH:mm - HH:mm` parse đúng từ `HH:mm:ss` hoặc ISO time của session (fix thiếu phút khi đọc ISO).
+
 ### Changed
 
 - FE `/admin/classes/[id]` (và mirror `/staff/classes/[id]` cho trợ lí): mở quyền quản lý roster học sinh (`canManageClassStudents`) cho `assistant` — popup **Chỉnh sửa** ở mode `roster`, nút **Nghỉ học**, thêm/xóa học sinh khớp backend `PATCH /class/:id/students`.
