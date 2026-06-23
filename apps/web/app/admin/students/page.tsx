@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { StudentListTableSkeleton } from "@/components/admin/student";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
+import { StudentLevelBadge } from "@/components/ui/LevelBadge";
 import {
   StudentGender,
   StudentListItem,
@@ -24,7 +25,6 @@ import { getFullProfile } from "@/lib/apis/auth.api";
 import * as studentApi from "@/lib/apis/student.api";
 import { formatCurrency } from "@/lib/class.helpers";
 import { copyStudentWalletQrWithToast } from "@/lib/clipboard-qr";
-import { getActiveClassItemsFromStudent } from "@/lib/student-static-qr";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
@@ -574,8 +574,6 @@ export default function AdminStudentsPage() {
                 <div className="block space-y-3 md:hidden" role="list" aria-label="Danh sách học sinh">
                 {list.map((student) => {
                   const status = normalizeStatus(student.status);
-                  const classItems = getActiveClassItemsFromStudent(student);
-                  const province = student.province?.trim() || "—";
                   const balance = student.accountBalance ?? 0;
                   const balanceClassName = balanceTextClass(balance);
                   const recentTopUpTotal = student.recentTopUpTotalLast21Days ?? 0;
@@ -635,35 +633,21 @@ export default function AdminStudentsPage() {
                         </div>
                       </div>
 
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {classItems.length > 0 ? (
-                          classItems.map((item) => (
-                            <span
-                              key={item.id}
-                              className="inline-flex shrink-0 rounded-full bg-bg-tertiary px-2 py-0.5 text-xs font-medium text-text-secondary"
-                            >
-                              {item.name}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-xs text-text-muted">Chưa xếp lớp</span>
-                        )}
+                      <div className="mt-2.5 flex items-center gap-2">
+                        <span className="text-xs text-text-secondary font-medium">Level:</span>
+                        <StudentLevelBadge fullName={student.fullName} />
                       </div>
 
-                      <div className="mt-2 flex flex-col gap-1 text-sm text-text-secondary">
-                        <span className="truncate">Tỉnh: {province}</span>
-                      </div>
-
-                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                        <div className="flex items-center justify-between gap-3 rounded-lg border border-border-default bg-bg-secondary/50 px-3 py-2">
-                          <span className="text-xs font-medium text-text-secondary">Số dư</span>
-                          <span className={`text-sm font-semibold tabular-nums ${balanceClassName}`}>
+                      <div className="mt-2.5 rounded-lg border border-border-default bg-bg-secondary/40 px-3 py-2">
+                        <div className="flex items-center justify-between text-xs text-text-secondary">
+                          <span className="font-medium">Số dư:</span>
+                          <span className={`font-semibold tabular-nums ${balanceClassName}`}>
                             {formatCurrency(balance)}
                           </span>
                         </div>
-                        <div className="flex items-center justify-between gap-3 rounded-lg border border-border-default bg-bg-secondary/50 px-3 py-2">
-                          <span className="text-xs font-medium text-text-secondary">Tiền vào</span>
-                          <span className={`text-sm font-semibold tabular-nums ${recentTopUpClassName}`}>
+                        <div className="mt-1.5 flex items-center justify-between text-[11px] text-text-muted">
+                          <span>Tiền vào:</span>
+                          <span className={`font-medium tabular-nums ${recentTopUpClassName}`}>
                             {formatCurrency(recentTopUpTotal)}
                           </span>
                         </div>
@@ -683,23 +667,17 @@ export default function AdminStudentsPage() {
                   <thead>
                     <tr className="border-b border-border-default bg-bg-secondary/80">
                       <th scope="col" className="w-[5%] min-w-10 px-2 py-3" aria-label="Trạng thái" />
-                      <th scope="col" className="w-[22%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                      <th scope="col" className="w-[25%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         Học sinh
                       </th>
                       <th scope="col" className="w-[6%] min-w-10 px-2 py-3 text-center text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         <span className="sr-only">QR</span>
                       </th>
-                      <th scope="col" className="w-[13%] min-w-0 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-text-secondary">
-                        Số dư
+                      <th scope="col" className="w-[20%] min-w-0 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                        Số dư / Tiền vào
                       </th>
-                      <th scope="col" className="w-[13%] min-w-0 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-text-secondary">
-                        Tiền vào
-                      </th>
-                      <th scope="col" className="w-[15%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
-                        Tỉnh
-                      </th>
-                      <th scope="col" className="w-[22%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
-                        Lớp
+                      <th scope="col" className="w-[40%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                        Level
                       </th>
                       <th scope="col" className="w-[4%] min-w-10 px-2 py-3 text-right" aria-label="Xóa" />
                     </tr>
@@ -707,7 +685,6 @@ export default function AdminStudentsPage() {
                   <tbody>
                     {list.map((student) => {
                       const status = normalizeStatus(student.status);
-                      const classItems = getActiveClassItemsFromStudent(student);
                       const balance = student.accountBalance ?? 0;
                       const balanceClassName = balanceTextClass(balance);
                       const recentTopUpTotal = student.recentTopUpTotalLast21Days ?? 0;
@@ -758,36 +735,20 @@ export default function AdminStudentsPage() {
                               </button>
                             ) : null}
                           </td>
-                          <td className="px-4 py-3 text-right align-middle">
-                            <span className={`inline-block whitespace-nowrap tabular-nums font-semibold ${balanceClassName}`}>
-                              {formatCurrency(balance)}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right align-middle">
-                            <span className={`inline-block whitespace-nowrap tabular-nums font-semibold ${recentTopUpClassName}`}>
-                              {formatCurrency(recentTopUpTotal)}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-text-primary">
-                            <span className="block truncate">
-                              {student.province?.trim() || "—"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 align-middle text-text-secondary">
-                            {classItems.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {classItems.map((item) => (
-                                  <span
-                                    key={item.id}
-                                    className="inline-flex rounded-full bg-bg-tertiary px-2 py-0.5 text-xs font-medium text-text-secondary"
-                                  >
-                                    {item.name}
-                                  </span>
-                                ))}
+                           <td className="px-4 py-3 text-right align-middle">
+                            <div className="flex flex-col gap-1 text-right">
+                              <div className="text-sm font-semibold tabular-nums text-text-primary">
+                                <span className="text-[10px] text-text-muted mr-1 font-normal">Số dư:</span>
+                                <span className={balanceClassName}>{formatCurrency(balance)}</span>
                               </div>
-                            ) : (
-                              <span className="text-text-muted">Chưa xếp lớp</span>
-                            )}
+                              <div className="text-xs tabular-nums text-text-secondary">
+                                <span className="text-[10px] text-text-muted mr-1">Tiền vào:</span>
+                                <span className={recentTopUpClassName}>{formatCurrency(recentTopUpTotal)}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 align-middle text-left">
+                            <StudentLevelBadge fullName={student.fullName} />
                           </td>
                           <td className="px-2 py-3 align-middle text-right" onClick={(e) => e.stopPropagation()}>
                             {canDeleteStudent ? (
