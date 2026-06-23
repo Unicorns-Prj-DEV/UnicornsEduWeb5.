@@ -6,6 +6,8 @@ import type { SessionAttendanceStatus } from "@/dtos/session.dto";
 import { formatCurrency } from "@/lib/class.helpers";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import { sessionStudentCommentPlaceholder } from "@/lib/session-comment-zalo.helpers";
+import type { SessionCommentDisplayContent } from "@/lib/session-comment-zalo.helpers";
+import { sanitizeRichTextContent } from "@/lib/sanitize";
 
 /** Chuẩn hóa "HH:mm" hoặc "HH:mm:ss" để tính phút. */
 function parseTimeToMinutes(time: string): number | null {
@@ -957,5 +959,41 @@ export function SessionCopyCommentButton({
       </svg>
       {copying ? "Đang copy…" : "Copy nhận xét"}
     </button>
+  );
+}
+
+type SessionCommentPreviewProps = {
+  content: SessionCommentDisplayContent;
+  emptyText?: string;
+  className?: string;
+};
+
+export function SessionCommentPreview({
+  content,
+  emptyText = "Không có ghi chú.",
+  className = "",
+}: SessionCommentPreviewProps) {
+  if (!content.text) {
+    return <span className={`text-text-muted ${className}`.trim()}>{emptyText}</span>;
+  }
+
+  if (content.mode === "html") {
+    const html = sanitizeRichTextContent(content.text);
+    if (!html) {
+      return <span className={`text-text-muted ${className}`.trim()}>{emptyText}</span>;
+    }
+
+    return (
+      <div
+        className={`prose prose-xs max-w-none break-words text-text-primary [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:mb-1 [&_p:last-child]:mb-0 [&_strong]:font-bold [&_ul]:list-disc [&_ul]:pl-4 ${className}`.trim()}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    );
+  }
+
+  return (
+    <p className={`whitespace-pre-wrap break-words text-text-primary ${className}`.trim()}>
+      {content.text}
+    </p>
   );
 }

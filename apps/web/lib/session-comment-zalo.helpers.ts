@@ -34,8 +34,38 @@ function formatVnDateLabel(date: string): string {
 
 function formatTimeLabel(time: string | null | undefined): string {
   if (!time) return "";
-  const match = /^(\d{2}):(\d{2})/.exec(time.trim());
-  return match ? `${match[1]}:${match[2]}` : time.trim();
+
+  const raw = time.trim();
+  if (!raw) return "";
+
+  const directMatch = raw.match(/^(\d{2}):(\d{2})(?::\d{2})?$/);
+  if (directMatch) {
+    return `${directMatch[1]}:${directMatch[2]}`;
+  }
+
+  const isoMatch = raw.match(/T(\d{2}):(\d{2})(?::\d{2})?/);
+  if (isoMatch) {
+    return `${isoMatch[1]}:${isoMatch[2]}`;
+  }
+
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function formatSessionTimeRangeLabel(
+  startTime?: string | null,
+  endTime?: string | null,
+): string {
+  const startLabel = formatTimeLabel(startTime);
+  const endLabel = formatTimeLabel(endTime);
+
+  if (startLabel && endLabel) {
+    return `${startLabel} - ${endLabel}`;
+  }
+
+  return startLabel || endLabel || "";
 }
 
 function attendanceStatusLabel(status: SessionAttendanceStatus): string {
@@ -65,12 +95,7 @@ export function buildSessionCommentZaloText(
   input: BuildSessionCommentZaloTextInput,
 ): string {
   const dateLabel = formatVnDateLabel(input.date);
-  const startLabel = formatTimeLabel(input.startTime);
-  const endLabel = formatTimeLabel(input.endTime);
-  const timeRange =
-    startLabel && endLabel
-      ? `${startLabel}–${endLabel}`
-      : startLabel || endLabel || "";
+  const timeRange = formatSessionTimeRangeLabel(input.startTime, input.endTime);
 
   const makeupLabel = input.makeupOriginalDate
     ? formatVnDateLabel(input.makeupOriginalDate)
@@ -95,8 +120,9 @@ export function buildSessionCommentZaloText(
       return `${student.fullName} (${attendanceStatusLabel(student.status)}): ${note}`;
     });
 
+  const classLabel = input.className.trim() || "—";
   const lines: string[] = [
-    `📚 Buổi học ${input.className.trim() || "—"} — ${dateLabel}`,
+    `📚 Nhận xét buổi học lớp ${classLabel} — ${dateLabel}`,
   ];
 
   if (timeRange) {
@@ -120,4 +146,82 @@ export function buildSessionCommentZaloText(
 
 export function isRichTextNonEmpty(value: string | null | undefined): boolean {
   return stripRichTextToPlainText(value).length > 0;
+}
+
+export type SessionCommentZaloSource = {
+  className?: string | null;
+  date: string;
+  startTime?: string | null;
+  endTime?: string | null;
+  makeupOriginalDate?: string | null;
+  notes?: string | null;
+  lessonContent?: string | null;
+  homework?: string | null;
+  attendance?: Array<{
+    status: SessionAttendanceStatus;
+    notes?: string | null;
+    student?: { fullName?: string | null } | null;
+  }> | null;
+};
+
+export function buildSessionCommentZaloTextFromSession(
+  session: SessionCommentZaloSource,
+): string {
+  return buildSessionCommentZaloText({
+    className: session.className?.trim() || "—",
+    date: session.date,
+    startTime: session.startTime,
+    endTime: session.endTime,
+    makeupOriginalDate: session.makeupOriginalDate ?? null,
+    lessonContent: session.lessonContent ?? session.notes ?? "",
+    homework: session.homework ?? "",
+    students: (session.attendance ?? []).map((attendanceItem) => ({
+      fullName: attendanceItem.student?.fullName?.trim() || "—",
+      status: attendanceItem.status,
+      notes: attendanceItem.notes,
+    })),
+  });
+}
+
+function looksLikeHtmlRichText(value: string): boolean {
+  return /<[a-z][a-z0-9]*\b[^>]*>/i.test(value);
+}
+
+function looksLikeZaloCommentTemplate(value: string): boolean {
+  const trimmed = value.trim();
+  return (
+    /^📚\s*Nhận xét buổi học lớp/m.test(trimmed) ||
+    /^📚\s*Buổi học/m.test(trimmed) ||
+    /1️⃣\s*Nhận xét ngày/.test(trimmed)
+  );
+}
+
+export type SessionCommentDisplayContent = {
+  mode: "html" | "plain";
+  text: string;
+};
+
+export function resolveSessionCommentDisplayContent(
+  session: SessionCommentZaloSource,
+): SessionCommentDisplayContent {
+  const notes = session.notes?.trim() ?? "";
+  const hasStructuredFields = Boolean(
+    session.lessonContent?.trim() || session.homework?.trim(),
+  );
+
+  if (notes) {
+    if (looksLikeHtmlRichText(notes) && !looksLikeZaloCommentTemplate(notes)) {
+      return { mode: "html", text: notes };
+    }
+    return { mode: "plain", text: notes };
+  }
+
+  if (hasStructuredFields) {
+    return {
+      mode: "plain",
+      text: buildSessionCommentZaloTextFromSession(session),
+    };
+  }
+
+  return { mode: "plain", text: "" };
 }

@@ -137,7 +137,7 @@
   - cho phép thêm `session` với ngày học, giờ học, toggle **Dạy thử**, `lessonContent`, `homework`, nhận xét từng HS và điểm danh compact; rich text cho nội dung bài học/BTVN/nhận xét HS
   - cho phép chỉnh `session` gồm ngày học, giờ học, toggle **Dạy thử**, `lessonContent`, `homework`, nhận xét từng HS và điểm danh; khi mở session cũ, danh sách điểm danh luôn giữ các học sinh đã có attendance của buổi đó kể cả khi hiện tại đã nghỉ
   - form chỉnh `session` vẫn hiển thị tên gia sư phụ trách ở chế độ chỉ đọc khi self-service không được đổi gia sư
-  - popup chỉnh `session` ở route này mirror layout form thêm (wide modal): cấu hình buổi → điểm danh → nhận xét HS → nội dung/BTVN → copy Zalo
+  - popup chỉnh `session` ở route này mirror layout form thêm (wide modal): cấu hình buổi → điểm danh → nhận xét HS → nội dung/BTVN → copy Zalo; khi lưu, text template Zalo được ghi vào `sessions.notes` và card/bảng lịch sử đọc từ đó (fallback dựng template nếu buổi cũ chưa có `notes`)
   - attendance `present` và `excused` đều tính học phí (trừ ví học sinh); chỉ `absent` không tạo charge ở backend
   - khi attendance không có học phí override, backend tự dùng mức mặc định hiệu lực của lớp theo thứ tự: custom của học sinh trong lớp → `student_tuition_per_session` của lớp → mức suy ra từ `tuitionPackageTotal / tuitionPackageSession`
   - khối **Lịch sử & Khảo sát** có 2 tab `Buổi học` và `Khảo sát`, dùng chung `MonthNav` theo tháng đang xem

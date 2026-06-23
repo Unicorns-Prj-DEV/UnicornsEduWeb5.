@@ -274,7 +274,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `max_allowance_per_session` không snapshot tại `sessions`; các aggregate payroll/report đọc động từ `classes.max_allowance_per_session` tại thời điểm query, nên thay đổi cấu hình lớp có thể ảnh hưởng kết quả historical aggregate.
 - `lesson_content` (`TEXT`, nullable): nội dung bài học (LEVEL, CONTEST, kiến thức đã dạy); bắt buộc khi tạo/cập nhật buổi qua API.
 - `homework` (`TEXT`, nullable): bài tập về nhà; bắt buộc khi tạo/cập nhật buổi qua API.
-- `notes` (`TEXT`, nullable): field legacy; dữ liệu cũ có thể được backfill sang `lesson_content`. UI mới không còn hiển thị field này.
+- `notes` (`TEXT`, nullable): bản ghi text template Zalo 4 phần (đồng bộ với nút **Copy nhận xét**); FE ghi khi tạo/cập nhật buổi từ `lesson_content`, `homework` và `attendance.notes`. Dữ liệu cũ có thể là HTML legacy hoặc đã backfill sang `lesson_content`. Form mới không còn ô nhập trực tiếp `notes`.
 - Snapshot khấu trừ theo buổi:
   - `teacher_tax_rate_percent` (`DECIMAL(5,2)`, default `0`, Prisma field `teacherOperatingDeductionRatePercent`): snapshot mức **khấu trừ vận hành** effective của cặp gia sư-lớp; trước thanh toán được refresh khi tạo/cập nhật session, khi chuyển sang `paid` được snapshot lại theo thời điểm thanh toán.
     - Buổi mới/cập nhật luôn snapshot theo `class_teachers.operatingDeductionRatePercent` hiện hành; FE không còn toggle tắt phí vận hành từng buổi. Field request `includeTeacherOperatingDeduction=false` vẫn tồn tại ở API (legacy) nhưng UI không gửi; buổi cũ đã snapshot `0%` giữ nguyên cho lịch sử thanh toán.

@@ -526,6 +526,7 @@ export default function AddSessionPopup({
       endTime: normalizedEndTime,
       lessonContent: trimmedLessonContent,
       homework: trimmedHomework,
+      notes: zaloCommentText,
       coefficient: coeffNum,
       ...(allowFinancialFields ? { teacherPaymentStatus } : {}),
       attendance: toAttendancePayload(

@@ -18,7 +18,6 @@ type SessionAttendanceRecordWithStudent = SessionAttendanceRecord & {
 import { ClassDetail } from "@/dtos/class.dto";
 import {
   normalizeOptionalRichTextContent,
-  sanitizeRichTextContent,
 } from "@/lib/sanitize";
 import { formatCurrency } from "@/lib/class.helpers";
 import {
@@ -29,6 +28,7 @@ import {
 import {
   buildSessionCommentZaloText,
   isRichTextNonEmpty,
+  resolveSessionCommentDisplayContent,
   SESSION_HOMEWORK_PLACEHOLDER,
   SESSION_LESSON_CONTENT_PLACEHOLDER,
 } from "@/lib/session-comment-zalo.helpers";
@@ -39,6 +39,7 @@ import {
   SessionAttendanceAllowancePreviewStrip,
   SessionAttendanceEditor,
   SessionCopyCommentButton,
+  SessionCommentPreview,
   SessionFormDialog,
   SessionFormDialogBody,
   SessionFormDialogFooter,
@@ -1259,6 +1260,24 @@ export default function SessionHistoryTable({
           }))
         : [];
     const coeffNum = showTrialLessonToggle ? (isTrialLesson ? 0 : 1) : undefined;
+    const savedNotes = buildSessionCommentZaloText({
+      className:
+        editingSession.class?.name ??
+        editingClassDetail?.name ??
+        "",
+      date: editDate.trim(),
+      startTime: editStartTime,
+      endTime: editEndTime,
+      makeupOriginalDate:
+        editingSession.makeupScheduleEvent?.originalDate ?? null,
+      lessonContent: editLessonContent.trim(),
+      homework: editHomework.trim(),
+      students: attendanceItems.map((item) => ({
+        fullName: item.fullName,
+        status: item.status,
+        notes: item.notes,
+      })),
+    });
     const payload = {
       id: editingSession.id,
       date: editDate.trim(),
@@ -1269,6 +1288,7 @@ export default function SessionHistoryTable({
       ...(endNorm && { endTime: endNorm }),
       lessonContent: editLessonContent.trim(),
       homework: editHomework.trim(),
+      notes: savedNotes,
       ...(allowPaymentStatusEdit
         ? { teacherPaymentStatus: editPaymentStatus }
         : {}),
@@ -1287,6 +1307,7 @@ export default function SessionHistoryTable({
           date: payload.date,
           lessonContent: payload.lessonContent,
           homework: payload.homework,
+          notes: payload.notes,
         };
         if (payload.teacherPaymentStatus !== undefined) {
           data.teacherPaymentStatus = payload.teacherPaymentStatus;
@@ -1614,10 +1635,17 @@ export default function SessionHistoryTable({
         {sessions.length > 0 ? (
           sessions.map((session) => {
             const status = renderSessionStatus(session, statusMode);
-            const notesContent = session.notes?.trim();
-            const sanitizedNotes = notesContent
-              ? sanitizeRichTextContent(notesContent)
-              : "";
+            const commentDisplay = resolveSessionCommentDisplayContent({
+              className: session.class?.name,
+              date: session.date,
+              startTime: session.startTime,
+              endTime: session.endTime,
+              makeupOriginalDate: session.makeupScheduleEvent?.originalDate,
+              notes: session.notes,
+              lessonContent: session.lessonContent,
+              homework: session.homework,
+              attendance: session.attendance,
+            });
             const entityLabel = shouldShowEntity
               ? renderEntityHeader(entityMode)
               : "";
@@ -1861,16 +1889,11 @@ export default function SessionHistoryTable({
                     <p className="mb-1 text-xs font-medium uppercase tracking-wide text-text-muted">
                       Nhận xét
                     </p>
-                    {sanitizedNotes ? (
-                      <div
-                        className="prose prose-xs max-w-none text-sm text-text-primary [&_p]:mb-1 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_strong]:font-bold [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm"
-                        dangerouslySetInnerHTML={{ __html: sanitizedNotes }}
-                      />
-                    ) : (
-                      <p className="text-sm text-text-muted">
-                        Không có ghi chú.
-                      </p>
-                    )}
+                    <SessionCommentPreview
+                      content={commentDisplay}
+                      emptyText="Không có ghi chú."
+                      className="text-sm"
+                    />
                   </div>
                 )}
               </article>
@@ -1931,10 +1954,17 @@ export default function SessionHistoryTable({
               {sessions.length > 0 ? (
                 sessions.map((session) => {
                   const status = renderSessionStatus(session, "payment");
-                  const notesContent = session.notes?.trim();
-                  const sanitizedNotes = notesContent
-                    ? sanitizeRichTextContent(notesContent)
-                    : "";
+                  const commentDisplay = resolveSessionCommentDisplayContent({
+                    className: session.class?.name,
+                    date: session.date,
+                    startTime: session.startTime,
+                    endTime: session.endTime,
+                    makeupOriginalDate: session.makeupScheduleEvent?.originalDate,
+                    notes: session.notes,
+                    lessonContent: session.lessonContent,
+                    homework: session.homework,
+                    attendance: session.attendance,
+                  });
 
                   return (
                     <tr
@@ -1992,14 +2022,11 @@ export default function SessionHistoryTable({
                       <td
                         className={`${classDetailTablePad.td} align-top text-text-primary`}
                       >
-                        {sanitizedNotes ? (
-                          <div
-                            className="prose prose-xs max-w-none text-xs leading-snug text-text-primary [&_p]:mb-1 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-3 [&_ol]:list-decimal [&_ol]:pl-3 [&_strong]:font-semibold [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs"
-                            dangerouslySetInnerHTML={{ __html: sanitizedNotes }}
-                          />
-                        ) : (
-                          <span className="text-xs text-text-muted">-</span>
-                        )}
+                        <SessionCommentPreview
+                          content={commentDisplay}
+                          emptyText="-"
+                          className="text-xs leading-snug"
+                        />
                       </td>
                       <td
                         className={`${classDetailTablePad.td} align-middle text-center`}
@@ -2161,10 +2188,17 @@ export default function SessionHistoryTable({
               {sessions.length > 0 ? (
                 sessions.map((session) => {
                   const status = renderSessionStatus(session, statusMode);
-                  const notesContent = session.notes?.trim();
-                  const sanitizedNotes = notesContent
-                    ? sanitizeRichTextContent(notesContent)
-                    : "";
+                  const commentDisplay = resolveSessionCommentDisplayContent({
+                    className: session.class?.name,
+                    date: session.date,
+                    startTime: session.startTime,
+                    endTime: session.endTime,
+                    makeupOriginalDate: session.makeupScheduleEvent?.originalDate,
+                    notes: session.notes,
+                    lessonContent: session.lessonContent,
+                    homework: session.homework,
+                    attendance: session.attendance,
+                  });
                   return (
                     <tr
                       key={session.id}
@@ -2221,16 +2255,11 @@ export default function SessionHistoryTable({
                       </td>
                       {entityMode === "teacher" ? (
                         <td className="px-4 py-3 text-text-primary">
-                          {sanitizedNotes ? (
-                            <div
-                              className="min-w-0 [&_p]:mb-1 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_strong]:font-bold [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm"
-                              dangerouslySetInnerHTML={{
-                                __html: sanitizedNotes,
-                              }}
-                            />
-                          ) : (
-                            <span className="text-text-muted">-</span>
-                          )}
+                          <SessionCommentPreview
+                            content={commentDisplay}
+                            emptyText="-"
+                            className="min-w-0 text-sm"
+                          />
                         </td>
                       ) : null}
                       <td className="px-4 py-3 font-mono text-text-primary">
