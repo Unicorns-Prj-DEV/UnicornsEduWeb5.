@@ -541,7 +541,7 @@ export function SessionAttendanceEditor({
         <table
           className={`w-full border-collapse text-left text-sm ${canEditTuition ? "min-w-[720px]" : "min-w-[520px]"}`}
         >
-          <caption className="sr-only">Điểm danh học sinh</caption>
+          <caption className="sr-only">Nhận xét từng học sinh</caption>
           <thead>
             <tr className="border-b border-border-default bg-bg-secondary/80">
               <th
