@@ -265,6 +265,42 @@ export function isRichTextNonEmpty(value: string | null | undefined): boolean {
   return stripRichTextToPlainText(value).length > 0;
 }
 
+export function isChargeableAttendanceStatus(
+  status: SessionAttendanceStatus,
+): boolean {
+  return status === "present" || status === "excused";
+}
+
+export type SessionAttendanceCommentItem = {
+  fullName: string;
+  status: SessionAttendanceStatus;
+  notes: string;
+};
+
+export function findStudentsMissingRequiredComments(
+  items: SessionAttendanceCommentItem[],
+): string[] {
+  return items
+    .filter(
+      (item) =>
+        isChargeableAttendanceStatus(item.status) &&
+        !isRichTextNonEmpty(item.notes),
+    )
+    .map((item) => item.fullName.trim())
+    .filter((name) => name.length > 0);
+}
+
+export function formatMissingStudentCommentsToast(missingNames: string[]): string {
+  if (missingNames.length === 0) return "";
+  if (missingNames.length === 1) {
+    return `Vui lòng nhập nhận xét cho ${missingNames[0]}.`;
+  }
+  if (missingNames.length === 2) {
+    return `Vui lòng nhập nhận xét cho ${missingNames[0]} và ${missingNames[1]}.`;
+  }
+  return `Vui lòng nhập nhận xét cho ${missingNames.length} học sinh có mặt/nghỉ phép.`;
+}
+
 export type SessionCommentZaloSource = {
   className?: string | null;
   date: string;

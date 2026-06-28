@@ -343,6 +343,11 @@ export class SessionUpdateService {
     this.sessionValidationService.validateAttendanceItems(data.attendance, {
       required: false,
     });
+    if (data.attendance !== undefined) {
+      this.sessionValidationService.validateAttendanceNotes(data.attendance, {
+        required: false,
+      });
+    }
     if (data.lessonContent !== undefined || data.homework !== undefined) {
       this.sessionValidationService.validateSessionCommentFields(
         {

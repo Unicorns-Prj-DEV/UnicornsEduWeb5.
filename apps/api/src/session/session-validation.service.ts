@@ -226,4 +226,48 @@ export class SessionValidationService {
       this.assertRichTextNonEmpty(data.homework, 'Bài tập về nhà');
     }
   }
+
+  validateAttendanceNotes(
+    attendance:
+      | Array<{
+          status?: AttendanceStatus;
+          notes?: string | null;
+          studentFullName?: string | null;
+        }>
+      | undefined,
+    options: { required: boolean },
+  ) {
+    if (attendance === undefined) {
+      if (options.required) {
+        throw new BadRequestException('attendance là bắt buộc.');
+      }
+      return;
+    }
+
+    if (!Array.isArray(attendance)) {
+      throw new BadRequestException('attendance phải là mảng hợp lệ.');
+    }
+
+    for (const item of attendance) {
+      const status = item?.status;
+      if (
+        status !== AttendanceStatus.present &&
+        status !== AttendanceStatus.excused
+      ) {
+        continue;
+      }
+
+      const plainNotes = this.stripRichTextToPlainText(item?.notes);
+      if (plainNotes) {
+        continue;
+      }
+
+      const studentName = String(item?.studentFullName ?? '').trim();
+      throw new BadRequestException(
+        studentName
+          ? `Nhận xét học sinh ${studentName} là bắt buộc.`
+          : 'Nhận xét học sinh có mặt/nghỉ phép là bắt buộc.',
+      );
+    }
+  }
 }

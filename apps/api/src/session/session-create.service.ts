@@ -64,6 +64,9 @@ export class SessionCreateService {
       this.sessionValidationService.validateAttendanceItems(data.attendance, {
         required: true,
       });
+      this.sessionValidationService.validateAttendanceNotes(data.attendance, {
+        required: true,
+      });
       this.sessionValidationService.validateSessionCommentFields(
         {
           lessonContent: data.lessonContent,

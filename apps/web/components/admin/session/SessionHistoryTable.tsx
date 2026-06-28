@@ -27,6 +27,9 @@ import {
 } from "@/lib/session-allowance.helpers";
 import {
   buildSessionCommentZaloText,
+  findStudentsMissingRequiredComments,
+  formatMissingStudentCommentsToast,
+  isChargeableAttendanceStatus,
   isRichTextNonEmpty,
   resolveSessionCommentDisplayContent,
   SESSION_HOMEWORK_PLACEHOLDER,
@@ -376,12 +379,6 @@ function isNonNegativeMoneyInput(value: string): boolean {
   if (!trimmed) return true;
   const normalized = Number(trimmed);
   return Number.isFinite(normalized) && normalized >= 0;
-}
-
-function isChargeableAttendanceStatus(
-  status: SessionAttendanceStatus,
-): boolean {
-  return status === "present" || status === "excused";
 }
 
 function resolveAttendanceTuitionValue(item: AttendanceFormItem): number {
@@ -1100,7 +1097,12 @@ export default function SessionHistoryTable({
         coefficient > 0 ? Math.ceil(grossAmount / coefficient) : 0;
       return updateSessionFn(sessionId, { allowanceAmount: rawBase });
     },
-    onSuccess: () => {
+    onSuccess: (updatedSession) => {
+      setEditingSession((prev) =>
+        prev?.id === updatedSession.id
+          ? { ...prev, allowanceAmount: updatedSession.allowanceAmount }
+          : prev,
+      );
       toast.success("Đã cập nhật trợ cấp buổi.");
       onSessionUpdated?.();
     },
@@ -1230,6 +1232,13 @@ export default function SessionHistoryTable({
     if (!isRichTextNonEmpty(editHomework)) {
       setHomeworkError("Vui lòng nhập bài tập về nhà.");
       toast.error("Vui lòng nhập bài tập về nhà.");
+      return;
+    }
+    const missingStudentComments = findStudentsMissingRequiredComments(
+      attendanceItems,
+    );
+    if (missingStudentComments.length > 0) {
+      toast.error(formatMissingStudentCommentsToast(missingStudentComments));
       return;
     }
     const hasAttendanceNotesTooLong = attendanceItems.some(

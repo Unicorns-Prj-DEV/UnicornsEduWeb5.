@@ -129,4 +129,44 @@ describe('SessionValidationService', () => {
       new BadRequestException('date không hợp lệ.'),
     );
   });
+
+  it('requires notes for present and excused attendance', () => {
+    expect(() =>
+      service.validateAttendanceNotes(
+        [
+          { status: AttendanceStatus.present, notes: '  ' },
+          { status: AttendanceStatus.absent, notes: null },
+        ],
+        { required: false },
+      ),
+    ).toThrow(
+      new BadRequestException('Nhận xét học sinh có mặt/nghỉ phép là bắt buộc.'),
+    );
+  });
+
+  it('accepts absent attendance without notes', () => {
+    expect(() =>
+      service.validateAttendanceNotes(
+        [{ status: AttendanceStatus.absent, notes: null }],
+        { required: true },
+      ),
+    ).not.toThrow();
+  });
+
+  it('includes student name in attendance notes validation error when provided', () => {
+    expect(() =>
+      service.validateAttendanceNotes(
+        [
+          {
+            status: AttendanceStatus.excused,
+            notes: '<p></p>',
+            studentFullName: 'Nguyễn Văn A',
+          },
+        ],
+        { required: false },
+      ),
+    ).toThrow(
+      new BadRequestException('Nhận xét học sinh Nguyễn Văn A là bắt buộc.'),
+    );
+  });
 });
