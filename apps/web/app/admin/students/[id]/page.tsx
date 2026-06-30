@@ -20,6 +20,7 @@ import ParentReceiptEmailSwitch from "@/components/student/ParentReceiptEmailSwi
 import OjProgressSection from "@/components/student/OjProgressSection";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import type { StudentDetail, StudentGender, StudentStatus } from "@/dtos/student.dto";
+import { StudentLevelBadge } from "@/components/ui/LevelBadge";
 import {
     buildAdminLikePath,
     resolveAdminLikeRouteBase,
@@ -497,6 +498,7 @@ export default function AdminStudentDetailPage() {
                                         <span className="inline-flex rounded-full bg-bg-tertiary px-2.5 py-1 text-xs font-medium text-text-secondary ring-1 ring-border-default">
                                             {GENDER_LABELS[normalizedGender]}
                                         </span>
+                                        <StudentLevelBadge fullName={student.fullName} />
                                         {isCustomerCareReadOnlyView ? (
                                             <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
                                                 CSKH · Chỉ xem

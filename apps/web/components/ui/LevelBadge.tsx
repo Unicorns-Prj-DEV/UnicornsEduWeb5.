@@ -79,5 +79,40 @@ export function StudentLevelBadge({ fullName }: { fullName: string }) {
   }
 
   const level = data?.stats?.currentLevel;
-  return <LevelBadge level={level} />;
+  
+  // Calculate the active contest (module being worked on in this level)
+  let activeContest = "";
+  if (data && data.stats && data.roadmapModules) {
+    const currentLevelStr = data.stats.currentLevel || "Cấp 0";
+    const currentLevelCode = data.stats.currentLevelName.includes("Chưa phân cấp") 
+      ? 0 
+      : parseInt(currentLevelStr.replace(/\D/g, ""), 10) || 0;
+
+    const currentLevelModules = data.roadmapModules.filter(
+      (m) => m.levelCode === currentLevelCode
+    );
+
+    if (currentLevelModules.length > 0) {
+      const activeModules = currentLevelModules.filter(
+        (m) => m.status === "Đang thi" || m.solvedCount > 0
+      );
+      const targetModules = activeModules.length > 0 ? activeModules : currentLevelModules;
+      
+      // Seeded deterministic index select based on username
+      const seed = (data.student?.username || "").split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      const selectedIndex = seed % targetModules.length;
+      activeContest = targetModules[selectedIndex]?.moduleName || "";
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <LevelBadge level={level} />
+      {activeContest && (
+        <Badge variant="outline" className="text-[11px] font-normal border-border-default max-w-[240px] truncate bg-bg-surface text-text-secondary">
+          {activeContest}
+        </Badge>
+      )}
+    </div>
+  );
 }

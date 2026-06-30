@@ -662,24 +662,24 @@ export default function AdminStudentsPage() {
                 </div>
 
                 <div className="hidden overflow-x-auto md:block">
-                  <table className="w-full min-w-[1080px] table-fixed border-collapse text-left text-sm">
+<table className="w-full min-w-[1080px] table-fixed border-collapse text-left text-sm">
                   <caption className="sr-only">Danh sách học sinh</caption>
                   <thead>
                     <tr className="border-b border-border-default bg-bg-secondary/80">
-                      <th scope="col" className="w-[5%] min-w-10 px-2 py-3" aria-label="Trạng thái" />
-                      <th scope="col" className="w-[25%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                      <th scope="col" className="w-[3%] min-w-8 px-1 py-3" aria-label="Trạng thái" />
+                      <th scope="col" className="w-[30%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         Học sinh
                       </th>
-                      <th scope="col" className="w-[6%] min-w-10 px-2 py-3 text-center text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                      <th scope="col" className="w-[3.5%] min-w-10 px-1 py-3 text-center text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         <span className="sr-only">QR</span>
                       </th>
-                      <th scope="col" className="w-[20%] min-w-0 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                      <th scope="col" className="w-[22%] min-w-0 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         Số dư / Tiền vào
                       </th>
-                      <th scope="col" className="w-[40%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                      <th scope="col" className="w-[25%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         Level
                       </th>
-                      <th scope="col" className="w-[4%] min-w-10 px-2 py-3 text-right" aria-label="Xóa" />
+                      <th scope="col" className="w-[3.5%] min-w-8 px-1 py-3 text-right" aria-label="Xóa" />
                     </tr>
                   </thead>
                   <tbody>
@@ -717,8 +717,8 @@ export default function AdminStudentsPage() {
                             />
                           </td>
                           <td className="px-4 py-3 text-text-primary">
-                            <span className="block truncate">{student.fullName?.trim() || "—"}</span>
-                            <p className="mt-1 truncate text-text-secondary">
+                            <span className="font-semibold">{student.fullName?.trim() || "—"}</span>
+                            <p className="mt-1 truncate text-xs text-text-secondary">
                               {student.email?.trim() || "Chưa có email"}
                             </p>
                           </td>
@@ -747,7 +747,7 @@ export default function AdminStudentsPage() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-3 align-middle text-left">
+                          <td className="px-4 py-3 align-middle">
                             <StudentLevelBadge fullName={student.fullName} />
                           </td>
                           <td className="px-2 py-3 align-middle text-right" onClick={(e) => e.stopPropagation()}>
