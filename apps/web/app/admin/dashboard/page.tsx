@@ -62,22 +62,44 @@ function KpiCard({
   value,
   note,
   tone,
+  onClick,
 }: {
   title: string;
   value: string;
   note: string;
   tone: "primary" | "success" | "warning" | "default";
+  onClick?: () => void;
 }) {
   const accent =
     tone === "success" ? "bg-success" : tone === "warning" ? "bg-warning" : tone === "primary" ? "bg-primary" : "bg-border-focus";
-  return (
-    <div className="relative overflow-hidden rounded-xl border border-border-default bg-bg-surface px-3 py-3 shadow-sm">
+  
+  const clickStyles = onClick
+    ? "cursor-pointer hover:border-primary/30 hover:bg-bg-secondary/40 focus:outline-none focus:ring-2 focus:ring-primary/20"
+    : "";
+  const cardClasses = `relative overflow-hidden rounded-xl border border-border-default bg-bg-surface px-3 py-3 shadow-sm text-left w-full transition-all duration-200 ${clickStyles}`;
+  
+  const content = (
+    <>
       <span className={`absolute bottom-0 left-0 top-0 w-1 ${accent}`} aria-hidden />
       <div className="pl-2">
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">{title}</p>
         <p className="mt-1 text-2xl font-semibold tabular-nums text-text-primary">{value}</p>
         <p className="mt-1 line-clamp-1 text-xs text-text-secondary">{note}</p>
       </div>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={cardClasses}>
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div className={cardClasses}>
+      {content}
     </div>
   );
 }
@@ -133,6 +155,64 @@ function getFinancialSourceAccentClasses(tone: AdminDashboardFinancialDetailSour
   };
 }
 
+function getAmountForSource(
+  item: { amount: number; note: string | null; secondaryLabel?: string | null },
+  sourceKey: string,
+  rowKey: string
+): { amount: number; note: string | null } {
+  // If rowKey is pending-payroll or personnel-cost, they use the note-prefix-split mapping:
+  if (rowKey === "pending-payroll" || rowKey === "personnel-cost") {
+    if (!item.note) return { amount: 0, note: null };
+    const prefixMap: Record<string, string> = {
+      "pending-session": "Buổi dạy",
+      "pending-customer-care": "CSKH",
+      "pending-lesson": "Giáo án",
+      "pending-bonus": "Bonus",
+      "pending-extra": "Trợ cấp",
+      "teacher-cost": "Dạy",
+      "customer-care-cost": "CSKH",
+      "lesson-cost": "Giáo án",
+      "bonus-cost": "Bonus",
+    };
+    const prefix = prefixMap[sourceKey];
+    if (!prefix) return { amount: item.amount, note: item.note };
+
+    const parts = item.note.split(" • ");
+    const matchingPart = parts.find((p) => p.startsWith(prefix));
+    if (!matchingPart) return { amount: 0, note: null };
+
+    const digitStr = matchingPart.replace(/[^\d]/g, "");
+    const amount = parseInt(digitStr, 10) || 0;
+    // Keep sign of original item amount
+    const signedAmount = item.amount < 0 ? -amount : amount;
+    return { amount: signedAmount, note: matchingPart };
+  }
+
+  // If rowKey is other-cost, profit, or total-in, they filter by secondaryLabel:
+  if (rowKey === "other-cost" || rowKey === "profit" || rowKey === "total-in") {
+    const labelMap: Record<string, string> = {
+      "operating-cost": "Chi phí vận hành",
+      "extra-allowance-cost": "Trợ cấp khác",
+      "profit-revenue": "Học phí đã học",
+      "profit-personnel": "Chi phí nhân sự",
+      "profit-other": "Chi phí khác",
+      "total-in-topup": "Dòng tiền vào",
+      "total-in-personnel": "Chi phí nhân sự",
+      "total-in-other": "Chi phí khác",
+    };
+    const targetLabel = labelMap[sourceKey];
+    if (!targetLabel) return { amount: item.amount, note: item.note };
+
+    if (item.secondaryLabel === targetLabel) {
+      return { amount: item.amount, note: item.note };
+    }
+    return { amount: 0, note: null };
+  }
+
+  // Default: no filtering
+  return { amount: item.amount, note: item.note };
+}
+
 function FinancialDetailModal({
   rowLabel,
   detail,
@@ -147,6 +227,19 @@ function FinancialDetailModal({
   onClose: () => void;
 }) {
   const dialogTitleId = useId();
+  const [selectedSourceKey, setSelectedSourceKey] = useState<string | null>(null);
+
+  const filteredItems = useMemo(() => {
+    if (!detail) return [];
+    if (!selectedSourceKey) return detail.items;
+
+    return detail.items
+      .map((item) => {
+        const { amount, note } = getAmountForSource(item, selectedSourceKey, detail.rowKey);
+        return { ...item, amount, note };
+      })
+      .filter((item) => item.amount !== 0);
+  }, [detail, selectedSourceKey]);
 
   return (
     <>
@@ -220,23 +313,43 @@ function FinancialDetailModal({
                       <div className="flex items-center gap-2">
                         <DashboardIcon path="M3 12h18M12 3v18" />
                         <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-text-primary">
-                          Nguồn cộng trừ
+                          Nguồn cộng trừ (Nhấp thẻ để lọc chi tiết)
                         </h3>
                       </div>
                       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                         {detail.sources.map((source) => {
+                          const isSelected = selectedSourceKey === source.key;
                           const accent = getFinancialSourceAccentClasses(source.tone);
+                          
+                          // Interactive style bindings for selection
+                          const interactiveBorderClass = isSelected
+                            ? source.tone === "positive"
+                              ? "ring-2 ring-success border-success bg-success/10"
+                              : source.tone === "negative"
+                              ? "ring-2 ring-error border-error bg-error/10"
+                              : "ring-2 ring-primary border-primary bg-primary/5"
+                            : "hover:border-border-default/80 hover:bg-bg-secondary/50 cursor-pointer";
+
                           return (
-                            <article
+                            <button
                               key={source.key}
-                              className={`rounded-xl border p-4 shadow-sm ${accent.card}`}
+                              type="button"
+                              onClick={() => setSelectedSourceKey(prev => prev === source.key ? null : source.key)}
+                              className={`rounded-xl border p-4 shadow-sm text-left transition-all duration-200 hover:scale-[1.01] active:scale-[0.995] select-none ${accent.card} ${interactiveBorderClass} w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus`}
                             >
-                              <p className="text-sm font-semibold text-text-primary">{source.label}</p>
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="text-sm font-semibold text-text-primary">{source.label}</p>
+                                {isSelected && (
+                                  <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary animate-pulse">
+                                    Đang lọc
+                                  </span>
+                                )}
+                              </div>
                               <p className={`mt-2 text-xl font-semibold tabular-nums ${accent.value}`}>
                                 {formatFinancialSourceAmount(source)}
                               </p>
                               <p className="mt-2 text-sm leading-6 text-text-secondary">{source.note}</p>
-                            </article>
+                            </button>
                           );
                         })}
                       </div>
@@ -244,17 +357,33 @@ function FinancialDetailModal({
                   ) : null}
 
                   <section className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <DashboardIcon path="M4 7h16M4 12h16M4 17h10" />
-                      <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-text-primary">
-                        Chi tiết đóng góp
-                      </h3>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <DashboardIcon path="M4 7h16M4 12h16M4 17h10" />
+                        <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-text-primary">
+                          Chi tiết đóng góp
+                        </h3>
+                      </div>
+                      {selectedSourceKey && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-text-secondary">
+                            Đang lọc theo: <span className="font-semibold text-primary">{detail.sources.find(s => s.key === selectedSourceKey)?.label}</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedSourceKey(null)}
+                            className="text-xs font-semibold text-primary hover:text-primary-hover hover:underline"
+                          >
+                            Xoá bộ lọc
+                          </button>
+                        </div>
+                      )}
                     </div>
 
-                    {detail.items.length > 0 ? (
+                    {filteredItems.length > 0 ? (
                       <>
                         <div className="space-y-3 md:hidden">
-                          {detail.items.map((item) => (
+                          {filteredItems.map((item) => (
                             <article key={item.id} className="rounded-xl border border-border-default bg-bg-surface p-4 shadow-sm">
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0 flex-1">
@@ -287,7 +416,7 @@ function FinancialDetailModal({
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {detail.items.map((item) => (
+                              {filteredItems.map((item) => (
                                 <TableRow key={item.id} className="border-border-default/80">
                                   <TableCell className="align-top font-medium text-text-primary">{item.label}</TableCell>
                                   <TableCell className="align-top text-text-secondary">
@@ -307,7 +436,9 @@ function FinancialDetailModal({
                       </>
                     ) : (
                       <div className="rounded-xl border border-dashed border-border-default bg-bg-secondary/35 px-4 py-6 text-sm text-text-secondary">
-                        {detail.emptyState}
+                        {selectedSourceKey
+                          ? "Không có khoản đóng góp nào phù hợp với bộ lọc."
+                          : detail.emptyState}
                       </div>
                     )}
                   </section>
@@ -622,58 +753,58 @@ export default function AdminDashboardTabPage() {
   const financialSummaryRows: FinancialSummaryRow[] = [
     {
       key: "topup",
-      label: "Tổng nạp",
+      label: "Tổng nạp (Dòng tiền vào)",
       value: activeFinancialDashboard?.summary.monthlyTopupTotal ?? 0,
-      note: "Tổng số tiền học sinh đã nạp",
+      note: "Tổng số tiền thực tế phụ huynh/học sinh đã nạp vào ví trong kỳ đang xem. Phản ánh dòng tiền mặt thực thu.",
     },
     {
       key: "revenue",
-      label: "Học phí đã học",
+      label: "Học phí đã học (Doanh thu)",
       value: activeFinancialDashboard?.summary.totalLearnedTuition ?? 0,
-      note: `Học phí attendance present/excused có sessions.date trong ${financialPeriodLabel}.`,
+      note: `Học phí tương ứng với các buổi học thực tế học sinh đã tham gia (hoặc vắng có phép) trong kỳ đang xem. Đây là doanh thu thực tế được ghi nhận.`,
     },
     {
       key: "prepaid",
-      label: "Nợ học phí chưa dạy",
+      label: "Học phí chưa dạy (Ví dương)",
       value: activeFinancialDashboard?.summary.prepaidTuitionTotal ?? 0,
-      note: "Tổng số dư dương (ví) của học sinh có phát sinh buổi học trong kỳ đang xem.",
+      note: "Tổng số dư ví còn dương của những học sinh có đi học trong kỳ đang xem. Đây là học phí học viên đóng trước nhưng trung tâm chưa dạy (chưa tính vào doanh thu).",
     },
     {
       key: "uncollected",
-      label: "Chưa thu",
+      label: "Học phí chưa thu (Ví âm)",
       value: activeFinancialDashboard?.summary.pendingCollectionTotal ?? 0,
-      note: "Học sinh âm ví có ít nhất một buổi học trong kỳ đang xem.",
+      note: "Tổng số tiền học sinh còn nợ (ví âm) có phát sinh buổi học trong kỳ đang xem. Cần liên hệ phụ huynh để thu hồi.",
     },
     {
       key: "pending-payroll",
-      label: "Chờ Thanh Toán Trợ Cấp",
+      label: "Trợ cấp chờ thanh toán",
       value: activeFinancialDashboard?.summary.pendingPayrollTotal ?? 0,
-      note: `${payrollNoteDetail} · Pending gắn với kỳ đang xem.`,
+      note: `${payrollNoteDetail} · Các khoản phát sinh trong kỳ nhưng chưa chi trả thực tế cho nhân sự.`,
     },
     {
       key: "personnel-cost",
-      label: "Chi phí Nhân Sự",
+      label: "Chi phí Nhân sự",
       value: personnelCostMonthly,
-      note: payrollNoteDetail,
+      note: "Tổng chi phí trợ cấp nhân sự phát sinh trong kỳ (bao gồm giảng dạy, giáo án, CSKH và thưởng).",
     },
     {
       key: "other-cost",
       label: "Chi phí Khác",
       value: otherCostMonthly,
-      note: "Nguyên học thử, marketing, vận hành khác",
+      note: "Các chi phí vận hành khác phát sinh trong kỳ như chi phí học thử, marketing, và chi phí văn phòng.",
     },
     {
       key: "profit",
-      label: "Lợi nhuận",
+      label: "Lợi nhuận thực tế (Kế toán)",
       value: activeFinancialDashboard?.summary.monthlyProfit ?? 0,
-      note: "Học phí đã học - Chi phí nhân sự - Chi phí khác",
+      note: "Lợi nhuận tính trên doanh thu thực tế (Học phí đã học - Chi phí nhân sự - Chi phí khác). Phản ánh hiệu quả hoạt động giảng dạy.",
       emphasize: true,
     },
     {
       key: "total-in",
-      label: "Tổng nhận",
+      label: "Dòng tiền thuần (Thực thu ròng)",
       value: totalReceiveNet,
-      note: "Tổng nạp - Chi phí nhân sự - Chi phí khác",
+      note: "Chênh lệch dòng tiền mặt thực tế thu chi trong kỳ (Tổng nạp - Chi phí nhân sự - Chi phí khác). Phản ánh lượng tiền mặt tăng thêm ròng.",
       emphasize: true,
     },
   ];
@@ -771,24 +902,24 @@ export default function AdminDashboardTabPage() {
     quickView === "finance"
       ? [
         {
-          label: "Tổng doanh thu",
+          label: "Tổng doanh thu năm",
           value: formatCurrency(yearlyRevenueTotal),
-          description: "Học phí đã học (present/excused) trong tháng đang xem — phân bổ theo quý trên lịch.",
+          description: `Tổng học phí đã học thực tế (doanh thu) tích lũy trong năm ${year}.`,
         },
         {
-          label: "Tổng chi phí",
+          label: "Tổng chi phí năm",
           value: formatCurrency(yearlyExpenseTotal),
-          description: "Chi phí nhân sự và vận hành đã ghi nhận trong tháng đang xem.",
+          description: `Tổng chi phí nhân sự và vận hành đã ghi nhận tích lũy trong năm ${year}.`,
         },
         {
-          label: "Lợi nhuận ròng",
+          label: "Lợi nhuận ròng năm",
           value: formatCurrency(yearlyProfitTotal),
-          description: "Doanh thu trừ chi phí trong tháng đang xem.",
+          description: `Tổng doanh thu trừ chi phí tích lũy trong năm ${year}.`,
         },
         {
-          label: "Quý trên lịch",
+          label: "Quý hiệu quả nhất",
           value: bestQuarter.quarter,
-          description: `${formatCurrency(bestQuarter.profit)} lợi nhuận (quý chứa tháng đang xem; các quý khác có thể là 0).`,
+          description: `Quý đạt lợi nhuận ròng cao nhất trong năm ${year} (${formatCurrency(bestQuarter.profit)}).`,
         },
       ]
       : quickView === "ops"
@@ -931,28 +1062,32 @@ export default function AdminDashboardTabPage() {
           <KpiCard title="Lớp học" value={String(dashboard.summary.activeClasses)} note={`${dashboard.summary.activeClasses} đang hoạt động`} tone="primary" />
           <KpiCard title="Học sinh" value={String(dashboard.summary.activeStudents)} note={`${dashboard.summary.activeStudents} đang học`} tone="default" />
           <KpiCard
-            title="Nhân sự chờ thanh toán"
-            value={String(dashboard.summary.unpaidStaffCount)}
-            note={`${dashboard.summary.unpaidStaffCount} nhân sự còn pending`}
-            tone="warning"
-          />
-          <KpiCard
             title="Lợi nhuận tháng"
-            value={formatCurrency(dashboard.summary.monthlyProfit)}
-            note="Doanh thu đã ghi nhận - tổng chi trong tháng"
-            tone={dashboard.summary.monthlyProfit >= 0 ? "success" : "warning"}
+            value={formatCurrency(activeFinancialDashboard?.summary.monthlyProfit ?? 0)}
+            note="Doanh thu thực tế (học phí đã học) trừ chi phí"
+            tone={(activeFinancialDashboard?.summary.monthlyProfit ?? 0) >= 0 ? "success" : "warning"}
+            onClick={() => setSelectedFinancialRowKey("profit")}
           />
           <KpiCard
-            title="Học phí chưa dạy"
-            value={formatCurrency(dashboard.summary.prepaidTuitionTotal)}
-            note="Với học sinh có buổi học trong tháng đang xem"
+            title="Học phí chưa dạy (Ví dương)"
+            value={formatCurrency(activeFinancialDashboard?.summary.prepaidTuitionTotal ?? 0)}
+            note="Ví dương của học sinh có phát sinh buổi học trong kỳ"
             tone="warning"
+            onClick={() => setSelectedFinancialRowKey("prepaid")}
           />
           <KpiCard
-            title="Chưa thu học phí"
-            value={formatCurrency(dashboard.summary.pendingCollectionTotal)}
-            note="Số dư âm cần follow-up thu thêm"
+            title="Học phí chưa thu (Ví âm)"
+            value={formatCurrency(activeFinancialDashboard?.summary.pendingCollectionTotal ?? 0)}
+            note="Ví âm của học sinh có phát sinh buổi học trong kỳ"
             tone="default"
+            onClick={() => setSelectedFinancialRowKey("uncollected")}
+          />
+          <KpiCard
+            title="Trợ cấp chờ thanh toán"
+            value={String(dashboard.summary.unpaidStaffCount)}
+            note={`${dashboard.summary.unpaidStaffCount} nhân sự chưa thanh toán trợ cấp`}
+            tone="warning"
+            onClick={() => setSelectedFinancialRowKey("pending-payroll")}
           />
         </section>
 

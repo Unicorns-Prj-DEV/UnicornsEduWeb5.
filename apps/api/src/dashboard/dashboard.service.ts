@@ -123,6 +123,16 @@ type StaffUnpaidAlertSqlRow = {
   totalAssistantAmount?: number | string | null;
 };
 
+type PersonnelStaffCostSqlRow = {
+  staffId: string;
+  staffName: string;
+  sessionAmount: number | string | null;
+  bonusAmount: number | string | null;
+  customerCareAmount: number | string | null;
+  lessonAmount: number | string | null;
+  totalCost: number | string | null;
+};
+
 type ExpenseSummarySqlRow = {
   totalIncurred: number | string | null;
   totalPaid: number | string | null;
@@ -1098,9 +1108,9 @@ export class DashboardService {
           NULLIF(
             TRIM(
               CONCAT(
-                COALESCE(owner_user.first_name, ''),
+                COALESCE(owner_user.last_name, ''),
                 ' ',
-                COALESCE(owner_user.last_name, '')
+                COALESCE(owner_user.first_name, '')
               )
             ),
             ''
@@ -1209,9 +1219,9 @@ export class DashboardService {
           NULLIF(
             TRIM(
               CONCAT(
-                COALESCE(owner_user.first_name, ''),
+                COALESCE(owner_user.last_name, ''),
                 ' ',
-                COALESCE(owner_user.last_name, '')
+                COALESCE(owner_user.first_name, '')
               )
             ),
             ''
@@ -1317,9 +1327,9 @@ export class DashboardService {
           NULLIF(
             TRIM(
               CONCAT(
-                COALESCE(staff_user.first_name, ''),
+                COALESCE(staff_user.last_name, ''),
                 ' ',
-                COALESCE(staff_user.last_name, '')
+                COALESCE(staff_user.first_name, '')
               )
             ),
             ''
@@ -1536,6 +1546,167 @@ export class DashboardService {
       ORDER BY "totalUnpaid" DESC, "staffName" ASC
       LIMIT ${limit}
       OFFSET ${offset}
+    `);
+  }
+
+  private async getPersonnelStaffCosts(
+    limit: number,
+    period?: {
+      monthStart: Date;
+      monthEnd: Date;
+      fromMonthKey: string;
+      toMonthKeyExclusive: string;
+    },
+    offset = 0,
+  ) {
+    return this.prisma.$queryRaw<PersonnelStaffCostSqlRow[]>(Prisma.sql`
+      WITH active_staff AS (
+        SELECT
+          staff_info.id,
+          NULLIF(
+            TRIM(
+              CONCAT(
+                COALESCE(staff_user.last_name, ''),
+                ' ',
+                COALESCE(staff_user.first_name, '')
+              )
+            ),
+            ''
+          ) AS full_name
+        FROM staff_info
+        INNER JOIN users staff_user ON staff_user.id = staff_info.user_id
+      ),
+      session_allowances AS (
+        SELECT
+          sessions.teacher_id AS staff_id,
+          sessions.id AS session_id,
+          LEAST(
+            COALESCE(
+              NULLIF(classes.max_allowance_per_session, 0),
+              COALESCE(sessions.allowance_amount, 0) *
+                COALESCE(sessions.coefficient, 1)
+            ),
+            COALESCE(sessions.allowance_amount, 0) *
+              COALESCE(sessions.coefficient, 1)
+          ) AS amount
+        FROM attendance
+        INNER JOIN sessions ON sessions.id = attendance.session_id
+        INNER JOIN classes ON classes.id = sessions.class_id
+        INNER JOIN active_staff ON active_staff.id = sessions.teacher_id
+        WHERE 1=1
+          ${
+            period
+              ? Prisma.sql`AND sessions.date >= ${period.monthStart}
+          AND sessions.date < ${period.monthEnd}`
+              : Prisma.empty
+          }
+        GROUP BY
+          sessions.teacher_id,
+          sessions.id,
+          sessions.allowance_amount,
+          classes.max_allowance_per_session,
+          sessions.coefficient
+      ),
+      session_total AS (
+        SELECT
+          staff_id,
+          COALESCE(SUM(amount), 0) AS amount
+        FROM session_allowances
+        GROUP BY staff_id
+      ),
+      bonus_total AS (
+        SELECT
+          bonuses.staff_id AS staff_id,
+          COALESCE(SUM(COALESCE(bonuses.amount, 0)), 0) AS amount
+        FROM bonuses
+        INNER JOIN active_staff ON active_staff.id = bonuses.staff_id
+        WHERE 1=1
+          ${
+            period
+              ? Prisma.sql`AND bonuses.date >= ${period.monthStart}
+          AND bonuses.date < ${period.monthEnd}`
+              : Prisma.empty
+          }
+        GROUP BY bonuses.staff_id
+      ),
+      customer_care_total AS (
+        SELECT
+          attendance.customer_care_staff_id AS staff_id,
+          COALESCE(
+            SUM(
+              ROUND(
+                (
+                  COALESCE(attendance.tuition_fee, 0) *
+                  COALESCE(attendance.customer_care_coef, 0)
+                )::numeric,
+                0
+              )
+            ),
+            0
+          ) AS amount
+        FROM attendance
+        INNER JOIN sessions ON sessions.id = attendance.session_id
+        INNER JOIN active_staff ON active_staff.id = attendance.customer_care_staff_id
+        WHERE 1=1
+          ${
+            period
+              ? Prisma.sql`AND sessions.date >= ${period.monthStart}
+          AND sessions.date < ${period.monthEnd}`
+              : Prisma.empty
+          }
+        GROUP BY attendance.customer_care_staff_id
+      ),
+      lesson_output_total AS (
+        SELECT
+          lesson_outputs.staff_id AS staff_id,
+          COALESCE(SUM(COALESCE(lesson_outputs.cost, 0)), 0) AS amount
+        FROM lesson_outputs
+        INNER JOIN active_staff ON active_staff.id = lesson_outputs.staff_id
+        WHERE 1=1
+          ${
+            period
+              ? Prisma.sql`AND lesson_outputs.date >= ${period.monthStart}
+          AND lesson_outputs.date < ${period.monthEnd}`
+              : Prisma.empty
+          }
+        GROUP BY lesson_outputs.staff_id
+      ),
+      combined AS (
+        SELECT
+          active_staff.id AS "staffId",
+          active_staff.full_name AS "staffName",
+          COALESCE(session_total.amount, 0) AS "sessionAmount",
+          COALESCE(bonus_total.amount, 0) AS "bonusAmount",
+          COALESCE(customer_care_total.amount, 0) AS "customerCareAmount",
+          COALESCE(lesson_output_total.amount, 0) AS "lessonAmount",
+          (
+            COALESCE(session_total.amount, 0) +
+            COALESCE(bonus_total.amount, 0) +
+            COALESCE(customer_care_total.amount, 0) +
+            COALESCE(lesson_output_total.amount, 0)
+          ) AS "totalCost"
+        FROM active_staff
+        LEFT JOIN session_total ON session_total.staff_id = active_staff.id
+        LEFT JOIN bonus_total ON bonus_total.staff_id = active_staff.id
+        LEFT JOIN customer_care_total ON customer_care_total.staff_id = active_staff.id
+        LEFT JOIN lesson_output_total ON lesson_output_total.staff_id = active_staff.id
+      ),
+      filtered AS (
+        SELECT *
+        FROM combined
+        WHERE "totalCost" > 0
+      )
+      SELECT
+        "staffId",
+        "staffName",
+        "sessionAmount",
+        "bonusAmount",
+        "customerCareAmount",
+        "lessonAmount",
+        "totalCost"
+      FROM filtered
+      ORDER BY "totalCost" DESC
+      LIMIT ${limit} OFFSET ${offset}
     `);
   }
 
@@ -2297,9 +2468,9 @@ export class DashboardService {
           NULLIF(
             TRIM(
               CONCAT(
-                COALESCE(owner_user.first_name, ''),
+                COALESCE(owner_user.last_name, ''),
                 ' ',
-                COALESCE(owner_user.last_name, '')
+                COALESCE(owner_user.first_name, '')
               )
             ),
             ''
@@ -2399,9 +2570,9 @@ export class DashboardService {
           NULLIF(
             TRIM(
               CONCAT(
-                COALESCE(owner_user.first_name, ''),
+                COALESCE(owner_user.last_name, ''),
                 ' ',
-                COALESCE(owner_user.last_name, '')
+                COALESCE(owner_user.first_name, '')
               )
             ),
             ''
@@ -3990,15 +4161,15 @@ export class DashboardService {
 
             return {
               rowKey: query.rowKey,
-              title: 'Chi tiết Tổng nạp',
-              description: `Các giao dịch topup phát sinh trong ${periodLabel}.`,
+              title: 'Chi tiết Tổng nạp (Dòng tiền vào)',
+              description: `Các giao dịch nạp tiền, nộp học phí phát sinh trong ${periodLabel}.`,
               amount,
               sources: [
                 {
                   key: 'topup-total',
-                  label: `Topup trong ${periodLabel}`,
+                  label: `Nạp ví trong ${periodLabel}`,
                   amount,
-                  note: `Tổng tiền học sinh đã nạp trong kỳ đang xem.`,
+                  note: `Tổng tiền mặt thực tế phụ huynh/học sinh đã nạp vào tài khoản.`,
                   tone: 'positive',
                 },
               ],
@@ -4035,15 +4206,15 @@ export class DashboardService {
 
             return {
               rowKey: query.rowKey,
-              title: 'Chi tiết Học phí đã học',
-              description: `Tổng học phí đã ghi nhận trong ${periodLabel} (attendance present/excused).`,
+              title: 'Chi tiết Học phí đã học (Doanh thu)',
+              description: `Tổng học phí tương ứng với các buổi học thực tế học sinh đã tham gia (hoặc vắng có phép) trong ${periodLabel}.`,
               amount: revenueTotal,
               sources: [
                 {
                   key: 'learned-month',
                   label: `Học phí đã học · ${periodLabel}`,
                   amount: revenueTotal,
-                  note: 'Tính từ attendance present/excused có sessions.date trong kỳ đang xem.',
+                  note: 'Doanh thu thực tế được tính dựa trên số buổi học sinh đã học thực tế (hoặc vắng có phép).',
                   tone: 'positive',
                 },
               ],
@@ -4053,7 +4224,7 @@ export class DashboardService {
                   label: row.className,
                   secondaryLabel: `${normalizeInteger(row.studentCount)} học sinh`,
                   amount: normalizeMoneyAmount(row.totalAmount),
-                  note: `${normalizeInteger(row.attendanceCount)} lượt học present`,
+                  note: `${normalizeInteger(row.attendanceCount)} lượt học có mặt/vắng phép`,
                 }),
               ),
               emptyState: 'Chưa có dữ liệu học phí đã học.',
@@ -4082,16 +4253,16 @@ export class DashboardService {
 
             return {
               rowKey: query.rowKey,
-              title: 'Chi tiết Nợ học phí chưa dạy',
+              title: 'Chi tiết Học phí chưa dạy (Ví dương)',
               description:
-                'Số dư dương hiện tại của học sinh active (lớp running) có phát sinh buổi học trong kỳ đang xem.',
+                'Tổng số dư ví còn dương của những học sinh có lịch học trong kỳ đang xem (đã nạp trước nhưng chưa dạy hết).',
               amount,
               sources: [
                 {
                   key: 'prepaid-total',
-                  label: 'Số dư dương đang treo',
+                  label: 'Học phí trả trước',
                   amount,
-                  note: 'Chỉ học sinh có ít nhất một session trong kỳ đang xem.',
+                  note: 'Số tiền học sinh đã đóng trước tương ứng với các buổi học chưa dạy.',
                   tone: 'positive',
                 },
               ],
@@ -4100,7 +4271,7 @@ export class DashboardService {
                 label: row.studentName,
                 secondaryLabel: row.className,
                 amount: row.balance,
-                note: 'Số dư hiện tại chưa phân bổ vào các buổi học tương lai.',
+                note: 'Số dư ví còn lại chưa dạy trong tương lai.',
               })),
               emptyState: 'Chưa có dữ liệu số dư học sinh.',
             };
@@ -4112,16 +4283,16 @@ export class DashboardService {
 
             return {
               rowKey: query.rowKey,
-              title: 'Chi tiết Chưa thu',
+              title: 'Chi tiết Học phí chưa thu (Ví âm)',
               description:
-                'Các học sinh đang có số dư âm, cần theo dõi để thu thêm học phí.',
+                'Danh sách các học sinh đang có số dư ví bị âm do đi học chưa nạp đủ tiền trong kỳ đang xem.',
               amount,
               sources: [
                 {
                   key: 'debt-total',
-                  label: 'Tổng số dư âm hiện tại',
+                  label: 'Tổng số dư âm ví hiện tại',
                   amount,
-                  note: `${totalCount} học sinh đang âm ví.`,
+                  note: `${totalCount} học sinh phát sinh nợ học phí do ví bị âm.`,
                   tone: 'negative',
                 },
               ],
@@ -4158,44 +4329,44 @@ export class DashboardService {
 
             return {
               rowKey: query.rowKey,
-              title: 'Chi tiết Chờ thanh toán trợ cấp',
+              title: 'Chi tiết Trợ cấp chờ thanh toán',
               description:
-                'Các khoản pending gắn với buổi học / giáo án / tháng record trong kỳ đang xem.',
+                'Các khoản trợ cấp, hoa hồng, thưởng của nhân sự đã phát sinh trong kỳ nhưng chưa thanh toán.',
               amount,
               sources: [
                 {
                   key: 'pending-session',
                   label: 'Buổi dạy chưa thanh toán',
                   amount: totalSessionAmount,
-                  note: 'Session teacher payment status = unpaid.',
+                  note: 'Trợ cấp giảng dạy của gia sư/giáo viên ở trạng thái chưa chi trả.',
                   tone: 'negative',
                 },
                 {
                   key: 'pending-customer-care',
                   label: 'CSKH chưa thanh toán',
                   amount: totalCustomerCareAmount,
-                  note: 'Commission customer care còn pending.',
+                  note: 'Hoa hồng CSKH tích lũy ở trạng thái chưa chi trả.',
                   tone: 'negative',
                 },
                 {
                   key: 'pending-lesson',
                   label: 'Giáo án chưa thanh toán',
                   amount: totalLessonAmount,
-                  note: 'Lesson output payment status = pending.',
+                  note: 'Trợ cấp viết giáo án/soạn tài liệu ở trạng thái chưa chi trả.',
                   tone: 'negative',
                 },
                 {
                   key: 'pending-bonus',
                   label: 'Bonus chưa thanh toán',
                   amount: totalBonusAmount,
-                  note: 'Bonus đang ở trạng thái pending.',
+                  note: 'Các khoản thưởng nhân sự bổ sung ở trạng thái chưa chi trả.',
                   tone: 'negative',
                 },
                 {
                   key: 'pending-extra',
                   label: 'Trợ cấp khác chưa thanh toán',
                   amount: totalExtraAllowanceAmount,
-                  note: 'Extra allowance đang ở trạng thái pending.',
+                  note: 'Trợ cấp bổ sung khác ở trạng thái chưa chi trả.',
                   tone: 'negative',
                 },
               ],
@@ -4260,6 +4431,39 @@ export class DashboardService {
               selectedMonthTrend.extraAllowanceCost;
 
             if (query.rowKey === 'personnel-cost') {
+              const staffCosts = await this.getPersonnelStaffCosts(
+                limit,
+                dashboardPeriod,
+              );
+              const items =
+                staffCosts.map<AdminDashboardFinancialDetailItemDto>((row) => {
+                  const segments = [
+                    normalizeMoneyAmount(row.sessionAmount) > 0
+                      ? `Dạy ${formatCurrencyLabel(normalizeMoneyAmount(row.sessionAmount))}`
+                      : null,
+                    normalizeMoneyAmount(row.customerCareAmount) > 0
+                      ? `CSKH ${formatCurrencyLabel(normalizeMoneyAmount(row.customerCareAmount))}`
+                      : null,
+                    normalizeMoneyAmount(row.lessonAmount) > 0
+                      ? `Giáo án ${formatCurrencyLabel(normalizeMoneyAmount(row.lessonAmount))}`
+                      : null,
+                    normalizeMoneyAmount(row.bonusAmount) > 0
+                      ? `Bonus ${formatCurrencyLabel(normalizeMoneyAmount(row.bonusAmount))}`
+                      : null,
+                  ].filter((value): value is string => value != null);
+
+                  return {
+                    id: row.staffId,
+                    label: row.staffName,
+                    secondaryLabel: 'Chi phí nhân sự',
+                    amount: normalizeMoneyAmount(row.totalCost),
+                    note:
+                      segments.length > 0
+                        ? segments.join(' • ')
+                        : 'Không có chi phí chi tiết.',
+                  };
+                });
+
               return {
                 rowKey: query.rowKey,
                 title: 'Chi tiết Chi phí nhân sự',
@@ -4270,38 +4474,97 @@ export class DashboardService {
                     key: 'teacher-cost',
                     label: 'Chi giảng dạy',
                     amount: selectedMonthTrend.teacherCost,
-                    note: 'Phụ cấp buổi dạy của giáo viên.',
+                    note: 'Chi phí trợ cấp giảng dạy cho gia sư/giáo viên phát sinh trong kỳ.',
                     tone: 'negative',
                   },
                   {
                     key: 'customer-care-cost',
                     label: 'Chi CSKH',
                     amount: selectedMonthTrend.customerCareCost,
-                    note: 'Commission customer care theo attendance.',
+                    note: 'Chi phí hoa hồng chăm sóc khách hàng phát sinh trong kỳ.',
                     tone: 'negative',
                   },
                   {
                     key: 'lesson-cost',
                     label: 'Chi giáo án',
                     amount: selectedMonthTrend.lessonCost,
-                    note: 'Chi phí lesson output phát sinh trong tháng.',
+                    note: 'Chi phí viết giáo án/soạn tài liệu phát sinh trong kỳ.',
                     tone: 'negative',
                   },
                   {
                     key: 'bonus-cost',
                     label: 'Bonus',
                     amount: selectedMonthTrend.bonusCost,
-                    note: 'Các khoản thưởng đã ghi nhận trong tháng.',
+                    note: 'Tổng các khoản thưởng nhân viên phát sinh trong kỳ.',
                     tone: 'negative',
                   },
                 ],
-                items: [],
+                items,
                 emptyState:
                   'Không có thêm dòng chi tiết ngoài các nguồn chi phí trên.',
               };
             }
 
             if (query.rowKey === 'other-cost') {
+              const [costExtends, extraAllowances] = await Promise.all([
+                this.prisma.costExtend.findMany({
+                  where: period.isDateRange
+                    ? {
+                        date: {
+                          gte: period.monthStart,
+                          lt: period.monthEnd,
+                        },
+                      }
+                    : {
+                        OR: [
+                          { month: period.monthKey },
+                          {
+                            date: {
+                              gte: period.monthStart,
+                              lt: period.monthEnd,
+                            },
+                          },
+                        ],
+                      },
+                  orderBy: { createdAt: 'desc' },
+                }),
+                this.prisma.extraAllowance.findMany({
+                  where: period.isDateRange
+                    ? {
+                        month: {
+                          gte: period.fromMonthKey,
+                          lt: period.toMonthKeyExclusive,
+                        },
+                      }
+                    : { month: period.monthKey },
+                  include: { staff: { include: { user: true } } },
+                }),
+              ]);
+
+              const items = [
+                ...costExtends.map((row) => ({
+                  id: row.id,
+                  label: row.description || row.category || 'Chi phí vận hành',
+                  secondaryLabel: 'Chi phí vận hành',
+                  amount: row.amount ?? 0,
+                  note: row.date
+                    ? row.date.toISOString().slice(0, 10)
+                    : row.month || '—',
+                })),
+                ...extraAllowances.map((row) => {
+                  const staffName = row.staff.user
+                    ? `${row.staff.user.last_name ?? ''} ${row.staff.user.first_name ?? ''}`.trim()
+                    : 'Nhân sự';
+                  return {
+                    id: row.id,
+                    label: `Trợ cấp khác - ${staffName}`,
+                    secondaryLabel: 'Trợ cấp khác',
+                    amount: row.amount,
+                    note: row.note || `Trợ cấp kỳ ${row.month}`,
+                  };
+                }),
+              ];
+
               return {
                 rowKey: query.rowKey,
                 title: 'Chi tiết Chi phí khác',
@@ -4310,89 +4573,252 @@ export class DashboardService {
                 sources: [
                   {
                     key: 'operating-cost',
-                    label: 'Chi phí mở rộng',
+                    label: 'Chi phí vận hành',
                     amount: selectedMonthTrend.operatingCost,
-                    note: 'Các khoản cost_extend phát sinh trong tháng.',
+                    note: 'Các khoản chi phí vận hành, văn phòng, quản lý phát sinh trong kỳ.',
                     tone: 'negative',
                   },
                   {
                     key: 'extra-allowance-cost',
                     label: 'Trợ cấp khác',
                     amount: selectedMonthTrend.extraAllowanceCost,
-                    note: 'Các khoản extra allowance đã ghi nhận.',
+                    note: 'Các khoản trợ cấp ngoài giờ hoặc bổ sung khác phát sinh trong kỳ.',
                     tone: 'negative',
                   },
                 ],
-                items: [],
+                items,
                 emptyState:
                   'Không có thêm dòng chi tiết ngoài các nguồn chi phí trên.',
               };
             }
 
             if (query.rowKey === 'profit') {
+              const [classRows, staffRows, costExtends, extraAllowances] =
+                await Promise.all([
+                  this.getLearnedTuitionByClassForMonth({
+                    monthStart: period.monthStart,
+                    monthEnd: period.monthEnd,
+                    limit,
+                  }),
+                  this.getPersonnelStaffCosts(limit, dashboardPeriod),
+                  this.prisma.costExtend.findMany({
+                    where: period.isDateRange
+                      ? {
+                          date: {
+                            gte: period.monthStart,
+                            lt: period.monthEnd,
+                          },
+                        }
+                      : {
+                          OR: [
+                            { month: period.monthKey },
+                            {
+                              date: {
+                                gte: period.monthStart,
+                                lt: period.monthEnd,
+                              },
+                            },
+                          ],
+                        },
+                    orderBy: { createdAt: 'desc' },
+                  }),
+                  this.prisma.extraAllowance.findMany({
+                    where: period.isDateRange
+                      ? {
+                          month: {
+                            gte: period.fromMonthKey,
+                            lt: period.toMonthKeyExclusive,
+                          },
+                        }
+                      : { month: period.monthKey },
+                    include: { staff: { include: { user: true } } },
+                  }),
+                ]);
+
+              const items = [
+                ...classRows.map((row) => ({
+                  id: `class-${row.classId}`,
+                  label: `Doanh thu - Lớp ${row.className}`,
+                  secondaryLabel: 'Học phí đã học',
+                  amount: normalizeMoneyAmount(row.totalAmount),
+                  note: `${normalizeInteger(row.attendanceCount)} lượt học (Doanh thu +)`,
+                })),
+                ...staffRows.map((row) => ({
+                  id: `staff-${row.staffId}`,
+                  label: `Chi phí - Nhân sự ${row.staffName}`,
+                  secondaryLabel: 'Chi phí nhân sự',
+                  amount: -normalizeMoneyAmount(row.totalCost),
+                  note: `Tổng trợ cấp nhân sự (Chi phí -)`,
+                })),
+                ...costExtends.map((row) => ({
+                  id: `cost-${row.id}`,
+                  label: `Chi phí khác - ${row.description || row.category || 'Vận hành'}`,
+                  secondaryLabel: 'Chi phí khác',
+                  amount: -(row.amount ?? 0),
+                  note: `Chi phí vận hành ngoài (Chi phí -)`,
+                })),
+                ...extraAllowances.map((row) => {
+                  const staffName = row.staff.user
+                    ? `${row.staff.user.last_name ?? ''} ${row.staff.user.first_name ?? ''}`.trim()
+                    : 'Nhân sự';
+                  return {
+                    id: `extra-${row.id}`,
+                    label: `Chi phí khác - Trợ cấp ${staffName}`,
+                    secondaryLabel: 'Chi phí khác',
+                    amount: -row.amount,
+                    note: row.note || `Trợ cấp kỳ ${row.month} (Chi phí -)`,
+                  };
+                }),
+              ];
+
               return {
                 rowKey: query.rowKey,
-                title: 'Chi tiết Lợi nhuận',
-                description: `Lợi nhuận tháng được tính theo học phí đã học trừ toàn bộ chi phí ghi nhận trong ${periodLabel}.`,
+                title: 'Chi tiết Lợi nhuận thực tế (Kế toán)',
+                description: `Lợi nhuận được tính bằng doanh thu thực tế (Học phí đã học) trừ đi các chi phí nhân sự và vận hành phát sinh trong ${periodLabel}.`,
                 amount: selectedMonthTrend.profit,
                 sources: [
                   {
                     key: 'profit-revenue',
-                    label: 'Học phí đã học',
+                    label: 'Học phí đã học (Doanh thu)',
                     amount: selectedMonthTrend.revenue,
-                    note: 'Nguồn cộng vào lợi nhuận.',
+                    note: 'Doanh thu giảng dạy thực tế phát sinh trong kỳ.',
                     tone: 'positive',
                   },
                   {
                     key: 'profit-personnel',
                     label: 'Chi phí nhân sự',
                     amount: personnelCost,
-                    note: 'Nguồn bị trừ khỏi lợi nhuận.',
+                    note: 'Chi phí nhân viên phát sinh trong kỳ.',
                     tone: 'negative',
                   },
                   {
                     key: 'profit-other',
                     label: 'Chi phí khác',
                     amount: otherCost,
-                    note: 'Nguồn bị trừ khỏi lợi nhuận.',
+                    note: 'Chi phí vận hành và quản lý khác trong kỳ.',
                     tone: 'negative',
                   },
                 ],
-                items: [],
+                items,
                 emptyState:
                   'Lợi nhuận của tháng này chỉ gồm các nguồn cộng trừ ở trên.',
               };
             }
 
+            const [topupHistory, staffRows, costExtends, extraAllowances] =
+              await Promise.all([
+                this.prisma.walletTransactionsHistory.findMany({
+                  where: {
+                    date: {
+                      gte: period.monthStart,
+                      lt: period.monthEnd,
+                    },
+                    type: 'topup',
+                  },
+                  include: { student: true },
+                  orderBy: { createdAt: 'desc' },
+                  take: limit,
+                }),
+                this.getPersonnelStaffCosts(limit, dashboardPeriod),
+                this.prisma.costExtend.findMany({
+                  where: period.isDateRange
+                    ? {
+                        date: {
+                          gte: period.monthStart,
+                          lt: period.monthEnd,
+                        },
+                      }
+                    : {
+                        OR: [
+                          { month: period.monthKey },
+                          {
+                            date: {
+                              gte: period.monthStart,
+                              lt: period.monthEnd,
+                            },
+                          },
+                        ],
+                      },
+                  orderBy: { createdAt: 'desc' },
+                }),
+                this.prisma.extraAllowance.findMany({
+                  where: period.isDateRange
+                    ? {
+                        month: {
+                          gte: period.fromMonthKey,
+                          lt: period.toMonthKeyExclusive,
+                        },
+                      }
+                    : { month: period.monthKey },
+                  include: { staff: { include: { user: true } } },
+                }),
+              ]);
+
+            const items = [
+              ...topupHistory.map((item) => ({
+                id: `topup-${item.id}`,
+                label: `Tiền nạp - Học sinh ${item.student.fullName}`,
+                secondaryLabel: 'Dòng tiền vào',
+                amount: item.amount,
+                note: `Nạp tiền vào ví ngày ${item.date.toISOString().slice(0, 10)} (Thu +)`,
+              })),
+              ...staffRows.map((row) => ({
+                id: `staff-${row.staffId}`,
+                label: `Chi phí - Nhân sự ${row.staffName}`,
+                secondaryLabel: 'Chi phí nhân sự',
+                amount: -normalizeMoneyAmount(row.totalCost),
+                note: `Tổng trợ cấp nhân sự trong kỳ (Chi -)`,
+              })),
+              ...costExtends.map((row) => ({
+                id: `cost-${row.id}`,
+                label: `Chi phí khác - ${row.description || row.category || 'Vận hành'}`,
+                secondaryLabel: 'Chi phí khác',
+                amount: -(row.amount ?? 0),
+                note: `Chi phí vận hành ngoài (Chi -)`,
+              })),
+              ...extraAllowances.map((row) => {
+                const staffName = row.staff.user
+                  ? `${row.staff.user.last_name ?? ''} ${row.staff.user.first_name ?? ''}`.trim()
+                  : 'Nhân sự';
+                return {
+                  id: `extra-${row.id}`,
+                  label: `Chi phí khác - Trợ cấp ${staffName}`,
+                  secondaryLabel: 'Chi phí khác',
+                  amount: -row.amount,
+                  note: row.note || `Trợ cấp kỳ ${row.month} (Chi -)`,
+                };
+              }),
+            ];
+
             return {
               rowKey: query.rowKey,
-              title: 'Chi tiết Tổng nhận',
-              description: `Tổng nhận tháng được tính từ dòng tiền nạp trừ các khoản chi đã ghi nhận trong ${periodLabel}.`,
+              title: 'Chi tiết Dòng tiền thuần (Thực thu ròng)',
+              description: `Dòng tiền ròng tăng thêm thực tế được tính bằng tổng số tiền nạp thực tế trừ đi các chi phí phát sinh trong ${periodLabel}.`,
               amount: monthlyTopupTotal - personnelCost - otherCost,
               sources: [
                 {
                   key: 'total-in-topup',
-                  label: 'Tổng nạp',
+                  label: 'Tổng nạp (Dòng tiền vào)',
                   amount: monthlyTopupTotal,
-                  note: 'Nguồn tiền vào trong tháng đang xem.',
+                  note: 'Tiền mặt phụ huynh thực tế nạp ví trong kỳ.',
                   tone: 'positive',
                 },
                 {
                   key: 'total-in-personnel',
                   label: 'Chi phí nhân sự',
                   amount: personnelCost,
-                  note: 'Khoản trừ ra khỏi tổng nhận.',
+                  note: 'Chi phí nhân sự phát sinh trong kỳ.',
                   tone: 'negative',
                 },
                 {
                   key: 'total-in-other',
                   label: 'Chi phí khác',
                   amount: otherCost,
-                  note: 'Khoản trừ ra khỏi tổng nhận.',
+                  note: 'Chi phí vận hành và quản lý khác trong kỳ.',
                   tone: 'negative',
                 },
               ],
-              items: [],
+              items,
               emptyState:
                 'Tổng nhận của tháng này chỉ gồm các nguồn cộng trừ ở trên.',
             };
