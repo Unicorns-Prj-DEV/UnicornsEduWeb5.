@@ -177,6 +177,24 @@ function formatCurrency(value: number | null | undefined) {
   }).format(value);
 }
 
+function formatDateTime(iso?: string | null) {
+  if (!iso) return "—";
+  try {
+    const date = new Date(iso);
+    return new Intl.DateTimeFormat("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(date);
+  } catch {
+    return "—";
+  }
+}
+
+
 
 function resolveStaffName(item: ExtraAllowanceListItem) {
   return item.staff?.fullName?.trim() || "Nhân sự chưa xác định";
@@ -915,6 +933,12 @@ export default function ExtraAllowanceRoleDetailPage({
                                 </p>
                                 <p className="mt-1 text-xs text-text-muted">
                                   {formatMonthKeyLabel(allowance.month)}
+                                  {allowance.createdAt && (
+                                    <>
+                                      <span className="mx-1.5">•</span>
+                                      Thêm: {formatDateTime(allowance.createdAt)}
+                                    </>
+                                  )}
                                 </p>
                               </div>
                               <div className="flex shrink-0 items-center gap-2">
@@ -941,9 +965,10 @@ export default function ExtraAllowanceRoleDetailPage({
                     <table className="w-full table-fixed border-collapse text-left">
                       <colgroup>
                         <col style={{ width: "76px" }} />
-                        <col style={{ width: "26%" }} />
-                        <col style={{ width: "16%" }} />
-                        <col style={{ width: "28%" }} />
+                        <col style={{ width: "20%" }} />
+                        <col style={{ width: "10%" }} />
+                        <col style={{ width: "18%" }} />
+                        <col style={{ width: "22%" }} />
                         <col style={{ width: "16%" }} />
                         <col style={{ width: "14%" }} />
                         {canDeleteAllowance ? <col style={{ width: "72px" }} /> : null}
@@ -967,6 +992,9 @@ export default function ExtraAllowanceRoleDetailPage({
                           </th>
                           <th className="px-2.5 py-2.5" scope="col">
                             Tháng
+                          </th>
+                          <th className="px-2.5 py-2.5" scope="col">
+                            Ngày thêm
                           </th>
                           <th className="px-2.5 py-2.5" scope="col">
                             Ghi chú
@@ -1011,6 +1039,9 @@ export default function ExtraAllowanceRoleDetailPage({
                               </td>
                               <td className="px-2.5 py-2.5 align-top text-sm text-text-secondary">
                                 {formatMonthKeyLabel(allowance.month)}
+                              </td>
+                              <td className="px-2.5 py-2.5 align-top text-sm text-text-secondary">
+                                {formatDateTime(allowance.createdAt)}
                               </td>
                               <td className="px-2.5 py-2.5 align-top text-sm text-text-secondary">
                                 <p className="line-clamp-2 break-words">

@@ -8,7 +8,25 @@ export type MockBonus = {
   workType: string;
   status: "paid" | "unpaid" | "deposit";
   amount: number;
+  createdAt?: string;
 };
+
+function formatDateTime(isoString?: string) {
+  if (!isoString) return "—";
+  try {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return "—";
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const hours = pad(date.getHours());
+    const minutes = pad(date.getMinutes());
+    const day = pad(date.getDate());
+    const month = pad(date.getMonth() + 1);
+    const year = date.getFullYear();
+    return `${hours}:${minutes} ${day}/${month}/${year}`;
+  } catch {
+    return "—";
+  }
+}
 
 const STATUS_LABELS: Record<string, string> = {
   paid: "Đã thanh toán",
@@ -128,7 +146,10 @@ export default function StaffBonusCard({
                   }}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="line-clamp-2 text-sm font-medium text-text-primary">{b.workType || "Khác"}</p>
+                    <div>
+                      <p className="line-clamp-2 text-sm font-medium text-text-primary">{b.workType || "Khác"}</p>
+                      <p className="mt-1 text-xs text-text-muted">{formatDateTime(b.createdAt)}</p>
+                    </div>
                     <span
                       className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_CLASS[b.status] ?? "bg-bg-tertiary text-text-muted"}`}
                     >
@@ -162,13 +183,16 @@ export default function StaffBonusCard({
               <table className="w-full min-w-[620px] border-collapse text-left text-sm">
                 <thead>
                   <tr className="border-b border-border-default bg-primary/5">
-                    <th scope="col" className="w-[32%] px-4 py-3 font-medium text-text-primary">
+                    <th scope="col" className="w-[28%] px-4 py-3 font-medium text-text-primary">
                       Công việc
                     </th>
-                    <th scope="col" className="w-[32%] px-4 py-3 font-medium text-text-primary">
+                    <th scope="col" className="w-[20%] px-4 py-3 font-medium text-text-primary">
+                      Thời gian
+                    </th>
+                    <th scope="col" className="w-[24%] px-4 py-3 font-medium text-text-primary">
                       Trạng thái
                     </th>
-                    <th scope="col" className="w-[30%] px-4 py-3 font-medium text-text-primary">
+                    <th scope="col" className="w-[24%] px-4 py-3 font-medium text-text-primary">
                       Số tiền
                     </th>
                     <th scope="col" className="w-[4%] px-4 py-3">
@@ -191,6 +215,9 @@ export default function StaffBonusCard({
                     >
                       <td className="px-4 py-3 font-medium text-text-primary">
                         <span className="line-clamp-2">{b.workType || "Khác"}</span>
+                      </td>
+                      <td className="px-4 py-3 text-text-secondary whitespace-nowrap">
+                        {formatDateTime(b.createdAt)}
                       </td>
                       <td className="px-4 py-3">
                         <span

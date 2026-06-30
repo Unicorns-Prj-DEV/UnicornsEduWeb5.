@@ -76,6 +76,7 @@ type BonusRecord = {
   amount: number;
   status: "paid" | "pending";
   note: string;
+  createdAt?: string;
 };
 
 type BonusFormState = {
@@ -118,6 +119,7 @@ function normalizeBonusRecord(item: BonusListItem): BonusRecord {
     amount: normalizeMoneyAmount(item.amount),
     status: rawStatus === "paid" ? "paid" : "pending",
     note: item.note?.trim() || "",
+    createdAt: item.createdAt,
   };
 }
 
@@ -534,6 +536,7 @@ export default function StaffSelfDetailPage() {
       workType: string;
       status: "paid" | "unpaid" | "deposit";
       amount: number;
+      createdAt?: string;
     }[]
   >(
     () =>
@@ -542,6 +545,7 @@ export default function StaffSelfDetailPage() {
         workType: item.workType,
         amount: item.amount,
         status: item.status === "paid" ? "paid" : "unpaid",
+        createdAt: item.createdAt,
       })),
     [bonusRecords],
   );
