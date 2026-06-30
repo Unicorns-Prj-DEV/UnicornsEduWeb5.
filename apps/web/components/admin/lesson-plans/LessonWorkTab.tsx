@@ -127,6 +127,15 @@ function LevelPill({ level }: { level: string | null }) {
   );
 }
 
+function ContestPill({ contest }: { contest: string | null }) {
+  const display = contest?.trim() || "Chưa có contest";
+  return (
+    <span className="inline-flex max-w-[10rem] truncate rounded-full bg-secondary/12 px-2.5 py-1 text-xs font-semibold text-secondary ring-1 ring-secondary/20">
+      {display}
+    </span>
+  );
+}
+
 function PaymentPill({
   paymentStatus,
   cost,
@@ -926,6 +935,7 @@ export default function LessonWorkTab({
                             </div>
                           ) : null}
                           <LevelPill level={output.level} />
+                          <ContestPill contest={output.contestUploaded} />
                         </div>
                       </div>
 
@@ -935,9 +945,6 @@ export default function LessonWorkTab({
                           cost={output.cost}
                           staffDisplayName={output.staffDisplayName}
                         />
-                        <span className="rounded-full border border-border-default bg-bg-secondary/70 px-2.5 py-1 text-xs text-text-secondary">
-                          {output.contestUploaded?.trim() || "Chưa có contest"}
-                        </span>
                       </div>
 
                       <div className="mt-4 flex items-start justify-between gap-3">
