@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <title>Tài liệu hướng dẫn API đồng bộ hệ sinh thái UNIOJ</title>
+    <style>
+        :root {
+            --ink: #111827;
+            --line: #111827;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: "Times New Roman", "Noto Serif", Georgia, serif;
+            font-size: 13pt;
+            line-height: 1.5;
+            color: var(--ink);
+            background: #fff;
+        }
+
+        .report-doc {
+            max-width: 210mm;
+            min-height: 297mm;
+            margin: 0 auto;
+            background: #fff;
+            padding: 18mm 16mm 20mm;
+        }
+
+        .report-doc__letterhead {
+            display: table;
+            width: 100%;
+            border: 1px solid var(--line);
+            margin-bottom: 14px;
+        }
+
+        .report-doc__letterhead-cell {
+            display: table-cell;
+            width: 50%;
+            vertical-align: top;
+            padding: 10px 12px;
+            text-align: center;
+            font-size: 12pt;
+        }
+
+        .report-doc__letterhead-cell + .report-doc__letterhead-cell {
+            border-left: 1px solid var(--line);
+        }
+
+        .report-doc__org {
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .report-doc__motto-title {
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 11pt;
+        }
+
+        .report-doc__motto-sub {
+            font-size: 12pt;
+            margin-top: 4px;
+        }
+
+        .report-doc__motto-line {
+            display: inline-block;
+            min-width: 120px;
+            border-bottom: 1px solid var(--ink);
+            margin-top: 6px;
+            padding-bottom: 2px;
+            font-size: 11pt;
+        }
+
+        .report-doc__date {
+            text-align: right;
+            font-style: italic;
+            margin: 10px 0 18px;
+            font-size: 12pt;
+        }
+
+        .report-doc__title {
+            text-align: center;
+            font-size: 15pt;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin: 0 0 18px;
+        }
+
+        .report-doc__recipient,
+        .report-doc__field {
+            margin: 0 0 8px;
+            font-size: 13pt;
+        }
+
+        .report-doc__field strong {
+            display: inline-block;
+            min-width: 168px;
+        }
+
+        .report-doc__intro {
+            margin: 14px 0 10px;
+            text-align: justify;
+            font-size: 12.5pt;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0 16px;
+            font-size: 11.5pt;
+        }
+
+        th, td {
+            border: 1px solid var(--line);
+            padding: 8px 10px;
+            vertical-align: top;
+            text-align: left;
+        }
+
+        th {
+            font-weight: 700;
+            text-align: center;
+            background: #f8fafc;
+        }
+
+        .report-doc__col-no { width: 42px; text-align: center; }
+        .report-doc__col-note { width: 26%; }
+
+        .report-doc__section-title {
+            margin: 18px 0 8px;
+            font-size: 12.5pt;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .report-doc__code {
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 10pt;
+            background: #f8fafc;
+            padding: 10px 12px;
+            border: 1px solid #cbd5e1;
+            margin: 8px 0 14px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .report-doc__note-block {
+            margin-top: 16px;
+            font-size: 12pt;
+        }
+
+        .report-doc__signature {
+            margin-top: 36px;
+            text-align: right;
+            padding-right: 24px;
+        }
+
+        .report-doc__signature-label {
+            font-weight: 700;
+            margin-bottom: 64px;
+        }
+
+        .report-doc__signature-name {
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .report-doc__page-break {
+            page-break-before: always;
+        }
+
+        @media print {
+            body { padding: 0; background: #fff; }
+            .report-doc { border: none; box-shadow: none; padding: 14mm 12mm; max-width: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="report-doc">
+        <div class="report-doc__letterhead">
+            <div class="report-doc__letterhead-cell">
+                <div class="report-doc__org">Trung tâm UNIOJ: Unicorns Online Judge</div>
+            </div>
+            <div class="report-doc__letterhead-cell">
+                <div class="report-doc__motto-title">Cộng hòa Xã hội Chủ nghĩa Việt Nam</div>
+                <div class="report-doc__motto-sub">Độc lập - Tự do - Hạnh phúc</div>
+                <div class="report-doc__motto-line"></div>
+            </div>
+        </div>
+
+        <p class="report-doc__date">Hà Nội, ngày 30 tháng 06 năm 2026</p>
+
+        <h1 class="report-doc__title">Tài liệu hướng dẫn API đồng bộ hệ sinh thái UNIOJ</h1>
+
+        <p class="report-doc__recipient"><strong>Kính gửi:</strong> Các đơn vị, hệ thống đối tác tích hợp</p>
+        <p class="report-doc__field"><strong>Bộ phận công tác:</strong> Bộ phận kỹ thuật – phát triển website UNIOJ</p>
+        <p class="report-doc__field"><strong>Phiên bản tài liệu:</strong> 1.0</p>
+        <p class="report-doc__field"><strong>Cơ sở API:</strong> https://oj.uniedu.vn</p>
+
+        <p class="report-doc__intro">
+            Tài liệu này hướng dẫn các đơn vị trong hệ sinh thái Unicorns Edu kết nối với nền tảng UNIOJ
+            để đồng bộ tên học viên, lấy dữ liệu báo cáo cá nhân và nhúng báo cáo PDF cho phụ huynh.
+            <strong>API key chỉ được sử dụng trên máy chủ backend</strong> của đơn vị đối tác; không đưa ra trình duyệt
+            người dùng cuối.
+        </p>
+
+        <p class="report-doc__section-title">I. Tổng quan các API</p>
+        <table>
+            <thead>
+                <tr>
+                    <th class="report-doc__col-no">STT</th>
+                    <th>API / chức năng</th>
+                    <th>Mô tả</th>
+                    <th class="report-doc__col-note">Ghi chú</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="report-doc__col-no">1</td>
+                    <td>Đồng bộ tên → username</td>
+                    <td><code>GET /api/student-lookup/?name=...</code></td>
+                    <td>Ánh xạ tên hiển thị bên đối tác sang username UNIOJ</td>
+                </tr>
+                <tr>
+                    <td class="report-doc__col-no">2</td>
+                    <td>Báo cáo cá nhân (JSON)</td>
+                    <td><code>GET /api/student-report/&lt;username&gt;/</code></td>
+                    <td>Dữ liệu tiến độ, roadmap, biểu đồ, level hiện tại</td>
+                </tr>
+                <tr>
+                    <td class="report-doc__col-no">3</td>
+                    <td>Báo cáo cá nhân (PDF)</td>
+                    <td><code>GET /api/student-report/&lt;username&gt;/pdf/</code></td>
+                    <td>File PDF báo cáo để proxy về website đối tác</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p class="report-doc__section-title">II. Xác thực và quyền truy cập</p>
+        <table>
+            <thead>
+                <tr>
+                    <th class="report-doc__col-no">STT</th>
+                    <th>Nội dung</th>
+                    <th>Chi tiết</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="report-doc__col-no">1</td>
+                    <td>Header bắt buộc</td>
+                    <td><code>Authorization: Bearer &lt;api_key&gt;</code></td>
+                </tr>
+                <tr>
+                    <td class="report-doc__col-no">2</td>
+                    <td>API key</td>
+                    <td>Trường <code>api_key</code> trên hồ sơ Profile (Django Admin). Mỗi tài khoản tích hợp một key Base64url.</td>
+                </tr>
+                <tr>
+                    <td class="report-doc__col-no">3</td>
+                    <td>Quyền</td>
+                    <td>Tài khoản gọi API phải có quyền <em>View student personal report</em> hoặc là superuser.</td>
+                </tr>
+                <tr>
+                    <td class="report-doc__col-no">4</td>
+                    <td>Bảo mật</td>
+                    <td>Lưu <code>api_key</code> trong biến môi trường server (.env). Không nhúng vào HTML, JavaScript hay URL công khai.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p class="report-doc__section-title">III. API đồng bộ tên (student-lookup)</p>
+        <p class="report-doc__intro">
+            Dùng khi hệ thống đối tác lưu tên đầy đủ (ví dụ <em>Hà Trần Minh Đoàn</em>) còn UNIOJ dùng username
+            (ví dụ <em>DoanHTMHCM2010</em>) và tên hiển thị đầy đủ hơn (có thêm tỉnh, năm sinh).
+        </p>
+        <table>
+            <thead>
+                <tr>
+                    <th class="report-doc__col-no">STT</th>
+                    <th>Tham số / trường</th>
+                    <th>Mô tả</th>
+                    <th class="report-doc__col-note">Ví dụ</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="report-doc__col-no">1</td>
+                    <td><code>name</code> (query)</td>
+                    <td>Tên học viên phía đối tác</td>
+                    <td>Hà Trần Minh Đoàn</td>
+                </tr>
+                <tr>
+                    <td class="report-doc__col-no">2</td>
+                    <td><code>username</code> (trả về)</td>
+                    <td>Username UNIOJ</td>
+                    <td>DoanHTMHCM2010</td>
+                </tr>
+                <tr>
+                    <td class="report-doc__col-no">3</td>
+                    <td><code>display_name</code> (trả về)</td>
+                    <td>Tên hiển thị trên UNIOJ</td>
+                    <td>Hà Trần Minh Đoàn Hồ Chí Minh 2010</td>
+                </tr>
+            </tbody>
+        </table>
+        <p><strong>Quy tắc khớp tên:</strong> trùng khớp chính xác tên hiển thị → trùng username → tên đối tác là tiền tố của tên UNIOJ.</p>
+        <div class="report-doc__code">curl -G "https://oj.uniedu.vn/api/student-lookup/" \
+  --data-urlencode "name=Hà Trần Minh Đoàn" \
+  -H "Authorization: Bearer &lt;api_key&gt;"</div>
+
+        <p class="report-doc__section-title">IV. API báo cáo cá nhân</p>
+        <table>
+            <thead>
+                <tr>
+                    <th class="report-doc__col-no">STT</th>
+                    <th>Endpoint</th>
+                    <th>Kết quả</th>
+                    <th class="report-doc__col-note">Tham số tùy chọn</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="report-doc__col-no">1</td>
+                    <td><code>/api/student-report/&lt;username&gt;/</code></td>
+                    <td>JSON: điểm, AC rate, roadmap, tiến độ theo ngày, level hiện tại (2 tuần)</td>
+                    <td><code>?days=90</code> (7–365)</td>
+                </tr>
+                <tr>
+                    <td class="report-doc__col-no">2</td>
+                    <td><code>/api/student-report/&lt;username&gt;/pdf/</code></td>
+                    <td>File PDF báo cáo (application/pdf)</td>
+                    <td><code>?days=90</code></td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="report-doc__code"># JSON
+curl -H "Authorization: Bearer &lt;api_key&gt;" \
+  "https://oj.uniedu.vn/api/student-report/DoanHTMHCM2010/?days=90"
+
+# PDF (lưu file)
+curl -H "Authorization: Bearer &lt;api_key&gt;" \
+  "https://oj.uniedu.vn/api/student-report/DoanHTMHCM2010/pdf/" \
+  -o bao-cao.pdf</div>
+
+        <div class="report-doc__page-break"></div>
+
+        <p class="report-doc__section-title">V. Luồng tích hợp khuyến nghị (proxy server)</p>
+        <table>
+            <thead>
+                <tr>
+                    <th class="report-doc__col-no">STT</th>
+                    <th>Bước</th>
+                    <th>Mô tả</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="report-doc__col-no">1</td>
+                    <td>Phụ huynh mở trang đối tác</td>
+                    <td>Trình duyệt chỉ gọi domain website đối tác (không thấy api_key).</td>
+                </tr>
+                <tr>
+                    <td class="report-doc__col-no">2</td>
+                    <td>Server đối tác tra username</td>
+                    <td>Gọi <code>/api/student-lookup/</code> nếu chỉ có tên học viên.</td>
+                </tr>
+                <tr>
+                    <td class="report-doc__col-no">3</td>
+                    <td>Server đối tác lấy PDF/JSON</td>
+                    <td>Gọi <code>/api/student-report/...</code> với api_key từ .env.</td>
+                </tr>
+                <tr>
+                    <td class="report-doc__col-no">4</td>
+                    <td>Trả kết quả cho phụ huynh</td>
+                    <td>Stream PDF hoặc hiển thị dữ liệu trên domain đối tác (iframe <code>src</code> trỏ về route proxy nội bộ).</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p class="report-doc__section-title">VI. Mã lỗi HTTP thường gặp</p>
+        <table>
+            <thead>
+                <tr>
+                    <th class="report-doc__col-no">STT</th>
+                    <th>Mã</th>
+                    <th>Ý nghĩa</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td class="report-doc__col-no">1</td><td>400</td><td>Thiếu hoặc sai tham số (ví dụ thiếu <code>name</code>, <code>days</code> không hợp lệ)</td></tr>
+                <tr><td class="report-doc__col-no">2</td><td>401</td><td>API key sai hoặc tài khoản không có quyền xem báo cáo</td></tr>
+                <tr><td class="report-doc__col-no">3</td><td>404</td><td>Không tìm thấy học viên / username</td></tr>
+                <tr><td class="report-doc__col-no">4</td><td>409</td><td>Nhiều học viên trùng tên — xem danh sách <code>candidates</code> trong JSON</td></tr>
+                <tr><td class="report-doc__col-no">5</td><td>503</td><td>PDF chưa bật trên môi trường (chỉ ảnh hưởng endpoint PDF)</td></tr>
+            </tbody>
+        </table>
+
+        <p class="report-doc__note-block"><strong>Ghi chú:</strong> Liên hệ bộ phận kỹ thuật UNIOJ để được cấp <code>api_key</code> và quyền <em>View student personal report</em>. Khi triển khai production, dùng URL chính thức của site UNIOJ thay cho địa chỉ dev.</p>
+
+        <div class="report-doc__signature">
+            <div class="report-doc__signature-label">Người lập</div>
+            <div class="report-doc__signature-name">Bộ phận kỹ thuật UNIOJ</div>
+        </div>
+    </div>
+</body>
+</html>

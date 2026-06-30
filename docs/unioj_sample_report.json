@@ -1,0 +1,3239 @@
+{
+  "api_version": "1.0",
+  "method": "get",
+  "fetched": "2026-06-30T05:39:38.647309+00:00",
+  "caller": {
+    "id": 276,
+    "username": "vuminhphuongvt12345@gmail.com"
+  },
+  "data": {
+    "student": {
+      "id": 158,
+      "username": "AnLVHN2010",
+      "display_name": "Lê Văn An Hà Nội 2010"
+    },
+    "generated_at": "2026-06-30T05:39:38.647221+00:00",
+    "summary": {
+      "problem_count": 93,
+      "performance_points": 62.72254740885679,
+      "contribution_points": 0,
+      "rating": null,
+      "total_submissions": 241,
+      "ac_submissions": 120,
+      "ac_rate": 49.8,
+      "distinct_attempted": 96,
+      "first_submission": "2026-05-22T14:16:38.804281+00:00",
+      "last_submission": "2026-06-28T12:46:49.385855+00:00",
+      "current_level": {
+        "level": 2,
+        "title": "Level 2 - Thuật toán quan trọng",
+        "solved_count": 16,
+        "window_days": 14
+      }
+    },
+    "result_breakdown": {
+      "total": 241,
+      "categories": [
+        {
+          "code": "AC",
+          "name": "Accepted",
+          "parent_name": "Correct solution (passed all test cases)",
+          "count": 120,
+          "percent": 49.8
+        },
+        {
+          "code": "WA",
+          "name": "Wrong",
+          "parent_name": "Incorrect solution",
+          "count": 72,
+          "percent": 29.9
+        },
+        {
+          "code": "CE",
+          "name": "Compile Error",
+          "parent_name": "Program compile error",
+          "count": 15,
+          "percent": 6.2
+        },
+        {
+          "code": "TLE",
+          "name": "Timeout",
+          "parent_name": "Exceeded time limit",
+          "count": 17,
+          "percent": 7.1
+        },
+        {
+          "code": "ERR",
+          "name": "Error",
+          "parent_name": "Runtime or system error",
+          "count": 17,
+          "percent": 7.1
+        }
+      ]
+    },
+    "roadmap_levels": [
+      {
+        "level": 0,
+        "title": "Level 0 - Làm quen với Lập trình",
+        "solved": 0,
+        "total": 180,
+        "percent": 0,
+        "contest_count": 9,
+        "modules": [
+          {
+            "title": "Level 0 - Luyện tập tổng hợp",
+            "contest_key": "level_0_luyen_tap_tong_hop",
+            "solved": 0,
+            "total": 164,
+            "percent": 0
+          },
+          {
+            "title": "Level 0: Nhập, xuất",
+            "contest_key": "level_0_nhap_xuat_643874",
+            "solved": 0,
+            "total": 11,
+            "percent": 0
+          },
+          {
+            "title": "Level 0: if-else",
+            "contest_key": "level_0_if_else_641964",
+            "solved": 0,
+            "total": 9,
+            "percent": 0
+          },
+          {
+            "title": "Level 0: Vòng lặp for",
+            "contest_key": "level_0_vong_lap_for_643885",
+            "solved": 0,
+            "total": 10,
+            "percent": 0
+          },
+          {
+            "title": "Level 0: Vòng lặp While, nhiều vòng for lồng nhau",
+            "contest_key": "level_0_vong_lap_while_nh_645700",
+            "solved": 0,
+            "total": 7,
+            "percent": 0
+          },
+          {
+            "title": "Level 0: Mảng - Array",
+            "contest_key": "level_0_mang_array_647534",
+            "solved": 0,
+            "total": 28,
+            "percent": 0
+          },
+          {
+            "title": "Level 0: Xâu cơ bản",
+            "contest_key": "level_0_xau_co_ban_649401",
+            "solved": 0,
+            "total": 16,
+            "percent": 0
+          },
+          {
+            "title": "Level 0: Hàm, Truy vấn",
+            "contest_key": "level_0_ham_truy_van_653190",
+            "solved": 0,
+            "total": 6,
+            "percent": 0
+          },
+          {
+            "title": "LEVEL 0 - TỔNG HỢP CẤP TỐC",
+            "contest_key": "level_0_tu_duy_nen_tang_622343",
+            "solved": 0,
+            "total": 90,
+            "percent": 0
+          }
+        ]
+      },
+      {
+        "level": 1,
+        "title": "Level 1 - Thuật toán cơ bản",
+        "solved": 14,
+        "total": 283,
+        "percent": 4,
+        "contest_count": 13,
+        "modules": [
+          {
+            "title": "Level 1 - Luyện tập tổng hợp",
+            "contest_key": "level_1_luyen_tap_tong_hop",
+            "solved": 4,
+            "total": 242,
+            "percent": 1
+          },
+          {
+            "title": "Level 1: Đệ quy",
+            "contest_key": "level_1_đe_quy_657361",
+            "solved": 0,
+            "total": 3,
+            "percent": 0
+          },
+          {
+            "title": "Level 1: Brute Force - Backtracking",
+            "contest_key": "level_1_brute_force_backt_655045",
+            "solved": 0,
+            "total": 17,
+            "percent": 0
+          },
+          {
+            "title": "Level 1: Map",
+            "contest_key": "level_1_map_658934",
+            "solved": 0,
+            "total": 6,
+            "percent": 0
+          },
+          {
+            "title": "Level 1 : Sortings, Couting",
+            "contest_key": "level_1_sortings_couting_625828",
+            "solved": 0,
+            "total": 17,
+            "percent": 0
+          },
+          {
+            "title": "Level 1: Greedy",
+            "contest_key": "level_1_greedy_655049",
+            "solved": 0,
+            "total": 21,
+            "percent": 0
+          },
+          {
+            "title": "Level 1-2 : PrefixSum, Different array",
+            "contest_key": "level_1_2_prefixsum_diffe_627468",
+            "solved": 4,
+            "total": 23,
+            "percent": 17
+          },
+          {
+            "title": "Level 1: Two pointer",
+            "contest_key": "level_1_two_pointer_627481",
+            "solved": 2,
+            "total": 12,
+            "percent": 16
+          },
+          {
+            "title": "Level 1: Math",
+            "contest_key": "level_1_math_656511",
+            "solved": 1,
+            "total": 12,
+            "percent": 8
+          },
+          {
+            "title": "Level 1: Vector",
+            "contest_key": "level_1_vector_658933",
+            "solved": 0,
+            "total": 6,
+            "percent": 0
+          },
+          {
+            "title": "Level 1: Pair - Struct",
+            "contest_key": "level_1_pair_struct_660089",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "Level 1 - 2: Set",
+            "contest_key": "level_1_2_set_658935",
+            "solved": 3,
+            "total": 9,
+            "percent": 33
+          },
+          {
+            "title": "LEVEL 1 - TỔNG HỢP CẤP TỐC",
+            "contest_key": "level_1_thuat_toan_co_ban_622969",
+            "solved": 0,
+            "total": 76,
+            "percent": 0
+          }
+        ]
+      },
+      {
+        "level": 2,
+        "title": "Level 2 - Thuật toán quan trọng",
+        "solved": 77,
+        "total": 202,
+        "percent": 38,
+        "contest_count": 8,
+        "modules": [
+          {
+            "title": "Level 2 - Luyện tập tổng hợp",
+            "contest_key": "level_2_luyen_tap_tong_hop",
+            "solved": 64,
+            "total": 184,
+            "percent": 34
+          },
+          {
+            "title": "Level 2 - 3 : Binary Search",
+            "contest_key": "level_2_3_binary_search_630089",
+            "solved": 6,
+            "total": 13,
+            "percent": 46
+          },
+          {
+            "title": "Level 2: Coordinate Compression",
+            "contest_key": "level_2_coordinate_compre_661343",
+            "solved": 5,
+            "total": 5,
+            "percent": 100
+          },
+          {
+            "title": "Level 2,3 - STACK",
+            "contest_key": "level_2_3_stack_641961",
+            "solved": 12,
+            "total": 14,
+            "percent": 85
+          },
+          {
+            "title": "Level 2,3: Queue - Deque - Priority Queue",
+            "contest_key": "level_2_3_queue_deque_pri_645716",
+            "solved": 10,
+            "total": 10,
+            "percent": 100
+          },
+          {
+            "title": "Level 2 - 3 : Chia đôi tập",
+            "contest_key": "level_2_3_chia_đoi_tap_646616",
+            "solved": 7,
+            "total": 8,
+            "percent": 87
+          },
+          {
+            "title": "Level 2, 3: Math_2",
+            "contest_key": "level_2_3_math_2_683544",
+            "solved": 2,
+            "total": 6,
+            "percent": 33
+          },
+          {
+            "title": "LEVEL 2 - TỔNG HỢP CẤP TỐC",
+            "contest_key": "level_2_thuat_toan_trung_622976",
+            "solved": 16,
+            "total": 40,
+            "percent": 40
+          }
+        ]
+      },
+      {
+        "level": 3,
+        "title": "Level 3 - Thuật toán cao cấp",
+        "solved": 28,
+        "total": 364,
+        "percent": 7,
+        "contest_count": 17,
+        "modules": [
+          {
+            "title": "Level 3 - Luyện tập tổng hợp",
+            "contest_key": "level_3_luyen_tap_tong_hop",
+            "solved": 24,
+            "total": 278,
+            "percent": 8
+          },
+          {
+            "title": "Level 3 - 5 : DP",
+            "contest_key": "level_3_5_dp_631875",
+            "solved": 12,
+            "total": 50,
+            "percent": 24
+          },
+          {
+            "title": "Level 3 - 5: DP Lis",
+            "contest_key": "level_3_5_dp_lis_663286",
+            "solved": 0,
+            "total": 13,
+            "percent": 0
+          },
+          {
+            "title": "Level 3: DP LCS",
+            "contest_key": "level_3_dp_lcs_664894",
+            "solved": 0,
+            "total": 5,
+            "percent": 0
+          },
+          {
+            "title": "Level 3 - 5: Dp Knapsack",
+            "contest_key": "level_3_5_dp_knapsack_663285",
+            "solved": 0,
+            "total": 18,
+            "percent": 0
+          },
+          {
+            "title": "Level 3 - 5: DP Path On Grids",
+            "contest_key": "level_3_5_dp_path_on_grid_664893",
+            "solved": 0,
+            "total": 12,
+            "percent": 0
+          },
+          {
+            "title": "Level 3 - 5: Dp Range",
+            "contest_key": "level_3_5_dp_range_670872",
+            "solved": 0,
+            "total": 7,
+            "percent": 0
+          },
+          {
+            "title": "Level 3: Segment Tree",
+            "contest_key": "level_3_segment_tree_647551",
+            "solved": 1,
+            "total": 10,
+            "percent": 10
+          },
+          {
+            "title": "Level 3: Fenwick tree",
+            "contest_key": "level3_fenwick_tree",
+            "solved": 0,
+            "total": 10,
+            "percent": 0
+          },
+          {
+            "title": "Level 3 - 4: Small to large",
+            "contest_key": "level3_4_small_to_lagre",
+            "solved": 0,
+            "total": 7,
+            "percent": 0
+          },
+          {
+            "title": "Level 3 - 5: Inclusion-Exclusion",
+            "contest_key": "level_3_5_inclusion_exclu_663296",
+            "solved": 0,
+            "total": 11,
+            "percent": 0
+          },
+          {
+            "title": "Level 3: Hashing",
+            "contest_key": "level_3_hashing_664957",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "Level 3 : KMP",
+            "contest_key": "level_3_kmp_631928",
+            "solved": 0,
+            "total": 6,
+            "percent": 0
+          },
+          {
+            "title": "Level 3-4: Chia căn",
+            "contest_key": "level_3_4_chia_can_653815",
+            "solved": 0,
+            "total": 11,
+            "percent": 0
+          },
+          {
+            "title": "Level 3 : BFS, DFS",
+            "contest_key": "level_3_bfs_dfs_632902",
+            "solved": 0,
+            "total": 10,
+            "percent": 0
+          },
+          {
+            "title": "Level 3,4: Shortest Path",
+            "contest_key": "level3_4_shortest_path",
+            "solved": 0,
+            "total": 14,
+            "percent": 0
+          },
+          {
+            "title": "LEVEL 3 - TỔNG HỢP CẤP TỐC",
+            "contest_key": "level_3_thuat_toan_quan_t_623046",
+            "solved": 7,
+            "total": 79,
+            "percent": 8
+          }
+        ]
+      },
+      {
+        "level": 4,
+        "title": "Level 4  - Ôn HSGQG, Đội Dự Tuyển HSGQG",
+        "solved": 2,
+        "total": 271,
+        "percent": 0,
+        "contest_count": 13,
+        "modules": [
+          {
+            "title": "Level 4 - Luyện tập tổng hợp",
+            "contest_key": "level_4_luyen_tap_tong_hop",
+            "solved": 2,
+            "total": 226,
+            "percent": 0
+          },
+          {
+            "title": "Level 4-5: DP Chia Để Trị",
+            "contest_key": "level_4_5_dp_chia_đe_tri_630910",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "Level 4: DSU - MST",
+            "contest_key": "level_4_dsu_mst_651816",
+            "solved": 0,
+            "total": 18,
+            "percent": 0
+          },
+          {
+            "title": "Level 4: Euler Tour",
+            "contest_key": "level_4_euler_tour_651785",
+            "solved": 0,
+            "total": 5,
+            "percent": 0
+          },
+          {
+            "title": "Level 4: Cầu - Khớp",
+            "contest_key": "level_4_cau_khop_651793",
+            "solved": 0,
+            "total": 7,
+            "percent": 0
+          },
+          {
+            "title": "Level 4 - 5: DP Bitmask",
+            "contest_key": "level_4_5_dp_bitmask_663288",
+            "solved": 0,
+            "total": 23,
+            "percent": 0
+          },
+          {
+            "title": "Level 4 - 5: DP Digit",
+            "contest_key": "level_4_5_dp_digit_663290",
+            "solved": 0,
+            "total": 9,
+            "percent": 0
+          },
+          {
+            "title": "Level 4 : DP - Nâng cao",
+            "contest_key": "level4_dp_nang_cao",
+            "solved": 0,
+            "total": 0,
+            "percent": 0
+          },
+          {
+            "title": "Level 4: Binary jumping",
+            "contest_key": "level_4_binary_jumping_669922",
+            "solved": 0,
+            "total": 10,
+            "percent": 0
+          },
+          {
+            "title": "Level 4 - 5: LCA",
+            "contest_key": "level_4_5_lca_669942",
+            "solved": 0,
+            "total": 17,
+            "percent": 0
+          },
+          {
+            "title": "Level 4-5 : Luyện tập sưu tầm giáo sư",
+            "contest_key": "level_4_5_luyen_tap_suu_t_632904",
+            "solved": 0,
+            "total": 6,
+            "percent": 0
+          },
+          {
+            "title": "LEVEL 4 - THUẬT TOÁN NÂNG CAO",
+            "contest_key": "level_4_thuat_toan_nang_c_623200",
+            "solved": 1,
+            "total": 89,
+            "percent": 1
+          },
+          {
+            "title": "LEVEL 4 - THUẬT TOÁN NÂNG CAO 2",
+            "contest_key": "level_4_thuat_toan_nang_c_677427",
+            "solved": 0,
+            "total": 6,
+            "percent": 0
+          }
+        ]
+      },
+      {
+        "level": 5,
+        "title": "Level 5 - HSGQT, Khu vực ASIAN , TST, VOI, ..",
+        "solved": 0,
+        "total": 76,
+        "percent": 0,
+        "contest_count": 3,
+        "modules": [
+          {
+            "title": "Level 5 - Luyện tập tổng hợp",
+            "contest_key": "level_5_luyen_tap_tong_hop",
+            "solved": 0,
+            "total": 67,
+            "percent": 0
+          },
+          {
+            "title": "Level 5: DP - SOS",
+            "contest_key": "level_5_dp_sos_664223",
+            "solved": 0,
+            "total": 10,
+            "percent": 0
+          },
+          {
+            "title": "LEVEL 5 - PREVNOI, ÔN HSGQG",
+            "contest_key": "level_5_prevnoi_on_hsgqg_631854",
+            "solved": 0,
+            "total": 10,
+            "percent": 0
+          }
+        ]
+      },
+      {
+        "level": 98,
+        "title": "Tuyển tập đề sưu tầm",
+        "solved": 21,
+        "total": 349,
+        "percent": 6,
+        "contest_count": 64,
+        "modules": [
+          {
+            "title": "Đề thi tuyển sinh lớp 10 tỉnh Hà Tĩnh năm học 2026 - 2027",
+            "contest_key": "ts10_thpt_hatinh_2026_2027",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "Đề thi tuyển sinh lớp 10 tỉnh Hưng Yên năm học 2026 - 2027",
+            "contest_key": "ts10_hungyen_2026_2027",
+            "solved": 0,
+            "total": 5,
+            "percent": 0
+          },
+          {
+            "title": "Tuyển sinh vào 10 tỉnh Quảng Trị năm học 2026 - 2027",
+            "contest_key": "ts10_quangtri_2026_2027",
+            "solved": 1,
+            "total": 4,
+            "percent": 25
+          },
+          {
+            "title": "Tuyển sinh vào 10 tỉnh Phú Thọ năm học 2026 - 2027",
+            "contest_key": "ts10_phutho_2026_2027",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "Tuyển sinh vào 10 tỉnh Ninh Bình năm học 2026 - 2027",
+            "contest_key": "ts10_ninhbinh_2026_2027",
+            "solved": 2,
+            "total": 5,
+            "percent": 40
+          },
+          {
+            "title": "Tuyển sinh vào 10 tỉnh An Giang năm học 2025 - 2026",
+            "contest_key": "ts10_angiang_2025_2026",
+            "solved": 0,
+            "total": 5,
+            "percent": 0
+          },
+          {
+            "title": "Đề thi tuyển sinh lớp 10 THPT Chuyên KHTN năm học 2026-2027",
+            "contest_key": "ts10_chuyenkhtn_2026_2027",
+            "solved": 0,
+            "total": 5,
+            "percent": 0
+          },
+          {
+            "title": "Tuyển sinh vào 10 TP. Hồ Chí Minh năm học 2023 - 2024",
+            "contest_key": "ts10_tp_hochiminh_23_24",
+            "solved": 0,
+            "total": 3,
+            "percent": 0
+          },
+          {
+            "title": "Đề thi tuyển sinh lớp 10 tỉnh Bà Rịa - Vũng Tàu năm học 2025 - 2026",
+            "contest_key": "ts10_ba_ria_vung_tau_25_26",
+            "solved": 2,
+            "total": 4,
+            "percent": 50
+          },
+          {
+            "title": "Đề thi tuyển sinh lớp 10 TP. Hồ Chí Minh năm học 2022 - 2023",
+            "contest_key": "ts10_tphcm_2022_2023",
+            "solved": 0,
+            "total": 3,
+            "percent": 0
+          },
+          {
+            "title": "Đề thi tuyển sinh lớp 10 chuyên Lê Quý Đôn - Khánh Hòa năm học 2025- 2026",
+            "contest_key": "ts10_thanhhoa_25_26",
+            "solved": 0,
+            "total": 5,
+            "percent": 0
+          },
+          {
+            "title": "Đề thi tuyển sinh lớp 10 chuyên Lê Quý Đôn - Khánh Hòa năm học 2024- 2025",
+            "contest_key": "ts_10_khanhhoa_2024_2025",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "Đề thi tuyển sinh lớp 10 chuyên Lê Quý Đôn - Khánh Hòa năm học 2023 - 2024",
+            "contest_key": "ts10_khanhhoa_23_24",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "Đề thi tuyển sinh lớp 10 chuyên Lê Quý Đôn - Khánh Hòa năm học 2022- 2023",
+            "contest_key": "ts10_ba_ria_vung_tau_22_23",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "Thi thử đợt 2 Tuyển sinh 10 Phổ  thông Năng Khiếu năm 2026",
+            "contest_key": "thi_thu_v2_ts10_ptnk_2026",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "Đề thi tuyển sinh lớp 10 chuyên tin tỉnh Thanh Hóa năm học 2024 - 2025",
+            "contest_key": "ts10_thanhhoa_24_25",
+            "solved": 1,
+            "total": 4,
+            "percent": 25
+          },
+          {
+            "title": "Tuyển sinh 10 Thành phố Hồ Chí Minh năm 2024-2025",
+            "contest_key": "ts10_tp_hochiminh_24_25",
+            "solved": 0,
+            "total": 3,
+            "percent": 0
+          },
+          {
+            "title": "HSG THPT tỉnh An Giang năm học 2022-2023",
+            "contest_key": "hsg_thpt_angiang_2022_2023",
+            "solved": 1,
+            "total": 4,
+            "percent": 25
+          },
+          {
+            "title": "Đề thi thử tuyển sinh 10 Chuyên Lê Quý Đôn - BÀ RỊA VŨNG TÀU - 2026",
+            "contest_key": "thithu_ts10_lqd_brvt_2026",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "Đề thi tuyển sinh lớp 10 THPT Chuyên Tiền Giang năm học 2025-2026",
+            "contest_key": "ts10_kiengiang_2025_2026",
+            "solved": 0,
+            "total": 5,
+            "percent": 0
+          },
+          {
+            "title": "Đề thi thử vào 10 chuyên Tin chuyên Vĩnh Phúc năm 2026",
+            "contest_key": "thi_thu_ts10_vinh_phuc_25_26",
+            "solved": 2,
+            "total": 4,
+            "percent": 50
+          },
+          {
+            "title": "Tuyển sinh 10 Chuyên Tin Chuyên Tây Ninh 2025-2026",
+            "contest_key": "ts10_tayninh_2025_2026",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "Tuyển sinh khối 10 chuyên Tin Bắc Giang 2025-2026",
+            "contest_key": "ts10_bacgiang_2025_2026",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "Đề thi Tuyển sinh lớp 10 chuyên Tin tỉnh Quảng Ninh 2025 - 2026",
+            "contest_key": "de_thi_tuyen_sinh_lop_10_689937",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "Đề thi tuyển sinh 10 Chuyên Tin Phan Bội Châu (Nghệ An) 2025-2026",
+            "contest_key": "de_thi_tuyen_sinh_10_chuy_689938",
+            "solved": 0,
+            "total": 3,
+            "percent": 0
+          },
+          {
+            "title": "Tuyển sinh vào 10 tỉnh Kiên Giang năm học 2024 - 2025",
+            "contest_key": "tuyen_sinh_vao_10_tinh_ki_689178",
+            "solved": 1,
+            "total": 4,
+            "percent": 25
+          },
+          {
+            "title": "Kỳ thi tuyển sinh lớp 10 năm 2025 – Trường Phổ thông Năng khiếu - ĐHQG TPh.HCM",
+            "contest_key": "ky_thi_tuyen_sinh_lop_10_687993",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "Kỳ thi Olympic chuyên Nguyễn Trãi lần II năm 2026",
+            "contest_key": "ky_thi_olympic_chuyen_ngu_687971",
+            "solved": 0,
+            "total": 3,
+            "percent": 0
+          },
+          {
+            "title": "HSG THCS Tuyên Quang 2025 - 2026",
+            "contest_key": "hsg_thcs_tuyen_quang_2025_687426",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "Tuyển sinh vào 10 tỉnh Nam Định năm học 2025 - 2026",
+            "contest_key": "tuyen_sinh_vao_10_tinh_na_686014",
+            "solved": 0,
+            "total": 5,
+            "percent": 0
+          },
+          {
+            "title": "Tuyển sinh vào 10 chuyên KHTN năm học 2025 - 2026",
+            "contest_key": "tuyen_sinh_vao_10_chuyen_686013",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "Tuyển sinh vào 10 tỉnh Kiên Giang năm học 2025 - 2026",
+            "contest_key": "tuyen_sinh_vao_10_tinh_ki_684427",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "Tuyển sinh vào 10 Chuyên Sư Phạm năm học 2024 - 2025",
+            "contest_key": "tuyen_sinh_vao_10_chuyen_682876",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "HSG THPT Gia Lai 2025-2026",
+            "contest_key": "hsg_thpt_gialai_25_26",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "Tuyển sinh vào 10 TP. Đà Nẵng năm học 2025 - 2026",
+            "contest_key": "tuyen_sinh_vao_10_tp_da_n_680536",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "Tuyển sinh vào 10 TP. Hồ Chí Minh năm học 2025 - 2026",
+            "contest_key": "tuyen_sinh_vao_10_tp_ho_c_680335",
+            "solved": 0,
+            "total": 3,
+            "percent": 0
+          },
+          {
+            "title": "HSG THPT An Giang 2025 - 2026",
+            "contest_key": "hsg_thpt_an_giang_2025_20_679070",
+            "solved": 0,
+            "total": 3,
+            "percent": 0
+          },
+          {
+            "title": "HSG THCS Ninh Bình 2025-2026",
+            "contest_key": "hsg_thcs_ninh_binh_2025_2_678212",
+            "solved": 5,
+            "total": 5,
+            "percent": 100
+          },
+          {
+            "title": "HSG THPT Đồng Tháp 2025-2026",
+            "contest_key": "hsg_thpt_dong_thap_2025_2_677247",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "HSG THCS Cần Thơ 2025-2026",
+            "contest_key": "hsg_thcs_can_tho_2025_202_677246",
+            "solved": 0,
+            "total": 5,
+            "percent": 0
+          },
+          {
+            "title": "HSG THPT Tuyên Quang 2025 - 2026",
+            "contest_key": "hsg_thpt_tuyen_quang_2025_677424",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "Đề tham khảo Tuyển sinh vào lớp 10 sở Phú Thọ năm học 2026 - 2027",
+            "contest_key": "de_tham_khao_tuyen_sinh_v_676010",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "HSG THCS Hung Yen 2025-2026",
+            "contest_key": "hsg_thcs_hung_yen_2025_20_669824",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "HSG THCS Phu Tho 2025-2026",
+            "contest_key": "hsg_thcs_phu_tho_2025_202_669821",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "HSG THPT Khanh Hoa 2025-2026",
+            "contest_key": "hsg_thpt_khanh_hoa_2025_2_668725",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "HSG THCS Quang Ninh 2025-2026",
+            "contest_key": "hsg_thcs_quang_ninh_2025_667261",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "HSG THPT Son La 2023-2024",
+            "contest_key": "hsg_thpt_son_la_2023_2024_665871",
+            "solved": 0,
+            "total": 6,
+            "percent": 0
+          },
+          {
+            "title": "HSG THCS Bac Ninh 2025-2026",
+            "contest_key": "hsg_thcs_bac_ninh_2025_20_665868",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "HSG THPT Bac Ninh 2025-2026",
+            "contest_key": "hsg_thpt_bac_ninh_2025_20_666929",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "HSG THCS Hai Phong 2025-2026",
+            "contest_key": "hsg_thcs_hai_phong_2025_2_665865",
+            "solved": 0,
+            "total": 5,
+            "percent": 0
+          },
+          {
+            "title": "HSG THPT Lam Dong 2025-2026",
+            "contest_key": "hsg_thpt_lam_dong_2025_20_664952",
+            "solved": 0,
+            "total": 1,
+            "percent": 0
+          },
+          {
+            "title": "Tuyển sinh 10 Chuyên Vĩnh Phúc năm học 2025 - 2026",
+            "contest_key": "ts10_2025_cvp_622560",
+            "solved": 0,
+            "total": 3,
+            "percent": 0
+          },
+          {
+            "title": "HSG THPT Hung Yen 2025-2026",
+            "contest_key": "hsg_thpt_hung_yen_2025_20_664754",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "HSG THPT Phu Tho 2025-2026",
+            "contest_key": "hsg_thpt_phu_tho_2025_202_664222",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "HSG THCS Ha Noi 2025-2026",
+            "contest_key": "hsg_thcs_ha_noi_2025_2026_664034",
+            "solved": 0,
+            "total": 5,
+            "percent": 0
+          },
+          {
+            "title": "HSG Tỉnh Vĩnh Phúc Vòng 2 Ngày 2 - 24-25",
+            "contest_key": "hsg_tinh_vinh_phuc_vong_2_630080",
+            "solved": 0,
+            "total": 3,
+            "percent": 0
+          },
+          {
+            "title": "HSG Tỉnh Vĩnh Phúc vòng 2 Ngày 1 - 24-25",
+            "contest_key": "hsg_tinh_vinh_phuc_vong_2_628348",
+            "solved": 0,
+            "total": 3,
+            "percent": 0
+          },
+          {
+            "title": "HSG_THCS_25_26",
+            "contest_key": "hsg_thcs_25_26_677148",
+            "solved": 0,
+            "total": 30,
+            "percent": 0
+          },
+          {
+            "title": "HSG_THPT_25_26",
+            "contest_key": "hsg_thpt_25_26_677149",
+            "solved": 0,
+            "total": 30,
+            "percent": 0
+          },
+          {
+            "title": "TS10_25_26",
+            "contest_key": "ts10_25_26_677150",
+            "solved": 1,
+            "total": 46,
+            "percent": 2
+          },
+          {
+            "title": "Tổng hợp Tuyển Sinh Chuyên Tin 10",
+            "contest_key": "tong_hop_tuyen_sinh_chuye_627497",
+            "solved": 0,
+            "total": 14,
+            "percent": 0
+          },
+          {
+            "title": "HSG_9_24_25",
+            "contest_key": "hsg_9_24_25_629058",
+            "solved": 0,
+            "total": 49,
+            "percent": 0
+          },
+          {
+            "title": "Tin học Trẻ",
+            "contest_key": "tin_hoc_tre_657598",
+            "solved": 0,
+            "total": 3,
+            "percent": 0
+          },
+          {
+            "title": "Test",
+            "contest_key": "test_663711",
+            "solved": 6,
+            "total": 55,
+            "percent": 10
+          }
+        ]
+      },
+      {
+        "level": 99,
+        "title": "Bài khảo sát định kì",
+        "solved": 9,
+        "total": 83,
+        "percent": 10,
+        "contest_count": 21,
+        "modules": [
+          {
+            "title": "KS_6: BASIC",
+            "contest_key": "ks6_basic",
+            "solved": 0,
+            "total": 5,
+            "percent": 0
+          },
+          {
+            "title": "KS_6: HSG THCS (Ninh Bình 2025-2026)",
+            "contest_key": "ks6_hsgthcs",
+            "solved": 5,
+            "total": 5,
+            "percent": 100
+          },
+          {
+            "title": "KS_6: HSG THPT Không chuyên (Đề An Giang 2025 - 2026)",
+            "contest_key": "ks6_hsgthpt",
+            "solved": 0,
+            "total": 3,
+            "percent": 0
+          },
+          {
+            "title": "KS_6: Đề thi tuyển sinh vào 10 (Đề Hưng Yên năm 26-27)",
+            "contest_key": "ks6_ts10",
+            "solved": 0,
+            "total": 5,
+            "percent": 0
+          },
+          {
+            "title": "KS_6: HSG THPT Chuyên",
+            "contest_key": "ks6_hsgthptchuyen",
+            "solved": 0,
+            "total": 3,
+            "percent": 0
+          },
+          {
+            "title": "KS_5: HSG THPT Chuyên (Olympic Chuyên KHTN 2020)",
+            "contest_key": "ks_5_hsg_thpt_chuyen_olym_681929",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "KS_5: HSG THPT không Chuyên (Đề Quảng Ngãi 25-26)",
+            "contest_key": "ks_5_hsg_thpt_khong_chuye_681931",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "KS_5: HSG THCS (Đề Nghệ An 22-23)",
+            "contest_key": "ks_5_hsg_thcs_đe_nghe_an_681930",
+            "solved": 1,
+            "total": 4,
+            "percent": 25
+          },
+          {
+            "title": "KS_5: BASIC",
+            "contest_key": "ks_5_basic_681927",
+            "solved": 0,
+            "total": 3,
+            "percent": 0
+          },
+          {
+            "title": "KS_4: HSG THPT Chuyên (Đề TS10 CSP 2024)",
+            "contest_key": "ks_4_hsg_thpt_chuyen_đe_t_675117",
+            "solved": 2,
+            "total": 4,
+            "percent": 50
+          },
+          {
+            "title": "KS_4: HSG THPT không Chuyên (Đề Hải Phòng 24-25)",
+            "contest_key": "ks_4_hsg_thpt_khong_chuye_675111",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "KS_4: HSG THCS (Đề Bắc Ninh 25-26)",
+            "contest_key": "ks_4_hsg_thcs_đe_bac_ninh_675120",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "KS_4: BASIC",
+            "contest_key": "ks_4_basic_675113",
+            "solved": 0,
+            "total": 5,
+            "percent": 0
+          },
+          {
+            "title": "KS_3: HSG THPT(De Hung Yen 25-26)",
+            "contest_key": "ks_3_hsg_thpt_de_hung_yen_666389",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "KS_3: HSG THCS (De Hai Phong 25-26)",
+            "contest_key": "ks_3_hsg_thcs_de_hai_phon_666374",
+            "solved": 0,
+            "total": 5,
+            "percent": 0
+          },
+          {
+            "title": "KS_3: BASIC",
+            "contest_key": "ks_3_basic_666375",
+            "solved": 0,
+            "total": 5,
+            "percent": 0
+          },
+          {
+            "title": "KS_2: HSG THPT Chuyen",
+            "contest_key": "ks_2_hsg_thpt_chuyen_660248",
+            "solved": 0,
+            "total": 3,
+            "percent": 0
+          },
+          {
+            "title": "KS_2: HSG THPT Khong Chuyen",
+            "contest_key": "ks_2_hsg_thpt_khong_chuye_660249",
+            "solved": 1,
+            "total": 1,
+            "percent": 100
+          },
+          {
+            "title": "KS_2: HSG THCS",
+            "contest_key": "ks_2_hsg_thcs_660104",
+            "solved": 0,
+            "total": 5,
+            "percent": 0
+          },
+          {
+            "title": "KS_1: HSG THCS + Thi 10 Chuyên",
+            "contest_key": "ks_1_hsg_thcs_thi_10_chuy_658321",
+            "solved": 0,
+            "total": 4,
+            "percent": 0
+          },
+          {
+            "title": "KS_1: HSG THPT",
+            "contest_key": "ks_1_hsg_thpt_658497",
+            "solved": 0,
+            "total": 3,
+            "percent": 0
+          }
+        ]
+      }
+    ],
+    "module_rows": [
+      {
+        "level": 0,
+        "level_title": "Level 0 - Làm quen với Lập trình",
+        "title": "Level 0 - Luyện tập tổng hợp",
+        "solved": 0,
+        "total": 164,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 0,
+        "level_title": "Level 0 - Làm quen với Lập trình",
+        "title": "Level 0: Nhập, xuất",
+        "solved": 0,
+        "total": 11,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 0,
+        "level_title": "Level 0 - Làm quen với Lập trình",
+        "title": "Level 0: if-else",
+        "solved": 0,
+        "total": 9,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 0,
+        "level_title": "Level 0 - Làm quen với Lập trình",
+        "title": "Level 0: Vòng lặp for",
+        "solved": 0,
+        "total": 10,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 0,
+        "level_title": "Level 0 - Làm quen với Lập trình",
+        "title": "Level 0: Vòng lặp While, nhiều vòng for lồng nhau",
+        "solved": 0,
+        "total": 7,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 0,
+        "level_title": "Level 0 - Làm quen với Lập trình",
+        "title": "Level 0: Mảng - Array",
+        "solved": 0,
+        "total": 28,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 0,
+        "level_title": "Level 0 - Làm quen với Lập trình",
+        "title": "Level 0: Xâu cơ bản",
+        "solved": 0,
+        "total": 16,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 0,
+        "level_title": "Level 0 - Làm quen với Lập trình",
+        "title": "Level 0: Hàm, Truy vấn",
+        "solved": 0,
+        "total": 6,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 0,
+        "level_title": "Level 0 - Làm quen với Lập trình",
+        "title": "LEVEL 0 - TỔNG HỢP CẤP TỐC",
+        "solved": 0,
+        "total": 90,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 1,
+        "level_title": "Level 1 - Thuật toán cơ bản",
+        "title": "Level 1 - Luyện tập tổng hợp",
+        "solved": 4,
+        "total": 242,
+        "percent": 1,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 1,
+        "level_title": "Level 1 - Thuật toán cơ bản",
+        "title": "Level 1: Đệ quy",
+        "solved": 0,
+        "total": 3,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 1,
+        "level_title": "Level 1 - Thuật toán cơ bản",
+        "title": "Level 1: Brute Force - Backtracking",
+        "solved": 0,
+        "total": 17,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 1,
+        "level_title": "Level 1 - Thuật toán cơ bản",
+        "title": "Level 1: Map",
+        "solved": 0,
+        "total": 6,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 1,
+        "level_title": "Level 1 - Thuật toán cơ bản",
+        "title": "Level 1 : Sortings, Couting",
+        "solved": 0,
+        "total": 17,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 1,
+        "level_title": "Level 1 - Thuật toán cơ bản",
+        "title": "Level 1: Greedy",
+        "solved": 0,
+        "total": 21,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 1,
+        "level_title": "Level 1 - Thuật toán cơ bản",
+        "title": "Level 1-2 : PrefixSum, Different array",
+        "solved": 4,
+        "total": 23,
+        "percent": 17,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 1,
+        "level_title": "Level 1 - Thuật toán cơ bản",
+        "title": "Level 1: Two pointer",
+        "solved": 2,
+        "total": 12,
+        "percent": 16,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 1,
+        "level_title": "Level 1 - Thuật toán cơ bản",
+        "title": "Level 1: Math",
+        "solved": 1,
+        "total": 12,
+        "percent": 8,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 1,
+        "level_title": "Level 1 - Thuật toán cơ bản",
+        "title": "Level 1: Vector",
+        "solved": 0,
+        "total": 6,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 1,
+        "level_title": "Level 1 - Thuật toán cơ bản",
+        "title": "Level 1: Pair - Struct",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 1,
+        "level_title": "Level 1 - Thuật toán cơ bản",
+        "title": "Level 1 - 2: Set",
+        "solved": 3,
+        "total": 9,
+        "percent": 33,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 1,
+        "level_title": "Level 1 - Thuật toán cơ bản",
+        "title": "LEVEL 1 - TỔNG HỢP CẤP TỐC",
+        "solved": 0,
+        "total": 76,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 2,
+        "level_title": "Level 2 - Thuật toán quan trọng",
+        "title": "Level 2 - Luyện tập tổng hợp",
+        "solved": 64,
+        "total": 184,
+        "percent": 34,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 2,
+        "level_title": "Level 2 - Thuật toán quan trọng",
+        "title": "Level 2 - 3 : Binary Search",
+        "solved": 6,
+        "total": 13,
+        "percent": 46,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 2,
+        "level_title": "Level 2 - Thuật toán quan trọng",
+        "title": "Level 2: Coordinate Compression",
+        "solved": 5,
+        "total": 5,
+        "percent": 100,
+        "status": "complete",
+        "status_name": "Completed"
+      },
+      {
+        "level": 2,
+        "level_title": "Level 2 - Thuật toán quan trọng",
+        "title": "Level 2,3 - STACK",
+        "solved": 12,
+        "total": 14,
+        "percent": 85,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 2,
+        "level_title": "Level 2 - Thuật toán quan trọng",
+        "title": "Level 2,3: Queue - Deque - Priority Queue",
+        "solved": 10,
+        "total": 10,
+        "percent": 100,
+        "status": "complete",
+        "status_name": "Completed"
+      },
+      {
+        "level": 2,
+        "level_title": "Level 2 - Thuật toán quan trọng",
+        "title": "Level 2 - 3 : Chia đôi tập",
+        "solved": 7,
+        "total": 8,
+        "percent": 87,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 2,
+        "level_title": "Level 2 - Thuật toán quan trọng",
+        "title": "Level 2, 3: Math_2",
+        "solved": 2,
+        "total": 6,
+        "percent": 33,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 2,
+        "level_title": "Level 2 - Thuật toán quan trọng",
+        "title": "LEVEL 2 - TỔNG HỢP CẤP TỐC",
+        "solved": 16,
+        "total": 40,
+        "percent": 40,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 3,
+        "level_title": "Level 3 - Thuật toán cao cấp",
+        "title": "Level 3 - Luyện tập tổng hợp",
+        "solved": 24,
+        "total": 278,
+        "percent": 8,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 3,
+        "level_title": "Level 3 - Thuật toán cao cấp",
+        "title": "Level 3 - 5 : DP",
+        "solved": 12,
+        "total": 50,
+        "percent": 24,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 3,
+        "level_title": "Level 3 - Thuật toán cao cấp",
+        "title": "Level 3 - 5: DP Lis",
+        "solved": 0,
+        "total": 13,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 3,
+        "level_title": "Level 3 - Thuật toán cao cấp",
+        "title": "Level 3: DP LCS",
+        "solved": 0,
+        "total": 5,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 3,
+        "level_title": "Level 3 - Thuật toán cao cấp",
+        "title": "Level 3 - 5: Dp Knapsack",
+        "solved": 0,
+        "total": 18,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 3,
+        "level_title": "Level 3 - Thuật toán cao cấp",
+        "title": "Level 3 - 5: DP Path On Grids",
+        "solved": 0,
+        "total": 12,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 3,
+        "level_title": "Level 3 - Thuật toán cao cấp",
+        "title": "Level 3 - 5: Dp Range",
+        "solved": 0,
+        "total": 7,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 3,
+        "level_title": "Level 3 - Thuật toán cao cấp",
+        "title": "Level 3: Segment Tree",
+        "solved": 1,
+        "total": 10,
+        "percent": 10,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 3,
+        "level_title": "Level 3 - Thuật toán cao cấp",
+        "title": "Level 3: Fenwick tree",
+        "solved": 0,
+        "total": 10,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 3,
+        "level_title": "Level 3 - Thuật toán cao cấp",
+        "title": "Level 3 - 4: Small to large",
+        "solved": 0,
+        "total": 7,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 3,
+        "level_title": "Level 3 - Thuật toán cao cấp",
+        "title": "Level 3 - 5: Inclusion-Exclusion",
+        "solved": 0,
+        "total": 11,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 3,
+        "level_title": "Level 3 - Thuật toán cao cấp",
+        "title": "Level 3: Hashing",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 3,
+        "level_title": "Level 3 - Thuật toán cao cấp",
+        "title": "Level 3 : KMP",
+        "solved": 0,
+        "total": 6,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 3,
+        "level_title": "Level 3 - Thuật toán cao cấp",
+        "title": "Level 3-4: Chia căn",
+        "solved": 0,
+        "total": 11,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 3,
+        "level_title": "Level 3 - Thuật toán cao cấp",
+        "title": "Level 3 : BFS, DFS",
+        "solved": 0,
+        "total": 10,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 3,
+        "level_title": "Level 3 - Thuật toán cao cấp",
+        "title": "Level 3,4: Shortest Path",
+        "solved": 0,
+        "total": 14,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 3,
+        "level_title": "Level 3 - Thuật toán cao cấp",
+        "title": "LEVEL 3 - TỔNG HỢP CẤP TỐC",
+        "solved": 7,
+        "total": 79,
+        "percent": 8,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 4,
+        "level_title": "Level 4  - Ôn HSGQG, Đội Dự Tuyển HSGQG",
+        "title": "Level 4 - Luyện tập tổng hợp",
+        "solved": 2,
+        "total": 226,
+        "percent": 0,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 4,
+        "level_title": "Level 4  - Ôn HSGQG, Đội Dự Tuyển HSGQG",
+        "title": "Level 4-5: DP Chia Để Trị",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 4,
+        "level_title": "Level 4  - Ôn HSGQG, Đội Dự Tuyển HSGQG",
+        "title": "Level 4: DSU - MST",
+        "solved": 0,
+        "total": 18,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 4,
+        "level_title": "Level 4  - Ôn HSGQG, Đội Dự Tuyển HSGQG",
+        "title": "Level 4: Euler Tour",
+        "solved": 0,
+        "total": 5,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 4,
+        "level_title": "Level 4  - Ôn HSGQG, Đội Dự Tuyển HSGQG",
+        "title": "Level 4: Cầu - Khớp",
+        "solved": 0,
+        "total": 7,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 4,
+        "level_title": "Level 4  - Ôn HSGQG, Đội Dự Tuyển HSGQG",
+        "title": "Level 4 - 5: DP Bitmask",
+        "solved": 0,
+        "total": 23,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 4,
+        "level_title": "Level 4  - Ôn HSGQG, Đội Dự Tuyển HSGQG",
+        "title": "Level 4 - 5: DP Digit",
+        "solved": 0,
+        "total": 9,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 4,
+        "level_title": "Level 4  - Ôn HSGQG, Đội Dự Tuyển HSGQG",
+        "title": "Level 4: Binary jumping",
+        "solved": 0,
+        "total": 10,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 4,
+        "level_title": "Level 4  - Ôn HSGQG, Đội Dự Tuyển HSGQG",
+        "title": "Level 4 - 5: LCA",
+        "solved": 0,
+        "total": 17,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 4,
+        "level_title": "Level 4  - Ôn HSGQG, Đội Dự Tuyển HSGQG",
+        "title": "Level 4-5 : Luyện tập sưu tầm giáo sư",
+        "solved": 0,
+        "total": 6,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 4,
+        "level_title": "Level 4  - Ôn HSGQG, Đội Dự Tuyển HSGQG",
+        "title": "LEVEL 4 - THUẬT TOÁN NÂNG CAO",
+        "solved": 1,
+        "total": 89,
+        "percent": 1,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 4,
+        "level_title": "Level 4  - Ôn HSGQG, Đội Dự Tuyển HSGQG",
+        "title": "LEVEL 4 - THUẬT TOÁN NÂNG CAO 2",
+        "solved": 0,
+        "total": 6,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 5,
+        "level_title": "Level 5 - HSGQT, Khu vực ASIAN , TST, VOI, ..",
+        "title": "Level 5 - Luyện tập tổng hợp",
+        "solved": 0,
+        "total": 67,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 5,
+        "level_title": "Level 5 - HSGQT, Khu vực ASIAN , TST, VOI, ..",
+        "title": "Level 5: DP - SOS",
+        "solved": 0,
+        "total": 10,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 5,
+        "level_title": "Level 5 - HSGQT, Khu vực ASIAN , TST, VOI, ..",
+        "title": "LEVEL 5 - PREVNOI, ÔN HSGQG",
+        "solved": 0,
+        "total": 10,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Đề thi tuyển sinh lớp 10 tỉnh Hà Tĩnh năm học 2026 - 2027",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Đề thi tuyển sinh lớp 10 tỉnh Hưng Yên năm học 2026 - 2027",
+        "solved": 0,
+        "total": 5,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Tuyển sinh vào 10 tỉnh Quảng Trị năm học 2026 - 2027",
+        "solved": 1,
+        "total": 4,
+        "percent": 25,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Tuyển sinh vào 10 tỉnh Phú Thọ năm học 2026 - 2027",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Tuyển sinh vào 10 tỉnh Ninh Bình năm học 2026 - 2027",
+        "solved": 2,
+        "total": 5,
+        "percent": 40,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Tuyển sinh vào 10 tỉnh An Giang năm học 2025 - 2026",
+        "solved": 0,
+        "total": 5,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Đề thi tuyển sinh lớp 10 THPT Chuyên KHTN năm học 2026-2027",
+        "solved": 0,
+        "total": 5,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Tuyển sinh vào 10 TP. Hồ Chí Minh năm học 2023 - 2024",
+        "solved": 0,
+        "total": 3,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Đề thi tuyển sinh lớp 10 tỉnh Bà Rịa - Vũng Tàu năm học 2025 - 2026",
+        "solved": 2,
+        "total": 4,
+        "percent": 50,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Đề thi tuyển sinh lớp 10 TP. Hồ Chí Minh năm học 2022 - 2023",
+        "solved": 0,
+        "total": 3,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Đề thi tuyển sinh lớp 10 chuyên Lê Quý Đôn - Khánh Hòa năm học 2025- 2026",
+        "solved": 0,
+        "total": 5,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Đề thi tuyển sinh lớp 10 chuyên Lê Quý Đôn - Khánh Hòa năm học 2024- 2025",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Đề thi tuyển sinh lớp 10 chuyên Lê Quý Đôn - Khánh Hòa năm học 2023 - 2024",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Đề thi tuyển sinh lớp 10 chuyên Lê Quý Đôn - Khánh Hòa năm học 2022- 2023",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Thi thử đợt 2 Tuyển sinh 10 Phổ  thông Năng Khiếu năm 2026",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Đề thi tuyển sinh lớp 10 chuyên tin tỉnh Thanh Hóa năm học 2024 - 2025",
+        "solved": 1,
+        "total": 4,
+        "percent": 25,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Tuyển sinh 10 Thành phố Hồ Chí Minh năm 2024-2025",
+        "solved": 0,
+        "total": 3,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG THPT tỉnh An Giang năm học 2022-2023",
+        "solved": 1,
+        "total": 4,
+        "percent": 25,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Đề thi thử tuyển sinh 10 Chuyên Lê Quý Đôn - BÀ RỊA VŨNG TÀU - 2026",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Đề thi tuyển sinh lớp 10 THPT Chuyên Tiền Giang năm học 2025-2026",
+        "solved": 0,
+        "total": 5,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Đề thi thử vào 10 chuyên Tin chuyên Vĩnh Phúc năm 2026",
+        "solved": 2,
+        "total": 4,
+        "percent": 50,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Tuyển sinh 10 Chuyên Tin Chuyên Tây Ninh 2025-2026",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Tuyển sinh khối 10 chuyên Tin Bắc Giang 2025-2026",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Đề thi Tuyển sinh lớp 10 chuyên Tin tỉnh Quảng Ninh 2025 - 2026",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Đề thi tuyển sinh 10 Chuyên Tin Phan Bội Châu (Nghệ An) 2025-2026",
+        "solved": 0,
+        "total": 3,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Tuyển sinh vào 10 tỉnh Kiên Giang năm học 2024 - 2025",
+        "solved": 1,
+        "total": 4,
+        "percent": 25,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Kỳ thi tuyển sinh lớp 10 năm 2025 – Trường Phổ thông Năng khiếu - ĐHQG TPh.HCM",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Kỳ thi Olympic chuyên Nguyễn Trãi lần II năm 2026",
+        "solved": 0,
+        "total": 3,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG THCS Tuyên Quang 2025 - 2026",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Tuyển sinh vào 10 tỉnh Nam Định năm học 2025 - 2026",
+        "solved": 0,
+        "total": 5,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Tuyển sinh vào 10 chuyên KHTN năm học 2025 - 2026",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Tuyển sinh vào 10 tỉnh Kiên Giang năm học 2025 - 2026",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Tuyển sinh vào 10 Chuyên Sư Phạm năm học 2024 - 2025",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG THPT Gia Lai 2025-2026",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Tuyển sinh vào 10 TP. Đà Nẵng năm học 2025 - 2026",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Tuyển sinh vào 10 TP. Hồ Chí Minh năm học 2025 - 2026",
+        "solved": 0,
+        "total": 3,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG THPT An Giang 2025 - 2026",
+        "solved": 0,
+        "total": 3,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG THCS Ninh Bình 2025-2026",
+        "solved": 5,
+        "total": 5,
+        "percent": 100,
+        "status": "complete",
+        "status_name": "Completed"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG THPT Đồng Tháp 2025-2026",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG THCS Cần Thơ 2025-2026",
+        "solved": 0,
+        "total": 5,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG THPT Tuyên Quang 2025 - 2026",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Đề tham khảo Tuyển sinh vào lớp 10 sở Phú Thọ năm học 2026 - 2027",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG THCS Hung Yen 2025-2026",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG THCS Phu Tho 2025-2026",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG THPT Khanh Hoa 2025-2026",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG THCS Quang Ninh 2025-2026",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG THPT Son La 2023-2024",
+        "solved": 0,
+        "total": 6,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG THCS Bac Ninh 2025-2026",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG THPT Bac Ninh 2025-2026",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG THCS Hai Phong 2025-2026",
+        "solved": 0,
+        "total": 5,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG THPT Lam Dong 2025-2026",
+        "solved": 0,
+        "total": 1,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Tuyển sinh 10 Chuyên Vĩnh Phúc năm học 2025 - 2026",
+        "solved": 0,
+        "total": 3,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG THPT Hung Yen 2025-2026",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG THPT Phu Tho 2025-2026",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG THCS Ha Noi 2025-2026",
+        "solved": 0,
+        "total": 5,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG Tỉnh Vĩnh Phúc Vòng 2 Ngày 2 - 24-25",
+        "solved": 0,
+        "total": 3,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG Tỉnh Vĩnh Phúc vòng 2 Ngày 1 - 24-25",
+        "solved": 0,
+        "total": 3,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG_THCS_25_26",
+        "solved": 0,
+        "total": 30,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG_THPT_25_26",
+        "solved": 0,
+        "total": 30,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "TS10_25_26",
+        "solved": 1,
+        "total": 46,
+        "percent": 2,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Tổng hợp Tuyển Sinh Chuyên Tin 10",
+        "solved": 0,
+        "total": 14,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG_9_24_25",
+        "solved": 0,
+        "total": 49,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Tin học Trẻ",
+        "solved": 0,
+        "total": 3,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Test",
+        "solved": 6,
+        "total": 55,
+        "percent": 10,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_6: BASIC",
+        "solved": 0,
+        "total": 5,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_6: HSG THCS (Ninh Bình 2025-2026)",
+        "solved": 5,
+        "total": 5,
+        "percent": 100,
+        "status": "complete",
+        "status_name": "Completed"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_6: HSG THPT Không chuyên (Đề An Giang 2025 - 2026)",
+        "solved": 0,
+        "total": 3,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_6: Đề thi tuyển sinh vào 10 (Đề Hưng Yên năm 26-27)",
+        "solved": 0,
+        "total": 5,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_6: HSG THPT Chuyên",
+        "solved": 0,
+        "total": 3,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_5: HSG THPT Chuyên (Olympic Chuyên KHTN 2020)",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_5: HSG THPT không Chuyên (Đề Quảng Ngãi 25-26)",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_5: HSG THCS (Đề Nghệ An 22-23)",
+        "solved": 1,
+        "total": 4,
+        "percent": 25,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_5: BASIC",
+        "solved": 0,
+        "total": 3,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_4: HSG THPT Chuyên (Đề TS10 CSP 2024)",
+        "solved": 2,
+        "total": 4,
+        "percent": 50,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_4: HSG THPT không Chuyên (Đề Hải Phòng 24-25)",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_4: HSG THCS (Đề Bắc Ninh 25-26)",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_4: BASIC",
+        "solved": 0,
+        "total": 5,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_3: HSG THPT(De Hung Yen 25-26)",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_3: HSG THCS (De Hai Phong 25-26)",
+        "solved": 0,
+        "total": 5,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_3: BASIC",
+        "solved": 0,
+        "total": 5,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_2: HSG THPT Chuyen",
+        "solved": 0,
+        "total": 3,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_2: HSG THPT Khong Chuyen",
+        "solved": 1,
+        "total": 1,
+        "percent": 100,
+        "status": "complete",
+        "status_name": "Completed"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_2: HSG THCS",
+        "solved": 0,
+        "total": 5,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_1: HSG THCS + Thi 10 Chuyên",
+        "solved": 0,
+        "total": 4,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_1: HSG THPT",
+        "solved": 0,
+        "total": 3,
+        "percent": 0,
+        "status": "not_started",
+        "status_name": "Not started"
+      }
+    ],
+    "started_module_rows": [
+      {
+        "level": 1,
+        "level_title": "Level 1 - Thuật toán cơ bản",
+        "title": "Level 1 - Luyện tập tổng hợp",
+        "solved": 4,
+        "total": 242,
+        "percent": 1,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 1,
+        "level_title": "Level 1 - Thuật toán cơ bản",
+        "title": "Level 1-2 : PrefixSum, Different array",
+        "solved": 4,
+        "total": 23,
+        "percent": 17,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 1,
+        "level_title": "Level 1 - Thuật toán cơ bản",
+        "title": "Level 1: Two pointer",
+        "solved": 2,
+        "total": 12,
+        "percent": 16,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 1,
+        "level_title": "Level 1 - Thuật toán cơ bản",
+        "title": "Level 1: Math",
+        "solved": 1,
+        "total": 12,
+        "percent": 8,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 1,
+        "level_title": "Level 1 - Thuật toán cơ bản",
+        "title": "Level 1 - 2: Set",
+        "solved": 3,
+        "total": 9,
+        "percent": 33,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 2,
+        "level_title": "Level 2 - Thuật toán quan trọng",
+        "title": "Level 2 - Luyện tập tổng hợp",
+        "solved": 64,
+        "total": 184,
+        "percent": 34,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 2,
+        "level_title": "Level 2 - Thuật toán quan trọng",
+        "title": "Level 2 - 3 : Binary Search",
+        "solved": 6,
+        "total": 13,
+        "percent": 46,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 2,
+        "level_title": "Level 2 - Thuật toán quan trọng",
+        "title": "Level 2: Coordinate Compression",
+        "solved": 5,
+        "total": 5,
+        "percent": 100,
+        "status": "complete",
+        "status_name": "Completed"
+      },
+      {
+        "level": 2,
+        "level_title": "Level 2 - Thuật toán quan trọng",
+        "title": "Level 2,3 - STACK",
+        "solved": 12,
+        "total": 14,
+        "percent": 85,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 2,
+        "level_title": "Level 2 - Thuật toán quan trọng",
+        "title": "Level 2,3: Queue - Deque - Priority Queue",
+        "solved": 10,
+        "total": 10,
+        "percent": 100,
+        "status": "complete",
+        "status_name": "Completed"
+      },
+      {
+        "level": 2,
+        "level_title": "Level 2 - Thuật toán quan trọng",
+        "title": "Level 2 - 3 : Chia đôi tập",
+        "solved": 7,
+        "total": 8,
+        "percent": 87,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 2,
+        "level_title": "Level 2 - Thuật toán quan trọng",
+        "title": "Level 2, 3: Math_2",
+        "solved": 2,
+        "total": 6,
+        "percent": 33,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 2,
+        "level_title": "Level 2 - Thuật toán quan trọng",
+        "title": "LEVEL 2 - TỔNG HỢP CẤP TỐC",
+        "solved": 16,
+        "total": 40,
+        "percent": 40,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 3,
+        "level_title": "Level 3 - Thuật toán cao cấp",
+        "title": "Level 3 - Luyện tập tổng hợp",
+        "solved": 24,
+        "total": 278,
+        "percent": 8,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 3,
+        "level_title": "Level 3 - Thuật toán cao cấp",
+        "title": "Level 3 - 5 : DP",
+        "solved": 12,
+        "total": 50,
+        "percent": 24,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 3,
+        "level_title": "Level 3 - Thuật toán cao cấp",
+        "title": "Level 3: Segment Tree",
+        "solved": 1,
+        "total": 10,
+        "percent": 10,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 3,
+        "level_title": "Level 3 - Thuật toán cao cấp",
+        "title": "LEVEL 3 - TỔNG HỢP CẤP TỐC",
+        "solved": 7,
+        "total": 79,
+        "percent": 8,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 4,
+        "level_title": "Level 4  - Ôn HSGQG, Đội Dự Tuyển HSGQG",
+        "title": "Level 4 - Luyện tập tổng hợp",
+        "solved": 2,
+        "total": 226,
+        "percent": 0,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 4,
+        "level_title": "Level 4  - Ôn HSGQG, Đội Dự Tuyển HSGQG",
+        "title": "LEVEL 4 - THUẬT TOÁN NÂNG CAO",
+        "solved": 1,
+        "total": 89,
+        "percent": 1,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Tuyển sinh vào 10 tỉnh Quảng Trị năm học 2026 - 2027",
+        "solved": 1,
+        "total": 4,
+        "percent": 25,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Tuyển sinh vào 10 tỉnh Ninh Bình năm học 2026 - 2027",
+        "solved": 2,
+        "total": 5,
+        "percent": 40,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Đề thi tuyển sinh lớp 10 tỉnh Bà Rịa - Vũng Tàu năm học 2025 - 2026",
+        "solved": 2,
+        "total": 4,
+        "percent": 50,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Đề thi tuyển sinh lớp 10 chuyên tin tỉnh Thanh Hóa năm học 2024 - 2025",
+        "solved": 1,
+        "total": 4,
+        "percent": 25,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG THPT tỉnh An Giang năm học 2022-2023",
+        "solved": 1,
+        "total": 4,
+        "percent": 25,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Đề thi thử vào 10 chuyên Tin chuyên Vĩnh Phúc năm 2026",
+        "solved": 2,
+        "total": 4,
+        "percent": 50,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Tuyển sinh vào 10 tỉnh Kiên Giang năm học 2024 - 2025",
+        "solved": 1,
+        "total": 4,
+        "percent": 25,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "HSG THCS Ninh Bình 2025-2026",
+        "solved": 5,
+        "total": 5,
+        "percent": 100,
+        "status": "complete",
+        "status_name": "Completed"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "TS10_25_26",
+        "solved": 1,
+        "total": 46,
+        "percent": 2,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 98,
+        "level_title": "Tuyển tập đề sưu tầm",
+        "title": "Test",
+        "solved": 6,
+        "total": 55,
+        "percent": 10,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_6: HSG THCS (Ninh Bình 2025-2026)",
+        "solved": 5,
+        "total": 5,
+        "percent": 100,
+        "status": "complete",
+        "status_name": "Completed"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_5: HSG THCS (Đề Nghệ An 22-23)",
+        "solved": 1,
+        "total": 4,
+        "percent": 25,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_4: HSG THPT Chuyên (Đề TS10 CSP 2024)",
+        "solved": 2,
+        "total": 4,
+        "percent": 50,
+        "status": "in_progress",
+        "status_name": "In progress"
+      },
+      {
+        "level": 99,
+        "level_title": "Bài khảo sát định kì",
+        "title": "KS_2: HSG THPT Khong Chuyen",
+        "solved": 1,
+        "total": 1,
+        "percent": 100,
+        "status": "complete",
+        "status_name": "Completed"
+      }
+    ],
+    "curriculum_summary": {
+      "total_modules": 147,
+      "completed_modules": 5,
+      "in_progress_modules": 28,
+      "not_started_modules": 114,
+      "overall_percent": 8
+    },
+    "daily_progress": {
+      "labels": [
+        "2026-05-22",
+        "2026-05-23",
+        "2026-05-24",
+        "2026-05-25",
+        "2026-05-26",
+        "2026-05-27",
+        "2026-05-28",
+        "2026-05-29",
+        "2026-05-30",
+        "2026-05-31",
+        "2026-06-01",
+        "2026-06-02",
+        "2026-06-03",
+        "2026-06-04",
+        "2026-06-05",
+        "2026-06-06",
+        "2026-06-07",
+        "2026-06-08",
+        "2026-06-09",
+        "2026-06-10",
+        "2026-06-11",
+        "2026-06-12",
+        "2026-06-13",
+        "2026-06-14",
+        "2026-06-15",
+        "2026-06-16",
+        "2026-06-17",
+        "2026-06-18",
+        "2026-06-19",
+        "2026-06-20",
+        "2026-06-21",
+        "2026-06-22",
+        "2026-06-23",
+        "2026-06-24",
+        "2026-06-25",
+        "2026-06-26",
+        "2026-06-27",
+        "2026-06-28",
+        "2026-06-29",
+        "2026-06-30"
+      ],
+      "cumulative": [
+        2,
+        2,
+        5,
+        5,
+        11,
+        15,
+        16,
+        24,
+        24,
+        24,
+        24,
+        26,
+        31,
+        31,
+        32,
+        32,
+        35,
+        35,
+        35,
+        46,
+        46,
+        53,
+        57,
+        63,
+        63,
+        63,
+        71,
+        75,
+        78,
+        78,
+        83,
+        83,
+        83,
+        87,
+        90,
+        92,
+        92,
+        93,
+        93,
+        93
+      ],
+      "daily": [
+        2,
+        0,
+        3,
+        0,
+        6,
+        4,
+        1,
+        8,
+        0,
+        0,
+        0,
+        2,
+        5,
+        0,
+        1,
+        0,
+        3,
+        0,
+        0,
+        11,
+        0,
+        7,
+        4,
+        6,
+        0,
+        0,
+        8,
+        4,
+        3,
+        0,
+        5,
+        0,
+        0,
+        4,
+        3,
+        2,
+        0,
+        1,
+        0,
+        0
+      ],
+      "recent_rows": [
+        {
+          "date": "2026-06-30",
+          "date_display": "30/06/2026",
+          "daily": 0,
+          "cumulative": 93
+        },
+        {
+          "date": "2026-06-29",
+          "date_display": "29/06/2026",
+          "daily": 0,
+          "cumulative": 93
+        },
+        {
+          "date": "2026-06-28",
+          "date_display": "28/06/2026",
+          "daily": 1,
+          "cumulative": 93
+        },
+        {
+          "date": "2026-06-27",
+          "date_display": "27/06/2026",
+          "daily": 0,
+          "cumulative": 92
+        },
+        {
+          "date": "2026-06-26",
+          "date_display": "26/06/2026",
+          "daily": 2,
+          "cumulative": 92
+        },
+        {
+          "date": "2026-06-25",
+          "date_display": "25/06/2026",
+          "daily": 3,
+          "cumulative": 90
+        },
+        {
+          "date": "2026-06-24",
+          "date_display": "24/06/2026",
+          "daily": 4,
+          "cumulative": 87
+        },
+        {
+          "date": "2026-06-23",
+          "date_display": "23/06/2026",
+          "daily": 0,
+          "cumulative": 83
+        },
+        {
+          "date": "2026-06-22",
+          "date_display": "22/06/2026",
+          "daily": 0,
+          "cumulative": 83
+        },
+        {
+          "date": "2026-06-21",
+          "date_display": "21/06/2026",
+          "daily": 5,
+          "cumulative": 83
+        },
+        {
+          "date": "2026-06-20",
+          "date_display": "20/06/2026",
+          "daily": 0,
+          "cumulative": 78
+        },
+        {
+          "date": "2026-06-19",
+          "date_display": "19/06/2026",
+          "daily": 3,
+          "cumulative": 78
+        },
+        {
+          "date": "2026-06-18",
+          "date_display": "18/06/2026",
+          "daily": 4,
+          "cumulative": 75
+        },
+        {
+          "date": "2026-06-17",
+          "date_display": "17/06/2026",
+          "daily": 8,
+          "cumulative": 71
+        }
+      ],
+      "insights": {
+        "week_solved": 10,
+        "week_delta": -10,
+        "week_delta_label": "down",
+        "best_day_count": 11,
+        "best_day": "2026-06-10",
+        "active_days_30": 16
+      },
+      "range_days": 90
+    },
+    "streak": {
+      "current": 0,
+      "display": 0,
+      "longest": 3,
+      "done_today": false,
+      "at_risk": false,
+      "next_milestone": 1,
+      "last_checkpoint": 0,
+      "recovery_available": false,
+      "fib_recovery_used": true,
+      "recovery_target": null
+    }
+  }
+}

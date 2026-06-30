@@ -1,0 +1,122 @@
+TRUNG TÂM UNIOJ: UNICORNS
+ONLINE JUDGE
+CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT
+NAM
+Độc lập - Tự do - Hạnh phúc
+Hà Nội, ngày 22 tháng 06 năm 2026
+TÀI LIỆU HƯỚNG DẪN API ĐỒNG BỘ HỆ SINH THÁI UNIOJ
+Kính gửi: Các đơn vị, hệ thống đối tác tích hợp
+Bộ phận công tác:  Bộ phận kỹ thuật – phát triển website UNIOJ
+Phiên bản tài liệu:  1.0
+Cơ sở API:  https://oj.uniedu.vn
+Tài liệu này hướng dẫn các đơn vị trong hệ sinh thái Unicorns Edu kết nối với nền tảng
+UNIOJ để đồng bộ tên học viên, lấy dữ liệu báo cáo cá nhân và nhúng báo cáo PDF cho phụ
+huynh. API key chỉ được sử dụng trên máy chủ backend của đơn vị đối tác; không đưa ra
+trình duyệt người dùng cuối.
+I. TỔNG QUAN CÁC API
+STT API / chức
+năng
+Mô tả Ghi chú
+1 Đồng bộ tên →
+username
+GET /api/student-lookup/?
+name=...
+Ánh xạ tên hiển thị
+bên đối tác sang
+username UNIOJ
+2 Báo cáo cá nhân
+(JSON)
+GET /api/student-
+report/<username>/
+Dữ liệu tiến độ,
+roadmap, biểu đồ,
+level hiện tại
+3 Báo cáo cá nhân
+(PDF)
+GET /api/student-
+report/<username>/pdf/
+File PDF báo cáo để
+proxy về website đối
+tác
+II. XÁC THỰC VÀ QUYỀN TRUY CẬP
+STT Nội dung Chi tiết
+1 Header bắt
+buộc
+Authorization: Bearer <api_key>
+6/22/26, 9:39 PM Tài liệu hướng dẫn API đồng bộ hệ sinh thái UNIOJ
+https://oj.uniedu.vn/api/docs/ 1/4
+STT Nội dung Chi tiết
+2 API key Trường api_key trên hồ sơ Profile (Django Admin). Mỗi tài khoản tích
+hợp một key Base64url.
+3 Quyền Tài khoản gọi API phải có quyền View student personal report hoặc là
+superuser.
+4 Bảo mật Lưu api_key trong biến môi trường server (.env). Không nhúng vào
+HTML, JavaScript hay URL công khai.
+III. API ĐỒNG BỘ TÊN (STUDENT-LOOKUP)
+Dùng khi hệ thống đối tác lưu tên đầy đủ (ví dụ Hà Trần Minh Đoàn) còn UNIOJ dùng
+username (ví dụ DoanHTMHCM2010) và tên hiển thị đầy đủ hơn (có thêm tỉnh, năm sinh).
+STT Tham số / trường Mô tả Ví dụ
+1 name (query) Tên học viên phía đối tác Hà Trần Minh Đoàn
+2 username (trả về) Username UNIOJ DoanHTMHCM2010
+3 display_name (trả về) Tên hiển thị trên UNIOJ Hà Trần Minh Đoàn
+Hồ Chí Minh 2010
+Quy tắc khớp tên: trùng khớp chính xác tên hiển thị → trùng username → tên đối tác là
+tiền tố của tên UNIOJ.
+curl -G "https://oj.uniedu.vn/api/student-lookup/" \
+  --data-urlencode "name=Hà Trần Minh Đoàn" \
+  -H "Authorization: Bearer <api_key>"
+IV. API BÁO CÁO CÁ NHÂN
+STT Endpoint Kết quả Tham số tùy chọn
+1 /api/student-
+report/<username>/
+JSON: điểm, AC rate,
+roadmap, tiến độ theo
+ngày, level hiện tại (2
+tuần)
+?days=90 (7–365)
+2 /api/student-
+report/<username>/pdf/
+File PDF báo cáo
+(application/pdf)
+?days=90
+# JSON
+curl -H "Authorization: Bearer <api_key>" \
+6/22/26, 9:39 PM Tài liệu hướng dẫn API đồng bộ hệ sinh thái UNIOJ
+https://oj.uniedu.vn/api/docs/ 2/4
+  "https://oj.uniedu.vn/api/student-report/DoanHTMHCM2010/?days=90"
+# PDF (lưu file)
+curl -H "Authorization: Bearer <api_key>" \
+  "https://oj.uniedu.vn/api/student-report/DoanHTMHCM2010/pdf/" \
+  -o bao-cao.pdf
+6/22/26, 9:39 PM Tài liệu hướng dẫn API đồng bộ hệ sinh thái UNIOJ
+https://oj.uniedu.vn/api/docs/ 3/4
+V. LUỒNG TÍCH HỢP KHUYẾN NGHỊ (PROXY SERVER)
+STT Bước Mô tả
+1 Phụ huynh mở trang
+đối tác
+Trình duyệt chỉ gọi domain website đối tác (không thấy
+api_key).
+2 Server đối tác tra
+username
+Gọi /api/student-lookup/ nếu chỉ có tên học viên.
+3 Server đối tác lấy
+PDF/JSON
+Gọi /api/student-report/... với api_key từ .env.
+4 Trả kết quả cho phụ
+huynh
+Stream PDF hoặc hiển thị dữ liệu trên domain đối tác (iframe
+src trỏ về route proxy nội bộ).
+VI. MÃ LỖI HTTP THƯỜNG GẶP
+STT Mã Ý nghĩa
+1 400 Thiếu hoặc sai tham số (ví dụ thiếu name, days không hợp lệ)
+2 401 API key sai hoặc tài khoản không có quyền xem báo cáo
+3 404 Không tìm thấy học viên / username
+4 409 Nhiều học viên trùng tên — xem danh sách candidates trong JSON
+5 503 PDF chưa bật trên môi trường (chỉ ảnh hưởng endpoint PDF)
+Ghi chú: Liên hệ bộ phận kỹ thuật UNIOJ để được cấp api_key và quyền View student
+personal report. Khi triển khai production, dùng URL chính thức của site UNIOJ thay cho địa chỉ
+dev.
+Người lập
+BỘ PHẬN KỸ THUẬT UNIOJ
+6/22/26, 9:39 PM Tài liệu hướng dẫn API đồng bộ hệ sinh thái UNIOJ
+https://oj.uniedu.vn/api/docs/ 4/4

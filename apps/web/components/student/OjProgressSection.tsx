@@ -92,7 +92,6 @@ export default function OjProgressSection({ studentName }: Props) {
   const [days, setDays] = useState<number>(90);
   const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
   const [useDemoData, setUseDemoData] = useState<boolean>(false);
-  const [isPdfFullscreen, setIsPdfFullscreen] = useState<boolean>(false);
   const [pdfObjectUrl, setPdfObjectUrl] = useState<string>("");
 
   // Fetch OJ report using React Query
@@ -133,6 +132,7 @@ export default function OjProgressSection({ studentName }: Props) {
 
   useEffect(() => {
     if (!shouldLoadPdf || !pdfBlob) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPdfObjectUrl("");
       return;
     }
@@ -163,11 +163,6 @@ export default function OjProgressSection({ studentName }: Props) {
     document.body.appendChild(link);
     link.click();
     link.remove();
-  };
-
-  const handleOpenPdf = () => {
-    if (!pdfObjectUrl) return;
-    window.open(pdfObjectUrl, "_blank", "noopener,noreferrer");
   };
 
   const toggleLevelModules = (levelCode: number) => {
@@ -271,7 +266,7 @@ export default function OjProgressSection({ studentName }: Props) {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {useDemoData && (
             <button
               onClick={() => setUseDemoData(false)}
@@ -280,6 +275,29 @@ export default function OjProgressSection({ studentName }: Props) {
               Quay lại dữ liệu thật
             </button>
           )}
+
+          <button
+            onClick={handleDownloadPdf}
+            disabled={!canUsePdf || isPdfLoading}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-text-primary px-4 py-2 text-xs font-semibold text-text-inverse transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isPdfLoading ? (
+              <>
+                <svg className="size-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                <span>Đang tải PDF...</span>
+              </>
+            ) : (
+              <>
+                <svg aria-hidden="true" className="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                <span>Tải PDF</span>
+              </>
+            )}
+          </button>
 
           <div className="w-36">
             <select
@@ -588,131 +606,6 @@ export default function OjProgressSection({ studentName }: Props) {
         )}
       </div>
 
-      {/* PDF Parent Report Preview & Download */}
-      <div className="rounded-[1.25rem] border border-border-default bg-bg-surface p-4 shadow-xs">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
-          <div>
-            <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
-              <svg aria-hidden="true" className="size-4.5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Báo cáo chi tiết cho phụ huynh
-            </h3>
-            <p className="text-xs text-text-muted mt-0.5">Xem trước và tải PDF để gửi cho gia đình.</p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setIsPdfFullscreen(true)}
-              disabled={!canUsePdf}
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-border-default bg-bg-surface px-4 py-2 text-xs font-semibold text-text-primary transition-colors hover:bg-bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <svg aria-hidden="true" className="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
-              </svg>
-              Mở rộng
-            </button>
-
-            <button
-              onClick={handleDownloadPdf}
-              disabled={!canUsePdf}
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-text-primary px-4 py-2 text-xs font-semibold text-text-inverse transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <svg aria-hidden="true" className="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              Tải PDF
-            </button>
-
-            <button
-              onClick={handleOpenPdf}
-              disabled={!canUsePdf}
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-border-default bg-bg-surface px-4 py-2 text-xs font-semibold text-text-primary transition-colors hover:bg-bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <svg aria-hidden="true" className="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-              </svg>
-              In / Lưu PDF
-            </button>
-          </div>
-        </div>
-
-        {/* PDF blob preview loaded through the Unicorns API proxy */}
-        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl border border-border-default bg-slate-100 shadow-inner">
-          {canUsePdf ? (
-            <iframe
-              src={pdfObjectUrl}
-              className="size-full border-0"
-              title="UNIOJ PDF Report Preview"
-            />
-          ) : isPdfLoading ? (
-            <div className="flex size-full items-center justify-center bg-bg-secondary px-6 text-center">
-              <p className="max-w-md text-xs text-text-muted">
-                Đang tải file PDF báo cáo qua máy chủ Unicorns…
-              </p>
-            </div>
-          ) : isPdfError ? (
-            <div className="flex size-full items-center justify-center bg-bg-secondary px-6 text-center">
-              <p className="max-w-md text-xs text-text-muted">
-                Chưa tải được PDF báo cáo. Vui lòng thử lại sau hoặc liên hệ quản trị viên.
-              </p>
-            </div>
-          ) : (
-            <div className="flex size-full items-center justify-center bg-bg-secondary px-6 text-center">
-              <p className="max-w-md text-xs text-text-muted">
-                PDF chỉ hiển thị khi báo cáo UNIOJ thật tải thành công.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* PDF Fullscreen Overlay Modal */}
-      {isPdfFullscreen && canUsePdf && (
-        <div className="fixed inset-0 z-50 flex flex-col overscroll-contain bg-slate-900/95 p-4 md:p-6 backdrop-blur-xs">
-          <div className="flex items-center justify-between text-white mb-4">
-            <div>
-              <h3 className="font-bold text-lg">Báo cáo chi tiết cho phụ huynh — {studentName}</h3>
-              <p className="text-xs text-slate-400">Xem chế độ toàn màn hình</p>
-            </div>
-            <button
-              aria-label="Đóng xem toàn màn hình PDF"
-              onClick={() => setIsPdfFullscreen(false)}
-              className="rounded-full bg-slate-800 p-2 text-slate-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
-            >
-              <svg aria-hidden="true" className="size-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          <div className="flex-1 w-full overflow-hidden rounded-xl border border-slate-700 bg-white">
-            <iframe
-              src={pdfObjectUrl}
-              className="size-full border-0"
-              title="UNIOJ PDF Fullscreen Preview"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 mt-4">
-            <button
-              onClick={handleDownloadPdf}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-white px-5 py-2.5 text-xs font-semibold text-slate-900 transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
-            >
-              <svg aria-hidden="true" className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              Tải PDF báo cáo
-            </button>
-            <button
-              onClick={() => setIsPdfFullscreen(false)}
-              className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-750 bg-slate-800 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
-            >
-              Đóng lại
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

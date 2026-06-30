@@ -86,7 +86,10 @@ export class UniojController {
     required: true,
     description: 'Danh sách ID lớp học, phân tách bằng dấu phẩy',
   })
-  @ApiResponse({ status: 200, description: 'Bản đồ classId -> level hoặc null.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Bản đồ classId -> level hoặc null.',
+  })
   async getClassesLevels(
     @Query('classIds') classIds: string,
   ): Promise<Record<string, string | null>> {
@@ -97,4 +100,3 @@ export class UniojController {
     return this.uniojService.getClassesDominantLevels(ids);
   }
 }
-

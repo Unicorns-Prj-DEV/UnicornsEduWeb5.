@@ -16,7 +16,6 @@ import type { Readable } from 'stream';
 import { PrismaService } from '../prisma/prisma.service';
 import { StudentClassStatus } from 'generated/enums';
 
-
 interface RawLevelModule {
   title: string;
   contest_key: string;
@@ -179,11 +178,7 @@ export class UniojService {
       const url = new URL(rawValue);
       const host = url.hostname.toLowerCase();
 
-      if (
-        host === 'localhost' ||
-        host === '127.0.0.1' ||
-        host === '0.0.0.0'
-      ) {
+      if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0') {
         this.logger.warn(
           `Ignoring invalid UNIOJ_BASE_URL=${rawValue}; using ${this.defaultBaseUrl}.`,
         );
@@ -277,7 +272,9 @@ export class UniojService {
     );
   }
 
-  private async readUpstreamStreamSnippet(data: unknown): Promise<string | undefined> {
+  private async readUpstreamStreamSnippet(
+    data: unknown,
+  ): Promise<string | undefined> {
     if (!this.isReadableStream(data)) {
       return undefined;
     }
@@ -288,7 +285,9 @@ export class UniojService {
 
     try {
       for await (const chunk of data) {
-        const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk));
+        const buffer = Buffer.isBuffer(chunk)
+          ? chunk
+          : Buffer.from(String(chunk));
         chunks.push(buffer);
         totalBytes += buffer.length;
         if (totalBytes >= maxBytes) {
@@ -299,10 +298,7 @@ export class UniojService {
       return undefined;
     }
 
-    return Buffer.concat(chunks)
-      .subarray(0, maxBytes)
-      .toString('utf8')
-      .trim();
+    return Buffer.concat(chunks).subarray(0, maxBytes).toString('utf8').trim();
   }
 
   private async describeUpstreamPdfErrorData(data: unknown): Promise<string> {
@@ -312,7 +308,9 @@ export class UniojService {
       : this.describeUpstreamErrorData(data);
   }
 
-  private async getUpstreamPdfErrorDetail(data: unknown): Promise<string | undefined> {
+  private async getUpstreamPdfErrorDetail(
+    data: unknown,
+  ): Promise<string | undefined> {
     const detail = this.getUpstreamErrorDetail(data);
     if (detail) {
       return detail;
@@ -610,15 +608,12 @@ export class UniojService {
         `Fetching UNIOJ PDF report for ${username} (days=${days})`,
       );
 
-      const pdfResponse = await this.httpService.axiosRef.get(
-        url,
-        {
-          params: days ? { days } : {},
-          headers: this.getHeaders(),
-          responseType: 'stream',
-          validateStatus: () => true,
-        },
-      );
+      const pdfResponse = await this.httpService.axiosRef.get(url, {
+        params: days ? { days } : {},
+        headers: this.getHeaders(),
+        responseType: 'stream',
+        validateStatus: () => true,
+      });
 
       const status = pdfResponse.status;
       if (status >= 400) {
@@ -712,8 +707,7 @@ export class UniojService {
       }
       if (status === 503) {
         throw new ServiceUnavailableException(
-          detail ||
-            'UNIOJ chưa sẵn sàng trả file PDF báo cáo.',
+          detail || 'UNIOJ chưa sẵn sàng trả file PDF báo cáo.',
         );
       }
       throw new BadGatewayException(
@@ -760,7 +754,7 @@ export class UniojService {
     // Collect all unique student fullNames
     const allStudentNames = Array.from(
       new Set(studentClasses.map((sc) => sc.student?.fullName).filter(Boolean)),
-    ) as string[];
+    );
 
     // Fetch reports for all students in parallel, handle errors individually
     const studentLevelsMap: Record<string, string | null> = {};
@@ -821,4 +815,3 @@ export class UniojService {
     return result;
   }
 }
-

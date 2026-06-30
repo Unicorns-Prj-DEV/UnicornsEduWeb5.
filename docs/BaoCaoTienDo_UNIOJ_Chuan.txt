@@ -1,0 +1,50 @@
+BÁO CÁO TIẾN ĐỘ CÔNG VIỆC — HỆ THỐNG UNIOJ
+Người báo cáo: Lê Trần Hoàng Lân
+Bộ phận: Kỹ thuật — Phát triển website
+Kính gửi: Vũ Minh Phương, Nguyễn Quang Huy
+Ngày báo cáo: 08 tháng 06 năm 2026
+Giai đoạn báo cáo: Tháng 4 – Tháng 6 năm 2026
+
+MỤC LỤC
+Trong Microsoft Word, nhấn F9 để cập nhật mục lục tự động.
+1. Tóm tắt nhanh
+2. Chi tiết công việc đã hoàn thành
+2.1. Cải thiện giao diện website
+Thanh menu (navbar): Gọn gàng hơn, dễ nhìn.
+Trang Lộ trình học (Roadmap): hỗ trợ kéo-thả.
+Trang Thành viên (/users/): leaderboard mới, online count, tìm kiếm.
+Cải thiện giao diện trang đề bài, cuộc thi và danh sách bài nộp.
+2.2. Thư viện đề thi
+Thêm mục Thư viện đề thi trên menu chính.
+Phân loại đề theo danh mục và tỉnh/thành.
+Quản trị viên quản lý được từ trang quản trị.
+2.3. Dịch đề bài sang tiếng Anh bằng AI
+Dịch tự động Việt-Anh.
+Hỗ trợ LibreTranslate và OpenAI.
+Có công cụ sửa lỗi định dạng bản dịch.
+2.4. Phân quyền cho đội giáo án
+Thiết lập nhóm mentor và student.
+Mentor quản lý bài nộp, editorial, đề riêng tư.
+Student làm bài và xem kết quả.
+2.5. Ổn định hệ thống khi dùng nhiều tên miền
+Hỗ trợ hoạt động ổn định trên nhiều domain.
+3. Công việc hỗ trợ vận hành
+4. Tổng kết
+Đã hoàn thành 5 nhóm tính năng phát triển chính và các công việc hỗ trợ vận hành liên quan.
+Tình trạng hệ thống: Mã nguồn đã được lưu đầy đủ trên kho chính thức, sẵn sàng cho vận hành tiếp.
+
+Người báo cáo
+
+LÊ TRẦN HOÀNG LÂN
+Hạng mục	Trạng thái
+Cải thiện giao diện website (menu, lộ trình học, trang thành viên)	Hoàn thành
+Thư viện đề thi	Hoàn thành
+Dịch đề bài sang tiếng Anh bằng AI	Hoàn thành
+Phân quyền cho đội giáo án	Hoàn thành
+Ổn định hệ thống khi dùng nhiều tên miền	Hoàn thành
+Công việc	Trạng thái
+Hỗ trợ gia sư xử lý tài khoản bị lỗi email	Đã xử lý
+Hỗ trợ gia sư cập nhật tài khoản học sinh quên mật khẩu/email	Đã xử lý
+Triển khai tên miền tạm khi tên miền chính gặp sự cố	Đã triển khai
+Hướng dẫn đội giáo án sử dụng trang quản trị	Đã thực hiện
+Khắc phục lỗi hiển thị trang Thành viên sau cập nhật	Đã khắc phục

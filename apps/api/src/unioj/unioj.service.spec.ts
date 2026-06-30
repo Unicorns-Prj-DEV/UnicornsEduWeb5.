@@ -3,7 +3,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UniojService } from './unioj.service';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
-import { BadGatewayException, ServiceUnavailableException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { Readable } from 'stream';
 
 describe('UniojService', () => {
@@ -234,8 +237,7 @@ describe('UniojService', () => {
           },
         ],
       }).compile();
-      const serviceWithLocalBaseUrl =
-        module.get<UniojService>(UniojService);
+      const serviceWithLocalBaseUrl = module.get<UniojService>(UniojService);
 
       httpService.axiosRef.get.mockResolvedValueOnce(mockLookupResponse);
       httpService.axiosRef.get.mockResolvedValueOnce({

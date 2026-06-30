@@ -1,0 +1,85 @@
+BÁO CÁO TỔNG HỢP — CÔNG VIỆC & HIỆN TRẠNG HỆ THỐNG UNIOJ
+Ngày lập: 08 tháng 06 năm 2026
+
+Nguồn đối chiếu:
+- bao_cao_cong_viec_ca_nhan.md (07/06/2026 — Lê Trần Hoàng Lân)
+- bao_cao_chi_tiet_unioj.md (25/05/2026 — trang /users/)
+- Git history & codebase: Unicorns-Prj-DEV/OJ---UNIOJ (branch main)
+
+I. TÓM TẮT
+
+Các hạng mục phát triển sau đã được xác nhận qua git history và mã nguồn:
+- Cập nhật giao diện UNIOJ (navbar, roadmap, trang /users/)
+- Thư viện đề thi (Exam Library)
+- Dịch bài sang tiếng Anh bằng mô hình máy tính
+- Phân quyền nhóm uni-mentor / uni-student
+- Hỗ trợ đa domain cho websocket
+
+Trạng thái Git (08/06/2026): main sạch, đã đồng bộ với origin/main.
+Commit gần nhất: 431b790d (31/05/2026).
+
+II. CÔNG VIỆC ĐÃ XÁC NHẬN
+
+1. Cập nhật giao diện UNIOJ
+2. Tính năng thư viện đề thi
+3. Dịch bài sang tiếng Anh bằng mô hình máy tính
+4. Phân quyền đội giáo án
+5. Hỗ trợ đa domain
+
+III. CHI TIẾT CÔNG VIỆC PHÁT TRIỂN
+
+III.1. Cập nhật giao diện — navbar, roadmap, trang thành viên
+
+23/05 - f57465b5 - Navbar gọn, theme sáng, hiệu ứng particles
+24–29/05 - 0d7715a2 - Design system duo-ui, SCSS
+27/04 - ead05a7c - Roadmap, contest UI, submissions list
+27/04 - 1f8a9a6b - Đồng bộ level-roadmap tự động
+28/04 - 538fff56 - Roadmap drag-sort UX
+29/05 - 9d05fdc1 - Làm mới /users/
+30/05 - f005920b - Navbar compact + exam library
+31/05 - 431b790d - Roadmap table UI
+
+III.2. Thư viện đề thi
+- Commit: f005920b
+- View: ExamLibraryList
+- Template: contest/exam-library.html
+
+III.3. Dịch thuật tiếng Anh
+- translate_problems_to_en.py
+- repair_problem_translations.py
+- Hỗ trợ LibreTranslate, OpenAI, Ollama
+
+III.4. Phân quyền mentor/student
+- view_roadmap
+- roadmap_level_edit_mode
+- edit_problem_editorial
+- quick-submit
+
+III.5. Tính năng bổ sung
+- Web playground
+- Editorial-read scoring gate
+- Polygon import tooling
+- Duo-ui design system
+
+IV. SỰ CỐ /users/ ĐÃ KHẮC PHỤC
+- online_cutoff undefined
+- Leaderboard UI mới
+- Ô tìm kiếm cũ trùng lặp
+
+V. KẾT LUẬN
+
+Công việc phát triển giao diện, thư viện đề thi, dịch thuật tiếng Anh và phân quyền mentor/student đã được triển khai và commit trong repository OJ---UNIOJ. Mã nguồn hiện ở trạng thái sạch, đồng bộ với remote origin/main.
+
+PHỤ LỤC — COMMIT LIÊN QUAN
+
+431b790d 2026-05-31 Roadmap table UI, examlib navbar, translation repair tools
+f005920b 2026-05-30 Add exam library, shared taxonomy, and compact navbar
+7cf4de4f 2026-05-30 Editorial-read scoring gate
+9d05fdc1 2026-05-29 Refine members hub layouts
+0870ee94 2026-05-29 Multi-domain + playground
+0d7715a2 2026-05-29 Duo-ui design system
+f57465b5 2026-05-23 Improve site UI
+ead05a7c 2026-04-27 Add roadmap features
+1f8a9a6b 2026-04-27 Automate level-roadmap sync
+
+Remote: git@github.com:Unicorns-Prj-DEV/OJ---UNIOJ.git
