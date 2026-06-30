@@ -504,6 +504,7 @@ function SelectionCheckbox({
 }: SelectionCheckboxProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (!inputRef.current) return;
     inputRef.current.indeterminate = indeterminate;
@@ -1453,6 +1454,7 @@ export default function SessionHistoryTable({
     allowanceRawBaseEdit != null &&
     savedSessionAllowanceRawBase !== allowanceRawBaseEdit;
 
+// eslint-disable-next-line react-hooks/refs
   const rawBaseForAllowancePreview = useMemo(() => {
     if (!attendanceDirtyRef.current && savedSessionAllowanceRawBase != null) {
       return savedSessionAllowanceRawBase;

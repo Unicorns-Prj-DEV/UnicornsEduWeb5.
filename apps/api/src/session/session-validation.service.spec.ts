@@ -140,7 +140,9 @@ describe('SessionValidationService', () => {
         { required: false },
       ),
     ).toThrow(
-      new BadRequestException('Nhận xét học sinh có mặt/nghỉ phép là bắt buộc.'),
+      new BadRequestException(
+        'Nhận xét học sinh có mặt/nghỉ phép là bắt buộc.',
+      ),
     );
   });
 

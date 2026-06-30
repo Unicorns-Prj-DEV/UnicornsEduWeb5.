@@ -80,7 +80,10 @@ export class SessionCreateService {
           const sessionDate = this.sessionValidationService.parseSessionDate(
             data.date,
           );
-          const getTaxRate = createMemoizedTaxDeductionResolver(tx, sessionDate);
+          const getTaxRate = createMemoizedTaxDeductionResolver(
+            tx,
+            sessionDate,
+          );
           const attendanceStudentIds = data.attendance.map(
             (attendanceItem) => attendanceItem.studentId,
           );
@@ -172,7 +175,10 @@ export class SessionCreateService {
               select: { id: true, customerCareManagedByStaffId: true },
             });
             careStaff.forEach((s) =>
-              assistantManagerByStaffId.set(s.id, s.customerCareManagedByStaffId),
+              assistantManagerByStaffId.set(
+                s.id,
+                s.customerCareManagedByStaffId,
+              ),
             );
           }
 
