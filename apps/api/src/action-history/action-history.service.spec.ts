@@ -102,4 +102,135 @@ describe('ActionHistoryService', () => {
       }),
     });
   });
+
+  describe('recordUpdates', () => {
+    it('uses createMany when available', async () => {
+      const txWithCreateMany = {
+        actionHistory: {
+          create: jest.fn(),
+          createMany: jest.fn().mockResolvedValue({ count: 2 }),
+        },
+      };
+
+      await service.recordUpdates(txWithCreateMany as never, {
+        actor: {
+          userId: 'user-1',
+          userEmail: 'admin@example.com',
+        },
+        entityType: 'session',
+        description: 'Thanh toán buổi dạy',
+        updates: [
+          {
+            entityId: 'session-1',
+            beforeValue: { status: 'unpaid' },
+            afterValue: { status: 'paid' },
+          },
+          {
+            entityId: 'session-2',
+            beforeValue: { status: 'unpaid' },
+            afterValue: { status: 'paid' },
+          },
+        ],
+      });
+
+      expect(txWithCreateMany.actionHistory.createMany).toHaveBeenCalledWith({
+        data: [
+          {
+            userId: 'user-1',
+            userEmail: 'admin@example.com',
+            entityId: 'session-1',
+            entityType: 'session',
+            actionType: 'update',
+            beforeValue: { status: 'unpaid' },
+            afterValue: { status: 'paid' },
+            changedFields: {
+              status: { old: 'unpaid', new: 'paid' },
+            },
+            description: 'Thanh toán buổi dạy',
+          },
+          {
+            userId: 'user-1',
+            userEmail: 'admin@example.com',
+            entityId: 'session-2',
+            entityType: 'session',
+            actionType: 'update',
+            beforeValue: { status: 'unpaid' },
+            afterValue: { status: 'paid' },
+            changedFields: {
+              status: { old: 'unpaid', new: 'paid' },
+            },
+            description: 'Thanh toán buổi dạy',
+          },
+        ],
+      });
+      expect(txWithCreateMany.actionHistory.create).not.toHaveBeenCalled();
+    });
+
+    it('falls back to loop create when createMany is not available', async () => {
+      const txWithoutCreateMany = {
+        actionHistory: {
+          create: jest.fn().mockResolvedValue({ id: 'history-1' }),
+        },
+      };
+
+      await service.recordUpdates(txWithoutCreateMany as never, {
+        actor: {
+          userId: 'user-1',
+          userEmail: 'admin@example.com',
+        },
+        entityType: 'session',
+        description: 'Thanh toán buổi dạy',
+        updates: [
+          {
+            entityId: 'session-1',
+            beforeValue: { status: 'unpaid' },
+            afterValue: { status: 'paid' },
+          },
+          {
+            entityId: 'session-2',
+            beforeValue: { status: 'unpaid' },
+            afterValue: { status: 'paid' },
+          },
+        ],
+      });
+
+      expect(txWithoutCreateMany.actionHistory.create).toHaveBeenCalledTimes(2);
+      expect(txWithoutCreateMany.actionHistory.create).toHaveBeenNthCalledWith(
+        1,
+        {
+          data: {
+            userId: 'user-1',
+            userEmail: 'admin@example.com',
+            entityId: 'session-1',
+            entityType: 'session',
+            actionType: 'update',
+            beforeValue: { status: 'unpaid' },
+            afterValue: { status: 'paid' },
+            changedFields: {
+              status: { old: 'unpaid', new: 'paid' },
+            },
+            description: 'Thanh toán buổi dạy',
+          },
+        },
+      );
+      expect(txWithoutCreateMany.actionHistory.create).toHaveBeenNthCalledWith(
+        2,
+        {
+          data: {
+            userId: 'user-1',
+            userEmail: 'admin@example.com',
+            entityId: 'session-2',
+            entityType: 'session',
+            actionType: 'update',
+            beforeValue: { status: 'unpaid' },
+            afterValue: { status: 'paid' },
+            changedFields: {
+              status: { old: 'unpaid', new: 'paid' },
+            },
+            description: 'Thanh toán buổi dạy',
+          },
+        },
+      );
+    });
+  });
 });

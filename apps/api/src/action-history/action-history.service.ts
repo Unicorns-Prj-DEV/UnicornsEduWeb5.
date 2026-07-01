@@ -10,7 +10,8 @@ export type ActionHistoryActionType = 'create' | 'update' | 'delete';
 
 interface ActionHistoryWriteClient {
   actionHistory: {
-    create(args: unknown): Promise<unknown> | unknown;
+    create(args: unknown): any;
+    createMany?(args: any): any;
   };
 }
 
@@ -57,6 +58,59 @@ export class ActionHistoryService {
       ...params,
       actionType: 'update',
     });
+  }
+
+  async recordUpdates(
+    db: ActionHistoryWriteClient,
+    params: {
+      actor?: ActionHistoryActor | null;
+      entityType: string;
+      description?: string | null;
+      updates: Array<{
+        entityId: string;
+        beforeValue: unknown;
+        afterValue: unknown;
+        description?: string | null;
+      }>;
+    },
+  ) {
+    const {
+      actor,
+      entityType,
+      description: defaultDescription,
+      updates,
+    } = params;
+    if (!updates || updates.length === 0) {
+      return;
+    }
+
+    const data = updates.map((update) => {
+      const beforeValue = this.normalizeJson(update.beforeValue);
+      const afterValue = this.normalizeJson(update.afterValue);
+      return {
+        userId: actor?.userId ?? null,
+        userEmail: actor?.userEmail ?? null,
+        entityId: update.entityId ?? null,
+        entityType,
+        actionType: 'update',
+        beforeValue,
+        afterValue,
+        changedFields: this.buildChangedFields(beforeValue, afterValue),
+        description: update.description ?? defaultDescription ?? null,
+      };
+    });
+
+    if (typeof db.actionHistory.createMany === 'function') {
+      await db.actionHistory.createMany({
+        data,
+      });
+    } else {
+      for (const item of data) {
+        await db.actionHistory.create({
+          data: item,
+        });
+      }
+    }
   }
 
   async recordDelete(
