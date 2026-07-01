@@ -3669,71 +3669,89 @@ export class StaffService {
         this.getBonusSnapshots(tx, bonusIds),
       ]);
 
-      for (const sessionId of teacherSessionIds) {
-        await this.actionHistoryService.recordUpdate(tx, {
-          actor: auditActor,
-          entityType: 'session',
-          entityId: sessionId,
-          description: auditDescriptions.teacher_session,
-          beforeValue: sessionBeforeSnapshots.get(sessionId) ?? null,
-          afterValue: sessionAfterSnapshots.get(sessionId) ?? null,
-        });
-      }
+      await Promise.all([
+        teacherSessionIds.length > 0
+          ? this.actionHistoryService.recordUpdates(tx, {
+              actor: auditActor,
+              entityType: 'session',
+              description: auditDescriptions.teacher_session,
+              updates: teacherSessionIds.map((sessionId) => ({
+                entityId: sessionId,
+                beforeValue: sessionBeforeSnapshots.get(sessionId) ?? null,
+                afterValue: sessionAfterSnapshots.get(sessionId) ?? null,
+              })),
+            })
+          : Promise.resolve(),
 
-      for (const attendanceId of customerCareAttendanceIds) {
-        await this.actionHistoryService.recordUpdate(tx, {
-          actor: auditActor,
-          entityType: 'attendance',
-          entityId: attendanceId,
-          description: auditDescriptions.customer_care,
-          beforeValue: customerCareBeforeSnapshots.get(attendanceId) ?? null,
-          afterValue: customerCareAfterSnapshots.get(attendanceId) ?? null,
-        });
-      }
+        customerCareAttendanceIds.length > 0
+          ? this.actionHistoryService.recordUpdates(tx, {
+              actor: auditActor,
+              entityType: 'attendance',
+              description: auditDescriptions.customer_care,
+              updates: customerCareAttendanceIds.map((attendanceId) => ({
+                entityId: attendanceId,
+                beforeValue:
+                  customerCareBeforeSnapshots.get(attendanceId) ?? null,
+                afterValue:
+                  customerCareAfterSnapshots.get(attendanceId) ?? null,
+              })),
+            })
+          : Promise.resolve(),
 
-      for (const attendanceId of assistantAttendanceIds) {
-        await this.actionHistoryService.recordUpdate(tx, {
-          actor: auditActor,
-          entityType: 'attendance',
-          entityId: attendanceId,
-          description: auditDescriptions.assistant_share,
-          beforeValue: assistantBeforeSnapshots.get(attendanceId) ?? null,
-          afterValue: assistantAfterSnapshots.get(attendanceId) ?? null,
-        });
-      }
+        assistantAttendanceIds.length > 0
+          ? this.actionHistoryService.recordUpdates(tx, {
+              actor: auditActor,
+              entityType: 'attendance',
+              description: auditDescriptions.assistant_share,
+              updates: assistantAttendanceIds.map((attendanceId) => ({
+                entityId: attendanceId,
+                beforeValue: assistantBeforeSnapshots.get(attendanceId) ?? null,
+                afterValue: assistantAfterSnapshots.get(attendanceId) ?? null,
+              })),
+            })
+          : Promise.resolve(),
 
-      for (const outputId of lessonOutputIds) {
-        await this.actionHistoryService.recordUpdate(tx, {
-          actor: auditActor,
-          entityType: 'lesson_output',
-          entityId: outputId,
-          description: auditDescriptions.lesson_output,
-          beforeValue: lessonOutputBeforeSnapshots.get(outputId) ?? null,
-          afterValue: lessonOutputAfterSnapshots.get(outputId) ?? null,
-        });
-      }
+        lessonOutputIds.length > 0
+          ? this.actionHistoryService.recordUpdates(tx, {
+              actor: auditActor,
+              entityType: 'lesson_output',
+              description: auditDescriptions.lesson_output,
+              updates: lessonOutputIds.map((outputId) => ({
+                entityId: outputId,
+                beforeValue: lessonOutputBeforeSnapshots.get(outputId) ?? null,
+                afterValue: lessonOutputAfterSnapshots.get(outputId) ?? null,
+              })),
+            })
+          : Promise.resolve(),
 
-      for (const allowanceId of extraAllowanceIds) {
-        await this.actionHistoryService.recordUpdate(tx, {
-          actor: auditActor,
-          entityType: 'extra_allowance',
-          entityId: allowanceId,
-          description: auditDescriptions.extra_allowance,
-          beforeValue: extraAllowanceBeforeSnapshots.get(allowanceId) ?? null,
-          afterValue: extraAllowanceAfterSnapshots.get(allowanceId) ?? null,
-        });
-      }
+        extraAllowanceIds.length > 0
+          ? this.actionHistoryService.recordUpdates(tx, {
+              actor: auditActor,
+              entityType: 'extra_allowance',
+              description: auditDescriptions.extra_allowance,
+              updates: extraAllowanceIds.map((allowanceId) => ({
+                entityId: allowanceId,
+                beforeValue:
+                  extraAllowanceBeforeSnapshots.get(allowanceId) ?? null,
+                afterValue:
+                  extraAllowanceAfterSnapshots.get(allowanceId) ?? null,
+              })),
+            })
+          : Promise.resolve(),
 
-      for (const bonusId of bonusIds) {
-        await this.actionHistoryService.recordUpdate(tx, {
-          actor: auditActor,
-          entityType: 'bonus',
-          entityId: bonusId,
-          description: auditDescriptions.bonus,
-          beforeValue: bonusBeforeSnapshots.get(bonusId) ?? null,
-          afterValue: bonusAfterSnapshots.get(bonusId) ?? null,
-        });
-      }
+        bonusIds.length > 0
+          ? this.actionHistoryService.recordUpdates(tx, {
+              actor: auditActor,
+              entityType: 'bonus',
+              description: auditDescriptions.bonus,
+              updates: bonusIds.map((bonusId) => ({
+                entityId: bonusId,
+                beforeValue: bonusBeforeSnapshots.get(bonusId) ?? null,
+                afterValue: bonusAfterSnapshots.get(bonusId) ?? null,
+              })),
+            })
+          : Promise.resolve(),
+      ]);
     }
 
     return {

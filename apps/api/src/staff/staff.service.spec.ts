@@ -111,6 +111,7 @@ describe('StaffService', () => {
   const actionHistoryService = {
     recordCreate: jest.fn(),
     recordUpdate: jest.fn(),
+    recordUpdates: jest.fn(),
     recordDelete: jest.fn(),
   };
   const authIdentityCacheService = {
@@ -2185,6 +2186,86 @@ describe('StaffService', () => {
         updatedCount: 2,
       },
     ]);
+  });
+
+  it('records action history in bulk using recordUpdates when auditActor is provided', async () => {
+    jest
+      .spyOn(service as any, 'loadStaffPaymentPreviewRecords')
+      .mockResolvedValue({
+        monthKey: '2026-03',
+        records: [
+          {
+            id: 'session-1',
+            role: StaffRole.teacher,
+            sourceType: 'teacher_session',
+            sourceLabel: 'Buổi dạy',
+            label: 'Toán 10A',
+            secondaryLabel: null,
+            date: '2026-03-15T00:00:00.000Z',
+            currentStatus: 'unpaid',
+            grossAmount: 100000,
+            operatingAmount: 0,
+            operatingRatePercent: 7,
+            taxRatePercent: 12,
+            taxAmount: 12000,
+            netAmount: 88000,
+          },
+        ],
+      });
+    const beforeSnapshots = new Map([
+      ['session-1', { id: 'session-1', teacherPaymentStatus: 'unpaid' }],
+    ]);
+    const afterSnapshots = new Map([
+      ['session-1', { id: 'session-1', teacherPaymentStatus: 'paid' }],
+    ]);
+    jest
+      .spyOn(service as any, 'getSessionPaymentSnapshots')
+      .mockResolvedValueOnce(beforeSnapshots)
+      .mockResolvedValueOnce(afterSnapshots);
+    jest
+      .spyOn(service as any, 'getAttendancePaymentSnapshots')
+      .mockResolvedValue(new Map());
+    jest
+      .spyOn(service as any, 'getLessonOutputSnapshots')
+      .mockResolvedValue(new Map());
+    jest
+      .spyOn(service as any, 'getExtraAllowanceSnapshots')
+      .mockResolvedValue(new Map());
+    jest
+      .spyOn(service as any, 'getBonusSnapshots')
+      .mockResolvedValue(new Map());
+    mockPrisma.session.updateMany.mockResolvedValue({ count: 1 });
+
+    const auditActor = {
+      userId: 'user-1',
+      userEmail: 'admin@example.com',
+      roleType: 'admin',
+    };
+
+    await service.payAllPayments(
+      'staff-1',
+      {
+        month: '03',
+        year: '2026',
+      },
+      auditActor,
+    );
+
+    expect(actionHistoryService.recordUpdates).toHaveBeenCalledWith(
+      mockPrisma,
+      {
+        actor: auditActor,
+        entityType: 'session',
+        description: 'Thanh toán toàn bộ khoản dạy học',
+        updates: [
+          {
+            entityId: 'session-1',
+            beforeValue: { id: 'session-1', teacherPaymentStatus: 'unpaid' },
+            afterValue: { id: 'session-1', teacherPaymentStatus: 'paid' },
+          },
+        ],
+      },
+    );
   });
 
   it('pays only selected customer care preview items', async () => {
