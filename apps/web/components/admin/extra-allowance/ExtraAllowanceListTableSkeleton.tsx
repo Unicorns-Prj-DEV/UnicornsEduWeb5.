@@ -166,6 +166,69 @@ function RowCellSkeleton({ column }: { column: ColumnKey }) {
   );
 }
 
+export function ExtraAllowanceSummaryCardsSkeleton() {
+  return (
+    <div className="grid gap-3 sm:grid-cols-3" aria-hidden="true">
+      {skeletonKeys("extra-allowance-summary-skeleton", 3).map((cardKey) => (
+        <div
+          key={cardKey}
+          className="h-24 animate-pulse rounded-xl border border-border-default bg-bg-secondary/70"
+        />
+      ))}
+    </div>
+  );
+}
+
+function SelfServiceScopeSkeleton() {
+  return (
+    <div
+      className="relative overflow-hidden rounded-[1.35rem] border border-border-default bg-bg-surface p-3 shadow-sm"
+      aria-hidden="true"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.1rem] border border-border-default/70 bg-bg-surface/80 px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <SkeletonLine className="h-3 w-36 rounded-full" />
+          <SkeletonLine className="mt-2 h-5 w-full max-w-[24rem]" />
+        </div>
+        <SkeletonLine className="h-8 w-36 rounded-full" />
+      </div>
+      <div className="mt-5">
+        <ExtraAllowanceListTableSkeleton
+          rows={5}
+          mobileCards={4}
+          variant="selfDetail"
+          showToolbar={false}
+        />
+      </div>
+    </div>
+  );
+}
+
+export function ExtraAllowanceDetailListSkeleton({
+  variant,
+}: {
+  variant: Extract<ExtraAllowanceSkeletonVariant, "roleDetail" | "selfDetail">;
+}) {
+  if (variant === "selfDetail") {
+    return (
+      <div aria-busy="true" aria-live="polite">
+        <SelfServiceScopeSkeleton />
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-5" aria-busy="true" aria-live="polite">
+      <ExtraAllowanceListTableSkeleton
+        rows={5}
+        mobileCards={4}
+        variant="roleDetail"
+        showToolbar={false}
+      />
+    </div>
+  );
+}
+
 export default function ExtraAllowanceListTableSkeleton({
   rows = 8,
   mobileCards = Math.min(rows, 4),

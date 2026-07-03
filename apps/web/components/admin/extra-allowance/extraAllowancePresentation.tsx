@@ -3,7 +3,32 @@ import type {
   ExtraAllowanceRoleType,
   ExtraAllowanceStatus,
 } from "@/dtos/extra-allowance.dto";
+import { getDefaultMonthKey, parseMonthKey } from "@/lib/month-format";
 import { ROLE_LABELS } from "@/lib/staff.constants";
+
+export type ExtraAllowanceMonthQuery = {
+  year: string;
+  month: string;
+  monthKey: string;
+};
+
+/** Parse YYYY-MM into API query params (`year` + numeric `month`). */
+export function toExtraAllowanceMonthQuery(
+  monthKey?: string | null,
+): ExtraAllowanceMonthQuery {
+  const parsed = parseMonthKey(monthKey) ?? parseMonthKey(getDefaultMonthKey());
+  if (!parsed) {
+    const fallback = getDefaultMonthKey();
+    const [year, month] = fallback.split("-");
+    return { year, month, monthKey: fallback };
+  }
+
+  return {
+    year: String(parsed.year),
+    month: String(parsed.month),
+    monthKey: parsed.monthKey,
+  };
+}
 
 const insetSurfaceShadow =
   "shadow-[inset_0_1px_0_color-mix(in_srgb,var(--ue-bg-surface)_35%,transparent)]";

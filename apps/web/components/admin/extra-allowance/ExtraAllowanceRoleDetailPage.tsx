@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import SelectionCheckbox from "@/components/ui/SelectionCheckbox";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
+import MonthNav from "@/components/admin/MonthNav";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import {
   buildAdminLikePath,
@@ -21,7 +22,10 @@ import AssistantCommissionTabPanel from "./AssistantCommissionTabPanel";
 import ExtraAllowanceFormPopup, {
   type ExtraAllowanceFormSubmitPayload,
 } from "./ExtraAllowanceFormPopup";
-import ExtraAllowanceListTableSkeleton from "./ExtraAllowanceListTableSkeleton";
+import {
+  ExtraAllowanceDetailListSkeleton,
+  ExtraAllowanceSummaryCardsSkeleton,
+} from "./ExtraAllowanceListTableSkeleton";
 import {
   DEFAULT_BULK_EXTRA_ALLOWANCE_STATUS,
   EXTRA_ALLOWANCE_STATUS_OPTIONS,
@@ -29,6 +33,7 @@ import {
   getExtraAllowanceRoleLabel,
   getExtraAllowanceStatusChipClass,
   getExtraAllowanceStatusLabel,
+  toExtraAllowanceMonthQuery,
 } from "./extraAllowancePresentation";
 import type {
   ExtraAllowanceBaseFields,
@@ -39,7 +44,7 @@ import type {
 } from "@/dtos/extra-allowance.dto";
 import type { StaffDetail, StaffOption } from "@/dtos/staff.dto";
 import * as extraAllowanceApi from "@/lib/apis/extra-allowance.api";
-import { formatMonthKeyLabel } from "@/lib/month-format";
+import { formatMonthKeyLabel, getDefaultMonthKey } from "@/lib/month-format";
 
 const MAX_VISIBLE_ALLOWANCES = 20;
 const EMPTY_ALLOWANCES: ExtraAllowanceListItem[] = [];
@@ -204,11 +209,6 @@ function resolveNote(note: string | null | undefined) {
   return note?.trim() || "Chưa có ghi chú.";
 }
 
-function getDefaultMonthKey() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-}
-
 function toStaffOption(staff: StaffDetail): StaffOption {
   return {
     id: staff.id,
@@ -285,7 +285,10 @@ export default function ExtraAllowanceRoleDetailPage({
   const [assistantDetailTab, setAssistantDetailTab] = useState<
     "allowance" | "commission"
   >("allowance");
-  const defaultMonthKey = getDefaultMonthKey();
+  const [selectedMonth, setSelectedMonth] = useState(getDefaultMonthKey);
+  const [monthPopupOpen, setMonthPopupOpen] = useState(false);
+  const monthQuery = toExtraAllowanceMonthQuery(selectedMonth);
+  const selectedMonthLabel = formatMonthKeyLabel(monthQuery.monthKey);
   const showAssistantCommissionTab =
     roleType === "assistant" && Boolean(normalizedStaffId);
   const { data: fullProfile } = useQuery({
@@ -302,6 +305,7 @@ export default function ExtraAllowanceRoleDetailPage({
   const {
     data,
     isLoading,
+    isFetching,
     isError,
     error,
     refetch,
@@ -311,6 +315,7 @@ export default function ExtraAllowanceRoleDetailPage({
       "role-detail",
       roleType,
       normalizedStaffId,
+      monthQuery.monthKey,
       MAX_VISIBLE_ALLOWANCES,
     ],
     queryFn: () =>
@@ -319,8 +324,18 @@ export default function ExtraAllowanceRoleDetailPage({
         limit: MAX_VISIBLE_ALLOWANCES,
         roleType,
         staffId: normalizedStaffId || undefined,
+        year: monthQuery.year,
+        month: monthQuery.month,
       }),
   });
+
+  const isAllowanceLoading = isLoading || isFetching;
+
+  useEffect(() => {
+    setSelectedAllowanceIds(new Set());
+    setBulkEditPopupOpen(false);
+  }, [monthQuery.monthKey]);
+
   const {
     data: staffDetail,
     isLoading: isStaffDetailLoading,
@@ -359,8 +374,8 @@ export default function ExtraAllowanceRoleDetailPage({
     : `Theo dõi các khoản trợ cấp thuộc nhóm ${roleLabel.toLowerCase()}.`;
   const visibilityNote =
     totalAvailable > totalAllowances
-      ? `Đang hiển thị ${totalAllowances}/${totalAvailable} khoản mới nhất.`
-      : scopeDescription;
+      ? `Đang xem ${selectedMonthLabel} · hiển thị ${totalAllowances}/${totalAvailable} khoản mới nhất.`
+      : `Đang xem ${selectedMonthLabel} · ${scopeDescription}`;
   const lockedStaffContext = useMemo(() => {
     if (!staffDetail) {
       return null;
@@ -378,7 +393,7 @@ export default function ExtraAllowanceRoleDetailPage({
 
     if (!lockedStaffContext) {
       return {
-        month: defaultMonthKey,
+        month: monthQuery.monthKey,
         status: "pending",
         roleType,
       };
@@ -386,7 +401,7 @@ export default function ExtraAllowanceRoleDetailPage({
 
     return {
       staffId: lockedStaffContext.staff.id,
-      month: defaultMonthKey,
+      month: monthQuery.monthKey,
       status: "pending",
       roleType,
       staff: {
@@ -396,7 +411,7 @@ export default function ExtraAllowanceRoleDetailPage({
         roles: lockedStaffContext.staff.roles,
       },
     };
-  }, [defaultMonthKey, lockedStaffContext, normalizedStaffId, roleType]);
+  }, [lockedStaffContext, monthQuery.monthKey, normalizedStaffId, roleType]);
   const createMutation = useMutation({
     mutationFn: extraAllowanceApi.createExtraAllowance,
     onSuccess: async (createdAllowance) => {
@@ -695,33 +710,7 @@ export default function ExtraAllowanceRoleDetailPage({
         </section>
       ) : null}
 
-      {assistantDetailTab === "allowance" && isLoading ? (
-        <>
-          <section className="rounded-[2rem] border border-border-default bg-bg-surface p-5 shadow-sm lg:p-6">
-            <div className="grid gap-3 md:grid-cols-3">
-              {Array.from({ length: 3 }).map((_, index) => (
-                <div
-                  key={`extra-allowance-summary-skeleton-${index}`}
-                  className="h-24 animate-pulse rounded-[1.5rem] border border-border-default bg-bg-secondary/70"
-                />
-              ))}
-            </div>
-          </section>
-
-          <section className="rounded-[2rem] border border-border-default bg-bg-surface p-5 shadow-sm lg:p-6">
-            <div className="h-6 w-48 animate-pulse rounded-full bg-bg-secondary/70" />
-            <div className="mt-3 h-4 w-full max-w-2xl animate-pulse rounded bg-bg-secondary/70" />
-            <div className="mt-5">
-              <ExtraAllowanceListTableSkeleton
-                rows={5}
-                mobileCards={4}
-                variant="roleDetail"
-                showToolbar
-              />
-            </div>
-          </section>
-        </>
-      ) : assistantDetailTab === "allowance" && isError ? (
+      {assistantDetailTab === "allowance" && isError && !data ? (
         <section className="rounded-[2rem] border border-error/30 bg-error/8 p-5 shadow-sm lg:p-6">
           <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-error">
             Allowance Unavailable
@@ -745,23 +734,30 @@ export default function ExtraAllowanceRoleDetailPage({
         </section>
       ) : assistantDetailTab === "allowance" ? (
         <>
-          <section className="rounded-[1.25rem] border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <SummaryCard label="Tổng khoản trợ cấp" value={String(totalAllowances)} />
-              <SummaryCard
-                label="Khoản đã thanh toán"
-                value={String(paidCount)}
-                tone="success"
-              />
-              <SummaryCard
-                label="Khoản chờ thanh toán"
-                value={String(pendingCount)}
-                tone="warning"
-              />
-            </div>
+          <section
+            className="rounded-[1.25rem] border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5"
+            aria-busy={isAllowanceLoading}
+          >
+            {isAllowanceLoading ? (
+              <ExtraAllowanceSummaryCardsSkeleton />
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-3">
+                <SummaryCard label="Tổng khoản trợ cấp" value={String(totalAllowances)} />
+                <SummaryCard
+                  label="Khoản đã thanh toán"
+                  value={String(paidCount)}
+                  tone="success"
+                />
+                <SummaryCard
+                  label="Khoản chờ thanh toán"
+                  value={String(pendingCount)}
+                  tone="warning"
+                />
+              </div>
+            )}
 
             <div className="mt-5 flex flex-col gap-3 border-b border-border-default pb-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-base font-semibold text-text-primary text-balance sm:text-lg">
                     Chi tiết trợ cấp
@@ -774,14 +770,28 @@ export default function ExtraAllowanceRoleDetailPage({
                     {roleLabel}
                   </span>
                 </div>
-                <p className="mt-1 text-sm text-text-muted">{visibilityNote}</p>
-                {normalizedStaffId && isStaffDetailError ? (
-                  <p className="mt-2 text-xs text-error">
-                    Không khóa được hồ sơ nhân sự để tạo trợ cấp mới.
-                  </p>
-                ) : null}
+                {isAllowanceLoading ? (
+                  <div className="mt-1 h-4 w-full max-w-2xl animate-pulse rounded bg-bg-secondary/70" aria-hidden="true" />
+                ) : (
+                  <>
+                    <p className="mt-1 text-sm text-text-muted">{visibilityNote}</p>
+                    {normalizedStaffId && isStaffDetailError ? (
+                      <p className="mt-2 text-xs text-error">
+                        Không khóa được hồ sơ nhân sự để tạo trợ cấp mới.
+                      </p>
+                    ) : null}
+                  </>
+                )}
               </div>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:items-end">
+                <MonthNav
+                  value={monthQuery.monthKey}
+                  onChange={setSelectedMonth}
+                  monthPopupOpen={monthPopupOpen}
+                  setMonthPopupOpen={setMonthPopupOpen}
+                  disabled={isAllowanceLoading}
+                />
+                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                 {canCreateAllowance ? (
                   <button
                     type="button"
@@ -790,7 +800,8 @@ export default function ExtraAllowanceRoleDetailPage({
                       (normalizedStaffId
                         ? isStaffDetailLoading || !lockedStaffContext
                         : false) ||
-                      createMutation.isPending
+                      createMutation.isPending ||
+                      isAllowanceLoading
                     }
                     className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-primary/25 bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
                   >
@@ -811,12 +822,19 @@ export default function ExtraAllowanceRoleDetailPage({
                     {createButtonLabel}
                   </button>
                 ) : null}
-                <span className="inline-flex rounded-full border border-border-default bg-bg-secondary px-2.5 py-1 text-xs font-semibold text-text-secondary">
-                  {totalAvailable}
-                </span>
+                {!isAllowanceLoading ? (
+                  <span className="inline-flex rounded-full border border-border-default bg-bg-secondary px-2.5 py-1 text-xs font-semibold text-text-secondary">
+                    {totalAvailable}
+                  </span>
+                ) : null}
+                </div>
               </div>
             </div>
 
+            {isAllowanceLoading ? (
+              <ExtraAllowanceDetailListSkeleton variant="roleDetail" />
+            ) : (
+              <>
             {selectedCount > 0 ? (
               <section
                 className={`relative mt-5 overflow-hidden rounded-[1.35rem] border border-border-default p-3 shadow-sm ${theme.listGradientClassName}`}
@@ -900,8 +918,8 @@ export default function ExtraAllowanceRoleDetailPage({
             {allowances.length === 0 ? (
               <div className="mt-5 rounded-[1.5rem] border border-dashed border-border-default bg-bg-secondary/35 p-6 text-center text-sm text-text-muted">
                 {normalizedStaffId
-                  ? `Nhân sự này chưa có khoản trợ cấp nào ở vai trò ${roleLabel.toLowerCase()}.`
-                  : `Chưa có khoản trợ cấp nào ở vai trò ${roleLabel.toLowerCase()}.`}
+                  ? `Nhân sự này chưa có khoản trợ cấp nào trong ${selectedMonthLabel} ở vai trò ${roleLabel.toLowerCase()}.`
+                  : `Chưa có khoản trợ cấp nào trong ${selectedMonthLabel} ở vai trò ${roleLabel.toLowerCase()}.`}
               </div>
             ) : (
               <>
@@ -1066,6 +1084,8 @@ export default function ExtraAllowanceRoleDetailPage({
                     </table>
                   </div>
                 </div>
+              </>
+            )}
               </>
             )}
           </section>
