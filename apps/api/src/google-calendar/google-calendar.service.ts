@@ -664,6 +664,24 @@ export class GoogleCalendarService implements OnModuleInit {
       }
 
       const privateProps = event.extendedProperties?.private ?? {};
+
+      // Skip makeup events and student exam events
+      if (
+        privateProps.unicornsType === 'makeupSchedule' ||
+        privateProps.unicornsType === 'studentExam'
+      ) {
+        return;
+      }
+
+      // Skip legacy makeup events by description / title keyword to prevent false match
+      if (
+        typeof event.description === 'string' &&
+        (event.description.includes('Makeup Event ID:') ||
+          event.description.includes('Lịch dạy bù'))
+      ) {
+        return;
+      }
+
       const metadataClassId =
         privateProps[this.CLASS_SCHEDULE_CLASS_ID_KEY] ?? undefined;
       const metadataEntryId =
@@ -1313,6 +1331,13 @@ export class GoogleCalendarService implements OnModuleInit {
       attendees: normalizedTeacherEmails.map((email) => ({
         email,
       })),
+      extendedProperties: {
+        private: {
+          unicornsType: 'makeupSchedule',
+          unicornsClassId: classId,
+          unicornsMakeupEventId: makeupEventId,
+        },
+      },
       ...(conferenceDataPayload
         ? { conferenceData: conferenceDataPayload }
         : {}),
