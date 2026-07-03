@@ -10,7 +10,7 @@ import UpgradedSelect, {
 } from "@/components/ui/UpgradedSelect";
 import { DateInput } from "@/components/ui/DateInput";
 import EmailVerificationInline from "@/components/user-profile/EmailVerificationInline";
-import UserAvatar from "@/components/ui/UserAvatar";
+import PreviewableUserAvatar from "@/components/ui/PreviewableUserAvatar";
 import StaffSpecializationMarkdown from "@/components/staff/StaffSpecializationMarkdown";
 import DataConsentSection from "@/components/user-profile/DataConsentSection";
 import { useAuth } from "@/context/AuthContext";
@@ -1249,10 +1249,11 @@ export default function UserProfilePage() {
 
         <div className="mt-2 lg:grid lg:grid-cols-[minmax(200px,280px)_minmax(0,1fr)] lg:gap-x-12 lg:gap-y-0">
           <aside className="mb-10 flex flex-col items-center lg:sticky lg:top-6 lg:mb-0 lg:self-start">
-            <UserAvatar
+            <PreviewableUserAvatar
               src={effectiveAvatarUrl}
               fallback={getInitials(profile)}
               alt={`Avatar của ${displayName(profile)}`}
+              displayName={displayName(profile)}
               className="size-28 shrink-0 rounded-full border border-border-default bg-bg-surface object-cover sm:size-32"
               fallbackClassName="text-2xl font-semibold text-text-primary sm:text-3xl"
             />

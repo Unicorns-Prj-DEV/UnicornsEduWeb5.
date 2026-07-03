@@ -41,7 +41,7 @@ import { formatCurrency } from "@/lib/class.helpers";
 import * as staffOpsApi from "@/lib/apis/staff-ops.api";
 import { ROLE_LABELS } from "@/lib/staff.constants";
 import { pickAvatarUrl } from "@/lib/avatar";
-import UserAvatar from "@/components/ui/UserAvatar";
+import PreviewableUserAvatar from "@/components/ui/PreviewableUserAvatar";
 import { useAuth } from "@/context/AuthContext";
 
 function formatDate(iso?: string | null): string {
@@ -918,10 +918,11 @@ export default function StaffSelfDetailPage() {
       <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 flex-1 items-center gap-4">
           <div className="relative flex shrink-0">
-            <UserAvatar
+            <PreviewableUserAvatar
               src={staffAvatarUrl}
               fallback={avatarLabel}
               alt={`Avatar ${staffDisplayName}`}
+              displayName={staffDisplayName}
               className="size-14 bg-bg-tertiary text-xl font-semibold text-text-primary ring-2 ring-border-default sm:size-16 sm:text-2xl"
             />
             <span

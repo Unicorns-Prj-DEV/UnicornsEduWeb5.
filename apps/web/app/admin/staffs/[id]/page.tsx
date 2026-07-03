@@ -53,7 +53,7 @@ import MonthNav from "@/components/admin/MonthNav";
 import { MissedTeachingAlert, SessionItem } from "@/dtos/session.dto";
 import { resolveAdminShellAccess, resolveUserAdminCapabilities } from "@/lib/admin-shell-access";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
-import UserAvatar from "@/components/ui/UserAvatar";
+import PreviewableUserAvatar from "@/components/ui/PreviewableUserAvatar";
 import { pickAvatarUrl } from "@/lib/avatar";
 import { useAuth } from "@/context/AuthContext";
 
@@ -1664,10 +1664,11 @@ export default function AdminStaffDetailPage({
       <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 flex-1 items-center gap-4">
           <div className="relative flex shrink-0">
-            <UserAvatar
+            <PreviewableUserAvatar
               src={staffAvatarUrl}
               fallback={staffAvatarFallback}
               alt={`Avatar ${staffDisplayName}`}
+              displayName={staffDisplayName}
               className="size-14 bg-bg-tertiary text-xl font-semibold text-text-primary ring-2 ring-border-default sm:size-16 sm:text-2xl"
             />
             <span
