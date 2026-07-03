@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { ResponsiveDialog, ResponsiveDialogBody } from "@/components/ui/ResponsiveDialog";
 import {
   getFullProfile,
   getMyStaffDashboard,
@@ -54,6 +55,14 @@ function getCurrentMonth() {
   return {
     month: String(now.getMonth() + 1).padStart(2, "0"),
     year: String(now.getFullYear()),
+  };
+}
+
+function stepMonth(month: string, year: string, delta: number) {
+  const d = new Date(Number(year), Number(month) - 1 + delta, 1);
+  return {
+    month: String(d.getMonth() + 1).padStart(2, "0"),
+    year: String(d.getFullYear()),
   };
 }
 
@@ -272,64 +281,340 @@ function TaskList({
   hrefBuilder,
   emptyTitle,
   emptyDescription,
+  title = "Danh sách task",
 }: {
   tasks: StaffDashboardTaskItem[];
   hrefBuilder: (taskId: string) => string;
   emptyTitle: string;
   emptyDescription: string;
+  title?: string;
 }) {
+  const [showAll, setShowAll] = useState(false);
+  const limit = 5;
+  const hasMore = tasks.length > limit;
+  const visibleTasks = hasMore ? tasks.slice(0, limit) : tasks;
+
   if (tasks.length === 0) {
     return <EmptyState title={emptyTitle} description={emptyDescription} />;
   }
 
-  return (
-    <div className="space-y-2">
-      {tasks.map((task) => {
-        const assigneeNames = Array.from(
-          new Set(
-            [
-              ...task.assigneeNames,
-              task.responsibleName,
-            ].filter((name): name is string => Boolean(name?.trim())),
-          ),
-        );
+  const renderItem = (task: StaffDashboardTaskItem, keyPrefix = "") => {
+    const assigneeNames = Array.from(
+      new Set(
+        [
+          ...task.assigneeNames,
+          task.responsibleName,
+        ].filter((name): name is string => Boolean(name?.trim())),
+      ),
+    );
 
-        return (
-          <Link
-            key={task.taskId}
-            href={hrefBuilder(task.taskId)}
-            className="block rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-          >
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold leading-snug text-text-primary">
-                  {task.title?.trim() || "Task chưa đặt tên"}
-                </p>
-                <p className="mt-0.5 text-[11px] leading-snug text-text-secondary">
-                  Nhân sự thực hiện:{" "}
-                  {assigneeNames.length > 0 ? assigneeNames.join(", ") : "Chưa có"}
-                </p>
-              </div>
-              <div className="flex flex-wrap justify-end gap-1.5">
-                <span
-                  className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${taskStatusClasses(task.status)}`}
-                >
-                  {TASK_STATUS_LABELS[task.status] ?? task.status}
-                </span>
-                <span
-                  className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${priorityClasses(task.priority)}`}
-                >
-                  {TASK_PRIORITY_LABELS[task.priority] ?? task.priority}
-                </span>
-              </div>
-            </div>
-            <p className="mt-1.5 text-[11px] font-medium text-text-muted">
-              Hạn: {formatShortDate(task.dueDate)}
+    return (
+      <Link
+        key={`${keyPrefix}${task.taskId}`}
+        href={hrefBuilder(task.taskId)}
+        className="block rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus text-left"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold leading-snug text-text-primary">
+              {task.title?.trim() || "Task chưa đặt tên"}
             </p>
-          </Link>
-        );
-      })}
-    </div>
+            <p className="mt-0.5 text-[11px] leading-snug text-text-secondary">
+              Nhân sự thực hiện:{" "}
+              {assigneeNames.length > 0 ? assigneeNames.join(", ") : "Chưa có"}
+            </p>
+          </div>
+          <div className="flex flex-wrap justify-end gap-1.5">
+            <span
+              className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${taskStatusClasses(task.status)}`}
+            >
+              {TASK_STATUS_LABELS[task.status] ?? task.status}
+            </span>
+            <span
+              className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${priorityClasses(task.priority)}`}
+            >
+              {TASK_PRIORITY_LABELS[task.priority] ?? task.priority}
+            </span>
+          </div>
+        </div>
+        <p className="mt-1.5 text-[11px] font-medium text-text-muted">
+          Hạn: {formatShortDate(task.dueDate)}
+        </p>
+      </Link>
+    );
+  };
+
+  return (
+    <>
+      <div className="space-y-2">
+        {visibleTasks.map((task) => renderItem(task))}
+        {hasMore && (
+          <button
+            type="button"
+            onClick={() => setShowAll(true)}
+            className="w-full mt-2 inline-flex h-9 items-center justify-center rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:bg-bg-secondary"
+          >
+            Xem tất cả ({tasks.length})
+          </button>
+        )}
+      </div>
+
+      {showAll && (
+        <ResponsiveDialog labelledBy="task-list-dialog-title" onBackdropClick={() => setShowAll(false)}>
+          <div className="flex items-center justify-between border-b border-border-default px-5 py-4">
+            <h2 id="task-list-dialog-title" className="text-base font-semibold text-text-primary">
+              {title} ({tasks.length})
+            </h2>
+            <button
+              type="button"
+              onClick={() => setShowAll(false)}
+              className="rounded-lg p-2 text-text-muted hover:bg-bg-secondary hover:text-text-primary"
+            >
+              Đóng
+            </button>
+          </div>
+          <ResponsiveDialogBody className="space-y-2 p-5 max-h-[70vh] overflow-y-auto">
+            {tasks.map((task) => renderItem(task, "dialog-"))}
+          </ResponsiveDialogBody>
+        </ResponsiveDialog>
+      )}
+    </>
+  );
+}
+
+function TeacherAssignedClassesList({
+  items,
+}: {
+  items: StaffDashboardTeacherSection["assignedClasses"];
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const limit = 5;
+  const hasMore = items.length > limit;
+  const visibleItems = hasMore ? items.slice(0, limit) : items;
+
+  if (items.length === 0) {
+    return (
+      <EmptyState
+        title="Chưa có lớp đang chạy"
+        description="Khi có lớp được gán, danh sách sẽ xuất hiện ở đây."
+      />
+    );
+  }
+
+  const renderItem = (item: typeof items[number], keyPrefix = "") => (
+    <Link
+      key={`${keyPrefix}${item.id}`}
+      href={`/staff/classes/${encodeURIComponent(item.id)}`}
+      className="flex flex-col gap-2 rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:flex-row sm:items-start sm:justify-between"
+    >
+      <div className="min-w-0 text-left">
+        <p className="text-sm font-semibold leading-snug text-text-primary">
+          {item.name}
+        </p>
+        <p className="mt-0.5 text-[11px] leading-snug text-text-secondary">
+          {item.studentCount} HS · {item.scheduleCount} khung giờ ·{" "}
+          {item.surveyCount} khảo sát
+        </p>
+      </div>
+      <span className="shrink-0 text-[11px] font-medium text-primary">
+        Mở
+      </span>
+    </Link>
+  );
+
+  return (
+    <>
+      <div className="space-y-2">
+        {visibleItems.map((item) => renderItem(item))}
+        {hasMore && (
+          <button
+            type="button"
+            onClick={() => setShowAll(true)}
+            className="w-full mt-2 inline-flex h-9 items-center justify-center rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:bg-bg-secondary"
+          >
+            Xem tất cả ({items.length})
+          </button>
+        )}
+      </div>
+
+      {showAll && (
+        <ResponsiveDialog labelledBy="assigned-classes-dialog-title" onBackdropClick={() => setShowAll(false)}>
+          <div className="flex items-center justify-between border-b border-border-default px-5 py-4">
+            <h2 id="assigned-classes-dialog-title" className="text-base font-semibold text-text-primary">
+              Tất cả lớp phụ trách ({items.length})
+            </h2>
+            <button
+              type="button"
+              onClick={() => setShowAll(false)}
+              className="rounded-lg p-2 text-text-muted hover:bg-bg-secondary hover:text-text-primary"
+            >
+              Đóng
+            </button>
+          </div>
+          <ResponsiveDialogBody className="space-y-2 p-5 max-h-[70vh] overflow-y-auto">
+            {items.map((item) => renderItem(item, "dialog-"))}
+          </ResponsiveDialogBody>
+        </ResponsiveDialog>
+      )}
+    </>
+  );
+}
+
+function TeacherMissingScheduleList({
+  items,
+}: {
+  items: StaffDashboardTeacherSection["missingScheduleOrSurvey"];
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const limit = 5;
+  const hasMore = items.length > limit;
+  const visibleItems = hasMore ? items.slice(0, limit) : items;
+
+  if (items.length === 0) {
+    return (
+      <EmptyState
+        title="Không có lớp cần nhắc"
+        description="Tất cả lớp phụ trách hiện đã có lịch và trạng thái khảo sát phù hợp."
+      />
+    );
+  }
+
+  const renderItem = (item: typeof items[number], keyPrefix = "") => (
+    <Link
+      key={`${keyPrefix}${item.classId}`}
+      href={`/staff/classes/${encodeURIComponent(item.classId)}`}
+      className="block text-left rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+    >
+      <p className="text-sm font-semibold leading-snug text-text-primary">
+        {item.className}
+      </p>
+      <p className="mt-0.5 text-xs leading-snug text-text-secondary">
+        {item.reason}
+      </p>
+    </Link>
+  );
+
+  return (
+    <>
+      <div className="space-y-2">
+        {visibleItems.map((item) => renderItem(item))}
+        {hasMore && (
+          <button
+            type="button"
+            onClick={() => setShowAll(true)}
+            className="w-full mt-2 inline-flex h-9 items-center justify-center rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:bg-bg-secondary"
+          >
+            Xem tất cả ({items.length})
+          </button>
+        )}
+      </div>
+
+      {showAll && (
+        <ResponsiveDialog labelledBy="missing-schedule-dialog-title" onBackdropClick={() => setShowAll(false)}>
+          <div className="flex items-center justify-between border-b border-border-default px-5 py-4">
+            <h2 id="missing-schedule-dialog-title" className="text-base font-semibold text-text-primary">
+              Cảnh báo lớp ({items.length})
+            </h2>
+            <button
+              type="button"
+              onClick={() => setShowAll(false)}
+              className="rounded-lg p-2 text-text-muted hover:bg-bg-secondary hover:text-text-primary"
+            >
+              Đóng
+            </button>
+          </div>
+          <ResponsiveDialogBody className="space-y-2 p-5 max-h-[70vh] overflow-y-auto">
+            {items.map((item) => renderItem(item, "dialog-"))}
+          </ResponsiveDialogBody>
+        </ResponsiveDialog>
+      )}
+    </>
+  );
+}
+
+function TeacherTodaySessionsList({
+  items,
+  monthLabel,
+}: {
+  items: StaffDashboardTeacherSection["todaySessions"];
+  monthLabel: string;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const limit = 5;
+  const hasMore = items.length > limit;
+  const visibleItems = hasMore ? items.slice(0, limit) : items;
+
+  if (items.length === 0) {
+    return (
+      <EmptyState
+        title="Hôm nay chưa có buổi dạy"
+        description="Khi có session trong ngày, lịch sẽ hiển thị ở đây."
+      />
+    );
+  }
+
+  const renderItem = (session: typeof items[number], keyPrefix = "") => (
+    <Link
+      key={`${keyPrefix}${session.sessionId}`}
+      href={`/staff/classes/${encodeURIComponent(session.classId)}`}
+      className="block text-left rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+    >
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold leading-snug text-text-primary">
+            {session.className}
+          </p>
+          <p className="mt-0.5 text-[11px] leading-snug text-text-secondary">
+            {formatTimeRange(session.startTime, session.endTime)}
+          </p>
+        </div>
+        <span className="shrink-0 text-[11px] font-medium text-primary">
+          {session.attendanceCount} HS
+        </span>
+      </div>
+      <p className="mt-1 text-[11px] text-text-muted">
+        {SESSION_PAYMENT_STATUS_LABELS[
+          session.teacherPaymentStatus ?? ""
+        ] ?? "—"}
+      </p>
+    </Link>
+  );
+
+  return (
+    <>
+      <div className="space-y-2">
+        {visibleItems.map((item) => renderItem(item))}
+        {hasMore && (
+          <button
+            type="button"
+            onClick={() => setShowAll(true)}
+            className="w-full mt-2 inline-flex h-9 items-center justify-center rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:bg-bg-secondary"
+          >
+            Xem tất cả ({items.length})
+          </button>
+        )}
+      </div>
+
+      {showAll && (
+        <ResponsiveDialog labelledBy="today-sessions-dialog-title" onBackdropClick={() => setShowAll(false)}>
+          <div className="flex items-center justify-between border-b border-border-default px-5 py-4">
+            <h2 id="today-sessions-dialog-title" className="text-base font-semibold text-text-primary">
+              Lịch dạy hôm nay — {monthLabel} ({items.length})
+            </h2>
+            <button
+              type="button"
+              onClick={() => setShowAll(false)}
+              className="rounded-lg p-2 text-text-muted hover:bg-bg-secondary hover:text-text-primary"
+            >
+              Đóng
+            </button>
+          </div>
+          <ResponsiveDialogBody className="space-y-2 p-5 max-h-[70vh] overflow-y-auto">
+            {items.map((item) => renderItem(item, "dialog-"))}
+          </ResponsiveDialogBody>
+        </ResponsiveDialog>
+      )}
+    </>
   );
 }
 
@@ -352,99 +637,15 @@ function TeacherSection({
           eyebrow="Lớp phụ trách"
           title={`${section.assignedClasses.length} lớp đang chạy`}
         >
-          {section.assignedClasses.length === 0 ? (
-            <EmptyState
-              title="Chưa có lớp đang chạy"
-              description="Khi có lớp được gán, danh sách sẽ xuất hiện ở đây."
-            />
-          ) : (
-            <div className="space-y-2">
-              {section.assignedClasses.map((item) => (
-                <Link
-                  key={item.id}
-                  href={`/staff/classes/${encodeURIComponent(item.id)}`}
-                  className="flex flex-col gap-2 rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:flex-row sm:items-start sm:justify-between"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold leading-snug text-text-primary">
-                      {item.name}
-                    </p>
-                    <p className="mt-0.5 text-[11px] leading-snug text-text-secondary">
-                      {item.studentCount} HS · {item.scheduleCount} khung giờ ·{" "}
-                      {item.surveyCount} khảo sát
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-[11px] font-medium text-primary">
-                    Mở
-                  </span>
-                </Link>
-              ))}
-            </div>
-          )}
+          <TeacherAssignedClassesList items={section.assignedClasses} />
         </SurfaceCard>
 
         <SurfaceCard eyebrow="Cảnh báo lớp" title="Thiếu lịch / khảo sát">
-          {section.missingScheduleOrSurvey.length === 0 ? (
-            <EmptyState
-              title="Không có lớp cần nhắc"
-              description="Tất cả lớp phụ trách hiện đã có lịch và trạng thái khảo sát phù hợp."
-            />
-          ) : (
-            <div className="space-y-2">
-              {section.missingScheduleOrSurvey.map((item) => (
-                <Link
-                  key={item.classId}
-                  href={`/staff/classes/${encodeURIComponent(item.classId)}`}
-                  className="block rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                >
-                  <p className="text-sm font-semibold leading-snug text-text-primary">
-                    {item.className}
-                  </p>
-                  <p className="mt-0.5 text-xs leading-snug text-text-secondary">
-                    {item.reason}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          )}
+          <TeacherMissingScheduleList items={section.missingScheduleOrSurvey} />
         </SurfaceCard>
 
         <SurfaceCard eyebrow="Hôm nay" title={`Lịch dạy — ${monthLabel}`}>
-          {section.todaySessions.length === 0 ? (
-            <EmptyState
-              title="Hôm nay chưa có buổi dạy"
-              description="Khi có session trong ngày, lịch sẽ hiển thị ở đây."
-            />
-          ) : (
-            <div className="space-y-2">
-              {section.todaySessions.map((session) => (
-                <Link
-                  key={session.sessionId}
-                  href={`/staff/classes/${encodeURIComponent(session.classId)}`}
-                  className="block rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                >
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold leading-snug text-text-primary">
-                        {session.className}
-                      </p>
-                      <p className="mt-0.5 text-[11px] leading-snug text-text-secondary">
-                        {formatTimeRange(session.startTime, session.endTime)}
-                      </p>
-                    </div>
-                    <span className="shrink-0 text-[11px] font-medium text-primary">
-                      {session.attendanceCount} HS
-                    </span>
-                  </div>
-                  <p className="mt-1 text-[11px] text-text-muted">
-                    {SESSION_PAYMENT_STATUS_LABELS[
-                      session.teacherPaymentStatus ?? ""
-                    ] ?? "—"}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          )}
+          <TeacherTodaySessionsList items={section.todaySessions} monthLabel={monthLabel} />
         </SurfaceCard>
       </div>
     </section>
@@ -554,50 +755,90 @@ function CustomerCarePortfolioList({
   emptyTitle,
   emptyDescription,
   buildHref,
+  title = "Danh sách chăm sóc",
 }: {
   items: StaffDashboardAssistantSection["managedCustomerCarePortfolios"];
   emptyTitle: string;
   emptyDescription: string;
   buildHref: (staffId: string) => string;
+  title?: string;
 }) {
+  const [showAll, setShowAll] = useState(false);
+  const limit = 5;
+  const hasMore = items.length > limit;
+  const visibleItems = hasMore ? items.slice(0, limit) : items;
+
   if (items.length === 0) {
     return <EmptyState title={emptyTitle} description={emptyDescription} />;
   }
 
+  const renderItem = (item: typeof items[number], keyPrefix = "") => (
+    <Link
+      key={`${keyPrefix}${item.staffId}`}
+      href={buildHref(item.staffId)}
+      className="block rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus text-left"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold leading-snug text-text-primary">
+            {item.staffName}
+          </p>
+          <p className="mt-0.5 text-[11px] text-text-secondary">
+            {item.activeStudentCount} HS đang chăm sóc
+          </p>
+        </div>
+        <span className="text-[11px] font-medium text-primary">Chi tiết</span>
+      </div>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        <MiniStat
+          label="Học phí đã học"
+          value={formatCurrency(item.learnedTuitionTotal)}
+          tone="success"
+        />
+        <MiniStat
+          label="Tiền nạp ví"
+          value={formatCurrency(item.topupTotal)}
+          tone="primary"
+        />
+      </div>
+    </Link>
+  );
+
   return (
-    <div className="space-y-2">
-      {items.map((item) => (
-        <Link
-          key={item.staffId}
-          href={buildHref(item.staffId)}
-          className="block rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-        >
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold leading-snug text-text-primary">
-                {item.staffName}
-              </p>
-              <p className="mt-0.5 text-[11px] text-text-secondary">
-                {item.activeStudentCount} HS đang chăm sóc
-              </p>
-            </div>
-            <span className="text-[11px] font-medium text-primary">Chi tiết</span>
+    <>
+      <div className="space-y-2">
+        {visibleItems.map((item) => renderItem(item))}
+        {hasMore && (
+          <button
+            type="button"
+            onClick={() => setShowAll(true)}
+            className="w-full mt-2 inline-flex h-9 items-center justify-center rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:bg-bg-secondary"
+          >
+            Xem tất cả ({items.length})
+          </button>
+        )}
+      </div>
+
+      {showAll && (
+        <ResponsiveDialog labelledBy="cc-portfolio-dialog-title" onBackdropClick={() => setShowAll(false)}>
+          <div className="flex items-center justify-between border-b border-border-default px-5 py-4">
+            <h2 id="cc-portfolio-dialog-title" className="text-base font-semibold text-text-primary">
+              {title} ({items.length})
+            </h2>
+            <button
+              type="button"
+              onClick={() => setShowAll(false)}
+              className="rounded-lg p-2 text-text-muted hover:bg-bg-secondary hover:text-text-primary"
+            >
+              Đóng
+            </button>
           </div>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            <MiniStat
-              label="Học phí đã học"
-              value={formatCurrency(item.learnedTuitionTotal)}
-              tone="success"
-            />
-            <MiniStat
-              label="Tiền nạp ví"
-              value={formatCurrency(item.topupTotal)}
-              tone="primary"
-            />
-          </div>
-        </Link>
-      ))}
-    </div>
+          <ResponsiveDialogBody className="space-y-2 p-5 max-h-[70vh] overflow-y-auto">
+            {items.map((item) => renderItem(item, "dialog-"))}
+          </ResponsiveDialogBody>
+        </ResponsiveDialog>
+      )}
+    </>
   );
 }
 
@@ -721,6 +962,102 @@ function SalesCsSummarySection({
   );
 }
 
+function AssistantActionAlertsList({
+  alerts,
+}: {
+  alerts: AdminDashboardActionAlert[];
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const limit = 5;
+  const hasMore = alerts.length > limit;
+  const visibleAlerts = hasMore ? alerts.slice(0, limit) : alerts;
+
+  if (alerts.length === 0) {
+    return (
+      <EmptyState
+        title="Không có cảnh báo mở"
+        description="Hiện chưa có mục nào cần trợ lí xử lý thêm."
+      />
+    );
+  }
+
+  const renderItem = (alert: AdminDashboardActionAlert, keyPrefix = "") => {
+    const href = getAlertHref(alert);
+    const content = (
+      <div className="rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45 text-left">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold leading-snug text-text-primary">
+              {alert.subject}
+            </p>
+            <p className="mt-0.5 text-[11px] leading-snug text-text-secondary">
+              {alert.type} · {alert.owner ?? alert.due}
+            </p>
+          </div>
+          <span className="shrink-0 text-xs font-semibold text-primary">
+            {formatCurrency(alert.amount)}
+          </span>
+        </div>
+        <p className="mt-1.5 text-[11px] text-text-muted">
+          {alert.due}
+        </p>
+      </div>
+    );
+
+    const key = `${keyPrefix}${alert.targetType}-${alert.targetId}-${alert.subject}`;
+    return href ? (
+      <Link
+        key={key}
+        href={href}
+        className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+      >
+        {content}
+      </Link>
+    ) : (
+      <div key={key}>
+        {content}
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <div className="space-y-2">
+        {visibleAlerts.map((alert) => renderItem(alert))}
+        {hasMore && (
+          <button
+            type="button"
+            onClick={() => setShowAll(true)}
+            className="w-full mt-2 inline-flex h-9 items-center justify-center rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:bg-bg-secondary"
+          >
+            Xem tất cả ({alerts.length})
+          </button>
+        )}
+      </div>
+
+      {showAll && (
+        <ResponsiveDialog labelledBy="action-alerts-dialog-title" onBackdropClick={() => setShowAll(false)}>
+          <div className="flex items-center justify-between border-b border-border-default px-5 py-4">
+            <h2 id="action-alerts-dialog-title" className="text-base font-semibold text-text-primary">
+              Tất cả cảnh báo ({alerts.length})
+            </h2>
+            <button
+              type="button"
+              onClick={() => setShowAll(false)}
+              className="rounded-lg p-2 text-text-muted hover:bg-bg-secondary hover:text-text-primary"
+            >
+              Đóng
+            </button>
+          </div>
+          <ResponsiveDialogBody className="space-y-2 p-5 max-h-[70vh] overflow-y-auto">
+            {alerts.map((alert) => renderItem(alert, "dialog-"))}
+          </ResponsiveDialogBody>
+        </ResponsiveDialog>
+      )}
+    </>
+  );
+}
+
 function AssistantSection({
   section,
   monthLabel,
@@ -736,55 +1073,7 @@ function AssistantSection({
       <SectionTitle staffRole="assistant" />
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
         <SurfaceCard eyebrow="Hành động" title="Cảnh báo">
-          {section.actionAlerts.length === 0 ? (
-            <EmptyState
-              title="Không có cảnh báo mở"
-              description="Hiện chưa có mục nào cần trợ lí xử lý thêm."
-            />
-          ) : (
-            <div className="space-y-2">
-              {section.actionAlerts.slice(0, 6).map((alert) => {
-                const href = getAlertHref(alert);
-
-                const content = (
-                  <div className="rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold leading-snug text-text-primary">
-                          {alert.subject}
-                        </p>
-                        <p className="mt-0.5 text-[11px] leading-snug text-text-secondary">
-                          {alert.type} · {alert.owner ?? alert.due}
-                        </p>
-                      </div>
-                      <span className="shrink-0 text-xs font-semibold text-primary">
-                        {formatCurrency(alert.amount)}
-                      </span>
-                    </div>
-                    <p className="mt-1.5 text-[11px] text-text-muted">
-                      {alert.due}
-                    </p>
-                  </div>
-                );
-
-                return href ? (
-                  <Link
-                    key={`${alert.targetType}-${alert.targetId}-${alert.subject}`}
-                    href={href}
-                    className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  >
-                    {content}
-                  </Link>
-                ) : (
-                  <div
-                    key={`${alert.targetType}-${alert.targetId}-${alert.subject}`}
-                  >
-                    {content}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <AssistantActionAlertsList alerts={section.actionAlerts} />
         </SurfaceCard>
 
         <div className="space-y-3">
@@ -861,40 +1150,80 @@ function StudentAlertList({
   items,
   emptyTitle,
   emptyDescription,
+  title = "Danh sách học sinh",
 }: {
   items: StaffDashboardCustomerCareSection["lowBalanceStudents"];
   emptyTitle: string;
   emptyDescription: string;
+  title?: string;
 }) {
+  const [showAll, setShowAll] = useState(false);
+  const limit = 5;
+  const hasMore = items.length > limit;
+  const visibleItems = hasMore ? items.slice(0, limit) : items;
+
   if (items.length === 0) {
     return <EmptyState title={emptyTitle} description={emptyDescription} />;
   }
 
+  const renderItem = (item: typeof items[number], keyPrefix = "") => (
+    <Link
+      key={`${keyPrefix}${item.studentId}`}
+      href={`/staff/students/${encodeURIComponent(item.studentId)}`}
+      className="block rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus text-left"
+    >
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold leading-snug text-text-primary">
+            {item.studentName}
+          </p>
+          <p className="mt-0.5 text-[11px] leading-snug text-text-secondary">
+            {item.classNames || "Chưa có lớp"}
+          </p>
+        </div>
+        <span className="shrink-0 text-xs font-semibold text-primary">
+          {formatCurrency(item.accountBalance)}
+        </span>
+      </div>
+      <p className="mt-1.5 text-[11px] text-text-muted">{item.dueLabel}</p>
+    </Link>
+  );
+
   return (
-    <div className="space-y-2">
-      {items.map((item) => (
-        <Link
-          key={item.studentId}
-          href={`/staff/students/${encodeURIComponent(item.studentId)}`}
-          className="block rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-        >
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold leading-snug text-text-primary">
-                {item.studentName}
-              </p>
-              <p className="mt-0.5 text-[11px] leading-snug text-text-secondary">
-                {item.classNames || "Chưa có lớp"}
-              </p>
-            </div>
-            <span className="shrink-0 text-xs font-semibold text-primary">
-              {formatCurrency(item.accountBalance)}
-            </span>
+    <>
+      <div className="space-y-2">
+        {visibleItems.map((item) => renderItem(item))}
+        {hasMore && (
+          <button
+            type="button"
+            onClick={() => setShowAll(true)}
+            className="w-full mt-2 inline-flex h-9 items-center justify-center rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:bg-bg-secondary"
+          >
+            Xem tất cả ({items.length})
+          </button>
+        )}
+      </div>
+
+      {showAll && (
+        <ResponsiveDialog labelledBy="student-alert-dialog-title" onBackdropClick={() => setShowAll(false)}>
+          <div className="flex items-center justify-between border-b border-border-default px-5 py-4">
+            <h2 id="student-alert-dialog-title" className="text-base font-semibold text-text-primary">
+              {title} ({items.length})
+            </h2>
+            <button
+              type="button"
+              onClick={() => setShowAll(false)}
+              className="rounded-lg p-2 text-text-muted hover:bg-bg-secondary hover:text-text-primary"
+            >
+              Đóng
+            </button>
           </div>
-          <p className="mt-1.5 text-[11px] text-text-muted">{item.dueLabel}</p>
-        </Link>
-      ))}
-    </div>
+          <ResponsiveDialogBody className="space-y-2 p-5 max-h-[70vh] overflow-y-auto">
+            {items.map((item) => renderItem(item, "dialog-"))}
+          </ResponsiveDialogBody>
+        </ResponsiveDialog>
+      )}
+    </>
   );
 }
 
@@ -956,6 +1285,7 @@ function CustomerCareSection({
             items={section.lowBalanceStudents}
             emptyTitle="Không có học sinh sắp hết tiền"
             emptyDescription="Danh sách sẽ xuất hiện khi có học sinh còn ít buổi học."
+            title="Theo dõi số dư thấp"
           />
         </SurfaceCard>
 
@@ -968,6 +1298,7 @@ function CustomerCareSection({
             items={section.debtStudents}
             emptyTitle="Không có học sinh nợ tiền"
             emptyDescription="Hiện chưa có học sinh nào âm ví trong phạm vi bạn đang chăm sóc."
+            title="Công nợ học sinh"
           />
         </SurfaceCard>
       </div>
@@ -977,9 +1308,16 @@ function CustomerCareSection({
 
 function UnpaidStaffList({
   items,
+  title = "Danh sách pending thanh toán",
 }: {
   items: StaffDashboardUnpaidStaffItem[];
+  title?: string;
 }) {
+  const [showAll, setShowAll] = useState(false);
+  const limit = 5;
+  const hasMore = items.length > limit;
+  const visibleItems = hasMore ? items.slice(0, limit) : items;
+
   if (items.length === 0) {
     return (
       <EmptyState
@@ -989,55 +1327,88 @@ function UnpaidStaffList({
     );
   }
 
-  return (
-    <div className="space-y-2">
-      {items.map((item) => {
-        const parts = [
-          item.sessionAmount > 0
-            ? `Buổi ${formatCurrency(item.sessionAmount)}`
-            : null,
-          item.customerCareAmount > 0
-            ? `CSKH ${formatCurrency(item.customerCareAmount)}`
-            : null,
-          item.lessonAmount > 0
-            ? `Giáo án ${formatCurrency(item.lessonAmount)}`
-            : null,
-          item.bonusAmount > 0
-            ? `Bonus ${formatCurrency(item.bonusAmount)}`
-            : null,
-          item.extraAllowanceAmount > 0
-            ? `Trợ cấp ${formatCurrency(item.extraAllowanceAmount)}`
-            : null,
-          (item.assistantAmount ?? 0) > 0
-            ? `Trợ lí ${formatCurrency(item.assistantAmount ?? 0)}`
-            : null,
-        ].filter((value): value is string => value != null);
-        const staffDetailHref = `/staff/staffs/${encodeURIComponent(item.staffId)}`;
+  const renderItem = (item: StaffDashboardUnpaidStaffItem, keyPrefix = "") => {
+    const parts = [
+      item.sessionAmount > 0
+        ? `Buổi ${formatCurrency(item.sessionAmount)}`
+        : null,
+      item.customerCareAmount > 0
+        ? `CSKH ${formatCurrency(item.customerCareAmount)}`
+        : null,
+      item.lessonAmount > 0
+        ? `Giáo án ${formatCurrency(item.lessonAmount)}`
+        : null,
+      item.bonusAmount > 0
+        ? `Bonus ${formatCurrency(item.bonusAmount)}`
+        : null,
+      item.extraAllowanceAmount > 0
+        ? `Trợ cấp ${formatCurrency(item.extraAllowanceAmount)}`
+        : null,
+      (item.assistantAmount ?? 0) > 0
+        ? `Trợ lí ${formatCurrency(item.assistantAmount ?? 0)}`
+        : null,
+    ].filter((value): value is string => value != null);
+    const staffDetailHref = `/staff/staffs/${encodeURIComponent(item.staffId)}`;
 
-        return (
-          <Link
-            key={item.staffId}
-            href={staffDetailHref}
-            className="block rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:border-border-focus hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-            aria-label={`Mở chi tiết nhân sự ${item.staffName}`}
+    return (
+      <Link
+        key={`${keyPrefix}${item.staffId}`}
+        href={staffDetailHref}
+        className="block rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:border-border-focus hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus text-left"
+        aria-label={`Mở chi tiết nhân sự ${item.staffName}`}
+      >
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold leading-snug text-text-primary">
+              {item.staffName}
+            </p>
+            <p className="mt-0.5 text-[11px] leading-snug text-text-secondary">
+              {parts.length > 0 ? parts.join(" · ") : "—"}
+            </p>
+          </div>
+          <span className="shrink-0 text-sm font-semibold text-error">
+            {formatCurrency(item.totalUnpaid)}
+          </span>
+        </div>
+      </Link>
+    );
+  };
+
+  return (
+    <>
+      <div className="space-y-2">
+        {visibleItems.map((item) => renderItem(item))}
+        {hasMore && (
+          <button
+            type="button"
+            onClick={() => setShowAll(true)}
+            className="w-full mt-2 inline-flex h-9 items-center justify-center rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:bg-bg-secondary"
           >
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold leading-snug text-text-primary">
-                  {item.staffName}
-                </p>
-                <p className="mt-0.5 text-[11px] leading-snug text-text-secondary">
-                  {parts.length > 0 ? parts.join(" · ") : "—"}
-                </p>
-              </div>
-              <span className="shrink-0 text-sm font-semibold text-error">
-                {formatCurrency(item.totalUnpaid)}
-              </span>
-            </div>
-          </Link>
-        );
-      })}
-    </div>
+            Xem tất cả ({items.length})
+          </button>
+        )}
+      </div>
+
+      {showAll && (
+        <ResponsiveDialog labelledBy="unpaid-staff-dialog-title" onBackdropClick={() => setShowAll(false)}>
+          <div className="flex items-center justify-between border-b border-border-default px-5 py-4">
+            <h2 id="unpaid-staff-dialog-title" className="text-base font-semibold text-text-primary">
+              {title} ({items.length})
+            </h2>
+            <button
+              type="button"
+              onClick={() => setShowAll(false)}
+              className="rounded-lg p-2 text-text-muted hover:bg-bg-secondary hover:text-text-primary"
+            >
+              Đóng
+            </button>
+          </div>
+          <ResponsiveDialogBody className="space-y-2 p-5 max-h-[70vh] overflow-y-auto">
+            {items.map((item) => renderItem(item, "dialog-"))}
+          </ResponsiveDialogBody>
+        </ResponsiveDialog>
+      )}
+    </>
   );
 }
 
@@ -1135,6 +1506,34 @@ function PendingOperatingCostsCard({
 }: {
   costs: StaffDashboardExpenseSection["pendingOperatingCosts"];
 }) {
+  const [showAll, setShowAll] = useState(false);
+  const limit = 5;
+  const hasMore = costs.items.length > limit;
+  const visibleItems = hasMore ? costs.items.slice(0, limit) : costs.items;
+
+  const renderItem = (item: typeof costs.items[number], keyPrefix = "") => (
+    <Link
+      key={`${keyPrefix}${item.id}`}
+      href={`/staff/costs?status=pending`}
+      className="block rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:border-border-focus hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus text-left"
+    >
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-text-primary">
+            {item.category || "Chi phí vận hành"}
+          </p>
+          <p className="text-[11px] text-text-secondary">
+            {[item.date, item.description].filter(Boolean).join(" · ") ||
+              "Chưa có ghi chú"}
+          </p>
+        </div>
+        <span className="shrink-0 text-sm font-semibold text-error">
+          {formatCurrency(item.amount)}
+        </span>
+      </div>
+    </Link>
+  );
+
   return (
     <SurfaceCard eyebrow="Chi phí vận hành" title="Pending">
       <div className="mb-3 grid gap-2 sm:grid-cols-2">
@@ -1151,30 +1550,20 @@ function PendingOperatingCostsCard({
       </div>
 
       {costs.items.length > 0 ? (
-        <div className="space-y-2">
-          {costs.items.map((item) => (
-            <Link
-              key={item.id}
-              href={`/staff/costs?status=pending`}
-              className="block rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:border-border-focus hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-            >
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-text-primary">
-                    {item.category || "Chi phí vận hành"}
-                  </p>
-                  <p className="text-[11px] text-text-secondary">
-                    {[item.date, item.description].filter(Boolean).join(" · ") ||
-                      "Chưa có ghi chú"}
-                  </p>
-                </div>
-                <span className="shrink-0 text-sm font-semibold text-error">
-                  {formatCurrency(item.amount)}
-                </span>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <>
+          <div className="space-y-2">
+            {visibleItems.map((item) => renderItem(item))}
+            {hasMore && (
+              <button
+                type="button"
+                onClick={() => setShowAll(true)}
+                className="w-full mt-2 inline-flex h-9 items-center justify-center rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:bg-bg-secondary"
+              >
+                Xem tất cả ({costs.items.length})
+              </button>
+            )}
+          </div>
+        </>
       ) : (
         <EmptyState
           title="Không có chi phí pending"
@@ -1188,6 +1577,26 @@ function PendingOperatingCostsCard({
       >
         Mở chi phí pending
       </Link>
+
+      {showAll && (
+        <ResponsiveDialog labelledBy="pending-operating-costs-dialog-title" onBackdropClick={() => setShowAll(false)}>
+          <div className="flex items-center justify-between border-b border-border-default px-5 py-4">
+            <h2 id="pending-operating-costs-dialog-title" className="text-base font-semibold text-text-primary">
+              Chi phí vận hành pending ({costs.items.length})
+            </h2>
+            <button
+              type="button"
+              onClick={() => setShowAll(false)}
+              className="rounded-lg p-2 text-text-muted hover:bg-bg-secondary hover:text-text-primary"
+            >
+              Đóng
+            </button>
+          </div>
+          <ResponsiveDialogBody className="space-y-2 p-5 max-h-[70vh] overflow-y-auto">
+            {costs.items.map((item) => renderItem(item, "dialog-"))}
+          </ResponsiveDialogBody>
+        </ResponsiveDialog>
+      )}
     </SurfaceCard>
   );
 }
@@ -1347,7 +1756,9 @@ function RootLoadingState() {
 
 export default function StaffDashboardPage() {
   const { replace } = useRouter();
-  const { month, year } = getCurrentMonth();
+  const defaultPeriod = useMemo(() => getCurrentMonth(), []);
+  const [month, setMonth] = useState(defaultPeriod.month);
+  const [year, setYear] = useState(defaultPeriod.year);
   const monthLabel = formatMonthPartsLabel(month, year);
 
   const {
@@ -1480,9 +1891,48 @@ export default function StaffDashboardPage() {
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/80">
                 Staff
               </p>
-              <h1 className="mt-1.5 text-balance text-xl font-semibold tracking-tight text-text-primary sm:text-2xl">
-                Xin chào, {staffName}
-              </h1>
+              <div className="mt-1.5 flex flex-wrap items-center justify-between gap-3">
+                <h1 className="text-balance text-xl font-semibold tracking-tight text-text-primary sm:text-2xl">
+                  Xin chào, {staffName}
+                </h1>
+                
+                {/* Month Navigator */}
+                <div className="inline-flex items-center gap-2 rounded-md border border-border-default bg-bg-surface p-1 shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = stepMonth(month, year, -1);
+                      setMonth(next.month);
+                      setYear(next.year);
+                    }}
+                    className="inline-flex min-h-8 min-w-8 items-center justify-center rounded border border-border-default bg-bg-surface text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    aria-label="Tháng trước"
+                    title="Tháng trước"
+                  >
+                    <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <div className="min-w-[120px] rounded border border-border-default px-2 py-1 text-center text-xs font-semibold text-text-primary uppercase tracking-wider">
+                    {monthLabel}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = stepMonth(month, year, 1);
+                      setMonth(next.month);
+                      setYear(next.year);
+                    }}
+                    className="inline-flex min-h-8 min-w-8 items-center justify-center rounded border border-border-default bg-bg-surface text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    aria-label="Tháng sau"
+                    title="Tháng sau"
+                  >
+                    <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {staffRoles.map((role) => (
                   <span
@@ -1492,9 +1942,6 @@ export default function StaffDashboardPage() {
                     {ROLE_LABELS[role] ?? role}
                   </span>
                 ))}
-                <span className="inline-flex rounded-full bg-bg-surface px-2.5 py-0.5 text-[11px] font-medium text-text-secondary ring-1 ring-border-default">
-                  {monthLabel}
-                </span>
               </div>
             </div>
 

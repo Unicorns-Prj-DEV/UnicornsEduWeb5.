@@ -16,6 +16,7 @@ import {
 } from "@/components/admin/student";
 import ParentReceiptEmailSwitch from "@/components/student/ParentReceiptEmailSwitch";
 import { StudentDashboardSkeleton } from "@/components/student/StudentDashboardSkeleton";
+import { ResponsiveDialog, ResponsiveDialogBody } from "@/components/ui/ResponsiveDialog";
 import OjProgressSection from "@/components/student/OjProgressSection";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import type {
@@ -223,6 +224,7 @@ export default function StudentSelfPage() {
     const [balancePopupMode, setBalancePopupMode] = useState<"topup" | "withdraw" | null>(null);
     const [walletHistoryOpen, setWalletHistoryOpen] = useState(false);
     const [isEditingProfile, setIsEditingProfile] = useState(false);
+    const [showAllClasses, setShowAllClasses] = useState(false);
     const [profileDraft, setProfileDraft] = useState<StudentProfileDraft>({
         fullName: "",
         email: "",
@@ -844,7 +846,7 @@ export default function StudentSelfPage() {
                             {classItems.length > 0 ? (
                                 <>
                                     <div className="mt-4 grid gap-3 lg:hidden md:grid-cols-1">
-                                        {classItems.map((item) => (
+                                        {classItems.slice(0, 5).map((item) => (
                                             <div
                                                 key={item.class.id}
                                                 className="rounded-[1.1rem] border border-border-default bg-bg-surface px-3.5 py-3 shadow-sm"
@@ -906,7 +908,7 @@ export default function StudentSelfPage() {
                                                 <span className="text-right">Số buổi đã vào học</span>
                                             </div>
                                             <div className="divide-y divide-border-subtle">
-                                                {classItems.map((item) => (
+                                                {classItems.slice(0, 5).map((item) => (
                                                     <div
                                                         key={item.class.id}
                                                         className="grid grid-cols-[minmax(0,1.35fr)_150px_180px_230px_150px] gap-3 px-4 py-3 text-sm"
@@ -949,6 +951,87 @@ export default function StudentSelfPage() {
                                             </div>
                                         </div>
                                     </div>
+
+                                    {classItems.length > 5 && (
+                                        <div className="mt-4 flex justify-center">
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowAllClasses(true)}
+                                                className="w-full inline-flex min-h-10 items-center justify-center rounded-lg border border-border-default bg-bg-surface px-4 py-2 text-sm font-semibold text-text-primary hover:bg-bg-secondary transition-colors"
+                                            >
+                                                Xem tất cả ({classItems.length})
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {showAllClasses && (
+                                        <ResponsiveDialog labelledBy="all-classes-title" onBackdropClick={() => setShowAllClasses(false)}>
+                                            <div className="flex items-center justify-between border-b border-border-default px-5 py-4">
+                                                <h2 id="all-classes-title" className="text-base font-semibold text-text-primary">
+                                                    Tất cả lớp học ({classItems.length})
+                                                </h2>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowAllClasses(false)}
+                                                    className="rounded-lg p-2 text-text-muted hover:bg-bg-secondary hover:text-text-primary"
+                                                >
+                                                    Đóng
+                                                </button>
+                                            </div>
+                                            <ResponsiveDialogBody className="space-y-3 p-5 max-h-[70vh] overflow-y-auto">
+                                                {classItems.map((item) => (
+                                                    <div
+                                                        key={`dialog-${item.class.id}`}
+                                                        className="rounded-[1.1rem] border border-border-default bg-bg-surface px-3.5 py-3 shadow-sm text-left"
+                                                    >
+                                                        <div className="flex min-w-0 flex-col gap-2 min-[380px]:flex-row min-[380px]:items-start">
+                                                            <span
+                                                                className={`inline-block size-2 shrink-0 rounded-full ${item.class.status === "running"
+                                                                    ? "bg-success"
+                                                                    : item.class.status === "ended"
+                                                                        ? "bg-error"
+                                                                        : "bg-border-default"
+                                                                    }`}
+                                                                aria-hidden
+                                                            />
+                                                            <p className="min-w-0 break-words font-medium text-text-primary">{item.class.name}</p>
+                                                            <span
+                                                                className={`inline-flex w-fit shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] ring-1 ${getTuitionSourceClass(item.tuitionPackageSource)}`}
+                                                            >
+                                                                {getTuitionSourceLabel(item.tuitionPackageSource)}
+                                                            </span>
+                                                        </div>
+                                                        <div className="mt-3 grid gap-2 text-sm text-text-secondary">
+                                                            <div className="flex flex-col gap-1 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between min-[380px]:gap-3">
+                                                                <span>Trạng thái lớp</span>
+                                                                <span className="font-medium text-text-primary">
+                                                                    {getClassStatusLabel(item.class.status)}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex flex-col gap-1 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between min-[380px]:gap-3">
+                                                                <span>Học phí / buổi</span>
+                                                                <span className="font-medium tabular-nums text-text-primary">
+                                                                    {formatTuitionPerSession(item.effectiveTuitionPerSession)}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex flex-col gap-1 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between min-[380px]:gap-3">
+                                                                <span>Gói học phí</span>
+                                                                <span className="break-words font-medium text-text-primary min-[380px]:text-right">
+                                                                    {formatTuitionPackage(item)}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex flex-col gap-1 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between min-[380px]:gap-3">
+                                                                <span>Số buổi đã vào học</span>
+                                                                <span className="font-medium tabular-nums text-text-primary">
+                                                                    {item.totalAttendedSession ?? "—"}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </ResponsiveDialogBody>
+                                        </ResponsiveDialog>
+                                    )}
                                 </>
                             ) : (
                                 <div className="mt-4 rounded-[1.1rem] border border-border-default bg-bg-surface px-4 py-8 text-center">
