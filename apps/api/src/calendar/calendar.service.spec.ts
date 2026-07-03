@@ -7,7 +7,9 @@ jest.mock('../prisma/prisma.service', () => ({
 }));
 
 jest.mock('../../generated/client', () => ({
-  Prisma: {},
+  Prisma: {
+    sql: (strings: TemplateStringsArray, ...values: any[]) => ({ strings, values }),
+  },
 }));
 
 import { CalendarService } from './calendar.service';
@@ -169,6 +171,7 @@ describe('CalendarService', () => {
       googleCalendarService as never,
       { ensureTutorMeetLink: jest.fn().mockResolvedValue(null) } as never,
       actionHistoryService as never,
+      {} as never,
     );
   });
 
@@ -465,6 +468,7 @@ describe('CalendarService', () => {
       googleCalendarService as never,
       staffService as never,
       actionHistoryService as never,
+      {} as never,
     );
 
     mockPrisma.class.findUnique.mockResolvedValue({

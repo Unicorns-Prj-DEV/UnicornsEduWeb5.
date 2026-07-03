@@ -519,4 +519,108 @@ describe('SessionScheduleRulesService', () => {
       service.getMissedTeachingAlertsByClass('class-1', 7),
     ).resolves.toEqual([]);
   });
+
+  it('still raises alert for deleted entry even when teacher is no longer active', async () => {
+    // Dùng fake time sau MISSED_TEACHING_ALERT_MIN_DATE_KEY (2026-06-01)
+    // Today = 2026-06-10 (Thứ 3), range 7 ngày = 2026-06-04 → 2026-06-10
+    // Thứ 2 trong range: 2026-06-08
+    jest.setSystemTime(new Date('2026-06-10T12:00:00'));
+
+    // Scenario: teacher-old đã bị inactive, nhưng entry lịch của họ
+    // có deletedAt = 2026-06-10 → buổi thứ 2 (08/06) trước deletedAt vẫn phải raise alert.
+    prisma.class.findUnique.mockResolvedValue({
+      id: 'class-1',
+      name: 'IELTS Foundation',
+      status: 'running',
+      createdAt: new Date('2026-05-01T00:00:00.000Z'),
+      schedule: [
+        {
+          id: 'slot-old',
+          dayOfWeek: 1, // Monday June 8 2026
+          from: '09:00:00',
+          to: '10:30:00',
+          teacherId: 'teacher-old',
+          createdAt: '2026-05-01T00:00:00.000Z',
+          deletedAt: '2026-06-10T00:00:00.000Z', // deleted on today → June 8 còn hợp lệ
+        },
+      ],
+      teachers: [
+        {
+          // teacher-old không còn active
+          teacherId: 'teacher-old',
+          status: 'inactive',
+          teacher: {
+            id: 'teacher-old',
+            user: {
+              first_name: 'Cu',
+              last_name: 'Old',
+              email: 'old@example.com',
+            },
+          },
+        },
+      ],
+    });
+    prisma.session.findMany.mockResolvedValue([]);
+    prisma.makeupScheduleEvent.findMany.mockResolvedValue([]);
+
+    const alerts = await service.getMissedTeachingAlertsByClass('class-1', 7);
+    // June 8 (Mon) nằm trong range, trước deletedAt June 10 → phải có alert
+    expect(alerts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          classId: 'class-1',
+          teacherId: 'teacher-old',
+          originalDate: '2026-06-08',
+          scheduleEntryId: 'slot-old',
+        }),
+      ]),
+    );
+  });
+
+  it('uses class createdAt as lower bound for legacy entries without createdAt', async () => {
+    // Scenario: entry cũ không có createdAt field (legacy data trước khi tracking được thêm).
+    // Dùng fake time 2026-06-10 (Thứ 4), range 7 ngày = 2026-06-04 → 2026-06-10.
+    // Class tạo ngày 2026-06-09 (Thứ 2) → không được tạo alert cho ngày 2026-06-02 (Thứ 2 tuần trước).
+    jest.setSystemTime(new Date('2026-06-10T12:00:00'));
+
+    prisma.class.findUnique.mockResolvedValue({
+      id: 'class-1',
+      name: 'IELTS Advanced',
+      status: 'running',
+      createdAt: new Date('2026-06-09T00:00:00.000Z'), // lớp tạo ngày Thứ 2 tuần này
+      schedule: [
+        {
+          id: 'slot-legacy',
+          dayOfWeek: 1, // Monday
+          from: '08:00:00',
+          to: '09:30:00',
+          teacherId: 'teacher-1',
+          // Không có createdAt → legacy entry
+        },
+      ],
+      teachers: [
+        {
+          teacherId: 'teacher-1',
+          status: 'active',
+          teacher: {
+            id: 'teacher-1',
+            user: {
+              first_name: 'An',
+              last_name: 'Nguyen',
+              email: 'an@example.com',
+            },
+          },
+        },
+      ],
+    });
+    prisma.session.findMany.mockResolvedValue([]);
+    prisma.makeupScheduleEvent.findMany.mockResolvedValue([]);
+
+    const alerts = await service.getMissedTeachingAlertsByClass('class-1', 7);
+    const alertDates = alerts.map((a) => a.originalDate);
+
+    // June 9 = ngày tạo lớp, grace window chưa qua (class created = today) → tùy isPastTeachingGraceWindow
+    // Quan trọng: KHÔNG có alert cho thứ 2 tuần trước (June 2) vì class chưa tồn tại lúc đó
+    expect(alertDates).not.toContain('2026-06-02');
+  });
 });

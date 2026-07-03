@@ -41,7 +41,7 @@ describe('GoogleStrategy', () => {
     provider: 'google',
     profileUrl: 'https://example.com',
     _raw: '',
-    _json: {},
+    _json: {} as any,
   };
 
   beforeEach(() => {
