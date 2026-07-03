@@ -320,7 +320,16 @@ export class ClassService {
   private mergeScheduleEntriesWithExisting(
     nextEntries: UpdateClassScheduleDto['schedule'],
     existingSchedule: Prisma.JsonValue | null | undefined,
+    classCreatedAt?: Date | string | null,
   ) {
+    // Fallback lower bound cho legacy entries không có createdAt
+    const classCreatedAtISO =
+      classCreatedAt instanceof Date
+        ? classCreatedAt.toISOString()
+        : typeof classCreatedAt === 'string'
+          ? classCreatedAt
+          : undefined;
+
     const existingById = new Map(
       this.getStoredClassScheduleEntries(existingSchedule)
         .filter(
@@ -355,6 +364,8 @@ export class ClassService {
         if (hasChanged) {
           deletedEntries.push({
             ...existingEntry,
+            // Backfill createdAt trước khi soft-delete nếu entry chưa có
+            createdAt: existingEntry.createdAt ?? classCreatedAtISO,
             deletedAt: existingEntry.deletedAt ?? new Date().toISOString(),
           });
           handledExistingIds.add(existingEntry.id);
@@ -381,9 +392,11 @@ export class ClassService {
         teacherId: entry.teacherId,
         googleCalendarEventId: existingEntry?.googleCalendarEventId,
         meetLink: existingEntry?.meetLink,
+        // Uu tiên: existing createdAt → FE createdAt → ngày tạo lớp (legacy) → now
         createdAt:
           existingEntry?.createdAt ??
           entry.createdAt ??
+          classCreatedAtISO ??
           new Date().toISOString(),
       });
     }
@@ -398,6 +411,8 @@ export class ClassService {
       ) {
         deletedEntries.push({
           ...existingEntry,
+          // Backfill createdAt trước khi soft-delete nếu entry chưa có
+          createdAt: existingEntry.createdAt ?? classCreatedAtISO,
           deletedAt: existingEntry.deletedAt ?? new Date().toISOString(),
         });
       }
@@ -998,7 +1013,11 @@ export class ClassService {
             data.max_allowance_per_session,
           ),
           scaleAmount: data.scale_amount,
-          schedule: data.schedule as Prisma.InputJsonValue | undefined,
+          schedule: data.schedule
+            ? this.serializeStoredClassScheduleEntries(
+                this.ensureScheduleEntryIds(data.schedule as any),
+              )
+            : undefined,
           studentTuitionPerSession: data.student_tuition_per_session,
           tuitionPackageTotal: data.tuition_package_total,
           tuitionPackageSession: data.tuition_package_session,
@@ -1659,7 +1678,7 @@ export class ClassService {
   ) {
     const existing = await this.prisma.class.findUnique({
       where: { id },
-      select: { id: true, name: true, schedule: true },
+      select: { id: true, name: true, schedule: true, createdAt: true },
     });
     if (!existing) {
       throw new NotFoundException('Class not found');
@@ -1668,6 +1687,7 @@ export class ClassService {
     const normalizedScheduleEntries = this.mergeScheduleEntriesWithExisting(
       this.ensureScheduleEntryIds(dto.schedule),
       existing.schedule,
+      existing.createdAt,
     );
 
     const teacherIds = Array.from(

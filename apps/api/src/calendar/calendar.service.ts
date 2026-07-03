@@ -362,7 +362,7 @@ export class CalendarService {
 
   private startOfSessionDay(value: Date): Date {
     return new Date(
-      Date.UTC(value.getFullYear(), value.getMonth(), value.getDate()),
+      Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()),
     );
   }
 

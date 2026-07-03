@@ -438,7 +438,15 @@ export class SessionScheduleRulesService {
         }
 
         for (const entry of scheduleEntries) {
-          if (!entry.teacherId || !activeTeacherIds.has(entry.teacherId)) {
+          if (!entry.teacherId) {
+            continue;
+          }
+
+          // Deleted entries (soft-deleted khi đổi lịch) vẫn cần tạo alert cho các ngày
+          // trước thời điểm xóa — dù giáo viên đó không còn active trong lớp.
+          // Active entries (không có deletedAt) chỉ áp dụng nếu giáo viên còn active.
+          const isDeletedEntry = Boolean(entry.deletedAt);
+          if (!isDeletedEntry && !activeTeacherIds.has(entry.teacherId)) {
             continue;
           }
 
@@ -451,6 +459,12 @@ export class SessionScheduleRulesService {
               this.startOfSessionDay(new Date(entry.createdAt)),
             );
             if (dateKey < entryCreatedDateKey) {
+              continue;
+            }
+          } else {
+            // Legacy entry không có createdAt: dùng ngày tạo lớp làm lower bound
+            // để tránh tạo alert cho ngày trước khi lớp tồn tại.
+            if (dateKey < classCreatedDateKey) {
               continue;
             }
           }
@@ -632,7 +646,7 @@ export class SessionScheduleRulesService {
 
   private startOfSessionDay(value: Date): Date {
     return new Date(
-      Date.UTC(value.getFullYear(), value.getMonth(), value.getDate()),
+      Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()),
     );
   }
 
