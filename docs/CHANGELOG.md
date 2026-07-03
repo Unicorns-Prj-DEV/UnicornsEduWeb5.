@@ -23,6 +23,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- FE avatar UX: popup xem ảnh đại diện full-size (kèm nút **Tải ảnh**) trên `/user-profile`, `/admin/staffs/:id`, `/staff/profile` và mirror `/staff/staffs/:id`; danh sách `/admin/staffs` (và mirror `/staff/staffs`) hiển thị avatar nhân sự — bấm avatar mở trang hồ sơ chi tiết.
+- FE extra-allowance role detail (`/admin/*_detail`, `/staff/*-detail`): tab **Trợ cấp** có `MonthNav` lọc theo tháng; TanStack Query truyền `year` + `month` vào `GET /extra-allowance` / `GET /users/me/staff-extra-allowances`; popup **Thêm trợ cấp** pre-fill tháng đang xem; khi đổi tháng giữ shell (header + MonthNav) và hiển thị skeleton summary/list qua `isFetching`.
 - FE `apps/web`: script `pnpm --filter web test` (Vitest) + unit tests cho `session-comment-zalo.helpers.ts`.
 - BE: bảng single-row `survey_round` (`current_round`, seed = 6) + `SurveyRoundService` quản lý **lần khảo sát hiện tại** toàn cục; `SurveysController` strict-admin (`GET /surveys/round`, `GET /surveys/missing-classes`, `PATCH /surveys/round`) với Swagger đầy đủ, audit `action_history` entity `survey_round`.
 - FE: trang admin-only `/admin/surveys` (Khảo sát) — header KPI lần khảo sát + ô **Đặt lần khảo sát** (nhập trực tiếp số N), danh sách lớp `running` chưa báo cáo lần N (track-only, link `/admin/classes/:id`), TanStack Query + Sonner, mobile-first; thêm mục sidebar **Khảo sát** (adminOnly) và `/admin/surveys` vào `STRICT_ADMIN_ROUTE_PREFIXES`.
@@ -36,6 +38,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- FE popup **Chỉnh sửa thông tin nhân sự** (`EditStaffPopup`) và self-edit staff (`StaffSelfEditPopup`): trường **Mô tả chuyên môn** dùng textarea kéo giãn theo phương thẳng đứng (`resize-y`, `min-h` mặc định) thay cho `resize-none`.
 - FE session form: đổi tiêu đề section **Điểm danh học sinh** → **Nhận xét từng học sinh** (`AddSessionPopup`, `SessionHistoryTable`, caption bảng a11y).
 - FE session form (`AddSessionPopup`, `SessionHistoryTable`): **Nhận xét từng học sinh** — từ `md+` bảng **Học sinh** (tên + quick-pick dưới tên) | **Nhận xét** | **Học phí buổi** (admin/trợ lí); gia sư chỉ 2 cột; mobile card stack cùng thứ tự.
 - FE template Zalo (`session-comment-zalo.helpers`): mục `3️⃣ Nhận xét từng học sinh` liệt kê mọi HS dạng `Tên (học|nghỉ phép|vắng)`; nhận xét thụt vào với gạch đầu dòng; `excused` luôn có thêm `Vắng có phép`, `present` trống → `—`.
