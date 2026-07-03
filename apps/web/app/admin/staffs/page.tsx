@@ -9,6 +9,7 @@ import { getFullProfile } from "@/lib/apis/auth.api";
 import * as staffApi from "@/lib/apis/staff.api";
 import { ROLE_LABELS } from "@/lib/staff.constants";
 import { StaffListTableSkeleton } from "@/components/admin/staff";
+import StaffListAvatar from "@/components/admin/staff/StaffListAvatar";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { StaffListResponse, StaffStatus } from "@/dtos/staff.dto";
@@ -277,9 +278,6 @@ export default function AdminStaffPage() {
       toast.error(msg);
     },
   });
-
-  const statusDotColor = (status: StaffStatus) =>
-    status === "active" ? "bg-success" : "bg-error";
 
   const openDeleteConfirm = (id: string, name: string) => {
     setStaffToDelete({ id, name });
@@ -647,11 +645,13 @@ export default function AdminStaffPage() {
                       aria-label={`Xem chi tiết ${row.fullName?.trim() || "nhân sự"}`}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex min-w-0 flex-1 items-center gap-2">
-                          <span
-                            className={`inline-block size-2 shrink-0 rounded-full ${statusDotColor(row.status)}`}
-                            title={STATUS_LABELS[row.status]}
-                            aria-hidden
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
+                          <StaffListAvatar
+                            staffId={row.id}
+                            fullName={row.fullName}
+                            avatarUrl={row.user?.avatarUrl}
+                            status={row.status}
+                            routeBase={routeBase}
                           />
                           <span className="min-w-0 truncate font-semibold text-text-primary">
                             {row.fullName?.trim() || "—"}
@@ -744,7 +744,9 @@ export default function AdminStaffPage() {
                   <caption className="sr-only">Danh sách nhân sự (staff_info)</caption>
                   <thead>
                     <tr className="border-b border-border-default bg-bg-secondary/80">
-                      <th scope="col" className="w-[3%] min-w-10 px-2 py-3 overflow-x-hidden" aria-label="Trạng thái" />
+                      <th scope="col" className="w-[8%] min-w-14 px-2 py-3 overflow-x-hidden">
+                        <span className="sr-only">Ảnh đại diện</span>
+                      </th>
                       <th scope="col" className="w-[13%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary overflow-x-hidden">Tên</th>
                       <th scope="col" className="w-[20%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary overflow-x-hidden">Role</th>
                       <th scope="col" className="w-[10%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary overflow-x-hidden">Tỉnh</th>
@@ -786,14 +788,16 @@ export default function AdminStaffPage() {
                           }}
                           aria-label={`Xem chi tiết ${row.fullName?.trim() || "nhân sự"}`}
                         >
-                          <td className="w-[6%] min-w-10 px-2 py-3 align-middle">
-                            <span
-                              className={`inline-block size-2 shrink-0 rounded-full ${statusDotColor(row.status)}`}
-                              title={STATUS_LABELS[row.status]}
-                              aria-hidden
+                          <td className="w-[8%] min-w-14 px-2 py-3 align-middle">
+                            <StaffListAvatar
+                              staffId={row.id}
+                              fullName={row.fullName}
+                              avatarUrl={row.user?.avatarUrl}
+                              status={row.status}
+                              routeBase={routeBase}
                             />
                           </td>
-                          <td className="w-[15%] min-w-0 px-4 py-3 text-text-primary">
+                          <td className="w-[14%] min-w-0 px-4 py-3 text-text-primary">
                             <span className="block truncate">{row.fullName?.trim() || "—"}</span>
                           </td>
                           <td className="w-[17%] min-w-0 px-4 py-3 align-middle overflow-x-hidden">
