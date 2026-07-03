@@ -353,10 +353,10 @@ export default function StaffSelfEditPopup({
                   name="specialization"
                   value={specialization}
                   onChange={(event) => setSpecialization(event.target.value)}
-                  rows={3}
+                  rows={4}
                   autoComplete="off"
                   disabled={isSaving}
-                  className="resize-none rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  className="min-h-[6.5rem] resize-y rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 leading-relaxed text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   placeholder="Ví dụ: Toán, Lý, luyện thi, chăm sóc học viên…"
                 />
                 <p className="text-xs text-text-muted">

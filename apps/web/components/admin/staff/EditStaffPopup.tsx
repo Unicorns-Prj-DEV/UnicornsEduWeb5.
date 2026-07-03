@@ -367,8 +367,8 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
                 <textarea
                   value={specialization}
                   onChange={(e) => setSpecialization(e.target.value)}
-                  rows={2}
-                  className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus resize-none"
+                  rows={4}
+                  className="min-h-[6.5rem] resize-y rounded-md border border-border-default bg-bg-surface px-3 py-2 leading-relaxed text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   placeholder="Ví dụ: Toán, Lý"
                 />
                 <p className="text-xs text-text-muted">
