@@ -73,27 +73,56 @@ fi
 printf '%s' "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
 
 compose() {
-  docker compose -f docker-compose.prod.yml "$@"
+  export COMPOSE_PROJECT_NAME NGINX_PUBLISH
+  docker compose -f docker-compose.prod.yml -p "${COMPOSE_PROJECT_NAME}" "$@"
 }
 
-# Before COMPOSE_PROJECT_NAME=unicorns-it, the IT stack used the default project name
-# "unicorns". Leaving it running keeps host port 80/127.0.0.1:80 and blocks nginx recreate.
+# Default compose project for /root/UnicornsEdu before COMPOSE_PROJECT_NAME=unicorns-it.
+LEGACY_IT_COMPOSE_PROJECTS=(unicorns unicornsedu)
+
 stop_legacy_compose_project() {
   local legacy_project="$1"
   if [ -z "${legacy_project}" ] || [ "${legacy_project}" = "${COMPOSE_PROJECT_NAME}" ]; then
     return 0
   fi
-  if docker compose -p "${legacy_project}" -f docker-compose.prod.yml ps -q 2>/dev/null | grep -q .; then
-    echo "Stopping legacy compose project '${legacy_project}' (superseded by ${COMPOSE_PROJECT_NAME})..."
-    docker compose -p "${legacy_project}" -f docker-compose.prod.yml down --remove-orphans || true
-  fi
+  echo "Attempting legacy compose down: ${legacy_project}..."
+  docker compose -p "${legacy_project}" -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || true
+}
+
+stop_docker_containers_on_port() {
+  local port="$1"
+  local cid name
+
+  while IFS= read -r cid; do
+    [ -z "${cid}" ] && continue
+    name="$(docker inspect -f '{{.Name}}' "${cid}" 2>/dev/null || echo "${cid}")"
+    echo "Stopping container holding host port ${port}: ${name}"
+    docker stop "${cid}" || true
+    docker rm "${cid}" || true
+  done < <(docker ps -q --filter "publish=${port}" 2>/dev/null || true)
 }
 
 migrate_it_from_legacy_compose() {
   if [ "${INSTANCE_ID}" != "it" ]; then
     return 0
   fi
-  stop_legacy_compose_project "unicorns"
+  local legacy
+  for legacy in "${LEGACY_IT_COMPOSE_PROJECTS[@]}"; do
+    stop_legacy_compose_project "${legacy}"
+  done
+  stop_docker_containers_on_port 80
+}
+
+prepare_nginx_host_port() {
+  echo "Preparing host port ${NGINX_LOOPBACK_PORT} for nginx (${COMPOSE_PROJECT_NAME})..."
+  if [ "${INSTANCE_ID}" = "it" ]; then
+    local legacy
+    for legacy in "${LEGACY_IT_COMPOSE_PROJECTS[@]}"; do
+      stop_legacy_compose_project "${legacy}"
+    done
+  fi
+  stop_docker_containers_on_port "${NGINX_LOOPBACK_PORT}"
+  compose rm -sf nginx 2>/dev/null || true
 }
 
 migrate_it_from_legacy_compose
@@ -206,6 +235,7 @@ wait_for_http web http://127.0.0.1:3000/api/healthcheck
 docker_prune_unused
 
 compose_pull_service_with_retry nginx
+prepare_nginx_host_port
 compose up -d --no-deps --force-recreate --remove-orphans nginx
 wait_for_container_running nginx
 
