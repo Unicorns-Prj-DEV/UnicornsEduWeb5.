@@ -76,6 +76,28 @@ compose() {
   docker compose -f docker-compose.prod.yml "$@"
 }
 
+# Before COMPOSE_PROJECT_NAME=unicorns-it, the IT stack used the default project name
+# "unicorns". Leaving it running keeps host port 80/127.0.0.1:80 and blocks nginx recreate.
+stop_legacy_compose_project() {
+  local legacy_project="$1"
+  if [ -z "${legacy_project}" ] || [ "${legacy_project}" = "${COMPOSE_PROJECT_NAME}" ]; then
+    return 0
+  fi
+  if docker compose -p "${legacy_project}" -f docker-compose.prod.yml ps -q 2>/dev/null | grep -q .; then
+    echo "Stopping legacy compose project '${legacy_project}' (superseded by ${COMPOSE_PROJECT_NAME})..."
+    docker compose -p "${legacy_project}" -f docker-compose.prod.yml down --remove-orphans || true
+  fi
+}
+
+migrate_it_from_legacy_compose() {
+  if [ "${INSTANCE_ID}" != "it" ]; then
+    return 0
+  fi
+  stop_legacy_compose_project "unicorns"
+}
+
+migrate_it_from_legacy_compose
+
 docker_disk_report() {
   echo "Docker disk usage:"
   docker system df || true
