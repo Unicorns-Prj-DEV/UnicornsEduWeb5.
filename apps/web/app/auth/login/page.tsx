@@ -16,6 +16,7 @@ import {
   buildSetupPasswordHref,
   resolvePostLoginRedirect,
 } from "@/lib/auth-redirect";
+import { getClientApiBaseUrl } from "@/lib/api-base-url";
 
 function nestMessageFromResponseData(data: unknown): string | null {
   if (!data || typeof data !== "object") {
@@ -223,7 +224,7 @@ function LoginPageContent() {
             </div>
 
             <a
-              href={`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"}/auth/google`}
+              href={`${getClientApiBaseUrl()}/auth/google`}
               className="flex w-full items-center justify-center gap-2 rounded-lg border border-border-default bg-bg-surface py-2.5 font-medium text-text-primary hover:bg-bg-tertiary focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-offset-2 transition-colors duration-200"
             >
               <svg className="size-5" viewBox="0 0 24 24" aria-hidden>

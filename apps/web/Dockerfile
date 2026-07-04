@@ -21,9 +21,9 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-# NEXT_PUBLIC_BACKEND_URL must be passed at build time so it is inlined
-# into client-side bundles. Pass via --build-arg in docker-compose / CI.
-ARG NEXT_PUBLIC_BACKEND_URL
+# NEXT_PUBLIC_BACKEND_URL=/api in CI so one web image works on IT + ENG (same-origin /api).
+# Local dev may still use http://localhost:4000 or http://localhost:8080/api.
+ARG NEXT_PUBLIC_BACKEND_URL=/api
 ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
 RUN pnpm --filter web run build
 

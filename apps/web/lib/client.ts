@@ -1,4 +1,5 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
+import { getClientApiBaseUrl } from "@/lib/api-base-url";
 
 export const ACTION_HISTORY_INVALIDATION_EVENT = "ue:action-history:invalidate";
 export const RATE_LIMIT_TOAST_EVENT = "ue:rate-limit:toast";
@@ -8,8 +9,7 @@ export type RateLimitToastDetail = {
     description: string;
 };
 
-export const API_URL =
-    process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+export const API_URL = getClientApiBaseUrl();
 if (typeof window !== "undefined") {
     console.log("[Auth API] baseURL:", API_URL);
 }

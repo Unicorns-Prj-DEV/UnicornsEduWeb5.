@@ -1,5 +1,7 @@
 # .github/workflows/deploy.yml
-# Build Docker images → push GHCR → deploy VPS (push main only).
+# Build Docker images → push GHCR → deploy all enabled VPS instances (push main only).
+#
+# Multi-instance: see deploy/instances.json and docs/ops/vps-multi-instance-runbook.md
 #
 # Optional Tailscale: set repo variable TAILSCALE_ENABLED=true so the runner joins
 # your tailnet before SSH (see docs/Cách làm việc.md). Use OAuth (recommended) or
@@ -87,9 +89,8 @@ jobs:
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
           build-args: |
-            NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL }}
+            NEXT_PUBLIC_BACKEND_URL=/api
 
-  # Copy official nginx multi-arch manifest to GHCR (VPS only needs ghcr.io after docker login).
   mirror-nginx:
     name: Mirror nginx to GHCR
     runs-on: ubuntu-latest
@@ -127,9 +128,6 @@ jobs:
         with:
           fetch-depth: 1
 
-      # Tailscale: ephemeral node on the tailnet (OAuth preferred over long-lived auth keys).
-      # Set VPS_HOST to the VPS MagicDNS name or Tailscale IP when this is enabled.
-      # ping: wait until VPS is reachable on tailnet (eventual consistency); empty VPS_TAILSCALE_PING → ping same host as SSH.
       - name: Connect Tailscale (OAuth)
         if: ${{ vars.TAILSCALE_ENABLED == 'true' && vars.TAILSCALE_AUTH_MODE != 'authkey' }}
         uses: tailscale/github-action@v4
@@ -151,8 +149,6 @@ jobs:
           version: latest
           ping: ${{ vars.VPS_TAILSCALE_PING || secrets.VPS_HOST }}
 
-      # Without Tailscale: plain TCP SSH (appleboy). With Tailscale: GitHub runner often uses userspace
-      # networking — regular SSH must use ProxyCommand through tailscaled (see Tailscale CLI docs: tailscale ssh / tailscale nc).
       - name: Deploy via SSH
         if: ${{ vars.TAILSCALE_ENABLED != 'true' }}
         uses: appleboy/ssh-action@v1.2.0
@@ -164,12 +160,12 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           envs: GHCR_USERNAME,GHCR_TOKEN
-          command_timeout: 45m
+          command_timeout: 60m
           script_path: scripts/gha-deploy-remote.sh
 
       - name: Deploy via SSH (Tailscale ProxyCommand)
         if: ${{ vars.TAILSCALE_ENABLED == 'true' }}
-        timeout-minutes: 50
+        timeout-minutes: 65
         env:
           GHCR_USERNAME: ${{ env.GHCR_USERNAME }}
           GHCR_TOKEN: ${{ env.GHCR_TOKEN }}
@@ -184,7 +180,7 @@ jobs:
             printf 'export GHCR_USERNAME=%q\n' "${GHCR_USERNAME:-}"
             printf 'export GHCR_TOKEN=%q\n' "${GHCR_TOKEN:-}"
             cat scripts/gha-deploy-remote.sh
-          } | timeout 45m ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+          } | timeout 60m ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
             -o "ProxyCommand=sudo -E $TS nc %h %p" \
             -i "$KEY" \
             "$REMOTE" bash -s

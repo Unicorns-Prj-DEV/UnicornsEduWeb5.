@@ -308,15 +308,24 @@ pnpm --filter web add @unicorns/shared --workspace
 
 ## Deploy VPS (GitHub Actions)
 
-Pipeline: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — khi **push `main`**: hai job build song song `build-api` / `build-web` chạy trên runner ARM64 native `ubuntu-24.04-arm` (Buildx, **`linux/arm64`** push GHCR, Dockerfile dùng BuildKit cache mount cho pnpm store) + job **`mirror-nginx`** (copy manifest `nginx:1.27-alpine` từ Docker Hub lên **`ghcr.io/unicorns-prj-dev/nginx:1.27-alpine`** bằng `docker buildx imagetools create` — VPS không cần kéo `docker.io`) → job `deploy` **checkout** shallow → (tuỳ chọn **Tailscale** trước bước SSH) → SSH vào VPS (script chung [`scripts/gha-deploy-remote.sh`](../scripts/gha-deploy-remote.sh): qua **`tailscale nc` ProxyCommand** nếu `TAILSCALE_ENABLED=true`, qua `appleboy/ssh-action` nếu không) → `git pull --ff-only` → **`docker login ghcr.io`** bằng secret `GHCR_USERNAME` + `GHCR_TOKEN` (bắt buộc nếu package private) → prune Docker unused data → pull/recreate `api`, `web`, `nginx` tuần tự để giảm peak disk → probe HTTP service nội bộ → `nginx -t` + reload → smoke HTTP loopback (`http://127.0.0.1`) cho cloudflared → prune lại Docker unused data. **Không** chạy lint/test trên GitHub Actions; kiểm tra local dùng `pnpm lint`, `pnpm check-types`, `pnpm --filter api test`, v.v.
+Pipeline: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — khi **push `main`**: `build-api` + **`build-web`** (một image, `NEXT_PUBLIC_BACKEND_URL=/api`) + `mirror-nginx` → `deploy` SSH chạy [`scripts/gha-deploy-remote.sh`](../scripts/gha-deploy-remote.sh) deploy tuần tự instance `enabled` trong [`deploy/instances.json`](../deploy/instances.json). **Runbook:** [`docs/ops/vps-multi-instance-runbook.md`](ops/vps-multi-instance-runbook.md).
+
+**IT + ENG — cùng VPS, cùng Docker images:**
+
+| ID | Thư mục | Nginx loopback | Images |
+|----|---------|----------------|--------|
+| `it` | `/root/UnicornsEdu` | `127.0.0.1:80` | `unicorns-api:latest` + `unicorns-web:latest` |
+| `eng` | `/root/UnicornsEduEng` | `127.0.0.1:8080` | cùng images; khác `.env` (DB, domain, JWT) |
+
+Web browser gọi `/api` same-origin; server-side dùng `INTERNAL_API_URL=http://api:4000` trong compose. `FRONTEND_URL` / `BACKEND_URL` trong `.env` mỗi instance vẫn phải khớp domain public (CORS, OAuth, email).
 
 **Kiến trúc VPS:** VPS production là **ARM64** (`uname -m` thường là `aarch64`), nên image `unicorns-api` / `unicorns-web` build **arm64-only** trên runner `ubuntu-24.04-arm`. Không build ARM64 qua QEMU trên runner x86 vì step `pnpm install --frozen-lockfile` có thể treo rất lâu. Nếu chuyển VPS sang amd64 (`x86_64`), đổi workflow về `runs-on: ubuntu-latest` và `platforms: linux/amd64`.
 
 **Docker Hub / `docker compose pull`:** service **`nginx`** trong [`docker-compose.prod.yml`](../docker-compose.prod.yml) dùng image **`ghcr.io/unicorns-prj-dev/nginx:1.27-alpine`** — được job CI **`mirror-nginx`** đồng bộ manifest đa kiến trúc từ `docker.io/library/nginx:1.27-alpine` lên GHCR mỗi lần push `main`, nên VPS sau `docker login ghcr.io` **chỉ cần** kéo từ GHCR (tránh `registry-1.docker.io` / TLS timeout). Script deploy vẫn **retry** `docker compose pull` cho lỗi mạng tạm thời khác.
 
-**Cloudflared / NGINX production:** NGINX chỉ bind loopback host `127.0.0.1:80` trong [`docker-compose.prod.yml`](../docker-compose.prod.yml). Cloudflare Tunnel cấu hình service tới `http://127.0.0.1:80`; TLS/domain kết thúc ở Cloudflare, nên VPS không cần expose `443`, không cần `certbot`, và không dùng `VPS_PUBLIC_HOST` cho smoke test. `nginx/conf.d/app.conf` là catch-all local vhost; `nginx/nginx.conf` giữ lại `X-Forwarded-Proto` từ cloudflared để backend/web vẫn biết request gốc là HTTPS.
+**Cloudflared / NGINX production:** mỗi instance bind Nginx loopback riêng (`127.0.0.1:80` cho IT, `127.0.0.1:8080` cho instance thứ 2 — xem [`deploy/instances.json`](../deploy/instances.json)). Cloudflare Tunnel khai báo **một ingress rule / hostname** trỏ tới đúng cổng loopback; TLS/domain kết thúc ở Cloudflare. `nginx/conf.d/app.conf` là catch-all local vhost; `nginx/nginx.conf` giữ `X-Forwarded-Proto` từ cloudflared.
 
-**Secrets / variables GitHub (CD):** ngoài `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `NEXT_PUBLIC_BACKEND_URL`, cần **`GHCR_TOKEN`** (PAT `read:packages`, user đã authorize SSO org nếu có) và **`GHCR_USERNAME`** (username GitHub của chủ PAT). Có thể dùng Repository variable cho `GHCR_USERNAME`.
+**Secrets / variables GitHub (CD):** `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `GHCR_TOKEN`, `GHCR_USERNAME`. Web image dùng chung — **không** cần secret build theo từng domain. Bootstrap ENG: [`docs/ops/vps-multi-instance-runbook.md`](ops/vps-multi-instance-runbook.md).
 
 ### Tailscale trong job `deploy` (tuỳ chọn)
 

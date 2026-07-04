@@ -23,12 +23,18 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- **CD multi-instance VPS (IT + ENG):** [`deploy/instances.json`](../deploy/instances.json), compose tham số `COMPOSE_PROJECT_NAME` / `NGINX_PUBLISH`, deploy scripts, **một** web image (`NEXT_PUBLIC_BACKEND_URL=/api`, `apps/web/lib/api-base-url.ts`), runbook [`docs/ops/vps-multi-instance-runbook.md`](ops/vps-multi-instance-runbook.md).
 - FE avatar UX: popup xem ảnh đại diện full-size (kèm nút **Tải ảnh**) trên `/user-profile`, `/admin/staffs/:id`, `/staff/profile` và mirror `/staff/staffs/:id`; danh sách `/admin/staffs` (và mirror `/staff/staffs`) hiển thị avatar nhân sự — bấm avatar mở trang hồ sơ chi tiết.
 - FE extra-allowance role detail (`/admin/*_detail`, `/staff/*-detail`): tab **Trợ cấp** có `MonthNav` lọc theo tháng; TanStack Query truyền `year` + `month` vào `GET /extra-allowance` / `GET /users/me/staff-extra-allowances`; popup **Thêm trợ cấp** pre-fill tháng đang xem; khi đổi tháng giữ shell (header + MonthNav) và hiển thị skeleton summary/list qua `isFetching`.
 - FE `apps/web`: script `pnpm --filter web test` (Vitest) + unit tests cho `session-comment-zalo.helpers.ts`.
 - BE: bảng single-row `survey_round` (`current_round`, seed = 6) + `SurveyRoundService` quản lý **lần khảo sát hiện tại** toàn cục; `SurveysController` strict-admin (`GET /surveys/round`, `GET /surveys/missing-classes`, `PATCH /surveys/round`) với Swagger đầy đủ, audit `action_history` entity `survey_round`.
 - FE: trang admin-only `/admin/surveys` (Khảo sát) — header KPI lần khảo sát + ô **Đặt lần khảo sát** (nhập trực tiếp số N), danh sách lớp `running` chưa báo cáo lần N (track-only, link `/admin/classes/:id`), TanStack Query + Sonner, mobile-first; thêm mục sidebar **Khảo sát** (adminOnly) và `/admin/surveys` vào `STRICT_ADMIN_ROUTE_PREFIXES`.
 
+### Changed
+
+- **CD ENG path:** deploy directory `eng` → `/root/UnicornsEduEng` (`deploy/instances.json`, runbook, env example).
+- **FE/CD:** IT + ENG dùng chung `unicorns-web:latest`; client API same-origin `/api`; server dùng `INTERNAL_API_URL` / `BACKEND_URL` runtime.
+- **CD deploy:** job `deploy` timeout SSH 45m → 60m; Nginx bind `127.0.0.1` qua `NGINX_PUBLISH`; deploy tuần tự multi-instance.
 
 ### Fixed
 

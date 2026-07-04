@@ -5,11 +5,12 @@ import {
   resolveAdminShellFallbackHref,
 } from "./lib/admin-shell-access";
 import { getUser } from "./lib/auth-server";
+import { getServerApiOrigin } from "./lib/api-base-url";
 import { shouldVerifySessionInProxy } from "./lib/proxy-auth-guard";
 import { resolveStaffShellRouteAccess } from "./lib/staff-shell-access";
 import { Role } from "./dtos/Auth.dto";
 
-const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+const API_URL = getServerApiOrigin();
 
 type FullProfileGuardPayload = {
   first_name?: string | null;

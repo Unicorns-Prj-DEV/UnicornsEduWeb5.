@@ -1,7 +1,8 @@
 import { createGuestUser, Role, UserInfoDto } from "@/dtos/Auth.dto";
+import { getServerApiOrigin } from "@/lib/api-base-url";
 import { cookies } from "next/headers";
 
-const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+const API_URL = getServerApiOrigin();
 const AUTH_SESSION_CACHE_MODE: RequestCache = "no-store";
 
 function buildCookieHeader(entries: Array<{ name: string; value: string }>) {

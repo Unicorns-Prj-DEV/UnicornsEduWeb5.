@@ -2,10 +2,10 @@
 
 import {
   ACTION_HISTORY_INVALIDATION_EVENT,
-  API_URL,
   RATE_LIMIT_TOAST_EVENT,
   type RateLimitToastDetail,
 } from "@/lib/client";
+import { getNotificationSocketTarget } from "@/lib/api-base-url";
 import { AuthProvider } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
@@ -252,10 +252,9 @@ function NotificationSocketBridge() {
       return;
     }
 
-    const socket = io(`${API_URL.replace(/\/$/, "")}/notifications`, {
-      withCredentials: true,
-      transports: ["websocket", "polling"],
-    });
+    const { url: socketUrl, options: socketOptions } =
+      getNotificationSocketTarget();
+    const socket = io(socketUrl, socketOptions);
 
     const rememberNotification = (key: string) => {
       const recentKeys = recentNotificationKeysRef.current;

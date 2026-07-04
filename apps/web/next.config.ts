@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { PUBLIC_API_BASE } from "./lib/api-base-url";
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -15,10 +16,16 @@ const nextConfig: NextConfig = {
     ],
   },
   async rewrites() {
+    const publicBase = process.env.NEXT_PUBLIC_BACKEND_URL?.trim();
+    const destination =
+      !publicBase || publicBase === PUBLIC_API_BASE || publicBase.startsWith("/")
+        ? `${process.env.INTERNAL_API_URL || "http://localhost:4000"}/:path*`
+        : `${publicBase.replace(/\/$/, "")}/:path*`;
+
     return [
       {
         source: "/api/:path*",
-        destination: `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"}/:path*`,
+        destination,
       },
     ];
   },
