@@ -23,7 +23,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
-- **CD multi-instance VPS (IT + ENG):** [`deploy/instances.json`](../deploy/instances.json), compose tham số `COMPOSE_PROJECT_NAME` / `NGINX_PUBLISH`, deploy scripts, **một** web image (`NEXT_PUBLIC_BACKEND_URL=/api`, `apps/web/lib/api-base-url.ts`), runbook [`docs/ops/vps-multi-instance-runbook.md`](ops/vps-multi-instance-runbook.md).
+- **CD multi-instance VPS (IT + ENG + JP):** [`deploy/instances.json`](../deploy/instances.json), compose tham số `COMPOSE_PROJECT_NAME` / `NGINX_PUBLISH`, deploy scripts, **một** web image (`NEXT_PUBLIC_BACKEND_URL=/api`, `apps/web/lib/api-base-url.ts`), runbook [`docs/ops/vps-multi-instance-runbook.md`](ops/vps-multi-instance-runbook.md).
+- **CD instance JP (Tiếng Nhật):** `/root/UnicornsEduJP`, `unicorns-jp`, Nginx `127.0.0.1:8081`, mẫu [`.env.production.jp.example`](../.env.production.jp.example) (`enabled: false` cho tới khi bootstrap VPS).
 - FE avatar UX: popup xem ảnh đại diện full-size (kèm nút **Tải ảnh**) trên `/user-profile`, `/admin/staffs/:id`, `/staff/profile` và mirror `/staff/staffs/:id`; danh sách `/admin/staffs` (và mirror `/staff/staffs`) hiển thị avatar nhân sự — bấm avatar mở trang hồ sơ chi tiết.
 - FE extra-allowance role detail (`/admin/*_detail`, `/staff/*-detail`): tab **Trợ cấp** có `MonthNav` lọc theo tháng; TanStack Query truyền `year` + `month` vào `GET /extra-allowance` / `GET /users/me/staff-extra-allowances`; popup **Thêm trợ cấp** pre-fill tháng đang xem; khi đổi tháng giữ shell (header + MonthNav) và hiển thị skeleton summary/list qua `isFetching`.
 - FE `apps/web`: script `pnpm --filter web test` (Vitest) + unit tests cho `session-comment-zalo.helpers.ts`.

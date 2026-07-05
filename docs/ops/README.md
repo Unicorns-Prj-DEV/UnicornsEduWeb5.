@@ -2,15 +2,16 @@
 
 ## Multi-instance VPS deploy
 
-Hai (hoặc nhiều) bản UnicornsEduWeb5 trên **cùng một VPS** — mỗi môn học / domain riêng, database riêng, cổng Nginx loopback riêng.
+Nhiều bản UnicornsEduWeb5 trên **cùng một VPS** — mỗi môn học / domain riêng, database riêng, cổng Nginx loopback riêng.
 
 | Tài liệu | Nội dung |
 |----------|----------|
-| [vps-multi-instance-runbook.md](vps-multi-instance-runbook.md) | **Runbook triển khai** — bootstrap instance thứ 2, Cloudflare Tunnel, secrets GitHub |
-| [`deploy/instances.json`](../../deploy/instances.json) | Registry instance (`it`, `eng`, …) |
+| [vps-multi-instance-runbook.md](vps-multi-instance-runbook.md) | **Runbook triển khai** — bootstrap IT/ENG/JP, Cloudflare Tunnel, secrets GitHub |
+| [`deploy/instances.json`](../../deploy/instances.json) | Registry instance (`it`, `eng`, `jp`, …) |
 | [`.env.production.eng.example`](../../.env.production.eng.example) | Mẫu `.env` cho instance ENG |
+| [`.env.production.jp.example`](../../.env.production.jp.example) | Mẫu `.env` cho instance JP (`/root/UnicornsEduJP`) |
 
-Bật CD cho instance `eng`: bootstrap VPS theo runbook, rồi `"enabled": true` cho `eng` trong `deploy/instances.json`. IT và ENG **dùng chung** `unicorns-web:latest`.
+Bật CD cho instance mới: bootstrap VPS theo runbook, rồi `"enabled": true` trong `deploy/instances.json`. Mọi instance **dùng chung** `unicorns-api:latest` và `unicorns-web:latest`.
 
 ---
 

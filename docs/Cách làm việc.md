@@ -310,12 +310,13 @@ pnpm --filter web add @unicorns/shared --workspace
 
 Pipeline: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — khi **push `main`**: `build-api` + **`build-web`** (một image, `NEXT_PUBLIC_BACKEND_URL=/api`) + `mirror-nginx` → `deploy` SSH chạy [`scripts/gha-deploy-remote.sh`](../scripts/gha-deploy-remote.sh) deploy tuần tự instance `enabled` trong [`deploy/instances.json`](../deploy/instances.json). **Runbook:** [`docs/ops/vps-multi-instance-runbook.md`](ops/vps-multi-instance-runbook.md).
 
-**IT + ENG — cùng VPS, cùng Docker images:**
+**IT + ENG + JP — cùng VPS, cùng Docker images:**
 
 | ID | Thư mục | Nginx loopback | Images |
 |----|---------|----------------|--------|
 | `it` | `/root/UnicornsEdu` | `127.0.0.1:80` | `unicorns-api:latest` + `unicorns-web:latest` |
 | `eng` | `/root/UnicornsEduEng` | `127.0.0.1:8080` | cùng images; khác `.env` (DB, domain, JWT) |
+| `jp` | `/root/UnicornsEduJP` | `127.0.0.1:8081` | cùng images; khác `.env` (DB, domain, JWT) |
 
 Web browser gọi `/api` same-origin; server-side dùng `INTERNAL_API_URL=http://api:4000` trong compose. `FRONTEND_URL` / `BACKEND_URL` trong `.env` mỗi instance vẫn phải khớp domain public (CORS, OAuth, email).
 
@@ -323,9 +324,9 @@ Web browser gọi `/api` same-origin; server-side dùng `INTERNAL_API_URL=http:/
 
 **Docker Hub / `docker compose pull`:** service **`nginx`** trong [`docker-compose.prod.yml`](../docker-compose.prod.yml) dùng image **`ghcr.io/unicorns-prj-dev/nginx:1.27-alpine`** — được job CI **`mirror-nginx`** đồng bộ manifest đa kiến trúc từ `docker.io/library/nginx:1.27-alpine` lên GHCR mỗi lần push `main`, nên VPS sau `docker login ghcr.io` **chỉ cần** kéo từ GHCR (tránh `registry-1.docker.io` / TLS timeout). Script deploy vẫn **retry** `docker compose pull` cho lỗi mạng tạm thời khác.
 
-**Cloudflared / NGINX production:** mỗi instance bind Nginx loopback riêng (`127.0.0.1:80` cho IT, `127.0.0.1:8080` cho instance thứ 2 — xem [`deploy/instances.json`](../deploy/instances.json)). Cloudflare Tunnel khai báo **một ingress rule / hostname** trỏ tới đúng cổng loopback; TLS/domain kết thúc ở Cloudflare. `nginx/conf.d/app.conf` là catch-all local vhost; `nginx/nginx.conf` giữ `X-Forwarded-Proto` từ cloudflared.
+**Cloudflared / NGINX production:** mỗi instance bind Nginx loopback riêng (`80` IT, `8080` ENG, `8081` JP — xem [`deploy/instances.json`](../deploy/instances.json)). Cloudflare Tunnel khai báo **một ingress rule / hostname** trỏ tới đúng cổng loopback; TLS/domain kết thúc ở Cloudflare. `nginx/conf.d/app.conf` là catch-all local vhost; `nginx/nginx.conf` giữ `X-Forwarded-Proto` từ cloudflared.
 
-**Secrets / variables GitHub (CD):** `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `GHCR_TOKEN`, `GHCR_USERNAME`. Web image dùng chung — **không** cần secret build theo từng domain. Bootstrap ENG: [`docs/ops/vps-multi-instance-runbook.md`](ops/vps-multi-instance-runbook.md).
+**Secrets / variables GitHub (CD):** `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `GHCR_TOKEN`, `GHCR_USERNAME`. Web image dùng chung — **không** cần secret build theo từng domain. Bootstrap instance mới (ENG/JP): [`docs/ops/vps-multi-instance-runbook.md`](ops/vps-multi-instance-runbook.md).
 
 ### Tailscale trong job `deploy` (tuỳ chọn)
 

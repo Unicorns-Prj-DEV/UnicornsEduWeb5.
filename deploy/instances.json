@@ -8,7 +8,7 @@
       "compose_project": "unicorns-it",
       "nginx_publish": "127.0.0.1:80:80",
       "example_hostname": "it.unicornsedu.com",
-      "notes": "Instance IT. Dùng chung web image :latest với ENG."
+      "notes": "Instance IT. Dùng chung web image :latest với ENG và JP."
     },
     {
       "id": "eng",
@@ -19,6 +19,16 @@
       "nginx_publish": "127.0.0.1:8080:80",
       "example_hostname": "eng.unicornsedu.com",
       "notes": "Instance ENG. Cùng web/api image; khác .env (DB, FRONTEND_URL, JWT)."
+    },
+    {
+      "id": "jp",
+      "label": "Unicorns JP (Tiếng Nhật)",
+      "enabled": false,
+      "deploy_dir": "/root/UnicornsEduJP",
+      "compose_project": "unicorns-jp",
+      "nginx_publish": "127.0.0.1:8081:80",
+      "example_hostname": "jp.unicornsedu.com",
+      "notes": "Instance JP. Bootstrap /root/UnicornsEduJP trước, rồi bật enabled."
     }
   ]
 }
