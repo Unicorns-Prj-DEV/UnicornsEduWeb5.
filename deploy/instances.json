@@ -23,12 +23,12 @@
     {
       "id": "jp",
       "label": "Unicorns JP (Tiếng Nhật)",
-      "enabled": false,
+      "enabled": true,
       "deploy_dir": "/root/UnicornsEduJP",
       "compose_project": "unicorns-jp",
       "nginx_publish": "127.0.0.1:8081:80",
       "example_hostname": "jp.unicornsedu.com",
-      "notes": "Instance JP. Bootstrap /root/UnicornsEduJP trước, rồi bật enabled."
+      "notes": "Instance JP. CD deploy sau khi bootstrap /root/UnicornsEduJP + migrate DB."
     }
   ]
 }
