@@ -24,7 +24,6 @@ import {
 import { toast } from "sonner";
 import type {
   CustomerCareCommissionItem,
-  CustomerCareCommissionScope,
   CustomerCarePaymentStatus,
   CustomerCareSessionCommissionItem,
   CustomerCareStudentItem,
@@ -50,7 +49,7 @@ import {
   getDefaultMonthKey,
 } from "@/lib/month-format";
 
-type CommissionFilterMode = "pending" | "month";
+
 const STUDENT_PAGE_SIZE = 10;
 const PAYMENT_HISTORY_LIMIT = 20;
 const TOP_UP_HISTORY_PAGE_SIZE = 20;
@@ -312,8 +311,6 @@ export default function CustomerCareDetailPanels({
   const [bulkPaymentPopupOpen, setBulkPaymentPopupOpen] = useState(false);
   const [bulkPaymentStatusDraft, setBulkPaymentStatusDraft] =
     useState<CustomerCarePaymentStatus>(DEFAULT_BULK_PAYMENT_STATUS);
-  const [commissionFilterMode, setCommissionFilterMode] =
-    useState<CommissionFilterMode>("pending");
   const [commissionMonthKey, setCommissionMonthKey] = useState(getDefaultMonthKey);
   const studentLoadMoreRef = useRef<HTMLDivElement | null>(null);
   const topUpLoadMoreRef = useRef<HTMLDivElement | null>(null);
@@ -361,6 +358,19 @@ export default function CustomerCareDetailPanels({
   const students = studentPages.flatMap((page) => page.data);
   const studentsRefreshing =
     studentsFetching && !studentsLoading && !studentsFetchingNextPage;
+  const studentTotalCount = studentPages[0]?.meta.total ?? 0;
+
+  const { data: topUpSummary } = useQuery({
+    queryKey: ["customer-care", "topup-summary", staffId],
+    queryFn: () =>
+      customerCareApi.getCustomerCareTopUpHistory(staffId, {
+        page: 1,
+        limit: 1,
+      }),
+    enabled: !!staffId,
+    staleTime: 60_000,
+  });
+  const topUpTotalAmount = topUpSummary?.meta.totalAmount ?? 0;
 
   const {
     data: topUpHistoryPages,
@@ -418,32 +428,27 @@ export default function CustomerCareDetailPanels({
   });
 
   const commissionMonthLabel = formatMonthKeyLabel(commissionMonthKey);
-  const commissionScope: CustomerCareCommissionScope =
-    commissionFilterMode === "month" ? "month" : "pending";
-  const commissionQueryMonth =
-    commissionFilterMode === "month" ? commissionMonthKey : undefined;
-  const canQueryCommissions =
-    commissionFilterMode === "pending" || Boolean(commissionMonthKey?.trim());
+  const canQueryCommissions = Boolean(commissionMonthKey?.trim());
 
   const {
-    data: commissions = [],
+    data: commissionList,
     isLoading: commissionsLoading,
     isError: commissionsError,
   } = useQuery({
-    queryKey: [
-      "customer-care",
-      "commissions",
-      staffId,
-      commissionScope,
-      commissionQueryMonth,
-    ],
+    queryKey: ["customer-care", "commissions", staffId, commissionMonthKey],
     queryFn: () =>
       customerCareApi.getCustomerCareCommissions(staffId, {
-        scope: commissionScope,
-        month: commissionQueryMonth,
+        month: commissionMonthKey,
       }),
     enabled: !!staffId && activeTab === "commissions" && canQueryCommissions,
   });
+
+  const commissions = commissionList?.data ?? [];
+  const commissionSummary = commissionList?.summary ?? {
+    studentCount: 0,
+    totalPending: 0,
+    totalMonthCommission: 0,
+  };
 
   const expandedStudentIdList = useMemo(
     () => Array.from(expandedStudentIds).sort(),
@@ -457,13 +462,11 @@ export default function CustomerCareDetailPanels({
         "session-commissions",
         staffId,
         studentId,
-        commissionScope,
-        commissionQueryMonth,
+        commissionMonthKey,
       ],
       queryFn: () =>
         customerCareApi.getCustomerCareSessionCommissions(staffId, studentId, {
-          scope: commissionScope,
-          month: commissionQueryMonth,
+          month: commissionMonthKey,
         }),
       enabled:
         !!staffId && activeTab === "commissions" && canQueryCommissions,
@@ -545,7 +548,7 @@ export default function CustomerCareDetailPanels({
   useEffect(() => {
     setExpandedStudentIds(new Set());
     setSelectedAttendanceIds(new Set());
-  }, [commissionFilterMode, commissionMonthKey]);
+  }, [commissionMonthKey]);
 
   useEffect(() => {
     if (
@@ -995,7 +998,12 @@ export default function CustomerCareDetailPanels({
           {...panelMotionProps}
         >
           <div className="mb-3 ml-5">
-            <h2 className="text-base font-medium text-text-primary">Học sinh</h2>
+            <h2 className="text-base font-medium text-text-primary">
+              Học sinh{" "}
+              <span className="font-normal text-text-muted">
+                (Số lượng: {studentTotalCount})
+              </span>
+            </h2>
           </div>
 
           {studentsError && (
@@ -1223,7 +1231,12 @@ export default function CustomerCareDetailPanels({
           {...panelMotionProps}
         >
           <div className="mb-3 ml-5">
-            <h2 className="text-base font-medium text-text-primary">Thanh Toán</h2>
+            <h2 className="text-base font-medium text-text-primary">
+              Thanh Toán{" "}
+              <span className="font-normal text-text-muted">
+                (tổng thanh toán: {formatCurrency(topUpTotalAmount)})
+              </span>
+            </h2>
           </div>
 
           {topUpHistoryError && (
@@ -1371,42 +1384,12 @@ export default function CustomerCareDetailPanels({
                 Hoa hồng CSKH theo học phí buổi học đã ghi nhận.
               </p>
             </div>
-            <div className="flex flex-col gap-2 px-4 sm:items-end sm:px-0">
-              <div className="inline-flex w-full rounded-xl border border-border-default bg-bg-surface p-1 sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => setCommissionFilterMode("pending")}
-                  className={cn(
-                    "min-h-10 flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors sm:flex-none",
-                    commissionFilterMode === "pending"
-                      ? "bg-primary text-text-inverse"
-                      : "text-text-secondary hover:bg-bg-secondary",
-                  )}
-                >
-                  Chưa thanh toán
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCommissionFilterMode("month")}
-                  className={cn(
-                    "min-h-10 flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors sm:flex-none",
-                    commissionFilterMode === "month"
-                      ? "bg-primary text-text-inverse"
-                      : "text-text-secondary hover:bg-bg-secondary",
-                  )}
-                >
-                  Theo tháng
-                </button>
-              </div>
-              {commissionFilterMode === "month" ? (
-                <MonthInput
-                  value={commissionMonthKey}
-                  onChange={(event) => setCommissionMonthKey(event.target.value)}
-                  className="w-full sm:min-w-[18rem]"
-                  aria-label="Chọn tháng đối soát hoa hồng"
-                />
-              ) : null}
-            </div>
+            <MonthInput
+              value={commissionMonthKey}
+              onChange={(event) => setCommissionMonthKey(event.target.value)}
+              className="w-full px-4 sm:min-w-[18rem] sm:px-0"
+              aria-label="Chọn tháng đối soát hoa hồng"
+            />
           </div>
 
           {canEditCommissionPaymentStatus && selectedCount > 0 ? (
@@ -1471,20 +1454,32 @@ export default function CustomerCareDetailPanels({
           )}
           {!commissionsLoading && !commissionsError && commissions.length === 0 && (
             <div className="rounded-[1.5rem] border border-border-default bg-bg-surface p-6 text-center text-sm text-text-muted shadow-sm">
-              {commissionFilterMode === "pending"
-                ? "Không có khoản hoa hồng chưa thanh toán."
-                : `Không có hoa hồng trong ${commissionMonthLabel}.`}
+              {`Không có hoa hồng trong ${commissionMonthLabel}.`}
             </div>
           )}
           {!commissionsLoading && !commissionsError && commissions.length > 0 && (
             <div className="space-y-2">
               <div
                 className={`hidden items-center gap-3 rounded-[1.25rem] border border-border-default/80 bg-bg-secondary/80 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted lg:grid ${COMMISSION_ROW_GRID_CLASS}`}
-                aria-hidden
               >
-                <span>Tên</span>
-                <span className="text-right">Chưa thanh toán</span>
-                <span className="text-right">Tổng hoa hồng</span>
+                <span>
+                  Tên{" "}
+                  <span className="normal-case tracking-normal text-text-secondary">
+                    (Tổng số lượng học sinh: {commissionSummary.studentCount})
+                  </span>
+                </span>
+                <span className="text-right">
+                  Chưa thanh toán{" "}
+                  <span className="normal-case tracking-normal text-text-secondary">
+                    ({formatCurrency(commissionSummary.totalPending)})
+                  </span>
+                </span>
+                <span className="text-right">
+                  Tổng hoa hồng{" "}
+                  <span className="normal-case tracking-normal text-text-secondary">
+                    ({formatCurrency(commissionSummary.totalMonthCommission)})
+                  </span>
+                </span>
                 <span className="sr-only">Mở rộng</span>
               </div>
               {commissions.map((item: CustomerCareCommissionItem) => {
@@ -1513,11 +1508,7 @@ export default function CustomerCareDetailPanels({
                       {formatCurrency(item.pendingCommission)}
                     </span>
                     <span className="text-right tabular-nums font-semibold text-primary">
-                      {formatCurrency(
-                        commissionFilterMode === "pending"
-                          ? item.pendingCommission
-                          : item.totalCommission,
-                      )}
+                      {formatCurrency(item.monthCommission)}
                     </span>
                     <svg
                       className={`size-4 justify-self-end text-text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`}
@@ -1537,17 +1528,13 @@ export default function CustomerCareDetailPanels({
                   {isExpanded ? (
                     <div className="border-t border-border-subtle bg-bg-secondary px-4 py-3">
                       <p className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
-                        {commissionFilterMode === "pending"
-                          ? "Buổi học chưa thanh toán"
-                          : `Buổi học trong ${commissionMonthLabel}`}
+                        {`Buổi học trong ${commissionMonthLabel}`}
                       </p>
                       {studentSessionsLoading ? (
                         <SessionCommissionSkeleton />
                       ) : studentSessions.length === 0 ? (
                         <p className="text-sm text-text-muted">
-                          {commissionFilterMode === "pending"
-                            ? "Không có buổi học chưa thanh toán."
-                            : `Không có buổi học trong ${commissionMonthLabel}.`}
+                          {`Không có buổi học trong ${commissionMonthLabel}.`}
                         </p>
                       ) : (
                         <div className="space-y-3">

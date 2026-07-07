@@ -54,6 +54,7 @@ export async function getCustomerCareTopUpHistory(
       total: payload?.meta?.total ?? 0,
       page: payload?.meta?.page ?? page,
       limit: payload?.meta?.limit ?? limit,
+      totalAmount: payload?.meta?.totalAmount ?? 0,
     },
   };
 }
@@ -61,16 +62,44 @@ export async function getCustomerCareTopUpHistory(
 export async function getCustomerCareCommissions(
   staffId: string,
   params: CustomerCareCommissionListParams = {},
-): Promise<CustomerCareCommissionItem[]> {
-  const res = await api.get<CustomerCareCommissionItem[]>(
-    `/customer-care/staff/${encodeURIComponent(staffId)}/commissions`,
-    { params },
-  );
-  return (res.data ?? []).map((item) => ({
-    ...item,
-    pendingCommission: item.pendingCommission ?? 0,
-    paidCommission: item.paidCommission ?? 0,
-  }));
+): Promise<import("@/dtos/customer-care.dto").CustomerCareCommissionListResponse> {
+  const res = await api.get<
+    | import("@/dtos/customer-care.dto").CustomerCareCommissionListResponse
+    | CustomerCareCommissionItem[]
+  >(`/customer-care/staff/${encodeURIComponent(staffId)}/commissions`, {
+    params,
+  });
+  const payload = res.data;
+  if (Array.isArray(payload)) {
+    const data = payload.map((item) => ({
+      ...item,
+      monthCommission: item.monthCommission ?? item.totalCommission ?? 0,
+      pendingCommission: item.pendingCommission ?? 0,
+      paidCommission: item.paidCommission ?? 0,
+    }));
+    const summary = data.reduce(
+      (acc, row) => ({
+        studentCount: acc.studentCount + 1,
+        totalPending: acc.totalPending + row.pendingCommission,
+        totalMonthCommission: acc.totalMonthCommission + row.monthCommission,
+      }),
+      { studentCount: 0, totalPending: 0, totalMonthCommission: 0 },
+    );
+    return { data, summary };
+  }
+  return {
+    data: (payload?.data ?? []).map((item) => ({
+      ...item,
+      monthCommission: item.monthCommission ?? item.totalCommission ?? 0,
+      pendingCommission: item.pendingCommission ?? 0,
+      paidCommission: item.paidCommission ?? 0,
+    })),
+    summary: payload?.summary ?? {
+      studentCount: 0,
+      totalPending: 0,
+      totalMonthCommission: 0,
+    },
+  };
 }
 
 export async function getCustomerCareSessionCommissions(
@@ -80,7 +109,11 @@ export async function getCustomerCareSessionCommissions(
 ): Promise<CustomerCareSessionCommissionItem[]> {
   const res = await api.get<CustomerCareSessionCommissionItem[]>(
     `/customer-care/staff/${encodeURIComponent(staffId)}/students/${encodeURIComponent(studentId)}/session-commissions`,
-    { params },
+    {
+      params: params.month
+        ? { month: params.month }
+        : params,
+    },
   );
   return (res.data ?? []).map((item) => ({
     ...item,
