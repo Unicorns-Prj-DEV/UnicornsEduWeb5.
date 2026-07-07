@@ -19,6 +19,9 @@
 - **Lần khảo sát hiện tại (current survey round)**: một số nguyên toàn cục N do admin đặt (lưu ở bảng single-row `survey_round`, seed N = 6). Mọi lớp đang chạy được kỳ vọng đã có báo cáo khảo sát `class_surveys.test_number = N`. Đây là nguồn authoritative chung cho cả cảnh báo lớp trên admin dashboard lẫn khối "Lớp chưa điền lịch / khảo sát" trên staff dashboard.
 - **Đặt lần khảo sát**: thao tác admin đặt trực tiếp giá trị N hiện tại; hệ quả là các lớp `running` được đánh giá lại theo `test_number = N` mới. Mọi thay đổi N được audit qua `action_history` (entity `survey_round`).
 - **Lớp chưa báo cáo (lần N)**: lớp ở trạng thái `running` chưa có `class_surveys` với `test_number = N`. Định nghĩa "đã báo cáo lần N" là có **ít nhất một** bản ghi khảo sát với đúng `test_number = N`.
+- **Ban Đào Tạo**: nhân sự có staff role `training` và đang `active`.
+- **Quản lý lớp**: một nhân sự Ban Đào Tạo được gán cho đúng một lớp (`classes.training_manager_staff_id`). Mỗi lớp chỉ có tối đa một quản lý lớp tại một thời điểm.
+- **Trợ cấp quản lý lớp**: khoản thanh toán theo buổi = `%` cấu hình trên lớp × tổng học phí buổi (sum `tuition_fee` attendance `present`/`excused`); snapshot tại `sessions` và thanh toán payroll ở cấp buổi (`training_manager_payment_status`) tương tự CSKH.
 
 ## Hồ sơ nhân sự
 
