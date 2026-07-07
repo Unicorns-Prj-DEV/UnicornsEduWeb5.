@@ -11,6 +11,8 @@ model Class {
   studentTuitionPerSession       Int?                                 @map("student_tuition_per_session")
   tuitionPackageTotal            Int?                                 @map("tuition_package_total")
   tuitionPackageSession          Int?                                 @map("tuition_package_session")
+  trainingManagerStaffId         String?                              @map("training_manager_staff_id")
+  trainingManagerRatePercent     Decimal?                             @map("training_manager_rate_percent") @db.Decimal(5, 2)
   createdAt                      DateTime                             @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                      DateTime                             @updatedAt @map("updated_at") @db.Timestamptz(6)
   surveys                        ClassSurvey[]
@@ -19,7 +21,9 @@ model Class {
   missedTeachingExplanations     MissedTeachingExplanation[]
   sessions                       Session[]
   students                       StudentClass[]
+  trainingManager                StaffInfo?                           @relation("ClassTrainingManager", fields: [trainingManagerStaffId], references: [id])
 
+  @@index([trainingManagerStaffId])
   @@map("classes")
 }
 
@@ -71,6 +75,11 @@ model Session {
   teacherOperatingDeductionRatePercent Decimal              @default(0) @map("teacher_tax_rate_percent") @db.Decimal(5, 2)
   teacherTaxDeductionRatePercent       Decimal              @default(0) @map("teacher_tax_deduction_rate_percent") @db.Decimal(5, 2)
   teacherPaymentStatus                 String               @default("unpaid") @map("teacher_payment_status")
+  trainingManagerStaffId               String?              @map("training_manager_staff_id")
+  trainingManagerRatePercent           Decimal              @default(0) @map("training_manager_rate_percent") @db.Decimal(5, 2)
+  trainingManagerAllowanceAmount       Int?                 @map("training_manager_allowance_amount")
+  trainingManagerPaymentStatus         PaymentStatus?       @map("training_manager_payment_status")
+  trainingManagerTaxDeductionRatePercent Decimal            @default(0) @map("training_manager_tax_deduction_rate_percent") @db.Decimal(5, 2)
   date                                 DateTime             @db.Date
   startTime                            DateTime?            @map("start_time") @db.Time(6)
   endTime                              DateTime?            @map("end_time") @db.Time(6)
@@ -88,10 +97,12 @@ model Session {
   attendance                           Attendance[]
   class                                Class                @relation(fields: [classId], references: [id], onDelete: Cascade)
   makeupScheduleEvent                  MakeupScheduleEvent?
-  teacher                              StaffInfo            @relation(fields: [teacherId], references: [id])
+  teacher                              StaffInfo            @relation("SessionTeacher", fields: [teacherId], references: [id])
+  trainingManager                      StaffInfo?           @relation("SessionTrainingManager", fields: [trainingManagerStaffId], references: [id])
 
   @@index([teacherId])
   @@index([classId])
+  @@index([trainingManagerStaffId, trainingManagerPaymentStatus])
   @@index([date])
   @@index([classId, date])
   @@index([classId, teacherId, date])
