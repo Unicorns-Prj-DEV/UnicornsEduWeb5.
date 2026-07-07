@@ -166,4 +166,7 @@ export interface SessionItem {
   googleMeetLink?: string | null;
   /** Google Calendar event ID */
   googleCalendarEventId?: string | null;
+  trainingManagerAllowanceAmount?: number | null;
+  trainingManagerPaymentStatus?: SessionPaymentStatus | null;
+  trainingManagerRatePercent?: number | null;
 }

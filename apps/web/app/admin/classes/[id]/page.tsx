@@ -863,7 +863,11 @@ export default function AdminClassDetailPage() {
           )}
         >
           <TutorCard
+            classId={id}
             teachers={classDetail.teachers}
+            trainingManager={classDetail.trainingManager}
+            trainingManagerRatePercent={classDetail.trainingManagerRatePercent}
+            canEditTrainingManager={isAdmin || isAssistant}
             defaultAllowancePerStudent={classDetail.allowancePerSessionPerStudent}
             showTeacherCompensation={showTeacherCompensation}
             className="flex-1"
@@ -1466,6 +1470,7 @@ export default function AdminClassDetailPage() {
                   teachers={popupTeachers}
                   getClassStudents={getClassStudents}
                   sessionTuitionTotal={totalSessionTuition}
+                  showTrainingManagerAllowance={showTeacherCompensation}
                 />
               )}
               {isSessionsError ? (

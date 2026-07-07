@@ -360,11 +360,16 @@ export default function StaffClassDetailPage() {
   const isCustomerCare =
     profile?.roleType === "staff" &&
     (profile.staffInfo?.roles ?? []).includes("customer_care");
+  const isTraining =
+    profile?.roleType === "staff" &&
+    (profile.staffInfo?.roles ?? []).includes("training");
   const shouldUseAdminClassDetailPage = isAssistant || isAccountant;
   /** Dải meta trạng thái/gói/trợ cấp/sĩ số/… — chỉ cho admin, kế toán, CSKH (trợ lí dùng AdminClassDetailPage). */
-  const showClassOperationalMeta = isAdmin || isAccountant || isCustomerCare;
+  const showClassOperationalMeta =
+    isAdmin || isAccountant || isCustomerCare;
   const canAccessClassWorkspace =
-    !shouldUseAdminClassDetailPage && (isAdmin || isTeacher || isCustomerCare);
+    !shouldUseAdminClassDetailPage &&
+    (isAdmin || isTeacher || isCustomerCare || isTraining);
   const actorStaffId = profile?.staffInfo?.id ?? "";
 
   const {
@@ -454,6 +459,7 @@ export default function StaffClassDetailPage() {
     Boolean(actorStaffId) &&
     (classDetail?.teachers ?? []).some((teacher) => teacher.id === actorStaffId);
   const isCustomerCareView = isCustomerCare && !isTeacherWorkspaceActor;
+  const isTrainingView = isTraining && !isTeacherWorkspaceActor && !isCustomerCare;
   const usesTeacherScope =
     !isAdmin && (teacherAssignedToClass || hasTeacherSelfServiceAccess);
   const teacherCount = classDetail?.teachers?.length ?? 0;
@@ -646,7 +652,9 @@ export default function StaffClassDetailPage() {
         ? "Tài khoản hiện tại không có quyền mở chi tiết lớp trong staff shell."
         : isCustomerCareView
           ? "Không tìm thấy lớp học này trong danh sách học sinh bạn đang chăm sóc."
-          : "Không tìm thấy lớp học hoặc bạn chưa được phân công lớp này.";
+          : isTrainingView
+            ? "Không tìm thấy lớp học này trong danh sách lớp bạn đang quản lý."
+            : "Không tìm thấy lớp học hoặc bạn chưa được phân công lớp này.";
 
     return (
       <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 sm:p-6">
@@ -714,9 +722,11 @@ export default function StaffClassDetailPage() {
               <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
                 {isCustomerCareView
                   ? "Customer Care View"
-                  : isAdmin
-                    ? "Staff Workspace"
-                    : "Teacher Workspace"}
+                  : isTrainingView
+                    ? "Training Manager View"
+                    : isAdmin
+                      ? "Staff Workspace"
+                      : "Teacher Workspace"}
               </span>
             </div>
             {showClassOperationalMeta ? (
@@ -833,8 +843,10 @@ export default function StaffClassDetailPage() {
         />
         <div className="grid gap-3 lg:grid-cols-2">
           <TutorCard
+            classId={id}
             teachers={classDetail.teachers}
-            defaultAllowancePerStudent={classDetail.allowancePerSessionPerStudent}
+            trainingManager={classDetail.trainingManager}
+            trainingManagerRatePercent={classDetail.trainingManagerRatePercent}
             className="flex-1"
             enableTeacherNavigation={false}
             action={
@@ -1186,6 +1198,7 @@ export default function StaffClassDetailPage() {
                     allowFinancialEdits={false}
                     allowPaymentStatusEdit={false}
                     allowDeleteSession={false}
+                    showTrainingManagerAllowance={isTrainingView}
                     updateSessionFn={handleUpdateSession}
                   />
                 </div>

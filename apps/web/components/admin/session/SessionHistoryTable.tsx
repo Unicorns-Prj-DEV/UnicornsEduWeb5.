@@ -98,6 +98,7 @@ type Props = {
   allowDeleteSession?: boolean;
   enableBulkPaymentStatusEdit?: boolean;
   readOnlySessionDetails?: boolean;
+  showTrainingManagerAllowance?: boolean;
   updateSessionFn?: (
     id: string,
     data: SessionUpdatePayload,
@@ -678,10 +679,12 @@ function ClassDetailInfoColumn({
   session,
   entityMode,
   status,
+  showTrainingManagerAllowance = false,
 }: {
   session: SessionItem;
   entityMode: SessionEntityMode;
   status: { label: string; className: string };
+  showTrainingManagerAllowance?: boolean;
 }) {
   const showTeacherEntity = entityMode === "teacher";
   const showClassEntity = entityMode === "class";
@@ -762,6 +765,12 @@ function ClassDetailInfoColumn({
           </span>
         </div>
       </div>
+
+      {showTrainingManagerAllowance ? (
+        <p className="text-[11px] font-medium tabular-nums text-primary">
+          QLL: {formatCurrency(session.trainingManagerAllowanceAmount)}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -790,6 +799,7 @@ export default function SessionHistoryTable({
   allowDeleteSession = true,
   enableBulkPaymentStatusEdit = false,
   readOnlySessionDetails = false,
+  showTrainingManagerAllowance = false,
   updateSessionFn = sessionApi.updateSession,
   deleteSessionFn = sessionApi.deleteSession,
 }: Props) {
@@ -2047,6 +2057,9 @@ export default function SessionHistoryTable({
                             session={session}
                             entityMode={entityMode}
                             status={status}
+                            showTrainingManagerAllowance={
+                              showTrainingManagerAllowance
+                            }
                           />
                         </div>
                       </td>
