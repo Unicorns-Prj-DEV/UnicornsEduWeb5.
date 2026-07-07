@@ -23,6 +23,7 @@ import { SessionSnapshotService } from './session-snapshot.service';
 import { SessionStudentBalanceService } from './session-student-balance.service';
 import { SessionValidationService } from './session-validation.service';
 import { SessionScheduleRulesService } from './session-schedule-rules.service';
+import { computeTrainingManagerSessionSnapshot } from '../training-manager/training-manager.utils';
 import { createMemoizedTaxDeductionResolver } from '../payroll/deduction-rates';
 import { resolveAssistantManagerStaffIdForAttendance } from '../payroll/assistant-share.util';
 import {
@@ -110,6 +111,8 @@ export class SessionCreateService {
                   name: true,
                   allowancePerSessionPerStudent: true,
                   scaleAmount: true,
+                  trainingManagerStaffId: true,
+                  trainingManagerRatePercent: true,
                 },
               },
             },
@@ -300,6 +303,12 @@ export class SessionCreateService {
             (sum, attendanceItem) => sum + (attendanceItem.tuitionFee ?? 0),
             0,
           );
+          const trainingManagerSnapshot = computeTrainingManagerSessionSnapshot({
+            sessionTuitionTotal: tuitionFee,
+            trainingManagerStaffId: classTeacher.class.trainingManagerStaffId,
+            trainingManagerRatePercent:
+              classTeacher.class.trainingManagerRatePercent,
+          });
 
           const attendanceWithCharge = resolvedAttendance.filter(
             (attendanceItem) => (attendanceItem.tuitionFee ?? 0) > 0,
@@ -417,6 +426,13 @@ export class SessionCreateService {
               lessonContent: data.lessonContent ?? null,
               homework: data.homework ?? null,
               teacherPaymentStatus: data.teacherPaymentStatus ?? undefined,
+              trainingManagerStaffId: trainingManagerSnapshot.trainingManagerStaffId,
+              trainingManagerRatePercent:
+                trainingManagerSnapshot.trainingManagerRatePercent,
+              trainingManagerAllowanceAmount:
+                trainingManagerSnapshot.trainingManagerAllowanceAmount,
+              trainingManagerPaymentStatus:
+                trainingManagerSnapshot.trainingManagerPaymentStatus,
               attendance: {
                 createMany: {
                   data: attendanceCreateData,

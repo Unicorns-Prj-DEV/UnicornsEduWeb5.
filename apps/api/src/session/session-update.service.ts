@@ -32,6 +32,7 @@ import {
   normalizePercent,
   resolveTaxDeductionRate,
 } from '../payroll/deduction-rates';
+import { computeTrainingManagerSessionSnapshot } from '../training-manager/training-manager.utils';
 import { resolveAssistantManagerStaffIdForAttendance } from '../payroll/assistant-share.util';
 import {
   computeDefaultSessionAllowanceAmountVnd,
@@ -1045,6 +1046,31 @@ export class SessionUpdateService {
           );
         });
 
+        let trainingManagerUpdate:
+          | {
+              trainingManagerStaffId: string | null;
+              trainingManagerRatePercent: number;
+              trainingManagerAllowanceAmount: number | null;
+              trainingManagerPaymentStatus: PaymentStatus | null;
+            }
+          | undefined;
+
+        if (sessionTuitionFeeUpdate !== undefined) {
+          const classTrainingConfig = await tx.class.findUnique({
+            where: { id: nextClassId },
+            select: {
+              trainingManagerStaffId: true,
+              trainingManagerRatePercent: true,
+            },
+          });
+          trainingManagerUpdate = computeTrainingManagerSessionSnapshot({
+            sessionTuitionTotal: sessionTuitionFeeUpdate,
+            trainingManagerStaffId: classTrainingConfig?.trainingManagerStaffId,
+            trainingManagerRatePercent:
+              classTrainingConfig?.trainingManagerRatePercent,
+          });
+        }
+
         await tx.session.update({
           where: { id: sessionId },
           data: {
@@ -1082,6 +1108,18 @@ export class SessionUpdateService {
             ...(sessionTuitionFeeUpdate !== undefined && {
               tuitionFee: sessionTuitionFeeUpdate,
             }),
+            ...(trainingManagerUpdate
+              ? {
+                  trainingManagerStaffId:
+                    trainingManagerUpdate.trainingManagerStaffId,
+                  trainingManagerRatePercent:
+                    trainingManagerUpdate.trainingManagerRatePercent,
+                  trainingManagerAllowanceAmount:
+                    trainingManagerUpdate.trainingManagerAllowanceAmount,
+                  trainingManagerPaymentStatus:
+                    trainingManagerUpdate.trainingManagerPaymentStatus,
+                }
+              : {}),
           },
         });
 
