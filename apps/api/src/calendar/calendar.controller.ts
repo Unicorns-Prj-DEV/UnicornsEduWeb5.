@@ -37,6 +37,7 @@ interface StudentItem {
 
 type CalendarActorScope = {
   teacherId?: string;
+  trainingManagerStaffId?: string;
   redactStudentFields?: boolean;
 };
 
@@ -63,7 +64,10 @@ export class CalendarController {
     );
 
     if (actor.calendarAccessMode === 'training') {
-      return { redactStudentFields: true };
+      return {
+        trainingManagerStaffId: actor.id,
+        redactStudentFields: true,
+      };
     }
 
     return { teacherId: actor.id };
@@ -129,6 +133,7 @@ export class CalendarController {
       limit,
       search,
       scope.teacherId,
+      scope.trainingManagerStaffId,
     );
   }
 
@@ -310,7 +315,12 @@ export class CalendarController {
       filters,
       actor.calendarAccessMode === 'teacher'
         ? { teacherId: actor.id }
-        : { redactStudentFields: actor.calendarAccessMode === 'training' },
+        : actor.calendarAccessMode === 'training'
+          ? {
+              trainingManagerStaffId: actor.id,
+              redactStudentFields: true,
+            }
+          : { redactStudentFields: false },
     );
     return result;
   }

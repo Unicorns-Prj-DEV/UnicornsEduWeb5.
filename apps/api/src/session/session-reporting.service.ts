@@ -5,6 +5,11 @@ import { SessionUnpaidSummaryItem } from '../dtos/session.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { StaffOperationsAccessService } from '../staff-ops/staff-operations-access.service';
 import { getUserFullNameFromParts } from '../common/user-name.util';
+import {
+  redactSessionsForAccountantView,
+  redactSessionsForTrainingManagerView,
+  resolveAccountantFinanceView,
+} from '../common/accountant-finance-redaction.util';
 
 @Injectable()
 export class SessionReportingService {
@@ -155,7 +160,18 @@ export class SessionReportingService {
       },
     });
 
-    return sessions.map((session) => this.withDerivedTeacherFullName(session));
+    const mappedSessions = sessions.map((session) =>
+      this.withDerivedTeacherFullName(session),
+    );
+
+    if (accessMode === 'training_manager') {
+      return redactSessionsForTrainingManagerView(mappedSessions);
+    }
+
+    return redactSessionsForAccountantView(
+      mappedSessions,
+      resolveAccountantFinanceView(roleType, actor.roles),
+    );
   }
 
   async getSessionsByTeacherId(teacherId: string, month: string, year: string) {

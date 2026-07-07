@@ -49,6 +49,7 @@ import {
 } from 'src/common/student-class-tuition.util';
 import {
   redactClassForAccountantView,
+  redactClassForTrainingManagerView,
   redactClassListForAccountantView,
   resolveAccountantFinanceView,
 } from 'src/common/accountant-finance-redaction.util';
@@ -511,6 +512,19 @@ export class ClassService {
   ) {
     const classInfo = await db.class.findUnique({
       where: { id },
+      include: {
+        trainingManager: {
+          select: {
+            id: true,
+            user: {
+              select: {
+                first_name: true,
+                last_name: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!classInfo) {
@@ -614,6 +628,13 @@ export class ClassService {
 
     return {
       ...classInfo,
+      trainingManager: classInfo.trainingManager
+        ? {
+            id: classInfo.trainingManager.id,
+            fullName:
+              getUserFullNameFromParts(classInfo.trainingManager.user) ?? '',
+          }
+        : null,
       teachers,
       students,
       endClassEligibility,
@@ -938,13 +959,21 @@ export class ClassService {
       userId,
       roleType,
     );
-    await this.staffOperationsAccess.resolveClassViewAccessMode(actor, id);
+    const accessMode =
+      await this.staffOperationsAccess.resolveClassViewAccessMode(actor, id);
 
     const classDetail = await this.getClassById(id);
-    return redactClassForAccountantView(
+    const financeView = resolveAccountantFinanceView(roleType, actor.roles);
+    const accountantRedacted = redactClassForAccountantView(
       classDetail,
-      resolveAccountantFinanceView(roleType, actor.roles),
+      financeView,
     );
+
+    if (accessMode === 'training_manager') {
+      return redactClassForTrainingManagerView(accountantRedacted);
+    }
+
+    return accountantRedacted;
   }
 
   async createClassForStaff(

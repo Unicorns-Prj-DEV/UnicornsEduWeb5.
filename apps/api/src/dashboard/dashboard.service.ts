@@ -3448,12 +3448,18 @@ export class DashboardService {
   }
 
   private async getTrainingSection(
+    staffId: string,
     todayRange: ReturnType<typeof buildTodayRange>,
   ): Promise<StaffDashboardTrainingSectionDto> {
+    const managedClassFilter = {
+      status: ClassStatus.running,
+      trainingManagerStaffId: staffId,
+    };
+
     const [runningClasses, todayMakeupEvents, todayExamEvents] =
       await Promise.all([
         this.prisma.class.findMany({
-          where: { status: ClassStatus.running },
+          where: managedClassFilter,
           select: { id: true, schedule: true },
         }),
         this.prisma.makeupScheduleEvent.findMany({
@@ -3462,7 +3468,7 @@ export class DashboardService {
               gte: todayRange.start,
               lt: todayRange.end,
             },
-            class: { status: ClassStatus.running },
+            class: managedClassFilter,
           },
           select: { id: true, classId: true },
         }),
@@ -3475,7 +3481,7 @@ export class DashboardService {
             student: {
               studentClasses: {
                 some: {
-                  class: { status: ClassStatus.running },
+                  class: managedClassFilter,
                 },
               },
             },
@@ -3623,7 +3629,7 @@ export class DashboardService {
               })
             : Promise.resolve(undefined),
           normalizedRoles.includes(StaffRole.training)
-            ? this.getTrainingSection(todayRange)
+            ? this.getTrainingSection(params.staffId, todayRange)
             : Promise.resolve(undefined),
         ]);
 

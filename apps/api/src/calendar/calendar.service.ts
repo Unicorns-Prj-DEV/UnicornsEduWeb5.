@@ -58,6 +58,7 @@ type DiscoveredRecurringGoogleEvent = {
 
 type CalendarScope = {
   teacherId?: string;
+  trainingManagerStaffId?: string;
   redactStudentFields?: boolean;
 };
 
@@ -525,10 +526,14 @@ export class CalendarService {
     scope: CalendarScope = {},
   ): Prisma.ClassWhereInput {
     const teacherId = scope.teacherId ?? filters.teacherId;
+    const trainingManagerStaffId = scope.trainingManagerStaffId;
 
     return {
       status: 'running',
       ...(filters.classId ? { id: filters.classId } : {}),
+      ...(trainingManagerStaffId
+        ? { trainingManagerStaffId }
+        : {}),
       ...(teacherId
         ? {
             teachers: {
@@ -984,11 +989,13 @@ export class CalendarService {
     limit = 50,
     search?: string,
     teacherId?: string,
+    trainingManagerStaffId?: string,
   ): Promise<PaginatedResponse<{ id: string; name: string }>> {
     const trimmedSearch = search?.trim();
     const skip = (page - 1) * limit;
     const where: Prisma.ClassWhereInput = {
       status: 'running',
+      ...(trainingManagerStaffId ? { trainingManagerStaffId } : {}),
       ...(teacherId
         ? {
             teachers: {
