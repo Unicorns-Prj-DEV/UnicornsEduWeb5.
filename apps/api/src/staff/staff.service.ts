@@ -435,6 +435,7 @@ type StaffPaymentSourceType =
   | 'teacher_session'
   | 'customer_care'
   | 'assistant_share'
+  | 'training_manager'
   | 'lesson_output'
   | 'extra_allowance'
   | 'bonus';
@@ -504,6 +505,7 @@ const STAFF_PAYMENT_SOURCE_ORDER: Record<StaffPaymentSourceType, number> = {
   teacher_session: 10,
   customer_care: 20,
   assistant_share: 30,
+  training_manager: 35,
   lesson_output: 40,
   extra_allowance: 50,
   bonus: 60,
@@ -1902,6 +1904,69 @@ export class StaffService {
     });
   }
 
+  private async getTrainingManagerAllPendingPreviewRecords(
+    db: StaffPaymentClient,
+    staffId: string,
+  ): Promise<StaffPaymentPreviewDraftRecord[]> {
+    const rows = await db.session.findMany({
+      where: {
+        trainingManagerStaffId: staffId,
+        trainingManagerAllowanceAmount: { gt: 0 },
+        OR: [
+          { trainingManagerPaymentStatus: PaymentStatus.pending },
+          { trainingManagerPaymentStatus: null },
+        ],
+      },
+      select: {
+        id: true,
+        trainingManagerAllowanceAmount: true,
+        trainingManagerPaymentStatus: true,
+        date: true,
+        class: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy: [{ date: 'desc' }, { id: 'desc' }],
+    });
+
+    return rows.map((row) => ({
+      id: row.id,
+      role: StaffRole.training,
+      sourceType: 'training_manager',
+      sourceLabel: 'Trợ cấp quản lý lớp',
+      label: row.class?.name?.trim() || 'Lớp chưa đặt tên',
+      secondaryLabel: 'Quản lý lớp',
+      date: row.date.toISOString(),
+      currentStatus: row.trainingManagerPaymentStatus ?? PaymentStatus.pending,
+      grossAmount: normalizeMoneyAmount(row.trainingManagerAllowanceAmount),
+      operatingAmount: 0,
+    }));
+  }
+
+  private async getTrainingManagerRowsByPaymentStatus(params: {
+    staffId: string;
+    start: Date;
+    end: Date;
+  }): Promise<SourcePaymentTaxBucketRow[]> {
+    return this.prisma.$queryRaw<SourcePaymentTaxBucketRow[]>(Prisma.sql`
+      SELECT
+        COALESCE(sessions.training_manager_payment_status::text, ${PaymentStatus.pending}) AS "paymentStatus",
+        COALESCE(sessions.training_manager_tax_deduction_rate_percent, 0) AS "taxRatePercent",
+        COALESCE(SUM(COALESCE(sessions.training_manager_allowance_amount, 0)), 0) AS "grossAmount",
+        0 AS "operatingAmount"
+      FROM sessions
+      WHERE sessions.training_manager_staff_id = ${params.staffId}
+        AND sessions.date >= ${params.start}
+        AND sessions.date < ${params.end}
+        AND COALESCE(sessions.training_manager_allowance_amount, 0) > 0
+      GROUP BY
+        sessions.training_manager_payment_status,
+        sessions.training_manager_tax_deduction_rate_percent
+    `);
+  }
+
   private async getCustomerCareAllPendingPreviewRecords(
     db: StaffPaymentClient,
     staffId: string,
@@ -2612,6 +2677,9 @@ export class StaffService {
       isAssistant
         ? this.getAssistantAllPendingPreviewRecords(db, staffId)
         : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
+      roles.includes(StaffRole.training)
+        ? this.getTrainingManagerAllPendingPreviewRecords(db, staffId)
+        : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
       this.getExtraAllowanceAllPendingPreviewRecords(db, staffId),
     ]);
 
@@ -2638,6 +2706,9 @@ export class StaffService {
         : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
       isAssistant
         ? this.getAssistantAllPendingPreviewRecords(db, staffId)
+        : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
+      roles.includes(StaffRole.training)
+        ? this.getTrainingManagerAllPendingPreviewRecords(db, staffId)
         : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
       this.getExtraAllowanceAllPendingPreviewRecords(db, staffId),
     ]);
@@ -3426,6 +3497,9 @@ export class StaffService {
     const assistantAttendanceIds = records
       .filter((record) => record.sourceType === 'assistant_share')
       .map((record) => record.id);
+    const trainingManagerSessionIds = records
+      .filter((record) => record.sourceType === 'training_manager')
+      .map((record) => record.id);
     const lessonOutputIds = records
       .filter((record) => record.sourceType === 'lesson_output')
       .map((record) => record.id);
@@ -3443,6 +3517,9 @@ export class StaffService {
         ?.taxRatePercent ?? 0;
     const assistantTaxRatePercent =
       records.find((record) => record.sourceType === 'assistant_share')
+        ?.taxRatePercent ?? 0;
+    const trainingManagerTaxRatePercent =
+      records.find((record) => record.sourceType === 'training_manager')
         ?.taxRatePercent ?? 0;
     const lessonOutputTaxRatePercent =
       records.find((record) => record.sourceType === 'lesson_output')
@@ -3488,6 +3565,10 @@ export class StaffService {
         auditScope === 'all'
           ? 'Thanh toán toàn bộ phần chia trợ lí'
           : 'Thanh toán phần chia trợ lí đã chọn',
+      training_manager:
+        auditScope === 'all'
+          ? 'Thanh toán toàn bộ trợ cấp quản lý lớp'
+          : 'Thanh toán trợ cấp quản lý lớp đã chọn',
       lesson_output:
         auditScope === 'all'
           ? 'Thanh toán toàn bộ lesson output'
@@ -3586,6 +3667,25 @@ export class StaffService {
       sourceResults.push({
         sourceType: 'assistant_share',
         sourceLabel: 'Phần chia trợ lí 3%',
+        updatedCount: updateResult.count,
+      });
+    }
+
+    if (trainingManagerSessionIds.length > 0) {
+      const updateResult = await tx.session.updateMany({
+        where: {
+          id: {
+            in: trainingManagerSessionIds,
+          },
+        },
+        data: {
+          trainingManagerTaxDeductionRatePercent: trainingManagerTaxRatePercent,
+          trainingManagerPaymentStatus: PaymentStatus.paid,
+        },
+      });
+      sourceResults.push({
+        sourceType: 'training_manager',
+        sourceLabel: 'Trợ cấp quản lý lớp',
         updatedCount: updateResult.count,
       });
     }
@@ -3929,6 +4029,22 @@ export class StaffService {
         FROM extra_allowance_unpaid_rows
         GROUP BY staff_id
       ),
+      training_manager_unpaid_rows AS (
+        SELECT
+          sessions.training_manager_staff_id AS staff_id,
+          COALESCE(sessions.training_manager_allowance_amount, 0) AS gross_amount
+        FROM sessions
+        INNER JOIN target_staff ON target_staff.id = sessions.training_manager_staff_id
+        WHERE COALESCE(sessions.training_manager_payment_status::text, 'pending') = 'pending'
+          AND COALESCE(sessions.training_manager_allowance_amount, 0) > 0
+      ),
+      training_manager_unpaid AS (
+        SELECT
+          staff_id,
+          COALESCE(SUM(gross_amount), 0) AS amount
+        FROM training_manager_unpaid_rows
+        GROUP BY staff_id
+      ),
       all_unpaid AS (
         SELECT staff_id, amount FROM session_unpaid
         UNION ALL
@@ -3941,6 +4057,8 @@ export class StaffService {
         SELECT staff_id, amount FROM assistant_unpaid
         UNION ALL
         SELECT staff_id, amount FROM extra_allowance_unpaid
+        UNION ALL
+        SELECT staff_id, amount FROM training_manager_unpaid
       )
       SELECT
         target_staff.id AS "staffId",
@@ -4009,6 +4127,8 @@ export class StaffService {
       lessonOutputYearRows,
       assistantShareMonthlyRows,
       assistantShareYearRows,
+      trainingManagerMonthlyRows,
+      trainingManagerYearRows,
       unpaidSnapshotTotalsByStaffId,
       bonusIncomeTaxRatePercent,
     ] = await Promise.all([
@@ -4117,6 +4237,20 @@ export class StaffService {
             end: range.yearEnd,
           })
         : Promise.resolve<SourcePaymentTaxBucketRow[]>([]),
+      staff.roles.includes(StaffRole.training)
+        ? this.getTrainingManagerRowsByPaymentStatus({
+            staffId: id,
+            start: range.start,
+            end: range.end,
+          })
+        : Promise.resolve<SourcePaymentTaxBucketRow[]>([]),
+      staff.roles.includes(StaffRole.training)
+        ? this.getTrainingManagerRowsByPaymentStatus({
+            staffId: id,
+            start: range.yearStart,
+            end: range.yearEnd,
+          })
+        : Promise.resolve<SourcePaymentTaxBucketRow[]>([]),
       this.getUnpaidTotalsByStaffIds([id]),
       this.resolveBonusIncomeTaxRatePercent(id, staff.roles),
     ]);
@@ -4165,6 +4299,12 @@ export class StaffService {
     );
     const assistantShareYearSummary = summarizeSourceBucketRows(
       assistantShareYearRows,
+    );
+    const trainingManagerMonthlySummary = summarizeSourceBucketRows(
+      trainingManagerMonthlyRows,
+    );
+    const trainingManagerYearSummary = summarizeSourceBucketRows(
+      trainingManagerYearRows,
     );
 
     const sessionMonthlyTotals = sessionMonthlySummary.netTotals;
@@ -4259,6 +4399,13 @@ export class StaffService {
     const assistantShareMonthlyTaxTotals =
       assistantShareMonthlySummary.taxTotals;
 
+    const trainingManagerMonthlyTotals =
+      trainingManagerMonthlySummary.netTotals;
+    const trainingManagerMonthlyGrossTotals =
+      trainingManagerMonthlySummary.grossTotals;
+    const trainingManagerMonthlyTaxTotals =
+      trainingManagerMonthlySummary.taxTotals;
+
     const monthlyIncomeTotals = [
       sessionMonthlyTotals,
       bonusMonthlyTotals,
@@ -4266,6 +4413,7 @@ export class StaffService {
       customerCareMonthlyTotals,
       lessonOutputMonthlyTotals,
       assistantShareMonthlyTotals,
+      trainingManagerMonthlyTotals,
     ].reduce(mergeAmountSummary, makeAmountSummary());
     const snapshotUnpaidTotal = unpaidSnapshotTotalsByStaffId.get(id) ?? 0;
 
@@ -4276,6 +4424,7 @@ export class StaffService {
       customerCareMonthlyGrossTotals,
       lessonOutputMonthlyGrossTotals,
       assistantShareMonthlyGrossTotals,
+      trainingManagerMonthlyGrossTotals,
     ].reduce(mergeAmountSummary, makeAmountSummary());
 
     const monthlyTaxTotals = [
@@ -4285,6 +4434,7 @@ export class StaffService {
       customerCareMonthlyTaxTotals,
       lessonOutputMonthlyTaxTotals,
       assistantShareMonthlyTaxTotals,
+      trainingManagerMonthlyTaxTotals,
     ].reduce(mergeAmountSummary, makeAmountSummary());
 
     const monthlyOperatingDeductionTotals = [
@@ -4316,6 +4466,12 @@ export class StaffService {
       assistantShareYearSummary.grossTotals.total;
     const assistantShareYearTaxTotal =
       assistantShareYearSummary.taxTotals.total;
+    const trainingManagerYearTotal =
+      trainingManagerYearSummary.netTotals.total;
+    const trainingManagerYearGrossTotal =
+      trainingManagerYearSummary.grossTotals.total;
+    const trainingManagerYearTaxTotal =
+      trainingManagerYearSummary.taxTotals.total;
     const sessionYearTotal = sessionYearSummary.netTotals.total;
     const sessionYearGrossTotal = sessionYearSummary.grossTotals.total;
     const sessionYearTaxTotal = sessionYearSummary.taxTotals.total;
@@ -4327,21 +4483,24 @@ export class StaffService {
       extraAllowanceYearTotal +
       customerCareYearTotal +
       lessonOutputYearTotal +
-      assistantShareYearTotal;
+      assistantShareYearTotal +
+      trainingManagerYearTotal;
     const yearGrossIncomeTotal =
       sessionYearGrossTotal +
       bonusYearBreakdown.grossTotals.total +
       extraAllowanceYearGrossTotal +
       customerCareYearGrossTotal +
       lessonOutputYearGrossTotal +
-      assistantShareYearGrossTotal;
+      assistantShareYearGrossTotal +
+      trainingManagerYearGrossTotal;
     const yearTaxTotal =
       sessionYearTaxTotal +
       bonusYearBreakdown.taxTotals.total +
       extraAllowanceYearTaxTotal +
       customerCareYearTaxTotal +
       lessonOutputYearTaxTotal +
-      assistantShareYearTaxTotal;
+      assistantShareYearTaxTotal +
+      trainingManagerYearTaxTotal;
     const yearTotalDeductionTotal = yearTaxTotal + yearOperatingDeductionTotal;
 
     const yearPaidNetTotal =
@@ -4350,7 +4509,8 @@ export class StaffService {
       extraAllowanceYearSummary.netTotals.paid +
       customerCareYearSummary.netTotals.paid +
       lessonOutputYearSummary.netTotals.paid +
-      assistantShareYearSummary.netTotals.paid;
+      assistantShareYearSummary.netTotals.paid +
+      trainingManagerYearSummary.netTotals.paid;
 
     const totalReceivedNet = yearPaidNetTotal + snapshotUnpaidNetTotal;
 
@@ -4414,6 +4574,15 @@ export class StaffService {
         assistantSummary.total += assistantShareMonthlyTotals.total;
         assistantSummary.paid += assistantShareMonthlyTotals.paid;
         assistantSummary.unpaid += assistantShareMonthlyTotals.unpaid;
+      }
+    }
+
+    if (staff.roles.includes(StaffRole.training)) {
+      const trainingSummary = otherRoleSummaryMap.get(StaffRole.training);
+      if (trainingSummary) {
+        trainingSummary.total += trainingManagerMonthlyTotals.total;
+        trainingSummary.paid += trainingManagerMonthlyTotals.paid;
+        trainingSummary.unpaid += trainingManagerMonthlyTotals.unpaid;
       }
     }
 
