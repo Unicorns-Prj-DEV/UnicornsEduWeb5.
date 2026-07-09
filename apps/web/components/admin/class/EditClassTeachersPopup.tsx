@@ -8,8 +8,10 @@ import { toast } from "sonner";
 import type { ClassDetail } from "@/dtos/class.dto";
 import * as classApi from "@/lib/apis/class.api";
 import * as staffApi from "@/lib/apis/staff.api";
+import * as trainingManagerApi from "@/lib/apis/training-manager.api";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
 import { cn } from "@/lib/utils";
+import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import {
   classEditorModalClassName,
   classEditorModalCloseButtonClassName,
@@ -115,6 +117,14 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
   const [teacherSearchInput, setTeacherSearchInput] = useState("");
   const [teacherSearchFocused, setTeacherSearchFocused] = useState(false);
   const [debouncedTeacherSearch] = useDebounce(teacherSearchInput.trim(), 350);
+  const [trainingManagerStaffId, setTrainingManagerStaffId] = useState(
+    classDetail.trainingManager?.id ?? "",
+  );
+  const [trainingManagerRateInput, setTrainingManagerRateInput] = useState(
+    classDetail.trainingManagerRatePercent != null
+      ? String(classDetail.trainingManagerRatePercent)
+      : "",
+  );
 
   const { data: staffSearchResult } = useQuery({
     queryKey: ["staff", "list", { page: 1, limit: 50, search: debouncedTeacherSearch }],
@@ -125,6 +135,23 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
         search: debouncedTeacherSearch || undefined,
       }),
   });
+
+  const { data: trainingManagerSearchResult, isLoading: isTrainingManagerLoading } =
+    useQuery({
+      queryKey: [
+        "staff",
+        "training-manager-options",
+        { page: 1, limit: 50 },
+      ],
+      queryFn: () =>
+        staffApi.getStaff({
+          page: 1,
+          limit: 50,
+          role: "training",
+          status: "active",
+        }),
+      staleTime: 60_000,
+    });
 
   useLayoutEffect(() => {
     if (!teacherSearchFocused) return;
@@ -165,16 +192,40 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
         t.operatingDeductionRatePercent,
       ),
     }));
+    const parsedTrainingManagerRate =
+      trainingManagerRateInput.trim() === ""
+        ? null
+        : Number(trainingManagerRateInput.replace(",", "."));
+
+    if (
+      parsedTrainingManagerRate != null &&
+      (!Number.isFinite(parsedTrainingManagerRate) ||
+        parsedTrainingManagerRate < 0 ||
+        parsedTrainingManagerRate > 100)
+    ) {
+      toast.error("Tỷ lệ trợ cấp quản lý lớp phải trong khoảng 0-100%.");
+      return;
+    }
+
     onClose();
     runBackgroundSave({
-      loadingMessage: "Đang lưu danh sách gia sư...",
-      successMessage: "Đã lưu danh sách gia sư.",
-      errorMessage: "Không thể cập nhật danh sách gia sư.",
-      action: () => classApi.updateClassTeachers(classDetail.id, { teachers }),
+      loadingMessage: "Đang lưu gia sư và quản lý lớp...",
+      successMessage: "Đã lưu gia sư và quản lý lớp.",
+      errorMessage: "Không thể cập nhật gia sư hoặc quản lý lớp.",
+      action: async () => {
+        await classApi.updateClassTeachers(classDetail.id, { teachers });
+        await trainingManagerApi.updateClassTrainingManager(classDetail.id, {
+          trainingManagerStaffId: trainingManagerStaffId.trim() || null,
+          trainingManagerRatePercent: parsedTrainingManagerRate,
+        });
+      },
       onSuccess: async () => {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["class", "detail", classDetail.id] }),
           queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
+          queryClient.invalidateQueries({
+            queryKey: ["staff-ops", "class", "detail", classDetail.id],
+          }),
         ]);
       },
     });
@@ -182,6 +233,13 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
 
   const staffList = staffSearchResult?.data ?? [];
   const availableStaff = staffList.filter((s) => !selectedTeachers.some((t) => t.id === s.id));
+  const trainingManagerOptions = [
+    { value: "", label: "Chưa gán" },
+    ...((trainingManagerSearchResult?.data ?? []).map((staff) => ({
+      value: staff.id,
+      label: staff.fullName?.trim() || staff.id,
+    }))),
+  ];
   const dropdownDirection = teacherSearchFocused ? dropdownRect?.direction : null;
 
   return (
@@ -195,7 +253,7 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
       >
         <div className={classEditorModalHeaderClassName}>
           <h2 id="edit-class-teachers-title" className={classEditorModalTitleClassName}>
-            Chỉnh sửa gia sư phụ trách
+            Chỉnh sửa Gia sư & quản lý
           </h2>
           <button
             type="button"
@@ -223,7 +281,7 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
                 key={t.id}
                 className="rounded-2xl border border-border-default bg-bg-surface p-3 shadow-sm"
               >
-                <div className="grid grid-cols-[minmax(0,1fr)_minmax(8.5rem,10rem)_minmax(6.5rem,7.5rem)_auto] items-start gap-2 sm:gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(8.5rem,10rem)_minmax(6.5rem,7.5rem)_auto] sm:items-start">
                   <div className="min-w-0">
                     <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">
                       Gia sư phụ trách
@@ -232,10 +290,10 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
                   </div>
                   <label className="min-w-0">
                     <span className="sr-only">Trợ cấp riêng cho {t.name}</span>
-                    <p className="ml-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                    <p className="mb-1.5 ml-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">
                       Trợ cấp
                     </p>
-                    <div className="rounded-xl border border-border-default bg-bg-primary px-3 py-2">
+                    <div className="min-h-11 rounded-xl border border-border-default bg-bg-primary px-3 py-2">
                       <div className="flex items-center gap-1.5">
                         <input
                           type="number"
@@ -271,10 +329,10 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
                   </label>
                   <label className="min-w-0">
                     <span className="sr-only">Khấu trừ vận hành cho {t.name}</span>
-                    <p className="ml-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                    <p className="mb-1.5 ml-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">
                       Vận hành
                     </p>
-                    <div className="rounded-xl border border-border-default bg-bg-primary px-3 py-2">
+                    <div className="min-h-11 rounded-xl border border-border-default bg-bg-primary px-3 py-2">
                       <div className="flex items-center gap-1.5">
                         <input
                           type="number"
@@ -322,7 +380,7 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
                   <button
                     type="button"
                     onClick={() => setSelectedTeachers((prev) => prev.filter((x) => x.id !== t.id))}
-                    className="flex size-8 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-tertiary hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    className="flex size-8 shrink-0 items-center justify-center self-start rounded-md text-text-muted transition-colors hover:bg-bg-tertiary hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:mt-6"
                     aria-label={`Bỏ ${t.name}`}
                   >
                     <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -330,13 +388,56 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
                     </svg>
                   </button>
                 </div>
-                <p className="mt-2 text-xs text-text-muted text-right">
+                <p className="mt-2 text-xs text-text-muted sm:text-right">
                   {defaultAllowanceLabel
                     ? `Để trống để dùng ${defaultAllowanceLabel}.`
                     : "Để trống để dùng trợ cấp mặc định của lớp."}
                 </p>
               </div>
             ))}
+          </div>
+          <div className="rounded-2xl border border-border-default bg-bg-surface p-4 shadow-sm">
+            <div className="mb-4">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">
+                Quản lý lớp (Đào tạo)
+              </p>
+              <p className="mt-1 text-xs leading-5 text-text-muted">
+                Chọn nhân sự đào tạo phụ trách lớp và cấu hình tỷ lệ trợ cấp theo buổi.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem] sm:items-end">
+              <label className="min-w-0 space-y-1.5">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                  Nhân sự quản lý
+                </span>
+                <UpgradedSelect
+                  name="training-manager-staff"
+                  value={trainingManagerStaffId}
+                  onValueChange={setTrainingManagerStaffId}
+                  options={trainingManagerOptions}
+                  disabled={isTrainingManagerLoading}
+                  buttonClassName="min-h-11 w-full rounded-xl border border-border-default bg-bg-primary px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="min-w-0 space-y-1.5">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                  Tỷ lệ trợ cấp
+                </span>
+                <div className="min-h-11 rounded-xl border border-border-default bg-bg-primary px-3 py-2">
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={trainingManagerRateInput}
+                      onChange={(e) => setTrainingManagerRateInput(e.target.value)}
+                      placeholder="VD: 5"
+                      className="min-w-0 flex-1 bg-transparent text-right text-sm font-semibold tabular-nums text-text-primary outline-none placeholder:text-text-muted"
+                    />
+                    <span className="shrink-0 text-xs font-medium text-text-muted">%</span>
+                  </div>
+                </div>
+              </label>
+            </div>
           </div>
           <div className="relative" ref={teacherSearchRef}>
             <input

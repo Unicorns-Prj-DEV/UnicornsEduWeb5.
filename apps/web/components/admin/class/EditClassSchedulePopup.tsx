@@ -53,6 +53,7 @@ type Props = {
   teachers?: ScheduleTeacherOption[];
   allowTeacherSelection?: boolean;
   defaultTeacherId?: string;
+  readOnly?: boolean;
   onSubmitSchedule?: (data: { schedule: ClassScheduleItem[] }) => Promise<unknown>;
   onScheduleSaved?: () => Promise<unknown> | void;
 };
@@ -153,6 +154,7 @@ export default function EditClassSchedulePopup({
   teachers,
   allowTeacherSelection,
   defaultTeacherId,
+  readOnly,
   onSubmitSchedule,
   onScheduleSaved,
 }: Props) {
@@ -165,6 +167,7 @@ export default function EditClassSchedulePopup({
       teachers={teachers}
       allowTeacherSelection={allowTeacherSelection}
       defaultTeacherId={defaultTeacherId}
+      readOnly={readOnly}
       onSubmitSchedule={onSubmitSchedule}
       onScheduleSaved={onScheduleSaved}
     />
@@ -177,6 +180,7 @@ function EditClassScheduleDialog({
   teachers = [],
   allowTeacherSelection = true,
   defaultTeacherId,
+  readOnly = false,
   onSubmitSchedule,
   onScheduleSaved,
 }: Omit<Props, "open">) {
@@ -201,6 +205,10 @@ function EditClassScheduleDialog({
     (teacherId ? "Không còn trong danh sách gia sư của lớp" : "Chưa phân công");
 
   const handleSubmit = () => {
+    if (readOnly) {
+      onClose();
+      return;
+    }
     let schedulePayload: ClassScheduleItem[];
     try {
       schedulePayload = buildSchedulePayload(scheduleRanges);
@@ -288,7 +296,7 @@ function EditClassScheduleDialog({
       >
         <div className={classEditorModalHeaderClassName}>
           <h2 id="edit-class-schedule-title" className={classEditorModalTitleClassName}>
-            Chỉnh sửa khung giờ học
+            {readOnly ? "Xem khung giờ học" : "Chỉnh sửa khung giờ học"}
           </h2>
           <button
             type="button"
@@ -308,18 +316,22 @@ function EditClassScheduleDialog({
               <p className="text-xs text-text-muted">Định dạng HH:mm:ss.</p>
               {!allowTeacherSelection ? (
                 <p className="text-xs text-text-muted">
-                  Gia sư chịu trách nhiệm được giữ theo phân công hiện tại ở staff shell.
+                  {readOnly
+                    ? "Form đang ở chế độ chỉ xem."
+                    : "Gia sư chịu trách nhiệm được giữ theo phân công hiện tại ở staff shell."}
                 </p>
               ) : null}
             </div>
-            <button
-              type="button"
-              onClick={handleAddRange}
-              disabled={!canAddRange}
-              className="min-h-11 w-full rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:w-auto"
-            >
-              + Thêm khung giờ
-            </button>
+            {!readOnly ? (
+              <button
+                type="button"
+                onClick={handleAddRange}
+                disabled={!canAddRange}
+                className="min-h-11 w-full rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:w-auto"
+              >
+                + Thêm khung giờ
+              </button>
+            ) : null}
           </div>
           <div className="space-y-3">
             {scheduleRanges.map((range, index) => (
@@ -331,13 +343,15 @@ function EditClassScheduleDialog({
                   <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
                     Khung {String(index + 1).padStart(2, "0")}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveRange(range.id)}
-                    className="min-h-11 w-full rounded-md border border-border-default px-3 py-1.5 text-sm font-medium text-text-muted transition-colors hover:bg-error/15 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:w-auto"
-                  >
-                    Xóa
-                  </button>
+                  {!readOnly ? (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveRange(range.id)}
+                      className="min-h-11 w-full rounded-md border border-border-default px-3 py-1.5 text-sm font-medium text-text-muted transition-colors hover:bg-error/15 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:w-auto"
+                    >
+                      Xóa
+                    </button>
+                  ) : null}
                 </div>
                 <div className="grid gap-3 sm:grid-cols-[auto_1fr_auto_1fr] sm:items-end">
                   <label className="flex flex-col gap-1 text-sm text-text-secondary">
@@ -353,6 +367,7 @@ function EditClassScheduleDialog({
                         label: option.label,
                         selectedLabel: option.selectedLabel,
                       }))}
+                      disabled={readOnly}
                     />
                   </label>
                   <label className="flex flex-col gap-1 text-sm text-text-secondary">
@@ -362,6 +377,7 @@ function EditClassScheduleDialog({
                       value={range.from}
                       autoComplete="off"
                       onChange={(e) => handleChangeRange(range.id, "from", e.target.value)}
+                      disabled={readOnly}
                       className="rounded-md border border-border-default bg-bg-surface px-3 py-2 font-mono text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                     />
                   </label>
@@ -377,6 +393,7 @@ function EditClassScheduleDialog({
                       value={range.to}
                       autoComplete="off"
                       onChange={(e) => handleChangeRange(range.id, "to", e.target.value)}
+                      disabled={readOnly}
                       className="rounded-md border border-border-default bg-bg-surface px-3 py-2 font-mono text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                     />
                   </label>
@@ -392,6 +409,7 @@ function EditClassScheduleDialog({
                         options={teacherOptions}
                         placeholder="Chọn gia sư phụ trách"
                         emptyStateLabel="Lớp chưa có gia sư để gán."
+                        disabled={readOnly}
                       />
                     ) : (
                       <div className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary">
@@ -411,15 +429,17 @@ function EditClassScheduleDialog({
             onClick={onClose}
             className={classEditorModalSecondaryButtonClassName}
           >
-            Hủy
+            {readOnly ? "Đóng" : "Hủy"}
           </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            className={classEditorModalPrimaryButtonClassName}
-          >
-            Lưu
-          </button>
+          {!readOnly ? (
+            <button
+              type="button"
+              onClick={handleSubmit}
+              className={classEditorModalPrimaryButtonClassName}
+            >
+              Lưu
+            </button>
+          ) : null}
         </div>
       </div>
     </>

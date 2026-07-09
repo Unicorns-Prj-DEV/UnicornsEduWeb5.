@@ -92,7 +92,25 @@ type ClassRow = {
   maxStudents: number | null;
 };
 
-export default function AdminClassesPage() {
+type ClassListFetcher = (params: {
+  page: number;
+  limit: number;
+  search?: string;
+  status?: "" | ClassStatus;
+  type?: "" | ClassType;
+}) => Promise<ClassListResponse>;
+
+type AdminClassesPageProps = {
+  classListFetcher?: ClassListFetcher;
+  forceReadOnlyList?: boolean;
+  pageSubtitle?: string;
+};
+
+export default function AdminClassesPage({
+  classListFetcher = classApi.getClasses,
+  forceReadOnlyList = false,
+  pageSubtitle = "Theo dõi trạng thái và điều phối danh sách lớp nhanh hơn.",
+}: AdminClassesPageProps = {}) {
   const { push, replace } = useRouter();
   const queryClient = useQueryClient();
   const pathname = usePathname();
@@ -118,8 +136,8 @@ export default function AdminClassesPage() {
     staleTime: 60_000,
   });
   const { isAdmin, isAssistant, isAccountant } = resolveAdminShellAccess(fullProfile);
-  const canCreateClass = isAdmin || isAssistant;
-  const canDeleteClass = !isAccountant;
+  const canCreateClass = !forceReadOnlyList && (isAdmin || isAssistant);
+  const canDeleteClass = !forceReadOnlyList && !isAccountant;
 
   useEffect(() => {
     setSearchInput(search);
@@ -161,7 +179,7 @@ export default function AdminClassesPage() {
       status: filterStatus,
     }),
     queryFn: () =>
-      classApi.getClasses({
+      classListFetcher({
         page,
         limit: PAGE_SIZE,
         search: search.trim() || undefined,
@@ -275,7 +293,7 @@ export default function AdminClassesPage() {
             <div className="min-w-0">
               <h1 className="text-xl font-semibold text-text-primary sm:text-2xl">Lớp học</h1>
               <p className="mt-1 text-sm text-text-secondary">
-                Theo dõi trạng thái và điều phối danh sách lớp nhanh hơn.
+                {pageSubtitle}
               </p>
             </div>
             {canCreateClass ? (

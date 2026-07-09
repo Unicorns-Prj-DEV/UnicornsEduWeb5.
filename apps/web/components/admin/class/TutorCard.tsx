@@ -1,17 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import { ClassTeacher } from "@/dtos/class.dto";
 import type { ClassTrainingManager } from "@/dtos/training-manager.dto";
 import { formatCurrency } from "@/lib/class.helpers";
-import {
-  getTrainingManagerOptions,
-  updateClassTrainingManager,
-} from "@/lib/apis/training-manager.api";
-import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import ClassCard from "./ClassCard";
 
 const TEACHER_STATUS_LABELS = {
@@ -29,24 +21,19 @@ type TutorItem = {
 };
 
 type Props = {
-  classId?: string;
   teachers?: ClassTeacher[];
   trainingManager?: ClassTrainingManager | null;
   trainingManagerRatePercent?: number | null;
-  canEditTrainingManager?: boolean;
   /** Class default allowance per student per session (VNĐ). Used when teacher has no custom override. */
   defaultAllowancePerStudent?: number | null;
   /** Admin, accountant, assistant only — shows per-teacher Trợ cấp + Vận hành. */
   showTeacherCompensation?: boolean;
-  /** Admin, assistant, accountant, training manager view — shows QLL allowance column in sessions. */
-  showTrainingManagerAllowance?: boolean;
   className?: string;
   action?: React.ReactNode;
   enableTeacherNavigation?: boolean;
   canStopTeaching?: boolean;
   onStopTeaching?: (teacherId: string) => void;
   stopTeachingPendingTeacherId?: string | null;
-  onTrainingManagerUpdated?: () => void;
 };
 
 function normalizeMoneyAmount(value?: number | null): number | null {
@@ -109,27 +96,10 @@ function normalizeTutors(
   }, []);
 }
 
-function getErrorMessage(error: unknown, fallback: string) {
-  const message = (error as { response?: { data?: { message?: string | string[] } } })
-    ?.response?.data?.message;
-
-  if (Array.isArray(message)) {
-    return message.filter(Boolean).join(", ") || fallback;
-  }
-
-  if (typeof message === "string" && message.trim()) {
-    return message;
-  }
-
-  return (error as Error)?.message ?? fallback;
-}
-
 export default function TutorCard({
-  classId,
   teachers,
   trainingManager,
   trainingManagerRatePercent,
-  canEditTrainingManager = false,
   defaultAllowancePerStudent,
   showTeacherCompensation = false,
   className = "",
@@ -138,83 +108,12 @@ export default function TutorCard({
   canStopTeaching = false,
   onStopTeaching,
   stopTeachingPendingTeacherId = null,
-  onTrainingManagerUpdated,
 }: Props) {
-  const queryClient = useQueryClient();
   const tutorItems = normalizeTutors(
     teachers,
     showTeacherCompensation ? defaultAllowancePerStudent : undefined,
   );
   const { push } = useRouter();
-  const [managerStaffId, setManagerStaffId] = useState(
-    trainingManager?.id ?? "",
-  );
-  const [managerRateInput, setManagerRateInput] = useState(
-    trainingManagerRatePercent != null ? String(trainingManagerRatePercent) : "",
-  );
-
-  useEffect(() => {
-    setManagerStaffId(trainingManager?.id ?? "");
-    setManagerRateInput(
-      trainingManagerRatePercent != null ? String(trainingManagerRatePercent) : "",
-    );
-  }, [trainingManager?.id, trainingManagerRatePercent]);
-
-  const { data: managerOptions = [], isLoading: isManagerOptionsLoading } =
-    useQuery({
-      queryKey: ["training-manager", "options"],
-      queryFn: () => getTrainingManagerOptions({ limit: 100 }),
-      enabled: canEditTrainingManager,
-      staleTime: 60_000,
-    });
-
-  const managerSelectOptions = useMemo(
-    () => [
-      { value: "", label: "Chưa gán" },
-      ...managerOptions.map((option) => ({
-        value: option.id,
-        label: option.fullName,
-      })),
-    ],
-    [managerOptions],
-  );
-
-  const saveTrainingManagerMutation = useMutation({
-    mutationFn: async () => {
-      if (!classId) {
-        throw new Error("Thiếu mã lớp học.");
-      }
-
-      const parsedRate =
-        managerRateInput.trim() === ""
-          ? null
-          : Number(managerRateInput.replace(",", "."));
-
-      if (parsedRate != null && (!Number.isFinite(parsedRate) || parsedRate < 0 || parsedRate > 100)) {
-        throw new Error("Tỷ lệ quản lý lớp phải từ 0 đến 100.");
-      }
-
-      return updateClassTrainingManager(classId, {
-        trainingManagerStaffId: managerStaffId.trim() || null,
-        trainingManagerRatePercent: parsedRate,
-      });
-    },
-    onSuccess: async () => {
-      toast.success("Đã cập nhật quản lý lớp.");
-      if (classId) {
-        await queryClient.invalidateQueries({
-          queryKey: ["class", "detail", classId],
-        });
-        await queryClient.invalidateQueries({
-          queryKey: ["staff-ops", "class", "detail", classId],
-        });
-      }
-      onTrainingManagerUpdated?.();
-    },
-    onError: (error) => {
-      toast.error(getErrorMessage(error, "Không cập nhật được quản lý lớp."));
-    },
-  });
 
   const managerDisplayName = trainingManager?.fullName?.trim() || "Chưa gán";
   const managerRateDisplay = formatRatePercent(trainingManagerRatePercent);
@@ -340,53 +239,26 @@ export default function TutorCard({
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
             Quản lý lớp (Đào tạo)
           </p>
-          {canEditTrainingManager ? (
-            <div className="space-y-3 rounded-lg border border-border-default bg-bg-secondary/50 p-3">
-              <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-text-secondary">
+          <div className="rounded-lg border border-border-default bg-bg-secondary/50 px-3 py-3 text-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">
                   Nhân sự quản lý
-                </span>
-                <UpgradedSelect
-                  name="training-manager-staff"
-                  value={managerStaffId}
-                  onValueChange={setManagerStaffId}
-                  options={managerSelectOptions}
-                  disabled={isManagerOptionsLoading}
-                  buttonClassName="min-h-11 w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm"
-                />
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-text-secondary">
-                  Tỷ lệ trợ cấp (%)
-                </span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={managerRateInput}
-                  onChange={(event) => setManagerRateInput(event.target.value)}
-                  placeholder="VD: 5"
-                  className="min-h-11 w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                />
-              </label>
-              <button
-                type="button"
-                onClick={() => saveTrainingManagerMutation.mutate()}
-                disabled={saveTrainingManagerMutation.isPending || !classId}
-                className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-text-inverse transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {saveTrainingManagerMutation.isPending
-                  ? "Đang lưu..."
-                  : "Lưu quản lý lớp"}
-              </button>
+                </p>
+                <p className="mt-1 truncate font-medium text-text-primary">
+                  {managerDisplayName}
+                </p>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                  Tỷ lệ trợ cấp
+                </p>
+                <p className="mt-1 font-semibold tabular-nums text-text-primary">
+                  {managerRateDisplay}
+                </p>
+              </div>
             </div>
-          ) : (
-            <div className="rounded-lg border border-border-default bg-bg-secondary/50 px-3 py-3 text-sm">
-              <p className="font-medium text-text-primary">{managerDisplayName}</p>
-              <p className="mt-1 text-xs text-text-muted">
-                Tỷ lệ: <span className="font-semibold text-text-primary">{managerRateDisplay}</span>
-              </p>
-            </div>
-          )}
+          </div>
         </div>
       </div>
     </ClassCard>

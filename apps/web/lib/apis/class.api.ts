@@ -57,6 +57,26 @@ function normalizeOperatingDeductionRatePercent(
   return numericValue;
 }
 
+function normalizeTrainingManagerRatePercent(
+  record: Record<string, unknown>,
+): number | null | undefined {
+  const rawValue =
+    record.trainingManagerRatePercent ??
+    record.training_manager_rate_percent ??
+    null;
+
+  if (rawValue == null) {
+    return null;
+  }
+
+  const numericValue = Number(rawValue);
+  if (!Number.isFinite(numericValue)) {
+    return undefined;
+  }
+
+  return numericValue;
+}
+
 function normalizeClassTeacher(teacher: unknown): ClassTeacher {
   const source = (teacher ?? {}) as Record<string, unknown>;
   const operatingDeductionRatePercent =
@@ -108,6 +128,8 @@ function normalizeClassEndEligibility(
 function normalizeClassRecord<T extends ClassListItem>(record: T): T {
   const source = record as T & Record<string, unknown>;
   const endClassEligibility = normalizeClassEndEligibility(source);
+  const trainingManagerRatePercent =
+    normalizeTrainingManagerRatePercent(source);
   const withTeachers = Array.isArray(record.teachers)
     ? {
         ...record,
@@ -115,13 +137,12 @@ function normalizeClassRecord<T extends ClassListItem>(record: T): T {
       }
     : record;
 
-  if (!endClassEligibility) {
-    return withTeachers;
-  }
-
   return {
     ...withTeachers,
-    endClassEligibility,
+    ...(endClassEligibility ? { endClassEligibility } : {}),
+    ...(trainingManagerRatePercent !== undefined
+      ? { trainingManagerRatePercent }
+      : {}),
   };
 }
 

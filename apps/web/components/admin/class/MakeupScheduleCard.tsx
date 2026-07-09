@@ -36,6 +36,7 @@ type MakeupScheduleCardProps = {
   teacherMode?: MakeupTeacherMode;
   canCreate?: boolean;
   canEdit?: boolean;
+  canViewEventDetails?: boolean;
   canDelete?: boolean;
   canEditEvent?: (event: MakeupScheduleEventRecord) => boolean;
   canDeleteEvent?: (event: MakeupScheduleEventRecord) => boolean;
@@ -102,6 +103,7 @@ type MakeupEditorDialogProps = {
   teacherMode: MakeupTeacherMode;
   missedTeachingAlerts?: MissedTeachingAlert[];
   isSubmitting: boolean;
+  readOnly?: boolean;
   canDelete: boolean;
   onClose: () => void;
   onSave: (savePayload: MakeupEditorSavePayload) => void;
@@ -264,6 +266,7 @@ function MakeupEditorDialog({
   teacherMode,
   missedTeachingAlerts = [],
   isSubmitting,
+  readOnly = false,
   canDelete,
   onClose,
   onSave,
@@ -339,7 +342,11 @@ function MakeupEditorDialog({
                 Lịch Dạy Bù
               </p>
               <h3 className="mt-1 text-lg font-semibold text-text-primary">
-                {mode === "create" ? "Thêm buổi bù" : "Chỉnh sửa buổi bù"}
+                {mode === "create"
+                  ? "Thêm buổi bù"
+                  : readOnly
+                    ? "Xem buổi bù"
+                    : "Chỉnh sửa buổi bù"}
               </h3>
             </div>
             <button
@@ -380,7 +387,7 @@ function MakeupEditorDialog({
                     explanationReason: nextMatchingAlert?.explanation?.reason ?? "",
                   }));
                 }}
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
                 className="mt-1 h-10 w-full rounded-lg border border-border-default bg-bg-surface px-3 text-sm text-text-primary outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/30"
               />
               <p className="mt-1 text-xs text-text-muted">
@@ -398,7 +405,7 @@ function MakeupEditorDialog({
                 onChange={(nextEvent) =>
                   setForm((prev) => ({ ...prev, date: nextEvent.target.value }))
                 }
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
                 className="mt-1 h-10 w-full rounded-lg border border-border-default bg-bg-surface px-3 text-sm text-text-primary outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/30"
               />
             </div>
@@ -433,7 +440,7 @@ function MakeupEditorDialog({
                   }
                   options={teacherOptions}
                   placeholder="Chọn gia sư"
-                  disabled={teacherMode === "readOnly" || teachers.length === 0 || isSubmitting}
+                  disabled={readOnly || teacherMode === "readOnly" || teachers.length === 0 || isSubmitting}
                 />
               </div>
             </div>
@@ -448,7 +455,7 @@ function MakeupEditorDialog({
                 onChange={(nextEvent) =>
                   setForm((prev) => ({ ...prev, startTime: nextEvent.target.value }))
                 }
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
                 className="mt-1 h-10 w-full rounded-lg border border-border-default bg-bg-surface px-3 text-sm text-text-primary outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/30"
               />
             </div>
@@ -463,7 +470,7 @@ function MakeupEditorDialog({
                 onChange={(nextEvent) =>
                   setForm((prev) => ({ ...prev, endTime: nextEvent.target.value }))
                 }
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
                 className="mt-1 h-10 w-full rounded-lg border border-border-default bg-bg-surface px-3 text-sm text-text-primary outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/30"
               />
             </div>
@@ -478,7 +485,7 @@ function MakeupEditorDialog({
                 onChange={(nextEvent) =>
                   setForm((prev) => ({ ...prev, note: nextEvent.target.value }))
                 }
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
                 rows={3}
                 placeholder="Học bù ngày...."
                 className="mt-1 w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/30"
@@ -508,6 +515,7 @@ function MakeupEditorDialog({
                     }))
                   }
                   disabled={
+                    readOnly ||
                     isSubmitting ||
                     (matchingAlert.status === "explained_pending_makeup" &&
                       !(matchingAlert.explanation?.canEdit ?? false))
@@ -531,7 +539,7 @@ function MakeupEditorDialog({
           </div>
 
           <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
-            {mode === "edit" && canDelete ? (
+            {mode === "edit" && canDelete && !readOnly ? (
               <button
                 type="button"
                 onClick={onDelete}
@@ -553,68 +561,70 @@ function MakeupEditorDialog({
                 disabled={isSubmitting}
                 className="inline-flex items-center justify-center rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-border-focus"
               >
-                Huy
+                {readOnly ? "Đóng" : "Huy"}
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!form.teacherId || !form.date || !form.startTime || !form.endTime) {
-                    toast.error("Vui lòng nhập đủ gia sư, ngày học và khung giờ.");
-                    return;
-                  }
+              {!readOnly ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!form.teacherId || !form.date || !form.startTime || !form.endTime) {
+                      toast.error("Vui lòng nhập đủ gia sư, ngày học và khung giờ.");
+                      return;
+                    }
 
-                  if (form.endTime <= form.startTime) {
-                    toast.error("Giờ kết thúc phải sau giờ bắt đầu.");
-                    return;
-                  }
+                    if (form.endTime <= form.startTime) {
+                      toast.error("Giờ kết thúc phải sau giờ bắt đầu.");
+                      return;
+                    }
 
-                  const explanationReason = form.explanationReason.trim();
-                  if (requiresExplanation && !explanationReason) {
-                    toast.error("Vui lòng nhập lý do giải trình.");
-                    return;
-                  }
+                    const explanationReason = form.explanationReason.trim();
+                    if (requiresExplanation && !explanationReason) {
+                      toast.error("Vui lòng nhập lý do giải trình.");
+                      return;
+                    }
 
-                  const resolvedBaselineScheduleEntryId =
-                    matchingAlert?.scheduleEntryId ??
-                    (form.baselineScheduleEntryId || undefined);
+                    const resolvedBaselineScheduleEntryId =
+                      matchingAlert?.scheduleEntryId ??
+                      (form.baselineScheduleEntryId || undefined);
 
-                  onSave({
-                    payload: {
-                      teacherId: form.teacherId,
-                      date: form.date,
-                      startTime: normalizeTimePayload(form.startTime),
-                      endTime: normalizeTimePayload(form.endTime),
-                      note: form.note.trim(),
-                      ...(form.originalDate
-                        ? {
-                            originalDate: form.originalDate,
-                            ...(resolvedBaselineScheduleEntryId
-                              ? {
-                                  baselineScheduleEntryId:
-                                    resolvedBaselineScheduleEntryId,
-                                }
-                              : {}),
-                          }
-                        : mode === "edit"
+                    onSave({
+                      payload: {
+                        teacherId: form.teacherId,
+                        date: form.date,
+                        startTime: normalizeTimePayload(form.startTime),
+                        endTime: normalizeTimePayload(form.endTime),
+                        note: form.note.trim(),
+                        ...(form.originalDate
                           ? {
-                              baselineScheduleEntryId: null,
-                              originalDate: null,
+                              originalDate: form.originalDate,
+                              ...(resolvedBaselineScheduleEntryId
+                                ? {
+                                    baselineScheduleEntryId:
+                                      resolvedBaselineScheduleEntryId,
+                                  }
+                                : {}),
                             }
-                          : {}),
-                    },
-                    matchingAlert,
-                    explanationReason,
-                  });
-                }}
-                disabled={isSubmitting}
-                className="inline-flex items-center justify-center rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-border-focus"
-              >
-                {isSubmitting
-                  ? "Đang lưu..."
-                  : mode === "create"
-                    ? "Thêm buổi bù"
-                    : "Lưu thay đổi"}
-              </button>
+                          : mode === "edit"
+                            ? {
+                                baselineScheduleEntryId: null,
+                                originalDate: null,
+                              }
+                            : {}),
+                      },
+                      matchingAlert,
+                      explanationReason,
+                    });
+                  }}
+                  disabled={isSubmitting}
+                  className="inline-flex items-center justify-center rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-border-focus"
+                >
+                  {isSubmitting
+                    ? "Đang lưu..."
+                    : mode === "create"
+                      ? "Thêm buổi bù"
+                      : "Lưu thay đổi"}
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
@@ -630,6 +640,7 @@ export default function MakeupScheduleCard({
   teacherMode = "select",
   canCreate = false,
   canEdit = false,
+  canViewEventDetails = false,
   canDelete = false,
   canEditEvent,
   canDeleteEvent,
@@ -898,7 +909,7 @@ export default function MakeupScheduleCard({
         ) : null}
       </div>
 
-      {!canCreate && disabledCreateMessage ? (
+      {!canCreate && !canViewEventDetails && disabledCreateMessage ? (
         <div className="mb-3 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
           {disabledCreateMessage}
         </div>
@@ -923,11 +934,39 @@ export default function MakeupScheduleCard({
           {items.map((item) => {
             const teacherName = item.teacherName ?? teacherNameById.get(item.teacherId) ?? "Chua ro";
             const canEditThisEvent = canEdit && (!canEditEvent || canEditEvent(item));
+            const canOpenThisEvent = canEditThisEvent || canViewEventDetails;
 
             return (
               <article
                 key={item.id}
-                className="rounded-xl border border-border-default bg-bg-surface px-4 py-3 shadow-sm"
+                role={canOpenThisEvent ? "button" : undefined}
+                tabIndex={canOpenThisEvent ? 0 : undefined}
+                onClick={
+                  canOpenThisEvent
+                    ? () => {
+                        setEditorMode("edit");
+                        setEditingEvent(item);
+                        setIsEditorOpen(true);
+                      }
+                    : undefined
+                }
+                onKeyDown={
+                  canOpenThisEvent
+                    ? (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setEditorMode("edit");
+                          setEditingEvent(item);
+                          setIsEditorOpen(true);
+                        }
+                      }
+                    : undefined
+                }
+                className={`rounded-xl border border-border-default bg-bg-surface px-4 py-3 shadow-sm ${
+                  canOpenThisEvent
+                    ? "cursor-pointer transition hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    : ""
+                }`}
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0 flex-1 space-y-2">
@@ -1076,6 +1115,7 @@ export default function MakeupScheduleCard({
           teacherMode={teacherMode}
           missedTeachingAlerts={missedTeachingAlerts}
           isSubmitting={isSubmitting}
+          readOnly={editorMode === "edit" && !canEdit}
           canDelete={
             editingEvent
               ? canDelete && (!canDeleteEvent || canDeleteEvent(editingEvent))
