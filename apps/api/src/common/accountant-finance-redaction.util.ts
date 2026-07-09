@@ -138,6 +138,19 @@ export function redactClassListForAccountantView<
   };
 }
 
+export function redactClassListForTrainingManagerView<
+  T extends { data?: unknown[] },
+>(response: T): T {
+  if (!Array.isArray(response.data)) {
+    return response;
+  }
+
+  return {
+    ...response,
+    data: response.data.map((item) => redactClassForTrainingManagerView(item)),
+  };
+}
+
 export function redactStudentClassRowsForAccountantView<T>(
   rows: T[],
   financeView: AccountantFinanceView,
