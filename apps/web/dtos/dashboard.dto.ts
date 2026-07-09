@@ -19,12 +19,24 @@ export interface AdminDashboardSummary {
   prepaidTuitionTotal: number;
   pendingCollectionTotal: number;
   pendingPayrollTotal: number;
+  /** All-time pending/unpaid payroll by source (snapshot). */
+  pendingPayrollBreakdown: AdminDashboardPendingPayrollBreakdown;
   expiringStudentsCount: number;
   debtStudentsCount: number;
   unpaidStaffCount: number;
   classAlertCount: number;
   currentSurveyRound: number;
   totalAlerts: number;
+}
+
+export interface AdminDashboardPendingPayrollBreakdown {
+  sessionAmount: number;
+  customerCareAmount: number;
+  lessonAmount: number;
+  bonusAmount: number;
+  extraAllowanceAmount: number;
+  assistantAmount: number;
+  trainingManagerAmount: number;
 }
 
 export interface AdminDashboardTrendPoint {
@@ -42,6 +54,8 @@ export type AdminDashboardBreakdownKey =
   | "lessonCost"
   | "bonusCost"
   | "extraAllowanceCost"
+  | "assistantCost"
+  | "trainingManagerCost"
   | "operatingCost";
 
 export interface AdminDashboardBreakdownItem {

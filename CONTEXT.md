@@ -52,6 +52,12 @@
 - **Admin-mirror route**: route dưới `/admin/**` hoặc `/staff/**` reuse cùng business flow quản trị. Với policy hiện tại, `staff.assistant` được phép như admin trên hầu hết admin-mirror route, trừ các route bị deny tường minh bằng `AllowAssistantOnAdminRoutes(false)`.
 - **Strict-admin route**: route hoặc mutation chỉ dành cho admin đầy đủ. Trong policy hiện tại, bước duyệt/queue nạp thẳng ví học sinh, cộng tiền thủ công trực tiếp vào ví, và dashboard tổng admin vẫn là strict-admin ngay cả khi trợ lí thấy các mirror workspace khác.
 
+## Admin dashboard — phạm vi chỉ số
+
+- **Chỉ số theo kỳ** (lọc theo tháng hoặc khoảng ngày A→B): Tổng nạp, Học phí đã học, Chi phí nhân sự (dạy + CSKH + giáo án + bonus + extra + trợ lí + QL lớp), Chi phí khác (chỉ `cost_extend`), Lợi nhuận kế toán, Dòng tiền thuần.
+- **Chỉ số snapshot** (không đổi khi chọn khoảng ngày): Học phí chưa dạy (tổng ví dương mọi học sinh), Học phí chưa thu (tổng |nợ| ví âm), Trợ cấp chờ thanh toán (pending/unpaid all-time), KPI lớp/học sinh đang chạy, cảnh báo gia hạn (ví 0–800.000đ), cảnh báo nợ, cảnh báo payroll, cảnh báo lớp thiếu khảo sát lần N.
+- **Chi phí nhân sự vs khác**: trợ cấp trợ lí tính 3% học phí đã học theo quan hệ trợ lí–CSKH (loại self-managed); không gắn nhãn “3%” trên UI admin dashboard.
+
 ## Hồ sơ học sinh
 
 - **Học sinh nghỉ học**: hồ sơ học sinh không còn tham gia vận hành lớp hiện tại hoặc được thêm vào lớp mới, nhưng lịch sử học tập, ví và công nợ đã phát sinh vẫn được giữ lại. Trạng thái này không đồng nghĩa khóa tài khoản user.
