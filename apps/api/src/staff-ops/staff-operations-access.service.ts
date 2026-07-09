@@ -77,10 +77,11 @@ export class StaffOperationsAccessService {
 
     if (
       !staff.roles.includes(StaffRole.teacher) &&
+      !staff.roles.includes(StaffRole.training) &&
       !this.hasElevatedClassAccess(staff.roles)
     ) {
       throw new ForbiddenException(
-        'Màn /staff hiện chỉ mở cho teacher, trợ lí, kế toán, hoặc staff admin.',
+        'Màn /staff hiện chỉ mở cho teacher, Đào Tạo, trợ lí, kế toán, hoặc staff admin.',
       );
     }
 

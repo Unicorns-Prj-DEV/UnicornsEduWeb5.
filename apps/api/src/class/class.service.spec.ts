@@ -369,6 +369,37 @@ describe('ClassService', () => {
         teacherId: 'teacher-1',
       });
     });
+
+    it('keeps training-only staff scoped to managed classes', async () => {
+      mockStaffOperationsAccess.resolveActor.mockResolvedValue({
+        id: 'training-1',
+        roles: [StaffRole.training],
+      });
+      const getClassesSpy = jest
+        .spyOn(service, 'getClasses')
+        .mockResolvedValue({
+          data: [
+            {
+              id: 'class-1',
+              name: 'Math 10A',
+              allowancePerSessionPerStudent: 100_000,
+            },
+          ],
+          meta: { total: 1, page: 1, limit: 20 },
+        });
+
+      const result = await service.getClassesForStaff('user-1', UserRole.staff, {
+        page: 1,
+        limit: 20,
+      });
+
+      expect(getClassesSpy).toHaveBeenCalledWith({
+        page: 1,
+        limit: 20,
+        trainingManagerStaffId: 'training-1',
+      });
+      expect(result.data[0]).not.toHaveProperty('allowancePerSessionPerStudent');
+    });
   });
 
   describe('createClassForStaff', () => {
