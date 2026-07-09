@@ -16,7 +16,7 @@
   - `/staff/profile`: tài khoản hiện tại phải có linked `staffInfo.status = active`; đây là self-detail page đầy đủ của chính staff đang đăng nhập
   - `/staff/notification`: tài khoản hiện tại phải có linked `staffInfo.status = active`; đây là feed chỉ đọc để xem các notification admin đã push
   - `/staff/users`, `/staff/history`: chỉ mở cho linked staff có role `assistant`; đây là mirror route của admin workspace nhưng giữ nguyên staff shell
-  - `/staff/classes`, `/staff/classes/[id]`: mở cho `assistant`, `accountant_income`, `accountant_expense`; assistant được dùng các thao tác vận hành lớp như thêm/sửa lớp, thay roster, kết thúc lớp và cho gia sư nghỉ dạy theo lớp. Kế toán chỉ xem lớp/buổi học, không CRUD lớp/session. `accountant_income` thấy học phí và bị ẩn lương/trợ cấp gia sư; `accountant_expense` thấy trợ cấp/lương, được chỉnh trợ cấp gia sư và `% vận hành` theo lớp, và bị ẩn học phí/top-up.
+  - `/staff/classes`, `/staff/classes/[id]`: mở cho `assistant`, `accountant_income`, `accountant_expense`; assistant được dùng các thao tác vận hành lớp như thêm/sửa lớp, thay roster, kết thúc lớp và cho gia sư nghỉ dạy theo lớp. Kế toán chỉ xem lớp/buổi học, không CRUD lớp/session. `accountant_income` thấy học phí và bị ẩn lương/trợ cấp gia sư; `accountant_expense` thấy trợ cấp/lương, được chỉnh trợ cấp gia sư và `% vận hành` theo lớp, và bị ẩn học phí/top-up. `training` mở **danh sách** `/staff/classes` với **cùng UI bảng/card như admin**, nhưng backend scope `GET /staff-ops/classes` chỉ trả các lớp có `classes.training_manager_staff_id` trỏ về staff hiện tại và redact field tài chính; multi-role `training + accountant_*` vẫn ưu tiên mirror danh sách lớp đầy đủ của kế toán/trợ lí.
   - `/staff/students`, `/staff/students/[id]`: mở cho `assistant` hoặc `accountant_income`; assistant mirror gần như toàn bộ thao tác admin trên học sinh, nhưng không được duyệt queue nạp thẳng và không được nạp tiền thủ công trực tiếp vào ví. Assistant vẫn được rút/giảm số dư trực tiếp khi cần. `accountant_income` được xem thông tin thu/học phí và chỉnh gói học phí học sinh theo lớp (tổng gói + số buổi), nhưng không tạo QR/chỉnh số dư.
   - `/staff/staffs`, `/staff/staffs/[id]`: mở cho `assistant` hoặc `accountant_expense`; assistant mirror gần như toàn bộ thao tác admin trên nhân sự. Kế toán chi xem nhân sự, thanh toán, note thưởng, trợ cấp, được chỉnh **KH vận hành (%)** của các dòng gia sư - lớp qua `PATCH /staff/:id/class-teachers/:classId/operating-deduction`, và không chỉnh hồ sơ/role/status nhân sự. Từ bảng **Công việc khác** trên `/staff/staffs/[id]`, `accountant_expense` cũng mở được các trang chi tiết role của nhân sự khác (CSKH, trợ lí, kế toán, truyền thông, kỹ thuật, đào tạo, giáo án) tương tự `assistant`.
   - `/staff/costs`: mở cho `assistant` hoặc `accountant_expense`; kế toán chi có thể tạo/sửa/cập nhật trạng thái/xóa chi phí.
@@ -124,13 +124,14 @@
   - nếu một staff đồng thời có `teacher` và role kế toán, route vẫn ưu tiên quyền kế toán nên xem được mọi lớp theo admin-like detail thay vì bị scope về lớp đang dạy
   - với teacher/admin còn lại, route giữ teacher workspace self-service như trước
   - với `staff.customer_care`, route mở ở chế độ **chỉ xem** khi lớp có ít nhất một học sinh đang do chính staff đó phụ trách từ màn CSKH; các CTA sửa khung giờ, thêm buổi và sửa session đều bị khóa
+  - với `staff.training`, route mở ở chế độ **chỉ xem** cho các lớp mình được gán quản lý; có thể bấm từng dòng **buổi học** để mở popup chi tiết chỉ đọc, bấm từng **buổi bù** (nếu có) để xem form chi tiết chỉ đọc, và mở popup **khung giờ học** / **khảo sát** ở chế độ xem; không hiện banner cảnh báo quyền hạn khi chỉ xem lịch bù
   - card **Lịch dạy bù** xuất hiện ngay trên khu vực lịch sử buổi học; danh sách lấy theo **tháng đang chọn** của khu vực lịch sử/khảo sát, nhưng chỉ hiển thị buổi thuộc tháng tương lai hoặc nếu đang xem tháng hiện tại thì chỉ hiển thị buổi có ngày từ hôm nay trở đi; tháng quá khứ không hiển thị buổi bù; danh sách sắp theo buổi gần nhất trước và có phân trang ngay trong card; đổi tháng reset pagination và fetch đúng khoảng ngày hợp lệ
   - `teacher` được phân công lớp có thể tạo buổi bù mới trực tiếp từ `/staff/classes/[id]`, nhưng `gia su phu trach` bị khóa cứng về staff hiện tại. Form **Thêm buổi bù** có **Ngày gốc** (DateInput tuỳ chọn, không bắt buộc chọn từ card **Cảnh báo chưa dạy**). Nếu ngày gốc + gia sư khớp cảnh báo chưa dạy, popup hiện textarea **Lý do giải trình** bắt buộc và submit một lần lưu giải trình + tạo buổi bù.
   - `teacher` có thể sửa/xoá buổi bù do chính mình phụ trách khi buổi đó chưa liên kết `linkedSessionId`; backend từ chối sửa/xoá buổi bù của người khác hoặc buổi đã linked session
   - `teacher` có thể bấm **Đồng bộ Google** cho slot khung giờ học và buổi bù do chính mình phụ trách; recurring sync update event hiện có trước, chỉ recreate khi id stale/missing, rồi mới xoá orphan/duplicate. Slot thiếu `teacherId` hoặc Google event legacy không xác định được `scheduleEntryId` bị bỏ qua và trả warning để admin full resync khi cần; nếu Google trả usage/rate limit, backend dừng phần write còn lại và trả `quotaLimited=true` để retry sau.
   - `admin` ở staff shell có thể tạo/sửa/xóa buổi bù từ cùng card; `customer_care` chỉ xem, không có CTA mutate
   - card **Cảnh báo chưa dạy** (ngay trên lịch sử buổi học): mirror admin với flow **Lưu giải trình** → **Xếp lịch bù**; accordion title `Cảnh báo chưa dạy (n)`; thu gọn từng dòng (meta + badge **Chưa giải trình** / **Đã giải trình · chưa bù**), mặc định đóng và chỉ mở một dòng; khi >4 cảnh báo thì list accordion scroll trong card; panel mở chia 2 cột (giải trình | xếp bù). API: `GET /staff-ops/classes/:classId/missed-teaching-alerts`, `POST /staff-ops/classes/:classId/missed-teaching-explanations`, `PATCH /staff-ops/missed-teaching-explanations/:id`, và `POST /staff-ops/classes/:classId/makeup-events`; `teacher` chỉ thao tác buổi của chính mình
-  - section `Gia sư phụ trách` đổi thành card **Gia sư & Quản lý** (`TutorCard`): admin/assistant gán **Quản lý lớp** + `%` qua `PATCH /class/:id/training-manager`; `accountant_expense` được mở popup chỉnh riêng trợ cấp gia sư theo lớp; teacher/CSKH/training manager chỉ thấy tên + trạng thái (training manager không thấy học phí/trợ cấp gia sư); `assistant`/`accountant_expense` dùng `AdminClassDetailPage` nên thấy thêm **Trợ cấp** + **Vận hành** trên phần gia sư
+  - section `Gia sư phụ trách` đổi thành card **Gia sư & Quản lý** (`TutorCard`): admin/assistant gán **Quản lý lớp** + `%` trong popup **Chỉnh sửa** của card qua `PATCH /class/:id/training-manager`; `accountant_expense` được mở popup chỉnh riêng trợ cấp gia sư theo lớp; teacher/CSKH/training manager chỉ thấy tên + trạng thái (training manager không thấy học phí/trợ cấp gia sư); `assistant`/`accountant_expense` dùng `AdminClassDetailPage` nên thấy thêm **Trợ cấp** + **Vận hành** trên phần gia sư
   - card `Danh sách học sinh` tách thành 2 phần: danh sách học sinh **đang học** và block riêng **Học sinh đã nghỉ** để tránh lẫn trạng thái
   - cho phép chỉnh `khung giờ học`
   - teacher chỉ thấy các session có `teacherId` đúng với hồ sơ staff hiện tại; admin vẫn thấy toàn bộ session của lớp trong tháng đang chọn
@@ -294,6 +295,12 @@
   - sửa `teacherPaymentStatus`
   - sửa `attendance.tuitionFee`
   - sửa học phí hay trợ cấp ở cấp lớp
+- Training manager **được phép**
+  - mở `/staff/classes` để xem danh sách lớp mình được gán quản lý bằng UI list giống admin (tìm kiếm, lọc trạng thái, badge loại/sĩ số/level)
+  - mở `/staff/classes/[id]` với các lớp mình được gán quản lý để xem chi tiết lớp
+  - xem lịch dạy bù, khung giờ học, khảo sát và chi tiết buổi học ở chế độ chỉ đọc
+- Training manager **không được phép**
+  - tạo/sửa/xóa khung giờ học, buổi học, khảo sát hoặc buổi bù từ `/staff/classes/[id]`
 - Assistant root hub **không được phép**
   - hiển thị hoặc deep-link tới `/admin/dashboard`
   - tự suy diễn số aggregate của admin từ broad admin datasets
@@ -356,6 +363,7 @@
   - `PATCH /lesson-outputs/payment-status/bulk`
   - `DELETE /lesson-outputs/:id`
   - `GET /staff-ops/classes`
+    - với `staff.training` không có role mirror kế toán/trợ lí, backend chỉ trả các lớp có `classes.training_manager_staff_id` trỏ về staff hiện tại và redact field tài chính giống chế độ xem chi tiết training manager
   - `GET /staff-ops/classes/:id`
     - với `staff.customer_care`, backend chỉ trả lớp khi tồn tại ít nhất một `student_classes` row mà học sinh tương ứng đang map tới chính staff đó trong `customer_care_service`
   - `PATCH /staff-ops/classes/:id/schedule` — cập nhật khung giờ học tương tự admin (hỗ trợ lưu vết lịch sử slot và trả về danh sách cảnh báo `warnings` cho các buổi bù tương lai).
@@ -402,6 +410,7 @@
   - `accountant_income`: có `Lớp học`, `Học sinh`, `Kế toán` theo phạm vi thu; không có `Khấu trừ`, `Chi phí`, `Nhân sự`, `Giáo Án`
   - `accountant_expense`: có `Lớp học`, `Nhân sự`, `Chi phí`, `Giáo Án`, `Kế toán` theo phạm vi chi; không có `Khấu trừ` hoặc `Học sinh`
   - `teacher` hoặc `admin`: mục `Lớp học`
+  - `training`: có `Lớp học` (danh sách lớp được gán quản lý), `Lịch lớp`, `Đào Tạo` (trợ cấp + tab lớp học)
   - `customer_care`: mục `CSKH của tôi`
   - `lesson_plan`, `lesson_plan_head`, `accountant_expense`, hoặc `admin`: mục `Giáo Án` dẫn tới `/staff/lesson-plans`
   - staff có nhiều role hợp lệ sẽ thấy đồng thời các mục tương ứng; riêng assistant branch ưu tiên menu admin-like

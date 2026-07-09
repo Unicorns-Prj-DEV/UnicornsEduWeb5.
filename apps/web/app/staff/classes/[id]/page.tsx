@@ -460,6 +460,7 @@ export default function StaffClassDetailPage() {
     (classDetail?.teachers ?? []).some((teacher) => teacher.id === actorStaffId);
   const isCustomerCareView = isCustomerCare && !isTeacherWorkspaceActor;
   const isTrainingView = isTraining && !isTeacherWorkspaceActor && !isCustomerCare;
+  const canOpenReadonlyClassForms = isTrainingView;
   const usesTeacherScope =
     !isAdmin && (teacherAssignedToClass || hasTeacherSelfServiceAccess);
   const teacherCount = classDetail?.teachers?.length ?? 0;
@@ -506,9 +507,9 @@ export default function StaffClassDetailPage() {
       !event.linkedSessionId);
   const makeupScheduleDisabledMessage =
     isAdmin && teacherCount === 0
-      ? "Lop chua co gia su phu trach nen chua the tao buoi bu."
-      : !isAdmin && !hasTeacherSelfServiceAccess
-        ? "Tai khoan hien tai chi co quyen xem lich day bu cua lop."
+      ? "Lớp chưa có gia sư phụ trách nên chưa thể tạo buổi bù."
+      : !isAdmin && !hasTeacherSelfServiceAccess && !canOpenReadonlyClassForms
+        ? "Tài khoản hiện tại chỉ có quyền xem lịch dạy bù của lớp."
         : undefined;
 
   const invalidateClassOpsQueries = useCallback(async () => {
@@ -810,6 +811,7 @@ export default function StaffClassDetailPage() {
         teachers={popupTeachers}
         allowTeacherSelection={false}
         defaultTeacherId={defaultScheduleTeacherId}
+        readOnly={canOpenReadonlyClassForms}
         onSubmitSchedule={handleScheduleSubmit}
       />
 
@@ -843,7 +845,6 @@ export default function StaffClassDetailPage() {
         />
         <div className="grid gap-3 lg:grid-cols-2">
           <TutorCard
-            classId={id}
             teachers={classDetail.teachers}
             trainingManager={classDetail.trainingManager}
             trainingManagerRatePercent={classDetail.trainingManagerRatePercent}
@@ -888,6 +889,14 @@ export default function StaffClassDetailPage() {
                     </button>
                   ) : null}
                 </div>
+              ) : canOpenReadonlyClassForms ? (
+                <button
+                  type="button"
+                  onClick={() => setSchedulePopupOpen(true)}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:w-auto"
+                >
+                  Xem
+                </button>
               ) : null
             }
           >
@@ -1028,6 +1037,7 @@ export default function StaffClassDetailPage() {
           teacherMode={makeupTeacherMode}
           canCreate={canCreateMakeupSchedule}
           canEdit={canManageMakeupSchedule}
+          canViewEventDetails={canOpenReadonlyClassForms}
           canDelete={canManageMakeupSchedule}
           canEditEvent={canManageOwnUnlinkedMakeupEvent}
           canDeleteEvent={canManageOwnUnlinkedMakeupEvent}
@@ -1180,7 +1190,12 @@ export default function StaffClassDetailPage() {
               aria-labelledby="staff-class-detail-tab-sessions"
             >
               {isSessionsLoading ? (
-                <SessionHistoryTableSkeleton rows={5} entityMode="teacher" variant="classDetail" showActionsColumn={canManageSessions} />
+                <SessionHistoryTableSkeleton
+                  rows={5}
+                  entityMode="teacher"
+                  variant="classDetail"
+                  showActionsColumn={canManageSessions || canOpenReadonlyClassForms}
+                />
               ) : (
                 <div className={cn("transition-opacity", isSessionsFetching && "opacity-70")}>
                   <SessionHistoryTable
@@ -1190,7 +1205,7 @@ export default function StaffClassDetailPage() {
                     statusMode="payment"
                     emptyText={teacherScopedEmptyText}
                     editorLayout="wide"
-                    showActionsColumn={canManageSessions}
+                    showActionsColumn={canManageSessions || canOpenReadonlyClassForms}
                     teachers={popupTeachers}
                     getClassStudents={getClassStudentsForEditor}
                     getClassDetailForEdit={getClassDetailForEdit}
@@ -1198,6 +1213,7 @@ export default function StaffClassDetailPage() {
                     allowFinancialEdits={false}
                     allowPaymentStatusEdit={false}
                     allowDeleteSession={false}
+                    readOnlySessionDetails={canOpenReadonlyClassForms}
                     showTrainingManagerAllowance={isTrainingView}
                     updateSessionFn={handleUpdateSession}
                   />
@@ -1220,6 +1236,7 @@ export default function StaffClassDetailPage() {
                 fetching={isSurveysFetching}
                 error={isSurveysError}
                 canManage={canManageSurveys}
+                canViewDetails={canOpenReadonlyClassForms}
                 createOpen={addSurveyPopupOpen}
                 onCreateOpenChange={setAddSurveyPopupOpen}
                 defaultTeacherId={defaultTeacherId}
