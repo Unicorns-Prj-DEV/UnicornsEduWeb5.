@@ -68,9 +68,12 @@ NGINX_PUBLISH=127.0.0.1:8080:80
 
 ### B4. Migration DB ENG
 
+CD tự chạy `prisma migrate deploy` khi push `main` nếu `.env` có `DIRECT_URL`. Bootstrap / chạy tay:
+
 ```bash
 cd /root/UnicornsEduEng
-pnpm --filter api db:deploy   # từ máy dev với DATABASE_URL ENG
+# DIRECT_URL bắt buộc khi DATABASE_URL dùng PgBouncer (:6543?pgbouncer=true)
+pnpm --filter api db:deploy
 # hoặc trong container api sau khi pull image
 ```
 
@@ -118,7 +121,7 @@ docker compose -f docker-compose.prod.yml up -d --force-recreate
 
 Push `main` → build **một** web image → deploy tuần tự các instance `enabled` trong `deploy/instances.json` (thứ tự: `it` → `eng` → `jp`).
 
-Migration: chạy tay **từng DB** (`pnpm --filter api db:deploy` hoặc `prisma migrate deploy` trong container) — CD không auto-migrate.
+Migration: CD tự `prisma migrate deploy` trên từng instance (cần `DIRECT_URL` trong `.env` khi `DATABASE_URL` là pooler). Chạy tay khi bootstrap hoặc debug: `pnpm --filter api db:deploy` / `prisma migrate deploy` trong container.
 
 ---
 
@@ -152,11 +155,11 @@ GOOGLE_CALLBACK_URL="https://jp.unicornsedu.com/api/auth/google/callback"
 
 ### E3. Migration DB JP
 
-Từ máy dev (dùng `DIRECT_URL` hoặc `DATABASE_URL` của project Supabase JP):
+CD tự migrate khi push `main` nếu `.env` có `DIRECT_URL`. Bootstrap / chạy tay từ máy dev:
 
 ```bash
 cd apps/api
-DATABASE_URL="postgresql://..." pnpm db:deploy
+DIRECT_URL="postgresql://..." pnpm db:deploy
 ```
 
 Tạo admin (nếu cần): đăng nhập bằng handle/email + mật khẩu đã seed, hoặc insert user `role_type=admin` qua script tương tự instance ENG.

@@ -60,6 +60,7 @@ export class SessionService {
       notes?: string | null;
       lessonContent: string;
       homework: string;
+      tutorial: string;
       coefficient?: number;
       attendance: Array<{
         studentId: string;
@@ -105,6 +106,7 @@ export class SessionService {
       notes?: string | null;
       lessonContent?: string;
       homework?: string;
+      tutorial?: string;
       coefficient?: number;
       attendance?: Array<{
         studentId: string;

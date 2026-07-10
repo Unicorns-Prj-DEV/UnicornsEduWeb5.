@@ -211,19 +211,27 @@ export class SessionValidationService {
     data: {
       lessonContent?: string | null;
       homework?: string | null;
+      tutorial?: string | null;
     },
     options: { required: boolean },
   ) {
     const hasLessonContent = data.lessonContent !== undefined;
     const hasHomework = data.homework !== undefined;
+    const hasTutorial = data.tutorial !== undefined;
 
-    if (!options.required && !hasLessonContent && !hasHomework) {
+    if (!options.required && !hasLessonContent && !hasHomework && !hasTutorial) {
       return;
     }
 
-    if (options.required || hasLessonContent || hasHomework) {
+    if (
+      options.required ||
+      hasLessonContent ||
+      hasHomework ||
+      hasTutorial
+    ) {
       this.assertRichTextNonEmpty(data.lessonContent, 'Nội dung bài học');
       this.assertRichTextNonEmpty(data.homework, 'Bài tập về nhà');
+      this.assertRichTextNonEmpty(data.tutorial, 'Tutorial các buổi học');
     }
   }
 

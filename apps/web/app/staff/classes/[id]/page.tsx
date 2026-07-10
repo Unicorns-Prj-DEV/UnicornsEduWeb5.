@@ -284,6 +284,7 @@ function toStaffCreateSessionPayload(payload: SessionCreatePayload) {
     endTime: payload.endTime,
     lessonContent: payload.lessonContent,
     homework: payload.homework,
+    tutorial: payload.tutorial,
     notes: payload.notes ?? null,
     coefficient: payload.coefficient,
     attendance: (payload.attendance ?? []).map((item) => ({
@@ -301,6 +302,7 @@ function toStaffUpdateSessionPayload(payload: SessionUpdatePayload) {
     endTime: payload.endTime,
     lessonContent: payload.lessonContent,
     homework: payload.homework,
+    tutorial: payload.tutorial,
     notes: payload.notes ?? null,
     coefficient: payload.coefficient,
     attendance: payload.attendance?.map((item) => ({

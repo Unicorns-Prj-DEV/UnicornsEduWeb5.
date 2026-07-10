@@ -32,7 +32,7 @@ Soft-removes active tutor assignments (`class_teachers.status` → `inactive`) f
 pnpm --filter api db:deploy
 ```
 
-On shared/staging/production: run `db:deploy` on the target environment before rollout (CD does not auto-migrate).
+On shared/staging/production: CD auto-runs `db:deploy` per instance on push `main` when `DIRECT_URL` is set in VPS `.env`. Manual fallback: `pnpm --filter api db:deploy` with `DIRECT_URL` (or direct `DATABASE_URL`).
 
 ### Eligibility (all must be true)
 

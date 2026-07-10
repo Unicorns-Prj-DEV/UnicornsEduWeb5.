@@ -290,6 +290,7 @@ function toStaffUpdateSessionPayload(payload: SessionUpdatePayload) {
     endTime: payload.endTime,
     lessonContent: payload.lessonContent,
     homework: payload.homework,
+    tutorial: payload.tutorial,
     coefficient: payload.coefficient,
     attendance: payload.attendance?.map((item) => ({
       studentId: item.studentId,

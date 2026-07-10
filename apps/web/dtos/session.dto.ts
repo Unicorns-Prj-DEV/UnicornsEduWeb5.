@@ -90,6 +90,7 @@ export interface SessionCreatePayload {
   notes?: string | null;
   lessonContent: string;
   homework: string;
+  tutorial: string;
   teacherPaymentStatus?: string | null;
   /** Coefficient from 0.0 to 1.0. Default 1.0. */
   coefficient?: number;
@@ -110,6 +111,7 @@ export interface SessionUpdatePayload {
   notes?: string | null;
   lessonContent?: string;
   homework?: string;
+  tutorial?: string;
   teacherPaymentStatus?: string | null;
   coefficient?: number;
   allowanceAmount?: number | null;
@@ -156,6 +158,7 @@ export interface SessionItem {
   notes?: string | null;
   lessonContent?: string | null;
   homework?: string | null;
+  tutorial?: string | null;
   makeupScheduleEvent?: { originalDate?: string | null } | null;
   createdAt?: string;
   updatedAt?: string;

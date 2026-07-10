@@ -6,6 +6,9 @@ export const SESSION_LESSON_CONTENT_PLACEHOLDER =
 export const SESSION_HOMEWORK_PLACEHOLDER =
   "Ghi bài tập HS cần hoàn thành trước buổi sau (số bài, yêu cầu nộp nếu có)";
 
+export const SESSION_TUTORIAL_PLACEHOLDER =
+  "Ghi hướng dẫn/tài liệu tham khảo cho buổi học: link, bước làm bài, lưu ý kỹ thuật…";
+
 export function sessionStudentCommentPlaceholder(fullName: string): string {
   return `Nhận xét về ${fullName}: tiến độ, điểm làm tốt và phần cần cải thiện trong buổi này`;
 }
@@ -209,6 +212,7 @@ export type BuildSessionCommentZaloTextInput = {
   makeupOriginalDate?: string | null;
   lessonContent?: string | null;
   homework?: string | null;
+  tutorial?: string | null;
   students: SessionCommentZaloStudent[];
 };
 
@@ -228,6 +232,7 @@ export function buildSessionCommentZaloText(
 
   const lessonContent = richTextToPlainTextPreservingStructure(input.lessonContent);
   const homework = richTextToPlainTextPreservingStructure(input.homework);
+  const tutorial = richTextToPlainTextPreservingStructure(input.tutorial);
 
   const studentBlocks = input.students.map((student) =>
     formatStudentCommentBlock(
@@ -256,7 +261,16 @@ export function buildSessionCommentZaloText(
     lines.push("—");
   }
 
-  lines.push("", "4️⃣ Bài tập về nhà", homework || "—", "", "— Unicorns Edu");
+  lines.push(
+    "",
+    "4️⃣ Bài tập về nhà",
+    homework || "—",
+    "",
+    "5️⃣ Tutorial các buổi học",
+    tutorial || "—",
+    "",
+    "— Unicorns Edu",
+  );
 
   return lines.join("\n");
 }
@@ -310,6 +324,7 @@ export type SessionCommentZaloSource = {
   notes?: string | null;
   lessonContent?: string | null;
   homework?: string | null;
+  tutorial?: string | null;
   attendance?: Array<{
     status: SessionAttendanceStatus;
     notes?: string | null;
@@ -328,6 +343,7 @@ export function buildSessionCommentZaloTextFromSession(
     makeupOriginalDate: session.makeupOriginalDate ?? null,
     lessonContent: session.lessonContent ?? session.notes ?? "",
     homework: session.homework ?? "",
+    tutorial: session.tutorial ?? "",
     students: (session.attendance ?? []).map((attendanceItem) => ({
       fullName: attendanceItem.student?.fullName?.trim() || "—",
       status: attendanceItem.status,
@@ -360,7 +376,9 @@ export function resolveSessionCommentDisplayContent(
 ): SessionCommentDisplayContent {
   const notes = session.notes?.trim() ?? "";
   const hasStructuredFields = Boolean(
-    session.lessonContent?.trim() || session.homework?.trim(),
+    session.lessonContent?.trim() ||
+      session.homework?.trim() ||
+      session.tutorial?.trim(),
   );
 
   if (notes) {

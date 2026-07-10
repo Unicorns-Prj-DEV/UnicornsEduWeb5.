@@ -216,6 +216,13 @@ export class SessionCreateDto {
   @IsString()
   homework: string;
 
+  @ApiProperty({
+    description:
+      'Session tutorial for the class session (HTML/plain text accepted).',
+  })
+  @IsString()
+  tutorial: string;
+
   @ApiPropertyOptional({
     description: 'Coefficient for this session, from 0.0 to 1.0.',
     example: 1.0,
@@ -287,6 +294,14 @@ export class SessionUpdateDto extends PartialType(SessionCreateDto) {
   @IsOptional()
   @IsString()
   declare homework?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Session tutorial for the class session (HTML/plain text accepted).',
+  })
+  @IsOptional()
+  @IsString()
+  declare tutorial?: string;
 
   @ApiPropertyOptional({
     description: 'Teacher payment status',
@@ -414,6 +429,13 @@ export class CreateStaffOpsSessionDto {
   })
   @IsString()
   homework: string;
+
+  @ApiProperty({
+    description:
+      'Session tutorial for the class session (HTML/plain text accepted).',
+  })
+  @IsString()
+  tutorial: string;
 
   @ApiPropertyOptional({
     description:

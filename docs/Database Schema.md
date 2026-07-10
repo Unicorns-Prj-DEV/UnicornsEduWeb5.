@@ -269,7 +269,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 ### 4.5 `sessions`
 
 - Mỗi buổi học gắn với 1 lớp và 1 giáo viên
-- Trường chính: ngày học, start/end time, `coefficient` (hệ số buổi học 0.0–1.0), `allowance_amount`, `teacher_payment_status`, `tuition_fee`, `lesson_content`, `homework`
+- Trường chính: ngày học, start/end time, `coefficient` (hệ số buổi học 0.0–1.0), `allowance_amount`, `teacher_payment_status`, `tuition_fee`, `lesson_content`, `homework`, `tutorial`
 - `allowance_amount`: snapshot **trước hệ số** = tổng `(snapshot_per_student_allowance × số bản ghi điểm danh present/excused) + snapshot_scale_amount` (làm tròn VND theo logic API). Các truy vấn payroll **không** cộng thêm `classes.scale_amount` vào `allowance_amount`.
 - `snapshot_per_student_allowance` (`INTEGER`, nullable): trợ cấp mỗi học sinh đã resolve (`class_teachers.custom_allowance` ?? `classes.allowance_per_session_per_student`) tại thời điểm **tạo** buổi học; không ghi đè sau đó.
 - `snapshot_scale_amount` (`INTEGER`, nullable): `classes.scale_amount` tại thời điểm **tạo** buổi học; không ghi đè sau đó.
@@ -277,7 +277,8 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `max_allowance_per_session` không snapshot tại `sessions`; các aggregate payroll/report đọc động từ `classes.max_allowance_per_session` tại thời điểm query, nên thay đổi cấu hình lớp có thể ảnh hưởng kết quả historical aggregate.
 - `lesson_content` (`TEXT`, nullable): nội dung bài học (LEVEL, CONTEST, kiến thức đã dạy); bắt buộc khi tạo/cập nhật buổi qua API.
 - `homework` (`TEXT`, nullable): bài tập về nhà; bắt buộc khi tạo/cập nhật buổi qua API.
-- `notes` (`TEXT`, nullable): bản ghi text template Zalo 4 phần (đồng bộ với nút **Copy nhận xét**); FE ghi khi tạo/cập nhật buổi từ `lesson_content`, `homework` và `attendance.notes`. Dữ liệu cũ có thể là HTML legacy hoặc đã backfill sang `lesson_content`. Form mới không còn ô nhập trực tiếp `notes`.
+- `tutorial` (`TEXT`, nullable): **Tutorial các buổi học** (hướng dẫn/tài liệu tham khảo buổi); bắt buộc khi tạo/cập nhật buổi qua API. Khác `cf_problem_tutorials.tutorial` (tutorial bài Codeforces).
+- `notes` (`TEXT`, nullable): bản ghi text template Zalo 5 phần (đồng bộ với nút **Copy nhận xét**); FE ghi khi tạo/cập nhật buổi từ `lesson_content`, `homework`, `tutorial` và `attendance.notes`. Dữ liệu cũ có thể là HTML legacy hoặc đã backfill sang `lesson_content`. Form mới không còn ô nhập trực tiếp `notes`.
 - Snapshot khấu trừ theo buổi:
   - `teacher_tax_rate_percent` (`DECIMAL(5,2)`, default `0`, Prisma field `teacherOperatingDeductionRatePercent`): snapshot mức **khấu trừ vận hành** effective của cặp gia sư-lớp; trước thanh toán được refresh khi tạo/cập nhật session, khi chuyển sang `paid` được snapshot lại theo thời điểm thanh toán.
     - Buổi mới/cập nhật luôn snapshot theo `class_teachers.operatingDeductionRatePercent` hiện hành; FE không còn toggle tắt phí vận hành từng buổi. Field request `includeTeacherOperatingDeduction=false` vẫn tồn tại ở API (legacy) nhưng UI không gửi; buổi cũ đã snapshot `0%` giữ nguyên cho lịch sử thanh toán.
@@ -576,7 +577,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 ## 8) Tạo lại DB từ schema
 
-Kết nối DB qua `DATABASE_URL` trong `apps/api/.env` (đọc từ `prisma.config.ts`). **Docker (API):** image production copy `prisma.config.ts` vào `/app` cùng thư mục `prisma/` để Prisma CLI chạy được `generate` và các lệnh migration thủ công khi cần. **Lưu ý:** job deploy GitHub Actions ([`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)) **không** tự chạy `migrate deploy`; remote deploy script chỉ chạy `prisma generate` để kiểm tra schema/client generation. Trên production cần áp migration bằng tay (hoặc quy trình riêng), ví dụ `docker compose -f docker-compose.prod.yml exec -T api npx prisma migrate deploy --schema=./prisma/schema/`. Các lệnh local chạy tại thư mục **`apps/api`**:
+Kết nối runtime qua `DATABASE_URL` trong `apps/api/.env` (`PrismaService` + PgBouncer). `prisma.config.ts` cũng trỏ `DATABASE_URL` (dùng cho `generate` và các lệnh CLI khác). **CD migrate:** `scripts/gha-deploy-instance-remote.sh` tạm swap `DATABASE_URL=$DIRECT_URL` chỉ trong bước `prisma migrate deploy` — app sau deploy vẫn dùng pooler. **Docker (API):** image copy `prisma.config.ts` vào `/app`. Các lệnh local chạy tại **`apps/api`** (`pnpm db:deploy` tự swap `DIRECT_URL` nếu có):
 
 | Việc                                          | Lệnh                                                                         |
 | --------------------------------------------- | ---------------------------------------------------------------------------- |
