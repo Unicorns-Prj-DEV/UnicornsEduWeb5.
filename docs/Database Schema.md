@@ -577,7 +577,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 ## 8) Tạo lại DB từ schema
 
-Kết nối DB qua `DATABASE_URL` trong `apps/api/.env` (đọc từ `prisma.config.ts`). **Docker (API):** image production copy `prisma.config.ts` vào `/app` cùng thư mục `prisma/` để Prisma CLI chạy được `generate` và các lệnh migration thủ công khi cần. **Lưu ý:** job deploy GitHub Actions ([`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)) **không** tự chạy `migrate deploy`; remote deploy script chỉ chạy `prisma generate` để kiểm tra schema/client generation. Trên production cần áp migration bằng tay (hoặc quy trình riêng), ví dụ `docker compose -f docker-compose.prod.yml exec -T api npx prisma migrate deploy --schema=./prisma/schema/`. Các lệnh local chạy tại thư mục **`apps/api`**:
+Kết nối runtime qua `DATABASE_URL` trong `apps/api/.env` (`PrismaService` + PgBouncer). `prisma.config.ts` cũng trỏ `DATABASE_URL` (dùng cho `generate` và các lệnh CLI khác). **CD migrate:** `scripts/gha-deploy-instance-remote.sh` tạm swap `DATABASE_URL=$DIRECT_URL` chỉ trong bước `prisma migrate deploy` — app sau deploy vẫn dùng pooler. **Docker (API):** image copy `prisma.config.ts` vào `/app`. Các lệnh local chạy tại **`apps/api`** (`pnpm db:deploy` tự swap `DIRECT_URL` nếu có):
 
 | Việc                                          | Lệnh                                                                         |
 | --------------------------------------------- | ---------------------------------------------------------------------------- |

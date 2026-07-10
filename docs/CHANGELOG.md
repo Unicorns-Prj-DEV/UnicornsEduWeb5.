@@ -33,6 +33,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- **CD deploy:** `scripts/gha-deploy-instance-remote.sh` tự chạy `prisma migrate deploy` sau pull API image; chỉ bước migrate tạm swap `DATABASE_URL` → `DIRECT_URL` (app runtime vẫn dùng PgBouncer qua `PrismaService`). Thêm `DIRECT_URL` vào env examples. Docs: `docs/Cách làm việc.md`, `docs/Database Schema.md`, `docs/ops/`, `AGENTS.md`.
 - **BE class `PATCH /class/:id/basic-info`:** đổi `allowance_per_session_per_student` chỉ cập nhật mặc định trên `classes`; không còn `updateMany` ghi đè `class_teachers.custom_allowance` của từng gia sư (fix revert trợ cấp riêng khi sửa thông tin lớp).
 - **FE/CD:** IT + ENG dùng chung `unicorns-web:latest`; client API same-origin `/api`; server dùng `INTERNAL_API_URL` / `BACKEND_URL` runtime.
 - **CD deploy:** job `deploy` timeout SSH 45m → 60m; Nginx bind `127.0.0.1` qua `NGINX_PUBLISH`; deploy tuần tự multi-instance.

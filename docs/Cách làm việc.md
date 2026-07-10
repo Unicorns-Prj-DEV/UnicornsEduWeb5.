@@ -234,7 +234,7 @@ pnpm test
 pnpm run test:e2e
 ```
 
-CD trên VPS chạy `scripts/gha-deploy-remote.sh`: pull image GHCR mới, chạy `prisma generate` từ chính API image để kiểm tra schema/client generation, rồi recreate `api`/`web`/`nginx` và healthcheck. Workflow GitHub Actions này **không** chạy `prisma migrate deploy`; khi đổi Prisma schema cho production/shared DB, phải commit migration trong `apps/api/prisma/schema/migrations/` và áp dụng migration bằng quy trình vận hành riêng (`pnpm --filter api db:deploy` trên đúng environment hoặc lệnh tương đương trong container) trước rollout phụ thuộc schema. Không dùng `prisma migrate dev` trên database shared.
+CD trên VPS chạy `scripts/gha-deploy-remote.sh` → `scripts/gha-deploy-instance-remote.sh` cho từng instance `enabled`: pull image GHCR mới, **`prisma migrate deploy`** (bước migrate tạm dùng `DIRECT_URL` thay `DATABASE_URL`; app runtime vẫn dùng PgBouncer qua `PrismaService`), `prisma generate`, rồi recreate `api`/`web`/`nginx` và healthcheck. Mỗi thư mục deploy cần `DIRECT_URL` trong `.env` khi `DATABASE_URL` dùng PgBouncer (`:6543?pgbouncer=true`). Không dùng `prisma migrate dev` trên database shared.
 
 ### Runbook: short system entity IDs
 
