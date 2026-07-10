@@ -222,9 +222,11 @@ wait_for_container_running() {
 compose_pull_service_with_retry api
 
 echo "Applying database migrations..."
-compose run --rm --no-deps -T api \
+compose run --rm --no-deps -T \
+  -v "${DEPLOY_DIR}/scripts/prisma-migrate-deploy.sh:/tmp/prisma-migrate-deploy.sh:ro" \
+  api \
   env NODE_OPTIONS=--max-old-space-size=384 \
-  sh -c 'if [ -n "${DIRECT_URL:-}" ]; then export DATABASE_URL="$DIRECT_URL"; elif printf "%s" "$DATABASE_URL" | grep -q "pgbouncer=true"; then echo "DIRECT_URL is required when DATABASE_URL uses PgBouncer (pgbouncer=true)" >&2; exit 1; fi; ./node_modules/.bin/prisma migrate deploy --schema=./prisma/schema/' </dev/null
+  bash /tmp/prisma-migrate-deploy.sh </dev/null
 
 echo "Verifying Prisma client generation..."
 compose run --rm --no-deps -T api \
