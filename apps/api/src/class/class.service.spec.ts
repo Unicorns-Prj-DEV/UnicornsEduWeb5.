@@ -769,6 +769,22 @@ describe('ClassService', () => {
     });
   });
 
+  describe('updateClassBasicInfo', () => {
+    it('updates class default allowance without overwriting teacher custom_allowance', async () => {
+      await service.updateClassBasicInfo('class-1', {
+        allowance_per_session_per_student: 90000,
+      });
+
+      expect(mockTx.class.update).toHaveBeenCalledWith({
+        where: { id: 'class-1' },
+        data: {
+          allowancePerSessionPerStudent: 90000,
+        },
+      });
+      expect(mockTx.classTeacher.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
   describe('updateClassTeachers', () => {
     it('fills blank custom_allowance with the class default allowance', async () => {
       await service.updateClassTeachers('class-1', {

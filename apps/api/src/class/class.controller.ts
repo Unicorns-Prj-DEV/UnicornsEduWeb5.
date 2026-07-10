@@ -186,7 +186,7 @@ export class ClassController {
   @ApiOperation({
     summary: 'Update class basic info',
     description:
-      'Update basic info and tuition. When allowance_per_session_per_student is sent, all class_teachers.customAllowance for this class are set to that value.',
+      'Update basic info and tuition. Changing allowance_per_session_per_student updates only the class default; per-teacher class_teachers.custom_allowance overrides are not modified.',
   })
   @ApiParam({ name: 'id', description: 'Class id' })
   @ApiBody({ type: UpdateClassBasicInfoDto })

@@ -1425,14 +1425,6 @@ export class ClassService {
         where: { id },
         data,
       });
-      if (dto.allowance_per_session_per_student !== undefined) {
-        await tx.classTeacher.updateMany({
-          where: { classId: id },
-          data: {
-            customAllowance: dto.allowance_per_session_per_student,
-          },
-        });
-      }
 
       const afterValue = await this.getClassAuditSnapshot(tx, id);
       if (!afterValue) {
