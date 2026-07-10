@@ -331,7 +331,7 @@ test("linked staff teacher unlocks class detail when primary role is student", (
   );
 });
 
-test("training staff can open staff dashboard, calendar, and allowance detail but not class detail", () => {
+test("training staff can open staff dashboard, calendar, managed class list, and allowance detail", () => {
   const session = {
     id: "training-user",
     accountHandle: "training",
@@ -364,11 +364,16 @@ test("training staff can open staff dashboard, calendar, and allowance detail bu
     true,
   );
   assert.equal(
+    staffShellAccess.resolveStaffShellRouteAccess(session, "/staff/classes")
+      .isAllowed,
+    true,
+  );
+  assert.equal(
     staffShellAccess.resolveStaffShellRouteAccess(
       session,
       "/staff/classes/class-1",
     ).isAllowed,
-    false,
+    true,
   );
 });
 

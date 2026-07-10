@@ -187,8 +187,11 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
     ```
     Mảng này định nghĩa mẫu lịch học lặp lại hàng tuần. Calendar admin có thể expand pattern này thành các occurrence để render lịch trong một khoảng ngày, và có thể đồng bộ từng entry thành recurring event trên Google Calendar.
   - Các trường học phí theo session/package
-- Mối quan hệ: teachers, students, sessions, makeupScheduleEvents, surveys
-- Bảng liên kết `class_teachers` (Class ↔ StaffInfo) ngoài `custom_allowance` còn có:
+  - **Quản lý lớp (Đào tạo):**
+    - `training_manager_staff_id` (nullable FK → `staff_info.id`): nhân sự ban Đào tạo được gán quản lý lớp; chỉnh qua `PATCH /class/:id/training-manager` (admin/assistant).
+    - `training_manager_rate_percent` (`DECIMAL(5,2)`, nullable): % trợ cấp quản lý lớp trên tổng học phí buổi (attendance `present`/`excused`); `0` hoặc chưa gán QLL = không phát sinh khoản phải trả.
+- Mối quan hệ: teachers, students, sessions, makeupScheduleEvents, surveys, `trainingManager` (StaffInfo)
+- Bảng liên kết `class_teachers` (Class ↔ StaffInfo) ngoài `custom_allowance` (nullable; override theo gia sư–lớp, **không** bị ghi đè khi đổi `classes.allowance_per_session_per_student` qua `PATCH /class/:id/basic-info`) còn có:
   - `status` (`TEXT`, nullable): `null` hoặc `active` được hiểu là phân công gia sư đang mở; `inactive` là **nghỉ dạy theo lớp**. Khi gia sư nghỉ dạy ở một lớp, record được giữ để bảo toàn lịch sử trợ cấp/payroll nhưng không còn là phân công hiện tại.
   - Data migration `20260617120000_inactivate_teachers_on_settled_ended_classes` (superseded): ban đầu yêu cầu cả học phí học sinh có `transaction_id`; `20260617130000_inactivate_teachers_on_teacher_paid_ended_classes` sửa lại — chỉ cần mọi `sessions.teacher_payment_status = paid` trên lớp `ended`, rồi inactive gia sư active trên `class_teachers`; không đụng `student_classes`. Runbook: `docs/ops/README.md`.
   - `tax_rate_percent` (`DECIMAL(5,2)`, default `0`, Prisma field `operatingDeductionRatePercent`): % **khấu trừ vận hành** của gia sư theo từng lớp.
@@ -280,6 +283,12 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
     - Buổi mới/cập nhật luôn snapshot theo `class_teachers.operatingDeductionRatePercent` hiện hành; FE không còn toggle tắt phí vận hành từng buổi. Field request `includeTeacherOperatingDeduction=false` vẫn tồn tại ở API (legacy) nhưng UI không gửi; buổi cũ đã snapshot `0%` giữ nguyên cho lịch sử thanh toán.
   - `teacher_tax_deduction_rate_percent` (`DECIMAL(5,2)`, default `0`, Prisma field `teacherTaxDeductionRatePercent`): snapshot mức **khấu trừ thuế** áp dụng cho khoản dạy học; trước thanh toán được refresh khi tạo/cập nhật session, khi chuyển sang `paid` được snapshot lại theo thời điểm thanh toán.
   - Semantics hiện tại: khấu trừ vận hành của gia sư vẫn được tính ở mức từng buổi; khấu trừ thuế được aggregate trên **tổng gross theo nguồn + rate bucket trong kỳ**, nên các view chi tiết lớp/buổi của gia sư dùng số **sau vận hành, trước thuế**.
+- **Snapshot trợ cấp quản lý lớp (Đào tạo):**
+  - `training_manager_staff_id` (nullable FK → `staff_info.id`): snapshot từ `classes.training_manager_staff_id` khi tạo/cập nhật buổi.
+  - `training_manager_rate_percent` (`DECIMAL(5,2)`, nullable): snapshot % từ lớp tại thời điểm ghi buổi.
+  - `training_manager_allowance_amount` (`INTEGER`, nullable): `ROUND(tổng tuition_fee present/excused × rate / 100)`; `0`/null khi chưa gán QLL hoặc rate = 0.
+  - `training_manager_payment_status` (`PaymentStatus`, default `pending`): thanh toán payroll theo buổi (pattern CSKH).
+  - `training_manager_tax_deduction_rate_percent` (`DECIMAL(5,2)`, nullable): snapshot thuế khi chuyển `paid`.
 - Quan hệ con: `attendance`
 - Indexes chính:
   - đơn lẻ: `teacher_id`, `class_id`, `date`

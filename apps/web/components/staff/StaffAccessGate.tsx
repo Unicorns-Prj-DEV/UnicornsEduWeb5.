@@ -118,7 +118,7 @@ export default function StaffAccessGate({
       : isStaffNotificationRoute
         ? "Route `/staff/notification` chỉ mở khi tài khoản có linked staff profile hợp lệ. Đây là feed chỉ đọc dành cho nhân sự xem các thông báo admin đã push."
         : isStaffClassesRoute
-          ? "Route `/staff/classes` hiện mở danh sách cho `staff.assistant`, `staff.accountant_income`, và `staff.accountant_expense`; riêng `staff.teacher`, `admin`, và `staff.customer_care` chỉ mở trực tiếp trang chi tiết `/staff/classes/[id]`. Với customer care, backend tiếp tục khóa theo các lớp có ít nhất một học sinh đang do chính staff đó phụ trách."
+          ? "Route `/staff/classes` mở danh sách cho `staff.assistant`, `staff.accountant_income`, `staff.accountant_expense`, và `staff.training` (UI giống admin nhưng backend chỉ trả các lớp được gán quản lý); riêng `staff.teacher`, `admin`, và `staff.customer_care` chỉ mở trực tiếp trang chi tiết `/staff/classes/[id]`. Với customer care, backend tiếp tục khóa theo các lớp có ít nhất một học sinh đang do chính staff đó phụ trách."
           : isStaffDeductionsRoute
             ? "Route `/staff/deductions` không còn mở cho staff role; cấu hình khấu trừ chỉ nằm ở admin shell cho admin đầy đủ."
             : isStaffStudentsRoute

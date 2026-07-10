@@ -88,7 +88,7 @@ describe('StaffOperationsAccessService', () => {
       ),
     ).rejects.toThrow(
       new ForbiddenException(
-        'Màn /staff hiện chỉ mở cho teacher, trợ lí, kế toán, hoặc staff admin.',
+        'Màn /staff hiện chỉ mở cho teacher, Đào Tạo, trợ lí, kế toán, hoặc staff admin.',
       ),
     );
   });
@@ -138,7 +138,7 @@ describe('StaffOperationsAccessService', () => {
     });
   });
 
-  it('allows training staff for calendar only', async () => {
+  it('allows training staff for calendar and class list access', async () => {
     mockPrisma.staffInfo.findFirst.mockResolvedValue({
       id: 'training-1',
       roles: [StaffRole.training],
@@ -154,7 +154,10 @@ describe('StaffOperationsAccessService', () => {
 
     await expect(
       service.resolveActor('training-user', UserRole.staff),
-    ).rejects.toThrow(ForbiddenException);
+    ).resolves.toEqual({
+      id: 'training-1',
+      roles: [StaffRole.training],
+    });
   });
 
   it('rejects non-teacher non-training staff from calendar access', async () => {

@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import AssistantCommissionTabPanel from "@/components/admin/extra-allowance/AssistantCommissionTabPanel";
+import TrainingManagerClassesTabPanel from "@/components/training-manager/TrainingManagerClassesTabPanel";
 import ExtraAllowanceFormPopup, {
   type ExtraAllowanceFormSubmitPayload,
 } from "@/components/admin/extra-allowance/ExtraAllowanceFormPopup";
@@ -222,16 +223,20 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
   const [assistantDetailTab, setAssistantDetailTab] = useState<
     "allowance" | "commission"
   >("allowance");
+  const [trainingDetailTab, setTrainingDetailTab] = useState<
+    "classes" | "allowance"
+  >("classes");
   const [selectedMonth, setSelectedMonth] = useState(getDefaultMonthKey);
   const [monthPopupOpen, setMonthPopupOpen] = useState(false);
   const monthQuery = toExtraAllowanceMonthQuery(selectedMonth);
   const selectedMonthLabel = formatMonthKeyLabel(monthQuery.monthKey);
   const showAssistantCommissionTab = roleType === "assistant";
+  const showTrainingClassesTab = roleType === "training";
 
   const { data: meStaff, isLoading: isMeStaffLoading } = useQuery({
     queryKey: ["users", "me", "staff-detail"],
     queryFn: getMyStaffDetail,
-    enabled: canSelfEditAllowance || showAssistantCommissionTab,
+    enabled: canSelfEditAllowance || showAssistantCommissionTab || showTrainingClassesTab,
     staleTime: 60_000,
   });
 
@@ -478,13 +483,48 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
         </div>
       ) : null}
 
+      {showTrainingClassesTab ? (
+        <div className="inline-flex w-full rounded-xl border border-border-default bg-bg-surface p-1 sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setTrainingDetailTab("classes")}
+            className={`min-h-11 flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors sm:flex-none ${
+              trainingDetailTab === "classes"
+                ? "bg-primary text-text-inverse"
+                : "text-text-secondary hover:bg-bg-secondary"
+            }`}
+          >
+            Lớp học
+          </button>
+          <button
+            type="button"
+            onClick={() => setTrainingDetailTab("allowance")}
+            className={`min-h-11 flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors sm:flex-none ${
+              trainingDetailTab === "allowance"
+                ? "bg-primary text-text-inverse"
+                : "text-text-secondary hover:bg-bg-secondary"
+            }`}
+          >
+            Trợ cấp
+          </button>
+        </div>
+      ) : null}
+
       {showAssistantCommissionTab && assistantDetailTab === "commission" ? (
         <section className="rounded-[1.25rem] border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5">
           <AssistantCommissionTabPanel assistantStaffId={meStaff?.id ?? ""} />
         </section>
       ) : null}
 
-      {assistantDetailTab === "allowance" && isError && !data ? (
+      {showTrainingClassesTab && trainingDetailTab === "classes" ? (
+        <TrainingManagerClassesTabPanel
+          staffId={meStaff?.id ?? ""}
+          workspaceMode="self"
+        />
+      ) : null}
+
+      {(showTrainingClassesTab ? trainingDetailTab === "allowance" : true) &&
+      assistantDetailTab === "allowance" && isError && !data ? (
         <section className="rounded-[2rem] border border-error/30 bg-error/8 p-5 shadow-sm lg:p-6">
           <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-error">
             Allowance Unavailable
@@ -506,7 +546,8 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
             Tải lại
           </button>
         </section>
-      ) : assistantDetailTab === "allowance" ? (
+      ) : (showTrainingClassesTab ? trainingDetailTab === "allowance" : true) &&
+        assistantDetailTab === "allowance" ? (
         <>
           <section
             className="rounded-[1.25rem] border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5"

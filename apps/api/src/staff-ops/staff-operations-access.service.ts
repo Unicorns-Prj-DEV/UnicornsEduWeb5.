@@ -12,7 +12,11 @@ export interface StaffOperationsActor {
   roles: StaffRole[];
 }
 
-export type StaffClassViewAccessMode = 'admin' | 'teacher' | 'customer_care';
+export type StaffClassViewAccessMode =
+  | 'admin'
+  | 'teacher'
+  | 'customer_care'
+  | 'training_manager';
 export type StaffCalendarAccessMode = 'admin' | 'teacher' | 'training';
 
 const ELEVATED_CLASS_ACCESS_ROLES = [
@@ -73,10 +77,11 @@ export class StaffOperationsAccessService {
 
     if (
       !staff.roles.includes(StaffRole.teacher) &&
+      !staff.roles.includes(StaffRole.training) &&
       !this.hasElevatedClassAccess(staff.roles)
     ) {
       throw new ForbiddenException(
-        'Màn /staff hiện chỉ mở cho teacher, trợ lí, kế toán, hoặc staff admin.',
+        'Màn /staff hiện chỉ mở cho teacher, Đào Tạo, trợ lí, kế toán, hoặc staff admin.',
       );
     }
 
@@ -128,10 +133,11 @@ export class StaffOperationsAccessService {
     if (
       !staff.roles.includes(StaffRole.teacher) &&
       !staff.roles.includes(StaffRole.customer_care) &&
+      !staff.roles.includes(StaffRole.training) &&
       !this.hasElevatedClassAccess(staff.roles)
     ) {
       throw new ForbiddenException(
-        'Màn chi tiết lớp chỉ mở cho teacher, CSKH, trợ lí, kế toán, hoặc staff admin.',
+        'Màn chi tiết lớp chỉ mở cho teacher, CSKH, Đào Tạo, trợ lí, kế toán, hoặc staff admin.',
       );
     }
 
@@ -209,6 +215,20 @@ export class StaffOperationsAccessService {
 
       if (customerCareAssignment) {
         return 'customer_care';
+      }
+    }
+
+    if (actor.roles.includes(StaffRole.training)) {
+      const managedClass = await this.prisma.class.findFirst({
+        where: {
+          id: classId,
+          trainingManagerStaffId: actor.id,
+        },
+        select: { id: true },
+      });
+
+      if (managedClass) {
+        return 'training_manager';
       }
     }
 

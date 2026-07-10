@@ -57,6 +57,11 @@ export interface ClassTeacher {
     operatingDeductionRatePercent?: number | null;
 }
 
+export interface ClassTrainingManagerRef {
+    id: string;
+    fullName: string;
+}
+
 export type ClassStudentStatus = "active" | "inactive" | string;
 
 export interface ClassStudent {
@@ -86,6 +91,9 @@ export interface ClassDetail extends ClassListItem {
     students?: ClassStudent[];
     sessionTuitionTotal?: number | null;
     endClassEligibility?: ClassEndEligibility;
+    trainingManagerStaffId?: string | null;
+    trainingManagerRatePercent?: number | null;
+    trainingManager?: ClassTrainingManagerRef | null;
 }
 
 export interface CreateClassPayload {

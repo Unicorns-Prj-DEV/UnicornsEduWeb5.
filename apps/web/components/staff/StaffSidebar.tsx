@@ -100,7 +100,7 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
       icon: <IconClasses />,
       isActive: (pathname) =>
         pathname === "/staff/classes" || pathname.startsWith("/staff/classes/"),
-      isVisible: ({ isAccountant }) => isAccountant,
+      isVisible: ({ isAccountant, isTraining }) => isAccountant || isTraining,
     },
     {
       href: "/staff/students",

@@ -334,10 +334,10 @@ export function resolveStaffShellRouteAccess(
             ? isAssistantStaff ||
               (hasStaffWorkspaceAccess &&
                 isStaffOrAdmin &&
-                (isAccountantIncome || isAccountantExpense)) ||
+                (isAccountantIncome || isAccountantExpense || isTraining)) ||
               (flags.isStaffClassDetailRoute &&
                 hasStaffWorkspaceAccess &&
-                (isAdmin || isTeacher || isCustomerCare))
+                (isAdmin || isTeacher || isCustomerCare || isTraining))
             : flags.isStaffDeductionsRoute
               ? isAssistantStaff
               : flags.isStaffStudentsRoute

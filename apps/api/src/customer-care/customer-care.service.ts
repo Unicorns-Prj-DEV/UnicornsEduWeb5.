@@ -15,6 +15,7 @@ import {
 import type {
   CustomerCareBulkPaymentStatusUpdateResultDto,
   CustomerCareCommissionDto,
+  CustomerCareCommissionListDto,
   CustomerCareCommissionListQueryDto,
   CustomerCareCommissionScope,
   CustomerCareSessionCommissionDto,
@@ -41,6 +42,7 @@ type CustomerCareCommissionAggregateRow = {
   totalCommission: unknown;
   pendingCommission: unknown;
   paidCommission: unknown;
+  monthCommission?: unknown;
 };
 
 function parseMonthRange(monthKey: string): {
@@ -333,6 +335,12 @@ export class CustomerCareService {
       },
     };
     const total = await this.prisma.walletTransactionsHistory.count({ where });
+    const totalAmountAggregate =
+      await this.prisma.walletTransactionsHistory.aggregate({
+        where,
+        _sum: { amount: true },
+      });
+    const totalAmount = totalAmountAggregate._sum.amount ?? 0;
     const totalPages = Math.max(1, Math.ceil(total / limit));
     const safePage = Math.min(page, totalPages);
     const skip = (safePage - 1) * limit;
@@ -372,6 +380,7 @@ export class CustomerCareService {
         total,
         page: safePage,
         limit,
+        totalAmount,
       },
     };
   }
@@ -425,7 +434,7 @@ export class CustomerCareService {
     roleType: UserRole,
     staffId: string,
     query: CustomerCareCommissionListQueryDto = {},
-  ): Promise<CustomerCareCommissionDto[]> {
+  ): Promise<CustomerCareCommissionListDto | CustomerCareCommissionDto[]> {
     const accessibleStaffId = await this.resolveAccessibleStaffId(
       userId,
       roleType,
@@ -437,6 +446,10 @@ export class CustomerCareService {
       select: { id: true },
     });
     if (!staff) throw new NotFoundException('Staff not found');
+
+    if (query.month?.trim()) {
+      return this.getHybridCommissionsByStaffId(accessibleStaffId, query.month);
+    }
 
     const scope = normalizeCommissionScope(query);
     const { attendancePaymentFilter, sessionDateFilter } =
@@ -515,6 +528,131 @@ export class CustomerCareService {
     return mappedRows;
   }
 
+  private async getHybridCommissionsByStaffId(
+    accessibleStaffId: string,
+    monthKey: string,
+  ): Promise<CustomerCareCommissionListDto> {
+    const { start, endExclusive } = parseMonthRange(monthKey);
+
+    const rows = await this.prisma.$queryRaw<
+      CustomerCareCommissionAggregateRow[]
+    >(
+      Prisma.sql`
+          SELECT
+            student_info.id AS "studentId",
+            COALESCE(student_info.full_name, '') AS "fullName",
+            COALESCE(
+              SUM(
+                CASE
+                  WHEN sessions.date >= ${start}
+                    AND sessions.date < ${endExclusive}
+                  THEN ROUND(
+                    COALESCE(attendance.tuition_fee, 0)::numeric
+                    * COALESCE(attendance.customer_care_coef, 0)
+                  )
+                  ELSE 0
+                END
+              ),
+              0
+            ) AS "monthCommission",
+            COALESCE(
+              SUM(
+                CASE
+                  WHEN COALESCE(attendance.customer_care_payment_status::text, ${PaymentStatus.pending}) = ${PaymentStatus.pending}
+                  THEN ROUND(
+                    COALESCE(attendance.tuition_fee, 0)::numeric
+                    * COALESCE(attendance.customer_care_coef, 0)
+                  )
+                  ELSE 0
+                END
+              ),
+              0
+            ) AS "pendingCommission",
+            COALESCE(
+              SUM(
+                CASE
+                  WHEN attendance.customer_care_payment_status::text = ${PaymentStatus.paid}
+                    AND sessions.date >= ${start}
+                    AND sessions.date < ${endExclusive}
+                  THEN ROUND(
+                    COALESCE(attendance.tuition_fee, 0)::numeric
+                    * COALESCE(attendance.customer_care_coef, 0)
+                  )
+                  ELSE 0
+                END
+              ),
+              0
+            ) AS "paidCommission",
+            0 AS "totalCommission"
+          FROM attendance
+          INNER JOIN sessions
+            ON sessions.id = attendance.session_id
+          INNER JOIN student_info
+            ON student_info.id = attendance.student_id
+          WHERE attendance.customer_care_staff_id = ${accessibleStaffId}
+          GROUP BY student_info.id, student_info.full_name
+          HAVING
+            COALESCE(
+              SUM(
+                CASE
+                  WHEN sessions.date >= ${start}
+                    AND sessions.date < ${endExclusive}
+                  THEN ROUND(
+                    COALESCE(attendance.tuition_fee, 0)::numeric
+                    * COALESCE(attendance.customer_care_coef, 0)
+                  )
+                  ELSE 0
+                END
+              ),
+              0
+            ) > 0
+            OR COALESCE(
+              SUM(
+                CASE
+                  WHEN COALESCE(attendance.customer_care_payment_status::text, ${PaymentStatus.pending}) = ${PaymentStatus.pending}
+                  THEN ROUND(
+                    COALESCE(attendance.tuition_fee, 0)::numeric
+                    * COALESCE(attendance.customer_care_coef, 0)
+                  )
+                  ELSE 0
+                END
+              ),
+              0
+            ) > 0
+        `,
+    );
+
+    const data: CustomerCareCommissionDto[] = rows.map((row) => {
+      const monthCommission = toNumber(row.monthCommission);
+      const pendingCommission = toNumber(row.pendingCommission);
+      const paidCommission = toNumber(row.paidCommission);
+
+      return {
+        studentId: row.studentId,
+        fullName: row.fullName ?? '',
+        totalCommission: monthCommission,
+        monthCommission,
+        pendingCommission,
+        paidCommission,
+      };
+    });
+
+    const summary = data.reduce(
+      (acc, row) => ({
+        studentCount: acc.studentCount + 1,
+        totalPending: acc.totalPending + row.pendingCommission,
+        totalMonthCommission: acc.totalMonthCommission + (row.monthCommission ?? 0),
+      }),
+      {
+        studentCount: 0,
+        totalPending: 0,
+        totalMonthCommission: 0,
+      },
+    );
+
+    return { data, summary };
+  }
+
   /** Session-level commissions for one student under this staff. */
   async getSessionCommissionsByStudent(
     userId: string,
@@ -534,6 +672,54 @@ export class CustomerCareService {
       select: { id: true },
     });
     if (!staff) throw new NotFoundException('Staff not found');
+
+    if (query.month?.trim()) {
+      const { start, endExclusive } = parseMonthRange(query.month);
+      const attendances = await this.prisma.attendance.findMany({
+        where: {
+          customerCareStaffId: accessibleStaffId,
+          studentId,
+          session: {
+            date: {
+              gte: start,
+              lt: endExclusive,
+            },
+          },
+        },
+        orderBy: [{ session: { date: 'desc' } }, { id: 'desc' }],
+        select: {
+          id: true,
+          tuitionFee: true,
+          customerCareCoef: true,
+          customerCarePaymentStatus: true,
+          session: {
+            select: {
+              id: true,
+              date: true,
+              class: { select: { name: true } },
+            },
+          },
+        },
+      });
+
+      return attendances.map((attendance) => {
+        const tuition = attendance.tuitionFee ?? 0;
+        const coef = toNumber(attendance.customerCareCoef);
+        const commission = Math.round(tuition * coef);
+
+        return {
+          attendanceId: attendance.id,
+          sessionId: attendance.session.id,
+          date: attendance.session.date.toISOString(),
+          className: attendance.session.class?.name ?? null,
+          tuitionFee: tuition,
+          customerCareCoef: coef,
+          commission,
+          paymentStatus:
+            attendance.customerCarePaymentStatus ?? PaymentStatus.pending,
+        };
+      });
+    }
 
     const scope = normalizeCommissionScope(query);
     const sessionDateWhere =

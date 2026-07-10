@@ -35,7 +35,9 @@ model StaffInfo {
   missedTeachingExplanations          MissedTeachingExplanation[]
   staffTaxDeductionOverrides          StaffTaxDeductionOverride[]
   tasksCreated                        LessonTask[]
-  sessions                            Session[]
+  sessions                            Session[]                            @relation("SessionTeacher")
+  trainingManagerSessions             Session[]                            @relation("SessionTrainingManager")
+  managedTrainingClasses              Class[]                              @relation("ClassTrainingManager")
   customerCareManagedBy               StaffInfo?                           @relation("AssistantManagesCustomerCare", fields: [customerCareManagedByStaffId], references: [id])
   managedCustomerCareStaff            StaffInfo[]                          @relation("AssistantManagesCustomerCare")
   user                                User?                                @relation(fields: [userId], references: [id])

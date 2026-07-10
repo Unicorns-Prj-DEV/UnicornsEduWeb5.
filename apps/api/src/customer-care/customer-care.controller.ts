@@ -22,6 +22,7 @@ import type {
   CustomerCareBulkPaymentStatusUpdateDto,
   CustomerCareBulkPaymentStatusUpdateResultDto,
   CustomerCareCommissionDto,
+  CustomerCareCommissionListDto,
   CustomerCareSessionCommissionDto,
   CustomerCareStudentListDto,
   CustomerCareTopUpHistoryListDto,
@@ -115,7 +116,7 @@ export class CustomerCareController {
   @ApiOperation({
     summary: 'List students with total commission',
     description:
-      'Students with commission from attendances. Default scope=pending returns all unpaid rows; scope=month returns every commission row in the selected calendar month.',
+      'When month=YYYY-MM is provided, returns hybrid summary: pendingCommission is all-time unpaid, monthCommission is within the selected month. Legacy scope=pending|month without month still returns a flat array.',
   })
   @ApiParam({ name: 'staffId', description: 'Staff ID' })
   @ApiQuery({
@@ -140,7 +141,7 @@ export class CustomerCareController {
   @ApiResponse({
     status: 200,
     description:
-      'List of studentId, fullName, totalCommission, pendingCommission, paidCommission.',
+      'Hybrid list with summary when month is provided; otherwise legacy flat commission rows.',
   })
   @ApiResponse({ status: 404, description: 'Staff not found.' })
   async getCommissionsByStaffId(
@@ -149,7 +150,7 @@ export class CustomerCareController {
     @Query('scope') scope?: string,
     @Query('month') month?: string,
     @Query('days') days?: string,
-  ): Promise<CustomerCareCommissionDto[]> {
+  ): Promise<CustomerCareCommissionListDto | CustomerCareCommissionDto[]> {
     const parsedDays = days ? parseInt(days, 10) : undefined;
     const safeDays =
       parsedDays != null && Number.isFinite(parsedDays) && parsedDays >= 1

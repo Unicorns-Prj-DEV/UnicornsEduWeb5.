@@ -58,6 +58,7 @@ describe('CalendarController', () => {
       20,
       'math',
       'teacher-1',
+      undefined,
     );
   });
 
@@ -124,10 +125,11 @@ describe('CalendarController', () => {
       20,
       'physics',
       undefined,
+      undefined,
     );
   });
 
-  it('lets training staff fetch all running class filters', async () => {
+  it('lets training staff fetch managed class filters only', async () => {
     staffOperationsAccess.resolveCalendarActor.mockResolvedValue({
       id: 'training-1',
       roles: [StaffRole.training],
@@ -154,6 +156,7 @@ describe('CalendarController', () => {
       20,
       'math',
       undefined,
+      'training-1',
     );
   });
 
@@ -179,7 +182,7 @@ describe('CalendarController', () => {
 
     expect(calendarService.getStaffScheduleEvents).toHaveBeenCalledWith(
       { startDate: '2026-05-29', endDate: '2026-05-29' },
-      { redactStudentFields: true },
+      { redactStudentFields: true, trainingManagerStaffId: 'training-1' },
     );
   });
 

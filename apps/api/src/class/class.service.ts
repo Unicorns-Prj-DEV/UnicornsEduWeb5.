@@ -49,7 +49,9 @@ import {
 } from 'src/common/student-class-tuition.util';
 import {
   redactClassForAccountantView,
+  redactClassForTrainingManagerView,
   redactClassListForAccountantView,
+  redactClassListForTrainingManagerView,
   resolveAccountantFinanceView,
 } from 'src/common/accountant-finance-redaction.util';
 import {
@@ -223,6 +225,12 @@ export class ClassService {
   private shouldScopeStaffClassesToTeacher(roles: string[]) {
     return (
       roles.includes(StaffRole.teacher) && !this.hasElevatedClassAccess(roles)
+    );
+  }
+
+  private shouldScopeStaffClassesToTrainingManager(roles: string[]) {
+    return (
+      roles.includes(StaffRole.training) && !this.hasElevatedClassAccess(roles)
     );
   }
 
@@ -511,6 +519,19 @@ export class ClassService {
   ) {
     const classInfo = await db.class.findUnique({
       where: { id },
+      include: {
+        trainingManager: {
+          select: {
+            id: true,
+            user: {
+              select: {
+                first_name: true,
+                last_name: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!classInfo) {
@@ -614,6 +635,13 @@ export class ClassService {
 
     return {
       ...classInfo,
+      trainingManager: classInfo.trainingManager
+        ? {
+            id: classInfo.trainingManager.id,
+            fullName:
+              getUserFullNameFromParts(classInfo.trainingManager.user) ?? '',
+          }
+        : null,
       teachers,
       students,
       endClassEligibility,
@@ -644,6 +672,7 @@ export class ClassService {
       status?: string;
       type?: string;
       teacherId?: string;
+      trainingManagerStaffId?: string;
     },
   ) {
     const parsedPage = Number(query.page);
@@ -659,6 +688,7 @@ export class ClassService {
     const normalizedStatus = query.status?.trim();
     const normalizedType = query.type?.trim();
     const teacherId = query.teacherId?.trim();
+    const trainingManagerStaffId = query.trainingManagerStaffId?.trim();
 
     const statusFilter: ClassStatus | undefined =
       normalizedStatus === ClassStatus.running
@@ -699,6 +729,9 @@ export class ClassService {
               },
             },
           }
+        : {}),
+      ...(trainingManagerStaffId
+        ? { trainingManagerStaffId }
         : {}),
     };
 
@@ -925,12 +958,22 @@ export class ClassService {
       ...(this.shouldScopeStaffClassesToTeacher(actor.roles)
         ? { teacherId: actor.id }
         : {}),
+      ...(this.shouldScopeStaffClassesToTrainingManager(actor.roles)
+        ? { trainingManagerStaffId: actor.id }
+        : {}),
     });
 
-    return redactClassListForAccountantView(
+    const financeView = resolveAccountantFinanceView(roleType, actor.roles);
+    const accountantScoped = redactClassListForAccountantView(
       classes,
-      resolveAccountantFinanceView(roleType, actor.roles),
+      financeView,
     );
+
+    if (this.shouldScopeStaffClassesToTrainingManager(actor.roles)) {
+      return redactClassListForTrainingManagerView(accountantScoped);
+    }
+
+    return accountantScoped;
   }
 
   async getClassByIdForStaff(userId: string, roleType: UserRole, id: string) {
@@ -938,13 +981,21 @@ export class ClassService {
       userId,
       roleType,
     );
-    await this.staffOperationsAccess.resolveClassViewAccessMode(actor, id);
+    const accessMode =
+      await this.staffOperationsAccess.resolveClassViewAccessMode(actor, id);
 
     const classDetail = await this.getClassById(id);
-    return redactClassForAccountantView(
+    const financeView = resolveAccountantFinanceView(roleType, actor.roles);
+    const accountantRedacted = redactClassForAccountantView(
       classDetail,
-      resolveAccountantFinanceView(roleType, actor.roles),
+      financeView,
     );
+
+    if (accessMode === 'training_manager') {
+      return redactClassForTrainingManagerView(accountantRedacted);
+    }
+
+    return accountantRedacted;
   }
 
   async createClassForStaff(
@@ -1374,14 +1425,6 @@ export class ClassService {
         where: { id },
         data,
       });
-      if (dto.allowance_per_session_per_student !== undefined) {
-        await tx.classTeacher.updateMany({
-          where: { classId: id },
-          data: {
-            customAllowance: dto.allowance_per_session_per_student,
-          },
-        });
-      }
 
       const afterValue = await this.getClassAuditSnapshot(tx, id);
       if (!afterValue) {

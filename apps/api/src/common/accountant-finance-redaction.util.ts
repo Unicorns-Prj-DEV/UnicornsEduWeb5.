@@ -138,6 +138,19 @@ export function redactClassListForAccountantView<
   };
 }
 
+export function redactClassListForTrainingManagerView<
+  T extends { data?: unknown[] },
+>(response: T): T {
+  if (!Array.isArray(response.data)) {
+    return response;
+  }
+
+  return {
+    ...response,
+    data: response.data.map((item) => redactClassForTrainingManagerView(item)),
+  };
+}
+
 export function redactStudentClassRowsForAccountantView<T>(
   rows: T[],
   financeView: AccountantFinanceView,
@@ -206,5 +219,91 @@ export function redactSessionsForAccountantView<T>(
 
   return sessions.map((session) =>
     redactSessionForAccountantView(session, financeView),
+  );
+}
+
+const CLASS_TRAINING_MANAGER_HIDDEN_FIELDS = [
+  'allowancePerSessionPerStudent',
+  'maxAllowancePerSession',
+  'scaleAmount',
+  'studentTuitionPerSession',
+  'tuitionPackageTotal',
+  'tuitionPackageSession',
+  'sessionTuitionTotal',
+] as const;
+
+const SESSION_TRAINING_MANAGER_HIDDEN_FIELDS = [
+  'allowanceAmount',
+  'coefficient',
+  'teacherPaymentStatus',
+  'tuitionFee',
+  'operatingDeductionAmount',
+  'operatingDeductionRatePercent',
+] as const;
+
+const ATTENDANCE_TRAINING_MANAGER_HIDDEN_FIELDS = ['tuitionFee'] as const;
+
+export function redactClassForTrainingManagerView<T>(classRecord: T): T {
+  if (!classRecord || typeof classRecord !== 'object') {
+    return classRecord;
+  }
+
+  let next = omitFields(
+    classRecord as Record<string, unknown>,
+    CLASS_TRAINING_MANAGER_HIDDEN_FIELDS,
+  );
+
+  if (Array.isArray(next.teachers)) {
+    next.teachers = next.teachers.map((teacher) =>
+      teacher && typeof teacher === 'object'
+        ? omitFields(
+            teacher as Record<string, unknown>,
+            TEACHER_INCOME_HIDDEN_FIELDS,
+          )
+        : teacher,
+    );
+  }
+
+  if (Array.isArray(next.students)) {
+    next.students = next.students.map((student) =>
+      student && typeof student === 'object'
+        ? omitFields(
+            student as Record<string, unknown>,
+            STUDENT_EXPENSE_HIDDEN_FIELDS,
+          )
+        : student,
+    );
+  }
+
+  return next as T;
+}
+
+export function redactSessionForTrainingManagerView<T>(session: T): T {
+  if (!session || typeof session !== 'object') {
+    return session;
+  }
+
+  let next = omitFields(
+    session as Record<string, unknown>,
+    SESSION_TRAINING_MANAGER_HIDDEN_FIELDS,
+  );
+
+  if (Array.isArray(next.attendance)) {
+    next.attendance = next.attendance.map((attendance) =>
+      attendance && typeof attendance === 'object'
+        ? omitFields(
+            attendance as Record<string, unknown>,
+            ATTENDANCE_TRAINING_MANAGER_HIDDEN_FIELDS,
+          )
+        : attendance,
+    );
+  }
+
+  return next as T;
+}
+
+export function redactSessionsForTrainingManagerView<T>(sessions: T[]): T[] {
+  return sessions.map((session) =>
+    redactSessionForTrainingManagerView(session),
   );
 }

@@ -44,6 +44,7 @@ type Props = {
   fetching?: boolean;
   error?: boolean;
   canManage?: boolean;
+  canViewDetails?: boolean;
   createOpen: boolean;
   onCreateOpenChange: (open: boolean) => void;
   defaultTeacherId?: string;
@@ -427,6 +428,82 @@ function DeleteSurveyDialog({
   );
 }
 
+function SurveyViewDialog({
+  survey,
+  onClose,
+}: {
+  survey: ClassSurveyRecord | null;
+  onClose: () => void;
+}) {
+  if (!survey) return null;
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-bg-primary/75" aria-hidden onClick={onClose} />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="view-class-survey-title"
+        className={classEditorModalWideClassName}
+      >
+        <div className={classEditorModalHeaderClassName}>
+          <h2 id="view-class-survey-title" className={classEditorModalTitleClassName}>
+            Xem khảo sát
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className={classEditorModalCloseButtonClassName}
+            aria-label="Đóng"
+          >
+            <XMarkIcon className="size-5" aria-hidden />
+          </button>
+        </div>
+
+        <div className={`${classEditorModalBodyClassName} pr-0 sm:pr-1`}>
+          <section className="grid gap-3 rounded-lg border border-border-default bg-bg-secondary/50 p-3 sm:p-4 md:grid-cols-3">
+            <div className="flex flex-col gap-1 text-sm text-text-secondary">
+              <span>Khảo sát lần mấy</span>
+              <div className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary">
+                {survey.testNumber}
+              </div>
+            </div>
+            <div className="flex flex-col gap-1 text-sm text-text-secondary">
+              <span>Ngày báo cáo</span>
+              <div className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary">
+                {formatSurveyDate(survey.reportDate)}
+              </div>
+            </div>
+            <div className="flex flex-col gap-1 text-sm text-text-secondary">
+              <span>Người phụ trách</span>
+              <div className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary">
+                {renderSurveyTeacher(survey)}
+              </div>
+            </div>
+          </section>
+
+          <div className="flex flex-col gap-2 text-sm text-text-secondary">
+            <span>Nội dung báo cáo</span>
+            <div className="rounded-lg border border-border-default bg-bg-surface px-4 py-3">
+              <SurveyContentPreview content={survey.content} />
+            </div>
+          </div>
+        </div>
+
+        <div className={classEditorModalFooterClassName}>
+          <button
+            type="button"
+            onClick={onClose}
+            className={classEditorModalSecondaryButtonClassName}
+          >
+            Đóng
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function ClassSurveyPanel({
   surveys,
   teachers,
@@ -434,6 +511,7 @@ export default function ClassSurveyPanel({
   fetching = false,
   error = false,
   canManage = false,
+  canViewDetails = false,
   createOpen,
   onCreateOpenChange,
   defaultTeacherId,
@@ -441,6 +519,7 @@ export default function ClassSurveyPanel({
   onUpdate,
   onDelete,
 }: Props) {
+  const [viewingSurvey, setViewingSurvey] = useState<ClassSurveyRecord | null>(null);
   const [editingSurvey, setEditingSurvey] = useState<ClassSurveyRecord | null>(null);
   const [deletingSurvey, setDeletingSurvey] = useState<ClassSurveyRecord | null>(null);
   const [saving, setSaving] = useState(false);
@@ -515,7 +594,24 @@ export default function ClassSurveyPanel({
             {sortedSurveys.map((survey) => (
               <article
                 key={survey.id}
-                className="rounded-lg border border-border-default bg-bg-surface p-3 shadow-sm"
+                role={canViewDetails ? "button" : undefined}
+                tabIndex={canViewDetails ? 0 : undefined}
+                onClick={canViewDetails ? () => setViewingSurvey(survey) : undefined}
+                onKeyDown={
+                  canViewDetails
+                    ? (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setViewingSurvey(survey);
+                        }
+                      }
+                    : undefined
+                }
+                className={`rounded-lg border border-border-default bg-bg-surface p-3 shadow-sm ${
+                  canViewDetails
+                    ? "cursor-pointer transition hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    : ""
+                }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -587,7 +683,24 @@ export default function ClassSurveyPanel({
               {sortedSurveys.map((survey) => (
                 <tr
                   key={survey.id}
-                  className="border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary"
+                  role={canViewDetails ? "button" : undefined}
+                  tabIndex={canViewDetails ? 0 : undefined}
+                  onClick={canViewDetails ? () => setViewingSurvey(survey) : undefined}
+                  onKeyDown={
+                    canViewDetails
+                      ? (event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setViewingSurvey(survey);
+                          }
+                        }
+                      : undefined
+                  }
+                  className={`border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary ${
+                    canViewDetails
+                      ? "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                      : ""
+                  }`}
                 >
                   <td className="px-4 py-3 font-medium text-text-primary">
                     Lần {survey.testNumber}
@@ -674,6 +787,11 @@ export default function ClassSurveyPanel({
         deleting={deleting}
         onClose={() => setDeletingSurvey(null)}
         onConfirm={runDelete}
+      />
+
+      <SurveyViewDialog
+        survey={viewingSurvey}
+        onClose={() => setViewingSurvey(null)}
       />
     </div>
   );

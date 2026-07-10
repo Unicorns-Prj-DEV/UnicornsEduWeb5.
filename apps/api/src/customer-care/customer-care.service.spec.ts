@@ -30,6 +30,7 @@ describe('CustomerCareService', () => {
       groupBy: jest.fn(),
       count: jest.fn(),
       findMany: jest.fn(),
+      aggregate: jest.fn(),
     },
     attendance: {
       findMany: jest.fn(),
@@ -53,6 +54,9 @@ describe('CustomerCareService', () => {
     mockPrisma.customerCareService.findMany.mockResolvedValue([]);
     mockPrisma.walletTransactionsHistory.groupBy.mockResolvedValue([]);
     mockPrisma.walletTransactionsHistory.count.mockResolvedValue(0);
+    mockPrisma.walletTransactionsHistory.aggregate.mockResolvedValue({
+      _sum: { amount: 0 },
+    });
     mockPrisma.walletTransactionsHistory.findMany.mockResolvedValue([]);
     service = new CustomerCareService(mockPrisma as never);
   });
@@ -199,6 +203,9 @@ describe('CustomerCareService', () => {
     const date = new Date('2026-05-15T00:00:00.000Z');
     mockPrisma.staffInfo.findUnique.mockResolvedValue({ id: 'staff-1' });
     mockPrisma.walletTransactionsHistory.count.mockResolvedValue(11);
+    mockPrisma.walletTransactionsHistory.aggregate.mockResolvedValue({
+      _sum: { amount: 4_500_000 },
+    });
     mockPrisma.walletTransactionsHistory.findMany.mockResolvedValue([
       {
         id: 'topup-1',
@@ -232,6 +239,10 @@ describe('CustomerCareService', () => {
     expect(mockPrisma.walletTransactionsHistory.count).toHaveBeenCalledWith({
       where: expectedWhere,
     });
+    expect(mockPrisma.walletTransactionsHistory.aggregate).toHaveBeenCalledWith({
+      where: expectedWhere,
+      _sum: { amount: true },
+    });
     expect(mockPrisma.walletTransactionsHistory.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expectedWhere,
@@ -252,7 +263,46 @@ describe('CustomerCareService', () => {
           createdAt: createdAt.toISOString(),
         },
       ],
-      meta: { total: 11, page: 2, limit: 10 },
+      meta: { total: 11, page: 2, limit: 10, totalAmount: 4_500_000 },
+    });
+  });
+
+  it('returns hybrid commission summary when month is provided', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({ id: 'staff-1' });
+    mockPrisma.$queryRaw.mockResolvedValue([
+      {
+        studentId: 'student-1',
+        fullName: 'Nguyen An',
+        monthCommission: '12000',
+        pendingCommission: '5000',
+        paidCommission: '7000',
+        totalCommission: 0,
+      },
+    ]);
+
+    const result = await service.getCommissionsByStaffId(
+      'admin-user',
+      UserRole.admin,
+      'staff-1',
+      { month: '2026-05' },
+    );
+
+    expect(result).toEqual({
+      data: [
+        {
+          studentId: 'student-1',
+          fullName: 'Nguyen An',
+          totalCommission: 12000,
+          monthCommission: 12000,
+          pendingCommission: 5000,
+          paidCommission: 7000,
+        },
+      ],
+      summary: {
+        studentCount: 1,
+        totalPending: 5000,
+        totalMonthCommission: 12000,
+      },
     });
   });
 

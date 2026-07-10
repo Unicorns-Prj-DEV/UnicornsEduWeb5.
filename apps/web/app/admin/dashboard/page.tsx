@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { DateInput } from "@/components/ui/DateInput";
-import { Skeleton } from "@/components/ui/skeleton";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
@@ -20,6 +19,12 @@ import {
 } from "@/lib/admin-shell-paths";
 import AlertGroupCard from "@/components/admin/dashboard/AlertGroupCard";
 import DashboardAlertListDialog from "@/components/admin/dashboard/DashboardAlertListDialog";
+import {
+  AdminDashboardFinancialDetailSkeleton,
+  AdminDashboardFinancialReportSkeleton,
+  AdminDashboardRefreshStrip,
+  AdminDashboardSkeleton,
+} from "@/components/admin/dashboard/AdminDashboardSkeleton";
 import type { AlertGroupTone } from "@/components/admin/dashboard/alert-group-styles";
 import type {
   AdminDashboardActionAlert,
@@ -28,6 +33,7 @@ import type {
   AdminDashboardFinancialDetail,
   AdminDashboardFinancialDetailRowKey,
   AdminDashboardFinancialDetailSource,
+  AdminDashboardSummary,
 } from "@/dtos/dashboard.dto";
 
 function formatCurrency(value: number) {
@@ -169,10 +175,15 @@ function getAmountForSource(
       "pending-lesson": "Giáo án",
       "pending-bonus": "Bonus",
       "pending-extra": "Trợ cấp",
+      "pending-assistant": "Trợ lí",
+      "pending-training-manager": "QL lớp",
       "teacher-cost": "Dạy",
       "customer-care-cost": "CSKH",
       "lesson-cost": "Giáo án",
       "bonus-cost": "Bonus",
+      "extra-allowance-cost": "Trợ cấp khác",
+      "assistant-cost": "Trợ lí",
+      "training-manager-cost": "QL lớp",
     };
     const prefix = prefixMap[sourceKey];
     if (!prefix) return { amount: item.amount, note: item.note };
@@ -193,6 +204,8 @@ function getAmountForSource(
     const labelMap: Record<string, string> = {
       "operating-cost": "Chi phí vận hành",
       "extra-allowance-cost": "Trợ cấp khác",
+      "assistant-cost": "Trợ cấp trợ lí",
+      "training-manager-cost": "Trợ cấp quản lý lớp",
       "profit-revenue": "Học phí đã học",
       "profit-personnel": "Chi phí nhân sự",
       "profit-other": "Chi phí khác",
@@ -279,15 +292,7 @@ function FinancialDetailModal({
 
             <div className="max-h-[72vh] overflow-auto px-4 py-4 sm:px-5">
               {isLoading ? (
-                <div className="space-y-4">
-                  <Skeleton className="h-24 rounded-2xl" />
-                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {Array.from({ length: 3 }).map((_, idx) => (
-                      <Skeleton key={idx} className="h-28 rounded-xl" />
-                    ))}
-                  </div>
-                  <Skeleton className="h-64 rounded-xl" />
-                </div>
+                <AdminDashboardFinancialDetailSkeleton />
               ) : error ? (
                 <Alert variant="destructive">
                   <DashboardIcon path="M12 9v4m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
@@ -465,6 +470,43 @@ function getBreakdownAmount(dashboard: AdminDashboardDto, key: string) {
   return dashboard.breakdown.find((item) => item.key === key)?.amount ?? 0;
 }
 
+const SNAPSHOT_FINANCIAL_ROW_KEYS = new Set<AdminDashboardFinancialDetailRowKey>([
+  "prepaid",
+  "uncollected",
+  "pending-payroll",
+]);
+
+function getPersonnelCostFromBreakdown(dashboard: AdminDashboardDto) {
+  return (
+    getBreakdownAmount(dashboard, "teacherCost") +
+    getBreakdownAmount(dashboard, "customerCareCost") +
+    getBreakdownAmount(dashboard, "lessonCost") +
+    getBreakdownAmount(dashboard, "bonusCost") +
+    getBreakdownAmount(dashboard, "extraAllowanceCost") +
+    getBreakdownAmount(dashboard, "assistantCost") +
+    getBreakdownAmount(dashboard, "trainingManagerCost")
+  );
+}
+
+function formatPendingPayrollNote(
+  breakdown: AdminDashboardSummary["pendingPayrollBreakdown"] | undefined,
+) {
+  const b = breakdown ?? {
+    sessionAmount: 0,
+    customerCareAmount: 0,
+    lessonAmount: 0,
+    bonusAmount: 0,
+    extraAllowanceAmount: 0,
+    assistantAmount: 0,
+    trainingManagerAmount: 0,
+  };
+  return `Gia sư: ${formatCurrency(b.sessionAmount)} - Giáo án: ${formatCurrency(b.lessonAmount)} - SALE&CSKH: ${formatCurrency(b.customerCareAmount)} - Thưởng: ${formatCurrency(b.bonusAmount)} - Trợ cấp khác: ${formatCurrency(b.extraAllowanceAmount)} - Trợ lí: ${formatCurrency(b.assistantAmount)} - QL lớp: ${formatCurrency(b.trainingManagerAmount)} · Mọi khoản pending/unpaid mọi thời điểm (không lọc theo kỳ).`;
+}
+
+function getOtherCostFromBreakdown(dashboard: AdminDashboardDto) {
+  return getBreakdownAmount(dashboard, "operatingCost");
+}
+
 function exportCsv(filename: string, rows: Array<{ label: string; value: string; note: string }>) {
   const header = "Danh mục,Giá trị,Ghi chú\n";
   const body = rows
@@ -490,23 +532,6 @@ type FinancialSummaryRow = {
   note: string;
   emphasize?: boolean;
 };
-
-function DashboardLoadingState() {
-  return (
-    <div className="min-h-full bg-bg-primary p-4 sm:p-6" aria-busy="true" aria-live="polite">
-      <div className="mx-auto w-full max-w-[1320px] space-y-4">
-        <Skeleton className="h-20 rounded-xl" />
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, idx) => (
-            <Skeleton key={idx} className="h-28 rounded-xl" />
-          ))}
-        </div>
-        <Skeleton className="h-64 rounded-xl" />
-        <Skeleton className="h-64 rounded-xl" />
-      </div>
-    </div>
-  );
-}
 
 function AssistantDashboardRedirect({
   staffId,
@@ -562,21 +587,6 @@ function AssistantDashboardRedirect({
             </div>
           </div>
         </section>
-      </div>
-    </div>
-  );
-}
-
-function ProfileGateLoadingState() {
-  return (
-    <div className="min-h-full bg-bg-primary p-4 sm:p-6" aria-busy="true" aria-live="polite">
-      <div className="mx-auto w-full max-w-[1320px] space-y-4">
-        <Skeleton className="h-28 rounded-[1.75rem]" />
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, idx) => (
-            <Skeleton key={idx} className="h-28 rounded-xl" />
-          ))}
-        </div>
       </div>
     </div>
   );
@@ -663,28 +673,42 @@ export default function AdminDashboardTabPage() {
   const financialDetailQuery = useQuery({
     queryKey: [
       "dashboard", "admin", "financial-detail", selectedFinancialRowKey,
-      isRangeMode ? dateFrom : year,
-      isRangeMode ? dateTo : month,
+      isRangeMode && selectedFinancialRowKey && !SNAPSHOT_FINANCIAL_ROW_KEYS.has(selectedFinancialRowKey)
+        ? dateFrom
+        : year,
+      isRangeMode && selectedFinancialRowKey && !SNAPSHOT_FINANCIAL_ROW_KEYS.has(selectedFinancialRowKey)
+        ? dateTo
+        : month,
     ],
-    queryFn: () =>
-      isRangeMode
-        ? getAdminDashboardFinancialDetail({
-            rowKey: selectedFinancialRowKey!,
-            dateFrom,
-            dateTo,
-            limit: 500,
-          })
-        : getAdminDashboardFinancialDetail({
-            rowKey: selectedFinancialRowKey!,
-            month,
-            year,
-            limit: 500,
-          }),
+    queryFn: () => {
+      const useRangeDetail =
+        isRangeMode &&
+        selectedFinancialRowKey != null &&
+        !SNAPSHOT_FINANCIAL_ROW_KEYS.has(selectedFinancialRowKey);
+
+      if (useRangeDetail) {
+        return getAdminDashboardFinancialDetail({
+          rowKey: selectedFinancialRowKey!,
+          dateFrom,
+          dateTo,
+          limit: 500,
+        });
+      }
+
+      return getAdminDashboardFinancialDetail({
+        rowKey: selectedFinancialRowKey!,
+        month,
+        year,
+        limit: 500,
+      });
+    },
     enabled: fullProfileQuery.isSuccess && !isAssistantStaff && selectedFinancialRowKey != null,
     staleTime: 20_000,
   });
 
-  if (fullProfileQuery.isLoading) return <ProfileGateLoadingState />;
+  if (fullProfileQuery.isLoading) {
+    return <AdminDashboardSkeleton variant="profile-gate" />;
+  }
 
   if (isAssistantStaff) {
     return <AssistantDashboardRedirect staffId={assistantStaffId} />;
@@ -706,7 +730,7 @@ export default function AdminDashboardTabPage() {
     );
   }
 
-  if (dashboardQuery.isLoading) return <DashboardLoadingState />;
+  if (dashboardQuery.isLoading) return <AdminDashboardSkeleton />;
 
   if (dashboardQuery.isError || !dashboardQuery.data) {
     return (
@@ -728,83 +752,91 @@ export default function AdminDashboardTabPage() {
     return { value: y, label: y };
   });
 
-  // In range mode: financial table + popup use range query data; everything else uses main month query
-  const activeFinancialDashboard =
+  const snapshotDashboard = dashboard;
+
+  // Period metrics: range query in range mode; month dashboard otherwise
+  const periodFinancialDashboard =
     isRangeMode && rangeFinancialQuery.data ? rangeFinancialQuery.data : dashboard;
 
-  const teacherCost = getBreakdownAmount(activeFinancialDashboard, "teacherCost");
-  const customerCareCost = getBreakdownAmount(activeFinancialDashboard, "customerCareCost");
-  const lessonCost = getBreakdownAmount(activeFinancialDashboard, "lessonCost");
-  const bonusCost = getBreakdownAmount(activeFinancialDashboard, "bonusCost");
-  const extraAllowanceCost = getBreakdownAmount(activeFinancialDashboard, "extraAllowanceCost");
-  const operatingCost = getBreakdownAmount(activeFinancialDashboard, "operatingCost");
-  const personnelCostMonthly =
-    teacherCost + customerCareCost + lessonCost + bonusCost;
-  const otherCostMonthly = operatingCost + extraAllowanceCost;
+  const personnelCostMonthly = getPersonnelCostFromBreakdown(periodFinancialDashboard);
+  const otherCostMonthly = getOtherCostFromBreakdown(periodFinancialDashboard);
   const totalReceiveNet =
-    (activeFinancialDashboard?.summary.monthlyTopupTotal ?? 0) - personnelCostMonthly - otherCostMonthly;
+    (periodFinancialDashboard?.summary.monthlyTopupTotal ?? 0) -
+    personnelCostMonthly -
+    otherCostMonthly;
 
   const financialPeriodLabel = isRangeMode
     ? (rangeFinancialQuery.data?.period.monthLabel ?? `${dateFrom} – ${dateTo}`)
     : (dashboard?.period.monthLabel ?? "");
 
-  const payrollNoteDetail = `Gia sư: ${formatCurrency(teacherCost)} - Giáo án: ${formatCurrency(lessonCost)} - SALE&CSKH: ${formatCurrency(customerCareCost)} - Thưởng: ${formatCurrency(bonusCost)}`;
+  const isMonthDashboardRefreshing =
+    dashboardQuery.isFetching && Boolean(dashboardQuery.data);
+  const isRangeFinancialInitialLoading =
+    isRangeMode && rangeFinancialQuery.isLoading && !rangeFinancialQuery.data;
+  const isRangeFinancialRefreshing =
+    isRangeMode && rangeFinancialQuery.isFetching && Boolean(rangeFinancialQuery.data);
+  const showPeriodRefreshStrip =
+    isMonthDashboardRefreshing || isRangeFinancialRefreshing;
+  const showFinancialReportSkeleton = isRangeFinancialInitialLoading;
+  const dimFinancialReport =
+    !showFinancialReportSkeleton &&
+    (isRangeFinancialRefreshing || (!isRangeMode && isMonthDashboardRefreshing));
 
   const financialSummaryRows: FinancialSummaryRow[] = [
     {
       key: "topup",
       label: "Tổng nạp (Dòng tiền vào)",
-      value: activeFinancialDashboard?.summary.monthlyTopupTotal ?? 0,
+      value: periodFinancialDashboard?.summary.monthlyTopupTotal ?? 0,
       note: "Tổng số tiền thực tế phụ huynh/học sinh đã nạp vào ví trong kỳ đang xem. Phản ánh dòng tiền mặt thực thu.",
     },
     {
       key: "revenue",
       label: "Học phí đã học (Doanh thu)",
-      value: activeFinancialDashboard?.summary.totalLearnedTuition ?? 0,
-      note: `Học phí tương ứng với các buổi học thực tế học sinh đã tham gia (hoặc vắng có phép) trong kỳ đang xem. Đây là doanh thu thực tế được ghi nhận.`,
+      value: periodFinancialDashboard?.summary.totalLearnedTuition ?? 0,
+      note: "Học phí tương ứng với các buổi học thực tế (present/vắng có phép) trong kỳ đang xem.",
     },
     {
       key: "prepaid",
       label: "Học phí chưa dạy (Ví dương)",
-      value: activeFinancialDashboard?.summary.prepaidTuitionTotal ?? 0,
-      note: "Tổng số dư ví còn dương của những học sinh có đi học trong kỳ đang xem. Đây là học phí học viên đóng trước nhưng trung tâm chưa dạy (chưa tính vào doanh thu).",
+      value: snapshotDashboard.summary.prepaidTuitionTotal ?? 0,
+      note: "Tổng số dư ví dương mọi học sinh (snapshot hiện tại). Không đổi khi chọn khoảng ngày.",
     },
     {
       key: "uncollected",
       label: "Học phí chưa thu (Ví âm)",
-      value: activeFinancialDashboard?.summary.pendingCollectionTotal ?? 0,
-      note: "Tổng số tiền học sinh còn nợ (ví âm) có phát sinh buổi học trong kỳ đang xem. Cần liên hệ phụ huynh để thu hồi.",
+      value: snapshotDashboard.summary.pendingCollectionTotal ?? 0,
+      note: "Tổng nợ ví âm mọi học sinh (snapshot hiện tại). Không đổi khi chọn khoảng ngày.",
     },
     {
       key: "pending-payroll",
       label: "Trợ cấp chờ thanh toán",
-      value: activeFinancialDashboard?.summary.pendingPayrollTotal ?? 0,
-      note: `${payrollNoteDetail} · Các khoản phát sinh trong kỳ nhưng chưa chi trả thực tế cho nhân sự.`,
+      value: snapshotDashboard.summary.pendingPayrollTotal ?? 0,
+      note: formatPendingPayrollNote(snapshotDashboard.summary.pendingPayrollBreakdown),
     },
     {
       key: "personnel-cost",
       label: "Chi phí Nhân sự",
       value: personnelCostMonthly,
-      note: "Tổng chi phí trợ cấp nhân sự phát sinh trong kỳ (bao gồm giảng dạy, giáo án, CSKH và thưởng).",
+      note: "Chi phí nhân sự phát sinh trong kỳ: dạy, CSKH, giáo án, bonus, trợ cấp khác, trợ lí, quản lý lớp.",
     },
     {
       key: "other-cost",
       label: "Chi phí Khác",
       value: otherCostMonthly,
-      note: "Các chi phí vận hành khác phát sinh trong kỳ như chi phí học thử, marketing, và chi phí văn phòng.",
+      note: "Chi phí vận hành (cost_extend) phát sinh trong kỳ đang xem.",
     },
     {
       key: "profit",
       label: "Lợi nhuận thực tế (Kế toán)",
-      value: activeFinancialDashboard?.summary.monthlyProfit ?? 0,
-      note: "Lợi nhuận tính trên doanh thu thực tế (Học phí đã học - Chi phí nhân sự - Chi phí khác). Phản ánh hiệu quả hoạt động giảng dạy.",
+      value: periodFinancialDashboard?.summary.monthlyProfit ?? 0,
+      note: "Học phí đã học − Chi phí nhân sự − Chi phí khác trong kỳ đang xem.",
       emphasize: true,
     },
     {
       key: "total-in",
       label: "Dòng tiền thuần (Thực thu ròng)",
       value: totalReceiveNet,
-      note: "Chênh lệch dòng tiền mặt thực tế thu chi trong kỳ (Tổng nạp - Chi phí nhân sự - Chi phí khác). Phản ánh lượng tiền mặt tăng thêm ròng.",
+      note: "Tổng nạp − Chi phí nhân sự − Chi phí khác trong kỳ đang xem.",
       emphasize: true,
     },
   ];
@@ -1032,9 +1064,6 @@ export default function AdminDashboardTabPage() {
                       className="rounded-md border border-border-default bg-bg-surface px-2.5 py-1.5 text-sm text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                     />
                   </div>
-                  {rangeFinancialQuery.isFetching && (
-                    <span className="text-xs text-text-muted animate-pulse">Đang tải…</span>
-                  )}
                 </div>
               )}
             </div>
@@ -1058,40 +1087,61 @@ export default function AdminDashboardTabPage() {
           </div>
         </section>
 
-        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {showPeriodRefreshStrip ? (
+          <AdminDashboardRefreshStrip
+            label={
+              isRangeMode
+                ? "Đang cập nhật báo cáo tài chính theo khoảng ngày…"
+                : "Đang cập nhật số liệu theo tháng đang chọn…"
+            }
+          />
+        ) : null}
+
+        <section
+          className={`grid gap-3 transition-opacity sm:grid-cols-2 lg:grid-cols-3 ${
+            isMonthDashboardRefreshing ? "opacity-70" : ""
+          }`}
+        >
           <KpiCard title="Lớp học" value={String(dashboard.summary.activeClasses)} note={`${dashboard.summary.activeClasses} đang hoạt động`} tone="primary" />
           <KpiCard title="Học sinh" value={String(dashboard.summary.activeStudents)} note={`${dashboard.summary.activeStudents} đang học`} tone="default" />
           <KpiCard
             title="Lợi nhuận tháng"
-            value={formatCurrency(activeFinancialDashboard?.summary.monthlyProfit ?? 0)}
-            note="Doanh thu thực tế (học phí đã học) trừ chi phí"
-            tone={(activeFinancialDashboard?.summary.monthlyProfit ?? 0) >= 0 ? "success" : "warning"}
+            value={formatCurrency(periodFinancialDashboard?.summary.monthlyProfit ?? 0)}
+            note="Doanh thu thực tế (học phí đã học) trừ chi phí trong kỳ"
+            tone={(periodFinancialDashboard?.summary.monthlyProfit ?? 0) >= 0 ? "success" : "warning"}
             onClick={() => setSelectedFinancialRowKey("profit")}
           />
           <KpiCard
             title="Học phí chưa dạy (Ví dương)"
-            value={formatCurrency(activeFinancialDashboard?.summary.prepaidTuitionTotal ?? 0)}
-            note="Ví dương của học sinh có phát sinh buổi học trong kỳ"
+            value={formatCurrency(snapshotDashboard.summary.prepaidTuitionTotal ?? 0)}
+            note="Snapshot hiện tại — mọi học sinh có ví dương"
             tone="warning"
             onClick={() => setSelectedFinancialRowKey("prepaid")}
           />
           <KpiCard
             title="Học phí chưa thu (Ví âm)"
-            value={formatCurrency(activeFinancialDashboard?.summary.pendingCollectionTotal ?? 0)}
-            note="Ví âm của học sinh có phát sinh buổi học trong kỳ"
+            value={formatCurrency(snapshotDashboard.summary.pendingCollectionTotal ?? 0)}
+            note="Snapshot hiện tại — mọi học sinh có ví âm"
             tone="default"
             onClick={() => setSelectedFinancialRowKey("uncollected")}
           />
           <KpiCard
             title="Trợ cấp chờ thanh toán"
-            value={String(dashboard.summary.unpaidStaffCount)}
-            note={`${dashboard.summary.unpaidStaffCount} nhân sự chưa thanh toán trợ cấp`}
+            value={`${snapshotDashboard.summary.unpaidStaffCount} nhân sự · ${formatCurrency(snapshotDashboard.summary.pendingPayrollTotal ?? 0)}`}
+            note="Mọi khoản pending/unpaid mọi thời điểm"
             tone="warning"
             onClick={() => setSelectedFinancialRowKey("pending-payroll")}
           />
         </section>
 
-        <section className="overflow-hidden rounded-xl border border-border-default bg-bg-surface shadow-sm">
+        {showFinancialReportSkeleton ? (
+          <AdminDashboardFinancialReportSkeleton />
+        ) : (
+        <section
+          className={`overflow-hidden rounded-xl border border-border-default bg-bg-surface shadow-sm transition-opacity ${
+            dimFinancialReport ? "opacity-70" : ""
+          }`}
+        >
           <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-4 sm:px-6 sm:py-5">
             <h2 className="text-base font-bold tracking-tight text-text-primary sm:text-lg">
               Báo cáo tài chính
@@ -1192,6 +1242,7 @@ export default function AdminDashboardTabPage() {
             </Table>
           </div>
         </section>
+        )}
 
         <section className="rounded-xl border border-border-default bg-bg-surface p-4">
           <div className="mb-3 flex items-center gap-2">

@@ -35,9 +35,14 @@ export interface CustomerCareTopUpHistoryItem {
   createdAt: string;
 }
 
+export interface CustomerCareTopUpHistoryListMeta
+  extends CustomerCareStudentListMeta {
+  totalAmount: number;
+}
+
 export interface CustomerCareTopUpHistoryListResponse {
   data: CustomerCareTopUpHistoryItem[];
-  meta: CustomerCareStudentListMeta;
+  meta: CustomerCareTopUpHistoryListMeta;
 }
 
 export type CustomerCareCommissionScope = "pending" | "month";
@@ -55,6 +60,18 @@ export interface CustomerCareCommissionItem {
   totalCommission: number;
   pendingCommission: number;
   paidCommission: number;
+  monthCommission: number;
+}
+
+export interface CustomerCareCommissionSummary {
+  studentCount: number;
+  totalPending: number;
+  totalMonthCommission: number;
+}
+
+export interface CustomerCareCommissionListResponse {
+  data: CustomerCareCommissionItem[];
+  summary: CustomerCareCommissionSummary;
 }
 
 /** One session commission in GET .../students/:studentId/session-commissions */

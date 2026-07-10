@@ -275,12 +275,24 @@ export interface AdminDashboardSummaryDto {
   prepaidTuitionTotal: number;
   pendingCollectionTotal: number;
   pendingPayrollTotal: number;
+  /** All-time pending/unpaid payroll by source (snapshot; not filtered by month/range). */
+  pendingPayrollBreakdown: AdminDashboardPendingPayrollBreakdownDto;
   expiringStudentsCount: number;
   debtStudentsCount: number;
   unpaidStaffCount: number;
   classAlertCount: number;
   currentSurveyRound: number;
   totalAlerts: number;
+}
+
+export interface AdminDashboardPendingPayrollBreakdownDto {
+  sessionAmount: number;
+  customerCareAmount: number;
+  lessonAmount: number;
+  bonusAmount: number;
+  extraAllowanceAmount: number;
+  assistantAmount: number;
+  trainingManagerAmount: number;
 }
 
 export interface AdminDashboardTrendPointDto {
@@ -299,6 +311,8 @@ export interface AdminDashboardBreakdownItemDto {
     | 'lessonCost'
     | 'bonusCost'
     | 'extraAllowanceCost'
+    | 'assistantCost'
+    | 'trainingManagerCost'
     | 'operatingCost';
   label: string;
   kind: 'revenue' | 'expense';

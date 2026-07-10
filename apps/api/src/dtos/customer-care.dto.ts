@@ -37,9 +37,14 @@ export interface CustomerCareTopUpHistoryItemDto {
   createdAt: string;
 }
 
+export interface CustomerCareTopUpHistoryListMetaDto
+  extends CustomerCareStudentListMetaDto {
+  totalAmount: number;
+}
+
 export interface CustomerCareTopUpHistoryListDto {
   data: CustomerCareTopUpHistoryItemDto[];
-  meta: CustomerCareStudentListMetaDto;
+  meta: CustomerCareTopUpHistoryListMetaDto;
 }
 
 export type CustomerCareCommissionScope = 'pending' | 'month';
@@ -53,9 +58,22 @@ export interface CustomerCareCommissionListQueryDto {
 export interface CustomerCareCommissionDto {
   studentId: string;
   fullName: string;
+  /** @deprecated Use monthCommission when month query is provided. */
   totalCommission: number;
   pendingCommission: number;
   paidCommission: number;
+  monthCommission?: number;
+}
+
+export interface CustomerCareCommissionSummaryDto {
+  studentCount: number;
+  totalPending: number;
+  totalMonthCommission: number;
+}
+
+export interface CustomerCareCommissionListDto {
+  data: CustomerCareCommissionDto[];
+  summary: CustomerCareCommissionSummaryDto;
 }
 
 export interface CustomerCareSessionCommissionDto {

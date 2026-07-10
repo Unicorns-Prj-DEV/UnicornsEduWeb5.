@@ -19,6 +19,7 @@ import {
 } from "@/lib/admin-shell-access";
 import * as staffApi from "@/lib/apis/staff.api";
 import AssistantCommissionTabPanel from "./AssistantCommissionTabPanel";
+import TrainingManagerClassesTabPanel from "@/components/training-manager/TrainingManagerClassesTabPanel";
 import ExtraAllowanceFormPopup, {
   type ExtraAllowanceFormSubmitPayload,
 } from "./ExtraAllowanceFormPopup";
@@ -285,12 +286,17 @@ export default function ExtraAllowanceRoleDetailPage({
   const [assistantDetailTab, setAssistantDetailTab] = useState<
     "allowance" | "commission"
   >("allowance");
+  const [trainingDetailTab, setTrainingDetailTab] = useState<
+    "classes" | "allowance"
+  >("classes");
   const [selectedMonth, setSelectedMonth] = useState(getDefaultMonthKey);
   const [monthPopupOpen, setMonthPopupOpen] = useState(false);
   const monthQuery = toExtraAllowanceMonthQuery(selectedMonth);
   const selectedMonthLabel = formatMonthKeyLabel(monthQuery.monthKey);
   const showAssistantCommissionTab =
     roleType === "assistant" && Boolean(normalizedStaffId);
+  const showTrainingClassesTab =
+    roleType === "training" && Boolean(normalizedStaffId);
   const { data: fullProfile } = useQuery({
     queryKey: ["auth", "full-profile"],
     queryFn: getFullProfile,
@@ -704,13 +710,48 @@ export default function ExtraAllowanceRoleDetailPage({
         </div>
       ) : null}
 
+      {showTrainingClassesTab ? (
+        <div className="inline-flex w-full rounded-xl border border-border-default bg-bg-surface p-1 sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setTrainingDetailTab("classes")}
+            className={`min-h-11 flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors sm:flex-none ${
+              trainingDetailTab === "classes"
+                ? "bg-primary text-text-inverse"
+                : "text-text-secondary hover:bg-bg-secondary"
+            }`}
+          >
+            Lớp học
+          </button>
+          <button
+            type="button"
+            onClick={() => setTrainingDetailTab("allowance")}
+            className={`min-h-11 flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors sm:flex-none ${
+              trainingDetailTab === "allowance"
+                ? "bg-primary text-text-inverse"
+                : "text-text-secondary hover:bg-bg-secondary"
+            }`}
+          >
+            Trợ cấp
+          </button>
+        </div>
+      ) : null}
+
       {showAssistantCommissionTab && assistantDetailTab === "commission" ? (
         <section className="rounded-[1.25rem] border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5">
           <AssistantCommissionTabPanel assistantStaffId={normalizedStaffId} />
         </section>
       ) : null}
 
-      {assistantDetailTab === "allowance" && isError && !data ? (
+      {showTrainingClassesTab && trainingDetailTab === "classes" ? (
+        <TrainingManagerClassesTabPanel
+          staffId={normalizedStaffId}
+          workspaceMode="admin"
+        />
+      ) : null}
+
+      {(showTrainingClassesTab ? trainingDetailTab === "allowance" : true) &&
+      assistantDetailTab === "allowance" && isError && !data ? (
         <section className="rounded-[2rem] border border-error/30 bg-error/8 p-5 shadow-sm lg:p-6">
           <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-error">
             Allowance Unavailable
@@ -732,7 +773,8 @@ export default function ExtraAllowanceRoleDetailPage({
             Tải lại
           </button>
         </section>
-      ) : assistantDetailTab === "allowance" ? (
+      ) : (showTrainingClassesTab ? trainingDetailTab === "allowance" : true) &&
+        assistantDetailTab === "allowance" ? (
         <>
           <section
             className="rounded-[1.25rem] border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5"
