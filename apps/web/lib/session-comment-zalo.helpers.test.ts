@@ -14,6 +14,7 @@ const baseInput = {
   endTime: "20:00",
   lessonContent: "<p>Nội dung bài học</p>",
   homework: "<p>Bài tập</p>",
+  tutorial: "<p>Tutorial buổi</p>",
 };
 
 describe("attendanceStatusTemplateLabel", () => {
@@ -125,5 +126,7 @@ describe("buildSessionCommentZaloText", () => {
     expect(text).toContain("Trần Thị B (nghỉ phép)\n  - Vắng có phép");
     expect(text).toContain("Lê Văn C (vắng)");
     expect(text).toContain("Phạm Thị D (học)\n  - —");
+    expect(text).toContain("5️⃣ Tutorial các buổi học");
+    expect(text).toContain("Tutorial buổi");
   });
 });
