@@ -369,6 +369,20 @@ Khi bật, runner GitHub Actions gia nhập tailnet bằng action chính thức 
 2. **Nâng RAM** hoặc tách DB sang host khác để VPS chỉ chạy stack app.
 3. Workflow đã bật `command_timeout: 45m`, `git pull --ff-only` trên VPS để cập nhật `docker-compose.prod.yml` / `nginx`, và probe HTTP readiness thật từ trong container trước khi reload nginx; `wait_for_http` chờ tối đa `90 × 5s` mỗi service (override qua `WAIT_HTTP_RETRIES`) để VPS thiếu disk boot chậm không bị abort giữa chừng làm `web`/`nginx` kẹt ở image cũ; nếu vẫn 137, ưu tiên swap / RAM. Nếu chạy `migrate deploy` tay trên VPS và gặp OOM, thử `NODE_OPTIONS=--max-old-space-size=384` (hoặc tương đương) khi `exec` vào container `api`.
 
+### Lỗi `P1001: Can't reach database server at db.*.supabase.co:5432`
+
+CD migrate dùng [`scripts/prisma-migrate-deploy.sh`](../scripts/prisma-migrate-deploy.sh). Host `db.[project-ref].supabase.co` là **direct connection IPv6** — VPS/CD thường không reach được (chỉ IPv4).
+
+**Cách sửa:**
+
+1. **Khuyến nghị:** `DIRECT_URL` = Supavisor **session mode** — cùng host/user với `DATABASE_URL`, đổi `:6543` → `:5432`, bỏ `?pgbouncer=true`:
+   ```env
+   DATABASE_URL="postgresql://postgres.qrrtsyildckaxblyogad:...@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+   DIRECT_URL="postgresql://postgres.qrrtsyildckaxblyogad:...@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres"
+   ```
+2. Hoặc **xóa `DIRECT_URL`** khỏi `.env` — script CD tự derive session URL từ `DATABASE_URL` (kể cả khi `DIRECT_URL` cũ trỏ `db.*.supabase.co`).
+3. Chỉ dùng `db.*.supabase.co` khi VPS có IPv6 hoặc project bật **IPv4 add-on** trên Supabase.
+
 ### Lỗi `no space left on device` khi `docker compose pull`
 
 Thường do `/var/lib/containerd` hoặc `/var/lib/docker` không còn đủ dung lượng để giữ đồng thời layer image cũ và image mới khi pull/giải nén. Script deploy hiện prune stopped containers + dangling images + build cache (`docker container/image/builder prune -f`, **không** dùng `-a` để tránh xoá nhầm image `:latest` vừa pull nhưng chưa có container) trước pull, pull từng service (`api` → migrate/up/wait/prune → `web` → wait/prune → `nginx`) và in `docker system df` + `df -h` khi pull fail. Nếu vẫn thiếu dung lượng, xử lý trên VPS:

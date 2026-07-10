@@ -33,6 +33,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- **CD migrate:** `scripts/prisma-migrate-deploy.sh` derive Supavisor session URL (`pooler.supabase.com:5432`) từ `DATABASE_URL` khi `DIRECT_URL` thiếu hoặc trỏ `db.*.supabase.co` (IPv6, P1001 trên VPS). Env examples cập nhật format Supabase đúng.
 - **CD deploy:** `scripts/gha-deploy-instance-remote.sh` tự chạy `prisma migrate deploy` sau pull API image; chỉ bước migrate tạm swap `DATABASE_URL` → `DIRECT_URL` (app runtime vẫn dùng PgBouncer qua `PrismaService`). Thêm `DIRECT_URL` vào env examples. Docs: `docs/Cách làm việc.md`, `docs/Database Schema.md`, `docs/ops/`, `AGENTS.md`.
 - **BE class `PATCH /class/:id/basic-info`:** đổi `allowance_per_session_per_student` chỉ cập nhật mặc định trên `classes`; không còn `updateMany` ghi đè `class_teachers.custom_allowance` của từng gia sư (fix revert trợ cấp riêng khi sửa thông tin lớp).
 - **FE/CD:** IT + ENG dùng chung `unicorns-web:latest`; client API same-origin `/api`; server dùng `INTERNAL_API_URL` / `BACKEND_URL` runtime.
