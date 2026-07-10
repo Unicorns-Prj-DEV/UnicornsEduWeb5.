@@ -72,6 +72,7 @@ export class SessionCreateService {
         {
           lessonContent: data.lessonContent,
           homework: data.homework,
+          tutorial: data.tutorial,
         },
         { required: true },
       );
@@ -425,6 +426,7 @@ export class SessionCreateService {
               notes: data.notes ?? null,
               lessonContent: data.lessonContent ?? null,
               homework: data.homework ?? null,
+              tutorial: data.tutorial ?? null,
               teacherPaymentStatus: data.teacherPaymentStatus ?? undefined,
               trainingManagerStaffId: trainingManagerSnapshot.trainingManagerStaffId,
               trainingManagerRatePercent:
@@ -493,6 +495,7 @@ export class SessionCreateService {
       notes?: string | null;
       lessonContent: string;
       homework: string;
+      tutorial: string;
       coefficient?: number;
       attendance: Array<{
         studentId: string;
@@ -534,6 +537,7 @@ export class SessionCreateService {
         notes: data.notes ?? null,
         lessonContent: data.lessonContent,
         homework: data.homework,
+        tutorial: data.tutorial,
         attendance: data.attendance.map((attendanceItem) => ({
           studentId: attendanceItem.studentId,
           status: attendanceItem.status,

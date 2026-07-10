@@ -98,6 +98,7 @@ describe('SessionCreateService', () => {
         notes: 'Buổi thử',
         lessonContent: '<p>Đã làm 2 bài LEVEL 2</p>',
         homework: '<p>Làm bài 3</p>',
+        tutorial: '<p>Hướng dẫn buổi</p>',
         attendance: [
           {
             studentId: 'student-1',
@@ -128,6 +129,7 @@ describe('SessionCreateService', () => {
         notes: 'Buổi thử',
         lessonContent: '<p>Đã làm 2 bài LEVEL 2</p>',
         homework: '<p>Làm bài 3</p>',
+        tutorial: '<p>Hướng dẫn buổi</p>',
         attendance: [
           {
             studentId: 'student-1',
@@ -170,6 +172,7 @@ describe('SessionCreateService', () => {
         date: '2026-03-20',
         lessonContent: '<p>Nội dung buổi</p>',
         homework: '<p>BTVN</p>',
+        tutorial: '<p>Tutorial buổi</p>',
         attendance: [
           {
             studentId: 'student-1',
@@ -198,6 +201,7 @@ describe('SessionCreateService', () => {
         notes: null,
         lessonContent: '<p>Nội dung buổi</p>',
         homework: '<p>BTVN</p>',
+        tutorial: '<p>Tutorial buổi</p>',
         attendance: [
           {
             studentId: 'student-1',
