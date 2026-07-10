@@ -87,6 +87,7 @@ model Session {
   notes                                String?
   lessonContent                        String?              @map("lesson_content")
   homework                             String?
+  tutorial                             String?
   tuitionFee                           Int?                 @map("tuition_fee")
   googleMeetLink                       String?              @map("google_meet_link")
   googleCalendarEventId                String?              @map("google_calendar_event_id")
