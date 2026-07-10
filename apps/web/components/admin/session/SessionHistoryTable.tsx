@@ -34,6 +34,7 @@ import {
   resolveSessionCommentDisplayContent,
   SESSION_HOMEWORK_PLACEHOLDER,
   SESSION_LESSON_CONTENT_PLACEHOLDER,
+  SESSION_TUTORIAL_PLACEHOLDER,
 } from "@/lib/session-comment-zalo.helpers";
 import {
   AttendanceInlineSummary,
@@ -834,8 +835,10 @@ export default function SessionHistoryTable({
   const [editEndTime, setEditEndTime] = useState("");
   const [editLessonContent, setEditLessonContent] = useState("");
   const [editHomework, setEditHomework] = useState("");
+  const [editTutorial, setEditTutorial] = useState("");
   const [lessonContentError, setLessonContentError] = useState("");
   const [homeworkError, setHomeworkError] = useState("");
+  const [tutorialError, setTutorialError] = useState("");
   const [editPaymentStatus, setEditPaymentStatus] = useState("unpaid");
   const [isTrialLesson, setIsTrialLesson] = useState(false);
   const [editTeacherId, setEditTeacherId] = useState("");
@@ -1191,8 +1194,10 @@ export default function SessionHistoryTable({
       session.lessonContent ?? session.notes ?? "",
     );
     setEditHomework(session.homework ?? "");
+    setEditTutorial(session.tutorial ?? "");
     setLessonContentError("");
     setHomeworkError("");
+    setTutorialError("");
     setEditTeacherId(session.teacherId ?? "");
     attendanceDirtyRef.current = false;
     const status = (session.teacherPaymentStatus ?? "unpaid").toLowerCase();
@@ -1245,6 +1250,11 @@ export default function SessionHistoryTable({
       toast.error("Vui lòng nhập bài tập về nhà.");
       return;
     }
+    if (!isRichTextNonEmpty(editTutorial)) {
+      setTutorialError("Vui lòng nhập tutorial các buổi học.");
+      toast.error("Vui lòng nhập tutorial các buổi học.");
+      return;
+    }
     const missingStudentComments = findStudentsMissingRequiredComments(
       attendanceItems,
     );
@@ -1292,6 +1302,7 @@ export default function SessionHistoryTable({
         editingSession.makeupScheduleEvent?.originalDate ?? null,
       lessonContent: editLessonContent.trim(),
       homework: editHomework.trim(),
+      tutorial: editTutorial.trim(),
       students: attendanceItems.map((item) => ({
         fullName: item.fullName,
         status: item.status,
@@ -1308,6 +1319,7 @@ export default function SessionHistoryTable({
       ...(endNorm && { endTime: endNorm }),
       lessonContent: editLessonContent.trim(),
       homework: editHomework.trim(),
+      tutorial: editTutorial.trim(),
       notes: savedNotes,
       ...(allowPaymentStatusEdit
         ? { teacherPaymentStatus: editPaymentStatus }
@@ -1327,6 +1339,7 @@ export default function SessionHistoryTable({
           date: payload.date,
           lessonContent: payload.lessonContent,
           homework: payload.homework,
+          tutorial: payload.tutorial,
           notes: payload.notes,
         };
         if (payload.teacherPaymentStatus !== undefined) {
@@ -1573,6 +1586,7 @@ export default function SessionHistoryTable({
       makeupOriginalDate,
       lessonContent: editLessonContent,
       homework: editHomework,
+      tutorial: editTutorial,
       students: attendanceItems.map((item) => ({
         fullName: item.fullName,
         status: item.status,
@@ -1585,6 +1599,7 @@ export default function SessionHistoryTable({
     editEndTime,
     editHomework,
     editLessonContent,
+    editTutorial,
     editStartTime,
     editingClassDetail?.name,
     editingSession,
@@ -1665,6 +1680,7 @@ export default function SessionHistoryTable({
               notes: session.notes,
               lessonContent: session.lessonContent,
               homework: session.homework,
+              tutorial: session.tutorial,
               attendance: session.attendance,
             });
             const entityLabel = shouldShowEntity
@@ -1984,6 +2000,7 @@ export default function SessionHistoryTable({
                     notes: session.notes,
                     lessonContent: session.lessonContent,
                     homework: session.homework,
+                    tutorial: session.tutorial,
                     attendance: session.attendance,
                   });
 
@@ -2221,6 +2238,7 @@ export default function SessionHistoryTable({
                     notes: session.notes,
                     lessonContent: session.lessonContent,
                     homework: session.homework,
+                    tutorial: session.tutorial,
                     attendance: session.attendance,
                   });
                   return (
@@ -2860,6 +2878,31 @@ export default function SessionHistoryTable({
                           role="alert"
                         >
                           {homeworkError}
+                        </span>
+                      ) : null}
+                    </label>
+
+                    <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
+                      <span>
+                        Tutorial các buổi học <RequiredMark />
+                      </span>
+                      <RichTextEditor
+                        value={editTutorial}
+                        onChange={(value) => {
+                          setEditTutorial(value);
+                          if (tutorialError) setTutorialError("");
+                        }}
+                        disabled={readOnlySessionDetails}
+                        minHeight="min-h-[120px]"
+                        placeholder={SESSION_TUTORIAL_PLACEHOLDER}
+                        ariaLabel="Tutorial các buổi học"
+                      />
+                      {tutorialError ? (
+                        <span
+                          className="text-xs font-medium text-error"
+                          role="alert"
+                        >
+                          {tutorialError}
                         </span>
                       ) : null}
                     </label>

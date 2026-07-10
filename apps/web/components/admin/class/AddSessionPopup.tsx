@@ -24,6 +24,7 @@ import {
   isRichTextNonEmpty,
   SESSION_HOMEWORK_PLACEHOLDER,
   SESSION_LESSON_CONTENT_PLACEHOLDER,
+  SESSION_TUTORIAL_PLACEHOLDER,
 } from "@/lib/session-comment-zalo.helpers";
 import {
   AttendanceInlineSummary,
@@ -263,8 +264,10 @@ export default function AddSessionPopup({
   const [endTime, setEndTime] = useState("20:00");
   const [lessonContent, setLessonContent] = useState("");
   const [homework, setHomework] = useState("");
+  const [tutorial, setTutorial] = useState("");
   const [lessonContentError, setLessonContentError] = useState("");
   const [homeworkError, setHomeworkError] = useState("");
+  const [tutorialError, setTutorialError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isTrialLesson, setIsTrialLesson] = useState(false);
   const [teacherPaymentStatus, setTeacherPaymentStatus] = useState<string>("unpaid");
@@ -400,13 +403,14 @@ export default function AddSessionPopup({
         endTime,
         lessonContent,
         homework,
+        tutorial,
         students: attendanceItems.map((item) => ({
           fullName: item.fullName,
           status: item.status,
           notes: item.notes,
         })),
       }),
-    [attendanceItems, className, date, endTime, homework, lessonContent, startTime],
+    [attendanceItems, className, date, endTime, homework, lessonContent, startTime, tutorial],
   );
 
   const handleAttendanceStatusChange = (
@@ -486,6 +490,7 @@ export default function AddSessionPopup({
 
     const trimmedLessonContent = lessonContent.trim();
     const trimmedHomework = homework.trim();
+    const trimmedTutorial = tutorial.trim();
 
     if (!isRichTextNonEmpty(trimmedLessonContent)) {
       setLessonContentError("Vui lòng nhập nội dung bài học.");
@@ -496,6 +501,12 @@ export default function AddSessionPopup({
     if (!isRichTextNonEmpty(trimmedHomework)) {
       setHomeworkError("Vui lòng nhập bài tập về nhà.");
       toast.error("Vui lòng nhập bài tập về nhà.");
+      return;
+    }
+
+    if (!isRichTextNonEmpty(trimmedTutorial)) {
+      setTutorialError("Vui lòng nhập tutorial các buổi học.");
+      toast.error("Vui lòng nhập tutorial các buổi học.");
       return;
     }
 
@@ -535,6 +546,7 @@ export default function AddSessionPopup({
       endTime: normalizedEndTime,
       lessonContent: trimmedLessonContent,
       homework: trimmedHomework,
+      tutorial: trimmedTutorial,
       notes: zaloCommentText,
       coefficient: coeffNum,
       ...(allowFinancialFields ? { teacherPaymentStatus } : {}),
@@ -783,6 +795,27 @@ export default function AddSessionPopup({
                     {homeworkError ? (
                       <span className="text-xs font-medium text-error" role="alert">
                         {homeworkError}
+                      </span>
+                    ) : null}
+                  </label>
+
+                  <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
+                    <span>
+                      Tutorial các buổi học <RequiredMark />
+                    </span>
+                    <RichTextEditor
+                      value={tutorial}
+                      onChange={(value) => {
+                        setTutorial(value);
+                        if (tutorialError) setTutorialError("");
+                      }}
+                      minHeight="min-h-[120px]"
+                      placeholder={SESSION_TUTORIAL_PLACEHOLDER}
+                      ariaLabel="Tutorial các buổi học"
+                    />
+                    {tutorialError ? (
+                      <span className="text-xs font-medium text-error" role="alert">
+                        {tutorialError}
                       </span>
                     ) : null}
                   </label>
