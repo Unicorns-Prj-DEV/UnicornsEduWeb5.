@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type SyntheticEvent } from "react";
+import { useMemo, useState, useEffect, useCallback, type SyntheticEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -15,6 +15,7 @@ import { formatCurrency } from "@/lib/class.helpers";
 import {
   computeSessionAllowanceRawBaseVnd,
   computeTeacherSessionAllowanceGrossPreviewVnd,
+  grossAllowanceToRawBaseVnd,
 } from "@/lib/session-allowance.helpers";
 import {
   buildSessionCommentZaloText,
@@ -37,6 +38,7 @@ import {
   SessionFormDialogFooter,
   SessionFormDialogHeader,
   SessionTeacherAllowanceEstimateCard,
+  SessionUnsavedChangesDialog,
   TrialLessonToggle,
 } from "@/components/admin/session/session-form-ui";
 import { DateInput } from "@/components/ui/DateInput";
@@ -45,6 +47,10 @@ import { TimeInput } from "@/components/ui/TimeInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
 import { normalizeOptionalRichTextContent } from "@/lib/sanitize";
+import {
+  buildSessionFormDirtySnapshot,
+  isSessionFormDirty,
+} from "@/lib/session-form-dirty.helpers";
 
 export interface SessionStudentItem {
   id: string;
@@ -288,6 +294,89 @@ export default function AddSessionPopup({
       defaultTuitionFee: normalizeMoneyValue(student.tuitionFee),
     })),
   );
+  const [manualAllowanceGrossOverride, setManualAllowanceGrossOverride] =
+    useState<number | null>(null);
+  const [unsavedConfirmOpen, setUnsavedConfirmOpen] = useState(false);
+  const [createFormBaseline, setCreateFormBaseline] = useState<string | null>(
+    null,
+  );
+
+  const currentCreateFormSnapshot = useMemo(
+    () => ({
+      date,
+      startTime,
+      endTime,
+      lessonContent,
+      homework,
+      tutorial,
+      isTrialLesson,
+      teacherPaymentStatus,
+      teacherId: selectedTeacherId,
+      manualAllowanceGrossOverride,
+      attendance: attendanceItems.map((item) => ({
+        studentId: item.studentId,
+        status: item.status,
+        notes: item.notes,
+        tuitionFee: item.tuitionFee,
+      })),
+    }),
+    [
+      attendanceItems,
+      date,
+      endTime,
+      homework,
+      isTrialLesson,
+      lessonContent,
+      manualAllowanceGrossOverride,
+      selectedTeacherId,
+      startTime,
+      teacherPaymentStatus,
+      tutorial,
+    ],
+  );
+
+  const isCreateFormDirty = useMemo(
+    () => isSessionFormDirty(createFormBaseline, currentCreateFormSnapshot),
+    [createFormBaseline, currentCreateFormSnapshot],
+  );
+
+  const forceCloseCreateForm = useCallback(() => {
+    setUnsavedConfirmOpen(false);
+    setCreateFormBaseline(null);
+    onClose();
+  }, [onClose]);
+
+  const requestCloseCreateForm = useCallback(() => {
+    if (isSubmitting || unsavedConfirmOpen) return;
+    if (isCreateFormDirty) {
+      setUnsavedConfirmOpen(true);
+      return;
+    }
+    forceCloseCreateForm();
+  }, [forceCloseCreateForm, isCreateFormDirty, isSubmitting, unsavedConfirmOpen]);
+
+  useEffect(() => {
+    if (!open) {
+      setCreateFormBaseline(null);
+      setUnsavedConfirmOpen(false);
+      return;
+    }
+    setCreateFormBaseline(
+      buildSessionFormDirtySnapshot(currentCreateFormSnapshot),
+    );
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      setManualAllowanceGrossOverride(null);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (isTrialLesson) {
+      setManualAllowanceGrossOverride(null);
+    }
+  }, [isTrialLesson]);
 
   const attendanceSummary = useMemo(() => {
     return attendanceItems.reduce(
@@ -371,7 +460,8 @@ export default function AddSessionPopup({
     classPricing,
     coefficientForPreview,
   ]);
-  const finalAllowancePreview = expectedAllowanceGrossPreview;
+  const finalAllowancePreview =
+    manualAllowanceGrossOverride ?? expectedAllowanceGrossPreview;
 
   const durationLabel = useMemo(
     () => formatVnSessionDuration(startTime, endTime),
@@ -538,6 +628,20 @@ export default function AddSessionPopup({
 
     const coeffNum = isTrialLesson ? 0 : 1;
 
+    if (
+      canEditAllowance &&
+      manualAllowanceGrossOverride !== null &&
+      !isTrialLesson
+    ) {
+      if (
+        !Number.isFinite(manualAllowanceGrossOverride) ||
+        manualAllowanceGrossOverride < 0
+      ) {
+        toast.error("Trợ cấp buổi phải là số không âm.");
+        return;
+      }
+    }
+
     const payload: SessionCreatePayload = {
       classId,
       teacherId: selectedTeacherId,
@@ -550,6 +654,16 @@ export default function AddSessionPopup({
       notes: zaloCommentText,
       coefficient: coeffNum,
       ...(allowFinancialFields ? { teacherPaymentStatus } : {}),
+      ...(canEditAllowance &&
+      manualAllowanceGrossOverride !== null &&
+      !isTrialLesson
+        ? {
+            allowanceAmount: grossAllowanceToRawBaseVnd(
+              manualAllowanceGrossOverride,
+              coeffNum,
+            ),
+          }
+        : {}),
       attendance: toAttendancePayload(
         attendanceItems,
         canEditAttendanceTuition,
@@ -564,6 +678,8 @@ export default function AddSessionPopup({
       action: () => createSessionFn(payload),
       onSuccess: async (createdSession) => {
         await queryClient.invalidateQueries({ queryKey: ["sessions", "class", classId] });
+        setCreateFormBaseline(null);
+        setUnsavedConfirmOpen(false);
         onClose();
         onCreated?.(createdSession);
       },
@@ -574,12 +690,13 @@ export default function AddSessionPopup({
   };
 
   return (
-    <SessionFormDialog open={open} onClose={onClose} titleId="add-session-title">
+    <>
+    <SessionFormDialog open={open} onClose={requestCloseCreateForm} titleId="add-session-title">
       <SessionFormDialogHeader
         title="Thêm buổi học"
         tuitionText={headerTuitionDisplay}
         allowanceText={headerAllowanceDisplay}
-        onClose={onClose}
+        onClose={requestCloseCreateForm}
         titleId="add-session-title"
       />
 
@@ -691,6 +808,18 @@ export default function AddSessionPopup({
                         }
                         showBreakdown={Boolean(classPricing)}
                         usesSnapshot={false}
+                        isManualOverride={manualAllowanceGrossOverride !== null}
+                        canEdit
+                        editLocked={isTrialLesson}
+                        editLockedReason={
+                          isTrialLesson
+                            ? "Buổi dạy thử không tính trợ cấp."
+                            : null
+                        }
+                        onManualGrossChange={setManualAllowanceGrossOverride}
+                        onClearManualOverride={() =>
+                          setManualAllowanceGrossOverride(null)
+                        }
                       />
                     ) : null}
 
@@ -826,8 +955,9 @@ export default function AddSessionPopup({
         <SessionFormDialogFooter className="grid-cols-2">
                 <button
                   type="button"
-                  onClick={onClose}
-                  className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  onClick={requestCloseCreateForm}
+                  disabled={isSubmitting}
+                  className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Hủy
                 </button>
@@ -841,5 +971,11 @@ export default function AddSessionPopup({
         </SessionFormDialogFooter>
       </form>
     </SessionFormDialog>
+    <SessionUnsavedChangesDialog
+      open={unsavedConfirmOpen}
+      onStay={() => setUnsavedConfirmOpen(false)}
+      onDiscard={forceCloseCreateForm}
+    />
+    </>
   );
 }
