@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -23,8 +23,14 @@ import { formatCurrency } from "@/lib/class.helpers";
 import {
   computeTeacherSessionAllowanceGrossPreviewVnd,
   formatSessionAllowanceBreakdownVnd,
+  grossAllowanceToRawBaseVnd,
+  rawBaseToGrossAllowanceVnd,
   resolveSessionAllowancePreviewInputs,
 } from "@/lib/session-allowance.helpers";
+import {
+  buildSessionFormDirtySnapshot,
+  isSessionFormDirty,
+} from "@/lib/session-form-dirty.helpers";
 import {
   buildSessionCommentZaloText,
   findStudentsMissingRequiredComments,
@@ -49,6 +55,7 @@ import {
   SessionFormDialogFooter,
   SessionFormDialogHeader,
   SessionTeacherAllowanceEstimateCard,
+  SessionUnsavedChangesDialog,
   TrialLessonToggle,
 } from "@/components/admin/session/session-form-ui";
 import { DateInput } from "@/components/ui/DateInput";
@@ -855,6 +862,12 @@ export default function SessionHistoryTable({
   const [bulkEditPopupOpen, setBulkEditPopupOpen] = useState(false);
   const [bulkPaymentStatusDraft, setBulkPaymentStatusDraft] =
     useState<SessionPaymentStatus>(DEFAULT_BULK_PAYMENT_STATUS);
+  const [manualAllowanceGrossOverride, setManualAllowanceGrossOverride] =
+    useState<number | null>(null);
+  const allowanceOverrideInitSessionIdRef = useRef<string | null>(null);
+  const editBaselineSessionIdRef = useRef<string | null>(null);
+  const [editFormBaseline, setEditFormBaseline] = useState<string | null>(null);
+  const [unsavedConfirmOpen, setUnsavedConfirmOpen] = useState(false);
   const canEditAllowance = allowAllowanceEdit ?? allowFinancialEdits;
   const canEditAttendanceTuition =
     allowAttendanceTuitionEdits ?? allowFinancialEdits;
@@ -1097,34 +1110,6 @@ export default function SessionHistoryTable({
     },
   });
 
-  const allowanceSaveMutation = useMutation({
-    mutationFn: async ({
-      sessionId,
-      grossAmount,
-      coefficient,
-    }: {
-      sessionId: string;
-      grossAmount: number;
-      coefficient: number;
-    }) => {
-      const rawBase =
-        coefficient > 0 ? Math.ceil(grossAmount / coefficient) : 0;
-      return updateSessionFn(sessionId, { allowanceAmount: rawBase });
-    },
-    onSuccess: (updatedSession) => {
-      setEditingSession((prev) =>
-        prev?.id === updatedSession.id
-          ? { ...prev, allowanceAmount: updatedSession.allowanceAmount }
-          : prev,
-      );
-      toast.success("Đã cập nhật trợ cấp buổi.");
-      onSessionUpdated?.();
-    },
-    onError: () => {
-      toast.error("Không thể cập nhật trợ cấp buổi. Vui lòng thử lại.");
-    },
-  });
-
   const toggleSessionSelection = (sessionId: string) => {
     if (!showBulkPaymentStatusBar || bulkPaymentStatusMutation.isPending)
       return;
@@ -1210,13 +1195,71 @@ export default function SessionHistoryTable({
     loadAttendanceForEdit(session);
   };
 
-  const closeEdit = () => {
+  const closeEdit = useCallback(() => {
     setEditingSession(null);
     setTeachersList([]);
     setTeachersLoading(false);
     setAttendanceItems([]);
     setAttendanceLoading(false);
-  };
+    setManualAllowanceGrossOverride(null);
+    allowanceOverrideInitSessionIdRef.current = null;
+    editBaselineSessionIdRef.current = null;
+    setEditFormBaseline(null);
+    setUnsavedConfirmOpen(false);
+  }, []);
+
+  const currentEditFormSnapshot = useMemo(
+    () => ({
+      date: editDate,
+      startTime: editStartTime,
+      endTime: editEndTime,
+      lessonContent: editLessonContent,
+      homework: editHomework,
+      tutorial: editTutorial,
+      isTrialLesson,
+      teacherPaymentStatus: editPaymentStatus,
+      teacherId: editTeacherId,
+      manualAllowanceGrossOverride,
+      attendance: attendanceItems.map((item) => ({
+        studentId: item.studentId,
+        status: item.status,
+        notes: item.notes,
+        tuitionFee: item.tuitionFee,
+      })),
+    }),
+    [
+      attendanceItems,
+      editDate,
+      editEndTime,
+      editHomework,
+      editLessonContent,
+      editPaymentStatus,
+      editStartTime,
+      editTeacherId,
+      editTutorial,
+      isTrialLesson,
+      manualAllowanceGrossOverride,
+    ],
+  );
+
+  const isEditFormDirty = useMemo(
+    () => isSessionFormDirty(editFormBaseline, currentEditFormSnapshot),
+    [currentEditFormSnapshot, editFormBaseline],
+  );
+
+  const requestCloseEdit = useCallback(() => {
+    if (unsavedConfirmOpen) return;
+    if (isEditFormDirty) {
+      setUnsavedConfirmOpen(true);
+      return;
+    }
+    closeEdit();
+  }, [closeEdit, isEditFormDirty, unsavedConfirmOpen]);
+
+  const confirmDiscardEdit = useCallback(() => {
+    setUnsavedConfirmOpen(false);
+    closeEdit();
+  }, [closeEdit]);
 
   const handleSaveEdit = () => {
     if (!editingSession) return;
@@ -1290,6 +1333,21 @@ export default function SessionHistoryTable({
           }))
         : [];
     const coeffNum = showTrialLessonToggle ? (isTrialLesson ? 0 : 1) : undefined;
+    if (
+      canEditAllowance &&
+      manualAllowanceGrossOverride !== null &&
+      coeffNum !== 0 &&
+      editPaymentStatus !== "paid" &&
+      editPaymentStatus !== "deposit"
+    ) {
+      if (
+        !Number.isFinite(manualAllowanceGrossOverride) ||
+        manualAllowanceGrossOverride < 0
+      ) {
+        toast.error("Trợ cấp buổi phải là số không âm.");
+        return;
+      }
+    }
     const savedNotes = buildSessionCommentZaloText({
       className:
         editingSession.class?.name ??
@@ -1350,6 +1408,18 @@ export default function SessionHistoryTable({
         if (payload.endTime) data.endTime = payload.endTime;
         if (payload.coefficient !== undefined) {
           data.coefficient = payload.coefficient;
+        }
+        if (
+          canEditAllowance &&
+          manualAllowanceGrossOverride !== null &&
+          (payload.coefficient ?? coefficientForAllowancePreview) > 0 &&
+          editPaymentStatus !== "paid" &&
+          editPaymentStatus !== "deposit"
+        ) {
+          data.allowanceAmount = grossAllowanceToRawBaseVnd(
+            manualAllowanceGrossOverride,
+            payload.coefficient ?? coefficientForAllowancePreview,
+          );
         }
         if (payload.attendance != null) {
           data.attendance = payload.attendance as SessionAttendanceItem[];
@@ -1469,37 +1539,6 @@ export default function SessionHistoryTable({
   const allowancePerStudentNumeric = allowancePreviewInputs?.perStudent ?? 0;
   const scaleAmountForAllowancePreview = allowancePreviewInputs?.scaleAmount ?? 0;
   const allowanceRawBaseEdit = allowancePreviewInputs?.rawBase ?? null;
-  const savedSessionAllowanceRawBase = normalizeMoneyValue(
-    editingSession?.allowanceAmount,
-  );
-  const hasSavedManualAllowance =
-    savedSessionAllowanceRawBase != null &&
-    allowanceRawBaseEdit != null &&
-    savedSessionAllowanceRawBase !== allowanceRawBaseEdit;
-
-// eslint-disable-next-line react-hooks/refs
-  const rawBaseForAllowancePreview = useMemo(() => {
-    if (!attendanceDirtyRef.current && savedSessionAllowanceRawBase != null) {
-      return savedSessionAllowanceRawBase;
-    }
-    return allowanceRawBaseEdit;
-  }, [allowanceRawBaseEdit, savedSessionAllowanceRawBase, attendanceItems]);
-
-  const editTutorAllowanceTotal = useMemo(() => {
-    if (rawBaseForAllowancePreview == null || allowancePreviewInputs == null) {
-      return null;
-    }
-    return computeTeacherSessionAllowanceGrossPreviewVnd({
-      rawBase: rawBaseForAllowancePreview,
-      coefficient: coefficientForAllowancePreview,
-      maxAllowancePerSession: editingClassDetail?.maxAllowancePerSession,
-    });
-  }, [
-    rawBaseForAllowancePreview,
-    allowancePreviewInputs,
-    editingClassDetail?.maxAllowancePerSession,
-    coefficientForAllowancePreview,
-  ]);
   const estimatedTutorAllowanceTotal = useMemo(() => {
     if (allowanceRawBaseEdit == null || allowancePreviewInputs == null) {
       return null;
@@ -1516,6 +1555,62 @@ export default function SessionHistoryTable({
     coefficientForAllowancePreview,
   ]);
 
+  useEffect(() => {
+    if (!editingSession) {
+      allowanceOverrideInitSessionIdRef.current = null;
+      setManualAllowanceGrossOverride(null);
+      return;
+    }
+    if (allowanceOverrideInitSessionIdRef.current === editingSession.id) {
+      return;
+    }
+    if (allowanceRawBaseEdit == null) return;
+
+    allowanceOverrideInitSessionIdRef.current = editingSession.id;
+    const savedRawBase = normalizeMoneyValue(editingSession.allowanceAmount);
+    if (
+      savedRawBase != null &&
+      savedRawBase !== allowanceRawBaseEdit
+    ) {
+      setManualAllowanceGrossOverride(
+        rawBaseToGrossAllowanceVnd({
+          rawBase: savedRawBase,
+          coefficient: coefficientForAllowancePreview,
+          maxAllowancePerSession: editingClassDetail?.maxAllowancePerSession,
+        }),
+      );
+      return;
+    }
+    setManualAllowanceGrossOverride(null);
+  }, [
+    editingSession,
+    allowanceRawBaseEdit,
+    coefficientForAllowancePreview,
+    editingClassDetail?.maxAllowancePerSession,
+  ]);
+
+  useEffect(() => {
+    if (isTrialLesson) {
+      setManualAllowanceGrossOverride(null);
+    }
+  }, [isTrialLesson]);
+
+  const isAllowancePaymentLocked =
+    editPaymentStatus === "paid" || editPaymentStatus === "deposit";
+  const isAllowanceEditLocked = isTrialLesson || isAllowancePaymentLocked;
+  const allowanceEditLockedReason = isTrialLesson
+    ? "Buổi dạy thử không tính trợ cấp."
+    : isAllowancePaymentLocked
+      ? "Buổi đã thanh toán hoặc ghi cọc — không chỉnh trợ cấp."
+      : null;
+
+  const editTutorAllowanceTotal = useMemo(() => {
+    if (manualAllowanceGrossOverride !== null) {
+      return manualAllowanceGrossOverride;
+    }
+    return estimatedTutorAllowanceTotal;
+  }, [manualAllowanceGrossOverride, estimatedTutorAllowanceTotal]);
+
   const allowanceBreakdownText = useMemo(() => {
     if (allowanceRawBaseEdit == null) return null;
     return formatSessionAllowanceBreakdownVnd({
@@ -1530,7 +1625,7 @@ export default function SessionHistoryTable({
     chargeableAttendanceCountForAllowance,
     scaleAmountForAllowancePreview,
   ]);
-  const isAllowanceManuallyEdited = hasSavedManualAllowance;
+  const isAllowanceManuallyEdited = manualAllowanceGrossOverride !== null;
 
   const isAdminViewer = fullProfile?.roleType === "admin";
 
@@ -1541,13 +1636,13 @@ export default function SessionHistoryTable({
   const allowanceFormulaNote = isEditingClassDetailError &&
     !usesSessionAllowanceSnapshot
     ? "Công thức trợ cấp: không tải được cấu hình lớp để preview."
-    : shouldWaitForClassFormula
+      : shouldWaitForClassFormula
       ? "Công thức trợ cấp: đang tải cấu hình lớp..."
-      : rawBaseForAllowancePreview == null || editTutorAllowanceTotal == null
+      : editTutorAllowanceTotal == null
         ? "Công thức trợ cấp: chưa đủ dữ liệu để tính."
         : isAdminViewer && allowanceBreakdownText
           ? `${allowanceBreakdownText}. Gross (hệ số + trần max): ${formatCurrency(editTutorAllowanceTotal)}.`
-          : `Gốc lưu buổi: ${formatCurrency(rawBaseForAllowancePreview)}. Gross (hệ số + trần max): ${formatCurrency(editTutorAllowanceTotal)}.`;
+          : `Gross trước CPVH/thuế: ${formatCurrency(editTutorAllowanceTotal)}.`;
   const editHeaderTuition = useMemo(() => {
     if (!canViewTuitionHeader) return null;
     return `Học phí: ${formatCurrency(resolvedEditSessionTuition)}`;
@@ -1570,6 +1665,41 @@ export default function SessionHistoryTable({
       : isEditingClassDetailError && !usesSessionAllowanceSnapshot
         ? "Không tải được cấu hình lớp để ước tính trợ cấp."
         : null;
+
+  useEffect(() => {
+    if (!editingSession) {
+      return;
+    }
+    if (attendanceLoading || teachersLoading || shouldWaitForClassFormula) {
+      return;
+    }
+    if (
+      showEditAllowanceEstimate &&
+      canEditAllowance &&
+      allowanceRawBaseEdit != null &&
+      allowanceOverrideInitSessionIdRef.current !== editingSession.id
+    ) {
+      return;
+    }
+    if (editBaselineSessionIdRef.current === editingSession.id) {
+      return;
+    }
+
+    editBaselineSessionIdRef.current = editingSession.id;
+    setEditFormBaseline(
+      buildSessionFormDirtySnapshot(currentEditFormSnapshot),
+    );
+  }, [
+    editingSession,
+    attendanceLoading,
+    teachersLoading,
+    shouldWaitForClassFormula,
+    showEditAllowanceEstimate,
+    canEditAllowance,
+    allowanceRawBaseEdit,
+    manualAllowanceGrossOverride,
+    currentEditFormSnapshot,
+  ]);
 
   const zaloCommentText = useMemo(() => {
     if (!editingSession) return "";
@@ -1605,13 +1735,12 @@ export default function SessionHistoryTable({
     editingSession,
   ]);
 
-  const handleSaveAllowanceInline = async (grossAmount: number) => {
-    if (!editingSession || !canEditAllowance) return;
-    await allowanceSaveMutation.mutateAsync({
-      sessionId: editingSession.id,
-      grossAmount,
-      coefficient: coefficientForAllowancePreview,
-    });
+  const handleManualAllowanceGrossChange = (grossAmount: number) => {
+    setManualAllowanceGrossOverride(grossAmount);
+  };
+
+  const handleClearManualAllowanceOverride = () => {
+    setManualAllowanceGrossOverride(null);
   };
 
   return (
@@ -2591,7 +2720,7 @@ export default function SessionHistoryTable({
 
       <SessionFormDialog
         open={Boolean(editingSession)}
-        onClose={closeEdit}
+        onClose={requestCloseEdit}
         titleId="edit-session-title"
         maxWidthClass={isWideEditor ? "max-w-[72rem]" : "max-w-3xl"}
       >
@@ -2599,7 +2728,7 @@ export default function SessionHistoryTable({
           title={readOnlySessionDetails ? "Chi tiết buổi học" : "Chỉnh sửa buổi học"}
           tuitionText={editHeaderTuition}
           allowanceText={editHeaderAllowance}
-          onClose={closeEdit}
+          onClose={requestCloseEdit}
           titleId="edit-session-title"
         />
 
@@ -2733,10 +2862,18 @@ export default function SessionHistoryTable({
                           usesSnapshot={usesSessionAllowanceSnapshot}
                           isManualOverride={isAllowanceManuallyEdited}
                           canEdit={canEditAllowance && !readOnlySessionDetails}
-                          savingAllowance={allowanceSaveMutation.isPending}
-                          onSaveAllowance={
+                          editLocked={isAllowanceEditLocked}
+                          editLockedReason={allowanceEditLockedReason}
+                          onManualGrossChange={
                             canEditAllowance && !readOnlySessionDetails
-                              ? handleSaveAllowanceInline
+                              ? handleManualAllowanceGrossChange
+                              : undefined
+                          }
+                          onClearManualOverride={
+                            canEditAllowance &&
+                            !readOnlySessionDetails &&
+                            !isAllowanceEditLocked
+                              ? handleClearManualAllowanceOverride
                               : undefined
                           }
                         />
@@ -2913,7 +3050,7 @@ export default function SessionHistoryTable({
         <SessionFormDialogFooter>
                   <button
                     type="button"
-                    onClick={closeEdit}
+                    onClick={requestCloseEdit}
                     className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   >
                     Hủy
@@ -2929,6 +3066,12 @@ export default function SessionHistoryTable({
                   )}
         </SessionFormDialogFooter>
       </SessionFormDialog>
+
+      <SessionUnsavedChangesDialog
+        open={unsavedConfirmOpen}
+        onStay={() => setUnsavedConfirmOpen(false)}
+        onDiscard={confirmDiscardEdit}
+      />
     </>
   );
 }

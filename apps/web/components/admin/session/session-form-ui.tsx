@@ -56,8 +56,10 @@ type SessionTeacherAllowanceEstimateCardProps = {
   usesSnapshot?: boolean;
   isManualOverride?: boolean;
   canEdit?: boolean;
-  onSaveAllowance?: (grossAmount: number) => void | Promise<void>;
-  savingAllowance?: boolean;
+  editLocked?: boolean;
+  editLockedReason?: string | null;
+  onManualGrossChange?: (grossAmount: number) => void;
+  onClearManualOverride?: () => void;
   loading?: boolean;
   errorMessage?: string | null;
   className?: string;
@@ -133,14 +135,18 @@ export function SessionTeacherAllowanceEstimateCard({
   usesSnapshot = false,
   isManualOverride = false,
   canEdit = false,
-  onSaveAllowance,
-  savingAllowance = false,
+  editLocked = false,
+  editLockedReason = null,
+  onManualGrossChange,
+  onClearManualOverride,
   loading = false,
   errorMessage = null,
   className = "",
 }: SessionTeacherAllowanceEstimateCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [draftValue, setDraftValue] = useState("");
+  const allowanceEditable =
+    canEdit && !editLocked && onManualGrossChange != null;
 
   useEffect(() => {
     if (!isEditing) return;
@@ -157,12 +163,11 @@ export function SessionTeacherAllowanceEstimateCard({
     setDraftValue("");
   };
 
-  const handleConfirmEdit = async () => {
-    if (!onSaveAllowance) return;
-    const parsed = Number(draftValue.trim());
+  const handleDraftInput = (value: string) => {
+    setDraftValue(value);
+    const parsed = Number(value.trim());
     if (!Number.isFinite(parsed) || parsed < 0) return;
-    await onSaveAllowance(Math.floor(parsed));
-    setIsEditing(false);
+    onManualGrossChange?.(Math.floor(parsed));
   };
 
   return (
@@ -184,39 +189,31 @@ export function SessionTeacherAllowanceEstimateCard({
           ) : errorMessage ? (
             <p className="mt-2 text-sm text-warning">{errorMessage}</p>
           ) : isEditing ? (
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <input
-                type="number"
-                min={0}
-                value={draftValue}
-                autoComplete="off"
-                disabled={savingAllowance}
-                onChange={(event) => setDraftValue(event.target.value)}
-                className="min-h-11 w-full min-w-[8rem] flex-1 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm font-semibold tabular-nums text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:max-w-[12rem]"
-                aria-label="Chỉnh trợ cấp buổi"
-              />
-              <button
-                type="button"
-                onClick={() => void handleConfirmEdit()}
-                disabled={savingAllowance}
-                className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-success/30 bg-success/10 text-success transition-colors hover:bg-success/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60"
-                aria-label="Lưu trợ cấp buổi"
-              >
-                <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M5 13l4 4L19 7" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                onClick={handleCancelEdit}
-                disabled={savingAllowance}
-                className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-border-default bg-bg-surface text-text-muted transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60"
-                aria-label="Hủy chỉnh trợ cấp"
-              >
-                <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+            <div className="mt-2 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  value={draftValue}
+                  autoComplete="off"
+                  onChange={(event) => handleDraftInput(event.target.value)}
+                  className="min-h-11 w-full min-w-[8rem] flex-1 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm font-semibold tabular-nums text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:max-w-[12rem]"
+                  aria-label="Trợ cấp buổi trước phí vận hành và thuế"
+                />
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-border-default bg-bg-surface text-text-muted transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  aria-label="Hủy chỉnh trợ cấp"
+                >
+                  <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-[11px] text-text-muted">
+                Nhập số trước phí vận hành và thuế. Lưu cùng nút Lưu phía dưới form.
+              </p>
             </div>
           ) : amount == null ? (
             <p className="mt-2 text-sm text-text-muted">Chưa tính được</p>
@@ -226,7 +223,7 @@ export function SessionTeacherAllowanceEstimateCard({
             </p>
           )}
         </div>
-        {canEdit && onSaveAllowance && !isEditing ? (
+        {allowanceEditable && !isEditing ? (
           <button
             type="button"
             onClick={handleStartEdit}
@@ -241,7 +238,10 @@ export function SessionTeacherAllowanceEstimateCard({
         ) : null}
       </div>
       {!loading && !errorMessage && !isEditing ? (
-        <div className="mt-2 space-y-1 text-xs text-text-muted">
+        <div className="mt-2 space-y-2 text-xs text-text-muted">
+          {editLocked && editLockedReason ? (
+            <p className="text-warning">{editLockedReason}</p>
+          ) : null}
           {estimatedAmount != null && estimatedAmount !== amount ? (
             <p>Ước tính theo cấu hình: {formatCurrency(estimatedAmount)}</p>
           ) : null}
@@ -254,9 +254,112 @@ export function SessionTeacherAllowanceEstimateCard({
                 : "Lấy trực tiếp từ allowance của buổi học (theo cấu hình gia sư/lớp)."}
             </p>
           )}
+          {isManualOverride && onClearManualOverride ? (
+            <button
+              type="button"
+              onClick={onClearManualOverride}
+              className="inline-flex min-h-8 items-center rounded-lg border border-border-default bg-bg-surface px-2.5 py-1 text-xs font-medium text-text-secondary transition-colors hover:border-warning/35 hover:bg-warning/8 hover:text-warning focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            >
+              Xóa chỉnh tay
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>
+  );
+}
+
+type SessionUnsavedChangesDialogProps = {
+  open: boolean;
+  onStay: () => void;
+  onDiscard: () => void;
+};
+
+/** Cảnh báo khi đóng form tạo/sửa buổi học còn thay đổi chưa lưu. */
+export function SessionUnsavedChangesDialog({
+  open,
+  onStay,
+  onDiscard,
+}: SessionUnsavedChangesDialogProps) {
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      onStay();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, onStay]);
+
+  if (!open) return null;
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-[60] bg-bg-primary/75 backdrop-blur-[1px]"
+        aria-hidden
+        onClick={onStay}
+      />
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="session-unsaved-title"
+        aria-describedby="session-unsaved-description"
+        className="fixed left-1/2 top-1/2 z-[70] max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-border-default bg-bg-surface p-4 shadow-2xl sm:p-5"
+      >
+        <div className="flex items-start gap-3">
+          <div className="mt-1 flex size-11 items-center justify-center rounded-full bg-warning/10 text-warning sm:size-9">
+            <svg
+              className="size-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              aria-hidden
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v4m0 4h.01M5.1 19h13.8a2 2 0 001.79-2.89L13.79 4.79a2 2 0 00-3.58 0L3.31 16.11A2 2 0 005.1 19z"
+              />
+            </svg>
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2
+              id="session-unsaved-title"
+              className="text-base font-semibold text-text-primary"
+            >
+              Thay đổi chưa được lưu
+            </h2>
+            <p
+              id="session-unsaved-description"
+              className="mt-1 text-sm text-text-secondary"
+            >
+              Bạn có thay đổi chưa lưu trong form buổi học. Bỏ thay đổi và đóng
+              form?
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={onStay}
+            className="min-h-10 flex-1 rounded-md border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:flex-none sm:px-5"
+          >
+            Ở lại
+          </button>
+          <button
+            type="button"
+            onClick={onDiscard}
+            className="min-h-10 flex-1 rounded-md border border-warning/35 bg-warning/10 px-4 py-2.5 text-sm font-medium text-warning transition-colors hover:bg-warning/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:flex-none sm:px-5"
+          >
+            Bỏ thay đổi
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -292,6 +395,17 @@ export function SessionFormDialog({
       document.body.style.overflow = previous;
     };
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose]);
 
   if (!open) return null;
 
