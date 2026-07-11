@@ -98,7 +98,7 @@ export function computeSessionAllowanceRawBaseVnd(options: {
   return Math.floor(per * count + scale);
 }
 
-/** Gross before tax/operating: applies session coefficient and class max cap (display / parity with SQL LEAST). */
+/** Gross before CPVH/tax: applies session coefficient and class max cap (display / parity with SQL LEAST). */
 export function computeTeacherSessionAllowanceGrossPreviewVnd(options: {
   rawBase: number;
   coefficient: number;
@@ -116,4 +116,27 @@ export function computeTeacherSessionAllowanceGrossPreviewVnd(options: {
     return Math.min(maxCap, base);
   }
   return base;
+}
+
+/** Convert gross (pre-CPVH/tax) back to `allowanceAmount` raw base for API persistence. */
+export function grossAllowanceToRawBaseVnd(
+  gross: number,
+  coefficient: number,
+): number {
+  const safeGross = Math.max(0, Math.floor(gross));
+  if (coefficient <= 0) return 0;
+  return Math.ceil(safeGross / coefficient);
+}
+
+/** Gross from persisted `allowanceAmount` (raw base) for form display. */
+export function rawBaseToGrossAllowanceVnd(options: {
+  rawBase: number;
+  coefficient: number;
+  maxAllowancePerSession?: number | null;
+}): number {
+  return computeTeacherSessionAllowanceGrossPreviewVnd({
+    rawBase: options.rawBase,
+    coefficient: options.coefficient,
+    maxAllowancePerSession: options.maxAllowancePerSession,
+  });
 }
