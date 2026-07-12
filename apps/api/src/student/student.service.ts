@@ -1170,6 +1170,13 @@ export class StudentService {
         : 100;
 
     const where: Prisma.StudentInfoWhereInput = { status };
+    const trimmedSearch = query.search?.trim();
+    if (trimmedSearch) {
+      where.fullName = {
+        contains: trimmedSearch,
+        mode: 'insensitive',
+      };
+    }
 
     const [total, rows] = await Promise.all([
       this.prisma.studentInfo.count({ where }),

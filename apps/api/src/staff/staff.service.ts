@@ -1278,6 +1278,7 @@ export class StaffService {
       roles: {
         has: role,
       },
+      ...buildNameSearchWhere(query.search),
     };
 
     const [total, rows] = await Promise.all([
