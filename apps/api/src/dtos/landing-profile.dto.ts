@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { StaffRole, StaffStatus, StudentStatus } from 'generated/enums';
 
 export class StaffLandingProfileQueryDto {
@@ -21,6 +21,14 @@ export class StaffLandingProfileQueryDto {
   @IsOptional()
   @IsEnum(StaffStatus)
   status?: StaffStatus;
+
+  @ApiPropertyOptional({
+    description: 'Search by staff name (case-insensitive)',
+    example: 'Nguyen Van',
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
 
   @ApiPropertyOptional({
     minimum: 1,
@@ -45,6 +53,14 @@ export class StudentLandingProfileQueryDto {
   @IsOptional()
   @IsEnum(StudentStatus)
   status?: StudentStatus;
+
+  @ApiPropertyOptional({
+    description: 'Search by student full name (case-insensitive)',
+    example: 'Le Van',
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
 
   @ApiPropertyOptional({
     minimum: 1,
