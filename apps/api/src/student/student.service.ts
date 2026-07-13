@@ -51,6 +51,7 @@ import {
 } from 'src/common/entity-id';
 import {
   hasCustomTuitionOverride,
+  hasCustomPackageOverride,
   normalizeNullableMoney,
   normalizeStudentClassCustomTuitionMoney,
   resolveEffectiveTuitionPerSession,
@@ -393,6 +394,10 @@ export class StudentService {
       classTuitionPerSession: studentClass.class.studentTuitionPerSession,
       effectivePackageTotal: effectiveTuitionPackageTotal,
       effectivePackageSession: effectiveTuitionPackageSession,
+      hasCustomPackageOverride: hasCustomPackageOverride({
+        customTuitionPackageTotal,
+        customTuitionPackageSession,
+      }),
     });
 
     return {

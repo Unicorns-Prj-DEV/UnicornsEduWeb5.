@@ -42,6 +42,7 @@ import {
 } from 'src/common/entity-id';
 import {
   hasCustomTuitionOverride,
+  hasCustomPackageOverride,
   normalizeNullableMoney,
   normalizeStudentClassCustomTuitionMoney,
   resolveDerivedTuitionPerSession,
@@ -598,6 +599,10 @@ export class ClassService {
         classTuitionPerSession: classInfo.studentTuitionPerSession,
         effectivePackageTotal: effectiveTuitionPackageTotal,
         effectivePackageSession: effectiveTuitionPackageSession,
+        hasCustomPackageOverride: hasCustomPackageOverride({
+          customTuitionPackageTotal,
+          customTuitionPackageSession,
+        }),
       });
 
       return {
@@ -1678,19 +1683,23 @@ export class ClassService {
         ? await this.getClassAuditSnapshot(tx, id)
         : null;
 
+      const pkgTotal = normalizeStudentClassCustomTuitionMoney(
+        dto.custom_tuition_package_total,
+      );
+      const pkgSession = normalizeStudentClassCustomTuitionMoney(
+        dto.custom_tuition_package_session,
+      );
+      const perSession = normalizeStudentClassCustomTuitionMoney(
+        dto.custom_tuition_per_session,
+      );
+
       await tx.studentClass.update({
         where: { id: studentClass.id },
         data: {
-          customTuitionPackageTotal: normalizeStudentClassCustomTuitionMoney(
-            dto.custom_tuition_package_total,
-          ),
-          customTuitionPackageSession: normalizeStudentClassCustomTuitionMoney(
-            dto.custom_tuition_package_session,
-          ),
+          customTuitionPackageTotal: pkgTotal,
+          customTuitionPackageSession: pkgSession,
           customStudentTuitionPerSession:
-            normalizeStudentClassCustomTuitionMoney(
-              dto.custom_tuition_per_session,
-            ),
+            resolveDerivedTuitionPerSession(pkgTotal, pkgSession) ?? perSession,
         },
       });
 

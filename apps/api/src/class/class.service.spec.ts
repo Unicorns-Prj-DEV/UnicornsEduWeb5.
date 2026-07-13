@@ -67,6 +67,8 @@ describe('ClassService', () => {
     },
     studentClass: {
       findMany: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
       updateMany: jest.fn(),
       createMany: jest.fn(),
       create: jest.fn(),
@@ -88,6 +90,7 @@ describe('ClassService', () => {
     },
     studentClass: {
       groupBy: jest.fn(),
+      findFirst: jest.fn(),
     },
     $queryRaw: jest.fn(),
     $transaction: jest.fn(),
@@ -174,6 +177,8 @@ describe('ClassService', () => {
       return ids.map((id: string) => ({ id, status: StudentStatus.active }));
     });
     mockTx.studentClass.findMany.mockResolvedValue([]);
+    mockTx.studentClass.findFirst.mockResolvedValue(null);
+    mockTx.studentClass.update.mockResolvedValue({});
     mockTx.studentClass.updateMany.mockResolvedValue({ count: 0 });
     mockTx.studentClass.createMany.mockResolvedValue({ count: 0 });
     mockTx.studentClass.create.mockResolvedValue({});
@@ -182,6 +187,7 @@ describe('ClassService', () => {
     mockPrisma.classTeacher.findMany.mockResolvedValue([]);
     mockPrisma.makeupScheduleEvent.findMany.mockResolvedValue([]);
     mockPrisma.studentClass.groupBy.mockResolvedValue([]);
+    mockPrisma.studentClass.findFirst.mockResolvedValue(null);
 
     service = new ClassService(
       mockPrisma as never,
@@ -528,6 +534,45 @@ describe('ClassService', () => {
           },
         ],
         sessionTuitionTotal: 250000,
+      });
+    });
+  });
+
+  describe('updateClassStudentTuition', () => {
+    it('derives custom per-session from custom package when saving student tuition', async () => {
+      mockPrisma.class.findUnique.mockResolvedValue({ id: 'class-1' });
+      mockPrisma.studentClass.findFirst.mockResolvedValue({
+        id: 'student-class-1',
+      });
+      (
+        service as unknown as {
+          getClassAuditSnapshot: jest.Mock;
+        }
+      ).getClassAuditSnapshot
+        .mockResolvedValueOnce({ id: 'class-1' })
+        .mockResolvedValueOnce({ id: 'class-1' });
+
+      await service.updateClassStudentTuition(
+        'class-1',
+        {
+          student_id: 'student-1',
+          custom_tuition_package_total: 525000,
+          custom_tuition_package_session: 4,
+        },
+        {
+          userId: 'admin-1',
+          userEmail: 'admin@example.com',
+          roleType: UserRole.admin,
+        },
+      );
+
+      expect(mockTx.studentClass.update).toHaveBeenCalledWith({
+        where: { id: 'student-class-1' },
+        data: {
+          customTuitionPackageTotal: 525000,
+          customTuitionPackageSession: 4,
+          customStudentTuitionPerSession: 131250,
+        },
       });
     });
   });
