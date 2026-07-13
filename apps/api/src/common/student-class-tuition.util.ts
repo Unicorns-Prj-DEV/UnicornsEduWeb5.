@@ -40,20 +40,81 @@ export function resolveDerivedTuitionPerSession(
   return Math.round(packageTotal / packageSession);
 }
 
+export function resolveEffectivePackageFields(options: {
+  customTuitionPackageTotal?: number | null;
+  customTuitionPackageSession?: number | null;
+  classTuitionPackageTotal?: number | null;
+  classTuitionPackageSession?: number | null;
+}): {
+  effectivePackageTotal: number | null;
+  effectivePackageSession: number | null;
+  hasCustomPackageOverride: boolean;
+} {
+  const customTuitionPackageTotal = normalizeStudentClassCustomTuitionMoney(
+    options.customTuitionPackageTotal,
+  );
+  const customTuitionPackageSession = normalizeStudentClassCustomTuitionMoney(
+    options.customTuitionPackageSession,
+  );
+  const hasCustomPackageOverride =
+    customTuitionPackageTotal != null || customTuitionPackageSession != null;
+
+  return {
+    effectivePackageTotal:
+      customTuitionPackageTotal ??
+      normalizeNullableMoney(options.classTuitionPackageTotal),
+    effectivePackageSession:
+      customTuitionPackageSession ??
+      normalizeNullableMoney(options.classTuitionPackageSession),
+    hasCustomPackageOverride,
+  };
+}
+
+export function hasCustomPackageOverride(options: {
+  customTuitionPackageTotal?: number | null;
+  customTuitionPackageSession?: number | null;
+}): boolean {
+  return (
+    normalizeStudentClassCustomTuitionMoney(
+      options.customTuitionPackageTotal,
+    ) != null ||
+    normalizeStudentClassCustomTuitionMoney(
+      options.customTuitionPackageSession,
+    ) != null
+  );
+}
+
 export function resolveEffectiveTuitionPerSession(options: {
   customTuitionPerSession?: number | null;
   classTuitionPerSession?: number | null;
   effectivePackageTotal?: number | null;
   effectivePackageSession?: number | null;
+  hasCustomPackageOverride?: boolean;
 }): number | null {
-  return (
-    normalizeStudentClassCustomTuitionMoney(options.customTuitionPerSession) ??
-    normalizeNullableMoney(options.classTuitionPerSession) ??
-    resolveDerivedTuitionPerSession(
-      options.effectivePackageTotal,
-      options.effectivePackageSession,
-    )
+  const customTuitionPerSession = normalizeStudentClassCustomTuitionMoney(
+    options.customTuitionPerSession,
   );
+  if (customTuitionPerSession != null) {
+    return customTuitionPerSession;
+  }
+
+  const derivedFromEffectivePackage = resolveDerivedTuitionPerSession(
+    options.effectivePackageTotal,
+    options.effectivePackageSession,
+  );
+
+  if (options.hasCustomPackageOverride && derivedFromEffectivePackage != null) {
+    return derivedFromEffectivePackage;
+  }
+
+  const classTuitionPerSession = normalizeNullableMoney(
+    options.classTuitionPerSession,
+  );
+  if (classTuitionPerSession != null) {
+    return classTuitionPerSession;
+  }
+
+  return derivedFromEffectivePackage;
 }
 
 export function hasCustomTuitionOverride(options: {

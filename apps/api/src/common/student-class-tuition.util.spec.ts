@@ -27,6 +27,30 @@ describe('student-class-tuition.util', () => {
     ).toBe(150000);
   });
 
+  it('derives per-session from custom package before class per-session', () => {
+    expect(
+      resolveEffectiveTuitionPerSession({
+        customTuitionPerSession: null,
+        classTuitionPerSession: 124750,
+        effectivePackageTotal: 525000,
+        effectivePackageSession: 4,
+        hasCustomPackageOverride: true,
+      }),
+    ).toBe(131250);
+  });
+
+  it('inherits class per-session when there is no custom package override', () => {
+    expect(
+      resolveEffectiveTuitionPerSession({
+        customTuitionPerSession: null,
+        classTuitionPerSession: 124750,
+        effectivePackageTotal: 499000,
+        effectivePackageSession: 4,
+        hasCustomPackageOverride: false,
+      }),
+    ).toBe(124750);
+  });
+
   it('maps stored custom 0 to null for override detection', () => {
     expect(normalizeStudentClassCustomTuitionMoney(0)).toBeNull();
     expect(
