@@ -73,6 +73,19 @@ describe('SessionValidationService', () => {
     ).toBe(300000);
   });
 
+  it('derives default tuition from custom package before class per-session', () => {
+    expect(
+      service.resolveDefaultStudentTuitionPerSession({
+        customTuitionPerSession: null,
+        customTuitionPackageTotal: 525000,
+        customTuitionPackageSession: 4,
+        classTuitionPerSession: 124750,
+        classTuitionPackageTotal: 499000,
+        classTuitionPackageSession: 4,
+      }),
+    ).toBe(131250);
+  });
+
   it('treats custom per-session 0 as inherit (falls back to class tuition)', () => {
     expect(
       service.resolveDefaultStudentTuitionPerSession({

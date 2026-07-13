@@ -28,6 +28,8 @@ describe('SessionRosterService', () => {
       {
         studentId: 'student-1',
         customStudentTuitionPerSession: null,
+        customTuitionPackageTotal: null,
+        customTuitionPackageSession: null,
         class: {
           studentTuitionPerSession: null,
           tuitionPackageTotal: 3600000,
@@ -37,6 +39,8 @@ describe('SessionRosterService', () => {
       {
         studentId: 'student-2',
         customStudentTuitionPerSession: 420000,
+        customTuitionPackageTotal: null,
+        customTuitionPackageSession: null,
         class: {
           studentTuitionPerSession: 300000,
           tuitionPackageTotal: 3600000,
@@ -59,6 +63,8 @@ describe('SessionRosterService', () => {
       {
         studentId: 'student-1',
         customStudentTuitionPerSession: null,
+        customTuitionPackageTotal: null,
+        customTuitionPackageSession: null,
         class: {
           studentTuitionPerSession: null,
           tuitionPackageTotal: 3600000,

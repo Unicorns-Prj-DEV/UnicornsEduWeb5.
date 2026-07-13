@@ -737,6 +737,8 @@ export class SessionUpdateService {
             select: {
               studentId: true,
               customStudentTuitionPerSession: true,
+              customTuitionPackageTotal: true,
+              customTuitionPackageSession: true,
               class: {
                 select: {
                   studentTuitionPerSession: true,
@@ -754,6 +756,10 @@ export class SessionUpdateService {
                 {
                   customTuitionPerSession:
                     studentClass.customStudentTuitionPerSession,
+                  customTuitionPackageTotal:
+                    studentClass.customTuitionPackageTotal,
+                  customTuitionPackageSession:
+                    studentClass.customTuitionPackageSession,
                   classTuitionPerSession:
                     studentClass.class?.studentTuitionPerSession,
                   classTuitionPackageTotal:

@@ -1,9 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { AttendanceStatus } from '../../generated/enums';
 import {
-  normalizeNullableMoney,
-  normalizeStudentClassCustomTuitionMoney,
-  resolveDerivedTuitionPerSession,
+  resolveEffectivePackageFields,
+  resolveEffectiveTuitionPerSession,
 } from 'src/common/student-class-tuition.util';
 
 @Injectable()
@@ -122,20 +121,30 @@ export class SessionValidationService {
 
   resolveDefaultStudentTuitionPerSession(options: {
     customTuitionPerSession?: number | null;
+    customTuitionPackageTotal?: number | null;
+    customTuitionPackageSession?: number | null;
     classTuitionPerSession?: number | null;
     classTuitionPackageTotal?: number | null;
     classTuitionPackageSession?: number | null;
   }): number | null {
-    return (
-      normalizeStudentClassCustomTuitionMoney(
-        options.customTuitionPerSession,
-      ) ??
-      normalizeNullableMoney(options.classTuitionPerSession) ??
-      resolveDerivedTuitionPerSession(
-        options.classTuitionPackageTotal,
-        options.classTuitionPackageSession,
-      )
-    );
+    const {
+      effectivePackageTotal,
+      effectivePackageSession,
+      hasCustomPackageOverride,
+    } = resolveEffectivePackageFields({
+      customTuitionPackageTotal: options.customTuitionPackageTotal,
+      customTuitionPackageSession: options.customTuitionPackageSession,
+      classTuitionPackageTotal: options.classTuitionPackageTotal,
+      classTuitionPackageSession: options.classTuitionPackageSession,
+    });
+
+    return resolveEffectiveTuitionPerSession({
+      customTuitionPerSession: options.customTuitionPerSession,
+      classTuitionPerSession: options.classTuitionPerSession,
+      effectivePackageTotal,
+      effectivePackageSession,
+      hasCustomPackageOverride,
+    });
   }
 
   resolveAttendanceTuitionFee(

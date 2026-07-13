@@ -30,6 +30,8 @@ export class SessionRosterService {
       select: {
         studentId: true,
         customStudentTuitionPerSession: true,
+        customTuitionPackageTotal: true,
+        customTuitionPackageSession: true,
         class: {
           select: {
             studentTuitionPerSession: true,
@@ -51,6 +53,8 @@ export class SessionRosterService {
         studentRow.studentId,
         this.sessionValidationService.resolveDefaultStudentTuitionPerSession({
           customTuitionPerSession: studentRow.customStudentTuitionPerSession,
+          customTuitionPackageTotal: studentRow.customTuitionPackageTotal,
+          customTuitionPackageSession: studentRow.customTuitionPackageSession,
           classTuitionPerSession: studentRow.class?.studentTuitionPerSession,
           classTuitionPackageTotal: studentRow.class?.tuitionPackageTotal,
           classTuitionPackageSession: studentRow.class?.tuitionPackageSession,

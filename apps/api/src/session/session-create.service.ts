@@ -143,6 +143,8 @@ export class SessionCreateService {
             select: {
               studentId: true,
               customStudentTuitionPerSession: true,
+              customTuitionPackageTotal: true,
+              customTuitionPackageSession: true,
               class: {
                 select: {
                   studentTuitionPerSession: true,
@@ -282,6 +284,12 @@ export class SessionCreateService {
                       customTuitionPerSession: studentClassByStudentId.get(
                         attendanceItem.studentId,
                       )?.customStudentTuitionPerSession,
+                      customTuitionPackageTotal: studentClassByStudentId.get(
+                        attendanceItem.studentId,
+                      )?.customTuitionPackageTotal,
+                      customTuitionPackageSession: studentClassByStudentId.get(
+                        attendanceItem.studentId,
+                      )?.customTuitionPackageSession,
                       classTuitionPerSession: studentClassByStudentId.get(
                         attendanceItem.studentId,
                       )?.class?.studentTuitionPerSession,
