@@ -10,7 +10,7 @@ Làm rõ codebase đang tính học phí mặc định / hiệu lực cho học 
 
 ## Tóm tắt
 
-- Học phí hiệu lực mỗi buổi được suy ra bằng chuỗi `??` trong TypeScript: custom per-session → per-session của lớp → suy ra từ gói (tổng/số buổi) sau khi đã gộp gói custom với gói lớp.
+- Học phí hiệu lực mỗi buổi được suy ra bằng chuỗi trong TypeScript: custom per-session → suy ra từ gói hiệu lực (khi có Gói riêng) → per-session của lớp → suy ra từ gói lớp sau khi đã gộp gói custom với gói lớp.
 - Hàm `normalizeNullableMoney` làm tròn xuống số nguyên và **giữ `0` là giá trị hợp lệ**, không đổi thành `null`.
 - Toán tử `??` chỉ nhảy sang toán hạng sau khi bên trái là `null` hoặc `undefined`, **không** khi bên trái là `0`. Do đó `customTuitionPerSession === 0` chặn toàn bộ fallback về lớp và kéo `effectiveTuitionPerSession`, tổng buổi trên lớp (`sessionTuitionTotal`), v.v. về 0.
 - `hasCustomTuitionOverride` cũng dùng `!= null` sau normalize, nên `0` bị coi là “đã override” dù không phải mức học phí thực.

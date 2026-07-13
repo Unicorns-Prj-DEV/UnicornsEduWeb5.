@@ -63,6 +63,8 @@
 ## Hồ sơ học sinh
 
 - **Học sinh nghỉ học**: hồ sơ học sinh không còn tham gia vận hành lớp hiện tại hoặc được thêm vào lớp mới, nhưng lịch sử học tập, ví và công nợ đã phát sinh vẫn được giữ lại. Trạng thái này không đồng nghĩa khóa tài khoản user.
+- **Gói riêng**: override gói học phí trên quan hệ học sinh–lớp (`student_classes.custom_tuition_package_*`), hiển thị label "Gói riêng" trên UI. Khác với gói mặc định của lớp (`classes.tuition_package_*`).
+- **Học phí hiệu lực/buổi**: mức học phí mỗi buổi authoritative dùng cho hiển thị và charge buổi học. Khi có Gói riêng mà không có override per-session riêng, suy ra từ gói hiệu lực (tổng ÷ số buổi) trước khi fallback về `student_tuition_per_session` của lớp.
 
 ## Lịch học và Google Calendar
 

@@ -212,7 +212,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - `custom_student_tuition_per_session`
   - `custom_tuition_package_total`
   - `custom_tuition_package_session`
-- **Semantics thống nhất với backend:** giá trị `0` trên các cột override được xử lý như **không override** (kế thừa học phí/gói từ `classes`), tương đương `null` trong logic tính `effective*` và trong SQL aggregate dashboard (`NULLIF(..., 0)` trên các cột custom). Khi cập nhật danh sách học sinh lớp, API chuẩn hóa `0` → lưu `null` để tránh bản ghi “0” legacy chặn fallback.
+- **Semantics thống nhất với backend:** giá trị `0` trên các cột override được xử lý như **không override** (kế thừa học phí/gói từ `classes`), tương đương `null` trong logic tính `effective*` và trong SQL aggregate dashboard (`NULLIF(..., 0)` trên các cột custom). Khi cập nhật danh sách học sinh lớp hoặc `PATCH /class/:id/student-tuition`, API chuẩn hóa `0` → lưu `null` và **derive** `custom_student_tuition_per_session` từ gói riêng (`custom_tuition_package_total ÷ custom_tuition_package_session`, làm tròn) khi có gói hợp lệ.
 - Index read path:
   - `student_id`
   - `class_id`

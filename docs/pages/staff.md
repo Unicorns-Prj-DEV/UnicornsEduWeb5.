@@ -140,7 +140,7 @@
   - form chỉnh `session` vẫn hiển thị tên gia sư phụ trách ở chế độ chỉ đọc khi self-service không được đổi gia sư
   - popup chỉnh `session` ở route này mirror layout form thêm (wide modal): cấu hình buổi → **Nhận xét từng học sinh** → nội dung/BTVN → copy Zalo; khi lưu, text template Zalo được ghi vào `sessions.notes` và card/bảng lịch sử đọc từ đó (fallback dựng template nếu buổi cũ chưa có `notes`)
   - attendance `present` và `excused` đều tính học phí (trừ ví học sinh); chỉ `absent` không tạo charge ở backend
-  - khi attendance không có học phí override, backend tự dùng mức mặc định hiệu lực của lớp theo thứ tự: custom của học sinh trong lớp → `student_tuition_per_session` của lớp → mức suy ra từ `tuitionPackageTotal / tuitionPackageSession`
+  - khi attendance không có học phí override, backend tự dùng mức mặc định hiệu lực theo thứ tự: override học phí/buổi riêng trên `student_classes` → suy ra từ **gói hiệu lực** (khi có Gói riêng) → `student_tuition_per_session` của lớp → suy ra từ gói mặc định của lớp
   - khối **Lịch sử & Khảo sát** có 2 tab `Buổi học` và `Khảo sát`, dùng chung `MonthNav` theo tháng đang xem
   - bảng lịch sử buổi học dùng `SessionHistoryTable` `variant="classDetail"`; hiển thị `trạng thái thanh toán` chỉ đọc; preview trợ cấp read-only khi sửa buổi
   - tab `Khảo sát` đọc `GET /staff-ops/classes/:id/surveys?month=&year=`; teacher được phân công lớp có thể tạo/sửa/xóa khảo sát do chính mình phụ trách, với trường `Khảo sát lần mấy`, `Ngày báo cáo`, `Người phụ trách` và `Nội dung báo cáo` rich text; `customer_care` chỉ xem
