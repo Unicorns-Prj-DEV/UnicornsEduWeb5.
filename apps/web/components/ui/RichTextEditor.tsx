@@ -3,8 +3,7 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
-import { useEffect, useMemo, useRef } from "react";
-import { sanitizeRichTextContent } from "@/lib/sanitize";
+import { useEffect, useRef } from "react";
 
 export type RichTextEditorProps = {
   value: string;
@@ -16,6 +15,18 @@ export type RichTextEditorProps = {
 };
 
 const DEFAULT_MIN_HEIGHT = "min-h-[180px]";
+const EMPTY_PARAGRAPH_HTML = "<p></p>";
+
+function isEmptyEditorHtml(html: string): boolean {
+  const trimmed = html.trim();
+  return trimmed === "" || trimmed === EMPTY_PARAGRAPH_HTML;
+}
+
+/** True when two TipTap HTML values represent the same empty document. */
+function isSameEditorHtml(a: string, b: string): boolean {
+  if (a === b) return true;
+  return isEmptyEditorHtml(a) && isEmptyEditorHtml(b);
+}
 
 export default function RichTextEditor({
   value,
@@ -26,14 +37,20 @@ export default function RichTextEditor({
   disabled = false,
 }: RichTextEditorProps) {
   const onChangeRef = useRef(onChange);
-  const editorContent = useMemo(
-    () => sanitizeRichTextContent(value),
-    [value],
-  );
+  const lastEmittedHtmlRef = useRef(value);
+
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        link: {
+          openOnClick: false,
+          HTMLAttributes: {
+            rel: "noopener noreferrer nofollow",
+            target: "_blank",
+          },
+        },
+      }),
       ...(placeholder
         ? [
             Placeholder.configure({
@@ -44,10 +61,10 @@ export default function RichTextEditor({
           ]
         : []),
     ],
-    content: editorContent,
+    content: value || "",
     editorProps: {
       attributes: {
-        class: `px-3 py-2 text-text-primary [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_strong]:font-bold [&_h1]:text-xl [&_h2]:text-lg [&_h3]:text-base ${minHeight}`,
+        class: `px-3 py-2 text-text-primary [&_a]:text-primary [&_a]:underline [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_strong]:font-bold [&_h1]:text-xl [&_h2]:text-lg [&_h3]:text-base ${minHeight}`,
         "aria-label": ariaLabel,
         ...(placeholder ? { "data-placeholder": placeholder } : {}),
       },
@@ -55,10 +72,20 @@ export default function RichTextEditor({
   });
 
   useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  useEffect(() => {
     if (!editor) return;
+    // Only apply external value changes (load session, reset form). Skip echo
+    // of our own onChange — sanitizing/re-setting TipTap Link HTML resets caret.
+    if (isSameEditorHtml(value, lastEmittedHtmlRef.current)) return;
+    lastEmittedHtmlRef.current = value;
     const current = editor.getHTML();
-    if (editorContent !== current) editor.commands.setContent(editorContent, { emitUpdate: false });
-  }, [editorContent, editor]);
+    if (!isSameEditorHtml(value, current)) {
+      editor.commands.setContent(value || "", { emitUpdate: false });
+    }
+  }, [value, editor]);
 
   useEffect(() => {
     if (!editor) return;
@@ -66,13 +93,11 @@ export default function RichTextEditor({
   }, [editor, disabled]);
 
   useEffect(() => {
-    onChangeRef.current = onChange;
-  }, [onChange]);
-
-  useEffect(() => {
     if (!editor) return;
     const handleUpdate = () => {
-      onChangeRef.current(editor.getHTML());
+      const html = editor.getHTML();
+      lastEmittedHtmlRef.current = html;
+      onChangeRef.current(html);
     };
     editor.on("update", handleUpdate);
     return () => {

@@ -1028,7 +1028,7 @@ export function SessionCommentPreview({
 
     return (
       <div
-        className={`prose prose-xs max-w-none break-words text-text-primary [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:mb-1 [&_p:last-child]:mb-0 [&_strong]:font-bold [&_ul]:list-disc [&_ul]:pl-4 ${className}`.trim()}
+        className={`prose prose-xs max-w-none break-words text-text-primary [&_a]:text-primary [&_a]:underline [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:mb-1 [&_p:last-child]:mb-0 [&_strong]:font-bold [&_ul]:list-disc [&_ul]:pl-4 ${className}`.trim()}
         dangerouslySetInnerHTML={{ __html: html }}
       />
     );

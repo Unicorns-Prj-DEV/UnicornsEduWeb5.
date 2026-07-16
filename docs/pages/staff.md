@@ -135,8 +135,8 @@
   - card `Danh sách học sinh` tách thành 2 phần: danh sách học sinh **đang học** và block riêng **Học sinh đã nghỉ** để tránh lẫn trạng thái
   - cho phép chỉnh `khung giờ học`
   - teacher chỉ thấy các session có `teacherId` đúng với hồ sơ staff hiện tại; admin vẫn thấy toàn bộ session của lớp trong tháng đang chọn
-  - cho phép thêm `session` với ngày học, giờ học, toggle **Dạy thử**, `lessonContent`, `homework`, nhận xét từng HS và điểm danh (bảng 2 cột md+ / card mobile); rich text cho nội dung bài học/BTVN/nhận xét HS; nhận xét HS `present`/`excused` bắt buộc khi tạo/lưu
-  - cho phép chỉnh `session` gồm ngày học, giờ học, toggle **Dạy thử**, `lessonContent`, `homework`, nhận xét từng HS và điểm danh; cùng rule bắt buộc nhận xét `present`/`excused`; khi mở session cũ, danh sách điểm danh luôn giữ các học sinh đã có attendance của buổi đó kể cả khi hiện tại đã nghỉ
+  - cho phép thêm `session` với ngày học, giờ học, toggle **Dạy thử**, `lessonContent`, `homework`, `tutorial`, nhận xét từng HS và điểm danh (bảng 2 cột md+ / card mobile); rich text (`RichTextEditor` TipTap) cho nội dung bài học/BTVN/tutorial/nhận xét HS — paste/autolink URL giữ caret (không sanitize trên controlled sync); nhận xét HS `present`/`excused` bắt buộc khi tạo/lưu
+  - cho phép chỉnh `session` gồm ngày học, giờ học, toggle **Dạy thử**, `lessonContent`, `homework`, `tutorial`, nhận xét từng HS và điểm danh; cùng rule bắt buộc nhận xét `present`/`excused`; khi mở session cũ, danh sách điểm danh luôn giữ các học sinh đã có attendance của buổi đó kể cả khi hiện tại đã nghỉ
   - form chỉnh `session` vẫn hiển thị tên gia sư phụ trách ở chế độ chỉ đọc khi self-service không được đổi gia sư
   - popup chỉnh `session` ở route này mirror layout form thêm (wide modal): cấu hình buổi → **Nhận xét từng học sinh** → nội dung/BTVN → copy Zalo; khi lưu, text template Zalo được ghi vào `sessions.notes` và card/bảng lịch sử đọc từ đó (fallback dựng template nếu buổi cũ chưa có `notes`)
   - attendance `present` và `excused` đều tính học phí (trừ ví học sinh); chỉ `absent` không tạo charge ở backend

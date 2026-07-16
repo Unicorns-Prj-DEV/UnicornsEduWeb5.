@@ -42,6 +42,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
+- FE `RichTextEditor` (form thêm/sửa buổi học — nội dung bài học / BTVN / tutorial / nhận xét HS): paste/autolink URL không còn bị reset caret do controlled sync chạy DOMPurify rồi `setContent` khi TipTap Link HTML lệch (`target`/`rel`); sync chỉ áp dụng value ngoài (load/reset); Link `openOnClick: false`; preview `SessionCommentPreview` style `<a>`. Docs: `docs/pages/admin.md`, `docs/pages/staff.md`.
 - CD deploy: `scripts/gha-deploy-instance-remote.sh` CRLF → LF (fix `set: pipefail: invalid option name` on VPS bash).
 - CD deploy IT: tự `docker compose -p unicorns down` khi migrate sang project `unicorns-it` (tránh port 80 already allocated).
 - CD deploy IT: thêm teardown project `unicornsedu` + dừng container Docker chiếm port 80/8080 trước khi start nginx. bằng cách chuyển đổi việc lưu lịch sử hoạt động (Action History) từ vòng lặp $O(N)$ query ghi log tuần tự sang chèn hàng loạt (Bulk Insert) $O(1)$ query thông qua phương thức `recordUpdates` mới trong `ActionHistoryService`, giúp loại bỏ hoàn toàn hiện tượng nghẽn cơ sở dữ liệu khi thanh toán số lượng lớn mục.
