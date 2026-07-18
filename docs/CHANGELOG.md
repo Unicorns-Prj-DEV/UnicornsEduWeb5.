@@ -33,6 +33,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- FE/BE CSKH: cho phép `staff.customer_care` chỉnh hồ sơ học sinh được giao (`PATCH /student/:id`, status, exam-schedules) trên `/staff/students/[id]`; khóa ô **Tỷ lệ lợi nhuận (%)** và BE trả 403 nếu CSKH gửi `customer_care_profit_percent`. Vẫn khóa danh sách lớp / gói học phí / chỉnh số dư ví.
 - FE session form (`AddSessionPopup`, `SessionHistoryTable` / `session-form-ui`): trợ cấp nhập tay = **gross trước CPVH/thuế**; override giữ khi đổi điểm danh; **Xóa chỉnh tay** bỏ override; lưu cùng nút submit form (bỏ nút ✓ lưu riêng trên card); khóa chỉnh khi **Dạy thử**, buổi `paid`/`deposit`, hoặc read-only; form tạo cũng hỗ trợ override cho `canEditAllowance`. Helpers `grossAllowanceToRawBaseVnd` / `rawBaseToGrossAllowanceVnd`. Docs: `CONTEXT.md`, `docs/pages/admin.md`.
 - FE session form: dialog **Thay đổi chưa được lưu** khi đóng form tạo/sửa buổi (X / Hủy / backdrop / Escape) còn field khác snapshot lúc mở; nút **Ở lại** / **Bỏ thay đổi**; chặn đóng khi form tạo đang submit. Component `SessionUnsavedChangesDialog`, helper `session-form-dirty.helpers.ts`.
 - **CD deploy:** `scripts/gha-deploy-instance-remote.sh` tự chạy `prisma migrate deploy` sau pull API image; chỉ bước migrate tạm swap `DATABASE_URL` → `DIRECT_URL` (app runtime vẫn dùng PgBouncer qua `PrismaService`). Thêm `DIRECT_URL` vào env examples. Docs: `docs/Cách làm việc.md`, `docs/Database Schema.md`, `docs/ops/`, `AGENTS.md`.
