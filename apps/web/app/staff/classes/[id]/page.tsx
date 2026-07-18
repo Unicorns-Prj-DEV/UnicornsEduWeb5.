@@ -12,6 +12,7 @@ import {
 import { toast } from "sonner";
 import {
   ClassCard,
+  ClassStudentWalletBalance,
   ClassSurveyPanel,
   EditClassSchedulePopup,
   MakeupScheduleCard,
@@ -462,6 +463,8 @@ export default function StaffClassDetailPage() {
     (classDetail?.teachers ?? []).some((teacher) => teacher.id === actorStaffId);
   const isCustomerCareView = isCustomerCare && !isTeacherWorkspaceActor;
   const isTrainingView = isTraining && !isTeacherWorkspaceActor && !isCustomerCare;
+  /** Admin on staff shell + CSKH (assigned students only; others empty via BE redact). */
+  const showStudentBalanceColumn = isAdmin || isCustomerCareView;
   const canOpenReadonlyClassForms = isTrainingView;
   const usesTeacherScope =
     !isAdmin && (teacherAssignedToClass || hasTeacherSelfServiceAccess);
@@ -948,6 +951,13 @@ export default function StaffClassDetailPage() {
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <p className="text-sm font-semibold text-text-primary">{student.fullName}</p>
+                          {showStudentBalanceColumn ? (
+                            <p className="mt-1 text-xs">
+                              <ClassStudentWalletBalance
+                                balance={student.accountBalance}
+                              />
+                            </p>
+                          ) : null}
                         </div>
                         <span
                           className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${isActive
@@ -971,6 +981,11 @@ export default function StaffClassDetailPage() {
                   <th scope="col" className="px-3 py-2 text-xs font-medium text-text-primary">
                     Họ tên
                   </th>
+                  {showStudentBalanceColumn ? (
+                    <th scope="col" className="px-3 py-2 text-xs font-medium text-text-primary">
+                      Số dư
+                    </th>
+                  ) : null}
                   <th scope="col" className="px-3 py-2 text-xs font-medium text-text-primary">
                     Trạng thái
                   </th>
@@ -979,7 +994,10 @@ export default function StaffClassDetailPage() {
               <tbody>
                 {activeClassStudents.length === 0 ? (
                   <tr className="border-b border-border-default bg-bg-surface">
-                    <td className="px-3 py-4 text-center text-xs text-text-muted" colSpan={2}>
+                    <td
+                      className="px-3 py-4 text-center text-xs text-text-muted"
+                      colSpan={2 + (showStudentBalanceColumn ? 1 : 0)}
+                    >
                       Lớp chưa có học sinh đang học.
                     </td>
                   </tr>
@@ -995,6 +1013,13 @@ export default function StaffClassDetailPage() {
                         className="border-b border-border-default bg-bg-surface transition-colors duration-200 hover:bg-bg-secondary"
                       >
                         <td className="px-3 py-2 text-text-primary">{student.fullName}</td>
+                        {showStudentBalanceColumn ? (
+                          <td className="px-3 py-2 text-sm">
+                            <ClassStudentWalletBalance
+                              balance={student.accountBalance}
+                            />
+                          </td>
+                        ) : null}
                         <td className="px-3 py-2">
                           <span
                             className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${isActive

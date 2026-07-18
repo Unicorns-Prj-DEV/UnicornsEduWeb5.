@@ -27,6 +27,7 @@ import * as sessionApi from "@/lib/apis/session.api";
 import { formatCurrency } from "@/lib/class.helpers";
 import {
   ClassCard,
+  ClassStudentWalletBalance,
   EditClassBasicInfoPopup,
   EditClassSchedulePopup,
   EditClassStudentsPopup,
@@ -203,6 +204,8 @@ export default function AdminClassDetailPage() {
     adminAccess.isCustomerCare;
   const showClassTuitionMeta = !isExpenseAccountantOnly;
   const showStudentTuitionColumn = showClassTuitionMeta;
+  /** Admin / assistant / both accountants see wallet balance; training/teacher never use this page. */
+  const showStudentBalanceColumn = isAdmin || isAssistant || isAccountant;
   const showClassCompensationMeta = !isIncomeAccountantOnly;
   const showTeacherCompensation =
     adminAccess.isAdmin || adminAccess.isAssistant || adminAccess.isAccountantExpense;
@@ -1014,6 +1017,13 @@ export default function AdminClassDetailPage() {
                               {packageSummary}
                             </p>
                           ) : null}
+                          {showStudentBalanceColumn ? (
+                            <p className="mt-1 text-xs">
+                              <ClassStudentWalletBalance
+                                balance={student.accountBalance}
+                              />
+                            </p>
+                          ) : null}
                           {showStudentActionColumn ? (
                             <div className="mt-2 flex flex-wrap gap-2">
                               {canManageStudentTuition ? (
@@ -1082,6 +1092,11 @@ export default function AdminClassDetailPage() {
                       Gói học phí
                     </th>
                   ) : null}
+                  {showStudentBalanceColumn ? (
+                    <th scope="col" className="px-3 py-2 text-xs font-medium text-text-primary">
+                      Số dư
+                    </th>
+                  ) : null}
                   <th scope="col" className="px-3 py-2 text-xs font-medium text-text-primary">
                     Trạng thái
                   </th>
@@ -1100,6 +1115,7 @@ export default function AdminClassDetailPage() {
                       colSpan={
                         2 +
                         (showStudentTuitionColumn ? 1 : 0) +
+                        (showStudentBalanceColumn ? 1 : 0) +
                         (showStudentActionColumn ? 1 : 0)
                       }
                     >
@@ -1156,6 +1172,13 @@ export default function AdminClassDetailPage() {
                             ) : (
                               "—"
                             )}
+                          </td>
+                        ) : null}
+                        {showStudentBalanceColumn ? (
+                          <td className="px-3 py-2 text-sm">
+                            <ClassStudentWalletBalance
+                              balance={student.accountBalance}
+                            />
                           </td>
                         ) : null}
                         <td className="px-3 py-2">

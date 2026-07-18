@@ -68,6 +68,8 @@ export interface ClassStudent {
     id: string;
     fullName: string;
     status?: ClassStudentStatus;
+    /** Present when viewer may see wallet balance; omitted when redacted. */
+    accountBalance?: number | null;
     customTuitionPerSession?: number | null;
     customTuitionPackageTotal?: number | null;
     customTuitionPackageSession?: number | null;
