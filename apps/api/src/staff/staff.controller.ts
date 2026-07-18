@@ -96,6 +96,11 @@ export class StaffController {
   }
 
   @Get('customer-care-options')
+  @AllowStaffRolesOnAdminRoutes(
+    StaffRole.assistant,
+    StaffRole.accountant_expense,
+    StaffRole.customer_care,
+  )
   @ApiOperation({
     summary: 'Search customer care staff options',
     description:

@@ -206,7 +206,7 @@ export class StudentController {
   @ApiResponse({ status: 200, description: 'Updated student.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({ status: 404, description: 'Student not found.' })
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.customer_care)
   async updateStudent(
     @CurrentUser() user: JwtPayload,
     @Body() data: UpdateStudentDto,
@@ -555,7 +555,7 @@ export class StudentController {
   @ApiResponse({ status: 200, description: 'Updated student.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({ status: 404, description: 'Student not found.' })
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.customer_care)
   async updateStudentById(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseStudentIdPipe()) id: string,
@@ -569,11 +569,11 @@ export class StudentController {
   }
 
   @Patch(':id/status')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.customer_care)
   @ApiOperation({
     summary: 'Update student operational status',
     description:
-      'Admin-only status transition. Marking inactive closes active class memberships; reactivating does not restore old class memberships.',
+      'Status transition for admin, assistant, and assigned customer care. Marking inactive closes active class memberships; reactivating does not restore old class memberships.',
   })
   @ApiParam({ name: 'id', description: 'Student ID' })
   @ApiBody({
@@ -702,7 +702,7 @@ export class StudentController {
     type: [StudentExamScheduleItemDto],
   })
   @ApiResponse({ status: 404, description: 'Student not found.' })
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.customer_care)
   async updateStudentExamSchedules(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseStudentIdPipe()) id: string,

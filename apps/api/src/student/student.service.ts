@@ -824,6 +824,67 @@ export class StudentService {
     }
   }
 
+  private resolveMutationAccessRoleType(
+    roleType?: string | null,
+  ): UserRole | null {
+    if (!roleType) {
+      return null;
+    }
+
+    return Object.values(UserRole).includes(roleType as UserRole)
+      ? (roleType as UserRole)
+      : null;
+  }
+
+  /**
+   * Ensures the actor may mutate the student profile (admin, assistant, or
+   * assigned customer_care). Customer care cannot change profit percent.
+   */
+  private async assertCanMutateStudentProfile(
+    studentId: string,
+    dto: UpdateStudentBodyDto | undefined,
+    actor?: ActionHistoryActor,
+  ) {
+    if (!actor?.userId) {
+      return;
+    }
+
+    const roleType = this.resolveMutationAccessRoleType(actor.roleType);
+    if (!roleType) {
+      throw new ForbiddenException(
+        'Only authorized roles can access this resource',
+      );
+    }
+
+    await this.assertCanAccessStudentDetail(studentId, {
+      userId: actor.userId,
+      roleType,
+    });
+
+    if (roleType === UserRole.admin) {
+      return;
+    }
+
+    if (dto?.customer_care_profit_percent === undefined) {
+      return;
+    }
+
+    const staff = await this.prisma.staffInfo.findUnique({
+      where: { userId: actor.userId },
+      select: { roles: true },
+    });
+
+    const canEditProfitPercent =
+      Boolean(staff?.roles.includes(StaffRole.assistant)) ||
+      Boolean(staff?.roles.includes(StaffRole.admin));
+
+    if (!canEditProfitPercent) {
+      throw new ForbiddenException(
+        'CSKH cannot change customer care profit percent',
+      );
+    }
+  }
+
   private buildUpdateData(dto: UpdateStudentBodyDto) {
     const data: Record<string, unknown> = {};
 
@@ -1950,6 +2011,8 @@ export class StudentService {
     }>,
     auditActor?: ActionHistoryActor,
   ) {
+    await this.assertCanMutateStudentProfile(id, undefined, auditActor);
+
     const student = await this.prisma.studentInfo.findUnique({
       where: { id },
       select: { id: true },
@@ -2117,6 +2180,8 @@ export class StudentService {
     dto: UpdateStudentBodyDto,
     auditActor?: ActionHistoryActor,
   ) {
+    await this.assertCanMutateStudentProfile(id, dto, auditActor);
+
     const student = await this.prisma.studentInfo.findUnique({
       where: { id },
     });
@@ -2188,6 +2253,8 @@ export class StudentService {
     dto: UpdateStudentStatusDto,
     auditActor?: ActionHistoryActor,
   ) {
+    await this.assertCanMutateStudentProfile(id, undefined, auditActor);
+
     const student = await this.prisma.studentInfo.findUnique({
       where: { id },
       select: { id: true, status: true, userId: true },

@@ -95,7 +95,7 @@ describe('RBAC route metadata', () => {
   it('allows assistant on operational student and class status actions', () => {
     expect(
       getAllowedStaffRoles(StudentController, 'updateStudentStatus'),
-    ).toEqual([StaffRole.assistant]);
+    ).toEqual([StaffRole.assistant, StaffRole.customer_care]);
     expect(
       getAllowedStaffRoles(ClassController, 'updateClassStudents'),
     ).toEqual([StaffRole.assistant]);
@@ -105,6 +105,20 @@ describe('RBAC route metadata', () => {
     expect(getAllowedStaffRoles(ClassController, 'stopClassTeacher')).toEqual([
       StaffRole.assistant,
     ]);
+  });
+
+  it('allows assistant and assigned customer care to update student profile', () => {
+    expect(getAllowedStaffRoles(StudentController, 'updateStudent')).toEqual([
+      StaffRole.assistant,
+      StaffRole.customer_care,
+    ]);
+    expect(getAllowedStaffRoles(StudentController, 'updateStudentById')).toEqual([
+      StaffRole.assistant,
+      StaffRole.customer_care,
+    ]);
+    expect(
+      getAllowedStaffRoles(StudentController, 'updateStudentExamSchedules'),
+    ).toEqual([StaffRole.assistant, StaffRole.customer_care]);
   });
 
   it('keeps student wallet history out of accountant scopes', () => {
