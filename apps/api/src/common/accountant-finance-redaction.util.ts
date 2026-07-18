@@ -78,6 +78,55 @@ const STUDENT_EXPENSE_HIDDEN_FIELDS = [
   'tuitionPackageSource',
 ] as const;
 
+const STUDENT_WALLET_BALANCE_HIDDEN_FIELDS = [
+  'accountBalance',
+  'account_balance',
+] as const;
+
+export type ClassStudentWalletVisibility =
+  | { mode: 'full' }
+  | { mode: 'none' }
+  | { mode: 'allowlist'; allowedStudentIds: ReadonlySet<string> };
+
+/** Redact student wallet balances on class detail according to viewer policy. */
+export function redactClassStudentWalletBalances<T>(
+  classRecord: T,
+  visibility: ClassStudentWalletVisibility,
+): T {
+  if (
+    visibility.mode === 'full' ||
+    !classRecord ||
+    typeof classRecord !== 'object'
+  ) {
+    return classRecord;
+  }
+
+  const next = { ...(classRecord as Record<string, unknown>) };
+  if (!Array.isArray(next.students)) {
+    return next as T;
+  }
+
+  next.students = next.students.map((student) => {
+    if (!student || typeof student !== 'object') {
+      return student;
+    }
+
+    const row = student as Record<string, unknown>;
+    if (visibility.mode === 'none') {
+      return omitFields(row, STUDENT_WALLET_BALANCE_HIDDEN_FIELDS);
+    }
+
+    const studentId = typeof row.id === 'string' ? row.id : null;
+    if (!studentId || !visibility.allowedStudentIds.has(studentId)) {
+      return omitFields(row, STUDENT_WALLET_BALANCE_HIDDEN_FIELDS);
+    }
+
+    return student;
+  });
+
+  return next as T;
+}
+
 export function redactClassForAccountantView<T>(
   classRecord: T,
   financeView: AccountantFinanceView,
@@ -267,10 +316,10 @@ export function redactClassForTrainingManagerView<T>(classRecord: T): T {
   if (Array.isArray(next.students)) {
     next.students = next.students.map((student) =>
       student && typeof student === 'object'
-        ? omitFields(
-            student as Record<string, unknown>,
-            STUDENT_EXPENSE_HIDDEN_FIELDS,
-          )
+        ? omitFields(student as Record<string, unknown>, [
+            ...STUDENT_EXPENSE_HIDDEN_FIELDS,
+            ...STUDENT_WALLET_BALANCE_HIDDEN_FIELDS,
+          ])
         : student,
     );
   }

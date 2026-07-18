@@ -53,6 +53,7 @@ import {
   redactClassForTrainingManagerView,
   redactClassListForAccountantView,
   redactClassListForTrainingManagerView,
+  redactClassStudentWalletBalances,
   resolveAccountantFinanceView,
 } from 'src/common/accountant-finance-redaction.util';
 import {
@@ -608,6 +609,7 @@ export class ClassService {
       return {
         ...student.student,
         status: student.status,
+        accountBalance: student.student.accountBalance ?? 0,
         customTuitionPerSession,
         customTuitionPackageTotal,
         customTuitionPackageSession,
@@ -991,16 +993,41 @@ export class ClassService {
 
     const classDetail = await this.getClassById(id);
     const financeView = resolveAccountantFinanceView(roleType, actor.roles);
-    const accountantRedacted = redactClassForAccountantView(
-      classDetail,
-      financeView,
-    );
+    let result = redactClassForAccountantView(classDetail, financeView);
 
     if (accessMode === 'training_manager') {
-      return redactClassForTrainingManagerView(accountantRedacted);
+      result = redactClassForTrainingManagerView(result);
     }
 
-    return accountantRedacted;
+    if (accessMode === 'admin') {
+      return redactClassStudentWalletBalances(result, { mode: 'full' });
+    }
+
+    if (accessMode === 'teacher' || accessMode === 'training_manager') {
+      return redactClassStudentWalletBalances(result, { mode: 'none' });
+    }
+
+    if (accessMode === 'customer_care') {
+      const assignedStudents = await this.prisma.customerCareService.findMany({
+        where: {
+          staffId: actor.id,
+          student: {
+            studentClasses: {
+              some: { classId: id },
+            },
+          },
+        },
+        select: { studentId: true },
+      });
+      return redactClassStudentWalletBalances(result, {
+        mode: 'allowlist',
+        allowedStudentIds: new Set(
+          assignedStudents.map((row) => row.studentId),
+        ),
+      });
+    }
+
+    return redactClassStudentWalletBalances(result, { mode: 'none' });
   }
 
   async createClassForStaff(
