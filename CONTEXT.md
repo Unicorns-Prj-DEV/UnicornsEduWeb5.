@@ -83,6 +83,7 @@
 
 ## Ví học sinh
 
+- **Số dư ví trên danh sách học sinh trong lớp**: số dư ví hiện tại (`account_balance`) của học sinh **đang học** trong lớp, hiển thị trên card danh sách học sinh của trang chi tiết lớp. Đây là số dư toàn học sinh (một ví), không phải số dư tách theo lớp và không phải ước tính buổi học. Được xem bởi admin, **Trợ lí**, **kế toán thu**, **kế toán chi**, và **CSKH**; **CSKH** thuần chỉ xem được số dư học sinh đang được gán qua `customer_care_service`; dual-role **Trợ lí + CSKH** xem như trợ lí (mọi học sinh trong lớp). **Ban Đào Tạo** và giáo viên không xem số dư trên danh sách này.
 - **Nạp ví qua QR tĩnh SePay**: phụ huynh/học sinh quét QR riêng của học sinh và chuyển khoản số tiền muốn nạp. Giao dịch ngân hàng được coi là nạp ví khi nội dung chuyển khoản nhận diện đúng học sinh và tiền đi vào đúng tài khoản nhận SePay chính thức.
 - **Tài khoản nhận SePay**: tài khoản ngân hàng chính thức của Unicorns Edu dùng để nhận tiền nạp ví tự động. Giao dịch vào tài khoản khác không được cộng ví tự động, kể cả khi nội dung chuyển khoản có mã học sinh.
 - **Yêu cầu nạp thẳng**: thao tác do CSKH, trợ lí, hoặc admin tạo khi cần ghi nhận tiền vào ví học sinh ngoài luồng QR/webhook. Yêu cầu không làm đổi số dư ngay và chỉ cộng ví sau bước duyệt/confirm của admin.
