@@ -16,6 +16,8 @@ export type AdminShellAccess = {
 export type StudentAdminCapabilities = {
   isCustomerCareReadOnlyView: boolean;
   canManageStudent: boolean;
+  canEditStudentProfile: boolean;
+  canEditCustomerCareProfitPercent: boolean;
   canCreateWalletQr: boolean;
   canDirectlyAdjustWallet: boolean;
   canDirectlyWithdrawWallet: boolean;
@@ -210,13 +212,15 @@ export function resolveStudentAdminCapabilities(
   const access = resolveAdminShellAccess(profile);
   const isStaffRoute = routeBase === "/staff";
   const isCustomerCareStaff = isStaffRoute && access.isCustomerCare;
-  const isAssistantStaff = isStaffRoute && access.isAssistant;
   const canManageStudent = access.isAdmin || access.isAssistant;
+  const canEditStudentProfile = canManageStudent || isCustomerCareStaff;
 
   return {
     isCustomerCareReadOnlyView:
       isStaffRoute && !access.isAssistant && access.isCustomerCare,
     canManageStudent,
+    canEditStudentProfile,
+    canEditCustomerCareProfitPercent: canManageStudent,
     canCreateWalletQr:
       access.isAdmin || access.isAssistant || isCustomerCareStaff,
     canDirectlyAdjustWallet: access.isAdmin,

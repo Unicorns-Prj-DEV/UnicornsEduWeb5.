@@ -118,6 +118,8 @@ export default function AdminStudentDetailPage() {
     const {
         isCustomerCareReadOnlyView,
         canManageStudent,
+        canEditStudentProfile,
+        canEditCustomerCareProfitPercent,
         canCreateWalletQr,
         canDirectlyAdjustWallet,
         canDirectlyWithdrawWallet,
@@ -325,12 +327,13 @@ export default function AdminStudentDetailPage() {
                 <span>{backLabel}</span>
             </button>
 
-            {canManageStudent ? (
+            {canEditStudentProfile ? (
                 <EditStudentPopup
                     key={`${student.id}-${student.updatedAt ?? "stable"}-${editPopupOpen ? "open" : "closed"}`}
                     open={editPopupOpen}
                     onClose={() => setEditPopupOpen(false)}
                     student={student}
+                    canEditCustomerCareProfitPercent={canEditCustomerCareProfitPercent}
                 />
             ) : null}
             {canManageStudent ? (
@@ -475,7 +478,7 @@ export default function AdminStudentDetailPage() {
                                         <h1 className="min-w-0 text-2xl font-semibold leading-tight text-text-primary sm:truncate">
                                             {student.fullName?.trim() || "Học sinh"}
                                         </h1>
-                                        {canManageStudent ? (
+                                        {canEditStudentProfile ? (
                                             <button
                                                 type="button"
                                                 onClick={() => setEditPopupOpen(true)}
@@ -501,7 +504,7 @@ export default function AdminStudentDetailPage() {
                                         <StudentLevelBadge fullName={student.fullName} />
                                         {isCustomerCareReadOnlyView ? (
                                             <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-                                                CSKH · Chỉ xem
+                                                CSKH
                                             </span>
                                         ) : null}
                                     </div>
@@ -580,7 +583,7 @@ export default function AdminStudentDetailPage() {
                                         }
                                     />
                                 </dl>
-                                {canManageStudent ? (
+                                {canEditStudentProfile ? (
                                     <div className="mt-4">
                                         <ParentReceiptEmailSwitch
                                             enabled={parentReceiptEmailEnabled}
@@ -613,7 +616,7 @@ export default function AdminStudentDetailPage() {
                         <div className="rounded-[1.25rem] border border-border-default bg-bg-secondary/50 p-3.5 sm:rounded-2xl sm:p-4">
                             {isCustomerCareReadOnlyView ? (
                                 <div className="mb-4 rounded-2xl border border-primary/15 bg-primary/5 px-4 py-3 text-sm leading-6 text-text-secondary">
-                                    Bạn đang xem hồ sơ theo quyền CSKH. Các thao tác chỉnh sửa hồ sơ, ví, gói học phí và danh sách lớp đều bị khóa; chỉ giữ quyền mở sang chi tiết lớp của học sinh mình đang phụ trách.
+                                    Bạn đang xem hồ sơ theo quyền CSKH. Có thể chỉnh sửa thông tin hồ sơ (trừ tỷ lệ lợi nhuận CSKH); danh sách lớp, gói học phí và chỉnh số dư ví vẫn bị khóa.
                                 </div>
                             ) : null}
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

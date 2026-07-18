@@ -31,6 +31,8 @@ type Props = {
   onClose: () => void;
   student: StudentDetail;
   onSuccess?: () => void | Promise<void>;
+  /** Admin/assistant only; CSKH can edit profile but not profit %. */
+  canEditCustomerCareProfitPercent?: boolean;
 };
 
 const STATUS_OPTIONS: Array<{ value: StudentStatus; label: string }> = [
@@ -103,7 +105,13 @@ function getInitialCustomerCareSelection(student: StudentDetail): CustomerCareSt
   };
 }
 
-export default function EditStudentPopup({ open, onClose, student, onSuccess }: Props) {
+export default function EditStudentPopup({
+  open,
+  onClose,
+  student,
+  onSuccess,
+  canEditCustomerCareProfitPercent = true,
+}: Props) {
   const queryClient = useQueryClient();
   const customerCareSearchRef = useRef<HTMLDivElement>(null);
   const scrollableRef = useRef<HTMLFormElement>(null);
@@ -236,7 +244,9 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
     }
 
     const trimmedBirthYear = birthYearInput.trim();
-    const trimmedCustomerCarePercent = customerCareProfitPercentInput.trim();
+    const trimmedCustomerCarePercent = canEditCustomerCareProfitPercent
+      ? customerCareProfitPercentInput.trim()
+      : "";
     const currentYear = new Date().getFullYear();
     let parsedBirthYear: number | undefined;
     let parsedCustomerCareProfitPercent: number | null = null;
@@ -311,9 +321,13 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
           goal: goal.trim() || undefined,
           drop_out_date: dropOutDate.trim() || undefined,
           customer_care_staff_id: selectedCustomerCare?.id ?? null,
-          customer_care_profit_percent: selectedCustomerCare
-            ? parsedCustomerCareProfitPercent
-            : null,
+          ...(canEditCustomerCareProfitPercent
+            ? {
+                customer_care_profit_percent: selectedCustomerCare
+                  ? parsedCustomerCareProfitPercent
+                  : null,
+              }
+            : {}),
         });
         const statusChanged = status !== student.status;
         if (statusChanged) {
@@ -685,8 +699,11 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
                 <label className="flex flex-col gap-1 text-sm text-text-secondary">
                   <span>Tỷ lệ lợi nhuận (%)</span>
                   <div
-                    className={`rounded-[1rem] border bg-bg-surface px-3 py-3 shadow-sm ${selectedCustomerCare ? "border-border-default" : "border-border-default/70 opacity-70"
-                      }`}
+                    className={`rounded-[1rem] border bg-bg-surface px-3 py-3 shadow-sm ${
+                      selectedCustomerCare && canEditCustomerCareProfitPercent
+                        ? "border-border-default"
+                        : "border-border-default/70 opacity-70"
+                    }`}
                   >
                     <div className="flex items-center gap-2">
                       <input
@@ -699,13 +716,24 @@ export default function EditStudentPopup({ open, onClose, student, onSuccess }: 
                         step={1}
                         value={customerCareProfitPercentInput}
                         onChange={(event) => setCustomerCareProfitPercentInput(event.target.value)}
-                        disabled={!selectedCustomerCare}
+                        disabled={!selectedCustomerCare || !canEditCustomerCareProfitPercent}
+                        readOnly={!canEditCustomerCareProfitPercent}
                         placeholder="Ví dụ: 20…"
+                        title={
+                          canEditCustomerCareProfitPercent
+                            ? undefined
+                            : "CSKH không được chỉnh tỷ lệ lợi nhuận"
+                        }
                         className="min-w-0 flex-1 bg-transparent text-right text-base font-semibold text-text-primary outline-none placeholder:text-text-muted disabled:cursor-not-allowed"
                       />
                       <span className="text-sm font-medium text-text-muted">%</span>
                     </div>
                   </div>
+                  {!canEditCustomerCareProfitPercent ? (
+                    <span className="text-xs text-text-muted">
+                      Chỉ admin/trợ lí được chỉnh tỷ lệ lợi nhuận CSKH.
+                    </span>
+                  ) : null}
                 </label>
               </div>
             </section>
