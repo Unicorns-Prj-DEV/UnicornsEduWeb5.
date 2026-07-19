@@ -43,6 +43,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
+- FE popup nạp ví (`StudentBalancePopup` / `/admin/students/[id]`): tab **Nạp thẳng** của admin không còn mất tiêu đề và chữ nút xác nhận — `copyOverrides` không còn ghi đè default bằng `undefined`.
 - FE `RichTextEditor` (form thêm/sửa buổi học — nội dung bài học / BTVN / tutorial / nhận xét HS): paste/autolink URL không còn bị reset caret do controlled sync chạy DOMPurify rồi `setContent` khi TipTap Link HTML lệch (`target`/`rel`); sync chỉ áp dụng value ngoài (load/reset); Link `openOnClick: false`; preview `SessionCommentPreview` style `<a>`. Docs: `docs/pages/admin.md`, `docs/pages/staff.md`.
 - CD deploy: `scripts/gha-deploy-instance-remote.sh` CRLF → LF (fix `set: pipefail: invalid option name` on VPS bash).
 - CD deploy IT: tự `docker compose -p unicorns down` khi migrate sang project `unicorns-it` (tránh port 80 already allocated).
