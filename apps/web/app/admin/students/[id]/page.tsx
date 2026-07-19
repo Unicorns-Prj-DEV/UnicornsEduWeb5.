@@ -403,14 +403,12 @@ export default function AdminStudentDetailPage() {
                     showTopUpMethodTabs={canDirectlyAdjustWallet || canRequestDirectTopUp}
                     copyOverrides={{
                         topup: {
-                            submitLabel:
-                                canRequestDirectTopUp && !canDirectlyAdjustWallet
-                                    ? "Gửi yêu cầu nạp thẳng"
-                                    : undefined,
-                            title:
-                                canRequestDirectTopUp && !canDirectlyAdjustWallet
-                                    ? "Yêu cầu nạp thẳng"
-                                    : undefined,
+                            ...(canRequestDirectTopUp && !canDirectlyAdjustWallet
+                                ? {
+                                      submitLabel: "Gửi yêu cầu nạp thẳng",
+                                      title: "Yêu cầu nạp thẳng",
+                                  }
+                                : {}),
                             description: canDirectlyAdjustWallet
                                 ? "QR SePay tĩnh để phụ huynh chuyển khoản, hoặc dùng Nạp thẳng khi admin cần ghi nhận thủ công."
                                 : canRequestDirectTopUp
