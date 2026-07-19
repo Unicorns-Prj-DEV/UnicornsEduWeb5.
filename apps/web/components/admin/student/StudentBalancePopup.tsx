@@ -142,8 +142,12 @@ export default function StudentBalancePopup({
   const nextBalance = currentBalance + deltaAmount;
   const modeCopy = {
     ...MODE_COPY[mode],
-    ...(copyOverrides?.[mode] ?? {}),
-  };
+    ...Object.fromEntries(
+      Object.entries(copyOverrides?.[mode] ?? {}).filter(
+        ([, value]) => value !== undefined,
+      ),
+    ),
+  } as BalanceModeCopy;
   const studentName = student.fullName?.trim() || "Học sinh";
   const queryKeysToInvalidate = invalidateQueryKeys ?? [
     ["student", "detail", student.id],
