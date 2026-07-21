@@ -106,7 +106,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - RBAC runtime: `role_type` là role gốc/default của user, không phải nguồn quyền duy nhất. `GET /auth/session` và backend guards resolve quyền hiệu lực bằng union của `users.role_type`, linked `staff_info.user_id`, linked `student_info.user_id`, và `staff_info.roles`; vì vậy một user có thể đồng thời mở admin/staff/student workspace nếu có các linked profile/role tương ứng.
 - Trường tên canonical cho actor dạng staff: `first_name`, `last_name` (nullable). FE/BE dùng cặp này làm nguồn chuẩn để hiển thị tên staff trong rollout bỏ `staff_info.full_name`.
 - Avatar:
-  - `avatar_path` (`TEXT`, nullable): object path avatar trong bucket `avatars` theo format `users/{userId}/avatar`
+  - `avatar_path` (`TEXT`, nullable): object path avatar trong bucket `avatars` theo format `users/{userId}/avatar`. DB nullable; bắt buộc cho gate hoàn thiện hồ sơ staff (`staffProfileComplete`) khi user có linked `staff_info` active (admin full bypass).
 - Quan hệ profile không nằm trên `users`; link authoritative được lưu ngược ở `student_info.user_id` và `staff_info.user_id`.
 - `DELETE /users/:id` (admin/assistant): soft-delete tài khoản — gỡ `staff_info.user_id` / `student_info.user_id` về `null` (giữ hồ sơ), các FK nullable khác (`action_history.user_id`, `notifications.created_by_user_id`, `regulations.*_by_user_id`, wallet order/request creator, …) theo `ON DELETE SET NULL`, `notification_reads` cascade theo user; sau đó xóa row `users`.
 - Không còn field legacy `person_profile_id` trong schema được hỗ trợ.
@@ -130,7 +130,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - `cccd_issued_place` (`TEXT`, nullable): nơi cấp CCCD
   - Không còn lưu `cccd_front_path`, `cccd_back_path`, `cccd_verified_at`; ảnh CCCD legacy trong bucket `id-cards` không được schema hoặc API hiện tại sử dụng.
 - `google_meet_link` (`TEXT`, nullable): link Google Meet cố định của gia sư; là nguồn authoritative cho Meet link của tất cả lịch học và buổi bù mà gia sư này phụ trách. Được tạo tự động qua Google Calendar API lần đầu khi gia sư được gán vào lịch nếu chưa có; có thể regenerate thủ công qua `POST /staff/:id/regenerate-meet-link`.
-- `personal_achievement_link` (`TEXT`, nullable): link Google Drive hoặc URL lưu trữ thành tích cá nhân của nhân sự. Không bắt buộc; chỉ accept URL hợp lệ dạng `http/https`. Hiển thị ở trang chi tiết nhân sự (admin + staff self-service) và cột bảng danh sách nhân sự.
+- `personal_achievement_link` (`TEXT`, nullable): link Google Drive hoặc URL lưu trữ thành tích cá nhân của nhân sự. DB nullable; bắt buộc cho gate hoàn thiện hồ sơ staff (`staffProfileComplete`). Chỉ accept URL hợp lệ dạng `http/https`. Hiển thị ở trang chi tiết nhân sự (admin + staff self-service) và cột bảng danh sách nhân sự.
 - `customer_care_managed_by_staff_id` (nullable FK → `staff_info.id`): trỏ tới trợ lí quản lí CSKH này; trợ lí được hưởng 3% học phí đã học của học sinh thuộc CSKH quản lí. Index: `(customer_care_managed_by_staff_id)`
 - Được tham chiếu bởi: `users`, `class_teachers`, `sessions`, `makeup_schedule_events`, `bonuses`, `lesson_outputs`, `customer_care_service`, `wallet_transactions_history` (customer care), `staff_monthly_stats`, `extra_allowances`, `class_surveys`, `staff_lesson_task`, `attendance` (assistant_manager)
 

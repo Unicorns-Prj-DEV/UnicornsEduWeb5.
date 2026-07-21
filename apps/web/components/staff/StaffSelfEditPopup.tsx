@@ -397,13 +397,11 @@ export default function StaffSelfEditPopup({
               </label>
 
               <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
-                <span>
-                  Thành tích cá nhân{" "}
-                  <span className="text-xs text-text-muted">(tùy chọn)</span>
-                </span>
+                <span>Minh chứng thành tích</span>
                 <input
                   name="personalAchievementLink"
                   type="url"
+                  required
                   value={personalAchievementLink}
                   onChange={(event) => setPersonalAchievementLink(event.target.value)}
                   autoComplete="url"
@@ -413,7 +411,8 @@ export default function StaffSelfEditPopup({
                   placeholder="https://drive.google.com/…"
                 />
                 <p className="text-xs text-text-muted">
-                  Link Google Drive lưu trữ thành tích. Không bắt buộc điền.
+                  Link Google Drive hoặc trang http(s) lưu minh chứng thành tích.
+                  Bắt buộc để hoàn tất hồ sơ nhân sự.
                 </p>
               </label>
             </div>

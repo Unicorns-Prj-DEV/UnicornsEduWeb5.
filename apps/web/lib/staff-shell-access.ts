@@ -97,12 +97,16 @@ function isCompleteFullProfileStaffInfo(profile: FullProfileDto): boolean {
   const staffInfo = profile.staffInfo;
   if (!staffInfo) return false;
 
+  const avatarPath = (profile as FullProfileDto & { avatarPath?: string | null })
+    .avatarPath;
+
   return (
     hasText(profile.first_name) &&
     hasText(profile.last_name) &&
     hasText(profile.email) &&
     hasText(profile.phone) &&
     hasText(profile.province) &&
+    (hasText(avatarPath) || hasText(profile.avatarUrl)) &&
     hasText(profile.dataConsentAcceptedAt) &&
     hasText(profile.dataConsentVersion) &&
     profile.requiresStaffDataConsent !== true &&
@@ -117,7 +121,8 @@ function isCompleteFullProfileStaffInfo(profile: FullProfileDto): boolean {
     hasText(staffInfo.highSchool) &&
     hasText(staffInfo.specialization) &&
     hasText(staffInfo.bankAccount) &&
-    hasText(staffInfo.bankQrLink)
+    hasText(staffInfo.bankQrLink) &&
+    hasText(staffInfo.personalAchievementLink)
   );
 }
 

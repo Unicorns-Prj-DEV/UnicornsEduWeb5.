@@ -21,6 +21,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Changed
+
+- BE/FE staff profile gate: `staffProfileComplete` bắt buộc `users.avatar_path` và `staff_info.personal_achievement_link` (cùng bộ field hồ sơ staff hiện có + data-consent). Staff vận hành thiếu hai field này bị redirect `/user-profile?profile_required=1`; admin full vẫn bypass. DB giữ nullable; form admin tạo/sửa không ép submit. FE `/user-profile` + `StaffSelfEditPopup` cập nhật bộ đếm, missing items và label (bỏ “tùy chọn”).
+
 ### Added
 
 - BE/FE session form: thêm field bắt buộc **Tutorial các buổi học** (`sessions.tutorial`, rich text) trên form tạo/sửa buổi học trong lớp (`AddSessionPopup`, `SessionHistoryTable`); validate FE + BE; template **Copy nhận xét** Zalo mở rộng mục `5️⃣ Tutorial các buổi học` sau BTVN; preview cột Nhận xét đồng bộ template mới. Migration `20260710100000_add_session_tutorial`. tab Hoa hồng hybrid (pending all-time + commission theo tháng); heading Học sinh/Thanh Toán có tổng; module `training-manager` (gán QLL + %, managed-classes, payroll session-level); card **Gia sư & Quản lý**; tab **Lớp học** trên training detail; calendar/dashboard training chỉ lớp được gán; redaction finance cho training manager view. [`deploy/instances.json`](../deploy/instances.json), compose tham số `COMPOSE_PROJECT_NAME` / `NGINX_PUBLISH`, deploy scripts, **một** web image (`NEXT_PUBLIC_BACKEND_URL=/api`, `apps/web/lib/api-base-url.ts`), runbook [`docs/ops/vps-multi-instance-runbook.md`](ops/vps-multi-instance-runbook.md).

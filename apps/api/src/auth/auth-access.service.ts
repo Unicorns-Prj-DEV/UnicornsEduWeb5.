@@ -64,6 +64,7 @@ type StaffProfileForAccess = {
   specialization: string | null;
   bankAccount: string | null;
   bankQrLink: string | null;
+  personalAchievementLink: string | null;
 };
 
 type StudentProfileForAccess = {
@@ -94,12 +95,16 @@ function hasText(value: string | Date | null | undefined) {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-function isStaffProfileComplete(staff: StaffProfileForAccess | null) {
+function isStaffProfileComplete(
+  staff: StaffProfileForAccess | null,
+  avatarPath: string | null | undefined,
+) {
   if (!staff) {
     return false;
   }
 
   return (
+    hasText(avatarPath) &&
     isValidCccd(staff.cccdNumber) &&
     hasText(staff.ethnicity) &&
     hasText(staff.gender) &&
@@ -111,7 +116,8 @@ function isStaffProfileComplete(staff: StaffProfileForAccess | null) {
     hasText(staff.highSchool) &&
     hasText(staff.specialization) &&
     hasText(staff.bankAccount) &&
-    hasText(staff.bankQrLink)
+    hasText(staff.bankQrLink) &&
+    hasText(staff.personalAchievementLink)
   );
 }
 
@@ -256,6 +262,7 @@ export class AuthAccessService {
             specialization: true,
             bankAccount: true,
             bankQrLink: true,
+            personalAchievementLink: true,
           },
         },
         studentInfo: { select: { id: true, status: true } },
@@ -316,7 +323,7 @@ export class AuthAccessService {
     );
     const staffProfileComplete =
       hasStaffProfile &&
-      isStaffProfileComplete(staffProfile) &&
+      isStaffProfileComplete(staffProfile, user.avatarPath) &&
       hasCurrentStaffDataConsent({
         dataProcessingConsentAcceptedAt:
           profileLinks?.dataProcessingConsentAcceptedAt ?? null,

@@ -58,6 +58,7 @@ type FieldProps = {
   min?: number;
   max?: number;
   autoComplete?: string;
+  required?: boolean;
 };
 
 const inputClassName =
@@ -272,6 +273,7 @@ function TextField({
   min,
   max,
   autoComplete,
+  required,
 }: FieldProps) {
   return (
     <div>
@@ -288,6 +290,7 @@ function TextField({
           min={min}
           max={max}
           autoComplete={autoComplete}
+          required={required}
         />
       ) : (
         <input
@@ -300,6 +303,7 @@ function TextField({
           min={min}
           max={max}
           autoComplete={autoComplete}
+          required={required}
         />
       )}
     </div>
@@ -835,6 +839,7 @@ export default function UserProfilePage() {
         profile.staffInfo.specialization,
         profile.staffInfo.bankAccount,
         profile.staffInfo.bankQrLink,
+        profile.staffInfo.personalAchievementLink,
         profile.staffInfo.cccdNumber,
         profile.staffInfo.ethnicity,
         profile.staffInfo.gender,
@@ -880,6 +885,7 @@ export default function UserProfilePage() {
       profile.staffInfo.specialization,
       profile.staffInfo.bankAccount,
       profile.staffInfo.bankQrLink,
+      profile.staffInfo.personalAchievementLink,
       profile.staffInfo.cccdNumber,
       profile.staffInfo.ethnicity,
       profile.staffInfo.gender,
@@ -951,7 +957,7 @@ export default function UserProfilePage() {
       label: "Thêm avatar cá nhân",
       href: "#profile-account",
       detail:
-        "Avatar sẽ xuất hiện ở trang hồ sơ, navbar và menu điều hướng theo vai trò.",
+        "Avatar là bắt buộc để hoàn tất hồ sơ nhân sự và xuất hiện ở trang hồ sơ, navbar.",
     },
     !profile.phone && {
       label: "Bổ sung số điện thoại",
@@ -968,6 +974,13 @@ export default function UserProfilePage() {
         label: "Thêm tài khoản ngân hàng",
         href: "#profile-staff",
         detail: "Cần thiết để hoàn thiện luồng thanh toán cho nhân sự.",
+      },
+    profile.staffInfo &&
+      !profile.staffInfo.personalAchievementLink?.trim() && {
+        label: "Thêm link minh chứng thành tích",
+        href: "#profile-staff",
+        detail:
+          "Link minh chứng thành tích là bắt buộc để hoàn tất hồ sơ nhân sự.",
       },
     profile.staffInfo &&
       !profile.staffInfo.cccdNumber && {
@@ -1542,8 +1555,9 @@ export default function UserProfilePage() {
                           <TextField
                             id="staff-personal_achievement_link"
                             name="personal_achievement_link"
-                            label="Minh chứng thành tích (tùy chọn)"
+                            label="Minh chứng thành tích"
                             type="url"
+                            required
                             defaultValue={
                               profile.staffInfo.personalAchievementLink ?? ""
                             }
@@ -1551,7 +1565,7 @@ export default function UserProfilePage() {
                           />
                           <p className="mt-1.5 text-xs text-text-muted">
                             Link Google Drive hoặc trang http(s) lưu minh chứng
-                            thành tích. Để trống để xóa liên kết.
+                            thành tích. Bắt buộc để hoàn tất hồ sơ nhân sự.
                           </p>
                         </div>
                       </div>

@@ -20,6 +20,24 @@ describe('AuthAccessService', () => {
     dataProcessingConsentVersion: null,
   };
 
+  const completeStaffInfo = {
+    id: 'staff-1',
+    status: StaffStatus.active,
+    cccdNumber: '012345678901',
+    cccdIssuedDate: new Date('2026-01-01T00:00:00.000Z'),
+    cccdIssuedPlace: 'Ha Noi',
+    birthDate: new Date('2000-01-01T00:00:00.000Z'),
+    university: 'UE University',
+    highSchool: 'UE High',
+    specialization: 'Math',
+    bankAccount: '123456789',
+    bankQrLink: 'qr-link',
+    ethnicity: 'Kinh',
+    gender: 'male',
+    currentAddress: 'Ha Noi',
+    personalAchievementLink: 'https://drive.google.com/file/d/example',
+  };
+
   const prisma = {
     user: {
       findUnique: jest.fn(),
@@ -43,22 +61,7 @@ describe('AuthAccessService', () => {
   it('unions primary, linked staff, linked student, and full admin access', async () => {
     prisma.user.findUnique.mockResolvedValue({
       ...currentConsent,
-      staffInfo: {
-        id: 'staff-1',
-        status: StaffStatus.active,
-        cccdNumber: '012345678901',
-        cccdIssuedDate: new Date('2026-01-01T00:00:00.000Z'),
-        cccdIssuedPlace: 'Ha Noi',
-        birthDate: new Date('2000-01-01T00:00:00.000Z'),
-        university: 'UE University',
-        highSchool: 'UE High',
-        specialization: 'Math',
-        bankAccount: '123456789',
-        bankQrLink: 'qr-link',
-        ethnicity: 'Kinh',
-        gender: 'male',
-        currentAddress: 'Ha Noi',
-      },
+      staffInfo: completeStaffInfo,
       studentInfo: { id: 'student-1', status: StudentStatus.active },
     });
     authIdentityCacheService.getStaffRoles.mockResolvedValue([StaffRole.admin]);
@@ -71,7 +74,7 @@ describe('AuthAccessService', () => {
         roleType: UserRole.student,
         status: 'active',
         emailVerified: true,
-        avatarPath: null,
+        avatarPath: 'users/user-1/avatar',
         requiresPasswordSetup: false,
       }),
     ).resolves.toEqual({
@@ -99,20 +102,9 @@ describe('AuthAccessService', () => {
     prisma.user.findUnique.mockResolvedValue({
       ...currentConsent,
       staffInfo: {
+        ...completeStaffInfo,
         id: 'staff-2',
-        status: StaffStatus.active,
-        cccdNumber: '012345678901',
-        cccdIssuedDate: new Date('2026-01-01T00:00:00.000Z'),
-        cccdIssuedPlace: 'Ha Noi',
-        birthDate: new Date('2000-01-01T00:00:00.000Z'),
-        university: 'UE University',
-        highSchool: 'UE High',
         specialization: 'Accounting',
-        bankAccount: '123456789',
-        bankQrLink: 'qr-link',
-        ethnicity: 'Kinh',
-        gender: 'male',
-        currentAddress: 'Ha Noi',
       },
       studentInfo: null,
     });
@@ -128,7 +120,7 @@ describe('AuthAccessService', () => {
         roleType: UserRole.staff,
         status: 'active',
         emailVerified: true,
-        avatarPath: null,
+        avatarPath: 'users/user-2/avatar',
         requiresPasswordSetup: false,
       }),
     ).resolves.toMatchObject({
@@ -136,6 +128,7 @@ describe('AuthAccessService', () => {
       staffRoles: [StaffRole.accountant],
       hasStaffProfile: true,
       hasStudentProfile: false,
+      staffProfileComplete: true,
       availableWorkspaces: ['admin', 'staff'],
       defaultWorkspace: 'staff',
       preferredRedirect: '/staff',
@@ -220,20 +213,8 @@ describe('AuthAccessService', () => {
     prisma.user.findUnique.mockResolvedValue({
       ...missingConsent,
       staffInfo: {
+        ...completeStaffInfo,
         id: 'staff-3',
-        status: StaffStatus.active,
-        cccdNumber: '012345678901',
-        cccdIssuedDate: new Date('2026-01-01T00:00:00.000Z'),
-        cccdIssuedPlace: 'Ha Noi',
-        birthDate: new Date('2000-01-01T00:00:00.000Z'),
-        university: 'UE University',
-        highSchool: 'UE High',
-        specialization: 'Math',
-        bankAccount: '123456789',
-        bankQrLink: 'qr-link',
-        ethnicity: 'Kinh',
-        gender: 'male',
-        currentAddress: 'Ha Noi',
       },
       studentInfo: null,
     });
@@ -249,7 +230,74 @@ describe('AuthAccessService', () => {
         roleType: UserRole.staff,
         status: 'active',
         emailVerified: true,
+        avatarPath: 'users/user-3/avatar',
+        requiresPasswordSetup: false,
+      }),
+    ).resolves.toMatchObject({
+      hasStaffProfile: true,
+      staffProfileComplete: false,
+      access: {
+        staff: { canAccess: true, profileComplete: false },
+      },
+    });
+  });
+
+  it('requires avatar before a staff profile is complete', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      ...currentConsent,
+      staffInfo: {
+        ...completeStaffInfo,
+        id: 'staff-4',
+      },
+      studentInfo: null,
+    });
+    authIdentityCacheService.getStaffRoles.mockResolvedValue([
+      StaffRole.teacher,
+    ]);
+
+    await expect(
+      service.resolveForIdentity({
+        id: 'user-4',
+        email: 'teacher-no-avatar@example.com',
+        accountHandle: 'teacher-no-avatar',
+        roleType: UserRole.staff,
+        status: 'active',
+        emailVerified: true,
         avatarPath: null,
+        requiresPasswordSetup: false,
+      }),
+    ).resolves.toMatchObject({
+      hasStaffProfile: true,
+      staffProfileComplete: false,
+      access: {
+        staff: { canAccess: true, profileComplete: false },
+      },
+    });
+  });
+
+  it('requires personal achievement link before a staff profile is complete', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      ...currentConsent,
+      staffInfo: {
+        ...completeStaffInfo,
+        id: 'staff-5',
+        personalAchievementLink: null,
+      },
+      studentInfo: null,
+    });
+    authIdentityCacheService.getStaffRoles.mockResolvedValue([
+      StaffRole.teacher,
+    ]);
+
+    await expect(
+      service.resolveForIdentity({
+        id: 'user-5',
+        email: 'teacher-no-achievement@example.com',
+        accountHandle: 'teacher-no-achievement',
+        roleType: UserRole.staff,
+        status: 'active',
+        emailVerified: true,
+        avatarPath: 'users/user-5/avatar',
         requiresPasswordSetup: false,
       }),
     ).resolves.toMatchObject({
@@ -265,20 +313,9 @@ describe('AuthAccessService', () => {
     prisma.user.findUnique.mockResolvedValue({
       ...currentConsent,
       staffInfo: {
+        ...completeStaffInfo,
         id: 'staff-inactive',
         status: StaffStatus.inactive,
-        cccdNumber: '012345678901',
-        cccdIssuedDate: new Date('2026-01-01T00:00:00.000Z'),
-        cccdIssuedPlace: 'Ha Noi',
-        birthDate: new Date('2000-01-01T00:00:00.000Z'),
-        university: 'UE University',
-        highSchool: 'UE High',
-        specialization: 'Math',
-        bankAccount: '123456789',
-        bankQrLink: 'qr-link',
-        ethnicity: 'Kinh',
-        gender: 'male',
-        currentAddress: 'Ha Noi',
       },
       studentInfo: null,
     });
@@ -291,7 +328,7 @@ describe('AuthAccessService', () => {
         roleType: UserRole.staff,
         status: 'active',
         emailVerified: true,
-        avatarPath: null,
+        avatarPath: 'users/inactive-staff-user/avatar',
         requiresPasswordSetup: false,
       }),
     ).resolves.toMatchObject({

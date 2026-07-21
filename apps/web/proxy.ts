@@ -18,6 +18,8 @@ type FullProfileGuardPayload = {
   email?: string | null;
   phone?: string | null;
   province?: string | null;
+  avatarUrl?: string | null;
+  avatarPath?: string | null;
   dataConsentAcceptedAt?: string | null;
   dataConsentVersion?: string | null;
   requiresStaffDataConsent?: boolean;
@@ -34,6 +36,7 @@ type FullProfileGuardPayload = {
     specialization?: string | null;
     bankAccount?: string | null;
     bankQrLink?: string | null;
+    personalAchievementLink?: string | null;
   } | null;
 };
 
@@ -56,6 +59,7 @@ function isStaffProfileComplete(profile: FullProfileGuardPayload): boolean {
     hasText(profile.email) &&
     hasText(profile.phone) &&
     hasText(profile.province) &&
+    (hasText(profile.avatarPath) || hasText(profile.avatarUrl)) &&
     hasText(profile.dataConsentAcceptedAt) &&
     hasText(profile.dataConsentVersion) &&
     profile.requiresStaffDataConsent !== true &&
@@ -70,7 +74,8 @@ function isStaffProfileComplete(profile: FullProfileGuardPayload): boolean {
     hasText(staffInfo.highSchool) &&
     hasText(staffInfo.specialization) &&
     hasText(staffInfo.bankAccount) &&
-    hasText(staffInfo.bankQrLink)
+    hasText(staffInfo.bankQrLink) &&
+    hasText(staffInfo.personalAchievementLink)
   );
 }
 
