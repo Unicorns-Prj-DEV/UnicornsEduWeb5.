@@ -529,6 +529,7 @@ describe('ClassService', () => {
             id: 'student-1',
             fullName: 'Jane Student',
             status: StudentClassStatus.active,
+            customerCareStaff: null,
             effectiveTuitionPerSession: 250000,
             tuitionPackageSource: 'class',
           },

@@ -573,7 +573,25 @@ export class ClassService {
     const classStudents = await db.studentClass.findMany({
       where: { classId: id },
       include: {
-        student: true,
+        student: {
+          include: {
+            customerCareServices: {
+              select: {
+                staff: {
+                  select: {
+                    id: true,
+                    user: {
+                      select: {
+                        first_name: true,
+                        last_name: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
       orderBy: [{ createdAt: 'asc' }, { studentId: 'asc' }],
     });
@@ -605,11 +623,20 @@ export class ClassService {
           customTuitionPackageSession,
         }),
       });
+      const { customerCareServices, ...studentInfo } = student.student;
+      const customerCareStaff = customerCareServices?.staff
+        ? {
+            id: customerCareServices.staff.id,
+            fullName:
+              getUserFullNameFromParts(customerCareServices.staff.user) ?? '',
+          }
+        : null;
 
       return {
-        ...student.student,
+        ...studentInfo,
         status: student.status,
         accountBalance: student.student.accountBalance ?? 0,
+        customerCareStaff,
         customTuitionPerSession,
         customTuitionPackageTotal,
         customTuitionPackageSession,
