@@ -9,6 +9,11 @@ import type { ClassDetail } from "@/dtos/class.dto";
 import * as classApi from "@/lib/apis/class.api";
 import * as staffApi from "@/lib/apis/staff.api";
 import * as trainingManagerApi from "@/lib/apis/training-manager.api";
+import { MoneyInput } from "@/components/ui/MoneyInput";
+import {
+  moneyInputInitialFromNumber,
+  parseMoneyInput,
+} from "@/lib/money-input.helpers";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
 import { cn } from "@/lib/utils";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
@@ -295,12 +300,14 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
                     </p>
                     <div className="min-h-11 rounded-xl border border-border-default bg-bg-primary px-3 py-2">
                       <div className="flex items-center gap-1.5">
-                        <input
-                          type="number"
-                          min={0}
-                          value={t.customAllowance ?? ""}
-                          onChange={(e) => {
-                            const v = e.target.value.trim();
+                        <MoneyInput
+                          value={
+                            t.customAllowance == null
+                              ? ""
+                              : moneyInputInitialFromNumber(t.customAllowance)
+                          }
+                          onValueChange={(nextValue) => {
+                            const v = nextValue.trim();
                             if (v === "") {
                               setSelectedTeachers((prev) =>
                                 prev.map((x) =>
@@ -309,18 +316,24 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
                               );
                               return;
                             }
-                            const num = Number(v);
-                            if (!Number.isFinite(num) || num < 0) {
+                            const num = parseMoneyInput(v);
+                            if (num == null || num < 0) {
                               toast.error("Trợ cấp riêng phải là số không âm.");
                               return;
                             }
                             setSelectedTeachers((prev) =>
                               prev.map((x) =>
-                                x.id === t.id ? { ...x, customAllowance: Math.floor(num) } : x,
+                                x.id === t.id ? { ...x, customAllowance: num } : x,
                               ),
                             );
                           }}
-                          placeholder={String(classDetail.allowancePerSessionPerStudent ?? "")}
+                          placeholder={
+                            classDetail.allowancePerSessionPerStudent == null
+                              ? ""
+                              : moneyInputInitialFromNumber(
+                                  classDetail.allowancePerSessionPerStudent,
+                                )
+                          }
                           className="min-w-0 flex-1 bg-transparent text-right text-sm font-semibold tabular-nums text-text-primary outline-none placeholder:text-text-muted"
                         />
                         <span className="shrink-0 text-xs font-medium text-text-muted">VNĐ</span>

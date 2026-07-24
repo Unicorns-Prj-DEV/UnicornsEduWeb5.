@@ -6,6 +6,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { ClassDetail } from "@/dtos/class.dto";
 import * as classApi from "@/lib/apis/class.api";
 import { formatCurrency } from "@/lib/class.helpers";
+import {
+  moneyInputInitialFromNumber,
+  parseMoneyInput,
+} from "@/lib/money-input.helpers";
+import { MoneyInput } from "@/components/ui/MoneyInput";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
 import {
   classEditorModalClassName,
@@ -24,14 +29,6 @@ type Props = {
   classDetail: ClassDetail;
 };
 
-function parseMoneyInput(value: string): number | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const parsed = Number(trimmed);
-  if (!Number.isFinite(parsed) || parsed < 0) return null;
-  return Math.floor(parsed);
-}
-
 function parseRateInput(value: string): number | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
@@ -44,7 +41,9 @@ function buildAllowanceDrafts(classDetail: ClassDetail) {
   return Object.fromEntries(
     (classDetail.teachers ?? []).map((teacher) => [
       teacher.id,
-      teacher.customAllowance == null ? "" : String(teacher.customAllowance),
+      teacher.customAllowance == null
+        ? ""
+        : moneyInputInitialFromNumber(teacher.customAllowance),
     ]),
   );
 }
@@ -178,14 +177,12 @@ function EditClassTeacherCompensationPopupContent({
                         <span className="block text-xs font-medium text-text-muted">
                           Trợ cấp riêng
                         </span>
-                        <input
-                          type="number"
-                          min={0}
+                        <MoneyInput
                           value={value}
-                          onChange={(event) =>
+                          onValueChange={(nextValue) =>
                             setAllowances((current) => ({
                               ...current,
-                              [teacher.id]: event.target.value,
+                              [teacher.id]: nextValue,
                             }))
                           }
                           className="mt-1 min-h-11 w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
