@@ -13,6 +13,12 @@ import { getFullProfile } from "@/lib/apis/auth.api";
 import * as sessionApi from "@/lib/apis/session.api";
 import { formatCurrency } from "@/lib/class.helpers";
 import {
+  isNonNegativeMoneyInput,
+  moneyInputInitialFromNumber,
+  normalizeMoneyValue,
+  parseMoneyInput,
+} from "@/lib/money-input.helpers";
+import {
   computeSessionAllowanceRawBaseVnd,
   computeTeacherSessionAllowanceGrossPreviewVnd,
   grossAllowanceToRawBaseVnd,
@@ -185,23 +191,9 @@ function toAttendancePayload(
     status: item.status,
     notes: normalizeOptionalRichTextContent(item.notes),
     ...(includeTuition && item.tuitionFee.trim() !== ""
-      ? { tuitionFee: Math.floor(Number(item.tuitionFee)) }
+      ? { tuitionFee: parseMoneyInput(item.tuitionFee) ?? 0 }
       : {}),
   }));
-}
-
-function normalizeMoneyValue(value: number | string | null | undefined): number | null {
-  if (value == null) return null;
-  const normalized = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(normalized)) return null;
-  return Math.floor(normalized);
-}
-
-function isNonNegativeMoneyInput(value: string): boolean {
-  const trimmed = value.trim();
-  if (!trimmed) return true;
-  const normalized = Number(trimmed);
-  return Number.isFinite(normalized) && normalized >= 0;
 }
 
 function resolveAttendanceTuitionValue(item: AttendanceFormItem): number {
