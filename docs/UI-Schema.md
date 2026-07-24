@@ -254,7 +254,7 @@ Unicorns Edu 5.0 uses a tokenized color system built for product clarity, operat
 | Cards | `bg-surface` | `text-primary` | `border-default` | Hover: elevate to `bg-elevated`, border to `border-focus` (subtle) |
 | Buttons (Primary) | `primary` | `text-inverse` | `primary` | Hover: `primary-hover`; active: `primary-active` |
 | Buttons (Secondary) | `secondary` | `text-primary` | `border-default` | Hover: `bg-tertiary`; active: `bg-secondary` |
-| Inputs | `bg-surface` | `text-primary` | `border-default` | Hover border: `text-muted`; focus ring/border: `border-focus`; native date/month/time fields use shared `DateInput` / `MonthInput` / `TimeInput` so the whole input opens the picker |
+| Inputs | `bg-surface` | `text-primary` | `border-default` | Hover border: `text-muted`; focus ring/border: `border-focus`; native date/month/time fields use shared `DateInput` / `MonthInput` / `TimeInput` so the whole input opens the picker; **VND integer money fields** use shared `MoneyInput` (`apps/web/components/ui/MoneyInput.tsx`) with live `vi-VN` thousand grouping (e.g. `14.000`) — parse via `parseMoneyInput` in `apps/web/lib/money-input.helpers.ts` before submit |
 | Badges | Status tint (`success/warning/error/info` with 12-16% alpha) | Matching status 700 equivalent | Status 300 equivalent | Hover: +6% tint opacity |
 | Alerts | Status tint background | Status 800 equivalent | Status 300 equivalent | No color animation; keep stable for readability |
 | Tags | `bg-secondary` | `text-secondary` | `border-subtle` | Hover: `bg-tertiary`, selected: `primary` + `text-inverse` |

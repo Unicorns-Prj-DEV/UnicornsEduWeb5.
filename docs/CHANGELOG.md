@@ -27,6 +27,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- FE forms: ô nhập **số tiền VND** dùng chung `MoneyInput` + `money-input.helpers` — format ngay khi gõ (`14.000`), parse trước submit; thưởng/phạt nhân sự cho phép số âm; nạp/rút ví và các khoản ≥ 0 giữ luồng hiện tại. Docs: `docs/UI-Schema.md`.
+
 - BE/FE staff profile gate: `staffProfileComplete` bắt buộc `users.avatar_path` và `staff_info.personal_achievement_link` (cùng bộ field hồ sơ staff hiện có + data-consent). Staff vận hành thiếu hai field này bị redirect `/user-profile?profile_required=1`; admin full vẫn bypass. DB giữ nullable; form admin tạo/sửa không ép submit. FE `/user-profile` + `StaffSelfEditPopup` cập nhật bộ đếm, missing items và label (bỏ “tùy chọn”).
 
 ### Added
