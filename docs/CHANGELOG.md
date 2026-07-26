@@ -21,6 +21,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Trợ cấp gia sư theo lớp:** `PATCH /class/:id/teachers` và popup trợ cấp không còn materialize `allowance_per_session_per_student` vào `class_teachers.custom_allowance` khi ô trống; omit preserve, `null` = kế thừa mặc định lớp. Migration repair các row `custom_allowance` trùng default lớp → `NULL`.
+
 ### Added
 
 - FE/BE trang chi tiết lớp: cột **Người chăm sóc** trên danh sách học sinh đang học (`customerCareStaff` từ `GET /class/:id` / staff-ops mirror; chỉ họ tên; chưa gán → `—`). Link tới chi tiết CSKH cho admin / trợ lí / kế toán chi; CSKH thuần chỉ self-link; role khác chữ thường.
