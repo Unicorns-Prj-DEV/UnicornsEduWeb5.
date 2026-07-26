@@ -164,7 +164,7 @@ export interface UpdateClassTeachersPayload {
 export interface UpdateClassTeacherCompensationPayload {
     teachers: Array<{
         teacher_id: string;
-        custom_allowance: number;
+        custom_allowance?: number | null;
         operating_deduction_rate_percent?: number;
     }>;
 }
@@ -175,7 +175,7 @@ export interface ClassStatusActionPayload {
 
 export interface ClassTeacherPayload {
     teacher_id: string;
-    custom_allowance?: number;
+    custom_allowance?: number | null;
     operating_deduction_rate_percent?: number;
 }
 

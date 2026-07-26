@@ -107,7 +107,13 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
     defaultAllowance != null ? `${defaultAllowance.toLocaleString("vi-VN")} VNĐ` : null;
 
   const [selectedTeachers, setSelectedTeachers] = useState<
-    Array<{ id: string; name: string; customAllowance?: number; operatingDeductionRatePercent?: number }>
+    Array<{
+      id: string;
+      name: string;
+      customAllowance?: number;
+      allowanceTouched?: boolean;
+      operatingDeductionRatePercent?: number;
+    }>
   >(() =>
     (classDetail.teachers ?? [])
       .filter((t) => t?.id)
@@ -115,6 +121,7 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
         id: t.id,
         name: t.fullName?.trim() ?? "—",
         customAllowance: t.customAllowance ?? undefined,
+        allowanceTouched: false,
         operatingDeductionRatePercent:
           t.operatingDeductionRatePercent ?? undefined,
       })),
@@ -186,17 +193,25 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
   }, []);
 
   const handleSubmit = () => {
-    const teachers = selectedTeachers.map((t) => ({
-      teacher_id: t.id,
-      ...(t.customAllowance != null
-        ? { custom_allowance: t.customAllowance }
-        : defaultAllowance != null
-          ? { custom_allowance: defaultAllowance }
-          : {}),
-      operating_deduction_rate_percent: normalizeOperatingDeductionRatePercent(
-        t.operatingDeductionRatePercent,
-      ),
-    }));
+    const teachers = selectedTeachers.map((t) => {
+      const payload: {
+        teacher_id: string;
+        custom_allowance?: number | null;
+        operating_deduction_rate_percent: number;
+      } = {
+        teacher_id: t.id,
+        operating_deduction_rate_percent: normalizeOperatingDeductionRatePercent(
+          t.operatingDeductionRatePercent,
+        ),
+      };
+
+      if (t.allowanceTouched) {
+        payload.custom_allowance =
+          t.customAllowance != null ? t.customAllowance : null;
+      }
+
+      return payload;
+    });
     const parsedTrainingManagerRate =
       trainingManagerRateInput.trim() === ""
         ? null
@@ -311,7 +326,9 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
                             if (v === "") {
                               setSelectedTeachers((prev) =>
                                 prev.map((x) =>
-                                  x.id === t.id ? { ...x, customAllowance: undefined } : x,
+                                  x.id === t.id
+                                    ? { ...x, customAllowance: undefined, allowanceTouched: true }
+                                    : x,
                                 ),
                               );
                               return;
@@ -323,7 +340,9 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
                             }
                             setSelectedTeachers((prev) =>
                               prev.map((x) =>
-                                x.id === t.id ? { ...x, customAllowance: num } : x,
+                                x.id === t.id
+                                  ? { ...x, customAllowance: num, allowanceTouched: true }
+                                  : x,
                               ),
                             );
                           }}
@@ -518,6 +537,7 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
                               id: s.id,
                               name: s.fullName?.trim() ?? s.id,
                               customAllowance: undefined,
+                              allowanceTouched: false,
                               operatingDeductionRatePercent: undefined,
                             },
                           ]);
