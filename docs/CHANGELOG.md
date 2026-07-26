@@ -25,9 +25,17 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 - FE/BE trang chi tiết lớp: cột **Người chăm sóc** trên danh sách học sinh đang học (`customerCareStaff` từ `GET /class/:id` / staff-ops mirror; chỉ họ tên; chưa gán → `—`). Link tới chi tiết CSKH cho admin / trợ lí / kế toán chi; CSKH thuần chỉ self-link; role khác chữ thường.
 
-### Changed
+### Added
 
-- FE forms: ô nhập **số tiền VND** dùng chung `MoneyInput` + `money-input.helpers` — format ngay khi gõ (`14.000`), parse trước submit; thưởng/phạt nhân sự cho phép số âm; nạp/rút ví và các khoản ≥ 0 giữ luồng hiện tại. Docs: `docs/UI-Schema.md`.
+- BE/FE trợ cấp quản lý lớp (QLL): `GET /training-manager/staff/:staffId/classes/:classId/session-allowances?month=` trả chi tiết buổi (học phí buổi, % snapshot, trợ cấp, trạng thái); tab **Lớp học** trên `/admin/training_detail` và `/staff/training-detail` mở rộng từng lớp (pattern tab Hoa hồng CSKH), bulk `PATCH .../payment-status/bulk` cho admin/assistant/kế toán.
+
+### Fixed
+
+- BE dashboard popup **Trợ cấp chờ thanh toán**: thẻ **Trợ cấp quản lý lớp chưa thanh toán** hiển thị đúng tổng (`totalTrainingManagerAmount` được SELECT từ aggregate unpaid staff).
+
+- BE dashboard cảnh báo **Sắp hết tiền** (`getExpiringStudents`, admin dashboard + khối **Cảnh báo** trợ lí): chỉ còn học sinh đang học (active + membership active trên lớp `running`); học sinh nghỉ hoặc chỉ còn lớp đã kết thúc với số dư `>= 0` không còn hiện; số dư âm vẫn qua nhóm **Chưa thu**.
+
+### Changed
 
 - BE/FE staff profile gate: `staffProfileComplete` bắt buộc `users.avatar_path` và `staff_info.personal_achievement_link` (cùng bộ field hồ sơ staff hiện có + data-consent). Staff vận hành thiếu hai field này bị redirect `/user-profile?profile_required=1`; admin full vẫn bypass. DB giữ nullable; form admin tạo/sửa không ép submit. FE `/user-profile` + `StaffSelfEditPopup` cập nhật bộ đếm, missing items và label (bỏ “tùy chọn”).
 
