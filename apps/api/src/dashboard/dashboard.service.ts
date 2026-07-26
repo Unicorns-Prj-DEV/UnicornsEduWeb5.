@@ -1590,7 +1590,8 @@ export class DashboardService {
         "totalCustomerCareAmount",
         "totalLessonAmount",
         "totalExtraAllowanceAmount",
-        "totalAssistantAmount"
+        "totalAssistantAmount",
+        "totalTrainingManagerAmount"
       FROM counted
       ORDER BY "totalUnpaid" DESC, "staffName" ASC
       LIMIT ${limit}
