@@ -597,7 +597,7 @@ export class AuthController {
     this.setAuthCookies(res, tokenPair, rememberMe);
 
     const redirectUrl = req.user.passwordHash
-      ? this.buildFrontendRedirectUrl()
+      ? this.buildFrontendRedirectUrl('/auth/post-login')
       : this.buildFrontendRedirectUrl(
           '/auth/setup-password',
           new URLSearchParams({ source: 'google' }),
