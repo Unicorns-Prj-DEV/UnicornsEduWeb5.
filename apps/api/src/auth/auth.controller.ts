@@ -522,12 +522,13 @@ export class AuthController {
     return profile;
   }
 
+  @Public()
   @Post('logout')
-  @ApiCookieAuth('access_token')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Logout',
     description:
-      'Clear access and refresh token cookies. Requires authentication.',
+      'Clear access and refresh token cookies. Public endpoint; if auth cookies are present, revokes the matching refresh session server-side.',
   })
   @ApiResponse({ status: 200, description: 'Logged out successfully.' })
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {

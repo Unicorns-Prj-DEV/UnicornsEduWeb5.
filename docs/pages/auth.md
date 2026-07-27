@@ -95,6 +95,7 @@ export default async function SomePage() {
   - `POST /auth/refresh` dùng `refresh_token` cookie
     - backend verify chữ ký refresh JWT **và** đối chiếu hash token đang trình bày với `user.refreshToken` đã lưu; refresh token cũ/đã rotate sẽ bị từ chối.
     - rate limit: `120` request / `1 phút` / IP.
+  - `POST /auth/logout` — public (`@Public()`), không yêu cầu JWT guard; luôn xóa cookie `access_token` và `refresh_token`. Nếu request mang cookie auth hợp lệ, backend revoke refresh session tương ứng trước khi clear cookie.
 - `GET /auth/session` — contract auth nhẹ cho frontend/server (`id`, `email`, `emailVerified`, `canAccessRestrictedRoutes`, `accountHandle`, `roleType`, `requiresPasswordSetup`, `avatarUrl`, `staffRoles`, `hasStaffProfile`, `hasStudentProfile`, `effectiveRoleTypes`, `staffProfileComplete`, `availableWorkspaces`, `defaultWorkspace`, `preferredRedirect`, `access.{admin,staff,student}`); guest trả về object cùng shape với default rỗng. `effectiveRoleTypes` là union của `users.role_type`, linked `staffInfo`, linked `studentInfo`, và full-admin staff role; FE/proxy phải dùng contract này thay vì chỉ so sánh `roleType`.
   - `GET /auth/profile` — backward-compatible alias của session resolver.
   - `GET /auth/me` — thông tin auth hiện tại từ DB theo `access_token`, trả cùng session shape.
