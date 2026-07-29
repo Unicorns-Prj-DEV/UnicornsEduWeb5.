@@ -418,6 +418,11 @@ type StaffUnpaidTotalRow = {
   totalUnpaid: number | string | null;
 };
 
+type TeacherListVisibleClassRow = {
+  teacherId: string;
+  classId: string;
+};
+
 type DepositSessionRow = {
   id: string;
   classId: string;
@@ -1247,19 +1252,42 @@ export class StaffService {
           },
         },
         classTeachers: {
-          include: { class: { select: { id: true, name: true } } },
+          select: {
+            status: true,
+            class: { select: { id: true, name: true } },
+          },
         },
       },
     });
-    const unpaidTotalsByStaffId = await this.getUnpaidTotalsByStaffIds(
-      data.map((staff) => staff.id),
-    );
+    const staffIds = data.map((staff) => staff.id);
+    const [unpaidTotalsByStaffId, listVisibleClassIdsByTeacherId] =
+      await Promise.all([
+        this.getUnpaidTotalsByStaffIds(staffIds),
+        this.getListVisibleClassIdsByTeacherIds(staffIds),
+      ]);
 
     const rows = await Promise.all(
-      data.map(async (staff) => ({
-        ...(await this.attachStaffUserDisplayFields(staff)),
-        unpaidAmountTotal: unpaidTotalsByStaffId.get(staff.id) ?? 0,
-      })),
+      data.map(async (staff) => {
+        const visibleClassIds =
+          listVisibleClassIdsByTeacherId.get(staff.id) ?? new Set<string>();
+        const classTeachers = (staff.classTeachers ?? [])
+          .filter(
+            (assignment) =>
+              isActiveClassTeacherStatus(assignment.status) ||
+              visibleClassIds.has(assignment.class.id),
+          )
+          .map((assignment) => ({
+            class: assignment.class,
+          }));
+
+        return {
+          ...(await this.attachStaffUserDisplayFields({
+            ...staff,
+            classTeachers,
+          })),
+          unpaidAmountTotal: unpaidTotalsByStaffId.get(staff.id) ?? 0,
+        };
+      }),
     );
 
     return {
@@ -3909,6 +3937,67 @@ export class StaffService {
       (sum, record) => sum + normalizeMoneyAmount(record.netAmount),
       0,
     );
+  }
+
+  /**
+   * Class IDs that should still appear on staff list for inactive assignments:
+   * unpaid/pending sessions (any month) or non-deposit sessions in the current month.
+   * Aligns with card "Lớp phụ trách" visibility for nghỉ dạy.
+   */
+  private async getListVisibleClassIdsByTeacherIds(
+    teacherIds: string[],
+  ): Promise<Map<string, Set<string>>> {
+    const normalizedTeacherIds = Array.from(
+      new Set(
+        teacherIds
+          .map((teacherId) => teacherId.trim())
+          .filter((teacherId) => teacherId.length > 0),
+      ),
+    );
+
+    if (normalizedTeacherIds.length === 0) {
+      return new Map();
+    }
+
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = String(now.getFullYear());
+    const range = buildMonthRange(month, year);
+
+    const rows = await this.prisma.$queryRaw<TeacherListVisibleClassRow[]>(
+      Prisma.sql`
+        SELECT DISTINCT
+          sessions.teacher_id AS "teacherId",
+          sessions.class_id AS "classId"
+        FROM sessions
+        WHERE sessions.teacher_id IN (${Prisma.join(normalizedTeacherIds)})
+          AND (
+            LOWER(COALESCE(sessions.teacher_payment_status, '')) IN (${Prisma.join(
+              Array.from(RECENT_UNPAID_SESSION_STATUSES),
+            )})
+            OR (
+              sessions.date >= ${range.start}
+              AND sessions.date < ${range.end}
+              AND LOWER(COALESCE(sessions.teacher_payment_status, '')) NOT IN (${Prisma.join(
+                NORMALIZED_DEPOSIT_PAYMENT_STATUSES,
+              )})
+            )
+          )
+      `,
+    );
+
+    const byTeacherId = new Map<string, Set<string>>();
+    rows.forEach((row) => {
+      const teacherId = row.teacherId?.trim();
+      const classId = row.classId?.trim();
+      if (!teacherId || !classId) return;
+
+      const current = byTeacherId.get(teacherId) ?? new Set<string>();
+      current.add(classId);
+      byTeacherId.set(teacherId, current);
+    });
+
+    return byTeacherId;
   }
 
   private async getUnpaidTotalsByStaffIds(staffIds: string[]) {

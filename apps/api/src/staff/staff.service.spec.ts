@@ -2608,7 +2608,10 @@ describe('StaffService', () => {
             },
           },
           classTeachers: {
-            include: { class: { select: { id: true, name: true } } },
+            select: {
+              status: true,
+              class: { select: { id: true, name: true } },
+            },
           },
         },
       }),
@@ -2623,6 +2626,59 @@ describe('StaffService', () => {
       }),
     ]);
     expect(result.data[0].user).not.toHaveProperty('avatarPath');
+  });
+
+  it('hides inactive class_teachers without remaining allowance on staff list', async () => {
+    mockPrisma.staffInfo.count.mockResolvedValue(1);
+    mockPrisma.staffInfo.findMany.mockResolvedValue([
+      {
+        id: 'staff-1',
+        fullName: 'Teacher A',
+        status: 'active',
+        roles: [StaffRole.teacher],
+        user: {
+          first_name: 'Teacher',
+          last_name: 'A',
+          accountHandle: 'teacher-a',
+          email: 'teacher@example.com',
+          province: 'Hanoi',
+          avatarPath: null,
+        },
+        classTeachers: [
+          {
+            status: 'active',
+            class: { id: 'class-active', name: 'BASIC 08' },
+          },
+          {
+            status: 'inactive',
+            class: { id: 'class-retired-zero', name: 'BASIC 07' },
+          },
+          {
+            status: 'inactive',
+            class: { id: 'class-retired-unpaid', name: 'ADVANCED 10' },
+          },
+        ],
+      },
+    ]);
+    jest
+      .spyOn(service as any, 'getUnpaidTotalsByStaffIds')
+      .mockResolvedValue(new Map([['staff-1', 380000]]));
+    jest
+      .spyOn(service as any, 'getListVisibleClassIdsByTeacherIds')
+      .mockResolvedValue(
+        new Map([['staff-1', new Set(['class-retired-unpaid'])]]),
+      );
+
+    const result = await service.getStaff({
+      page: 1,
+      limit: 20,
+    });
+
+    expect(result.data[0].classTeachers).toEqual([
+      { class: { id: 'class-active', name: 'BASIC 08' } },
+      { class: { id: 'class-retired-unpaid', name: 'ADVANCED 10' } },
+    ]);
+    expect(result.data[0].unpaidAmountTotal).toBe(380000);
   });
 
   it('attaches signed avatar URL to staff detail user without exposing storage path', async () => {
