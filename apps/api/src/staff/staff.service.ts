@@ -187,6 +187,13 @@ const NORMALIZED_DEPOSIT_PAYMENT_STATUSES = Array.from(
 );
 const RECENT_UNPAID_SESSION_STATUSES = ['unpaid', 'pending'] as const;
 
+/** `class_teachers.status` null/`active` = phân công hiện tại; `inactive` = nghỉ dạy theo lớp. */
+function isActiveClassTeacherStatus(
+  status: string | null | undefined,
+): boolean {
+  return status == null || status === 'active';
+}
+
 function isDepositPaymentStatus(status: string | null | undefined) {
   const normalized = String(status ?? '')
     .trim()
@@ -4095,6 +4102,7 @@ export class StaffService {
         roles: true,
         classTeachers: {
           select: {
+            status: true,
             class: {
               select: {
                 id: true,
@@ -4316,11 +4324,16 @@ export class StaffService {
     const sessionMonthlyTotalDeductionTotals =
       sessionMonthlySummary.totalDeductionTotals;
 
+    // Chỉ seed lớp đang phân công (null/active). Row inactive = nghỉ dạy: chỉ hiện
+    // khi còn trợ cấp tháng đang chọn hoặc còn Chưa nhận (seed từ session rows bên dưới).
+    const currentAssignments = staff.classTeachers.filter((assignment) =>
+      isActiveClassTeacherStatus(assignment.status),
+    );
     const currentAssignmentClassIds = new Set(
-      staff.classTeachers.map((assignment) => assignment.class.id),
+      currentAssignments.map((assignment) => assignment.class.id),
     );
     const classSummaryById = new Map<string, StaffIncomeClassSummaryDto>();
-    staff.classTeachers.forEach((assignment) => {
+    currentAssignments.forEach((assignment) => {
       classSummaryById.set(assignment.class.id, {
         classId: assignment.class.id,
         className: assignment.class.name,

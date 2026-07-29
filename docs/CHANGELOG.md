@@ -23,6 +23,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
+- BE `GET /staff/:id/income-summary` card **Lớp phụ trách** (`classMonthlySummaries`): không còn seed mọi row `class_teachers` (kể cả `inactive`) thành dòng 0đ; chỉ luôn hiện phân công hiện tại (`status` null/`active`); lớp nghỉ dạy chỉ hiện khi tháng đang chọn còn trợ cấp và/hoặc còn `unpaid`/`pending`, với `isCurrentTeacherAssignment=false` (badge **NGHỈ DẠY**).
+
 - Auth login/OAuth: sau đăng nhập redirect thẳng tới workspace/dashboard (`/auth/post-login` cho Google OAuth; login password bootstrap session an toàn hơn, bỏ fallback `canAccessRestrictedRoutes=false` gây kẹt homepage).
 
 - **Trợ cấp gia sư theo lớp:** `PATCH /class/:id/teachers` và popup trợ cấp không còn materialize `allowance_per_session_per_student` vào `class_teachers.custom_allowance` khi ô trống; omit preserve, `null` = kế thừa mặc định lớp. Migration repair các row `custom_allowance` trùng default lớp → `NULL`.
