@@ -85,8 +85,36 @@ export function toTimeDisplay(raw?: string | null): string {
   return formatTimeDisplay(parsed.hours, parsed.minutes);
 }
 
+/**
+ * Snap minutes to the nearest picker grid value (`00 / 15 / 30 / 45`).
+ * Values that round to `60` roll into the next hour (`:00`).
+ */
+export function snapMinutesToPickerGrid(
+  hours: number,
+  minutes: number,
+): { hours: number; minutes: number } {
+  let snappedMinutes =
+    Math.round(minutes / TIME_MINUTE_STEP) * TIME_MINUTE_STEP;
+  let snappedHours = hours;
+  if (snappedMinutes === 60) {
+    snappedMinutes = 0;
+    snappedHours = (snappedHours + 1) % 24;
+  }
+  return { hours: snappedHours, minutes: snappedMinutes };
+}
+
+/**
+ * Prefill for an empty start-time field: current local hour, minutes snapped
+ * to the nearest `00 / 15 / 30 / 45` grid, seconds `00`.
+ */
+export function currentTimePrefillValue(now = new Date()): string {
+  const snapped = snapMinutesToPickerGrid(now.getHours(), now.getMinutes());
+  return formatTimeValue(snapped.hours, snapped.minutes, 0);
+}
+
+/** @deprecated Prefer {@link currentTimePrefillValue} (includes minutes). */
 export function currentHourPrefillValue(now = new Date()): string {
-  return formatTimeValue(now.getHours(), 0, 0);
+  return currentTimePrefillValue(now);
 }
 
 export function isMinuteOnPickerGrid(minutes: number): boolean {

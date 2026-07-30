@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-07-28
-- **Updated:** 2026-07-30
+- **Updated:** 2026-07-30 (optimistic UI + current-time start prefill)
 
 ## Context
 
@@ -20,8 +20,10 @@ Picker UI is composed from the shared `UpgradedSelect` (project simple-select pr
 - No seconds, no AM/PM.
 - Typing and picker both allowed; typed/blurred values normalize to `HH:mm:ss`.
 - Off-grid legacy minutes (e.g. `18:10`) are kept as-is and shown as a temporary minute option until the user picks a grid value.
-- Prefill only when the user focuses/clicks an **empty** field: current local hour, minutes `00`, seconds `00`. Do not overwrite existing values. Opening the picker shows the value currently on the field.
+- **Immediate draft commit:** picker commits set local `draft` to the new `HH:mm` and call parent `onChange` synchronously so the text field updates in the same turn (avoid clearing draft then sync-`focus()`, which previously restored a stale display until the next click). Typing keystrokes stay local (`draft`) until blur/normalize.
+- **Start-time prefill:** empty fields on focus/click, and create-form start defaults, use `currentTimePrefillValue()` — current local hour, minutes snapped to the nearest `00 / 15 / 30 / 45` (roll to next hour when rounding to `:60`), seconds `00`. Do not overwrite existing values. Opening the picker shows the value currently on the field.
 - Empty end-time fields are not prefilled on form mount and are not auto-derived from start (+2h, etc.).
+- `TimeInput` is wrapped in `memo` to skip re-renders when props are unchanged.
 
 ## Considered options
 
@@ -29,7 +31,6 @@ Picker UI is composed from the shared `UpgradedSelect` (project simple-select pr
 - Custom dual scroll-column portal — forced 24h but looked generic/low-quality.
 - Custom picker that always snaps to 15 minutes on open — would silently rewrite historical schedule/session times.
 - Change API/DB to drop seconds — unnecessary; `@db.Time` with `:00` is fine.
-
 ## Consequences
 
 - All schedule/session/makeup call sites keep the same `value`/`onChange` contract (`HH:mm:ss`).

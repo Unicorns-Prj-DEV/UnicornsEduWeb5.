@@ -72,7 +72,7 @@
 
 ## Lịch học và Google Calendar
 
-- **Giờ trong ngày (lịch/buổi)**: thời điểm trong ngày dùng cho khung lịch cố định, buổi học và lịch bù; vận hành chỉ quan tâm tới phút, không dùng giây; `TimeInput` hiển thị 24h và chọn giờ/phút qua `UpgradedSelect` (lưới phút 15′). _Avoid_: AM/PM trên UI chọn giờ lịch; native `<input type="time">` cho lịch/buổi.
+- **Giờ trong ngày (lịch/buổi)**: thời điểm trong ngày dùng cho khung lịch cố định, buổi học và lịch bù; vận hành chỉ quan tâm tới phút, không dùng giây; `TimeInput` hiển thị 24h và chọn giờ/phút qua `UpgradedSelect` (lưới phút 15′); ô bắt đầu trống/tạo mới prefills giờ hiện tại (phút snap `00/15/30/45` gần nhất); commit picker cập nhật draft ngay trên field. _Avoid_: AM/PM trên UI chọn giờ lịch; native `<input type="time">` cho lịch/buổi.
 - **Lịch học hệ thống**: lịch học chính thức của lớp được lưu trong hệ thống; đây là nguồn sự thật cho lịch định kỳ của lớp.
 - **Lịch cố định**: cách gọi vận hành của các slot định kỳ trong **lịch học hệ thống** (`Class.schedule`), gồm thứ, giờ bắt đầu/kết thúc và gia sư chịu trách nhiệm.
 - **Lịch bù**: các buổi học một lần trong `makeup_schedule_events`; khi dùng để bù một buổi cố định bị lỡ, record phải giữ `baselineScheduleEntryId` và `originalDate` để biết buổi gốc nào đã được xếp bù.

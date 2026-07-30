@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  memo,
   useEffect,
   useId,
   useMemo,
@@ -18,7 +19,7 @@ import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { cn } from "@/lib/utils";
 import {
   TIME_MINUTE_OPTIONS,
-  currentHourPrefillValue,
+  currentTimePrefillValue,
   formatTimeValue,
   isMinuteOnPickerGrid,
   normalizeTypedTime,
@@ -38,6 +39,11 @@ type MenuPosition = {
 
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => {
   const label = String(hour).padStart(2, "0");
+  return { value: label, label };
+});
+
+const BASE_MINUTE_OPTIONS = TIME_MINUTE_OPTIONS.map((minute) => {
+  const label = String(minute).padStart(2, "0");
   return { value: label, label };
 });
 
@@ -72,7 +78,7 @@ function isInsideTimePickerChrome(target: Node | null) {
   );
 }
 
-export function TimeInput({
+function TimeInputComponent({
   className,
   disabled,
   readOnly,
@@ -95,6 +101,7 @@ export function TimeInput({
   const committedValue = isControlled
     ? String(value ?? "")
     : uncontrolledValue;
+  /** Text / optimistic display (`HH:mm`). */
   const [draft, setDraft] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
@@ -106,22 +113,25 @@ export function TimeInput({
   const pickerId = `${id ?? `time-input-${generatedId}`}-picker`;
 
   const displayValue = draft ?? toTimeDisplay(committedValue);
-  const parsedCommitted = parseTimeValue(committedValue);
+  const parsedCommitted = parseTimeValue(
+    draft != null ? (normalizeTypedTime(draft) ?? committedValue) : committedValue,
+  );
+
+  // Drop draft once the controlled prop matches what we already show.
+  useEffect(() => {
+    const committedDisplay = toTimeDisplay(committedValue);
+    setDraft((current) =>
+      current != null && current === committedDisplay ? null : current,
+    );
+  }, [committedValue]);
 
   const minuteOptions = useMemo(() => {
-    const base = TIME_MINUTE_OPTIONS.map((minute) => {
-      const label = String(minute).padStart(2, "0");
-      return { value: label, label };
-    });
     const minutes = parsedCommitted?.minutes;
-    if (
-      minutes != null &&
-      !isMinuteOnPickerGrid(minutes)
-    ) {
+    if (minutes != null && !isMinuteOnPickerGrid(minutes)) {
       const label = String(minutes).padStart(2, "0");
-      return [{ value: label, label }, ...base];
+      return [{ value: label, label }, ...BASE_MINUTE_OPTIONS];
     }
-    return base;
+    return BASE_MINUTE_OPTIONS;
   }, [parsedCommitted?.minutes]);
 
   const hourValue =
@@ -137,15 +147,19 @@ export function TimeInput({
     if (!isControlled) {
       setUncontrolledValue(next);
     }
+    // Always paint the new time immediately (do not clear draft to null —
+    // a sync focus() after select can otherwise restore a stale draft).
+    setDraft(toTimeDisplay(next));
     emitChange(onChange, name, next);
-    setDraft(null);
   };
 
   const ensurePrefillIfEmpty = (): string => {
     if (disabled || readOnly) return committedValue;
-    if (committedValue.trim() !== "") return committedValue;
+    const liveValue =
+      draft != null ? (normalizeTypedTime(draft) ?? committedValue) : committedValue;
+    if (liveValue.trim() !== "") return liveValue;
 
-    const prefilled = currentHourPrefillValue();
+    const prefilled = currentTimePrefillValue();
     commitValue(prefilled);
     return prefilled;
   };
@@ -231,7 +245,9 @@ export function TimeInput({
 
   const handleFocus = (event: FocusEvent<HTMLInputElement>) => {
     const nextValue = ensurePrefillIfEmpty();
-    setDraft(toTimeDisplay(nextValue));
+    // Functional update: keep a draft already set by commitValue in the same tick
+    // (e.g. selectMinute → focus) instead of overwriting with a stale closure.
+    setDraft((current) => current ?? toTimeDisplay(nextValue));
     onFocus?.(event);
   };
 
@@ -288,7 +304,10 @@ export function TimeInput({
     const hours = parsedCommitted?.hours ?? new Date().getHours();
     commitValue(formatTimeValue(hours, minutes, 0));
     setOpen(false);
-    inputRef.current?.focus();
+    // Defer focus until after commit draft is applied.
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
   };
 
   return (
@@ -417,3 +436,5 @@ export function TimeInput({
     </div>
   );
 }
+
+export const TimeInput = memo(TimeInputComponent);

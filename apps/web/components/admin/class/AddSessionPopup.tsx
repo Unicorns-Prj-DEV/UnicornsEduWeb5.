@@ -50,6 +50,7 @@ import {
 import { DateInput } from "@/components/ui/DateInput";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import { TimeInput } from "@/components/ui/TimeInput";
+import { currentTimePrefillValue } from "@/components/ui/time-input.helpers";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
 import { normalizeOptionalRichTextContent } from "@/lib/sanitize";
@@ -258,8 +259,8 @@ export default function AddSessionPopup({
     allowAttendanceTuitionEdits ?? allowFinancialFields;
 
   const [date, setDate] = useState(() => getTodayDateInputValue());
-  const [startTime, setStartTime] = useState("18:00");
-  const [endTime, setEndTime] = useState("20:00");
+  const [startTime, setStartTime] = useState(() => currentTimePrefillValue());
+  const [endTime, setEndTime] = useState("");
   const [lessonContent, setLessonContent] = useState("");
   const [homework, setHomework] = useState("");
   const [tutorial, setTutorial] = useState("");
