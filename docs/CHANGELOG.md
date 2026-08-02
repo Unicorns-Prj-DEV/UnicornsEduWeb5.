@@ -21,6 +21,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Changed
+
+- FE popup **Thông tin lớp**: chọn trạng thái **Đã kết thúc** dùng cùng logic `POST /class/:id/end` (eligibility + confirm/lý do); BE `PATCH /class/:id/basic-info` từ chối `running → ended` (phải dùng `POST /end`).
+
 ### Fixed
 
 - BE `GET /staff/:id/income-summary` card **Lớp phụ trách** (`classMonthlySummaries`): không còn seed mọi row `class_teachers` (kể cả `inactive`) thành dòng 0đ; chỉ luôn hiện phân công hiện tại (`status` null/`active`); lớp nghỉ dạy chỉ hiện khi tháng đang chọn còn trợ cấp và/hoặc còn `unpaid`/`pending`, với `isCurrentTeacherAssignment=false` (badge **NGHỈ DẠY**).

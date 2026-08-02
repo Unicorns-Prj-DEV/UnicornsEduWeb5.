@@ -829,6 +829,21 @@ describe('ClassService', () => {
       });
       expect(mockTx.classTeacher.updateMany).not.toHaveBeenCalled();
     });
+
+    it('rejects ending a running class via basic-info (must use POST /end)', async () => {
+      mockPrisma.class.findUnique.mockResolvedValueOnce({
+        id: 'class-1',
+        status: ClassStatus.running,
+      });
+
+      await expect(
+        service.updateClassBasicInfo('class-1', {
+          status: ClassStatus.ended,
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(mockTx.class.update).not.toHaveBeenCalled();
+    });
   });
 
   describe('updateClassTeachers', () => {

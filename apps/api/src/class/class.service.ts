@@ -1446,10 +1446,19 @@ export class ClassService {
   ) {
     const existing = await this.prisma.class.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, status: true },
     });
     if (!existing) {
       throw new NotFoundException('Class not found');
+    }
+
+    if (
+      dto.status === ClassStatus.ended &&
+      existing.status === ClassStatus.running
+    ) {
+      throw new BadRequestException(
+        'Dùng POST /class/:id/end để kết thúc lớp (đóng roster, gia sư, lịch cố định và lịch bù).',
+      );
     }
 
     const data: Prisma.ClassUpdateInput = {};

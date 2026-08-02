@@ -8,6 +8,7 @@ import { MoneyInput } from "@/components/ui/MoneyInput";
 import type { ClassDetail, ClassStatus, ClassType, UpdateClassBasicInfoPayload } from "@/dtos/class.dto";
 import * as classApi from "@/lib/apis/class.api";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
+import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import {
   compactTuitionPerSessionLine,
   computeStudentTuitionPerSessionFromPackage,
@@ -48,12 +49,38 @@ const TYPE_OPTIONS: { value: ClassType; label: string }[] = [
   { value: "hardcore", label: "Hardcore" },
 ];
 
+const END_CLASS_CONFIRM_MESSAGE =
+  "Kết thúc lớp? Điều kiện: mọi buổi đã thanh toán trợ cấp gia sư. Hệ thống sẽ gỡ gia sư khỏi lớp, đóng roster học sinh, xóa lịch cố định và lịch bù tương lai.";
+
+const DEFAULT_END_CLASS_BLOCK_REASON =
+  "Thanh toán hết trợ cấp gia sư cho mọi buổi để kết thúc lớp.";
+
 function parseOptionalInt(value: string): number | undefined {
   const trimmed = value.trim();
   if (!trimmed) return undefined;
   const parsed = Number(trimmed);
   if (!Number.isFinite(parsed)) return undefined;
   return Math.floor(parsed);
+}
+
+function basicInfoFieldsChanged(
+  classDetail: ClassDetail,
+  next: Omit<UpdateClassBasicInfoPayload, "status">,
+): boolean {
+  const currentTuitionTotal = classDetail.tuitionPackageTotal ?? undefined;
+  const currentTuitionSessions = classDetail.tuitionPackageSession ?? undefined;
+  return (
+    (classDetail.name ?? "") !== (next.name ?? "") ||
+    classDetail.type !== next.type ||
+    (classDetail.maxStudents ?? undefined) !== next.max_students ||
+    (classDetail.allowancePerSessionPerStudent ?? undefined) !==
+      next.allowance_per_session_per_student ||
+    (classDetail.maxAllowancePerSession ?? undefined) !== next.max_allowance_per_session ||
+    (classDetail.scaleAmount ?? undefined) !== next.scale_amount ||
+    (classDetail.studentTuitionPerSession ?? undefined) !== next.student_tuition_per_session ||
+    currentTuitionTotal !== next.tuition_package_total ||
+    currentTuitionSessions !== next.tuition_package_session
+  );
 }
 
 export default function EditClassBasicInfoPopup({ open, onClose, classDetail }: Props) {
@@ -86,6 +113,32 @@ function EditClassBasicInfoDialog({ onClose, classDetail }: Omit<Props, "open">)
     classDetail.tuitionPackageSession == null ? "" : String(classDetail.tuitionPackageSession),
   );
 
+  const canEndClass = classDetail.endClassEligibility?.canEnd ?? false;
+  const endClassBlockReason =
+    classDetail.endClassEligibility?.blockReason ?? DEFAULT_END_CLASS_BLOCK_REASON;
+  const willEndClass = classDetail.status === "running" && status === "ended";
+
+  const handleStatusChange = (nextValue: string) => {
+    const nextStatus = nextValue as ClassStatus;
+    if (
+      nextStatus === "ended" &&
+      classDetail.status === "running" &&
+      !canEndClass
+    ) {
+      toast.error(endClassBlockReason);
+      return;
+    }
+    setStatus(nextStatus);
+  };
+
+  const invalidateClassQueries = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["class", "detail", classDetail.id] }),
+      queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
+      invalidateCalendarScopedQueries(queryClient),
+    ]);
+  };
+
   const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmedName = name.trim();
@@ -108,10 +161,9 @@ function EditClassBasicInfoDialog({ onClose, classDetail }: Omit<Props, "open">)
         ? undefined
         : computeStudentTuitionPerSessionFromPackage(tuitionPkg.total, tuitionPkg.sessions);
 
-    const payload: UpdateClassBasicInfoPayload = {
+    const basicInfoWithoutStatus: Omit<UpdateClassBasicInfoPayload, "status"> = {
       name: trimmedName,
       type,
-      status,
       max_students: maxStudents,
       allowance_per_session_per_student: parseOptionalMoneyInt(allowancePerSessionInput),
       max_allowance_per_session: parseMaxAllowancePerSessionInput(
@@ -123,18 +175,46 @@ function EditClassBasicInfoDialog({ onClose, classDetail }: Omit<Props, "open">)
       tuition_package_total: tuitionPkg.mode === "empty" ? undefined : tuitionPkg.total,
       tuition_package_session: tuitionPkg.mode === "empty" ? undefined : tuitionPkg.sessions,
     };
+
+    if (willEndClass) {
+      if (!canEndClass) {
+        toast.error(endClassBlockReason);
+        return;
+      }
+      const confirmed = window.confirm(END_CLASS_CONFIRM_MESSAGE);
+      if (!confirmed) return;
+      const reason = window.prompt("Lý do (không bắt buộc)") ?? undefined;
+      const shouldUpdateBasicInfo = basicInfoFieldsChanged(classDetail, basicInfoWithoutStatus);
+
+      onClose();
+      runBackgroundSave({
+        loadingMessage: shouldUpdateBasicInfo
+          ? "Đang lưu thông tin và kết thúc lớp..."
+          : "Đang kết thúc lớp...",
+        successMessage: "Đã kết thúc lớp.",
+        errorMessage: "Không thể kết thúc lớp.",
+        action: async () => {
+          if (shouldUpdateBasicInfo) {
+            await classApi.updateClassBasicInfo(classDetail.id, basicInfoWithoutStatus);
+          }
+          await classApi.endClass(classDetail.id, { reason });
+        },
+        onSuccess: invalidateClassQueries,
+      });
+      return;
+    }
+
+    const payload: UpdateClassBasicInfoPayload = {
+      ...basicInfoWithoutStatus,
+      status,
+    };
     onClose();
     runBackgroundSave({
       loadingMessage: "Đang lưu thông tin lớp...",
       successMessage: "Đã lưu thông tin lớp.",
       errorMessage: "Không thể cập nhật thông tin lớp.",
       action: () => classApi.updateClassBasicInfo(classDetail.id, payload),
-      onSuccess: async () => {
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ["class", "detail", classDetail.id] }),
-          queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
-        ]);
-      },
+      onSuccess: invalidateClassQueries,
     });
   };
 
@@ -187,16 +267,24 @@ function EditClassBasicInfoDialog({ onClose, classDetail }: Omit<Props, "open">)
                   buttonClassName="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />
               </label>
-              <label className="flex flex-col gap-1 text-sm text-text-secondary">
+              <div className="flex flex-col gap-1 text-sm text-text-secondary">
                 <span>Trạng thái</span>
                 <UpgradedSelect
                   name="edit-class-basic-info-status"
                   value={status}
-                  onValueChange={(nextValue) => setStatus(nextValue as ClassStatus)}
+                  onValueChange={handleStatusChange}
                   options={STATUS_OPTIONS}
                   buttonClassName="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />
-              </label>
+                {classDetail.status === "running" && !canEndClass ? (
+                  <p className="text-xs text-warning">{endClassBlockReason}</p>
+                ) : null}
+                {willEndClass ? (
+                  <p className="text-xs text-text-muted">
+                    Lưu sẽ gọi kết thúc lớp: gỡ gia sư, đóng roster, xóa lịch cố định và lịch bù tương lai.
+                  </p>
+                ) : null}
+              </div>
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
                 <span>Sĩ số tối đa</span>
                 <input
