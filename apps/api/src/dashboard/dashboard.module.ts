@@ -8,6 +8,7 @@ import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
 import { FinancialExportExcelService } from './financial-export-excel.service';
 import { FinancialExportPdfService } from './financial-export-pdf.service';
+import { MonthlyStatisticsExportPdfService } from './monthly-statistics-export-pdf.service';
 
 @Module({
   imports: [ConfigModule, PrismaModule, ClassModule, MailModule],
@@ -17,6 +18,7 @@ import { FinancialExportPdfService } from './financial-export-pdf.service';
     DashboardService,
     FinancialExportPdfService,
     FinancialExportExcelService,
+    MonthlyStatisticsExportPdfService,
   ],
   exports: [DashboardService],
 })

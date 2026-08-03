@@ -51,6 +51,7 @@ function toSafeFilenameSlug(label: string): string {
 import { DashboardService } from './dashboard.service';
 import { FinancialExportExcelService } from './financial-export-excel.service';
 import { FinancialExportPdfService } from './financial-export-pdf.service';
+import { MonthlyStatisticsExportPdfService } from './monthly-statistics-export-pdf.service';
 
 @Controller('dashboard')
 @ApiTags('dashboard')
@@ -63,6 +64,7 @@ export class DashboardController {
     private readonly dashboardService: DashboardService,
     private readonly financialExportPdfService: FinancialExportPdfService,
     private readonly financialExportExcelService: FinancialExportExcelService,
+    private readonly monthlyStatisticsExportPdfService: MonthlyStatisticsExportPdfService,
   ) {}
 
   @Get()
@@ -351,6 +353,65 @@ export class DashboardController {
     @Query() query: GetAdminMonthlyStatisticsQueryDto,
   ): Promise<AdminDashboardMonthlyStatisticsDto> {
     return this.dashboardService.getAdminMonthlyStatistics(query);
+  }
+
+  @Get('monthly-statistics/pdf')
+  @ApiOperation({
+    summary: 'Download monthly statistics report as PDF',
+    description:
+      'Same data as GET /dashboard/monthly-statistics, rendered server-side to a landscape A4 PDF with charts and tables for direct download.',
+  })
+  @ApiQuery({
+    name: 'fromMonth',
+    required: true,
+    type: String,
+    description: 'Start month in 01-12 format.',
+    example: '01',
+  })
+  @ApiQuery({
+    name: 'fromYear',
+    required: true,
+    type: String,
+    description: 'Start year in YYYY format.',
+    example: '2026',
+  })
+  @ApiQuery({
+    name: 'toMonth',
+    required: true,
+    type: String,
+    description: 'End month in 01-12 format (inclusive).',
+    example: '07',
+  })
+  @ApiQuery({
+    name: 'toYear',
+    required: true,
+    type: String,
+    description: 'End year in YYYY format (inclusive).',
+    example: '2026',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'PDF file (application/pdf).',
+  })
+  async getAdminMonthlyStatisticsPdf(
+    @Query() query: GetAdminMonthlyStatisticsQueryDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const payload = await this.dashboardService.getAdminMonthlyStatistics(query);
+    const pdfBuffer =
+      await this.monthlyStatisticsExportPdfService.toPdfBuffer(payload);
+
+    const filename = `thong-ke-thang-${toSafeFilenameSlug(
+      `${payload.fromMonthKey}-${payload.toMonthKey}`,
+    )}.pdf`;
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': pdfBuffer.length,
+    });
+
+    return new StreamableFile(pdfBuffer);
   }
 
   @Get('financial-detail')
