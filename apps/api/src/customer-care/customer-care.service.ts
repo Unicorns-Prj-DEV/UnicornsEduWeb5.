@@ -217,6 +217,7 @@ export class CustomerCareService {
       skip,
       take: limit,
       select: {
+        profitPercent: true,
         student: {
           select: {
             id: true,
@@ -267,6 +268,8 @@ export class CustomerCareService {
           recentTopUpTotalLast21Days: recentTopUpTotal,
           recentTopUpMeetsThreshold:
             recentTopUpTotal >= RECENT_TOP_UP_THRESHOLD,
+          profitPercent:
+            row.profitPercent == null ? null : Number(row.profitPercent),
         };
       }),
       meta: {

@@ -12,6 +12,8 @@ export interface CustomerCareStudentItem {
   classes: { id: string; name: string }[];
   recentTopUpTotalLast21Days: number;
   recentTopUpMeetsThreshold: boolean;
+  /** Phân số 0.00-0.99; hiển thị `Math.round(profitPercent * 100)}%`. */
+  profitPercent: number | null;
 }
 
 export interface CustomerCareStudentListMeta {

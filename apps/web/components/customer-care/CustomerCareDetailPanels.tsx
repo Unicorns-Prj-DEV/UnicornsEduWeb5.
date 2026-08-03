@@ -268,6 +268,14 @@ function recentTopUpTextClass(meetsThreshold: boolean): string {
   return meetsThreshold ? "text-success" : "text-error";
 }
 
+function formatProfitPercent(profitPercent: number | null): string {
+  if (profitPercent == null || !Number.isFinite(profitPercent)) {
+    return "-";
+  }
+
+  return `${Math.round(profitPercent * 100)}%`;
+}
+
 function walletTransactionAmountClass(type: StudentWalletTransaction["type"]): string {
   return type === "topup" ? "text-success" : "text-error";
 }
@@ -1014,9 +1022,9 @@ export default function CustomerCareDetailPanels({
           {studentsLoading && (
             <CustomerCareListSkeleton
               variant="student"
-              columns={["w-16", "w-36", "w-20", "w-24", "w-20", "w-24", "w-16"]}
+              columns={["w-16", "w-36", "w-20", "w-24", "w-20", "w-24", "w-16", "w-16"]}
               rows={STUDENT_PAGE_SIZE}
-              minWidthClass="min-w-[840px]"
+              minWidthClass="min-w-[940px]"
             />
           )}
           {!studentsLoading && !studentsError && students.length === 0 && (
@@ -1101,6 +1109,14 @@ export default function CustomerCareDetailPanels({
                           {row.province ?? "—"}
                         </p>
                       </div>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                          % CSKH
+                        </p>
+                        <p className="mt-1 text-sm text-text-secondary">
+                          {formatProfitPercent(row.profitPercent)}
+                        </p>
+                      </div>
                       <div className="sm:col-span-2">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
                           Lớp
@@ -1113,7 +1129,7 @@ export default function CustomerCareDetailPanels({
               </div>
 
               <div className="hidden overflow-x-auto rounded-[1.5rem] border border-border-default bg-bg-surface shadow-sm lg:block">
-                <table className="w-full min-w-[940px] border-collapse text-left text-sm">
+                <table className="w-full min-w-[1040px] border-collapse text-left text-sm">
                 <caption className="sr-only">Danh sách học sinh chăm sóc</caption>
                 <thead>
                   <tr className="border-b border-border-default bg-bg-secondary/80">
@@ -1137,6 +1153,9 @@ export default function CustomerCareDetailPanels({
                     </th>
                     <th scope="col" className="px-3 py-3 font-medium text-text-primary">
                       Lớp
+                    </th>
+                    <th scope="col" className="px-3 py-3 font-medium text-text-primary tabular-nums">
+                      % CSKH
                     </th>
                   </tr>
                 </thead>
@@ -1192,6 +1211,9 @@ export default function CustomerCareDetailPanels({
                         <td className="px-3 py-3 text-text-secondary">{row.province ?? "—"}</td>
                         <td className="px-3 py-3 text-text-secondary">
                           {renderClassLinks(row.classes)}
+                        </td>
+                        <td className="px-3 py-3 tabular-nums text-text-secondary">
+                          {formatProfitPercent(row.profitPercent)}
                         </td>
                       </tr>
                   ))}

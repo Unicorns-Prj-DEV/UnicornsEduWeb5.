@@ -25,6 +25,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 - Bảng `lesson_plan_head_commission`: snapshot hoa hồng doanh thu Trưởng giáo án (`lesson_plan_head`) theo từng buổi học toàn hệ thống, mỗi buổi chargeable sinh 1 dòng cho mỗi nhân sự role này đang active. Đồng bộ idempotent qua `syncLessonPlanHeadCommissions()` khi tạo/sửa session.
 - Nguồn `revenue_share` mới trong `GET /staff/:id/payment-preview`, `PATCH /staff/:id/payment-status/pay-all|pay-selected`: cho phép thanh toán từng dòng hoa hồng doanh thu Trưởng giáo án (không khấu trừ thuế), gộp vào popup **Thanh toán** hiện có ở `/admin/staff/:id`.
+- Cột **% CSKH** trong bảng học sinh ở `admin/customer_care_detail/[staffId]` và `staff/customer-care-detail/[staffId]` (đọc `CustomerCareService.profitPercent` qua `GET /customer-care/staff/:staffId/students`, read-only ở slice này).
 
 ### Changed
 
