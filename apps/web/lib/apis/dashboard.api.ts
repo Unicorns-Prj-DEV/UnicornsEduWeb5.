@@ -4,7 +4,11 @@ import {
   AdminDashboardDto,
   AdminDashboardFinancialDetail,
   AdminDashboardFinancialDetailRowKey,
+  AdminDashboardFinancialExport,
+  AdminDashboardMonthlyStatistics,
   AdminDashboardStudentBalanceItem,
+  AdminDashboardStudentChurnItem,
+  AdminDashboardStudentChurnType,
   AdminDashboardTopupHistoryItem,
 } from "@/dtos/dashboard.dto";
 import { api } from "../client";
@@ -91,6 +95,46 @@ export async function getAdminStudentBalanceDetails(params?: {
   return response.data;
 }
 
+export async function getAdminStudentChurnDetails(params: {
+  type: AdminDashboardStudentChurnType;
+  month?: string;
+  year?: string;
+  limit?: number;
+  dateFrom?: string;
+  dateTo?: string;
+}): Promise<AdminDashboardStudentChurnItem[]> {
+  const response = await api.get<AdminDashboardStudentChurnItem[]>("/dashboard/student-churn-details", {
+    params: {
+      type: params.type,
+      ...(params.month ? { month: params.month } : {}),
+      ...(params.year ? { year: params.year } : {}),
+      ...(typeof params.limit === "number" ? { limit: params.limit } : {}),
+      ...(params.dateFrom ? { dateFrom: params.dateFrom } : {}),
+      ...(params.dateTo ? { dateTo: params.dateTo } : {}),
+    },
+  });
+
+  return response.data;
+}
+
+export async function getAdminMonthlyStatistics(params: {
+  fromMonth: string;
+  fromYear: string;
+  toMonth: string;
+  toYear: string;
+}): Promise<AdminDashboardMonthlyStatistics> {
+  const response = await api.get<AdminDashboardMonthlyStatistics>("/dashboard/monthly-statistics", {
+    params: {
+      fromMonth: params.fromMonth,
+      fromYear: params.fromYear,
+      toMonth: params.toMonth,
+      toYear: params.toYear,
+    },
+  });
+
+  return response.data;
+}
+
 export async function getAdminDashboardFinancialDetail(params: {
   rowKey: AdminDashboardFinancialDetailRowKey;
   month?: string;
@@ -111,4 +155,79 @@ export async function getAdminDashboardFinancialDetail(params: {
   });
 
   return response.data;
+}
+
+export async function getAdminDashboardFinancialExport(params?: {
+  month?: string;
+  year?: string;
+  limit?: number;
+  dateFrom?: string;
+  dateTo?: string;
+}): Promise<AdminDashboardFinancialExport> {
+  const response = await api.get<AdminDashboardFinancialExport>("/dashboard/financial-export", {
+    params: {
+      ...(params?.month ? { month: params.month } : {}),
+      ...(params?.year ? { year: params.year } : {}),
+      ...(typeof params?.limit === "number" ? { limit: params.limit } : {}),
+      ...(params?.dateFrom ? { dateFrom: params.dateFrom } : {}),
+      ...(params?.dateTo ? { dateTo: params.dateTo } : {}),
+    },
+  });
+
+  return response.data;
+}
+
+async function downloadFinancialExportFile(
+  path: string,
+  fallbackFilename: string,
+  params?: {
+    month?: string;
+    year?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  },
+): Promise<{ blob: Blob; filename: string }> {
+  const response = await api.get<Blob>(path, {
+    params: {
+      ...(params?.month ? { month: params.month } : {}),
+      ...(params?.year ? { year: params.year } : {}),
+      ...(params?.dateFrom ? { dateFrom: params.dateFrom } : {}),
+      ...(params?.dateTo ? { dateTo: params.dateTo } : {}),
+    },
+    responseType: "blob",
+  });
+
+  const contentDisposition = response.headers["content-disposition"] as string | undefined;
+  const filenameMatch = contentDisposition?.match(/filename="?([^"]+)"?/);
+  const filename = filenameMatch?.[1] ?? fallbackFilename;
+
+  return { blob: response.data, filename };
+}
+
+/** Tải PDF báo cáo tài chính render sẵn ở server, trả Blob + filename để download trực tiếp (không mở popup). */
+export async function downloadAdminDashboardFinancialExportPdf(params?: {
+  month?: string;
+  year?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}): Promise<{ blob: Blob; filename: string }> {
+  return downloadFinancialExportFile(
+    "/dashboard/financial-export/pdf",
+    "bao-cao-tai-chinh.pdf",
+    params,
+  );
+}
+
+/** Tải Excel báo cáo tài chính (sheet 1: Doanh thu, sheet 2: Chi phí), trả Blob + filename để download trực tiếp. */
+export async function downloadAdminDashboardFinancialExportExcel(params?: {
+  month?: string;
+  year?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}): Promise<{ blob: Blob; filename: string }> {
+  return downloadFinancialExportFile(
+    "/dashboard/financial-export/excel",
+    "bao-cao-tai-chinh.xlsx",
+    params,
+  );
 }

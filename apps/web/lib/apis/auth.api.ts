@@ -13,7 +13,12 @@ import type {
   CreateMyBonusPayload,
   UpdateMyBonusPayload,
 } from "@/dtos/bonus.dto";
-import type { StaffDashboardDto } from "@/dtos/dashboard.dto";
+import type {
+  StaffDashboardDto,
+  StaffDashboardStudentChangeItem,
+  StaffDashboardStudentChangeScope,
+  StaffDashboardStudentChangeType,
+} from "@/dtos/dashboard.dto";
 import type {
   CreateMyStaffExtraAllowancePayload,
   ExtraAllowanceListResponse,
@@ -248,6 +253,28 @@ export async function getMyStaffDashboard(
       params: {
         ...(params.month ? { month: params.month } : {}),
         ...(params.year ? { year: params.year } : {}),
+      },
+    },
+  );
+
+  return response.data;
+}
+
+/** New/dropped student rows in selected period, scoped by CSKH portfolio (own or managed). */
+export async function getMyCustomerCareStudentChanges(params: {
+  month?: string;
+  year?: string;
+  type: StaffDashboardStudentChangeType;
+  scope: StaffDashboardStudentChangeScope;
+}): Promise<StaffDashboardStudentChangeItem[]> {
+  const response = await api.get<StaffDashboardStudentChangeItem[]>(
+    "/users/me/staff-dashboard/customer-care-student-changes",
+    {
+      params: {
+        ...(params.month ? { month: params.month } : {}),
+        ...(params.year ? { year: params.year } : {}),
+        type: params.type,
+        scope: params.scope,
       },
     },
   );

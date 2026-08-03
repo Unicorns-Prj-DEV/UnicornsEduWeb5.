@@ -110,6 +110,33 @@ export interface AdminDashboardYearlySummary {
   profit: number;
 }
 
+export interface AdminDashboardMonthlyStatistic {
+  monthKey: string;
+  month: string;
+  students: number;
+  classes: number;
+  teachers: number;
+  revenue: number;
+  expense: number;
+  profit: number;
+  teacherCost: number;
+  customerCareCost: number;
+  lessonCost: number;
+  bonusCost: number;
+  extraAllowanceCost: number;
+  assistantCost: number;
+  trainingManagerCost: number;
+  operatingCost: number;
+  totalTopup: number;
+  totalUnpaid: number;
+}
+
+export interface AdminDashboardMonthlyStatistics {
+  fromMonthKey: string;
+  toMonthKey: string;
+  months: AdminDashboardMonthlyStatistic[];
+}
+
 export interface AdminDashboardTopupHistoryItem {
   id: string;
   dateTime: string;
@@ -125,6 +152,15 @@ export interface AdminDashboardStudentBalanceItem {
   studentName: string;
   className: string;
   balance: number;
+}
+
+export type AdminDashboardStudentChurnType = "new" | "dropped" | "active";
+
+export interface AdminDashboardStudentChurnItem {
+  studentId: string;
+  studentName: string;
+  className: string;
+  eventDate: string;
 }
 
 export type AdminDashboardFinancialDetailRowKey =
@@ -162,6 +198,55 @@ export interface AdminDashboardFinancialDetail {
   sources: AdminDashboardFinancialDetailSource[];
   items: AdminDashboardFinancialDetailItem[];
   emptyState: string;
+}
+
+export interface AdminDashboardFinancialExportRevenueItem {
+  studentId: string;
+  studentName: string;
+  className: string;
+  amount: number;
+  attendanceCount: number;
+}
+
+export interface AdminDashboardFinancialExportPersonnelItem {
+  staffId: string;
+  staffName: string;
+  amount: number;
+  note: string;
+}
+
+export interface AdminDashboardFinancialExportOtherCostItem {
+  id: string;
+  label: string;
+  amount: number;
+  note: string;
+}
+
+export interface AdminDashboardFinancialExportSummary {
+  topup: number;
+  revenue: number;
+  personnelCost: number;
+  otherCost: number;
+  profit: number;
+  totalIn: number;
+}
+
+export interface AdminDashboardFinancialExportMeta {
+  revenueItemCount: number;
+  revenueTruncated: boolean;
+  personnelItemCount: number;
+  personnelTruncated: boolean;
+  otherCostItemCount: number;
+  otherCostTruncated: boolean;
+}
+
+export interface AdminDashboardFinancialExport {
+  period: AdminDashboardPeriod;
+  summary: AdminDashboardFinancialExportSummary;
+  revenueItems: AdminDashboardFinancialExportRevenueItem[];
+  personnelItems: AdminDashboardFinancialExportPersonnelItem[];
+  otherCostItems: AdminDashboardFinancialExportOtherCostItem[];
+  meta: AdminDashboardFinancialExportMeta;
 }
 
 export interface AdminDashboardDto {
@@ -294,6 +379,18 @@ export interface StaffDashboardCustomerCareSection {
   topupTotal: number;
   lowBalanceStudents: StaffDashboardStudentAlertItem[];
   debtStudents: StaffDashboardStudentAlertItem[];
+}
+
+export type StaffDashboardStudentChangeType = "new" | "dropped";
+
+export type StaffDashboardStudentChangeScope = "own" | "managed";
+
+export interface StaffDashboardStudentChangeItem {
+  studentId: string;
+  studentName: string;
+  classNames: string | null;
+  /** ISO date: createdAt (type=new) hoặc dropOutDate (type=dropped). */
+  eventDate: string | null;
 }
 
 export interface StaffDashboardUnpaidStaffItem {
