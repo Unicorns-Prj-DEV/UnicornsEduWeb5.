@@ -41,6 +41,16 @@
   --ue-theme-preview-dark-end: #111827;
   --ue-theme-preview-pink-start: #FFF7FB;
   --ue-theme-preview-pink-end: #FCE7F3;
+
+  /* Categorical data-viz palette (dataviz skill reference, adjacent-pairlist order) */
+  --ue-viz-1: #2A78D6;
+  --ue-viz-2: #EB6834;
+  --ue-viz-3: #1BAF7A;
+  --ue-viz-4: #EDA100;
+  --ue-viz-5: #E87BA4;
+  --ue-viz-6: #008300;
+  --ue-viz-7: #4A3AA7;
+  --ue-viz-8: #E34948;
 }
 
 [data-theme="dark"] {
@@ -71,6 +81,16 @@
   --ue-warning: #FBBF24;
   --ue-error: #F87171;
   --ue-info: #38BDF8;
+
+  /* Categorical data-viz palette (dataviz skill reference, dark-surface steps) */
+  --ue-viz-1: #3987E5;
+  --ue-viz-2: #D95926;
+  --ue-viz-3: #199E70;
+  --ue-viz-4: #C98500;
+  --ue-viz-5: #D55181;
+  --ue-viz-6: #008300;
+  --ue-viz-7: #9085E9;
+  --ue-viz-8: #E66767;
 }
 
 /* Hoa anh đào / Hana — tông hồng, điểm nhấn rose */
