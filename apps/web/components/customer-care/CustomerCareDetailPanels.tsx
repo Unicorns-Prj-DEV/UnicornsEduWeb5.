@@ -338,6 +338,8 @@ export default function CustomerCareDetailPanels({
     staffRoles.includes("accountant_expense") ||
     staffRoles.includes("accountant") ||
     staffRoles.includes("admin");
+  const canEditProfitPercent =
+    fullProfile?.roleType === "admin" || staffRoles.includes("assistant");
 
   const {
     data: studentListPages,
@@ -552,6 +554,68 @@ export default function CustomerCareDetailPanels({
       toast.error("Không thể cập nhật trạng thái thanh toán. Vui lòng thử lại.");
     },
   });
+
+  const [editingProfitPercentStudentId, setEditingProfitPercentStudentId] =
+    useState<string | null>(null);
+  const [profitPercentDraft, setProfitPercentDraft] = useState("");
+
+  const updateProfitPercentMutation = useMutation({
+    mutationFn: ({
+      studentId,
+      profitPercent,
+    }: {
+      studentId: string;
+      profitPercent: number;
+    }) =>
+      studentApi.updateStudentById(studentId, {
+        customer_care_profit_percent: profitPercent,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["customer-care", "students", staffId],
+      });
+      toast.success("Đã cập nhật % CSKH.");
+    },
+    onError: () => {
+      toast.error("Không thể cập nhật % CSKH. Vui lòng thử lại.");
+    },
+    onSettled: () => {
+      setEditingProfitPercentStudentId(null);
+    },
+  });
+
+  const startEditingProfitPercent = (row: CustomerCareStudentItem) => {
+    if (!canEditProfitPercent) return;
+    setEditingProfitPercentStudentId(row.id);
+    setProfitPercentDraft(
+      row.profitPercent == null
+        ? ""
+        : String(Math.round(row.profitPercent * 100)),
+    );
+  };
+
+  const commitProfitPercentEdit = (studentId: string) => {
+    const trimmed = profitPercentDraft.trim();
+    if (!/^\d{1,2}$/.test(trimmed)) {
+      toast.error("% CSKH phải là số nguyên từ 0 đến 99.");
+      return;
+    }
+
+    const parsed = Number(trimmed);
+    if (parsed < 0 || parsed > 99) {
+      toast.error("% CSKH phải là số nguyên từ 0 đến 99.");
+      return;
+    }
+
+    updateProfitPercentMutation.mutate({
+      studentId,
+      profitPercent: parsed / 100,
+    });
+  };
+
+  const cancelProfitPercentEdit = () => {
+    setEditingProfitPercentStudentId(null);
+  };
 
   useEffect(() => {
     setExpandedStudentIds(new Set());
@@ -1113,9 +1177,41 @@ export default function CustomerCareDetailPanels({
                         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
                           % CSKH
                         </p>
-                        <p className="mt-1 text-sm text-text-secondary">
-                          {formatProfitPercent(row.profitPercent)}
-                        </p>
+                        {editingProfitPercentStudentId === row.id ? (
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            autoFocus
+                            value={profitPercentDraft}
+                            disabled={updateProfitPercentMutation.isPending}
+                            onChange={(e) => setProfitPercentDraft(e.target.value)}
+                            onBlur={() => commitProfitPercentEdit(row.id)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                commitProfitPercentEdit(row.id);
+                              } else if (e.key === "Escape") {
+                                e.preventDefault();
+                                cancelProfitPercentEdit();
+                              }
+                            }}
+                            className="mt-1 w-16 rounded-md border border-border-default bg-bg-surface px-2 py-1 text-sm tabular-nums text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                            aria-label={`Sửa % CSKH của ${row.fullName || "học sinh"}`}
+                          />
+                        ) : canEditProfitPercent ? (
+                          <button
+                            type="button"
+                            onClick={() => startEditingProfitPercent(row)}
+                            className="mt-1 rounded-md text-left text-sm tabular-nums text-text-secondary underline-offset-4 transition-colors hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                            aria-label={`Sửa % CSKH của ${row.fullName || "học sinh"}`}
+                          >
+                            {formatProfitPercent(row.profitPercent)}
+                          </button>
+                        ) : (
+                          <p className="mt-1 text-sm text-text-secondary">
+                            {formatProfitPercent(row.profitPercent)}
+                          </p>
+                        )}
                       </div>
                       <div className="sm:col-span-2">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
@@ -1213,7 +1309,39 @@ export default function CustomerCareDetailPanels({
                           {renderClassLinks(row.classes)}
                         </td>
                         <td className="px-3 py-3 tabular-nums text-text-secondary">
-                          {formatProfitPercent(row.profitPercent)}
+                          {editingProfitPercentStudentId === row.id ? (
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              autoFocus
+                              value={profitPercentDraft}
+                              disabled={updateProfitPercentMutation.isPending}
+                              onChange={(e) => setProfitPercentDraft(e.target.value)}
+                              onBlur={() => commitProfitPercentEdit(row.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  commitProfitPercentEdit(row.id);
+                                } else if (e.key === "Escape") {
+                                  e.preventDefault();
+                                  cancelProfitPercentEdit();
+                                }
+                              }}
+                              className="w-16 rounded-md border border-border-default bg-bg-surface px-2 py-1 text-sm tabular-nums text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                              aria-label={`Sửa % CSKH của ${row.fullName || "học sinh"}`}
+                            />
+                          ) : canEditProfitPercent ? (
+                            <button
+                              type="button"
+                              onClick={() => startEditingProfitPercent(row)}
+                              className="rounded-md px-1 py-0.5 text-left tabular-nums underline-offset-4 transition-colors hover:bg-bg-tertiary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                              aria-label={`Sửa % CSKH của ${row.fullName || "học sinh"}`}
+                            >
+                              {formatProfitPercent(row.profitPercent)}
+                            </button>
+                          ) : (
+                            formatProfitPercent(row.profitPercent)
+                          )}
                         </td>
                       </tr>
                   ))}
