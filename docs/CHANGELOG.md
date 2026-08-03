@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- FE/BE `/admin/dashboard/statistics`: nút **Xuất PDF** gọi `GET /dashboard/monthly-statistics/pdf` (cùng khoảng tháng đang chọn), tải PDF landscape A4 gồm 3 section chart SVG + bảng (Tài chính / Chi phí theo khoản có cột Tổng / Vận hành); render server-side qua `MonthlyStatisticsExportPdfService` + `ReceiptPdfService` (hỗ trợ thêm option `landscape`).
 - Bảng `lesson_plan_head_commission`: snapshot hoa hồng doanh thu Trưởng giáo án (`lesson_plan_head`) theo từng buổi học toàn hệ thống, mỗi buổi chargeable sinh 1 dòng cho mỗi nhân sự role này đang active. Đồng bộ idempotent qua `syncLessonPlanHeadCommissions()` khi tạo/sửa session.
 - Nguồn `revenue_share` mới trong `GET /staff/:id/payment-preview`, `PATCH /staff/:id/payment-status/pay-all|pay-selected`: cho phép thanh toán từng dòng hoa hồng doanh thu Trưởng giáo án (không khấu trừ thuế), gộp vào popup **Thanh toán** hiện có ở `/admin/staff/:id`.
 - Cột **% CSKH** trong bảng học sinh ở `admin/customer_care_detail/[staffId]` và `staff/customer-care-detail/[staffId]` (đọc `CustomerCareService.profitPercent` qua `GET /customer-care/staff/:staffId/students`).
@@ -38,8 +39,14 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- FE `/admin/dashboard/statistics`: bảng **Chi phí theo từng khoản** thêm cột **Tổng** (= `expense` cùng tháng, bấm được mở chi tiết Nhân sự/Khác).
+- FE `/admin/dashboard/statistics`: tách bảng dữ liệu chi tiết chung thành 3 bảng riêng, mỗi bảng nằm ngay dưới chart tương ứng (Tài chính: Doanh thu/Chi phí/Lợi nhuận/Tổng nạp; Chi phí theo khoản: 8 cột breakdown; Vận hành: Học sinh/Lớp/Gia sư).
 - `GET /staff/:id/revenue-share`: `amount` đổi từ tính live (`doanh thu × %`) sang tổng `lesson_plan_head_commission.amount` snapshot theo tháng, đồng bộ với payload thanh toán.
 - FE popup **Thông tin lớp**: chọn trạng thái **Đã kết thúc** dùng cùng logic `POST /class/:id/end` (eligibility + confirm/lý do); BE `PATCH /class/:id/basic-info` từ chối `running → ended` (phải dùng `POST /end`).
+
+### Removed
+
+- FE `/admin/dashboard/statistics`: bỏ đường **Tổng chưa thanh toán** khỏi chart Tài chính và bỏ cột cùng tên khỏi bảng dữ liệu chi tiết (API vẫn trả `totalUnpaid`, chỉ không hiển thị).
 
 ### Fixed
 
