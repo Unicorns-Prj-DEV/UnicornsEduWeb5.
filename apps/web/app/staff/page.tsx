@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ResponsiveDialog, ResponsiveDialogBody } from "@/components/ui/ResponsiveDialog";
 import {
   getFullProfile,
+  getMyCustomerCareStudentChanges,
   getMyStaffDashboard,
   getMyStaffIncomeSummary,
 } from "@/lib/apis/auth.api";
@@ -21,6 +22,8 @@ import {
   type StaffDashboardExpenseSection,
   type StaffDashboardLessonPlanHeadSection,
   type StaffDashboardLessonPlanSection,
+  type StaffDashboardStudentChangeScope,
+  type StaffDashboardStudentChangeType,
   type StaffDashboardTaskItem,
   type StaffDashboardTeacherSection,
   type StaffDashboardTrainingSection,
@@ -194,10 +197,12 @@ function MiniStat({
   label,
   value,
   tone = "default",
+  onClick,
 }: {
   label: string;
   value: string;
   tone?: "default" | "primary" | "success" | "warning" | "danger";
+  onClick?: () => void;
 }) {
   const toneClass =
     tone === "primary"
@@ -210,15 +215,132 @@ function MiniStat({
             ? "border-error/20 bg-error/8"
             : "border-border-default bg-bg-secondary/45";
 
-  return (
-    <article className={`rounded-lg border px-2.5 py-2 ${toneClass}`}>
+  const content = (
+    <>
       <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">
         {label}
       </p>
       <p className="mt-1 text-xl font-semibold tabular-nums leading-tight text-text-primary">
         {value}
       </p>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`w-full rounded-lg border px-2.5 py-2 text-left transition-colors hover:bg-bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${toneClass}`}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <article className={`rounded-lg border px-2.5 py-2 ${toneClass}`}>
+      {content}
     </article>
+  );
+}
+
+function formatStudentChangeDate(iso: string | null): string {
+  if (!iso) return "—";
+  try {
+    return new Intl.DateTimeFormat("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(new Date(iso));
+  } catch {
+    return "—";
+  }
+}
+
+function StudentChangeMiniStat({
+  label,
+  value,
+  tone,
+  type,
+  scope,
+  month,
+  year,
+}: {
+  label: string;
+  value: string;
+  tone: "primary" | "warning";
+  type: StaffDashboardStudentChangeType;
+  scope: StaffDashboardStudentChangeScope;
+  month: string;
+  year: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const dialogTitleId = `student-change-dialog-${type}-${scope}`;
+
+  const query = useQuery({
+    queryKey: ["staff", "self", "customer-care-student-changes", scope, type, year, month],
+    queryFn: () => getMyCustomerCareStudentChanges({ month, year, type, scope }),
+    enabled: open,
+    staleTime: 30_000,
+  });
+
+  return (
+    <>
+      <MiniStat label={label} value={value} tone={tone} onClick={() => setOpen(true)} />
+
+      {open && (
+        <ResponsiveDialog labelledBy={dialogTitleId} onBackdropClick={() => setOpen(false)}>
+          <div className="flex items-center justify-between border-b border-border-default px-5 py-4">
+            <h2 id={dialogTitleId} className="text-base font-semibold text-text-primary">
+              {label}
+              {query.data ? ` (${query.data.length})` : ""}
+            </h2>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="rounded-lg p-2 text-text-muted hover:bg-bg-secondary hover:text-text-primary"
+            >
+              Đóng
+            </button>
+          </div>
+          <ResponsiveDialogBody className="space-y-2 p-5 max-h-[70vh] overflow-y-auto">
+            {query.isLoading ? (
+              <p className="text-sm text-text-muted">Đang tải…</p>
+            ) : query.isError ? (
+              <p className="text-sm text-error">Không tải được danh sách học sinh.</p>
+            ) : !query.data || query.data.length === 0 ? (
+              <EmptyState
+                title="Không có học sinh"
+                description="Không có học sinh nào trong danh mục này ở kỳ đang chọn."
+              />
+            ) : (
+              query.data.map((item) => (
+                <Link
+                  key={item.studentId}
+                  href={`/staff/students/${encodeURIComponent(item.studentId)}`}
+                  className="block rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus text-left"
+                >
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold leading-snug text-text-primary">
+                        {item.studentName}
+                      </p>
+                      <p className="mt-0.5 text-[11px] leading-snug text-text-secondary">
+                        {item.classNames || "Chưa có lớp"}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-xs font-semibold text-primary">
+                      {formatStudentChangeDate(item.eventDate)}
+                    </span>
+                  </div>
+                </Link>
+              ))
+            )}
+          </ResponsiveDialogBody>
+        </ResponsiveDialog>
+      )}
+    </>
   );
 }
 
@@ -846,10 +968,14 @@ function SalesCsSummarySection({
   summary,
   staffBreakdown,
   monthLabel,
+  month,
+  year,
 }: {
   summary: StaffDashboardSalesCsSummary;
   staffBreakdown: StaffDashboardSalesCsStaffItem[];
   monthLabel: string;
+  month: string;
+  year: string;
 }) {
   return (
     <SurfaceCard
@@ -863,15 +989,23 @@ function SalesCsSummarySection({
           value={String(summary.activeStudentsCount)}
           tone="success"
         />
-        <MiniStat
+        <StudentChangeMiniStat
           label="HS mới tháng này"
           value={String(summary.newStudentsThisMonth)}
           tone="primary"
+          type="new"
+          scope="managed"
+          month={month}
+          year={year}
         />
-        <MiniStat
+        <StudentChangeMiniStat
           label="HS nghỉ tháng này"
           value={String(summary.droppedStudentsThisMonth)}
           tone="warning"
+          type="dropped"
+          scope="managed"
+          month={month}
+          year={year}
         />
         <MiniStat
           label="HS đang nợ học phí"
@@ -1061,9 +1195,13 @@ function AssistantActionAlertsList({
 function AssistantSection({
   section,
   monthLabel,
+  month,
+  year,
 }: {
   section: StaffDashboardAssistantSection;
   monthLabel: string;
+  month: string;
+  year: string;
 }) {
   const managedPortfolios =
     section.managedCustomerCarePortfolios ?? section.customerCarePortfolios ?? [];
@@ -1141,6 +1279,8 @@ function AssistantSection({
         }
         staffBreakdown={section.salesCsStaffBreakdown ?? []}
         monthLabel={monthLabel}
+        month={month}
+        year={year}
       />
     </section>
   );
@@ -1230,9 +1370,13 @@ function StudentAlertList({
 function CustomerCareSection({
   section,
   monthLabel,
+  month,
+  year,
 }: {
   section: StaffDashboardCustomerCareSection;
   monthLabel: string;
+  month: string;
+  year: string;
 }) {
   return (
     <section className="space-y-2">
@@ -1248,15 +1392,23 @@ function CustomerCareSection({
           description="Số liệu học sinh và tiền trong tháng đang xem."
         >
           <div className="grid gap-2 sm:grid-cols-2">
-            <MiniStat
+            <StudentChangeMiniStat
               label="Học sinh mới tháng này"
               value={String(section.newStudentsThisMonth)}
               tone="primary"
+              type="new"
+              scope="own"
+              month={month}
+              year={year}
             />
-            <MiniStat
+            <StudentChangeMiniStat
               label="Học sinh nghỉ tháng này"
               value={String(section.droppedStudentsThisMonth)}
               tone="warning"
+              type="dropped"
+              scope="own"
+              month={month}
+              year={year}
             />
             <MiniStat
               label="Đang chăm sóc"
@@ -2026,6 +2178,8 @@ export default function StaffDashboardPage() {
               <AssistantSection
                 section={dashboard.assistant}
                 monthLabel={monthLabel}
+                month={month}
+                year={year}
               />
             ) : null}
 
@@ -2033,6 +2187,8 @@ export default function StaffDashboardPage() {
               <CustomerCareSection
                 section={dashboard.customerCare}
                 monthLabel={monthLabel}
+                month={month}
+                year={year}
               />
             ) : null}
 
