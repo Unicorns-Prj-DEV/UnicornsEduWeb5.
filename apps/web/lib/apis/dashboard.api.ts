@@ -135,6 +135,32 @@ export async function getAdminMonthlyStatistics(params: {
   return response.data;
 }
 
+/** Tải PDF thống kê theo tháng (charts + bảng), trả Blob + filename để download trực tiếp. */
+export async function downloadAdminMonthlyStatisticsPdf(params: {
+  fromMonth: string;
+  fromYear: string;
+  toMonth: string;
+  toYear: string;
+}): Promise<{ blob: Blob; filename: string }> {
+  const response = await api.get<Blob>("/dashboard/monthly-statistics/pdf", {
+    params: {
+      fromMonth: params.fromMonth,
+      fromYear: params.fromYear,
+      toMonth: params.toMonth,
+      toYear: params.toYear,
+    },
+    responseType: "blob",
+  });
+
+  const contentDisposition = response.headers["content-disposition"] as string | undefined;
+  const filenameMatch = contentDisposition?.match(/filename="?([^"]+)"?/);
+  const filename =
+    filenameMatch?.[1] ??
+    `thong-ke-thang-${params.fromYear}-${params.fromMonth}_${params.toYear}-${params.toMonth}.pdf`;
+
+  return { blob: response.data, filename };
+}
+
 export async function getAdminDashboardFinancialDetail(params: {
   rowKey: AdminDashboardFinancialDetailRowKey;
   month?: string;

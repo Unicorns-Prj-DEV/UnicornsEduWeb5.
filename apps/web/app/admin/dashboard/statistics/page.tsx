@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { toast } from "sonner";
 import {
   Bar,
   CartesianGrid,
@@ -20,7 +21,11 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getAdminDashboardFinancialDetail, getAdminMonthlyStatistics } from "@/lib/apis/dashboard.api";
+import {
+  downloadAdminMonthlyStatisticsPdf,
+  getAdminDashboardFinancialDetail,
+  getAdminMonthlyStatistics,
+} from "@/lib/apis/dashboard.api";
 import { VIETNAMESE_MONTH_OPTIONS } from "@/lib/month-format";
 import { resolveAdminLikeRouteBase, buildAdminLikePath } from "@/lib/admin-shell-paths";
 import { FinancialDetailModal } from "@/components/admin/dashboard/FinancialDetailModal";
@@ -106,14 +111,6 @@ function FinancialTrendChart({ data }: { data: AdminDashboardMonthlyStatistic[] 
             dataKey="totalTopup"
             name="Tổng nạp"
             stroke="var(--ue-viz-4)"
-            strokeWidth={2}
-            dot={{ r: 3 }}
-            activeDot={{ r: 5 }}
-          />
-          <Line
-            dataKey="totalUnpaid"
-            name="Tổng chưa thanh toán"
-            stroke="var(--ue-viz-7)"
             strokeWidth={2}
             dot={{ r: 3 }}
             activeDot={{ r: 5 }}
@@ -228,6 +225,7 @@ export default function AdminDashboardStatisticsPage() {
   const [fromYear, setFromYear] = useState(defaultRange.fromYear);
   const [toMonth, setToMonth] = useState(defaultRange.toMonth);
   const [toYear, setToYear] = useState(defaultRange.toYear);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   const fromIndex = monthKeyToIndex(fromMonth, fromYear);
   const toIndex = monthKeyToIndex(toMonth, toYear);
@@ -260,23 +258,69 @@ export default function AdminDashboardStatisticsPage() {
     enabled: selectedTopupMonthKey != null,
   });
 
+  const triggerBlobDownload = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportPdf = async () => {
+    if (isExportingPdf || !canQuery) return;
+    setIsExportingPdf(true);
+    const toastId = toast.loading("Đang chuẩn bị báo cáo PDF…");
+
+    try {
+      const { blob, filename } = await downloadAdminMonthlyStatisticsPdf({
+        fromMonth,
+        fromYear,
+        toMonth,
+        toYear,
+      });
+      triggerBlobDownload(blob, filename);
+      toast.success("Đã tải báo cáo PDF.", { id: toastId });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Không xuất được báo cáo PDF.";
+      toast.error(message, { id: toastId });
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
   return (
     <div className="min-h-full bg-bg-primary p-4 sm:p-6">
       <div className="mx-auto w-full max-w-[1320px] space-y-4 rounded-xl border border-border-default bg-bg-surface p-4 sm:p-5">
         <section className="flex flex-col gap-3 border-b border-border-default pb-4">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="text-lg font-semibold text-text-primary">Thống kê theo tháng</h1>
               <p className="mt-1 text-sm text-text-secondary">
                 Học sinh, lớp học, gia sư, doanh thu, lợi nhuận và chi phí theo từng tháng trong khoảng thời gian đã chọn.
               </p>
             </div>
-            <Link
-              href={buildAdminLikePath(routeBase, "dashboard")}
-              className="whitespace-nowrap rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary"
-            >
-              ← Quay lại Dashboard
-            </Link>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  void handleExportPdf();
+                }}
+                disabled={!canQuery || isExportingPdf || statisticsQuery.isLoading}
+                className="inline-flex min-h-9 items-center rounded-md border border-border-default bg-bg-surface px-3 text-xs font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isExportingPdf ? "Đang xuất…" : "Xuất PDF"}
+              </button>
+              <Link
+                href={buildAdminLikePath(routeBase, "dashboard")}
+                className="whitespace-nowrap rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary"
+              >
+                ← Quay lại Dashboard
+              </Link>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-end gap-3">
@@ -339,6 +383,7 @@ export default function AdminDashboardStatisticsPage() {
           <div className="space-y-6">
             <ChartSkeleton />
             <ChartSkeleton />
+            <ChartSkeleton />
           </div>
         ) : statisticsQuery.isError ? (
           <Alert variant="destructive">
@@ -347,7 +392,7 @@ export default function AdminDashboardStatisticsPage() {
           </Alert>
         ) : (
           <>
-            <section className="space-y-2">
+            <section className="space-y-3">
               <div>
                 <h2 className="text-sm font-semibold text-text-primary">Doanh thu · Chi phí · Lợi nhuận</h2>
                 <p className="text-xs text-text-muted">
@@ -355,53 +400,24 @@ export default function AdminDashboardStatisticsPage() {
                 </p>
               </div>
               <FinancialTrendChart data={months} />
-            </section>
-
-            <section className="space-y-2">
-              <div>
-                <h2 className="text-sm font-semibold text-text-primary">Chi phí theo từng khoản</h2>
-                <p className="text-xs text-text-muted">
-                  Tách chi phí trong tháng thành 8 khoản: dạy, CSKH, giáo án, bonus, trợ cấp khác, trợ lí, quản lý lớp và vận hành.
-                </p>
-              </div>
-              <ExpenseBreakdownChart data={months} />
-            </section>
-
-            <section className="space-y-2">
-              <div>
-                <h2 className="text-sm font-semibold text-text-primary">Học sinh · Lớp học · Gia sư</h2>
-                <p className="text-xs text-text-muted">
-                  Học sinh: đang active tại thời điểm cuối tháng. Lớp học/gia sư: có buổi học diễn ra trong tháng đó.
-                </p>
-              </div>
-              <OperationsTrendChart data={months} />
-            </section>
-
-            <section className="space-y-2">
-              <h2 className="text-sm font-semibold text-text-primary">Bảng dữ liệu chi tiết</h2>
               <div className="overflow-x-auto rounded-xl border border-border-default">
                 <Table>
                   <TableHeader>
                     <TableRow className="border-border-default hover:bg-transparent">
                       <TableHead className="min-w-[100px]">Tháng</TableHead>
-                      <TableHead className="min-w-[100px] text-right">Học sinh</TableHead>
-                      <TableHead className="min-w-[100px] text-right">Lớp học</TableHead>
-                      <TableHead className="min-w-[100px] text-right">Gia sư</TableHead>
                       <TableHead className="min-w-[140px] text-right">Doanh thu</TableHead>
                       <TableHead className="min-w-[140px] text-right">Chi phí</TableHead>
                       <TableHead className="min-w-[140px] text-right">Lợi nhuận</TableHead>
                       <TableHead className="min-w-[140px] text-right">Tổng nạp</TableHead>
-                      <TableHead className="min-w-[140px] text-right">Tổng chưa thanh toán</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {months.map((row) => (
-                      <TableRow key={row.monthKey} className="border-border-default/80">
+                      <TableRow key={`finance-${row.monthKey}`} className="border-border-default/80">
                         <TableCell className="font-medium text-text-primary">{row.monthKey}</TableCell>
-                        <TableCell className="text-right tabular-nums text-text-secondary">{row.students}</TableCell>
-                        <TableCell className="text-right tabular-nums text-text-secondary">{row.classes}</TableCell>
-                        <TableCell className="text-right tabular-nums text-text-secondary">{row.teachers}</TableCell>
-                        <TableCell className="text-right tabular-nums text-text-primary">{formatCurrency(row.revenue)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-text-primary">
+                          {formatCurrency(row.revenue)}
+                        </TableCell>
                         <TableCell className="text-right tabular-nums text-text-primary">
                           <button
                             type="button"
@@ -425,8 +441,93 @@ export default function AdminDashboardStatisticsPage() {
                             {formatCurrency(row.totalTopup)}
                           </button>
                         </TableCell>
-                        <TableCell className="text-right tabular-nums text-text-primary">
-                          {formatCurrency(row.totalUnpaid)}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <div>
+                <h2 className="text-sm font-semibold text-text-primary">Chi phí theo từng khoản</h2>
+                <p className="text-xs text-text-muted">
+                  Tách chi phí trong tháng thành 8 khoản: dạy, CSKH, giáo án, bonus, trợ cấp khác, trợ lí, quản lý lớp và vận hành.
+                </p>
+              </div>
+              <ExpenseBreakdownChart data={months} />
+              <div className="overflow-x-auto rounded-xl border border-border-default">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border-default hover:bg-transparent">
+                      <TableHead className="min-w-[100px]">Tháng</TableHead>
+                      {EXPENSE_BREAKDOWN_SERIES.map((series) => (
+                        <TableHead key={series.key} className="min-w-[110px] text-right">
+                          {series.name}
+                        </TableHead>
+                      ))}
+                      <TableHead className="min-w-[140px] text-right">Tổng</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {months.map((row) => (
+                      <TableRow key={`expense-${row.monthKey}`} className="border-border-default/80">
+                        <TableCell className="font-medium text-text-primary">{row.monthKey}</TableCell>
+                        {EXPENSE_BREAKDOWN_SERIES.map((series) => (
+                          <TableCell
+                            key={series.key}
+                            className="text-right tabular-nums text-text-primary"
+                          >
+                            {formatCurrency(Number(row[series.key]))}
+                          </TableCell>
+                        ))}
+                        <TableCell className="text-right tabular-nums font-semibold text-text-primary">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedExpenseMonthKey(row.monthKey)}
+                            className="rounded-md underline decoration-dotted underline-offset-4 transition-colors hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                            aria-label={`Mở chi tiết chi phí tháng ${row.monthKey}`}
+                          >
+                            {formatCurrency(row.expense)}
+                          </button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <div>
+                <h2 className="text-sm font-semibold text-text-primary">Học sinh · Lớp học · Gia sư</h2>
+                <p className="text-xs text-text-muted">
+                  Học sinh: đang active tại thời điểm cuối tháng. Lớp học/gia sư: có buổi học diễn ra trong tháng đó.
+                </p>
+              </div>
+              <OperationsTrendChart data={months} />
+              <div className="overflow-x-auto rounded-xl border border-border-default">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border-default hover:bg-transparent">
+                      <TableHead className="min-w-[100px]">Tháng</TableHead>
+                      <TableHead className="min-w-[100px] text-right">Học sinh</TableHead>
+                      <TableHead className="min-w-[100px] text-right">Lớp học</TableHead>
+                      <TableHead className="min-w-[100px] text-right">Gia sư</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {months.map((row) => (
+                      <TableRow key={`ops-${row.monthKey}`} className="border-border-default/80">
+                        <TableCell className="font-medium text-text-primary">{row.monthKey}</TableCell>
+                        <TableCell className="text-right tabular-nums text-text-secondary">
+                          {row.students}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-text-secondary">
+                          {row.classes}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-text-secondary">
+                          {row.teachers}
                         </TableCell>
                       </TableRow>
                     ))}
