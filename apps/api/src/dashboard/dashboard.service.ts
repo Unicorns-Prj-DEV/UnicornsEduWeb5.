@@ -59,6 +59,11 @@ type SummaryCountRow = {
   activeStudents: number | string | null;
 };
 
+type StudentChurnCountRow = {
+  newStudentsThisMonth: number | string | null;
+  droppedStudentsThisMonth: number | string | null;
+};
+
 type CustomerCareStaffDebtAggregateRow = {
   staffId: string;
   debtStudentCount: number | string | null;
@@ -705,6 +710,41 @@ export class DashboardService {
         activeStudents: 0,
       }
     );
+  }
+
+  /** System-wide (all StudentInfo, not scoped by CSKH staff) new/dropped counts for the selected period. */
+  private async getStudentChurnCounts(period: {
+    monthStart: Date;
+    monthEnd: Date;
+  }): Promise<{
+    newStudentsThisMonth: number;
+    droppedStudentsThisMonth: number;
+  }> {
+    const [row] = await this.prisma.$queryRaw<StudentChurnCountRow[]>(
+      Prisma.sql`
+        SELECT
+          (
+            SELECT COUNT(*)
+            FROM student_info
+            WHERE student_info.created_at >= ${period.monthStart}
+              AND student_info.created_at < ${period.monthEnd}
+          ) AS "newStudentsThisMonth",
+          (
+            SELECT COUNT(*)
+            FROM student_info
+            WHERE student_info.drop_out_date IS NOT NULL
+              AND student_info.drop_out_date >= ${period.monthStart}
+              AND student_info.drop_out_date < ${period.monthEnd}
+          ) AS "droppedStudentsThisMonth"
+      `,
+    );
+
+    return {
+      newStudentsThisMonth: normalizeInteger(row?.newStudentsThisMonth),
+      droppedStudentsThisMonth: normalizeInteger(
+        row?.droppedStudentsThisMonth,
+      ),
+    };
   }
 
   private async getMonthlyTopupTotal(params: {
@@ -3810,6 +3850,7 @@ export class DashboardService {
           // Trend / yearly summary are not applicable and return empty.
           const [
             summaryCounts,
+            studentChurnCounts,
             monthlyTopupTotal,
             rangeTotals,
             prepaidTuitionTotal,
@@ -3821,6 +3862,10 @@ export class DashboardService {
             pendingCollectionTotal,
           ] = await Promise.all([
             this.getSummaryCounts(),
+            this.getStudentChurnCounts({
+              monthStart: period.monthStart,
+              monthEnd: period.monthEnd,
+            }),
             this.getMonthlyTopupTotal({
               monthStart: period.monthStart,
               monthEnd: period.monthEnd,
@@ -3947,6 +3992,9 @@ export class DashboardService {
             summary: {
               activeClasses: normalizeInteger(summaryCounts.activeClasses),
               activeStudents: normalizeInteger(summaryCounts.activeStudents),
+              newStudentsThisMonth: studentChurnCounts.newStudentsThisMonth,
+              droppedStudentsThisMonth:
+                studentChurnCounts.droppedStudentsThisMonth,
               monthlyTopupTotal,
               totalLearnedTuition: rangeTotals.revenue,
               monthlyRevenue: rangeTotals.revenue,
@@ -3977,6 +4025,7 @@ export class DashboardService {
         // Month mode (default)
         const [
           summaryCounts,
+          studentChurnCounts,
           monthlyTopupTotal,
           trendRows,
           prepaidTuitionTotal,
@@ -3989,6 +4038,10 @@ export class DashboardService {
           pendingCollectionTotal,
         ] = await Promise.all([
           this.getSummaryCounts(),
+          this.getStudentChurnCounts({
+            monthStart: period.monthStart,
+            monthEnd: period.monthEnd,
+          }),
           this.getMonthlyTopupTotal({
             monthStart: period.monthStart,
             monthEnd: period.monthEnd,
@@ -4156,6 +4209,9 @@ export class DashboardService {
           summary: {
             activeClasses: normalizeInteger(summaryCounts.activeClasses),
             activeStudents: normalizeInteger(summaryCounts.activeStudents),
+            newStudentsThisMonth: studentChurnCounts.newStudentsThisMonth,
+            droppedStudentsThisMonth:
+              studentChurnCounts.droppedStudentsThisMonth,
             monthlyTopupTotal,
             totalLearnedTuition,
             monthlyRevenue: selectedMonthTrend.revenue,

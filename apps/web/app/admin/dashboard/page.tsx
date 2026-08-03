@@ -1105,6 +1105,12 @@ export default function AdminDashboardTabPage() {
           <KpiCard title="Lớp học" value={String(dashboard.summary.activeClasses)} note={`${dashboard.summary.activeClasses} đang hoạt động`} tone="primary" />
           <KpiCard title="Học sinh" value={String(dashboard.summary.activeStudents)} note={`${dashboard.summary.activeStudents} đang học`} tone="default" />
           <KpiCard
+            title="Biến động học sinh"
+            value={`+${dashboard.summary.newStudentsThisMonth} / -${dashboard.summary.droppedStudentsThisMonth}`}
+            note="Học sinh mới / nghỉ trong kỳ đang chọn"
+            tone={dashboard.summary.droppedStudentsThisMonth > 0 ? "warning" : "default"}
+          />
+          <KpiCard
             title="Lợi nhuận tháng"
             value={formatCurrency(periodFinancialDashboard?.summary.monthlyProfit ?? 0)}
             note="Doanh thu thực tế (học phí đã học) trừ chi phí trong kỳ"

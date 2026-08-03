@@ -107,6 +107,7 @@
     - Với `rowKey=pending-payroll`, thẻ nguồn **Trợ cấp quản lý lớp chưa thanh toán** lấy tổng `totalTrainingManagerAmount` từ aggregate SQL unpaid staff (all-time, không lọc kỳ dashboard).
     - Endpoint này cũng dùng `dashboard_cache`; FE `/admin/dashboard` mở modal chung và fetch on-demand khi user bấm vào từng giá trị tiền trong bảng tài chính.
   - `summary.activeClasses` đếm `classes.status = running`; `summary.activeStudents` đếm học sinh active đang thuộc lớp running.
+  - `summary.newStudentsThisMonth`/`summary.droppedStudentsThisMonth` đếm toàn hệ thống (mọi `StudentInfo`, không lọc theo CSKH) có `createdAt`/`dropOutDate` rơi trong kỳ đang chọn (month mode lọc theo tháng dương lịch, range mode lọc theo `dateFrom`–`dateTo`); hiển thị ở KPI card **Biến động học sinh** (`+X / -Y`) trên `/admin/dashboard`, cập nhật theo month navigator.
   - `summary.monthlyTopupTotal` lấy từ tổng `wallet_transactions_history.amount` của giao dịch `type = topup` phát sinh trong tháng đang xem.
   - `summary.totalLearnedTuition` và `summary.monthlyRevenue` **trùng nhau** trong payload hiện tại: tổng `attendance.tuition_fee` với `status IN (present, excused)` và `sessions.date` thuộc tháng đang xem.
   - `summary.monthlyExpense` và breakdown chi phí **theo kỳ** được cộng từ: phụ cấp buổi dạy, commission CSKH, `lesson_outputs.cost`, `bonuses`, `extra_allowances`, trợ cấp trợ lí (3% tuition theo quan hệ trợ lí–CSKH, loại self-managed), trợ cấp quản lý lớp (`sessions.training_manager_allowance_amount`), và **Chi phí khác** chỉ gồm `cost_extend` (operating).

@@ -28,6 +28,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - Cột **% CSKH** trong bảng học sinh ở `admin/customer_care_detail/[staffId]` và `staff/customer-care-detail/[staffId]` (đọc `CustomerCareService.profitPercent` qua `GET /customer-care/staff/:staffId/students`).
 - Inline edit % CSKH trực tiếp trên bảng học sinh (click ô % → input → Enter/blur lưu qua `PATCH /student/:id`); chỉ admin/assistant sửa được, CSKH chỉ xem.
 - Bulk edit % CSKH: checkbox chọn nhiều học sinh trong bảng + action bar ghi đè 1 giá trị % duy nhất qua `PATCH /customer-care/staff/:staffId/profit-percent/bulk` (chỉ admin/assistant, scoped theo `staffId`).
+- KPI card **Biến động học sinh** (`+X / -Y`) trên `admin/dashboard`: `summary.newStudentsThisMonth`/`droppedStudentsThisMonth` đếm toàn hệ thống theo `createdAt`/`dropOutDate` trong kỳ đang chọn (`GET /dashboard`), cập nhật theo month navigator.
 
 ### Changed
 

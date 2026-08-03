@@ -11,6 +11,10 @@ export interface AdminDashboardPeriod {
 export interface AdminDashboardSummary {
   activeClasses: number;
   activeStudents: number;
+  /** Toàn hệ thống (không lọc theo CSKH), createdAt rơi trong kỳ đang chọn. */
+  newStudentsThisMonth: number;
+  /** Toàn hệ thống (không lọc theo CSKH), dropOutDate rơi trong kỳ đang chọn. */
+  droppedStudentsThisMonth: number;
   monthlyTopupTotal: number;
   totalLearnedTuition: number;
   monthlyRevenue: number;

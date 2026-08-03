@@ -267,6 +267,10 @@ export interface AdminDashboardPeriodDto {
 export interface AdminDashboardSummaryDto {
   activeClasses: number;
   activeStudents: number;
+  /** All StudentInfo (toàn hệ thống, không lọc theo CSKH) có createdAt rơi trong kỳ đang chọn. */
+  newStudentsThisMonth: number;
+  /** All StudentInfo (toàn hệ thống, không lọc theo CSKH) có dropOutDate rơi trong kỳ đang chọn. */
+  droppedStudentsThisMonth: number;
   monthlyTopupTotal: number;
   totalLearnedTuition: number;
   monthlyRevenue: number;
