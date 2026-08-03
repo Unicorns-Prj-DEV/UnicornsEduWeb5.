@@ -29,12 +29,14 @@ import {
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { BonusService } from 'src/bonus/bonus.service';
-import { PaymentStatus } from 'generated/enums';
+import { PaymentStatus, StaffRole } from 'generated/enums';
 import { ExtraAllowanceService } from 'src/extra-allowance/extra-allowance.service';
 import { LessonService } from 'src/lesson/lesson.service';
 import {
   GetStaffDashboardQueryDto,
+  GetStaffDashboardStudentChangesQueryDto,
   type StaffDashboardDto,
+  type StaffDashboardStudentChangeItemDto,
 } from 'src/dtos/dashboard.dto';
 import {
   CreateStudentSePayTopUpOrderDto,
@@ -201,6 +203,41 @@ export class UserProfileController {
     return this.dashboardService.getStaffDashboard({
       staffId: staffInfo.id,
       staffRoles: staffInfo.roles ?? [],
+      query,
+    });
+  }
+
+  @Get('staff-dashboard/customer-care-student-changes')
+  @ApiOperation({
+    summary: 'Get list of new/dropped students for the selected period',
+    description:
+      'Returns student names and their new/dropped date, scoped by CSKH portfolio (own or managed), for the staff dashboard "click to view" detail popup.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'New/dropped student rows for the selected period.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'User has no linked staff record.',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  async getMyCustomerCareStudentChanges(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: GetStaffDashboardStudentChangesQueryDto,
+  ): Promise<StaffDashboardStudentChangeItemDto[]> {
+    const profile = await this.userService.getFullProfile(user.id);
+    const staffInfo = profile.staffInfo;
+
+    if (!staffInfo?.id) {
+      throw new BadRequestException('User has no linked staff record');
+    }
+
+    return this.dashboardService.getStaffCustomerCareStudentChanges({
+      staffId: staffInfo.id,
+      hasCustomerCareRole: (staffInfo.roles ?? []).includes(
+        StaffRole.customer_care,
+      ),
       query,
     });
   }

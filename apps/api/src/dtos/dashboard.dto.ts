@@ -191,6 +191,76 @@ export class GetAdminStudentBalanceDetailsQueryDto {
   dateTo?: string;
 }
 
+export const ADMIN_DASHBOARD_STUDENT_CHURN_TYPES = [
+  'new',
+  'dropped',
+  'active',
+] as const;
+
+export type AdminDashboardStudentChurnTypeDto =
+  (typeof ADMIN_DASHBOARD_STUDENT_CHURN_TYPES)[number];
+
+export class GetAdminStudentChurnDetailsQueryDto {
+  @ApiProperty({
+    description: 'Churn type: new (enrolled in period) or dropped (left in period).',
+    enum: ADMIN_DASHBOARD_STUDENT_CHURN_TYPES,
+    example: 'new',
+  })
+  @IsIn(ADMIN_DASHBOARD_STUDENT_CHURN_TYPES)
+  type: AdminDashboardStudentChurnTypeDto;
+
+  @ApiPropertyOptional({
+    description: 'Month in 01-12 format. Defaults to current month.',
+    example: '03',
+  })
+  @IsOptional()
+  @Matches(/^(0[1-9]|1[0-2])$/, {
+    message: 'month must use 01-12 format.',
+  })
+  month?: string;
+
+  @ApiPropertyOptional({
+    description: 'Year in YYYY format. Defaults to current year.',
+    example: '2026',
+  })
+  @IsOptional()
+  @Matches(/^\d{4}$/, {
+    message: 'year must use YYYY format.',
+  })
+  year?: string;
+
+  @ApiPropertyOptional({
+    description: 'Date range start in YYYY-MM-DD format.',
+    example: '2026-04-01',
+  })
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'dateFrom must use YYYY-MM-DD format.',
+  })
+  dateFrom?: string;
+
+  @ApiPropertyOptional({
+    description: 'Date range end (inclusive) in YYYY-MM-DD format.',
+    example: '2026-04-30',
+  })
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'dateTo must use YYYY-MM-DD format.',
+  })
+  dateTo?: string;
+
+  @ApiPropertyOptional({
+    description: 'Maximum number of student rows returned.',
+    example: 200,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(500)
+  limit?: number;
+}
+
 export class GetAdminDashboardFinancialDetailQueryDto {
   @ApiProperty({
     description: 'Financial summary row key.',
@@ -430,6 +500,71 @@ export interface AdminDashboardYearlySummaryDto {
   profit: number;
 }
 
+export interface AdminDashboardMonthlyStatisticDto {
+  monthKey: string;
+  month: string;
+  students: number;
+  classes: number;
+  teachers: number;
+  revenue: number;
+  expense: number;
+  profit: number;
+  teacherCost: number;
+  customerCareCost: number;
+  lessonCost: number;
+  bonusCost: number;
+  extraAllowanceCost: number;
+  assistantCost: number;
+  trainingManagerCost: number;
+  operatingCost: number;
+  totalTopup: number;
+  totalUnpaid: number;
+}
+
+export interface AdminDashboardMonthlyStatisticsDto {
+  fromMonthKey: string;
+  toMonthKey: string;
+  months: AdminDashboardMonthlyStatisticDto[];
+}
+
+export class GetAdminMonthlyStatisticsQueryDto {
+  @ApiProperty({
+    description: 'Start month in 01-12 format.',
+    example: '09',
+  })
+  @Matches(/^(0[1-9]|1[0-2])$/, {
+    message: 'fromMonth must use 01-12 format.',
+  })
+  fromMonth: string;
+
+  @ApiProperty({
+    description: 'Start year in YYYY format.',
+    example: '2025',
+  })
+  @Matches(/^\d{4}$/, {
+    message: 'fromYear must use YYYY format.',
+  })
+  fromYear: string;
+
+  @ApiProperty({
+    description: 'End month in 01-12 format (inclusive).',
+    example: '08',
+  })
+  @Matches(/^(0[1-9]|1[0-2])$/, {
+    message: 'toMonth must use 01-12 format.',
+  })
+  toMonth: string;
+
+  @ApiProperty({
+    description: 'End year in YYYY format (inclusive).',
+    example: '2026',
+  })
+  @Matches(/^\d{4}$/, {
+    message: 'toYear must use YYYY format.',
+  })
+  toYear: string;
+}
+
 export interface AdminDashboardTopupHistoryItemDto {
   id: string;
   dateTime: string;
@@ -445,6 +580,13 @@ export interface AdminDashboardStudentBalanceItemDto {
   studentName: string;
   className: string;
   balance: number;
+}
+
+export interface AdminDashboardStudentChurnItemDto {
+  studentId: string;
+  studentName: string;
+  className: string;
+  eventDate: string;
 }
 
 export interface AdminDashboardFinancialDetailSourceDto {
@@ -471,6 +613,111 @@ export interface AdminDashboardFinancialDetailDto {
   sources: AdminDashboardFinancialDetailSourceDto[];
   items: AdminDashboardFinancialDetailItemDto[];
   emptyState: string;
+}
+
+export class GetAdminDashboardFinancialExportQueryDto {
+  @ApiPropertyOptional({
+    description: 'Month in 01-12 format. Defaults to current month.',
+    example: '03',
+  })
+  @IsOptional()
+  @Matches(/^(0[1-9]|1[0-2])$/, {
+    message: 'month must use 01-12 format.',
+  })
+  month?: string;
+
+  @ApiPropertyOptional({
+    description: 'Year in YYYY format. Defaults to current year.',
+    example: '2026',
+  })
+  @IsOptional()
+  @Matches(/^\d{4}$/, {
+    message: 'year must use YYYY format.',
+  })
+  year?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Maximum number of detail rows returned per section (revenue / personnel / other cost). Defaults to 5000.',
+    example: 5000,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(5000)
+  limit?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Date range start in YYYY-MM-DD format. When provided together with dateTo, activates date-range mode.',
+    example: '2026-01-01',
+  })
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'dateFrom must use YYYY-MM-DD format.',
+  })
+  dateFrom?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Date range end (inclusive) in YYYY-MM-DD format. Must be used together with dateFrom.',
+    example: '2026-08-03',
+  })
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'dateTo must use YYYY-MM-DD format.',
+  })
+  dateTo?: string;
+}
+
+export interface AdminDashboardFinancialExportRevenueItemDto {
+  studentId: string;
+  studentName: string;
+  className: string;
+  amount: number;
+  attendanceCount: number;
+}
+
+export interface AdminDashboardFinancialExportPersonnelItemDto {
+  staffId: string;
+  staffName: string;
+  amount: number;
+  note: string;
+}
+
+export interface AdminDashboardFinancialExportOtherCostItemDto {
+  id: string;
+  label: string;
+  amount: number;
+  note: string;
+}
+
+export interface AdminDashboardFinancialExportSummaryDto {
+  topup: number;
+  revenue: number;
+  personnelCost: number;
+  otherCost: number;
+  profit: number;
+  totalIn: number;
+}
+
+export interface AdminDashboardFinancialExportMetaDto {
+  revenueItemCount: number;
+  revenueTruncated: boolean;
+  personnelItemCount: number;
+  personnelTruncated: boolean;
+  otherCostItemCount: number;
+  otherCostTruncated: boolean;
+}
+
+export interface AdminDashboardFinancialExportDto {
+  period: AdminDashboardPeriodDto;
+  summary: AdminDashboardFinancialExportSummaryDto;
+  revenueItems: AdminDashboardFinancialExportRevenueItemDto[];
+  personnelItems: AdminDashboardFinancialExportPersonnelItemDto[];
+  otherCostItems: AdminDashboardFinancialExportOtherCostItemDto[];
+  meta: AdminDashboardFinancialExportMetaDto;
 }
 
 export interface AdminDashboardDto {
@@ -615,6 +862,63 @@ export interface StaffDashboardStudentAlertItemDto {
   accountBalance: number;
   referenceTuition: number | null;
   dueLabel: string;
+}
+
+export type StaffDashboardStudentChangeType = 'new' | 'dropped';
+
+export type StaffDashboardStudentChangeScope = 'own' | 'managed';
+
+export interface StaffDashboardStudentChangeItemDto {
+  studentId: string;
+  studentName: string;
+  classNames: string | null;
+  /** ISO date: createdAt (type=new) hoặc dropOutDate (type=dropped). */
+  eventDate: string | null;
+}
+
+const STAFF_DASHBOARD_STUDENT_CHANGE_TYPES: StaffDashboardStudentChangeType[] =
+  ['new', 'dropped'];
+
+const STAFF_DASHBOARD_STUDENT_CHANGE_SCOPES: StaffDashboardStudentChangeScope[] =
+  ['own', 'managed'];
+
+export class GetStaffDashboardStudentChangesQueryDto {
+  @ApiPropertyOptional({
+    description: 'Month in 01-12 format. Defaults to current month.',
+    example: '03',
+  })
+  @IsOptional()
+  @Matches(/^(0[1-9]|1[0-2])$/, {
+    message: 'month must use 01-12 format.',
+  })
+  month?: string;
+
+  @ApiPropertyOptional({
+    description: 'Year in YYYY format. Defaults to current year.',
+    example: '2026',
+  })
+  @IsOptional()
+  @Matches(/^\d{4}$/, {
+    message: 'year must use YYYY format.',
+  })
+  year?: string;
+
+  @ApiProperty({
+    description: 'Loại biến động học sinh cần xem: new (mới) hoặc dropped (nghỉ).',
+    enum: STAFF_DASHBOARD_STUDENT_CHANGE_TYPES,
+    example: 'new',
+  })
+  @IsIn(STAFF_DASHBOARD_STUDENT_CHANGE_TYPES)
+  type: StaffDashboardStudentChangeType;
+
+  @ApiProperty({
+    description:
+      'Phạm vi CSKH: own (chỉ học sinh do bản thân phụ trách) hoặc managed (bản thân + CSKH được quản lí, dùng cho trợ lí).',
+    enum: STAFF_DASHBOARD_STUDENT_CHANGE_SCOPES,
+    example: 'own',
+  })
+  @IsIn(STAFF_DASHBOARD_STUDENT_CHANGE_SCOPES)
+  scope: StaffDashboardStudentChangeScope;
 }
 
 export interface StaffDashboardCustomerCareSectionDto {
