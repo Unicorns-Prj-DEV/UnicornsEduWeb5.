@@ -22,6 +22,10 @@ import {
   resolveAdminLikeRouteBase,
 } from "@/lib/admin-shell-paths";
 import * as lessonApi from "@/lib/apis/lesson.api";
+import { getStaffRevenueShare } from "@/lib/apis/staff.api";
+import type { StaffRevenueShare } from "@/dtos/staff.dto";
+import { MonthInput } from "@/components/ui/MonthInput";
+import { getDefaultMonthKey, parseMonthKey } from "@/lib/month-format";
 import { toast } from "sonner";
 
 const RECENT_DAYS = 30;
@@ -135,6 +139,23 @@ export default function AdminLessonPlanDetailPage() {
       lessonApi.getLessonOutputStatsByStaff(staffId, {
         days: RECENT_DAYS,
       }),
+    enabled: !!staffId,
+  });
+
+  const [revenueShareMonthKey, setRevenueShareMonthKey] = useState(getDefaultMonthKey);
+  const revenueShareParsed = parseMonthKey(revenueShareMonthKey);
+  const revenueShareMonth = String(revenueShareParsed?.month ?? new Date().getMonth() + 1).padStart(2, "0");
+  const revenueShareYear = String(revenueShareParsed?.year ?? new Date().getFullYear());
+  const isCurrentRevenueShareMonth = revenueShareMonthKey === getDefaultMonthKey();
+
+  const {
+    data: revenueShare,
+    isLoading: isRevenueShareLoading,
+    isError: isRevenueShareError,
+  } = useQuery<StaffRevenueShare>({
+    queryKey: ["staff", "revenue-share", staffId, revenueShareMonth, revenueShareYear],
+    queryFn: () =>
+      getStaffRevenueShare(staffId, { month: revenueShareMonth, year: revenueShareYear }),
     enabled: !!staffId,
   });
 
@@ -316,6 +337,61 @@ export default function AdminLessonPlanDetailPage() {
         </svg>
         Quay lại nhân sự
       </Link>
+
+      <section className="rounded-[1.25rem] border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-text-primary sm:text-lg">
+              Hoa hồng doanh thu tháng {revenueShareMonth}/{revenueShareYear}
+            </h2>
+            <p className="mt-1 text-sm text-text-muted">
+              Tính real-time trên doanh thu gộp toàn hệ thống, không khấu trừ thuế.
+              {isCurrentRevenueShareMonth
+                ? ""
+                : " Số liệu tháng quá khứ luôn tính theo % hoa hồng HIỆN TẠI của nhân sự, không snapshot theo % tại thời điểm đó."}
+            </p>
+          </div>
+          <MonthInput
+            value={revenueShareMonthKey}
+            onChange={(event) => setRevenueShareMonthKey(event.target.value)}
+            aria-label="Chọn tháng xem hoa hồng doanh thu"
+          />
+        </div>
+        {isRevenueShareLoading ? (
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div
+                key={`revenue-share-skeleton-${index}`}
+                className="h-24 animate-pulse rounded-xl border border-border-default bg-bg-secondary/70"
+              />
+            ))}
+          </div>
+        ) : isRevenueShareError ? (
+          <p className="mt-4 text-sm text-error">
+            Không tải được dữ liệu hoa hồng doanh thu.
+          </p>
+        ) : (
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <SummaryCard
+              label="Tỷ lệ % hoa hồng"
+              value={
+                revenueShare?.revenueSharePercent == null
+                  ? "Chưa thiết lập"
+                  : `${revenueShare.revenueSharePercent}%`
+              }
+            />
+            <SummaryCard
+              label="Tổng doanh thu hệ thống"
+              value={`${formatCurrency(revenueShare?.revenue ?? 0)}đ`}
+            />
+            <SummaryCard
+              label="Số tiền thực nhận"
+              value={`${formatCurrency(revenueShare?.amount ?? 0)}đ`}
+              tone="success"
+            />
+          </div>
+        )}
+      </section>
 
       {isLoading ? (
         <>

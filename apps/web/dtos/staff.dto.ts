@@ -81,6 +81,7 @@ export interface StaffDetail {
     bankQrLink?: string | null;
     personalAchievementLink?: string | null;
     googleMeetLink?: string | null;
+    revenueSharePercent?: number | null;
     roles: string[];
     status: StaffStatus;
     createdAt?: string;
@@ -192,6 +193,14 @@ export interface StaffIncomeSummary {
     otherRoleSummaries: StaffIncomeRoleSummary[];
 }
 
+export interface StaffRevenueShare {
+    staffId: string;
+    month: string;
+    revenueSharePercent: number | null;
+    revenue: number;
+    amount: number;
+}
+
 export interface StaffPaymentPreviewTotals {
     grossTotal: number;
     operatingTotal: number;
@@ -245,7 +254,8 @@ export type StaffPaymentSourceType =
     | "assistant_share"
     | "lesson_output"
     | "extra_allowance"
-    | "bonus";
+    | "bonus"
+    | "revenue_share";
 
 export interface StaffPaySelectedPaymentItem {
     sourceType: StaffPaymentSourceType;
@@ -329,6 +339,7 @@ export interface CreateStaffPayload {
     bank_account?: string;
     bank_qr_link?: string;
     personal_achievement_link?: string | null;
+    revenue_share_percent?: number | null;
     roles: string[];
     user_id: string;
     customer_care_managed_by_staff_id?: string | null;

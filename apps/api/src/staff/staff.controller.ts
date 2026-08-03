@@ -384,6 +384,38 @@ export class StaffController {
     });
   }
 
+  @Get(':id/revenue-share')
+  @ApiOperation({
+    summary: 'Get staff revenue share commission (lesson_plan_head)',
+    description:
+      'Tổng doanh thu hệ thống (gộp, chưa trừ chi phí) trong tháng, % hoa hồng doanh thu hiện tại của staff, và số tiền tương ứng = doanh thu × %. Tính real-time, không khấu trừ thuế.',
+  })
+  @ApiParam({ name: 'id', description: 'Staff id' })
+  @ApiQuery({
+    name: 'month',
+    required: true,
+    type: String,
+    description: 'Month in 01-12 format',
+    example: '03',
+  })
+  @ApiQuery({
+    name: 'year',
+    required: true,
+    type: String,
+    description: 'Year in YYYY format',
+    example: '2026',
+  })
+  @ApiResponse({ status: 200, description: 'Staff revenue share commission.' })
+  @ApiResponse({ status: 400, description: 'month/year invalid.' })
+  @ApiResponse({ status: 404, description: 'Staff not found.' })
+  async getStaffRevenueShare(
+    @Param('id', new ParseStaffIdPipe()) id: string,
+    @Query('month') month: string,
+    @Query('year') year: string,
+  ) {
+    return this.staffService.getStaffRevenueShare(id, month, year);
+  }
+
   @Get(':id/payment-preview')
   @ApiOperation({
     summary: 'Get staff payment preview',

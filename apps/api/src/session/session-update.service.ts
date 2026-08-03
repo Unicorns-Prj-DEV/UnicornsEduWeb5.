@@ -34,6 +34,7 @@ import {
 } from '../payroll/deduction-rates';
 import { computeTrainingManagerSessionSnapshot } from '../training-manager/training-manager.utils';
 import { resolveAssistantManagerStaffIdForAttendance } from '../payroll/assistant-share.util';
+import { syncLessonPlanHeadCommissions } from '../payroll/lesson-plan-head-commission.util';
 import {
   computeDefaultSessionAllowanceAmountVnd,
   hasSessionAllowanceSnapshots,
@@ -1304,6 +1305,13 @@ export class SessionUpdateService {
           where: { id: sessionId },
           include: { attendance: true },
         });
+
+        if (updatedSession) {
+          await syncLessonPlanHeadCommissions(
+            tx,
+            updatedSession.attendance.map((attendanceItem) => attendanceItem.id),
+          );
+        }
 
         if (!updatedSession) {
           throw new NotFoundException('Session not found');

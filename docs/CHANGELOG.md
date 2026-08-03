@@ -21,12 +21,19 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Added
+
+- Bảng `lesson_plan_head_commission`: snapshot hoa hồng doanh thu Trưởng giáo án (`lesson_plan_head`) theo từng buổi học toàn hệ thống, mỗi buổi chargeable sinh 1 dòng cho mỗi nhân sự role này đang active. Đồng bộ idempotent qua `syncLessonPlanHeadCommissions()` khi tạo/sửa session.
+- Nguồn `revenue_share` mới trong `GET /staff/:id/payment-preview`, `PATCH /staff/:id/payment-status/pay-all|pay-selected`: cho phép thanh toán từng dòng hoa hồng doanh thu Trưởng giáo án (không khấu trừ thuế), gộp vào popup **Thanh toán** hiện có ở `/admin/staff/:id`.
+
 ### Changed
 
+- `GET /staff/:id/revenue-share`: `amount` đổi từ tính live (`doanh thu × %`) sang tổng `lesson_plan_head_commission.amount` snapshot theo tháng, đồng bộ với payload thanh toán.
 - FE popup **Thông tin lớp**: chọn trạng thái **Đã kết thúc** dùng cùng logic `POST /class/:id/end` (eligibility + confirm/lý do); BE `PATCH /class/:id/basic-info` từ chối `running → ended` (phải dùng `POST /end`).
 
 ### Fixed
 
+- FE `TimeInput` portal chọn giờ/phút: `z-[120]` (khớp `UpgradedSelect`) để không bị che bởi popup form lịch dạy bù / modal `z-[110]`.
 - BE `GET /staff/:id/income-summary` card **Lớp phụ trách** (`classMonthlySummaries`): không còn seed mọi row `class_teachers` (kể cả `inactive`) thành dòng 0đ; chỉ luôn hiện phân công hiện tại (`status` null/`active`); lớp nghỉ dạy chỉ hiện khi tháng đang chọn còn trợ cấp và/hoặc còn `unpaid`/`pending`, với `isCurrentTeacherAssignment=false` (badge **NGHỈ DẠY**).
 - BE `GET /staff` (list `/admin/staffs` cột **Lớp**): `classTeachers` chỉ gồm phân công hiện tại hoặc lớp nghỉ dạy còn trợ cấp tháng hiện tại / còn `unpaid`/`pending` — cùng rule ẩn lớp nghỉ 0đ với card **Lớp phụ trách**.
 

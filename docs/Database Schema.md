@@ -132,6 +132,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `google_meet_link` (`TEXT`, nullable): link Google Meet cố định của gia sư; là nguồn authoritative cho Meet link của tất cả lịch học và buổi bù mà gia sư này phụ trách. Được tạo tự động qua Google Calendar API lần đầu khi gia sư được gán vào lịch nếu chưa có; có thể regenerate thủ công qua `POST /staff/:id/regenerate-meet-link`.
 - `personal_achievement_link` (`TEXT`, nullable): link Google Drive hoặc URL lưu trữ thành tích cá nhân của nhân sự. DB nullable; bắt buộc cho gate hoàn thiện hồ sơ staff (`staffProfileComplete`). Chỉ accept URL hợp lệ dạng `http/https`. Hiển thị ở trang chi tiết nhân sự (admin + staff self-service) và cột bảng danh sách nhân sự.
 - `customer_care_managed_by_staff_id` (nullable FK → `staff_info.id`): trỏ tới trợ lí quản lí CSKH này; trợ lí được hưởng 3% học phí đã học của học sinh thuộc CSKH quản lí. Index: `(customer_care_managed_by_staff_id)`
+- `revenue_share_percent` (`DECIMAL(5,2)`, nullable): % hoa hồng trên tổng doanh thu gộp hệ thống, áp dụng cho nhân sự có role `lesson_plan_head` (Trưởng giáo án). Admin đặt riêng từng người qua popup **Sửa nhân sự** (`admin/staffs`). Số tiền thực nhận mỗi tháng = tổng `lesson_plan_head_commission.amount` (paid + pending) của staff trong tháng đó, đọc qua `GET /staff/:id/revenue-share` (xem `lesson_plan_head_commission` mục 4.6b). Số tháng quá khứ vẫn tính theo `revenue_share_percent` **hiện hành** vì `coef_percent` chỉ snapshot tại thời điểm buổi học được tạo/cập nhật, không backfill khi admin đổi %.
 - Được tham chiếu bởi: `users`, `class_teachers`, `sessions`, `makeup_schedule_events`, `bonuses`, `lesson_outputs`, `customer_care_service`, `wallet_transactions_history` (customer care), `staff_monthly_stats`, `extra_allowances`, `class_surveys`, `staff_lesson_task`, `attendance` (assistant_manager)
 
 ### 4.3 `student_info`
@@ -318,6 +319,20 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - `assistant_tax_deduction_rate_percent` (`DECIMAL(5,2)`, default `0`): snapshot thuế cho khoản trợ cấp trợ lí 3%.
   - Các snapshot này được dùng để bucket theo mức thuế effective khi aggregate tax trên tổng commission/trợ cấp của kỳ.
 - Index: `(assistant_manager_staff_id, assistant_payment_status)` phục vụ aggregate unpaid
+
+### 4.6b `lesson_plan_head_commission`
+
+- Snapshot hoa hồng doanh thu của **Trưởng giáo án** (role `lesson_plan_head`) theo **từng buổi học toàn hệ thống** (pattern giống commission CSKH trên `attendance`, nhưng tách bảng riêng vì có thể có NHIỀU staff giữ role này cùng lúc, mỗi người % khác nhau).
+- Mỗi buổi học chargeable (`attendance.tuition_fee > 0`) sinh **1 dòng cho MỖI nhân sự `lesson_plan_head` đang active** có `staff_info.revenue_share_percent` khác null tại thời điểm buổi được tạo/cập nhật; đồng bộ idempotent qua `syncLessonPlanHeadCommissions()` (`apps/api/src/payroll/lesson-plan-head-commission.util.ts`), gọi trong transaction tạo/sửa session.
+- Cột:
+  - `attendance_id` (FK → `attendance.id`, cascade), `staff_id` (FK → `staff_info.id`, cascade)
+  - `coef_percent` (`DECIMAL(5,2)`): snapshot `revenue_share_percent` của staff tại thời điểm sync
+  - `amount` (`INTEGER`): `ROUND(attendance.tuition_fee × coef_percent / 100)`
+  - `payment_status` (`PaymentStatus`, default `pending`)
+  - `created_at`
+- Unique: `(attendance_id, staff_id)`. Index: `(staff_id, payment_status)` cho aggregate payroll.
+- Sync chỉ cập nhật dòng `pending` (không đụng dòng đã `paid`); buổi chuyển non-chargeable sẽ xóa dòng `pending` tương ứng.
+- Nguồn payroll `revenue_share` trong payment-preview (`GET /staff/:id/payment-preview`, `POST /staff/:id/payments/pay-all|pay-selected`) đọc/ghi trực tiếp bảng này; không áp thuế (`taxRatePercent = 0` cố định cho nguồn này).
 
 ### 4.7 Finance models
 

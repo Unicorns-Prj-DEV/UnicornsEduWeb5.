@@ -449,6 +449,7 @@ type StaffPaymentSourceType =
   | 'assistant_share'
   | 'training_manager'
   | 'lesson_output'
+  | 'revenue_share'
   | 'extra_allowance'
   | 'bonus';
 
@@ -519,6 +520,7 @@ const STAFF_PAYMENT_SOURCE_ORDER: Record<StaffPaymentSourceType, number> = {
   assistant_share: 30,
   training_manager: 35,
   lesson_output: 40,
+  revenue_share: 45,
   extra_allowance: 50,
   bonus: 60,
 };
@@ -2209,6 +2211,55 @@ export class StaffService {
     });
   }
 
+  private async getRevenueShareAllPendingPreviewRecords(
+    db: StaffPaymentClient,
+    staffId: string,
+  ): Promise<StaffPaymentPreviewDraftRecord[]> {
+    const rows = await db.lessonPlanHeadCommission.findMany({
+      where: {
+        staffId,
+        paymentStatus: PaymentStatus.pending,
+      },
+      select: {
+        id: true,
+        amount: true,
+        coefPercent: true,
+        paymentStatus: true,
+        attendance: {
+          select: {
+            session: {
+              select: {
+                date: true,
+                class: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return rows.map((row) => {
+      const grossAmount = normalizeMoneyAmount(row.amount);
+      const className = row.attendance.session.class.name?.trim() || 'Lớp';
+
+      return {
+        id: row.id,
+        role: StaffRole.lesson_plan_head,
+        sourceType: 'revenue_share',
+        sourceLabel: 'Hoa hồng doanh thu',
+        label: `Hoa hồng buổi học · ${className}`,
+        secondaryLabel: `${normalizePercent(row.coefPercent)}%`,
+        date: row.attendance.session.date.toISOString(),
+        currentStatus: row.paymentStatus,
+        grossAmount,
+        operatingAmount: 0,
+      };
+    });
+  }
+
   private async getCustomerCarePaymentPreviewRecords(
     db: StaffPaymentClient,
     params: {
@@ -2655,9 +2706,11 @@ export class StaffService {
       const taxRatePercent =
         record.sourceType === 'bonus'
           ? bonusIncomeTaxRatePercent
-          : record.role == null
+          : record.sourceType === 'revenue_share'
             ? 0
-            : (taxRateByRole.get(record.role) ?? 0);
+            : record.role == null
+              ? 0
+              : (taxRateByRole.get(record.role) ?? 0);
       const normalizedTaxableBaseAmount = normalizeMoneyAmount(
         taxableBaseAmount ?? record.grossAmount,
       );
@@ -2717,6 +2770,9 @@ export class StaffService {
         ? this.getTrainingManagerAllPendingPreviewRecords(db, staffId)
         : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
       this.getExtraAllowanceAllPendingPreviewRecords(db, staffId),
+      roles.includes(StaffRole.lesson_plan_head)
+        ? this.getRevenueShareAllPendingPreviewRecords(db, staffId)
+        : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
     ]);
 
     return draftRecordGroups.flat();
@@ -2747,6 +2803,9 @@ export class StaffService {
         ? this.getTrainingManagerAllPendingPreviewRecords(db, staffId)
         : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
       this.getExtraAllowanceAllPendingPreviewRecords(db, staffId),
+      roles.includes(StaffRole.lesson_plan_head)
+        ? this.getRevenueShareAllPendingPreviewRecords(db, staffId)
+        : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
     ]);
 
     return draftRecordGroups.flat();
@@ -3056,6 +3115,27 @@ export class StaffService {
     });
 
     return new Map(bonuses.map((bonus) => [bonus.id, bonus]));
+  }
+
+  private async getRevenueShareSnapshots(
+    db: StaffPaymentClient,
+    revenueShareIds: string[],
+  ) {
+    if (revenueShareIds.length === 0) {
+      return new Map<string, unknown>();
+    }
+
+    const commissions = await db.lessonPlanHeadCommission.findMany({
+      where: {
+        id: {
+          in: revenueShareIds,
+        },
+      },
+    });
+
+    return new Map(
+      commissions.map((commission) => [commission.id, commission]),
+    );
   }
 
   private async getExtraAllowanceSnapshots(
@@ -3545,6 +3625,9 @@ export class StaffService {
     const bonusIds = records
       .filter((record) => record.sourceType === 'bonus')
       .map((record) => record.id);
+    const revenueShareIds = records
+      .filter((record) => record.sourceType === 'revenue_share')
+      .map((record) => record.id);
     const teacherTaxRatePercent =
       records.find((record) => record.sourceType === 'teacher_session')
         ?.taxRatePercent ?? 0;
@@ -3617,6 +3700,10 @@ export class StaffService {
         auditScope === 'all'
           ? 'Thanh toán toàn bộ khoản thưởng'
           : 'Thanh toán khoản thưởng đã chọn',
+      revenue_share:
+        auditScope === 'all'
+          ? 'Thanh toán toàn bộ hoa hồng doanh thu Trưởng giáo án'
+          : 'Thanh toán hoa hồng doanh thu Trưởng giáo án đã chọn',
     } as const;
 
     const [
@@ -3626,6 +3713,7 @@ export class StaffService {
       lessonOutputBeforeSnapshots,
       extraAllowanceBeforeSnapshots,
       bonusBeforeSnapshots,
+      revenueShareBeforeSnapshots,
     ] = await Promise.all([
       this.getSessionPaymentSnapshots(tx, teacherSessionIds),
       this.getAttendancePaymentSnapshots(tx, customerCareAttendanceIds),
@@ -3633,6 +3721,7 @@ export class StaffService {
       this.getLessonOutputSnapshots(tx, lessonOutputIds),
       this.getExtraAllowanceSnapshots(tx, extraAllowanceIds),
       this.getBonusSnapshots(tx, bonusIds),
+      this.getRevenueShareSnapshots(tx, revenueShareIds),
     ]);
 
     const sourceResults: StaffPaymentSourceResult[] = [];
@@ -3788,6 +3877,24 @@ export class StaffService {
       });
     }
 
+    if (revenueShareIds.length > 0) {
+      const updateResult = await tx.lessonPlanHeadCommission.updateMany({
+        where: {
+          id: {
+            in: revenueShareIds,
+          },
+        },
+        data: {
+          paymentStatus: PaymentStatus.paid,
+        },
+      });
+      sourceResults.push({
+        sourceType: 'revenue_share',
+        sourceLabel: 'Hoa hồng doanh thu',
+        updatedCount: updateResult.count,
+      });
+    }
+
     if (auditActor) {
       const [
         sessionAfterSnapshots,
@@ -3796,6 +3903,7 @@ export class StaffService {
         lessonOutputAfterSnapshots,
         extraAllowanceAfterSnapshots,
         bonusAfterSnapshots,
+        revenueShareAfterSnapshots,
       ] = await Promise.all([
         this.getSessionPaymentSnapshots(tx, teacherSessionIds),
         this.getAttendancePaymentSnapshots(tx, customerCareAttendanceIds),
@@ -3803,6 +3911,7 @@ export class StaffService {
         this.getLessonOutputSnapshots(tx, lessonOutputIds),
         this.getExtraAllowanceSnapshots(tx, extraAllowanceIds),
         this.getBonusSnapshots(tx, bonusIds),
+        this.getRevenueShareSnapshots(tx, revenueShareIds),
       ]);
 
       await Promise.all([
@@ -3884,6 +3993,21 @@ export class StaffService {
                 entityId: bonusId,
                 beforeValue: bonusBeforeSnapshots.get(bonusId) ?? null,
                 afterValue: bonusAfterSnapshots.get(bonusId) ?? null,
+              })),
+            })
+          : Promise.resolve(),
+
+        revenueShareIds.length > 0
+          ? this.actionHistoryService.recordUpdates(tx, {
+              actor: auditActor,
+              entityType: 'lesson_plan_head_commission',
+              description: auditDescriptions.revenue_share,
+              updates: revenueShareIds.map((revenueShareId) => ({
+                entityId: revenueShareId,
+                beforeValue:
+                  revenueShareBeforeSnapshots.get(revenueShareId) ?? null,
+                afterValue:
+                  revenueShareAfterSnapshots.get(revenueShareId) ?? null,
               })),
             })
           : Promise.resolve(),
@@ -4883,11 +5007,70 @@ export class StaffService {
                 ),
               }
             : null,
+        revenueSharePercent:
+          staff.revenueSharePercent == null
+            ? null
+            : normalizePercent(staff.revenueSharePercent),
         classAllowance,
       };
     });
 
     return tx;
+  }
+
+  async getStaffRevenueShare(staffId: string, month: string, year: string) {
+    const staff = await this.prisma.staffInfo.findUnique({
+      where: { id: staffId },
+      select: { id: true, revenueSharePercent: true, roles: true },
+    });
+
+    if (!staff) {
+      throw new NotFoundException('Staff not found');
+    }
+
+    const { monthKey, start, end } = buildMonthRange(month, year);
+
+    const [row] = await this.prisma.$queryRaw<{ revenue: bigint | number }[]>(
+      Prisma.sql`
+        SELECT COALESCE(SUM(COALESCE(attendance.tuition_fee, 0)), 0) AS revenue
+        FROM attendance
+        INNER JOIN sessions ON sessions.id = attendance.session_id
+        WHERE attendance.status IN ('present', 'excused')
+          AND sessions.date >= ${start}
+          AND sessions.date < ${end}
+      `,
+    );
+
+    const revenue = Number(row?.revenue ?? 0);
+    const percent =
+      staff.revenueSharePercent == null
+        ? 0
+        : normalizePercent(staff.revenueSharePercent);
+
+    const [commissionRow] = await this.prisma.$queryRaw<
+      { amount: bigint | number }[]
+    >(
+      Prisma.sql`
+        SELECT COALESCE(SUM(lesson_plan_head_commission.amount), 0) AS amount
+        FROM lesson_plan_head_commission
+        INNER JOIN attendance ON attendance.id = lesson_plan_head_commission.attendance_id
+        INNER JOIN sessions ON sessions.id = attendance.session_id
+        WHERE lesson_plan_head_commission.staff_id = ${staffId}
+          AND sessions.date >= ${start}
+          AND sessions.date < ${end}
+      `,
+    );
+
+    const amount = Number(commissionRow?.amount ?? 0);
+
+    return {
+      staffId: staff.id,
+      month: monthKey,
+      revenueSharePercent:
+        staff.revenueSharePercent == null ? null : percent,
+      revenue,
+      amount,
+    };
   }
 
   async patchStaffClassTeacherOperatingDeduction(
@@ -5143,6 +5326,8 @@ export class StaffService {
       payload.personalAchievementLink = data.personal_achievement_link ?? null;
     if (data.google_meet_link !== undefined)
       payload.googleMeetLink = data.google_meet_link ?? null;
+    if (data.revenue_share_percent !== undefined)
+      payload.revenueSharePercent = data.revenue_share_percent ?? null;
     if (data.roles != null) payload.roles = data.roles;
     if (data.user_id != null) payload.userId = data.user_id;
     if (data.status != null) payload.status = data.status;
@@ -5414,6 +5599,7 @@ export class StaffService {
             bankAccount: data.bank_account,
             bankQrLink: data.bank_qr_link,
             personalAchievementLink: data.personal_achievement_link ?? null,
+            revenueSharePercent: data.revenue_share_percent ?? null,
             roles: data.roles,
             userId: data.user_id,
             customerCareManagedByStaffId: managedByStaffId,

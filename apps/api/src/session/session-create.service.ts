@@ -26,6 +26,7 @@ import { SessionScheduleRulesService } from './session-schedule-rules.service';
 import { computeTrainingManagerSessionSnapshot } from '../training-manager/training-manager.utils';
 import { createMemoizedTaxDeductionResolver } from '../payroll/deduction-rates';
 import { resolveAssistantManagerStaffIdForAttendance } from '../payroll/assistant-share.util';
+import { syncLessonPlanHeadCommissions } from '../payroll/lesson-plan-head-commission.util';
 import {
   computeDefaultSessionAllowanceAmountVnd,
   resolveSnapshotPerStudentAllowanceVnd,
@@ -461,6 +462,11 @@ export class SessionCreateService {
               createdSession.id,
             );
           }
+
+          await syncLessonPlanHeadCommissions(
+            tx,
+            createdSession.attendance.map((attendanceItem) => attendanceItem.id),
+          );
 
           if (actor) {
             const afterValue =

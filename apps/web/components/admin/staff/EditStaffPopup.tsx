@@ -73,6 +73,9 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
   const [bankAccount, setBankAccount] = useState(staff.bankAccount ?? "");
   const [bankQrLink, setBankQrLink] = useState(staff.bankQrLink ?? "");
   const [personalAchievementLink, setPersonalAchievementLink] = useState(staff.personalAchievementLink ?? "");
+  const [revenueSharePercent, setRevenueSharePercent] = useState(
+    staff.revenueSharePercent != null ? String(staff.revenueSharePercent) : "",
+  );
   const [selectedRoles, setSelectedRoles] = useState<Set<string>>(
     () => new Set(staff.roles ?? []),
   );
@@ -90,6 +93,7 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
   const hasAssistantRole = selectedRoles.has("assistant");
   const isDualRole = hasCustomerCareRole && hasAssistantRole;
   const showManagedByField = hasCustomerCareRole && !isDualRole;
+  const showRevenueShareField = selectedRoles.has("lesson_plan_head");
 
   const assistantOptionsQuery = useQuery({
     queryKey: ["staff", "assistant-options"],
@@ -127,6 +131,15 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
       return;
     }
 
+    const trimmedRevenueSharePercent = revenueSharePercent.trim();
+    if (showRevenueShareField && trimmedRevenueSharePercent) {
+      const parsed = Number(trimmedRevenueSharePercent);
+      if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+        window.alert("Tỷ lệ % hoa hồng doanh thu phải là số từ 0 đến 100.");
+        return;
+      }
+    }
+
     onClose();
     runBackgroundSave({
       loadingMessage: "Đang lưu thông tin nhân sự...",
@@ -152,6 +165,9 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
           roles: Array.from(selectedRoles),
           customer_care_managed_by_staff_id: showManagedByField
             ? (managedByStaffId || null)
+            : null,
+          revenue_share_percent: showRevenueShareField
+            ? (trimmedRevenueSharePercent ? Number(trimmedRevenueSharePercent) : null)
             : null,
         });
         const statusChanged = status !== staff.status;
@@ -443,6 +459,25 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
                   ))}
                 </div>
               </div>
+
+              {showRevenueShareField && (
+                <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
+                  <span>Tỷ lệ % hoa hồng doanh thu (Trưởng giáo án)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.01}
+                    value={revenueSharePercent}
+                    onChange={(e) => setRevenueSharePercent(e.target.value)}
+                    className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    placeholder="VD: 3"
+                  />
+                  <p className="text-xs text-text-muted">
+                    Nhân sự sẽ nhận % này trên tổng doanh thu hệ thống mỗi tháng.
+                  </p>
+                </label>
+              )}
 
               {showManagedByField && (
                 <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">

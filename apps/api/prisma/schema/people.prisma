@@ -23,6 +23,7 @@ model StaffInfo {
   roles                               StaffRole[]                          @default([])
   personalAchievementLink             String?                              @map("personal_achievement_link")
   customerCareManagedByStaffId        String?                              @map("customer_care_managed_by_staff_id")
+  revenueSharePercent                 Decimal?                             @map("revenue_share_percent") @db.Decimal(5, 2)
   assistantStudentSession             Attendance[]                         @relation("AttendanceAssistant")
   customerCareStudentSession          Attendance[]                         @relation("AttendanceCustomerCare")
   bonuses                             Bonus[]
@@ -43,6 +44,7 @@ model StaffInfo {
   user                                User?                                @relation(fields: [userId], references: [id])
   staffLessonTasks                    StaffLessonTask[]
   monthlyStats                        StaffMonthlyStat[]
+  lessonPlanHeadCommissions           LessonPlanHeadCommission[]
 
   @@unique([userId], map: "staff_info_user_id_key")
   @@index([customerCareManagedByStaffId])

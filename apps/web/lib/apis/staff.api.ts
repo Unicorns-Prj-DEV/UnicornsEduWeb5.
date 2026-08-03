@@ -11,6 +11,7 @@ import {
     StaffPayAllPaymentsResult,
     StaffPaySelectedPaymentsPayload,
     StaffPaymentPreview,
+    StaffRevenueShare,
     StaffIncomeSummary,
     StaffListResponse,
     StaffOption,
@@ -131,6 +132,7 @@ export async function updateStaff(payload: {
     bank_account?: string;
     bank_qr_link?: string;
     personal_achievement_link?: string | null;
+    revenue_share_percent?: number | null;
     roles?: string[];
     status?: StaffStatus;
     customer_care_managed_by_staff_id?: string | null;
@@ -238,6 +240,24 @@ export async function getStaffIncomeSummary(
     console.log("response.data", response.data);
 
     return normalizeStaffIncomeSummary(response.data);
+}
+
+export async function getStaffRevenueShare(
+    id: string,
+    params: {
+        month: string;
+        year: string;
+    },
+): Promise<StaffRevenueShare> {
+    const safeId = encodeURIComponent(id);
+    const response = await api.get<StaffRevenueShare>(`/staff/${safeId}/revenue-share`, {
+        params: {
+            month: params.month,
+            year: params.year,
+        },
+    });
+
+    return response.data;
 }
 
 export async function getStaffPaymentPreview(

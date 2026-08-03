@@ -198,6 +198,17 @@ export class CreateStaffDto {
   @IsOptional()
   @IsString()
   google_meet_link?: string | null;
+
+  @ApiPropertyOptional({
+    example: 3,
+    description:
+      'Tỷ lệ % hoa hồng trên tổng doanh thu hệ thống, áp dụng cho nhân sự có vai trò lesson_plan_head (Trưởng giáo án). Đơn vị phần trăm (VD: 3 = 3%).',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  revenue_share_percent?: number | null;
 }
 
 export class UpdateStaffDto extends PartialType(CreateStaffDto) {

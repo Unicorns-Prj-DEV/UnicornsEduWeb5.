@@ -189,6 +189,7 @@ model Attendance {
   session                             Session                    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   student                             StudentInfo                @relation(fields: [studentId], references: [id], onDelete: Cascade)
   transaction                         WalletTransactionsHistory? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  lessonPlanHeadCommissions           LessonPlanHeadCommission[]
 
   @@unique([sessionId, studentId])
   @@index([sessionId])
@@ -199,6 +200,24 @@ model Attendance {
   @@index([assistantManagerStaffId, assistantPaymentStatus])
   @@index([assistantManagerStaffId, assistantPaymentStatus, sessionId], map: "attendance_assistant_staff_payment_session_idx")
   @@map("attendance")
+}
+
+/// Snapshot hoa hồng doanh thu của Trưởng giáo án (`lesson_plan_head`) theo từng buổi học toàn hệ thống.
+/// Mỗi buổi học chargeable (tuitionFee > 0) sinh 1 dòng cho MỖI nhân sự `lesson_plan_head` active có `revenueSharePercent` tại thời điểm tạo/cập nhật buổi.
+model LessonPlanHeadCommission {
+  id            String        @id @default(uuid())
+  attendanceId  String        @map("attendance_id")
+  staffId       String        @map("staff_id")
+  coefPercent   Decimal       @map("coef_percent") @db.Decimal(5, 2)
+  amount        Int           @map("amount")
+  paymentStatus PaymentStatus @default(pending) @map("payment_status")
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  attendance    Attendance    @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  staff         StaffInfo     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@unique([attendanceId, staffId])
+  @@index([staffId, paymentStatus])
+  @@map("lesson_plan_head_commission")
 }
 
 model CfProblemTutorial {
