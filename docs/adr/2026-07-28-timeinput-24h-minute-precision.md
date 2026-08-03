@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-07-28
-- **Updated:** 2026-08-01 (inline dual scroll columns; drop nested `UpgradedSelect`)
+- **Updated:** 2026-08-02 (portal menu `z-[120]` to sit above modal dialogs like makeup editor `z-[110]`, matching `UpgradedSelect`)
 
 ## Context
 
@@ -16,7 +16,7 @@ An earlier revision opened a compact panel with two nested `UpgradedSelect` trig
 
 Replace the native time picker inside shared `apps/web/components/ui/TimeInput.tsx` with a custom 24h control used everywhere that component is used (not `DateInput` / `MonthInput`).
 
-Picker UI is a portal panel with **two inline scroll columns** shown immediately on open (no nested select triggers):
+Picker UI is a `document.body` portal panel (`fixed z-[120]`, same stacking as `UpgradedSelect` menus) with **two inline scroll columns** shown immediately on open (no nested select triggers):
 
 - **Giờ** — scrollable list `00–23`
 - **Phút** — scrollable list `00 / 15 / 30 / 45` (plus a temporary off-grid option when the current value is not on the grid)

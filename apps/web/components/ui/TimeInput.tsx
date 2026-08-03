@@ -467,7 +467,7 @@ function TimeInputComponent({
               role="dialog"
               aria-label="Chọn giờ 24h"
               data-time-input-menu
-              className="fixed z-50 overflow-hidden rounded-2xl border border-border-default bg-bg-surface p-3 shadow-[0_24px_60px_-28px_color-mix(in_srgb,var(--ue-text-primary)_45%,transparent)]"
+              className="fixed z-[120] overflow-hidden rounded-2xl border border-border-default bg-bg-surface p-3 shadow-[0_24px_60px_-28px_color-mix(in_srgb,var(--ue-text-primary)_45%,transparent)]"
               style={{
                 left: menuPosition.left,
                 width: menuPosition.width,
