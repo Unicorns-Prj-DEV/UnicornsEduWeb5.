@@ -99,3 +99,15 @@ export interface CustomerCareBulkPaymentStatusUpdateResultDto {
   requestedCount: number;
   updatedCount: number;
 }
+
+export interface CustomerCareBulkProfitPercentUpdateDto {
+  studentIds: string[];
+  /** Phân số 0.00-0.99 (FE convert từ input số nguyên 0-99). */
+  profitPercent: number;
+}
+
+export interface CustomerCareBulkProfitPercentUpdateResultDto {
+  staffId: string;
+  requestedCount: number;
+  updatedCount: number;
+}

@@ -14,6 +14,7 @@ import {
 } from 'generated/enums';
 import type {
   CustomerCareBulkPaymentStatusUpdateResultDto,
+  CustomerCareBulkProfitPercentUpdateResultDto,
   CustomerCareCommissionDto,
   CustomerCareCommissionListDto,
   CustomerCareCommissionListQueryDto,
@@ -175,6 +176,26 @@ export class CustomerCareService {
       staff.roles.includes(StaffRole.accountant) ||
       staff.roles.includes(StaffRole.accountant_income) ||
       staff.roles.includes(StaffRole.accountant_expense)
+    );
+  }
+
+  private async canEditProfitPercent(userId: string, roleType: UserRole) {
+    if (roleType === UserRole.admin) {
+      return true;
+    }
+
+    if (roleType !== UserRole.staff) {
+      return false;
+    }
+
+    const staff = await this.resolveStaffProfile(userId);
+    if (!staff) {
+      return false;
+    }
+
+    return (
+      staff.roles.includes(StaffRole.admin) ||
+      staff.roles.includes(StaffRole.assistant)
     );
   }
 
@@ -937,5 +958,100 @@ export class CustomerCareService {
         updatedCount,
       };
     });
+  }
+
+  /**
+   * Bulk overwrite profitPercent for selected students, scoped to this staff's
+   * own customer_care_service rows only. Not retroactive: only affects future
+   * session snapshots, matching the single-student edit semantics.
+   */
+  async bulkUpdateProfitPercent(
+    userId: string,
+    roleType: UserRole,
+    staffId: string,
+    studentIds: string[],
+    profitPercent: number,
+  ): Promise<CustomerCareBulkProfitPercentUpdateResultDto> {
+    const canEdit = await this.canEditProfitPercent(userId, roleType);
+    if (!canEdit) {
+      throw new ForbiddenException(
+        'Tài khoản hiện tại không có quyền chỉnh % CSKH.',
+      );
+    }
+
+    const accessibleStaffId = await this.resolveAccessibleStaffId(
+      userId,
+      roleType,
+      staffId,
+    );
+
+    const uniqueStudentIds = Array.from(
+      new Set(
+        studentIds.filter(
+          (studentId): studentId is string =>
+            typeof studentId === 'string' && studentId.trim().length > 0,
+        ),
+      ),
+    );
+
+    if (uniqueStudentIds.length === 0) {
+      throw new BadRequestException('studentIds must contain at least one id.');
+    }
+
+    if (
+      typeof profitPercent !== 'number' ||
+      !Number.isFinite(profitPercent) ||
+      profitPercent < 0 ||
+      profitPercent > 0.99
+    ) {
+      throw new BadRequestException('profitPercent must be between 0 and 0.99.');
+    }
+
+    const staff = await this.prisma.staffInfo.findUnique({
+      where: { id: accessibleStaffId },
+      select: { id: true },
+    });
+    if (!staff) {
+      throw new NotFoundException('Staff not found');
+    }
+
+    const existingServices = await this.prisma.customerCareService.findMany({
+      where: {
+        staffId: accessibleStaffId,
+        studentId: { in: uniqueStudentIds },
+      },
+      select: { studentId: true },
+    });
+
+    if (existingServices.length !== uniqueStudentIds.length) {
+      const existingStudentIds = new Set(
+        existingServices.map((service) => service.studentId),
+      );
+      const missingStudentId = uniqueStudentIds.find(
+        (studentId) => !existingStudentIds.has(studentId),
+      );
+
+      throw new NotFoundException(
+        missingStudentId
+          ? `Student not found for customer-care staff: ${missingStudentId}`
+          : 'Student not found for customer-care staff',
+      );
+    }
+
+    const updateResult = await this.prisma.customerCareService.updateMany({
+      where: {
+        staffId: accessibleStaffId,
+        studentId: { in: uniqueStudentIds },
+      },
+      data: {
+        profitPercent,
+      },
+    });
+
+    return {
+      staffId: accessibleStaffId,
+      requestedCount: uniqueStudentIds.length,
+      updatedCount: updateResult.count,
+    };
   }
 }

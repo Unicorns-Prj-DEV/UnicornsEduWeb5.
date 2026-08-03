@@ -1,6 +1,8 @@
 import type {
   CustomerCareBulkPaymentStatusUpdatePayload,
   CustomerCareBulkPaymentStatusUpdateResult,
+  CustomerCareBulkProfitPercentUpdatePayload,
+  CustomerCareBulkProfitPercentUpdateResult,
   CustomerCareCommissionListParams,
   CustomerCarePaymentStatus,
   CustomerCareStudentListResponse,
@@ -127,6 +129,17 @@ export async function bulkUpdateCustomerCarePaymentStatus(
 ): Promise<CustomerCareBulkPaymentStatusUpdateResult> {
   const res = await api.patch<CustomerCareBulkPaymentStatusUpdateResult>(
     `/customer-care/staff/${encodeURIComponent(staffId)}/payment-status/bulk`,
+    payload,
+  );
+  return res.data;
+}
+
+export async function bulkUpdateCustomerCareProfitPercent(
+  staffId: string,
+  payload: CustomerCareBulkProfitPercentUpdatePayload,
+): Promise<CustomerCareBulkProfitPercentUpdateResult> {
+  const res = await api.patch<CustomerCareBulkProfitPercentUpdateResult>(
+    `/customer-care/staff/${encodeURIComponent(staffId)}/profit-percent/bulk`,
     payload,
   );
   return res.data;

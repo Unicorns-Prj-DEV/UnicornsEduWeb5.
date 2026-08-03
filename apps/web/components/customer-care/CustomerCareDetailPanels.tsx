@@ -617,10 +617,100 @@ export default function CustomerCareDetailPanels({
     setEditingProfitPercentStudentId(null);
   };
 
+  const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [bulkProfitPercentPopupOpen, setBulkProfitPercentPopupOpen] =
+    useState(false);
+  const [bulkProfitPercentDraft, setBulkProfitPercentDraft] = useState("");
+
+  const selectedStudentCount = selectedStudentIds.size;
+  const allStudentsSelected =
+    students.length > 0 && selectedStudentCount === students.length;
+  const someStudentsSelected =
+    selectedStudentCount > 0 && !allStudentsSelected;
+
+  const bulkProfitPercentMutation = useMutation({
+    mutationFn: (payload: { studentIds: string[]; profitPercent: number }) =>
+      customerCareApi.bulkUpdateCustomerCareProfitPercent(staffId, payload),
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({
+        queryKey: ["customer-care", "students", staffId],
+      });
+      setSelectedStudentIds(new Set());
+      setBulkProfitPercentPopupOpen(false);
+      toast.success(
+        result.updatedCount > 0
+          ? `Đã cập nhật % CSKH cho ${result.updatedCount} học sinh.`
+          : "Các học sinh đã chọn đang ở giá trị này.",
+      );
+    },
+    onError: () => {
+      toast.error("Không thể cập nhật hàng loạt % CSKH. Vui lòng thử lại.");
+    },
+  });
+
+  const toggleStudentSelection = (studentId: string) => {
+    setSelectedStudentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(studentId)) {
+        next.delete(studentId);
+      } else {
+        next.add(studentId);
+      }
+      return next;
+    });
+  };
+
+  const toggleAllStudentsSelection = () => {
+    setSelectedStudentIds((prev) => {
+      if (allStudentsSelected) {
+        return new Set();
+      }
+      const next = new Set(prev);
+      students.forEach((row) => next.add(row.id));
+      return next;
+    });
+  };
+
+  const openBulkProfitPercentPopup = () => {
+    setBulkProfitPercentDraft("");
+    setBulkProfitPercentPopupOpen(true);
+  };
+
+  const closeBulkProfitPercentPopup = () => {
+    if (bulkProfitPercentMutation.isPending) return;
+    setBulkProfitPercentPopupOpen(false);
+  };
+
+  const confirmBulkProfitPercentUpdate = () => {
+    if (selectedStudentCount === 0 || bulkProfitPercentMutation.isPending) {
+      return;
+    }
+    const trimmed = bulkProfitPercentDraft.trim();
+    if (!/^\d{1,2}$/.test(trimmed)) {
+      toast.error("% CSKH phải là số nguyên từ 0 đến 99.");
+      return;
+    }
+    const parsed = Number(trimmed);
+    if (parsed < 0 || parsed > 99) {
+      toast.error("% CSKH phải là số nguyên từ 0 đến 99.");
+      return;
+    }
+    bulkProfitPercentMutation.mutate({
+      studentIds: Array.from(selectedStudentIds),
+      profitPercent: parsed / 100,
+    });
+  };
+
   useEffect(() => {
     setExpandedStudentIds(new Set());
     setSelectedAttendanceIds(new Set());
   }, [commissionMonthKey]);
+
+  useEffect(() => {
+    setSelectedStudentIds(new Set());
+  }, [staffId]);
 
   useEffect(() => {
     if (
@@ -1078,6 +1168,42 @@ export default function CustomerCareDetailPanels({
             </h2>
           </div>
 
+          {canEditProfitPercent && selectedStudentCount > 0 ? (
+            <div className="mb-4 rounded-xl border border-border-default bg-bg-secondary/55 px-3 py-2">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="inline-flex min-h-10 items-center rounded-lg bg-bg-surface px-3 text-sm font-medium text-text-secondary">
+                  Đã chọn: {selectedStudentCount} học sinh
+                </div>
+                <button
+                  type="button"
+                  onClick={openBulkProfitPercentPopup}
+                  disabled={
+                    selectedStudentCount === 0 ||
+                    bulkProfitPercentMutation.isPending
+                  }
+                  className="touch-manipulation ml-auto inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label={`Cập nhật % CSKH hàng loạt cho ${selectedStudentCount} học sinh đã chọn`}
+                >
+                  <svg
+                    className="size-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                    />
+                  </svg>
+                  <span>Cập nhật hàng loạt % CSKH</span>
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           {studentsError && (
             <p className="text-sm text-error" role="alert">
               Không tải được danh sách học sinh.
@@ -1112,6 +1238,14 @@ export default function CustomerCareDetailPanels({
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
+                          {canEditProfitPercent ? (
+                            <SelectionCheckbox
+                              checked={selectedStudentIds.has(row.id)}
+                              onChange={() => toggleStudentSelection(row.id)}
+                              disabled={bulkProfitPercentMutation.isPending}
+                              ariaLabel={`Chọn ${row.fullName || "học sinh"}`}
+                            />
+                          ) : null}
                           <span
                             className={`inline-block size-2.5 rounded-full ${statusDotClass(
                               row.status ?? "active",
@@ -1229,6 +1363,20 @@ export default function CustomerCareDetailPanels({
                 <caption className="sr-only">Danh sách học sinh chăm sóc</caption>
                 <thead>
                   <tr className="border-b border-border-default bg-bg-secondary/80">
+                    {canEditProfitPercent ? (
+                      <th scope="col" className="w-9 px-3 py-3 font-medium text-text-primary">
+                        <SelectionCheckbox
+                          checked={allStudentsSelected}
+                          indeterminate={someStudentsSelected}
+                          onChange={toggleAllStudentsSelection}
+                          disabled={
+                            students.length === 0 ||
+                            bulkProfitPercentMutation.isPending
+                          }
+                          ariaLabel="Chọn tất cả học sinh"
+                        />
+                      </th>
+                    ) : null}
                     <th scope="col" className="w-9 px-3 py-3 font-medium text-text-primary">
                       <span className="sr-only">Trạng thái</span>
                     </th>
@@ -1261,6 +1409,16 @@ export default function CustomerCareDetailPanels({
                         key={`desktop-${row.id}`}
                         className="border-b border-border-subtle bg-bg-surface last:border-b-0"
                       >
+                        {canEditProfitPercent ? (
+                          <td className="px-3 py-3">
+                            <SelectionCheckbox
+                              checked={selectedStudentIds.has(row.id)}
+                              onChange={() => toggleStudentSelection(row.id)}
+                              disabled={bulkProfitPercentMutation.isPending}
+                              ariaLabel={`Chọn ${row.fullName || "học sinh"}`}
+                            />
+                          </td>
+                        ) : null}
                         <td className="px-3 py-3">
                           <span
                             className={`inline-block size-2.5 rounded-full ${statusDotClass(row.status ?? "active")}`}
@@ -1964,6 +2122,88 @@ export default function CustomerCareDetailPanels({
                   className="min-h-11 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {bulkPaymentStatusMutation.isPending
+                    ? "Đang cập nhật…"
+                    : "Xác nhận"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : null}
+      {bulkProfitPercentPopupOpen ? (
+        <>
+          <div
+            className="fixed inset-0 z-[60] bg-bg-primary/75 backdrop-blur-[1px]"
+            aria-hidden
+            onClick={closeBulkProfitPercentPopup}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="customer-care-bulk-profit-percent-title"
+            className="fixed left-1/2 top-1/2 z-[70] w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border-default bg-bg-surface p-4 shadow-2xl sm:p-5"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p
+                  id="customer-care-bulk-profit-percent-title"
+                  className="text-base font-semibold text-text-primary"
+                >
+                  Cập nhật hàng loạt % CSKH
+                </p>
+                <p className="mt-1 text-sm text-text-secondary">
+                  Ghi đè % CSKH cho {selectedStudentCount} học sinh đã chọn.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeBulkProfitPercentPopup}
+                className="rounded-xl p-2 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                aria-label="Đóng popup cập nhật hàng loạt % CSKH"
+              >
+                <XMarkIcon className="size-5" aria-hidden />
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-text-secondary">
+                  % CSKH mới (0-99)
+                </span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoFocus
+                  value={bulkProfitPercentDraft}
+                  disabled={bulkProfitPercentMutation.isPending}
+                  onChange={(e) => setBulkProfitPercentDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      confirmBulkProfitPercentUpdate();
+                    }
+                  }}
+                  className="min-h-11 w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary tabular-nums focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  aria-label="Giá trị % CSKH áp dụng cho các học sinh đã chọn"
+                />
+              </label>
+
+              <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={closeBulkProfitPercentPopup}
+                  disabled={bulkProfitPercentMutation.isPending}
+                  className="min-h-11 rounded-xl border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmBulkProfitPercentUpdate}
+                  disabled={bulkProfitPercentMutation.isPending}
+                  className="min-h-11 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {bulkProfitPercentMutation.isPending
                     ? "Đang cập nhật…"
                     : "Xác nhận"}
                 </button>

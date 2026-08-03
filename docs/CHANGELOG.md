@@ -27,6 +27,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - Nguồn `revenue_share` mới trong `GET /staff/:id/payment-preview`, `PATCH /staff/:id/payment-status/pay-all|pay-selected`: cho phép thanh toán từng dòng hoa hồng doanh thu Trưởng giáo án (không khấu trừ thuế), gộp vào popup **Thanh toán** hiện có ở `/admin/staff/:id`.
 - Cột **% CSKH** trong bảng học sinh ở `admin/customer_care_detail/[staffId]` và `staff/customer-care-detail/[staffId]` (đọc `CustomerCareService.profitPercent` qua `GET /customer-care/staff/:staffId/students`).
 - Inline edit % CSKH trực tiếp trên bảng học sinh (click ô % → input → Enter/blur lưu qua `PATCH /student/:id`); chỉ admin/assistant sửa được, CSKH chỉ xem.
+- Bulk edit % CSKH: checkbox chọn nhiều học sinh trong bảng + action bar ghi đè 1 giá trị % duy nhất qua `PATCH /customer-care/staff/:staffId/profit-percent/bulk` (chỉ admin/assistant, scoped theo `staffId`).
 
 ### Changed
 
