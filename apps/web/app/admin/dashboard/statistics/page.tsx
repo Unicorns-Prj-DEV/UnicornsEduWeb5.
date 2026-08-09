@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { toast } from "sonner";
@@ -29,6 +29,12 @@ import {
 import { VIETNAMESE_MONTH_OPTIONS } from "@/lib/month-format";
 import { resolveAdminLikeRouteBase, buildAdminLikePath } from "@/lib/admin-shell-paths";
 import { FinancialDetailModal } from "@/components/admin/dashboard/FinancialDetailModal";
+import {
+  EXPENSE_METRIC_GLOSSARY,
+  FINANCE_METRIC_GLOSSARY,
+  MetricGlossary,
+  OPERATIONS_METRIC_GLOSSARY,
+} from "@/components/admin/dashboard/MetricGlossary";
 import type { AdminDashboardMonthlyStatistic } from "@/dtos/dashboard.dto";
 
 const MAX_MONTH_RANGE = 36;
@@ -129,7 +135,7 @@ const EXPENSE_BREAKDOWN_SERIES: Array<{
   { key: "teacherCost", name: "Dạy", color: "var(--ue-viz-1)" },
   { key: "customerCareCost", name: "CSKH", color: "var(--ue-viz-2)" },
   { key: "lessonCost", name: "Giáo án", color: "var(--ue-viz-3)" },
-  { key: "bonusCost", name: "Bonus", color: "var(--ue-viz-4)" },
+  { key: "bonusCost", name: "Thưởng", color: "var(--ue-viz-4)" },
   { key: "extraAllowanceCost", name: "Trợ cấp khác", color: "var(--ue-viz-5)" },
   { key: "assistantCost", name: "Trợ lí", color: "var(--ue-viz-6)" },
   { key: "trainingManagerCost", name: "QL lớp", color: "var(--ue-viz-7)" },
@@ -225,7 +231,6 @@ export default function AdminDashboardStatisticsPage() {
   const [fromYear, setFromYear] = useState(defaultRange.fromYear);
   const [toMonth, setToMonth] = useState(defaultRange.toMonth);
   const [toYear, setToYear] = useState(defaultRange.toYear);
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   const fromIndex = monthKeyToIndex(fromMonth, fromYear);
   const toIndex = monthKeyToIndex(toMonth, toYear);
@@ -269,28 +274,25 @@ export default function AdminDashboardStatisticsPage() {
     URL.revokeObjectURL(url);
   };
 
-  const handleExportPdf = async () => {
-    if (isExportingPdf || !canQuery) return;
-    setIsExportingPdf(true);
-    const toastId = toast.loading("Đang chuẩn bị báo cáo PDF…");
-
-    try {
-      const { blob, filename } = await downloadAdminMonthlyStatisticsPdf({
+  const exportPdfMutation = useMutation({
+    mutationFn: () =>
+      downloadAdminMonthlyStatisticsPdf({
         fromMonth,
         fromYear,
         toMonth,
         toYear,
-      });
+      }),
+    onMutate: () => ({ toastId: toast.loading("Đang chuẩn bị báo cáo PDF…") }),
+    onSuccess: ({ blob, filename }, _vars, context) => {
       triggerBlobDownload(blob, filename);
-      toast.success("Đã tải báo cáo PDF.", { id: toastId });
-    } catch (error) {
+      toast.success("Đã tải báo cáo PDF.", { id: context?.toastId });
+    },
+    onError: (error, _vars, context) => {
       const message =
         error instanceof Error ? error.message : "Không xuất được báo cáo PDF.";
-      toast.error(message, { id: toastId });
-    } finally {
-      setIsExportingPdf(false);
-    }
-  };
+      toast.error(message, { id: context?.toastId });
+    },
+  });
 
   return (
     <div className="min-h-full bg-bg-primary p-4 sm:p-6">
@@ -307,12 +309,13 @@ export default function AdminDashboardStatisticsPage() {
               <button
                 type="button"
                 onClick={() => {
-                  void handleExportPdf();
+                  if (!canQuery || exportPdfMutation.isPending) return;
+                  exportPdfMutation.mutate();
                 }}
-                disabled={!canQuery || isExportingPdf || statisticsQuery.isLoading}
+                disabled={!canQuery || exportPdfMutation.isPending || statisticsQuery.isLoading}
                 className="inline-flex min-h-9 items-center rounded-md border border-border-default bg-bg-surface px-3 text-xs font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isExportingPdf ? "Đang xuất…" : "Xuất PDF"}
+                {exportPdfMutation.isPending ? "Đang xuất…" : "Xuất PDF"}
               </button>
               <Link
                 href={buildAdminLikePath(routeBase, "dashboard")}
@@ -395,9 +398,6 @@ export default function AdminDashboardStatisticsPage() {
             <section className="space-y-3">
               <div>
                 <h2 className="text-sm font-semibold text-text-primary">Doanh thu · Chi phí · Lợi nhuận</h2>
-                <p className="text-xs text-text-muted">
-                  Doanh thu và chi phí là học phí ghi nhận theo buổi học thực tế và tổng chi phí nhân sự + vận hành trong tháng.
-                </p>
               </div>
               <FinancialTrendChart data={months} />
               <div className="overflow-x-auto rounded-xl border border-border-default">
@@ -446,14 +446,12 @@ export default function AdminDashboardStatisticsPage() {
                   </TableBody>
                 </Table>
               </div>
+              <MetricGlossary items={FINANCE_METRIC_GLOSSARY} />
             </section>
 
             <section className="space-y-3">
               <div>
                 <h2 className="text-sm font-semibold text-text-primary">Chi phí theo từng khoản</h2>
-                <p className="text-xs text-text-muted">
-                  Tách chi phí trong tháng thành 8 khoản: dạy, CSKH, giáo án, bonus, trợ cấp khác, trợ lí, quản lý lớp và vận hành.
-                </p>
               </div>
               <ExpenseBreakdownChart data={months} />
               <div className="overflow-x-auto rounded-xl border border-border-default">
@@ -496,14 +494,12 @@ export default function AdminDashboardStatisticsPage() {
                   </TableBody>
                 </Table>
               </div>
+              <MetricGlossary items={EXPENSE_METRIC_GLOSSARY} />
             </section>
 
             <section className="space-y-3">
               <div>
                 <h2 className="text-sm font-semibold text-text-primary">Học sinh · Lớp học · Gia sư</h2>
-                <p className="text-xs text-text-muted">
-                  Học sinh: đang active tại thời điểm cuối tháng. Lớp học/gia sư: có buổi học diễn ra trong tháng đó.
-                </p>
               </div>
               <OperationsTrendChart data={months} />
               <div className="overflow-x-auto rounded-xl border border-border-default">
@@ -534,6 +530,7 @@ export default function AdminDashboardStatisticsPage() {
                   </TableBody>
                 </Table>
               </div>
+              <MetricGlossary items={OPERATIONS_METRIC_GLOSSARY} />
             </section>
           </>
         )}

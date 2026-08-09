@@ -13,7 +13,7 @@ const EXPENSE_SERIES: Array<{
   { key: 'teacherCost', name: 'Dạy', color: '#2563eb' },
   { key: 'customerCareCost', name: 'CSKH', color: '#db2777' },
   { key: 'lessonCost', name: 'Giáo án', color: '#059669' },
-  { key: 'bonusCost', name: 'Bonus', color: '#8b5cf6' },
+  { key: 'bonusCost', name: 'Thưởng', color: '#8b5cf6' },
   { key: 'extraAllowanceCost', name: 'Trợ cấp khác', color: '#ea580c' },
   { key: 'assistantCost', name: 'Trợ lí', color: '#0891b2' },
   { key: 'trainingManagerCost', name: 'QL lớp', color: '#ca8a04' },
@@ -352,6 +352,88 @@ function renderTable(headers: string[], rows: string[][]) {
   `;
 }
 
+const FINANCE_METRIC_GLOSSARY: Array<{ term: string; definition: string }> = [
+  {
+    term: 'Doanh thu',
+    definition:
+      'Tổng học phí của các buổi học viên đã học trong tháng (có mặt hoặc được miễn điểm danh). Đây là tiền trung tâm thực sự “kiếm được” theo buổi học.',
+  },
+  {
+    term: 'Chi phí',
+    definition:
+      'Toàn bộ tiền trung tâm đã chi trong tháng: trả nhân sự (dạy, chăm sóc khách hàng, giáo án, thưởng, trợ cấp…) và các khoản chi vận hành khác.',
+  },
+  {
+    term: 'Lợi nhuận',
+    definition: 'Số còn lại sau khi lấy Doanh thu trừ Chi phí trong cùng tháng.',
+  },
+  {
+    term: 'Tổng nạp',
+    definition:
+      'Tổng tiền phụ huynh/học viên nạp vào ví trong tháng. Đây chưa phải doanh thu — tiền nạp có thể dùng dần cho nhiều buổi học sau.',
+  },
+];
+
+const EXPENSE_METRIC_GLOSSARY: Array<{ term: string; definition: string }> = [
+  { term: 'Dạy', definition: 'Tiền trả gia sư cho các buổi dạy trong tháng.' },
+  {
+    term: 'CSKH',
+    definition: 'Hoa hồng trả cho nhân viên chăm sóc khách hàng trong tháng.',
+  },
+  { term: 'Giáo án', definition: 'Chi phí làm / mua giáo án trong tháng.' },
+  { term: 'Thưởng', definition: 'Tiền thưởng trả cho nhân sự trong tháng.' },
+  {
+    term: 'Trợ cấp khác',
+    definition: 'Các khoản trợ cấp ngoài lương dạy và hoa hồng thông thường trong tháng.',
+  },
+  { term: 'Trợ lí', definition: 'Tiền hỗ trợ trả cho trợ lí lớp trong tháng.' },
+  { term: 'QL lớp', definition: 'Tiền hỗ trợ người quản lý lớp trong tháng.' },
+  {
+    term: 'Vận hành',
+    definition:
+      'Các khoản chi phí hoạt động khác của trung tâm ghi nhận trong tháng (ngoài trả nhân sự ở trên).',
+  },
+  {
+    term: 'Tổng',
+    definition:
+      'Cộng tất cả các khoản chi phí ở trên. Trùng với cột Chi phí ở bảng tài chính cùng tháng.',
+  },
+];
+
+const OPERATIONS_METRIC_GLOSSARY: Array<{ term: string; definition: string }> = [
+  {
+    term: 'Học sinh',
+    definition:
+      'Số học viên còn đang học tại thời điểm cuối tháng (đã vào học trước đó và chưa nghỉ).',
+  },
+  {
+    term: 'Lớp học',
+    definition: 'Số lớp có ít nhất một buổi học diễn ra trong tháng đó.',
+  },
+  {
+    term: 'Gia sư',
+    definition: 'Số gia sư có ít nhất một buổi dạy trong tháng đó.',
+  },
+];
+function renderGlossary(items: Array<{ term: string; definition: string }>) {
+  return `
+    <div class="glossary">
+      <p class="glossary-title">Giải thích chỉ số</p>
+      <dl>
+        ${items
+          .map(
+            (item) => `
+          <div class="glossary-row">
+            <dt>${escapeHtml(item.term)}</dt>
+            <dd>${escapeHtml(item.definition)}</dd>
+          </div>`,
+          )
+          .join('')}
+      </dl>
+    </div>
+  `;
+}
+
 /** Render thống kê theo tháng (charts SVG + bảng) sang PDF qua ReceiptPdfService. */
 @Injectable()
 export class MonthlyStatisticsExportPdfService {
@@ -418,7 +500,26 @@ export class MonthlyStatisticsExportPdfService {
     th, td { border: 1px solid #ddd; padding: 4px 6px; text-align: left; vertical-align: top; }
     th { background: #f3f4f6; font-weight: 600; }
     td.num, th.num { text-align: right; white-space: nowrap; }
-    .note { color: #666; font-style: italic; margin: 0 0 6px; }
+    .glossary {
+      margin: 10px 0 4px;
+      padding: 8px 10px;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      background: #f9fafb;
+    }
+    .glossary-title {
+      margin: 0 0 6px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #6b7280;
+    }
+    .glossary dl { margin: 0; }
+    .glossary-row { display: grid; grid-template-columns: 7.5rem 1fr; gap: 6px 10px; margin-bottom: 4px; }
+    .glossary-row:last-child { margin-bottom: 0; }
+    .glossary dt { margin: 0; font-weight: 600; color: #111; }
+    .glossary dd { margin: 0; color: #4b5563; }
   </style>
 </head>
 <body>
@@ -426,19 +527,19 @@ export class MonthlyStatisticsExportPdfService {
   <p class="meta">Kỳ: <strong>${escapeHtml(rangeLabel)}</strong> · Xuất lúc ${escapeHtml(generatedAt)}</p>
 
   <h2>1. Doanh thu · Chi phí · Lợi nhuận</h2>
-  <p class="note">Doanh thu và chi phí theo buổi học thực tế; tổng chi phí = nhân sự + vận hành.</p>
   <div class="chart">${financialChartSvg(months)}</div>
   ${financeTable}
+  ${renderGlossary(FINANCE_METRIC_GLOSSARY)}
 
   <h2>2. Chi phí theo từng khoản</h2>
-  <p class="note">8 khoản: dạy, CSKH, giáo án, bonus, trợ cấp khác, trợ lí, quản lý lớp, vận hành.</p>
   <div class="chart">${expenseChartSvg(months)}</div>
   ${expenseTable}
+  ${renderGlossary(EXPENSE_METRIC_GLOSSARY)}
 
   <h2>3. Học sinh · Lớp học · Gia sư</h2>
-  <p class="note">Học sinh: active cuối tháng. Lớp/gia sư: có buổi học trong tháng.</p>
   <div class="chart">${operationsChartSvg(months)}</div>
   ${opsTable}
+  ${renderGlossary(OPERATIONS_METRIC_GLOSSARY)}
 </body>
 </html>`;
   }
