@@ -193,10 +193,7 @@ export class CustomerCareService {
       return false;
     }
 
-    return (
-      staff.roles.includes(StaffRole.admin) ||
-      staff.roles.includes(StaffRole.assistant)
-    );
+    return staff.roles.includes(StaffRole.admin);
   }
 
   /** List students assigned to this staff in customer_care_service, sorted by accountBalance asc. */

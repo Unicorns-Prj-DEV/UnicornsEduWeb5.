@@ -31,7 +31,7 @@ type Props = {
   onClose: () => void;
   student: StudentDetail;
   onSuccess?: () => void | Promise<void>;
-  /** Admin/assistant only; CSKH can edit profile but not profit %. */
+  /** Admin only; CSKH/assistant can edit profile but not profit %. */
   canEditCustomerCareProfitPercent?: boolean;
 };
 

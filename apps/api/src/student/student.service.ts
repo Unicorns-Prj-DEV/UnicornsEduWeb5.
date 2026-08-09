@@ -874,13 +874,13 @@ export class StudentService {
       select: { roles: true },
     });
 
-    const canEditProfitPercent =
-      Boolean(staff?.roles.includes(StaffRole.assistant)) ||
-      Boolean(staff?.roles.includes(StaffRole.admin));
+    const canEditProfitPercent = Boolean(
+      staff?.roles.includes(StaffRole.admin),
+    );
 
     if (!canEditProfitPercent) {
       throw new ForbiddenException(
-        'CSKH cannot change customer care profit percent',
+        'Only admin can change customer care profit percent',
       );
     }
   }

@@ -220,7 +220,7 @@ export function resolveStudentAdminCapabilities(
       isStaffRoute && !access.isAssistant && access.isCustomerCare,
     canManageStudent,
     canEditStudentProfile,
-    canEditCustomerCareProfitPercent: canManageStudent,
+    canEditCustomerCareProfitPercent: access.isAdmin,
     canCreateWalletQr:
       access.isAdmin || access.isAssistant || isCustomerCareStaff,
     canDirectlyAdjustWallet: access.isAdmin,
