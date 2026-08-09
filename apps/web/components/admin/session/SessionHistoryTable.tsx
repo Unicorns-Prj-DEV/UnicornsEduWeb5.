@@ -129,6 +129,27 @@ type AttendanceFormItem = {
   defaultTuitionFee: number | null;
 };
 
+function mapSessionAttendanceToFormItems(
+  existingAttendance: SessionItem["attendance"],
+): AttendanceFormItem[] {
+  return (existingAttendance ?? []).map((attendanceItem) => ({
+    studentId: attendanceItem.studentId,
+    fullName:
+      (
+        attendanceItem as SessionAttendanceRecordWithStudent
+      ).student?.fullName?.trim() || "—",
+    status: (attendanceItem.status ?? "absent") as SessionAttendanceStatus,
+    notes: attendanceItem.notes ?? "",
+    tuitionFee:
+      normalizeMoneyValue(attendanceItem.tuitionFee) != null
+        ? moneyInputInitialFromNumber(
+            normalizeMoneyValue(attendanceItem.tuitionFee),
+          )
+        : "",
+    defaultTuitionFee: normalizeMoneyValue(attendanceItem.tuitionFee),
+  }));
+}
+
 const MAX_ATTENDANCE_NOTES_LENGTH = 500;
 
 function formatDateKey(date: Date): string {
@@ -955,35 +976,18 @@ export default function SessionHistoryTable({
     const isLockedSession =
       paymentStatus === "paid" || paymentStatus === "deposit";
 
-    setAttendanceLoading(true);
-    setAttendanceItems([]);
-    attendanceDirtyRef.current = false;
     const existingAttendance = session.attendance ?? [];
+    // Seed immediately so allowance override init does not compare against
+    // an empty roster (false "Đã chỉnh tay") while class students load.
+    setAttendanceItems(mapSessionAttendanceToFormItems(existingAttendance));
+    attendanceDirtyRef.current = false;
 
     if (isLockedSession) {
-      const items: AttendanceFormItem[] = existingAttendance.map(
-        (attendanceItem) => ({
-          studentId: attendanceItem.studentId,
-          fullName:
-            (
-              attendanceItem as SessionAttendanceRecordWithStudent
-            ).student?.fullName?.trim() || "—",
-          status: (attendanceItem.status ??
-            "absent") as SessionAttendanceStatus,
-          notes: attendanceItem.notes ?? "",
-          tuitionFee:
-            normalizeMoneyValue(attendanceItem.tuitionFee) != null
-              ? moneyInputInitialFromNumber(
-                  normalizeMoneyValue(attendanceItem.tuitionFee),
-                )
-              : "",
-          defaultTuitionFee: normalizeMoneyValue(attendanceItem.tuitionFee),
-        }),
-      );
-      setAttendanceItems(items);
       setAttendanceLoading(false);
       return;
     }
+
+    setAttendanceLoading(true);
 
     void getClassStudents(session.classId)
       .then((students) => {
@@ -1024,7 +1028,7 @@ export default function SessionHistoryTable({
         setAttendanceItems(merged);
       })
       .catch(() => {
-        setAttendanceItems([]);
+        // Keep seeded session attendance so allowance formula stays accurate.
         attendanceDirtyRef.current = false;
       })
       .finally(() => setAttendanceLoading(false));
@@ -1528,6 +1532,10 @@ export default function SessionHistoryTable({
 
   const usesSessionAllowanceSnapshot =
     allowancePreviewInputs?.source === "snapshot";
+  const shouldWaitForClassFormula =
+    Boolean(editingSession && editingClassId) &&
+    !usesSessionAllowanceSnapshot &&
+    isEditingClassDetailLoading;
   const allowancePerStudentNumeric = allowancePreviewInputs?.perStudent ?? 0;
   const scaleAmountForAllowancePreview = allowancePreviewInputs?.scaleAmount ?? 0;
   const allowanceRawBaseEdit = allowancePreviewInputs?.rawBase ?? null;
@@ -1556,6 +1564,11 @@ export default function SessionHistoryTable({
     if (allowanceOverrideInitSessionIdRef.current === editingSession.id) {
       return;
     }
+    // Wait for attendance (and live class config when needed) so we do not
+    // falsely treat formula-with-empty-roster as a manual override.
+    if (attendanceLoading || shouldWaitForClassFormula) {
+      return;
+    }
     if (allowanceRawBaseEdit == null) return;
 
     allowanceOverrideInitSessionIdRef.current = editingSession.id;
@@ -1576,6 +1589,8 @@ export default function SessionHistoryTable({
     setManualAllowanceGrossOverride(null);
   }, [
     editingSession,
+    attendanceLoading,
+    shouldWaitForClassFormula,
     allowanceRawBaseEdit,
     coefficientForAllowancePreview,
     editingClassDetail?.maxAllowancePerSession,
@@ -1621,10 +1636,6 @@ export default function SessionHistoryTable({
 
   const isAdminViewer = fullProfile?.roleType === "admin";
 
-  const shouldWaitForClassFormula =
-    Boolean(editingSession && editingClassId) &&
-    !usesSessionAllowanceSnapshot &&
-    isEditingClassDetailLoading;
   const allowanceFormulaNote = isEditingClassDetailError &&
     !usesSessionAllowanceSnapshot
     ? "Công thức trợ cấp: không tải được cấu hình lớp để preview."
