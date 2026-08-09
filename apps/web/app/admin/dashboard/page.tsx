@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -245,32 +245,58 @@ function StudentChurnDetailModal({
                   <AlertDescription>{getErrorMessage(churnQuery.error)}</AlertDescription>
                 </Alert>
               ) : churnQuery.data && churnQuery.data.length > 0 ? (
-                <div className="hidden overflow-x-auto rounded-xl border border-border-default md:block">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-border-default hover:bg-transparent">
-                        <TableHead className="min-w-[220px]">Học sinh</TableHead>
-                        <TableHead className="min-w-[200px]">Lớp</TableHead>
+                <>
+                  <div className="space-y-3 md:hidden">
+                    {churnQuery.data.map((item) => (
+                      <article
+                        key={item.studentId}
+                        className="rounded-xl border border-border-default bg-bg-surface p-4 shadow-sm"
+                      >
+                        <p className="text-sm font-semibold text-text-primary">{item.studentName}</p>
+                        <p className="mt-1 text-sm text-text-secondary">{item.className || "—"}</p>
                         {activeTab !== "active" ? (
-                          <TableHead className="min-w-[140px]">
-                            {activeTab === "new" ? "Ngày vào học" : "Ngày nghỉ"}
-                          </TableHead>
+                          <p className="mt-1 text-xs text-text-muted">
+                            {activeTab === "new" ? "Ngày vào học: " : "Ngày nghỉ: "}
+                            {formatChurnDate(item.eventDate)}
+                          </p>
                         ) : null}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {churnQuery.data.map((item) => (
-                        <TableRow key={item.studentId} className="border-border-default/80">
-                          <TableCell className="align-top font-medium text-text-primary">{item.studentName}</TableCell>
-                          <TableCell className="align-top text-text-secondary">{item.className || "—"}</TableCell>
+                      </article>
+                    ))}
+                  </div>
+
+                  <div className="hidden overflow-x-auto rounded-xl border border-border-default md:block">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-border-default hover:bg-transparent">
+                          <TableHead className="min-w-[220px]">Học sinh</TableHead>
+                          <TableHead className="min-w-[200px]">Lớp</TableHead>
                           {activeTab !== "active" ? (
-                            <TableCell className="align-top text-text-secondary">{formatChurnDate(item.eventDate)}</TableCell>
+                            <TableHead className="min-w-[140px]">
+                              {activeTab === "new" ? "Ngày vào học" : "Ngày nghỉ"}
+                            </TableHead>
                           ) : null}
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                      </TableHeader>
+                      <TableBody>
+                        {churnQuery.data.map((item) => (
+                          <TableRow key={item.studentId} className="border-border-default/80">
+                            <TableCell className="align-top font-medium text-text-primary">
+                              {item.studentName}
+                            </TableCell>
+                            <TableCell className="align-top text-text-secondary">
+                              {item.className || "—"}
+                            </TableCell>
+                            {activeTab !== "active" ? (
+                              <TableCell className="align-top text-text-secondary">
+                                {formatChurnDate(item.eventDate)}
+                              </TableCell>
+                            ) : null}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               ) : (
                 <div className="rounded-xl border border-dashed border-border-default bg-bg-secondary/35 px-4 py-6 text-sm text-text-secondary">
                   {activeTab === "active"
@@ -278,23 +304,6 @@ function StudentChurnDetailModal({
                     : "Không có học sinh nào trong kỳ đang chọn."}
                 </div>
               )}
-
-              {churnQuery.data && churnQuery.data.length > 0 ? (
-                <div className="space-y-3 md:hidden">
-                  {churnQuery.data.map((item) => (
-                    <article key={item.studentId} className="rounded-xl border border-border-default bg-bg-surface p-4 shadow-sm">
-                      <p className="text-sm font-semibold text-text-primary">{item.studentName}</p>
-                      <p className="mt-1 text-sm text-text-secondary">{item.className || "—"}</p>
-                      {activeTab !== "active" ? (
-                        <p className="mt-1 text-xs text-text-muted">
-                          {activeTab === "new" ? "Ngày vào học: " : "Ngày nghỉ: "}
-                          {formatChurnDate(item.eventDate)}
-                        </p>
-                      ) : null}
-                    </article>
-                  ))}
-                </div>
-              ) : null}
             </div>
           </div>
         </div>
@@ -470,8 +479,6 @@ export default function AdminDashboardTabPage() {
   }, []);
   const [dateFrom, setDateFrom] = useState(defaultDateRange.from);
   const [dateTo, setDateTo] = useState(defaultDateRange.to);
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
-  const [isExportingExcel, setIsExportingExcel] = useState(false);
 
   const isRangeMode = viewMode === "range";
 
@@ -752,53 +759,41 @@ export default function AdminDashboardTabPage() {
     URL.revokeObjectURL(url);
   };
 
-  const handleExportFinancialPdf = async () => {
-    if (isExportingPdf) return;
-    setIsExportingPdf(true);
-    const toastId = toast.loading("Đang chuẩn bị báo cáo PDF…");
-
-    try {
-      const { blob, filename } = await downloadAdminDashboardFinancialExportPdf(
-        isRangeMode
-          ? { dateFrom, dateTo }
-          : { month, year },
-      );
+  const exportFinancialPdfMutation = useMutation({
+    mutationFn: () =>
+      downloadAdminDashboardFinancialExportPdf(
+        isRangeMode ? { dateFrom, dateTo } : { month, year },
+      ),
+    onMutate: () => ({ toastId: toast.loading("Đang chuẩn bị báo cáo PDF…") }),
+    onSuccess: ({ blob, filename }, _vars, context) => {
       triggerBlobDownload(blob, filename);
-      toast.success("Đã tải báo cáo PDF.", { id: toastId });
-    } catch (error) {
+      toast.success("Đã tải báo cáo PDF.", { id: context?.toastId });
+    },
+    onError: (error, _vars, context) => {
       const message =
-        error instanceof Error
-          ? error.message
-          : "Không xuất được báo cáo PDF.";
-      toast.error(message, { id: toastId });
-    } finally {
-      setIsExportingPdf(false);
-    }
-  };
+        error instanceof Error ? error.message : "Không xuất được báo cáo PDF.";
+      toast.error(message, { id: context?.toastId });
+    },
+  });
 
-  const handleExportFinancialExcel = async () => {
-    if (isExportingExcel) return;
-    setIsExportingExcel(true);
-    const toastId = toast.loading("Đang chuẩn bị báo cáo Excel…");
-
-    try {
-      const { blob, filename } = await downloadAdminDashboardFinancialExportExcel(
-        isRangeMode
-          ? { dateFrom, dateTo }
-          : { month, year },
-      );
+  const exportFinancialExcelMutation = useMutation({
+    mutationFn: () =>
+      downloadAdminDashboardFinancialExportExcel(
+        isRangeMode ? { dateFrom, dateTo } : { month, year },
+      ),
+    onMutate: () => ({ toastId: toast.loading("Đang chuẩn bị báo cáo Excel…") }),
+    onSuccess: ({ blob, filename }, _vars, context) => {
       triggerBlobDownload(blob, filename);
-      toast.success("Đã tải báo cáo Excel.", { id: toastId });
-    } catch (error) {
+      toast.success("Đã tải báo cáo Excel.", { id: context?.toastId });
+    },
+    onError: (error, _vars, context) => {
       const message =
         error instanceof Error
           ? error.message
           : "Không xuất được báo cáo Excel.";
-      toast.error(message, { id: toastId });
-    } finally {
-      setIsExportingExcel(false);
-    }
-  };
+      toast.error(message, { id: context?.toastId });
+    },
+  });
 
   const renderFinancialValue = (
     row: FinancialSummaryRow,
@@ -964,22 +959,24 @@ export default function AdminDashboardTabPage() {
               <button
                 type="button"
                 onClick={() => {
-                  void handleExportFinancialPdf();
+                  if (exportFinancialPdfMutation.isPending) return;
+                  exportFinancialPdfMutation.mutate();
                 }}
-                disabled={isExportingPdf}
+                disabled={exportFinancialPdfMutation.isPending}
                 className="inline-flex min-h-10 items-center rounded-md border border-border-default bg-bg-surface px-3 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isExportingPdf ? "Đang xuất…" : "Xuất PDF"}
+                {exportFinancialPdfMutation.isPending ? "Đang xuất…" : "Xuất PDF"}
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  void handleExportFinancialExcel();
+                  if (exportFinancialExcelMutation.isPending) return;
+                  exportFinancialExcelMutation.mutate();
                 }}
-                disabled={isExportingExcel}
+                disabled={exportFinancialExcelMutation.isPending}
                 className="inline-flex min-h-10 items-center rounded-md bg-primary px-3 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isExportingExcel ? "Đang xuất…" : "Xuất Excel"}
+                {exportFinancialExcelMutation.isPending ? "Đang xuất…" : "Xuất Excel"}
               </button>
             </div>
           </div>
