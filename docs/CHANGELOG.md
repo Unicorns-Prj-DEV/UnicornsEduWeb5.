@@ -27,8 +27,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - Bảng `lesson_plan_head_commission`: snapshot hoa hồng doanh thu Trưởng giáo án (`lesson_plan_head`) theo từng buổi học toàn hệ thống, mỗi buổi chargeable sinh 1 dòng cho mỗi nhân sự role này đang active. Đồng bộ idempotent qua `syncLessonPlanHeadCommissions()` khi tạo/sửa session.
 - Nguồn `revenue_share` mới trong `GET /staff/:id/payment-preview`, `PATCH /staff/:id/payment-status/pay-all|pay-selected`: cho phép thanh toán từng dòng hoa hồng doanh thu Trưởng giáo án (không khấu trừ thuế), gộp vào popup **Thanh toán** hiện có ở `/admin/staff/:id`.
 - Cột **% CSKH** trong bảng học sinh ở `admin/customer_care_detail/[staffId]` và `staff/customer-care-detail/[staffId]` (đọc `CustomerCareService.profitPercent` qua `GET /customer-care/staff/:staffId/students`).
-- Inline edit % CSKH trực tiếp trên bảng học sinh (click ô % → input → Enter/blur lưu qua `PATCH /student/:id`); chỉ admin/assistant sửa được, CSKH chỉ xem.
-- Bulk edit % CSKH: checkbox chọn nhiều học sinh trong bảng + action bar ghi đè 1 giá trị % duy nhất qua `PATCH /customer-care/staff/:staffId/profit-percent/bulk` (chỉ admin/assistant, scoped theo `staffId`).
+- Inline edit % CSKH trực tiếp trên bảng học sinh (click ô % → input → Enter/blur lưu qua `PATCH /student/:id`); chỉ admin sửa được, CSKH/assistant chỉ xem.
+- Bulk edit % CSKH: checkbox chọn nhiều học sinh trong bảng + action bar ghi đè 1 giá trị % duy nhất qua `PATCH /customer-care/staff/:staffId/profit-percent/bulk` (chỉ admin, scoped theo `staffId`).
 - KPI card **Biến động học sinh** (`+X / -Y`) trên `admin/dashboard`: `summary.newStudentsThisMonth`/`droppedStudentsThisMonth` đếm toàn hệ thống theo `createdAt`/`dropOutDate` trong kỳ đang chọn (`GET /dashboard`), cập nhật theo month navigator.
 - Gộp KPI card **Biến động học sinh** vào card **Học sinh** trên `admin/dashboard` (bớt 1 card, note hiện `+X mới / -Y nghỉ trong kỳ`); bấm vào card mở popup drill-down 3 tab **Học sinh mới**/**Học sinh nghỉ**/**Học sinh hiện tại** liệt kê tên, lớp, ngày vào học/nghỉ (tab hiện tại chỉ tên + lớp, snapshot) qua endpoint mới `GET /dashboard/student-churn-details?type=new|dropped|active&month=&year=`.
 - KPI **HS mới tháng này** / **HS nghỉ tháng này** trên dashboard CSKH ở `/staff` (khối **Tổng hợp CSKH** của trợ lí và khối tổng hợp của CSKH) giờ bấm được, mở popup liệt kê tên học sinh + lớp + ngày mới/nghỉ qua endpoint mới `GET /users/me/staff-dashboard/customer-care-student-changes?month=&year=&type=new|dropped&scope=own|managed`.
@@ -39,6 +39,13 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- FE `/admin/lesson_plan_detail/[staffId]` (và staff shim): với role `lesson_plan_head` tách **2 tab** — **Hoa hồng doanh thu** (mặc định) và **Bài giáo án**; nhân sự chỉ `lesson_plan` giữ layout một khối bài giáo án (không hiện section hoa hồng).
+- Quyền chỉnh % CSKH (inline trên bảng chi tiết CSKH, bulk `PATCH .../profit-percent/bulk`, và ô trong popup **Chỉnh sửa hồ sơ học sinh`): chỉ còn **admin** (gỡ quyền `assistant`); FE/BE/docs đồng bộ.
+- FE `/admin/lesson_plan_detail`: ghi chú hoa hồng doanh thu làm rõ card **Tỷ lệ %** = mức đang cấu hình (áp buổi mới), còn **Số tiền thực nhận** = tổng snapshot `lesson_plan_head_commission` trong tháng — không còn copy sai kiểu “tháng quá khứ tính theo % hiện tại”.
+- FE `/admin/dashboard` và `/admin/dashboard/statistics`: xuất PDF/Excel dùng `useMutation` (TanStack Query) thay cho `useState` + gọi API thủ công.
+- FE popup **Biến động học sinh** trên `admin/dashboard`: dual layout card (mobile) + table (desktop) trong cùng nhánh dữ liệu, khớp pattern `FinancialDetailModal`.
+
+- FE/BE `/admin/dashboard/statistics`: ngay dưới mỗi bảng chi tiết tháng thêm khối **Giải thích chỉ số** bằng tiếng Việt dễ hiểu (không dùng thuật ngữ kỹ thuật); cột/series **Bonus** đổi nhãn thành **Thưởng**; PDF xuất và script DOCX one-off cũng kèm cùng nội dung giải thích.
 - FE `/admin/dashboard/statistics`: bảng **Chi phí theo từng khoản** thêm cột **Tổng** (= `expense` cùng tháng, bấm được mở chi tiết Nhân sự/Khác).
 - FE `/admin/dashboard/statistics`: tách bảng dữ liệu chi tiết chung thành 3 bảng riêng, mỗi bảng nằm ngay dưới chart tương ứng (Tài chính: Doanh thu/Chi phí/Lợi nhuận/Tổng nạp; Chi phí theo khoản: 8 cột breakdown; Vận hành: Học sinh/Lớp/Gia sư).
 - `GET /staff/:id/revenue-share`: `amount` đổi từ tính live (`doanh thu × %`) sang tổng `lesson_plan_head_commission.amount` snapshot theo tháng, đồng bộ với payload thanh toán.
@@ -50,6 +57,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
+- FE form sửa buổi học (`SessionHistoryTable`): badge trợ cấp **Đã chỉnh tay** không còn false positive khi mở buổi unpaid vừa tạo — seed điểm danh từ `session.attendance` trước khi merge roster lớp, và chỉ suy luận override sau khi `attendanceLoading` (và cấu hình lớp live nếu cần) xong. Create admin/staff vẫn không ghi flag chỉnh tay (không có cột DB); badge chỉ là suy luận FE.
 - FE `TimeInput` portal chọn giờ/phút: `z-[120]` (khớp `UpgradedSelect`) để không bị che bởi popup form lịch dạy bù / modal `z-[110]`.
 - BE `GET /staff/:id/income-summary` card **Lớp phụ trách** (`classMonthlySummaries`): không còn seed mọi row `class_teachers` (kể cả `inactive`) thành dòng 0đ; chỉ luôn hiện phân công hiện tại (`status` null/`active`); lớp nghỉ dạy chỉ hiện khi tháng đang chọn còn trợ cấp và/hoặc còn `unpaid`/`pending`, với `isCurrentTeacherAssignment=false` (badge **NGHỈ DẠY**).
 - BE `GET /staff` (list `/admin/staffs` cột **Lớp**): `classTeachers` chỉ gồm phân công hiện tại hoặc lớp nghỉ dạy còn trợ cấp tháng hiện tại / còn `unpaid`/`pending` — cùng rule ẩn lớp nghỉ 0đ với card **Lớp phụ trách**.
