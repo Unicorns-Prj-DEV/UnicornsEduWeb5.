@@ -5,19 +5,20 @@ import sharp from 'sharp';
 
 const WATERMARK_TILE_MAX_EDGE = 180;
 const WATERMARK_ALPHA = 0.35;
-/** Near-black brick background of the brand mark → transparent for tiling. */
-const BG_LUMA_CUTOFF = 42;
 
 let cachedLogoTile: Buffer | null = null;
 
 function resolveWatermarkLogoPath(): string {
   const candidates = [
-    join(__dirname, 'assets', 'watermark-logo.jpg'),
+    join(__dirname, 'assets', 'watermark-logo.webp'),
     join(__dirname, 'assets', 'watermark-logo.png'),
-    join(process.cwd(), 'src', 'storage', 'assets', 'watermark-logo.jpg'),
+    join(__dirname, 'assets', 'watermark-logo.jpg'),
+    join(process.cwd(), 'src', 'storage', 'assets', 'watermark-logo.webp'),
     join(process.cwd(), 'src', 'storage', 'assets', 'watermark-logo.png'),
-    join(process.cwd(), 'dist', 'storage', 'assets', 'watermark-logo.jpg'),
+    join(process.cwd(), 'src', 'storage', 'assets', 'watermark-logo.jpg'),
+    join(process.cwd(), 'dist', 'storage', 'assets', 'watermark-logo.webp'),
     join(process.cwd(), 'dist', 'storage', 'assets', 'watermark-logo.png'),
+    join(process.cwd(), 'dist', 'storage', 'assets', 'watermark-logo.jpg'),
   ];
   for (const candidate of candidates) {
     if (existsSync(candidate)) {
@@ -25,7 +26,7 @@ function resolveWatermarkLogoPath(): string {
     }
   }
   throw new BadRequestException(
-    'Thiếu asset watermark (storage/assets/watermark-logo.jpg).',
+    'Thiếu asset watermark (storage/assets/watermark-logo.webp).',
   );
 }
 
@@ -35,28 +36,22 @@ async function getWatermarkTile(): Promise<Buffer> {
   }
 
   const logo = readFileSync(resolveWatermarkLogoPath());
+  // Source mark is small (≈80px); upscale to tile size so diagonal tiles stay readable.
   const resized = await sharp(logo)
     .resize({
       width: WATERMARK_TILE_MAX_EDGE,
       height: WATERMARK_TILE_MAX_EDGE,
       fit: 'inside',
-      withoutEnlargement: true,
     })
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
 
+  // Preserve the asset's own alpha (transparent mark). Only fade for overlay —
+  // do not luma-key: black outlines on the graffiti mark must stay opaque.
   const pixels = Buffer.from(resized.data);
   for (let i = 0; i < pixels.length; i += 4) {
-    const r = pixels[i];
-    const g = pixels[i + 1];
-    const b = pixels[i + 2];
-    const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    if (luma < BG_LUMA_CUTOFF) {
-      pixels[i + 3] = 0;
-    } else {
-      pixels[i + 3] = Math.round(pixels[i + 3] * WATERMARK_ALPHA);
-    }
+    pixels[i + 3] = Math.round(pixels[i + 3] * WATERMARK_ALPHA);
   }
 
   const faded = await sharp(pixels, {
@@ -85,9 +80,26 @@ export async function bakeDiagonalWatermark(
   input: Buffer,
 ): Promise<{ buffer: Buffer; contentType: 'image/jpeg' }> {
   try {
-    const tile = await getWatermarkTile();
-    const buffer = await sharp(input)
-      .rotate()
+    const base = sharp(input).rotate();
+    const meta = await base.metadata();
+    const inputMinEdge = Math.min(meta.width ?? 0, meta.height ?? 0);
+
+    let tile = await getWatermarkTile();
+    const tileMeta = await sharp(tile).metadata();
+    const tileMaxEdge = Math.max(tileMeta.width ?? 0, tileMeta.height ?? 0);
+    // sharp requires each composite input to be <= base dimensions.
+    if (inputMinEdge > 0 && tileMaxEdge > inputMinEdge) {
+      tile = await sharp(tile)
+        .resize({
+          width: inputMinEdge,
+          height: inputMinEdge,
+          fit: 'inside',
+        })
+        .png()
+        .toBuffer();
+    }
+
+    const buffer = await base
       .composite([
         {
           input: tile,

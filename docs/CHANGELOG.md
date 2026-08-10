@@ -63,6 +63,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
+- BE watermark bake: thay asset `watermark-logo.jpg` (nền gạch) bằng `watermark-logo.webp` (logo trong suốt); bỏ luma-key nền tối để không ăn mất viền chữ đen của mark "HỌC TIN cùng CHUYÊN TIN".
 - BE Google Calendar schedule resync: khi ghi lại `Class.schedule` sau sync/resync không còn strip `createdAt`/`deletedAt` hay xoá slot soft-deleted. Slot active thiếu `createdAt` (data cũ) được backfill từ `Class.updatedAt` lúc resync hoặc lúc đọc **Cảnh báo chưa dạy**, tránh cảnh báo giờ lịch mới trên ngày quá khứ sau khi đổi lịch cố định.
 
 - FE form sửa buổi học (`SessionHistoryTable`): badge trợ cấp **Đã chỉnh tay** không còn false positive khi mở buổi unpaid vừa tạo — seed điểm danh từ `session.attendance` trước khi merge roster lớp, và chỉ suy luận override sau khi `attendanceLoading` (và cấu hình lớp live nếu cần) xong. Create admin/staff vẫn không ghi flag chỉnh tay (không có cột DB); badge chỉ là suy luận FE.

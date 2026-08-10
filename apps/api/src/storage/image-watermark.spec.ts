@@ -1,15 +1,20 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import sharp from 'sharp';
 import { bakeDiagonalWatermark } from './image-watermark';
 import { createPublicStorageUrl } from './supabase-storage';
 
 describe('image watermark + public URL', () => {
   it('bakes a jpeg twin larger than empty input metadata', async () => {
     const logo = readFileSync(
-      join(__dirname, 'assets', 'watermark-logo.jpg'),
+      join(__dirname, 'assets', 'watermark-logo.webp'),
     );
-    // Use the brand mark itself as a stand-in source photo.
-    const result = await bakeDiagonalWatermark(logo);
+    // Use a photo-sized base so the rotated tile fits (sharp requires tile ≤ base).
+    const photo = await sharp(logo)
+      .resize(640, 480, { fit: 'cover' })
+      .jpeg()
+      .toBuffer();
+    const result = await bakeDiagonalWatermark(photo);
     expect(result.contentType).toBe('image/jpeg');
     expect(result.buffer.length).toBeGreaterThan(1000);
   });
