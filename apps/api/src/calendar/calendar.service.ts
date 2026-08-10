@@ -1491,9 +1491,21 @@ export class CalendarService {
       quotaLimited: false,
       warnings: [],
     };
-    const currentSchedule = this.getStoredClassScheduleEntries(
+    const allStoredScheduleEntries = this.getStoredClassScheduleEntries(
       cls.schedule,
-    ).filter((entry) => !entry.deletedAt);
+    );
+    // Soft-deleted history must survive Google resync write-back: missed-teaching
+    // alerts and calendar expansion rely on createdAt/deletedAt ranges.
+    const historicalDeletedEntries = allStoredScheduleEntries.filter((entry) =>
+      Boolean(entry.deletedAt),
+    );
+    const currentSchedule = allStoredScheduleEntries.filter(
+      (entry) => !entry.deletedAt,
+    );
+    const scheduleCreatedAtFallback =
+      cls.updatedAt instanceof Date
+        ? cls.updatedAt.toISOString()
+        : new Date().toISOString();
     const targetEntryIds = new Set<string>();
     if (scopedTeacherId) {
       for (const entry of currentSchedule) {
@@ -2056,8 +2068,8 @@ export class CalendarService {
     await this.prisma.class.update({
       where: { id: classId },
       data: {
-        schedule: this.serializeStoredClassScheduleEntries(
-          currentSchedule.map((entry) => ({
+        schedule: this.serializeStoredClassScheduleEntries([
+          ...currentSchedule.map((entry) => ({
             id: entry.id,
             dayOfWeek: entry.dayOfWeek,
             from: this.normalizeTimeValue(entry.from),
@@ -2065,8 +2077,23 @@ export class CalendarService {
             teacherId: entry.teacherId,
             googleCalendarEventId: entry.googleCalendarEventId,
             meetLink: entry.meetLink,
+            // Preserve history timestamps; backfill missing createdAt so stripped
+            // slots are not treated as active since Class.createdAt.
+            createdAt: entry.createdAt ?? scheduleCreatedAtFallback,
+            deletedAt: entry.deletedAt,
           })),
-        ),
+          ...historicalDeletedEntries.map((entry) => ({
+            id: entry.id,
+            dayOfWeek: entry.dayOfWeek,
+            from: this.normalizeTimeValue(entry.from),
+            to: this.normalizeTimeValue(entry.to || entry.end),
+            teacherId: entry.teacherId,
+            googleCalendarEventId: entry.googleCalendarEventId,
+            meetLink: entry.meetLink,
+            createdAt: entry.createdAt ?? scheduleCreatedAtFallback,
+            deletedAt: entry.deletedAt,
+          })),
+        ]),
       },
     });
 

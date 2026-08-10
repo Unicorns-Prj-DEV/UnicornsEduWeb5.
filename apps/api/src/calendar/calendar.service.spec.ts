@@ -518,7 +518,7 @@ describe('CalendarService', () => {
       where: { id: 'class-1' },
       data: {
         schedule: [
-          {
+          expect.objectContaining({
             id: 'slot-1',
             dayOfWeek: 1,
             from: '19:00:00',
@@ -526,7 +526,8 @@ describe('CalendarService', () => {
             teacherId: 'teacher-1',
             googleCalendarEventId: 'calendar-event-1',
             meetLink: 'https://meet.google.com/fixed-teacher-link',
-          },
+            createdAt: expect.any(String),
+          }),
         ],
       },
     });
@@ -833,7 +834,7 @@ describe('CalendarService', () => {
       where: { id: 'class-1' },
       data: {
         schedule: [
-          {
+          expect.objectContaining({
             id: 'slot-own',
             dayOfWeek: 1,
             from: '19:00:00',
@@ -841,8 +842,9 @@ describe('CalendarService', () => {
             teacherId: 'teacher-1',
             googleCalendarEventId: 'new-own-event',
             meetLink: 'https://meet.google.com/own-link',
-          },
-          {
+            createdAt: expect.any(String),
+          }),
+          expect.objectContaining({
             id: 'slot-other',
             dayOfWeek: 2,
             from: '18:00:00',
@@ -850,14 +852,16 @@ describe('CalendarService', () => {
             teacherId: 'teacher-2',
             googleCalendarEventId: 'stored-other-event',
             meetLink: 'https://meet.google.com/other-link',
-          },
-          {
+            createdAt: expect.any(String),
+          }),
+          expect.objectContaining({
             id: 'slot-missing-teacher',
             dayOfWeek: 3,
             from: '17:00:00',
             to: '18:30:00',
             googleCalendarEventId: 'stored-missing-teacher-event',
-          },
+            createdAt: expect.any(String),
+          }),
         ],
       },
     });
@@ -936,7 +940,7 @@ describe('CalendarService', () => {
       where: { id: 'class-1' },
       data: {
         schedule: [
-          {
+          expect.objectContaining({
             id: 'slot-1',
             dayOfWeek: 1,
             from: '19:00:00',
@@ -944,7 +948,88 @@ describe('CalendarService', () => {
             teacherId: 'teacher-1',
             googleCalendarEventId: 'replacement-recurring-event',
             meetLink: 'https://meet.google.com/replacement-recurring',
+            createdAt: expect.any(String),
+          }),
+        ],
+      },
+    });
+  });
+
+  it('preserves schedule createdAt/deletedAt history when rewriting after Google resync', async () => {
+    mockPrisma.class.findUnique.mockResolvedValue({
+      id: 'class-1',
+      name: 'Toán 9A',
+      updatedAt: new Date('2026-06-10T08:00:00.000Z'),
+      schedule: [
+        {
+          id: 'slot-active',
+          dayOfWeek: 1,
+          from: '20:00:00',
+          to: '21:30:00',
+          teacherId: 'teacher-1',
+          googleCalendarEventId: 'stored-active-event',
+          createdAt: '2026-06-10T07:55:00.000Z',
+        },
+        {
+          id: 'slot-deleted',
+          dayOfWeek: 1,
+          from: '19:00:00',
+          to: '20:30:00',
+          teacherId: 'teacher-1',
+          googleCalendarEventId: 'stored-deleted-event',
+          createdAt: '2026-05-01T00:00:00.000Z',
+          deletedAt: '2026-06-10T07:55:00.000Z',
+        },
+      ],
+      teachers: [
+        {
+          teacherId: 'teacher-1',
+          teacher: {
+            id: 'teacher-1',
+            user: {
+              email: 'an@example.com',
+              first_name: 'An',
+              last_name: 'Nguyễn',
+            },
           },
+        },
+      ],
+    });
+    googleCalendarService.listClassScheduleRecurringEvents.mockResolvedValue([
+      {
+        eventId: 'stored-active-event',
+        calendarId: 'test-calendar@group.calendar.google.com',
+        scheduleEntryId: 'slot-active',
+      },
+    ]);
+    googleCalendarService.createOrUpdateClassScheduleRecurringEvent.mockResolvedValue(
+      {
+        eventId: 'stored-active-event',
+        meetLink: 'https://meet.google.com/active-link',
+      },
+    );
+
+    await service.resyncClassScheduleWithGoogleCalendar('class-1');
+
+    expect(mockPrisma.class.update).toHaveBeenCalledWith({
+      where: { id: 'class-1' },
+      data: {
+        schedule: [
+          expect.objectContaining({
+            id: 'slot-active',
+            from: '20:00:00',
+            to: '21:30:00',
+            createdAt: '2026-06-10T07:55:00.000Z',
+            googleCalendarEventId: 'stored-active-event',
+            meetLink: 'https://meet.google.com/active-link',
+          }),
+          expect.objectContaining({
+            id: 'slot-deleted',
+            from: '19:00:00',
+            to: '20:30:00',
+            createdAt: '2026-05-01T00:00:00.000Z',
+            deletedAt: '2026-06-10T07:55:00.000Z',
+          }),
         ],
       },
     });

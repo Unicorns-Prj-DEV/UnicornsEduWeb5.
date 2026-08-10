@@ -38,6 +38,7 @@ type AlertClassRecord = {
   name: string;
   status: ClassStatus;
   createdAt: Date;
+  updatedAt: Date;
   schedule: Prisma.JsonValue | null;
   teachers: Array<{
     teacherId: string;
@@ -166,6 +167,7 @@ export class SessionScheduleRulesService {
         name: true,
         status: true,
         createdAt: true,
+        updatedAt: true,
         schedule: true,
         teachers: {
           where: teacherId ? { teacherId } : undefined,
@@ -219,6 +221,7 @@ export class SessionScheduleRulesService {
         name: true,
         status: true,
         createdAt: true,
+        updatedAt: true,
         schedule: true,
         teachers: {
           where: {
@@ -398,6 +401,10 @@ export class SessionScheduleRulesService {
       if (cls.status !== ClassStatus.running) {
         continue;
       }
+
+      // Repair slots stripped of createdAt (e.g. older Google resync write-back)
+      // so they are not treated as active since Class.createdAt.
+      await this.repairMissingScheduleCreatedAt(cls);
 
       const activeTeacherIds = new Set(
         cls.teachers
@@ -591,6 +598,63 @@ export class SessionScheduleRulesService {
     return entries.filter(
       (entry): entry is StoredClassScheduleEntry => entry !== null,
     );
+  }
+
+  /**
+   * Google Calendar resync historically rewrote Class.schedule without createdAt.
+   * Backfill missing createdAt only on entries that already have Google projection
+   * metadata (evidence of calendar write-back), using class.updatedAt so missed
+   * alerts do not treat new slot times as active since Class.createdAt.
+   * True legacy slots without Google fields keep the class.createdAt lower bound.
+   */
+  private async repairMissingScheduleCreatedAt(
+    cls: AlertClassRecord,
+  ): Promise<void> {
+    if (!Array.isArray(cls.schedule)) {
+      return;
+    }
+
+    const fallbackCreatedAt =
+      cls.updatedAt instanceof Date
+        ? cls.updatedAt.toISOString()
+        : new Date().toISOString();
+    let changed = false;
+    const nextSchedule = cls.schedule.map((rawEntry) => {
+      if (!rawEntry || typeof rawEntry !== 'object' || Array.isArray(rawEntry)) {
+        return rawEntry;
+      }
+
+      const entry = rawEntry as Record<string, unknown>;
+      const hasCreatedAt =
+        typeof entry.createdAt === 'string' && entry.createdAt.trim().length > 0;
+      if (hasCreatedAt) {
+        return rawEntry;
+      }
+
+      const hasGoogleProjection =
+        (typeof entry.googleCalendarEventId === 'string' &&
+          entry.googleCalendarEventId.trim().length > 0) ||
+        (typeof entry.meetLink === 'string' && entry.meetLink.trim().length > 0);
+      if (!hasGoogleProjection) {
+        return rawEntry;
+      }
+
+      changed = true;
+      return {
+        ...entry,
+        createdAt: fallbackCreatedAt,
+      };
+    });
+
+    if (!changed) {
+      return;
+    }
+
+    cls.schedule = nextSchedule as Prisma.JsonValue;
+    await this.prisma.class.update({
+      where: { id: cls.id },
+      data: { schedule: nextSchedule as Prisma.InputJsonValue },
+    });
   }
 
   private normalizeTimeString(value: unknown): string | null {

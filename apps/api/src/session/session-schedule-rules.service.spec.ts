@@ -10,6 +10,7 @@ describe('SessionScheduleRulesService', () => {
     class: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
+      update: jest.fn(),
     },
     session: {
       findMany: jest.fn(),
@@ -33,6 +34,7 @@ describe('SessionScheduleRulesService', () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-05-29T12:00:00'));
     prisma.missedTeachingExplanation.findMany.mockResolvedValue([]);
     prisma.user.findMany.mockResolvedValue([]);
+    prisma.class.update.mockResolvedValue({});
     service = new SessionScheduleRulesService(prisma as never);
   });
 
@@ -622,5 +624,62 @@ describe('SessionScheduleRulesService', () => {
     // June 9 = ngày tạo lớp, grace window chưa qua (class created = today) → tùy isPastTeachingGraceWindow
     // Quan trọng: KHÔNG có alert cho thứ 2 tuần trước (June 2) vì class chưa tồn tại lúc đó
     expect(alertDates).not.toContain('2026-06-02');
+  });
+
+  it('backfills createdAt for Google-synced slots missing history so new times do not alert in the past', async () => {
+    jest.setSystemTime(new Date('2026-06-10T12:00:00'));
+
+    prisma.class.findUnique.mockResolvedValue({
+      id: 'class-1',
+      name: 'IELTS Advanced',
+      status: 'running',
+      createdAt: new Date('2026-05-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-06-10T08:00:00.000Z'),
+      schedule: [
+        {
+          id: 'slot-stripped',
+          dayOfWeek: 1, // Monday
+          from: '20:00:00',
+          to: '21:30:00',
+          teacherId: 'teacher-1',
+          googleCalendarEventId: 'gcal-event-1',
+          // createdAt stripped by buggy Google resync write-back
+        },
+      ],
+      teachers: [
+        {
+          teacherId: 'teacher-1',
+          status: 'active',
+          teacher: {
+            id: 'teacher-1',
+            user: {
+              first_name: 'An',
+              last_name: 'Nguyen',
+              email: 'an@example.com',
+            },
+          },
+        },
+      ],
+    });
+    prisma.session.findMany.mockResolvedValue([]);
+    prisma.makeupScheduleEvent.findMany.mockResolvedValue([]);
+
+    const alerts = await service.getMissedTeachingAlertsByClass('class-1', 14);
+    const alertDates = alerts.map((a) => a.originalDate);
+
+    expect(prisma.class.update).toHaveBeenCalledWith({
+      where: { id: 'class-1' },
+      data: {
+        schedule: [
+          expect.objectContaining({
+            id: 'slot-stripped',
+            createdAt: '2026-06-10T08:00:00.000Z',
+          }),
+        ],
+      },
+    });
+    // Past Mondays before the repaired createdAt must not appear
+    expect(alertDates).not.toContain('2026-06-02');
+    expect(alertDates).not.toContain('2026-06-09');
   });
 });
