@@ -43,6 +43,24 @@ import {
   UpdateStudentStatusDto,
 } from 'src/dtos/student.dto';
 import { StudentLandingProfileQueryDto } from 'src/dtos/landing-profile.dto';
+import { mapLandingAchievements } from 'src/achievements/achievement-landing.mapper';
+import { mapLandingStudentGallery } from 'src/student-gallery/student-gallery-landing.mapper';
+import {
+  AVATAR_PUBLIC_BUCKET,
+  AVATAR_STORAGE_BUCKET,
+} from 'src/storage/media-buckets';
+import {
+  createPublicStorageUrl,
+  createSignedStorageUrl,
+  removeStorageObjects,
+  uploadStorageObject,
+  type UploadableFile,
+  validateImageFile,
+} from 'src/storage/supabase-storage';
+import {
+  bakeDiagonalWatermark,
+  buildAvatarWatermarkedPath,
+} from 'src/storage/image-watermark';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { getUserFullNameFromParts } from 'src/common/user-name.util';
 import {
@@ -69,6 +87,8 @@ const RECENT_TOP_UP_DAYS = 21;
 const RECENT_TOP_UP_THRESHOLD = 300_000;
 const DIRECT_TOPUP_APPROVAL_TOKEN_DAYS = 14;
 const DIRECT_TOPUP_APPROVAL_TOKEN_BYTES = 32;
+const AVATAR_STORAGE_PATH_SEGMENT = 'avatar';
+const AVATAR_SIGNED_URL_TTL_SECONDS = 60 * 60;
 const ADMIN_EMAIL_PLACEHOLDER_DOMAINS = new Set([
   'example.com',
   'example.net',
@@ -103,6 +123,12 @@ const studentDetailInclude = {
   studentClasses: studentClassDetailInclude,
   examSchedules: {
     orderBy: [{ examDate: 'asc' }, { createdAt: 'asc' }],
+  },
+  user: {
+    select: {
+      id: true,
+      avatarPath: true,
+    },
   },
   customerCareServices: {
     include: {
@@ -430,10 +456,32 @@ export class StudentService {
     };
   }
 
+  private async createAvatarSignedUrl(path?: string | null) {
+    return createSignedStorageUrl({
+      bucket: AVATAR_STORAGE_BUCKET,
+      path,
+      expiresIn: AVATAR_SIGNED_URL_TTL_SECONDS,
+    });
+  }
+
+  private buildAvatarStoragePath(userId: string) {
+    return `users/${userId}/${AVATAR_STORAGE_PATH_SEGMENT}`;
+  }
+
+  private async withStudentAvatarUrl<
+    T extends { avatarPath?: string | null },
+  >(detail: T) {
+    return {
+      ...detail,
+      avatarUrl: await this.createAvatarSignedUrl(detail.avatarPath),
+    };
+  }
+
   private serializeStudentDetail(student: StudentDetailEntity) {
     return {
       ...this.serializeStudentListItem(student),
       userId: student.userId,
+      avatarPath: student.user?.avatarPath ?? null,
       birthYear: student.birthYear,
       parentName: student.parentName,
       parentPhone: student.parentPhone,
@@ -1255,17 +1303,49 @@ export class StudentService {
           fullName: true,
           school: true,
           province: true,
+          achievements: {
+            orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+            select: {
+              id: true,
+              title: true,
+              imageWatermarkedPath: true,
+              sortOrder: true,
+            },
+          },
+          galleryItems: {
+            orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+            select: {
+              id: true,
+              caption: true,
+              imageWatermarkedPath: true,
+              sortOrder: true,
+            },
+          },
+          user: {
+            select: {
+              avatarWatermarkedPath: true,
+            },
+          },
         },
       }),
     ]);
 
+    const data = rows.map((student) => ({
+      id: student.id,
+      name: student.fullName,
+      school: student.school,
+      province: student.province,
+      avatarUrl: createPublicStorageUrl({
+        bucket: AVATAR_PUBLIC_BUCKET,
+        path: student.user?.avatarWatermarkedPath,
+      }),
+      avatarPath: student.user?.avatarWatermarkedPath ?? null,
+      achievements: mapLandingAchievements(student.achievements),
+      gallery: mapLandingStudentGallery(student.galleryItems),
+    }));
+
     return {
-      data: rows.map((student) => ({
-        id: student.id,
-        name: student.fullName,
-        school: student.school,
-        province: student.province,
-      })),
+      data,
       total,
     };
   }
@@ -1305,7 +1385,159 @@ export class StudentService {
       throw new NotFoundException('Student not found');
     }
 
-    return this.serializeStudentDetail(student);
+    return this.withStudentAvatarUrl(this.serializeStudentDetail(student));
+  }
+
+  private async resolveLinkedUserIdForAvatar(studentId: string) {
+    const student = await this.prisma.studentInfo.findUnique({
+      where: { id: studentId },
+      select: {
+        id: true,
+        userId: true,
+        user: {
+          select: {
+            id: true,
+            avatarPath: true,
+            avatarWatermarkedPath: true,
+          },
+        },
+      },
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    if (!student.userId || !student.user) {
+      throw new BadRequestException(
+        'Học sinh chưa gắn tài khoản user nên không thể cập nhật ảnh đại diện.',
+      );
+    }
+
+    return student;
+  }
+
+  async uploadStudentAvatar(
+    studentId: string,
+    file: UploadableFile | undefined,
+    auditActor?: ActionHistoryActor,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Vui lòng chọn ảnh đại diện để tải lên.');
+    }
+    validateImageFile(file, 'Ảnh đại diện');
+
+    const student = await this.resolveLinkedUserIdForAvatar(studentId);
+    const userId = student.userId!;
+    const avatarPath = this.buildAvatarStoragePath(userId);
+    const avatarWatermarkedPath = buildAvatarWatermarkedPath(userId);
+    const watermarked = await bakeDiagonalWatermark(file.buffer);
+
+    await uploadStorageObject({
+      bucket: AVATAR_STORAGE_BUCKET,
+      path: avatarPath,
+      body: file.buffer,
+      contentType: file.mimetype,
+      upsert: true,
+    });
+
+    try {
+      await uploadStorageObject({
+        bucket: AVATAR_PUBLIC_BUCKET,
+        path: avatarWatermarkedPath,
+        body: watermarked.buffer,
+        contentType: watermarked.contentType,
+        upsert: true,
+      });
+    } catch (error) {
+      await removeStorageObjects({
+        bucket: AVATAR_STORAGE_BUCKET,
+        paths: [avatarPath],
+      }).catch(() => undefined);
+      throw error;
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { avatarPath, avatarWatermarkedPath },
+      });
+
+      if (auditActor) {
+        const afterValue = await this.getStudentAuditSnapshot(tx, studentId);
+        if (afterValue) {
+          await this.actionHistoryService.recordUpdate(tx, {
+            actor: auditActor,
+            entityType: 'student',
+            entityId: studentId,
+            description: 'Cập nhật ảnh đại diện học sinh',
+            beforeValue: {
+              avatarPath: student.user?.avatarPath ?? null,
+              avatarWatermarkedPath:
+                student.user?.avatarWatermarkedPath ?? null,
+            },
+            afterValue: {
+              avatarPath,
+              avatarWatermarkedPath,
+            },
+          });
+        }
+      }
+    });
+
+    this.invalidateStudentAuthIdentity(userId);
+    return this.getStudentById(studentId);
+  }
+
+  async deleteStudentAvatar(
+    studentId: string,
+    auditActor?: ActionHistoryActor,
+  ) {
+    const student = await this.resolveLinkedUserIdForAvatar(studentId);
+    const userId = student.userId!;
+    const existingPath = student.user?.avatarPath ?? null;
+    const existingWatermarked =
+      student.user?.avatarWatermarkedPath ?? null;
+
+    if (!existingPath && !existingWatermarked) {
+      return this.getStudentById(studentId);
+    }
+
+    await removeStorageObjects({
+      bucket: AVATAR_STORAGE_BUCKET,
+      paths: [existingPath],
+    });
+    await removeStorageObjects({
+      bucket: AVATAR_PUBLIC_BUCKET,
+      paths: [existingWatermarked],
+    });
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { avatarPath: null, avatarWatermarkedPath: null },
+      });
+
+      if (auditActor) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor: auditActor,
+          entityType: 'student',
+          entityId: studentId,
+          description: 'Xoá ảnh đại diện học sinh',
+          beforeValue: {
+            avatarPath: existingPath,
+            avatarWatermarkedPath: existingWatermarked,
+          },
+          afterValue: {
+            avatarPath: null,
+            avatarWatermarkedPath: null,
+          },
+        });
+      }
+    });
+
+    this.invalidateStudentAuthIdentity(userId);
+    return this.getStudentById(studentId);
   }
 
   async getStudentSelfDetail(id: string) {
@@ -2245,7 +2477,7 @@ export class StudentService {
       this.invalidateStudentAuthIdentity(student.userId);
     }
 
-    return this.serializeStudentDetail(updated);
+    return this.withStudentAvatarUrl(this.serializeStudentDetail(updated));
   }
 
   async updateStudentStatus(
@@ -2303,7 +2535,7 @@ export class StudentService {
     });
 
     this.invalidateStudentAuthIdentity(student.userId);
-    return this.serializeStudentDetail(updated);
+    return this.withStudentAvatarUrl(this.serializeStudentDetail(updated));
   }
 
   async updateStudent(data: UpdateStudentDto, auditActor?: ActionHistoryActor) {
@@ -2335,7 +2567,7 @@ export class StudentService {
       auditActor,
     );
 
-    return this.serializeStudentDetail(updated);
+    return this.withStudentAvatarUrl(this.serializeStudentDetail(updated));
   }
 
   updateMyStudentAccountBalance(
@@ -2493,7 +2725,7 @@ export class StudentService {
       return nextStudent;
     });
 
-    return this.serializeStudentDetail(updatedStudent);
+    return this.withStudentAvatarUrl(this.serializeStudentDetail(updatedStudent));
   }
 
   async deleteStudent(id: string, auditActor?: ActionHistoryActor) {

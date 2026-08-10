@@ -76,6 +76,66 @@ export class StudentLandingProfileQueryDto {
   limit?: number;
 }
 
+export class LandingAchievementDto {
+  @ApiProperty({ example: 'ach-uuid-1' })
+  id: string;
+
+  @ApiProperty({ example: 'HCV Olympic Tin học 2024' })
+  title: string;
+
+  @ApiProperty({
+    nullable: true,
+    example:
+      'https://your-project.supabase.co/storage/v1/object/public/achievements-public/staff/.../ach.jpg',
+    description:
+      'Stable public URL of the watermarked proof image (null if no twin).',
+  })
+  imageUrl: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    example: 'staff/UNISTAFF-a1b2c3d4e5/ach-uuid-1.jpg',
+    description:
+      'Stable path in public bucket `achievements-public` (watermarked twin). CMS may store as `eduweb5://achievements-public/{path}`.',
+  })
+  imagePath: string | null;
+
+  @ApiProperty({ example: 0, description: 'Display order ascending (0 first).' })
+  sortOrder: number;
+}
+
+export class LandingStudentGalleryItemDto {
+  @ApiProperty({ example: 'gallery-uuid-1' })
+  id: string;
+
+  @ApiProperty({
+    nullable: true,
+    example: null,
+    description: 'Unused in product UI; typically null.',
+  })
+  caption: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    example:
+      'https://your-project.supabase.co/storage/v1/object/public/student-gallery-public/student/.../item.jpg',
+    description:
+      'Stable public URL of the watermarked gallery image (null if no twin).',
+  })
+  imageUrl: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    example: 'student/UNIST-a1b2c3d4e5/gallery-uuid-1.jpg',
+    description:
+      'Stable path in public bucket `student-gallery-public` (watermarked twin).',
+  })
+  imagePath: string | null;
+
+  @ApiProperty({ example: 0, description: 'Display order ascending (0 first).' })
+  sortOrder: number;
+}
+
 export class StaffLandingProfileDto {
   @ApiProperty({ example: 'teacher-001' })
   id: string;
@@ -85,22 +145,37 @@ export class StaffLandingProfileDto {
 
   @ApiProperty({
     nullable: true,
-    example: 'https://example.com/avatar.jpg',
+    example:
+      'https://your-project.supabase.co/storage/v1/object/public/avatars-public/users/user-1/avatar.jpg',
+    description: 'Public URL of watermarked avatar twin (landing only).',
   })
   avatarUrl: string | null;
 
   @ApiProperty({
     nullable: true,
-    example: 'users/user-1/avatar',
-    description: 'Stable storage path in the avatars bucket',
+    example: 'users/user-1/avatar.jpg',
+    description:
+      'Stable path in public bucket `avatars-public` (watermarked twin).',
   })
   avatarPath: string | null;
 
   @ApiProperty({ nullable: true, example: 'HCMUS' })
   university: string | null;
 
-  @ApiProperty({ nullable: true, example: 'Computer Science' })
+  @ApiProperty({
+    nullable: true,
+    example: 'Computer Science',
+    description:
+      'Deprecated legacy blob. Prefer `achievements`. Kept for CMS backward compatibility during migration.',
+  })
   specialization: string | null;
+
+  @ApiProperty({
+    type: [LandingAchievementDto],
+    description:
+      'Ordered public achievements (title + optional proof image). Prefer this over `specialization`.',
+  })
+  achievements: LandingAchievementDto[];
 }
 
 export class StudentLandingProfileDto {
@@ -110,11 +185,40 @@ export class StudentLandingProfileDto {
   @ApiProperty({ example: 'Tran Thi B' })
   name: string;
 
+  @ApiProperty({
+    nullable: true,
+    example:
+      'https://your-project.supabase.co/storage/v1/object/public/avatars-public/users/user-2/avatar.jpg',
+    description: 'Public URL of watermarked avatar twin (landing only).',
+  })
+  avatarUrl: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    example: 'users/user-2/avatar.jpg',
+    description:
+      'Stable path in public bucket `avatars-public` (watermarked twin).',
+  })
+  avatarPath: string | null;
+
   @ApiProperty({ nullable: true, example: 'THPT Nguyen Du' })
   school: string | null;
 
   @ApiProperty({ nullable: true, example: 'Ha Noi' })
   province: string | null;
+
+  @ApiProperty({
+    type: [LandingAchievementDto],
+    description: 'Ordered public achievements (title + optional proof image).',
+  })
+  achievements: LandingAchievementDto[];
+
+  @ApiProperty({
+    type: [LandingStudentGalleryItemDto],
+    description:
+      'Ordered gallery photos (watermarked public images only; no captions in product UI).',
+  })
+  gallery: LandingStudentGalleryItemDto[];
 }
 
 export class StaffLandingProfilesResponseDto {

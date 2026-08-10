@@ -11,6 +11,10 @@ jest.mock('src/storage/supabase-storage', () => ({
   createSignedStorageUrl: jest.fn(async (options: { path?: string | null }) =>
     options.path ? `signed:${options.path}` : null,
   ),
+  createPublicStorageUrl: jest.fn(
+    (options: { bucket: string; path?: string | null }) =>
+      options.path ? `public:${options.bucket}:${options.path}` : null,
+  ),
   getSupabaseAdminClient: jest.fn(),
   validateImageFile: jest.fn(),
 }));
@@ -2792,12 +2796,26 @@ describe('StaffService', () => {
         id: 'teacher-1',
         university: 'HCMUS',
         specialization: 'Computer Science',
+        achievements: [
+          {
+            id: 'ach-1',
+            title: 'HCV Olympic 2024',
+            imageWatermarkedPath: 'staff/teacher-1/ach-1.jpg',
+            sortOrder: 0,
+          },
+          {
+            id: 'ach-2',
+            title: 'Giải Nhì HSG tỉnh',
+            imageWatermarkedPath: null,
+            sortOrder: 1,
+          },
+        ],
         user: {
           first_name: 'Nguyen',
           last_name: 'Van A',
           accountHandle: 'teacher-a',
           email: 'teacher@example.com',
-          avatarPath: 'users/user-1/avatar',
+          avatarWatermarkedPath: 'users/user-1/avatar.jpg',
         },
       },
     ]);
@@ -2808,10 +2826,26 @@ describe('StaffService', () => {
         {
           id: 'teacher-1',
           name: 'Van A Nguyen',
-          avatarUrl: 'signed:users/user-1/avatar',
-          avatarPath: 'users/user-1/avatar',
+          avatarUrl: 'public:avatars-public:users/user-1/avatar.jpg',
+          avatarPath: 'users/user-1/avatar.jpg',
           university: 'HCMUS',
           specialization: 'Computer Science',
+          achievements: [
+            {
+              id: 'ach-1',
+              title: 'HCV Olympic 2024',
+              imagePath: 'staff/teacher-1/ach-1.jpg',
+              imageUrl: 'public:achievements-public:staff/teacher-1/ach-1.jpg',
+              sortOrder: 0,
+            },
+            {
+              id: 'ach-2',
+              title: 'Giải Nhì HSG tỉnh',
+              imagePath: null,
+              imageUrl: null,
+              sortOrder: 1,
+            },
+          ],
         },
       ],
     });
@@ -2829,6 +2863,9 @@ describe('StaffService', () => {
           roles: { has: StaffRole.teacher },
         },
         take: 50,
+        select: expect.objectContaining({
+          achievements: expect.any(Object),
+        }),
       }),
     );
   });

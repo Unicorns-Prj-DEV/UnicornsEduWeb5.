@@ -29,6 +29,8 @@ import { RegulationModule } from './regulation/regulation.module';
 import { GoogleCalendarModule } from './google-calendar/google-calendar.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { DeductionSettingsModule } from './deduction-settings/deduction-settings.module';
+import { AchievementModule } from './achievements/achievement.module';
+import { StudentGalleryModule } from './student-gallery/student-gallery.module';
 
 function parsePositiveIntegerEnv(
   value: string | undefined,
@@ -82,6 +84,8 @@ function parsePositiveIntegerEnv(
     GoogleCalendarModule,
     CalendarModule,
     DeductionSettingsModule,
+    AchievementModule,
+    StudentGalleryModule,
   ],
   controllers: [AppController],
   providers: [

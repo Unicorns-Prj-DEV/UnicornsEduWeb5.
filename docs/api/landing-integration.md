@@ -6,8 +6,8 @@ Server-to-server endpoints that expose **public-safe identity fields** from Unic
 
 | Endpoint | Used for |
 |----------|----------|
-| `GET /staff/landing-profiles` | Populate CMS **Instructor** records (name, avatar, academic background) |
-| `GET /student/landing-profiles` | Populate CMS **StudentShowcase** records (name, school, province) |
+| `GET /staff/landing-profiles` | Populate CMS **Instructor** records (name, avatar, university, **achievements** + proof images; `specialization` deprecated) |
+| `GET /student/landing-profiles` | Populate CMS **StudentShowcase** records (name, school, province, avatar, **achievements** + proof images, **gallery** images) |
 
 Operational staff/student APIs under `/staff` and `/student` require cookie auth and RBAC. These landing endpoints are separate: they skip JWT, use a shared API key, and return only fields safe for marketing use.
 
@@ -49,6 +49,7 @@ JWT cookies are **not** required. Endpoints are marked `@Public()` and protected
 ## `GET /staff/landing-profiles`
 
 Returns staff identity data suitable for the landing CMS instructor section.
+Includes ordered **achievements** (titles + optional proof images). `specialization` remains for backward compatibility but is deprecated.
 
 ### Request
 
@@ -77,10 +78,26 @@ Allowed `role` values: `admin`, `teacher`, `lesson_plan`, `lesson_plan_head`, `a
     {
       "id": "UNISTAFF-a1b2c3d4e5",
       "name": "Nguyễn Văn A",
-      "avatarUrl": "https://your-project.supabase.co/storage/v1/object/sign/users/...",
-      "avatarPath": "users/user-1/avatar",
+      "avatarUrl": "https://your-project.supabase.co/storage/v1/object/public/avatars-public/users/user-1/avatar.jpg",
+      "avatarPath": "users/user-1/avatar.jpg",
       "university": "Đại học Bách Khoa TP.HCM",
-      "specialization": "Toán THPT"
+      "specialization": "Toán THPT",
+      "achievements": [
+        {
+          "id": "ach-uuid-1",
+          "title": "HCV Olympic Tin học 2024",
+          "imageUrl": "https://your-project.supabase.co/storage/v1/object/public/achievements-public/staff/UNISTAFF-a1b2c3d4e5/ach-uuid-1.jpg",
+          "imagePath": "staff/UNISTAFF-a1b2c3d4e5/ach-uuid-1.jpg",
+          "sortOrder": 0
+        },
+        {
+          "id": "ach-uuid-2",
+          "title": "Giải Nhì HSG tỉnh",
+          "imageUrl": null,
+          "imagePath": null,
+          "sortOrder": 1
+        }
+      ]
     },
     {
       "id": "UNISTAFF-f6e5d4c3b2",
@@ -88,7 +105,8 @@ Allowed `role` values: `admin`, `teacher`, `lesson_plan`, `lesson_plan_head`, `a
       "avatarUrl": null,
       "avatarPath": null,
       "university": null,
-      "specialization": "Vật lý"
+      "specialization": "Vật lý",
+      "achievements": []
     }
   ],
   "total": 2
@@ -101,10 +119,16 @@ Allowed `role` values: `admin`, `teacher`, `lesson_plan`, `lesson_plan_head`, `a
 |-------|------|--------|-------|
 | `id` | string | `staff_info.id` | Stable id (`UNISTAFF-…`); stored as CMS `sourceId` |
 | `name` | string | Linked `users` name | Resolved via `getPreferredUserFullName` |
-| `avatarUrl` | string \| null | `users.avatar_path` | Time-limited signed URL, or `null` if no avatar |
-| `avatarPath` | string \| null | `users.avatar_path` | Stable storage path in bucket `avatars`; CMS stores as `eduweb5://avatars/{path}` |
+| `avatarUrl` | string \| null | public twin | Public URL from bucket `avatars-public` (watermarked). `null` if no twin. |
+| `avatarPath` | string \| null | `users.avatar_watermarked_path` | Stable path; CMS may store as `eduweb5://avatars-public/{path}` |
 | `university` | string \| null | `staff_info.university` | |
-| `specialization` | string \| null | `staff_info.specialization` | |
+| `specialization` | string \| null | `staff_info.specialization` | **Deprecated** legacy blob. Prefer `achievements`. Kept temporarily for CMS backward compatibility. |
+| `achievements` | array | `staff_achievements` | Ordered by `sortOrder` asc (then `createdAt`). Public-safe titles + optional watermarked proof images. |
+| `achievements[].id` | string | `staff_achievements.id` | Stable achievement id |
+| `achievements[].title` | string | `staff_achievements.title` | Display title |
+| `achievements[].imageUrl` | string \| null | public twin | Public URL from `achievements-public`; `null` if no twin |
+| `achievements[].imagePath` | string \| null | `image_watermarked_path` | Stable path in `achievements-public` |
+| `achievements[].sortOrder` | number | `staff_achievements.sort_order` | Display order (0 first) |
 
 `total` is the count of items in `data` after filters and `limit` are applied.
 
@@ -154,14 +178,38 @@ Accept: application/json
     {
       "id": "UNIST-a1b2c3d4e5",
       "name": "Lê Văn C",
+      "avatarUrl": "https://your-project.supabase.co/storage/v1/object/public/avatars-public/users/user-s/avatar.jpg",
+      "avatarPath": "users/user-s/avatar.jpg",
       "school": "THPT Chuyên Lê Hồng Phong",
-      "province": "TP. Hồ Chí Minh"
+      "province": "TP. Hồ Chí Minh",
+      "achievements": [
+        {
+          "id": "sach-uuid-1",
+          "title": "HCV Tin học trẻ",
+          "imageUrl": "https://your-project.supabase.co/storage/v1/object/public/achievements-public/student/UNIST-a1b2c3d4e5/sach-uuid-1.jpg",
+          "imagePath": "student/UNIST-a1b2c3d4e5/sach-uuid-1.jpg",
+          "sortOrder": 0
+        }
+      ],
+      "gallery": [
+        {
+          "id": "gal-uuid-1",
+          "caption": null,
+          "imageUrl": "https://your-project.supabase.co/storage/v1/object/public/student-gallery-public/student/UNIST-a1b2c3d4e5/gal-uuid-1.jpg",
+          "imagePath": "student/UNIST-a1b2c3d4e5/gal-uuid-1.jpg",
+          "sortOrder": 0
+        }
+      ]
     },
     {
       "id": "UNIST-f6e5d4c3b2",
       "name": "Phạm Thị D",
+      "avatarUrl": null,
+      "avatarPath": null,
       "school": null,
-      "province": "Hà Nội"
+      "province": "Hà Nội",
+      "achievements": [],
+      "gallery": []
     }
   ],
   "total": 2
@@ -174,9 +222,32 @@ Accept: application/json
 |-------|------|--------|-------|
 | `id` | string | `student_info.id` | Stable id (`UNIST-…`); stored as CMS `sourceId` |
 | `name` | string | `student_info.full_name` | Display name |
+| `avatarUrl` | string \| null | public twin | Same semantics as staff (bucket `avatars-public`) |
+| `avatarPath` | string \| null | `users.avatar_watermarked_path` | Via linked user; `null` if no linked user / no twin |
 | `school` | string \| null | `student_info.school` | |
 | `province` | string \| null | `student_info.province` | |
+| `achievements` | array | `student_achievements` | Ordered by `sortOrder` asc. Admin-managed in EduWeb5; no student self-service. |
+| `achievements[].id` | string | `student_achievements.id` | |
+| `achievements[].title` | string | `student_achievements.title` | |
+| `achievements[].imageUrl` | string \| null | public twin | From `achievements-public`; `null` if no twin |
+| `achievements[].imagePath` | string \| null | `image_watermarked_path` | |
+| `achievements[].sortOrder` | number | `student_achievements.sort_order` | |
+| `gallery` | array | `student_gallery_items` | Ordered by `sortOrder` asc. Admin-managed; **images only** (no caption UI). |
+| `gallery[].id` | string | `student_gallery_items.id` | |
+| `gallery[].caption` | string \| null | `student_gallery_items.caption` | Unused in product UI; typically `null`. Kept for schema compatibility. |
+| `gallery[].imageUrl` | string \| null | public twin | From `student-gallery-public`; `null` if no twin |
+| `gallery[].imagePath` | string \| null | `image_watermarked_path` | |
+| `gallery[].sortOrder` | number | `student_gallery_items.sort_order` | |
 
+### CMS sync notes (achievements + gallery)
+
+- Prefer syncing `achievements[]` into landing Instructor / StudentShowcase related records (or nested JSON), not the legacy `specialization` string.
+- Sync `gallery[]` as a multi-image showcase (watermarked images only; ignore caption). Do not conflate with achievements.
+- Persist stable **public watermarked** image URLs/paths (ADR `docs/adr/2026-08-11-landing-watermarked-public-images.md`, gallery ADR `docs/adr/2026-08-11-student-gallery-watermarked.md`). Do **not** embed EduWeb5 signed URLs of clean originals on the public site.
+- Empty `achievements: []` / `gallery: []` is valid.
+- Clean originals stay private in `achievements` / `avatars` / `student-gallery`. Landing consumes twins from public buckets **`achievements-public`** / **`avatars-public`** / **`student-gallery-public`**.
+- **Contract (implemented):** landing `avatarUrl`/`avatarPath`, `achievements[].imageUrl`/`imagePath`, and `gallery[].imageUrl`/`imagePath` are watermarked **public** assets. Missing twin → `null` (never fall back to clean).
+- Ops: create public buckets (`avatars-public`, `achievements-public`, `student-gallery-public`) + private `student-gallery`; run avatar/achievement backfill after migrate when needed.
 ### Example
 
 ```bash

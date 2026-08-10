@@ -114,10 +114,8 @@ function isStaffProfileComplete(
     hasText(staff.birthDate) &&
     hasText(staff.university) &&
     hasText(staff.highSchool) &&
-    hasText(staff.specialization) &&
     hasText(staff.bankAccount) &&
-    hasText(staff.bankQrLink) &&
-    hasText(staff.personalAchievementLink)
+    hasText(staff.bankQrLink)
   );
 }
 

@@ -32,11 +32,20 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   createSignedStorageUrl,
-  getSupabaseAdminClient,
   normalizeHttpHttpsUrl,
+  removeStorageObjects,
+  uploadStorageObject,
   type UploadableFile,
   validateImageFile,
 } from 'src/storage/supabase-storage';
+import {
+  bakeDiagonalWatermark,
+  buildAvatarWatermarkedPath,
+} from 'src/storage/image-watermark';
+import {
+  AVATAR_PUBLIC_BUCKET,
+  AVATAR_STORAGE_BUCKET,
+} from 'src/storage/media-buckets';
 import {
   getUserFullNameFromParts,
   getPreferredUserFullName,
@@ -44,7 +53,6 @@ import {
 } from 'src/common/user-name.util';
 
 type UserAuditClient = Prisma.TransactionClient | PrismaService;
-const AVATAR_STORAGE_BUCKET = 'avatars';
 const AVATAR_STORAGE_PATH_SEGMENT = 'avatar';
 const AVATAR_SIGNED_URL_TTL_SECONDS = 60 * 60;
 
@@ -1052,24 +1060,37 @@ export class UserService {
     }
 
     const avatarPath = this.buildAvatarStoragePath(userId);
-    const supabase = getSupabaseAdminClient();
-    const uploadResult = await supabase.storage
-      .from(AVATAR_STORAGE_BUCKET)
-      .upload(avatarPath, file.buffer, {
-        upsert: true,
-        contentType: file.mimetype,
-      });
+    const avatarWatermarkedPath = buildAvatarWatermarkedPath(userId);
+    const watermarked = await bakeDiagonalWatermark(file.buffer);
 
-    if (uploadResult.error) {
-      throw new BadRequestException(
-        uploadResult.error.message || 'Không thể tải ảnh đại diện lên.',
-      );
+    await uploadStorageObject({
+      bucket: AVATAR_STORAGE_BUCKET,
+      path: avatarPath,
+      body: file.buffer,
+      contentType: file.mimetype,
+      upsert: true,
+    });
+
+    try {
+      await uploadStorageObject({
+        bucket: AVATAR_PUBLIC_BUCKET,
+        path: avatarWatermarkedPath,
+        body: watermarked.buffer,
+        contentType: watermarked.contentType,
+        upsert: true,
+      });
+    } catch (error) {
+      await removeStorageObjects({
+        bucket: AVATAR_STORAGE_BUCKET,
+        paths: [avatarPath],
+      }).catch(() => undefined);
+      throw error;
     }
 
     await this.prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: userId },
-        data: { avatarPath },
+        data: { avatarPath, avatarWatermarkedPath },
       });
 
       if (auditActor) {
@@ -1097,25 +1118,23 @@ export class UserService {
       throw new UnauthorizedException('User not found');
     }
 
-    if (!existing.avatarPath) {
+    if (!existing.avatarPath && !existing.avatarWatermarkedPath) {
       return this.getFullProfile(userId);
     }
 
-    const supabase = getSupabaseAdminClient();
-    const deleteResult = await supabase.storage
-      .from(AVATAR_STORAGE_BUCKET)
-      .remove([existing.avatarPath]);
-
-    if (deleteResult.error) {
-      throw new BadRequestException(
-        deleteResult.error.message || 'Không thể xoá ảnh đại diện hiện tại.',
-      );
-    }
+    await removeStorageObjects({
+      bucket: AVATAR_STORAGE_BUCKET,
+      paths: [existing.avatarPath],
+    });
+    await removeStorageObjects({
+      bucket: AVATAR_PUBLIC_BUCKET,
+      paths: [existing.avatarWatermarkedPath],
+    });
 
     await this.prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: userId },
-        data: { avatarPath: null },
+        data: { avatarPath: null, avatarWatermarkedPath: null },
       });
 
       if (auditActor) {

@@ -4,17 +4,23 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
   Put,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ParseStudentIdPipe } from 'src/common/pipes/parse-entity-id.pipe';
 import {
   ApiBody,
+  ApiConsumes,
   ApiCookieAuth,
   ApiHeader,
   ApiOperation,
@@ -63,7 +69,19 @@ import {
   StudentLandingProfileQueryDto,
   StudentLandingProfilesResponseDto,
 } from 'src/dtos/landing-profile.dto';
+import {
+  buildImageUploadFileFilter,
+  DEFAULT_MAX_IMAGE_BYTES,
+} from 'src/storage/supabase-storage';
 import { StudentService } from './student.service';
+
+const avatarUploadInterceptor = FileInterceptor('avatar', {
+  limits: { fileSize: DEFAULT_MAX_IMAGE_BYTES },
+  fileFilter: buildImageUploadFileFilter({
+    defaultFieldLabel: 'Ảnh đại diện',
+    labelsByFieldName: { avatar: 'Ảnh đại diện' },
+  }),
+});
 
 @ApiTags('student')
 @Controller('student')
@@ -653,6 +671,62 @@ export class StudentController {
   ) {
     return this.studentService.getStudentById(id, {
       userId: user.id,
+      roleType: user.roleType,
+    });
+  }
+
+  @Post(':id/avatar')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(avatarUploadInterceptor)
+  @ApiOperation({
+    summary: 'Upload student avatar',
+    description:
+      'Uploads avatar for the linked user account (clean + watermarked twin).',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiParam({ name: 'id', description: 'Student ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['avatar'],
+      properties: { avatar: { type: 'string', format: 'binary' } },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Student detail with avatar URL.' })
+  @ApiResponse({ status: 400, description: 'Missing linked user or invalid image.' })
+  @ApiResponse({ status: 404, description: 'Student not found.' })
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.customer_care)
+  async uploadStudentAvatar(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseStudentIdPipe()) id: string,
+    @UploadedFile()
+    file?: { buffer: Buffer; mimetype: string; size: number },
+  ) {
+    return this.studentService.uploadStudentAvatar(id, file, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
+  }
+
+  @Delete(':id/avatar')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Delete student avatar',
+    description: 'Removes clean + watermarked avatar for the linked user.',
+  })
+  @ApiParam({ name: 'id', description: 'Student ID' })
+  @ApiResponse({ status: 200, description: 'Student detail without avatar.' })
+  @ApiResponse({ status: 400, description: 'Missing linked user.' })
+  @ApiResponse({ status: 404, description: 'Student not found.' })
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.customer_care)
+  async deleteStudentAvatar(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseStudentIdPipe()) id: string,
+  ) {
+    return this.studentService.deleteStudentAvatar(id, {
+      userId: user.id,
+      userEmail: user.email,
       roleType: user.roleType,
     });
   }

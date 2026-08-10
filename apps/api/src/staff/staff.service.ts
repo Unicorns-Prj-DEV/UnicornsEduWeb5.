@@ -20,6 +20,12 @@ import {
 } from 'generated/enums';
 import { PaginationQueryDto } from 'src/dtos/pagination.dto';
 import { StaffLandingProfileQueryDto } from 'src/dtos/landing-profile.dto';
+import { mapLandingAchievements } from 'src/achievements/achievement-landing.mapper';
+import { AVATAR_PUBLIC_BUCKET } from 'src/storage/media-buckets';
+import {
+  createPublicStorageUrl,
+  createSignedStorageUrl,
+} from 'src/storage/supabase-storage';
 import {
   CreateStaffDto,
   type StaffDepositPaymentPreviewClassDto,
@@ -49,7 +55,6 @@ import {
   generateStaffId,
   isEntityIdUniqueConstraintError,
 } from 'src/common/entity-id';
-import { createSignedStorageUrl } from 'src/storage/supabase-storage';
 import {
   getPreferredUserFullName,
   getUserFullNameFromParts,
@@ -1331,29 +1336,40 @@ export class StaffService {
           id: true,
           university: true,
           specialization: true,
+          achievements: {
+            orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+            select: {
+              id: true,
+              title: true,
+              imageWatermarkedPath: true,
+              sortOrder: true,
+            },
+          },
           user: {
             select: {
               first_name: true,
               last_name: true,
               accountHandle: true,
               email: true,
-              avatarPath: true,
+              avatarWatermarkedPath: true,
             },
           },
         },
       }),
     ]);
 
-    const data = await Promise.all(
-      rows.map(async (staff) => ({
-        id: staff.id,
-        name: getPreferredUserFullName(staff.user) ?? '',
-        avatarUrl: await this.createAvatarSignedUrl(staff.user?.avatarPath),
-        avatarPath: staff.user?.avatarPath ?? null,
-        university: staff.university,
-        specialization: staff.specialization,
-      })),
-    );
+    const data = rows.map((staff) => ({
+      id: staff.id,
+      name: getPreferredUserFullName(staff.user) ?? '',
+      avatarUrl: createPublicStorageUrl({
+        bucket: AVATAR_PUBLIC_BUCKET,
+        path: staff.user?.avatarWatermarkedPath,
+      }),
+      avatarPath: staff.user?.avatarWatermarkedPath ?? null,
+      university: staff.university,
+      specialization: staff.specialization,
+      achievements: mapLandingAchievements(staff.achievements),
+    }));
 
     return { data, total };
   }

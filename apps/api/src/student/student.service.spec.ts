@@ -4,6 +4,30 @@ jest.mock('../prisma/prisma.service', () => ({
 jest.mock('../../generated/client', () => ({
   Prisma: {},
 }));
+jest.mock('src/storage/supabase-storage', () => ({
+  createSignedStorageUrl: jest.fn(async (options: { path?: string | null }) =>
+    options.path ? `signed:${options.path}` : null,
+  ),
+  createPublicStorageUrl: jest.fn(
+    (options: { bucket: string; path?: string | null }) =>
+      options.path ? `public:${options.bucket}:${options.path}` : null,
+  ),
+  getSupabaseAdminClient: jest.fn(),
+  tryGetSupabaseAdminClient: jest.fn(() => null),
+  validateImageFile: jest.fn(),
+  uploadStorageObject: jest.fn(async () => undefined),
+  removeStorageObjects: jest.fn(async () => undefined),
+}));
+
+jest.mock('src/storage/image-watermark', () => ({
+  bakeDiagonalWatermark: jest.fn(async () => ({
+    buffer: Buffer.from('wm'),
+    contentType: 'image/jpeg',
+  })),
+  buildAvatarWatermarkedPath: jest.fn(
+    (userId: string) => `users/${userId}/avatar.jpg`,
+  ),
+}));
 
 import { BadRequestException, Logger } from '@nestjs/common';
 import {
@@ -13,7 +37,17 @@ import {
   UserRole,
   WalletTransactionType,
 } from '../../generated/enums';
+import {
+  createPublicStorageUrl,
+  createSignedStorageUrl,
+} from 'src/storage/supabase-storage';
 import { StudentService } from './student.service';
+
+const mockCreatePublicStorageUrl =
+  createPublicStorageUrl as jest.MockedFunction<typeof createPublicStorageUrl>;
+
+const mockCreateSignedStorageUrl =
+  createSignedStorageUrl as jest.MockedFunction<typeof createSignedStorageUrl>;
 
 describe('StudentService', () => {
   const mockPrisma = {
@@ -101,6 +135,14 @@ describe('StudentService', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
+    mockCreateSignedStorageUrl.mockImplementation(
+      async (options: { path?: string | null }) =>
+        options.path ? `signed:${options.path}` : null,
+    );
+    mockCreatePublicStorageUrl.mockImplementation(
+      (options: { bucket: string; path?: string | null }) =>
+        options.path ? `public:${options.bucket}:${options.path}` : null,
+    );
     delete process.env.SEPAY_TOPUP_MODE;
     delete process.env.SEPAY_API_ACCESS_TOKEN;
     delete process.env.SEPAY_BANK_ACCOUNT_XID;
@@ -1509,6 +1551,11 @@ describe('StudentService', () => {
     });
     mockPrisma.studentClass.updateMany.mockResolvedValue({ count: 2 });
 
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-assistant-1',
+      roles: [StaffRole.assistant],
+    });
+
     await expect(
       service.updateStudentStatus(
         'student-1',
@@ -1584,6 +1631,11 @@ describe('StudentService', () => {
       status: StudentStatus.active,
     });
 
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-assistant-1',
+      roles: [StaffRole.assistant],
+    });
+
     await expect(
       service.updateStudentStatus(
         'student-1',
@@ -1607,6 +1659,25 @@ describe('StudentService', () => {
         fullName: 'Nguyen Van A',
         school: 'THPT Nguyen Du',
         province: 'Ha Noi',
+        achievements: [
+          {
+            id: 'sach-1',
+            title: 'HCV Tin học trẻ',
+            imageWatermarkedPath: 'student/student-1/sach-1.jpg',
+            sortOrder: 0,
+          },
+        ],
+        galleryItems: [
+          {
+            id: 'gal-1',
+            caption: null,
+            imageWatermarkedPath: 'student/student-1/gal-1.jpg',
+            sortOrder: 0,
+          },
+        ],
+        user: {
+          avatarWatermarkedPath: 'users/user-s1/avatar.jpg',
+        },
       },
     ]);
 
@@ -1618,6 +1689,28 @@ describe('StudentService', () => {
           name: 'Nguyen Van A',
           school: 'THPT Nguyen Du',
           province: 'Ha Noi',
+          avatarUrl: 'public:avatars-public:users/user-s1/avatar.jpg',
+          avatarPath: 'users/user-s1/avatar.jpg',
+          achievements: [
+            {
+              id: 'sach-1',
+              title: 'HCV Tin học trẻ',
+              imagePath: 'student/student-1/sach-1.jpg',
+              imageUrl:
+                'public:achievements-public:student/student-1/sach-1.jpg',
+              sortOrder: 0,
+            },
+          ],
+          gallery: [
+            {
+              id: 'gal-1',
+              caption: null,
+              imagePath: 'student/student-1/gal-1.jpg',
+              imageUrl:
+                'public:student-gallery-public:student/student-1/gal-1.jpg',
+              sortOrder: 0,
+            },
+          ],
         },
       ],
     });
@@ -1629,12 +1722,14 @@ describe('StudentService', () => {
       expect.objectContaining({
         where: { status: StudentStatus.active },
         take: 100,
-        select: {
+        select: expect.objectContaining({
           id: true,
           fullName: true,
           school: true,
           province: true,
-        },
+          achievements: expect.any(Object),
+          galleryItems: expect.any(Object),
+        }),
       }),
     );
   });
