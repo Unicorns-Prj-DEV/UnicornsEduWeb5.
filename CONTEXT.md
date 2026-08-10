@@ -52,8 +52,17 @@
 - **Giới tính nhân sự**: field `staff_info.gender`, dùng enum `Gender` chung (`male`, `female`) giống hồ sơ học viên.
 - **Địa chỉ hiện tại của nhân sự**: field `staff_info.current_address`, là địa chỉ liên hệ hiện tại nhập tay trong hồ sơ nhân sự. Field này khác với `users.province`, vốn chỉ là tỉnh/thành phố cấp user.
 - **Ảnh CCCD legacy**: hệ thống không còn nhận upload hoặc lưu path ảnh CCCD trong `staff_info`; object cũ trong bucket Supabase Storage `id-cards` nếu còn tồn tại chỉ là dữ liệu legacy và không được tự dọn bởi flow hồ sơ nhân sự.
+- **Thành tích**: một sự kiện hoặc danh hiệu cụ thể mà một nhân sự (hoặc học sinh) đạt được — giải thưởng, chứng chỉ, thành tích học thuật... — có thể kèm một **ảnh minh chứng**. Không giới hạn số lượng thành tích trên một hồ sơ, thứ tự hiển thị tự sắp xếp được, và không bắt buộc phải có để hồ sơ được coi là hoàn thiện. Khác với **chuyên môn giảng dạy** (môn/mảng nhân sự dạy — không phải một thành tích cụ thể); hai khái niệm này từng bị gộp nhầm dưới cùng một heading UI. _Avoid_: dùng "thành tích" để chỉ mô tả năng lực/chuyên môn chung chung.
+- **Ảnh minh chứng**: đúng một ảnh gắn trên một **thành tích**, dùng để minh hoạ/chứng thực thành tích đó. Không phải một bộ sưu tập — mỗi thành tích chỉ mang một ảnh; ảnh mới thay thế ảnh cũ. Trong vận hành EduWeb5 đây là **ảnh gốc (vận hành)** (private). Bản công khai cho landing là **ảnh watermarked (public)** tương ứng, không thay thế ảnh gốc.
+- **Ảnh gốc (vận hành)**: bản sạch của **ảnh đại diện** hoặc **ảnh minh chứng**, chỉ dùng trong EduWeb5 (admin/staff/self). Không phải URL marketing trên landing. _Avoid_: gọi bản này là “ảnh landing”.
+- **Ảnh watermarked (public)**: twin đã bake watermark (diagonal tile logo) từ ảnh gốc lúc upload; có URL/path public ổn định để CMS/landing nhúng. Cập nhật ảnh gốc trên EduWeb5 ghi đè cùng path public → landing thấy bản mới mà không cần copy media sang CMS. _Avoid_: CSS overlay; signed URL của ảnh gốc trên trang public.
+- **Ảnh đại diện (landing)**: avatar user (`users.avatar_path` gốc + path watermarked) đưa ra landing cho cả gia sư và học viên cùng shape; landing chỉ nhận bản watermarked public. Admin có thể upload avatar hộ học sinh qua `POST /student/:id/avatar` (vẫn ghi vào user gắn hồ sơ).
+- **Gallery học sinh (landing)**: nhiều ảnh trên hồ sơ học sinh, riêng với **thành tích**. Không nhập nhận xét trên UI. Ảnh gốc private (`student-gallery`); twin watermarked public (`student-gallery-public`) cho CMS. Admin-only. ADR: `docs/adr/2026-08-11-student-gallery-watermarked.md`.
+- **Trường thành tích legacy**: `staff_info.personal_achievement_link` (link đơn) và `staff_info.specialization` (text chuyên môn, từng hiển thị nhầm dưới heading "thành tích") không còn dùng ở UI sau khi có **thành tích** dạng nhiều dòng; cột vẫn giữ trong DB một thời gian trước khi bị xoá ở migration riêng, cùng tinh thần với **Ảnh CCCD legacy**.
 
-## Quyền vận hành
+## Landing / CMS marketing
+
+- **Landing profile sync**: luồng server-to-server CMS gọi EduWeb5 (`GET /staff/landing-profiles`, `GET /student/landing-profiles`) để populate hồ sơ marketing. Trường ảnh trên contract landing chỉ mang **ảnh watermarked (public)**; không mang **ảnh gốc (vận hành)**. Student landing gồm avatar + achievements + `gallery[]`. Chi tiết: `docs/adr/2026-08-11-landing-watermarked-public-images.md`, `docs/adr/2026-08-11-student-gallery-watermarked.md`.
 
 - **Admin-mirror route**: route dưới `/admin/**` hoặc `/staff/**` reuse cùng business flow quản trị. Với policy hiện tại, `staff.assistant` được phép như admin trên hầu hết admin-mirror route, trừ các route bị deny tường minh bằng `AllowAssistantOnAdminRoutes(false)`.
 - **Strict-admin route**: route hoặc mutation chỉ dành cho admin đầy đủ. Trong policy hiện tại, bước duyệt/queue nạp thẳng ví học sinh, cộng tiền thủ công trực tiếp vào ví, và dashboard tổng admin vẫn là strict-admin ngay cả khi trợ lí thấy các mirror workspace khác.
@@ -69,6 +78,9 @@
 - **Học sinh nghỉ học**: hồ sơ học sinh không còn tham gia vận hành lớp hiện tại hoặc được thêm vào lớp mới, nhưng lịch sử học tập, ví và công nợ đã phát sinh vẫn được giữ lại. Trạng thái này không đồng nghĩa khóa tài khoản user.
 - **Gói riêng**: override gói học phí trên quan hệ học sinh–lớp (`student_classes.custom_tuition_package_*`), hiển thị label "Gói riêng" trên UI. Khác với gói mặc định của lớp (`classes.tuition_package_*`).
 - **Học phí hiệu lực/buổi**: mức học phí mỗi buổi authoritative dùng cho hiển thị và charge buổi học. Khi có Gói riêng mà không có override per-session riêng, suy ra từ gói hiệu lực (tổng ÷ số buổi) trước khi fallback về `student_tuition_per_session` của lớp.
+- **Thành tích (học sinh)**: cùng khái niệm **Thành tích** ở Hồ sơ nhân sự, gắn với hồ sơ học sinh thay vì nhân sự. Khác một điểm: học sinh không có self-service portal, nên chỉ admin khai báo/sửa/xoá — học sinh và phụ huynh không tự quản lý được thành tích của mình.
+- **Gallery học sinh**: bộ ảnh cho landing showcase; admin-managed giống thành tích HS; khác thành tích (không phải danh hiệu/giải thưởng); UI chỉ upload/hiển thị ảnh, không nhận xét.
+- **Ảnh đại diện học viên (landing)**: cùng cơ chế **Ảnh đại diện (landing)** với gia sư (user avatar → twin watermarked public trên student landing profile). Admin upload trên hồ sơ HS qua linked user.
 
 ## Lịch học và Google Calendar
 
