@@ -93,6 +93,16 @@ function recentTopUpTextClass(meetsThreshold?: boolean): string {
   return meetsThreshold ? "text-success" : "text-error";
 }
 
+function formatActiveClassNames(
+  studentClasses?: StudentListItem["studentClasses"],
+): string {
+  const names = (studentClasses ?? [])
+    .filter((sc) => sc.status === "active")
+    .map((sc) => sc.class?.name?.trim())
+    .filter((name): name is string => Boolean(name));
+  return names.length > 0 ? names.join(", ") : "Chưa xếp lớp";
+}
+
 export default function AdminStudentsPage() {
   const { push, replace } = useRouter();
   const pathname = usePathname();
@@ -580,6 +590,9 @@ export default function AdminStudentsPage() {
                   const recentTopUpClassName = recentTopUpTextClass(
                     student.recentTopUpMeetsThreshold,
                   );
+                  const activeClassNames = formatActiveClassNames(
+                    student.studentClasses,
+                  );
 
                   return (
                     <article
@@ -638,6 +651,11 @@ export default function AdminStudentsPage() {
                         <StudentLevelBadge fullName={student.fullName} />
                       </div>
 
+                      <p className="mt-2 line-clamp-2 text-sm text-text-secondary">
+                        <span className="font-medium text-text-secondary">Lớp:</span>{" "}
+                        <span className="text-text-primary">{activeClassNames}</span>
+                      </p>
+
                       <div className="mt-2.5 rounded-lg border border-border-default bg-bg-secondary/40 px-3 py-2">
                         <div className="flex items-center justify-between text-xs text-text-secondary">
                           <span className="font-medium">Số dư:</span>
@@ -662,21 +680,24 @@ export default function AdminStudentsPage() {
                 </div>
 
                 <div className="hidden overflow-x-auto md:block">
-<table className="w-full min-w-[1080px] table-fixed border-collapse text-left text-sm">
+<table className="w-full min-w-[1200px] table-fixed border-collapse text-left text-sm">
                   <caption className="sr-only">Danh sách học sinh</caption>
                   <thead>
                     <tr className="border-b border-border-default bg-bg-secondary/80">
                       <th scope="col" className="w-[3%] min-w-8 px-1 py-3" aria-label="Trạng thái" />
-                      <th scope="col" className="w-[30%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                      <th scope="col" className="w-[22%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         Học sinh
                       </th>
                       <th scope="col" className="w-[3.5%] min-w-10 px-1 py-3 text-center text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         <span className="sr-only">QR</span>
                       </th>
-                      <th scope="col" className="w-[22%] min-w-0 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                      <th scope="col" className="w-[18%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                        Lớp
+                      </th>
+                      <th scope="col" className="w-[18%] min-w-0 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         Số dư / Tiền vào
                       </th>
-                      <th scope="col" className="w-[25%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                      <th scope="col" className="w-[22%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         Level
                       </th>
                       <th scope="col" className="w-[3.5%] min-w-8 px-1 py-3 text-right" aria-label="Xóa" />
@@ -690,6 +711,9 @@ export default function AdminStudentsPage() {
                       const recentTopUpTotal = student.recentTopUpTotalLast21Days ?? 0;
                       const recentTopUpClassName = recentTopUpTextClass(
                         student.recentTopUpMeetsThreshold,
+                      );
+                      const activeClassNames = formatActiveClassNames(
+                        student.studentClasses,
                       );
 
                       return (
@@ -734,6 +758,11 @@ export default function AdminStudentsPage() {
                                 <QrCodeIcon className="size-5" aria-hidden />
                               </button>
                             ) : null}
+                          </td>
+                          <td className="px-4 py-3 align-middle text-text-secondary">
+                            <p className="line-clamp-2 text-sm text-text-primary" title={activeClassNames}>
+                              {activeClassNames}
+                            </p>
                           </td>
                            <td className="px-4 py-3 text-right align-middle">
                             <div className="flex flex-col gap-1 text-right">
