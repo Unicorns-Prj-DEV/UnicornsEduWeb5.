@@ -545,6 +545,53 @@ export default function AdminDashboardTabPage() {
     staleTime: 20_000,
   });
 
+  const triggerBlobDownload = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportFinancialPdfMutation = useMutation({
+    mutationFn: () =>
+      downloadAdminDashboardFinancialExportPdf(
+        isRangeMode ? { dateFrom, dateTo } : { month, year },
+      ),
+    onMutate: () => ({ toastId: toast.loading("Đang chuẩn bị báo cáo PDF…") }),
+    onSuccess: ({ blob, filename }, _vars, context) => {
+      triggerBlobDownload(blob, filename);
+      toast.success("Đã tải báo cáo PDF.", { id: context?.toastId });
+    },
+    onError: (error, _vars, context) => {
+      const message =
+        error instanceof Error ? error.message : "Không xuất được báo cáo PDF.";
+      toast.error(message, { id: context?.toastId });
+    },
+  });
+
+  const exportFinancialExcelMutation = useMutation({
+    mutationFn: () =>
+      downloadAdminDashboardFinancialExportExcel(
+        isRangeMode ? { dateFrom, dateTo } : { month, year },
+      ),
+    onMutate: () => ({ toastId: toast.loading("Đang chuẩn bị báo cáo Excel…") }),
+    onSuccess: ({ blob, filename }, _vars, context) => {
+      triggerBlobDownload(blob, filename);
+      toast.success("Đã tải báo cáo Excel.", { id: context?.toastId });
+    },
+    onError: (error, _vars, context) => {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Không xuất được báo cáo Excel.";
+      toast.error(message, { id: context?.toastId });
+    },
+  });
+
   if (fullProfileQuery.isLoading) {
     return <AdminDashboardSkeleton variant="profile-gate" />;
   }
@@ -747,53 +794,6 @@ export default function AdminDashboardTabPage() {
   const openFinancialDetail = (rowKey: AdminDashboardFinancialDetailRowKey) => {
     setSelectedFinancialRowKey(rowKey);
   };
-
-  const triggerBlobDownload = (blob: Blob, filename: string) => {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  };
-
-  const exportFinancialPdfMutation = useMutation({
-    mutationFn: () =>
-      downloadAdminDashboardFinancialExportPdf(
-        isRangeMode ? { dateFrom, dateTo } : { month, year },
-      ),
-    onMutate: () => ({ toastId: toast.loading("Đang chuẩn bị báo cáo PDF…") }),
-    onSuccess: ({ blob, filename }, _vars, context) => {
-      triggerBlobDownload(blob, filename);
-      toast.success("Đã tải báo cáo PDF.", { id: context?.toastId });
-    },
-    onError: (error, _vars, context) => {
-      const message =
-        error instanceof Error ? error.message : "Không xuất được báo cáo PDF.";
-      toast.error(message, { id: context?.toastId });
-    },
-  });
-
-  const exportFinancialExcelMutation = useMutation({
-    mutationFn: () =>
-      downloadAdminDashboardFinancialExportExcel(
-        isRangeMode ? { dateFrom, dateTo } : { month, year },
-      ),
-    onMutate: () => ({ toastId: toast.loading("Đang chuẩn bị báo cáo Excel…") }),
-    onSuccess: ({ blob, filename }, _vars, context) => {
-      triggerBlobDownload(blob, filename);
-      toast.success("Đã tải báo cáo Excel.", { id: context?.toastId });
-    },
-    onError: (error, _vars, context) => {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Không xuất được báo cáo Excel.";
-      toast.error(message, { id: context?.toastId });
-    },
-  });
 
   const renderFinancialValue = (
     row: FinancialSummaryRow,
