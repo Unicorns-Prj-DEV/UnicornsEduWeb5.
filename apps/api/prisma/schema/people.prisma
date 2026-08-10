@@ -45,6 +45,7 @@ model StaffInfo {
   staffLessonTasks                    StaffLessonTask[]
   monthlyStats                        StaffMonthlyStat[]
   lessonPlanHeadCommissions           LessonPlanHeadCommission[]
+  achievements                        StaffAchievement[]
 
   @@unique([userId], map: "staff_info_user_id_key")
   @@index([customerCareManagedByStaffId])
@@ -78,8 +79,59 @@ model StudentInfo {
   walletTransactions   WalletTransactionsHistory[]
   sepayWalletOrders    StudentWalletSepayOrder[]
   directTopUpRequests  StudentWalletDirectTopUpRequest[]
+  achievements         StudentAchievement[]
+  galleryItems         StudentGalleryItem[]
 
   @@map("student_info")
+}
+
+/// Achievements owned by a staff member (title + optional proof image).
+/// Legacy `StaffInfo.specialization` / `personalAchievementLink` stay deprecated until a later drop PR.
+model StaffAchievement {
+  id                   String    @id @default(uuid())
+  staffId              String    @map("staff_id")
+  title                String    @db.Text
+  imagePath            String?   @map("image_path")
+  imageWatermarkedPath String?   @map("image_watermarked_path")
+  sortOrder            Int       @default(0) @map("sort_order")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  staff                StaffInfo @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([staffId, sortOrder])
+  @@map("staff_achievements")
+}
+
+/// Achievements owned by a student (admin-managed only; no student self-service).
+model StudentAchievement {
+  id                   String      @id @default(uuid())
+  studentId            String      @map("student_id")
+  title                String      @db.Text
+  imagePath            String?     @map("image_path")
+  imageWatermarkedPath String?     @map("image_watermarked_path")
+  sortOrder            Int         @default(0) @map("sort_order")
+  createdAt            DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  student              StudentInfo @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId, sortOrder])
+  @@map("student_achievements")
+}
+
+/// Landing gallery photos for a student (admin-managed; caption = nhận xét).
+model StudentGalleryItem {
+  id                   String      @id @default(uuid())
+  studentId            String      @map("student_id")
+  caption              String?     @db.Text
+  imagePath            String?     @map("image_path")
+  imageWatermarkedPath String?     @map("image_watermarked_path")
+  sortOrder            Int         @default(0) @map("sort_order")
+  createdAt            DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  student              StudentInfo @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId, sortOrder])
+  @@map("student_gallery_items")
 }
 
 model StudentExamSchedule {

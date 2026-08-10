@@ -106,7 +106,8 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - RBAC runtime: `role_type` là role gốc/default của user, không phải nguồn quyền duy nhất. `GET /auth/session` và backend guards resolve quyền hiệu lực bằng union của `users.role_type`, linked `staff_info.user_id`, linked `student_info.user_id`, và `staff_info.roles`; vì vậy một user có thể đồng thời mở admin/staff/student workspace nếu có các linked profile/role tương ứng.
 - Trường tên canonical cho actor dạng staff: `first_name`, `last_name` (nullable). FE/BE dùng cặp này làm nguồn chuẩn để hiển thị tên staff trong rollout bỏ `staff_info.full_name`.
 - Avatar:
-  - `avatar_path` (`TEXT`, nullable): object path avatar trong bucket `avatars` theo format `users/{userId}/avatar`. DB nullable; bắt buộc cho gate hoàn thiện hồ sơ staff (`staffProfileComplete`) khi user có linked `staff_info` active (admin full bypass).
+  - `avatar_path` (`TEXT`, nullable): object path avatar sạch trong bucket private `avatars` theo format `users/{userId}/avatar`. DB nullable; bắt buộc cho gate hoàn thiện hồ sơ staff (`staffProfileComplete`) khi user có linked `staff_info` active (admin full bypass).
+  - `avatar_watermarked_path` (`TEXT`, nullable): twin watermarked (diagonal tile) trong bucket public `avatars-public`, path ổn định `users/{userId}/avatar.jpg`. Landing/CMS chỉ dùng twin này (public URL). Upload avatar bắt buộc tạo twin; thiếu twin → fail. ADR: `docs/adr/2026-08-11-landing-watermarked-public-images.md`.
 - Quan hệ profile không nằm trên `users`; link authoritative được lưu ngược ở `student_info.user_id` và `staff_info.user_id`.
 - `DELETE /users/:id` (admin/assistant): soft-delete tài khoản — gỡ `staff_info.user_id` / `student_info.user_id` về `null` (giữ hồ sơ), các FK nullable khác (`action_history.user_id`, `notifications.created_by_user_id`, `regulations.*_by_user_id`, wallet order/request creator, …) theo `ON DELETE SET NULL`, `notification_reads` cascade theo user; sau đó xóa row `users`.
 - Không còn field legacy `person_profile_id` trong schema được hỗ trợ.
@@ -130,10 +131,27 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - `cccd_issued_place` (`TEXT`, nullable): nơi cấp CCCD
   - Không còn lưu `cccd_front_path`, `cccd_back_path`, `cccd_verified_at`; ảnh CCCD legacy trong bucket `id-cards` không được schema hoặc API hiện tại sử dụng.
 - `google_meet_link` (`TEXT`, nullable): link Google Meet cố định của gia sư; là nguồn authoritative cho Meet link của tất cả lịch học và buổi bù mà gia sư này phụ trách. Được tạo tự động qua Google Calendar API lần đầu khi gia sư được gán vào lịch nếu chưa có; có thể regenerate thủ công qua `POST /staff/:id/regenerate-meet-link`.
-- `personal_achievement_link` (`TEXT`, nullable): link Google Drive hoặc URL lưu trữ thành tích cá nhân của nhân sự. DB nullable; bắt buộc cho gate hoàn thiện hồ sơ staff (`staffProfileComplete`). Chỉ accept URL hợp lệ dạng `http/https`. Hiển thị ở trang chi tiết nhân sự (admin + staff self-service) và cột bảng danh sách nhân sự.
+- `personal_achievement_link` (`TEXT`, nullable): **deprecated** — link Google Drive/URL thành tích cũ. Không còn nằm trong gate `staffProfileComplete`, không còn hiện trên UI form/overview; cột giữ đến khi có PR drop riêng. Hệ thống mới dùng `staff_achievements`.
+- `specialization` (`TEXT`, nullable): **deprecated** — text chuyên môn từng hiển thị nhầm dưới heading thành tích. Không còn bắt buộc trong gate / UI; migration `20260811100000_add_staff_student_achievements` backfill mỗi giá trị non-empty thành 1 row `staff_achievements` (title only). Drop cột ở PR sau.
 - `customer_care_managed_by_staff_id` (nullable FK → `staff_info.id`): trỏ tới trợ lí quản lí CSKH này; trợ lí được hưởng 3% học phí đã học của học sinh thuộc CSKH quản lí. Index: `(customer_care_managed_by_staff_id)`
 - `revenue_share_percent` (`DECIMAL(5,2)`, nullable): % hoa hồng trên tổng doanh thu gộp hệ thống, áp dụng cho nhân sự có role `lesson_plan_head` (Trưởng giáo án). Admin đặt riêng từng người qua popup **Sửa nhân sự** (`admin/staffs`). Số tiền thực nhận mỗi tháng = tổng `lesson_plan_head_commission.amount` (paid + pending) của staff trong tháng đó, đọc qua `GET /staff/:id/revenue-share` (xem `lesson_plan_head_commission` mục 4.6b). Số tháng quá khứ vẫn tính theo `revenue_share_percent` **hiện hành** vì `coef_percent` chỉ snapshot tại thời điểm buổi học được tạo/cập nhật, không backfill khi admin đổi %.
-- Được tham chiếu bởi: `users`, `class_teachers`, `sessions`, `makeup_schedule_events`, `bonuses`, `lesson_outputs`, `customer_care_service`, `wallet_transactions_history` (customer care), `staff_monthly_stats`, `extra_allowances`, `class_surveys`, `staff_lesson_task`, `attendance` (assistant_manager)
+- Được tham chiếu bởi: `users`, `class_teachers`, `sessions`, `makeup_schedule_events`, `bonuses`, `lesson_outputs`, `customer_care_service`, `wallet_transactions_history` (customer care), `staff_monthly_stats`, `extra_allowances`, `class_surveys`, `staff_lesson_task`, `attendance` (assistant_manager), `staff_achievements`
+
+### 4.2.1 `staff_achievements`
+
+- Thành tích của nhân sự: nhiều row/title + ảnh minh chứng tuỳ chọn (1 ảnh/row).
+- Trường chính:
+  - `staff_id` (FK → `staff_info.id`, `ON DELETE CASCADE`)
+  - `title` (`TEXT`, bắt buộc, không giới hạn cứng)
+  - `image_path` (`TEXT`, nullable): path ảnh gốc (private) trong bucket `achievements` dạng `staff/{staffId}/{achievementId}.{ext}`
+  - `image_watermarked_path` (`TEXT`, nullable): twin watermarked public trong bucket `achievements-public`, path ổn định `staff/{staffId}/{achievementId}.jpg` (JPEG). Landing chỉ expose twin này.
+  - `sort_order` (`INT`, mặc định 0): thứ tự kéo-thả; API reorder yêu cầu **full permutation** của mọi id hiện có
+  - `created_at`, `updated_at`
+- Index: `(staff_id, sort_order)`
+- API: `GET/POST/PATCH/DELETE /staff/:staffId/achievements`, `PUT .../reorder`, `POST/DELETE .../:id/image`; self-service ` /users/me/achievements/*`. Không ghi `action_history`.
+- Backfill từ `staff_info.specialization`: tách bullet Markdown (`-` / `*` / `•`, kể cả `-Giải` không space; chèn newline trước pattern `.- ` bị dính), bỏ header ngắn kết thúc bằng `:`; nếu không có bullet thì mỗi dòng non-empty là 1 row; cuối cùng fallback cả khối text. Không backfill `personal_achievement_link`.
+- Watermark twins: script `apps/api/scripts/backfill-watermarked-images.ts`; ADR landing watermark.
+- ADR: `docs/adr/2026-08-11-achievement-separate-owner-tables.md`, `...-single-image-per-row.md`, `...-gate-and-legacy-columns.md`, `...-landing-watermarked-public-images.md`
 
 ### 4.3 `student_info`
 
@@ -144,7 +162,23 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `drop_out_date` (`DATE`, nullable): ngày học sinh nghỉ học. Backend tự **đóng dấu** ngày này (UTC) khi chuyển `status` → `inactive` mà chưa có giá trị nhập tay, và **xoá** (`null`) khi mở lại `status` → `active`. Đây là nguồn authoritative cho chỉ số **"Học sinh nghỉ tháng này"** trên dashboard CSKH (`StaffDashboardCustomerCareSection.droppedStudentsThisMonth` đếm `drop_out_date` thuộc tháng đang xem). Dashboard CSKH/trợ lí: **Học phí đã học** và **Tiền nạp ví** chỉ tính giao dịch/buổi học trong tháng đang xem; **công nợ** đếm mọi HS được gán CSKH có `account_balance < 0` (không lọc `status` hay lớp `running`). Vẫn cho phép nhập tay `drop_out_date` ở popup sửa học sinh để override ngày mặc định. Migration `20260621150000_backfill_inactive_student_drop_out_dates` backfill các hồ sơ `inactive` thiếu ngày: ưu tiên `action_history` (mô tả *Chuyển học sinh sang nghỉ học* hoặc `after_value.status = inactive`), fallback `updated_at` (UTC).
 - `parent_email` là email nhận biên nhận nạp ví SePay của phụ huynh; không fallback sang email học sinh.
 - `parent_receipt_email_enabled` (`BOOLEAN`, mặc định `true`): khi `false`, webhook SePay **không** gửi email biên lai nạp ví cho phụ huynh lẫn CSKH (ví vẫn được cộng bình thường).
-- Được tham chiếu bởi: `users`, `student_classes`, `attendance`, `wallet_transactions_history`, `student_wallet_sepay_orders`, `customer_care_service`, `student_exam_schedules`
+- Được tham chiếu bởi: `users`, `student_classes`, `attendance`, `wallet_transactions_history`, `student_wallet_sepay_orders`, `customer_care_service`, `student_exam_schedules`, `student_achievements`, `student_gallery_items`
+
+### 4.3.0 `student_achievements`
+
+- Thành tích học sinh — cùng shape với `staff_achievements` (`title`, `image_path`, `image_watermarked_path`, `sort_order`), FK `student_id` → `student_info.id`.
+- Path ảnh gốc: `student/{studentId}/{achievementId}.{ext}` trong bucket private `achievements`.
+- Path twin watermarked: `student/{studentId}/{achievementId}.jpg` trong bucket public `achievements-public`.
+- Chỉ admin (và assistant/customer_care trên route admin mirror) quản lý qua ` /student/:studentId/achievements/*`. Không có student self-service.
+
+### 4.3.0b `student_gallery_items`
+
+- Gallery landing của học sinh: nhiều ảnh (không nhập nhận xét trên UI); FK `student_id` → `student_info.id`.
+- Trường: `caption` (nullable, **unused** — luôn `null` từ product UI), `image_path` (private), `image_watermarked_path` (public twin), `sort_order`, timestamps.
+- Path ảnh gốc: `student/{studentId}/{itemId}.{ext}` trong bucket private `student-gallery`.
+- Path twin watermarked: `student/{studentId}/{itemId}.jpg` trong bucket public `student-gallery-public`.
+- Admin-only CRUD `/student/:studentId/gallery/*` (assistant/customer_care trên admin-mirror). ADR: `docs/adr/2026-08-11-student-gallery-watermarked.md`.
+- Avatar học sinh cho landing vẫn lấy từ `users.avatar_*` (tạo HS bắt buộc `user_id`); admin upload qua `POST/DELETE /student/:id/avatar`.
 
 ### 4.3.1 `student_exam_schedules`
 
@@ -186,7 +220,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
       "deletedAt": "string? (optional ISO timestamp when this schedule entry was deleted/deactivated)"
     }
     ```
-    Mảng này định nghĩa mẫu lịch học lặp lại hàng tuần. Calendar admin có thể expand pattern này thành các occurrence để render lịch trong một khoảng ngày, và có thể đồng bộ từng entry thành recurring event trên Google Calendar.
+    Mảng này định nghĩa mẫu lịch học lặp lại hàng tuần. Calendar admin có thể expand pattern này thành các occurrence để render lịch trong một khoảng ngày, và có thể đồng bộ từng entry thành recurring event trên Google Calendar. Soft-deleted entries (`deletedAt`) được giữ trong JSON để **Cảnh báo chưa dạy** / calendar lịch sử biết slot nào còn hiệu lực theo ngày; Google Calendar resync chỉ patch `googleCalendarEventId`/`meetLink` trên slot active và **không** được xoá `createdAt`/`deletedAt` hay các entry soft-deleted.
   - Các trường học phí theo session/package
   - **Quản lý lớp (Đào tạo):**
     - `training_manager_staff_id` (nullable FK → `staff_info.id`): nhân sự ban Đào tạo được gán quản lý lớp; chỉnh qua `PATCH /class/:id/training-manager` (admin/assistant).
