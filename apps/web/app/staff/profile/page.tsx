@@ -970,14 +970,14 @@ export default function StaffSelfDetailPage() {
 
       <div className="flex flex-col gap-4">
         <StaffIdentityOverview
+          staffId={staff.id}
+          achievementMode="self"
           birthDateLabel={formatDate(staff.birthDate)}
           province={province}
           ethnicity={staff.ethnicity}
           gender={staff.gender}
           currentAddress={staff.currentAddress}
           university={staff.university}
-          specialization={staff.specialization}
-          personalAchievementLink={staff.personalAchievementLink}
           googleMeetLink={staff.googleMeetLink}
           qrLink={resolvedQrLink}
           onQrEdit={() => setEditPopupOpen(true)}

@@ -119,10 +119,8 @@ function isCompleteFullProfileStaffInfo(profile: FullProfileDto): boolean {
     hasText(staffInfo.birthDate) &&
     hasText(staffInfo.university) &&
     hasText(staffInfo.highSchool) &&
-    hasText(staffInfo.specialization) &&
     hasText(staffInfo.bankAccount) &&
-    hasText(staffInfo.bankQrLink) &&
-    hasText(staffInfo.personalAchievementLink)
+    hasText(staffInfo.bankQrLink)
   );
 }
 

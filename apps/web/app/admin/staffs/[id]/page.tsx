@@ -1761,14 +1761,13 @@ export default function AdminStaffDetailPage({
 
       <div className="flex flex-col gap-4">
         <StaffIdentityOverview
+          staffId={staff.id}
           birthDateLabel={formatDate(staff.birthDate)}
           province={province}
           ethnicity={staff.ethnicity}
           gender={staff.gender}
           currentAddress={staff.currentAddress}
           university={staff.university}
-          specialization={staff.specialization}
-          personalAchievementLink={staff.personalAchievementLink}
           googleMeetLink={staff.googleMeetLink}
           qrLink={qrLink ?? resolvedQrLink}
           onQrEdit={() => setQrPopupOpen(true)}

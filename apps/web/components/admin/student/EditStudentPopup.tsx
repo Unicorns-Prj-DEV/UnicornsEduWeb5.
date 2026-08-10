@@ -7,6 +7,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { DateInput } from "@/components/ui/DateInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
+import AchievementListEditor from "@/components/shared/achievement/AchievementListEditor";
+import StudentGalleryEditor from "@/components/shared/student-gallery/StudentGalleryEditor";
 import type {
   StudentDetail,
   StudentExamScheduleItem,
@@ -562,6 +564,24 @@ export default function EditStudentPopup({
                     placeholder="Ví dụ: Hoàn thành chương trình IELTS Foundation trong quý này…"
                   />
                 </label>
+
+                <div className="sm:col-span-2">
+                  <AchievementListEditor
+                    owner={{
+                      kind: "student",
+                      mode: "admin",
+                      studentId: student.id,
+                    }}
+                    heading="Thành tích"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <StudentGalleryEditor
+                    studentId={student.id}
+                    heading="Gallery"
+                  />
+                </div>
 
                 <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
                   <span>Ngày ngừng theo dõi</span>

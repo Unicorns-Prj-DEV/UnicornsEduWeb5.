@@ -4,6 +4,7 @@ import { useState, type SyntheticEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DateInput } from "@/components/ui/DateInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
+import AchievementListEditor from "@/components/shared/achievement/AchievementListEditor";
 import type { StaffDetail, StaffGender } from "@/dtos/staff.dto";
 import * as staffApi from "@/lib/apis/staff.api";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
@@ -69,10 +70,8 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
   const [birthDateInput, setBirthDateInput] = useState(formatDateInput(staff.birthDate));
   const [university, setUniversity] = useState(staff.university ?? "");
   const [highSchool, setHighSchool] = useState(staff.highSchool ?? "");
-  const [specialization, setSpecialization] = useState(staff.specialization ?? "");
   const [bankAccount, setBankAccount] = useState(staff.bankAccount ?? "");
   const [bankQrLink, setBankQrLink] = useState(staff.bankQrLink ?? "");
-  const [personalAchievementLink, setPersonalAchievementLink] = useState(staff.personalAchievementLink ?? "");
   const [revenueSharePercent, setRevenueSharePercent] = useState(
     staff.revenueSharePercent != null ? String(staff.revenueSharePercent) : "",
   );
@@ -158,10 +157,8 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
           birth_date: birthDateInput.trim() || undefined,
           university: university.trim() || undefined,
           high_school: highSchool.trim() || undefined,
-          specialization: specialization.trim() || undefined,
           bank_account: bankAccount.trim() || undefined,
           bank_qr_link: bankQrLink.trim() || undefined,
-          personal_achievement_link: personalAchievementLink.trim() || null,
           roles: Array.from(selectedRoles),
           customer_care_managed_by_staff_id: showManagedByField
             ? (managedByStaffId || null)
@@ -378,20 +375,12 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
                 />
               </label>
 
-              <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
-                <span>Mô tả chuyên môn</span>
-                <textarea
-                  value={specialization}
-                  onChange={(e) => setSpecialization(e.target.value)}
-                  rows={4}
-                  className="min-h-[6.5rem] resize-y rounded-md border border-border-default bg-bg-surface px-3 py-2 leading-relaxed text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  placeholder="Ví dụ: Toán, Lý"
+              <div className="sm:col-span-2">
+                <AchievementListEditor
+                  owner={{ kind: "staff", mode: "admin", staffId: staff.id }}
+                  heading="Thành tích"
                 />
-                <p className="text-xs text-text-muted">
-                  Hiển thị bằng Markdown từ nội dung đã lưu (gạch đầu dòng <code className="rounded bg-bg-tertiary px-1">-</code> /{" "}
-                  <code className="rounded bg-bg-tertiary px-1">*</code>, in đậm, liên kết).
-                </p>
-              </label>
+              </div>
 
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
                 <span>Số tài khoản ngân hàng</span>
@@ -411,22 +400,6 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
                   className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   placeholder="https://..."
                 />
-              </label>
-
-              <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
-                <span>
-                  Thành tích cá nhân{" "}
-                  <span className="text-xs text-text-muted">(tùy chọn)</span>
-                </span>
-                <input
-                  value={personalAchievementLink}
-                  onChange={(e) => setPersonalAchievementLink(e.target.value)}
-                  className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  placeholder="https://drive.google.com/..."
-                />
-                <p className="text-xs text-text-muted">
-                  Link Google Drive hoặc URL lưu trữ thành tích. Không bắt buộc điền.
-                </p>
               </label>
 
               <div className="sm:col-span-2">

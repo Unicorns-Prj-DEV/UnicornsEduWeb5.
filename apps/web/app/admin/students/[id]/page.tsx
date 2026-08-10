@@ -18,6 +18,9 @@ import {
 import { UserLinkedProfileLinks } from "@/components/admin/user";
 import ParentReceiptEmailSwitch from "@/components/student/ParentReceiptEmailSwitch";
 import OjProgressSection from "@/components/student/OjProgressSection";
+import AchievementListEditor from "@/components/shared/achievement/AchievementListEditor";
+import StudentGalleryEditor from "@/components/shared/student-gallery/StudentGalleryEditor";
+import PreviewableUserAvatar from "@/components/ui/PreviewableUserAvatar";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import type { StudentDetail, StudentGender, StudentStatus } from "@/dtos/student.dto";
 import { StudentLevelBadge } from "@/components/ui/LevelBadge";
@@ -28,6 +31,7 @@ import {
 import { resolveStudentAdminCapabilities, resolveUserAdminCapabilities } from "@/lib/admin-shell-access";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as studentApi from "@/lib/apis/student.api";
+import { pickAvatarUrl } from "@/lib/avatar";
 import { formatCurrency } from "@/lib/class.helpers";
 import { cn } from "@/lib/utils";
 
@@ -177,6 +181,24 @@ export default function AdminStudentDetailPage() {
         },
     });
 
+    const uploadAvatarMutation = useMutation({
+        mutationFn: (file: File) => studentApi.uploadStudentAvatar(id, file),
+        onSuccess: async (data) => {
+            queryClient.setQueryData(["student", "detail", id], data);
+            toast.success("Đã cập nhật ảnh đại diện.");
+        },
+        onError: () => toast.error("Không thể tải ảnh đại diện."),
+    });
+
+    const deleteAvatarMutation = useMutation({
+        mutationFn: () => studentApi.deleteStudentAvatar(id),
+        onSuccess: async (data) => {
+            queryClient.setQueryData(["student", "detail", id], data);
+            toast.success("Đã xoá ảnh đại diện.");
+        },
+        onError: () => toast.error("Không thể xoá ảnh đại diện."),
+    });
+
     const {
         data: sePayStaticQr,
         isLoading: isSePayStaticQrLoading,
@@ -309,6 +331,10 @@ export default function AdminStudentDetailPage() {
     const parentReceiptEmailEnabled = student.parentReceiptEmailEnabled !== false;
     const isReceiptTogglePending = receiptEmailMutation.isPending;
     const initials = (student.fullName?.trim() || student.email || "?").charAt(0).toUpperCase();
+    const studentAvatarUrl = pickAvatarUrl(student.avatarUrl);
+    const avatarBusy =
+        uploadAvatarMutation.isPending || deleteAvatarMutation.isPending;
+    const canEditAvatar = canEditStudentProfile && Boolean(student.userId);
     const contactEmail = student.email?.trim() || "Chưa có email";
     const sePayStaticQrErrorMessage =
         (sePayStaticQrError as { response?: { data?: { message?: string } } } | null)?.response?.data?.message ??
@@ -456,22 +482,62 @@ export default function AdminStudentDetailPage() {
                     />
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div className="flex min-w-0 flex-1 items-start gap-3.5 sm:gap-4">
-                            <div className="relative shrink-0">
-                                <div className="flex size-14 items-center justify-center rounded-[1.25rem] border border-border-default bg-bg-secondary text-lg font-semibold text-text-primary shadow-sm sm:size-20 sm:rounded-2xl sm:text-3xl">
-                                    {initials}
+                            <div className="relative flex shrink-0 flex-col items-center gap-2">
+                                <div className="relative">
+                                    <PreviewableUserAvatar
+                                        src={studentAvatarUrl}
+                                        fallback={initials}
+                                        alt={`Avatar ${student.fullName?.trim() || "học sinh"}`}
+                                        displayName={student.fullName?.trim() || "Học sinh"}
+                                        className="size-14 rounded-[1.25rem] bg-bg-secondary text-lg font-semibold text-text-primary ring-1 ring-border-default sm:size-20 sm:rounded-2xl sm:text-3xl"
+                                        buttonClassName="rounded-[1.25rem] sm:rounded-2xl"
+                                    />
+                                    <span
+                                        className={`absolute -bottom-1 -right-1 block size-3.5 rounded-full border-2 border-bg-surface ${normalizedStatus === "active" ? "bg-success" : "bg-error"
+                                            }`}
+                                        aria-hidden
+                                    />
                                 </div>
-                                <span
-                                    className={`absolute -bottom-1 -right-1 block size-3.5 rounded-full border-2 border-bg-surface ${normalizedStatus === "active" ? "bg-success" : "bg-error"
-                                        }`}
-                                    aria-hidden
-                                />
+                                {canEditAvatar ? (
+                                    <div className="flex max-w-[9.5rem] flex-col items-center gap-1">
+                                        <label className="cursor-pointer text-[11px] font-medium text-primary hover:underline">
+                                            {uploadAvatarMutation.isPending
+                                                ? "Đang tải…"
+                                                : studentAvatarUrl
+                                                  ? "Đổi ảnh"
+                                                  : "Tải ảnh"}
+                                            <input
+                                                type="file"
+                                                accept="image/jpeg,image/png,image/webp"
+                                                className="sr-only"
+                                                disabled={avatarBusy}
+                                                onChange={(event) => {
+                                                    const file = event.target.files?.[0];
+                                                    event.target.value = "";
+                                                    if (file) uploadAvatarMutation.mutate(file);
+                                                }}
+                                            />
+                                        </label>
+                                        {studentAvatarUrl ? (
+                                            <button
+                                                type="button"
+                                                disabled={avatarBusy}
+                                                onClick={() => deleteAvatarMutation.mutate()}
+                                                className="text-[11px] font-medium text-text-muted hover:text-danger disabled:opacity-50"
+                                            >
+                                                {deleteAvatarMutation.isPending
+                                                    ? "Đang xoá…"
+                                                    : "Xoá ảnh"}
+                                            </button>
+                                        ) : null}
+                                    </div>
+                                ) : null}
                             </div>
 
                             <div className="min-w-0 flex-1">
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-text-muted">
                                     Thông tin học sinh
-                                </p>
-                                <div className="mt-2 flex flex-col gap-2">
+                                </p>                                <div className="mt-2 flex flex-col gap-2">
                                     <div className="flex items-center gap-2">
                                         <h1 className="min-w-0 text-2xl font-semibold leading-tight text-text-primary sm:truncate">
                                             {student.fullName?.trim() || "Học sinh"}
@@ -609,6 +675,26 @@ export default function AdminStudentDetailPage() {
                                 <StudentExamCard key={student.id} studentId={student.id} />
                             </div>
                         </div>
+
+                        <StudentInfoCard title="Thành tích">
+                            <AchievementListEditor
+                                owner={{
+                                    kind: "student",
+                                    mode: "admin",
+                                    studentId: student.id,
+                                }}
+                                editable={canEditStudentProfile}
+                                heading=""
+                            />
+                        </StudentInfoCard>
+
+                        <StudentInfoCard title="Gallery">
+                            <StudentGalleryEditor
+                                studentId={student.id}
+                                editable={canEditStudentProfile}
+                                heading=""
+                            />
+                        </StudentInfoCard>
 
                         {/* <StudentInfoCard title="Phân bổ lớp học"> */}
                         <div className="rounded-[1.25rem] border border-border-default bg-bg-secondary/50 p-3.5 sm:rounded-2xl sm:p-4">
