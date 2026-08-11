@@ -37,9 +37,20 @@ export class StaffLandingProfileQueryDto {
 
   @ApiPropertyOptional({
     minimum: 1,
+    default: 1,
+    description: 'Page number (1-based)',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({
+    minimum: 1,
     maximum: 100,
     default: 50,
-    description: 'Maximum number of profiles to return',
+    description: 'Page size (max 100)',
   })
   @IsOptional()
   @Type(() => Number)
@@ -69,15 +80,26 @@ export class StudentLandingProfileQueryDto {
 
   @ApiPropertyOptional({
     minimum: 1,
-    maximum: 500,
-    default: 100,
-    description: 'Maximum number of profiles to return',
+    default: 1,
+    description: 'Page number (1-based)',
   })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(500)
+  page?: number;
+
+  @ApiPropertyOptional({
+    minimum: 1,
+    maximum: 100,
+    default: 50,
+    description: 'Page size (max 100). Landing CMS should loop pages for full sync.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
   limit?: number;
 }
 

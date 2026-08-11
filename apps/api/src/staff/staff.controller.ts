@@ -316,10 +316,23 @@ export class StaffController {
     description: 'Filter by staff status (default: active)',
   })
   @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Case-insensitive staff name search',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+    example: 1,
+  })
+  @ApiQuery({
     name: 'limit',
     required: false,
     type: Number,
-    description: 'Max profiles to return (default: 50, max: 100)',
+    description: 'Page size (default: 50, max: 100)',
     example: 50,
   })
   @ApiResponse({

@@ -2862,9 +2862,30 @@ describe('StaffService', () => {
           status: StaffStatus.active,
           roles: { has: StaffRole.teacher },
         },
+        skip: 0,
         take: 50,
         select: expect.objectContaining({
           achievements: expect.any(Object),
+        }),
+      }),
+    );
+  });
+
+  it('getLandingProfiles applies page skip and name search', async () => {
+    mockPrisma.staffInfo.count.mockResolvedValue(25);
+    mockPrisma.staffInfo.findMany.mockResolvedValue([]);
+
+    await expect(
+      service.getLandingProfiles({ page: 2, limit: 10, search: 'Nguyen' }),
+    ).resolves.toEqual({ data: [], total: 25 });
+
+    expect(mockPrisma.staffInfo.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skip: 10,
+        take: 10,
+        where: expect.objectContaining({
+          status: StaffStatus.active,
+          roles: { has: StaffRole.teacher },
         }),
       }),
     );

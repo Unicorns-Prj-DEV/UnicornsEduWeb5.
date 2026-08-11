@@ -1314,6 +1314,11 @@ export class StaffService {
       typeof query.limit === 'number' && Number.isInteger(query.limit)
         ? Math.min(Math.max(query.limit, 1), 100)
         : 50;
+    const page =
+      typeof query.page === 'number' && Number.isInteger(query.page)
+        ? Math.max(query.page, 1)
+        : 1;
+    const skip = (page - 1) * limit;
 
     const where: Prisma.StaffInfoWhereInput = {
       status,
@@ -1327,6 +1332,7 @@ export class StaffService {
       this.prisma.staffInfo.count({ where }),
       this.prisma.staffInfo.findMany({
         where,
+        skip,
         take: limit,
         orderBy: [
           { user: { first_name: 'asc' } },
