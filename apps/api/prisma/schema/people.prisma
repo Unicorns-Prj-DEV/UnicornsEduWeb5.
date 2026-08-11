@@ -103,18 +103,24 @@ model StaffAchievement {
 }
 
 /// Achievements owned by a student (admin-managed only; no student self-service).
+/// Structured fields mirror landing CMS /thanh-tich (award, exam, year, level, courseLabel).
 model StudentAchievement {
-  id                   String      @id @default(uuid())
-  studentId            String      @map("student_id")
-  title                String      @db.Text
-  imagePath            String?     @map("image_path")
-  imageWatermarkedPath String?     @map("image_watermarked_path")
-  sortOrder            Int         @default(0) @map("sort_order")
-  createdAt            DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt            DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
-  student              StudentInfo @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id                   String           @id @default(uuid())
+  studentId            String           @map("student_id")
+  award                String           @db.Text
+  exam                 String           @db.Text
+  year                 Int
+  level                AchievementLevel
+  courseLabel          String?          @map("course_label") @db.Text
+  imagePath            String?          @map("image_path")
+  imageWatermarkedPath String?          @map("image_watermarked_path")
+  sortOrder            Int              @default(0) @map("sort_order")
+  createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  student              StudentInfo      @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@index([studentId, sortOrder])
+  @@index([year, level])
   @@map("student_achievements")
 }
 

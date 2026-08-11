@@ -136,3 +136,13 @@ enum LessonOutputStatus {
   completed
   cancelled
 }
+
+/// Competition / award level for student landing achievements (/thanh-tich).
+enum AchievementLevel {
+  COMMUNE
+  PROVINCE
+  REGIONAL
+  NATIONAL
+  INTERNATIONAL
+  ADMISSION
+}
