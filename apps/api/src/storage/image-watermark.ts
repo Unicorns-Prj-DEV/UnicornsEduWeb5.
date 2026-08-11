@@ -4,7 +4,8 @@ import { join } from 'path';
 import sharp from 'sharp';
 
 const WATERMARK_TILE_MAX_EDGE = 180;
-const WATERMARK_ALPHA = 0.35;
+/** Overlay fade for tiled brand mark (lower = more transparent). */
+const WATERMARK_ALPHA = 0.05;
 
 let cachedLogoTile: Buffer | null = null;
 

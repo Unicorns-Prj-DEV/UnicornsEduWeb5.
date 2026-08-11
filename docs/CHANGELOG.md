@@ -63,6 +63,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
+- BE watermark bake: giảm opacity tile logo (`WATERMARK_ALPHA` → 0.05) để mark rất mờ trên twin public. Twin đã bake cần clear path + chạy lại backfill để cập nhật.
 - Docs/ops: script backfill watermark chạy bằng `pnpm dlx tsx scripts/backfill-watermarked-images.ts` (tránh `ts-node` lỗi resolve Prisma 7 generated client).
 - CD API image: chuyển `sharp` từ `devDependencies` → `dependencies` để `pnpm deploy --prod` giữ package trong image — tránh crash-loop `Cannot find module 'sharp'` khi boot Nest (watermark bake) sau deploy.
 - BE watermark bake: thay asset `watermark-logo.jpg` (nền gạch) bằng `watermark-logo.webp` (logo trong suốt); bỏ luma-key nền tối để không ăn mất viền chữ đen của mark "HỌC TIN cùng CHUYÊN TIN".
