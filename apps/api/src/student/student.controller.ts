@@ -424,11 +424,24 @@ export class StudentController {
     description: 'Filter by student status (default: active)',
   })
   @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Case-insensitive student full name search',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+    example: 1,
+  })
+  @ApiQuery({
     name: 'limit',
     required: false,
     type: Number,
-    description: 'Max profiles to return (default: 100, max: 500)',
-    example: 100,
+    description: 'Page size (default: 50, max: 100). Loop pages for full CMS sync.',
+    example: 50,
   })
   @ApiResponse({
     status: 200,

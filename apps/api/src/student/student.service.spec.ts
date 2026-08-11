@@ -1731,7 +1731,8 @@ describe('StudentService', () => {
     expect(mockPrisma.studentInfo.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { status: StudentStatus.active },
-        take: 100,
+        skip: 0,
+        take: 50,
         select: expect.objectContaining({
           id: true,
           fullName: true,
@@ -1740,6 +1741,30 @@ describe('StudentService', () => {
           achievements: expect.any(Object),
           galleryItems: expect.any(Object),
         }),
+      }),
+    );
+  });
+
+  it('getLandingProfiles applies page skip, capped limit, and search', async () => {
+    mockPrisma.studentInfo.count.mockResolvedValue(80);
+    mockPrisma.studentInfo.findMany.mockResolvedValue([]);
+
+    await expect(
+      service.getLandingProfiles({
+        page: 3,
+        limit: 200,
+        search: '  Le Van  ',
+      }),
+    ).resolves.toEqual({ data: [], total: 80 });
+
+    expect(mockPrisma.studentInfo.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skip: 200,
+        take: 100,
+        where: {
+          status: StudentStatus.active,
+          fullName: { contains: 'Le Van', mode: 'insensitive' },
+        },
       }),
     );
   });

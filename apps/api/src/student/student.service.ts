@@ -1280,8 +1280,13 @@ export class StudentService {
     const status = query.status ?? StudentStatus.active;
     const limit =
       typeof query.limit === 'number' && Number.isInteger(query.limit)
-        ? Math.min(Math.max(query.limit, 1), 500)
-        : 100;
+        ? Math.min(Math.max(query.limit, 1), 100)
+        : 50;
+    const page =
+      typeof query.page === 'number' && Number.isInteger(query.page)
+        ? Math.max(query.page, 1)
+        : 1;
+    const skip = (page - 1) * limit;
 
     const where: Prisma.StudentInfoWhereInput = { status };
     const trimmedSearch = query.search?.trim();
@@ -1296,6 +1301,7 @@ export class StudentService {
       this.prisma.studentInfo.count({ where }),
       this.prisma.studentInfo.findMany({
         where,
+        skip,
         take: limit,
         orderBy: [{ fullName: 'asc' }, { id: 'asc' }],
         select: {
