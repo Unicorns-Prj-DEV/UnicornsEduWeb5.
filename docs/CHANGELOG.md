@@ -63,6 +63,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
+- Docs/ops: script backfill watermark chạy bằng `pnpm dlx tsx scripts/backfill-watermarked-images.ts` (tránh `ts-node` lỗi resolve Prisma 7 generated client).
 - CD API image: chuyển `sharp` từ `devDependencies` → `dependencies` để `pnpm deploy --prod` giữ package trong image — tránh crash-loop `Cannot find module 'sharp'` khi boot Nest (watermark bake) sau deploy.
 - BE watermark bake: thay asset `watermark-logo.jpg` (nền gạch) bằng `watermark-logo.webp` (logo trong suốt); bỏ luma-key nền tối để không ăn mất viền chữ đen của mark "HỌC TIN cùng CHUYÊN TIN".
 - BE Google Calendar schedule resync: khi ghi lại `Class.schedule` sau sync/resync không còn strip `createdAt`/`deletedAt` hay xoá slot soft-deleted. Slot active thiếu `createdAt` (data cũ) được backfill từ `Class.updatedAt` lúc resync hoặc lúc đọc **Cảnh báo chưa dạy**, tránh cảnh báo giờ lịch mới trên ngày quá khứ sau khi đổi lịch cố định.

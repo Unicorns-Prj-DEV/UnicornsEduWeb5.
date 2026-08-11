@@ -8,7 +8,10 @@
  * - SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY set
  *
  * Usage (from apps/api):
- *   pnpm exec ts-node -r tsconfig-paths/register scripts/backfill-watermarked-images.ts
+ *   pnpm dlx tsx scripts/backfill-watermarked-images.ts
+ *
+ * (Prefer `tsx` over `ts-node`: Prisma 7 generated client is ESM `.ts` and
+ *  does not resolve under plain `ts-node` + CommonJS.)
  */
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
