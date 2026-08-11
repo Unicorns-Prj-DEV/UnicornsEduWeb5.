@@ -185,7 +185,12 @@ Accept: application/json
       "achievements": [
         {
           "id": "sach-uuid-1",
-          "title": "HCV Tin học trẻ",
+          "award": "HCV",
+          "exam": "Tin học trẻ",
+          "year": 2024,
+          "level": "NATIONAL",
+          "courseLabel": "KHỐI THPT",
+          "title": "HCV · Tin học trẻ",
           "imageUrl": "https://your-project.supabase.co/storage/v1/object/public/achievements-public/student/UNIST-a1b2c3d4e5/sach-uuid-1.jpg",
           "imagePath": "student/UNIST-a1b2c3d4e5/sach-uuid-1.jpg",
           "sortOrder": 0
@@ -226,9 +231,14 @@ Accept: application/json
 | `avatarPath` | string \| null | `users.avatar_watermarked_path` | Via linked user; `null` if no linked user / no twin |
 | `school` | string \| null | `student_info.school` | |
 | `province` | string \| null | `student_info.province` | |
-| `achievements` | array | `student_achievements` | Ordered by `sortOrder` asc. Admin-managed in EduWeb5; no student self-service. |
+| `achievements` | array | `student_achievements` | Ordered by `sortOrder` asc. Admin-managed in EduWeb5; no student self-service. Structured fields for `/thanh-tich`. |
 | `achievements[].id` | string | `student_achievements.id` | |
-| `achievements[].title` | string | `student_achievements.title` | |
+| `achievements[].award` | string | `student_achievements.award` | Prize label (e.g. Giải Khuyến khích) |
+| `achievements[].exam` | string | `student_achievements.exam` | Competition name |
+| `achievements[].year` | number | `student_achievements.year` | |
+| `achievements[].level` | enum | `student_achievements.level` | `COMMUNE` \| `PROVINCE` \| `REGIONAL` \| `NATIONAL` \| `INTERNATIONAL` \| `ADMISSION` |
+| `achievements[].courseLabel` | string \| null | `course_label` | Optional landing course band label |
+| `achievements[].title` | string | derived | `${award} · ${exam}` for short-term CMS title consumers |
 | `achievements[].imageUrl` | string \| null | public twin | From `achievements-public`; `null` if no twin |
 | `achievements[].imagePath` | string \| null | `image_watermarked_path` | |
 | `achievements[].sortOrder` | number | `student_achievements.sort_order` | |

@@ -166,10 +166,19 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 ### 4.3.0 `student_achievements`
 
-- Thành tích học sinh — cùng shape với `staff_achievements` (`title`, `image_path`, `image_watermarked_path`, `sort_order`), FK `student_id` → `student_info.id`.
+- Thành tích học sinh — **structured** (khác `staff_achievements` chỉ có `title`): FK `student_id` → `student_info.id`.
+- Trường:
+  - `award` (`TEXT`, bắt buộc) — giải thưởng (vd. "Giải Khuyến khích")
+  - `exam` (`TEXT`, bắt buộc) — kỳ thi (vd. "HSG Quốc gia")
+  - `year` (`INT`, bắt buộc) — năm đạt giải
+  - `level` (`AchievementLevel`, bắt buộc) — `COMMUNE` | `PROVINCE` | `REGIONAL` | `NATIONAL` | `INTERNATIONAL` | `ADMISSION`
+  - `course_label` (`TEXT`, nullable) — nhãn khóa học landing (vd. "KHỐI THPT"); trống → landing tự gán theo cấp
+  - `image_path` / `image_watermarked_path` / `sort_order` — giống staff (1 ảnh minh chứng / row)
 - Path ảnh gốc: `student/{studentId}/{achievementId}.{ext}` trong bucket private `achievements`.
 - Path twin watermarked: `student/{studentId}/{achievementId}.jpg` trong bucket public `achievements-public`.
-- Chỉ admin (và assistant/customer_care trên route admin mirror) quản lý qua ` /student/:studentId/achievements/*`. Không có student self-service.
+- Index: `(student_id, sort_order)`, `(year, level)`.
+- Chỉ admin (và assistant/customer_care trên route admin mirror) quản lý qua `/student/:studentId/achievements/*`. Không có student self-service.
+- Landing: `GET /student/landing-profiles` trả `award/exam/year/level/courseLabel` + derived `title = "${award} · ${exam}"` cho compat.
 
 ### 4.3.0b `student_gallery_items`
 
