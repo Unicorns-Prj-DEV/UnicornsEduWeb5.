@@ -6,8 +6,8 @@ Server-to-server endpoints that expose **public-safe identity fields** from Unic
 
 | Endpoint | Used for |
 |----------|----------|
-| `GET /staff/landing-profiles` | Populate CMS **Instructor** records (name, avatar, university, **achievements** + proof images; `specialization` deprecated) |
-| `GET /student/landing-profiles` | Populate CMS **StudentShowcase** records (name, school, province, avatar, **achievements** + proof images, **gallery** images) |
+| `GET /staff/landing-profiles` | Populate CMS **Instructor** records (name, avatar, university, **achievements** + proof images; `specialization` deprecated). Supports `page`, `limit`, `search`. |
+| `GET /student/landing-profiles` | Populate CMS **StudentShowcase** + **FeaturedStudent** records (name, school, province, avatar, **achievements** + proof images, **gallery** images). Supports `page`, `limit`, `search`. Landing CMS must loop pages for a full sync before archive. |
 
 Operational staff/student APIs under `/staff` and `/student` require cookie auth and RBAC. These landing endpoints are separate: they skip JWT, use a shared API key, and return only fields safe for marketing use.
 
@@ -66,7 +66,9 @@ Accept: application/json
 |-----------|------|---------|-----|-------------|
 | `role` | `StaffRole` | `teacher` | — | Filter staff whose `staff_info.roles` includes this role |
 | `status` | `active` \| `inactive` | `active` | — | Filter by `staff_info.status` |
-| `limit` | integer | `50` | `100` | Maximum number of records returned |
+| `search` | string | — | — | Case-insensitive name search (tokenized first/last name) |
+| `page` | integer | `1` | — | 1-based page index |
+| `limit` | integer | `50` | `100` | Page size |
 
 Allowed `role` values: `admin`, `teacher`, `lesson_plan`, `lesson_plan_head`, `accountant`, `accountant_income`, `accountant_expense`, `communication`, `technical`, `customer_care`, `training`, `assistant`.
 
@@ -130,7 +132,7 @@ Allowed `role` values: `admin`, `teacher`, `lesson_plan`, `lesson_plan_head`, `a
 | `achievements[].imagePath` | string \| null | `image_watermarked_path` | Stable path in `achievements-public` |
 | `achievements[].sortOrder` | number | `staff_achievements.sort_order` | Display order (0 first) |
 
-`total` is the count of items in `data` after filters and `limit` are applied.
+`total` is the **full filtered count** (before pagination). CMS sync must loop `page=1..` until all rows are fetched before archiving missing `sourceId`s.
 
 ### Example: all active teachers (default)
 
@@ -168,7 +170,9 @@ Accept: application/json
 | Parameter | Type | Default | Max | Description |
 |-----------|------|---------|-----|-------------|
 | `status` | `active` \| `inactive` | `active` | — | Filter by `student_info.status` |
-| `limit` | integer | `100` | `500` | Maximum number of records returned |
+| `search` | string | — | — | Case-insensitive `fullName` contains |
+| `page` | integer | `1` | — | 1-based page index |
+| `limit` | integer | `50` | `100` | Page size. Landing CMS must loop pages for a full people sync (do not rely on a single large `limit`). |
 
 ### Response `200 OK`
 
@@ -249,6 +253,8 @@ Accept: application/json
 | `gallery[].imagePath` | string \| null | `image_watermarked_path` | |
 | `gallery[].sortOrder` | number | `student_gallery_items.sort_order` | |
 
+`total` is the **full filtered count** (before pagination), same semantics as staff landing-profiles.
+
 ### CMS sync notes (achievements + gallery)
 
 - Prefer syncing `achievements[]` into landing Instructor / StudentShowcase related records (or nested JSON), not the legacy `specialization` string.
@@ -263,7 +269,7 @@ Accept: application/json
 ```bash
 curl -sS \
   -H "X-API-Key: $LANDING_API_KEY" \
-  "https://api.example.com/student/landing-profiles?limit=200"
+  "https://api.example.com/student/landing-profiles?page=1&limit=50"
 ```
 
 ---
