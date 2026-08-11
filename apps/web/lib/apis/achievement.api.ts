@@ -1,9 +1,11 @@
 import type {
   AchievementDto,
   AchievementOwnerRef,
-  CreateAchievementPayload,
+  CreateStaffAchievementPayload,
+  CreateStudentAchievementPayload,
   ReorderAchievementsPayload,
-  UpdateAchievementPayload,
+  UpdateStaffAchievementPayload,
+  UpdateStudentAchievementPayload,
 } from "@/dtos/achievement.dto";
 import { api } from "@/lib/client";
 
@@ -36,7 +38,7 @@ export async function listAchievements(
 
 export async function createAchievement(
   owner: AchievementOwnerRef,
-  payload: CreateAchievementPayload,
+  payload: CreateStaffAchievementPayload | CreateStudentAchievementPayload,
 ): Promise<AchievementDto> {
   const response = await api.post<AchievementDto>(ownerBasePath(owner), payload);
   return response.data;
@@ -45,7 +47,7 @@ export async function createAchievement(
 export async function updateAchievement(
   owner: AchievementOwnerRef,
   achievementId: string,
-  payload: UpdateAchievementPayload,
+  payload: UpdateStaffAchievementPayload | UpdateStudentAchievementPayload,
 ): Promise<AchievementDto> {
   const response = await api.patch<AchievementDto>(
     `${ownerBasePath(owner)}/${encodeURIComponent(achievementId)}`,
