@@ -1,7 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
-import { StaffRole, StaffStatus, StudentStatus } from 'generated/enums';
+import {
+  AchievementLevel,
+  StaffRole,
+  StaffStatus,
+  StudentStatus,
+} from 'generated/enums';
 
 export class StaffLandingProfileQueryDto {
   @ApiPropertyOptional({
@@ -101,6 +106,53 @@ export class LandingAchievementDto {
   imagePath: string | null;
 
   @ApiProperty({ example: 0, description: 'Display order ascending (0 first).' })
+  sortOrder: number;
+}
+
+/** Student landing achievements — structured fields for CMS /thanh-tich. */
+export class LandingStudentAchievementDto {
+  @ApiProperty({ example: 'sach-uuid-1' })
+  id: string;
+
+  @ApiProperty({ example: 'Giải Khuyến khích' })
+  award: string;
+
+  @ApiProperty({ example: 'HSG Quốc gia' })
+  exam: string;
+
+  @ApiProperty({ example: 2025 })
+  year: number;
+
+  @ApiProperty({ enum: AchievementLevel, example: AchievementLevel.NATIONAL })
+  level: AchievementLevel;
+
+  @ApiProperty({
+    nullable: true,
+    example: 'KHỐI THPT',
+    description: 'Optional course label; blank → landing infers from level.',
+  })
+  courseLabel: string | null;
+
+  @ApiProperty({
+    example: 'Giải Khuyến khích · HSG Quốc gia',
+    description: 'Derived `${award} · ${exam}` for short-term CMS title consumers.',
+  })
+  title: string;
+
+  @ApiProperty({
+    nullable: true,
+    example:
+      'https://your-project.supabase.co/storage/v1/object/public/achievements-public/student/.../sach.jpg',
+  })
+  imageUrl: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    example: 'student/UNIST-a1b2c3d4e5/sach-uuid-1.jpg',
+  })
+  imagePath: string | null;
+
+  @ApiProperty({ example: 0 })
   sortOrder: number;
 }
 
@@ -208,10 +260,11 @@ export class StudentLandingProfileDto {
   province: string | null;
 
   @ApiProperty({
-    type: [LandingAchievementDto],
-    description: 'Ordered public achievements (title + optional proof image).',
+    type: [LandingStudentAchievementDto],
+    description:
+      'Ordered public student achievements (award/exam/year/level/courseLabel + proof image).',
   })
-  achievements: LandingAchievementDto[];
+  achievements: LandingStudentAchievementDto[];
 
   @ApiProperty({
     type: [LandingStudentGalleryItemDto],

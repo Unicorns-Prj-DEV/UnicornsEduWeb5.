@@ -21,17 +21,35 @@ import {
 } from '../storage/media-buckets';
 import type {
   CreateAchievementDto,
+  CreateStudentAchievementDto,
   ReorderAchievementsDto,
   UpdateAchievementDto,
+  UpdateStudentAchievementDto,
 } from '../dtos/achievement.dto';
+import { AchievementLevel } from 'generated/enums';
+import { deriveStudentAchievementTitle } from './achievement-landing.mapper';
 
 const ACHIEVEMENT_SIGNED_URL_TTL_SECONDS = 60 * 60;
 
 export type AchievementOwnerKind = 'staff' | 'student';
 
-type AchievementRow = {
+type StaffAchievementRow = {
   id: string;
   title: string;
+  imagePath: string | null;
+  imageWatermarkedPath?: string | null;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type StudentAchievementRow = {
+  id: string;
+  award: string;
+  exam: string;
+  year: number;
+  level: AchievementLevel;
+  courseLabel: string | null;
   imagePath: string | null;
   imageWatermarkedPath?: string | null;
   sortOrder: number;
@@ -58,7 +76,7 @@ export class AchievementService {
     return `${ownerKind}/${ownerId}/${achievementId}.${this.extensionForMime(mimetype)}`;
   }
 
-  private async toDto(row: AchievementRow) {
+  private async toStaffDto(row: StaffAchievementRow) {
     const imageUrl = await createSignedStorageUrl({
       bucket: ACHIEVEMENT_STORAGE_BUCKET,
       path: row.imagePath,
@@ -68,6 +86,11 @@ export class AchievementService {
     return {
       id: row.id,
       title: row.title,
+      award: null,
+      exam: null,
+      year: null,
+      level: null,
+      courseLabel: null,
       imagePath: row.imagePath,
       imageUrl,
       sortOrder: row.sortOrder,
@@ -76,8 +99,35 @@ export class AchievementService {
     };
   }
 
-  private async toDtoList(rows: AchievementRow[]) {
-    return Promise.all(rows.map((row) => this.toDto(row)));
+  private async toStudentDto(row: StudentAchievementRow) {
+    const imageUrl = await createSignedStorageUrl({
+      bucket: ACHIEVEMENT_STORAGE_BUCKET,
+      path: row.imagePath,
+      expiresIn: ACHIEVEMENT_SIGNED_URL_TTL_SECONDS,
+    });
+
+    return {
+      id: row.id,
+      title: deriveStudentAchievementTitle(row.award, row.exam),
+      award: row.award,
+      exam: row.exam,
+      year: row.year,
+      level: row.level,
+      courseLabel: row.courseLabel,
+      imagePath: row.imagePath,
+      imageUrl,
+      sortOrder: row.sortOrder,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+  }
+
+  private async toStaffDtoList(rows: StaffAchievementRow[]) {
+    return Promise.all(rows.map((row) => this.toStaffDto(row)));
+  }
+
+  private async toStudentDtoList(rows: StudentAchievementRow[]) {
+    return Promise.all(rows.map((row) => this.toStudentDto(row)));
   }
 
   private normalizeTitle(title: string) {
@@ -86,6 +136,37 @@ export class AchievementService {
       throw new BadRequestException('Tiêu đề thành tích không được để trống.');
     }
     return trimmed;
+  }
+
+  private normalizeRequiredText(value: string, label: string) {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      throw new BadRequestException(`${label} không được để trống.`);
+    }
+    return trimmed;
+  }
+
+  private normalizeCourseLabel(value: string | null | undefined) {
+    if (value === undefined) return undefined;
+    if (value === null) return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  private normalizeStudentFields(input: {
+    award: string;
+    exam: string;
+    year: number;
+    level: AchievementLevel;
+    courseLabel?: string | null;
+  }) {
+    return {
+      award: this.normalizeRequiredText(input.award, 'Giải thưởng'),
+      exam: this.normalizeRequiredText(input.exam, 'Kỳ thi'),
+      year: input.year,
+      level: input.level,
+      courseLabel: this.normalizeCourseLabel(input.courseLabel) ?? null,
+    };
   }
 
   async resolveStaffIdForUser(userId: string): Promise<string> {
@@ -125,7 +206,7 @@ export class AchievementService {
       where: { staffId },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
-    return this.toDtoList(rows);
+    return this.toStaffDtoList(rows);
   }
 
   async listStudentAchievements(studentId: string) {
@@ -134,7 +215,7 @@ export class AchievementService {
       where: { studentId },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
-    return this.toDtoList(rows);
+    return this.toStudentDtoList(rows);
   }
 
   async createStaffAchievement(staffId: string, dto: CreateAchievementDto) {
@@ -147,22 +228,22 @@ export class AchievementService {
     const row = await this.prisma.staffAchievement.create({
       data: { staffId, title, sortOrder },
     });
-    return this.toDto(row);
+    return this.toStaffDto(row);
   }
 
   async createStudentAchievement(
     studentId: string,
-    dto: CreateAchievementDto,
+    dto: CreateStudentAchievementDto,
   ) {
     await this.assertStudentExists(studentId);
-    const title = this.normalizeTitle(dto.title);
+    const fields = this.normalizeStudentFields(dto);
     const sortOrder =
       dto.sortOrder ?? (await this.nextStudentSortOrder(studentId));
 
     const row = await this.prisma.studentAchievement.create({
-      data: { studentId, title, sortOrder },
+      data: { studentId, ...fields, sortOrder },
     });
-    return this.toDto(row);
+    return this.toStudentDto(row);
   }
 
   private async nextStaffSortOrder(staffId: string) {
@@ -207,13 +288,13 @@ export class AchievementService {
       where: { id: achievementId },
       data,
     });
-    return this.toDto(row);
+    return this.toStaffDto(row);
   }
 
   async updateStudentAchievement(
     studentId: string,
     achievementId: string,
-    dto: UpdateAchievementDto,
+    dto: UpdateStudentAchievementDto,
   ) {
     const existing = await this.prisma.studentAchievement.findFirst({
       where: { id: achievementId, studentId },
@@ -222,9 +303,28 @@ export class AchievementService {
       throw new NotFoundException('Achievement not found.');
     }
 
-    const data: { title?: string; sortOrder?: number } = {};
-    if (dto.title !== undefined) {
-      data.title = this.normalizeTitle(dto.title);
+    const data: {
+      award?: string;
+      exam?: string;
+      year?: number;
+      level?: AchievementLevel;
+      courseLabel?: string | null;
+      sortOrder?: number;
+    } = {};
+    if (dto.award !== undefined) {
+      data.award = this.normalizeRequiredText(dto.award, 'Giải thưởng');
+    }
+    if (dto.exam !== undefined) {
+      data.exam = this.normalizeRequiredText(dto.exam, 'Kỳ thi');
+    }
+    if (dto.year !== undefined) {
+      data.year = dto.year;
+    }
+    if (dto.level !== undefined) {
+      data.level = dto.level;
+    }
+    if (dto.courseLabel !== undefined) {
+      data.courseLabel = this.normalizeCourseLabel(dto.courseLabel) ?? null;
     }
     if (dto.sortOrder !== undefined) {
       data.sortOrder = dto.sortOrder;
@@ -234,7 +334,7 @@ export class AchievementService {
       where: { id: achievementId },
       data,
     });
-    return this.toDto(row);
+    return this.toStudentDto(row);
   }
 
   async deleteStaffAchievement(staffId: string, achievementId: string) {
@@ -396,7 +496,7 @@ export class AchievementService {
       where: { id: achievementId },
       data: { imagePath, imageWatermarkedPath },
     });
-    return this.toDto(row);
+    return this.toStaffDto(row);
   }
 
   async uploadStudentAchievementImage(
@@ -439,7 +539,7 @@ export class AchievementService {
       where: { id: achievementId },
       data: { imagePath, imageWatermarkedPath },
     });
-    return this.toDto(row);
+    return this.toStudentDto(row);
   }
 
   async deleteStaffAchievementImage(staffId: string, achievementId: string) {
@@ -450,7 +550,7 @@ export class AchievementService {
       throw new NotFoundException('Achievement not found.');
     }
     if (!existing.imagePath && !existing.imageWatermarkedPath) {
-      return this.toDto(existing);
+      return this.toStaffDto(existing);
     }
 
     await this.removeAchievementImages(
@@ -461,7 +561,7 @@ export class AchievementService {
       where: { id: achievementId },
       data: { imagePath: null, imageWatermarkedPath: null },
     });
-    return this.toDto(row);
+    return this.toStaffDto(row);
   }
 
   async deleteStudentAchievementImage(
@@ -475,7 +575,7 @@ export class AchievementService {
       throw new NotFoundException('Achievement not found.');
     }
     if (!existing.imagePath && !existing.imageWatermarkedPath) {
-      return this.toDto(existing);
+      return this.toStudentDto(existing);
     }
 
     await this.removeAchievementImages(
@@ -486,7 +586,7 @@ export class AchievementService {
       where: { id: achievementId },
       data: { imagePath: null, imageWatermarkedPath: null },
     });
-    return this.toDto(row);
+    return this.toStudentDto(row);
   }
 
   private async uploadImagePair(options: {

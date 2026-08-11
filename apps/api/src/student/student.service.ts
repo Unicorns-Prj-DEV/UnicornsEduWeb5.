@@ -43,7 +43,7 @@ import {
   UpdateStudentStatusDto,
 } from 'src/dtos/student.dto';
 import { StudentLandingProfileQueryDto } from 'src/dtos/landing-profile.dto';
-import { mapLandingAchievements } from 'src/achievements/achievement-landing.mapper';
+import { mapLandingStudentAchievements } from 'src/achievements/achievement-landing.mapper';
 import { mapLandingStudentGallery } from 'src/student-gallery/student-gallery-landing.mapper';
 import {
   AVATAR_PUBLIC_BUCKET,
@@ -1307,7 +1307,11 @@ export class StudentService {
             orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
             select: {
               id: true,
-              title: true,
+              award: true,
+              exam: true,
+              year: true,
+              level: true,
+              courseLabel: true,
               imageWatermarkedPath: true,
               sortOrder: true,
             },
@@ -1340,7 +1344,7 @@ export class StudentService {
         path: student.user?.avatarWatermarkedPath,
       }),
       avatarPath: student.user?.avatarWatermarkedPath ?? null,
-      achievements: mapLandingAchievements(student.achievements),
+      achievements: mapLandingStudentAchievements(student.achievements),
       gallery: mapLandingStudentGallery(student.galleryItems),
     }));
 

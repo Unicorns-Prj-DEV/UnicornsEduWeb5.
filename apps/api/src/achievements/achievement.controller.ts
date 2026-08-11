@@ -34,8 +34,10 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { VerifiedEmailGuard } from '../auth/guards/verified-email.guard';
 import {
   CreateAchievementDto,
+  CreateStudentAchievementDto,
   ReorderAchievementsDto,
   UpdateAchievementDto,
+  UpdateStudentAchievementDto,
 } from '../dtos/achievement.dto';
 import {
   ParseStaffIdPipe,
@@ -200,11 +202,11 @@ export class StudentAchievementController {
   @Post()
   @ApiOperation({ summary: 'Create student achievement' })
   @ApiParam({ name: 'studentId', description: 'Student id (UNIST-…)' })
-  @ApiBody({ type: CreateAchievementDto })
+  @ApiBody({ type: CreateStudentAchievementDto })
   @ApiResponse({ status: 201, description: 'Created achievement.' })
   create(
     @Param('studentId', new ParseStudentIdPipe()) studentId: string,
-    @Body() body: CreateAchievementDto,
+    @Body() body: CreateStudentAchievementDto,
   ) {
     return this.achievementService.createStudentAchievement(studentId, body);
   }
@@ -213,11 +215,11 @@ export class StudentAchievementController {
   @ApiOperation({ summary: 'Update student achievement' })
   @ApiParam({ name: 'studentId', description: 'Student id (UNIST-…)' })
   @ApiParam({ name: 'achievementId', description: 'Achievement UUID' })
-  @ApiBody({ type: UpdateAchievementDto })
+  @ApiBody({ type: UpdateStudentAchievementDto })
   update(
     @Param('studentId', new ParseStudentIdPipe()) studentId: string,
     @Param('achievementId', ParseUUIDPipe) achievementId: string,
-    @Body() body: UpdateAchievementDto,
+    @Body() body: UpdateStudentAchievementDto,
   ) {
     return this.achievementService.updateStudentAchievement(
       studentId,

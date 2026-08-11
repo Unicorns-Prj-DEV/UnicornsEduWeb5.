@@ -31,6 +31,7 @@ jest.mock('src/storage/image-watermark', () => ({
 
 import { BadRequestException, Logger } from '@nestjs/common';
 import {
+  AchievementLevel,
   StaffRole,
   StudentWalletDirectTopUpRequestStatus,
   StudentStatus,
@@ -1662,7 +1663,11 @@ describe('StudentService', () => {
         achievements: [
           {
             id: 'sach-1',
-            title: 'HCV Tin học trẻ',
+            award: 'HCV',
+            exam: 'Tin học trẻ',
+            year: 2024,
+            level: AchievementLevel.NATIONAL,
+            courseLabel: 'KHỐI THPT',
             imageWatermarkedPath: 'student/student-1/sach-1.jpg',
             sortOrder: 0,
           },
@@ -1694,7 +1699,12 @@ describe('StudentService', () => {
           achievements: [
             {
               id: 'sach-1',
-              title: 'HCV Tin học trẻ',
+              award: 'HCV',
+              exam: 'Tin học trẻ',
+              year: 2024,
+              level: AchievementLevel.NATIONAL,
+              courseLabel: 'KHỐI THPT',
+              title: 'HCV · Tin học trẻ',
               imagePath: 'student/student-1/sach-1.jpg',
               imageUrl:
                 'public:achievements-public:student/student-1/sach-1.jpg',
