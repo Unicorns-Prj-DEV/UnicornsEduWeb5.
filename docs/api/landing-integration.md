@@ -247,7 +247,7 @@ Accept: application/json
 - Empty `achievements: []` / `gallery: []` is valid.
 - Clean originals stay private in `achievements` / `avatars` / `student-gallery`. Landing consumes twins from public buckets **`achievements-public`** / **`avatars-public`** / **`student-gallery-public`**.
 - **Contract (implemented):** landing `avatarUrl`/`avatarPath`, `achievements[].imageUrl`/`imagePath`, and `gallery[].imageUrl`/`imagePath` are watermarked **public** assets. Missing twin → `null` (never fall back to clean).
-- Ops: create public buckets (`avatars-public`, `achievements-public`, `student-gallery-public`) + private `student-gallery`; run avatar/achievement backfill after migrate when needed.
+- Ops: create public buckets (`avatars-public`, `achievements-public`, `student-gallery-public`) + private `student-gallery`; run avatar/achievement backfill after migrate when needed (`cd apps/api && pnpm dlx tsx scripts/backfill-watermarked-images.ts`).
 ### Example
 
 ```bash
