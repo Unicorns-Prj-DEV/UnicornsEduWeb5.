@@ -410,18 +410,12 @@ export class StudentController {
   @ApiOperation({
     summary: 'List public student landing profiles',
     description:
-      'API-key protected endpoint for the marketing landing site. Returns sanitized student identity fields only.',
+      'API-key protected endpoint for the marketing landing site. Returns sanitized student identity fields only. Does not filter by status (active + inactive).',
   })
   @ApiHeader({
     name: LANDING_API_KEY_HEADER,
     required: true,
     description: 'Landing site API key (LANDING_API_KEY)',
-  })
-  @ApiQuery({
-    name: 'status',
-    required: false,
-    enum: ['active', 'inactive'],
-    description: 'Filter by student status (default: active)',
   })
   @ApiQuery({
     name: 'search',

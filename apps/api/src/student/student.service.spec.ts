@@ -1652,7 +1652,7 @@ describe('StudentService', () => {
     expect(mockPrisma.studentClass.updateMany).not.toHaveBeenCalled();
   });
 
-  it('returns sanitized student landing profiles with default active filter', async () => {
+  it('returns sanitized student landing profiles without status filter', async () => {
     mockPrisma.studentInfo.count.mockResolvedValue(1);
     mockPrisma.studentInfo.findMany.mockResolvedValue([
       {
@@ -1726,11 +1726,11 @@ describe('StudentService', () => {
     });
 
     expect(mockPrisma.studentInfo.count).toHaveBeenCalledWith({
-      where: { status: StudentStatus.active },
+      where: {},
     });
     expect(mockPrisma.studentInfo.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { status: StudentStatus.active },
+        where: {},
         skip: 0,
         take: 50,
         select: expect.objectContaining({
@@ -1762,7 +1762,6 @@ describe('StudentService', () => {
         skip: 200,
         take: 100,
         where: {
-          status: StudentStatus.active,
           fullName: { contains: 'Le Van', mode: 'insensitive' },
         },
       }),

@@ -1277,7 +1277,7 @@ export class StudentService {
   }
 
   async getLandingProfiles(query: StudentLandingProfileQueryDto) {
-    const status = query.status ?? StudentStatus.active;
+    // Landing sync intentionally ignores status (active + inactive).
     const limit =
       typeof query.limit === 'number' && Number.isInteger(query.limit)
         ? Math.min(Math.max(query.limit, 1), 100)
@@ -1288,7 +1288,7 @@ export class StudentService {
         : 1;
     const skip = (page - 1) * limit;
 
-    const where: Prisma.StudentInfoWhereInput = { status };
+    const where: Prisma.StudentInfoWhereInput = {};
     const trimmedSearch = query.search?.trim();
     if (trimmedSearch) {
       where.fullName = {
