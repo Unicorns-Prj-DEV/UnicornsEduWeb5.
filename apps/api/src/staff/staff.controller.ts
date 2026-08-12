@@ -296,24 +296,12 @@ export class StaffController {
   @ApiOperation({
     summary: 'List public staff landing profiles',
     description:
-      'API-key protected endpoint for the marketing landing site. Returns sanitized teacher/staff identity fields only.',
+      'API-key protected endpoint for the marketing landing site. Returns sanitized staff identity fields only. Does not filter by status or role (all staff).',
   })
   @ApiHeader({
     name: LANDING_API_KEY_HEADER,
     required: true,
     description: 'Landing site API key (LANDING_API_KEY)',
-  })
-  @ApiQuery({
-    name: 'role',
-    required: false,
-    enum: StaffRole,
-    description: 'Filter by staff role (default: teacher)',
-  })
-  @ApiQuery({
-    name: 'status',
-    required: false,
-    enum: ['active', 'inactive'],
-    description: 'Filter by staff status (default: active)',
   })
   @ApiQuery({
     name: 'search',

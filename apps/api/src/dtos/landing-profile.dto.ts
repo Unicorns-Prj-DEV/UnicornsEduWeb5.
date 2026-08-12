@@ -1,32 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
-import {
-  AchievementLevel,
-  StaffRole,
-  StaffStatus,
-  StudentStatus,
-} from 'generated/enums';
+import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { AchievementLevel } from 'generated/enums';
 
 export class StaffLandingProfileQueryDto {
-  @ApiPropertyOptional({
-    enum: StaffRole,
-    description: 'Filter by staff role (default: teacher)',
-    example: StaffRole.teacher,
-  })
-  @IsOptional()
-  @IsEnum(StaffRole)
-  role?: StaffRole;
-
-  @ApiPropertyOptional({
-    enum: StaffStatus,
-    description: 'Filter by staff status (default: active)',
-    example: StaffStatus.active,
-  })
-  @IsOptional()
-  @IsEnum(StaffStatus)
-  status?: StaffStatus;
-
   @ApiPropertyOptional({
     description: 'Search by staff name (case-insensitive)',
     example: 'Nguyen Van',
@@ -61,15 +38,6 @@ export class StaffLandingProfileQueryDto {
 }
 
 export class StudentLandingProfileQueryDto {
-  @ApiPropertyOptional({
-    enum: StudentStatus,
-    description: 'Filter by student status (default: active)',
-    example: StudentStatus.active,
-  })
-  @IsOptional()
-  @IsEnum(StudentStatus)
-  status?: StudentStatus;
-
   @ApiPropertyOptional({
     description: 'Search by student full name (case-insensitive)',
     example: 'Le Van',

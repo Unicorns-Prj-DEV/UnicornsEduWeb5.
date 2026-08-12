@@ -2851,17 +2851,11 @@ describe('StaffService', () => {
     });
 
     expect(mockPrisma.staffInfo.count).toHaveBeenCalledWith({
-      where: {
-        status: StaffStatus.active,
-        roles: { has: StaffRole.teacher },
-      },
+      where: {},
     });
     expect(mockPrisma.staffInfo.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: {
-          status: StaffStatus.active,
-          roles: { has: StaffRole.teacher },
-        },
+        where: {},
         skip: 0,
         take: 50,
         select: expect.objectContaining({
@@ -2883,10 +2877,9 @@ describe('StaffService', () => {
       expect.objectContaining({
         skip: 10,
         take: 10,
-        where: expect.objectContaining({
-          status: StaffStatus.active,
-          roles: { has: StaffRole.teacher },
-        }),
+        where: {
+          AND: expect.any(Array),
+        },
       }),
     );
   });

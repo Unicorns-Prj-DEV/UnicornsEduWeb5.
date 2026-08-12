@@ -1308,8 +1308,7 @@ export class StaffService {
   }
 
   async getLandingProfiles(query: StaffLandingProfileQueryDto) {
-    const status = query.status ?? StaffStatus.active;
-    const role = query.role ?? StaffRole.teacher;
+    // Landing sync intentionally ignores status + role (all staff rows).
     const limit =
       typeof query.limit === 'number' && Number.isInteger(query.limit)
         ? Math.min(Math.max(query.limit, 1), 100)
@@ -1321,10 +1320,6 @@ export class StaffService {
     const skip = (page - 1) * limit;
 
     const where: Prisma.StaffInfoWhereInput = {
-      status,
-      roles: {
-        has: role,
-      },
       ...buildNameSearchWhere(query.search),
     };
 
