@@ -21,6 +21,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Changed
+
+- Landing profiles: `GET /staff/landing-profiles` **không lọc** `status`/`role` (trả toàn bộ staff); `GET /student/landing-profiles` **không lọc** `status` (active + inactive, phục vụ thành tích / học sinh tiêu biểu cựu học viên). Bỏ query `role`/`status` khỏi DTO + docs `docs/api/landing-integration.md`.
+
 ### Added
 
 - Landing profiles pagination: `GET /staff/landing-profiles` và `GET /student/landing-profiles` thêm query `page` (1-based) + document `search`; student `limit` max hạ xuống 100 (default 50). `total` = full filtered count; CMS phải loop pages trước khi archive. Docs `docs/api/landing-integration.md`.

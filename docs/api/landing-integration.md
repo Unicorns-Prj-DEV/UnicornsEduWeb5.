@@ -51,10 +51,12 @@ JWT cookies are **not** required. Endpoints are marked `@Public()` and protected
 Returns staff identity data suitable for the landing CMS instructor section.
 Includes ordered **achievements** (titles + optional proof images). `specialization` remains for backward compatibility but is deprecated.
 
+**No `status` or `role` filter** — returns all `staff_info` rows (active + inactive, every role). CMS may still publish selectively.
+
 ### Request
 
 ```http
-GET /staff/landing-profiles?role=teacher&status=active&limit=50 HTTP/1.1
+GET /staff/landing-profiles?limit=50 HTTP/1.1
 Host: api.example.com
 X-API-Key: your-landing-api-key
 Accept: application/json
@@ -64,13 +66,9 @@ Accept: application/json
 
 | Parameter | Type | Default | Max | Description |
 |-----------|------|---------|-----|-------------|
-| `role` | `StaffRole` | `teacher` | — | Filter staff whose `staff_info.roles` includes this role |
-| `status` | `active` \| `inactive` | `active` | — | Filter by `staff_info.status` |
 | `search` | string | — | — | Case-insensitive name search (tokenized first/last name) |
 | `page` | integer | `1` | — | 1-based page index |
 | `limit` | integer | `50` | `100` | Page size |
-
-Allowed `role` values: `admin`, `teacher`, `lesson_plan`, `lesson_plan_head`, `accountant`, `accountant_income`, `accountant_expense`, `communication`, `technical`, `customer_care`, `training`, `assistant`.
 
 ### Response `200 OK`
 
@@ -134,7 +132,7 @@ Allowed `role` values: `admin`, `teacher`, `lesson_plan`, `lesson_plan_head`, `a
 
 `total` is the **full filtered count** (before pagination). CMS sync must loop `page=1..` until all rows are fetched before archiving missing `sourceId`s.
 
-### Example: all active teachers (default)
+### Example: all staff (default)
 
 ```bash
 curl -sS \
@@ -142,12 +140,12 @@ curl -sS \
   "https://api.example.com/staff/landing-profiles"
 ```
 
-### Example: inactive staff for audit
+### Example: name search
 
 ```bash
 curl -sS \
   -H "X-API-Key: $LANDING_API_KEY" \
-  "https://api.example.com/staff/landing-profiles?status=inactive&limit=10"
+  "https://api.example.com/staff/landing-profiles?search=Nguyen&limit=10"
 ```
 
 ---
@@ -156,10 +154,12 @@ curl -sS \
 
 Returns student identity fields for the landing CMS student showcase section.
 
+**No `status` filter** — returns all `student_info` rows (active + inactive). FeaturedStudent / thành tích sync can therefore include alumni with awards.
+
 ### Request
 
 ```http
-GET /student/landing-profiles?status=active&limit=100 HTTP/1.1
+GET /student/landing-profiles?limit=100 HTTP/1.1
 Host: api.example.com
 X-API-Key: your-landing-api-key
 Accept: application/json
@@ -169,7 +169,6 @@ Accept: application/json
 
 | Parameter | Type | Default | Max | Description |
 |-----------|------|---------|-----|-------------|
-| `status` | `active` \| `inactive` | `active` | — | Filter by `student_info.status` |
 | `search` | string | — | — | Case-insensitive `fullName` contains |
 | `page` | integer | `1` | — | 1-based page index |
 | `limit` | integer | `50` | `100` | Page size. Landing CMS must loop pages for a full people sync (do not rely on a single large `limit`). |
