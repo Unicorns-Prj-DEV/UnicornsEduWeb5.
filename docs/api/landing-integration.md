@@ -183,7 +183,7 @@ Accept: application/json
 
 | Parameter | Type | Default | Max | Description |
 |-----------|------|---------|-----|-------------|
-| `search` | string | — | — | Case-insensitive `fullName` contains |
+| `search` | string | — | — | Case-insensitive tokenized `fullName` search (whitespace tokens AND, max 5) |
 | `ids` | string | — | — | Comma-separated student ids (`UNIST-…`). When set, only those profiles are returned (skips search paging over full roster) |
 | `page` | integer | `1` | — | 1-based page index |
 | `limit` | integer | `50` | `100` | Page size |
@@ -196,6 +196,7 @@ Accept: application/json
     {
       "id": "UNIST-a1b2c3d4e5",
       "name": "Lê Văn C",
+      "status": "inactive",
       "avatarUrl": "https://your-project.supabase.co/storage/v1/object/public/avatars-public/users/user-s/avatar.jpg",
       "avatarPath": "users/user-s/avatar.jpg",
       "school": "THPT Chuyên Lê Hồng Phong",

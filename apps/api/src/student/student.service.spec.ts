@@ -1762,7 +1762,10 @@ describe('StudentService', () => {
         skip: 200,
         take: 100,
         where: {
-          fullName: { contains: 'Le Van', mode: 'insensitive' },
+          AND: [
+            { fullName: { contains: 'Le', mode: 'insensitive' } },
+            { fullName: { contains: 'Van', mode: 'insensitive' } },
+          ],
         },
       }),
     );

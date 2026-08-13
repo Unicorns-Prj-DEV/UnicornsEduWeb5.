@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- `GET /student/landing-profiles?search=`: tokenized AND trên `fullName` (giống staff name tokens; `"Le A"` khớp `"Le Van A"`). Docs `docs/api/landing-integration.md`.
 - Landing integration **live-read**: CMS chỉ giữ publish gates (`sourceId`); public `/thanh-tich` + people surfaces đọc EduWeb5 qua `landing-achievements` / `landing-profiles?ids=`. Docs `docs/api/landing-integration.md`.
 - Landing profiles: `GET /staff/landing-profiles` **không lọc** `status`/`role` (trả toàn bộ staff); `GET /student/landing-profiles` **không lọc** `status` (active + inactive, phục vụ thành tích / học sinh tiêu biểu cựu học viên). Bỏ query `role`/`status` khỏi DTO + docs `docs/api/landing-integration.md`.
 

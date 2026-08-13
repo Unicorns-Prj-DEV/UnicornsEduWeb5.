@@ -1296,12 +1296,20 @@ export class StudentService {
     if (idList.length > 0) {
       where.id = { in: idList };
     } else {
-      const trimmedSearch = query.search?.trim();
-      if (trimmedSearch) {
-        where.fullName = {
-          contains: trimmedSearch,
-          mode: 'insensitive',
-        };
+      const nameTokens = (query.search ?? '')
+        .trim()
+        .split(/\s+/)
+        .map((token) => token.trim())
+        .filter(Boolean)
+        .slice(0, 5);
+      if (nameTokens.length > 0) {
+        // Tokenized AND: "Le A" matches "Le Van A" (contiguous contains did not).
+        where.AND = nameTokens.map((token) => ({
+          fullName: {
+            contains: token,
+            mode: 'insensitive' as const,
+          },
+        }));
       }
     }
 
