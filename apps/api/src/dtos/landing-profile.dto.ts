@@ -254,6 +254,14 @@ export class StaffLandingProfileDto {
   name: string;
 
   @ApiProperty({
+    enum: ['active', 'inactive'],
+    example: 'active',
+    description:
+      'Staff employment status. Landing CMS may label inactive as đã nghỉ; publish is still CMS-gated.',
+  })
+  status: 'active' | 'inactive';
+
+  @ApiProperty({
     nullable: true,
     example:
       'https://your-project.supabase.co/storage/v1/object/public/avatars-public/users/user-1/avatar.jpg',
@@ -294,6 +302,14 @@ export class StudentLandingProfileDto {
 
   @ApiProperty({ example: 'Tran Thi B' })
   name: string;
+
+  @ApiProperty({
+    enum: ['active', 'inactive'],
+    example: 'active',
+    description:
+      'Student enrollment status (`inactive` = đã nghỉ học). Included for CMS browse labels; no status filter on this endpoint.',
+  })
+  status: 'active' | 'inactive';
 
   @ApiProperty({
     nullable: true,

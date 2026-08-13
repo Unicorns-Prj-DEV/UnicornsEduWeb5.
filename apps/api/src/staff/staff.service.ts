@@ -1353,6 +1353,7 @@ export class StaffService {
           id: true,
           university: true,
           specialization: true,
+          status: true,
           achievements: {
             orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
             select: {
@@ -1378,6 +1379,7 @@ export class StaffService {
     const data = rows.map((staff) => ({
       id: staff.id,
       name: getPreferredUserFullName(staff.user) ?? '',
+      status: staff.status,
       avatarUrl: createPublicStorageUrl({
         bucket: AVATAR_PUBLIC_BUCKET,
         path: staff.user?.avatarWatermarkedPath,

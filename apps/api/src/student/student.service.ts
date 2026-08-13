@@ -1317,6 +1317,7 @@ export class StudentService {
           fullName: true,
           school: true,
           province: true,
+          status: true,
           achievements: {
             orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
             select: {
@@ -1351,6 +1352,7 @@ export class StudentService {
     const data = rows.map((student) => ({
       id: student.id,
       name: student.fullName,
+      status: student.status,
       school: student.school,
       province: student.province,
       avatarUrl: createPublicStorageUrl({

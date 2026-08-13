@@ -82,6 +82,7 @@ Accept: application/json
     {
       "id": "UNISTAFF-a1b2c3d4e5",
       "name": "Nguyễn Văn A",
+      "status": "active",
       "avatarUrl": "https://your-project.supabase.co/storage/v1/object/public/avatars-public/users/user-1/avatar.jpg",
       "avatarPath": "users/user-1/avatar.jpg",
       "university": "Đại học Bách Khoa TP.HCM",
@@ -123,6 +124,7 @@ Accept: application/json
 |-------|------|--------|-------|
 | `id` | string | `staff_info.id` | Stable id (`UNISTAFF-…`); stored as CMS `sourceId` |
 | `name` | string | Linked `users` name | Resolved via `getPreferredUserFullName` |
+| `status` | `active` \| `inactive` | `staff_info.status` | Included for CMS labels; endpoint does **not** filter by status |
 | `avatarUrl` | string \| null | public twin | Public URL from bucket `avatars-public` (watermarked). `null` if no twin. |
 | `avatarPath` | string \| null | `users.avatar_watermarked_path` | Stable path; CMS may store as `eduweb5://avatars-public/{path}` |
 | `university` | string \| null | `staff_info.university` | |
@@ -243,6 +245,7 @@ Accept: application/json
 |-------|------|--------|-------|
 | `id` | string | `student_info.id` | Stable id (`UNIST-…`); stored as CMS `sourceId` |
 | `name` | string | `student_info.full_name` | Display name |
+| `status` | `active` \| `inactive` | `student_info.status` | `inactive` = đã nghỉ học; endpoint does **not** filter by status |
 | `avatarUrl` | string \| null | public twin | Same semantics as staff (bucket `avatars-public`) |
 | `avatarPath` | string \| null | `users.avatar_watermarked_path` | Via linked user; `null` if no linked user / no twin |
 | `school` | string \| null | `student_info.school` | |

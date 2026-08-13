@@ -32,6 +32,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- Landing profiles response thêm `status` (`active` \| `inactive`) cho staff + student — endpoint vẫn **không lọc** status (đủ cả học sinh/gia sư đã nghỉ). Docs `docs/api/landing-integration.md`.
 - `GET /student/landing-achievements` (ApiKeyGuard): query `sourceIds` (comma-separated; empty → empty page), `level`, `page`, `limit` (default 9). Response flat achievements + nested student identity. `landing-profiles` thêm `ids=` hydrate. Docs `docs/api/landing-integration.md`.
 - Landing profiles pagination: `GET /staff/landing-profiles` và `GET /student/landing-profiles` thêm query `page` (1-based) + document `search`; student `limit` max hạ xuống 100 (default 50). `total` = full filtered count; CMS phải loop pages trước khi archive. Docs `docs/api/landing-integration.md`.
 - BE/FE **Student achievement structured fields** (landing `/thanh-tich` parity): `student_achievements` thay `title` bằng `award`/`exam`/`year`/`level`/`course_label` + enum `AchievementLevel`; CRUD/FE editor học sinh form đầy đủ field; `GET /student/landing-profiles` trả structured + derived `title`; script import từ folder `THÀNH TÍCH`; CMS landing sync vào `FeaturedStudent`+`Achievement` (SoT = EduWeb5).
