@@ -42,7 +42,10 @@ import {
   UpdateStudentDto,
   UpdateStudentStatusDto,
 } from 'src/dtos/student.dto';
-import { StudentLandingProfileQueryDto } from 'src/dtos/landing-profile.dto';
+import {
+  StudentLandingAchievementsQueryDto,
+  StudentLandingProfileQueryDto,
+} from 'src/dtos/landing-profile.dto';
 import { mapLandingStudentAchievements } from 'src/achievements/achievement-landing.mapper';
 import { mapLandingStudentGallery } from 'src/student-gallery/student-gallery-landing.mapper';
 import {
@@ -1288,21 +1291,26 @@ export class StudentService {
         : 1;
     const skip = (page - 1) * limit;
 
+    const idList = parseCommaSeparatedIds(query.ids);
     const where: Prisma.StudentInfoWhereInput = {};
-    const trimmedSearch = query.search?.trim();
-    if (trimmedSearch) {
-      where.fullName = {
-        contains: trimmedSearch,
-        mode: 'insensitive',
-      };
+    if (idList.length > 0) {
+      where.id = { in: idList };
+    } else {
+      const trimmedSearch = query.search?.trim();
+      if (trimmedSearch) {
+        where.fullName = {
+          contains: trimmedSearch,
+          mode: 'insensitive',
+        };
+      }
     }
 
     const [total, rows] = await Promise.all([
       this.prisma.studentInfo.count({ where }),
       this.prisma.studentInfo.findMany({
         where,
-        skip,
-        take: limit,
+        skip: idList.length > 0 ? 0 : skip,
+        take: idList.length > 0 ? Math.min(idList.length, 100) : limit,
         orderBy: [{ fullName: 'asc' }, { id: 'asc' }],
         select: {
           id: true,
@@ -1358,6 +1366,90 @@ export class StudentService {
       data,
       total,
     };
+  }
+
+  /**
+   * Flat achievement list for landing /thanh-tich (filter by CMS published sourceIds).
+   * Empty / missing sourceIds → empty page (no roster leak).
+   */
+  async getLandingAchievements(query: StudentLandingAchievementsQueryDto) {
+    const sourceIds = parseCommaSeparatedIds(query.sourceIds);
+    if (sourceIds.length === 0) {
+      return { data: [], total: 0 };
+    }
+
+    const limit =
+      typeof query.limit === 'number' && Number.isInteger(query.limit)
+        ? Math.min(Math.max(query.limit, 1), 100)
+        : 9;
+    const page =
+      typeof query.page === 'number' && Number.isInteger(query.page)
+        ? Math.max(query.page, 1)
+        : 1;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.StudentAchievementWhereInput = {
+      studentId: { in: sourceIds },
+    };
+    if (query.level) {
+      where.level = query.level;
+    }
+
+    const [total, rows] = await Promise.all([
+      this.prisma.studentAchievement.count({ where }),
+      this.prisma.studentAchievement.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: [
+          { year: 'desc' },
+          { sortOrder: 'asc' },
+          { id: 'asc' },
+        ],
+        select: {
+          id: true,
+          award: true,
+          exam: true,
+          year: true,
+          level: true,
+          courseLabel: true,
+          imageWatermarkedPath: true,
+          sortOrder: true,
+          student: {
+            select: {
+              id: true,
+              fullName: true,
+              school: true,
+              province: true,
+              user: {
+                select: { avatarWatermarkedPath: true },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const mappedAchievements = mapLandingStudentAchievements(rows);
+    const data = mappedAchievements.map((achievement, index) => {
+      const row = rows[index];
+      return {
+        ...achievement,
+        student: {
+          id: row.student.id,
+          name: row.student.fullName,
+          school: row.student.school,
+          province: row.student.province,
+          avatarUrl: createPublicStorageUrl({
+            bucket: AVATAR_PUBLIC_BUCKET,
+            path: row.student.user?.avatarWatermarkedPath,
+          }),
+          avatarPath: row.student.user?.avatarWatermarkedPath ?? null,
+        },
+      };
+    });
+
+    return { data, total };
   }
 
   private async getRecentTopUpTotalsByStudentId(
@@ -2903,4 +2995,18 @@ export class StudentService {
       { cause: lastError },
     );
   }
+}
+
+function parseCommaSeparatedIds(raw?: string): string[] {
+  if (!raw?.trim()) {
+    return [];
+  }
+  return [
+    ...new Set(
+      raw
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean),
+    ),
+  ];
 }

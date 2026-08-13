@@ -310,6 +310,13 @@ export class StaffController {
     description: 'Case-insensitive staff name search',
   })
   @ApiQuery({
+    name: 'ids',
+    required: false,
+    type: String,
+    description:
+      'Comma-separated staff ids (`UNISTAFF-…`). When set, only those profiles are returned.',
+  })
+  @ApiQuery({
     name: 'page',
     required: false,
     type: Number,

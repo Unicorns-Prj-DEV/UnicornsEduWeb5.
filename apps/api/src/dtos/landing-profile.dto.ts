@@ -1,6 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 import { AchievementLevel } from 'generated/enums';
 
 export class StaffLandingProfileQueryDto {
@@ -35,6 +42,15 @@ export class StaffLandingProfileQueryDto {
   @Min(1)
   @Max(100)
   limit?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Comma-separated staff ids (`UNISTAFF-…`). When set, only those profiles are returned (ignores search paging over full roster).',
+    example: 'UNISTAFF-a1b2c3d4e5,UNISTAFF-f6e5d4c3b2',
+  })
+  @IsOptional()
+  @IsString()
+  ids?: string;
 }
 
 export class StudentLandingProfileQueryDto {
@@ -69,6 +85,58 @@ export class StudentLandingProfileQueryDto {
   @Min(1)
   @Max(100)
   limit?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Comma-separated student ids (`UNIST-…`). When set, only those profiles are returned.',
+    example: 'UNIST-a1b2c3d4e5,UNIST-f6e5d4c3b2',
+  })
+  @IsOptional()
+  @IsString()
+  ids?: string;
+}
+
+export class StudentLandingAchievementsQueryDto {
+  @ApiPropertyOptional({
+    enum: AchievementLevel,
+    description: 'Filter by achievement level. Omit for all levels.',
+  })
+  @IsOptional()
+  @IsEnum(AchievementLevel)
+  level?: AchievementLevel;
+
+  @ApiPropertyOptional({
+    minimum: 1,
+    default: 1,
+    description: 'Page number (1-based)',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({
+    minimum: 1,
+    maximum: 100,
+    default: 9,
+    description: 'Page size (max 100). Landing /thanh-tich uses 9.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+
+  @ApiProperty({
+    description:
+      'Comma-separated published student ids from CMS (`UNIST-…`). Empty / missing → empty page (no roster leak).',
+    example: 'UNIST-a1b2c3d4e5,UNIST-f6e5d4c3b2',
+  })
+  @IsOptional()
+  @IsString()
+  sourceIds?: string;
 }
 
 export class LandingAchievementDto {
@@ -277,5 +345,45 @@ export class StudentLandingProfilesResponseDto {
   data: StudentLandingProfileDto[];
 
   @ApiProperty({ example: 48 })
+  total: number;
+}
+
+export class LandingAchievementStudentDto {
+  @ApiProperty({ example: 'UNIST-a1b2c3d4e5' })
+  id: string;
+
+  @ApiProperty({ example: 'Nguyễn Văn A' })
+  name: string;
+
+  @ApiProperty({ nullable: true, example: 'THPT Chuyên Vĩnh Phúc' })
+  school: string | null;
+
+  @ApiProperty({ nullable: true, example: 'Vĩnh Phúc' })
+  province: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    example:
+      'https://your-project.supabase.co/storage/v1/object/public/avatars-public/users/user-1/avatar.jpg',
+  })
+  avatarUrl: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    example: 'users/user-1/avatar.jpg',
+  })
+  avatarPath: string | null;
+}
+
+export class LandingAchievementListItemDto extends LandingStudentAchievementDto {
+  @ApiProperty({ type: LandingAchievementStudentDto })
+  student: LandingAchievementStudentDto;
+}
+
+export class StudentLandingAchievementsResponseDto {
+  @ApiProperty({ type: [LandingAchievementListItemDto] })
+  data: LandingAchievementListItemDto[];
+
+  @ApiProperty({ example: 42 })
   total: number;
 }

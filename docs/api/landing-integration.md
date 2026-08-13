@@ -1,13 +1,16 @@
 # Landing integration API
 
-Server-to-server endpoints that expose **public-safe identity fields** from UnicornsEduWeb5 for the `unicorns-edu-landing` CMS. The landing admin calls these endpoints on demand (populate/sync pattern); the public landing site reads from its own CMS database, not from EduWeb5 at render time.
+Server-to-server endpoints that expose **public-safe identity fields** from UnicornsEduWeb5 for the `unicorns-edu-landing` site.
+
+**Architecture (live-read):** EduWeb5 is source of truth for people identity, achievements, gallery, and instructor highlights. The landing CMS stores only **publish gates** (`sourceId` + `PublishStatus` + sort/focal). The public landing site reads published `sourceId`s from CMS, then fetches live people data from these endpoints (short cache ~5–10s). Courses/posts stay CMS-only and do not depend on EduWeb5 availability.
 
 ## Purpose
 
 | Endpoint | Used for |
 |----------|----------|
-| `GET /staff/landing-profiles` | Populate CMS **Instructor** records (name, avatar, university, **achievements** + proof images; `specialization` deprecated). Supports `page`, `limit`, `search`. |
-| `GET /student/landing-profiles` | Populate CMS **StudentShowcase** + **FeaturedStudent** records (name, school, province, avatar, **achievements** + proof images, **gallery** images). Supports `page`, `limit`, `search`. Landing CMS must loop pages for a full sync before archive. |
+| `GET /staff/landing-profiles` | CMS browse + public instructor cards. Supports `page`, `limit`, `search`, `ids`. |
+| `GET /student/landing-profiles` | CMS browse + public showcase/gallery/featured identity. Supports `page`, `limit`, `search`, `ids`. |
+| `GET /student/landing-achievements` | Public `/thanh-tich` + homepage marquee. Flat achievements filtered by CMS published `sourceIds`. |
 
 Operational staff/student APIs under `/staff` and `/student` require cookie auth and RBAC. These landing endpoints are separate: they skip JWT, use a shared API key, and return only fields safe for marketing use.
 
@@ -48,10 +51,10 @@ JWT cookies are **not** required. Endpoints are marked `@Public()` and protected
 
 ## `GET /staff/landing-profiles`
 
-Returns staff identity data suitable for the landing CMS instructor section.
+Returns staff identity data suitable for landing instructor sections.
 Includes ordered **achievements** (titles + optional proof images). `specialization` remains for backward compatibility but is deprecated.
 
-**No `status` or `role` filter** — returns all `staff_info` rows (active + inactive, every role). CMS may still publish selectively.
+**No `status` or `role` filter** — returns all `staff_info` rows (active + inactive, every role). CMS publish gates select which appear publicly.
 
 ### Request
 
@@ -67,6 +70,7 @@ Accept: application/json
 | Parameter | Type | Default | Max | Description |
 |-----------|------|---------|-----|-------------|
 | `search` | string | — | — | Case-insensitive name search (tokenized first/last name) |
+| `ids` | string | — | — | Comma-separated staff ids (`UNISTAFF-…`). When set, only those profiles are returned |
 | `page` | integer | `1` | — | 1-based page index |
 | `limit` | integer | `50` | `100` | Page size |
 
@@ -130,7 +134,7 @@ Accept: application/json
 | `achievements[].imagePath` | string \| null | `image_watermarked_path` | Stable path in `achievements-public` |
 | `achievements[].sortOrder` | number | `staff_achievements.sort_order` | Display order (0 first) |
 
-`total` is the **full filtered count** (before pagination). CMS sync must loop `page=1..` until all rows are fetched before archiving missing `sourceId`s.
+`total` is the **full filtered count** (before pagination). Prefer `ids=` for public hydrate of published instructors; use search/paging for CMS browse.
 
 ### Example: all staff (default)
 
@@ -148,13 +152,21 @@ curl -sS \
   "https://api.example.com/staff/landing-profiles?search=Nguyen&limit=10"
 ```
 
+### Example: hydrate by ids
+
+```bash
+curl -sS \
+  -H "X-API-Key: $LANDING_API_KEY" \
+  "https://api.example.com/staff/landing-profiles?ids=UNISTAFF-a1b2c3d4e5,UNISTAFF-f6e5d4c3b2"
+```
+
 ---
 
 ## `GET /student/landing-profiles`
 
-Returns student identity fields for the landing CMS student showcase section.
+Returns student identity fields for showcase / gallery / featured cards.
 
-**No `status` filter** — returns all `student_info` rows (active + inactive). FeaturedStudent / thành tích sync can therefore include alumni with awards.
+**No `status` filter** — returns all `student_info` rows (active + inactive). CMS publish gates select which appear publicly.
 
 ### Request
 
@@ -170,8 +182,9 @@ Accept: application/json
 | Parameter | Type | Default | Max | Description |
 |-----------|------|---------|-----|-------------|
 | `search` | string | — | — | Case-insensitive `fullName` contains |
+| `ids` | string | — | — | Comma-separated student ids (`UNIST-…`). When set, only those profiles are returned (skips search paging over full roster) |
 | `page` | integer | `1` | — | 1-based page index |
-| `limit` | integer | `50` | `100` | Page size. Landing CMS must loop pages for a full people sync (do not rely on a single large `limit`). |
+| `limit` | integer | `50` | `100` | Page size |
 
 ### Response `200 OK`
 
@@ -254,21 +267,93 @@ Accept: application/json
 
 `total` is the **full filtered count** (before pagination), same semantics as staff landing-profiles.
 
-### CMS sync notes (achievements + gallery)
+### Live-read notes (achievements + gallery)
 
-- Prefer syncing `achievements[]` into landing Instructor / StudentShowcase related records (or nested JSON), not the legacy `specialization` string.
-- Sync `gallery[]` as a multi-image showcase (watermarked images only; ignore caption). Do not conflate with achievements.
-- Persist stable **public watermarked** image URLs/paths (ADR `docs/adr/2026-08-11-landing-watermarked-public-images.md`, gallery ADR `docs/adr/2026-08-11-student-gallery-watermarked.md`). Do **not** embed EduWeb5 signed URLs of clean originals on the public site.
+- Public landing hydrates people via `ids=` / `landing-achievements` + CMS published gates — **not** a CMS copy of achievement rows.
+- Prefer watermarked public image URLs/paths (ADR `docs/adr/2026-08-11-landing-watermarked-public-images.md`, gallery ADR `docs/adr/2026-08-11-student-gallery-watermarked.md`). Do **not** embed EduWeb5 signed URLs of clean originals on the public site.
 - Empty `achievements: []` / `gallery: []` is valid.
 - Clean originals stay private in `achievements` / `avatars` / `student-gallery`. Landing consumes twins from public buckets **`achievements-public`** / **`avatars-public`** / **`student-gallery-public`**.
 - **Contract (implemented):** landing `avatarUrl`/`avatarPath`, `achievements[].imageUrl`/`imagePath`, and `gallery[].imageUrl`/`imagePath` are watermarked **public** assets. Missing twin → `null` (never fall back to clean).
 - Ops: create public buckets (`avatars-public`, `achievements-public`, `student-gallery-public`) + private `student-gallery`; run avatar/achievement backfill after migrate when needed (`cd apps/api && pnpm dlx tsx scripts/backfill-watermarked-images.ts`).
+
 ### Example
 
 ```bash
 curl -sS \
   -H "X-API-Key: $LANDING_API_KEY" \
   "https://api.example.com/student/landing-profiles?page=1&limit=50"
+```
+
+### Example: hydrate published students
+
+```bash
+curl -sS \
+  -H "X-API-Key: $LANDING_API_KEY" \
+  "https://api.example.com/student/landing-profiles?ids=UNIST-a1b2c3d4e5,UNIST-f6e5d4c3b2"
+```
+
+---
+
+## `GET /student/landing-achievements`
+
+Flat achievement list for public `/thanh-tich` and homepage marquee. **Must** pass CMS published student `sourceIds`; empty/missing `sourceIds` returns `{ data: [], total: 0 }` (no roster leak).
+
+### Request
+
+```http
+GET /student/landing-achievements?sourceIds=UNIST-a,UNIST-b&level=NATIONAL&page=1&limit=9 HTTP/1.1
+Host: api.example.com
+X-API-Key: your-landing-api-key
+Accept: application/json
+```
+
+#### Query parameters
+
+| Parameter | Type | Default | Max | Description |
+|-----------|------|---------|-----|-------------|
+| `sourceIds` | string | — | — | Comma-separated published student ids (`UNIST-…`). Empty/missing → empty page |
+| `level` | enum | — | — | Optional filter: `COMMUNE` \| `PROVINCE` \| `REGIONAL` \| `NATIONAL` \| `INTERNATIONAL` \| `ADMISSION` |
+| `page` | integer | `1` | — | 1-based page index |
+| `limit` | integer | `9` | `100` | Page size (`/thanh-tich` uses 9) |
+
+### Response `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "id": "sach-uuid-1",
+      "award": "Giải Khuyến khích",
+      "exam": "HSG Quốc gia",
+      "year": 2025,
+      "level": "NATIONAL",
+      "courseLabel": "KHỐI THPT",
+      "title": "Giải Khuyến khích · HSG Quốc gia",
+      "imageUrl": null,
+      "imagePath": null,
+      "sortOrder": 0,
+      "student": {
+        "id": "UNIST-a1b2c3d4e5",
+        "name": "Nguyễn Văn A",
+        "school": "THPT Chuyên Vĩnh Phúc",
+        "province": "Vĩnh Phúc",
+        "avatarUrl": "https://…/avatars-public/users/…/avatar.jpg",
+        "avatarPath": "users/…/avatar.jpg"
+      }
+    }
+  ],
+  "total": 42
+}
+```
+
+Order: `year` desc, then `sortOrder` asc, then `id` asc. `total` is the count after `sourceIds` + optional `level` filter.
+
+### Example
+
+```bash
+curl -sS \
+  -H "X-API-Key: $LANDING_API_KEY" \
+  "https://api.example.com/student/landing-achievements?sourceIds=UNIST-a1b2c3d4e5&limit=9"
 ```
 
 ---
@@ -289,7 +374,7 @@ Error body follows the standard NestJS validation/error format used elsewhere in
 
 ### Server-to-server only
 
-- Call these endpoints from the **landing CMS server** (Next.js server actions / route handlers), not from the browser.
+- Call these endpoints from the **landing CMS / public landing server** (Next.js server actions / route handlers), not from the browser.
 - Do not add `X-API-Key` to client-side fetch, Vite public env, or `NEXT_PUBLIC_*` variables.
 - CORS is not required for this integration pattern because the browser never calls EduWeb5 directly.
 
@@ -317,10 +402,10 @@ If a new field is needed for marketing, add it explicitly to the landing DTO and
 
 Landing profile endpoints use `@nestjs/throttler` with a **stricter limit than the global default**:
 
-| Setting | Value |
-|---------|-------|
-| Limit | **30 requests** per client IP |
-| Window | **60 seconds** |
+| Endpoint | Limit | Window |
+|----------|-------|--------|
+| `landing-profiles` | **30** requests per client IP | 60 seconds |
+| `landing-achievements` | **60** requests per client IP | 60 seconds |
 
 The global API throttle (`THROTTLE_DEFAULT_LIMIT`, default 300/min) still applies at the app level; landing routes add this tighter per-route cap to reduce scraping risk if the API key leaks.
 
@@ -330,5 +415,5 @@ When `TRUST_PROXY=1` (or an appropriate hop count) is set behind Nginx/Render/Fl
 
 ## Related documentation
 
-- Landing CMS sync workflow: `unicorns-edu-landing/docs/eduweb5-sync.md`
+- Landing live-read / publish gates: `unicorns-edu-landing/docs/eduweb5-sync.md`
 - Class data public API (separate contract): `unicorns-edu-landing/docs/adr/0001-class-data-via-public-api.md`

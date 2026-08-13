@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- Landing integration **live-read**: CMS chỉ giữ publish gates (`sourceId`); public `/thanh-tich` + people surfaces đọc EduWeb5 qua `landing-achievements` / `landing-profiles?ids=`. Docs `docs/api/landing-integration.md`.
 - Landing profiles: `GET /staff/landing-profiles` **không lọc** `status`/`role` (trả toàn bộ staff); `GET /student/landing-profiles` **không lọc** `status` (active + inactive, phục vụ thành tích / học sinh tiêu biểu cựu học viên). Bỏ query `role`/`status` khỏi DTO + docs `docs/api/landing-integration.md`.
 
 ### Removed
@@ -31,6 +32,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- `GET /student/landing-achievements` (ApiKeyGuard): query `sourceIds` (comma-separated; empty → empty page), `level`, `page`, `limit` (default 9). Response flat achievements + nested student identity. `landing-profiles` thêm `ids=` hydrate. Docs `docs/api/landing-integration.md`.
 - Landing profiles pagination: `GET /staff/landing-profiles` và `GET /student/landing-profiles` thêm query `page` (1-based) + document `search`; student `limit` max hạ xuống 100 (default 50). `total` = full filtered count; CMS phải loop pages trước khi archive. Docs `docs/api/landing-integration.md`.
 - BE/FE **Student achievement structured fields** (landing `/thanh-tich` parity): `student_achievements` thay `title` bằng `award`/`exam`/`year`/`level`/`course_label` + enum `AchievementLevel`; CRUD/FE editor học sinh form đầy đủ field; `GET /student/landing-profiles` trả structured + derived `title`; script import từ folder `THÀNH TÍCH`; CMS landing sync vào `FeaturedStudent`+`Achievement` (SoT = EduWeb5).
 - FE/BE **Student gallery** (landing): bảng `student_gallery_items` (`image_path` / `image_watermarked_path` + `sort_order`; cột `caption` unused); bucket `student-gallery` / `student-gallery-public`; API `/student/:id/gallery`; landing `GET /student/landing-profiles` thêm `gallery[]` (watermarked public only). FE `StudentGalleryEditor` (ảnh only — **multi-select** thêm nhiều ảnh 1 lần / đổi / xoá / reorder) trên student detail + `EditStudentPopup`. ADR `docs/adr/2026-08-11-student-gallery-watermarked.md`.

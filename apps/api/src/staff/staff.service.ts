@@ -108,6 +108,20 @@ function getScheduleEntriesForStaff(
   );
 }
 
+function parseCommaSeparatedIds(raw?: string): string[] {
+  if (!raw?.trim()) {
+    return [];
+  }
+  return [
+    ...new Set(
+      raw
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean),
+    ),
+  ];
+}
+
 function buildNameSearchWhere(search?: string): Prisma.StaffInfoWhereInput {
   const tokens = (search ?? '')
     .trim()
@@ -1318,8 +1332,10 @@ export class StaffService {
         ? Math.max(query.page, 1)
         : 1;
     const skip = (page - 1) * limit;
+    const ids = parseCommaSeparatedIds(query.ids);
 
     const where: Prisma.StaffInfoWhereInput = {
+      ...(ids.length > 0 ? { id: { in: ids } } : {}),
       ...buildNameSearchWhere(query.search),
     };
 
@@ -1327,8 +1343,8 @@ export class StaffService {
       this.prisma.staffInfo.count({ where }),
       this.prisma.staffInfo.findMany({
         where,
-        skip,
-        take: limit,
+        skip: ids.length > 0 ? 0 : skip,
+        take: ids.length > 0 ? Math.min(ids.length, 100) : limit,
         orderBy: [
           { user: { first_name: 'asc' } },
           { user: { last_name: 'asc' } },

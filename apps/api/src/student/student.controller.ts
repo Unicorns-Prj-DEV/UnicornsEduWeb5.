@@ -66,6 +66,8 @@ import {
   UpdateStudentStatusDto,
 } from 'src/dtos/student.dto';
 import {
+  StudentLandingAchievementsQueryDto,
+  StudentLandingAchievementsResponseDto,
   StudentLandingProfileQueryDto,
   StudentLandingProfilesResponseDto,
 } from 'src/dtos/landing-profile.dto';
@@ -424,6 +426,13 @@ export class StudentController {
     description: 'Case-insensitive student full name search',
   })
   @ApiQuery({
+    name: 'ids',
+    required: false,
+    type: String,
+    description:
+      'Comma-separated student ids (`UNIST-…`). When set, only those profiles are returned.',
+  })
+  @ApiQuery({
     name: 'page',
     required: false,
     type: Number,
@@ -447,6 +456,60 @@ export class StudentController {
     @Query() query: StudentLandingProfileQueryDto,
   ): Promise<StudentLandingProfilesResponseDto> {
     return this.studentService.getLandingProfiles(query);
+  }
+
+  @Get('landing-achievements')
+  @Public()
+  @Roles()
+  @UseGuards(ApiKeyGuard)
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
+  @ApiOperation({
+    summary: 'List public student landing achievements',
+    description:
+      'API-key protected endpoint for the marketing landing site. Returns flat achievements filtered by CMS published `sourceIds`. Empty/missing `sourceIds` returns an empty page (no roster leak).',
+  })
+  @ApiHeader({
+    name: LANDING_API_KEY_HEADER,
+    required: true,
+    description: 'Landing site API key (LANDING_API_KEY)',
+  })
+  @ApiQuery({
+    name: 'sourceIds',
+    required: false,
+    type: String,
+    description:
+      'Comma-separated published student ids (`UNIST-…`). Empty/missing → empty page.',
+  })
+  @ApiQuery({
+    name: 'level',
+    required: false,
+    type: String,
+    description: 'Optional achievement level filter (e.g. national, provincial)',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Page size (default: 9, max: 100)',
+    example: 9,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Sanitized student landing achievements with nested student identity.',
+    type: StudentLandingAchievementsResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Missing or invalid API key.' })
+  async getStudentLandingAchievements(
+    @Query() query: StudentLandingAchievementsQueryDto,
+  ): Promise<StudentLandingAchievementsResponseDto> {
+    return this.studentService.getLandingAchievements(query);
   }
 
   @Post(':id/wallet-direct-topup-requests')
