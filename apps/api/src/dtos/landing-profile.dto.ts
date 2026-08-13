@@ -45,7 +45,7 @@ export class StaffLandingProfileQueryDto {
 
   @ApiPropertyOptional({
     description:
-      'Comma-separated staff ids (`UNISTAFF-…`). When set, only those profiles are returned (ignores search paging over full roster).',
+      'Comma-separated staff ids (`UNISTAFF-…`). When set, only those profiles are returned. Still paginated by `page`/`limit` — loop pages if more than `limit` ids are passed.',
     example: 'UNISTAFF-a1b2c3d4e5,UNISTAFF-f6e5d4c3b2',
   })
   @IsOptional()

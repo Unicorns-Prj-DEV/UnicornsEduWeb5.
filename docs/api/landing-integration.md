@@ -70,7 +70,7 @@ Accept: application/json
 | Parameter | Type | Default | Max | Description |
 |-----------|------|---------|-----|-------------|
 | `search` | string | — | — | Case-insensitive name search (tokenized first/last name) |
-| `ids` | string | — | — | Comma-separated staff ids (`UNISTAFF-…`). When set, only those profiles are returned |
+| `ids` | string | — | — | Comma-separated staff ids (`UNISTAFF-…`). When set, only those profiles are returned. Still paginated by `page`/`limit` — loop pages if more than `limit` ids are passed |
 | `page` | integer | `1` | — | 1-based page index |
 | `limit` | integer | `50` | `100` | Page size |
 
@@ -136,7 +136,7 @@ Accept: application/json
 | `achievements[].imagePath` | string \| null | `image_watermarked_path` | Stable path in `achievements-public` |
 | `achievements[].sortOrder` | number | `staff_achievements.sort_order` | Display order (0 first) |
 
-`total` is the **full filtered count** (before pagination). Prefer `ids=` for public hydrate of published instructors; use search/paging for CMS browse.
+`total` is the **full filtered count** (before pagination). Prefer `ids=` for public hydrate of published instructors; use search/paging for CMS browse. **`ids=` is capped by `limit` like every other mode (max 100 rows per call)** — if the published roster exceeds `limit`, loop `page` until `data.length * page >= total`, same as the default browse mode.
 
 ### Example: all staff (default)
 

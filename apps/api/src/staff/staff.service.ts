@@ -1343,8 +1343,8 @@ export class StaffService {
       this.prisma.staffInfo.count({ where }),
       this.prisma.staffInfo.findMany({
         where,
-        skip: ids.length > 0 ? 0 : skip,
-        take: ids.length > 0 ? Math.min(ids.length, 100) : limit,
+        skip,
+        take: limit,
         orderBy: [
           { user: { first_name: 'asc' } },
           { user: { last_name: 'asc' } },

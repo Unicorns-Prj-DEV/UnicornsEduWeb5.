@@ -2883,4 +2883,23 @@ describe('StaffService', () => {
       }),
     );
   });
+
+  it('getLandingProfiles paginates ids mode instead of returning all matches unbounded', async () => {
+    mockPrisma.staffInfo.count.mockResolvedValue(101);
+    mockPrisma.staffInfo.findMany.mockResolvedValue([]);
+
+    const ids = Array.from({ length: 101 }, (_, i) => `UNISTAFF-${i}`);
+
+    await expect(
+      service.getLandingProfiles({ ids: ids.join(','), page: 2, limit: 100 }),
+    ).resolves.toEqual({ data: [], total: 101 });
+
+    expect(mockPrisma.staffInfo.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: ids } },
+        skip: 100,
+        take: 100,
+      }),
+    );
+  });
 });
