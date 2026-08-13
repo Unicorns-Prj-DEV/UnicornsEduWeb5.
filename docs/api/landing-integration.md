@@ -184,7 +184,7 @@ Accept: application/json
 | Parameter | Type | Default | Max | Description |
 |-----------|------|---------|-----|-------------|
 | `search` | string | — | — | Case-insensitive tokenized `fullName` search (whitespace tokens AND, max 5) |
-| `ids` | string | — | — | Comma-separated student ids (`UNIST-…`). When set, only those profiles are returned (skips search paging over full roster) |
+| `ids` | string | — | — | Comma-separated student ids (`UNIST-…`). When set, only those profiles are returned. Still paginated by `page`/`limit` — loop pages if more than `limit` ids are passed |
 | `page` | integer | `1` | — | 1-based page index |
 | `limit` | integer | `50` | `100` | Page size |
 
@@ -269,7 +269,7 @@ Accept: application/json
 | `gallery[].imagePath` | string \| null | `image_watermarked_path` | |
 | `gallery[].sortOrder` | number | `student_gallery_items.sort_order` | |
 
-`total` is the **full filtered count** (before pagination), same semantics as staff landing-profiles.
+`total` is the **full filtered count** (before pagination), same semantics as staff landing-profiles. **`ids=` is capped by `limit` (max 100 rows per call)** — if the published roster exceeds `limit`, loop `page` to fetch the rest; `ids=` no longer silently truncates to the first 100 matches regardless of `page`.
 
 ### Live-read notes (achievements + gallery)
 

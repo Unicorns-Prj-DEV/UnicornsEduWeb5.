@@ -1660,6 +1660,7 @@ describe('StudentService', () => {
         fullName: 'Nguyen Van A',
         school: 'THPT Nguyen Du',
         province: 'Ha Noi',
+        status: StudentStatus.inactive,
         achievements: [
           {
             id: 'sach-1',
@@ -1692,6 +1693,7 @@ describe('StudentService', () => {
         {
           id: 'student-1',
           name: 'Nguyen Van A',
+          status: StudentStatus.inactive,
           school: 'THPT Nguyen Du',
           province: 'Ha Noi',
           avatarUrl: 'public:avatars-public:users/user-s1/avatar.jpg',
@@ -1738,9 +1740,29 @@ describe('StudentService', () => {
           fullName: true,
           school: true,
           province: true,
+          status: true,
           achievements: expect.any(Object),
           galleryItems: expect.any(Object),
         }),
+      }),
+    );
+  });
+
+  it('getLandingProfiles paginates ids mode instead of returning all matches unbounded', async () => {
+    mockPrisma.studentInfo.count.mockResolvedValue(101);
+    mockPrisma.studentInfo.findMany.mockResolvedValue([]);
+
+    const ids = Array.from({ length: 101 }, (_, i) => `UNIST-${i}`);
+
+    await expect(
+      service.getLandingProfiles({ ids: ids.join(','), page: 2, limit: 100 }),
+    ).resolves.toEqual({ data: [], total: 101 });
+
+    expect(mockPrisma.studentInfo.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: ids } },
+        skip: 100,
+        take: 100,
       }),
     );
   });

@@ -430,7 +430,7 @@ export class StudentController {
     required: false,
     type: String,
     description:
-      'Comma-separated student ids (`UNIST-…`). When set, only those profiles are returned.',
+      'Comma-separated student ids (`UNIST-…`). When set, only those profiles are returned. Still paginated by page/limit — loop pages if more than `limit` ids are passed.',
   })
   @ApiQuery({
     name: 'page',

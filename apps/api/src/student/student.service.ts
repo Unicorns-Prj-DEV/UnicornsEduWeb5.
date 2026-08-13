@@ -1317,8 +1317,8 @@ export class StudentService {
       this.prisma.studentInfo.count({ where }),
       this.prisma.studentInfo.findMany({
         where,
-        skip: idList.length > 0 ? 0 : skip,
-        take: idList.length > 0 ? Math.min(idList.length, 100) : limit,
+        skip,
+        take: limit,
         orderBy: [{ fullName: 'asc' }, { id: 'asc' }],
         select: {
           id: true,

@@ -88,7 +88,7 @@ export class StudentLandingProfileQueryDto {
 
   @ApiPropertyOptional({
     description:
-      'Comma-separated student ids (`UNIST-…`). When set, only those profiles are returned.',
+      'Comma-separated student ids (`UNIST-…`). When set, only those profiles are returned. Still paginated by `page`/`limit` — loop pages if more than `limit` ids are passed.',
     example: 'UNIST-a1b2c3d4e5,UNIST-f6e5d4c3b2',
   })
   @IsOptional()
