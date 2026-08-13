@@ -466,7 +466,7 @@ export class StudentController {
   @ApiOperation({
     summary: 'List public student landing achievements',
     description:
-      'API-key protected endpoint for the marketing landing site. Returns flat achievements filtered by CMS published `sourceIds`. Empty/missing `sourceIds` returns an empty page (no roster leak).',
+      'API-key protected endpoint for the marketing landing site. Default: returns flat achievements filtered by CMS published `sourceIds`; empty/missing `sourceIds` returns an empty page (no roster leak). Pass `includeUnpublished=true` for the /thanh-tich level-list surface to return achievements for all students regardless of publish gate.',
   })
   @ApiHeader({
     name: LANDING_API_KEY_HEADER,
@@ -478,7 +478,14 @@ export class StudentController {
     required: false,
     type: String,
     description:
-      'Comma-separated published student ids (`UNIST-…`). Empty/missing → empty page.',
+      'Comma-separated published student ids (`UNIST-…`). Required unless `includeUnpublished=true`; empty/missing → empty page.',
+  })
+  @ApiQuery({
+    name: 'includeUnpublished',
+    required: false,
+    type: Boolean,
+    description:
+      'When true, ignores sourceIds/publish gate and returns achievements for ALL students (level-list surface). Keep false/omit for publish-gated surfaces (e.g. "Tự Hào Unicorns").',
   })
   @ApiQuery({
     name: 'level',

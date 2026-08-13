@@ -66,6 +66,10 @@ describe('StudentService', () => {
       count: jest.fn(),
       findMany: jest.fn(),
     },
+    studentAchievement: {
+      count: jest.fn(),
+      findMany: jest.fn(),
+    },
     customerCareService: {
       findUnique: jest.fn(),
       delete: jest.fn(),
@@ -1790,6 +1794,43 @@ describe('StudentService', () => {
           ],
         },
       }),
+    );
+  });
+
+  it('getLandingAchievements returns empty page when sourceIds missing and includeUnpublished is not set', async () => {
+    await expect(service.getLandingAchievements({})).resolves.toEqual({
+      data: [],
+      total: 0,
+    });
+    expect(mockPrisma.studentAchievement.count).not.toHaveBeenCalled();
+    expect(mockPrisma.studentAchievement.findMany).not.toHaveBeenCalled();
+  });
+
+  it('getLandingAchievements filters by sourceIds by default', async () => {
+    mockPrisma.studentAchievement.count.mockResolvedValue(0);
+    mockPrisma.studentAchievement.findMany.mockResolvedValue([]);
+
+    await expect(
+      service.getLandingAchievements({ sourceIds: 'UNIST-1,UNIST-2' }),
+    ).resolves.toEqual({ data: [], total: 0 });
+
+    expect(mockPrisma.studentAchievement.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { studentId: { in: ['UNIST-1', 'UNIST-2'] } },
+      }),
+    );
+  });
+
+  it('getLandingAchievements ignores sourceIds and publish gate when includeUnpublished is true', async () => {
+    mockPrisma.studentAchievement.count.mockResolvedValue(0);
+    mockPrisma.studentAchievement.findMany.mockResolvedValue([]);
+
+    await expect(
+      service.getLandingAchievements({ includeUnpublished: true }),
+    ).resolves.toEqual({ data: [], total: 0 });
+
+    expect(mockPrisma.studentAchievement.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: {} }),
     );
   });
 });

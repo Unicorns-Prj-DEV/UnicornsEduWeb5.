@@ -1379,12 +1379,14 @@ export class StudentService {
   }
 
   /**
-   * Flat achievement list for landing /thanh-tich (filter by CMS published sourceIds).
-   * Empty / missing sourceIds → empty page (no roster leak).
+   * Flat achievement list for landing /thanh-tich.
+   * Default: filter by CMS published sourceIds; empty/missing sourceIds → empty page (no roster leak).
+   * includeUnpublished=true: level-list surface, returns achievements for all students regardless of publish gate.
    */
   async getLandingAchievements(query: StudentLandingAchievementsQueryDto) {
+    const includeUnpublished = query.includeUnpublished === true;
     const sourceIds = parseCommaSeparatedIds(query.sourceIds);
-    if (sourceIds.length === 0) {
+    if (!includeUnpublished && sourceIds.length === 0) {
       return { data: [], total: 0 };
     }
 
@@ -1398,9 +1400,10 @@ export class StudentService {
         : 1;
     const skip = (page - 1) * limit;
 
-    const where: Prisma.StudentAchievementWhereInput = {
-      studentId: { in: sourceIds },
-    };
+    const where: Prisma.StudentAchievementWhereInput = {};
+    if (!includeUnpublished) {
+      where.studentId = { in: sourceIds };
+    }
     if (query.level) {
       where.level = query.level;
     }

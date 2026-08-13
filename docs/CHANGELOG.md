@@ -21,6 +21,14 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Added
+
+- `GET /student/landing-achievements?includeUnpublished=true`: bỏ qua `sourceIds`/publish gate, trả thành tích TOÀN BỘ học sinh — dùng cho trang `/thanh-tich` list-theo-level. Mặc định (không set flag) giữ nguyên hành vi cũ: bắt buộc `sourceIds`, thiếu → trả rỗng (no roster leak), dùng cho khu "Tự Hào Unicorns". Docs `docs/api/landing-integration.md`.
+
+### Fixed
+
+- `GET /staff/landing-profiles` và `GET /student/landing-profiles`: chế độ `ids=` trước đây ép `skip=0` và giới hạn cứng `take = min(ids.length, 100)`, bỏ qua `page`/`limit` client truyền vào — nếu CMS gửi hơn 100 id thì phần vượt quá bị cắt âm thầm, không cách nào lấy tiếp bằng phân trang. Nay `ids=` dùng chung `skip`/`take` theo `page`/`limit` như chế độ search, CMS loop `page` bình thường để lấy hết roster đã publish. Docs `docs/api/landing-integration.md`.
+
 ### Changed
 
 - `GET /student/landing-profiles?search=`: tokenized AND trên `fullName` (giống staff name tokens; `"Le A"` khớp `"Le Van A"`). Docs `docs/api/landing-integration.md`.

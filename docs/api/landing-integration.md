@@ -300,7 +300,10 @@ curl -sS \
 
 ## `GET /student/landing-achievements`
 
-Flat achievement list for public `/thanh-tich` and homepage marquee. **Must** pass CMS published student `sourceIds`; empty/missing `sourceIds` returns `{ data: [], total: 0 }` (no roster leak).
+Flat achievement list for public `/thanh-tich` and homepage marquee.
+
+- **Default (gated):** pass CMS published student `sourceIds`; empty/missing `sourceIds` returns `{ data: [], total: 0 }` (no roster leak). Use for publish-gated surfaces, e.g. **"Tự Hào Unicorns"** homepage showcase.
+- **`includeUnpublished=true` (ungated):** ignores `sourceIds`/publish gate entirely, returns achievements for **all** students. Use for the `/thanh-tich` by-level browse list, which is meant to show every achievement regardless of CMS publish status. `sourceIds` is ignored when this flag is set.
 
 ### Request
 
@@ -315,7 +318,8 @@ Accept: application/json
 
 | Parameter | Type | Default | Max | Description |
 |-----------|------|---------|-----|-------------|
-| `sourceIds` | string | — | — | Comma-separated published student ids (`UNIST-…`). Empty/missing → empty page |
+| `sourceIds` | string | — | — | Comma-separated published student ids (`UNIST-…`). Required unless `includeUnpublished=true`; empty/missing → empty page |
+| `includeUnpublished` | boolean | `false` | — | `true` → ignore `sourceIds`/publish gate, return achievements for all students (level-list surface) |
 | `level` | enum | — | — | Optional filter: `COMMUNE` \| `PROVINCE` \| `REGIONAL` \| `NATIONAL` \| `INTERNATIONAL` \| `ADMISSION` |
 | `page` | integer | `1` | — | 1-based page index |
 | `limit` | integer | `9` | `100` | Page size (`/thanh-tich` uses 9) |
@@ -358,6 +362,14 @@ Order: `year` desc, then `sortOrder` asc, then `id` asc. `total` is the count af
 curl -sS \
   -H "X-API-Key: $LANDING_API_KEY" \
   "https://api.example.com/student/landing-achievements?sourceIds=UNIST-a1b2c3d4e5&limit=9"
+```
+
+### Example: full by-level list (ungated, /thanh-tich browse)
+
+```bash
+curl -sS \
+  -H "X-API-Key: $LANDING_API_KEY" \
+  "https://api.example.com/student/landing-achievements?includeUnpublished=true&level=NATIONAL&page=1&limit=9"
 ```
 
 ---

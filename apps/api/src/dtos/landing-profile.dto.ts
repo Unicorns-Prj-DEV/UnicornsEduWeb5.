@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsEnum,
   IsInt,
   IsOptional,
@@ -129,14 +130,24 @@ export class StudentLandingAchievementsQueryDto {
   @Max(100)
   limit?: number;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description:
-      'Comma-separated published student ids from CMS (`UNIST-…`). Empty / missing → empty page (no roster leak).',
+      'Comma-separated published student ids from CMS (`UNIST-…`). Required unless `includeUnpublished=true`. Empty / missing (without `includeUnpublished`) → empty page (no roster leak).',
     example: 'UNIST-a1b2c3d4e5,UNIST-f6e5d4c3b2',
   })
   @IsOptional()
   @IsString()
   sourceIds?: string;
+
+  @ApiPropertyOptional({
+    default: false,
+    description:
+      'When true, ignores `sourceIds`/publish gate and returns achievements for ALL students (level-list surface, e.g. /thanh-tich by-level browse). Keep false for publish-gated surfaces (e.g. "Tự Hào Unicorns" showcase).',
+  })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  includeUnpublished?: boolean;
 }
 
 export class LandingAchievementDto {
