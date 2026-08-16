@@ -6,9 +6,11 @@ import {
 } from '@nestjs/common';
 import { Prisma } from 'generated/client';
 import {
+  AttendanceStatus,
   PaymentStatus,
   StaffRole,
   StudentClassStatus,
+  StudentStatus,
   UserRole,
   WalletTransactionType,
 } from 'generated/enums';
@@ -21,6 +23,7 @@ import type {
   CustomerCareCommissionScope,
   CustomerCareSessionCommissionDto,
   CustomerCareStudentListDto,
+  CustomerCareStudentSummaryDto,
   CustomerCareTopUpHistoryListDto,
 } from 'src/dtos/customer-care.dto';
 import { resolveTaxDeductionRate } from 'src/payroll/deduction-rates';
@@ -226,15 +229,19 @@ export class CustomerCareService {
       Number.isInteger(parsedLimit) && parsedLimit >= 1
         ? Math.min(parsedLimit, 100)
         : 20;
+    const activeStudentWhere = {
+      staffId: accessibleStaffId,
+      student: { status: StudentStatus.active },
+    };
     const total = await this.prisma.customerCareService.count({
-      where: { staffId: accessibleStaffId },
+      where: activeStudentWhere,
     });
     const totalPages = Math.max(1, Math.ceil(total / limit));
     const safePage = Math.min(page, totalPages);
     const skip = (safePage - 1) * limit;
 
     const list = await this.prisma.customerCareService.findMany({
-      where: { staffId: accessibleStaffId },
+      where: activeStudentWhere,
       skip,
       take: limit,
       select: {
@@ -298,6 +305,76 @@ export class CustomerCareService {
         page: safePage,
         limit,
       },
+    };
+  }
+
+  /** Học sinh đang học / nghỉ trong tháng / tổng học phí đã học (doanh thu) trong tháng, cho toàn bộ portfolio CSKH của staff này. */
+  async getStudentSummaryByStaffId(
+    userId: string,
+    roleType: UserRole,
+    staffId: string,
+    monthKey?: string,
+  ): Promise<CustomerCareStudentSummaryDto> {
+    const accessibleStaffId = await this.resolveAccessibleStaffId(
+      userId,
+      roleType,
+      staffId,
+    );
+
+    const staff = await this.prisma.staffInfo.findUnique({
+      where: { id: accessibleStaffId },
+      select: { id: true },
+    });
+    if (!staff) throw new NotFoundException('Staff not found');
+
+    const now = new Date();
+    const match = monthKey?.match(/^(\d{4})-(\d{2})$/);
+    const year = match ? Number(match[1]) : now.getUTCFullYear();
+    const month = match ? Number(match[2]) : now.getUTCMonth() + 1;
+    const monthStart = new Date(Date.UTC(year, month - 1, 1));
+    const monthEnd = new Date(Date.UTC(year, month, 1));
+    const resolvedMonthKey = `${year}-${String(month).padStart(2, '0')}`;
+
+    const assignments = await this.prisma.customerCareService.findMany({
+      where: { staffId: accessibleStaffId },
+      select: {
+        student: {
+          select: { id: true, status: true, dropOutDate: true },
+        },
+      },
+    });
+    const assignedStudents = assignments.map((row) => row.student);
+    const studentIds = assignedStudents.map((student) => student.id);
+
+    const revenueRows =
+      studentIds.length === 0
+        ? []
+        : await this.prisma.attendance.groupBy({
+            by: ['studentId'],
+            where: {
+              studentId: { in: studentIds },
+              status: { in: [AttendanceStatus.present, AttendanceStatus.excused] },
+              session: { date: { gte: monthStart, lt: monthEnd } },
+            },
+            _sum: { tuitionFee: true },
+          });
+    const revenueThisMonth = revenueRows.reduce(
+      (sum, row) => sum + Number(row._sum.tuitionFee ?? 0),
+      0,
+    );
+
+    return {
+      monthKey: resolvedMonthKey,
+      activeStudentsCount: assignedStudents.filter(
+        (student) => student.status === StudentStatus.active,
+      ).length,
+      droppedStudentsThisMonth: assignedStudents.filter(
+        (student) =>
+          student.dropOutDate != null &&
+          student.dropOutDate >= monthStart &&
+          student.dropOutDate < monthEnd,
+      ).length,
+      revenueThisMonth,
     };
   }
 

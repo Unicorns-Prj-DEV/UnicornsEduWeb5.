@@ -372,6 +372,13 @@ export default function CustomerCareDetailPanels({
     studentsFetching && !studentsLoading && !studentsFetchingNextPage;
   const studentTotalCount = studentPages[0]?.meta.total ?? 0;
 
+  const { data: studentSummary } = useQuery({
+    queryKey: ["customer-care", "student-summary", staffId],
+    queryFn: () => customerCareApi.getCustomerCareStudentSummary(staffId),
+    enabled: !!staffId,
+    staleTime: 60_000,
+  });
+
   const { data: topUpSummary } = useQuery({
     queryKey: ["customer-care", "topup-summary", staffId],
     queryFn: () =>
@@ -1168,6 +1175,33 @@ export default function CustomerCareDetailPanels({
                 (Số lượng: {studentTotalCount})
               </span>
             </h2>
+          </div>
+
+          <div className="mb-4 grid gap-3 px-5 sm:grid-cols-3 sm:px-0">
+            <div className="rounded-[1.15rem] border border-border-default bg-bg-secondary/35 px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                Đang học
+              </p>
+              <p className="mt-1 text-lg font-semibold tabular-nums text-text-primary">
+                {studentSummary?.activeStudentsCount ?? 0}
+              </p>
+            </div>
+            <div className="rounded-[1.15rem] border border-border-default bg-bg-secondary/35 px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                Nghỉ trong tháng
+              </p>
+              <p className="mt-1 text-lg font-semibold tabular-nums text-text-primary">
+                {studentSummary?.droppedStudentsThisMonth ?? 0}
+              </p>
+            </div>
+            <div className="rounded-[1.15rem] border border-border-default bg-bg-secondary/35 px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                Doanh thu tháng
+              </p>
+              <p className="mt-1 text-lg font-semibold tabular-nums text-text-primary">
+                {formatCurrency(studentSummary?.revenueThisMonth ?? 0)}
+              </p>
+            </div>
           </div>
 
           {canEditProfitPercent && selectedStudentCount > 0 ? (

@@ -110,3 +110,11 @@ export interface CustomerCareBulkProfitPercentUpdateResult {
   requestedCount: number;
   updatedCount: number;
 }
+
+/** GET /customer-care/staff/:staffId/summary */
+export interface CustomerCareStudentSummary {
+  monthKey: string;
+  activeStudentsCount: number;
+  droppedStudentsThisMonth: number;
+  revenueThisMonth: number;
+}
