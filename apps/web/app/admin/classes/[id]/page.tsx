@@ -1554,6 +1554,7 @@ export default function AdminClassDetailPage() {
               {...panelMotionProps}
             >
               <ClassSurveyPanel
+                className={classDetail.name}
                 surveys={surveysInMonth}
                 availableSurveys={availableSurveys}
                 teachers={popupTeachers}

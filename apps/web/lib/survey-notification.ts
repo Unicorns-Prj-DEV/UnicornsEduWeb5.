@@ -52,6 +52,65 @@ export function buildSurveyZaloMessage(fields: SurveyNotificationFields): string
   return lines.join("\n").trim();
 }
 
+/**
+ * Build the plain-text "BÁO CÁO KHẢO SÁT" message for a single class survey
+ * report (survey_name/lần khảo sát + đánh giá kiến thức chung + nhận xét
+ * từng học sinh), so it can be copied and pasted directly into a Zalo group.
+ */
+export interface ClassSurveyReportZaloFields {
+  className: string | null | undefined;
+  surveyName: string | null | undefined;
+  reportDate: string | null | undefined;
+  teacherName: string | null | undefined;
+  knowledgeAssessment: string | null | undefined;
+  students: { fullName: string; comment: string | null | undefined }[];
+}
+
+function formatFullDate(value: string | null | undefined): string {
+  if (!value) return "";
+  const [year, month, day] = value.slice(0, 10).split("-");
+  if (!year || !month || !day) return value;
+  return `${day}/${month}/${year}`;
+}
+
+export function buildClassSurveyReportZaloMessage(
+  fields: ClassSurveyReportZaloFields,
+): string {
+  const lines: string[] = ["📢 BÁO CÁO KHẢO SÁT"];
+
+  if (fields.className?.trim()) {
+    lines.push(`🏫 Lớp: ${fields.className.trim()}`);
+  }
+  if (fields.surveyName?.trim()) {
+    lines.push(`📋 Bài khảo sát: ${fields.surveyName.trim()}`);
+  }
+  const reportDate = formatFullDate(fields.reportDate);
+  if (reportDate) {
+    lines.push(`📅 Ngày báo cáo: ${reportDate}`);
+  }
+  if (fields.teacherName?.trim()) {
+    lines.push(`👨‍🏫 Người phụ trách: ${fields.teacherName.trim()}`);
+  }
+
+  lines.push(
+    "",
+    "📌 Đánh giá kiến thức:",
+    fields.knowledgeAssessment?.trim() || "—",
+  );
+
+  const commentedStudents = fields.students.filter((item) =>
+    item.comment?.trim(),
+  );
+  if (commentedStudents.length > 0) {
+    lines.push("", "📝 Nhận xét học sinh:");
+    for (const student of commentedStudents) {
+      lines.push(`- ${student.fullName}: ${student.comment?.trim()}`);
+    }
+  }
+
+  return lines.join("\n").trim();
+}
+
 export async function copyTextToClipboard(text: string): Promise<void> {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(text);

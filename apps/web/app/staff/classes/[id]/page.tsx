@@ -1295,6 +1295,7 @@ export default function StaffClassDetailPage() {
               aria-labelledby="staff-class-detail-tab-surveys"
             >
               <ClassSurveyPanel
+                className={classDetail.name}
                 surveys={surveys}
                 availableSurveys={availableSurveys}
                 teachers={popupTeachers}

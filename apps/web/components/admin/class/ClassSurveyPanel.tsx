@@ -1,6 +1,11 @@
 "use client";
 
-import { PencilSquareIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import {
+  ClipboardDocumentIcon,
+  PencilSquareIcon,
+  TrashIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
 import { useMemo, useState, type ReactNode, type SyntheticEvent } from "react";
 import { toast } from "sonner";
 import { DateInput } from "@/components/ui/DateInput";
@@ -11,6 +16,10 @@ import type {
   CreateClassSurveyPayload,
   UpdateClassSurveyPayload,
 } from "@/dtos/class-survey.dto";
+import {
+  buildClassSurveyReportZaloMessage,
+  copyTextToClipboard,
+} from "@/lib/survey-notification";
 import {
   classEditorModalBodyClassName,
   classEditorModalCloseButtonClassName,
@@ -40,7 +49,6 @@ export type ClassSurveyStudentOption = {
 type RosterDraftRow = {
   studentId: string;
   fullName: string;
-  knowledgeAssessment: string;
   comment: string;
 };
 
@@ -52,6 +60,7 @@ const surveyDateFormatter = new Intl.DateTimeFormat("vi-VN", {
 });
 
 type Props = {
+  className?: string;
   surveys: ClassSurveyRecord[];
   availableSurveys: ClassSurveyPickerOption[];
   teachers: ClassSurveyTeacherOption[];
@@ -107,7 +116,6 @@ function buildRosterDraft(
     return {
       studentId: student.id,
       fullName: student.fullName,
-      knowledgeAssessment: existing?.knowledgeAssessment ?? "",
       comment: existing?.comment ?? "",
     };
   });
@@ -119,6 +127,39 @@ function renderSurveyTeacher(survey: ClassSurveyRecord) {
 
 function renderSurveyName(survey: ClassSurveyRecord) {
   return survey.survey?.name || (survey.testNumber ? `Lần ${survey.testNumber}` : "—");
+}
+
+async function copySurveyReport(survey: ClassSurveyRecord, className?: string) {
+  const message = buildClassSurveyReportZaloMessage({
+    className,
+    surveyName: renderSurveyName(survey),
+    reportDate: survey.reportDate,
+    teacherName: survey.teacher?.fullName,
+    knowledgeAssessment: survey.knowledgeAssessment,
+    students: survey.students.map((item) => ({
+      fullName: item.fullName,
+      comment: item.comment,
+    })),
+  });
+  try {
+    await copyTextToClipboard(message);
+    toast.success("Đã sao chép nội dung báo cáo. Dán vào Zalo để gửi.");
+  } catch {
+    toast.error("Không thể sao chép. Vui lòng thử lại.");
+  }
+}
+
+function renderSurveyAssessmentSummary(survey: ClassSurveyRecord) {
+  const commentCount = survey.students.filter((item) => item.comment).length;
+  const hasKnowledgeAssessment = Boolean(survey.knowledgeAssessment);
+
+  if (!hasKnowledgeAssessment && commentCount === 0) {
+    return "Chưa có đánh giá";
+  }
+  if (commentCount === 0) {
+    return "Đã có đánh giá kiến thức";
+  }
+  return `${commentCount} học sinh có nhận xét`;
 }
 
 function formatSurveyDate(value: string) {
@@ -163,7 +204,7 @@ function SurveyTableSkeleton() {
         <table className="w-full min-w-[680px] border-collapse text-left text-sm">
           <thead>
             <tr className="border-b border-border-default bg-bg-secondary">
-              {["Bài khảo sát", "Ngày báo cáo", "Người phụ trách", "Học sinh đã đánh giá", ""].map(
+              {["Bài khảo sát", "Ngày báo cáo", "Người phụ trách", "Đánh giá", ""].map(
                 (label) => (
                   <th
                     key={label || "actions"}
@@ -201,7 +242,7 @@ function IconButton({
   children,
 }: {
   label: string;
-  onClick: () => void;
+  onClick: (event: SyntheticEvent<HTMLButtonElement>) => void;
   children: ReactNode;
 }) {
   return (
@@ -248,34 +289,18 @@ function RosterEditor({
           className="rounded-lg border border-border-default bg-bg-secondary/40 p-3"
         >
           <p className="mb-2 text-sm font-semibold text-text-primary">{row.fullName}</p>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <label className="flex flex-col gap-1 text-xs text-text-secondary">
-              <span>Đánh giá kiến thức</span>
-              <textarea
-                value={row.knowledgeAssessment}
-                readOnly={readOnly}
-                onChange={(event) =>
-                  updateRow(row.studentId, {
-                    knowledgeAssessment: event.target.value,
-                  })
-                }
-                rows={2}
-                className="min-h-[64px] rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-xs text-text-secondary">
-              <span>Nhận xét</span>
-              <textarea
-                value={row.comment}
-                readOnly={readOnly}
-                onChange={(event) =>
-                  updateRow(row.studentId, { comment: event.target.value })
-                }
-                rows={2}
-                className="min-h-[64px] rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-              />
-            </label>
-          </div>
+          <label className="flex flex-col gap-1 text-xs text-text-secondary">
+            <span>Nhận xét</span>
+            <textarea
+              value={row.comment}
+              readOnly={readOnly}
+              onChange={(event) =>
+                updateRow(row.studentId, { comment: event.target.value })
+              }
+              rows={2}
+              className="min-h-[64px] rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            />
+          </label>
         </div>
       ))}
     </div>
@@ -286,6 +311,7 @@ function SurveyFormDialog({
   mode,
   open,
   survey,
+  className,
   availableSurveys,
   teachers,
   students,
@@ -297,6 +323,7 @@ function SurveyFormDialog({
   mode: "create" | "edit";
   open: boolean;
   survey?: ClassSurveyRecord | null;
+  className?: string;
   availableSurveys: ClassSurveyPickerOption[];
   teachers: ClassSurveyTeacherOption[];
   students: ClassSurveyStudentOption[];
@@ -313,6 +340,9 @@ function SurveyFormDialog({
   );
   const [teacherId, setTeacherId] = useState(
     resolveInitialTeacherId(teachers, defaultTeacherId, survey),
+  );
+  const [knowledgeAssessment, setKnowledgeAssessment] = useState(
+    survey?.knowledgeAssessment ?? "",
   );
   const [roster, setRoster] = useState<RosterDraftRow[]>(() =>
     buildRosterDraft(students, survey),
@@ -353,7 +383,6 @@ function SurveyFormDialog({
     const studentsPayload: ClassSurveyStudentAssessmentPayload[] = roster.map(
       (row) => ({
         student_id: row.studentId,
-        knowledge_assessment: row.knowledgeAssessment.trim() || undefined,
         comment: row.comment.trim() || undefined,
       }),
     );
@@ -362,8 +391,32 @@ function SurveyFormDialog({
       survey_id: surveyId,
       report_date: reportDate,
       teacher_id: teacherId,
+      knowledge_assessment: knowledgeAssessment.trim() || undefined,
       students: studentsPayload,
     });
+  };
+
+  const handleCopy = async () => {
+    const message = buildClassSurveyReportZaloMessage({
+      className,
+      surveyName:
+        availableSurveys.find((item) => item.id === surveyId)?.name ??
+        survey?.survey?.name ??
+        null,
+      reportDate,
+      teacherName: teachers.find((item) => item.id === teacherId)?.fullName,
+      knowledgeAssessment,
+      students: roster.map((row) => ({
+        fullName: row.fullName,
+        comment: row.comment,
+      })),
+    });
+    try {
+      await copyTextToClipboard(message);
+      toast.success("Đã sao chép nội dung báo cáo. Dán vào Zalo để gửi.");
+    } catch {
+      toast.error("Không thể sao chép. Vui lòng thử lại.");
+    }
   };
 
   return (
@@ -428,15 +481,36 @@ function SurveyFormDialog({
             </label>
           </section>
 
+          <label className="flex flex-col gap-1 text-sm text-text-secondary">
+            <span className="font-semibold text-text-primary">
+              Đánh giá kiến thức
+            </span>
+            <textarea
+              value={knowledgeAssessment}
+              onChange={(event) => setKnowledgeAssessment(event.target.value)}
+              rows={3}
+              placeholder="Đánh giá kiến thức chung của lớp cho bài khảo sát này"
+              className="min-h-[88px] rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            />
+          </label>
+
           <div className="flex flex-col gap-2 text-sm text-text-secondary">
             <span className="font-semibold text-text-primary">
-              Đánh giá từng học sinh
+              Nhận xét từng học sinh
             </span>
             <RosterEditor rows={roster} onChange={setRoster} />
           </div>
         </form>
 
         <div className={classEditorModalFooterClassName}>
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-md border border-border-default px-4 py-2 text-sm font-semibold text-text-secondary transition hover:bg-bg-secondary hover:text-text-primary sm:mr-auto sm:min-h-0 sm:w-auto"
+          >
+            <ClipboardDocumentIcon className="size-4" aria-hidden />
+            Sao chép để dán Zalo
+          </button>
           <button
             type="button"
             onClick={onClose}
@@ -521,9 +595,11 @@ function DeleteSurveyDialog({
 
 function SurveyViewDialog({
   survey,
+  className,
   onClose,
 }: {
   survey: ClassSurveyRecord | null;
+  className?: string;
   onClose: () => void;
 }) {
   if (!survey) return null;
@@ -575,11 +651,22 @@ function SurveyViewDialog({
 
           <div className="flex flex-col gap-2 text-sm text-text-secondary">
             <span className="font-semibold text-text-primary">
-              Đánh giá từng học sinh
+              Đánh giá kiến thức
+            </span>
+            <div className="rounded-lg border border-border-default bg-bg-surface p-3">
+              <p className="whitespace-pre-wrap text-sm text-text-secondary">
+                {survey.knowledgeAssessment || "—"}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 text-sm text-text-secondary">
+            <span className="font-semibold text-text-primary">
+              Nhận xét từng học sinh
             </span>
             {survey.students.length === 0 ? (
               <p className="py-4 text-center text-sm text-text-muted">
-                Chưa có đánh giá học sinh.
+                Chưa có nhận xét học sinh.
               </p>
             ) : (
               <div className="space-y-3">
@@ -591,20 +678,9 @@ function SurveyViewDialog({
                     <p className="mb-2 text-sm font-semibold text-text-primary">
                       {item.fullName}
                     </p>
-                    <dl className="grid gap-2 sm:grid-cols-2">
-                      <div>
-                        <dt className="text-xs text-text-muted">Đánh giá kiến thức</dt>
-                        <dd className="mt-0.5 text-sm text-text-secondary">
-                          {item.knowledgeAssessment || "—"}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs text-text-muted">Nhận xét</dt>
-                        <dd className="mt-0.5 text-sm text-text-secondary">
-                          {item.comment || "—"}
-                        </dd>
-                      </div>
-                    </dl>
+                    <p className="text-sm text-text-secondary">
+                      {item.comment || "—"}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -613,6 +689,14 @@ function SurveyViewDialog({
         </div>
 
         <div className={classEditorModalFooterClassName}>
+          <button
+            type="button"
+            onClick={() => copySurveyReport(survey, className)}
+            className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-md border border-border-default px-4 py-2 text-sm font-semibold text-text-secondary transition hover:bg-bg-secondary hover:text-text-primary sm:min-h-0 sm:w-auto"
+          >
+            <ClipboardDocumentIcon className="size-4" aria-hidden />
+            Sao chép để dán Zalo
+          </button>
           <button
             type="button"
             onClick={onClose}
@@ -627,6 +711,7 @@ function SurveyViewDialog({
 }
 
 export default function ClassSurveyPanel({
+  className,
   surveys,
   availableSurveys,
   teachers,
@@ -754,19 +839,42 @@ export default function ClassSurveyPanel({
                     </p>
                     <p className="text-sm text-text-primary">{renderSurveyTeacher(survey)}</p>
                   </div>
-                  {canManage ? (
-                    <div className="flex shrink-0 gap-1">
-                      <IconButton label="Sửa báo cáo" onClick={() => setEditingSurvey(survey)}>
-                        <PencilSquareIcon className="size-4" aria-hidden />
-                      </IconButton>
-                      <IconButton label="Xóa báo cáo" onClick={() => setDeletingSurvey(survey)}>
-                        <TrashIcon className="size-4" aria-hidden />
-                      </IconButton>
-                    </div>
-                  ) : null}
+                  <div className="flex shrink-0 gap-1">
+                    <IconButton
+                      label="Sao chép để dán Zalo"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void copySurveyReport(survey, className);
+                      }}
+                    >
+                      <ClipboardDocumentIcon className="size-4" aria-hidden />
+                    </IconButton>
+                    {canManage ? (
+                      <>
+                        <IconButton
+                          label="Sửa báo cáo"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setEditingSurvey(survey);
+                          }}
+                        >
+                          <PencilSquareIcon className="size-4" aria-hidden />
+                        </IconButton>
+                        <IconButton
+                          label="Xóa báo cáo"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setDeletingSurvey(survey);
+                          }}
+                        >
+                          <TrashIcon className="size-4" aria-hidden />
+                        </IconButton>
+                      </>
+                    ) : null}
+                  </div>
                 </div>
                 <p className="mt-3 border-t border-border-subtle pt-3 text-xs text-text-muted">
-                  {survey.students.length} học sinh đã đánh giá
+                  {renderSurveyAssessmentSummary(survey)}
                 </p>
               </article>
             ))}
@@ -794,13 +902,11 @@ export default function ClassSurveyPanel({
                   Người phụ trách
                 </th>
                 <th scope="col" className="w-40 px-4 py-3 font-medium text-text-primary">
-                  Học sinh đã đánh giá
+                  Đánh giá
                 </th>
-                {canManage ? (
-                  <th scope="col" className="w-24 px-2 py-3 font-medium text-text-primary">
-                    <span className="sr-only">Thao tác</span>
-                  </th>
-                ) : null}
+                <th scope="col" className="w-32 px-2 py-3 font-medium text-text-primary">
+                  <span className="sr-only">Thao tác</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -832,20 +938,43 @@ export default function ClassSurveyPanel({
                   <td className="px-4 py-3 text-text-primary">{formatSurveyDate(survey.reportDate)}</td>
                   <td className="px-4 py-3 text-text-primary">{renderSurveyTeacher(survey)}</td>
                   <td className="px-4 py-3 text-text-secondary">
-                    {survey.students.length}
+                    {renderSurveyAssessmentSummary(survey)}
                   </td>
-                  {canManage ? (
-                    <td className="px-2 py-3">
-                      <div className="flex justify-end gap-1">
-                        <IconButton label="Sửa báo cáo" onClick={() => setEditingSurvey(survey)}>
-                          <PencilSquareIcon className="size-4" aria-hidden />
-                        </IconButton>
-                        <IconButton label="Xóa báo cáo" onClick={() => setDeletingSurvey(survey)}>
-                          <TrashIcon className="size-4" aria-hidden />
-                        </IconButton>
-                      </div>
-                    </td>
-                  ) : null}
+                  <td className="px-2 py-3">
+                    <div className="flex justify-end gap-1">
+                      <IconButton
+                        label="Sao chép để dán Zalo"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void copySurveyReport(survey, className);
+                        }}
+                      >
+                        <ClipboardDocumentIcon className="size-4" aria-hidden />
+                      </IconButton>
+                      {canManage ? (
+                        <>
+                          <IconButton
+                            label="Sửa báo cáo"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setEditingSurvey(survey);
+                            }}
+                          >
+                            <PencilSquareIcon className="size-4" aria-hidden />
+                          </IconButton>
+                          <IconButton
+                            label="Xóa báo cáo"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setDeletingSurvey(survey);
+                            }}
+                          >
+                            <TrashIcon className="size-4" aria-hidden />
+                          </IconButton>
+                        </>
+                      ) : null}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -863,6 +992,7 @@ export default function ClassSurveyPanel({
         key={createOpen ? `create-${surveys.length}-${teachers.length}-${students.length}` : "create-closed"}
         mode="create"
         open={createOpen}
+        className={className}
         availableSurveys={availableSurveys}
         teachers={teachers}
         students={students}
@@ -887,6 +1017,7 @@ export default function ClassSurveyPanel({
         mode="edit"
         open={Boolean(editingSurvey)}
         survey={editingSurvey}
+        className={className}
         availableSurveys={availableSurveys}
         teachers={teachers}
         students={students}
@@ -917,6 +1048,7 @@ export default function ClassSurveyPanel({
 
       <SurveyViewDialog
         survey={viewingSurvey}
+        className={className}
         onClose={() => setViewingSurvey(null)}
       />
     </div>
