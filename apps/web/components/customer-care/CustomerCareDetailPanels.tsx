@@ -339,7 +339,9 @@ export default function CustomerCareDetailPanels({
     staffRoles.includes("accountant") ||
     staffRoles.includes("admin");
   const canEditProfitPercent =
-    fullProfile?.roleType === "admin" || staffRoles.includes("admin");
+    fullProfile?.roleType === "admin" ||
+    staffRoles.includes("admin") ||
+    staffRoles.includes("assistant");
 
   const {
     data: studentListPages,
