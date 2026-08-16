@@ -68,6 +68,12 @@ describe('StaffService', () => {
       findMany: jest.fn(),
       update: jest.fn(),
     },
+    survey: {
+      findMany: jest.fn(),
+    },
+    classSurvey: {
+      findMany: jest.fn(),
+    },
     makeupScheduleEvent: {
       updateMany: jest.fn(),
       findMany: jest.fn(),
@@ -152,6 +158,8 @@ describe('StaffService', () => {
     mockPrisma.classTeacher.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma.class.findMany.mockResolvedValue([]);
     mockPrisma.class.update.mockResolvedValue({});
+    mockPrisma.survey.findMany.mockResolvedValue([]);
+    mockPrisma.classSurvey.findMany.mockResolvedValue([]);
     mockPrisma.makeupScheduleEvent.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma.makeupScheduleEvent.findMany.mockResolvedValue([]);
     mockPrisma.makeupScheduleEvent.deleteMany.mockResolvedValue({ count: 0 });
@@ -2565,6 +2573,109 @@ describe('StaffService', () => {
         'Có buổi cọc đã đổi trạng thái. Vui lòng tải lại danh sách rồi thử lại.',
       ),
     );
+  });
+
+  it('warns (without hard-blocking) when staff has classes missing overdue survey reports', async () => {
+    mockPrisma.survey.findMany.mockResolvedValue([
+      {
+        id: 'survey-1',
+        name: 'Bài khảo sát 7',
+        excludedClasses: [],
+      },
+    ]);
+    mockPrisma.class.findMany.mockResolvedValue([
+      { id: 'class-1', name: 'Lớp Toán A' },
+    ]);
+    mockPrisma.classSurvey.findMany.mockResolvedValue([]);
+
+    let caughtError: unknown;
+    try {
+      await service.paySelectedPayments('staff-1', {
+        month: '03',
+        year: '2026',
+        items: [{ sourceType: 'customer_care', id: 'attendance-1' }],
+      });
+    } catch (error) {
+      caughtError = error;
+    }
+
+    expect(caughtError).toBeInstanceOf(BadRequestException);
+    const response = (caughtError as BadRequestException).getResponse() as {
+      code: string;
+      warnings: Array<{ surveyName: string; classNames: string[] }>;
+    };
+    expect(response.code).toBe('SURVEY_OVERDUE_WARNING');
+    expect(response.warnings).toEqual([
+      {
+        surveyId: 'survey-1',
+        surveyName: 'Bài khảo sát 7',
+        classNames: ['Lớp Toán A'],
+      },
+    ]);
+    expect(mockPrisma.attendance.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('allows payment when the accountant confirms despite overdue survey warnings', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+    });
+    mockPrisma.survey.findMany.mockResolvedValue([
+      {
+        id: 'survey-1',
+        name: 'Bài khảo sát 7',
+        excludedClasses: [],
+      },
+    ]);
+    mockPrisma.class.findMany.mockResolvedValue([
+      { id: 'class-1', name: 'Lớp Toán A' },
+    ]);
+    mockPrisma.classSurvey.findMany.mockResolvedValue([]);
+    mockPrisma.session.findMany.mockResolvedValue([
+      { id: 'session-1', teacherPaymentStatus: 'deposit' },
+    ]);
+    jest
+      .spyOn(service as any, 'getSessionPaymentSnapshots')
+      .mockResolvedValue(new Map());
+    mockPrisma.session.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(
+      service.payDepositSessions('staff-1', {
+        sessionIds: ['session-1'],
+        confirmOverdueSurveyReports: true,
+      }),
+    ).resolves.toMatchObject({ updatedCount: 1 });
+  });
+
+  it('allows payment when the class already reported the overdue survey', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+    });
+    mockPrisma.survey.findMany.mockResolvedValue([
+      {
+        id: 'survey-1',
+        name: 'Bài khảo sát 7',
+        excludedClasses: [],
+      },
+    ]);
+    mockPrisma.class.findMany.mockResolvedValue([
+      { id: 'class-1', name: 'Lớp Toán A' },
+    ]);
+    mockPrisma.classSurvey.findMany.mockResolvedValue([
+      { classId: 'class-1', surveyId: 'survey-1' },
+    ]);
+    mockPrisma.session.findMany.mockResolvedValue([
+      { id: 'session-1', teacherPaymentStatus: 'deposit' },
+    ]);
+    jest
+      .spyOn(service as any, 'getSessionPaymentSnapshots')
+      .mockResolvedValue(new Map());
+    mockPrisma.session.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(
+      service.payDepositSessions('staff-1', {
+        sessionIds: ['session-1'],
+      }),
+    ).resolves.toMatchObject({ updatedCount: 1 });
   });
 
   it('returns authoritative unpaid totals for staff list rows', async () => {

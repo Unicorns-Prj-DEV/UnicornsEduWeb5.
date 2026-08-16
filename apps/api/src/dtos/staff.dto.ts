@@ -5,6 +5,7 @@ import {
   ArrayMinSize,
   ArrayUnique,
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsDateString,
@@ -366,6 +367,15 @@ export class StaffPaymentMonthDto {
     message: 'year must use YYYY format.',
   })
   year: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Kế toán xác nhận vẫn thanh toán dù nhân sự còn báo cáo khảo sát quá hạn (bỏ qua cảnh báo SURVEY_OVERDUE_WARNING).',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  confirmOverdueSurveyReports?: boolean;
 }
 
 export class StaffDepositPaymentYearDto {
@@ -465,6 +475,12 @@ export class StaffPaySelectedPaymentsDto extends StaffPaymentMonthDto {
   items: StaffPaySelectedPaymentItemDto[];
 }
 
+export interface StaffOverdueSurveyWarningItemDto {
+  surveyId: string;
+  surveyName: string;
+  classNames: string[];
+}
+
 export interface StaffPayAllPaymentsSourceResultDto {
   sourceType: string;
   sourceLabel: string;
@@ -521,6 +537,15 @@ export class StaffPayDepositSessionsDto {
   @ArrayUnique()
   @IsUUID('4', { each: true })
   sessionIds: string[];
+
+  @ApiPropertyOptional({
+    description:
+      'Kế toán xác nhận vẫn thanh toán dù nhân sự còn báo cáo khảo sát quá hạn (bỏ qua cảnh báo SURVEY_OVERDUE_WARNING).',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  confirmOverdueSurveyReports?: boolean;
 }
 
 export interface StaffPayDepositSessionsResultDto {
