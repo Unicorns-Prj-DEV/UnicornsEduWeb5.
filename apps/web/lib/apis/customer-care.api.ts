@@ -8,6 +8,7 @@ import type {
   CustomerCareStudentListResponse,
   CustomerCareCommissionItem,
   CustomerCareSessionCommissionItem,
+  CustomerCareStudentSummary,
   CustomerCareTopUpHistoryListResponse,
 } from "@/dtos/customer-care.dto";
 import { api } from "../client";
@@ -36,6 +37,23 @@ export async function getCustomerCareStudents(
       page: payload?.meta?.page ?? page,
       limit: payload?.meta?.limit ?? limit,
     },
+  };
+}
+
+export async function getCustomerCareStudentSummary(
+  staffId: string,
+  params: { month?: string } = {},
+): Promise<CustomerCareStudentSummary> {
+  const res = await api.get<CustomerCareStudentSummary>(
+    `/customer-care/staff/${encodeURIComponent(staffId)}/summary`,
+    { params },
+  );
+  const payload = res.data;
+  return {
+    monthKey: payload?.monthKey ?? "",
+    activeStudentsCount: payload?.activeStudentsCount ?? 0,
+    droppedStudentsThisMonth: payload?.droppedStudentsThisMonth ?? 0,
+    revenueThisMonth: payload?.revenueThisMonth ?? 0,
   };
 }
 
