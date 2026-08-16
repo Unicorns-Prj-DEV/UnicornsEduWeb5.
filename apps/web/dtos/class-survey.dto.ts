@@ -14,7 +14,6 @@ export interface ClassSurveySummary {
 export interface ClassSurveyStudentAssessment {
   studentId: string;
   fullName: string;
-  knowledgeAssessment: string | null;
   comment: string | null;
 }
 
@@ -27,6 +26,8 @@ export interface ClassSurveyRecord {
   teacherId: string | null;
   reportDate: string;
   content: string | null;
+  /** Đánh giá kiến thức dùng chung cho cả báo cáo (không phải theo từng học sinh). */
+  knowledgeAssessment: string | null;
   createdAt?: string | null;
   teacher?: ClassSurveyTeacher | null;
   students: ClassSurveyStudentAssessment[];
@@ -39,7 +40,6 @@ export interface ClassSurveyMonthYearParams {
 
 export interface ClassSurveyStudentAssessmentPayload {
   student_id: string;
-  knowledge_assessment?: string;
   comment?: string;
 }
 
@@ -47,6 +47,7 @@ export interface CreateClassSurveyPayload {
   survey_id: string;
   report_date?: string;
   teacher_id: string;
+  knowledge_assessment?: string;
   students: ClassSurveyStudentAssessmentPayload[];
 }
 

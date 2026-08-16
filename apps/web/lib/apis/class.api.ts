@@ -197,6 +197,10 @@ export function normalizeClassSurvey(survey: unknown): ClassSurveyRecord {
     reportDate:
       typeof rawReportDate === "string" ? rawReportDate.slice(0, 10) : "",
     content: typeof source.content === "string" ? source.content : null,
+    knowledgeAssessment:
+      typeof source.knowledgeAssessment === "string"
+        ? source.knowledgeAssessment
+        : null,
     createdAt:
       typeof source.createdAt === "string"
         ? source.createdAt
@@ -213,10 +217,6 @@ export function normalizeClassSurvey(survey: unknown): ClassSurveyRecord {
         studentId: String(student.studentId ?? ""),
         fullName:
           typeof student.fullName === "string" ? student.fullName : "",
-        knowledgeAssessment:
-          typeof student.knowledgeAssessment === "string"
-            ? student.knowledgeAssessment
-            : null,
         comment: typeof student.comment === "string" ? student.comment : null,
       };
     }),
