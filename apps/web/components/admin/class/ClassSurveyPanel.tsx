@@ -454,6 +454,8 @@ function SurveyFormDialog({
                 placeholder="Chọn bài khảo sát"
                 disabled={mode === "edit" || surveyOptions.length === 0}
                 buttonClassName="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                searchable
+                noResultsLabel="Không tìm thấy bài khảo sát."
               />
             </label>
             <label className="flex flex-col gap-1 text-sm text-text-secondary">
