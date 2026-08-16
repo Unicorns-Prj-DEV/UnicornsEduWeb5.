@@ -36,6 +36,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - `GET /survey-warnings/open-surveys`: danh sách Bài khảo sát đã mở, dùng cho picker khi gia sư tạo báo cáo khảo sát lớp.
 - `GET /student/landing-achievements?includeUnpublished=true`: bỏ qua `sourceIds`/publish gate, trả thành tích TOÀN BỘ học sinh — dùng cho trang `/thanh-tich` list-theo-level. Mặc định (không set flag) giữ nguyên hành vi cũ: bắt buộc `sourceIds`, thiếu → trả rỗng (no roster leak), dùng cho khu "Tự Hào Unicorns". Docs `docs/api/landing-integration.md`.
 
+### Added
+
+- **CSKH — thẻ tóm tắt Đang học / Nghỉ trong tháng / Doanh thu tháng ở tab Học sinh:** `GET /customer-care/staff/:staffId/summary?month=YYYY-MM` (`CustomerCareService.getStudentSummaryByStaffId`) trả `{ monthKey, activeStudentsCount, droppedStudentsThisMonth, revenueThisMonth }` tính trên toàn bộ portfolio CSKH của staff (không giới hạn theo trang danh sách); FE (`CustomerCareDetailPanels`, dùng chung `/admin/customer_care_detail/[staffId]` và `/staff/customer-care-detail`) hiện 3 thẻ ngay đầu tab **Học sinh**.
+
 ### Fixed
 
 - **CSKH — ẩn học sinh đã nghỉ khỏi tab Học sinh:** `CustomerCareService.getStudentsByStaffId` (`GET /customer-care/staff/:staffId/students`) trước đây trả cả học sinh `status = inactive` (đã chuyển **Nghỉ học**) vì chỉ lọc theo `staffId`, không lọc theo trạng thái học sinh, dù bản ghi `customer_care_service` không tự xoá khi học sinh nghỉ. Nay thêm điều kiện `student.status = active` vào cả `count` lẫn `findMany` (dùng chung where object để `total`/phân trang khớp danh sách), áp dụng cho cả `/admin/customer_care_detail/[staffId]` và `/staff/customer-care-detail`.

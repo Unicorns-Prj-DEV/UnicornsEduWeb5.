@@ -111,3 +111,14 @@ export interface CustomerCareBulkProfitPercentUpdateResultDto {
   requestedCount: number;
   updatedCount: number;
 }
+
+export interface CustomerCareStudentSummaryDto {
+  /** Tháng đang tính, dạng `YYYY-MM`. */
+  monthKey: string;
+  /** Số học sinh `status = active` đang được gán cho CSKH này. */
+  activeStudentsCount: number;
+  /** Số học sinh gán cho CSKH này có `dropOutDate` rơi trong tháng đang tính. */
+  droppedStudentsThisMonth: number;
+  /** Tổng học phí đã học (attendance present/excused) trong tháng, của mọi học sinh gán cho CSKH này. */
+  revenueThisMonth: number;
+}

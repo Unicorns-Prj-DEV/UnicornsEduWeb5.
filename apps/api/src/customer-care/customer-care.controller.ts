@@ -27,6 +27,7 @@ import type {
   CustomerCareCommissionListDto,
   CustomerCareSessionCommissionDto,
   CustomerCareStudentListDto,
+  CustomerCareStudentSummaryDto,
   CustomerCareTopUpHistoryListDto,
 } from 'src/dtos/customer-care.dto';
 import { CustomerCareService } from './customer-care.service';
@@ -73,6 +74,34 @@ export class CustomerCareController {
         page: page ? parseInt(page, 10) : undefined,
         limit: limit ? parseInt(limit, 10) : undefined,
       },
+    );
+  }
+
+  @Get('staff/:staffId/summary')
+  @ApiOperation({
+    summary: 'Student summary for customer care (current or given month)',
+    description:
+      'Số học sinh đang học, số học sinh nghỉ trong tháng, và tổng học phí đã học (doanh thu) trong tháng, cho toàn bộ học sinh gán cho CSKH này.',
+  })
+  @ApiParam({ name: 'staffId', description: 'Staff ID' })
+  @ApiQuery({
+    name: 'month',
+    required: false,
+    type: String,
+    description: 'Month key YYYY-MM (default: current month).',
+  })
+  @ApiResponse({ status: 200, description: 'Student summary.' })
+  @ApiResponse({ status: 404, description: 'Staff not found.' })
+  async getStudentSummaryByStaffId(
+    @CurrentUser() user: JwtPayload,
+    @Param('staffId', new ParseStaffIdPipe()) staffId: string,
+    @Query('month') month?: string,
+  ): Promise<CustomerCareStudentSummaryDto> {
+    return this.customerCareService.getStudentSummaryByStaffId(
+      user.id,
+      user.roleType,
+      staffId,
+      month,
     );
   }
 
