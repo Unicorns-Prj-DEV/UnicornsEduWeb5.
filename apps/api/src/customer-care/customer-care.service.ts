@@ -9,6 +9,7 @@ import {
   PaymentStatus,
   StaffRole,
   StudentClassStatus,
+  StudentStatus,
   UserRole,
   WalletTransactionType,
 } from 'generated/enums';
@@ -226,15 +227,19 @@ export class CustomerCareService {
       Number.isInteger(parsedLimit) && parsedLimit >= 1
         ? Math.min(parsedLimit, 100)
         : 20;
+    const activeStudentWhere = {
+      staffId: accessibleStaffId,
+      student: { status: StudentStatus.active },
+    };
     const total = await this.prisma.customerCareService.count({
-      where: { staffId: accessibleStaffId },
+      where: activeStudentWhere,
     });
     const totalPages = Math.max(1, Math.ceil(total / limit));
     const safePage = Math.min(page, totalPages);
     const skip = (safePage - 1) * limit;
 
     const list = await this.prisma.customerCareService.findMany({
-      where: { staffId: accessibleStaffId },
+      where: activeStudentWhere,
       skip,
       take: limit,
       select: {

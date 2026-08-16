@@ -156,6 +156,7 @@
 - `/staff/customer-care-detail`
   - tự động lấy `staffInfo.id` của user đang đăng nhập, không nhận `staffId` từ URL
   - dùng cùng dữ liệu với trang admin customer-care detail: 3 tab **Học sinh**, **Thanh Toán** và **Hoa hồng**
+  - tab **Học sinh** chỉ liệt kê học sinh `status = active`; học sinh đã chuyển **Nghỉ học** (`status = inactive`) bị lọc ẩn khỏi danh sách/phân trang dù vẫn còn liên kết `customer_care_service` (`GET /customer-care/staff/:staffId/students`)
   - tab **Học sinh** hiển thị học sinh đang được giao chăm sóc (trạng thái, tên, QR thanh toán, số dư, **Tiền vào** 21 ngày gần nhất, tỉnh, lớp), sort theo số dư tăng dần; danh sách hiển thị tổng số học sinh và dùng infinite scroll, tải 10 học sinh/lần; từ `lg` trở xuống dùng card list, từ `lg` trở lên giữ desktop table
   - nút QR trên mỗi học sinh gọi `GET /student/:id/wallet-sepay-static-qr` rồi copy ảnh QR vào clipboard, fallback copy link QR nếu trình duyệt/CORS không cho copy ảnh; phụ huynh tự nhập số tiền chuyển khoản
   - cột **Tiền vào** là tổng các giao dịch ví `topup` trong 21 ngày gần nhất; màu xanh khi tổng `>= 300.000` VND, màu đỏ khi chưa đạt ngưỡng (kể cả có giao dịch nhỏ hơn ngưỡng), và hiện `0` màu đỏ nếu không có giao dịch đạt điều kiện
