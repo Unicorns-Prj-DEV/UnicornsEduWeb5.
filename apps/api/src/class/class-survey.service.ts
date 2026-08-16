@@ -1,10 +1,11 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { StaffRole, UserRole } from 'generated/enums';
+import { StaffRole, StudentClassStatus, UserRole } from 'generated/enums';
 import {
   ActionHistoryActor,
   ActionHistoryService,
@@ -32,6 +33,29 @@ const SURVEY_INCLUDE = {
         select: {
           first_name: true,
           last_name: true,
+        },
+      },
+    },
+  },
+  survey: {
+    select: {
+      id: true,
+      name: true,
+      startDate: true,
+      endDate: true,
+    },
+  },
+  studentAssessments: {
+    include: {
+      student: {
+        select: {
+          id: true,
+          user: {
+            select: {
+              first_name: true,
+              last_name: true,
+            },
+          },
         },
       },
     },
@@ -88,15 +112,6 @@ function parseMonthRange(query: SurveyMonthQuery) {
   };
 }
 
-function hasReportContent(content: string): boolean {
-  return (
-    content
-      .replace(/<[^>]*>/g, '')
-      .replace(/&nbsp;/g, ' ')
-      .trim().length > 0
-  );
-}
-
 @Injectable()
 export class ClassSurveyService {
   constructor(
@@ -109,6 +124,15 @@ export class ClassSurveyService {
     return {
       id: record.id,
       classId: record.classId,
+      surveyId: record.surveyId,
+      survey: record.survey
+        ? {
+            id: record.survey.id,
+            name: record.survey.name,
+            startDate: record.survey.startDate,
+            endDate: record.survey.endDate,
+          }
+        : null,
       testNumber: record.testNumber,
       teacherId: record.teacherId,
       reportDate: record.reportDate,
@@ -121,6 +145,12 @@ export class ClassSurveyService {
             status: record.teacher.status,
           }
         : null,
+      students: record.studentAssessments.map((assessment) => ({
+        studentId: assessment.studentId,
+        fullName: getUserFullNameFromParts(assessment.student.user),
+        knowledgeAssessment: assessment.knowledgeAssessment,
+        comment: assessment.comment,
+      })),
     };
   }
 
@@ -157,9 +187,56 @@ export class ClassSurveyService {
     }
   }
 
-  private validateContent(content: string | undefined) {
-    if (content !== undefined && !hasReportContent(content)) {
-      throw new BadRequestException('Nội dung báo cáo không được để trống.');
+  private async assertSurveyExists(surveyId: string) {
+    const survey = await this.prisma.survey.findUnique({
+      where: { id: surveyId },
+      select: { id: true },
+    });
+
+    if (!survey) {
+      throw new NotFoundException('Bài khảo sát không tồn tại.');
+    }
+  }
+
+  /** Roster học sinh đang học của lớp — dùng để validate + hiển thị form báo cáo. */
+  private async getActiveStudentIds(classId: string): Promise<Set<string>> {
+    const rows = await this.prisma.studentClass.findMany({
+      where: { classId, status: StudentClassStatus.active },
+      select: { studentId: true },
+    });
+    return new Set(rows.map((row) => row.studentId));
+  }
+
+  private async validateStudentRoster(
+    classId: string,
+    students: { student_id: string }[],
+  ) {
+    if (!students.length) {
+      throw new BadRequestException(
+        'Báo cáo khảo sát phải có ít nhất một học sinh.',
+      );
+    }
+
+    const activeStudentIds = await this.getActiveStudentIds(classId);
+    const invalid = students.filter(
+      (item) => !activeStudentIds.has(item.student_id),
+    );
+    if (invalid.length) {
+      throw new BadRequestException(
+        'Chỉ được đánh giá học sinh đang học của lớp.',
+      );
+    }
+  }
+
+  private async assertNoExistingReport(classId: string, surveyId: string) {
+    const existing = await this.prisma.classSurvey.findFirst({
+      where: { classId, surveyId },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new ConflictException(
+        'Lớp này đã có báo cáo cho bài khảo sát này. Vui lòng chỉnh sửa báo cáo hiện có.',
+      );
     }
   }
 
@@ -189,7 +266,7 @@ export class ClassSurveyService {
         },
       },
       include: SURVEY_INCLUDE,
-      orderBy: [{ reportDate: 'desc' }, { testNumber: 'desc' }],
+      orderBy: [{ reportDate: 'desc' }, { createdAt: 'desc' }],
     });
 
     return surveys.map((survey) => this.mapSurvey(survey));
@@ -201,17 +278,25 @@ export class ClassSurveyService {
     auditActor?: ActionHistoryActor,
   ) {
     await this.assertClassExists(classId);
+    await this.assertSurveyExists(dto.survey_id);
     await this.assertTeacherBelongsToClass(classId, dto.teacher_id);
-    this.validateContent(dto.content);
+    await this.assertNoExistingReport(classId, dto.survey_id);
+    await this.validateStudentRoster(classId, dto.students);
 
     return this.prisma.$transaction(async (tx) => {
       const createdSurvey = await tx.classSurvey.create({
         data: {
           classId,
-          testNumber: dto.test_number,
+          surveyId: dto.survey_id,
           teacherId: dto.teacher_id,
           reportDate: parseDateOnly(dto.report_date),
-          content: dto.content.trim(),
+          studentAssessments: {
+            create: dto.students.map((item) => ({
+              studentId: item.student_id,
+              knowledgeAssessment: item.knowledge_assessment?.trim() || null,
+              comment: item.comment?.trim() || null,
+            })),
+          },
         },
         include: SURVEY_INCLUDE,
       });
@@ -221,7 +306,7 @@ export class ClassSurveyService {
           actor: auditActor,
           entityType: 'class_survey',
           entityId: createdSurvey.id,
-          description: 'Tạo khảo sát lớp học',
+          description: 'Tạo báo cáo khảo sát lớp học',
           afterValue: createdSurvey,
         });
       }
@@ -241,22 +326,38 @@ export class ClassSurveyService {
     if (dto.teacher_id !== undefined) {
       await this.assertTeacherBelongsToClass(classId, dto.teacher_id);
     }
-    this.validateContent(dto.content);
+    if (dto.students !== undefined) {
+      await this.validateStudentRoster(classId, dto.students);
+    }
 
     return this.prisma.$transaction(async (tx) => {
+      if (dto.students !== undefined) {
+        await tx.classSurveyStudentAssessment.deleteMany({
+          where: { classSurveyId: surveyId },
+        });
+      }
+
       const updatedSurvey = await tx.classSurvey.update({
         where: { id: surveyId },
         data: {
-          ...(dto.test_number !== undefined
-            ? { testNumber: dto.test_number }
-            : {}),
           ...(dto.teacher_id !== undefined
             ? { teacherId: dto.teacher_id }
             : {}),
           ...(dto.report_date !== undefined
             ? { reportDate: parseDateOnly(dto.report_date) }
             : {}),
-          ...(dto.content !== undefined ? { content: dto.content.trim() } : {}),
+          ...(dto.students !== undefined
+            ? {
+                studentAssessments: {
+                  create: dto.students.map((item) => ({
+                    studentId: item.student_id,
+                    knowledgeAssessment:
+                      item.knowledge_assessment?.trim() || null,
+                    comment: item.comment?.trim() || null,
+                  })),
+                },
+              }
+            : {}),
         },
         include: SURVEY_INCLUDE,
       });
@@ -266,7 +367,7 @@ export class ClassSurveyService {
           actor: auditActor,
           entityType: 'class_survey',
           entityId: surveyId,
-          description: 'Cập nhật khảo sát lớp học',
+          description: 'Cập nhật báo cáo khảo sát lớp học',
           beforeValue,
           afterValue: updatedSurvey,
         });
@@ -293,7 +394,7 @@ export class ClassSurveyService {
           actor: auditActor,
           entityType: 'class_survey',
           entityId: surveyId,
-          description: 'Xóa khảo sát lớp học',
+          description: 'Xóa báo cáo khảo sát lớp học',
           beforeValue,
         });
       }
