@@ -1,27 +1,28 @@
 model Class {
-  id                             String                               @id
-  name                           String
-  type                           ClassType                            @default(basic)
-  status                         ClassStatus                          @default(running)
-  maxStudents                    Int                                  @default(15) @map("max_students")
-  allowancePerSessionPerStudent  Int                                  @default(0) @map("allowance_per_session_per_student")
-  maxAllowancePerSession         Int?                                 @map("max_allowance_per_session")
-  scaleAmount                    Int?                                 @map("scale_amount")
-  schedule                       Json                                 @default("[]")
-  studentTuitionPerSession       Int?                                 @map("student_tuition_per_session")
-  tuitionPackageTotal            Int?                                 @map("tuition_package_total")
-  tuitionPackageSession          Int?                                 @map("tuition_package_session")
-  trainingManagerStaffId         String?                              @map("training_manager_staff_id")
-  trainingManagerRatePercent     Decimal?                             @map("training_manager_rate_percent") @db.Decimal(5, 2)
-  createdAt                      DateTime                             @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                      DateTime                             @updatedAt @map("updated_at") @db.Timestamptz(6)
-  surveys                        ClassSurvey[]
-  teachers                       ClassTeacher[]
-  makeupScheduleEvents           MakeupScheduleEvent[]
-  missedTeachingExplanations     MissedTeachingExplanation[]
-  sessions                       Session[]
-  students                       StudentClass[]
-  trainingManager                StaffInfo?                           @relation("ClassTrainingManager", fields: [trainingManagerStaffId], references: [id])
+  id                            String                      @id
+  name                          String
+  type                          ClassType                   @default(basic)
+  status                        ClassStatus                 @default(running)
+  maxStudents                   Int                         @default(15) @map("max_students")
+  allowancePerSessionPerStudent Int                         @default(0) @map("allowance_per_session_per_student")
+  maxAllowancePerSession        Int?                        @map("max_allowance_per_session")
+  scaleAmount                   Int?                        @map("scale_amount")
+  schedule                      Json                        @default("[]")
+  studentTuitionPerSession      Int?                        @map("student_tuition_per_session")
+  tuitionPackageTotal           Int?                        @map("tuition_package_total")
+  tuitionPackageSession         Int?                        @map("tuition_package_session")
+  trainingManagerStaffId        String?                     @map("training_manager_staff_id")
+  trainingManagerRatePercent    Decimal?                    @map("training_manager_rate_percent") @db.Decimal(5, 2)
+  createdAt                     DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                     DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  surveys                       ClassSurvey[]
+  surveyExclusions              SurveyExcludedClass[]
+  teachers                      ClassTeacher[]
+  makeupScheduleEvents          MakeupScheduleEvent[]
+  missedTeachingExplanations    MissedTeachingExplanation[]
+  sessions                      Session[]
+  students                      StudentClass[]
+  trainingManager               StaffInfo?                  @relation("ClassTrainingManager", fields: [trainingManagerStaffId], references: [id])
 
   @@index([trainingManagerStaffId])
   @@map("classes")
@@ -66,40 +67,40 @@ model StudentClass {
 }
 
 model Session {
-  id                                   String               @id @default(uuid())
-  teacherId                            String               @map("teacher_id")
-  classId                              String               @map("class_id")
-  allowanceAmount                      Int?                 @map("allowance_amount")
-  snapshotPerStudentAllowance          Int?                 @map("snapshot_per_student_allowance")
-  snapshotScaleAmount                  Int?                 @map("snapshot_scale_amount")
-  teacherOperatingDeductionRatePercent Decimal              @default(0) @map("teacher_tax_rate_percent") @db.Decimal(5, 2)
-  teacherTaxDeductionRatePercent       Decimal              @default(0) @map("teacher_tax_deduction_rate_percent") @db.Decimal(5, 2)
-  teacherPaymentStatus                 String               @default("unpaid") @map("teacher_payment_status")
-  trainingManagerStaffId               String?              @map("training_manager_staff_id")
-  trainingManagerRatePercent           Decimal              @default(0) @map("training_manager_rate_percent") @db.Decimal(5, 2)
-  trainingManagerAllowanceAmount       Int?                 @map("training_manager_allowance_amount")
-  trainingManagerPaymentStatus         PaymentStatus?       @map("training_manager_payment_status")
-  trainingManagerTaxDeductionRatePercent Decimal            @default(0) @map("training_manager_tax_deduction_rate_percent") @db.Decimal(5, 2)
-  date                                 DateTime             @db.Date
-  startTime                            DateTime?            @map("start_time") @db.Time(6)
-  endTime                              DateTime?            @map("end_time") @db.Time(6)
-  coefficient                          Decimal              @default(1.0) @db.Decimal(3, 1)
-  notes                                String?
-  lessonContent                        String?              @map("lesson_content")
-  homework                             String?
-  tutorial                             String?
-  tuitionFee                           Int?                 @map("tuition_fee")
-  googleMeetLink                       String?              @map("google_meet_link")
-  googleCalendarEventId                String?              @map("google_calendar_event_id")
-  calendarSyncedAt                     DateTime?            @map("calendar_synced_at") @db.Timestamptz(6)
-  calendarSyncError                    String?              @map("calendar_sync_error")
-  createdAt                            DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                            DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
-  attendance                           Attendance[]
-  class                                Class                @relation(fields: [classId], references: [id], onDelete: Cascade)
-  makeupScheduleEvent                  MakeupScheduleEvent?
-  teacher                              StaffInfo            @relation("SessionTeacher", fields: [teacherId], references: [id])
-  trainingManager                      StaffInfo?           @relation("SessionTrainingManager", fields: [trainingManagerStaffId], references: [id])
+  id                                     String               @id @default(uuid())
+  teacherId                              String               @map("teacher_id")
+  classId                                String               @map("class_id")
+  allowanceAmount                        Int?                 @map("allowance_amount")
+  snapshotPerStudentAllowance            Int?                 @map("snapshot_per_student_allowance")
+  snapshotScaleAmount                    Int?                 @map("snapshot_scale_amount")
+  teacherOperatingDeductionRatePercent   Decimal              @default(0) @map("teacher_tax_rate_percent") @db.Decimal(5, 2)
+  teacherTaxDeductionRatePercent         Decimal              @default(0) @map("teacher_tax_deduction_rate_percent") @db.Decimal(5, 2)
+  teacherPaymentStatus                   String               @default("unpaid") @map("teacher_payment_status")
+  trainingManagerStaffId                 String?              @map("training_manager_staff_id")
+  trainingManagerRatePercent             Decimal              @default(0) @map("training_manager_rate_percent") @db.Decimal(5, 2)
+  trainingManagerAllowanceAmount         Int?                 @map("training_manager_allowance_amount")
+  trainingManagerPaymentStatus           PaymentStatus?       @map("training_manager_payment_status")
+  trainingManagerTaxDeductionRatePercent Decimal              @default(0) @map("training_manager_tax_deduction_rate_percent") @db.Decimal(5, 2)
+  date                                   DateTime             @db.Date
+  startTime                              DateTime?            @map("start_time") @db.Time(6)
+  endTime                                DateTime?            @map("end_time") @db.Time(6)
+  coefficient                            Decimal              @default(1.0) @db.Decimal(3, 1)
+  notes                                  String?
+  lessonContent                          String?              @map("lesson_content")
+  homework                               String?
+  tutorial                               String?
+  tuitionFee                             Int?                 @map("tuition_fee")
+  googleMeetLink                         String?              @map("google_meet_link")
+  googleCalendarEventId                  String?              @map("google_calendar_event_id")
+  calendarSyncedAt                       DateTime?            @map("calendar_synced_at") @db.Timestamptz(6)
+  calendarSyncError                      String?              @map("calendar_sync_error")
+  createdAt                              DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                              DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  attendance                             Attendance[]
+  class                                  Class                @relation(fields: [classId], references: [id], onDelete: Cascade)
+  makeupScheduleEvent                    MakeupScheduleEvent?
+  teacher                                StaffInfo            @relation("SessionTeacher", fields: [teacherId], references: [id])
+  trainingManager                        StaffInfo?           @relation("SessionTrainingManager", fields: [trainingManagerStaffId], references: [id])
 
   @@index([teacherId])
   @@index([classId])
@@ -115,26 +116,26 @@ model Session {
 }
 
 model MakeupScheduleEvent {
-  id                    String    @id @default(uuid()) @db.Text
-  classId               String    @map("class_id") @db.Text
-  teacherId             String    @map("teacher_id") @db.Text
-  linkedSessionId       String?   @unique @map("linked_session_id") @db.Text
-  date                  DateTime  @db.Date
-  startTime             DateTime? @map("start_time") @db.Time(6)
-  endTime               DateTime? @map("end_time") @db.Time(6)
+  id                      String    @id @default(uuid()) @db.Text
+  classId                 String    @map("class_id") @db.Text
+  teacherId               String    @map("teacher_id") @db.Text
+  linkedSessionId         String?   @unique @map("linked_session_id") @db.Text
+  date                    DateTime  @db.Date
+  startTime               DateTime? @map("start_time") @db.Time(6)
+  endTime                 DateTime? @map("end_time") @db.Time(6)
   baselineScheduleEntryId String?   @map("baseline_schedule_entry_id") @db.Text
-  originalDate          DateTime? @map("original_date") @db.Date
-  title                 String?
-  note                  String?
-  googleMeetLink        String?   @map("google_meet_link")
-  googleCalendarEventId String?   @map("google_calendar_event_id")
-  calendarSyncedAt      DateTime? @map("calendar_synced_at") @db.Timestamptz(6)
-  calendarSyncError     String?   @map("calendar_sync_error")
-  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  class                 Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
-  linkedSession         Session?  @relation(fields: [linkedSessionId], references: [id], onDelete: SetNull)
-  teacher               StaffInfo @relation(fields: [teacherId], references: [id])
+  originalDate            DateTime? @map("original_date") @db.Date
+  title                   String?
+  note                    String?
+  googleMeetLink          String?   @map("google_meet_link")
+  googleCalendarEventId   String?   @map("google_calendar_event_id")
+  calendarSyncedAt        DateTime? @map("calendar_synced_at") @db.Timestamptz(6)
+  calendarSyncError       String?   @map("calendar_sync_error")
+  createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  class                   Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  linkedSession           Session?  @relation(fields: [linkedSessionId], references: [id], onDelete: SetNull)
+  teacher                 StaffInfo @relation(fields: [teacherId], references: [id])
 
   @@index([classId])
   @@index([teacherId])
@@ -148,17 +149,17 @@ model MakeupScheduleEvent {
 }
 
 model MissedTeachingExplanation {
-  id                      String   @id @default(uuid()) @db.Text
-  classId                 String   @map("class_id") @db.Text
-  teacherId               String   @map("teacher_id") @db.Text
-  baselineScheduleEntryId String   @map("baseline_schedule_entry_id") @db.Text
-  originalDate            DateTime @map("original_date") @db.Date
+  id                      String    @id @default(uuid()) @db.Text
+  classId                 String    @map("class_id") @db.Text
+  teacherId               String    @map("teacher_id") @db.Text
+  baselineScheduleEntryId String    @map("baseline_schedule_entry_id") @db.Text
+  originalDate            DateTime  @map("original_date") @db.Date
   reason                  String
-  explainedByStaffId      String?  @map("explained_by_staff_id") @db.Text
-  explainedByUserId       String?  @map("explained_by_user_id") @db.Text
-  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt               DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-  class                   Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  explainedByStaffId      String?   @map("explained_by_staff_id") @db.Text
+  explainedByUserId       String?   @map("explained_by_user_id") @db.Text
+  createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  class                   Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
   teacher                 StaffInfo @relation(fields: [teacherId], references: [id], onDelete: Restrict)
 
   @@unique([classId, baselineScheduleEntryId, originalDate])
