@@ -1,19 +1,22 @@
 /// Báo cáo khảo sát của một lớp. Field legacy `testNumber`/`content` (lần khảo sát N
 /// toàn cục + nội dung rich text tự do) giữ nguyên nullable cho dữ liệu cũ; báo cáo mới
-/// gắn `surveyId` (Bài khảo sát) và dùng roster `studentAssessments` theo từng học sinh.
+/// gắn `surveyId` (Bài khảo sát), có một `knowledgeAssessment` dùng chung cho cả lớp
+/// (không phải theo từng học sinh), và dùng roster `studentAssessments` chỉ để lưu
+/// `comment` (nhận xét) riêng cho từng học sinh.
 model ClassSurvey {
-  id                 String                         @id @default(uuid())
-  classId            String?                        @map("class_id")
-  surveyId           String?                        @map("survey_id")
-  testNumber         Int?                           @map("test_number")
-  teacherId          String?                        @map("teacher_id")
-  reportDate         DateTime                       @map("report_date") @db.Date
-  content            String?
-  createdAt          DateTime?                      @map("created_at") @db.Timestamp(6)
-  class              Class?                         @relation(fields: [classId], references: [id])
-  teacher            StaffInfo?                     @relation(fields: [teacherId], references: [id])
-  survey             Survey?                        @relation(fields: [surveyId], references: [id])
-  studentAssessments ClassSurveyStudentAssessment[]
+  id                  String                         @id @default(uuid())
+  classId             String?                        @map("class_id")
+  surveyId            String?                        @map("survey_id")
+  testNumber          Int?                           @map("test_number")
+  teacherId           String?                        @map("teacher_id")
+  reportDate          DateTime                       @map("report_date") @db.Date
+  content             String?
+  knowledgeAssessment String?                        @map("knowledge_assessment")
+  createdAt           DateTime?                      @map("created_at") @db.Timestamp(6)
+  class               Class?                         @relation(fields: [classId], references: [id])
+  teacher             StaffInfo?                     @relation(fields: [teacherId], references: [id])
+  survey              Survey?                        @relation(fields: [surveyId], references: [id])
+  studentAssessments  ClassSurveyStudentAssessment[]
 
   @@index([classId])
   @@index([classId, testNumber])
@@ -24,18 +27,18 @@ model ClassSurvey {
   @@map("class_surveys")
 }
 
-/// Đánh giá kiến thức + nhận xét của gia sư cho một học sinh trong một báo cáo
-/// khảo sát lớp (`ClassSurvey`). Cả hai field là text tự do, không dùng mức cố định.
+/// Nhận xét của gia sư cho một học sinh trong một báo cáo khảo sát lớp
+/// (`ClassSurvey`). Đánh giá kiến thức là field dùng chung cho cả báo cáo
+/// (xem `ClassSurvey.knowledgeAssessment`), không lưu theo từng học sinh ở đây.
 model ClassSurveyStudentAssessment {
-  id                  String      @id @default(uuid())
-  classSurveyId       String      @map("class_survey_id")
-  studentId           String      @map("student_id")
-  knowledgeAssessment String?     @map("knowledge_assessment")
-  comment             String?
-  createdAt           DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
-  classSurvey         ClassSurvey @relation(fields: [classSurveyId], references: [id], onDelete: Cascade)
-  student             StudentInfo @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id            String      @id @default(uuid())
+  classSurveyId String      @map("class_survey_id")
+  studentId     String      @map("student_id")
+  comment       String?
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  classSurvey   ClassSurvey @relation(fields: [classSurveyId], references: [id], onDelete: Cascade)
+  student       StudentInfo @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([classSurveyId, studentId])
   @@index([studentId])

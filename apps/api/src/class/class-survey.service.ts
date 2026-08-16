@@ -137,6 +137,7 @@ export class ClassSurveyService {
       teacherId: record.teacherId,
       reportDate: record.reportDate,
       content: record.content,
+      knowledgeAssessment: record.knowledgeAssessment,
       createdAt: record.createdAt,
       teacher: record.teacher
         ? {
@@ -148,7 +149,6 @@ export class ClassSurveyService {
       students: record.studentAssessments.map((assessment) => ({
         studentId: assessment.studentId,
         fullName: getUserFullNameFromParts(assessment.student.user),
-        knowledgeAssessment: assessment.knowledgeAssessment,
         comment: assessment.comment,
       })),
     };
@@ -290,10 +290,10 @@ export class ClassSurveyService {
           surveyId: dto.survey_id,
           teacherId: dto.teacher_id,
           reportDate: parseDateOnly(dto.report_date),
+          knowledgeAssessment: dto.knowledge_assessment?.trim() || null,
           studentAssessments: {
             create: dto.students.map((item) => ({
               studentId: item.student_id,
-              knowledgeAssessment: item.knowledge_assessment?.trim() || null,
               comment: item.comment?.trim() || null,
             })),
           },
@@ -346,13 +346,14 @@ export class ClassSurveyService {
           ...(dto.report_date !== undefined
             ? { reportDate: parseDateOnly(dto.report_date) }
             : {}),
+          ...(dto.knowledge_assessment !== undefined
+            ? { knowledgeAssessment: dto.knowledge_assessment?.trim() || null }
+            : {}),
           ...(dto.students !== undefined
             ? {
                 studentAssessments: {
                   create: dto.students.map((item) => ({
                     studentId: item.student_id,
-                    knowledgeAssessment:
-                      item.knowledge_assessment?.trim() || null,
                     comment: item.comment?.trim() || null,
                   })),
                 },

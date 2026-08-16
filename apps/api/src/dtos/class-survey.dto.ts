@@ -11,7 +11,7 @@ import {
 } from 'class-validator';
 import { IsStaffId, IsStudentId } from '../common/entity-id.validators';
 
-/** Đánh giá kiến thức + nhận xét của gia sư cho một học sinh trong báo cáo khảo sát lớp. */
+/** Nhận xét của gia sư cho một học sinh trong báo cáo khảo sát lớp. */
 export class ClassSurveyStudentAssessmentDto {
   @ApiProperty({
     description: 'Student id trong roster đang học của lớp.',
@@ -19,11 +19,6 @@ export class ClassSurveyStudentAssessmentDto {
   })
   @IsStudentId()
   student_id: string;
-
-  @ApiPropertyOptional({ description: 'Đánh giá kiến thức (text tự do).' })
-  @IsOptional()
-  @IsString()
-  knowledge_assessment?: string;
 
   @ApiPropertyOptional({ description: 'Nhận xét học sinh (text tự do).' })
   @IsOptional()
@@ -54,9 +49,16 @@ export class CreateClassSurveyDto {
   @IsStaffId()
   teacher_id: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description:
-      'Đánh giá kiến thức + nhận xét cho từng học sinh đang học của lớp.',
+      'Đánh giá kiến thức (text tự do), dùng chung cho cả báo cáo, không phải theo từng học sinh.',
+  })
+  @IsOptional()
+  @IsString()
+  knowledge_assessment?: string;
+
+  @ApiProperty({
+    description: 'Nhận xét cho từng học sinh đang học của lớp.',
     type: [ClassSurveyStudentAssessmentDto],
   })
   @IsArray()

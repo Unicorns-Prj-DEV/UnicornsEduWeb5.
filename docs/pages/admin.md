@@ -143,7 +143,7 @@
   - `GET /sessions/staff/:staffId/unpaid?days=<number>` trả tổng phụ cấp session `teacher_payment_status = unpaid` theo từng lớp trong `N` ngày gần nhất; `days` mặc định `14`.
 - **Class survey endpoints (báo cáo khảo sát của lớp cho một Bài khảo sát):**
   - `GET /class/:id/surveys?month=<01-12>&year=<YYYY>` trả báo cáo của lớp trong tháng, gồm `survey` (tóm tắt Bài khảo sát) và `students` (roster đánh giá).
-  - `POST /class/:id/surveys` tạo báo cáo; body gồm `survey_id`, `report_date` (optional, mặc định ngày hiện tại), `teacher_id`, `students[]` (`student_id`, `knowledge_assessment?`, `comment?` cho từng học sinh đang học của lớp). Một lớp chỉ tạo được một báo cáo/bài khảo sát (409 nếu đã có).
+  - `POST /class/:id/surveys` tạo báo cáo; body gồm `survey_id`, `report_date` (optional, mặc định ngày hiện tại), `teacher_id`, `knowledge_assessment?` (đánh giá kiến thức dùng chung cho cả báo cáo, không phải theo từng học sinh), `students[]` (`student_id`, `comment?` — nhận xét riêng cho từng học sinh đang học của lớp). Một lớp chỉ tạo được một báo cáo/bài khảo sát (409 nếu đã có).
   - `PATCH /class/:id/surveys/:surveyId` cập nhật báo cáo; `teacher_id` phải là gia sư thuộc lớp; truyền `students[]` để thay toàn bộ roster đánh giá.
   - `DELETE /class/:id/surveys/:surveyId` xóa báo cáo và ghi audit.
 - **Survey (Bài khảo sát) endpoints:**
