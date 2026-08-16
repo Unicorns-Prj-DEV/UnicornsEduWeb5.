@@ -21,6 +21,7 @@ type MenuVisibility = {
   canAccessClassWorkspace: boolean;
   canAccessCustomerCareSelf: boolean;
   canAccessLessonPlanWorkspace: boolean;
+  canAccessSurveys: boolean;
   isTraining: boolean;
   isAccountant: boolean;
   isAccountantIncome: boolean;
@@ -152,6 +153,13 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
         canAccessLessonPlanWorkspace || isAccountantExpense,
     },
     {
+      href: "/staff/surveys",
+      label: "Bài khảo sát",
+      icon: <IconSurveys />,
+      isActive: (pathname) => pathname.startsWith("/staff/surveys"),
+      isVisible: ({ canAccessSurveys }) => canAccessSurveys,
+    },
+    {
       href: "/staff/communication-detail",
       label: "Truyền thông",
       icon: <IconCommunication />,
@@ -264,6 +272,13 @@ function buildAssistantMenuItems(ownStaffId: string): MenuItem[] {
         pathname.startsWith("/staff/lesson-plan-manage-details") ||
         pathname.startsWith("/staff/lesson-plans") ||
         pathname.startsWith("/staff/lesson-manage-details"),
+      isVisible: () => true,
+    },
+    {
+      href: "/staff/surveys",
+      label: "Bài khảo sát",
+      icon: <IconSurveys />,
+      isActive: (pathname) => pathname.startsWith("/staff/surveys"),
       isVisible: () => true,
     },
     {
@@ -399,6 +414,19 @@ function IconLessonPlans() {
   );
 }
 
+function IconSurveys() {
+  return (
+    <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 8l2 2 4-4"
+      />
+    </svg>
+  );
+}
+
 function IconCommunication() {
   return (
     <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -471,6 +499,11 @@ export default function StaffSidebar() {
   const isAccountant = isAccountantIncome || isAccountantExpense;
   const canAccessLessonPlanWorkspace =
     lessonWorkspace.canAccessWorkspace || isAccountantExpense;
+  const canAccessSurveys =
+    isFullAdmin ||
+    isAssistant ||
+    lessonWorkspace.isLessonPlan ||
+    lessonWorkspace.isLessonPlanHead;
   const isCommunication = staffRoles.includes("communication");
   const isTechnical = staffRoles.includes("technical");
   const baseMenuItems = isFullAdmin || isAssistant
@@ -485,6 +518,7 @@ export default function StaffSidebar() {
       canAccessClassWorkspace,
       canAccessCustomerCareSelf,
       canAccessLessonPlanWorkspace,
+      canAccessSurveys,
       isTraining,
       isAccountant,
       isAccountantIncome,
@@ -665,6 +699,7 @@ export default function StaffSidebar() {
                       canAccessClassWorkspace,
                       canAccessCustomerCareSelf,
                       canAccessLessonPlanWorkspace,
+                      canAccessSurveys,
                       isTraining,
                       isAccountant,
                       isAccountantIncome,
