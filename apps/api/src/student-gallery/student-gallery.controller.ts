@@ -50,11 +50,21 @@ const imageUploadInterceptor = FileInterceptor('image', {
 @ApiCookieAuth('access_token')
 @Controller('student/:studentId/gallery')
 @Roles(UserRole.admin)
-@AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.customer_care)
+// Mutations (create/update/delete/upload/reorder) stay admin + assistant only;
+// customer_care/accountant/accountant_income can view (see the `list()` override) but not edit.
+@AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
 export class StudentGalleryController {
   constructor(private readonly galleryService: StudentGalleryService) {}
 
   @Get()
+  // Viewing must match whoever can view the student profile itself
+  // (GET student/:id also allows accountant + accountant_income on admin routes).
+  @AllowStaffRolesOnAdminRoutes(
+    StaffRole.assistant,
+    StaffRole.customer_care,
+    StaffRole.accountant,
+    StaffRole.accountant_income,
+  )
   @ApiOperation({ summary: 'List student gallery items' })
   @ApiParam({ name: 'studentId', description: 'Student id (UNIST-…)' })
   @ApiResponse({ status: 200, description: 'Gallery items ordered by sortOrder.' })
