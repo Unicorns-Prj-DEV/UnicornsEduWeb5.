@@ -2,6 +2,6 @@
 
 import SurveysManager from "@/components/shared/surveys/SurveysManager";
 
-export default function AdminSurveysPage() {
+export default function StaffSurveysPage() {
   return <SurveysManager />;
 }
