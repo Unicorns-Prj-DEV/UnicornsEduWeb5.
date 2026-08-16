@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as classApi from "@/lib/apis/class.api";
 import * as sessionApi from "@/lib/apis/session.api";
+import * as surveysApi from "@/lib/apis/surveys.api";
 import { formatCurrency } from "@/lib/class.helpers";
 import {
   ClassCard,
@@ -325,6 +326,14 @@ export default function AdminClassDetailPage() {
     placeholderData: keepPreviousData,
   });
 
+  const { data: availableSurveysResponse } = useQuery({
+    queryKey: ["surveys", "picker"],
+    queryFn: () => surveysApi.getSurveys({ limit: 100 }),
+    enabled: activeTab === "surveys",
+    staleTime: 60_000,
+  });
+  const availableSurveys = availableSurveysResponse?.data ?? [];
+
   const handleSessionUpdated = useCallback(
     (createdSession?: SessionItem) => {
       if (createdSession?.date) {
@@ -444,6 +453,14 @@ export default function AdminClassDetailPage() {
     [classStudents],
   );
   const totalSessionTuition = classDetail?.sessionTuitionTotal ?? 0;
+
+  const activeSurveyStudents = useMemo(
+    () =>
+      (classDetail?.students ?? [])
+        .filter((student) => (student.status ?? "active") === "active")
+        .map((student) => ({ id: student.id, fullName: student.fullName })),
+    [classDetail?.students],
+  );
 
   const popupTeachers = useMemo(
     () =>
@@ -1537,8 +1554,11 @@ export default function AdminClassDetailPage() {
               {...panelMotionProps}
             >
               <ClassSurveyPanel
+                className={classDetail.name}
                 surveys={surveysInMonth}
+                availableSurveys={availableSurveys}
                 teachers={popupTeachers}
+                students={activeSurveyStudents}
                 loading={isSurveysLoading}
                 fetching={isSurveysFetching}
                 error={isSurveysError}

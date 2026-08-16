@@ -179,15 +179,28 @@ function normalizeTeachersPayload<T extends { teachers?: ClassTeacherPayload[] }
 export function normalizeClassSurvey(survey: unknown): ClassSurveyRecord {
   const source = (survey ?? {}) as Record<string, unknown>;
   const rawReportDate = source.reportDate ?? source.report_date;
+  const rawStudents = Array.isArray(source.students) ? source.students : [];
 
   return {
     id: String(source.id ?? ""),
     classId: source.classId == null ? null : String(source.classId),
-    testNumber: Number(source.testNumber ?? source.test_number ?? 0),
+    surveyId: source.surveyId == null ? null : String(source.surveyId),
+    survey:
+      source.survey && typeof source.survey === "object"
+        ? (source.survey as ClassSurveyRecord["survey"])
+        : null,
+    testNumber:
+      source.testNumber == null && source.test_number == null
+        ? null
+        : Number(source.testNumber ?? source.test_number),
     teacherId: source.teacherId == null ? null : String(source.teacherId),
     reportDate:
       typeof rawReportDate === "string" ? rawReportDate.slice(0, 10) : "",
-    content: typeof source.content === "string" ? source.content : "",
+    content: typeof source.content === "string" ? source.content : null,
+    knowledgeAssessment:
+      typeof source.knowledgeAssessment === "string"
+        ? source.knowledgeAssessment
+        : null,
     createdAt:
       typeof source.createdAt === "string"
         ? source.createdAt
@@ -198,6 +211,15 @@ export function normalizeClassSurvey(survey: unknown): ClassSurveyRecord {
       source.teacher && typeof source.teacher === "object"
         ? (source.teacher as ClassSurveyRecord["teacher"])
         : null,
+    students: rawStudents.map((item) => {
+      const student = (item ?? {}) as Record<string, unknown>;
+      return {
+        studentId: String(student.studentId ?? ""),
+        fullName:
+          typeof student.fullName === "string" ? student.fullName : "",
+        comment: typeof student.comment === "string" ? student.comment : null,
+      };
+    }),
   };
 }
 

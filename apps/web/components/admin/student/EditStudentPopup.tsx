@@ -35,6 +35,8 @@ type Props = {
   onSuccess?: () => void | Promise<void>;
   /** Admin only; CSKH/assistant can edit profile but not profit %. */
   canEditCustomerCareProfitPercent?: boolean;
+  /** Admin/assistant only; CSKH can view achievements/gallery but not edit. Default true. */
+  canEditAchievementsAndGallery?: boolean;
 };
 
 const STATUS_OPTIONS: Array<{ value: StudentStatus; label: string }> = [
@@ -113,6 +115,7 @@ export default function EditStudentPopup({
   student,
   onSuccess,
   canEditCustomerCareProfitPercent = true,
+  canEditAchievementsAndGallery = true,
 }: Props) {
   const queryClient = useQueryClient();
   const customerCareSearchRef = useRef<HTMLDivElement>(null);
@@ -572,6 +575,7 @@ export default function EditStudentPopup({
                       mode: "admin",
                       studentId: student.id,
                     }}
+                    editable={canEditAchievementsAndGallery}
                     heading="Thành tích"
                   />
                 </div>
@@ -579,6 +583,7 @@ export default function EditStudentPopup({
                 <div className="sm:col-span-2">
                   <StudentGalleryEditor
                     studentId={student.id}
+                    editable={canEditAchievementsAndGallery}
                     heading="Gallery"
                   />
                 </div>

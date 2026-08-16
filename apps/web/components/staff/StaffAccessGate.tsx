@@ -42,6 +42,7 @@ export default function StaffAccessGate({
     isLessonPlanSelfRoute,
     isNotesSubjectRoute,
     isStaffNotificationRoute,
+    isStaffSurveysRoute,
   } = flags;
   const redirectHref = routeAccess.redirectHref;
 
@@ -54,7 +55,9 @@ export default function StaffAccessGate({
           ? "Deduction Workspace Locked"
           : isStaffStudentsRoute
             ? "Student Workspace Locked"
-            : isStaffCostsRoute
+            : isStaffSurveysRoute
+        ? "Survey Workspace Locked"
+        : isStaffCostsRoute
               ? "Cost Workspace Locked"
               : isAssistantStaffsRoute
                 ? "Staff Directory Locked"
@@ -80,7 +83,9 @@ export default function StaffAccessGate({
       ? "Tài khoản này chưa mở được hồ sơ staff tự phục vụ."
       : isStaffNotificationRoute
         ? "Tài khoản này không dùng được feed thông báo staff."
-        : isStaffClassesRoute
+        : isStaffSurveysRoute
+          ? "Tài khoản này không dùng được màn Bài khảo sát trong staff shell."
+          : isStaffClassesRoute
           ? "Tài khoản này không dùng được màn lớp học trong staff shell."
           : isStaffDeductionsRoute
             ? "Tài khoản này không dùng được màn cấu hình khấu trừ trong staff shell."
@@ -117,7 +122,9 @@ export default function StaffAccessGate({
       ? "Route `/staff` hiện là hồ sơ của chính nhân sự đang đăng nhập. Nó chỉ mở khi tài khoản có liên kết staff record hợp lệ."
       : isStaffNotificationRoute
         ? "Route `/staff/notification` chỉ mở khi tài khoản có linked staff profile hợp lệ. Đây là feed chỉ đọc dành cho nhân sự xem các thông báo admin đã push."
-        : isStaffClassesRoute
+        : isStaffSurveysRoute
+          ? "Route `/staff/surveys` mở cho `admin`, `staff.assistant`, `staff.lesson_plan`, và `staff.lesson_plan_head` — dùng để tạo/sửa/xóa Bài khảo sát, soạn thông báo kèm (Title/Thời gian/Nội dung/Hướng dẫn/Lưu ý/Gia sư) và sao chép để dán vào Zalo."
+          : isStaffClassesRoute
           ? "Route `/staff/classes` mở danh sách cho `staff.assistant`, `staff.accountant_income`, `staff.accountant_expense`, và `staff.training` (UI giống admin nhưng backend chỉ trả các lớp được gán quản lý); riêng `staff.teacher`, `admin`, và `staff.customer_care` chỉ mở trực tiếp trang chi tiết `/staff/classes/[id]`. Với customer care, backend tiếp tục khóa theo các lớp có ít nhất một học sinh đang do chính staff đó phụ trách."
           : isStaffDeductionsRoute
             ? "Route `/staff/deductions` không còn mở cho staff role; cấu hình khấu trừ chỉ nằm ở admin shell cho admin đầy đủ."

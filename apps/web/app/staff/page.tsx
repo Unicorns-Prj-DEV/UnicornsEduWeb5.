@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ResponsiveDialog, ResponsiveDialogBody } from "@/components/ui/ResponsiveDialog";
+import AccountantSurveyWarningBanner from "@/components/staff/AccountantSurveyWarningBanner";
 import {
   getFullProfile,
   getMyCustomerCareStudentChanges,
@@ -2037,6 +2038,7 @@ export default function StaffDashboardPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-4 pb-6 sm:p-5">
       <div className="space-y-4">
+        {hasExpenseAccountantDashboard ? <AccountantSurveyWarningBanner /> : null}
         <section className="overflow-hidden rounded-2xl border border-border-default bg-[radial-gradient(circle_at_top_left,color-mix(in_srgb,var(--ue-primary)_12%,transparent),transparent_42%),linear-gradient(135deg,color-mix(in_srgb,var(--ue-bg-surface)_98%,transparent),color-mix(in_srgb,var(--ue-bg-secondary)_94%,transparent))] p-4 shadow-sm sm:p-5">
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)] xl:items-start">
             <div className="min-w-0">

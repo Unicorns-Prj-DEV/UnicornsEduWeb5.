@@ -495,13 +495,17 @@ export class StaffController {
   @ApiBody({
     type: StaffPayAllPaymentsDto,
     description:
-      'Month/year for UI context; payable set includes all pending/unpaid items regardless of month.',
+      'Month/year for UI context; payable set includes all pending/unpaid items regardless of month. Set confirmOverdueSurveyReports=true to proceed despite an overdue survey warning.',
   })
   @ApiResponse({
     status: 200,
     description: 'All listed staff payments processed.',
   })
-  @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Validation error, or overdue survey warning (code SURVEY_OVERDUE_WARNING) requiring confirmation via confirmOverdueSurveyReports.',
+  })
   @ApiResponse({ status: 404, description: 'Staff not found.' })
   async payAllStaffPayments(
     @CurrentUser() user: JwtPayload,
@@ -525,13 +529,17 @@ export class StaffController {
   @ApiBody({
     type: StaffPaySelectedPaymentsDto,
     description:
-      'Selected preview items identified by sourceType and entity id.',
+      'Selected preview items identified by sourceType and entity id. Set confirmOverdueSurveyReports=true to proceed despite an overdue survey warning.',
   })
   @ApiResponse({
     status: 200,
     description: 'Selected staff payments processed.',
   })
-  @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Validation error, or overdue survey warning (code SURVEY_OVERDUE_WARNING) requiring confirmation via confirmOverdueSurveyReports.',
+  })
   @ApiResponse({ status: 404, description: 'Staff not found.' })
   async paySelectedStaffPayments(
     @CurrentUser() user: JwtPayload,
@@ -554,13 +562,18 @@ export class StaffController {
   @ApiParam({ name: 'id', description: 'Staff id' })
   @ApiBody({
     type: StaffPayDepositSessionsDto,
-    description: 'Selected deposit session ids',
+    description:
+      'Selected deposit session ids. Set confirmOverdueSurveyReports=true to proceed despite an overdue survey warning.',
   })
   @ApiResponse({
     status: 200,
     description: 'Selected deposit sessions processed.',
   })
-  @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Validation error, or overdue survey warning (code SURVEY_OVERDUE_WARNING) requiring confirmation via confirmOverdueSurveyReports.',
+  })
   @ApiResponse({ status: 404, description: 'Staff not found.' })
   async payStaffDepositSessions(
     @CurrentUser() user: JwtPayload,

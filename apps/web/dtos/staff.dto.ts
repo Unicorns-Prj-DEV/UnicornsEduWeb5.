@@ -246,6 +246,7 @@ export interface StaffPaymentPreview {
 export interface StaffPayAllPaymentsPayload {
     month: string;
     year: string;
+    confirmOverdueSurveyReports?: boolean;
 }
 
 export type StaffPaymentSourceType =
@@ -313,6 +314,22 @@ export interface StaffDepositPaymentPreview {
 
 export interface StaffPayDepositSessionsPayload {
     sessionIds: string[];
+    confirmOverdueSurveyReports?: boolean;
+}
+
+/** Chi tiết 1 bài khảo sát quá hạn mà nhân sự còn thiếu báo cáo (dùng cho dialog cảnh báo trước khi thanh toán). */
+export interface StaffOverdueSurveyWarningItem {
+    surveyId: string;
+    surveyName: string;
+    classNames: string[];
+}
+
+/** Response body khi backend trả 400 với code SURVEY_OVERDUE_WARNING (chưa xác nhận thanh toán). */
+export interface StaffOverdueSurveyWarningErrorResponse {
+    statusCode: number;
+    code: "SURVEY_OVERDUE_WARNING";
+    message: string;
+    warnings: StaffOverdueSurveyWarningItem[];
 }
 
 export interface StaffPayDepositSessionsResult {

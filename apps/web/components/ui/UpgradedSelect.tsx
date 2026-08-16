@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type FocusEvent,
   type KeyboardEvent,
   type ReactNode,
 } from "react";
@@ -16,6 +17,8 @@ export type UpgradedSelectOption = {
   label: ReactNode;
   selectedLabel?: ReactNode;
   disabled?: boolean;
+  /** Plain-text used for search matching/display when `label` is not a string (e.g. JSX). */
+  searchLabel?: string;
 };
 
 type DropdownPosition = {
@@ -40,7 +43,24 @@ type Props = {
   buttonClassName?: string;
   menuClassName?: string;
   emptyStateLabel?: string;
+  /** Render the trigger itself as a text input that filters options while typing. */
+  searchable?: boolean;
+  noResultsLabel?: string;
 };
+
+function normalizeForSearch(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function getOptionSearchText(option: UpgradedSelectOption | null | undefined): string {
+  if (!option) return "";
+  if (option.searchLabel) return option.searchLabel;
+  if (typeof option.label === "string") return option.label;
+  return "";
+}
 
 function getFirstEnabledIndex(options: UpgradedSelectOption[]): number {
   return options.findIndex((option) => !option.disabled);
@@ -78,6 +98,8 @@ export default function UpgradedSelect({
   buttonClassName,
   menuClassName,
   emptyStateLabel = "Không có tuỳ chọn.",
+  searchable = false,
+  noResultsLabel = "Không tìm thấy kết quả.",
 }: Props) {
   const generatedId = useId();
   const triggerId = id ?? `upgraded-select-${generatedId}`;
@@ -86,7 +108,8 @@ export default function UpgradedSelect({
   const [internalValue, setInternalValue] = useState(defaultValue ?? "");
   const [open, setOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<DropdownPosition | null>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [query, setQuery] = useState("");
+  const triggerRef = useRef<HTMLElement | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const selectedValue = isControlled ? (value ?? "") : internalValue;
@@ -95,6 +118,22 @@ export default function UpgradedSelect({
     [options, selectedValue],
   );
   const selectedContent = selectedOption?.selectedLabel ?? selectedOption?.label;
+  const visibleOptions = useMemo(() => {
+    if (!searchable || !open || !query.trim()) return options;
+    const normalizedQuery = normalizeForSearch(query.trim());
+    return options.filter((option) =>
+      normalizeForSearch(getOptionSearchText(option)).includes(normalizedQuery),
+    );
+  }, [open, options, query, searchable]);
+
+  const setTriggerRef = (node: HTMLElement | null) => {
+    triggerRef.current = node;
+  };
+
+  const closeMenu = () => {
+    setOpen(false);
+    setQuery("");
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -108,12 +147,12 @@ export default function UpgradedSelect({
         return;
       }
 
-      setOpen(false);
+      closeMenu();
     };
 
     const handleEscape = (event: KeyboardEvent | globalThis.KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      setOpen(false);
+      closeMenu();
       triggerRef.current?.focus();
     };
 
@@ -173,7 +212,7 @@ export default function UpgradedSelect({
   }, [open]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || searchable) return;
 
     const selectedIndex = options.findIndex(
       (option) => !option.disabled && option.value === selectedValue,
@@ -188,7 +227,7 @@ export default function UpgradedSelect({
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [open, options, selectedValue]);
+  }, [open, options, searchable, selectedValue]);
 
   const commitValue = (nextValue: string) => {
     if (!isControlled) {
@@ -196,7 +235,7 @@ export default function UpgradedSelect({
     }
 
     onValueChange?.(nextValue);
-    setOpen(false);
+    closeMenu();
     triggerRef.current?.focus();
   };
 
@@ -209,50 +248,99 @@ export default function UpgradedSelect({
     }
   };
 
+  const handleSearchTriggerKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (disabled) return;
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      if (!open) {
+        setOpen(true);
+        return;
+      }
+      const nextIndex = getFirstEnabledIndex(visibleOptions);
+      if (nextIndex >= 0) optionRefs.current[nextIndex]?.focus();
+      return;
+    }
+
+    if (event.key === "Escape") {
+      closeMenu();
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const nextIndex = getFirstEnabledIndex(visibleOptions);
+      if (nextIndex >= 0) commitValue(visibleOptions[nextIndex].value);
+      return;
+    }
+
+    if (event.key === "Tab") {
+      closeMenu();
+    }
+  };
+
+  const handleTriggerFocus = (event: FocusEvent<HTMLInputElement>) => {
+    if (disabled) return;
+    setOpen(true);
+    setQuery("");
+    event.target.select();
+  };
+
+  const handleTriggerBlur = (event: FocusEvent<HTMLInputElement>) => {
+    const nextFocusTarget = event.relatedTarget as Node | null;
+    if (nextFocusTarget && menuRef.current?.contains(nextFocusTarget)) return;
+    closeMenu();
+  };
+
   const handleMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const enabledOptions = options.filter((option) => !option.disabled);
+    const enabledOptions = visibleOptions.filter((option) => !option.disabled);
     if (enabledOptions.length === 0) return;
 
     const focusedIndex = optionRefs.current.findIndex(
       (button) => button === document.activeElement,
     );
-    const currentIndex = focusedIndex >= 0 ? focusedIndex : getFirstEnabledIndex(options);
+    const currentIndex =
+      focusedIndex >= 0 ? focusedIndex : getFirstEnabledIndex(visibleOptions);
 
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      const nextIndex = getNextEnabledIndex(options, currentIndex, 1);
+      const nextIndex = getNextEnabledIndex(visibleOptions, currentIndex, 1);
       if (nextIndex >= 0) optionRefs.current[nextIndex]?.focus();
       return;
     }
 
     if (event.key === "ArrowUp") {
       event.preventDefault();
-      const nextIndex = getNextEnabledIndex(options, currentIndex, -1);
+      if (currentIndex <= 0 && searchable) {
+        triggerRef.current?.focus();
+        return;
+      }
+      const nextIndex = getNextEnabledIndex(visibleOptions, currentIndex, -1);
       if (nextIndex >= 0) optionRefs.current[nextIndex]?.focus();
       return;
     }
 
     if (event.key === "Home") {
       event.preventDefault();
-      const nextIndex = getFirstEnabledIndex(options);
+      const nextIndex = getFirstEnabledIndex(visibleOptions);
       if (nextIndex >= 0) optionRefs.current[nextIndex]?.focus();
       return;
     }
 
     if (event.key === "End") {
       event.preventDefault();
-      const reversedIndex = [...options]
+      const reversedIndex = [...visibleOptions]
         .reverse()
         .findIndex((option) => !option.disabled);
       if (reversedIndex >= 0) {
-        const nextIndex = options.length - reversedIndex - 1;
+        const nextIndex = visibleOptions.length - reversedIndex - 1;
         optionRefs.current[nextIndex]?.focus();
       }
       return;
     }
 
     if (event.key === "Tab") {
-      setOpen(false);
+      closeMenu();
     }
   };
 
@@ -267,51 +355,77 @@ export default function UpgradedSelect({
     menuClassName ??
     "overflow-auto rounded-2xl border border-border-default bg-bg-surface/95 p-1 shadow-[0_24px_60px_-28px_color-mix(in_srgb,var(--ue-text-primary)_45%,transparent)] backdrop-blur-sm";
 
+  const chevronIcon = (
+    <svg
+      className={`ml-2 size-4 shrink-0 text-text-muted transition-transform duration-200 ${
+        open ? "rotate-180" : ""
+      }`}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      aria-hidden
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m6 9 6 6 6-6" />
+    </svg>
+  );
+
   return (
     <>
       {name ? <input type="hidden" name={name} value={selectedValue} /> : null}
-      <button
-        ref={triggerRef}
-        id={triggerId}
-        type="button"
-        disabled={disabled}
-        className={triggerClasses}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-controls={open ? listboxId : undefined}
-        aria-label={ariaLabel}
-        aria-labelledby={labelId}
-        data-upgraded-select-trigger
-        onClick={() => {
-          if (disabled) return;
-          setOpen((current) => !current);
-        }}
-        onKeyDown={handleTriggerKeyDown}
-      >
-        <div
-          className={`min-w-0 flex-1 ${
-            selectedOption ? "text-text-primary" : "text-text-muted"
-          }`}
+      {searchable ? (
+        <input
+          ref={setTriggerRef}
+          id={triggerId}
+          type="text"
+          role="combobox"
+          disabled={disabled}
+          className={triggerClasses}
+          autoComplete="off"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-controls={open ? listboxId : undefined}
+          aria-label={ariaLabel}
+          aria-labelledby={labelId}
+          data-upgraded-select-trigger
+          value={open ? query : getOptionSearchText(selectedOption)}
+          placeholder={placeholder}
+          onFocus={handleTriggerFocus}
+          onBlur={handleTriggerBlur}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            if (!open) setOpen(true);
+          }}
+          onKeyDown={handleSearchTriggerKeyDown}
+        />
+      ) : (
+        <button
+          ref={setTriggerRef}
+          id={triggerId}
+          type="button"
+          disabled={disabled}
+          className={triggerClasses}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-controls={open ? listboxId : undefined}
+          aria-label={ariaLabel}
+          aria-labelledby={labelId}
+          data-upgraded-select-trigger
+          onClick={() => {
+            if (disabled) return;
+            setOpen((current) => !current);
+          }}
+          onKeyDown={handleTriggerKeyDown}
         >
-          {selectedContent ?? placeholder}
-        </div>
-        <svg
-          className={`ml-2 size-4 shrink-0 text-text-muted transition-transform duration-200 ${
-            open ? "rotate-180" : ""
-          }`}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          aria-hidden
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="m6 9 6 6 6-6"
-          />
-        </svg>
-      </button>
+          <div
+            className={`min-w-0 flex-1 ${
+              selectedOption ? "text-text-primary" : "text-text-muted"
+            }`}
+          >
+            {selectedContent ?? placeholder}
+          </div>
+          {chevronIcon}
+        </button>
+      )}
 
       {open && menuPosition && typeof document !== "undefined"
         ? createPortal(
@@ -325,8 +439,8 @@ export default function UpgradedSelect({
             data-upgraded-select-menu
             onKeyDown={handleMenuKeyDown}
           >
-            {options.length > 0 ? (
-              options.map((option, index) => {
+            {visibleOptions.length > 0 ? (
+              visibleOptions.map((option, index) => {
                 const isSelected = option.value === selectedValue;
                 return (
                   <button
@@ -372,7 +486,7 @@ export default function UpgradedSelect({
               })
             ) : (
               <div className="px-3 py-2.5 text-sm text-text-muted">
-                {emptyStateLabel}
+                {searchable && query.trim() ? noResultsLabel : emptyStateLabel}
               </div>
             )}
           </div>,

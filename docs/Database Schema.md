@@ -55,7 +55,10 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 ### Content / Audit
 
 - `class_surveys`
-- `survey_round`
+- `class_survey_student_assessments`
+- `survey_round` (Prisma model `Survey` — "Bài khảo sát")
+- `survey_excluded_classes`
+- `survey_warning_dismissals`
 - `action_history`
 - `documents`
 - `notifications`
@@ -86,6 +89,10 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - **StaffMonthlyStat → StaffInfo**: N-1.
 - **ExtraAllowance → StaffInfo**: N-1.
 - **ClassSurvey → Class / StaffInfo**: optional FK, `onDelete: SetNull`.
+- **ClassSurvey → Survey**: optional FK `survey_id` (nullable cho data cũ trước khi có Bài khảo sát).
+- **ClassSurveyStudentAssessment → ClassSurvey / StudentInfo**: required FK, `onDelete: Cascade`; unique `(class_survey_id, student_id)`.
+- **SurveyExcludedClass → Survey / Class**: required FK, `onDelete: Cascade`; unique `(survey_id, class_id)`.
+- **SurveyWarningDismissal → Survey**: required FK `survey_id`, `onDelete: Cascade`; `user_id`/`staff_id` là plain id (không FK cứng, cùng convention với `action_history.user_id`); unique `(user_id, staff_id, survey_id)`.
 - **ActionHistory → User**: optional FK, `onDelete: SetNull`.
 - **Notification → User (createdBy)**: optional FK `created_by_user_id`, `onDelete: SetNull`.
 - **Regulation → User (createdBy / updatedBy)**: optional FK `created_by_user_id`, `updated_by_user_id`, `onDelete: SetNull`.
@@ -409,8 +416,11 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 ### 4.8 Content & audit
 
-- `class_surveys`: báo cáo/đánh giá lớp theo mốc test; index `class_id`, `teacher_id`, `(class_id, test_number)`, `(teacher_id, report_date)`
-- `survey_round`: bảng single-row (`id = 'current'`) lưu **lần khảo sát hiện tại** toàn cục (`current_round`, mặc định/seed = 6) do admin đặt; `updated_by_user_id` ghi admin chỉnh gần nhất. Mọi lớp `running` được kỳ vọng đã có `class_surveys.test_number = current_round`
+- `class_surveys`: báo cáo khảo sát của một lớp cho một Bài khảo sát (`survey_id`, nullable — chỉ null cho data lịch sử trước khi có Bài khảo sát). `knowledge_assessment` (text tự do) là đánh giá kiến thức **dùng chung cho cả báo cáo** (không phải theo từng học sinh). Field legacy `test_number`/`content` (lần khảo sát N toàn cục + nội dung rich text tự do) giữ nullable cho dữ liệu cũ, không còn set qua API mới; migration `20260816123000_survey_knowledge_assessment_per_report` đã backfill toàn bộ `content` cũ vào `knowledge_assessment` để không mất dữ liệu khi đổi model. Index `class_id`, `teacher_id`, `(class_id, test_number)`, `(teacher_id, report_date)`, `survey_id`, `(class_id, survey_id)`. Unique effective theo `(class_id, survey_id)` được enforce ở service layer (một báo cáo/lớp/bài khảo sát)
+- `class_survey_student_assessments`: nhận xét (`comment`, text tự do) của gia sư cho từng học sinh trong một `class_surveys` row (đánh giá kiến thức không lưu ở bảng này, xem `class_surveys.knowledge_assessment`); unique `(class_survey_id, student_id)`
+- `survey_round` (Prisma model `Survey`, "Bài khảo sát"): thay thế cơ chế "lần khảo sát N toàn cục" cũ bằng entity multi-row có `name`, `start_date`/`end_date`, `created_by_user_id`/`updated_by_user_id`, và thông báo kèm **dạng có cấu trúc** (5 field text riêng, không còn 1 rich text field): `notification_title` (mirror giá trị `name` khi tạo/sửa — FE không có input riêng vì trùng tên bài khảo sát), `notification_content` (Nội dung), `notification_instructions` (Hướng dẫn), `notification_notes` (Lưu ý), `notification_teacher_note` (Gia sư) — tất cả nullable, plain text nhiều dòng. Admin + đội giáo án (`lesson_plan`, `lesson_plan_head`) CRUD qua `/surveys` (FE: `/admin/surveys` cho admin, `/staff/surveys` cho đội giáo án — cùng dùng component `SurveysManager`). Lớp `running` được kỳ vọng có `class_surveys.survey_id = <bài đang mở>` trừ khi bị loại trừ qua `survey_excluded_classes`. Row lịch sử `id = 'current'` (field `current_round`) giữ nguyên qua migration, chỉ còn ý nghĩa legacy/không dùng cho luồng mới; `name IS NULL` dùng để phân biệt row legacy khỏi các Bài khảo sát thật khi list
+- `survey_excluded_classes`: lớp bị loại trừ khỏi yêu cầu báo cáo cho một Bài khảo sát cụ thể; unique `(survey_id, class_id)`
+- `survey_warning_dismissals`: kế toán chi bấm "Đóng và không hiển thị lại" cho cảnh báo một nhân sự (gia sư) chưa báo cáo Bài khảo sát đã quá hạn; unique `(user_id, staff_id, survey_id)`; `permanent` mặc định `false` nhưng flow hiện tại chỉ insert khi permanent (dismiss tạm thời "Đóng" là state phía FE, không persist)
 - `action_history`: audit log thay đổi dữ liệu (`before_value`, `after_value`, `changed_fields` là JSON)
 - `documents`: metadata tài liệu (`file_url`, `tags` JSON)
 - `notifications`: bản ghi thông báo admin push cho feed admin/staff/student; lưu draft/published, audience target động, version, số lần push và thời điểm push gần nhất

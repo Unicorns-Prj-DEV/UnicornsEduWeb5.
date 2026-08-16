@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowPathIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -51,6 +51,7 @@ import type {
 } from "@/dtos/session.dto";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as staffOpsApi from "@/lib/apis/staff-ops.api";
+import * as surveysApi from "@/lib/apis/surveys.api";
 import { formatCurrency } from "@/lib/class.helpers";
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
 import { resolveClassStudentCaretakerHref } from "@/lib/class-student-caretaker";
@@ -321,11 +322,13 @@ function toStaffUpdateSessionPayload(payload: SessionUpdatePayload) {
 export default function StaffClassDetailPage() {
   const params = useParams();
   const { back } = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const id = typeof params?.id === "string" ? params.id : "";
+  const initialTab: TabId = searchParams?.get("tab") === "surveys" ? "surveys" : "sessions";
 
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthValue);
-  const [activeTab, setActiveTab] = useState<TabId>("sessions");
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
   const [schedulePopupOpen, setSchedulePopupOpen] = useState(false);
   const [addSessionPopupOpen, setAddSessionPopupOpen] = useState(false);
   const [pastMakeupPopupOpen, setPastMakeupPopupOpen] = useState(false);
@@ -441,6 +444,12 @@ export default function StaffClassDetailPage() {
     enabled: !!id && canAccessClassWorkspace && activeTab === "surveys",
     placeholderData: keepPreviousData,
     retry: false,
+  });
+  const { data: availableSurveys = [] } = useQuery({
+    queryKey: ["surveys", "open-picker"],
+    queryFn: () => surveysApi.getOpenSurveys(),
+    enabled: canAccessClassWorkspace && activeTab === "surveys",
+    staleTime: 60_000,
   });
 
   const scheduleItems = Array.isArray(classDetail?.schedule)
@@ -1286,8 +1295,11 @@ export default function StaffClassDetailPage() {
               aria-labelledby="staff-class-detail-tab-surveys"
             >
               <ClassSurveyPanel
+                className={classDetail.name}
                 surveys={surveys}
+                availableSurveys={availableSurveys}
                 teachers={popupTeachers}
+                students={popupStudents}
                 loading={isSurveysLoading}
                 fetching={isSurveysFetching}
                 error={isSurveysError}

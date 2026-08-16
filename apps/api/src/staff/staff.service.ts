@@ -46,6 +46,7 @@ import {
   type StaffIncomeDepositClassSummaryDto,
   type StaffIncomeRoleSummaryDto,
   type StaffIncomeSummaryDto,
+  type StaffOverdueSurveyWarningItemDto,
   UpdateStaffDto,
   UpdateStaffStatusDto,
   PatchStaffClassTeacherOperatingDeductionDto,
@@ -668,6 +669,102 @@ export class StaffService {
     private readonly googleCalendarService: GoogleCalendarService,
     private readonly authIdentityCacheService: AuthIdentityCacheService,
   ) {}
+
+  /**
+   * Danh sách bài khảo sát đã **quá hạn** (`endDate < hôm nay`) mà lớp
+   * `running` của nhân sự (gia sư) này còn thiếu báo cáo. Dùng để cảnh báo
+   * kế toán trước khi thanh toán (pay-all/pay-selected/pay-deposit) — không
+   * áp dụng bộ lọc dismissal của banner kế toán chi (dismissal chỉ ẩn UI
+   * thông báo, không liên quan tới cảnh báo tại thời điểm thanh toán). Xem
+   * thêm `SurveyService.getAccountantWarnings` cho logic tương tự.
+   */
+  private async getOverdueSurveyWarningsForPayment(
+    staffId: string,
+  ): Promise<StaffOverdueSurveyWarningItemDto[]> {
+    const today = toDateOnly();
+
+    const closedSurveys = await this.prisma.survey.findMany({
+      where: { name: { not: null }, endDate: { lt: today } },
+      select: {
+        id: true,
+        name: true,
+        excludedClasses: { select: { classId: true } },
+      },
+    });
+    if (!closedSurveys.length) return [];
+
+    const runningClasses = await this.prisma.class.findMany({
+      where: {
+        status: 'running',
+        teachers: { some: { teacherId: staffId } },
+      },
+      select: { id: true, name: true },
+    });
+    if (!runningClasses.length) return [];
+
+    const classIds = runningClasses.map((item) => item.id);
+    const reportedRows = await this.prisma.classSurvey.findMany({
+      where: {
+        classId: { in: classIds },
+        surveyId: { in: closedSurveys.map((survey) => survey.id) },
+      },
+      select: { classId: true, surveyId: true },
+    });
+    const reportedKeys = new Set(
+      reportedRows.map((row) => `${row.classId}::${row.surveyId}`),
+    );
+
+    const warnings: StaffOverdueSurveyWarningItemDto[] = [];
+    for (const survey of closedSurveys) {
+      const excludedIds = new Set(
+        survey.excludedClasses.map((entry) => entry.classId),
+      );
+      const classNames = runningClasses
+        .filter((classItem) => !excludedIds.has(classItem.id))
+        .filter(
+          (classItem) => !reportedKeys.has(`${classItem.id}::${survey.id}`),
+        )
+        .map((classItem) => classItem.name);
+
+      if (classNames.length) {
+        warnings.push({
+          surveyId: survey.id,
+          surveyName: survey.name ?? '',
+          classNames,
+        });
+      }
+    }
+
+    return warnings;
+  }
+
+  /**
+   * Cảnh báo (không chặn cứng) nếu nhân sự còn báo cáo khảo sát quá hạn khi
+   * kế toán thanh toán. Nếu `confirmed` chưa được kế toán xác nhận (bấm "Vẫn
+   * thanh toán" trên dialog cảnh báo ở FE), throw `400` với `code:
+   * SURVEY_OVERDUE_WARNING` kèm chi tiết `warnings` để FE hiển thị dialog;
+   * khi `confirmed = true`, bỏ qua và cho thanh toán tiếp tục.
+   */
+  private async guardOverdueSurveyReports(
+    staffId: string,
+    confirmed: boolean | undefined,
+  ): Promise<void> {
+    if (confirmed) return;
+
+    const warnings = await this.getOverdueSurveyWarningsForPayment(staffId);
+    if (!warnings.length) return;
+
+    const detail = warnings
+      .map((item) => `${item.surveyName} (${item.classNames.join(', ')})`)
+      .join('; ');
+
+    throw new BadRequestException({
+      statusCode: 400,
+      code: 'SURVEY_OVERDUE_WARNING',
+      message: `Nhân sự còn báo cáo khảo sát quá hạn chưa hoàn thành: ${detail}. Xác nhận nếu vẫn muốn thanh toán.`,
+      warnings,
+    });
+  }
 
   private invalidateStaffAuthIdentities(
     ...userIds: Array<string | null | undefined>
@@ -3450,9 +3547,11 @@ export class StaffService {
     id: string,
     data: {
       sessionIds: string[];
+      confirmOverdueSurveyReports?: boolean;
     },
     auditActor?: ActionHistoryActor,
   ): Promise<StaffPayDepositSessionsResultDto> {
+    await this.guardOverdueSurveyReports(id, data.confirmOverdueSurveyReports);
     return this.prisma.$transaction(async (tx) => {
       const sessionIds = Array.from(
         new Set(
@@ -3561,9 +3660,11 @@ export class StaffService {
     query: {
       month: string;
       year: string;
+      confirmOverdueSurveyReports?: boolean;
     },
     auditActor?: ActionHistoryActor,
   ): Promise<StaffPayAllPaymentsResultDto> {
+    await this.guardOverdueSurveyReports(id, query.confirmOverdueSurveyReports);
     return this.prisma.$transaction(async (tx) => {
       const { monthKey, records } = await this.loadStaffPaymentPreviewRecords(
         tx,
@@ -3588,6 +3689,7 @@ export class StaffService {
     data: StaffPaySelectedPaymentsDto,
     auditActor?: ActionHistoryActor,
   ): Promise<StaffPayAllPaymentsResultDto> {
+    await this.guardOverdueSurveyReports(id, data.confirmOverdueSurveyReports);
     return this.prisma.$transaction(async (tx) => {
       const { monthKey, records: previewRecords } =
         await this.loadStaffPaymentPreviewRecords(tx, id, data);
@@ -4728,8 +4830,7 @@ export class StaffService {
       assistantShareYearSummary.grossTotals.total;
     const assistantShareYearTaxTotal =
       assistantShareYearSummary.taxTotals.total;
-    const trainingManagerYearTotal =
-      trainingManagerYearSummary.netTotals.total;
+    const trainingManagerYearTotal = trainingManagerYearSummary.netTotals.total;
     const trainingManagerYearGrossTotal =
       trainingManagerYearSummary.grossTotals.total;
     const trainingManagerYearTaxTotal =
@@ -5101,8 +5202,7 @@ export class StaffService {
     return {
       staffId: staff.id,
       month: monthKey,
-      revenueSharePercent:
-        staff.revenueSharePercent == null ? null : percent,
+      revenueSharePercent: staff.revenueSharePercent == null ? null : percent,
       revenue,
       amount,
     };
