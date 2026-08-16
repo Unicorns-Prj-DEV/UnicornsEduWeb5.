@@ -360,6 +360,7 @@ export default function AdminStudentDetailPage() {
                     onClose={() => setEditPopupOpen(false)}
                     student={student}
                     canEditCustomerCareProfitPercent={canEditCustomerCareProfitPercent}
+                    canEditAchievementsAndGallery={canManageStudent}
                 />
             ) : null}
             {canManageStudent ? (
@@ -683,7 +684,7 @@ export default function AdminStudentDetailPage() {
                                     mode: "admin",
                                     studentId: student.id,
                                 }}
-                                editable={canEditStudentProfile}
+                                editable={canManageStudent}
                                 heading=""
                             />
                         </StudentInfoCard>
@@ -691,7 +692,7 @@ export default function AdminStudentDetailPage() {
                         <StudentInfoCard title="Gallery">
                             <StudentGalleryEditor
                                 studentId={student.id}
-                                editable={canEditStudentProfile}
+                                editable={canManageStudent}
                                 heading=""
                             />
                         </StudentInfoCard>

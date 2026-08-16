@@ -1845,6 +1845,9 @@ export default function AdminStaffDetailPage({
           qrLink={qrLink ?? resolvedQrLink}
           onQrEdit={() => setQrPopupOpen(true)}
           allowQrEdit={!viewingOwnStaffRecordOnStaffShell}
+          allowAchievementEdit={
+            (isAdmin || isAssistant) && !viewingOwnStaffRecordOnStaffShell
+          }
         />
 
         <section
