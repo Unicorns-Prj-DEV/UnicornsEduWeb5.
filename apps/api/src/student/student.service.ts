@@ -889,7 +889,7 @@ export class StudentService {
 
   /**
    * Ensures the actor may mutate the student profile (admin, assistant, or
-   * assigned customer_care). Customer care cannot change profit percent.
+   * assigned customer_care). Only admin/assistant can change profit percent.
    */
   private async assertCanMutateStudentProfile(
     studentId: string,
@@ -926,12 +926,13 @@ export class StudentService {
     });
 
     const canEditProfitPercent = Boolean(
-      staff?.roles.includes(StaffRole.admin),
+      staff?.roles.includes(StaffRole.admin) ||
+        staff?.roles.includes(StaffRole.assistant),
     );
 
     if (!canEditProfitPercent) {
       throw new ForbiddenException(
-        'Only admin can change customer care profit percent',
+        'Only admin or assistant staff can change customer care profit percent',
       );
     }
   }
