@@ -370,7 +370,7 @@
     - với `staff.training` không có role mirror kế toán/trợ lí, backend chỉ trả các lớp có `classes.training_manager_staff_id` trỏ về staff hiện tại và redact field tài chính giống chế độ xem chi tiết training manager
   - `GET /staff-ops/classes/:id`
     - với `staff.customer_care`, backend chỉ trả lớp khi tồn tại ít nhất một `student_classes` row mà học sinh tương ứng đang map tới chính staff đó trong `customer_care_service`
-  - `PATCH /staff-ops/classes/:id/schedule` — cập nhật khung giờ học tương tự admin (hỗ trợ lưu vết lịch sử slot `createdAt`/`deletedAt`; Google sync sau khi lưu giữ nguyên lịch sử này) và trả về danh sách cảnh báo `warnings` cho các buổi bù tương lai.
+  - `PATCH /staff-ops/classes/:id/schedule` — upsert khung giờ học tương tự admin (body thêm `removedEntryIds?: string[]` để soft-delete tường minh, `expectedUpdatedAt?: string` để bật optimistic lock — lệch với `Class.updatedAt` hiện tại trả `409`; hỗ trợ lưu vết lịch sử slot `createdAt`/`deletedAt`; Google sync sau khi lưu giữ nguyên lịch sử này) và trả về danh sách cảnh báo `warnings` cho các buổi bù tương lai. Với `staff.teacher` tự sửa lịch của chính mình: backend chỉ cho phép động tới các slot có `teacherId` là chính họ (cả upsert lẫn `removedEntryIds`), thao tác lên slot của gia sư khác trả `403`.
   - `GET /staff-ops/classes/:classId/sessions?month=&year=`
     - với `staff.teacher`, backend chỉ trả các buổi trong lớp đó do chính teacher hiện tại phụ trách; `admin` và `staff.customer_care` thấy toàn bộ buổi của lớp, nhưng `customer_care` vẫn chỉ ở chế độ đọc
   - `POST /staff-ops/classes/:classId/sessions`
