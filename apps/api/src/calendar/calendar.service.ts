@@ -87,6 +87,20 @@ export class CalendarService {
   private readonly logger = new Logger(CalendarService.name);
   private readonly GOOGLE_CALENDAR_RESYNC_WRITE_DELAY_MS =
     process.env.NODE_ENV === 'test' ? 0 : 250;
+  // Wall-clock budget for a single resync pass (create/update + delete loops
+  // combined), checked at loop-iteration boundaries only. Worst case adds one
+  // more in-flight call at GOOGLE_CALENDAR_REQUEST_TIMEOUT_MS (20s) on top of
+  // this budget (~65s total), which must stay under Cloudflare's default
+  // 100s gateway timeout.
+  private readonly RESYNC_WALL_CLOCK_BUDGET_MS =
+    process.env.NODE_ENV === 'test' ? 200 : 45000;
+  // Warning codes from resyncClassScheduleWithGoogleCalendarInternal that
+  // represent a real sync failure (not just an informational/harmless note).
+  private readonly RESYNC_HARD_FAILURE_WARNING_CODES = new Set([
+    'recurring_event_delete_failed',
+    'recurring_event_sync_failed',
+    'resync_deadline_exceeded',
+  ]);
 
   constructor(
     private readonly prisma: PrismaService,
@@ -1420,9 +1434,21 @@ export class CalendarService {
     classId: string,
     oldSchedule?: StoredClassScheduleEntry[],
   ): Promise<void> {
-    await this.resyncClassScheduleWithGoogleCalendarInternal(classId, {
-      oldSchedule,
-    });
+    const summary = await this.resyncClassScheduleWithGoogleCalendarInternal(
+      classId,
+      { oldSchedule },
+    );
+
+    const hardFailures = summary.warnings.filter((warning) =>
+      this.RESYNC_HARD_FAILURE_WARNING_CODES.has(warning.code),
+    );
+    if (hardFailures.length > 0) {
+      throw new GoogleCalendarApiError(
+        `Class schedule sync for ${classId} had ${hardFailures.length} failed recurring event operation(s): ${hardFailures
+          .map((warning) => warning.message)
+          .join('; ')}`,
+      );
+    }
   }
 
   async resyncClassScheduleWithGoogleCalendar(
@@ -1491,6 +1517,9 @@ export class CalendarService {
       quotaLimited: false,
       warnings: [],
     };
+    const resyncStartedAtMs = Date.now();
+    const isDeadlineExceeded = () =>
+      Date.now() - resyncStartedAtMs > this.RESYNC_WALL_CLOCK_BUDGET_MS;
     const allStoredScheduleEntries = this.getStoredClassScheduleEntries(
       cls.schedule,
     );
@@ -1737,8 +1766,35 @@ export class CalendarService {
       );
     };
 
+    let deadlineExceededMarked = false;
+    const markDeadlineExceeded = () => {
+      if (deadlineExceededMarked) {
+        return;
+      }
+      deadlineExceededMarked = true;
+      summary.warnings.push({
+        code: 'resync_deadline_exceeded',
+        message:
+          'Google Calendar resync exceeded its wall-clock budget. Remaining recurring sync writes were stopped; retry resync later.',
+      });
+      stopRecurringWrites = true;
+      this.logger.error(
+        `[Calendar Resync:Recurring] state=deadline_exceeded ${this.formatCalendarSyncLog(
+          {
+            classId,
+            scope: summary.scope,
+            budgetMs: this.RESYNC_WALL_CLOCK_BUDGET_MS,
+          },
+        )}`,
+      );
+    };
+
     for (const entry of currentSchedule) {
       if (stopRecurringWrites) {
+        break;
+      }
+      if (isDeadlineExceeded()) {
+        markDeadlineExceeded();
         break;
       }
 
@@ -1998,6 +2054,13 @@ export class CalendarService {
 
     if (!stopRecurringWrites) {
       for (const event of deleteCandidates.values()) {
+        if (stopRecurringWrites) {
+          break;
+        }
+        if (isDeadlineExceeded()) {
+          markDeadlineExceeded();
+          break;
+        }
         if (protectedEventIds.has(event.eventId)) {
           continue;
         }
@@ -2048,7 +2111,13 @@ export class CalendarService {
               },
             )}`,
           );
-          throw error;
+          summary.failedRecurringEvents += 1;
+          summary.warnings.push({
+            code: 'recurring_event_delete_failed',
+            message: this.getCalendarSyncErrorMessage(error),
+            eventId: event.eventId,
+          });
+          continue;
         }
         summary.deletedRecurringEvents += 1;
         this.logger.log(
