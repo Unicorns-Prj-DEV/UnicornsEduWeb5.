@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -162,6 +163,11 @@ export class ClassService {
   ) {}
 
   private readonly logger = new Logger(ClassService.name);
+
+  // In-memory lock theo classId để chặn 2 request update lịch cùng lớp
+  // chạy chồng nhau trong cùng 1 process (bổ sung cho optimistic lock ở DB,
+  // vốn là chốt chặn chính cho trường hợp nhiều pod).
+  private readonly activeScheduleUpdates = new Set<string>();
 
   private buildStaffDisplayName(staff: {
     user: {
@@ -331,7 +337,9 @@ export class ClassService {
     nextEntries: UpdateClassScheduleDto['schedule'],
     existingSchedule: Prisma.JsonValue | null | undefined,
     classCreatedAt?: Date | string | null,
+    removedEntryIds?: string[],
   ) {
+    const removedEntryIdSet = new Set(removedEntryIds ?? []);
     // Fallback lower bound cho legacy entries không có createdAt
     const classCreatedAtISO =
       classCreatedAt instanceof Date
@@ -415,17 +423,27 @@ export class ClassService {
       activeEntries.map((entry) => entry.id).filter(Boolean),
     );
     for (const existingEntry of existingById.values()) {
-      if (
-        !nextEntryIds.has(existingEntry.id) &&
-        !handledExistingIds.has(existingEntry.id)
-      ) {
-        deletedEntries.push({
-          ...existingEntry,
-          // Backfill createdAt trước khi soft-delete nếu entry chưa có
-          createdAt: existingEntry.createdAt ?? classCreatedAtISO,
-          deletedAt: existingEntry.deletedAt ?? new Date().toISOString(),
-        });
+      if (nextEntryIds.has(existingEntry.id) || handledExistingIds.has(existingEntry.id)) {
+        continue;
       }
+
+      if (existingEntry.deletedAt || !removedEntryIdSet.has(existingEntry.id)) {
+        // Đã soft-delete từ trước, hoặc không nằm trong danh sách xoá tường minh
+        // của request này → GIỮ NGUYÊN, không tự động soft-delete.
+        // Đây là fix cho lost-update: entry vắng mặt trong payload (vì FE chỉ
+        // gửi những gì nó biết/đang sửa) không còn đồng nghĩa với "bị xoá".
+        (existingEntry.deletedAt ? deletedEntries : activeEntries).push(
+          existingEntry,
+        );
+        continue;
+      }
+
+      deletedEntries.push({
+        ...existingEntry,
+        // Backfill createdAt trước khi soft-delete nếu entry chưa có
+        createdAt: existingEntry.createdAt ?? classCreatedAtISO,
+        deletedAt: existingEntry.deletedAt ?? new Date().toISOString(),
+      });
     }
 
     return [...activeEntries, ...deletedEntries];
@@ -1093,8 +1111,48 @@ export class ClassService {
         actor.id,
         id,
       );
+      await this.assertTeacherOnlyOwnScheduleEntries(actor.id, id, dto);
     }
     return this.updateClassSchedule(id, dto, auditActor);
+  }
+
+  /**
+   * Gia sư tự cập nhật lịch (qua /staff-ops) chỉ được thêm/sửa/xoá đúng slot
+   * của chính mình — không được đụng tới slot của gia sư khác trong cùng lớp.
+   */
+  private async assertTeacherOnlyOwnScheduleEntries(
+    teacherId: string,
+    classId: string,
+    dto: UpdateClassScheduleDto,
+  ) {
+    const foreignEntry = dto.schedule.find(
+      (entry) => entry.teacherId && entry.teacherId !== teacherId,
+    );
+    if (foreignEntry) {
+      throw new ForbiddenException(
+        'Gia sư chỉ được thêm/sửa lịch của chính mình.',
+      );
+    }
+
+    if (dto.removedEntryIds && dto.removedEntryIds.length > 0) {
+      const klass = await this.prisma.class.findUnique({
+        where: { id: classId },
+        select: { schedule: true },
+      });
+      const entriesById = new Map(
+        this.getStoredClassScheduleEntries(klass?.schedule).map((entry) => [
+          entry.id,
+          entry,
+        ]),
+      );
+      const foreignRemoval = dto.removedEntryIds.find((entryId) => {
+        const entry = entriesById.get(entryId);
+        return !entry || entry.teacherId !== teacherId;
+      });
+      if (foreignRemoval) {
+        throw new ForbiddenException('Gia sư chỉ được xoá lịch của chính mình.');
+      }
+    }
   }
 
   async createClass(data: CreateClassDto, auditActor?: ActionHistoryActor) {
@@ -1827,18 +1885,55 @@ export class ClassService {
     dto: UpdateClassScheduleDto,
     auditActor?: ActionHistoryActor,
   ) {
+    if (this.activeScheduleUpdates.has(id)) {
+      throw new ConflictException(
+        'Lịch học của lớp này đang được cập nhật bởi một request khác. Vui lòng thử lại sau giây lát.',
+      );
+    }
+    this.activeScheduleUpdates.add(id);
+    try {
+      return await this.updateClassScheduleLocked(id, dto, auditActor);
+    } finally {
+      this.activeScheduleUpdates.delete(id);
+    }
+  }
+
+  private async updateClassScheduleLocked(
+    id: string,
+    dto: UpdateClassScheduleDto,
+    auditActor?: ActionHistoryActor,
+  ) {
     const existing = await this.prisma.class.findUnique({
       where: { id },
-      select: { id: true, name: true, schedule: true, createdAt: true },
+      select: {
+        id: true,
+        name: true,
+        schedule: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
     if (!existing) {
       throw new NotFoundException('Class not found');
+    }
+
+    if (dto.expectedUpdatedAt) {
+      const expected = new Date(dto.expectedUpdatedAt).getTime();
+      if (
+        !Number.isNaN(expected) &&
+        expected !== existing.updatedAt.getTime()
+      ) {
+        throw new ConflictException(
+          'Lịch học của lớp vừa được người khác cập nhật. Vui lòng tải lại và thử lại.',
+        );
+      }
     }
 
     const normalizedScheduleEntries = this.mergeScheduleEntriesWithExisting(
       this.ensureScheduleEntryIds(dto.schedule),
       existing.schedule,
       existing.createdAt,
+      dto.removedEntryIds,
     );
 
     const teacherIds = Array.from(
@@ -1952,10 +2047,19 @@ export class ClassService {
       const beforeValue = auditActor
         ? await this.getClassAuditSnapshot(tx, id)
         : null;
-      await tx.class.update({
-        where: { id },
+
+      // Optimistic lock: chỉ ghi nếu chưa ai khác cập nhật lớp kể từ lúc ta
+      // đọc `existing` ở đầu hàm. Nếu count=0 nghĩa là đã có request khác
+      // xen giữa (đã đổi updatedAt) → coi như xung đột, KHÔNG được ghi đè.
+      const writeResult = await tx.class.updateMany({
+        where: { id, updatedAt: existing.updatedAt },
         data: { schedule },
       });
+      if (writeResult.count === 0) {
+        throw new ConflictException(
+          'Lịch học của lớp vừa được người khác cập nhật. Vui lòng tải lại và thử lại.',
+        );
+      }
 
       const afterValue = await this.getClassAuditSnapshot(tx, id);
       if (!afterValue) {
