@@ -203,6 +203,10 @@ export interface ClassTeacherPayload {
 /** Payload for PATCH /class/:id/schedule */
 export interface UpdateClassSchedulePayload {
     schedule: ClassScheduleItem[];
+    /** Id các slot cần xoá tường minh (soft-delete). Slot active vắng mặt trong `schedule` mà không có ở đây sẽ được giữ nguyên. */
+    removedEntryIds?: string[];
+    /** `updatedAt` của lớp lúc client tải dữ liệu — dùng để bật optimistic lock, tránh ghi đè thay đổi của người khác. */
+    expectedUpdatedAt?: string;
 }
 
 /** Payload for PATCH /class/:id/students */

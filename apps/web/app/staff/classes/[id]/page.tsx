@@ -570,8 +570,11 @@ export default function StaffClassDetailPage() {
 
   const updateScheduleMutation = useMutation({
     mutationKey: staffOpsKeys.updateSchedule(id),
-    mutationFn: (payload: { schedule: ClassScheduleItem[] }) =>
-      staffOpsApi.updateClassSchedule(id, payload),
+    mutationFn: (payload: {
+      schedule: ClassScheduleItem[];
+      removedEntryIds?: string[];
+      expectedUpdatedAt?: string;
+    }) => staffOpsApi.updateClassSchedule(id, payload),
     onSuccess: invalidateClassOpsQueries,
   });
 
@@ -612,7 +615,11 @@ export default function StaffClassDetailPage() {
   });
 
   const handleScheduleSubmit = useCallback(
-    (payload: { schedule: ClassScheduleItem[] }) => updateScheduleMutation.mutateAsync(payload),
+    (payload: {
+      schedule: ClassScheduleItem[];
+      removedEntryIds?: string[];
+      expectedUpdatedAt?: string;
+    }) => updateScheduleMutation.mutateAsync(payload),
     [updateScheduleMutation],
   );
 

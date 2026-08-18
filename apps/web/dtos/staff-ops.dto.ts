@@ -24,6 +24,10 @@ export interface StaffOpsCreateClassPayload {
 
 export interface StaffOpsUpdateClassSchedulePayload {
   schedule: ClassScheduleItem[];
+  /** Id các slot cần xoá tường minh (soft-delete). Gia sư chỉ được liệt kê id slot của chính mình. */
+  removedEntryIds?: string[];
+  /** `updatedAt` của lớp lúc client tải dữ liệu — dùng để bật optimistic lock. */
+  expectedUpdatedAt?: string;
 }
 
 export interface StaffOpsSessionAttendancePayload {

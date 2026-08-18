@@ -54,7 +54,11 @@ type Props = {
   allowTeacherSelection?: boolean;
   defaultTeacherId?: string;
   readOnly?: boolean;
-  onSubmitSchedule?: (data: { schedule: ClassScheduleItem[] }) => Promise<unknown>;
+  onSubmitSchedule?: (data: {
+    schedule: ClassScheduleItem[];
+    removedEntryIds?: string[];
+    expectedUpdatedAt?: string;
+  }) => Promise<unknown>;
   onScheduleSaved?: () => Promise<unknown> | void;
 };
 
@@ -188,12 +192,32 @@ function EditClassScheduleDialog({
   const queryClient = useQueryClient();
   const resolvedDefaultTeacherId =
     defaultTeacherId ?? (teachers.length === 1 ? teachers[0]?.id ?? "" : "");
-  const [scheduleRanges, setScheduleRanges] = useState<ScheduleRangeForm[]>(() => {
-    const normalized = normalizeSchedule(classDetail.schedule, resolvedDefaultTeacherId);
+  // Chế độ gia sư tự sửa lịch (allowTeacherSelection=false + có defaultTeacherId): chỉ
+  // load/hiển thị đúng slot của gia sư đó, không đụng tới slot của gia sư khác trong lớp.
+  const scopeTeacherId =
+    !allowTeacherSelection && defaultTeacherId ? defaultTeacherId : undefined;
+  const buildInitialRanges = () => {
+    const normalized = normalizeSchedule(
+      classDetail.schedule,
+      resolvedDefaultTeacherId,
+    ).filter((range) => !scopeTeacherId || range.teacherId === scopeTeacherId);
     return normalized.length > 0
       ? normalized
       : [createScheduleRange(undefined, resolvedDefaultTeacherId)];
-  });
+  };
+  const [scheduleRanges, setScheduleRanges] =
+    useState<ScheduleRangeForm[]>(buildInitialRanges);
+  // Id các slot đang active lúc mở dialog (trong phạm vi được sửa) — dùng để tính
+  // slot nào bị người dùng chủ động xoá, gửi tường minh qua `removedEntryIds` thay
+  // vì suy luận "vắng mặt trong payload = bị xoá" (nguyên nhân gây lost-update).
+  const [initialPersistedIds] = useState<Set<string>>(
+    () =>
+      new Set(
+        buildInitialRanges()
+          .map((range) => range.persistedId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+  );
   const teacherOptions = teachers.map((teacher) => ({
     value: teacher.id,
     label: teacher.fullName?.trim() || "—",
@@ -217,6 +241,14 @@ function EditClassScheduleDialog({
       toast.error((error as Error).message || "Không thể lưu lịch học.");
       return;
     }
+    const survivingPersistedIds = new Set(
+      scheduleRanges
+        .map((range) => range.persistedId)
+        .filter((id): id is string => Boolean(id)),
+    );
+    const removedEntryIds = Array.from(initialPersistedIds).filter(
+      (id) => !survivingPersistedIds.has(id),
+    );
     onClose();
     runBackgroundSave({
       loadingMessage: "Đang lưu khung giờ học...",
@@ -224,9 +256,15 @@ function EditClassScheduleDialog({
       errorMessage: "Không thể cập nhật lịch học.",
       action: () =>
         onSubmitSchedule
-          ? onSubmitSchedule({ schedule: schedulePayload })
+          ? onSubmitSchedule({
+              schedule: schedulePayload,
+              removedEntryIds: removedEntryIds.length ? removedEntryIds : undefined,
+              expectedUpdatedAt: classDetail.updatedAt,
+            })
           : classApi.updateClassSchedule(classDetail.id, {
               schedule: schedulePayload,
+              removedEntryIds: removedEntryIds.length ? removedEntryIds : undefined,
+              expectedUpdatedAt: classDetail.updatedAt,
             }),
       onSuccess: async (result) => {
         const resObj = result as Record<string, unknown> | null;
@@ -240,6 +278,13 @@ function EditClassScheduleDialog({
           queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
           Promise.resolve(onScheduleSaved?.()),
         ]);
+      },
+      onError: async () => {
+        // 409 = lịch vừa bị người khác cập nhật (optimistic lock) → refetch để
+        // người dùng thấy state mới nhất thay vì thao tác tiếp trên state cũ.
+        await queryClient.invalidateQueries({
+          queryKey: ["class", "detail", classDetail.id],
+        });
       },
     });
   };
