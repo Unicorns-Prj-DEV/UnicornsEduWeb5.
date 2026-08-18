@@ -446,7 +446,7 @@ export default function StaffClassDetailPage() {
   });
 
   const scheduleItems = Array.isArray(classDetail?.schedule)
-    ? classDetail.schedule.filter((item) => item?.from && item?.to)
+    ? classDetail.schedule.filter((item) => item?.from && item?.to && !item?.deletedAt)
     : [];
 
   const classStudents = classDetail?.students ?? [];

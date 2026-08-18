@@ -82,6 +82,7 @@ function normalizeSchedule(
   return schedule.reduce<ScheduleRangeForm[]>((acc, item) => {
     if (!item || typeof item !== "object") return acc;
     const record = item as Record<string, unknown>;
+    if (record.deletedAt) return acc;
     const from = normalizeTimeOnly(typeof record.from === "string" ? record.from : "");
     const to = normalizeTimeOnly(typeof record.to === "string" ? record.to : "");
     const dayOfWeek = normalizeDayOfWeek(record.dayOfWeek, EMPTY_SCHEDULE_RANGE.dayOfWeek);

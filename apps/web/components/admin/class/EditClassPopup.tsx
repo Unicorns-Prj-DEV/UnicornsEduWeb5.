@@ -91,6 +91,7 @@ function normalizeSchedule(
     if (!item || typeof item !== "object") return acc;
 
     const record = item as Record<string, unknown>;
+    if (record.deletedAt) return acc;
     const dayOfWeek = normalizeDayOfWeek(
       record.dayOfWeek,
       EMPTY_SCHEDULE_RANGE.dayOfWeek,
@@ -162,6 +163,7 @@ function normalizeScheduleForComparison(
         if (!item || typeof item !== "object") return acc;
 
         const record = item as Record<string, unknown>;
+        if (record.deletedAt) return acc;
         const from = normalizeTimeOnly(typeof record.from === "string" ? record.from : "");
         const to = normalizeTimeOnly(typeof record.to === "string" ? record.to : "");
 
