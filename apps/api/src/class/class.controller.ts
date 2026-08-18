@@ -263,13 +263,20 @@ export class ClassController {
   @ApiOperation({
     summary: 'Update class schedule',
     description:
-      'Replace the class schedule (array of { dayOfWeek, from, to, teacherId } in HH:mm:ss).',
+      'Upsert schedule slots (array of { dayOfWeek, from, to, teacherId } in HH:mm:ss). ' +
+      'Slot đang active nhưng không có trong `schedule` sẽ được GIỮ NGUYÊN — muốn xoá phải liệt kê id trong `removedEntryIds`. ' +
+      'Truyền `expectedUpdatedAt` (lấy từ response GET class gần nhất) để bật optimistic lock, tránh ghi đè thay đổi của người khác.',
   })
   @ApiParam({ name: 'id', description: 'Class id' })
   @ApiBody({ type: UpdateClassScheduleDto })
   @ApiResponse({ status: 200, description: 'Class updated.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({ status: 404, description: 'Class not found.' })
+  @ApiResponse({
+    status: 409,
+    description:
+      'Lịch vừa bị người khác cập nhật (optimistic lock) hoặc đang có request khác xử lý cùng lớp.',
+  })
   async updateClassSchedule(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseClassIdPipe()) id: string,

@@ -398,10 +398,11 @@ export class ScheduleSlotDto {
   deletedAt?: string;
 }
 
-/** DTO for PATCH /class/:id/schedule – replace schedule */
+/** DTO for PATCH /class/:id/schedule – upsert schedule slots */
 export class UpdateClassScheduleDto {
   @ApiProperty({
-    description: 'Class schedule array { from, to } in HH:mm:ss',
+    description:
+      'Danh sách slot lịch cần thêm mới/cập nhật. Slot đang active nhưng KHÔNG có mặt ở đây sẽ được GIỮ NGUYÊN (không tự xoá) — muốn xoá phải liệt kê id trong `removedEntryIds`.',
     type: [ScheduleSlotDto],
     example: [{ from: '19:00:00', to: '20:30:00' }],
   })
@@ -409,6 +410,25 @@ export class UpdateClassScheduleDto {
   @ValidateNested({ each: true })
   @Type(() => ScheduleSlotDto)
   schedule: ScheduleSlotDto[];
+
+  @ApiPropertyOptional({
+    description: 'Id các slot cần xoá tường minh (soft-delete).',
+    type: [String],
+    example: ['550e8400-e29b-41d4-a716-446655440000'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  removedEntryIds?: string[];
+
+  @ApiPropertyOptional({
+    description:
+      'ISO timestamp `updatedAt` của lớp lúc client tải dữ liệu — dùng để phát hiện xung đột (optimistic lock). Nếu lớp đã bị người khác cập nhật sau thời điểm này, request bị từ chối với 409.',
+    example: '2026-08-18T14:50:43.600Z',
+  })
+  @IsOptional()
+  @IsString()
+  expectedUpdatedAt?: string;
 }
 
 /** DTO for POST /staff-ops/classes – minimal class metadata only */
