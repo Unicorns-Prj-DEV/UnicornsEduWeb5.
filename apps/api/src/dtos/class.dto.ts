@@ -4,10 +4,11 @@ import {
   PartialType,
   PickType,
 } from '@nestjs/swagger';
-import { ClassStatus, ClassType } from 'generated/enums';
+import { ClassStatus } from 'generated/enums';
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsEnum,
   IsIn,
   IsInt,
@@ -83,10 +84,13 @@ export class CreateClassDto {
   @IsString()
   name: string;
 
-  @ApiPropertyOptional({ enum: ClassType, default: ClassType.basic })
+  @ApiPropertyOptional({
+    description: 'Class category id (see GET /class-categories).',
+    example: 'a1b2c3d4-...-uuid',
+  })
   @IsOptional()
-  @IsEnum(ClassType)
-  type?: ClassType;
+  @IsString()
+  class_category_id?: string;
 
   @ApiPropertyOptional({ enum: ClassStatus, default: ClassStatus.running })
   @IsOptional()
@@ -205,7 +209,7 @@ export class CreateClassDto {
 export class UpdateClassBasicInfoDto extends PartialType(
   PickType(CreateClassDto, [
     'name',
-    'type',
+    'class_category_id',
     'status',
     'max_students',
     'allowance_per_session_per_student',
@@ -410,7 +414,7 @@ export class UpdateClassScheduleDto {
 /** DTO for POST /staff-ops/classes – minimal class metadata only */
 export class CreateStaffOpsClassDto extends PickType(CreateClassDto, [
   'name',
-  'type',
+  'class_category_id',
   'status',
 ] as const) {
   @ApiPropertyOptional({
@@ -472,6 +476,31 @@ export class UpdateClassStudentsDto {
   @ValidateNested({ each: true })
   @Type(() => StudentClassCreateDto)
   students: StudentClassCreateDto[];
+}
+
+export class CreateClassCategoryDto {
+  @ApiProperty({ description: 'Display name shown in the UI.', example: 'THPT Basic' })
+  @IsString()
+  name: string;
+
+  @ApiPropertyOptional({ example: 10, minimum: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  sort_order?: number;
+}
+
+export class UpdateClassCategoryDto extends PartialType(
+  PickType(CreateClassCategoryDto, ['name', 'sort_order'] as const),
+) {
+  @ApiPropertyOptional({
+    description: 'Toggle visibility in dropdowns without deleting the category.',
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  is_active?: boolean;
 }
 
 export class UpdateClassDto extends PartialType(CreateClassDto) {

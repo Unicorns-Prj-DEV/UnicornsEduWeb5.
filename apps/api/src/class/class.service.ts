@@ -7,7 +7,6 @@ import {
 import { randomUUID } from 'node:crypto';
 import {
   ClassStatus,
-  ClassType,
   StaffRole,
   StaffStatus,
   StudentClassStatus,
@@ -534,6 +533,7 @@ export class ClassService {
             },
           },
         },
+        classCategory: true,
       },
     });
 
@@ -705,7 +705,7 @@ export class ClassService {
     query: PaginationQueryDto & {
       search?: string;
       status?: string;
-      type?: string;
+      classCategoryId?: string;
       teacherId?: string;
       trainingManagerStaffId?: string;
     },
@@ -721,7 +721,7 @@ export class ClassService {
 
     const trimmedSearch = query.search?.trim();
     const normalizedStatus = query.status?.trim();
-    const normalizedType = query.type?.trim();
+    const classCategoryId = query.classCategoryId?.trim();
     const teacherId = query.teacherId?.trim();
     const trainingManagerStaffId = query.trainingManagerStaffId?.trim();
 
@@ -731,17 +731,6 @@ export class ClassService {
         : normalizedStatus === ClassStatus.ended
           ? ClassStatus.ended
           : undefined;
-
-    const typeFilter: ClassType | undefined =
-      normalizedType === ClassType.vip
-        ? ClassType.vip
-        : normalizedType === ClassType.basic
-          ? ClassType.basic
-          : normalizedType === ClassType.advance
-            ? ClassType.advance
-            : normalizedType === ClassType.hardcore
-              ? ClassType.hardcore
-              : undefined;
 
     const where = {
       ...(trimmedSearch
@@ -753,7 +742,7 @@ export class ClassService {
           }
         : {}),
       ...(statusFilter ? { status: statusFilter } : {}),
-      ...(typeFilter ? { type: typeFilter } : {}),
+      ...(classCategoryId ? { classCategoryId } : {}),
       ...(teacherId
         ? {
             teachers: {
@@ -779,9 +768,14 @@ export class ClassService {
       where,
       skip,
       take: limit,
+      include: {
+        classCategory: true,
+      },
       orderBy: [
         {
-          type: 'desc',
+          classCategory: {
+            sortOrder: 'asc',
+          },
         },
         {
           name: 'asc',
@@ -981,7 +975,7 @@ export class ClassService {
     query: PaginationQueryDto & {
       search?: string;
       status?: string;
-      type?: string;
+      classCategoryId?: string;
     },
   ) {
     const actor = await this.staffOperationsAccess.resolveActor(
@@ -1075,7 +1069,7 @@ export class ClassService {
     return this.createClass(
       {
         name: dto.name,
-        type: dto.type,
+        class_category_id: dto.class_category_id,
         status: dto.status,
         schedule: dto.schedule,
       },
@@ -1107,16 +1101,35 @@ export class ClassService {
     return this.withEntityIdRetry(() => this.createClassOnce(data, auditActor));
   }
 
+  private async resolveDefaultClassCategoryId(
+    db: Prisma.TransactionClient | PrismaService,
+  ) {
+    const defaultCategory = await db.classCategory.findFirst({
+      where: { isActive: true },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      select: { id: true },
+    });
+    if (!defaultCategory) {
+      throw new NotFoundException(
+        'Không có phân loại lớp nào đang hoạt động. Vui lòng chọn phân loại lớp.',
+      );
+    }
+    return defaultCategory.id;
+  }
+
   private async createClassOnce(
     data: CreateClassDto,
     auditActor?: ActionHistoryActor,
   ) {
     return await this.prisma.$transaction(async (tx) => {
+      const classCategoryId =
+        data.class_category_id ?? (await this.resolveDefaultClassCategoryId(tx));
+
       const createdClass = await tx.class.create({
         data: {
           id: generateClassId(),
           name: data.name,
-          type: data.type,
+          classCategoryId,
           status: data.status,
           maxStudents: data.max_students,
           allowancePerSessionPerStudent: data.allowance_per_session_per_student,
@@ -1359,7 +1372,7 @@ export class ClassService {
         where: { id: data.id },
         data: {
           name: data.name,
-          type: data.type,
+          classCategoryId: data.class_category_id,
           status: data.status,
           maxStudents: data.max_students,
           allowancePerSessionPerStudent: data.allowance_per_session_per_student,
@@ -1461,9 +1474,10 @@ export class ClassService {
       );
     }
 
-    const data: Prisma.ClassUpdateInput = {};
+    const data: Prisma.ClassUncheckedUpdateInput = {};
     if (dto.name !== undefined) data.name = dto.name;
-    if (dto.type !== undefined) data.type = dto.type;
+    if (dto.class_category_id !== undefined)
+      data.classCategoryId = dto.class_category_id;
     if (dto.status !== undefined) data.status = dto.status;
     if (dto.max_students !== undefined) data.maxStudents = dto.max_students;
     if (dto.allowance_per_session_per_student !== undefined) {

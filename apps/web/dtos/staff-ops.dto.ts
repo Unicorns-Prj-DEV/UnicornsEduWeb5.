@@ -3,7 +3,6 @@ import type {
   ClassListResponse,
   ClassScheduleItem,
   ClassStatus,
-  ClassType,
 } from "./class.dto";
 import type {
   SessionAttendanceStatus,
@@ -18,7 +17,7 @@ export type StaffOpsSessionMonthYearParams = SessionMonthYearParams;
 
 export interface StaffOpsCreateClassPayload {
   name: string;
-  type?: ClassType;
+  class_category_id?: string;
   status?: ClassStatus;
   schedule?: ClassScheduleItem[];
 }

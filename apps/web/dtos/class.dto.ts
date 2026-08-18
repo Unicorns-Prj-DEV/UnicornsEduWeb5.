@@ -2,7 +2,27 @@
 import { StaffInfoDto, StaffStatus } from "./staff.dto";
 
 export type ClassStatus = "running" | "ended";
-export type ClassType = "vip" | "basic" | "advance" | "hardcore";
+
+/** Phân loại lớp, tuỳ chỉnh được qua GET/POST/PATCH/DELETE /class-categories. */
+export interface ClassCategory {
+    id: string;
+    name: string;
+    sortOrder: number;
+    isActive: boolean;
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+export interface CreateClassCategoryPayload {
+    name: string;
+    sort_order?: number;
+}
+
+export interface UpdateClassCategoryPayload {
+    name?: string;
+    sort_order?: number;
+    is_active?: boolean;
+}
 
 export interface ClassScheduleItem {
     id?: string;
@@ -19,7 +39,8 @@ export interface ClassScheduleItem {
 export interface ClassListItem {
     id: string;
     name: string;
-    type: ClassType;
+    classCategoryId: string;
+    classCategory?: ClassCategory;
     status: ClassStatus;
     studentCount?: number;
     maxStudents: number;
@@ -108,7 +129,7 @@ export interface ClassDetail extends ClassListItem {
 
 export interface CreateClassPayload {
     name: string;
-    type?: ClassType;
+    class_category_id?: string;
     status?: ClassStatus;
     max_students?: number;
     allowance_per_session_per_student?: number;
@@ -127,7 +148,7 @@ export interface CreateClassPayload {
 export interface UpdateClassPayload {
     id: string;
     name?: string;
-    type?: ClassType;
+    class_category_id?: string;
     status?: ClassStatus;
     max_students?: number;
     allowance_per_session_per_student?: number;
@@ -145,7 +166,7 @@ export interface UpdateClassPayload {
 /** Payload for PATCH /class/:id/basic-info */
 export interface UpdateClassBasicInfoPayload {
     name?: string;
-    type?: ClassType;
+    class_category_id?: string;
     status?: ClassStatus;
     max_students?: number;
     allowance_per_session_per_student?: number;
@@ -209,7 +230,8 @@ export interface ClassListItemDto {
     id: string;
     name: string;
     status: ClassStatus;
-    type: ClassType;
+    classCategoryId: string;
+    classCategory?: ClassCategory;
     studentCount?: number;
     maxStudents?: number;
     createdAt: Date;

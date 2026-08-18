@@ -495,6 +495,7 @@ export default function AchievementListEditor({
   const queryClient = useQueryClient();
   const queryKey = achievementApi.achievementQueryKey(owner);
   const [newTitle, setNewTitle] = useState("");
+  const [newTitleFile, setNewTitleFile] = useState<File | null>(null);
   const [draftStudent, setDraftStudent] = useState<CreateStudentAchievementPayload>({
     award: "",
     exam: "",
@@ -502,6 +503,7 @@ export default function AchievementListEditor({
     level: "PROVINCE",
     courseLabel: "",
   });
+  const [draftStudentFile, setDraftStudentFile] = useState<File | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [preview, setPreview] = useState<{ src: string; title: string } | null>(
     null,
@@ -519,11 +521,19 @@ export default function AchievementListEditor({
     queryClient.invalidateQueries({ queryKey });
 
   const createMutation = useMutation({
-    mutationFn: (
-      payload: { title: string } | CreateStudentAchievementPayload,
-    ) => achievementApi.createAchievement(owner, payload),
+    mutationFn: async ({
+      payload,
+      file,
+    }: {
+      payload: { title: string } | CreateStudentAchievementPayload;
+      file: File;
+    }) => {
+      const created = await achievementApi.createAchievement(owner, payload);
+      return achievementApi.uploadAchievementImage(owner, created.id, file);
+    },
     onSuccess: async () => {
       setNewTitle("");
+      setNewTitleFile(null);
       setDraftStudent({
         award: "",
         exam: "",
@@ -531,10 +541,11 @@ export default function AchievementListEditor({
         level: "PROVINCE",
         courseLabel: "",
       });
+      setDraftStudentFile(null);
       await invalidate();
       toast.success("Đã thêm thành tích.");
     },
-    onError: () => toast.error("Không thể thêm thành tích."),
+    onError: () => toast.error("Không thể thêm thành tích. Cần có ảnh minh chứng."),
   });
 
   const updateMutation = useMutation({
@@ -631,7 +642,8 @@ export default function AchievementListEditor({
   const canCreateStudent =
     draftStudent.award.trim().length > 0 &&
     draftStudent.exam.trim().length > 0 &&
-    Number.isFinite(draftStudent.year);
+    Number.isFinite(draftStudent.year) &&
+    draftStudentFile !== null;
 
   return (
     <section
@@ -755,40 +767,61 @@ export default function AchievementListEditor({
       />
 
       {canMutate && !isStudent ? (
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <input
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            disabled={busy}
-            className={`min-w-0 flex-1 ${fieldClass}`}
-            placeholder="Thêm thành tích mới…"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
+        <div className="space-y-2 rounded-lg border border-dashed border-border-default p-3">
+          <p className="text-xs font-medium text-text-secondary">
+            Thêm thành tích (bắt buộc kèm ảnh minh chứng)
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              disabled={busy}
+              className={`min-w-0 flex-1 ${fieldClass}`}
+              placeholder="Thêm thành tích mới…"
+            />
+            <label
+              className={`${iconBtnClass} w-auto cursor-pointer gap-1.5 px-3 ${
+                newTitleFile ? "border-success/50 text-success" : ""
+              }`}
+            >
+              <ImagePlus className="h-4 w-4" aria-hidden />
+              <span className="text-xs">
+                {newTitleFile ? "Đã chọn ảnh" : "Chọn ảnh minh chứng"}
+              </span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="sr-only"
+                disabled={busy}
+                onChange={(e) => {
+                  setNewTitleFile(e.target.files?.[0] ?? null);
+                }}
+              />
+            </label>
+            <button
+              type="button"
+              disabled={busy || !newTitle.trim() || !newTitleFile}
+              onClick={() => {
                 const title = newTitle.trim();
-                if (title) createMutation.mutate({ title });
-              }
-            }}
-          />
-          <button
-            type="button"
-            disabled={busy || !newTitle.trim()}
-            onClick={() => {
-              const title = newTitle.trim();
-              if (title) createMutation.mutate({ title });
-            }}
-            className={`${iconBtnClass} bg-primary text-text-inverse hover:bg-primary/90 disabled:opacity-50`}
-            aria-label="Thêm thành tích"
-            title="Thêm"
-          >
-            <Plus className="h-4 w-4" aria-hidden />
-          </button>
+                if (title && newTitleFile) {
+                  createMutation.mutate({ payload: { title }, file: newTitleFile });
+                }
+              }}
+              className={`${iconBtnClass} bg-primary text-text-inverse hover:bg-primary/90 disabled:opacity-50`}
+              aria-label="Thêm thành tích"
+              title="Thêm"
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
         </div>
       ) : null}
 
       {canMutate && isStudent ? (
         <div className="space-y-2 rounded-lg border border-dashed border-border-default p-3">
-          <p className="text-xs font-medium text-text-secondary">Thêm thành tích</p>
+          <p className="text-xs font-medium text-text-secondary">
+            Thêm thành tích (bắt buộc kèm ảnh minh chứng)
+          </p>
           <div className="grid gap-2 sm:grid-cols-2">
             <input
               value={draftStudent.award}
@@ -848,25 +881,49 @@ export default function AchievementListEditor({
               placeholder='Nhãn khóa học (VD "KHỐI THPT")'
             />
           </div>
-          <button
-            type="button"
-            disabled={busy || !canCreateStudent}
-            onClick={() => {
-              if (!canCreateStudent) return;
-              createMutation.mutate({
-                award: draftStudent.award.trim(),
-                exam: draftStudent.exam.trim(),
-                year: draftStudent.year,
-                level: draftStudent.level,
-                courseLabel: draftStudent.courseLabel?.trim() || null,
-              });
-            }}
-            className={`${iconBtnClass} bg-primary text-text-inverse hover:bg-primary/90 disabled:opacity-50`}
-            aria-label="Thêm thành tích"
-            title="Thêm"
-          >
-            <Plus className="h-4 w-4" aria-hidden />
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <label
+              className={`${iconBtnClass} w-auto cursor-pointer gap-1.5 px-3 ${
+                draftStudentFile ? "border-success/50 text-success" : ""
+              }`}
+            >
+              <ImagePlus className="h-4 w-4" aria-hidden />
+              <span className="text-xs">
+                {draftStudentFile ? "Đã chọn ảnh" : "Chọn ảnh minh chứng"}
+              </span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="sr-only"
+                disabled={busy}
+                onChange={(e) => {
+                  setDraftStudentFile(e.target.files?.[0] ?? null);
+                }}
+              />
+            </label>
+            <button
+              type="button"
+              disabled={busy || !canCreateStudent}
+              onClick={() => {
+                if (!canCreateStudent || !draftStudentFile) return;
+                createMutation.mutate({
+                  payload: {
+                    award: draftStudent.award.trim(),
+                    exam: draftStudent.exam.trim(),
+                    year: draftStudent.year,
+                    level: draftStudent.level,
+                    courseLabel: draftStudent.courseLabel?.trim() || null,
+                  },
+                  file: draftStudentFile,
+                });
+              }}
+              className={`${iconBtnClass} bg-primary text-text-inverse hover:bg-primary/90 disabled:opacity-50`}
+              aria-label="Thêm thành tích"
+              title="Thêm"
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
         </div>
       ) : null}
     </section>

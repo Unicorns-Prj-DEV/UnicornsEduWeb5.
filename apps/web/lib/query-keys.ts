@@ -73,6 +73,12 @@ export const classKeys = {
   detail: (id: string) => [...classKeys.all, "detail", id] as const,
 };
 
+export const classCategoryKeys = {
+  all: ["class-category"] as const,
+  list: (includeInactive?: boolean) =>
+    [...classCategoryKeys.all, "list", Boolean(includeInactive)] as const,
+};
+
 export const uniojKeys = {
   all: ["unioj"] as const,
   report: (name: string, days?: number) =>
