@@ -11,12 +11,12 @@ import type {
   ClassDetail,
   ClassScheduleItem,
   ClassStatus,
-  ClassType,
   UpdateClassBasicInfoPayload,
   UpdateClassSchedulePayload,
   UpdateClassStudentsPayload,
   UpdateClassTeachersPayload,
 } from "@/dtos/class.dto";
+import ClassCategorySelect from "@/components/shared/class/ClassCategorySelect";
 import * as classApi from "@/lib/apis/class.api";
 import * as staffApi from "@/lib/apis/staff.api";
 import * as studentApi from "@/lib/apis/student.api";
@@ -63,13 +63,6 @@ type Props = {
 const STATUS_OPTIONS: { value: ClassStatus; label: string }[] = [
   { value: "running", label: "Đang chạy" },
   { value: "ended", label: "Đã kết thúc" },
-];
-
-const TYPE_OPTIONS: { value: ClassType; label: string }[] = [
-  { value: "basic", label: "Basic" },
-  { value: "vip", label: "VIP" },
-  { value: "advance", label: "Advance" },
-  { value: "hardcore", label: "Hardcore" },
 ];
 
 function createScheduleRange(
@@ -290,7 +283,7 @@ function EditClassDialog({ onClose, classDetail }: Omit<Props, "open">) {
   const queryClient = useQueryClient();
 
   const [name, setName] = useState(classDetail.name ?? "");
-  const [type, setType] = useState<ClassType>(classDetail.type);
+  const [classCategoryId, setClassCategoryId] = useState(classDetail.classCategoryId);
   const [status, setStatus] = useState<ClassStatus>(classDetail.status);
   const [maxStudentsInput, setMaxStudentsInput] = useState(String(classDetail.maxStudents ?? ""));
   const [allowancePerSessionInput, setAllowancePerSessionInput] = useState(() =>
@@ -481,7 +474,7 @@ function EditClassDialog({ onClose, classDetail }: Omit<Props, "open">) {
     }));
     const currentBasicInfo = {
       name: classDetail.name ?? "",
-      type: classDetail.type,
+      class_category_id: classDetail.classCategoryId,
       status: classDetail.status,
       max_students: normalizeOptionalInteger(classDetail.maxStudents),
       allowance_per_session_per_student: normalizeOptionalInteger(
@@ -497,7 +490,7 @@ function EditClassDialog({ onClose, classDetail }: Omit<Props, "open">) {
     };
     const nextBasicInfo = {
       name: trimmedName,
-      type,
+      class_category_id: classCategoryId,
       status,
       max_students: maxStudents,
       allowance_per_session_per_student: allowancePerSessionPerStudent,
@@ -509,7 +502,7 @@ function EditClassDialog({ onClose, classDetail }: Omit<Props, "open">) {
     };
     const basicInfoChanged =
       currentBasicInfo.name !== nextBasicInfo.name ||
-      currentBasicInfo.type !== nextBasicInfo.type ||
+      currentBasicInfo.class_category_id !== nextBasicInfo.class_category_id ||
       currentBasicInfo.status !== nextBasicInfo.status ||
       currentBasicInfo.max_students !== nextBasicInfo.max_students ||
       currentBasicInfo.allowance_per_session_per_student !==
@@ -644,12 +637,11 @@ function EditClassDialog({ onClose, classDetail }: Omit<Props, "open">) {
 
               <div className="flex flex-col gap-1 text-sm text-text-secondary">
                 <span id="edit-class-type-label">Phân loại</span>
-                <UpgradedSelect
+                <ClassCategorySelect
                   id="edit-class-type"
                   name="edit-class-type"
-                  value={type}
-                  onValueChange={(nextValue) => setType(nextValue as ClassType)}
-                  options={TYPE_OPTIONS}
+                  value={classCategoryId}
+                  onValueChange={setClassCategoryId}
                   labelId="edit-class-type-label"
                   buttonClassName="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />

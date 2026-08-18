@@ -1,4 +1,4 @@
-import type { ClassStatus, ClassType } from "@/dtos/class.dto";
+import type { ClassStatus } from "@/dtos/class.dto";
 import { parseMoneyInput } from "@/lib/money-input.helpers";
 
 export const CLASS_SCHEDULE_DAY_OPTIONS = [
@@ -71,12 +71,6 @@ export function normalizePage(rawPage: string | null): number {
 
 export function normalizeClassStatus(rawStatus: string | null): "" | ClassStatus {
   return rawStatus === "running" || rawStatus === "ended" ? rawStatus : "";
-}
-
-export function normalizeClassType(rawType: string | null): "" | ClassType {
-  return rawType === "basic" || rawType === "vip" || rawType === "advance" || rawType === "hardcore"
-    ? rawType
-    : "";
 }
 
 function padTimeSegment(value: number): string {

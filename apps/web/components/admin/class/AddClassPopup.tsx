@@ -4,10 +4,11 @@ import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { useDebounce } from "use-debounce";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import type { ClassDetail, ClassStatus, ClassType, CreateClassPayload } from "@/dtos/class.dto";
+import type { ClassDetail, ClassStatus, CreateClassPayload } from "@/dtos/class.dto";
 import { TimeInput } from "@/components/ui/TimeInput";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
+import ClassCategorySelect from "@/components/shared/class/ClassCategorySelect";
 import * as classApi from "@/lib/apis/class.api";
 import * as staffApi from "@/lib/apis/staff.api";
 import * as studentApi from "@/lib/apis/student.api";
@@ -47,13 +48,6 @@ type Props = {
 const STATUS_OPTIONS: { value: ClassStatus; label: string }[] = [
   { value: "running", label: "Đang chạy" },
   { value: "ended", label: "Đã kết thúc" },
-];
-
-const TYPE_OPTIONS: { value: ClassType; label: string }[] = [
-  { value: "basic", label: "Basic" },
-  { value: "vip", label: "VIP" },
-  { value: "advance", label: "Advance" },
-  { value: "hardcore", label: "Hardcore" },
 ];
 
 function createScheduleRange(
@@ -111,7 +105,7 @@ function AddClassDialog({ onClose, onCreated }: Omit<Props, "open">) {
   const queryClient = useQueryClient();
 
   const [name, setName] = useState("");
-  const [type, setType] = useState<ClassType>("basic");
+  const [classCategoryId, setClassCategoryId] = useState("");
   const [status, setStatus] = useState<ClassStatus>("running");
   const [maxStudentsInput, setMaxStudentsInput] = useState("");
   const [allowancePerSessionInput, setAllowancePerSessionInput] = useState("");
@@ -209,6 +203,10 @@ function AddClassDialog({ onClose, onCreated }: Omit<Props, "open">) {
       toast.error("Tên lớp là bắt buộc.");
       return;
     }
+    if (!classCategoryId) {
+      toast.error("Phân loại lớp là bắt buộc.");
+      return;
+    }
 
     let normalizedSchedule: NonNullable<CreateClassPayload["schedule"]>;
     try {
@@ -248,7 +246,7 @@ function AddClassDialog({ onClose, onCreated }: Omit<Props, "open">) {
 
     const payload: CreateClassPayload = {
       name: trimmedName,
-      type,
+      ...(classCategoryId ? { class_category_id: classCategoryId } : {}),
       status,
       max_students: parseOptionalInt(maxStudentsInput),
       allowance_per_session_per_student: parseOptionalMoneyInt(allowancePerSessionInput),
@@ -333,11 +331,10 @@ function AddClassDialog({ onClose, onCreated }: Omit<Props, "open">) {
               </label>
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
                 <span>Phân loại</span>
-                <UpgradedSelect
+                <ClassCategorySelect
                   name="add-class-type"
-                  value={type}
-                  onValueChange={(nextValue) => setType(nextValue as ClassType)}
-                  options={TYPE_OPTIONS}
+                  value={classCategoryId}
+                  onValueChange={setClassCategoryId}
                   buttonClassName="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />
               </label>

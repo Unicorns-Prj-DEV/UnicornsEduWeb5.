@@ -51,13 +51,6 @@ enum ClassStatus {
   ended
 }
 
-enum ClassType {
-  vip
-  basic
-  advance
-  hardcore
-}
-
 enum AttendanceStatus {
   present
   excused

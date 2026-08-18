@@ -36,7 +36,7 @@ import {
   buildSurveyZaloMessage,
   copyTextToClipboard,
 } from "@/lib/survey-notification";
-import type { ClassType } from "@/dtos/class.dto";
+import { classCategoryKeys } from "@/lib/query-keys";
 import type {
   CreateSurveyPayload,
   SurveyRecord,
@@ -439,17 +439,9 @@ function SurveyCard({
 const CLASS_PICKER_PAGE_SIZE = 20;
 const CLASS_PICKER_FULL_FETCH_LIMIT = 100;
 
-const CLASS_TYPE_FILTER_OPTIONS: { value: "" | ClassType; label: string }[] = [
-  { value: "", label: "Tất cả loại lớp" },
-  { value: "basic", label: "Basic" },
-  { value: "advance", label: "Advance" },
-  { value: "hardcore", label: "Hardcore" },
-  { value: "vip", label: "VIP" },
-];
-
 async function fetchAllMatchingClasses(params: {
   search?: string;
-  type?: "" | ClassType;
+  classCategoryId?: string;
   total: number;
 }): Promise<{ id: string; name: string }[]> {
   const pageCount = Math.max(
@@ -462,7 +454,7 @@ async function fetchAllMatchingClasses(params: {
         page: index + 1,
         limit: CLASS_PICKER_FULL_FETCH_LIMIT,
         search: params.search,
-        type: params.type || undefined,
+        classCategoryId: params.classCategoryId || undefined,
       }),
     ),
   );
@@ -488,7 +480,21 @@ function ClassExclusionDialog({
 }) {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"" | ClassType>("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const { data: classCategories = [] } = useQuery({
+    queryKey: classCategoryKeys.list(),
+    queryFn: () => classApi.getClassCategories(),
+  });
+  const classTypeFilterOptions = useMemo(
+    () => [
+      { value: "", label: "Tất cả loại lớp" },
+      ...classCategories.map((category) => ({
+        value: category.id,
+        label: category.name,
+      })),
+    ],
+    [classCategories],
+  );
   const [selectingAll, setSelectingAll] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
@@ -512,7 +518,7 @@ function ClassExclusionDialog({
         page: pageParam,
         limit: CLASS_PICKER_PAGE_SIZE,
         search: debouncedSearch || undefined,
-        type: typeFilter || undefined,
+        classCategoryId: typeFilter || undefined,
       }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => {
@@ -568,7 +574,7 @@ function ClassExclusionDialog({
     try {
       const matching = await fetchAllMatchingClasses({
         search: debouncedSearch || undefined,
-        type: typeFilter,
+        classCategoryId: typeFilter,
         total: totalCount,
       });
       onNamesLoaded(matching);
@@ -622,8 +628,8 @@ function ClassExclusionDialog({
         <UpgradedSelect
           name="class-exclusion-type-filter"
           value={typeFilter}
-          onValueChange={(value) => setTypeFilter(value as "" | ClassType)}
-          options={CLASS_TYPE_FILTER_OPTIONS}
+          onValueChange={(value) => setTypeFilter(value)}
+          options={classTypeFilterOptions}
           ariaLabel="Lọc theo loại lớp"
           buttonClassName="w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none sm:w-40"
         />

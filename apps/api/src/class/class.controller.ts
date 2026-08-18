@@ -115,10 +115,9 @@ export class ClassController {
     description: 'Filter by class status',
   })
   @ApiQuery({
-    name: 'type',
+    name: 'classCategoryId',
     required: false,
-    enum: ['vip', 'basic', 'advance', 'hardcore'],
-    description: 'Filter by class type',
+    description: 'Filter by class category id (see GET /class-categories)',
   })
   @ApiResponse({
     status: 200,
@@ -130,13 +129,13 @@ export class ClassController {
     @Query() query: PaginationQueryDto,
     @Query('search') search?: string,
     @Query('status') status?: string,
-    @Query('type') type?: string,
+    @Query('classCategoryId') classCategoryId?: string,
   ) {
     const classes = await this.classService.getClasses({
       ...query,
       search,
       status,
-      type,
+      classCategoryId,
     });
     return redactClassListForAccountantView(
       classes,

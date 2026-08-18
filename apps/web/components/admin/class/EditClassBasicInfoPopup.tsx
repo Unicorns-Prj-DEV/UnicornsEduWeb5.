@@ -5,7 +5,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { MoneyInput } from "@/components/ui/MoneyInput";
-import type { ClassDetail, ClassStatus, ClassType, UpdateClassBasicInfoPayload } from "@/dtos/class.dto";
+import type { ClassDetail, ClassStatus, UpdateClassBasicInfoPayload } from "@/dtos/class.dto";
+import ClassCategorySelect from "@/components/shared/class/ClassCategorySelect";
 import * as classApi from "@/lib/apis/class.api";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
@@ -42,13 +43,6 @@ const STATUS_OPTIONS: { value: ClassStatus; label: string }[] = [
   { value: "ended", label: "Đã kết thúc" },
 ];
 
-const TYPE_OPTIONS: { value: ClassType; label: string }[] = [
-  { value: "basic", label: "Basic" },
-  { value: "vip", label: "VIP" },
-  { value: "advance", label: "Advance" },
-  { value: "hardcore", label: "Hardcore" },
-];
-
 const END_CLASS_CONFIRM_MESSAGE =
   "Kết thúc lớp? Điều kiện: mọi buổi đã thanh toán trợ cấp gia sư. Hệ thống sẽ gỡ gia sư khỏi lớp, đóng roster học sinh, xóa lịch cố định và lịch bù tương lai.";
 
@@ -71,7 +65,7 @@ function basicInfoFieldsChanged(
   const currentTuitionSessions = classDetail.tuitionPackageSession ?? undefined;
   return (
     (classDetail.name ?? "") !== (next.name ?? "") ||
-    classDetail.type !== next.type ||
+    classDetail.classCategoryId !== next.class_category_id ||
     (classDetail.maxStudents ?? undefined) !== next.max_students ||
     (classDetail.allowancePerSessionPerStudent ?? undefined) !==
       next.allowance_per_session_per_student ||
@@ -93,7 +87,7 @@ function EditClassBasicInfoDialog({ onClose, classDetail }: Omit<Props, "open">)
   const queryClient = useQueryClient();
   const formId = "edit-class-basic-info-form";
   const [name, setName] = useState(classDetail.name ?? "");
-  const [type, setType] = useState<ClassType>(classDetail.type);
+  const [classCategoryId, setClassCategoryId] = useState(classDetail.classCategoryId);
   const [status, setStatus] = useState<ClassStatus>(classDetail.status);
   const [maxStudentsInput, setMaxStudentsInput] = useState(String(classDetail.maxStudents ?? ""));
   const [allowancePerSessionInput, setAllowancePerSessionInput] = useState(() =>
@@ -163,7 +157,7 @@ function EditClassBasicInfoDialog({ onClose, classDetail }: Omit<Props, "open">)
 
     const basicInfoWithoutStatus: Omit<UpdateClassBasicInfoPayload, "status"> = {
       name: trimmedName,
-      type,
+      class_category_id: classCategoryId,
       max_students: maxStudents,
       allowance_per_session_per_student: parseOptionalMoneyInt(allowancePerSessionInput),
       max_allowance_per_session: parseMaxAllowancePerSessionInput(
@@ -259,11 +253,10 @@ function EditClassBasicInfoDialog({ onClose, classDetail }: Omit<Props, "open">)
               </label>
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
                 <span>Phân loại</span>
-                <UpgradedSelect
+                <ClassCategorySelect
                   name="edit-class-basic-info-type"
-                  value={type}
-                  onValueChange={(nextValue) => setType(nextValue as ClassType)}
-                  options={TYPE_OPTIONS}
+                  value={classCategoryId}
+                  onValueChange={setClassCategoryId}
                   buttonClassName="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />
               </label>

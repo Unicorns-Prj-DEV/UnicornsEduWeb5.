@@ -1,4 +1,5 @@
 import {
+  ClassCategory,
   ClassEndEligibility,
   ClassListItem,
   ClassListResponse,
@@ -6,7 +7,8 @@ import {
   ClassStatusActionPayload,
   ClassTeacher,
   ClassTeacherPayload,
-  ClassType,
+  CreateClassCategoryPayload,
+  UpdateClassCategoryPayload,
 } from '@/dtos/class.dto';
 import {
   ClassDetail,
@@ -228,7 +230,7 @@ export async function getClasses(params: {
   limit: number;
   search?: string;
   status?: "" | ClassStatus;
-  type?: "" | ClassType;
+  classCategoryId?: string;
 }): Promise<ClassListResponse> {
   const response = await api.get("/class", {
     params: {
@@ -236,7 +238,9 @@ export async function getClasses(params: {
       limit: params.limit,
       ...(params.search ? { search: params.search } : {}),
       ...(params.status ? { status: params.status } : {}),
-      ...(params.type ? { type: params.type } : {}),
+      ...(params.classCategoryId
+        ? { classCategoryId: params.classCategoryId }
+        : {}),
     },
   });
 
@@ -251,6 +255,39 @@ export async function getClasses(params: {
       limit: payload?.meta?.limit ?? params.limit,
     },
   };
+}
+
+export async function getClassCategories(
+  includeInactive = false,
+): Promise<ClassCategory[]> {
+  const response = await api.get<ClassCategory[]>("/class-categories", {
+    params: includeInactive ? { includeInactive: "true" } : undefined,
+  });
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function createClassCategory(
+  data: CreateClassCategoryPayload,
+): Promise<ClassCategory> {
+  const response = await api.post<ClassCategory>("/class-categories", data);
+  return response.data;
+}
+
+export async function updateClassCategory(
+  id: string,
+  data: UpdateClassCategoryPayload,
+): Promise<ClassCategory> {
+  const safeId = encodeURIComponent(id);
+  const response = await api.patch<ClassCategory>(
+    `/class-categories/${safeId}`,
+    data,
+  );
+  return response.data;
+}
+
+export async function deleteClassCategory(id: string): Promise<void> {
+  const safeId = encodeURIComponent(id);
+  await api.delete(`/class-categories/${safeId}`);
 }
 
 export async function getClassById(id: string): Promise<ClassDetail> {

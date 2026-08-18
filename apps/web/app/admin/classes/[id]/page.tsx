@@ -50,7 +50,6 @@ import MonthNav from "@/components/admin/MonthNav";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import {
   ClassStatus,
-  ClassType,
   ClassDetail,
   ClassStudent,
   UpdateClassStudentsPayload,
@@ -76,12 +75,6 @@ const STATUS_LABELS: Record<ClassStatus, string> = {
   ended: "Đã kết thúc",
 };
 
-const TYPE_LABELS: Record<ClassType, string> = {
-  basic: "Basic",
-  vip: "VIP",
-  advance: "Advance",
-  hardcore: "Hardcore",
-};
 
 type TabId = "sessions" | "surveys";
 const TAB_INDICATOR_TRANSITION: Transition = {
@@ -652,7 +645,7 @@ export default function AdminClassDetailPage() {
       key: "type",
       node: (
         <span className="inline-flex shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-medium text-primary">
-          {TYPE_LABELS[classDetail.type] ?? classDetail.type}
+          {classDetail.classCategory?.name ?? "—"}
         </span>
       ),
     },
@@ -677,8 +670,13 @@ export default function AdminClassDetailPage() {
               <span>
                 <span className="text-text-muted">Trợ cấp </span>
                 <span className="font-medium text-primary tabular-nums">
-                  {formatCurrency(classDetail.allowancePerSessionPerStudent)}
+                  {formatCurrency(classDetail.allowancePerSessionPerStudent)}/hs
                 </span>
+                <span className="text-text-muted"> + </span>
+                <span className="font-medium text-primary tabular-nums">
+                  {formatCurrency(classDetail.scaleAmount ?? 0)}
+                </span>
+                <span className="text-text-muted"> scale</span>
               </span>
             ),
           },
@@ -693,19 +691,6 @@ export default function AdminClassDetailPage() {
         </span>
       ),
     },
-    ...(showClassCompensationMeta
-      ? [
-          {
-            key: "scale",
-            node: (
-              <span>
-                <span className="text-text-muted">Scales </span>
-                <span className="tabular-nums text-text-primary">{classDetail.scaleAmount ?? "—"}</span>
-              </span>
-            ),
-          },
-        ]
-      : []),
   ];
   const handleEndClass = () => {
     if (!canEndClass) {

@@ -27,7 +27,6 @@ import { ClassService } from './class.service';
 import { BadRequestException } from '@nestjs/common';
 import {
   ClassStatus,
-  ClassType,
   StaffRole,
   StaffStatus,
   StudentClassStatus,
@@ -132,7 +131,7 @@ describe('ClassService', () => {
     mockTx.class.create.mockResolvedValue({
       id: 'class-1',
       name: 'Math 10A',
-      type: ClassType.basic,
+      classCategoryId: 'basic-category-id',
       status: ClassStatus.running,
       maxStudents: null,
       allowancePerSessionPerStudent: null,
@@ -148,7 +147,7 @@ describe('ClassService', () => {
     mockTx.class.findUnique.mockResolvedValue({
       id: 'class-1',
       name: 'Math 10A',
-      type: ClassType.basic,
+      classCategoryId: 'basic-category-id',
       status: ClassStatus.running,
       maxStudents: null,
       allowancePerSessionPerStudent: null,
@@ -392,7 +391,7 @@ describe('ClassService', () => {
             },
           ],
           meta: { total: 1, page: 1, limit: 20 },
-        });
+        } as never);
 
       const result = await service.getClassesForStaff('user-1', UserRole.staff, {
         page: 1,
@@ -422,14 +421,14 @@ describe('ClassService', () => {
 
       await service.createClassForStaff('user-1', UserRole.staff, {
         name: 'Math 10A',
-        type: 'basic',
+        class_category_id: 'basic-category-id',
         status: 'running',
       } as never);
 
       expect(createClassSpy).toHaveBeenCalledWith(
         {
           name: 'Math 10A',
-          type: 'basic',
+          class_category_id: 'basic-category-id',
           status: 'running',
           schedule: undefined,
         },
@@ -446,7 +445,7 @@ describe('ClassService', () => {
       await expect(
         service.createClassForStaff('user-1', UserRole.staff, {
           name: 'Math 10A',
-          type: 'basic',
+          class_category_id: 'basic-category-id',
           status: 'running',
         } as never),
       ).rejects.toThrow('Giáo viên không được phép tạo lớp học.');
@@ -458,7 +457,7 @@ describe('ClassService', () => {
       mockTx.class.create.mockResolvedValue({
         id: 'class-1',
         name: 'Math 10A',
-        type: ClassType.basic,
+        classCategoryId: 'basic-category-id',
         status: ClassStatus.running,
         maxStudents: 12,
         allowancePerSessionPerStudent: null,
@@ -474,7 +473,7 @@ describe('ClassService', () => {
       mockTx.class.findUnique.mockResolvedValue({
         id: 'class-1',
         name: 'Math 10A',
-        type: ClassType.basic,
+        classCategoryId: 'basic-category-id',
         status: ClassStatus.running,
         maxStudents: 12,
         allowancePerSessionPerStudent: null,
@@ -506,7 +505,7 @@ describe('ClassService', () => {
 
       const result = await service.createClass({
         name: 'Math 10A',
-        type: ClassType.basic,
+        class_category_id: 'basic-category-id',
         status: ClassStatus.running,
         max_students: 12,
         student_tuition_per_session: 250000,

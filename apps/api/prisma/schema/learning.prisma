@@ -1,7 +1,7 @@
 model Class {
   id                            String                      @id
   name                          String
-  type                          ClassType                   @default(basic)
+  classCategoryId               String                      @map("class_category_id")
   status                        ClassStatus                 @default(running)
   maxStudents                   Int                         @default(15) @map("max_students")
   allowancePerSessionPerStudent Int                         @default(0) @map("allowance_per_session_per_student")
@@ -23,9 +23,24 @@ model Class {
   sessions                      Session[]
   students                      StudentClass[]
   trainingManager               StaffInfo?                  @relation("ClassTrainingManager", fields: [trainingManagerStaffId], references: [id])
+  classCategory                 ClassCategory               @relation(fields: [classCategoryId], references: [id])
 
   @@index([trainingManagerStaffId])
+  @@index([classCategoryId])
   @@map("classes")
+}
+
+/// Phân loại lớp có thể tuỳ chỉnh (thêm/sửa/xoá) qua admin, thay cho enum cố định trước đây.
+model ClassCategory {
+  id        String   @id @default(uuid())
+  name      String
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  classes   Class[]
+
+  @@map("class_categories")
 }
 
 model ClassTeacher {

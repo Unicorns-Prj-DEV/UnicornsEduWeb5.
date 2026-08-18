@@ -4,6 +4,8 @@ export { default as ClassDetailRow } from "./ClassDetailRow";
 export { default as ClassStudentWalletBalance } from "./ClassStudentWalletBalance";
 export { default as ClassStudentCaretakerCell } from "./ClassStudentCaretakerCell";
 export { default as AddClassPopup } from "./AddClassPopup";
+export { default as ClassCategoryFormPopup } from "./ClassCategoryFormPopup";
+export type { ClassCategoryFormValues } from "./ClassCategoryFormPopup";
 export { default as EditClassPopup } from "./EditClassPopup";
 export { default as EditClassBasicInfoPopup } from "./EditClassBasicInfoPopup";
 export { default as EditClassTeachersPopup } from "./EditClassTeachersPopup";
