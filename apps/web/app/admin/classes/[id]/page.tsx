@@ -432,10 +432,6 @@ export default function AdminClassDetailPage() {
     (item) => item?.from && item?.to && !item?.deletedAt,
   );
 
-  const allScheduleItems = (classDetail?.schedule ?? []).filter(
-    (item) => item?.from && item?.to,
-  );
-
   const classStudents = useMemo(() => classDetail?.students ?? [], [classDetail?.students]);
   const activeClassStudents = useMemo(
     () => classStudents.filter((student) => isClassStudentActive(student)),

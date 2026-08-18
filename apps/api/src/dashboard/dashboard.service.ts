@@ -713,7 +713,8 @@ function normalizeScheduleCount(schedule: Prisma.JsonValue | null | undefined) {
       'from' in item &&
       'to' in item &&
       typeof item.from === 'string' &&
-      typeof item.to === 'string',
+      typeof item.to === 'string' &&
+      (!('deletedAt' in item) || item.deletedAt === null),
   ).length;
 }
 
