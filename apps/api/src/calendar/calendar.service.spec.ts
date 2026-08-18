@@ -1100,6 +1100,228 @@ describe('CalendarService', () => {
     expect(googleCalendarService.deleteCalendarEvent).not.toHaveBeenCalled();
   });
 
+  it('keeps deleting remaining recurring events after one delete fails, and still writes back the schedule', async () => {
+    mockPrisma.class.findUnique.mockResolvedValue({
+      id: 'class-1',
+      name: 'Toán 9A',
+      schedule: [],
+      teachers: [],
+    });
+    googleCalendarService.listClassScheduleRecurringEvents.mockResolvedValue([
+      { eventId: 'del-1', calendarId: 'cal-1' },
+      { eventId: 'del-2', calendarId: 'cal-1' },
+    ]);
+    googleCalendarService.deleteCalendarEvent.mockRejectedValueOnce(
+      new Error('Delete failed'),
+    );
+
+    const result =
+      await service.resyncClassScheduleWithGoogleCalendar('class-1');
+
+    expect(googleCalendarService.deleteCalendarEvent).toHaveBeenCalledTimes(
+      2,
+    );
+    expect(result.data.deletedRecurringEvents).toBe(1);
+    expect(result.data.failedRecurringEvents).toBe(1);
+    expect(result.data.warnings).toEqual([
+      expect.objectContaining({
+        code: 'recurring_event_delete_failed',
+        eventId: 'del-1',
+      }),
+    ]);
+    expect(mockPrisma.class.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves a newly-created recurring event id in the writeback even when an unrelated delete fails', async () => {
+    mockPrisma.class.findUnique.mockResolvedValue({
+      id: 'class-1',
+      name: 'Toán 9A',
+      schedule: [
+        {
+          id: 'slot-new',
+          dayOfWeek: 1,
+          from: '19:00:00',
+          to: '20:30:00',
+          teacherId: 'teacher-1',
+        },
+      ],
+      teachers: [
+        {
+          teacherId: 'teacher-1',
+          teacher: {
+            id: 'teacher-1',
+            user: {
+              email: 'an@example.com',
+              first_name: 'An',
+              last_name: 'Nguyễn',
+            },
+          },
+        },
+      ],
+    });
+    googleCalendarService.createOrUpdateClassScheduleRecurringEvent.mockResolvedValue(
+      {
+        eventId: 'new-event-x',
+        meetLink: 'https://meet.google.com/new-event-x',
+      },
+    );
+    googleCalendarService.listClassScheduleRecurringEvents.mockResolvedValue([
+      { eventId: 'stale-orphan', calendarId: 'cal-1' },
+    ]);
+    googleCalendarService.deleteCalendarEvent.mockRejectedValueOnce(
+      new Error('Delete failed'),
+    );
+
+    const result =
+      await service.resyncClassScheduleWithGoogleCalendar('class-1');
+
+    expect(result.data.failedRecurringEvents).toBe(1);
+    expect(mockPrisma.class.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'class-1' },
+        data: expect.objectContaining({
+          schedule: expect.arrayContaining([
+            expect.objectContaining({
+              id: 'slot-new',
+              googleCalendarEventId: 'new-event-x',
+            }),
+          ]),
+        }),
+      }),
+    );
+  });
+
+  it('stops deleting on a quota error during the delete loop but still writes back the schedule', async () => {
+    mockPrisma.class.findUnique.mockResolvedValue({
+      id: 'class-1',
+      name: 'Toán 9A',
+      schedule: [],
+      teachers: [],
+    });
+    googleCalendarService.listClassScheduleRecurringEvents.mockResolvedValue([
+      { eventId: 'del-1', calendarId: 'cal-1' },
+      { eventId: 'del-2', calendarId: 'cal-1' },
+    ]);
+    googleCalendarService.deleteCalendarEvent.mockRejectedValueOnce(
+      new GoogleCalendarApiError('Calendar usage limits exceeded.', {
+        message: 'Calendar usage limits exceeded.',
+        code: 403,
+        errors: [{ reason: 'quotaExceeded' }],
+      } as never),
+    );
+
+    const result =
+      await service.resyncClassScheduleWithGoogleCalendar('class-1');
+
+    expect(googleCalendarService.deleteCalendarEvent).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(result.data.quotaLimited).toBe(true);
+    expect(result.data.deletedRecurringEvents).toBe(0);
+    expect(result.data.failedRecurringEvents).toBe(1);
+    expect(result.data.warnings).toEqual([
+      expect.objectContaining({ code: 'google_calendar_quota_limited' }),
+    ]);
+    expect(mockPrisma.class.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('rethrows a consolidated error from syncScheduleWithCalendar when a recurring delete fails, after writing back the schedule', async () => {
+    mockPrisma.class.findUnique.mockResolvedValue({
+      id: 'class-1',
+      name: 'Toán 9A',
+      schedule: [],
+      teachers: [],
+    });
+    googleCalendarService.deleteCalendarEvent.mockRejectedValueOnce(
+      new Error('Delete failed'),
+    );
+
+    await expect(
+      service.syncScheduleWithCalendar('class-1', [
+        {
+          id: 'slot-old',
+          dayOfWeek: 1,
+          from: '19:00:00',
+          to: '20:30:00',
+          teacherId: 'teacher-1',
+          googleCalendarEventId: 'del-1',
+        },
+      ]),
+    ).rejects.toThrow(GoogleCalendarApiError);
+
+    expect(mockPrisma.class.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops the resync pass once the wall-clock budget is exceeded, but preserves work already done', async () => {
+    mockPrisma.class.findUnique.mockResolvedValue({
+      id: 'class-1',
+      name: 'Toán 9A',
+      schedule: [
+        {
+          id: 'slot-1',
+          dayOfWeek: 1,
+          from: '19:00:00',
+          to: '20:30:00',
+          teacherId: 'teacher-1',
+        },
+        {
+          id: 'slot-2',
+          dayOfWeek: 3,
+          from: '18:00:00',
+          to: '19:30:00',
+          teacherId: 'teacher-1',
+        },
+      ],
+      teachers: [
+        {
+          teacherId: 'teacher-1',
+          teacher: {
+            id: 'teacher-1',
+            user: {
+              email: 'an@example.com',
+              first_name: 'An',
+              last_name: 'Nguyễn',
+            },
+          },
+        },
+      ],
+    });
+    googleCalendarService.createOrUpdateClassScheduleRecurringEvent.mockImplementationOnce(
+      () =>
+        new Promise((resolve) =>
+          setTimeout(
+            () => resolve({ eventId: 'slot-1-event', meetLink: undefined }),
+            250,
+          ),
+        ),
+    );
+
+    const result =
+      await service.resyncClassScheduleWithGoogleCalendar('class-1');
+
+    expect(
+      googleCalendarService.createOrUpdateClassScheduleRecurringEvent,
+    ).toHaveBeenCalledTimes(1);
+    expect(result.data.createdRecurringEvents).toBe(1);
+    expect(result.data.warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'resync_deadline_exceeded' }),
+      ]),
+    );
+    expect(mockPrisma.class.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          schedule: expect.arrayContaining([
+            expect.objectContaining({
+              id: 'slot-1',
+              googleCalendarEventId: 'slot-1-event',
+            }),
+          ]),
+        }),
+      }),
+    );
+  }, 10000);
+
   it('rejects creating a makeup event when endTime is not after startTime', async () => {
     await expect(
       service.createMakeupScheduleEvent({

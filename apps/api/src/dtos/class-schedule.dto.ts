@@ -186,7 +186,8 @@ export class ClassScheduleGoogleCalendarResyncSummaryDto {
   recoveredStaleRecurringEvents: number;
 
   @ApiProperty({
-    description: 'Number of recurring events that failed to create',
+    description:
+      'Number of recurring events that failed to create, update, or delete',
     example: 0,
   })
   @IsInt()
