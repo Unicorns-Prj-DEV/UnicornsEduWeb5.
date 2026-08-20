@@ -315,7 +315,7 @@ function SortableStudentRow({
   const [exam, setExam] = useState(item.exam ?? "");
   const [year, setYear] = useState(String(item.year ?? new Date().getFullYear()));
   const [level, setLevel] = useState<AchievementLevel>(
-    item.level ?? "PROVINCE",
+    item.level ?? "HSG_TINH_THANH_PHO",
   );
   const [courseLabel, setCourseLabel] = useState(item.courseLabel ?? "");
   const {
@@ -331,7 +331,7 @@ function SortableStudentRow({
     setAward(item.award ?? "");
     setExam(item.exam ?? "");
     setYear(String(item.year ?? new Date().getFullYear()));
-    setLevel(item.level ?? "PROVINCE");
+    setLevel(item.level ?? "HSG_TINH_THANH_PHO");
     setCourseLabel(item.courseLabel ?? "");
   }, [item.award, item.exam, item.year, item.level, item.courseLabel]);
 
@@ -500,7 +500,7 @@ export default function AchievementListEditor({
     award: "",
     exam: "",
     year: new Date().getFullYear(),
-    level: "PROVINCE",
+    level: "HSG_TINH_THANH_PHO",
     courseLabel: "",
   });
   const [draftStudentFile, setDraftStudentFile] = useState<File | null>(null);
@@ -538,7 +538,7 @@ export default function AchievementListEditor({
         award: "",
         exam: "",
         year: new Date().getFullYear(),
-        level: "PROVINCE",
+        level: "HSG_TINH_THANH_PHO",
         courseLabel: "",
       });
       setDraftStudentFile(null);

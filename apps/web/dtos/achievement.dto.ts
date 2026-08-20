@@ -1,21 +1,23 @@
 export type AchievementLevel =
-  | "COMMUNE"
-  | "PROVINCE"
-  | "REGIONAL"
-  | "NATIONAL"
-  | "INTERNATIONAL"
-  | "ADMISSION";
+  | "HSG_QUOC_GIA"
+  | "DUYEN_HAI"
+  | "TRAI_HE_HUNG_VUONG"
+  | "HSG_TINH_THANH_PHO"
+  | "DO_CHUYEN_TIN"
+  | "TIN_HOC_TRE"
+  | "KHAC";
 
 export const ACHIEVEMENT_LEVEL_OPTIONS: Array<{
   value: AchievementLevel;
   label: string;
 }> = [
-  { value: "COMMUNE", label: "Xã / Trường" },
-  { value: "PROVINCE", label: "Tỉnh / Thành phố" },
-  { value: "REGIONAL", label: "Khu vực" },
-  { value: "NATIONAL", label: "Quốc gia" },
-  { value: "INTERNATIONAL", label: "Quốc tế" },
-  { value: "ADMISSION", label: "Đỗ chuyên" },
+  { value: "HSG_QUOC_GIA", label: "HSG Quốc gia" },
+  { value: "DUYEN_HAI", label: "Duyên hải ĐB Bắc Bộ" },
+  { value: "TRAI_HE_HUNG_VUONG", label: "Trại hè Hùng Vương" },
+  { value: "HSG_TINH_THANH_PHO", label: "HSG Tỉnh-Thành phố" },
+  { value: "DO_CHUYEN_TIN", label: "Đỗ Chuyên Tin" },
+  { value: "TIN_HOC_TRE", label: "Tin học trẻ" },
+  { value: "KHAC", label: "Khác" },
 ];
 
 export type AchievementDto = {
