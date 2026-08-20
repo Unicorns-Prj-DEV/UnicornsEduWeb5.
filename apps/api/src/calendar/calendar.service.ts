@@ -178,6 +178,34 @@ export class CalendarService {
     })) as Prisma.InputJsonValue;
   }
 
+  private toStoredScheduleEntry(row: {
+    id: string;
+    dayOfWeek: number;
+    from: string;
+    to: string;
+    teacherId?: string | null;
+    googleCalendarEventId?: string | null;
+    meetLink?: string | null;
+    effectiveFrom: Date;
+    effectiveTo?: Date | null;
+  }): StoredClassScheduleEntry {
+    return {
+      id: row.id,
+      dayOfWeek: row.dayOfWeek,
+      from: row.from,
+      to: row.to,
+      teacherId: row.teacherId ?? undefined,
+      googleCalendarEventId: row.googleCalendarEventId ?? undefined,
+      meetLink: row.meetLink ?? undefined,
+      createdAt: row.effectiveFrom.toISOString(),
+      deletedAt: row.effectiveTo ? row.effectiveTo.toISOString() : undefined,
+    };
+  }
+
+  private toDateOnly(dateValue: string): Date {
+    return new Date(`${dateValue}T00:00:00.000Z`);
+  }
+
   private parseDateOnly(dateValue: string): Date {
     const parsedDate = new Date(dateValue);
     if (Number.isNaN(parsedDate.getTime())) {
@@ -318,18 +346,10 @@ export class CalendarService {
       throw new BadRequestException('Vui lòng nhập ngày gốc cần học bù.');
     }
 
-    const cls = await this.prisma.class.findUnique({
-      where: { id: classId },
-      select: { schedule: true },
+    const baselineEntry = await this.prisma.classScheduleEntry.findFirst({
+      where: { id: normalizedEntryId, classId },
+      select: { id: true, dayOfWeek: true },
     });
-
-    if (!cls) {
-      throw new NotFoundException('Class not found');
-    }
-
-    const baselineEntry = this.getStoredClassScheduleEntries(cls.schedule).find(
-      (entry) => entry.id === normalizedEntryId,
-    );
 
     if (!baselineEntry) {
       throw new BadRequestException(
@@ -644,6 +664,7 @@ export class CalendarService {
               };
             };
           };
+          scheduleEntries: true;
         };
       }>
     >,
@@ -658,7 +679,9 @@ export class CalendarService {
     const events: ClassScheduleEventDto[] = [];
 
     for (const cls of classes) {
-      const rawSchedule = this.getStoredClassScheduleEntries(cls.schedule);
+      const rawSchedule = cls.scheduleEntries.map((row) =>
+        this.toStoredScheduleEntry(row),
+      );
 
       for (const entry of rawSchedule) {
         const dayOfWeek = entry.dayOfWeek;
@@ -915,6 +938,7 @@ export class CalendarService {
               },
             },
           },
+          scheduleEntries: true,
         },
       }),
       this.prisma.makeupScheduleEvent.findMany({
@@ -1227,6 +1251,7 @@ export class CalendarService {
             },
           },
         },
+        scheduleEntries: true,
       },
     });
 
@@ -1241,21 +1266,23 @@ export class CalendarService {
   ): Promise<{ success: boolean; data: ClassScheduleEntryDto[] }> {
     const cls = await this.prisma.class.findUnique({
       where: { id: classId },
-      select: { schedule: true },
+      select: { id: true },
     });
     if (!cls) {
       throw new NotFoundException(`Class not found: ${classId}`);
     }
 
-    const entries = this.getStoredClassScheduleEntries(cls.schedule)
-      .filter((entry) => !entry.deletedAt)
-      .map((entry) => ({
-        id: entry.id,
-        dayOfWeek: entry.dayOfWeek ?? 0,
-        from: entry.from ?? '',
-        end: this.normalizeTimeValue(entry.to || entry.end) ?? '',
-        teacherId: entry.teacherId,
-      }));
+    const activeRows = await this.prisma.classScheduleEntry.findMany({
+      where: { classId, effectiveTo: null },
+    });
+
+    const entries = activeRows.map((row) => ({
+      id: row.id,
+      dayOfWeek: row.dayOfWeek,
+      from: row.from,
+      end: this.normalizeTimeValue(row.to) ?? '',
+      teacherId: row.teacherId ?? undefined,
+    }));
 
     return { success: true, data: entries };
   }
