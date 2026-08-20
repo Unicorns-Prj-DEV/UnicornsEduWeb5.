@@ -192,7 +192,7 @@ export class LandingStudentAchievementDto {
   @ApiProperty({ example: 2025 })
   year: number;
 
-  @ApiProperty({ enum: AchievementLevel, example: AchievementLevel.NATIONAL })
+  @ApiProperty({ enum: AchievementLevel, example: AchievementLevel.HSG_QUOC_GIA })
   level: AchievementLevel;
 
   @ApiProperty({
