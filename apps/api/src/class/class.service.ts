@@ -340,12 +340,24 @@ export class ClassService {
         entry.effectiveFrom,
       );
 
+      const existingEffectiveFrom =
+        existingEntry?.effectiveFrom instanceof Date
+          ? `${existingEntry.effectiveFrom.getUTCFullYear()}-${String(existingEntry.effectiveFrom.getUTCMonth() + 1).padStart(2, '0')}-${String(existingEntry.effectiveFrom.getUTCDate()).padStart(2, '0')}`
+          : null;
+      const incomingEffectiveFrom = entry.effectiveFrom ?? null;
+      const effectiveFromChanged =
+        existingEntry &&
+        (incomingEffectiveFrom
+          ? incomingEffectiveFrom !== existingEffectiveFrom
+          : existingEffectiveFrom !== null);
+
       const unchanged =
         existingEntry &&
         existingEntry.dayOfWeek === entry.dayOfWeek &&
         existingEntry.from === fromNormalized &&
         existingEntry.to === toNormalized &&
-        existingEntry.teacherId === (entry.teacherId ?? null);
+        existingEntry.teacherId === (entry.teacherId ?? null) &&
+        !effectiveFromChanged;
 
       if (unchanged) {
         if (entry.teacherId) keptActiveTeacherIds.push(entry.teacherId);

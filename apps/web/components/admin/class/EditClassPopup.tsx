@@ -168,11 +168,11 @@ function normalizeOptionalInteger(value: number | null | undefined): number | un
 
 function normalizeScheduleForComparison(
   schedule: unknown,
-): Array<{ dayOfWeek: number; from: string; to: string; teacherId: string }> {
+): Array<{ dayOfWeek: number; from: string; to: string; teacherId: string; effectiveFrom: string }> {
   if (!Array.isArray(schedule)) return [];
 
   return schedule
-    .reduce<Array<{ dayOfWeek: number; from: string; to: string; teacherId: string }>>(
+    .reduce<Array<{ dayOfWeek: number; from: string; to: string; teacherId: string; effectiveFrom: string }>>(
       (acc, item) => {
         if (!item || typeof item !== "object") return acc;
 
@@ -190,6 +190,7 @@ function normalizeScheduleForComparison(
             from,
             to,
             teacherId: typeof record.teacherId === "string" ? record.teacherId : "",
+            effectiveFrom: typeof record.effectiveFrom === "string" ? record.effectiveFrom : "",
           },
         ];
       },
@@ -1167,7 +1168,7 @@ function EditClassDialog({ onClose, classDetail }: Omit<Props, "open">) {
                         className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                       />
                       <span className="text-[11px] text-text-muted">
-                        Chỉ áp dụng khi khung giờ/gia sư của dòng này thay đổi. Bỏ trống = tính từ hôm nay.
+                        Bỏ trống = tính từ hôm nay.
                       </span>
                     </label>
                   </div>
