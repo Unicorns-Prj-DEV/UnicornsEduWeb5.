@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { ClassDetail, ClassStatus, CreateClassPayload } from "@/dtos/class.dto";
 import { TimeInput } from "@/components/ui/TimeInput";
+import { DateInput } from "@/components/ui/DateInput";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import ClassCategorySelect from "@/components/shared/class/ClassCategorySelect";
@@ -35,9 +36,11 @@ type ScheduleRangeForm = {
   dayOfWeek: number;
   from: string;
   to: string;
+  /** Ngày slot có hiệu lực (YYYY-MM-DD). Để trống = backend dùng ngày tạo lớp. */
+  effectiveFrom: string;
 };
 
-const EMPTY_SCHEDULE_RANGE = { dayOfWeek: 1, from: "", to: "" } as const;
+const EMPTY_SCHEDULE_RANGE = { dayOfWeek: 1, from: "", to: "", effectiveFrom: "" } as const;
 
 type Props = {
   open: boolean;
@@ -51,13 +54,16 @@ const STATUS_OPTIONS: { value: ClassStatus; label: string }[] = [
 ];
 
 function createScheduleRange(
-  range?: Partial<Pick<ScheduleRangeForm, "dayOfWeek" | "from" | "to">>,
+  range?: Partial<
+    Pick<ScheduleRangeForm, "dayOfWeek" | "from" | "to" | "effectiveFrom">
+  >,
 ): ScheduleRangeForm {
   return {
     id: `local-slot-${createClientId()}`,
     dayOfWeek: normalizeDayOfWeek(range?.dayOfWeek, EMPTY_SCHEDULE_RANGE.dayOfWeek),
     from: range?.from ?? EMPTY_SCHEDULE_RANGE.from,
     to: range?.to ?? EMPTY_SCHEDULE_RANGE.to,
+    effectiveFrom: range?.effectiveFrom ?? EMPTY_SCHEDULE_RANGE.effectiveFrom,
   };
 }
 
@@ -196,6 +202,12 @@ function AddClassDialog({ onClose, onCreated }: Omit<Props, "open">) {
     );
   };
 
+  const handleEffectiveFromChange = (id: string, effectiveFrom: string) => {
+    setScheduleRanges((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, effectiveFrom } : item)),
+    );
+  };
+
   const handleSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     const trimmedName = name.trim();
@@ -227,7 +239,15 @@ function AddClassDialog({ onClose, onCreated }: Omit<Props, "open">) {
           throw new Error("Khung giờ học không hợp lệ.");
         }
 
-        return [...acc, { dayOfWeek: range.dayOfWeek, from, to }];
+        return [
+          ...acc,
+          {
+            dayOfWeek: range.dayOfWeek,
+            from,
+            to,
+            ...(range.effectiveFrom ? { effectiveFrom: range.effectiveFrom } : {}),
+          },
+        ];
       }, []);
     } catch (error) {
       toast.error((error as Error).message || "Khung giờ học không hợp lệ.");
@@ -719,6 +739,22 @@ function AddClassDialog({ onClose, onCreated }: Omit<Props, "open">) {
                       />
                     </label>
                   </div>
+                  <label className="mt-3 flex flex-col gap-1 text-sm text-text-secondary">
+                    <span className="text-[11px] uppercase tracking-wider text-text-muted">
+                      Ngày hiệu lực (tuỳ chọn)
+                    </span>
+                    <DateInput
+                      name={`add-class-schedule-effective-from-${range.id}`}
+                      value={range.effectiveFrom}
+                      onChange={(e) =>
+                        handleEffectiveFromChange(range.id, e.target.value)
+                      }
+                      className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    />
+                    <span className="text-[11px] text-text-muted">
+                      Ngày slot cố định này bắt đầu áp dụng thật sự — có thể backdate trước cả ngày tạo lớp (vd. lớp học đã dạy trước khi tạo hệ thống). Bỏ trống = tính từ hôm nay.
+                    </span>
+                  </label>
                 </div>
               ))}
             </div>
