@@ -69,18 +69,18 @@ describe('DashboardService staff training dashboard', () => {
     prisma.class.findMany.mockResolvedValue([
       {
         id: 'class-1',
-        schedule: [
+        scheduleEntries: [
           { dayOfWeek: 5, from: '10:00:00', to: '11:00:00' },
           { dayOfWeek: 2, from: '10:00:00', to: '11:00:00' },
         ],
       },
       {
         id: 'class-2',
-        schedule: [{ dayOfWeek: 5, from: '14:00:00', end: '15:00:00' }],
+        scheduleEntries: [{ dayOfWeek: 5, from: '14:00:00', to: '15:00:00' }],
       },
       {
         id: 'class-3',
-        schedule: [{ dayOfWeek: 5, to: '17:00:00' }],
+        scheduleEntries: [{ dayOfWeek: 5, from: '', to: '17:00:00' }],
       },
     ]);
     prisma.makeupScheduleEvent.findMany.mockResolvedValue([
