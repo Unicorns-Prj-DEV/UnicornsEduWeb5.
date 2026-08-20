@@ -63,7 +63,7 @@ export class CreateStudentAchievementDto {
 
   @ApiProperty({
     enum: AchievementLevel,
-    example: AchievementLevel.NATIONAL,
+    example: AchievementLevel.HSG_QUOC_GIA,
     description: 'Competition level for /thanh-tich bands',
   })
   @IsEnum(AchievementLevel)

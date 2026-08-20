@@ -108,25 +108,27 @@ function inferLevel(exam: string, award: string): AchievementLevel {
   if (
     /hsgqg|quốc gia|quoc gia|đội tuyển hsgqg|doi tuyen hsgqg/.test(text)
   ) {
-    return AchievementLevel.NATIONAL;
+    return AchievementLevel.HSG_QUOC_GIA;
   }
   if (/quốc tế|quoc te|ioi|apio|icho/.test(text)) {
-    return AchievementLevel.INTERNATIONAL;
+    return AchievementLevel.HSG_QUOC_GIA;
   }
   if (/đỗ chuyên|do chuyen|đỗ vào|do vao/.test(text)) {
-    return AchievementLevel.ADMISSION;
+    return AchievementLevel.DO_CHUYEN_TIN;
   }
-  if (/cấp xã|cap xa|xã\b|xa\b/.test(text)) {
-    return AchievementLevel.COMMUNE;
+  if (/cấp xã|cap xa|xã\b|xa\b|cấp trường|liên trường|phường\s|cấp phường|hsg cấp/.test(text)) {
+    return AchievementLevel.KHAC;
   }
-  if (
-    /dh&đb|dh&db|miền|mien|liên cụm|lien cum|khu vực|khu vuc|bắc bộ|bac bo|trung - tây nguyên|olympic miền/.test(
-      text,
-    )
-  ) {
-    return AchievementLevel.REGIONAL;
+  if (/dh&đb|dh&db|duyên hải|bắc bộ|bac bo/.test(text)) {
+    return AchievementLevel.DUYEN_HAI;
   }
-  return AchievementLevel.PROVINCE;
+  if (/trại hè hùng vương|hùng vương/.test(text)) {
+    return AchievementLevel.TRAI_HE_HUNG_VUONG;
+  }
+  if (/tin học trẻ|tin hoc tre|vòng loại.*tin học trẻ|hạng \d+.*khu vực|khu vực miền/.test(text)) {
+    return AchievementLevel.TIN_HOC_TRE;
+  }
+  return AchievementLevel.HSG_TINH_THANH_PHO;
 }
 
 function inferCourseLabel(
