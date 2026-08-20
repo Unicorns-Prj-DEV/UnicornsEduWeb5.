@@ -839,6 +839,7 @@ export default function StaffClassDetailPage() {
         allowTeacherSelection={false}
         defaultTeacherId={defaultScheduleTeacherId}
         readOnly={canOpenReadonlyClassForms}
+        allowEffectiveFromEdit={isAdmin}
         onSubmitSchedule={handleScheduleSubmit}
       />
 

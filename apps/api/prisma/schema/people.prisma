@@ -29,6 +29,7 @@ model StaffInfo {
   bonuses                      Bonus[]
   classSurveys                 ClassSurvey[]
   classTeachers                ClassTeacher[]
+  classScheduleEntries         ClassScheduleEntry[]
   customerCareServices         CustomerCareService[]
   extraAllowances              ExtraAllowance[]
   lessonOutputs                LessonOutput[]

@@ -96,19 +96,6 @@ function withOptionalReason(description: string, reason?: string | null) {
     : description;
 }
 
-function getScheduleEntriesForStaff(
-  schedule: Prisma.JsonValue | null | undefined,
-) {
-  if (!Array.isArray(schedule)) {
-    return [];
-  }
-
-  return schedule.filter(
-    (entry): entry is Prisma.JsonObject =>
-      typeof entry === 'object' && entry !== null && !Array.isArray(entry),
-  );
-}
-
 function parseCommaSeparatedIds(raw?: string): string[] {
   if (!raw?.trim()) {
     return [];
@@ -788,57 +775,40 @@ export class StaffService {
       },
       select: {
         id: true,
-        schedule: true,
         teachers: {
           select: {
             teacherId: true,
           },
         },
+        scheduleEntries: {
+          where: { effectiveTo: null },
+          select: { id: true, teacherId: true, meetLink: true },
+        },
       },
     });
 
+    const entryIdsToUpdate: string[] = [];
     for (const cls of classes) {
-      if (!Array.isArray(cls.schedule)) {
-        continue;
-      }
-
       const soleTeacherId =
         cls.teachers.length === 1 ? cls.teachers[0].teacherId : undefined;
-      let scheduleChanged = false;
-      const nextSchedule = cls.schedule.map((rawEntry) => {
-        if (
-          typeof rawEntry !== 'object' ||
-          rawEntry === null ||
-          Array.isArray(rawEntry)
-        ) {
-          return rawEntry;
-        }
 
-        const entry = rawEntry;
-        const entryTeacherId =
-          typeof entry.teacherId === 'string' ? entry.teacherId : undefined;
+      for (const entry of cls.scheduleEntries) {
         const isResponsibleEntry =
-          entryTeacherId === staffId ||
-          (!entryTeacherId && soleTeacherId === staffId);
+          entry.teacherId === staffId ||
+          (!entry.teacherId && soleTeacherId === staffId);
 
         if (!isResponsibleEntry || entry.meetLink === meetLink) {
-          return rawEntry;
+          continue;
         }
 
-        scheduleChanged = true;
-        return {
-          ...entry,
-          meetLink,
-        };
-      });
-
-      if (!scheduleChanged) {
-        continue;
+        entryIdsToUpdate.push(entry.id);
       }
+    }
 
-      await this.prisma.class.update({
-        where: { id: cls.id },
-        data: { schedule: nextSchedule as Prisma.InputJsonValue },
+    if (entryIdsToUpdate.length > 0) {
+      await this.prisma.classScheduleEntry.updateMany({
+        where: { id: { in: entryIdsToUpdate } },
+        data: { meetLink },
       });
     }
 
@@ -5294,42 +5264,34 @@ export class StaffService {
     staffId: string,
   ) {
     const today = toDateOnly();
-    const classes = await tx.class.findMany({
+    const activeEntries = await tx.classScheduleEntry.findMany({
       where: {
-        teachers: {
-          some: {
-            teacherId: staffId,
-            OR: [{ status: null }, { status: 'active' }],
+        teacherId: staffId,
+        effectiveTo: null,
+        class: {
+          teachers: {
+            some: {
+              teacherId: staffId,
+              OR: [{ status: null }, { status: 'active' }],
+            },
           },
         },
       },
-      select: { id: true, schedule: true },
+      select: { id: true, googleCalendarEventId: true },
     });
 
     const googleCalendarEventIds: string[] = [];
-    for (const classRecord of classes) {
-      const scheduleEntries = getScheduleEntriesForStaff(classRecord.schedule);
-      let scheduleChanged = false;
-      const nextSchedule = scheduleEntries.map((entry) => {
-        if (entry.teacherId !== staffId) return entry;
-        if (entry.deletedAt) return entry;
-
-        scheduleChanged = true;
-        if (typeof entry.googleCalendarEventId === 'string') {
-          googleCalendarEventIds.push(entry.googleCalendarEventId);
-        }
-        return {
-          ...entry,
-          deletedAt: new Date().toISOString(),
-        };
-      });
-
-      if (scheduleChanged) {
-        await tx.class.update({
-          where: { id: classRecord.id },
-          data: { schedule: nextSchedule as Prisma.InputJsonValue },
-        });
+    for (const entry of activeEntries) {
+      if (entry.googleCalendarEventId) {
+        googleCalendarEventIds.push(entry.googleCalendarEventId);
       }
+    }
+
+    if (activeEntries.length > 0) {
+      await tx.classScheduleEntry.updateMany({
+        where: { id: { in: activeEntries.map((entry) => entry.id) } },
+        data: { effectiveTo: today },
+      });
     }
 
     const futureMakeupEvents = await tx.makeupScheduleEvent.findMany({

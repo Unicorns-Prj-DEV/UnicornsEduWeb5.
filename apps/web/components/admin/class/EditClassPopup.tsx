@@ -5,6 +5,7 @@ import { useDebounce } from "use-debounce";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { TimeInput } from "@/components/ui/TimeInput";
+import { DateInput } from "@/components/ui/DateInput";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type {
@@ -45,6 +46,10 @@ type ScheduleRangeForm = {
   from: string;
   to: string;
   teacherId: string;
+  /** Ngày slot có hiệu lực (YYYY-MM-DD). Để trống = backend dùng hôm nay. */
+  effectiveFrom: string;
+  /** Giá trị effectiveFrom gốc từ server, dùng để phát hiện admin có sửa hay không. */
+  initialEffectiveFrom: string;
 };
 
 const EMPTY_SCHEDULE_RANGE = {
@@ -52,6 +57,7 @@ const EMPTY_SCHEDULE_RANGE = {
   from: "",
   to: "",
   teacherId: "",
+  effectiveFrom: "",
 } as const;
 
 type Props = {
@@ -67,7 +73,10 @@ const STATUS_OPTIONS: { value: ClassStatus; label: string }[] = [
 
 function createScheduleRange(
   range?: Partial<
-    Pick<ScheduleRangeForm, "id" | "dayOfWeek" | "from" | "to" | "teacherId">
+    Pick<
+      ScheduleRangeForm,
+      "id" | "dayOfWeek" | "from" | "to" | "teacherId" | "effectiveFrom"
+    >
   >,
   fallbackTeacherId?: string,
 ): ScheduleRangeForm {
@@ -78,6 +87,8 @@ function createScheduleRange(
     from: range?.from ?? EMPTY_SCHEDULE_RANGE.from,
     to: range?.to ?? EMPTY_SCHEDULE_RANGE.to,
     teacherId: range?.teacherId ?? fallbackTeacherId ?? EMPTY_SCHEDULE_RANGE.teacherId,
+    effectiveFrom: range?.effectiveFrom ?? EMPTY_SCHEDULE_RANGE.effectiveFrom,
+    initialEffectiveFrom: range?.effectiveFrom ?? EMPTY_SCHEDULE_RANGE.effectiveFrom,
   };
 }
 
@@ -100,6 +111,8 @@ function normalizeSchedule(
     const to = normalizeTimeOnly(typeof record.to === "string" ? record.to : "");
     const teacherId =
       typeof record.teacherId === "string" ? record.teacherId : fallbackTeacherId;
+    const effectiveFrom =
+      typeof record.effectiveFrom === "string" ? record.effectiveFrom : undefined;
 
     if (!from && !to) return acc;
 
@@ -112,6 +125,7 @@ function normalizeSchedule(
           from,
           to,
           teacherId,
+          effectiveFrom,
         },
         fallbackTeacherId,
       ),
@@ -270,6 +284,9 @@ function buildSchedulePayload(
         from,
         to,
         teacherId: range.teacherId,
+        ...(range.effectiveFrom !== range.initialEffectiveFrom
+          ? { effectiveFrom: range.effectiveFrom || undefined }
+          : {}),
       },
     ];
   }, []);
@@ -313,6 +330,17 @@ function EditClassDialog({ onClose, classDetail }: Omit<Props, "open">) {
       ? normalized
       : [createScheduleRange(undefined, initialDefaultTeacherId)];
   });
+  // Id các slot đang active lúc mở dialog — dùng để tính slot nào bị xoá,
+  // gửi tường minh qua `removedEntryIds` (backend không còn suy luận
+  // "vắng mặt trong payload = bị xoá", tránh lost-update).
+  const [initialPersistedIds] = useState<Set<string>>(
+    () =>
+      new Set(
+        normalizeSchedule(classDetail.schedule, initialDefaultTeacherId)
+          .map((range) => range.persistedId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+  );
   const [selectedTeachers, setSelectedTeachers] = useState<
     Array<{ id: string; name: string; customAllowance?: number; operatingDeductionRatePercent?: number }>
   >(() =>
@@ -415,12 +443,17 @@ function EditClassDialog({ onClose, classDetail }: Omit<Props, "open">) {
         queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
       ]);
     },
-    onError: (err: unknown) => {
+    onError: async (err: unknown) => {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         (err as Error)?.message ??
         "Không thể cập nhật lớp học.";
       toast.error(msg);
+      // 409 = có phần vừa bị người khác cập nhật (optimistic lock) → refetch để
+      // người dùng thấy state mới nhất thay vì thao tác tiếp trên state cũ.
+      await queryClient.invalidateQueries({
+        queryKey: ["class", "detail", classDetail.id],
+      });
     },
   });
 
@@ -536,6 +569,14 @@ function EditClassDialog({ onClose, classDetail }: Omit<Props, "open">) {
     const scheduleChanged =
       JSON.stringify(normalizeScheduleForComparison(classDetail.schedule)) !==
       JSON.stringify(normalizeScheduleForComparison(schedulePayload));
+    const survivingPersistedIds = new Set(
+      scheduleRanges
+        .map((range) => range.persistedId)
+        .filter((id): id is string => Boolean(id)),
+    );
+    const removedEntryIds = Array.from(initialPersistedIds).filter(
+      (id) => !survivingPersistedIds.has(id),
+    );
 
     if (!basicInfoChanged && !teachersChanged && !studentsChanged && !scheduleChanged) {
       toast.success("Không có thay đổi cần lưu.");
@@ -548,7 +589,15 @@ function EditClassDialog({ onClose, classDetail }: Omit<Props, "open">) {
         ...(basicInfoChanged ? { basicInfo: nextBasicInfo } : {}),
         ...(teachersChanged ? { teachers: { teachers: teacherPayload } } : {}),
         ...(studentsChanged ? { students: { students: studentPayload } } : {}),
-        ...(scheduleChanged ? { schedule: { schedule: schedulePayload } } : {}),
+        ...(scheduleChanged
+          ? {
+              schedule: {
+                schedule: schedulePayload,
+                removedEntryIds: removedEntryIds.length ? removedEntryIds : undefined,
+                expectedUpdatedAt: classDetail.updatedAt,
+              },
+            }
+          : {}),
       });
       toast.success("Đã lưu.");
       onClose();
@@ -594,6 +643,12 @@ function EditClassDialog({ onClose, classDetail }: Omit<Props, "open">) {
   const handleTeacherChange = (id: string, teacherId: string) => {
     setScheduleRanges((prev) =>
       prev.map((item) => (item.id === id ? { ...item, teacherId } : item)),
+    );
+  };
+
+  const handleEffectiveFromChange = (id: string, effectiveFrom: string) => {
+    setScheduleRanges((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, effectiveFrom } : item)),
     );
   };
 
@@ -1096,6 +1151,25 @@ function EditClassDialog({ onClose, classDetail }: Omit<Props, "open">) {
                         buttonClassName="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                       />
                     </div>
+
+                    <label
+                      htmlFor={`edit-class-schedule-effective-from-${range.id}`}
+                      className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-4"
+                    >
+                      <span className="text-text-muted">Ngày hiệu lực (tuỳ chọn)</span>
+                      <DateInput
+                        id={`edit-class-schedule-effective-from-${range.id}`}
+                        name={`edit-class-schedule-effective-from-${range.id}`}
+                        value={range.effectiveFrom}
+                        onChange={(e) =>
+                          handleEffectiveFromChange(range.id, e.target.value)
+                        }
+                        className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                      />
+                      <span className="text-[11px] text-text-muted">
+                        Chỉ áp dụng khi khung giờ/gia sư của dòng này thay đổi. Bỏ trống = tính từ hôm nay.
+                      </span>
+                    </label>
                   </div>
                 </div>
               ))}

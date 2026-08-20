@@ -67,6 +67,10 @@ describe('CalendarService', () => {
     classTeacher: {
       findUnique: jest.fn(),
     },
+    classScheduleEntry: {
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+    },
     makeupScheduleEvent: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
@@ -414,7 +418,7 @@ describe('CalendarService', () => {
       {
         id: 'class-1',
         name: 'Toán 9A',
-        schedule: [
+        scheduleEntries: [
           {
             id: 'slot-1',
             dayOfWeek: 1,
@@ -422,6 +426,9 @@ describe('CalendarService', () => {
             to: '20:30:00',
             teacherId: 'teacher-1',
             meetLink: 'https://meet.google.com/old-slot-link',
+            googleCalendarEventId: null,
+            effectiveFrom: new Date('2026-01-01'),
+            effectiveTo: null,
           },
         ],
         teachers: [
@@ -1386,17 +1393,7 @@ describe('CalendarService', () => {
   });
 
   it('rejects creating a makeup event from a missing fixed schedule baseline', async () => {
-    mockPrisma.class.findUnique.mockResolvedValueOnce({
-      schedule: [
-        {
-          id: 'slot-2',
-          dayOfWeek: 1,
-          from: '19:00:00',
-          to: '20:30:00',
-          teacherId: 'teacher-1',
-        },
-      ],
-    });
+    mockPrisma.classScheduleEntry.findFirst.mockResolvedValueOnce(null);
 
     await expect(
       service.createMakeupScheduleEvent({

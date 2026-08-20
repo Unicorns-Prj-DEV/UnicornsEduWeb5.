@@ -701,23 +701,6 @@ function buildWeekRange(anchorDate: Date) {
   return { start, end };
 }
 
-function normalizeScheduleCount(schedule: Prisma.JsonValue | null | undefined) {
-  if (!Array.isArray(schedule)) {
-    return 0;
-  }
-
-  return schedule.filter(
-    (item) =>
-      typeof item === 'object' &&
-      item !== null &&
-      'from' in item &&
-      'to' in item &&
-      typeof item.from === 'string' &&
-      typeof item.to === 'string' &&
-      (!('deletedAt' in item) || item.deletedAt === null),
-  ).length;
-}
-
 function toIsoDate(value: Date | string | null | undefined) {
   if (!value) {
     return null;
@@ -2180,11 +2163,11 @@ export class DashboardService {
           select: {
             id: true,
             name: true,
-            schedule: true,
             _count: {
               select: {
                 surveys: true,
                 students: true,
+                scheduleEntries: { where: { effectiveTo: null } },
               },
             },
           },
@@ -2266,7 +2249,7 @@ export class DashboardService {
         id: item.id,
         name: item.name,
         studentCount: item._count.students,
-        scheduleCount: normalizeScheduleCount(item.schedule),
+        scheduleCount: item._count.scheduleEntries,
         surveyCount: item._count.surveys,
       }))
       .sort((left, right) => left.name.localeCompare(right.name));
@@ -3721,31 +3704,6 @@ export class DashboardService {
     };
   }
 
-  private getStoredScheduleEntries(
-    schedule: Prisma.JsonValue | null | undefined,
-  ): Array<{ dayOfWeek?: number; from?: string; to?: string; end?: string }> {
-    if (!Array.isArray(schedule)) {
-      return [];
-    }
-
-    return schedule
-      .filter(
-        (entry) =>
-          typeof entry === 'object' &&
-          entry !== null &&
-          !Array.isArray(entry) &&
-          !('deletedAt' in entry),
-      )
-      .map((entry) => entry as Prisma.JsonObject)
-      .map((entry) => ({
-        dayOfWeek:
-          typeof entry.dayOfWeek === 'number' ? entry.dayOfWeek : undefined,
-        from: typeof entry.from === 'string' ? entry.from : undefined,
-        to: typeof entry.to === 'string' ? entry.to : undefined,
-        end: typeof entry.end === 'string' ? entry.end : undefined,
-      }));
-  }
-
   private async getTrainingSection(
     staffId: string,
     todayRange: ReturnType<typeof buildTodayRange>,
@@ -3759,7 +3717,13 @@ export class DashboardService {
       await Promise.all([
         this.prisma.class.findMany({
           where: managedClassFilter,
-          select: { id: true, schedule: true },
+          select: {
+            id: true,
+            scheduleEntries: {
+              where: { effectiveTo: null },
+              select: { dayOfWeek: true, from: true, to: true },
+            },
+          },
         }),
         this.prisma.makeupScheduleEvent.findMany({
           where: {
@@ -3807,8 +3771,8 @@ export class DashboardService {
     const todayDayOfWeek = todayRange.start.getDay();
 
     for (const cls of runningClasses) {
-      for (const entry of this.getStoredScheduleEntries(cls.schedule)) {
-        if (!entry.from || !(entry.to ?? entry.end)) {
+      for (const entry of cls.scheduleEntries) {
+        if (!entry.from || !entry.to) {
           continue;
         }
 

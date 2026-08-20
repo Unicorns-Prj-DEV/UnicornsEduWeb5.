@@ -34,6 +34,8 @@ export interface ClassScheduleItem {
     meetLink?: string | null;
     createdAt?: string | null;
     deletedAt?: string | null;
+    /** Ngày slot có hiệu lực (YYYY-MM-DD). Dùng để backdate khi sửa lịch trễ so với ngày đổi thực tế. */
+    effectiveFrom?: string | null;
 }
 
 export interface ClassListItem {

@@ -85,6 +85,17 @@ export class ClassScheduleEntryDto {
   @IsOptional()
   @IsString()
   meetLink?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Ngày slot có hiệu lực (YYYY-MM-DD), đọc từ class_schedule_entries.effective_from.',
+    example: '2026-08-01',
+  })
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'effectiveFrom must be in YYYY-MM-DD format',
+  })
+  effectiveFrom?: string;
 }
 
 export class ClassSchedulePatternDto {

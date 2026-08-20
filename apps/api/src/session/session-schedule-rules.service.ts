@@ -7,6 +7,7 @@ import { ClassStatus, Prisma } from '../../generated/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 const SCHEDULE_TIME_TOLERANCE_MINUTES = 180;
+const MISSED_ALERT_TIME_TOLERANCE_MINUTES = 60;
 const DEFAULT_MISSED_ALERT_DAYS = 31;
 const MISSED_TEACHING_ALERT_MIN_DATE_KEY = '2026-06-01';
 const SESSION_DATE_ERROR =
@@ -16,14 +17,14 @@ const SESSION_TIME_ERROR =
 
 type ScheduleRulesClient = Prisma.TransactionClient | PrismaService;
 
-type StoredClassScheduleEntry = {
-  id?: string;
+type ClassScheduleEntryRecord = {
+  id: string;
+  teacherId: string | null;
   dayOfWeek: number;
   from: string;
-  to?: string | null;
-  teacherId?: string;
-  createdAt?: string;
-  deletedAt?: string;
+  to: string | null;
+  effectiveFrom: Date;
+  effectiveTo: Date | null;
 };
 
 type ScheduleCandidate = {
@@ -39,7 +40,7 @@ type AlertClassRecord = {
   status: ClassStatus;
   createdAt: Date;
   updatedAt: Date;
-  schedule: Prisma.JsonValue | null;
+  scheduleEntries: ClassScheduleEntryRecord[];
   teachers: Array<{
     teacherId: string;
     status: string | null;
@@ -168,7 +169,17 @@ export class SessionScheduleRulesService {
         status: true,
         createdAt: true,
         updatedAt: true,
-        schedule: true,
+        scheduleEntries: {
+          select: {
+            id: true,
+            teacherId: true,
+            dayOfWeek: true,
+            from: true,
+            to: true,
+            effectiveFrom: true,
+            effectiveTo: true,
+          },
+        },
         teachers: {
           where: teacherId ? { teacherId } : undefined,
           select: {
@@ -222,7 +233,17 @@ export class SessionScheduleRulesService {
         status: true,
         createdAt: true,
         updatedAt: true,
-        schedule: true,
+        scheduleEntries: {
+          select: {
+            id: true,
+            teacherId: true,
+            dayOfWeek: true,
+            from: true,
+            to: true,
+            effectiveFrom: true,
+            effectiveTo: true,
+          },
+        },
         teachers: {
           where: {
             teacherId,
@@ -259,44 +280,39 @@ export class SessionScheduleRulesService {
       date: Date;
     },
   ): Promise<ScheduleCandidate[]> {
-    const cls = await db.class.findUnique({
-      where: { id: params.classId },
-      select: { schedule: true },
+    const sessionDate = this.startOfSessionDay(params.date);
+    const dayOfWeek = params.date.getUTCDay();
+
+    // Giáo viên khác đang active trong lớp được coi là dạy thay hợp lệ cho
+    // slot này, tương tự logic cảnh báo "chưa dạy" (buildMissedTeachingAlerts)
+    // -- tránh chặn nhầm buổi dạy thay hợp lệ. Chỉ mở rộng match sang mọi
+    // entry của lớp khi giáo viên nộp bài đang active trong lớp; nếu không,
+    // giữ hành vi cũ (chỉ match đúng entry của chính họ) để tránh giáo viên
+    // đã bị gỡ khỏi lớp lợi dụng slot dạy thay của người khác.
+    const submittingTeacher = await db.classTeacher.findUnique({
+      where: {
+        classId_teacherId: { classId: params.classId, teacherId: params.teacherId },
+      },
+      select: { status: true },
     });
-    const dateKey = this.formatDate(params.date);
-    const fixedCandidates = this.getStoredClassScheduleEntries(cls?.schedule)
-      .filter((entry) => {
-        if (
-          entry.teacherId !== params.teacherId ||
-          entry.dayOfWeek !== params.date.getUTCDay()
-        ) {
-          return false;
-        }
+    const canMatchAnyTeacherSlot = isActiveClassTeacherStatus(
+      submittingTeacher?.status,
+    );
 
-        if (entry.createdAt) {
-          const entryCreatedDateKey = this.formatDate(
-            this.startOfSessionDay(new Date(entry.createdAt)),
-          );
-          if (dateKey < entryCreatedDateKey) {
-            return false;
-          }
-        }
-
-        if (entry.deletedAt) {
-          const entryDeletedDateKey = this.formatDate(
-            this.startOfSessionDay(new Date(entry.deletedAt)),
-          );
-          if (dateKey >= entryDeletedDateKey) {
-            return false;
-          }
-        }
-
-        return true;
-      })
-      .map((entry) => ({
-        source: 'fixed' as const,
-        startMinutes: this.timeStringToMinutes(entry.from),
-      }));
+    const entries = await db.classScheduleEntry.findMany({
+      where: {
+        classId: params.classId,
+        dayOfWeek,
+        effectiveFrom: { lte: sessionDate },
+        OR: [{ effectiveTo: null }, { effectiveTo: { gt: sessionDate } }],
+        ...(canMatchAnyTeacherSlot ? {} : { teacherId: params.teacherId }),
+      },
+      select: { from: true },
+    });
+    const fixedCandidates = entries.map((entry) => ({
+      source: 'fixed' as const,
+      startMinutes: this.timeStringToMinutes(entry.from),
+    }));
 
     const makeupEvents = await db.makeupScheduleEvent.findMany({
       where: {
@@ -402,10 +418,6 @@ export class SessionScheduleRulesService {
         continue;
       }
 
-      // Repair slots stripped of createdAt (e.g. older Google resync write-back)
-      // so they are not treated as active since Class.createdAt.
-      await this.repairMissingScheduleCreatedAt(cls);
-
       const activeTeacherIds = new Set(
         cls.teachers
           .filter((assignment) => isActiveClassTeacherStatus(assignment.status))
@@ -417,11 +429,8 @@ export class SessionScheduleRulesService {
           this.getTeacherName(teacherAssignment.teacher.user),
         ]),
       );
-      const scheduleEntries = this.getStoredClassScheduleEntries(
-        cls.schedule,
-      ).filter(
+      const scheduleEntries = cls.scheduleEntries.filter(
         (entry) =>
-          entry.id &&
           entry.teacherId &&
           (!options.teacherId || entry.teacherId === options.teacherId),
       );
@@ -449,11 +458,12 @@ export class SessionScheduleRulesService {
             continue;
           }
 
-          // Deleted entries (soft-deleted khi đổi lịch) vẫn cần tạo alert cho các ngày
-          // trước thời điểm xóa — dù giáo viên đó không còn active trong lớp.
-          // Active entries (không có deletedAt) chỉ áp dụng nếu giáo viên còn active.
-          const isDeletedEntry = Boolean(entry.deletedAt);
-          if (!isDeletedEntry && !activeTeacherIds.has(entry.teacherId)) {
+          // Closed entries (soft-closed khi đổi lịch, effectiveTo != null) vẫn cần
+          // tạo alert cho các ngày trước effectiveTo — dù giáo viên đó không còn
+          // active trong lớp. Entries đang mở (effectiveTo == null) chỉ áp dụng
+          // nếu giáo viên còn active.
+          const isClosedEntry = entry.effectiveTo != null;
+          if (!isClosedEntry && !activeTeacherIds.has(entry.teacherId)) {
             continue;
           }
 
@@ -461,26 +471,18 @@ export class SessionScheduleRulesService {
             continue;
           }
 
-          if (entry.createdAt) {
-            const entryCreatedDateKey = this.formatDate(
-              this.startOfSessionDay(new Date(entry.createdAt)),
-            );
-            if (dateKey < entryCreatedDateKey) {
-              continue;
-            }
-          } else {
-            // Legacy entry không có createdAt: dùng ngày tạo lớp làm lower bound
-            // để tránh tạo alert cho ngày trước khi lớp tồn tại.
-            if (dateKey < classCreatedDateKey) {
-              continue;
-            }
+          const entryEffectiveFromKey = this.formatDate(
+            this.startOfSessionDay(entry.effectiveFrom),
+          );
+          if (dateKey < entryEffectiveFromKey) {
+            continue;
           }
 
-          if (entry.deletedAt) {
-            const entryDeletedDateKey = this.formatDate(
-              this.startOfSessionDay(new Date(entry.deletedAt)),
+          if (entry.effectiveTo) {
+            const entryEffectiveToKey = this.formatDate(
+              this.startOfSessionDay(entry.effectiveTo),
             );
-            if (dateKey >= entryDeletedDateKey) {
+            if (dateKey >= entryEffectiveToKey) {
               continue;
             }
           }
@@ -497,7 +499,7 @@ export class SessionScheduleRulesService {
           const occurrenceKey = this.buildOccurrenceKey({
             classId: cls.id,
             teacherId: entry.teacherId,
-            scheduleEntryId: entry.id!,
+            scheduleEntryId: entry.id,
             dateKey,
           });
 
@@ -505,14 +507,19 @@ export class SessionScheduleRulesService {
             continue;
           }
 
+          // Giáo viên khác đang active trong lớp được coi là dạy thay hợp lệ
+          // cho slot này (không chỉ riêng giáo viên gán cho entry) -- tránh
+          // sinh cảnh báo giả khi 1 giáo viên trong lớp dạy thay giáo viên kia.
           const hasMatchingSession = sessionItems.some(
             (session) =>
               session.classId === cls.id &&
-              session.teacherId === entry.teacherId &&
+              (session.teacherId === entry.teacherId ||
+                (session.teacherId != null &&
+                  activeTeacherIds.has(session.teacherId))) &&
               session.dateKey === dateKey &&
               session.startMinutes != null &&
               Math.abs(session.startMinutes - scheduledStartMinutes) <=
-                SCHEDULE_TIME_TOLERANCE_MINUTES,
+                MISSED_ALERT_TIME_TOLERANCE_MINUTES,
           );
 
           if (hasMatchingSession) {
@@ -525,7 +532,7 @@ export class SessionScheduleRulesService {
             className: cls.name,
             teacherId: entry.teacherId,
             teacherName: teacherNameById.get(entry.teacherId) ?? null,
-            scheduleEntryId: entry.id!,
+            scheduleEntryId: entry.id,
             originalDate: dateKey,
             scheduledStartTime: this.normalizeTimeString(entry.from)!,
             scheduledEndTime: this.normalizeTimeString(entry.to),
@@ -542,119 +549,6 @@ export class SessionScheduleRulesService {
         ? a.scheduledStartTime.localeCompare(b.scheduledStartTime)
         : b.originalDate.localeCompare(a.originalDate),
     );
-  }
-
-  private getStoredClassScheduleEntries(
-    schedule: Prisma.JsonValue | null | undefined,
-  ): StoredClassScheduleEntry[] {
-    if (!Array.isArray(schedule)) {
-      return [];
-    }
-
-    const entries: Array<StoredClassScheduleEntry | null> = schedule.map(
-      (entry) => {
-        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
-          return null;
-        }
-
-        const record = entry as Record<string, unknown>;
-        const dayOfWeek =
-          typeof record.dayOfWeek === 'number' ? record.dayOfWeek : null;
-        const from = this.normalizeTimeString(record.from);
-        const to = this.normalizeTimeString(record.to ?? record.end);
-        const teacherId =
-          typeof record.teacherId === 'string' && record.teacherId.trim()
-            ? record.teacherId.trim()
-            : undefined;
-        const id =
-          typeof record.id === 'string' && record.id.trim()
-            ? record.id.trim()
-            : undefined;
-        const createdAt =
-          typeof record.createdAt === 'string' && record.createdAt.trim()
-            ? record.createdAt.trim()
-            : undefined;
-        const deletedAt =
-          typeof record.deletedAt === 'string' && record.deletedAt.trim()
-            ? record.deletedAt.trim()
-            : undefined;
-
-        if (dayOfWeek == null || !from) {
-          return null;
-        }
-
-        return {
-          id,
-          dayOfWeek,
-          from,
-          to,
-          teacherId,
-          createdAt,
-          deletedAt,
-        };
-      },
-    );
-
-    return entries.filter(
-      (entry): entry is StoredClassScheduleEntry => entry !== null,
-    );
-  }
-
-  /**
-   * Google Calendar resync historically rewrote Class.schedule without createdAt.
-   * Backfill missing createdAt only on entries that already have Google projection
-   * metadata (evidence of calendar write-back), using class.updatedAt so missed
-   * alerts do not treat new slot times as active since Class.createdAt.
-   * True legacy slots without Google fields keep the class.createdAt lower bound.
-   */
-  private async repairMissingScheduleCreatedAt(
-    cls: AlertClassRecord,
-  ): Promise<void> {
-    if (!Array.isArray(cls.schedule)) {
-      return;
-    }
-
-    const fallbackCreatedAt =
-      cls.updatedAt instanceof Date
-        ? cls.updatedAt.toISOString()
-        : new Date().toISOString();
-    let changed = false;
-    const nextSchedule = cls.schedule.map((rawEntry) => {
-      if (!rawEntry || typeof rawEntry !== 'object' || Array.isArray(rawEntry)) {
-        return rawEntry;
-      }
-
-      const entry = rawEntry as Record<string, unknown>;
-      const hasCreatedAt =
-        typeof entry.createdAt === 'string' && entry.createdAt.trim().length > 0;
-      if (hasCreatedAt) {
-        return rawEntry;
-      }
-
-      const hasGoogleProjection =
-        (typeof entry.googleCalendarEventId === 'string' &&
-          entry.googleCalendarEventId.trim().length > 0) ||
-        (typeof entry.meetLink === 'string' && entry.meetLink.trim().length > 0);
-      if (!hasGoogleProjection) {
-        return rawEntry;
-      }
-
-      changed = true;
-      return {
-        ...entry,
-        createdAt: fallbackCreatedAt,
-      };
-    });
-
-    if (!changed) {
-      return;
-    }
-
-    cls.schedule = nextSchedule as Prisma.JsonValue;
-    await this.prisma.class.update({
-      where: { id: cls.id },
-      data: { schedule: nextSchedule as Prisma.InputJsonValue },
-    });
   }
 
   private normalizeTimeString(value: unknown): string | null {

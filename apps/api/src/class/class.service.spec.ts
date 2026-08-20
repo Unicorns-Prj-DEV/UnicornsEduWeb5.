@@ -72,6 +72,11 @@ describe('ClassService', () => {
       createMany: jest.fn(),
       create: jest.fn(),
     },
+    classScheduleEntry: {
+      findMany: jest.fn(),
+      updateMany: jest.fn(),
+      createMany: jest.fn(),
+    },
     $queryRaw: jest.fn(),
   };
 
@@ -82,6 +87,9 @@ describe('ClassService', () => {
       findUnique: jest.fn(),
     },
     classTeacher: {
+      findMany: jest.fn(),
+    },
+    classScheduleEntry: {
       findMany: jest.fn(),
     },
     makeupScheduleEvent: {
@@ -181,9 +189,13 @@ describe('ClassService', () => {
     mockTx.studentClass.updateMany.mockResolvedValue({ count: 0 });
     mockTx.studentClass.createMany.mockResolvedValue({ count: 0 });
     mockTx.studentClass.create.mockResolvedValue({});
+    mockTx.classScheduleEntry.findMany.mockResolvedValue([]);
+    mockTx.classScheduleEntry.updateMany.mockResolvedValue({ count: 0 });
+    mockTx.classScheduleEntry.createMany.mockResolvedValue({ count: 0 });
     mockPrisma.class.count.mockResolvedValue(0);
     mockPrisma.class.findMany.mockResolvedValue([]);
     mockPrisma.classTeacher.findMany.mockResolvedValue([]);
+    mockPrisma.classScheduleEntry.findMany.mockResolvedValue([]);
     mockPrisma.makeupScheduleEvent.findMany.mockResolvedValue([]);
     mockPrisma.studentClass.groupBy.mockResolvedValue([]);
     mockPrisma.studentClass.findFirst.mockResolvedValue(null);
@@ -604,16 +616,7 @@ describe('ClassService', () => {
       const beforeSnapshot = {
         id: 'class-1',
         status: ClassStatus.running,
-        schedule: [
-          {
-            id: 'slot-1',
-            dayOfWeek: 1,
-            from: '19:00',
-            to: '20:30',
-            teacherId: 'teacher-1',
-            googleCalendarEventId: 'calendar-1',
-          },
-        ],
+        schedule: [],
         teachers: [],
       };
       const afterSnapshot = {
@@ -628,6 +631,21 @@ describe('ClassService', () => {
       ).getClassAuditSnapshot
         .mockResolvedValueOnce(beforeSnapshot)
         .mockResolvedValueOnce(afterSnapshot);
+      mockTx.classScheduleEntry.findMany.mockResolvedValue([
+        {
+          id: 'slot-1',
+          classId: 'class-1',
+          dayOfWeek: 1,
+          from: '19:00',
+          to: '20:30',
+          teacherId: 'teacher-1',
+          googleCalendarEventId: 'calendar-1',
+          meetLink: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          effectiveFrom: new Date('2026-01-01T00:00:00.000Z'),
+          effectiveTo: null,
+        },
+      ]);
       mockPrisma.makeupScheduleEvent.findMany.mockResolvedValue([
         { id: 'makeup-1' },
       ]);
@@ -651,8 +669,11 @@ describe('ClassService', () => {
         where: { id: 'class-1' },
         data: {
           status: ClassStatus.ended,
-          schedule: [],
         },
+      });
+      expect(mockTx.classScheduleEntry.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['slot-1'] } },
+        data: { effectiveTo: expect.any(Date) },
       });
       expect(mockTx.studentClass.updateMany).toHaveBeenCalledWith({
         where: { classId: 'class-1', status: StudentClassStatus.active },
@@ -689,34 +710,10 @@ describe('ClassService', () => {
       const beforeSnapshot = {
         id: 'class-1',
         status: ClassStatus.running,
-        schedule: [
-          {
-            id: 'slot-1',
-            dayOfWeek: 1,
-            from: '19:00',
-            to: '20:30',
-            teacherId: 'teacher-1',
-          },
-          {
-            id: 'slot-2',
-            dayOfWeek: 3,
-            from: '19:00',
-            to: '20:30',
-            teacherId: 'teacher-2',
-          },
-        ],
+        schedule: [],
         teachers: [],
       };
-      const afterSnapshot = {
-        ...beforeSnapshot,
-        schedule: [
-          {
-            ...beforeSnapshot.schedule[0],
-            deletedAt: '2026-06-03T15:20:38.775Z',
-          },
-          beforeSnapshot.schedule[1],
-        ],
-      };
+      const afterSnapshot = { ...beforeSnapshot };
       (
         service as unknown as {
           getClassAuditSnapshot: jest.Mock;
@@ -725,6 +722,21 @@ describe('ClassService', () => {
         .mockResolvedValueOnce(beforeSnapshot)
         .mockResolvedValueOnce(afterSnapshot);
       mockTx.classTeacher.findUnique.mockResolvedValue({ status: 'active' });
+      mockTx.classScheduleEntry.findMany.mockResolvedValue([
+        {
+          id: 'slot-1',
+          classId: 'class-1',
+          dayOfWeek: 1,
+          from: '19:00',
+          to: '20:30',
+          teacherId: 'teacher-1',
+          googleCalendarEventId: null,
+          meetLink: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          effectiveFrom: new Date('2026-01-01T00:00:00.000Z'),
+          effectiveTo: null,
+        },
+      ]);
       mockPrisma.makeupScheduleEvent.findMany.mockResolvedValue([
         { id: 'makeup-2' },
       ]);
@@ -746,21 +758,9 @@ describe('ClassService', () => {
         },
         data: { status: 'inactive' },
       });
-      expect(mockTx.class.update).toHaveBeenCalledWith({
-        where: { id: 'class-1' },
-        data: {
-          schedule: [
-            expect.objectContaining({
-              id: 'slot-1',
-              teacherId: 'teacher-1',
-              deletedAt: expect.any(String),
-            }),
-            expect.objectContaining({
-              id: 'slot-2',
-              teacherId: 'teacher-2',
-            }),
-          ],
-        },
+      expect(mockTx.classScheduleEntry.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['slot-1'] } },
+        data: { effectiveTo: expect.any(Date) },
       });
       expect(mockActionHistoryService.recordUpdate).toHaveBeenCalledWith(
         mockTx,
@@ -809,6 +809,46 @@ describe('ClassService', () => {
       expect(updateScheduleSpy).toHaveBeenCalledWith(
         'class-1',
         { schedule: [] },
+        undefined,
+      );
+    });
+
+    it('strips effectiveFrom from a pure-teacher actor submission (only admin/assistant may backdate)', async () => {
+      mockStaffOperationsAccess.resolveActor.mockResolvedValue({
+        id: 'teacher-1',
+        roles: [StaffRole.teacher],
+      });
+      const updateScheduleSpy = jest
+        .spyOn(service, 'updateClassSchedule')
+        .mockResolvedValue({ id: 'class-1' } as never);
+
+      await service.updateClassScheduleForStaff(
+        'user-1',
+        UserRole.staff,
+        'class-1',
+        {
+          schedule: [
+            {
+              dayOfWeek: 3,
+              from: '20:00:00',
+              to: '21:30:00',
+              teacherId: 'teacher-1',
+              effectiveFrom: '2026-01-01',
+            },
+          ],
+        } as never,
+      );
+
+      expect(updateScheduleSpy).toHaveBeenCalledWith(
+        'class-1',
+        {
+          schedule: [
+            expect.objectContaining({
+              teacherId: 'teacher-1',
+              effectiveFrom: undefined,
+            }),
+          ],
+        },
         undefined,
       );
     });
@@ -935,32 +975,26 @@ describe('ClassService', () => {
     });
 
     it('removes fixed schedule slots owned by teachers removed from the class and syncs Google Calendar', async () => {
-      const oldSchedule = [
+      mockPrisma.class.findUnique.mockResolvedValue({
+        id: 'class-1',
+        name: 'Math 10A',
+        allowancePerSessionPerStudent: 120000,
+      });
+      mockTx.classScheduleEntry.findMany.mockResolvedValue([
         {
           id: 'slot-removed',
+          classId: 'class-1',
           dayOfWeek: 1,
           from: '19:00:00',
           to: '20:30:00',
           teacherId: 'teacher-removed',
           googleCalendarEventId: 'google-removed',
           meetLink: 'https://meet.google.com/removed',
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          effectiveFrom: new Date('2026-01-01T00:00:00.000Z'),
+          effectiveTo: null,
         },
-        {
-          id: 'slot-kept',
-          dayOfWeek: 3,
-          from: '18:00:00',
-          to: '19:30:00',
-          teacherId: 'teacher-kept',
-          googleCalendarEventId: 'google-kept',
-          meetLink: 'https://meet.google.com/kept',
-        },
-      ];
-      mockPrisma.class.findUnique.mockResolvedValue({
-        id: 'class-1',
-        name: 'Math 10A',
-        schedule: oldSchedule,
-        allowancePerSessionPerStudent: 120000,
-      });
+      ]);
       mockTx.classTeacher.findMany.mockResolvedValue([
         {
           teacherId: 'teacher-removed',
@@ -983,29 +1017,21 @@ describe('ClassService', () => {
         ],
       });
 
-      expect(mockTx.class.update).toHaveBeenCalledWith({
-        where: { id: 'class-1' },
-        data: {
-          schedule: [
-            expect.objectContaining({
-              id: 'slot-removed',
-              deletedAt: expect.any(String),
-            }),
-            expect.objectContaining({
-              id: 'slot-kept',
-              dayOfWeek: 3,
-              from: '18:00:00',
-              to: '19:30:00',
-              teacherId: 'teacher-kept',
-              googleCalendarEventId: 'google-kept',
-              meetLink: 'https://meet.google.com/kept',
-            }),
-          ],
-        },
+      expect(mockTx.classScheduleEntry.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['slot-removed'] } },
+        data: { effectiveTo: expect.any(Date) },
       });
       expect(mockCalendarService.syncScheduleWithCalendar).toHaveBeenCalledWith(
         'class-1',
-        oldSchedule,
+        [
+          expect.objectContaining({
+            id: 'slot-removed',
+            teacherId: 'teacher-removed',
+            googleCalendarEventId: 'google-removed',
+            meetLink: 'https://meet.google.com/removed',
+            deletedAt: expect.any(String),
+          }),
+        ],
       );
     });
 

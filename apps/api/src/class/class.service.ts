@@ -22,6 +22,7 @@ import {
   CreateClassDto,
   CreateStaffOpsClassDto,
   ClassStatusActionDto,
+  ScheduleSlotDto,
   UpdateClassBasicInfoDto,
   UpdateClassDto,
   UpdateClassScheduleDto,
@@ -242,73 +243,43 @@ export class ClassService {
     );
   }
 
-  private getStoredClassScheduleEntries(
-    schedule: Prisma.JsonValue | null | undefined,
-  ): StoredClassScheduleEntry[] {
-    if (!Array.isArray(schedule)) {
-      return [];
-    }
-
-    return schedule
-      .filter(
-        (entry) =>
-          typeof entry === 'object' && entry !== null && !Array.isArray(entry),
-      )
-      .map((rawEntry) => {
-        const entry = rawEntry as Prisma.JsonObject;
-
-        return {
-          id: typeof entry.id === 'string' ? entry.id : undefined,
-          dayOfWeek:
-            typeof entry.dayOfWeek === 'number' ? entry.dayOfWeek : undefined,
-          from: typeof entry.from === 'string' ? entry.from : undefined,
-          to: typeof entry.to === 'string' ? entry.to : undefined,
-          end: typeof entry.end === 'string' ? entry.end : undefined,
-          teacherId:
-            typeof entry.teacherId === 'string' ? entry.teacherId : undefined,
-          googleCalendarEventId:
-            typeof entry.googleCalendarEventId === 'string'
-              ? entry.googleCalendarEventId
-              : undefined,
-          meetLink:
-            typeof entry.meetLink === 'string' ? entry.meetLink : undefined,
-          createdAt:
-            typeof entry.createdAt === 'string' ? entry.createdAt : undefined,
-          deletedAt:
-            typeof entry.deletedAt === 'string' ? entry.deletedAt : undefined,
-        };
-      });
+  /**
+   * Class.schedule JSON không còn được ghi (chỉ giữ backup lịch sử tại thời
+   * điểm migrate sang bảng class_schedule_entries). Chuyển 1 row DB sang
+   * shape StoredClassScheduleEntry cũ để tái dùng với CalendarService (vẫn
+   * nhận StoredClassScheduleEntry[] cho phần đồng bộ Google Calendar).
+   */
+  private toStoredScheduleEntry(row: {
+    id: string;
+    dayOfWeek: number;
+    from: string;
+    to: string;
+    teacherId: string | null;
+    googleCalendarEventId: string | null;
+    meetLink: string | null;
+    createdAt: Date;
+    effectiveTo?: Date | null;
+  }): StoredClassScheduleEntry {
+    return {
+      id: row.id,
+      dayOfWeek: row.dayOfWeek,
+      from: row.from,
+      to: row.to,
+      teacherId: row.teacherId ?? undefined,
+      googleCalendarEventId: row.googleCalendarEventId ?? undefined,
+      meetLink: row.meetLink ?? undefined,
+      createdAt: row.createdAt.toISOString(),
+      deletedAt: row.effectiveTo
+        ? new Date(row.effectiveTo).toISOString()
+        : undefined,
+    };
   }
 
-  private serializeStoredClassScheduleEntries(
-    entries: Array<{
-      id?: string;
-      dayOfWeek?: number;
-      from?: string;
-      to?: string;
-      end?: string;
-      teacherId?: string;
-      googleCalendarEventId?: string;
-      meetLink?: string;
-      createdAt?: string;
-      deletedAt?: string;
-    }>,
-  ): Prisma.InputJsonValue {
-    return entries.map((entry) => ({
-      ...(entry.id ? { id: entry.id } : {}),
-      ...(typeof entry.dayOfWeek === 'number'
-        ? { dayOfWeek: entry.dayOfWeek }
-        : {}),
-      ...(entry.from ? { from: entry.from } : {}),
-      ...(entry.to || entry.end ? { to: entry.to ?? entry.end } : {}),
-      ...(entry.teacherId ? { teacherId: entry.teacherId } : {}),
-      ...(entry.googleCalendarEventId
-        ? { googleCalendarEventId: entry.googleCalendarEventId }
-        : {}),
-      ...(entry.meetLink ? { meetLink: entry.meetLink } : {}),
-      ...(entry.createdAt ? { createdAt: entry.createdAt } : {}),
-      ...(entry.deletedAt ? { deletedAt: entry.deletedAt } : {}),
-    })) as Prisma.InputJsonValue;
+  private parseEffectiveFromDate(value?: string): Date {
+    if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return new Date(`${value}T00:00:00.000Z`);
+    }
+    return toDateOnly();
   }
 
   private normalizeTimeValue(
@@ -333,158 +304,156 @@ export class ClassService {
     return `${hours}:${minutes}:${seconds}`;
   }
 
-  private mergeScheduleEntriesWithExisting(
+  /**
+   * Diff `dto.schedule`/`dto.removedEntryIds` với các row `class_schedule_entries`
+   * đang active (effectiveTo=null) của lớp, rồi áp trực tiếp lên DB trong transaction:
+   * slot đổi nội dung/bị xoá → soft-close (effectiveTo), slot mới/thay thế → insert
+   * row mới với effectiveFrom tường minh. Không đụng Class.schedule JSON (deprecated).
+   */
+  private async applyScheduleUpdateTx(
+    tx: Prisma.TransactionClient,
+    classId: string,
     nextEntries: UpdateClassScheduleDto['schedule'],
-    existingSchedule: Prisma.JsonValue | null | undefined,
-    classCreatedAt?: Date | string | null,
-    removedEntryIds?: string[],
-  ) {
+    removedEntryIds: string[] | undefined,
+  ): Promise<{
+    finalActiveTeacherIds: string[];
+    closedEntries: StoredClassScheduleEntry[];
+  }> {
     const removedEntryIdSet = new Set(removedEntryIds ?? []);
-    // Fallback lower bound cho legacy entries không có createdAt
-    const classCreatedAtISO =
-      classCreatedAt instanceof Date
-        ? classCreatedAt.toISOString()
-        : typeof classCreatedAt === 'string'
-          ? classCreatedAt
-          : undefined;
-
+    const existingActive = await tx.classScheduleEntry.findMany({
+      where: { classId, effectiveTo: null },
+    });
     const existingById = new Map(
-      this.getStoredClassScheduleEntries(existingSchedule)
-        .filter(
-          (entry): entry is StoredClassScheduleEntry & { id: string } =>
-            typeof entry.id === 'string' && entry.id.length > 0,
-        )
-        .map((entry) => [entry.id, entry]),
+      existingActive.map((entry) => [entry.id, entry]),
     );
 
-    const deletedEntries: StoredClassScheduleEntry[] = [];
-    const activeEntries: StoredClassScheduleEntry[] = [];
-    const handledExistingIds = new Set<string>();
+    const closeIds = new Map<string, Date>();
+    const createRows: Prisma.ClassScheduleEntryCreateManyInput[] = [];
+    const keptActiveTeacherIds: string[] = [];
 
     for (const entry of nextEntries) {
       const existingEntry =
         entry.id != null ? existingById.get(entry.id) : undefined;
+      const fromNormalized = this.normalizeTimeValue(entry.from) ?? entry.from;
+      const toNormalized = this.normalizeTimeValue(entry.to) ?? entry.to;
+      const effectiveFromDate = this.parseEffectiveFromDate(
+        entry.effectiveFrom,
+      );
+
+      const unchanged =
+        existingEntry &&
+        existingEntry.dayOfWeek === entry.dayOfWeek &&
+        existingEntry.from === fromNormalized &&
+        existingEntry.to === toNormalized &&
+        existingEntry.teacherId === (entry.teacherId ?? null);
+
+      if (unchanged) {
+        if (entry.teacherId) keptActiveTeacherIds.push(entry.teacherId);
+        continue;
+      }
 
       if (existingEntry) {
-        const fromNormalized = this.normalizeTimeValue(entry.from);
-        const toNormalized = this.normalizeTimeValue(entry.to);
-        const existingFrom = this.normalizeTimeValue(existingEntry.from);
-        const existingTo = this.normalizeTimeValue(
-          existingEntry.to || existingEntry.end,
-        );
-
-        const hasChanged =
-          existingEntry.dayOfWeek !== entry.dayOfWeek ||
-          existingFrom !== fromNormalized ||
-          existingTo !== toNormalized ||
-          existingEntry.teacherId !== entry.teacherId;
-
-        if (hasChanged) {
-          deletedEntries.push({
-            ...existingEntry,
-            // Backfill createdAt trước khi soft-delete nếu entry chưa có
-            createdAt: existingEntry.createdAt ?? classCreatedAtISO,
-            deletedAt: existingEntry.deletedAt ?? new Date().toISOString(),
-          });
-          handledExistingIds.add(existingEntry.id);
-
-          activeEntries.push({
-            id: randomUUID(),
-            dayOfWeek: entry.dayOfWeek,
-            from: fromNormalized,
-            to: toNormalized,
-            teacherId: entry.teacherId,
-            googleCalendarEventId: undefined,
-            meetLink: undefined,
-            createdAt: new Date().toISOString(),
-          });
-          continue;
-        }
+        closeIds.set(existingEntry.id, effectiveFromDate);
       }
 
-      activeEntries.push({
-        id: entry.id ?? randomUUID(),
+      createRows.push({
+        id: randomUUID(),
+        classId,
+        teacherId: entry.teacherId ?? null,
         dayOfWeek: entry.dayOfWeek,
-        from: this.normalizeTimeValue(entry.from),
-        to: this.normalizeTimeValue(entry.to),
-        teacherId: entry.teacherId,
-        googleCalendarEventId: existingEntry?.googleCalendarEventId,
-        meetLink: existingEntry?.meetLink,
-        // Uu tiên: existing createdAt → FE createdAt → ngày tạo lớp (legacy) → now
-        createdAt:
-          existingEntry?.createdAt ??
-          entry.createdAt ??
-          classCreatedAtISO ??
-          new Date().toISOString(),
+        from: fromNormalized,
+        to: toNormalized,
+        effectiveFrom: effectiveFromDate,
       });
+      if (entry.teacherId) keptActiveTeacherIds.push(entry.teacherId);
     }
 
-    const nextEntryIds = new Set(
-      activeEntries.map((entry) => entry.id).filter(Boolean),
-    );
-    for (const existingEntry of existingById.values()) {
-      if (nextEntryIds.has(existingEntry.id) || handledExistingIds.has(existingEntry.id)) {
-        continue;
-      }
-
-      if (existingEntry.deletedAt || !removedEntryIdSet.has(existingEntry.id)) {
-        // Đã soft-delete từ trước, hoặc không nằm trong danh sách xoá tường minh
-        // của request này → GIỮ NGUYÊN, không tự động soft-delete.
-        // Đây là fix cho lost-update: entry vắng mặt trong payload (vì FE chỉ
-        // gửi những gì nó biết/đang sửa) không còn đồng nghĩa với "bị xoá".
-        (existingEntry.deletedAt ? deletedEntries : activeEntries).push(
-          existingEntry,
-        );
-        continue;
-      }
-
-      deletedEntries.push({
-        ...existingEntry,
-        // Backfill createdAt trước khi soft-delete nếu entry chưa có
-        createdAt: existingEntry.createdAt ?? classCreatedAtISO,
-        deletedAt: existingEntry.deletedAt ?? new Date().toISOString(),
-      });
+    const today = toDateOnly();
+    for (const removeId of removedEntryIdSet) {
+      if (closeIds.has(removeId)) continue;
+      if (!existingById.has(removeId)) continue;
+      closeIds.set(removeId, today);
     }
 
-    return [...activeEntries, ...deletedEntries];
+    const closedEntries: StoredClassScheduleEntry[] = [];
+    for (const [entryId, effectiveTo] of closeIds) {
+      const row = existingById.get(entryId);
+      if (!row) continue;
+      await tx.classScheduleEntry.updateMany({
+        where: { id: entryId, classId, effectiveTo: null },
+        data: { effectiveTo },
+      });
+      closedEntries.push(this.toStoredScheduleEntry({ ...row, effectiveTo }));
+    }
+
+    if (createRows.length > 0) {
+      await tx.classScheduleEntry.createMany({ data: createRows });
+    }
+
+    return {
+      finalActiveTeacherIds: Array.from(new Set(keptActiveTeacherIds)),
+      closedEntries,
+    };
   }
 
-  private removeScheduleEntriesForTeachers(
-    schedule: Prisma.JsonValue | null | undefined,
+  /**
+   * Soft-close (effectiveTo = hôm nay) toàn bộ slot lịch cố định đang active
+   * của các giáo viên vừa bị gỡ khỏi lớp. Thay cho việc soft-delete trong
+   * Class.schedule JSON trước đây.
+   */
+  private async closeScheduleEntriesForTeachers(
+    tx: Prisma.TransactionClient,
+    classId: string,
     removedTeacherIds: Set<string>,
-  ): {
-    oldSchedule: StoredClassScheduleEntry[];
-    nextSchedule: StoredClassScheduleEntry[];
+  ): Promise<{
+    closedEntries: StoredClassScheduleEntry[];
     removedScheduleEntries: number;
-  } {
-    const oldSchedule = this.getStoredClassScheduleEntries(schedule);
+  }> {
     if (removedTeacherIds.size === 0) {
-      return {
-        oldSchedule,
-        nextSchedule: oldSchedule,
-        removedScheduleEntries: 0,
-      };
+      return { closedEntries: [], removedScheduleEntries: 0 };
     }
 
-    let removedCount = 0;
-    const nextSchedule = oldSchedule.map((entry) => {
-      if (entry.teacherId && removedTeacherIds.has(entry.teacherId)) {
-        if (!entry.deletedAt) {
-          removedCount++;
-          return {
-            ...entry,
-            deletedAt: new Date().toISOString(),
-          };
-        }
-      }
-      return entry;
+    const rows = await tx.classScheduleEntry.findMany({
+      where: {
+        classId,
+        effectiveTo: null,
+        teacherId: { in: Array.from(removedTeacherIds) },
+      },
+    });
+    if (rows.length === 0) {
+      return { closedEntries: [], removedScheduleEntries: 0 };
+    }
+
+    const effectiveTo = toDateOnly();
+    await tx.classScheduleEntry.updateMany({
+      where: { id: { in: rows.map((row) => row.id) } },
+      data: { effectiveTo },
     });
 
     return {
-      oldSchedule,
-      nextSchedule,
-      removedScheduleEntries: removedCount,
+      closedEntries: rows.map((row) =>
+        this.toStoredScheduleEntry({ ...row, effectiveTo }),
+      ),
+      removedScheduleEntries: rows.length,
     };
+  }
+
+  /** Soft-close toàn bộ slot lịch cố định đang active của 1 lớp (dùng khi kết thúc lớp). */
+  private async closeAllScheduleEntriesForClass(
+    tx: Prisma.TransactionClient,
+    classId: string,
+  ): Promise<StoredClassScheduleEntry[]> {
+    const rows = await tx.classScheduleEntry.findMany({
+      where: { classId, effectiveTo: null },
+    });
+    if (rows.length === 0) return [];
+
+    const effectiveTo = toDateOnly();
+    await tx.classScheduleEntry.updateMany({
+      where: { id: { in: rows.map((row) => row.id) } },
+      data: { effectiveTo },
+    });
+    return rows.map((row) => this.toStoredScheduleEntry({ ...row, effectiveTo }));
   }
 
   private getActiveClassTeacherWhere(
@@ -520,20 +489,11 @@ export class ClassService {
     return futureMakeupEvents.length;
   }
 
-  private ensureScheduleEntryIds(
-    schedule: UpdateClassScheduleDto['schedule'],
-  ): UpdateClassScheduleDto['schedule'] {
-    return schedule.map((entry) => ({
-      ...entry,
-      id: entry.id ?? randomUUID(),
-      createdAt: entry.createdAt ?? new Date().toISOString(),
-    }));
-  }
 
   private async getClassDetailSnapshot(
     db: Pick<
       PrismaService,
-      'class' | 'classTeacher' | 'studentClass' | '$queryRaw'
+      'class' | 'classTeacher' | 'studentClass' | 'classScheduleEntry' | '$queryRaw'
     >,
     id: string,
   ) {
@@ -686,8 +646,28 @@ export class ClassService {
       teacherSessionSettlement,
     );
 
+    // Class.schedule JSON không còn được ghi — build schedule trả về từ
+    // bảng class_schedule_entries (nguồn dữ liệu chính) để tương thích
+    // ngược với FE.
+    const scheduleEntryRows = await db.classScheduleEntry.findMany({
+      where: { classId: id, effectiveTo: null },
+      orderBy: [{ dayOfWeek: 'asc' }, { from: 'asc' }],
+    });
+    const schedule = scheduleEntryRows.map((row) => ({
+      id: row.id,
+      dayOfWeek: row.dayOfWeek,
+      from: row.from,
+      to: row.to,
+      teacherId: row.teacherId ?? undefined,
+      googleCalendarEventId: row.googleCalendarEventId ?? undefined,
+      meetLink: row.meetLink ?? undefined,
+      createdAt: row.createdAt.toISOString(),
+      effectiveFrom: row.effectiveFrom.toISOString().slice(0, 10),
+    }));
+
     return {
       ...classInfo,
+      schedule,
       trainingManager: classInfo.trainingManager
         ? {
             id: classInfo.trainingManager.id,
@@ -712,7 +692,7 @@ export class ClassService {
   private async getClassAuditSnapshot(
     db: Pick<
       PrismaService,
-      'class' | 'classTeacher' | 'studentClass' | '$queryRaw'
+      'class' | 'classTeacher' | 'studentClass' | 'classScheduleEntry' | '$queryRaw'
     >,
     id: string,
   ) {
@@ -1112,6 +1092,16 @@ export class ClassService {
         id,
       );
       await this.assertTeacherOnlyOwnScheduleEntries(actor.id, id, dto);
+      // Chỉ Admin/Trợ lý được backdate ngày hiệu lực; gia sư tự sửa lịch của
+      // chính mình luôn dùng now() -- bỏ qua effectiveFrom nếu có gửi lên,
+      // tránh gia sư tự backdate qua gọi thẳng API (bypass UI).
+      dto = {
+        ...dto,
+        schedule: dto.schedule.map((entry) => ({
+          ...entry,
+          effectiveFrom: undefined,
+        })),
+      };
     }
     return this.updateClassSchedule(id, dto, auditActor);
   }
@@ -1135,16 +1125,11 @@ export class ClassService {
     }
 
     if (dto.removedEntryIds && dto.removedEntryIds.length > 0) {
-      const klass = await this.prisma.class.findUnique({
-        where: { id: classId },
-        select: { schedule: true },
+      const entries = await this.prisma.classScheduleEntry.findMany({
+        where: { classId, id: { in: dto.removedEntryIds }, effectiveTo: null },
+        select: { id: true, teacherId: true },
       });
-      const entriesById = new Map(
-        this.getStoredClassScheduleEntries(klass?.schedule).map((entry) => [
-          entry.id,
-          entry,
-        ]),
-      );
+      const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
       const foreignRemoval = dto.removedEntryIds.find((entryId) => {
         const entry = entriesById.get(entryId);
         return !entry || entry.teacherId !== teacherId;
@@ -1195,16 +1180,26 @@ export class ClassService {
             data.max_allowance_per_session,
           ),
           scaleAmount: data.scale_amount,
-          schedule: data.schedule
-            ? this.serializeStoredClassScheduleEntries(
-                this.ensureScheduleEntryIds(data.schedule as any),
-              )
-            : undefined,
           studentTuitionPerSession: data.student_tuition_per_session,
           tuitionPackageTotal: data.tuition_package_total,
           tuitionPackageSession: data.tuition_package_session,
         },
       });
+
+      if (data.schedule && data.schedule.length > 0) {
+        const scheduleEntries = data.schedule as unknown as ScheduleSlotDto[];
+        await tx.classScheduleEntry.createMany({
+          data: scheduleEntries.map((entry) => ({
+            id: randomUUID(),
+            classId: createdClass.id,
+            teacherId: entry.teacherId ?? null,
+            dayOfWeek: entry.dayOfWeek,
+            from: this.normalizeTimeValue(entry.from) ?? entry.from,
+            to: this.normalizeTimeValue(entry.to) ?? entry.to,
+            effectiveFrom: this.parseEffectiveFromDate(entry.effectiveFrom),
+          })),
+        });
+      }
 
       const teacherPayload = this.getTeacherPayload(data);
       await this.assertActiveStaffIds(
@@ -1281,7 +1276,7 @@ export class ClassService {
   async updateClass(data: UpdateClassDto, auditActor?: ActionHistoryActor) {
     const existingClass = await this.prisma.class.findUnique({
       where: { id: data.id },
-      select: { id: true, schedule: true },
+      select: { id: true },
     });
 
     if (!existingClass) {
@@ -1302,7 +1297,6 @@ export class ClassService {
         data.teachers !== undefined || data.teacher_ids !== undefined
           ? this.getTeacherPayload(data)
           : null;
-      let prunedSchedule: Prisma.InputJsonValue | undefined;
       let removedScheduleEntries = 0;
       let oldSchedule: StoredClassScheduleEntry[] = [];
       let removedTeacherIds: string[] = [];
@@ -1328,18 +1322,14 @@ export class ClassService {
             .map((teacher) => teacher.teacherId)
             .filter((teacherId) => !nextTeacherIds.has(teacherId)),
         );
-        const scheduleRemoval = this.removeScheduleEntriesForTeachers(
-          existingClass.schedule,
+        const scheduleRemoval = await this.closeScheduleEntriesForTeachers(
+          tx,
+          data.id,
           removedTeacherIdSet,
         );
-        oldSchedule = scheduleRemoval.oldSchedule;
+        oldSchedule = scheduleRemoval.closedEntries;
         removedScheduleEntries = scheduleRemoval.removedScheduleEntries;
         removedTeacherIds = Array.from(removedTeacherIdSet);
-        if (removedScheduleEntries > 0) {
-          prunedSchedule = this.serializeStoredClassScheduleEntries(
-            scheduleRemoval.nextSchedule,
-          );
-        }
 
         await tx.classTeacher.deleteMany({
           where: { classId: data.id },
@@ -1438,7 +1428,6 @@ export class ClassService {
             data.max_allowance_per_session,
           ),
           scaleAmount: data.scale_amount,
-          schedule: prunedSchedule,
           studentTuitionPerSession: data.student_tuition_per_session,
           tuitionPackageTotal: data.tuition_package_total,
           tuitionPackageSession: data.tuition_package_session,
@@ -1594,7 +1583,7 @@ export class ClassService {
   ) {
     const existing = await this.prisma.class.findUnique({
       where: { id },
-      select: { id: true, allowancePerSessionPerStudent: true, schedule: true },
+      select: { id: true, allowancePerSessionPerStudent: true },
     });
     if (!existing) {
       throw new NotFoundException('Class not found');
@@ -1662,20 +1651,8 @@ export class ClassService {
         });
       }
 
-      const { oldSchedule, nextSchedule, removedScheduleEntries } =
-        this.removeScheduleEntriesForTeachers(
-          existing.schedule,
-          removedTeacherIds,
-        );
-
-      if (removedScheduleEntries > 0) {
-        await tx.class.update({
-          where: { id },
-          data: {
-            schedule: this.serializeStoredClassScheduleEntries(nextSchedule),
-          },
-        });
-      }
+      const { closedEntries: oldSchedule, removedScheduleEntries } =
+        await this.closeScheduleEntriesForTeachers(tx, id, removedTeacherIds);
 
       const afterValue = await this.getClassAuditSnapshot(tx, id);
       if (!afterValue) {
@@ -1908,7 +1885,6 @@ export class ClassService {
       select: {
         id: true,
         name: true,
-        schedule: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -1929,22 +1905,27 @@ export class ClassService {
       }
     }
 
-    const normalizedScheduleEntries = this.mergeScheduleEntriesWithExisting(
-      this.ensureScheduleEntryIds(dto.schedule),
-      existing.schedule,
-      existing.createdAt,
-      dto.removedEntryIds,
+    const existingActiveEntries = await this.prisma.classScheduleEntry.findMany(
+      {
+        where: { classId: id, effectiveTo: null },
+      },
+    );
+    const oldScheduleEntries = existingActiveEntries.map((row) =>
+      this.toStoredScheduleEntry(row),
+    );
+    const existingActiveById = new Map(
+      existingActiveEntries.map((entry) => [entry.id, entry]),
     );
 
     const teacherIds = Array.from(
       new Set(
-        normalizedScheduleEntries
+        dto.schedule
           .map((entry) => entry.teacherId)
           .filter((teacherId): teacherId is string => !!teacherId),
       ),
     );
 
-    if (normalizedScheduleEntries.some((entry) => !entry.teacherId)) {
+    if (dto.schedule.some((entry) => !entry.teacherId)) {
       throw new BadRequestException(
         'Mỗi khung giờ học phải chọn đúng 1 gia sư chịu trách nhiệm.',
       );
@@ -1978,28 +1959,21 @@ export class ClassService {
       );
     }
 
-    const schedule = this.serializeStoredClassScheduleEntries(
-      normalizedScheduleEntries,
-    );
-
     // Find modified/deleted entry IDs to check for affected future makeup events
-    const oldSchedule = this.getStoredClassScheduleEntries(existing.schedule);
-    const oldScheduleById = new Map(
-      oldSchedule
-        .filter(
-          (entry): entry is StoredClassScheduleEntry & { id: string } =>
-            !!entry.id,
-        )
-        .map((entry) => [entry.id, entry]),
-    );
-
-    const changedOrDeletedEntryIds = new Set<string>();
-    for (const entry of normalizedScheduleEntries) {
-      if (entry.id && entry.deletedAt) {
-        const oldEntry = oldScheduleById.get(entry.id);
-        if (oldEntry && !oldEntry.deletedAt) {
-          changedOrDeletedEntryIds.add(entry.id);
-        }
+    const changedOrDeletedEntryIds = new Set<string>(dto.removedEntryIds ?? []);
+    for (const entry of dto.schedule) {
+      if (!entry.id) continue;
+      const oldEntry = existingActiveById.get(entry.id);
+      if (!oldEntry) continue;
+      const fromNormalized = this.normalizeTimeValue(entry.from) ?? entry.from;
+      const toNormalized = this.normalizeTimeValue(entry.to) ?? entry.to;
+      const changed =
+        oldEntry.dayOfWeek !== entry.dayOfWeek ||
+        oldEntry.from !== fromNormalized ||
+        oldEntry.to !== toNormalized ||
+        oldEntry.teacherId !== (entry.teacherId ?? null);
+      if (changed) {
+        changedOrDeletedEntryIds.add(entry.id);
       }
     }
 
@@ -2051,15 +2025,25 @@ export class ClassService {
       // Optimistic lock: chỉ ghi nếu chưa ai khác cập nhật lớp kể từ lúc ta
       // đọc `existing` ở đầu hàm. Nếu count=0 nghĩa là đã có request khác
       // xen giữa (đã đổi updatedAt) → coi như xung đột, KHÔNG được ghi đè.
+      // Class.schedule JSON không còn được ghi — chỉ bump updatedAt để giữ
+      // nguyên semantics optimistic lock, dữ liệu lịch thật nằm ở
+      // class_schedule_entries (ghi bởi applyScheduleUpdateTx bên dưới).
       const writeResult = await tx.class.updateMany({
         where: { id, updatedAt: existing.updatedAt },
-        data: { schedule },
+        data: { updatedAt: new Date() },
       });
       if (writeResult.count === 0) {
         throw new ConflictException(
           'Lịch học của lớp vừa được người khác cập nhật. Vui lòng tải lại và thử lại.',
         );
       }
+
+      await this.applyScheduleUpdateTx(
+        tx,
+        id,
+        dto.schedule,
+        dto.removedEntryIds,
+      );
 
       const afterValue = await this.getClassAuditSnapshot(tx, id);
       if (!afterValue) {
@@ -2083,9 +2067,6 @@ export class ClassService {
     // Sync with Google Calendar after schedule change
     // Pass old schedule so sync can delete old events before creating new ones
     try {
-      const oldScheduleEntries = this.getStoredClassScheduleEntries(
-        existing.schedule,
-      );
       this.logger.log(
         `[ClassService] Calling syncScheduleWithCalendar for class ${id} after schedule update, oldSchedule entries: ${oldScheduleEntries.length}`,
       );
@@ -2245,15 +2226,12 @@ export class ClassService {
         throw new BadRequestException('Lớp đã kết thúc.');
       }
 
-      const oldSchedule = this.getStoredClassScheduleEntries(
-        beforeValue.schedule as Prisma.JsonValue | null | undefined,
-      );
+      const oldSchedule = await this.closeAllScheduleEntriesForClass(tx, id);
 
       await tx.class.update({
         where: { id },
         data: {
           status: ClassStatus.ended,
-          schedule: [],
         },
       });
       await tx.studentClass.updateMany({
@@ -2316,26 +2294,16 @@ export class ClassService {
         throw new BadRequestException('Gia sư đã nghỉ dạy lớp này.');
       }
 
-      const scheduleRemoval = this.removeScheduleEntriesForTeachers(
-        beforeValue.schedule as Prisma.JsonValue | null | undefined,
-        new Set([teacherId]),
-      );
-
       await tx.classTeacher.update({
         where: { classId_teacherId: { classId, teacherId } },
         data: { status: 'inactive' },
       });
 
-      if (scheduleRemoval.removedScheduleEntries > 0) {
-        await tx.class.update({
-          where: { id: classId },
-          data: {
-            schedule: this.serializeStoredClassScheduleEntries(
-              scheduleRemoval.nextSchedule,
-            ),
-          },
-        });
-      }
+      const scheduleRemoval = await this.closeScheduleEntriesForTeachers(
+        tx,
+        classId,
+        new Set([teacherId]),
+      );
 
       const afterValue = await this.getClassAuditSnapshot(tx, classId);
       if (!afterValue) {
@@ -2362,7 +2330,7 @@ export class ClassService {
     if (result.scheduleRemoval.removedScheduleEntries > 0) {
       await this.calendarService.syncScheduleWithCalendar(
         classId,
-        result.scheduleRemoval.oldSchedule,
+        result.scheduleRemoval.closedEntries,
       );
     }
     await this.deleteFutureMakeupEvents(classId, auditActor, teacherId);

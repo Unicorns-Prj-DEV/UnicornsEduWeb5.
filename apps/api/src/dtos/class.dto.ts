@@ -16,6 +16,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   Max,
   Min,
   ValidateIf,
@@ -396,6 +397,17 @@ export class ScheduleSlotDto {
   @IsOptional()
   @IsString()
   deletedAt?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Ngày slot này thực sự bắt đầu có hiệu lực (YYYY-MM-DD). Dùng để backdate khi admin sửa lịch trễ so với ngày đổi thực tế. Mặc định là hôm nay nếu bỏ trống.',
+    example: '2026-08-01',
+  })
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'effectiveFrom must be in YYYY-MM-DD format',
+  })
+  effectiveFrom?: string;
 }
 
 /** DTO for PATCH /class/:id/schedule – upsert schedule slots */

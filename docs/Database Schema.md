@@ -223,7 +223,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - `max_allowance_per_session` là nullable:
     - `null` hoặc `0` = không giới hạn trần trợ cấp theo buổi (aggregate SQL dùng `NULLIF(..., 0)`; API lưu `0` thành `null`)
     - số nguyên dương = áp trần đúng theo giá trị
-  - `schedule` (JSONB): mảng các entry lịch học định kỳ theo tuần. Dữ liệu lưu DB đang giữ backward compatibility với key `to`; ở lớp DTO/API admin, field đầu ra dùng `end` nhưng khi persist vẫn map về `to`. Mỗi entry có cấu trúc lưu trữ:
+  - `schedule` (JSONB, **@deprecated**): mảng entry lịch học cũ, giữ nguyên giá trị tại thời điểm migrate `class_schedule_entries` (2026-08-20) làm **backup lịch sử/đối chiếu**, không còn được backend đọc hoặc ghi. Nguồn dữ liệu lịch cố định chính thức hiện là bảng `class_schedule_entries` (mục 4.4.0a). Cấu trúc entry cũ (tham khảo):
     ```json
     {
       "id": "string (UUID)",
@@ -237,7 +237,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
       "deletedAt": "string? (optional ISO timestamp when this schedule entry was deleted/deactivated)"
     }
     ```
-    Mảng này định nghĩa mẫu lịch học lặp lại hàng tuần. Calendar admin có thể expand pattern này thành các occurrence để render lịch trong một khoảng ngày, và có thể đồng bộ từng entry thành recurring event trên Google Calendar. Soft-deleted entries (`deletedAt`) được giữ trong JSON để **Cảnh báo chưa dạy** / calendar lịch sử biết slot nào còn hiệu lực theo ngày; Google Calendar resync chỉ patch `googleCalendarEventId`/`meetLink` trên slot active và **không** được xoá `createdAt`/`deletedAt` hay các entry soft-deleted.
+    Lý do chuyển đi: soft-delete cũ dùng `deletedAt = now()` tại thời điểm admin bấm lưu thay vì ngày slot thực sự ngừng hiệu lực → khi backdate đổi giáo viên, 2 entry (cũ + mới) active chồng lấn trên cùng khung giờ, khiến thuật toán **Cảnh báo chưa dạy** sinh cảnh báo giả cho slot cũ (không có Session khớp `teacherId` cũ).
   - Các trường học phí theo session/package
   - **Quản lý lớp (Đào tạo):**
     - `training_manager_staff_id` (nullable FK → `staff_info.id`): nhân sự ban Đào tạo được gán quản lý lớp; chỉnh qua `PATCH /class/:id/training-manager` (admin/assistant).
@@ -253,6 +253,27 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - `meetLink` trong schedule được điền cùng lúc với `calendarEventId` sau khi sync; API occurrence của `/admin/calendar/class-schedule` đọc lại field này để popup lịch mở được link lớp ngay sau khi refetch.
   - `teacherId` lưu gia sư chịu trách nhiệm của từng khung giờ. Từ luồng chỉnh lịch lớp, mỗi entry mới/cập nhật phải có `teacherId` và ID này phải thuộc `class_teachers` của chính lớp đó.
   - Khi API `PUT /admin/calendar/classes/:classId/schedule` nhận payload, mỗi entry dùng field `end`; backend sẽ map thành `to` trước khi lưu JSONB.
+
+### 4.4.0a `class_schedule_entries`
+
+- Migration `20260820100000_class_schedule_entry_table`. Thay thế `classes.schedule` JSONB (nay `@deprecated`, giữ làm backup) làm **nguồn dữ liệu chính** cho lịch học cố định hàng tuần.
+- Cột:
+  - `id` (PK, `TEXT`) — **giữ nguyên id gốc khi backfill** từ JSON cũ (không re-key), vì `makeup_schedule_events.baseline_schedule_entry_id`, `missed_teaching_explanations.baseline_schedule_entry_id` và Google Calendar `extendedProperties.scheduleEntryId` đều tham chiếu id này.
+  - `class_id` (FK → `classes.id`, `onDelete: Cascade`)
+  - `teacher_id` (nullable FK → `staff_info.id`) — gia sư chịu trách nhiệm slot
+  - `day_of_week` (`INT`, 0=Sunday..6=Saturday), `from`, `to` (`TEXT`, `HH:mm`)
+  - `meet_link`, `google_calendar_event_id` (nullable `TEXT`)
+  - `effective_from` (`DATE`) — ngày slot **thực sự** bắt đầu có hiệu lực
+  - `effective_to` (`DATE`, nullable) — `NULL` = slot đang active; có giá trị = slot ngừng hiệu lực từ ngày đó (soft-close)
+  - `created_by_staff_id` (nullable FK → `staff_info.id`), `created_at`, `updated_at`
+- Index: `(class_id)`, `(teacher_id)`, `(class_id, effective_to)`, `(class_id, day_of_week, effective_to)`.
+- **Cơ chế ghi (soft-close, không hard-delete/overwrite):**
+  - Đổi giờ/ngày/giáo viên hoặc gỡ slot → `UPDATE class_schedule_entries SET effective_to = :ngày_hiệu_lực WHERE id = :id` trên entry cũ, **không xoá**.
+  - Thêm slot mới hoặc thay thế slot đã đổi → `INSERT` bản ghi mới với `effective_from = :ngày_hiệu_lực`.
+  - Mọi write đi kèm bump thủ công `classes.updated_at` trong cùng transaction để giữ nguyên optimistic-lock hiện có của `PATCH /class/:id/schedule` (khoá dựa trên `Class.updatedAt`, không tự động theo bảng con).
+- **Cảnh báo chưa dạy** (`buildMissedTeachingAlerts`, `session-schedule-rules.service.ts`) đọc active-window từ bảng này (`effective_from ≤ ngày < effective_to`), tolerance khớp Session riêng `MISSED_ALERT_TIME_TOLERANCE_MINUTES = 60` phút (khác `SCHEDULE_TIME_TOLERANCE_MINUTES = 180` phút dùng khi validate nộp nhận xét). Cho phép **dạy thay trong lớp**: bất kỳ `class_teachers` đang active nào của lớp dạy đúng buổi cũng được tính là đã dạy, không bắt buộc đúng `teacher_id` gán cho slot.
+- **Validate nộp nhận xét** (`assertSessionMatchesDeclaredSchedule`/`getScheduleCandidates`) cũng áp dụng **dạy thay trong lớp**: nếu giáo viên nộp bài đang là `class_teachers` active của lớp (`status = 'active'` hoặc `null`), hệ thống match theo mọi slot active trong ngày của lớp bất kể `teacher_id` gán cho entry, không chỉ đúng entry của chính họ. Giáo viên đã bị gỡ khỏi lớp (`status = 'inactive'`) chỉ còn match được đúng entry ghi `teacher_id` của họ (thường không còn active sau khi bị gỡ) — tránh lợi dụng slot dạy thay của người khác.
+- `dashboard.service.ts` đếm "lớp chưa có lịch"/số slot lịch cố định dựa trên `class_schedule_entries WHERE effective_to IS NULL` thay vì parse JSON.
 
 ### 4.4.0-cat `class_categories`
 
