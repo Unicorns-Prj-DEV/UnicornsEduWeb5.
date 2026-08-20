@@ -68,6 +68,10 @@ describe('StaffService', () => {
       findMany: jest.fn(),
       update: jest.fn(),
     },
+    classScheduleEntry: {
+      findMany: jest.fn(),
+      updateMany: jest.fn(),
+    },
     survey: {
       findMany: jest.fn(),
     },
@@ -158,6 +162,8 @@ describe('StaffService', () => {
     mockPrisma.classTeacher.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma.class.findMany.mockResolvedValue([]);
     mockPrisma.class.update.mockResolvedValue({});
+    mockPrisma.classScheduleEntry.findMany.mockResolvedValue([]);
+    mockPrisma.classScheduleEntry.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma.survey.findMany.mockResolvedValue([]);
     mockPrisma.classSurvey.findMany.mockResolvedValue([]);
     mockPrisma.makeupScheduleEvent.updateMany.mockResolvedValue({ count: 0 });
@@ -371,17 +377,10 @@ describe('StaffService', () => {
       id: 'staff-1',
       status: StaffStatus.inactive,
     } as never);
-    mockPrisma.class.findMany.mockResolvedValue([
+    mockPrisma.classScheduleEntry.findMany.mockResolvedValue([
       {
-        id: 'class-1',
-        schedule: [
-          {
-            id: 'slot-1',
-            teacherId: 'staff-1',
-            googleCalendarEventId: 'calendar-1',
-          },
-          { id: 'slot-2', teacherId: 'staff-2' },
-        ],
+        id: 'slot-1',
+        googleCalendarEventId: 'calendar-1',
       },
     ]);
     mockPrisma.makeupScheduleEvent.findMany.mockResolvedValue([
@@ -394,21 +393,9 @@ describe('StaffService', () => {
       { userId: 'assistant-1', roleType: UserRole.staff },
     );
 
-    expect(mockPrisma.class.update).toHaveBeenCalledWith({
-      where: { id: 'class-1' },
-      data: {
-        schedule: [
-          expect.objectContaining({
-            id: 'slot-1',
-            teacherId: 'staff-1',
-            deletedAt: expect.any(String),
-          }),
-          expect.objectContaining({
-            id: 'slot-2',
-            teacherId: 'staff-2',
-          }),
-        ],
-      },
+    expect(mockPrisma.classScheduleEntry.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['slot-1'] } },
+      data: { effectiveTo: expect.any(Date) },
     });
     expect(mockPrisma.classTeacher.updateMany).toHaveBeenCalledWith({
       where: {
@@ -546,25 +533,19 @@ describe('StaffService', () => {
     mockPrisma.class.findMany.mockResolvedValue([
       {
         id: 'class-1',
-        schedule: [
+        teachers: [{ teacherId: 'staff-1' }, { teacherId: 'staff-2' }],
+        scheduleEntries: [
           {
             id: 'slot-1',
-            dayOfWeek: 1,
-            from: '19:00:00',
-            to: '20:30:00',
             teacherId: 'staff-1',
             meetLink: 'https://meet.google.com/old-slot-link',
           },
           {
             id: 'slot-2',
-            dayOfWeek: 2,
-            from: '19:00:00',
-            to: '20:30:00',
             teacherId: 'staff-2',
             meetLink: 'https://meet.google.com/other-teacher-link',
           },
         ],
-        teachers: [{ teacherId: 'staff-1' }, { teacherId: 'staff-2' }],
       },
     ]);
 
@@ -576,28 +557,9 @@ describe('StaffService', () => {
       where: { id: 'staff-1' },
       data: { googleMeetLink: 'https://meet.google.com/fixed-staff-link' },
     });
-    expect(mockPrisma.class.update).toHaveBeenCalledWith({
-      where: { id: 'class-1' },
-      data: {
-        schedule: [
-          {
-            id: 'slot-1',
-            dayOfWeek: 1,
-            from: '19:00:00',
-            to: '20:30:00',
-            teacherId: 'staff-1',
-            meetLink: 'https://meet.google.com/fixed-staff-link',
-          },
-          {
-            id: 'slot-2',
-            dayOfWeek: 2,
-            from: '19:00:00',
-            to: '20:30:00',
-            teacherId: 'staff-2',
-            meetLink: 'https://meet.google.com/other-teacher-link',
-          },
-        ],
-      },
+    expect(mockPrisma.classScheduleEntry.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['slot-1'] } },
+      data: { meetLink: 'https://meet.google.com/fixed-staff-link' },
     });
     expect(mockPrisma.makeupScheduleEvent.updateMany).toHaveBeenCalledWith({
       where: { teacherId: 'staff-1' },
