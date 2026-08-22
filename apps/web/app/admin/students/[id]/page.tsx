@@ -689,7 +689,7 @@ export default function AdminStudentDetailPage() {
                             />
                         </StudentInfoCard>
 
-                        <StudentInfoCard title="Gallery">
+                        <StudentInfoCard title="Feedback">
                             <StudentGalleryEditor
                                 studentId={student.id}
                                 editable={canManageStudent}

@@ -584,7 +584,7 @@ export default function EditStudentPopup({
                   <StudentGalleryEditor
                     studentId={student.id}
                     editable={canEditAchievementsAndGallery}
-                    heading="Gallery"
+                    heading="Feedback"
                   />
                 </div>
 

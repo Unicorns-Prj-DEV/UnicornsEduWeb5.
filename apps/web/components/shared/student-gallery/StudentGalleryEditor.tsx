@@ -51,9 +51,9 @@ async function downloadGalleryImage(url: string): Promise<void> {
   );
   try {
     await downloadAvatar(url, filename);
-    toast.success("Đã tải ảnh gallery.");
+    toast.success("Đã tải ảnh feedback.");
   } catch {
-    toast.error("Không tải được ảnh gallery. Vui lòng thử lại.");
+    toast.error("Không tải được ảnh feedback. Vui lòng thử lại.");
   }
 }
 
@@ -113,7 +113,7 @@ function SortableRow({
             type="button"
             onClick={() => onPreviewImage(item.imageUrl!)}
             className="group relative h-16 w-16 shrink-0 overflow-hidden rounded-md border border-border-default focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-            aria-label="Xem ảnh gallery"
+            aria-label="Xem ảnh feedback"
             title="Xem ảnh"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -133,7 +133,7 @@ function SortableRow({
             disabled={busy}
             onClick={() => void downloadGalleryImage(item.imageUrl!)}
             className={iconBtnClass}
-            aria-label="Tải ảnh gallery"
+            aria-label="Tải ảnh feedback"
             title="Tải ảnh"
           >
             <Download className="h-4 w-4" aria-hidden />
@@ -166,7 +166,7 @@ function SortableRow({
               disabled={busy}
               onClick={() => onDelete(item.id)}
               className={`${iconBtnClass} border-danger/40 text-danger hover:bg-danger/5`}
-              aria-label="Xoá ảnh gallery"
+              aria-label="Xoá ảnh feedback"
               title="Xoá"
             >
               <Trash2 className="h-4 w-4" aria-hidden />
@@ -182,7 +182,7 @@ export default function StudentGalleryEditor({
   studentId,
   editable = true,
   className = "",
-  heading = "Gallery",
+  heading = "Feedback",
 }: Props) {
   const headingId = useId();
   const addFileId = useId();
@@ -235,20 +235,20 @@ export default function StudentGalleryEditor({
       if (results.failed === 0) {
         toast.success(
           results.ok === 1
-            ? "Đã thêm ảnh gallery."
-            : `Đã thêm ${results.ok} ảnh gallery.`,
+            ? "Đã thêm ảnh feedback."
+            : `Đã thêm ${results.ok} ảnh feedback.`,
         );
         return;
       }
       if (results.ok === 0) {
-        toast.error("Không thể thêm ảnh gallery.");
+        toast.error("Không thể thêm ảnh feedback.");
         return;
       }
       toast.warning(
         `Đã thêm ${results.ok} ảnh; ${results.failed} ảnh thất bại.`,
       );
     },
-    onError: () => toast.error("Không thể thêm ảnh gallery."),
+    onError: () => toast.error("Không thể thêm ảnh feedback."),
   });
 
   const deleteMutation = useMutation({
@@ -256,9 +256,9 @@ export default function StudentGalleryEditor({
       galleryApi.deleteStudentGalleryItem(studentId, id),
     onSuccess: async () => {
       await invalidate();
-      toast.success("Đã xoá ảnh gallery.");
+      toast.success("Đã xoá ảnh feedback.");
     },
-    onError: () => toast.error("Không thể xoá ảnh gallery."),
+    onError: () => toast.error("Không thể xoá ảnh feedback."),
   });
 
   const reorderMutation = useMutation({
@@ -279,9 +279,9 @@ export default function StudentGalleryEditor({
       galleryApi.uploadStudentGalleryImage(studentId, id, file),
     onSuccess: async () => {
       await invalidate();
-      toast.success("Đã cập nhật ảnh gallery.");
+      toast.success("Đã cập nhật ảnh feedback.");
     },
-    onError: () => toast.error("Không thể cập nhật ảnh gallery."),
+    onError: () => toast.error("Không thể cập nhật ảnh feedback."),
   });
 
   const busy =
@@ -324,7 +324,7 @@ export default function StudentGalleryEditor({
             </h3>
           ) : (
             <span id={headingId} className="sr-only">
-              Gallery
+              Feedback
             </span>
           )}
           {editable ? (
@@ -344,7 +344,7 @@ export default function StudentGalleryEditor({
                 type="button"
                 onClick={() => setIsEditing(true)}
                 className={iconBtnClass}
-                aria-label="Chỉnh sửa gallery"
+                aria-label="Chỉnh sửa feedback"
                 title="Chỉnh sửa"
               >
                 <Pencil className="h-4 w-4" aria-hidden />
@@ -358,11 +358,11 @@ export default function StudentGalleryEditor({
       </div>
 
       {listQuery.isError ? (
-        <p className="text-sm text-danger">Không tải được gallery.</p>
+        <p className="text-sm text-danger">Không tải được feedback.</p>
       ) : null}
 
       {!listQuery.isLoading && items.length === 0 ? (
-        <p className="text-sm text-text-muted">Chưa có ảnh gallery nào.</p>
+        <p className="text-sm text-text-muted">Chưa có ảnh feedback nào.</p>
       ) : null}
 
       <DndContext
@@ -382,7 +382,7 @@ export default function StudentGalleryEditor({
                 editable={canMutate}
                 busy={busy}
                 onDelete={(id) => {
-                  if (window.confirm("Xoá ảnh gallery này?")) {
+                  if (window.confirm("Xoá ảnh feedback này?")) {
                     deleteMutation.mutate(id);
                   }
                 }}
@@ -397,7 +397,7 @@ export default function StudentGalleryEditor({
       <ImageLightbox
         open={Boolean(preview)}
         src={preview ?? ""}
-        title="Ảnh gallery"
+        title="Ảnh feedback"
         onClose={() => setPreview(null)}
       />
 
