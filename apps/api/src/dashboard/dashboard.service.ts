@@ -788,9 +788,7 @@ export class DashboardService {
 
     return {
       newStudentsThisMonth: normalizeInteger(row?.newStudentsThisMonth),
-      droppedStudentsThisMonth: normalizeInteger(
-        row?.droppedStudentsThisMonth,
-      ),
+      droppedStudentsThisMonth: normalizeInteger(row?.droppedStudentsThisMonth),
     };
   }
 
@@ -3001,7 +2999,9 @@ export class DashboardService {
     );
 
     let staffIds: string[];
-    if (params.query.scope === 'managed') {
+    if (params.query.staffId) {
+      staffIds = [params.query.staffId];
+    } else if (params.query.scope === 'managed') {
       const managedStaff = await this.getManagedCustomerCareStaffRecords(
         params.staffId,
       );
@@ -3020,14 +3020,19 @@ export class DashboardService {
     const { periodStartStr, periodEndExclusiveStr } =
       buildCalendarPeriodStrings(monthKey);
 
+    const typeFilter =
+      params.query.type === 'new'
+        ? Prisma.sql`student_info.created_at >= ${monthStart} AND student_info.created_at < ${monthEnd}`
+        : params.query.type === 'dropped'
+          ? Prisma.sql`student_info.drop_out_date IS NOT NULL AND student_info.drop_out_date >= ${periodStartStr}::date AND student_info.drop_out_date < ${periodEndExclusiveStr}::date`
+          : Prisma.sql`student_info.status = 'active'`;
+
     const dateColumn =
       params.query.type === 'new'
         ? Prisma.sql`student_info.created_at`
-        : Prisma.sql`student_info.drop_out_date`;
-    const dateFilter =
-      params.query.type === 'new'
-        ? Prisma.sql`student_info.created_at >= ${monthStart} AND student_info.created_at < ${monthEnd}`
-        : Prisma.sql`student_info.drop_out_date IS NOT NULL AND student_info.drop_out_date >= ${periodStartStr}::date AND student_info.drop_out_date < ${periodEndExclusiveStr}::date`;
+        : params.query.type === 'dropped'
+          ? Prisma.sql`student_info.drop_out_date`
+          : Prisma.sql`NULL`;
 
     const rows = await this.prisma.$queryRaw<StudentChangeSqlRow[]>(
       Prisma.sql`
@@ -3041,7 +3046,7 @@ export class DashboardService {
         LEFT JOIN student_classes ON student_classes.student_id = student_info.id
         LEFT JOIN classes ON classes.id = student_classes.class_id
         WHERE customer_care_service.staff_id IN (${Prisma.join(staffIds)})
-          AND ${dateFilter}
+          AND ${typeFilter}
         GROUP BY student_info.id, student_info.full_name, "eventDate"
         ORDER BY "studentName" ASC
       `,
@@ -3096,6 +3101,65 @@ export class DashboardService {
         {
           debtStudentCount: normalizeInteger(row.debtStudentCount),
           totalDebtAmount: normalizeMoneyAmount(row.totalDebtAmount),
+        },
+      ]),
+    );
+  }
+
+  private async getNewAndDroppedByCustomerCareStaffIds(
+    staffIds: string[],
+    range: { monthStart: Date; monthEnd: Date },
+  ) {
+    if (staffIds.length === 0) {
+      return new Map<
+        string,
+        {
+          activeStudentsCount: number;
+          newStudentsCount: number;
+          droppedStudentsCount: number;
+        }
+      >();
+    }
+
+    const rows = await this.prisma.$queryRaw<
+      {
+        staffId: string;
+        activeStudentsCount: number;
+        newStudentsCount: number;
+        droppedStudentsCount: number;
+      }[]
+    >(
+      Prisma.sql`
+        SELECT
+          customer_care_service.staff_id AS "staffId",
+          COUNT(DISTINCT CASE
+            WHEN student_info.status = 'active'
+            THEN student_info.id
+          END)::int AS "activeStudentsCount",
+          COUNT(DISTINCT CASE
+            WHEN student_info.created_at >= ${range.monthStart} AND student_info.created_at < ${range.monthEnd}
+            THEN student_info.id
+          END)::int AS "newStudentsCount",
+          COUNT(DISTINCT CASE
+            WHEN student_info.drop_out_date IS NOT NULL
+              AND student_info.drop_out_date >= ${range.monthStart}::date
+              AND student_info.drop_out_date < ${range.monthEnd}::date
+            THEN student_info.id
+          END)::int AS "droppedStudentsCount"
+        FROM customer_care_service
+        INNER JOIN student_info ON student_info.id = customer_care_service.student_id
+        WHERE customer_care_service.staff_id IN (${Prisma.join(staffIds)})
+        GROUP BY customer_care_service.staff_id
+      `,
+    );
+
+    return new Map(
+      rows.map((row) => [
+        row.staffId,
+        {
+          activeStudentsCount: normalizeInteger(row.activeStudentsCount),
+          newStudentsCount: normalizeInteger(row.newStudentsCount),
+          droppedStudentsCount: normalizeInteger(row.droppedStudentsCount),
         },
       ]),
     );
@@ -3227,17 +3291,22 @@ export class DashboardService {
       };
     }
 
-    const [studentMetrics, debtByStaffId, monthlyTopupByStaffId] =
-      await Promise.all([
-        this.getCustomerCareStudentMetricsByStaffIds(staffIdsForMetrics, range),
-        this.getDebtAggregateByCustomerCareStaffIds(staffIdsForMetrics),
-        this.getMonthlyTopupByCustomerCareStaffIds(
-          context.includeOwnCustomerCarePortfolio
-            ? Array.from(new Set([...managedStaffIds, assistantStaffId]))
-            : managedStaffIds,
-          range,
-        ),
-      ]);
+    const [
+      studentMetrics,
+      debtByStaffId,
+      monthlyTopupByStaffId,
+      newAndDroppedByStaffId,
+    ] = await Promise.all([
+      this.getCustomerCareStudentMetricsByStaffIds(staffIdsForMetrics, range),
+      this.getDebtAggregateByCustomerCareStaffIds(staffIdsForMetrics),
+      this.getMonthlyTopupByCustomerCareStaffIds(
+        context.includeOwnCustomerCarePortfolio
+          ? Array.from(new Set([...managedStaffIds, assistantStaffId]))
+          : managedStaffIds,
+        range,
+      ),
+      this.getNewAndDroppedByCustomerCareStaffIds(staffIdsForMetrics, range),
+    ]);
 
     const summary: StaffDashboardSalesCsSummaryDto = {
       activeStudentsCount: studentMetrics.activeStudentsCount,
@@ -3256,12 +3325,16 @@ export class DashboardService {
     const staffBreakdown = [
       ...managedStaff.map((staff) => {
         const debt = debtByStaffId.get(staff.id);
+        const newAndDropped = newAndDroppedByStaffId.get(staff.id);
         return {
           staffId: staff.id,
           staffName: getUserFullNameFromParts(staff.user) ?? '',
           monthlyRevenue: monthlyTopupByStaffId.get(staff.id) ?? 0,
           debtStudentCount: debt?.debtStudentCount ?? 0,
           totalDebtAmount: debt?.totalDebtAmount ?? 0,
+          activeStudentsCount: newAndDropped?.activeStudentsCount ?? 0,
+          newStudentsCount: newAndDropped?.newStudentsCount ?? 0,
+          droppedStudentsCount: newAndDropped?.droppedStudentsCount ?? 0,
         };
       }),
       ...(context.includeOwnCustomerCarePortfolio
@@ -3274,6 +3347,15 @@ export class DashboardService {
                 debtByStaffId.get(assistantStaffId)?.debtStudentCount ?? 0,
               totalDebtAmount:
                 debtByStaffId.get(assistantStaffId)?.totalDebtAmount ?? 0,
+              activeStudentsCount:
+                newAndDroppedByStaffId.get(assistantStaffId)
+                  ?.activeStudentsCount ?? 0,
+              newStudentsCount:
+                newAndDroppedByStaffId.get(assistantStaffId)
+                  ?.newStudentsCount ?? 0,
+              droppedStudentsCount:
+                newAndDroppedByStaffId.get(assistantStaffId)
+                  ?.droppedStudentsCount ?? 0,
             },
           ]
         : []),
@@ -5090,35 +5172,35 @@ export class DashboardService {
 
             if (query.rowKey === 'profit') {
               const [studentRows, staffRows, costExtends] = await Promise.all([
-                  this.getLearnedTuitionByStudentForPeriod({
-                    monthStart: period.monthStart,
-                    monthEnd: period.monthEnd,
-                    limit,
-                  }),
-                  this.getPersonnelStaffCosts(limit, dashboardPeriod),
-                  this.prisma.costExtend.findMany({
-                    where: period.isDateRange
-                      ? {
-                          date: {
-                            gte: period.monthStart,
-                            lt: period.monthEnd,
-                          },
-                        }
-                      : {
-                          OR: [
-                            { month: period.monthKey },
-                            {
-                              date: {
-                                gte: period.monthStart,
-                                lt: period.monthEnd,
-                              },
-                            },
-                          ],
+                this.getLearnedTuitionByStudentForPeriod({
+                  monthStart: period.monthStart,
+                  monthEnd: period.monthEnd,
+                  limit,
+                }),
+                this.getPersonnelStaffCosts(limit, dashboardPeriod),
+                this.prisma.costExtend.findMany({
+                  where: period.isDateRange
+                    ? {
+                        date: {
+                          gte: period.monthStart,
+                          lt: period.monthEnd,
                         },
-                    orderBy: { createdAt: 'desc' },
-                    take: limit,
-                  }),
-                ]);
+                      }
+                    : {
+                        OR: [
+                          { month: period.monthKey },
+                          {
+                            date: {
+                              gte: period.monthStart,
+                              lt: period.monthEnd,
+                            },
+                          },
+                        ],
+                      },
+                  orderBy: { createdAt: 'desc' },
+                  take: limit,
+                }),
+              ]);
 
               const items = [
                 ...studentRows.map((row) => ({
@@ -5179,41 +5261,41 @@ export class DashboardService {
             }
 
             const [topupHistory, staffRows, costExtends] = await Promise.all([
-                this.prisma.walletTransactionsHistory.findMany({
-                  where: {
-                    date: {
-                      gte: period.monthStart,
-                      lt: period.monthEnd,
-                    },
-                    type: 'topup',
+              this.prisma.walletTransactionsHistory.findMany({
+                where: {
+                  date: {
+                    gte: period.monthStart,
+                    lt: period.monthEnd,
                   },
-                  include: { student: true },
-                  orderBy: { createdAt: 'desc' },
-                  take: limit,
-                }),
-                this.getPersonnelStaffCosts(limit, dashboardPeriod),
-                this.prisma.costExtend.findMany({
-                  where: period.isDateRange
-                    ? {
-                        date: {
-                          gte: period.monthStart,
-                          lt: period.monthEnd,
-                        },
-                      }
-                    : {
-                        OR: [
-                          { month: period.monthKey },
-                          {
-                            date: {
-                              gte: period.monthStart,
-                              lt: period.monthEnd,
-                            },
-                          },
-                        ],
+                  type: 'topup',
+                },
+                include: { student: true },
+                orderBy: { createdAt: 'desc' },
+                take: limit,
+              }),
+              this.getPersonnelStaffCosts(limit, dashboardPeriod),
+              this.prisma.costExtend.findMany({
+                where: period.isDateRange
+                  ? {
+                      date: {
+                        gte: period.monthStart,
+                        lt: period.monthEnd,
                       },
-                  orderBy: { createdAt: 'desc' },
-                }),
-              ]);
+                    }
+                  : {
+                      OR: [
+                        { month: period.monthKey },
+                        {
+                          date: {
+                            gte: period.monthStart,
+                            lt: period.monthEnd,
+                          },
+                        },
+                      ],
+                    },
+                orderBy: { createdAt: 'desc' },
+              }),
+            ]);
 
             const items = [
               ...topupHistory.map((item) => ({
@@ -5460,7 +5542,9 @@ export class DashboardService {
 
     const period = resolveFinancialPeriod(query);
     const dateColumn =
-      query.type === 'new' ? 'student_info.created_at' : 'student_info.drop_out_date';
+      query.type === 'new'
+        ? 'student_info.created_at'
+        : 'student_info.drop_out_date';
 
     const cacheKey = period.isDateRange
       ? buildCacheKey('student-churn-details', {
@@ -5540,9 +5624,7 @@ export class DashboardService {
       1;
 
     if (monthCount > 36) {
-      throw new BadRequestException(
-        'Month range must not exceed 36 months.',
-      );
+      throw new BadRequestException('Month range must not exceed 36 months.');
     }
 
     const cacheKey = buildCacheKey('monthly-statistics', {
@@ -5562,9 +5644,8 @@ export class DashboardService {
           periodEndExclusiveStr,
         );
         const fromKeyLiteral = prismaSqlMonthKeyTextLiteral(fromMonthKey);
-        const toKeyExclusiveLiteral = prismaSqlMonthKeyTextLiteral(
-          toMonthKeyExclusive,
-        );
+        const toKeyExclusiveLiteral =
+          prismaSqlMonthKeyTextLiteral(toMonthKeyExclusive);
 
         const rows = await this.prisma.$queryRaw<MonthlyStatisticSqlRow[]>(
           Prisma.sql`
@@ -5836,50 +5917,44 @@ export class DashboardService {
           `,
         );
 
-        const months: AdminDashboardMonthlyStatisticDto[] = rows.map(
-          (row) => {
-            const monthStart =
-              row.monthStart instanceof Date
-                ? row.monthStart
-                : new Date(row.monthStart);
-            const totals = buildDashboardExpenseProfit({
-              revenue: normalizeMoneyAmount(row.revenue),
-              teacherCost: normalizeMoneyAmount(row.teacherCost),
-              customerCareCost: normalizeMoneyAmount(row.customerCareCost),
-              lessonCost: normalizeMoneyAmount(row.lessonCost),
-              bonusCost: normalizeMoneyAmount(row.bonusCost),
-              extraAllowanceCost: normalizeMoneyAmount(
-                row.extraAllowanceCost,
-              ),
-              assistantCost: normalizeMoneyAmount(row.assistantCost),
-              trainingManagerCost: normalizeMoneyAmount(
-                row.trainingManagerCost,
-              ),
-              operatingCost: normalizeMoneyAmount(row.operatingCost),
-            });
+        const months: AdminDashboardMonthlyStatisticDto[] = rows.map((row) => {
+          const monthStart =
+            row.monthStart instanceof Date
+              ? row.monthStart
+              : new Date(row.monthStart);
+          const totals = buildDashboardExpenseProfit({
+            revenue: normalizeMoneyAmount(row.revenue),
+            teacherCost: normalizeMoneyAmount(row.teacherCost),
+            customerCareCost: normalizeMoneyAmount(row.customerCareCost),
+            lessonCost: normalizeMoneyAmount(row.lessonCost),
+            bonusCost: normalizeMoneyAmount(row.bonusCost),
+            extraAllowanceCost: normalizeMoneyAmount(row.extraAllowanceCost),
+            assistantCost: normalizeMoneyAmount(row.assistantCost),
+            trainingManagerCost: normalizeMoneyAmount(row.trainingManagerCost),
+            operatingCost: normalizeMoneyAmount(row.operatingCost),
+          });
 
-            return {
-              monthKey: formatMonthKey(monthStart),
-              month: formatMonthShort(monthStart),
-              students: normalizeInteger(row.students),
-              classes: normalizeInteger(row.classes),
-              teachers: normalizeInteger(row.teachers),
-              revenue: totals.revenue,
-              expense: totals.expense,
-              profit: totals.profit,
-              teacherCost: totals.teacherCost,
-              customerCareCost: totals.customerCareCost,
-              lessonCost: totals.lessonCost,
-              bonusCost: totals.bonusCost,
-              extraAllowanceCost: totals.extraAllowanceCost,
-              assistantCost: totals.assistantCost,
-              trainingManagerCost: totals.trainingManagerCost,
-              operatingCost: totals.operatingCost,
-              totalTopup: normalizeMoneyAmount(row.totalTopup),
-              totalUnpaid: normalizeMoneyAmount(row.totalUnpaid),
-            };
-          },
-        );
+          return {
+            monthKey: formatMonthKey(monthStart),
+            month: formatMonthShort(monthStart),
+            students: normalizeInteger(row.students),
+            classes: normalizeInteger(row.classes),
+            teachers: normalizeInteger(row.teachers),
+            revenue: totals.revenue,
+            expense: totals.expense,
+            profit: totals.profit,
+            teacherCost: totals.teacherCost,
+            customerCareCost: totals.customerCareCost,
+            lessonCost: totals.lessonCost,
+            bonusCost: totals.bonusCost,
+            extraAllowanceCost: totals.extraAllowanceCost,
+            assistantCost: totals.assistantCost,
+            trainingManagerCost: totals.trainingManagerCost,
+            operatingCost: totals.operatingCost,
+            totalTopup: normalizeMoneyAmount(row.totalTopup),
+            totalUnpaid: normalizeMoneyAmount(row.totalUnpaid),
+          };
+        });
 
         return {
           fromMonthKey,
