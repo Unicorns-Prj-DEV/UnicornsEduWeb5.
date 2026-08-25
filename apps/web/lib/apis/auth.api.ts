@@ -266,6 +266,7 @@ export async function getMyCustomerCareStudentChanges(params: {
   year?: string;
   type: StaffDashboardStudentChangeType;
   scope: StaffDashboardStudentChangeScope;
+  staffId?: string;
 }): Promise<StaffDashboardStudentChangeItem[]> {
   const response = await api.get<StaffDashboardStudentChangeItem[]>(
     "/users/me/staff-dashboard/customer-care-student-changes",
@@ -275,6 +276,7 @@ export async function getMyCustomerCareStudentChanges(params: {
         ...(params.year ? { year: params.year } : {}),
         type: params.type,
         scope: params.scope,
+        ...(params.staffId ? { staffId: params.staffId } : {}),
       },
     },
   );

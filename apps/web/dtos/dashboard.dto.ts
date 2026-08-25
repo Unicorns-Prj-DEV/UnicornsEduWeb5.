@@ -349,6 +349,9 @@ export interface StaffDashboardSalesCsStaffItem {
   monthlyRevenue: number;
   debtStudentCount: number;
   totalDebtAmount: number;
+  activeStudentsCount: number;
+  newStudentsCount: number;
+  droppedStudentsCount: number;
 }
 
 export interface StaffDashboardAssistantSection {
@@ -381,7 +384,7 @@ export interface StaffDashboardCustomerCareSection {
   debtStudents: StaffDashboardStudentAlertItem[];
 }
 
-export type StaffDashboardStudentChangeType = "new" | "dropped";
+export type StaffDashboardStudentChangeType = "new" | "dropped" | "active";
 
 export type StaffDashboardStudentChangeScope = "own" | "managed";
 
