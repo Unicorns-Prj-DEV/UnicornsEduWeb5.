@@ -345,6 +345,89 @@ function StudentChangeMiniStat({
   );
 }
 
+function StaffStudentChangeDialog({
+  staffId,
+  staffName,
+  label,
+  type,
+  month,
+  year,
+  open,
+  onClose,
+}: {
+  staffId: string;
+  staffName: string;
+  label: string;
+  type: StaffDashboardStudentChangeType;
+  month: string;
+  year: string;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const dialogTitleId = `staff-student-change-${type}-${staffId}`;
+
+  const query = useQuery({
+    queryKey: ["staff", "self", "customer-care-student-changes", "own", type, year, month, staffId],
+    queryFn: () => getMyCustomerCareStudentChanges({ month, year, type, scope: "own", staffId }),
+    enabled: open,
+    staleTime: 30_000,
+  });
+
+  if (!open) return null;
+
+  return (
+    <ResponsiveDialog labelledBy={dialogTitleId} onBackdropClick={onClose}>
+      <div className="flex items-center justify-between border-b border-border-default px-5 py-4">
+        <h2 id={dialogTitleId} className="text-base font-semibold text-text-primary">
+          {label} — {staffName}
+          {query.data ? ` (${query.data.length})` : ""}
+        </h2>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-lg p-2 text-text-muted hover:bg-bg-secondary hover:text-text-primary"
+        >
+          Đóng
+        </button>
+      </div>
+      <ResponsiveDialogBody className="space-y-2 p-5 max-h-[70vh] overflow-y-auto">
+        {query.isLoading ? (
+          <p className="text-sm text-text-muted">Đang tải…</p>
+        ) : query.isError ? (
+          <p className="text-sm text-error">Không tải được danh sách học sinh.</p>
+        ) : !query.data || query.data.length === 0 ? (
+          <EmptyState
+            title="Không có học sinh"
+            description="Không có học sinh nào trong danh mục này ở kỳ đang chọn."
+          />
+        ) : (
+          query.data.map((item) => (
+            <Link
+              key={item.studentId}
+              href={`/staff/students/${encodeURIComponent(item.studentId)}`}
+              className="block rounded-xl border border-border-default bg-bg-secondary/20 p-3 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus text-left"
+            >
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold leading-snug text-text-primary">
+                    {item.studentName}
+                  </p>
+                  <p className="mt-0.5 text-[11px] leading-snug text-text-secondary">
+                    {item.classNames || "Chưa có lớp"}
+                  </p>
+                </div>
+                <span className="shrink-0 text-xs font-semibold text-primary">
+                  {formatStudentChangeDate(item.eventDate)}
+                </span>
+              </div>
+            </Link>
+          ))
+        )}
+      </ResponsiveDialogBody>
+    </ResponsiveDialog>
+  );
+}
+
 function EmptyState({
   title,
   description,
@@ -978,6 +1061,8 @@ function SalesCsSummarySection({
   month: string;
   year: string;
 }) {
+  const [dialog, setDialog] = useState<{ staffId: string; staffName: string; type: StaffDashboardStudentChangeType } | null>(null);
+
   return (
     <SurfaceCard
       eyebrow="Tổng hợp CSKH"
@@ -1070,28 +1155,68 @@ function SalesCsSummarySection({
                     : `/staff/customer-care-detail/${encodeURIComponent(item.staffId)}`;
 
                 return (
-                <Link
+                <div
                   key={`debt-${item.staffId}`}
-                  href={detailHref}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-border-default bg-bg-secondary/20 px-3 py-2 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                  className="rounded-xl border border-border-default bg-bg-secondary/20 px-3 py-2"
                 >
-                  <span className="min-w-0 truncate text-sm font-medium text-text-primary">
-                    {item.staffName}
-                  </span>
-                  <div className="flex shrink-0 items-center gap-3 text-sm tabular-nums">
-                    <span className="font-medium text-text-secondary">
-                      {item.debtStudentCount} người
+                  <Link
+                    href={detailHref}
+                    className="flex items-center justify-between gap-3 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus -mx-3 -my-2 px-3 py-2 rounded-xl"
+                  >
+                    <span className="min-w-0 truncate text-sm font-medium text-text-primary">
+                      {item.staffName}
                     </span>
-                    <span className="font-semibold text-warning">
-                      {formatCurrency(item.totalDebtAmount)}
-                    </span>
+                    <div className="flex shrink-0 items-center gap-3 text-sm tabular-nums">
+                      <span className="font-medium text-text-secondary">
+                        {item.debtStudentCount} người
+                      </span>
+                      <span className="font-semibold text-warning">
+                        {formatCurrency(item.totalDebtAmount)}
+                      </span>
+                    </div>
+                  </Link>
+                  <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setDialog({ staffId: item.staffId, staffName: item.staffName, type: "active" })}
+                      className="font-medium text-success hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus rounded"
+                    >
+                      Học sinh: {item.activeStudentsCount}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDialog({ staffId: item.staffId, staffName: item.staffName, type: "new" })}
+                      className="font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus rounded"
+                    >
+                      Học sinh mới: {item.newStudentsCount}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDialog({ staffId: item.staffId, staffName: item.staffName, type: "dropped" })}
+                      className="font-medium text-warning hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus rounded"
+                    >
+                      Học sinh nghỉ: {item.droppedStudentsCount}
+                    </button>
                   </div>
-                </Link>
+                </div>
                 );
               })}
             </div>
           </div>
         </div>
+      )}
+
+      {dialog && (
+        <StaffStudentChangeDialog
+          staffId={dialog.staffId}
+          staffName={dialog.staffName}
+          label={dialog.type === "active" ? "Học sinh đang học" : dialog.type === "new" ? "Học sinh mới" : "Học sinh nghỉ"}
+          type={dialog.type}
+          month={month}
+          year={year}
+          open
+          onClose={() => setDialog(null)}
+        />
       )}
     </SurfaceCard>
   );
