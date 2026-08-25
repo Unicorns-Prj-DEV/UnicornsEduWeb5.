@@ -1,6 +1,14 @@
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Matches,
+  Max,
+  Min,
+} from 'class-validator';
 
 export const ADMIN_DASHBOARD_FINANCIAL_DETAIL_ROW_KEYS = [
   'topup',
@@ -202,7 +210,8 @@ export type AdminDashboardStudentChurnTypeDto =
 
 export class GetAdminStudentChurnDetailsQueryDto {
   @ApiProperty({
-    description: 'Churn type: new (enrolled in period) or dropped (left in period).',
+    description:
+      'Churn type: new (enrolled in period) or dropped (left in period).',
     enum: ADMIN_DASHBOARD_STUDENT_CHURN_TYPES,
     example: 'new',
   })
@@ -842,6 +851,9 @@ export interface StaffDashboardSalesCsStaffItemDto {
   monthlyRevenue: number;
   debtStudentCount: number;
   totalDebtAmount: number;
+  activeStudentsCount: number;
+  newStudentsCount: number;
+  droppedStudentsCount: number;
 }
 
 export interface StaffDashboardAssistantSectionDto {
@@ -864,7 +876,7 @@ export interface StaffDashboardStudentAlertItemDto {
   dueLabel: string;
 }
 
-export type StaffDashboardStudentChangeType = 'new' | 'dropped';
+export type StaffDashboardStudentChangeType = 'new' | 'dropped' | 'active';
 
 export type StaffDashboardStudentChangeScope = 'own' | 'managed';
 
@@ -877,7 +889,7 @@ export interface StaffDashboardStudentChangeItemDto {
 }
 
 const STAFF_DASHBOARD_STUDENT_CHANGE_TYPES: StaffDashboardStudentChangeType[] =
-  ['new', 'dropped'];
+  ['new', 'dropped', 'active'];
 
 const STAFF_DASHBOARD_STUDENT_CHANGE_SCOPES: StaffDashboardStudentChangeScope[] =
   ['own', 'managed'];
@@ -904,7 +916,8 @@ export class GetStaffDashboardStudentChangesQueryDto {
   year?: string;
 
   @ApiProperty({
-    description: 'Loại biến động học sinh cần xem: new (mới) hoặc dropped (nghỉ).',
+    description:
+      'Loại biến động học sinh cần xem: new (mới) hoặc dropped (nghỉ).',
     enum: STAFF_DASHBOARD_STUDENT_CHANGE_TYPES,
     example: 'new',
   })
@@ -919,6 +932,15 @@ export class GetStaffDashboardStudentChangesQueryDto {
   })
   @IsIn(STAFF_DASHBOARD_STUDENT_CHANGE_SCOPES)
   scope: StaffDashboardStudentChangeScope;
+
+  @ApiPropertyOptional({
+    description:
+      'Filter by specific CSKH staff ID. When provided, returns only students assigned to that staff member.',
+    example: 'staff-uuid-here',
+  })
+  @IsOptional()
+  @IsString()
+  staffId?: string;
 }
 
 export interface StaffDashboardCustomerCareSectionDto {
