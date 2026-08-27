@@ -526,10 +526,13 @@ export default function AchievementListEditor({
       file,
     }: {
       payload: { title: string } | CreateStudentAchievementPayload;
-      file: File;
+      file?: File;
     }) => {
       const created = await achievementApi.createAchievement(owner, payload);
-      return achievementApi.uploadAchievementImage(owner, created.id, file);
+      if (file) {
+        await achievementApi.uploadAchievementImage(owner, created.id, file);
+      }
+      return created;
     },
     onSuccess: async () => {
       setNewTitle("");
@@ -545,7 +548,7 @@ export default function AchievementListEditor({
       await invalidate();
       toast.success("Đã thêm thành tích.");
     },
-    onError: () => toast.error("Không thể thêm thành tích. Cần có ảnh minh chứng."),
+    onError: () => toast.error("Không thể thêm thành tích."),
   });
 
   const updateMutation = useMutation({
@@ -642,8 +645,7 @@ export default function AchievementListEditor({
   const canCreateStudent =
     draftStudent.award.trim().length > 0 &&
     draftStudent.exam.trim().length > 0 &&
-    Number.isFinite(draftStudent.year) &&
-    draftStudentFile !== null;
+    Number.isFinite(draftStudent.year);
 
   return (
     <section
@@ -820,7 +822,7 @@ export default function AchievementListEditor({
       {canMutate && isStudent ? (
         <div className="space-y-2 rounded-lg border border-dashed border-border-default p-3">
           <p className="text-xs font-medium text-text-secondary">
-            Thêm thành tích (bắt buộc kèm ảnh minh chứng)
+            Thêm thành tích mới
           </p>
           <div className="grid gap-2 sm:grid-cols-2">
             <input
@@ -889,7 +891,7 @@ export default function AchievementListEditor({
             >
               <ImagePlus className="h-4 w-4" aria-hidden />
               <span className="text-xs">
-                {draftStudentFile ? "Đã chọn ảnh" : "Chọn ảnh minh chứng"}
+                {draftStudentFile ? "Đã chọn ảnh" : "Chọn ảnh minh chứng (tuỳ chọn)"}
               </span>
               <input
                 type="file"
@@ -905,7 +907,7 @@ export default function AchievementListEditor({
               type="button"
               disabled={busy || !canCreateStudent}
               onClick={() => {
-                if (!canCreateStudent || !draftStudentFile) return;
+                if (!canCreateStudent) return;
                 createMutation.mutate({
                   payload: {
                     award: draftStudent.award.trim(),
@@ -914,7 +916,7 @@ export default function AchievementListEditor({
                     level: draftStudent.level,
                     courseLabel: draftStudent.courseLabel?.trim() || null,
                   },
-                  file: draftStudentFile,
+                  file: draftStudentFile ?? undefined,
                 });
               }}
               className={`${iconBtnClass} bg-primary text-text-inverse hover:bg-primary/90 disabled:opacity-50`}
