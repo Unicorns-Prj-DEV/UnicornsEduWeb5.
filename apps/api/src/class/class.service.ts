@@ -465,7 +465,9 @@ export class ClassService {
       where: { id: { in: rows.map((row) => row.id) } },
       data: { effectiveTo },
     });
-    return rows.map((row) => this.toStoredScheduleEntry({ ...row, effectiveTo }));
+    return rows.map((row) =>
+      this.toStoredScheduleEntry({ ...row, effectiveTo }),
+    );
   }
 
   private getActiveClassTeacherWhere(
@@ -501,11 +503,14 @@ export class ClassService {
     return futureMakeupEvents.length;
   }
 
-
   private async getClassDetailSnapshot(
     db: Pick<
       PrismaService,
-      'class' | 'classTeacher' | 'studentClass' | 'classScheduleEntry' | '$queryRaw'
+      | 'class'
+      | 'classTeacher'
+      | 'studentClass'
+      | 'classScheduleEntry'
+      | '$queryRaw'
     >,
     id: string,
   ) {
@@ -704,7 +709,11 @@ export class ClassService {
   private async getClassAuditSnapshot(
     db: Pick<
       PrismaService,
-      'class' | 'classTeacher' | 'studentClass' | 'classScheduleEntry' | '$queryRaw'
+      | 'class'
+      | 'classTeacher'
+      | 'studentClass'
+      | 'classScheduleEntry'
+      | '$queryRaw'
     >,
     id: string,
   ) {
@@ -764,9 +773,7 @@ export class ClassService {
             },
           }
         : {}),
-      ...(trainingManagerStaffId
-        ? { trainingManagerStaffId }
-        : {}),
+      ...(trainingManagerStaffId ? { trainingManagerStaffId } : {}),
     };
 
     const total = await this.prisma.class.count({ where });
@@ -1147,7 +1154,9 @@ export class ClassService {
         return !entry || entry.teacherId !== teacherId;
       });
       if (foreignRemoval) {
-        throw new ForbiddenException('Gia sư chỉ được xoá lịch của chính mình.');
+        throw new ForbiddenException(
+          'Gia sư chỉ được xoá lịch của chính mình.',
+        );
       }
     }
   }
@@ -1176,9 +1185,12 @@ export class ClassService {
     data: CreateClassDto,
     auditActor?: ActionHistoryActor,
   ) {
-    return await this.prisma.$transaction(async (tx) => {
+    const hasSchedule = data.schedule && data.schedule.length > 0;
+
+    const classDetail = await this.prisma.$transaction(async (tx) => {
       const classCategoryId =
-        data.class_category_id ?? (await this.resolveDefaultClassCategoryId(tx));
+        data.class_category_id ??
+        (await this.resolveDefaultClassCategoryId(tx));
 
       const createdClass = await tx.class.create({
         data: {
@@ -1198,7 +1210,7 @@ export class ClassService {
         },
       });
 
-      if (data.schedule && data.schedule.length > 0) {
+      if (hasSchedule) {
         const scheduleEntries = data.schedule as unknown as ScheduleSlotDto[];
         await tx.classScheduleEntry.createMany({
           data: scheduleEntries.map((entry) => ({
@@ -1242,11 +1254,8 @@ export class ClassService {
         });
       }
 
-      const classDetail = await this.getClassDetailSnapshot(
-        tx,
-        createdClass.id,
-      );
-      if (!classDetail) {
+      const detail = await this.getClassDetailSnapshot(tx, createdClass.id);
+      if (!detail) {
         throw new NotFoundException('Class not found');
       }
 
@@ -1256,12 +1265,28 @@ export class ClassService {
           entityType: 'class',
           entityId: createdClass.id,
           description: 'Tạo lớp học',
-          afterValue: classDetail,
+          afterValue: detail,
         });
       }
 
-      return classDetail;
+      return detail;
     });
+
+    if (hasSchedule) {
+      try {
+        await this.calendarService.syncScheduleWithCalendar(
+          classDetail.id,
+          [],
+        );
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        this.logger.error(
+          `[ClassService] Failed to sync schedule with Google Calendar for new class ${classDetail.id}: ${message}`,
+        );
+      }
+    }
+
+    return classDetail;
   }
 
   private async withEntityIdRetry<T>(operation: () => Promise<T>): Promise<T> {

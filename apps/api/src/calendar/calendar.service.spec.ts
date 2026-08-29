@@ -8,7 +8,10 @@ jest.mock('../prisma/prisma.service', () => ({
 
 jest.mock('../../generated/client', () => ({
   Prisma: {
-    sql: (strings: TemplateStringsArray, ...values: any[]) => ({ strings, values }),
+    sql: (strings: TemplateStringsArray, ...values: any[]) => ({
+      strings,
+      values,
+    }),
   },
 }));
 
@@ -70,6 +73,7 @@ describe('CalendarService', () => {
     classScheduleEntry: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
+      updateMany: jest.fn(),
     },
     makeupScheduleEvent: {
       findMany: jest.fn(),
@@ -154,6 +158,8 @@ describe('CalendarService', () => {
     mockPrisma.studentExamSchedule.findMany.mockResolvedValue([]);
     mockPrisma.staffInfo.findMany.mockResolvedValue([]);
     mockPrisma.staffInfo.count.mockResolvedValue(0);
+    mockPrisma.classScheduleEntry.findMany.mockResolvedValue([]);
+    mockPrisma.classScheduleEntry.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma.$transaction.mockImplementation(
       async (callback: (tx: typeof mockPrisma) => Promise<unknown>) =>
         callback(mockPrisma),
@@ -481,16 +487,6 @@ describe('CalendarService', () => {
     mockPrisma.class.findUnique.mockResolvedValue({
       id: 'class-1',
       name: 'Toán 9A',
-      schedule: [
-        {
-          id: 'slot-1',
-          dayOfWeek: 1,
-          from: '19:00:00',
-          to: '20:30:00',
-          teacherId: 'teacher-1',
-          meetLink: 'https://meet.google.com/old-slot-link',
-        },
-      ],
       teachers: [
         {
           teacherId: 'teacher-1',
@@ -505,6 +501,20 @@ describe('CalendarService', () => {
         },
       ],
     });
+    mockPrisma.classScheduleEntry.findMany.mockResolvedValue([
+      {
+        id: 'slot-1',
+        classId: 'class-1',
+        dayOfWeek: 1,
+        from: '19:00:00',
+        to: '20:30:00',
+        teacherId: 'teacher-1',
+        meetLink: 'https://meet.google.com/old-slot-link',
+        googleCalendarEventId: null,
+        effectiveFrom: new Date('2026-01-01'),
+        effectiveTo: null,
+      },
+    ]);
     googleCalendarService.createOrUpdateClassScheduleRecurringEvent.mockResolvedValue(
       {
         eventId: 'calendar-event-1',
@@ -521,21 +531,11 @@ describe('CalendarService', () => {
         meetLink: 'https://meet.google.com/fixed-teacher-link',
       }),
     );
-    expect(mockPrisma.class.update).toHaveBeenCalledWith({
-      where: { id: 'class-1' },
+    expect(mockPrisma.classScheduleEntry.updateMany).toHaveBeenCalledWith({
+      where: { id: 'slot-1', classId: 'class-1' },
       data: {
-        schedule: [
-          expect.objectContaining({
-            id: 'slot-1',
-            dayOfWeek: 1,
-            from: '19:00:00',
-            to: '20:30:00',
-            teacherId: 'teacher-1',
-            googleCalendarEventId: 'calendar-event-1',
-            meetLink: 'https://meet.google.com/fixed-teacher-link',
-            createdAt: expect.any(String),
-          }),
-        ],
+        googleCalendarEventId: 'calendar-event-1',
+        meetLink: 'https://meet.google.com/fixed-teacher-link',
       },
     });
   });
@@ -544,15 +544,6 @@ describe('CalendarService', () => {
     mockPrisma.class.findUnique.mockResolvedValue({
       id: 'class-1',
       name: 'Toán 9A',
-      schedule: [
-        {
-          id: 'slot-2',
-          dayOfWeek: 3,
-          from: '18:00:00',
-          to: '19:30:00',
-          teacherId: 'teacher-1',
-        },
-      ],
       teachers: [
         {
           teacherId: 'teacher-1',
@@ -567,6 +558,20 @@ describe('CalendarService', () => {
         },
       ],
     });
+    mockPrisma.classScheduleEntry.findMany.mockResolvedValue([
+      {
+        id: 'slot-2',
+        classId: 'class-1',
+        dayOfWeek: 3,
+        from: '18:00:00',
+        to: '19:30:00',
+        teacherId: 'teacher-1',
+        meetLink: null,
+        googleCalendarEventId: null,
+        effectiveFrom: new Date('2026-01-01'),
+        effectiveTo: null,
+      },
+    ]);
     googleCalendarService.listClassScheduleRecurringEvents.mockResolvedValue([
       {
         eventId: 'discovered-old-event',
@@ -622,9 +627,9 @@ describe('CalendarService', () => {
     mockPrisma.class.findUnique.mockResolvedValue({
       id: 'class-1',
       name: 'Toán 9A',
-      schedule: [],
       teachers: [],
     });
+    mockPrisma.classScheduleEntry.findMany.mockResolvedValue([]);
     googleCalendarService.listClassScheduleRecurringEvents.mockResolvedValue([
       {
         eventId: 'orphaned-google-event',
@@ -648,16 +653,6 @@ describe('CalendarService', () => {
     mockPrisma.class.findUnique.mockResolvedValue({
       id: 'class-1',
       name: 'Toán 9A',
-      schedule: [
-        {
-          id: 'slot-1',
-          dayOfWeek: 1,
-          from: '19:00:00',
-          to: '20:30:00',
-          teacherId: 'teacher-1',
-          googleCalendarEventId: 'stored-event-1',
-        },
-      ],
       teachers: [
         {
           teacherId: 'teacher-1',
@@ -672,6 +667,20 @@ describe('CalendarService', () => {
         },
       ],
     });
+    mockPrisma.classScheduleEntry.findMany.mockResolvedValue([
+      {
+        id: 'slot-1',
+        classId: 'class-1',
+        dayOfWeek: 1,
+        from: '19:00:00',
+        to: '20:30:00',
+        teacherId: 'teacher-1',
+        meetLink: null,
+        googleCalendarEventId: 'stored-event-1',
+        effectiveFrom: new Date('2026-01-01'),
+        effectiveTo: null,
+      },
+    ]);
     googleCalendarService.listClassScheduleRecurringEvents.mockResolvedValue([
       {
         eventId: 'legacy-event-without-entry-id',
@@ -720,32 +729,6 @@ describe('CalendarService', () => {
     mockPrisma.class.findUnique.mockResolvedValue({
       id: 'class-1',
       name: 'Toán 9A',
-      schedule: [
-        {
-          id: 'slot-own',
-          dayOfWeek: 1,
-          from: '19:00:00',
-          to: '20:30:00',
-          teacherId: 'teacher-1',
-          googleCalendarEventId: 'stored-own-event',
-        },
-        {
-          id: 'slot-other',
-          dayOfWeek: 2,
-          from: '18:00:00',
-          to: '19:30:00',
-          teacherId: 'teacher-2',
-          googleCalendarEventId: 'stored-other-event',
-          meetLink: 'https://meet.google.com/other-link',
-        },
-        {
-          id: 'slot-missing-teacher',
-          dayOfWeek: 3,
-          from: '17:00:00',
-          to: '18:30:00',
-          googleCalendarEventId: 'stored-missing-teacher-event',
-        },
-      ],
       teachers: [
         {
           teacherId: 'teacher-1',
@@ -771,6 +754,44 @@ describe('CalendarService', () => {
         },
       ],
     });
+    mockPrisma.classScheduleEntry.findMany.mockResolvedValue([
+      {
+        id: 'slot-own',
+        classId: 'class-1',
+        dayOfWeek: 1,
+        from: '19:00:00',
+        to: '20:30:00',
+        teacherId: 'teacher-1',
+        meetLink: null,
+        googleCalendarEventId: 'stored-own-event',
+        effectiveFrom: new Date('2026-01-01'),
+        effectiveTo: null,
+      },
+      {
+        id: 'slot-other',
+        classId: 'class-1',
+        dayOfWeek: 2,
+        from: '18:00:00',
+        to: '19:30:00',
+        teacherId: 'teacher-2',
+        meetLink: 'https://meet.google.com/other-link',
+        googleCalendarEventId: 'stored-other-event',
+        effectiveFrom: new Date('2026-01-01'),
+        effectiveTo: null,
+      },
+      {
+        id: 'slot-missing-teacher',
+        classId: 'class-1',
+        dayOfWeek: 3,
+        from: '17:00:00',
+        to: '18:30:00',
+        teacherId: null,
+        meetLink: null,
+        googleCalendarEventId: 'stored-missing-teacher-event',
+        effectiveFrom: new Date('2026-01-01'),
+        effectiveTo: null,
+      },
+    ]);
     googleCalendarService.listClassScheduleRecurringEvents.mockResolvedValue([
       {
         eventId: 'discovered-own-event',
@@ -837,39 +858,25 @@ describe('CalendarService', () => {
         calendarEventId: 'stored-own-event',
       }),
     );
-    expect(mockPrisma.class.update).toHaveBeenCalledWith({
-      where: { id: 'class-1' },
+    expect(mockPrisma.classScheduleEntry.updateMany).toHaveBeenCalledWith({
+      where: { id: 'slot-own', classId: 'class-1' },
       data: {
-        schedule: [
-          expect.objectContaining({
-            id: 'slot-own',
-            dayOfWeek: 1,
-            from: '19:00:00',
-            to: '20:30:00',
-            teacherId: 'teacher-1',
-            googleCalendarEventId: 'new-own-event',
-            meetLink: 'https://meet.google.com/own-link',
-            createdAt: expect.any(String),
-          }),
-          expect.objectContaining({
-            id: 'slot-other',
-            dayOfWeek: 2,
-            from: '18:00:00',
-            to: '19:30:00',
-            teacherId: 'teacher-2',
-            googleCalendarEventId: 'stored-other-event',
-            meetLink: 'https://meet.google.com/other-link',
-            createdAt: expect.any(String),
-          }),
-          expect.objectContaining({
-            id: 'slot-missing-teacher',
-            dayOfWeek: 3,
-            from: '17:00:00',
-            to: '18:30:00',
-            googleCalendarEventId: 'stored-missing-teacher-event',
-            createdAt: expect.any(String),
-          }),
-        ],
+        googleCalendarEventId: 'new-own-event',
+        meetLink: 'https://meet.google.com/own-link',
+      },
+    });
+    expect(mockPrisma.classScheduleEntry.updateMany).toHaveBeenCalledWith({
+      where: { id: 'slot-other', classId: 'class-1' },
+      data: {
+        googleCalendarEventId: 'stored-other-event',
+        meetLink: 'https://meet.google.com/other-link',
+      },
+    });
+    expect(mockPrisma.classScheduleEntry.updateMany).toHaveBeenCalledWith({
+      where: { id: 'slot-missing-teacher', classId: 'class-1' },
+      data: {
+        googleCalendarEventId: 'stored-missing-teacher-event',
+        meetLink: null,
       },
     });
   });
@@ -878,16 +885,6 @@ describe('CalendarService', () => {
     mockPrisma.class.findUnique.mockResolvedValue({
       id: 'class-1',
       name: 'Toán 9A',
-      schedule: [
-        {
-          id: 'slot-1',
-          dayOfWeek: 1,
-          from: '19:00:00',
-          to: '20:30:00',
-          teacherId: 'teacher-1',
-          googleCalendarEventId: 'stale-recurring-event',
-        },
-      ],
       teachers: [
         {
           teacherId: 'teacher-1',
@@ -902,6 +899,20 @@ describe('CalendarService', () => {
         },
       ],
     });
+    mockPrisma.classScheduleEntry.findMany.mockResolvedValue([
+      {
+        id: 'slot-1',
+        classId: 'class-1',
+        dayOfWeek: 1,
+        from: '19:00:00',
+        to: '20:30:00',
+        teacherId: 'teacher-1',
+        meetLink: null,
+        googleCalendarEventId: 'stale-recurring-event',
+        effectiveFrom: new Date('2026-01-01'),
+        effectiveTo: null,
+      },
+    ]);
     googleCalendarService.createOrUpdateClassScheduleRecurringEvent
       .mockRejectedValueOnce(
         new GoogleCalendarApiError('Failed to update recurring event', {
@@ -943,21 +954,11 @@ describe('CalendarService', () => {
         calendarEventId: undefined,
       }),
     );
-    expect(mockPrisma.class.update).toHaveBeenCalledWith({
-      where: { id: 'class-1' },
+    expect(mockPrisma.classScheduleEntry.updateMany).toHaveBeenCalledWith({
+      where: { id: 'slot-1', classId: 'class-1' },
       data: {
-        schedule: [
-          expect.objectContaining({
-            id: 'slot-1',
-            dayOfWeek: 1,
-            from: '19:00:00',
-            to: '20:30:00',
-            teacherId: 'teacher-1',
-            googleCalendarEventId: 'replacement-recurring-event',
-            meetLink: 'https://meet.google.com/replacement-recurring',
-            createdAt: expect.any(String),
-          }),
-        ],
+        googleCalendarEventId: 'replacement-recurring-event',
+        meetLink: 'https://meet.google.com/replacement-recurring',
       },
     });
   });
@@ -967,27 +968,6 @@ describe('CalendarService', () => {
       id: 'class-1',
       name: 'Toán 9A',
       updatedAt: new Date('2026-06-10T08:00:00.000Z'),
-      schedule: [
-        {
-          id: 'slot-active',
-          dayOfWeek: 1,
-          from: '20:00:00',
-          to: '21:30:00',
-          teacherId: 'teacher-1',
-          googleCalendarEventId: 'stored-active-event',
-          createdAt: '2026-06-10T07:55:00.000Z',
-        },
-        {
-          id: 'slot-deleted',
-          dayOfWeek: 1,
-          from: '19:00:00',
-          to: '20:30:00',
-          teacherId: 'teacher-1',
-          googleCalendarEventId: 'stored-deleted-event',
-          createdAt: '2026-05-01T00:00:00.000Z',
-          deletedAt: '2026-06-10T07:55:00.000Z',
-        },
-      ],
       teachers: [
         {
           teacherId: 'teacher-1',
@@ -1002,6 +982,32 @@ describe('CalendarService', () => {
         },
       ],
     });
+    mockPrisma.classScheduleEntry.findMany.mockResolvedValue([
+      {
+        id: 'slot-active',
+        classId: 'class-1',
+        dayOfWeek: 1,
+        from: '20:00:00',
+        to: '21:30:00',
+        teacherId: 'teacher-1',
+        meetLink: null,
+        googleCalendarEventId: 'stored-active-event',
+        effectiveFrom: new Date('2026-06-10T07:55:00.000Z'),
+        effectiveTo: null,
+      },
+      {
+        id: 'slot-deleted',
+        classId: 'class-1',
+        dayOfWeek: 1,
+        from: '19:00:00',
+        to: '20:30:00',
+        teacherId: 'teacher-1',
+        meetLink: null,
+        googleCalendarEventId: 'stored-deleted-event',
+        effectiveFrom: new Date('2026-05-01T00:00:00.000Z'),
+        effectiveTo: new Date('2026-06-10T07:55:00.000Z'),
+      },
+    ]);
     googleCalendarService.listClassScheduleRecurringEvents.mockResolvedValue([
       {
         eventId: 'stored-active-event',
@@ -1018,26 +1024,18 @@ describe('CalendarService', () => {
 
     await service.resyncClassScheduleWithGoogleCalendar('class-1');
 
-    expect(mockPrisma.class.update).toHaveBeenCalledWith({
-      where: { id: 'class-1' },
+    expect(mockPrisma.classScheduleEntry.updateMany).toHaveBeenCalledWith({
+      where: { id: 'slot-active', classId: 'class-1' },
       data: {
-        schedule: [
-          expect.objectContaining({
-            id: 'slot-active',
-            from: '20:00:00',
-            to: '21:30:00',
-            createdAt: '2026-06-10T07:55:00.000Z',
-            googleCalendarEventId: 'stored-active-event',
-            meetLink: 'https://meet.google.com/active-link',
-          }),
-          expect.objectContaining({
-            id: 'slot-deleted',
-            from: '19:00:00',
-            to: '20:30:00',
-            createdAt: '2026-05-01T00:00:00.000Z',
-            deletedAt: '2026-06-10T07:55:00.000Z',
-          }),
-        ],
+        googleCalendarEventId: 'stored-active-event',
+        meetLink: 'https://meet.google.com/active-link',
+      },
+    });
+    expect(mockPrisma.classScheduleEntry.updateMany).toHaveBeenCalledWith({
+      where: { id: 'slot-deleted', classId: 'class-1' },
+      data: {
+        googleCalendarEventId: 'stored-deleted-event',
+        meetLink: null,
       },
     });
   });
@@ -1046,22 +1044,6 @@ describe('CalendarService', () => {
     mockPrisma.class.findUnique.mockResolvedValue({
       id: 'class-1',
       name: 'Toán 9A',
-      schedule: [
-        {
-          id: 'slot-1',
-          dayOfWeek: 1,
-          from: '19:00:00',
-          to: '20:30:00',
-          teacherId: 'teacher-1',
-        },
-        {
-          id: 'slot-2',
-          dayOfWeek: 3,
-          from: '18:00:00',
-          to: '19:30:00',
-          teacherId: 'teacher-1',
-        },
-      ],
       teachers: [
         {
           teacherId: 'teacher-1',
@@ -1076,6 +1058,32 @@ describe('CalendarService', () => {
         },
       ],
     });
+    mockPrisma.classScheduleEntry.findMany.mockResolvedValue([
+      {
+        id: 'slot-1',
+        classId: 'class-1',
+        dayOfWeek: 1,
+        from: '19:00:00',
+        to: '20:30:00',
+        teacherId: 'teacher-1',
+        meetLink: null,
+        googleCalendarEventId: null,
+        effectiveFrom: new Date('2026-01-01'),
+        effectiveTo: null,
+      },
+      {
+        id: 'slot-2',
+        classId: 'class-1',
+        dayOfWeek: 3,
+        from: '18:00:00',
+        to: '19:30:00',
+        teacherId: 'teacher-1',
+        meetLink: null,
+        googleCalendarEventId: null,
+        effectiveFrom: new Date('2026-01-01'),
+        effectiveTo: null,
+      },
+    ]);
     googleCalendarService.createOrUpdateClassScheduleRecurringEvent.mockRejectedValueOnce(
       new GoogleCalendarApiError('Calendar usage limits exceeded.', {
         message: 'Calendar usage limits exceeded.',
@@ -1111,9 +1119,9 @@ describe('CalendarService', () => {
     mockPrisma.class.findUnique.mockResolvedValue({
       id: 'class-1',
       name: 'Toán 9A',
-      schedule: [],
       teachers: [],
     });
+    mockPrisma.classScheduleEntry.findMany.mockResolvedValue([]);
     googleCalendarService.listClassScheduleRecurringEvents.mockResolvedValue([
       { eventId: 'del-1', calendarId: 'cal-1' },
       { eventId: 'del-2', calendarId: 'cal-1' },
@@ -1125,9 +1133,7 @@ describe('CalendarService', () => {
     const result =
       await service.resyncClassScheduleWithGoogleCalendar('class-1');
 
-    expect(googleCalendarService.deleteCalendarEvent).toHaveBeenCalledTimes(
-      2,
-    );
+    expect(googleCalendarService.deleteCalendarEvent).toHaveBeenCalledTimes(2);
     expect(result.data.deletedRecurringEvents).toBe(1);
     expect(result.data.failedRecurringEvents).toBe(1);
     expect(result.data.warnings).toEqual([
@@ -1136,22 +1142,12 @@ describe('CalendarService', () => {
         eventId: 'del-1',
       }),
     ]);
-    expect(mockPrisma.class.update).toHaveBeenCalledTimes(1);
   });
 
   it('preserves a newly-created recurring event id in the writeback even when an unrelated delete fails', async () => {
     mockPrisma.class.findUnique.mockResolvedValue({
       id: 'class-1',
       name: 'Toán 9A',
-      schedule: [
-        {
-          id: 'slot-new',
-          dayOfWeek: 1,
-          from: '19:00:00',
-          to: '20:30:00',
-          teacherId: 'teacher-1',
-        },
-      ],
       teachers: [
         {
           teacherId: 'teacher-1',
@@ -1166,6 +1162,20 @@ describe('CalendarService', () => {
         },
       ],
     });
+    mockPrisma.classScheduleEntry.findMany.mockResolvedValue([
+      {
+        id: 'slot-new',
+        classId: 'class-1',
+        dayOfWeek: 1,
+        from: '19:00:00',
+        to: '20:30:00',
+        teacherId: 'teacher-1',
+        meetLink: null,
+        googleCalendarEventId: null,
+        effectiveFrom: new Date('2026-01-01'),
+        effectiveTo: null,
+      },
+    ]);
     googleCalendarService.createOrUpdateClassScheduleRecurringEvent.mockResolvedValue(
       {
         eventId: 'new-event-x',
@@ -1183,28 +1193,22 @@ describe('CalendarService', () => {
       await service.resyncClassScheduleWithGoogleCalendar('class-1');
 
     expect(result.data.failedRecurringEvents).toBe(1);
-    expect(mockPrisma.class.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 'class-1' },
-        data: expect.objectContaining({
-          schedule: expect.arrayContaining([
-            expect.objectContaining({
-              id: 'slot-new',
-              googleCalendarEventId: 'new-event-x',
-            }),
-          ]),
-        }),
-      }),
-    );
+    expect(mockPrisma.classScheduleEntry.updateMany).toHaveBeenCalledWith({
+      where: { id: 'slot-new', classId: 'class-1' },
+      data: {
+        googleCalendarEventId: 'new-event-x',
+        meetLink: 'https://meet.google.com/new-event-x',
+      },
+    });
   });
 
   it('stops deleting on a quota error during the delete loop but still writes back the schedule', async () => {
     mockPrisma.class.findUnique.mockResolvedValue({
       id: 'class-1',
       name: 'Toán 9A',
-      schedule: [],
       teachers: [],
     });
+    mockPrisma.classScheduleEntry.findMany.mockResolvedValue([]);
     googleCalendarService.listClassScheduleRecurringEvents.mockResolvedValue([
       { eventId: 'del-1', calendarId: 'cal-1' },
       { eventId: 'del-2', calendarId: 'cal-1' },
@@ -1220,25 +1224,22 @@ describe('CalendarService', () => {
     const result =
       await service.resyncClassScheduleWithGoogleCalendar('class-1');
 
-    expect(googleCalendarService.deleteCalendarEvent).toHaveBeenCalledTimes(
-      1,
-    );
+    expect(googleCalendarService.deleteCalendarEvent).toHaveBeenCalledTimes(1);
     expect(result.data.quotaLimited).toBe(true);
     expect(result.data.deletedRecurringEvents).toBe(0);
     expect(result.data.failedRecurringEvents).toBe(1);
     expect(result.data.warnings).toEqual([
       expect.objectContaining({ code: 'google_calendar_quota_limited' }),
     ]);
-    expect(mockPrisma.class.update).toHaveBeenCalledTimes(1);
   });
 
   it('rethrows a consolidated error from syncScheduleWithCalendar when a recurring delete fails, after writing back the schedule', async () => {
     mockPrisma.class.findUnique.mockResolvedValue({
       id: 'class-1',
       name: 'Toán 9A',
-      schedule: [],
       teachers: [],
     });
+    mockPrisma.classScheduleEntry.findMany.mockResolvedValue([]);
     googleCalendarService.deleteCalendarEvent.mockRejectedValueOnce(
       new Error('Delete failed'),
     );
@@ -1255,30 +1256,12 @@ describe('CalendarService', () => {
         },
       ]),
     ).rejects.toThrow(GoogleCalendarApiError);
-
-    expect(mockPrisma.class.update).toHaveBeenCalledTimes(1);
   });
 
   it('stops the resync pass once the wall-clock budget is exceeded, but preserves work already done', async () => {
     mockPrisma.class.findUnique.mockResolvedValue({
       id: 'class-1',
       name: 'Toán 9A',
-      schedule: [
-        {
-          id: 'slot-1',
-          dayOfWeek: 1,
-          from: '19:00:00',
-          to: '20:30:00',
-          teacherId: 'teacher-1',
-        },
-        {
-          id: 'slot-2',
-          dayOfWeek: 3,
-          from: '18:00:00',
-          to: '19:30:00',
-          teacherId: 'teacher-1',
-        },
-      ],
       teachers: [
         {
           teacherId: 'teacher-1',
@@ -1293,6 +1276,32 @@ describe('CalendarService', () => {
         },
       ],
     });
+    mockPrisma.classScheduleEntry.findMany.mockResolvedValue([
+      {
+        id: 'slot-1',
+        classId: 'class-1',
+        dayOfWeek: 1,
+        from: '19:00:00',
+        to: '20:30:00',
+        teacherId: 'teacher-1',
+        meetLink: null,
+        googleCalendarEventId: null,
+        effectiveFrom: new Date('2026-01-01'),
+        effectiveTo: null,
+      },
+      {
+        id: 'slot-2',
+        classId: 'class-1',
+        dayOfWeek: 3,
+        from: '18:00:00',
+        to: '19:30:00',
+        teacherId: 'teacher-1',
+        meetLink: null,
+        googleCalendarEventId: null,
+        effectiveFrom: new Date('2026-01-01'),
+        effectiveTo: null,
+      },
+    ]);
     googleCalendarService.createOrUpdateClassScheduleRecurringEvent.mockImplementationOnce(
       () =>
         new Promise((resolve) =>
@@ -1315,18 +1324,13 @@ describe('CalendarService', () => {
         expect.objectContaining({ code: 'resync_deadline_exceeded' }),
       ]),
     );
-    expect(mockPrisma.class.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          schedule: expect.arrayContaining([
-            expect.objectContaining({
-              id: 'slot-1',
-              googleCalendarEventId: 'slot-1-event',
-            }),
-          ]),
-        }),
-      }),
-    );
+    expect(mockPrisma.classScheduleEntry.updateMany).toHaveBeenCalledWith({
+      where: { id: 'slot-1', classId: 'class-1' },
+      data: {
+        googleCalendarEventId: 'slot-1-event',
+        meetLink: null,
+      },
+    });
   }, 10000);
 
   it('rejects creating a makeup event when endTime is not after startTime', async () => {

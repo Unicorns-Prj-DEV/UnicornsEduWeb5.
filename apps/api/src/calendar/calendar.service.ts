@@ -565,9 +565,7 @@ export class CalendarService {
     return {
       status: 'running',
       ...(filters.classId ? { id: filters.classId } : {}),
-      ...(trainingManagerStaffId
-        ? { trainingManagerStaffId }
-        : {}),
+      ...(trainingManagerStaffId ? { trainingManagerStaffId } : {}),
       ...(teacherId
         ? {
             teachers: {
@@ -1547,21 +1545,18 @@ export class CalendarService {
     const resyncStartedAtMs = Date.now();
     const isDeadlineExceeded = () =>
       Date.now() - resyncStartedAtMs > this.RESYNC_WALL_CLOCK_BUDGET_MS;
-    const allStoredScheduleEntries = this.getStoredClassScheduleEntries(
-      cls.schedule,
+    const allScheduleRows = await this.prisma.classScheduleEntry.findMany({
+      where: { classId },
+    });
+    const allStoredScheduleEntries = allScheduleRows.map((row) =>
+      this.toStoredScheduleEntry(row),
     );
-    // Soft-deleted history must survive Google resync write-back: missed-teaching
-    // alerts and calendar expansion rely on createdAt/deletedAt ranges.
     const historicalDeletedEntries = allStoredScheduleEntries.filter((entry) =>
       Boolean(entry.deletedAt),
     );
     const currentSchedule = allStoredScheduleEntries.filter(
       (entry) => !entry.deletedAt,
     );
-    const scheduleCreatedAtFallback =
-      cls.updatedAt instanceof Date
-        ? cls.updatedAt.toISOString()
-        : new Date().toISOString();
     const targetEntryIds = new Set<string>();
     if (scopedTeacherId) {
       for (const entry of currentSchedule) {
@@ -2161,37 +2156,28 @@ export class CalendarService {
       }
     }
 
-    await this.prisma.class.update({
-      where: { id: classId },
-      data: {
-        schedule: this.serializeStoredClassScheduleEntries([
-          ...currentSchedule.map((entry) => ({
-            id: entry.id,
-            dayOfWeek: entry.dayOfWeek,
-            from: this.normalizeTimeValue(entry.from),
-            to: this.normalizeTimeValue(entry.to || entry.end),
-            teacherId: entry.teacherId,
-            googleCalendarEventId: entry.googleCalendarEventId,
-            meetLink: entry.meetLink,
-            // Preserve history timestamps; backfill missing createdAt so stripped
-            // slots are not treated as active since Class.createdAt.
-            createdAt: entry.createdAt ?? scheduleCreatedAtFallback,
-            deletedAt: entry.deletedAt,
-          })),
-          ...historicalDeletedEntries.map((entry) => ({
-            id: entry.id,
-            dayOfWeek: entry.dayOfWeek,
-            from: this.normalizeTimeValue(entry.from),
-            to: this.normalizeTimeValue(entry.to || entry.end),
-            teacherId: entry.teacherId,
-            googleCalendarEventId: entry.googleCalendarEventId,
-            meetLink: entry.meetLink,
-            createdAt: entry.createdAt ?? scheduleCreatedAtFallback,
-            deletedAt: entry.deletedAt,
-          })),
-        ]),
-      },
-    });
+    const allSyncedEntries = [
+      ...currentSchedule.map((entry) => ({
+        id: entry.id,
+        googleCalendarEventId: entry.googleCalendarEventId,
+        meetLink: entry.meetLink,
+      })),
+      ...historicalDeletedEntries.map((entry) => ({
+        id: entry.id,
+        googleCalendarEventId: entry.googleCalendarEventId,
+        meetLink: entry.meetLink,
+      })),
+    ];
+    for (const entry of allSyncedEntries) {
+      if (!entry.id) continue;
+      await this.prisma.classScheduleEntry.updateMany({
+        where: { id: entry.id, classId },
+        data: {
+          googleCalendarEventId: entry.googleCalendarEventId ?? null,
+          meetLink: entry.meetLink ?? null,
+        },
+      });
+    }
 
     this.logger.log(
       `[Calendar Resync:Recurring] state=summary ${this.formatCalendarSyncLog(summary as unknown as Record<string, unknown>)}`,

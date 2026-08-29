@@ -405,17 +405,23 @@ describe('ClassService', () => {
           meta: { total: 1, page: 1, limit: 20 },
         } as never);
 
-      const result = await service.getClassesForStaff('user-1', UserRole.staff, {
-        page: 1,
-        limit: 20,
-      });
+      const result = await service.getClassesForStaff(
+        'user-1',
+        UserRole.staff,
+        {
+          page: 1,
+          limit: 20,
+        },
+      );
 
       expect(getClassesSpy).toHaveBeenCalledWith({
         page: 1,
         limit: 20,
         trainingManagerStaffId: 'training-1',
       });
-      expect(result.data[0]).not.toHaveProperty('allowancePerSessionPerStudent');
+      expect(result.data[0]).not.toHaveProperty(
+        'allowancePerSessionPerStudent',
+      );
     });
   });
 
