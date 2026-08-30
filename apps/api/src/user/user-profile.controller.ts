@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -66,6 +67,7 @@ import { SessionService } from 'src/session/session.service';
 import { StaffService } from 'src/staff/staff.service';
 import { StudentService } from 'src/student/student.service';
 import { DashboardService } from 'src/dashboard/dashboard.service';
+import { PrismaService } from 'src/prisma/prisma.service';
 import {
   buildImageUploadFileFilter,
   DEFAULT_MAX_IMAGE_BYTES,
@@ -87,6 +89,7 @@ export class UserProfileController {
     private readonly lessonService: LessonService,
     private readonly studentService: StudentService,
     private readonly dashboardService: DashboardService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Get('full')
@@ -947,5 +950,186 @@ export class UserProfileController {
       userEmail: user.email,
       roleType: user.roleType,
     });
+  }
+
+  @Get('student-classes')
+  @ApiOperation({
+    summary: 'Get my enrolled classes',
+    description: 'Returns list of classes the current student is enrolled in.',
+  })
+  @ApiResponse({ status: 200, description: 'List of enrolled classes.' })
+  async getMyClasses(@CurrentUser() user: JwtPayload) {
+    const studentId = await this.userService.getLinkedStudentId(user.id);
+    return this.prisma.studentClass.findMany({
+      where: { studentId, status: 'active' },
+      include: {
+        class: {
+          include: {
+            classCategory: true,
+            teachers: {
+              include: { teacher: { include: { user: true } } },
+              where: { status: 'active' },
+            },
+            sessions: { orderBy: { date: 'desc' }, take: 1 },
+            _count: { select: { sessions: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  @Get('student-classes/:classId/detail')
+  @ApiOperation({
+    summary: 'Get my enrolled class detail',
+    description: 'Returns class detail for the enrolled student.',
+  })
+  @ApiParam({ name: 'classId', description: 'Class ID' })
+  @ApiResponse({ status: 200, description: 'Enrolled class detail.' })
+  @ApiResponse({ status: 403, description: 'Not enrolled in this class.' })
+  async getMyClassDetail(
+    @CurrentUser() user: JwtPayload,
+    @Param('classId') classId: string,
+  ) {
+    const studentId = await this.userService.getLinkedStudentId(user.id);
+    const enrollment = await this.prisma.studentClass.findFirst({
+      where: { classId, studentId, status: 'active' },
+      include: {
+        class: {
+          include: {
+            classCategory: true,
+            teachers: {
+              include: { teacher: { include: { user: true } } },
+              where: { status: 'active' },
+            },
+          },
+        },
+      },
+    });
+    if (!enrollment) {
+      throw new ForbiddenException('You are not enrolled in this class');
+    }
+    return enrollment;
+  }
+
+  @Get('student-classes/:classId/sessions')
+  @ApiOperation({
+    summary: 'Get sessions for my class',
+    description: 'Returns sessions for a class with the current student attendance.',
+  })
+  @ApiParam({ name: 'classId', description: 'Class ID' })
+  @ApiResponse({ status: 200, description: 'List of sessions with student attendance.' })
+  async getMyClassSessions(
+    @CurrentUser() user: JwtPayload,
+    @Param('classId') classId: string,
+  ) {
+    const studentId = await this.userService.getLinkedStudentId(user.id);
+    await this.validateStudentClassAccess(classId, studentId);
+
+    return this.prisma.session.findMany({
+      where: { classId },
+      include: {
+        attendance: {
+          where: { studentId },
+        },
+        teacher: { include: { user: true } },
+      },
+      orderBy: { date: 'desc' },
+    });
+  }
+
+  @Get('student-classes/:classId/surveys')
+  @ApiOperation({
+    summary: 'Get surveys for my class',
+    description: 'Returns class surveys with the current student assessment.',
+  })
+  @ApiParam({ name: 'classId', description: 'Class ID' })
+  @ApiResponse({ status: 200, description: 'List of surveys with student assessment.' })
+  async getMyClassSurveys(
+    @CurrentUser() user: JwtPayload,
+    @Param('classId') classId: string,
+  ) {
+    const studentId = await this.userService.getLinkedStudentId(user.id);
+    await this.validateStudentClassAccess(classId, studentId);
+
+    return this.prisma.classSurvey.findMany({
+      where: { classId },
+      include: {
+        survey: true,
+        studentAssessments: {
+          where: { studentId },
+        },
+      },
+      orderBy: { reportDate: 'desc' },
+    });
+  }
+
+  @Get('student-classes/:classId/topics')
+  @ApiOperation({
+    summary: 'Get topics for my class',
+    description: 'Returns paginated topics for a class.',
+  })
+  @ApiParam({ name: 'classId', description: 'Class ID' })
+  @ApiQuery({ name: 'page', required: false, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
+  @ApiResponse({ status: 200, description: 'Paginated topics.' })
+  async getMyClassTopics(
+    @CurrentUser() user: JwtPayload,
+    @Param('classId') classId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const studentId = await this.userService.getLinkedStudentId(user.id);
+    await this.validateStudentClassAccess(classId, studentId);
+
+    const pageNum = parseInt(page || '1', 10);
+    const limitNum = parseInt(limit || '20', 10);
+
+    const [data, total] = await Promise.all([
+      this.prisma.topic.findMany({
+        where: { classId },
+        orderBy: { order: 'asc' },
+        skip: (pageNum - 1) * limitNum,
+        take: limitNum,
+      }),
+      this.prisma.topic.count({ where: { classId } }),
+    ]);
+
+    return { data, total, page: pageNum, limit: limitNum };
+  }
+
+  @Get('student-classes/:classId/topics/:topicId')
+  @ApiOperation({
+    summary: 'Get topic detail for my class',
+    description: 'Returns topic detail for a class if current student is enrolled.',
+  })
+  @ApiParam({ name: 'classId', description: 'Class ID' })
+  @ApiParam({ name: 'topicId', description: 'Topic ID' })
+  @ApiResponse({ status: 200, description: 'Topic detail.' })
+  @ApiResponse({ status: 404, description: 'Topic not found.' })
+  async getMyClassTopic(
+    @CurrentUser() user: JwtPayload,
+    @Param('classId') classId: string,
+    @Param('topicId') topicId: string,
+  ) {
+    const studentId = await this.userService.getLinkedStudentId(user.id);
+    await this.validateStudentClassAccess(classId, studentId);
+
+    const topic = await this.prisma.topic.findFirst({
+      where: { id: topicId, classId },
+    });
+    if (!topic) {
+      throw new NotFoundException('Topic not found');
+    }
+    return topic;
+  }
+
+  private async validateStudentClassAccess(classId: string, studentId: string): Promise<void> {
+    const enrollment = await this.prisma.studentClass.findFirst({
+      where: { classId, studentId, status: 'active' },
+    });
+    if (!enrollment) {
+      throw new ForbiddenException('You are not enrolled in this class');
+    }
   }
 }

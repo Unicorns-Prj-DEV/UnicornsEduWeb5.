@@ -443,7 +443,8 @@ export class StudentController {
     name: 'limit',
     required: false,
     type: Number,
-    description: 'Page size (default: 50, max: 100). Loop pages for full CMS sync.',
+    description:
+      'Page size (default: 50, max: 100). Loop pages for full CMS sync.',
     example: 50,
   })
   @ApiResponse({
@@ -491,7 +492,8 @@ export class StudentController {
     name: 'level',
     required: false,
     type: String,
-    description: 'Optional achievement level filter (e.g. national, provincial)',
+    description:
+      'Optional achievement level filter (e.g. national, provincial)',
   })
   @ApiQuery({
     name: 'page',
@@ -509,7 +511,8 @@ export class StudentController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Sanitized student landing achievements with nested student identity.',
+    description:
+      'Sanitized student landing achievements with nested student identity.',
     type: StudentLandingAchievementsResponseDto,
   })
   @ApiResponse({ status: 401, description: 'Missing or invalid API key.' })
@@ -770,7 +773,10 @@ export class StudentController {
     },
   })
   @ApiResponse({ status: 200, description: 'Student detail with avatar URL.' })
-  @ApiResponse({ status: 400, description: 'Missing linked user or invalid image.' })
+  @ApiResponse({
+    status: 400,
+    description: 'Missing linked user or invalid image.',
+  })
   @ApiResponse({ status: 404, description: 'Student not found.' })
   @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.customer_care)
   async uploadStudentAvatar(

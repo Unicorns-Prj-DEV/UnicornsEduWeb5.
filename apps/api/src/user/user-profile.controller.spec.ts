@@ -29,6 +29,7 @@ describe('UserProfileController', () => {
       {} as never,
       studentService as never,
       {} as never,
+      {} as never,
     );
   });
 
