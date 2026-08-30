@@ -52,6 +52,7 @@ import RichTextEditor from "@/components/ui/RichTextEditor";
 import { TimeInput } from "@/components/ui/TimeInput";
 import { currentTimePrefillValue } from "@/components/ui/time-input.helpers";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
+import YouTubeEmbed from "@/components/ui/YouTubeEmbed";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
 import { normalizeOptionalRichTextContent } from "@/lib/sanitize";
 import {
@@ -264,6 +265,7 @@ export default function AddSessionPopup({
   const [lessonContent, setLessonContent] = useState("");
   const [homework, setHomework] = useState("");
   const [tutorial, setTutorial] = useState("");
+  const [recordingUrl, setRecordingUrl] = useState("");
   const [lessonContentError, setLessonContentError] = useState("");
   const [homeworkError, setHomeworkError] = useState("");
   const [tutorialError, setTutorialError] = useState("");
@@ -302,6 +304,7 @@ export default function AddSessionPopup({
       lessonContent,
       homework,
       tutorial,
+      recordingUrl,
       isTrialLesson,
       teacherPaymentStatus,
       teacherId: selectedTeacherId,
@@ -321,6 +324,7 @@ export default function AddSessionPopup({
       isTrialLesson,
       lessonContent,
       manualAllowanceGrossOverride,
+      recordingUrl,
       selectedTeacherId,
       startTime,
       teacherPaymentStatus,
@@ -644,6 +648,7 @@ export default function AddSessionPopup({
       lessonContent: trimmedLessonContent,
       homework: trimmedHomework,
       tutorial: trimmedTutorial,
+      recordingUrl: recordingUrl.trim() || null,
       notes: zaloCommentText,
       coefficient: coeffNum,
       ...(allowFinancialFields ? { teacherPaymentStatus } : {}),
@@ -940,6 +945,28 @@ export default function AddSessionPopup({
                         {tutorialError}
                       </span>
                     ) : null}
+                  </label>
+
+                  <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
+                    <span>
+                      Link video YouTube (recording)
+                    </span>
+                    <input
+                      type="url"
+                      value={recordingUrl}
+                      onChange={(e) => setRecordingUrl(e.target.value)}
+                      placeholder="https://youtube.com/watch?v=..."
+                      className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    />
+                    {recordingUrl && (
+                      <div className="mt-2">
+                        <YouTubeEmbed
+                          url={recordingUrl}
+                          protected
+                          className="w-full aspect-video rounded-xl shadow-md"
+                        />
+                      </div>
+                    )}
                   </label>
 
                   <SessionCopyCommentButton text={zaloCommentText} />

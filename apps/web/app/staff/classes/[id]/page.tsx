@@ -28,6 +28,7 @@ import AddSessionPopup from "@/components/admin/class/AddSessionPopup";
 import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable";
 import MonthNav from "@/components/admin/MonthNav";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
+import StaffTopicsManager from "@/components/staff/StaffTopicsManager";
 import type {
   ClassDetail,
   ClassScheduleItem,
@@ -63,7 +64,7 @@ const STATUS_LABELS: Record<ClassStatus, string> = {
 };
 
 
-type TabId = "sessions" | "surveys";
+type TabId = "history" | "topics";
 
 function isClassStudentActive(status?: string | null): boolean {
   return (status ?? "").toLowerCase() === "active";
@@ -284,6 +285,7 @@ function toStaffCreateSessionPayload(payload: SessionCreatePayload) {
     lessonContent: payload.lessonContent,
     homework: payload.homework,
     tutorial: payload.tutorial,
+    recordingUrl: payload.recordingUrl ?? null,
     notes: payload.notes ?? null,
     coefficient: payload.coefficient,
     attendance: (payload.attendance ?? []).map((item) => ({
@@ -302,6 +304,7 @@ function toStaffUpdateSessionPayload(payload: SessionUpdatePayload) {
     lessonContent: payload.lessonContent,
     homework: payload.homework,
     tutorial: payload.tutorial,
+    recordingUrl: payload.recordingUrl ?? null,
     notes: payload.notes ?? null,
     coefficient: payload.coefficient,
     attendance: payload.attendance?.map((item) => ({
@@ -318,7 +321,7 @@ export default function StaffClassDetailPage() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const id = typeof params?.id === "string" ? params.id : "";
-  const initialTab: TabId = searchParams?.get("tab") === "surveys" ? "surveys" : "sessions";
+  const initialTab: TabId = searchParams?.get("tab") === "topics" ? "topics" : "history";
 
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthValue);
   const [activeTab, setActiveTab] = useState<TabId>(initialTab);
@@ -327,6 +330,7 @@ export default function StaffClassDetailPage() {
   const [pastMakeupPopupOpen, setPastMakeupPopupOpen] = useState(false);
   const [addSurveyPopupOpen, setAddSurveyPopupOpen] = useState(false);
   const [monthPopupOpen, setMonthPopupOpen] = useState(false);
+  const [createMenuOpen, setCreateMenuOpen] = useState(false);
 
   const [selectedYear, selectedMonthValue] = selectedMonth.split("-");
   const classDetailQueryKey = useMemo(() => staffOpsKeys.classDetail(id), [id]);
@@ -411,7 +415,7 @@ export default function StaffClassDetailPage() {
         month: selectedMonthValue,
         year: selectedYear,
       }),
-    enabled: !!id && canAccessClassWorkspace && activeTab === "sessions",
+    enabled: !!id && canAccessClassWorkspace && activeTab === "history",
     placeholderData: keepPreviousData,
     retry: false,
   });
@@ -434,14 +438,14 @@ export default function StaffClassDetailPage() {
         month: selectedMonthValue,
         year: selectedYear,
       }),
-    enabled: !!id && canAccessClassWorkspace && activeTab === "surveys",
+    enabled: !!id && canAccessClassWorkspace && activeTab === "history",
     placeholderData: keepPreviousData,
     retry: false,
   });
   const { data: availableSurveys = [] } = useQuery({
     queryKey: ["surveys", "open-picker"],
     queryFn: () => surveysApi.getOpenSurveys(),
-    enabled: canAccessClassWorkspace && activeTab === "surveys",
+    enabled: canAccessClassWorkspace && activeTab === "history",
     staleTime: 60_000,
   });
 
@@ -1154,163 +1158,200 @@ export default function StaffClassDetailPage() {
         />
 
         <ClassCard
-          title={usesTeacherScope ? "Lịch sử & Khảo sát của bạn" : "Lịch sử & Khảo sát"}
+          title={usesTeacherScope ? "Lịch sử & Chuyên đề của bạn" : "Lịch sử & Chuyên đề"}
           className="w-full"
         >
           <div className="mb-3 flex flex-col gap-3">
             <div
-              className="inline-flex w-fit items-center border-b border-border-default"
+              className="inline-flex w-full sm:w-80 items-center gap-1 rounded-2xl border border-border-default bg-bg-secondary/70 p-1.5 shadow-xs"
               role="tablist"
-              aria-label="Buổi học hoặc khảo sát"
+              aria-label="Lịch sử hoặc chuyên đề"
             >
-              {[
-                { id: "sessions" as const, label: "Buổi học" },
-                { id: "surveys" as const, label: "Khảo sát" },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  id={`staff-class-detail-tab-${tab.id}`}
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === tab.id}
-                  aria-controls={`staff-class-detail-panel-${tab.id}`}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    "relative -mb-px px-3 py-1.5 text-xs font-semibold transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface sm:text-sm",
-                    activeTab === tab.id
-                      ? "border-b-2 border-primary text-primary"
-                      : "text-text-muted hover:text-text-primary",
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
+              <button
+                id="staff-class-detail-tab-history"
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "history"}
+                aria-controls="staff-class-detail-panel-history"
+                onClick={() => setActiveTab("history")}
+                className={cn(
+                  "relative z-10 flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold touch-manipulation transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus",
+                  activeTab === "history"
+                    ? "bg-primary text-text-inverse shadow-sm"
+                    : "text-text-muted hover:text-text-primary hover:bg-bg-surface/50",
+                )}
+              >
+                <svg className="size-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Lịch sử</span>
+              </button>
+              <button
+                id="staff-class-detail-tab-topics"
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "topics"}
+                aria-controls="staff-class-detail-panel-topics"
+                onClick={() => setActiveTab("topics")}
+                className={cn(
+                  "relative z-10 flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold touch-manipulation transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus",
+                  activeTab === "topics"
+                    ? "bg-primary text-text-inverse shadow-sm"
+                    : "text-text-muted hover:text-text-primary hover:bg-bg-surface/50",
+                )}
+              >
+                <svg className="size-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+                <span>Chuyên đề</span>
+              </button>
             </div>
 
-            <div className="rounded-lg border border-border-default bg-bg-secondary/55 px-2.5 py-1.5">
-              <MonthNav
-                value={selectedMonth}
-                onChange={setSelectedMonth}
-                monthPopupOpen={monthPopupOpen}
-                setMonthPopupOpen={setMonthPopupOpen}
-                countLabel={
-                  activeTab === "sessions"
-                    ? `${teacherScopedHistorySummary}: ${sessions.length}`
-                    : `Tổng khảo sát: ${surveys.length}`
-                }
-                actionButton={
-                  (activeTab === "sessions" ? canCreateSession : canManageSurveys) ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (activeTab === "sessions") {
-                          setAddSessionPopupOpen(true);
-                          return;
-                        }
-                        setAddSurveyPopupOpen(true);
-                      }}
-                      aria-label={activeTab === "sessions" ? "Thêm buổi học" : "Thêm khảo sát"}
-                      title={activeTab === "sessions" ? "Thêm buổi học" : "Thêm khảo sát"}
-                      className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
-                    >
-                      <PlusIcon className="size-4" aria-hidden />
-                      <span className="sr-only">
-                        {activeTab === "sessions" ? "Thêm buổi học" : "Thêm khảo sát"}
-                      </span>
-                    </button>
-                  ) : null
-                }
-              />
-            </div>
+            {activeTab === "history" && (
+              <div className="rounded-lg border border-border-default bg-bg-secondary/55 px-2.5 py-1.5 flex items-center justify-between">
+                <MonthNav
+                  value={selectedMonth}
+                  onChange={setSelectedMonth}
+                  monthPopupOpen={monthPopupOpen}
+                  setMonthPopupOpen={setMonthPopupOpen}
+                  countLabel={`${teacherScopedHistorySummary}: ${sessions.length + surveys.length}`}
+                  actionButton={
+                    (canCreateSession || canManageSurveys) ? (
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setCreateMenuOpen(!createMenuOpen)}
+                          aria-label="Tạo mới"
+                          title="Tạo mới"
+                          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
+                        >
+                          <PlusIcon className="size-4" aria-hidden />
+                          <span className="sr-only">Tạo mới</span>
+                        </button>
+                        {createMenuOpen && (
+                          <div className="absolute right-0 top-full z-10 mt-1 w-48 rounded-lg border border-border-default bg-bg-surface shadow-lg">
+                            {canCreateSession && (
+                              <button
+                                onClick={() => {
+                                  setAddSessionPopupOpen(true);
+                                  setCreateMenuOpen(false);
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm hover:bg-bg-secondary"
+                              >
+                                Tạo buổi học
+                              </button>
+                            )}
+                            {canManageSurveys && (
+                              <button
+                                onClick={() => {
+                                  setAddSurveyPopupOpen(true);
+                                  setCreateMenuOpen(false);
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm hover:bg-bg-secondary"
+                              >
+                                Tạo khảo sát
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ) : null
+                  }
+                />
+              </div>
+            )}
           </div>
+
           <QueryRefreshStrip
             active={
-              activeTab === "sessions"
-                ? isSessionsFetching && !isSessionsLoading
-                : isSurveysFetching && !isSurveysLoading
+              activeTab === "history"
+                ? (isSessionsFetching || isSurveysFetching) && !(isSessionsLoading || isSurveysLoading)
+                : false
             }
-            label={
-              activeTab === "sessions"
-                ? "Đang tải lại lịch sử buổi học…"
-                : "Đang tải lại khảo sát…"
-            }
+            label="Đang tải lại dữ liệu…"
             className="mb-3"
           />
 
-          {activeTab === "sessions" && !canCreateSession && canManageSessions ? (
-            <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
-              {classStudents.length === 0
-                ? "Lớp chưa có học sinh nên chưa thể tạo buổi học."
-                : hasTeacherSelfServiceAccess
-                  ? "Không xác định được hồ sơ staff hiện tại để gán buổi học cho gia sư này."
-                  : "Cần đúng 1 gia sư được phân công để admin tạo buổi học từ route này."}
-            </div>
-          ) : null}
-
-          {activeTab === "sessions" ? (
+          {activeTab === "history" ? (
             <section
-              id="staff-class-detail-panel-sessions"
+              id="staff-class-detail-panel-history"
               role="tabpanel"
-              aria-labelledby="staff-class-detail-tab-sessions"
+              aria-labelledby="staff-class-detail-tab-history"
             >
-              {isSessionsLoading ? (
+              {isSurveysLoading ? (
                 <SessionHistoryTableSkeleton
-                  rows={5}
+                  rows={3}
                   entityMode="teacher"
                   variant="classDetail"
-                  showActionsColumn={canManageSessions || canOpenReadonlyClassForms}
+                  showActionsColumn={false}
                 />
               ) : (
-                <div className={cn("transition-opacity", isSessionsFetching && "opacity-70")}>
-                  <SessionHistoryTable
-                    sessions={sessions}
+                <ClassSurveyPanel
+                  className={classDetail.name}
+                  surveys={surveys}
+                  availableSurveys={availableSurveys}
+                  teachers={popupTeachers}
+                  students={popupStudents}
+                  loading={isSurveysLoading}
+                  fetching={isSurveysFetching}
+                  error={isSurveysError}
+                  canManage={canManageSurveys}
+                  canViewDetails={canOpenReadonlyClassForms}
+                  createOpen={addSurveyPopupOpen}
+                  onCreateOpenChange={setAddSurveyPopupOpen}
+                  defaultTeacherId={defaultTeacherId}
+                  onCreate={handleCreateSurvey}
+                  onUpdate={handleUpdateSurvey}
+                  onDelete={handleDeleteSurvey}
+                />
+              )}
+              {isSurveysError ? (
+                <p className="mt-3 text-sm text-error">Không tải được khảo sát.</p>
+              ) : null}
+
+              <div className="mt-6">
+                {isSessionsLoading ? (
+                  <SessionHistoryTableSkeleton
+                    rows={5}
                     entityMode="teacher"
                     variant="classDetail"
-                    statusMode="payment"
-                    emptyText={teacherScopedEmptyText}
-                    editorLayout="wide"
                     showActionsColumn={canManageSessions || canOpenReadonlyClassForms}
-                    teachers={popupTeachers}
-                    getClassStudents={getClassStudentsForEditor}
-                    getClassDetailForEdit={getClassDetailForEdit}
-                    allowTeacherSelection={false}
-                    allowFinancialEdits={false}
-                    allowPaymentStatusEdit={false}
-                    allowDeleteSession={false}
-                    readOnlySessionDetails={canOpenReadonlyClassForms}
-                    showTrainingManagerAllowance={isTrainingView}
-                    updateSessionFn={handleUpdateSession}
                   />
-                </div>
-              )}
-              {isSessionsError ? (
-                <p className="mt-3 text-sm text-error">Không tải được lịch sử buổi học.</p>
-              ) : null}
+                ) : (
+                  <div className={cn("transition-opacity", isSessionsFetching && "opacity-70")}>
+                    <SessionHistoryTable
+                      sessions={sessions}
+                      entityMode="teacher"
+                      variant="classDetail"
+                      statusMode="payment"
+                      emptyText={teacherScopedEmptyText}
+                      editorLayout="wide"
+                      showActionsColumn={canManageSessions || canOpenReadonlyClassForms}
+                      teachers={popupTeachers}
+                      getClassStudents={getClassStudentsForEditor}
+                      getClassDetailForEdit={getClassDetailForEdit}
+                      allowTeacherSelection={false}
+                      allowFinancialEdits={false}
+                      allowPaymentStatusEdit={false}
+                      allowDeleteSession={false}
+                      readOnlySessionDetails={canOpenReadonlyClassForms}
+                      showTrainingManagerAllowance={isTrainingView}
+                      updateSessionFn={handleUpdateSession}
+                    />
+                  </div>
+                )}
+                {isSessionsError ? (
+                  <p className="mt-3 text-sm text-error">Không tải được lịch sử buổi học.</p>
+                ) : null}
+              </div>
             </section>
           ) : (
             <section
-              id="staff-class-detail-panel-surveys"
+              id="staff-class-detail-panel-topics"
               role="tabpanel"
-              aria-labelledby="staff-class-detail-tab-surveys"
+              aria-labelledby="staff-class-detail-tab-topics"
             >
-              <ClassSurveyPanel
-                className={classDetail.name}
-                surveys={surveys}
-                availableSurveys={availableSurveys}
-                teachers={popupTeachers}
-                students={popupStudents}
-                loading={isSurveysLoading}
-                fetching={isSurveysFetching}
-                error={isSurveysError}
-                canManage={canManageSurveys}
-                canViewDetails={canOpenReadonlyClassForms}
-                createOpen={addSurveyPopupOpen}
-                onCreateOpenChange={setAddSurveyPopupOpen}
-                defaultTeacherId={defaultTeacherId}
-                onCreate={handleCreateSurvey}
-                onUpdate={handleUpdateSurvey}
-                onDelete={handleDeleteSurvey}
-              />
+              <StaffTopicsManager classId={id} />
             </section>
           )}
         </ClassCard>

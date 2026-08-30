@@ -68,6 +68,7 @@ import { DateInput } from "@/components/ui/DateInput";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import { TimeInput } from "@/components/ui/TimeInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
+import YouTubeEmbed from "@/components/ui/YouTubeEmbed";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as classApi from "@/lib/apis/class.api";
 import * as sessionApi from "@/lib/apis/session.api";
@@ -854,6 +855,7 @@ export default function SessionHistoryTable({
   const [editLessonContent, setEditLessonContent] = useState("");
   const [editHomework, setEditHomework] = useState("");
   const [editTutorial, setEditTutorial] = useState("");
+  const [editRecordingUrl, setEditRecordingUrl] = useState("");
   const [lessonContentError, setLessonContentError] = useState("");
   const [homeworkError, setHomeworkError] = useState("");
   const [tutorialError, setTutorialError] = useState("");
@@ -1176,6 +1178,7 @@ export default function SessionHistoryTable({
     );
     setEditHomework(session.homework ?? "");
     setEditTutorial(session.tutorial ?? "");
+    setEditRecordingUrl(session.recordingUrl ?? "");
     setLessonContentError("");
     setHomeworkError("");
     setTutorialError("");
@@ -1193,6 +1196,7 @@ export default function SessionHistoryTable({
 
   const closeEdit = useCallback(() => {
     setEditingSession(null);
+    setEditRecordingUrl("");
     setTeachersList([]);
     setTeachersLoading(false);
     setAttendanceItems([]);
@@ -1212,6 +1216,7 @@ export default function SessionHistoryTable({
       lessonContent: editLessonContent,
       homework: editHomework,
       tutorial: editTutorial,
+      recordingUrl: editRecordingUrl,
       isTrialLesson,
       teacherPaymentStatus: editPaymentStatus,
       teacherId: editTeacherId,
@@ -1230,6 +1235,7 @@ export default function SessionHistoryTable({
       editHomework,
       editLessonContent,
       editPaymentStatus,
+      editRecordingUrl,
       editStartTime,
       editTeacherId,
       editTutorial,
@@ -1374,6 +1380,7 @@ export default function SessionHistoryTable({
       lessonContent: editLessonContent.trim(),
       homework: editHomework.trim(),
       tutorial: editTutorial.trim(),
+      recordingUrl: editRecordingUrl.trim() || null,
       notes: savedNotes,
       ...(allowPaymentStatusEdit
         ? { teacherPaymentStatus: editPaymentStatus }
@@ -1394,6 +1401,7 @@ export default function SessionHistoryTable({
           lessonContent: payload.lessonContent,
           homework: payload.homework,
           tutorial: payload.tutorial,
+          recordingUrl: payload.recordingUrl,
           notes: payload.notes,
         };
         if (payload.teacherPaymentStatus !== undefined) {
@@ -3045,6 +3053,27 @@ export default function SessionHistoryTable({
                           {tutorialError}
                         </span>
                       ) : null}
+                    </label>
+
+                    <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
+                      <span>Link video YouTube (recording)</span>
+                      <input
+                        type="url"
+                        value={editRecordingUrl}
+                        onChange={(e) => setEditRecordingUrl(e.target.value)}
+                        disabled={readOnlySessionDetails}
+                        placeholder="https://youtube.com/watch?v=..."
+                        className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60"
+                      />
+                      {editRecordingUrl && (
+                        <div className="mt-2">
+                          <YouTubeEmbed
+                            url={editRecordingUrl}
+                            protected
+                            className="w-full aspect-video rounded-xl shadow-md"
+                          />
+                        </div>
+                      )}
                     </label>
 
                     <SessionCopyCommentButton text={zaloCommentText} />
