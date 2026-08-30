@@ -4,6 +4,7 @@ import Script from "next/script";
 import { getUser } from "@/lib/auth-server";
 import { THEME_STORAGE_KEY } from "@/dtos/theme.dto";
 import "./globals.css";
+import "katex/dist/katex.min.css";
 import { Providers } from "./providers";
 
 const themeBootScript = `(function(){try{var k=${JSON.stringify(THEME_STORAGE_KEY)};var t=localStorage.getItem(k);if(t==="dark"||t==="light"||t==="pink"){document.documentElement.setAttribute("data-theme",t);}}catch(e){}})();`;
