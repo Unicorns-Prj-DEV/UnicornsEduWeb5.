@@ -291,7 +291,10 @@ export class SessionScheduleRulesService {
     // đã bị gỡ khỏi lớp lợi dụng slot dạy thay của người khác.
     const submittingTeacher = await db.classTeacher.findUnique({
       where: {
-        classId_teacherId: { classId: params.classId, teacherId: params.teacherId },
+        classId_teacherId: {
+          classId: params.classId,
+          teacherId: params.teacherId,
+        },
       },
       select: { status: true },
     });

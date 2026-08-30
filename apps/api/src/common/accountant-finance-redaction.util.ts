@@ -297,7 +297,7 @@ export function redactClassForTrainingManagerView<T>(classRecord: T): T {
     return classRecord;
   }
 
-  let next = omitFields(
+  const next = omitFields(
     classRecord as Record<string, unknown>,
     CLASS_TRAINING_MANAGER_HIDDEN_FIELDS,
   );
@@ -332,7 +332,7 @@ export function redactSessionForTrainingManagerView<T>(session: T): T {
     return session;
   }
 
-  let next = omitFields(
+  const next = omitFields(
     session as Record<string, unknown>,
     SESSION_TRAINING_MANAGER_HIDDEN_FIELDS,
   );

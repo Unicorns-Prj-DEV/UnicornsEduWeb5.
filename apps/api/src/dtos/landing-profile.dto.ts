@@ -78,7 +78,8 @@ export class StudentLandingProfileQueryDto {
     minimum: 1,
     maximum: 100,
     default: 50,
-    description: 'Page size (max 100). Landing CMS should loop pages for full sync.',
+    description:
+      'Page size (max 100). Landing CMS should loop pages for full sync.',
   })
   @IsOptional()
   @Type(() => Number)
@@ -174,7 +175,10 @@ export class LandingAchievementDto {
   })
   imagePath: string | null;
 
-  @ApiProperty({ example: 0, description: 'Display order ascending (0 first).' })
+  @ApiProperty({
+    example: 0,
+    description: 'Display order ascending (0 first).',
+  })
   sortOrder: number;
 }
 
@@ -192,7 +196,10 @@ export class LandingStudentAchievementDto {
   @ApiProperty({ example: 2025 })
   year: number;
 
-  @ApiProperty({ enum: AchievementLevel, example: AchievementLevel.HSG_QUOC_GIA })
+  @ApiProperty({
+    enum: AchievementLevel,
+    example: AchievementLevel.HSG_QUOC_GIA,
+  })
   level: AchievementLevel;
 
   @ApiProperty({
@@ -204,7 +211,8 @@ export class LandingStudentAchievementDto {
 
   @ApiProperty({
     example: 'Giải Khuyến khích · HSG Quốc gia',
-    description: 'Derived `${award} · ${exam}` for short-term CMS title consumers.',
+    description:
+      'Derived `${award} · ${exam}` for short-term CMS title consumers.',
   })
   title: string;
 
@@ -253,7 +261,10 @@ export class LandingStudentGalleryItemDto {
   })
   imagePath: string | null;
 
-  @ApiProperty({ example: 0, description: 'Display order ascending (0 first).' })
+  @ApiProperty({
+    example: 0,
+    description: 'Display order ascending (0 first).',
+  })
   sortOrder: number;
 }
 

@@ -239,10 +239,12 @@ describe('CustomerCareService', () => {
     expect(mockPrisma.walletTransactionsHistory.count).toHaveBeenCalledWith({
       where: expectedWhere,
     });
-    expect(mockPrisma.walletTransactionsHistory.aggregate).toHaveBeenCalledWith({
-      where: expectedWhere,
-      _sum: { amount: true },
-    });
+    expect(mockPrisma.walletTransactionsHistory.aggregate).toHaveBeenCalledWith(
+      {
+        where: expectedWhere,
+        _sum: { amount: true },
+      },
+    );
     expect(mockPrisma.walletTransactionsHistory.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expectedWhere,

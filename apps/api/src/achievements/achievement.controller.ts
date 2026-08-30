@@ -68,10 +68,16 @@ export class StaffAchievementController {
   @Get()
   // Viewing must match whoever can view the staff profile itself
   // (GET staff/:id allows assistant + accountant_expense on admin routes).
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.accountant_expense)
+  @AllowStaffRolesOnAdminRoutes(
+    StaffRole.assistant,
+    StaffRole.accountant_expense,
+  )
   @ApiOperation({ summary: 'List staff achievements' })
   @ApiParam({ name: 'staffId', description: 'Staff id (UNISTAFF-…)' })
-  @ApiResponse({ status: 200, description: 'Achievements ordered by sortOrder.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Achievements ordered by sortOrder.',
+  })
   @ApiResponse({ status: 404, description: 'Staff not found.' })
   list(@Param('staffId', new ParseStaffIdPipe()) staffId: string) {
     return this.achievementService.listStaffAchievements(staffId);
@@ -154,7 +160,10 @@ export class StaffAchievementController {
       properties: { image: { type: 'string', format: 'binary' } },
     },
   })
-  @ApiResponse({ status: 200, description: 'Achievement with signed image URL.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Achievement with signed image URL.',
+  })
   @ApiResponse({ status: 400, description: 'Invalid image.' })
   uploadImage(
     @Param('staffId', new ParseStaffIdPipe()) staffId: string,
@@ -207,7 +216,10 @@ export class StudentAchievementController {
   )
   @ApiOperation({ summary: 'List student achievements' })
   @ApiParam({ name: 'studentId', description: 'Student id (UNIST-…)' })
-  @ApiResponse({ status: 200, description: 'Achievements ordered by sortOrder.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Achievements ordered by sortOrder.',
+  })
   list(@Param('studentId', new ParseStudentIdPipe()) studentId: string) {
     return this.achievementService.listStudentAchievements(studentId);
   }

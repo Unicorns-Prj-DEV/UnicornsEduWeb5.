@@ -511,7 +511,10 @@ export class UpdateClassStudentsDto {
 }
 
 export class CreateClassCategoryDto {
-  @ApiProperty({ description: 'Display name shown in the UI.', example: 'THPT Basic' })
+  @ApiProperty({
+    description: 'Display name shown in the UI.',
+    example: 'THPT Basic',
+  })
   @IsString()
   name: string;
 
@@ -527,7 +530,8 @@ export class UpdateClassCategoryDto extends PartialType(
   PickType(CreateClassCategoryDto, ['name', 'sort_order'] as const),
 ) {
   @ApiPropertyOptional({
-    description: 'Toggle visibility in dropdowns without deleting the category.',
+    description:
+      'Toggle visibility in dropdowns without deleting the category.',
     example: true,
   })
   @IsOptional()

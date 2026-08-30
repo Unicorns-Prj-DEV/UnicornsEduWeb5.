@@ -205,8 +205,8 @@ export async function removeStorageObjects(options: {
   bucket: string;
   paths: Array<string | null | undefined>;
 }) {
-  const paths = options.paths.filter(
-    (path): path is string => Boolean(path && path.trim()),
+  const paths = options.paths.filter((path): path is string =>
+    Boolean(path && path.trim()),
   );
   if (paths.length === 0) {
     return;

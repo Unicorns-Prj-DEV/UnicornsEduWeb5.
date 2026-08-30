@@ -224,6 +224,15 @@ export class SessionCreateDto {
   tutorial: string;
 
   @ApiPropertyOptional({
+    description: 'YouTube video recording URL for this session.',
+    example: 'https://youtube.com/watch?v=abc123',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  recordingUrl?: string | null;
+
+  @ApiPropertyOptional({
     description: 'Coefficient for this session, from 0.0 to 1.0.',
     example: 1.0,
   })
@@ -436,6 +445,15 @@ export class CreateStaffOpsSessionDto {
   })
   @IsString()
   tutorial: string;
+
+  @ApiPropertyOptional({
+    description: 'YouTube video recording URL for this session.',
+    example: 'https://youtube.com/watch?v=abc123',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  recordingUrl?: string | null;
 
   @ApiPropertyOptional({
     description:

@@ -39,8 +39,7 @@ export interface CustomerCareTopUpHistoryItemDto {
   createdAt: string;
 }
 
-export interface CustomerCareTopUpHistoryListMetaDto
-  extends CustomerCareStudentListMetaDto {
+export interface CustomerCareTopUpHistoryListMetaDto extends CustomerCareStudentListMetaDto {
   totalAmount: number;
 }
 
