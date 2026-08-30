@@ -13,17 +13,17 @@
 
 - **Loading:** `/student/loading.tsx` uses `StudentDashboardSkeleton`; this stays route-specific because `/student` is a single self-service dashboard rather than a broad segment with many child layouts.
 
-- **Sidebar (`StudentSidebar`):** như staff: chuông trong sidebar, **panel/popup thông báo portal** ra `document.body`, mobile full màn hình; realtime toast hiển thị dạng tóm tắt và bấm vào toast mở đúng popup chi tiết thông báo tương ứng.
-- **Thông tin cá nhân:** Dùng cùng bố cục với `/admin/students/[id]` (grid profile `xl` + thẻ ví/lịch thi), nhưng chỉ hiển thị hồ sơ của chính học sinh đang đăng nhập và cho phép học sinh tự chỉnh sửa các thông tin cơ bản của mình. Cùng ràng buộc layout để số dư VND dài không tràn card (xem ghi chú trang chi tiết trong `docs/pages/admin.md`).
-- **Save/refetch UX:** form tự sửa hồ sơ và popup ví dùng fast-close UX: pass validate là thoát edit mode/đóng popup ngay, hiện `toast.loading`, rồi resolve success/error khi backend xong; lỗi chỉ hiện toast, không tự mở lại form. Khi self detail refetch mà đã có dữ liệu cũ, section giữ nguyên nội dung, dim nhẹ và hiện refresh strip nhỏ.
-- **Dữ liệu tài chính theo lớp:** Hiển thị học phí/buổi và gói học phí đang áp dụng cho từng lớp ở chế độ **chỉ xem** để học sinh theo dõi; không có control chỉnh học phí.
-- **Ẩn dữ liệu nhạy cảm còn lại:** Không render customer care profit và các control quản trị lớp/hồ sơ. **Thành tích** và **Gallery** học sinh không có self-service trên `/student` — chỉ admin (và mirror staff được phép) quản lý qua `/admin/students/[id]` / `EditStudentPopup` + API `/student/:id/achievements`, `/student/:id/gallery`.
-- **Ví học viên:** Hiển thị số dư hiện tại và popup lịch sử ví authoritative. Học sinh chỉ tự nạp tiền bằng QR SePay; không có flow tự rút tiền hoặc tự điều chỉnh trực tiếp số dư.
-- **Nạp tiền qua SePay:** Học sinh mở popup nạp ví → frontend gọi `GET /users/me/student-wallet-sepay-static-qr` → hiển thị **QR tĩnh riêng học sinh** không chứa số tiền; popup có nút **Sao chép QR** (copy ảnh VietQR vào clipboard, tự động sử dụng Canvas để chèn thêm thông tin học sinh ở phần footer bao gồm Tên học sinh, Mã học sinh và các Lớp học đang active; fallback link QR nếu trình duyệt/CORS chặn copy ảnh), không còn hiển thị/copy nội dung chuyển khoản thủ công vì đã embed trong QR. QR dùng VietQR/bank-transfer với nội dung `[SEPAY_TRANSFER_NOTE_PREFIX] UNIST-[0-9a-f]{10}`; static QR mới không còn marker `NAPVI`, class id hoặc tên lớp để giảm rủi ro ngân hàng cắt mất token học sinh; prefix mặc định rỗng, VietinBank theo hướng dẫn SePay nên set `SEPAY_TRANSFER_NOTE_PREFIX=SEVQR`. Phụ huynh chuyển khoản số tiền cần nạp, webhook SePay parse student id ở đầu nội dung (vẫn nhận marker `NAPVI`/`NAP VI`, `UNICL-*`, `LOP ...` cũ) và chỉ cộng ví khi `accountNumber` của giao dịch trùng tài khoản nhận SePay đang cấu hình. Khi hợp lệ, API cộng ví theo `transferAmount` thực nhận, ghi ledger completed trong `student_wallet_sepay_orders` bằng `sepay_transaction_id` / `sepay_reference_code` để chống cộng trùng, tạo `wallet_transactions_history`, cập nhật số dư và — nếu `parent_receipt_email_enabled` trên hồ sơ học sinh là `true` — gửi **email biên lai nạp ví** tới `parent_email` (nếu có) và CSKH đang phụ trách (nếu có email). Khi `parent_receipt_email_enabled` là `false`, webhook vẫn cộng ví nhưng **không** gửi email biên lai cho ai. Trên `/student` và trang chi tiết học sinh admin/staff có switch **Gửi biên lai nạp ví qua email** (lưu ngay qua PATCH). Biên lai không còn trường “Người thanh toán”; nội dung lấy tên lớp active: `Học sinh <id học sinh> gia hạn học phí các gói <tên lớp...>`. Endpoint tạo order động cũ vẫn tồn tại để tương thích, nhưng UI chính không còn nhập số tiền hoặc tạo order khi mở QR.
-- **Lớp học:** Hiển thị danh sách lớp đang liên kết + học phí đang áp dụng + số buổi đã vào học; không có thao tác đổi lớp/gỡ lớp hoặc sửa học phí.
-- **Lịch thi:** Reuse card `StudentExamCard` để xem và quản lý lịch thi authoritative theo đúng `studentId` qua popup form; mỗi bản ghi gồm 1 ngày thi và 1 ghi chú ngắn, có thể thêm, sửa hoặc xóa và dữ liệu được lưu ở backend.
-- **UNIOJ:** Hiển thị block tiến độ Online Judge qua `GET /unioj/report`; PDF báo cáo phụ huynh được tải bằng `GET /unioj/report/pdf` qua backend proxy, frontend nhận blob rồi tạo object URL để preview/download. Không nhúng trực tiếp `https://oj.uniedu.vn`, tránh lỗi `X-Frame-Options: deny` của OJ.
-- **Data scope:** All data scoped to current student; backend enforces by identity.
+- **Layout & Top Navigation (`StudentHeader`):** Giao diện dạng SPA không sidebar; trên đỉnh trang là `StudentHeader` gồm Brand lockup, các link điều hướng nhanh (`Học tập` `/student`, `Hồ sơ cá nhân` `/user-profile`), chuông thông báo portal (`SidebarNotificationTray`), bộ chọn Theme (`SidebarThemePicker`), avatar và nút đăng xuất.
+- **Trang chủ học sinh (`/student`):** Tinh gọn và tập trung vào trải nghiệm học tập:
+  - **Tài khoản & Số dư:** Thẻ hiển thị số dư ví, nút **Nạp tiền** mở popup SePay static QR riêng của học sinh (hỗ trợ sao chép QR kèm thông tin học sinh), nút **Lịch sử ví** xem biến động số dư.
+  - **Danh sách lớp học:** Hiển thị toàn bộ các lớp học sinh đang tham gia kèm trạng thái, học phí/buổi, gói học phí và số buổi đã vào học. Mỗi lớp có thể click trực tiếp để điều hướng sang trang chi tiết lớp `/student/classes/[id]`.
+  - **UNIOJ:** Khối tiến độ giải bài trực tuyến UNIOJ.
+  - **Thông tin cá nhân & Lịch thi:** Đã được chuyển về quản lý tập trung tại trang Hồ sơ `/user-profile` (bao gồm quản lý `StudentExamCard` và switch gửi biên lai nạp ví qua email).
+- **Trang chi tiết lớp học sinh (`/student/classes/[id]`):** Gồm 2 tab:
+  - **Tab Lịch sử:** Danh sách hợp nhất Buổi học & Khảo sát theo thứ tự thời gian mới nhất; bấm vào buổi học mở dialog chi tiết tập trung vào **Video recording YouTube bài giảng** và nhận xét/BTVN; bấm vào khảo sát mở dialog xem đánh giá kiến thức.
+  - **Tab Chuyên đề:** Danh sách các bài học chuyên đề theo thứ tự gia sư sắp xếp; bấm vào từng dòng chuyên đề sẽ điều hướng sang trang chi tiết chuyên đề `/student/classes/[id]/topics/[topicId]`.
+- **Trang chi tiết chuyên đề học sinh (`/student/classes/[id]/topics/[topicId]`):** Hiển thị chi tiết bài giảng chuyên đề bao gồm trình phát video bảo mật `YouTubeEmbed`, nội dung bài giảng WYSIWYG, tiêu đề, ngày đăng và nút quay lại danh sách chuyên đề.
+- **Bảo mật Video YouTube (`YouTubeEmbed`):** Tích hợp đa tầng bảo vệ: vô hiệu hóa context menu, chặn phím tắt DevTools/xem mã nguồn (`F12`, `Ctrl+Shift+I/J/C`, `Cmd+Opt+I/J/C/U`), lớp màng chắn trong suốt che title & logo YouTube để chống bấm link ra ngoài, mã hóa/giải mã video ID runtime, và tự động phát hiện DevTools để làm mờ nội dung.
 
 ## UI-Schema tokens and components
 
@@ -37,10 +37,15 @@
 
 ## Data and API
 
-- **Backend domain:** `student_info`, `student_classes`, `wallet_transactions_history`, `student_wallet_sepay_orders`.
+- **Backend domain:** `student_info`, `student_classes`, `wallet_transactions_history`, `student_wallet_sepay_orders`, `topics`.
 - **API (real):**
   - `GET /users/me/student-detail`
   - `PATCH /users/me/student`
+  - `GET /users/me/student-classes`
+  - `GET /users/me/student-classes/:classId/sessions`
+  - `GET /users/me/student-classes/:classId/surveys`
+  - `GET /users/me/student-classes/:classId/topics`
+  - `GET /users/me/student-classes/:classId/topics/:topicId`
   - `GET /users/me/student-wallet-history?limit=`
   - `GET /users/me/student-wallet-sepay-static-qr` (SePay QR tĩnh, nội dung `[SEPAY_TRANSFER_NOTE_PREFIX] UNIST-[0-9a-f]{10}`, không chứa số tiền/class id/tên lớp; response vẫn trả thêm `classIds` để tương thích)
   - `POST /users/me/student-wallet-sepay-topup-order` body `{ amount }` — legacy/dynamic order endpoint còn tồn tại để tương thích, UI chính không gọi.
