@@ -3,6 +3,19 @@
 import { type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
+type ResponsiveDialogSize =
+  | "sm"
+  | "md"
+  | "lg"
+  | "xl"
+  | "2xl"
+  | "3xl"
+  | "4xl"
+  | "5xl"
+  | "6xl"
+  | "7xl"
+  | "full";
+
 type ResponsiveDialogProps = {
   children: ReactNode;
   className?: string;
@@ -10,6 +23,21 @@ type ResponsiveDialogProps = {
   labelledBy?: string;
   describedBy?: string;
   onBackdropClick?: () => void;
+  size?: ResponsiveDialogSize;
+};
+
+const sizeClasses: Record<ResponsiveDialogSize, string> = {
+  sm: "sm:max-w-sm",
+  md: "sm:max-w-md",
+  lg: "sm:max-w-lg",
+  xl: "sm:max-w-xl",
+  "2xl": "sm:max-w-2xl",
+  "3xl": "sm:max-w-3xl",
+  "4xl": "sm:max-w-4xl",
+  "5xl": "sm:max-w-5xl",
+  "6xl": "sm:max-w-6xl",
+  "7xl": "sm:max-w-7xl",
+  full: "sm:max-w-[96vw] max-w-[1600px]",
 };
 
 export function ResponsiveDialog({
@@ -19,7 +47,10 @@ export function ResponsiveDialog({
   labelledBy,
   describedBy,
   onBackdropClick,
+  size = "md",
 }: ResponsiveDialogProps) {
+  const resolvedSizeClass = sizeClasses[size] || sizeClasses.md;
+
   return (
     <div
       className={cn(
@@ -39,7 +70,8 @@ export function ResponsiveDialog({
       />
       <div
         className={cn(
-          "relative z-10 flex max-h-[calc(100dvh-1rem)] w-full flex-col overflow-hidden rounded-t-2xl border border-border-default bg-bg-surface shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:max-w-md sm:rounded-2xl",
+          "relative z-10 flex max-h-[calc(100dvh-1rem)] w-full flex-col overflow-hidden rounded-t-2xl border border-border-default bg-bg-surface shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl",
+          resolvedSizeClass,
           contentClassName,
         )}
       >

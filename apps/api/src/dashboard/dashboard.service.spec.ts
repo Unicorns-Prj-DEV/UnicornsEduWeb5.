@@ -548,56 +548,58 @@ describe('DashboardService financial export', () => {
     const personnelCost = options?.personnelCost ?? 400_000;
     const otherCost = options?.otherCost ?? 100_000;
 
-    prisma.$queryRaw.mockImplementation(async (query: { strings: string[] }) => {
-      const sql = query.strings.join('');
+    prisma.$queryRaw.mockImplementation(
+      async (query: { strings: string[] }) => {
+        const sql = query.strings.join('');
 
-      if (sql.includes('wallet_transactions_history.type::text = \'topup\'')) {
-        return [{ totalAmount: topupTotal }];
-      }
+        if (sql.includes("wallet_transactions_history.type::text = 'topup'")) {
+          return [{ totalAmount: topupTotal }];
+        }
 
-      if (sql.includes('STRING_AGG(DISTINCT classes.name')) {
-        return revenueRows;
-      }
+        if (sql.includes('STRING_AGG(DISTINCT classes.name')) {
+          return revenueRows;
+        }
 
-      if (sql.includes('active_staff AS')) {
-        return staffRows;
-      }
+        if (sql.includes('active_staff AS')) {
+          return staffRows;
+        }
 
-      if (sql.includes('generate_series') || sql.includes('month_series')) {
-        return [
-          {
-            monthStart: new Date('2026-08-01T00:00:00.000Z'),
-            revenue: revenueTotal,
-            teacherCost: personnelCost,
-            customerCareCost: 0,
-            lessonCost: 0,
-            bonusCost: 0,
-            extraAllowanceCost: 0,
-            assistantCost: 0,
-            trainingManagerCost: 0,
-            operatingCost: otherCost,
-          },
-        ];
-      }
+        if (sql.includes('generate_series') || sql.includes('month_series')) {
+          return [
+            {
+              monthStart: new Date('2026-08-01T00:00:00.000Z'),
+              revenue: revenueTotal,
+              teacherCost: personnelCost,
+              customerCareCost: 0,
+              lessonCost: 0,
+              bonusCost: 0,
+              extraAllowanceCost: 0,
+              assistantCost: 0,
+              trainingManagerCost: 0,
+              operatingCost: otherCost,
+            },
+          ];
+        }
 
-      if (sql.includes('range_revenue')) {
-        return [
-          {
-            revenue: revenueTotal,
-            teacherCost: personnelCost,
-            customerCareCost: 0,
-            lessonCost: 0,
-            bonusCost: 0,
-            extraAllowanceCost: 0,
-            assistantCost: 0,
-            trainingManagerCost: 0,
-            operatingCost: otherCost,
-          },
-        ];
-      }
+        if (sql.includes('range_revenue')) {
+          return [
+            {
+              revenue: revenueTotal,
+              teacherCost: personnelCost,
+              customerCareCost: 0,
+              lessonCost: 0,
+              bonusCost: 0,
+              extraAllowanceCost: 0,
+              assistantCost: 0,
+              trainingManagerCost: 0,
+              operatingCost: otherCost,
+            },
+          ];
+        }
 
-      return [];
-    });
+        return [];
+      },
+    );
 
     prisma.costExtend.findMany.mockResolvedValue([
       {

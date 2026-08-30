@@ -63,7 +63,8 @@ export class FinancialExportExcelService {
 
     if (payload.meta.revenueTruncated) {
       const note = sheet.addRow([]);
-      note.getCell(1).value = `Đã cắt bớt — chỉ hiển thị ${payload.meta.revenueItemCount} học sinh đầu (theo số tiền giảm dần).`;
+      note.getCell(1).value =
+        `Đã cắt bớt — chỉ hiển thị ${payload.meta.revenueItemCount} học sinh đầu (theo số tiền giảm dần).`;
       note.getCell(1).font = { italic: true, color: { argb: 'FF666666' } };
     }
   }
@@ -99,7 +100,8 @@ export class FinancialExportExcelService {
     });
     if (payload.meta.personnelTruncated) {
       const note = sheet.addRow([]);
-      note.getCell(2).value = `Đã cắt bớt — chỉ hiển thị ${payload.meta.personnelItemCount} nhân sự đầu.`;
+      note.getCell(2).value =
+        `Đã cắt bớt — chỉ hiển thị ${payload.meta.personnelItemCount} nhân sự đầu.`;
       note.getCell(2).font = { italic: true, color: { argb: 'FF666666' } };
     }
 
@@ -115,7 +117,8 @@ export class FinancialExportExcelService {
     });
     if (payload.meta.otherCostTruncated) {
       const note = sheet.addRow([]);
-      note.getCell(2).value = `Đã cắt bớt — chỉ hiển thị ${payload.meta.otherCostItemCount} dòng đầu.`;
+      note.getCell(2).value =
+        `Đã cắt bớt — chỉ hiển thị ${payload.meta.otherCostItemCount} dòng đầu.`;
       note.getCell(2).font = { italic: true, color: { argb: 'FF666666' } };
     }
 

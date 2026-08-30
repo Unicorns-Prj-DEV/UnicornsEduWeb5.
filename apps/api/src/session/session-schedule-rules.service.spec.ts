@@ -90,7 +90,7 @@ describe('SessionScheduleRulesService', () => {
     );
   });
 
-  it('blocks a removed (inactive) class teacher from matching another teacher\'s slot', async () => {
+  it("blocks a removed (inactive) class teacher from matching another teacher's slot", async () => {
     prisma.classTeacher.findUnique.mockResolvedValue({ status: 'inactive' });
     prisma.classScheduleEntry.findMany.mockResolvedValue([]);
     prisma.makeupScheduleEvent.findMany.mockResolvedValue([]);

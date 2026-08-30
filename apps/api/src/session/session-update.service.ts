@@ -1103,6 +1103,9 @@ export class SessionUpdateService {
             ...(data.tutorial !== undefined && {
               tutorial: data.tutorial ?? null,
             }),
+            ...(data.recordingUrl !== undefined && {
+              recordingUrl: data.recordingUrl ? data.recordingUrl.trim() : null,
+            }),
             ...(data.teacherPaymentStatus !== undefined && {
               teacherPaymentStatus: data.teacherPaymentStatus ?? 'unpaid',
             }),
@@ -1309,7 +1312,9 @@ export class SessionUpdateService {
         if (updatedSession) {
           await syncLessonPlanHeadCommissions(
             tx,
-            updatedSession.attendance.map((attendanceItem) => attendanceItem.id),
+            updatedSession.attendance.map(
+              (attendanceItem) => attendanceItem.id,
+            ),
           );
         }
 
@@ -1357,6 +1362,7 @@ export class SessionUpdateService {
       lessonContent?: string;
       homework?: string;
       tutorial?: string;
+      recordingUrl?: string | null;
       coefficient?: number;
       attendance?: Array<{
         studentId: string;
@@ -1432,6 +1438,7 @@ export class SessionUpdateService {
         lessonContent: data.lessonContent,
         homework: data.homework,
         tutorial: data.tutorial,
+        recordingUrl: data.recordingUrl,
         coefficient: data.coefficient,
         attendance: enrichedAttendance,
       },

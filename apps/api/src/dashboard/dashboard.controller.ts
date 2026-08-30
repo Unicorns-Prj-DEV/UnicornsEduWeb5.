@@ -1,10 +1,4 @@
-import {
-  Controller,
-  Get,
-  Query,
-  Res,
-  StreamableFile,
-} from '@nestjs/common';
+import { Controller, Get, Query, Res, StreamableFile } from '@nestjs/common';
 import type { Response } from 'express';
 import {
   ApiCookieAuth,
@@ -263,7 +257,8 @@ export class DashboardController {
     name: 'type',
     required: true,
     type: String,
-    description: 'Churn type: new, dropped, or active (snapshot, ignores month/dateFrom/dateTo).',
+    description:
+      'Churn type: new, dropped, or active (snapshot, ignores month/dateFrom/dateTo).',
     example: 'new',
   })
   @ApiQuery({
@@ -397,7 +392,8 @@ export class DashboardController {
     @Query() query: GetAdminMonthlyStatisticsQueryDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
-    const payload = await this.dashboardService.getAdminMonthlyStatistics(query);
+    const payload =
+      await this.dashboardService.getAdminMonthlyStatistics(query);
     const pdfBuffer =
       await this.monthlyStatisticsExportPdfService.toPdfBuffer(payload);
 

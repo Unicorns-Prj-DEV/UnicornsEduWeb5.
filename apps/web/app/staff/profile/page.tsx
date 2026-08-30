@@ -296,6 +296,7 @@ function toStaffUpdateSessionPayload(payload: SessionUpdatePayload) {
     lessonContent: payload.lessonContent,
     homework: payload.homework,
     tutorial: payload.tutorial,
+    recordingUrl: payload.recordingUrl ?? null,
     coefficient: payload.coefficient,
     attendance: payload.attendance?.map((item) => ({
       studentId: item.studentId,

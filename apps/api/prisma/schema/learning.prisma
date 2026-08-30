@@ -24,6 +24,7 @@ model Class {
   scheduleEntries               ClassScheduleEntry[]
   sessions                      Session[]
   students                      StudentClass[]
+  topics                        Topic[]
   trainingManager               StaffInfo?                  @relation("ClassTrainingManager", fields: [trainingManagerStaffId], references: [id])
   classCategory                 ClassCategory               @relation(fields: [classCategoryId], references: [id])
 
@@ -134,8 +135,9 @@ model Session {
   notes                                  String?
   lessonContent                          String?              @map("lesson_content")
   homework                               String?
-  tutorial                               String?
-  tuitionFee                             Int?                 @map("tuition_fee")
+   tutorial                               String?
+   recordingUrl                           String?              @map("recording_url")
+   tuitionFee                             Int?                 @map("tuition_fee")
   googleMeetLink                         String?              @map("google_meet_link")
   googleCalendarEventId                  String?              @map("google_calendar_event_id")
   calendarSyncedAt                       DateTime?            @map("calendar_synced_at") @db.Timestamptz(6)
@@ -278,4 +280,24 @@ model CfProblemTutorial {
   @@unique([contestId, problemIndex])
   @@index([contestId])
   @@map("cf_problem_tutorials")
+}
+
+model Topic {
+  id        String   @id @default(uuid())
+  classId   String   @map("class_id")
+  title     String
+  videoUrl  String?  @map("video_url")
+  content   String?
+  order     Int      @default(0)
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  class       Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  createdByUser User? @relation("TopicCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User? @relation("TopicUpdatedBy", fields: [updatedBy], references: [id])
+
+  @@index([classId])
+  @@map("topics")
 }

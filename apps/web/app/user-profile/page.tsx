@@ -13,6 +13,8 @@ import EmailVerificationInline from "@/components/user-profile/EmailVerification
 import PreviewableUserAvatar from "@/components/ui/PreviewableUserAvatar";
 import StaffSpecializationMarkdown from "@/components/staff/StaffSpecializationMarkdown";
 import DataConsentSection from "@/components/user-profile/DataConsentSection";
+import { StudentExamCard } from "@/components/admin/student";
+import ParentReceiptEmailSwitch from "@/components/student/ParentReceiptEmailSwitch";
 import { useAuth } from "@/context/AuthContext";
 import { resolveEmailVerified } from "@/mocks/user-profile-verification.mock";
 import * as authApi from "@/lib/apis/auth.api";
@@ -711,6 +713,21 @@ export default function UserProfilePage() {
         ax.response?.data?.message ??
           "Không gửi được yêu cầu xác minh. Thử lại sau.",
       );
+    },
+  });
+
+  const receiptEmailMutation = useMutation({
+    mutationFn: (enabled: boolean) =>
+      authApi.updateMyStudentProfile({ parent_receipt_email_enabled: enabled }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["profile", "full"] }),
+        queryClient.invalidateQueries({ queryKey: ["student", "self", "detail"] }),
+      ]);
+      toast.success("Đã cập nhật cài đặt gửi biên lai.");
+    },
+    onError: () => {
+      toast.error("Không thể cập nhật cài đặt gửi biên lai.");
     },
   });
 
@@ -1698,9 +1715,26 @@ export default function UserProfilePage() {
                       />
                     </form>
                   ) : (
-                    <DetailRows items={studentDetails ?? []} />
+                    <div className="space-y-6">
+                      <DetailRows items={studentDetails ?? []} />
+                      <div className="pt-2 border-t border-border-subtle">
+                        <ParentReceiptEmailSwitch
+                          enabled={profile.studentInfo.parentReceiptEmailEnabled !== false}
+                          disabled={receiptEmailMutation.isPending}
+                          onToggle={(enabled) => receiptEmailMutation.mutate(enabled)}
+                        />
+                      </div>
+                    </div>
                   )}
                 </ProfileSection>
+
+                <div className="mt-4">
+                  <StudentExamCard
+                    studentId={profile.studentInfo.id}
+                    editable
+                    selfService
+                  />
+                </div>
               </>
             ) : null}
           </div>

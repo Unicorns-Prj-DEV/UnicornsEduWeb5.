@@ -39,6 +39,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `sessions`
 - `attendance`
 - `cf_problem_tutorials` (tutorial theo bài Codeforces)
+- `topics` (bài học chuyên đề theo lớp)
 
 ### Finance
 
@@ -355,7 +356,8 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 ### 4.5 `sessions`
 
 - Mỗi buổi học gắn với 1 lớp và 1 giáo viên
-- Trường chính: ngày học, start/end time, `coefficient` (hệ số buổi học 0.0–1.0), `allowance_amount`, `teacher_payment_status`, `tuition_fee`, `lesson_content`, `homework`, `tutorial`
+- Trường chính: ngày học, start/end time, `coefficient` (hệ số buổi học 0.0–1.0), `allowance_amount`, `teacher_payment_status`, `tuition_fee`, `lesson_content`, `homework`, `tutorial`, `recording_url`
+- `recording_url` (`TEXT`, nullable): link video YouTube ghi lại buổi học để học sinh xem lại bài giảng.
 - `allowance_amount`: snapshot **trước hệ số** = tổng `(snapshot_per_student_allowance × số bản ghi điểm danh present/excused) + snapshot_scale_amount` (làm tròn VND theo logic API). Các truy vấn payroll **không** cộng thêm `classes.scale_amount` vào `allowance_amount`.
 - `snapshot_per_student_allowance` (`INTEGER`, nullable): trợ cấp mỗi học sinh đã resolve (`class_teachers.custom_allowance` ?? `classes.allowance_per_session_per_student`) tại thời điểm **tạo** buổi học; không ghi đè sau đó.
 - `snapshot_scale_amount` (`INTEGER`, nullable): `classes.scale_amount` tại thời điểm **tạo** buổi học; không ghi đè sau đó.
@@ -418,6 +420,21 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - Unique: `(attendance_id, staff_id)`. Index: `(staff_id, payment_status)` cho aggregate payroll.
 - Sync chỉ cập nhật dòng `pending` (không đụng dòng đã `paid`); buổi chuyển non-chargeable sẽ xóa dòng `pending` tương ứng.
 - Nguồn payroll `revenue_share` trong payment-preview (`GET /staff/:id/payment-preview`, `POST /staff/:id/payments/pay-all|pay-selected`) đọc/ghi trực tiếp bảng này; không áp thuế (`taxRatePercent = 0` cố định cho nguồn này).
+
+### 4.6c `topics`
+
+- Lưu trữ danh sách bài học chuyên đề theo từng lớp học.
+- Cột chính:
+  - `id` (`UUID`, PK)
+  - `class_id` (FK → `classes.id`, cascade)
+  - `title` (`TEXT`): tiêu đề chuyên đề
+  - `video_url` (`TEXT`, nullable): link video bài giảng YouTube
+  - `content` (`TEXT`, nullable): nội dung bài học định dạng phong phú (hỗ trợ Math/KaTeX, code, list)
+  - `order` (`INTEGER`, default `0`): thứ tự sắp xếp bài học trong lớp
+  - `created_by`, `updated_by` (nullable FK → `users.id`): audit user tạo/sửa
+  - `created_at`, `updated_at` (`TIMESTAMPTZ`)
+- Index: `(class_id)`
+- Quan hệ: `classes` (1-N), `createdByUser` (User), `updatedByUser` (User)
 
 ### 4.7 Finance models
 

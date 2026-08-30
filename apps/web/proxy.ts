@@ -148,6 +148,21 @@ export async function proxy(req: NextRequest) {
     return redirectGuestToLogin(req);
   }
 
+  if (pathname === "/") {
+    const isPrimaryAdmin =
+      user.roleType === Role.admin || user.access?.admin?.tier === "full";
+    if (isPrimaryAdmin) {
+      return NextResponse.redirect(new URL("/admin", req.url));
+    }
+    if (canAccessStudentShell(user) || user.roleType === Role.student) {
+      return NextResponse.redirect(new URL("/student", req.url));
+    }
+    if (canAccessStaffShell(user) || user.roleType === Role.staff) {
+      return NextResponse.redirect(new URL("/staff", req.url));
+    }
+    return NextResponse.redirect(new URL("/user-profile", req.url));
+  }
+
   const isStaffRoute = pathname === "/staff" || pathname.startsWith("/staff/");
   const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
 
@@ -229,6 +244,13 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   matcher: [
+    {
+      source: "/",
+      missing: [
+        { type: "header", key: "next-router-prefetch" },
+        { type: "header", key: "purpose", value: "prefetch" },
+      ],
+    },
     {
       source: "/admin/:path*",
       missing: [

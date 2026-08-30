@@ -274,10 +274,7 @@ function operationsChartSvg(months: AdminDashboardMonthlyStatisticDto[]) {
   const padB = 48;
   const labels = months.map((m) => m.month);
   const yMax = niceMax(
-    Math.max(
-      ...months.flatMap((m) => [m.students, m.classes, m.teachers]),
-      1,
-    ),
+    Math.max(...months.flatMap((m) => [m.students, m.classes, m.teachers]), 1),
   );
   const { plotW, plotH, yTicks, xLabels } = buildAxes({
     width,
@@ -365,7 +362,8 @@ const FINANCE_METRIC_GLOSSARY: Array<{ term: string; definition: string }> = [
   },
   {
     term: 'Lợi nhuận',
-    definition: 'Số còn lại sau khi lấy Doanh thu trừ Chi phí trong cùng tháng.',
+    definition:
+      'Số còn lại sau khi lấy Doanh thu trừ Chi phí trong cùng tháng.',
   },
   {
     term: 'Tổng nạp',
@@ -384,7 +382,8 @@ const EXPENSE_METRIC_GLOSSARY: Array<{ term: string; definition: string }> = [
   { term: 'Thưởng', definition: 'Tiền thưởng trả cho nhân sự trong tháng.' },
   {
     term: 'Trợ cấp khác',
-    definition: 'Các khoản trợ cấp ngoài lương dạy và hoa hồng thông thường trong tháng.',
+    definition:
+      'Các khoản trợ cấp ngoài lương dạy và hoa hồng thông thường trong tháng.',
   },
   { term: 'Trợ lí', definition: 'Tiền hỗ trợ trả cho trợ lí lớp trong tháng.' },
   { term: 'QL lớp', definition: 'Tiền hỗ trợ người quản lý lớp trong tháng.' },
@@ -400,21 +399,22 @@ const EXPENSE_METRIC_GLOSSARY: Array<{ term: string; definition: string }> = [
   },
 ];
 
-const OPERATIONS_METRIC_GLOSSARY: Array<{ term: string; definition: string }> = [
-  {
-    term: 'Học sinh',
-    definition:
-      'Số học viên còn đang học tại thời điểm cuối tháng (đã vào học trước đó và chưa nghỉ).',
-  },
-  {
-    term: 'Lớp học',
-    definition: 'Số lớp có ít nhất một buổi học diễn ra trong tháng đó.',
-  },
-  {
-    term: 'Gia sư',
-    definition: 'Số gia sư có ít nhất một buổi dạy trong tháng đó.',
-  },
-];
+const OPERATIONS_METRIC_GLOSSARY: Array<{ term: string; definition: string }> =
+  [
+    {
+      term: 'Học sinh',
+      definition:
+        'Số học viên còn đang học tại thời điểm cuối tháng (đã vào học trước đó và chưa nghỉ).',
+    },
+    {
+      term: 'Lớp học',
+      definition: 'Số lớp có ít nhất một buổi học diễn ra trong tháng đó.',
+    },
+    {
+      term: 'Gia sư',
+      definition: 'Số gia sư có ít nhất một buổi dạy trong tháng đó.',
+    },
+  ];
 function renderGlossary(items: Array<{ term: string; definition: string }>) {
   return `
     <div class="glossary">

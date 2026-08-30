@@ -221,9 +221,7 @@ export class AchievementService {
   async createStaffAchievement(staffId: string, dto: CreateAchievementDto) {
     await this.assertStaffExists(staffId);
     const title = this.normalizeTitle(dto.title);
-    const sortOrder =
-      dto.sortOrder ??
-      (await this.nextStaffSortOrder(staffId));
+    const sortOrder = dto.sortOrder ?? (await this.nextStaffSortOrder(staffId));
 
     const row = await this.prisma.staffAchievement.create({
       data: { staffId, title, sortOrder },
@@ -377,10 +375,7 @@ export class AchievementService {
    *
    * TODO(you): implement assertCompleteReorder — see learning prompt in chat.
    */
-  async reorderStaffAchievements(
-    staffId: string,
-    dto: ReorderAchievementsDto,
-  ) {
+  async reorderStaffAchievements(staffId: string, dto: ReorderAchievementsDto) {
     await this.assertStaffExists(staffId);
     const existing = await this.prisma.staffAchievement.findMany({
       where: { staffId },

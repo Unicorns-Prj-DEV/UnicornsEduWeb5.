@@ -31,6 +31,7 @@ import { CalendarModule } from './calendar/calendar.module';
 import { DeductionSettingsModule } from './deduction-settings/deduction-settings.module';
 import { AchievementModule } from './achievements/achievement.module';
 import { StudentGalleryModule } from './student-gallery/student-gallery.module';
+import { TopicModule } from './topic/topic.module';
 
 function parsePositiveIntegerEnv(
   value: string | undefined,
@@ -86,6 +87,7 @@ function parsePositiveIntegerEnv(
     DeductionSettingsModule,
     AchievementModule,
     StudentGalleryModule,
+    TopicModule,
   ],
   controllers: [AppController],
   providers: [

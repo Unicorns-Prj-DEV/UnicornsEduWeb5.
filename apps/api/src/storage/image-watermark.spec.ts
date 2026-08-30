@@ -6,9 +6,7 @@ import { createPublicStorageUrl } from './supabase-storage';
 
 describe('image watermark + public URL', () => {
   it('bakes a jpeg twin larger than empty input metadata', async () => {
-    const logo = readFileSync(
-      join(__dirname, 'assets', 'watermark-logo.webp'),
-    );
+    const logo = readFileSync(join(__dirname, 'assets', 'watermark-logo.webp'));
     // Use a photo-sized base so the rotated tile fits (sharp requires tile ≤ base).
     const photo = await sharp(logo)
       .resize(640, 480, { fit: 'cover' })

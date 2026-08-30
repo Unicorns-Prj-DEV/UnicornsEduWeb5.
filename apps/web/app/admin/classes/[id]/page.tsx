@@ -30,12 +30,12 @@ import {
   ClassCard,
   ClassStudentCaretakerCell,
   ClassStudentWalletBalance,
+  ClassSurveyPanel,
   EditClassBasicInfoPopup,
   EditClassSchedulePopup,
   EditClassStudentsPopup,
   EditClassTeacherCompensationPopup,
   EditClassTeachersPopup,
-  ClassSurveyPanel,
   MakeupScheduleCard,
   MissedTeachingAlertsCard,
   PastMakeupEventsPopup,
@@ -48,6 +48,7 @@ import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable"
 import StudentClassTuitionPopup from "@/components/admin/student/StudentClassTuitionPopup";
 import MonthNav from "@/components/admin/MonthNav";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
+import StaffTopicsManager from "@/components/staff/StaffTopicsManager";
 import {
   ClassStatus,
   ClassDetail,
@@ -76,7 +77,7 @@ const STATUS_LABELS: Record<ClassStatus, string> = {
 };
 
 
-type TabId = "sessions" | "surveys";
+type TabId = "history" | "topics";
 const TAB_INDICATOR_TRANSITION: Transition = {
   type: "spring",
   stiffness: 420,
@@ -163,7 +164,7 @@ export default function AdminClassDetailPage() {
   const [studentsPopupOpen, setStudentsPopupOpen] = useState(false);
   const [selectedTuitionStudent, setSelectedTuitionStudent] =
     useState<ClassStudent | null>(null);
-  const [activeTab, setActiveTab] = useState<TabId>("sessions");
+  const [activeTab, setActiveTab] = useState<TabId>("history");
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -172,6 +173,7 @@ export default function AdminClassDetailPage() {
   const [addSessionPopupOpen, setAddSessionPopupOpen] = useState(false);
   const [pastMakeupPopupOpen, setPastMakeupPopupOpen] = useState(false);
   const [addSurveyPopupOpen, setAddSurveyPopupOpen] = useState(false);
+  const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [stopTeachingPendingTeacherId, setStopTeachingPendingTeacherId] = useState<string | null>(null);
   const [stopLearningPendingStudentId, setStopLearningPendingStudentId] = useState<string | null>(null);
   const { data: fullProfile } = useQuery({
@@ -290,7 +292,7 @@ export default function AdminClassDetailPage() {
         month: selectedMonthValue,
         year: selectedYear,
       }),
-    enabled: !!id && activeTab === "sessions",
+    enabled: !!id && activeTab === "history",
     placeholderData: keepPreviousData,
   });
   const missedAlertsQueryKey = useMemo(
@@ -315,14 +317,14 @@ export default function AdminClassDetailPage() {
         month: selectedMonthValue,
         year: selectedYear,
       }),
-    enabled: !!id && activeTab === "surveys",
+    enabled: !!id && activeTab === "history",
     placeholderData: keepPreviousData,
   });
 
   const { data: availableSurveysResponse } = useQuery({
     queryKey: ["surveys", "picker"],
     queryFn: () => surveysApi.getSurveys({ limit: 100 }),
-    enabled: activeTab === "surveys",
+    enabled: activeTab === "history",
     staleTime: 60_000,
   });
   const availableSurveys = availableSurveysResponse?.data ?? [];
@@ -1362,195 +1364,224 @@ export default function AdminClassDetailPage() {
           onChanged={handleMakeupScheduleChanged}
         />
 
-        {/* Row 3: Lịch sử buổi học và khảo sát – 2 tab */}
-        <ClassCard title="Lịch sử & Khảo sát" className="w-full">
+        {/* Row 3: Lịch sử và Chuyên đề – 2 tab */}
+        <ClassCard title="Lịch sử & Chuyên đề" className="w-full">
           <div className="mb-3 flex flex-col gap-3">
             <div
-              className="inline-flex w-fit items-center border-b border-border-default"
+              className="inline-flex w-full sm:w-80 items-center gap-1 rounded-2xl border border-border-default bg-bg-secondary/70 p-1.5 shadow-xs"
               role="tablist"
-              aria-label="Lịch sử hoặc khảo sát"
+              aria-label="Lịch sử hoặc chuyên đề"
             >
               <button
-                id="class-detail-tab-sessions"
+                id="class-detail-tab-history"
                 type="button"
                 role="tab"
-                aria-selected={activeTab === "sessions"}
-                aria-controls="class-detail-panel-sessions"
-                onClick={() => setActiveTab("sessions")}
-                className={`relative -mb-px px-3 py-1.5 text-xs font-semibold touch-manipulation transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface sm:text-sm ${
-                  activeTab === "sessions"
-                    ? "text-primary"
-                    : "text-text-muted hover:text-text-primary"
+                aria-selected={activeTab === "history"}
+                aria-controls="class-detail-panel-history"
+                onClick={() => setActiveTab("history")}
+                className={`relative z-10 flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold touch-manipulation transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
+                  activeTab === "history"
+                    ? "text-text-inverse"
+                    : "text-text-muted hover:text-text-primary hover:bg-bg-surface/50"
                 }`}
               >
-                {activeTab === "sessions" ? (
+                {activeTab === "history" ? (
                   <motion.span
-                    layoutId="class-detail-tab-underline"
+                    layoutId="class-detail-tab-pill"
                     aria-hidden
-                    className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-primary"
+                    className="absolute inset-0 -z-10 rounded-xl bg-primary shadow-sm"
                     transition={indicatorTransition}
                   />
                 ) : null}
-                Lịch sử buổi học
+                <svg className="size-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Lịch sử</span>
               </button>
               <button
-                id="class-detail-tab-surveys"
+                id="class-detail-tab-topics"
                 type="button"
                 role="tab"
-                aria-selected={activeTab === "surveys"}
-                aria-controls="class-detail-panel-surveys"
-                onClick={() => setActiveTab("surveys")}
-                className={`relative -mb-px px-3 py-1.5 text-xs font-semibold touch-manipulation transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface sm:text-sm ${
-                  activeTab === "surveys"
-                    ? "text-primary"
-                    : "text-text-muted hover:text-text-primary"
+                aria-selected={activeTab === "topics"}
+                aria-controls="class-detail-panel-topics"
+                onClick={() => setActiveTab("topics")}
+                className={`relative z-10 flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold touch-manipulation transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
+                  activeTab === "topics"
+                    ? "text-text-inverse"
+                    : "text-text-muted hover:text-text-primary hover:bg-bg-surface/50"
                 }`}
               >
-                {activeTab === "surveys" ? (
+                {activeTab === "topics" ? (
                   <motion.span
-                    layoutId="class-detail-tab-underline"
+                    layoutId="class-detail-tab-pill"
                     aria-hidden
-                    className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-primary"
+                    className="absolute inset-0 -z-10 rounded-xl bg-primary shadow-sm"
                     transition={indicatorTransition}
                   />
                 ) : null}
-                Khảo sát
+                <svg className="size-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+                <span>Chuyên đề</span>
               </button>
             </div>
 
-            <div className="flex flex-col gap-1.5 rounded-lg border border-border-default bg-bg-secondary/55 px-2.5 py-1.5 sm:flex-row sm:items-center sm:justify-between">
-              <MonthNav
-                value={selectedMonth}
-                onChange={setSelectedMonth}
-                monthPopupOpen={monthPopupOpen}
-                setMonthPopupOpen={setMonthPopupOpen}
-                countLabel={
-                  activeTab === "sessions"
-                    ? `Tổng số buổi: ${sessionsInMonth.length}`
-                    : `Tổng khảo sát: ${surveysInMonth.length}`
-                }
-                actionButton={
-                  (activeTab === "sessions" ? canCreateSession : canManageSurveys) ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (activeTab === "sessions") {
-                          handleOpenAddSessionPopup();
-                          return;
-                        }
-                        setAddSurveyPopupOpen(true);
-                      }}
-                      aria-label={activeTab === "sessions" ? "Thêm buổi học" : "Thêm khảo sát"}
-                      title={activeTab === "sessions" ? "Thêm buổi học" : "Thêm khảo sát"}
-                      className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
-                    >
-                      <PlusIcon className="size-4" aria-hidden />
-                      <span className="sr-only">
-                        {activeTab === "sessions" ? "Thêm buổi học" : "Thêm khảo sát"}
-                      </span>
-                    </button>
-                  ) : null
-                }
-              />
-            </div>
+            {activeTab === "history" && (
+              <div className="flex flex-col gap-1.5 rounded-lg border border-border-default bg-bg-secondary/55 px-2.5 py-1.5 sm:flex-row sm:items-center sm:justify-between">
+                <MonthNav
+                  value={selectedMonth}
+                  onChange={setSelectedMonth}
+                  monthPopupOpen={monthPopupOpen}
+                  setMonthPopupOpen={setMonthPopupOpen}
+                  countLabel={`Tổng: ${sessionsInMonth.length + surveysInMonth.length}`}
+                  actionButton={
+                    (canCreateSession || canManageSurveys) ? (
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setCreateMenuOpen(!createMenuOpen)}
+                          aria-label="Tạo mới"
+                          title="Tạo mới"
+                          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
+                        >
+                          <PlusIcon className="size-4" aria-hidden />
+                          <span className="sr-only">Tạo mới</span>
+                        </button>
+                        {createMenuOpen && (
+                          <div className="absolute right-0 top-full z-10 mt-1 w-48 rounded-lg border border-border-default bg-bg-surface shadow-lg">
+                            {canCreateSession && (
+                              <button
+                                onClick={() => {
+                                  handleOpenAddSessionPopup();
+                                  setCreateMenuOpen(false);
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm hover:bg-bg-secondary"
+                              >
+                                Tạo buổi học
+                              </button>
+                            )}
+                            {canManageSurveys && (
+                              <button
+                                onClick={() => {
+                                  setAddSurveyPopupOpen(true);
+                                  setCreateMenuOpen(false);
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm hover:bg-bg-secondary"
+                              >
+                                Tạo khảo sát
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ) : null
+                  }
+                />
+              </div>
+            )}
           </div>
           <QueryRefreshStrip
             active={
-              activeTab === "sessions"
-                ? isSessionsFetching && !isSessionsLoading
-                : isSurveysFetching && !isSurveysLoading
+              activeTab === "history"
+                ? (isSessionsFetching || isSurveysFetching) && !(isSessionsLoading || isSurveysLoading)
+                : false
             }
-            label={
-              activeTab === "sessions"
-                ? "Đang tải lại lịch sử buổi học…"
-                : "Đang tải lại khảo sát…"
-            }
+            label="Đang tải lại dữ liệu…"
             className="mb-3"
           />
 
-          {activeTab === "sessions" &&
-          canCreateSession &&
-          (popupTeachers.length === 0 || activeClassStudents.length === 0) ? (
-            <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
-              {popupTeachers.length === 0
-                ? "Lớp chưa có gia sư phụ trách. Phân công gia sư trước khi thêm buổi học."
-                : "Lớp chưa có học sinh đang học nên chưa thể tạo buổi học."}
-            </div>
-          ) : null}
-
           <AnimatePresence mode="wait" initial={false}>
-            {activeTab === "sessions" ? (
+            {activeTab === "history" ? (
             <motion.section
-              key="sessions"
-              id="class-detail-panel-sessions"
+              key="history"
+              id="class-detail-panel-history"
               role="tabpanel"
-              aria-labelledby="class-detail-tab-sessions"
+              aria-labelledby="class-detail-tab-history"
               className="min-w-0"
               {...panelMotionProps}
             >
-              {isSessionsLoading ? (
+              {isSurveysLoading ? (
                 <SessionHistoryTableSkeleton
-                  rows={5}
+                  rows={3}
                   entityMode="none"
                   variant="classDetail"
-                  showBulkSelectionColumn
-                  showActionsColumn
+                  showBulkSelectionColumn={false}
+                  showActionsColumn={false}
                 />
               ) : (
-                <SessionHistoryTable
-                  sessions={sessionsInMonth}
-                  entityMode="teacher"
-                  hideTeacherDisplay
-                  variant="classDetail"
-                  emptyText="Không có buổi học trong tháng này."
-                  editorLayout="wide"
-                   enableBulkPaymentStatusEdit={canEditSessionPaymentStatus}
-                   allowTeacherSelection={canEditSessions}
-                   allowFinancialEdits={canEditSessions}
-                   allowAllowanceEdit={canEditSessions}
-                   allowAttendanceTuitionEdits={canEditSessions}
-                   allowPaymentStatusEdit={canEditSessionPaymentStatus}
-                   readOnlySessionDetails={!canEditSessions && !canEditSessionPaymentStatus}
-                   allowDeleteSession={canEditSessions && !isAccountant}
-                  onSessionUpdated={handleSessionUpdated}
+                <ClassSurveyPanel
+                  className={classDetail.name}
+                  surveys={surveysInMonth}
+                  availableSurveys={availableSurveys}
                   teachers={popupTeachers}
-                  getClassStudents={getClassStudents}
-                  sessionTuitionTotal={totalSessionTuition}
-                  showTrainingManagerAllowance={showTeacherCompensation}
+                  students={activeSurveyStudents}
+                  loading={isSurveysLoading}
+                  fetching={isSurveysFetching}
+                  error={isSurveysError}
+                  canManage={canManageSurveys}
+                  createOpen={addSurveyPopupOpen}
+                  onCreateOpenChange={setAddSurveyPopupOpen}
+                  defaultTeacherId={currentClassTeacherId}
+                  onCreate={handleCreateSurvey}
+                  onUpdate={handleUpdateSurvey}
+                  onDelete={handleDeleteSurvey}
                 />
               )}
-              {isSessionsError ? (
+              {isSurveysError ? (
                 <p className="mt-3 text-sm text-error" role="alert">
-                  Không tải được lịch sử buổi học.
+                  Không tải được khảo sát.
                 </p>
               ) : null}
+
+              <div className="mt-6">
+                {isSessionsLoading ? (
+                  <SessionHistoryTableSkeleton
+                    rows={5}
+                    entityMode="none"
+                    variant="classDetail"
+                    showBulkSelectionColumn
+                    showActionsColumn
+                  />
+                ) : (
+                  <SessionHistoryTable
+                    sessions={sessionsInMonth}
+                    entityMode="teacher"
+                    hideTeacherDisplay
+                    variant="classDetail"
+                    emptyText="Không có buổi học trong tháng này."
+                    editorLayout="wide"
+                     enableBulkPaymentStatusEdit={canEditSessionPaymentStatus}
+                     allowTeacherSelection={canEditSessions}
+                     allowFinancialEdits={canEditSessions}
+                     allowAllowanceEdit={canEditSessions}
+                     allowAttendanceTuitionEdits={canEditSessions}
+                     allowPaymentStatusEdit={canEditSessionPaymentStatus}
+                     readOnlySessionDetails={!canEditSessions && !canEditSessionPaymentStatus}
+                     allowDeleteSession={canEditSessions && !isAccountant}
+                    onSessionUpdated={handleSessionUpdated}
+                    teachers={popupTeachers}
+                    getClassStudents={getClassStudents}
+                    sessionTuitionTotal={totalSessionTuition}
+                    showTrainingManagerAllowance={showTeacherCompensation}
+                  />
+                )}
+                {isSessionsError ? (
+                  <p className="mt-3 text-sm text-error" role="alert">
+                    Không tải được lịch sử buổi học.
+                  </p>
+                ) : null}
+              </div>
             </motion.section>
           ) : (
             <motion.section
-              key="surveys"
-              id="class-detail-panel-surveys"
+              key="topics"
+              id="class-detail-panel-topics"
               role="tabpanel"
-              aria-labelledby="class-detail-tab-surveys"
+              aria-labelledby="class-detail-tab-topics"
               className="min-w-0"
               {...panelMotionProps}
             >
-              <ClassSurveyPanel
-                className={classDetail.name}
-                surveys={surveysInMonth}
-                availableSurveys={availableSurveys}
-                teachers={popupTeachers}
-                students={activeSurveyStudents}
-                loading={isSurveysLoading}
-                fetching={isSurveysFetching}
-                error={isSurveysError}
-                canManage={canManageSurveys}
-                createOpen={addSurveyPopupOpen}
-                onCreateOpenChange={setAddSurveyPopupOpen}
-                defaultTeacherId={currentClassTeacherId}
-                onCreate={handleCreateSurvey}
-                onUpdate={handleUpdateSurvey}
-                onDelete={handleDeleteSurvey}
-              />
+              <StaffTopicsManager classId={id} />
             </motion.section>
           )}
           </AnimatePresence>

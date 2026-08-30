@@ -353,7 +353,9 @@ export class CustomerCareService {
             by: ['studentId'],
             where: {
               studentId: { in: studentIds },
-              status: { in: [AttendanceStatus.present, AttendanceStatus.excused] },
+              status: {
+                in: [AttendanceStatus.present, AttendanceStatus.excused],
+              },
               session: { date: { gte: monthStart, lt: monthEnd } },
             },
             _sum: { tuitionFee: true },
@@ -742,7 +744,8 @@ export class CustomerCareService {
       (acc, row) => ({
         studentCount: acc.studentCount + 1,
         totalPending: acc.totalPending + row.pendingCommission,
-        totalMonthCommission: acc.totalMonthCommission + (row.monthCommission ?? 0),
+        totalMonthCommission:
+          acc.totalMonthCommission + (row.monthCommission ?? 0),
       }),
       {
         studentCount: 0,
@@ -1081,7 +1084,9 @@ export class CustomerCareService {
       profitPercent < 0 ||
       profitPercent > 0.99
     ) {
-      throw new BadRequestException('profitPercent must be between 0 and 0.99.');
+      throw new BadRequestException(
+        'profitPercent must be between 0 and 0.99.',
+      );
     }
 
     const staff = await this.prisma.staffInfo.findUnique({

@@ -111,8 +111,7 @@ export class StudentGalleryService {
     await this.assertStudentExists(studentId);
     const caption =
       dto.caption !== undefined ? this.normalizeCaption(dto.caption) : null;
-    const sortOrder =
-      dto.sortOrder ?? (await this.nextSortOrder(studentId));
+    const sortOrder = dto.sortOrder ?? (await this.nextSortOrder(studentId));
 
     const row = await this.prisma.studentGalleryItem.create({
       data: {
@@ -168,10 +167,7 @@ export class StudentGalleryService {
       throw new NotFoundException('Gallery item not found.');
     }
 
-    await this.removeImages(
-      existing.imagePath,
-      existing.imageWatermarkedPath,
-    );
+    await this.removeImages(existing.imagePath, existing.imageWatermarkedPath);
     await this.prisma.studentGalleryItem.delete({ where: { id: itemId } });
     return { ok: true as const };
   }
@@ -274,10 +270,7 @@ export class StudentGalleryService {
       return this.toDto(existing);
     }
 
-    await this.removeImages(
-      existing.imagePath,
-      existing.imageWatermarkedPath,
-    );
+    await this.removeImages(existing.imagePath, existing.imageWatermarkedPath);
     const row = await this.prisma.studentGalleryItem.update({
       where: { id: itemId },
       data: { imagePath: null, imageWatermarkedPath: null },

@@ -228,16 +228,16 @@ export class SessionValidationService {
     const hasHomework = data.homework !== undefined;
     const hasTutorial = data.tutorial !== undefined;
 
-    if (!options.required && !hasLessonContent && !hasHomework && !hasTutorial) {
+    if (
+      !options.required &&
+      !hasLessonContent &&
+      !hasHomework &&
+      !hasTutorial
+    ) {
       return;
     }
 
-    if (
-      options.required ||
-      hasLessonContent ||
-      hasHomework ||
-      hasTutorial
-    ) {
+    if (options.required || hasLessonContent || hasHomework || hasTutorial) {
       this.assertRichTextNonEmpty(data.lessonContent, 'Nội dung bài học');
       this.assertRichTextNonEmpty(data.homework, 'Bài tập về nhà');
       this.assertRichTextNonEmpty(data.tutorial, 'Tutorial các buổi học');

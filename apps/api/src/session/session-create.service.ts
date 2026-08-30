@@ -313,12 +313,14 @@ export class SessionCreateService {
             (sum, attendanceItem) => sum + (attendanceItem.tuitionFee ?? 0),
             0,
           );
-          const trainingManagerSnapshot = computeTrainingManagerSessionSnapshot({
-            sessionTuitionTotal: tuitionFee,
-            trainingManagerStaffId: classTeacher.class.trainingManagerStaffId,
-            trainingManagerRatePercent:
-              classTeacher.class.trainingManagerRatePercent,
-          });
+          const trainingManagerSnapshot = computeTrainingManagerSessionSnapshot(
+            {
+              sessionTuitionTotal: tuitionFee,
+              trainingManagerStaffId: classTeacher.class.trainingManagerStaffId,
+              trainingManagerRatePercent:
+                classTeacher.class.trainingManagerRatePercent,
+            },
+          );
 
           const attendanceWithCharge = resolvedAttendance.filter(
             (attendanceItem) => (attendanceItem.tuitionFee ?? 0) > 0,
@@ -436,8 +438,10 @@ export class SessionCreateService {
               lessonContent: data.lessonContent ?? null,
               homework: data.homework ?? null,
               tutorial: data.tutorial ?? null,
+              recordingUrl: data.recordingUrl ? data.recordingUrl.trim() : null,
               teacherPaymentStatus: data.teacherPaymentStatus ?? undefined,
-              trainingManagerStaffId: trainingManagerSnapshot.trainingManagerStaffId,
+              trainingManagerStaffId:
+                trainingManagerSnapshot.trainingManagerStaffId,
               trainingManagerRatePercent:
                 trainingManagerSnapshot.trainingManagerRatePercent,
               trainingManagerAllowanceAmount:
@@ -465,7 +469,9 @@ export class SessionCreateService {
 
           await syncLessonPlanHeadCommissions(
             tx,
-            createdSession.attendance.map((attendanceItem) => attendanceItem.id),
+            createdSession.attendance.map(
+              (attendanceItem) => attendanceItem.id,
+            ),
           );
 
           if (actor) {
@@ -510,6 +516,7 @@ export class SessionCreateService {
       lessonContent: string;
       homework: string;
       tutorial: string;
+      recordingUrl?: string | null;
       coefficient?: number;
       attendance: Array<{
         studentId: string;
@@ -552,6 +559,7 @@ export class SessionCreateService {
         lessonContent: data.lessonContent,
         homework: data.homework,
         tutorial: data.tutorial,
+        recordingUrl: data.recordingUrl ?? null,
         attendance: data.attendance.map((attendanceItem) => ({
           studentId: attendanceItem.studentId,
           status: attendanceItem.status,

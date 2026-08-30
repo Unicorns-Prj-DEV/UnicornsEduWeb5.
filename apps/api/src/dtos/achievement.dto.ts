@@ -71,7 +71,8 @@ export class CreateStudentAchievementDto {
 
   @ApiPropertyOptional({
     nullable: true,
-    description: 'Landing course label (e.g. KHỐI THPT). Empty → landing infers from level.',
+    description:
+      'Landing course label (e.g. KHỐI THPT). Empty → landing infers from level.',
     example: 'KHỐI THPT',
   })
   @IsOptional()

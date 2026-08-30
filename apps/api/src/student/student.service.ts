@@ -471,9 +471,9 @@ export class StudentService {
     return `users/${userId}/${AVATAR_STORAGE_PATH_SEGMENT}`;
   }
 
-  private async withStudentAvatarUrl<
-    T extends { avatarPath?: string | null },
-  >(detail: T) {
+  private async withStudentAvatarUrl<T extends { avatarPath?: string | null }>(
+    detail: T,
+  ) {
     return {
       ...detail,
       avatarUrl: await this.createAvatarSignedUrl(detail.avatarPath),
@@ -927,7 +927,7 @@ export class StudentService {
 
     const canEditProfitPercent = Boolean(
       staff?.roles.includes(StaffRole.admin) ||
-        staff?.roles.includes(StaffRole.assistant),
+      staff?.roles.includes(StaffRole.assistant),
     );
 
     if (!canEditProfitPercent) {
@@ -1415,11 +1415,7 @@ export class StudentService {
         where,
         skip,
         take: limit,
-        orderBy: [
-          { year: 'desc' },
-          { sortOrder: 'asc' },
-          { id: 'asc' },
-        ],
+        orderBy: [{ year: 'desc' }, { sortOrder: 'asc' }, { id: 'asc' }],
         select: {
           id: true,
           award: true,
@@ -1612,8 +1608,7 @@ export class StudentService {
     const student = await this.resolveLinkedUserIdForAvatar(studentId);
     const userId = student.userId!;
     const existingPath = student.user?.avatarPath ?? null;
-    const existingWatermarked =
-      student.user?.avatarWatermarkedPath ?? null;
+    const existingWatermarked = student.user?.avatarWatermarkedPath ?? null;
 
     if (!existingPath && !existingWatermarked) {
       return this.getStudentById(studentId);
@@ -2841,7 +2836,9 @@ export class StudentService {
       return nextStudent;
     });
 
-    return this.withStudentAvatarUrl(this.serializeStudentDetail(updatedStudent));
+    return this.withStudentAvatarUrl(
+      this.serializeStudentDetail(updatedStudent),
+    );
   }
 
   async deleteStudent(id: string, auditActor?: ActionHistoryActor) {

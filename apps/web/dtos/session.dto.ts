@@ -91,6 +91,7 @@ export interface SessionCreatePayload {
   lessonContent: string;
   homework: string;
   tutorial: string;
+  recordingUrl?: string | null;
   teacherPaymentStatus?: string | null;
   /** Coefficient from 0.0 to 1.0. Default 1.0. */
   coefficient?: number;
@@ -112,6 +113,7 @@ export interface SessionUpdatePayload {
   lessonContent?: string;
   homework?: string;
   tutorial?: string;
+  recordingUrl?: string | null;
   teacherPaymentStatus?: string | null;
   coefficient?: number;
   allowanceAmount?: number | null;
@@ -169,6 +171,8 @@ export interface SessionItem {
   googleMeetLink?: string | null;
   /** Google Calendar event ID */
   googleCalendarEventId?: string | null;
+  /** YouTube recording URL */
+  recordingUrl?: string | null;
   trainingManagerAllowanceAmount?: number | null;
   trainingManagerPaymentStatus?: SessionPaymentStatus | null;
   trainingManagerRatePercent?: number | null;

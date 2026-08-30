@@ -67,7 +67,10 @@ export class StudentGalleryController {
   )
   @ApiOperation({ summary: 'List student gallery items' })
   @ApiParam({ name: 'studentId', description: 'Student id (UNIST-…)' })
-  @ApiResponse({ status: 200, description: 'Gallery items ordered by sortOrder.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Gallery items ordered by sortOrder.',
+  })
   list(@Param('studentId', new ParseStudentIdPipe()) studentId: string) {
     return this.galleryService.list(studentId);
   }

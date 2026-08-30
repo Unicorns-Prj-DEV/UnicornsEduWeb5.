@@ -11,17 +11,17 @@ describe('StudentGalleryService.assertCompleteReorder', () => {
   });
 
   it('rejects missing or extra ids', () => {
-    expect(() =>
-      service.assertCompleteReorder(['a', 'b'], ['a']),
-    ).toThrow(BadRequestException);
-    expect(() =>
-      service.assertCompleteReorder(['a'], ['a', 'b']),
-    ).toThrow(BadRequestException);
+    expect(() => service.assertCompleteReorder(['a', 'b'], ['a'])).toThrow(
+      BadRequestException,
+    );
+    expect(() => service.assertCompleteReorder(['a'], ['a', 'b'])).toThrow(
+      BadRequestException,
+    );
   });
 
   it('rejects unknown ids', () => {
-    expect(() =>
-      service.assertCompleteReorder(['a', 'b'], ['a', 'x']),
-    ).toThrow(BadRequestException);
+    expect(() => service.assertCompleteReorder(['a', 'b'], ['a', 'x'])).toThrow(
+      BadRequestException,
+    );
   });
 });
