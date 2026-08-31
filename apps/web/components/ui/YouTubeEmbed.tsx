@@ -25,6 +25,7 @@ import {
   Gauge,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useDevToolsDetector } from "@/lib/useDevToolsDetector";
 
 export type YouTubeEmbedProps = {
   url: string;
@@ -124,6 +125,8 @@ export default function YouTubeEmbed({
   title = "Video bài học",
 }: YouTubeEmbedProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const shadowHostRef = useRef<HTMLDivElement>(null);
+  const shadowRootRef = useRef<ShadowRoot | null>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayerInstance | null>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -152,7 +155,7 @@ export default function YouTubeEmbed({
   const [isHoveringProgressBar, setIsHoveringProgressBar] = useState(false);
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [hoverPosition, setHoverPosition] = useState<number>(0);
-  const [isDevToolsOpen, setIsDevToolsOpen] = useState(false);
+  const isDevToolsOpen = useDevToolsDetector({ enabled: isProtected });
   const [hasError, setHasError] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
@@ -163,77 +166,50 @@ export default function YouTubeEmbed({
       : `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
   }, [videoId, thumbnailError]);
 
-  // DevTools detection & key shortcut blocker
+  // Prevent context menu on protected player
   useEffect(() => {
     if (!isProtected) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // F12
-      if (e.key === "F12" || e.keyCode === 123) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-
-      const isCmdOrCtrl = e.metaKey || e.ctrlKey;
-      const isShift = e.shiftKey;
-      const isAlt = e.altKey;
-      const key = e.key.toLowerCase();
-
-      // Ctrl/Cmd + Shift + I/J/C (Devtools)
-      if (isCmdOrCtrl && isShift && (key === "i" || key === "j" || key === "c")) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-
-      // Ctrl/Cmd + U (View Source), Ctrl/Cmd + S (Save page)
-      if (isCmdOrCtrl && (key === "u" || key === "s")) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-
-      // Cmd + Option + I/J/C/U on Mac
-      if (isCmdOrCtrl && isAlt && (key === "i" || key === "j" || key === "c" || key === "u")) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-    };
-
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
     };
-
-    const checkDevTools = () => {
-      const widthThreshold = window.outerWidth - window.innerWidth > 160;
-      const heightThreshold = window.outerHeight - window.innerHeight > 160;
-      if (widthThreshold || heightThreshold) {
-        setIsDevToolsOpen(true);
-      } else {
-        setIsDevToolsOpen(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown, { capture: true });
-    window.addEventListener("resize", checkDevTools);
-    const interval = setInterval(checkDevTools, 2000);
-
     const container = containerRef.current;
     if (container) {
       container.addEventListener("contextmenu", handleContextMenu);
     }
-
     return () => {
-      window.removeEventListener("keydown", handleKeyDown, { capture: true });
-      window.removeEventListener("resize", checkDevTools);
-      clearInterval(interval);
       if (container) {
         container.removeEventListener("contextmenu", handleContextMenu);
       }
     };
   }, [isProtected]);
+
+  // Adjust state during render when DevTools is opened
+  const [prevDevToolsOpen, setPrevDevToolsOpen] = useState(false);
+  if (isProtected && isDevToolsOpen && !prevDevToolsOpen) {
+    setPrevDevToolsOpen(true);
+    setHasStarted(false);
+    setIsPlaying(false);
+    setIsApiReady(false);
+  } else if (!isDevToolsOpen && prevDevToolsOpen) {
+    setPrevDevToolsOpen(false);
+  }
+
+  // Completely destroy player & remove iframe from DOM when DevTools is opened
+  useEffect(() => {
+    if (isProtected && isDevToolsOpen) {
+      if (playerRef.current) {
+        try {
+          playerRef.current.destroy();
+        } catch {
+          // ignore
+        }
+        playerRef.current = null;
+      }
+      if (shadowRootRef.current) {
+        shadowRootRef.current.innerHTML = "";
+      }
+    }
+  }, [isProtected, isDevToolsOpen]);
 
   // Fullscreen change listener
   useEffect(() => {
@@ -263,19 +239,51 @@ export default function YouTubeEmbed({
     };
   }, [isSettingsOpen]);
 
-  // Initialize YouTube Iframe Player
+  // Adjust state during render when videoId changes
+  const [prevVideoId, setPrevVideoId] = useState(videoId);
+  if (prevVideoId !== videoId) {
+    setPrevVideoId(videoId);
+    setHasStarted(false);
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setThumbnailError(false);
+    setIsApiReady(false);
+  }
+
+  // Initialize YouTube Iframe Player inside Closed Shadow DOM
   useEffect(() => {
-    if (!videoId) return;
+    if (!videoId || !hasStarted) return;
 
     let isMounted = true;
+    const host = shadowHostRef.current;
+    if (!host) return;
+
+    // Attach or reuse closed shadow root
+    if (!shadowRootRef.current) {
+      try {
+        shadowRootRef.current = host.attachShadow({ mode: "closed" });
+      } catch {
+        // shadow root may already be attached
+      }
+    }
+
+    const shadowRoot = shadowRootRef.current;
+    if (!shadowRoot) return;
+
+    // Isolate styles and iframe strictly inside closed shadow tree
+    shadowRoot.innerHTML = `
+      <style>
+        :host { display: block; width: 100%; height: 100%; overflow: hidden; }
+        div, iframe { width: 100% !important; height: 100% !important; border: 0 !important; pointer-events: none !important; display: block !important; }
+      </style>
+      <div id="${playerId}"></div>
+    `;
+
+    const mountTarget = shadowRoot.querySelector(`#${playerId}`);
+    if (!mountTarget) return;
 
     loadYouTubeIframeApi().then(() => {
       if (!isMounted) return;
-
-      setHasStarted(false);
-      setIsPlaying(false);
-      setCurrentTime(0);
-      setThumbnailError(false);
 
       if (playerRef.current) {
         try {
@@ -289,7 +297,7 @@ export default function YouTubeEmbed({
       const YT = (window as unknown as {
         YT: {
           Player: new (
-            id: string,
+            element: HTMLElement | string,
             config: {
               host?: string;
               videoId: string;
@@ -305,11 +313,11 @@ export default function YouTubeEmbed({
         };
       }).YT;
 
-      playerRef.current = new YT.Player(playerId, {
+      playerRef.current = new YT.Player(mountTarget as HTMLElement, {
         host: "https://www.youtube-nocookie.com",
         videoId,
         playerVars: {
-          autoplay: 0,
+          autoplay: 1,
           controls: 0, // Hide all native YouTube controls and links!
           disablekb: 1, // Disable keyboard shortcuts in iframe
           enablejsapi: 1,
@@ -325,7 +333,7 @@ export default function YouTubeEmbed({
         events: {
           onReady: (event) => {
             if (!isMounted) return;
-            const iframe = document.getElementById(playerId) as HTMLIFrameElement | null;
+            const iframe = shadowRoot.querySelector("iframe");
             if (iframe) {
               iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-presentation");
               iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
@@ -338,6 +346,7 @@ export default function YouTubeEmbed({
             setDuration(event.target.getDuration() || 0);
             setVolume(event.target.getVolume() || 100);
             setIsMuted(event.target.isMuted() || false);
+            event.target.playVideo();
           },
           onStateChange: (event) => {
             if (!isMounted) return;
@@ -378,7 +387,7 @@ export default function YouTubeEmbed({
         playerRef.current = null;
       }
     };
-  }, [videoId, playerId]);
+  }, [videoId, playerId, hasStarted]);
 
   // Poll video progress when playing
   useEffect(() => {
@@ -416,6 +425,7 @@ export default function YouTubeEmbed({
   const togglePlayPause = useCallback(() => {
     if (!hasStarted) {
       setHasStarted(true);
+      return;
     }
     if (!playerRef.current) return;
     if (isPlaying) {
@@ -593,9 +603,14 @@ export default function YouTubeEmbed({
     >
       {/* 16:9 Video Canvas - centered with letterboxing */}
       <div className="relative w-full aspect-video max-w-full max-h-full flex items-center justify-center overflow-hidden">
-        {/* Underlying YouTube iframe */}
-        <div className="absolute inset-0 w-full h-full pointer-events-none">
-          <div id={playerId} className="w-full h-full pointer-events-none" />
+        {/* Underlying YouTube iframe enclosed in Closed Shadow DOM */}
+        <div
+          className={cn(
+            "absolute inset-0 w-full h-full pointer-events-none transition-opacity duration-200",
+            isProtected && isDevToolsOpen ? "invisible opacity-0 pointer-events-none" : "visible opacity-100",
+          )}
+        >
+          <div ref={shadowHostRef} className="w-full h-full pointer-events-none" />
         </div>
 
         {/* Clean Custom Poster Cover */}
@@ -652,7 +667,9 @@ export default function YouTubeEmbed({
       <div
         className={cn(
           "pointer-events-none absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-black/70 to-transparent z-20 transition-opacity duration-300",
-          showControls || !isPlaying ? "opacity-100" : "opacity-0",
+          (showControls || !isPlaying) && !(isProtected && isDevToolsOpen)
+            ? "opacity-100"
+            : "opacity-0",
         )}
       >
         <div className="p-4">
@@ -666,7 +683,9 @@ export default function YouTubeEmbed({
       <div
         className={cn(
           "absolute bottom-0 left-0 right-0 z-25 bg-gradient-to-t from-black/90 via-black/60 to-transparent px-3 sm:px-5 pb-3 pt-8 transition-opacity duration-300",
-          showControls || !isPlaying ? "opacity-100" : "opacity-0 pointer-events-none",
+          (showControls || !isPlaying) && !(isProtected && isDevToolsOpen)
+            ? "opacity-100"
+            : "opacity-0 pointer-events-none",
         )}
         onClick={(e) => e.stopPropagation()}
       >
@@ -851,7 +870,7 @@ export default function YouTubeEmbed({
 
       {/* DevTools detected warning overlay */}
       {isProtected && isDevToolsOpen && (
-        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-bg-primary/95 p-6 text-center backdrop-blur-md">
+        <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/95 p-6 text-center backdrop-blur-md animate-in fade-in duration-200">
           <div className="size-12 rounded-full bg-warning/10 text-warning flex items-center justify-center mb-3">
             <svg className="size-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -862,10 +881,10 @@ export default function YouTubeEmbed({
               />
             </svg>
           </div>
-          <p className="text-sm font-semibold text-text-primary">
+          <p className="text-sm font-semibold text-white">
             Nội dung bài học được bảo vệ bản quyền
           </p>
-          <p className="mt-1 text-xs text-text-muted max-w-sm">
+          <p className="mt-1 text-xs text-white/70 max-w-sm">
             Vui lòng đóng công cụ kiểm tra (Developer Tools) để tiếp tục xem video bài giảng.
           </p>
         </div>
