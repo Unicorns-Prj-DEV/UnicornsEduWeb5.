@@ -3055,9 +3055,10 @@ export default function SessionHistoryTable({
                       ) : null}
                     </label>
 
-                    <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
-                      <span>Link video YouTube (recording)</span>
+                    <div className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
+                      <label htmlFor="edit-session-recording-url">Link video YouTube (recording)</label>
                       <input
+                        id="edit-session-recording-url"
                         type="url"
                         value={editRecordingUrl}
                         onChange={(e) => setEditRecordingUrl(e.target.value)}
@@ -3074,7 +3075,7 @@ export default function SessionHistoryTable({
                           />
                         </div>
                       )}
-                    </label>
+                    </div>
 
                     <SessionCopyCommentButton text={zaloCommentText} />
         </SessionFormDialogBody>

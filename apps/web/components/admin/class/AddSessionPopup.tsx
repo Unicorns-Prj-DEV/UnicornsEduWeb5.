@@ -947,11 +947,12 @@ export default function AddSessionPopup({
                     ) : null}
                   </label>
 
-                  <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
-                    <span>
+                  <div className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
+                    <label htmlFor="add-session-recording-url">
                       Link video YouTube (recording)
-                    </span>
+                    </label>
                     <input
+                      id="add-session-recording-url"
                       type="url"
                       value={recordingUrl}
                       onChange={(e) => setRecordingUrl(e.target.value)}
@@ -967,7 +968,7 @@ export default function AddSessionPopup({
                         />
                       </div>
                     )}
-                  </label>
+                  </div>
 
                   <SessionCopyCommentButton text={zaloCommentText} />
         </SessionFormDialogBody>

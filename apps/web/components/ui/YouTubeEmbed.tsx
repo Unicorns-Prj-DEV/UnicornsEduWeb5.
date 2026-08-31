@@ -25,7 +25,7 @@ import {
   Gauge,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useDevToolsDetector } from "@/lib/useDevToolsDetector";
+import { useDevToolsDetector, nukeProtectedMedia } from "@/lib/useDevToolsDetector";
 
 export type YouTubeEmbedProps = {
   url: string;
@@ -152,8 +152,6 @@ export default function YouTubeEmbed({
   title = "Video bài học",
 }: YouTubeEmbedProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const shadowHostRef = useRef<HTMLDivElement>(null);
-  const shadowRootRef = useRef<ShadowRoot | null>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayerInstance | null>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -193,23 +191,6 @@ export default function YouTubeEmbed({
       : `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
   }, [videoId, thumbnailError]);
 
-  // Prevent context menu on protected player
-  useEffect(() => {
-    if (!isProtected) return;
-    const handleContextMenu = (e: MouseEvent) => {
-      e.preventDefault();
-    };
-    const container = containerRef.current;
-    if (container) {
-      container.addEventListener("contextmenu", handleContextMenu);
-    }
-    return () => {
-      if (container) {
-        container.removeEventListener("contextmenu", handleContextMenu);
-      }
-    };
-  }, [isProtected]);
-
   // Adjust state during render when DevTools is opened
   const [prevDevToolsOpen, setPrevDevToolsOpen] = useState(false);
   if (isProtected && isDevToolsOpen && !prevDevToolsOpen) {
@@ -217,13 +198,12 @@ export default function YouTubeEmbed({
     setHasStarted(false);
     setIsPlaying(false);
     setIsApiReady(false);
-  } else if (!isDevToolsOpen && prevDevToolsOpen) {
-    setPrevDevToolsOpen(false);
   }
 
-  // Completely destroy player & remove iframe from DOM when DevTools is opened
+  // Completely destroy player and wipe iframe from DOM when DevTools is opened
   useEffect(() => {
     if (isProtected && isDevToolsOpen) {
+      nukeProtectedMedia();
       if (playerRef.current) {
         try {
           playerRef.current.destroy();
@@ -232,9 +212,6 @@ export default function YouTubeEmbed({
         }
         playerRef.current = null;
       }
-      if (shadowRootRef.current) {
-        shadowRootRef.current.innerHTML = "";
-      }
     }
   }, [isProtected, isDevToolsOpen]);
 
@@ -242,10 +219,7 @@ export default function YouTubeEmbed({
   useEffect(() => {
     const handleFullscreenChange = () => {
       const activeFullscreen = Boolean(getFullscreenElement());
-      if (activeFullscreen) {
-        setIsFullscreen(true);
-      } else if (document.fullscreenElement === null) {
-        // Only set to false if native fullscreen was actively exited
+      if (!activeFullscreen) {
         setIsFullscreen(false);
       }
     };
@@ -284,7 +258,7 @@ export default function YouTubeEmbed({
     };
   }, [isSettingsOpen]);
 
-  // Adjust state during render when videoId changes
+  // Adjust state when videoId changes
   const [prevVideoId, setPrevVideoId] = useState(videoId);
   if (prevVideoId !== videoId) {
     setPrevVideoId(videoId);
@@ -295,37 +269,11 @@ export default function YouTubeEmbed({
     setIsApiReady(false);
   }
 
-  // Initialize YouTube Iframe Player inside Closed Shadow DOM
+  // Initialize YouTube Iframe Player
   useEffect(() => {
-    if (!videoId || !hasStarted) return;
+    if (!videoId || !hasStarted || (isProtected && isDevToolsOpen)) return;
 
     let isMounted = true;
-    const host = shadowHostRef.current;
-    if (!host) return;
-
-    // Attach or reuse closed shadow root
-    if (!shadowRootRef.current) {
-      try {
-        shadowRootRef.current = host.attachShadow({ mode: "closed" });
-      } catch {
-        // shadow root may already be attached
-      }
-    }
-
-    const shadowRoot = shadowRootRef.current;
-    if (!shadowRoot) return;
-
-    // Isolate styles and iframe strictly inside closed shadow tree
-    shadowRoot.innerHTML = `
-      <style>
-        :host { display: block; width: 100%; height: 100%; overflow: hidden; }
-        div, iframe { width: 100% !important; height: 100% !important; border: 0 !important; pointer-events: none !important; display: block !important; }
-      </style>
-      <div id="${playerId}"></div>
-    `;
-
-    const mountTarget = shadowRoot.querySelector(`#${playerId}`);
-    if (!mountTarget) return;
 
     loadYouTubeIframeApi().then(() => {
       if (!isMounted) return;
@@ -358,35 +306,28 @@ export default function YouTubeEmbed({
         };
       }).YT;
 
-      playerRef.current = new YT.Player(mountTarget as HTMLElement, {
+      const targetEl = document.getElementById(playerId);
+      if (!targetEl) return;
+
+      playerRef.current = new YT.Player(targetEl, {
         host: "https://www.youtube-nocookie.com",
         videoId,
         playerVars: {
           autoplay: 1,
-          controls: 0, // Hide all native YouTube controls and links!
-          disablekb: 1, // Disable keyboard shortcuts in iframe
+          controls: 0,
+          disablekb: 1,
           enablejsapi: 1,
-          fs: 0, // Hide YouTube native fullscreen
-          iv_load_policy: 3, // Hide video annotations
+          fs: 0,
+          iv_load_policy: 3,
           modestbranding: 1,
           playsinline: 1,
-          rel: 0, // Avoid external related videos
-          cc_load_policy: 0, // Default subtitle off
+          rel: 0,
           origin: typeof window !== "undefined" ? window.location.origin : undefined,
           widget_referrer: typeof window !== "undefined" ? window.location.origin : undefined,
         },
         events: {
           onReady: (event) => {
             if (!isMounted) return;
-            const iframe = shadowRoot.querySelector("iframe");
-            if (iframe) {
-              iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-presentation");
-              iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
-              iframe.setAttribute(
-                "allow",
-                "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture",
-              );
-            }
             setIsApiReady(true);
             setDuration(event.target.getDuration() || 0);
             setVolume(event.target.getVolume() || 100);
@@ -432,7 +373,7 @@ export default function YouTubeEmbed({
         playerRef.current = null;
       }
     };
-  }, [videoId, playerId, hasStarted]);
+  }, [videoId, playerId, hasStarted, isProtected, isDevToolsOpen]);
 
   // Poll video progress when playing
   useEffect(() => {
@@ -459,11 +400,11 @@ export default function YouTubeEmbed({
     if (isPlaying && !isSettingsOpen) {
       controlsTimeoutRef.current = setTimeout(() => {
         setShowControls(false);
-      }, 3000);
+      }, 3500);
     }
   }, [isPlaying, isSettingsOpen]);
 
-  const handleMouseMove = useCallback(() => {
+  const handleUserActivity = useCallback(() => {
     resetControlsTimeout();
   }, [resetControlsTimeout]);
 
@@ -553,10 +494,9 @@ export default function YouTubeEmbed({
     const container = containerRef.current as FullscreenElement | null;
     if (!container) return;
 
-    const currentFs = getFullscreenElement();
-
-    if (!currentFs && !isFullscreen) {
-      // Try native standard / webkit / moz / ms fullscreen first
+    if (!isFullscreen) {
+      setIsFullscreen(true);
+      // Attempt native fullscreen if supported by platform
       const requestFn =
         container.requestFullscreen ||
         container.webkitRequestFullscreen ||
@@ -565,53 +505,35 @@ export default function YouTubeEmbed({
 
       if (typeof requestFn === "function") {
         try {
-          const promise = requestFn.call(container);
-          if (promise && typeof promise.then === "function") {
-            promise
-              .then(() => {
-                setIsFullscreen(true);
-              })
-              .catch(() => {
-                // Fallback to CSS Fullscreen (e.g. iOS / modal restrictions)
-                setIsFullscreen(true);
-              });
-          } else {
-            setIsFullscreen(true);
-          }
+          requestFn.call(container);
         } catch {
-          // Synchronous failure fallback (e.g. iOS Safari)
-          setIsFullscreen(true);
+          // ignore error, CSS fullscreen handles it
         }
-      } else {
-        // No native API (e.g. iPhone Safari) -> fallback to CSS fullscreen
-        setIsFullscreen(true);
       }
     } else {
-      // Exit fullscreen
-      const doc = document as FullscreenDocument;
-      const exitFn =
-        doc.exitFullscreen ||
-        doc.webkitExitFullscreen ||
-        doc.mozCancelFullScreen ||
-        doc.msExitFullscreen;
+      setIsFullscreen(false);
+      // Attempt native exit if in native fullscreen
+      const currentFs = getFullscreenElement();
+      if (currentFs) {
+        const doc = document as FullscreenDocument;
+        const exitFn =
+          doc.exitFullscreen ||
+          doc.webkitExitFullscreen ||
+          doc.mozCancelFullScreen ||
+          doc.msExitFullscreen;
 
-      if (currentFs && typeof exitFn === "function") {
-        try {
-          const promise = exitFn.call(doc);
-          if (promise && typeof promise.catch === "function") {
-            promise.catch(() => {
-              setIsFullscreen(false);
-            });
+        if (typeof exitFn === "function") {
+          try {
+            exitFn.call(doc);
+          } catch {
+            // ignore
           }
-        } catch {
-          setIsFullscreen(false);
         }
       }
-      setIsFullscreen(false);
     }
   }, [isFullscreen]);
 
-  // Lock body scroll and handle Escape key when fullscreen is active
+  // Lock body scroll and handle Escape key when in Fullscreen mode
   useEffect(() => {
     if (!isFullscreen) return;
 
@@ -620,7 +542,7 @@ export default function YouTubeEmbed({
 
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" || e.key === "Esc") {
-        toggleFullscreen();
+        setIsFullscreen(false);
       }
     };
 
@@ -629,7 +551,7 @@ export default function YouTubeEmbed({
       document.body.style.overflow = originalOverflow;
       window.removeEventListener("keydown", handleGlobalKeyDown);
     };
-  }, [isFullscreen, toggleFullscreen]);
+  }, [isFullscreen]);
 
   const handlePreventContextMenu = useCallback((e: ReactMouseEvent) => {
     e.preventDefault();
@@ -667,7 +589,7 @@ export default function YouTubeEmbed({
         case "escape":
           if (isFullscreen) {
             e.preventDefault();
-            toggleFullscreen();
+            setIsFullscreen(false);
           }
           break;
         case "arrowup":
@@ -687,7 +609,7 @@ export default function YouTubeEmbed({
     return (
       <div
         className={cn(
-          "flex flex-col items-center justify-center rounded-xl border border-dashed border-border-default bg-bg-secondary/40 text-xs text-text-muted p-6 text-center",
+          "flex flex-col items-center justify-center rounded-xl border border-dashed border-border-default bg-bg-secondary/40 text-xs text-text-muted p-6 text-center aspect-video",
           className,
         )}
       >
@@ -695,6 +617,43 @@ export default function YouTubeEmbed({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
         </svg>
         <span>{hasError ? "Không thể tải video bài giảng." : "Link video không hợp lệ hoặc chưa được cập nhật."}</span>
+      </div>
+    );
+  }
+
+  // If DevTools is open on a protected video, completely remove player from DOM
+  if (isProtected && isDevToolsOpen) {
+    return (
+      <div
+        className={cn(
+          "relative overflow-hidden rounded-xl bg-black aspect-video flex flex-col items-center justify-center p-6 text-center select-none shadow-md",
+          className,
+        )}
+      >
+        <div className="size-12 rounded-full bg-warning/10 text-warning flex items-center justify-center mb-3">
+          <svg className="size-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
+          </svg>
+        </div>
+        <p className="text-sm font-semibold text-white">
+          Nội dung video được bảo vệ bản quyền
+        </p>
+        <p className="mt-1 text-xs text-white/70 max-w-sm">
+          Vui lòng đóng công cụ kiểm tra (Developer Tools) và tải lại trang để tiếp tục xem video bài giảng.
+        </p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mt-3.5 inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-white bg-white/15 hover:bg-white/25 rounded-lg transition-colors cursor-pointer border border-white/20 active:scale-95"
+        >
+          <RotateCw className="size-3.5" />
+          Tải lại trang
+        </button>
       </div>
     );
   }
@@ -707,33 +666,35 @@ export default function YouTubeEmbed({
       ref={containerRef}
       tabIndex={0}
       onKeyDown={handleKeyDown}
-      onMouseMove={handleMouseMove}
+      onMouseMove={handleUserActivity}
+      onTouchStart={handleUserActivity}
       onMouseLeave={() => isPlaying && setShowControls(false)}
       onContextMenu={handlePreventContextMenu}
       className={cn(
         "group relative overflow-hidden bg-black select-none outline-none transition-all flex items-center justify-center",
         isFullscreen
-          ? "fixed inset-0 z-[99999] h-[100dvh] w-screen rounded-none"
-          : "rounded-xl shadow-md",
+          ? "!fixed !inset-0 !z-[99999999] !h-[100dvh] !w-screen !max-w-none !max-h-none !rounded-none !m-0 !p-0"
+          : cn("rounded-xl shadow-md", className),
         !showControls && isPlaying ? "cursor-none" : "cursor-default",
-        className,
       )}
       style={{ userSelect: "none", WebkitUserSelect: "none" }}
       aria-label={title}
     >
-      {/* 16:9 Video Canvas - centered with letterboxing */}
-      <div className="relative w-full aspect-video max-w-full max-h-full flex items-center justify-center overflow-hidden">
-        {/* Underlying YouTube iframe enclosed in Closed Shadow DOM */}
-        <div
-          className={cn(
-            "absolute inset-0 w-full h-full pointer-events-none transition-opacity duration-200",
-            isProtected && isDevToolsOpen ? "invisible opacity-0 pointer-events-none" : "visible opacity-100",
-          )}
-        >
-          <div ref={shadowHostRef} className="w-full h-full pointer-events-none" />
+      {/* Video Canvas */}
+      <div
+        className={cn(
+          "relative flex items-center justify-center overflow-hidden",
+          isFullscreen
+            ? "w-full h-full max-w-[100vw] max-h-[100dvh] aspect-video"
+            : "w-full aspect-video",
+        )}
+      >
+        {/* Underlying YouTube iframe target */}
+        <div className="yt-protected-media w-full h-full pointer-events-none [&_iframe]:!w-full [&_iframe]:!h-full [&_iframe]:!border-0 [&_iframe]:!pointer-events-none [&_iframe]:!block">
+          <div id={playerId} className="w-full h-full pointer-events-none" />
         </div>
 
-        {/* Clean Custom Poster Cover */}
+        {/* Custom Poster Cover */}
         {!hasStarted && (
           <div
             onClick={togglePlayPause}
@@ -753,7 +714,7 @@ export default function YouTubeEmbed({
           </div>
         )}
 
-        {/* Transparent click shield covering the full video canvas */}
+        {/* Transparent Click Shield covering the full video canvas */}
         <div
           className="absolute inset-0 z-10 bg-transparent cursor-pointer"
           onClick={togglePlayPause}
@@ -786,92 +747,103 @@ export default function YouTubeEmbed({
       {/* Top Gradient Overlay */}
       <div
         className={cn(
-          "pointer-events-none absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-black/70 to-transparent z-20 transition-opacity duration-300",
-          (showControls || !isPlaying) && !(isProtected && isDevToolsOpen)
-            ? "opacity-100"
-            : "opacity-0",
+          "pointer-events-none absolute top-0 left-0 right-0 z-30 transition-opacity duration-300 flex items-start justify-between bg-gradient-to-b from-black/80 via-black/40 to-transparent",
+          isFullscreen
+            ? "p-4 pt-[max(1rem,env(safe-area-inset-top))] px-[max(1rem,env(safe-area-inset-left))]"
+            : "p-3 sm:p-4",
+          showControls || !isPlaying ? "opacity-100" : "opacity-0",
         )}
       >
-        <div className="p-4">
-          <p className="text-xs sm:text-sm font-medium text-white/90 truncate drop-shadow-md">
-            {title}
-          </p>
-        </div>
+        <p className="text-xs sm:text-sm font-medium text-white/90 truncate drop-shadow-md pr-12">
+          {title}
+        </p>
+
+        {/* Floating Quick Fullscreen Toggle (Visible on mobile/tablets or during fullscreen) */}
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          className="pointer-events-auto flex size-8 items-center justify-center rounded-lg bg-black/60 text-white backdrop-blur-md transition-all hover:bg-black/80 hover:scale-105 active:scale-95 border border-white/20 shadow-md"
+          title={isFullscreen ? "Thoát toàn màn hình" : "Toàn màn hình"}
+          aria-label={isFullscreen ? "Thoát toàn màn hình" : "Toàn màn hình"}
+        >
+          {isFullscreen ? (
+            <Minimize className="size-4" />
+          ) : (
+            <Maximize className="size-4" />
+          )}
+        </button>
       </div>
 
-      {/* Bottom Custom Control Bar */}
+      {/* Bottom Control Bar Overlay */}
       <div
         className={cn(
-          "absolute bottom-0 left-0 right-0 z-25 bg-gradient-to-t from-black/90 via-black/60 to-transparent px-3 sm:px-5 pb-3 pt-8 transition-opacity duration-300",
-          (showControls || !isPlaying) && !(isProtected && isDevToolsOpen)
-            ? "opacity-100"
+          "absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent z-30 transition-opacity duration-300",
+          isFullscreen
+            ? "p-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] px-[max(1rem,env(safe-area-inset-left))]"
+            : "p-3 sm:p-4",
+          showControls || !isPlaying
+            ? "opacity-100 pointer-events-auto"
             : "opacity-0 pointer-events-none",
         )}
-        onClick={(e) => e.stopPropagation()}
       >
-        {/* Progress Bar / Scrubber */}
+        {/* Progress Scrubber Bar */}
         <div
           ref={progressBarRef}
           onClick={handleSeek}
           onMouseMove={handleProgressBarMouseMove}
           onMouseEnter={() => setIsHoveringProgressBar(true)}
           onMouseLeave={() => setIsHoveringProgressBar(false)}
-          className="group/track relative mb-3 flex h-3 w-full cursor-pointer items-center"
+          className="group/bar relative mb-3 h-2 sm:h-2.5 w-full cursor-pointer rounded-full bg-white/25 transition-all hover:h-3"
         >
-          {/* Background track */}
-          <div className="h-1 w-full rounded-full bg-white/25 transition-all group-hover/track:h-2">
-            {/* Loaded/Buffered bar */}
-            <div
-              className="h-full rounded-full bg-white/40 transition-all duration-150"
-              style={{ width: `${loadedPercent}%` }}
-            />
-          </div>
-
-          {/* Played bar */}
-          <div
-            className="absolute top-1/2 left-0 h-1 -translate-y-1/2 rounded-full bg-primary transition-all group-hover/track:h-2"
-            style={{ width: `${progressPercent}%` }}
-          />
-
-          {/* Scrubber thumb */}
-          <div
-            className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-md transition-transform scale-0 group-hover/track:scale-100 border border-black/20"
-            style={{ left: `${progressPercent}%` }}
-          />
-
-          {/* Hover timestamp tooltip */}
+          {/* Hover Time Tooltip */}
           {isHoveringProgressBar && hoverTime !== null && (
             <div
-              className="absolute -top-7 -translate-x-1/2 rounded bg-black/90 px-2 py-0.5 text-[10px] font-mono text-white shadow-md pointer-events-none border border-white/10"
+              className="absolute -top-7 -translate-x-1/2 rounded bg-black/80 px-2 py-0.5 text-[10px] font-semibold text-white pointer-events-none backdrop-blur-xs border border-white/10"
               style={{ left: `${hoverPosition}px` }}
             >
               {formatTime(hoverTime)}
             </div>
           )}
+
+          {/* Buffer Bar */}
+          <div
+            className="absolute left-0 top-0 h-full rounded-full bg-white/30"
+            style={{ width: `${Math.min(100, Math.max(0, loadedPercent))}%` }}
+          />
+
+          {/* Played Bar */}
+          <div
+            className="absolute left-0 top-0 h-full rounded-full bg-primary transition-[width] duration-75"
+            style={{ width: `${Math.min(100, Math.max(0, progressPercent))}%` }}
+          >
+            {/* Scrubber Knob */}
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 size-3 sm:size-3.5 rounded-full bg-white shadow-md scale-0 group-hover/bar:scale-100 transition-transform" />
+          </div>
         </div>
 
-        {/* Buttons and Time */}
+        {/* Controls Rows */}
         <div className="flex items-center justify-between gap-2 text-white">
-          {/* Left: Play/Pause, Skip 10s, Volume, Time */}
+          {/* Left Controls: Play, Skips, Volume, Timer */}
           <div className="flex items-center gap-1.5 sm:gap-3">
             <button
               type="button"
               onClick={togglePlayPause}
-              className="flex size-8 sm:size-9 items-center justify-center rounded-lg hover:bg-white/20 transition-colors focus:outline-none"
+              className="rounded-lg p-1.5 hover:bg-white/15 transition-colors focus:outline-none"
+              title={isPlaying ? "Tạm dừng (k/space)" : "Phát (k/space)"}
               aria-label={isPlaying ? "Tạm dừng" : "Phát"}
             >
               {isPlaying ? (
                 <Pause className="size-5 fill-white" />
               ) : (
-                <Play className="size-5 fill-white" />
+                <Play className="size-5 fill-white translate-x-0.5" />
               )}
             </button>
 
             <button
               type="button"
               onClick={() => skipSeconds(-10)}
-              className="flex size-8 sm:size-9 items-center justify-center rounded-lg hover:bg-white/20 transition-colors focus:outline-none"
-              title="Lùi 10 giây (j)"
+              className="hidden sm:flex rounded-lg p-1.5 hover:bg-white/15 transition-colors focus:outline-none"
+              title="Lùi 10 giây (j/←)"
               aria-label="Lùi 10 giây"
             >
               <RotateCcw className="size-4" />
@@ -880,24 +852,24 @@ export default function YouTubeEmbed({
             <button
               type="button"
               onClick={() => skipSeconds(10)}
-              className="flex size-8 sm:size-9 items-center justify-center rounded-lg hover:bg-white/20 transition-colors focus:outline-none"
-              title="Tua 10 giây (l)"
+              className="hidden sm:flex rounded-lg p-1.5 hover:bg-white/15 transition-colors focus:outline-none"
+              title="Tua 10 giây (l/→)"
               aria-label="Tua 10 giây"
             >
               <RotateCw className="size-4" />
             </button>
 
-            {/* Volume control with hover slider */}
-            <div className="group/vol relative flex items-center">
+            {/* Volume Control */}
+            <div className="group/vol flex items-center gap-1">
               <button
                 type="button"
                 onClick={toggleMute}
-                className="flex size-8 sm:size-9 items-center justify-center rounded-lg hover:bg-white/20 transition-colors focus:outline-none"
-                aria-label={isMuted ? "Bật âm thanh" : "Tắt âm thanh"}
-                title={isMuted ? "Bật âm thanh (m)" : "Tắt âm thanh (m)"}
+                className="rounded-lg p-1.5 hover:bg-white/15 transition-colors focus:outline-none"
+                title={isMuted || volume === 0 ? "Bật âm thanh (m)" : "Tắt âm thanh (m)"}
+                aria-label={isMuted || volume === 0 ? "Bật âm thanh" : "Tắt âm thanh"}
               >
                 {isMuted || volume === 0 ? (
-                  <VolumeX className="size-5" />
+                  <VolumeX className="size-5 text-white/80" />
                 ) : volume < 50 ? (
                   <Volume1 className="size-5" />
                 ) : (
@@ -905,64 +877,66 @@ export default function YouTubeEmbed({
                 )}
               </button>
 
-              <div className="hidden sm:flex items-center w-0 overflow-hidden group-hover/vol:w-20 transition-all duration-200 pl-1">
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={isMuted ? 0 : volume}
-                  onChange={(e) => handleVolumeChange(Number(e.target.value))}
-                  className="h-1.5 w-full cursor-pointer accent-primary bg-white/30 rounded-lg"
-                  aria-label="Âm lượng"
-                />
-              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={isMuted ? 0 : volume}
+                onChange={(e) => handleVolumeChange(Number(e.target.value))}
+                className="w-0 sm:w-16 h-1.5 cursor-pointer accent-primary bg-white/30 rounded-lg appearance-none transition-all group-hover/vol:w-16 focus:w-16 focus:outline-none"
+                aria-label="Âm lượng"
+              />
             </div>
 
-            {/* Time display */}
-            <div className="text-[11px] sm:text-xs font-mono text-white/80 select-none pl-1">
+            {/* Current / Duration Timer */}
+            <div className="ml-1 text-[11px] sm:text-xs font-medium text-white/90 tabular-nums select-none">
               <span>{formatTime(currentTime)}</span>
-              <span className="mx-1 text-white/40">/</span>
+              <span className="mx-1 text-white/50">/</span>
               <span>{formatTime(duration)}</span>
             </div>
           </div>
 
-          {/* Right: Settings (Speed), Fullscreen */}
+          {/* Right Controls: Speed Settings, Fullscreen */}
           <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Settings Popover Menu */}
-            <div ref={settingsMenuRef} className="relative">
+            {/* Speed Settings Popover */}
+            <div className="relative" ref={settingsMenuRef}>
               <button
                 type="button"
-                onClick={() => setIsSettingsOpen((prev) => !prev)}
+                onClick={() => setIsSettingsOpen(!isSettingsOpen)}
                 className={cn(
-                  "flex size-8 sm:size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/20 focus:outline-none",
-                  isSettingsOpen && "bg-white/20 text-primary",
+                  "rounded-lg p-1.5 transition-colors focus:outline-none flex items-center gap-1 text-xs font-semibold px-2",
+                  isSettingsOpen || playbackSpeed !== 1
+                    ? "bg-primary text-white"
+                    : "hover:bg-white/15 text-white/90",
                 )}
+                title="Tốc độ phát"
                 aria-label="Tốc độ phát"
-                title={`Tốc độ phát (${playbackSpeed}x)`}
               >
-                <Settings className="size-4 sm:size-4.5" />
+                <Gauge className="size-4" />
+                <span className="tabular-nums text-[11px]">{playbackSpeed}x</span>
               </button>
 
               {isSettingsOpen && (
-                <div className="absolute bottom-full right-0 mb-2 w-48 rounded-2xl border border-white/15 bg-neutral-900/95 p-2 shadow-2xl backdrop-blur-md z-30 animate-in fade-in zoom-in-95 duration-150">
-                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/50 border-b border-white/10 mb-1">
-                    <Gauge className="size-3.5 text-white/70" />
-                    <span>Tốc độ phát</span>
+                <div className="absolute bottom-full right-0 mb-2 w-36 rounded-xl bg-black/90 p-1.5 shadow-2xl backdrop-blur-md border border-white/15 text-xs text-white z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-2 py-1 font-bold text-white/60 text-[10px] uppercase tracking-wider border-b border-white/10 mb-1 flex items-center gap-1">
+                    <Settings className="size-3" />
+                    Tốc độ phát
                   </div>
-
-                  <div className="max-h-60 overflow-y-auto space-y-0.5 pr-0.5">
+                  <div className="space-y-0.5">
                     {PLAYBACK_SPEEDS.map((speed) => (
                       <button
                         key={speed}
                         type="button"
                         onClick={() => changePlaybackSpeed(speed)}
                         className={cn(
-                          "flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-white/90 hover:bg-white/10 transition-colors",
-                          playbackSpeed === speed && "text-primary font-bold bg-white/10",
+                          "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left transition-colors font-medium",
+                          playbackSpeed === speed
+                            ? "bg-primary text-white font-semibold"
+                            : "hover:bg-white/15 text-white/80",
                         )}
                       >
-                        <span>{speed === 1 ? "1x (Chuẩn)" : `${speed}x`}</span>
-                        {playbackSpeed === speed && <Check className="size-3.5 text-primary" />}
+                        <span>{speed === 1 ? "1.0x (Chuẩn)" : `${speed}x`}</span>
+                        {playbackSpeed === speed && <Check className="size-3.5" />}
                       </button>
                     ))}
                   </div>
@@ -970,45 +944,23 @@ export default function YouTubeEmbed({
               )}
             </div>
 
-            {/* Fullscreen Button */}
+            {/* Fullscreen Toggle Button */}
             <button
               type="button"
               onClick={toggleFullscreen}
-              className="flex size-8 sm:size-9 items-center justify-center rounded-lg hover:bg-white/20 transition-colors focus:outline-none"
-              aria-label={isFullscreen ? "Thoát toàn màn hình (f)" : "Toàn màn hình (f)"}
-              title={isFullscreen ? "Thoát toàn màn hình (f)" : "Toàn màn hình (f)"}
+              className="rounded-lg p-1.5 hover:bg-white/15 transition-colors focus:outline-none"
+              title={isFullscreen ? "Thoát toàn màn hình (f/Esc)" : "Toàn màn hình (f)"}
+              aria-label={isFullscreen ? "Thoát toàn màn hình" : "Toàn màn hình"}
             >
               {isFullscreen ? (
-                <Minimize className="size-4 sm:size-5" />
+                <Minimize className="size-5" />
               ) : (
-                <Maximize className="size-4 sm:size-5" />
+                <Maximize className="size-5" />
               )}
             </button>
           </div>
         </div>
       </div>
-
-      {/* DevTools detected warning overlay */}
-      {isProtected && isDevToolsOpen && (
-        <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/95 p-6 text-center backdrop-blur-md animate-in fade-in duration-200">
-          <div className="size-12 rounded-full bg-warning/10 text-warning flex items-center justify-center mb-3">
-            <svg className="size-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
-          </div>
-          <p className="text-sm font-semibold text-white">
-            Nội dung bài học được bảo vệ bản quyền
-          </p>
-          <p className="mt-1 text-xs text-white/70 max-w-sm">
-            Vui lòng đóng công cụ kiểm tra (Developer Tools) để tiếp tục xem video bài giảng.
-          </p>
-        </div>
-      )}
     </div>
   );
 }
