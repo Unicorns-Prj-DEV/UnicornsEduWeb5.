@@ -37,6 +37,7 @@ import {
   type SurveyListDto,
   type SurveyMissingClassListDto,
   type SurveyRecord,
+  type SurveyReportedClassListDto,
   UpdateSurveyDto,
 } from 'src/dtos/survey.dto';
 import { SurveyRoundService } from './survey-round.service';
@@ -193,6 +194,24 @@ export class SurveysController {
     @Query() query: PaginationQueryDto,
   ): Promise<SurveyMissingClassListDto> {
     return this.surveyService.getMissingClasses(id, {
+      page: query.page,
+      limit: query.limit,
+    });
+  }
+
+  @Get(':id/reported-classes')
+  @ApiOperation({
+    summary: 'List running classes that reported for this survey',
+  })
+  @ApiParam({ name: 'id', description: 'Survey id' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
+  @ApiResponse({ status: 200, description: 'Paginated reported-class rows.' })
+  async getReportedClasses(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query() query: PaginationQueryDto,
+  ): Promise<SurveyReportedClassListDto> {
+    return this.surveyService.getReportedClasses(id, {
       page: query.page,
       limit: query.limit,
     });

@@ -7,6 +7,8 @@ import {
   TrashIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -36,10 +38,15 @@ import {
   buildSurveyZaloMessage,
   copyTextToClipboard,
 } from "@/lib/survey-notification";
+import {
+  buildAdminLikePath,
+  resolveAdminLikeRouteBase,
+} from "@/lib/admin-shell-paths";
 import { classCategoryKeys } from "@/lib/query-keys";
 import type {
   CreateSurveyPayload,
   SurveyRecord,
+  SurveyReportedClass,
   UpdateSurveyPayload,
 } from "@/dtos/survey.dto";
 import { cn } from "@/lib/utils";
@@ -115,6 +122,10 @@ export default function SurveysManager() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingSurvey, setEditingSurvey] = useState<SurveyRecord | null>(null);
   const [deletingSurvey, setDeletingSurvey] = useState<SurveyRecord | null>(null);
+  const [viewingClasses, setViewingClasses] = useState<{
+    survey: SurveyRecord;
+    tab: "reported" | "missing";
+  } | null>(null);
 
   const listQuery = useQuery({
     queryKey: [...SURVEYS_QUERY_KEY, page, PAGE_SIZE],
@@ -214,6 +225,7 @@ export default function SurveysManager() {
                         onEdit={() => setEditingSurvey(survey)}
                         onDelete={() => setDeletingSurvey(survey)}
                         onCopy={() => copySurveyNotification(survey)}
+                        onOpenClasses={(tab) => setViewingClasses({ survey, tab })}
                       />
                     ))}
                 {!listQuery.isLoading && list.length === 0 ? (
@@ -262,11 +274,25 @@ export default function SurveysManager() {
                             <td className="px-4 py-4 text-text-secondary">
                               {survey.totalRunningClasses}
                             </td>
-                            <td className="px-4 py-4 text-success">
-                              {survey.reportedCount}
+                            <td className="px-4 py-4">
+                              <button
+                                type="button"
+                                onClick={() => setViewingClasses({ survey, tab: "reported" })}
+                                className="group inline-flex items-center gap-1 rounded px-2 py-1 font-semibold text-success transition hover:bg-success/10 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-success"
+                                title="Bấm để xem danh sách lớp đã báo cáo"
+                              >
+                                <span>{survey.reportedCount}</span>
+                              </button>
                             </td>
-                            <td className="px-4 py-4 text-warning">
-                              {survey.missingCount}
+                            <td className="px-4 py-4">
+                              <button
+                                type="button"
+                                onClick={() => setViewingClasses({ survey, tab: "missing" })}
+                                className="group inline-flex items-center gap-1 rounded px-2 py-1 font-semibold text-warning transition hover:bg-warning/10 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-warning"
+                                title="Bấm để xem danh sách lớp chưa báo cáo"
+                              >
+                                <span>{survey.missingCount}</span>
+                              </button>
                             </td>
                             <td className="px-4 py-4 text-right">
                               <div className="flex justify-end gap-1">
@@ -367,6 +393,13 @@ export default function SurveysManager() {
         onClose={() => setDeletingSurvey(null)}
         onConfirm={() => deletingSurvey ? deleteMutation.mutateAsync(deletingSurvey.id) : Promise.resolve()}
       />
+
+      <SurveyClassesDialog
+        key={`${viewingClasses?.survey.id ?? "none"}-${viewingClasses?.tab ?? "none"}`}
+        survey={viewingClasses?.survey ?? null}
+        initialTab={viewingClasses?.tab}
+        onClose={() => setViewingClasses(null)}
+      />
     </div>
   );
 }
@@ -376,11 +409,13 @@ function SurveyCard({
   onEdit,
   onDelete,
   onCopy,
+  onOpenClasses,
 }: {
   survey: SurveyRecord;
   onEdit: () => void;
   onDelete: () => void;
   onCopy: () => void;
+  onOpenClasses: (tab: "reported" | "missing") => void;
 }) {
   return (
     <article className="rounded-lg border border-border-default bg-bg-surface p-4">
@@ -425,11 +460,29 @@ function SurveyCard({
         </div>
         <div>
           <dt className="text-text-muted">Đã báo cáo</dt>
-          <dd className="mt-0.5 font-semibold text-success">{survey.reportedCount}</dd>
+          <dd className="mt-0.5">
+            <button
+              type="button"
+              onClick={() => onOpenClasses("reported")}
+              className="font-semibold text-success hover:underline hover:opacity-80 transition rounded px-1 py-0.5 hover:bg-success/10"
+              title="Xem danh sách lớp đã báo cáo"
+            >
+              {survey.reportedCount}
+            </button>
+          </dd>
         </div>
         <div>
           <dt className="text-text-muted">Chưa báo cáo</dt>
-          <dd className="mt-0.5 font-semibold text-warning">{survey.missingCount}</dd>
+          <dd className="mt-0.5">
+            <button
+              type="button"
+              onClick={() => onOpenClasses("missing")}
+              className="font-semibold text-warning hover:underline hover:opacity-80 transition rounded px-1 py-0.5 hover:bg-warning/10"
+              title="Xem danh sách lớp chưa báo cáo"
+            >
+              {survey.missingCount}
+            </button>
+          </dd>
         </div>
       </dl>
     </article>
@@ -1169,5 +1222,200 @@ function DeleteSurveyDialog({
         </div>
       </div>
     </>
+  );
+}
+
+function SurveyClassesDialog({
+  survey,
+  initialTab = "reported",
+  onClose,
+}: {
+  survey: SurveyRecord | null;
+  initialTab?: "reported" | "missing";
+  onClose: () => void;
+}) {
+  const [tab, setTab] = useState<"reported" | "missing">(initialTab);
+  const [search, setSearch] = useState("");
+  const pathname = usePathname();
+  const routeBase = resolveAdminLikeRouteBase(pathname);
+
+  const reportedQuery = useQuery({
+    queryKey: ["surveys", survey?.id, "reported-classes"],
+    queryFn: () =>
+      survey?.id
+        ? surveysApi.getSurveyReportedClasses(survey.id, { page: 1, limit: 100 })
+        : Promise.resolve({ data: [], meta: { total: 0, page: 1, limit: 100 } }),
+    enabled: Boolean(survey?.id) && tab === "reported",
+  });
+
+  const missingQuery = useQuery({
+    queryKey: ["surveys", survey?.id, "missing-classes"],
+    queryFn: () =>
+      survey?.id
+        ? surveysApi.getSurveyMissingClasses(survey.id, { page: 1, limit: 100 })
+        : Promise.resolve({ data: [], meta: { total: 0, page: 1, limit: 100 } }),
+    enabled: Boolean(survey?.id) && tab === "missing",
+  });
+
+  if (!survey) return null;
+
+  const currentQuery = tab === "reported" ? reportedQuery : missingQuery;
+  const rawItems = currentQuery.data?.data ?? [];
+
+  const filteredItems = rawItems.filter((item) => {
+    if (!search.trim()) return true;
+    const q = search.trim().toLowerCase();
+    const matchName = item.name.toLowerCase().includes(q);
+    const matchTeacher = item.teachers.some((t) => t.toLowerCase().includes(q));
+    return matchName || matchTeacher;
+  });
+
+  return (
+    <ResponsiveDialog
+      labelledBy="survey-classes-dialog-title"
+      onBackdropClick={onClose}
+      contentClassName="sm:max-w-2xl"
+    >
+      <div className="flex items-start justify-between gap-4 border-b border-border-default px-4 py-4 sm:px-5">
+        <div className="min-w-0">
+          <h2 id="survey-classes-dialog-title" className="text-lg font-semibold text-text-primary">
+            {survey.name}
+          </h2>
+          <p className="mt-0.5 text-xs text-text-secondary">
+            Thời gian: {formatDate(survey.startDate)} → {formatDate(survey.endDate)}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Đóng"
+          className="flex size-8 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-secondary hover:text-text-primary"
+        >
+          <XMarkIcon className="size-5" aria-hidden />
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-2 border-b border-border-default px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setTab("reported");
+              setSearch("");
+            }}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus",
+              tab === "reported"
+                ? "bg-success text-text-inverse"
+                : "border border-border-default bg-bg-surface text-text-secondary hover:bg-bg-secondary",
+            )}
+          >
+            Đã báo cáo ({survey.reportedCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTab("missing");
+              setSearch("");
+            }}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus",
+              tab === "missing"
+                ? "bg-warning text-text-inverse"
+                : "border border-border-default bg-bg-surface text-text-secondary hover:bg-bg-secondary",
+            )}
+          >
+            Chưa báo cáo ({survey.missingCount})
+          </button>
+        </div>
+        <div className="relative">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Tìm lớp, gia sư…"
+            className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs text-text-primary focus:border-border-focus focus:outline-none sm:w-48"
+          />
+        </div>
+      </div>
+
+      <ResponsiveDialogBody className="space-y-2">
+        {currentQuery.isLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div
+                key={index}
+                className="h-16 animate-pulse rounded-lg border border-border-default bg-bg-secondary/40"
+              />
+            ))}
+          </div>
+        ) : currentQuery.isError ? (
+          <div className="rounded-lg border border-error/30 bg-error/10 p-4 text-xs text-error">
+            {getErrorMessage(currentQuery.error, "Không thể tải danh sách lớp.")}
+          </div>
+        ) : filteredItems.length > 0 ? (
+          <div className="divide-y divide-border-subtle rounded-lg border border-border-default bg-bg-surface">
+            {filteredItems.map((item) => {
+              const reportedItem = tab === "reported" ? (item as SurveyReportedClass) : null;
+              return (
+                <article key={item.classId} className="p-3.5 transition-colors hover:bg-bg-secondary/40">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href={buildAdminLikePath(routeBase, `classes/${item.classId}`)}
+                        className="font-medium text-sm text-text-primary hover:text-primary hover:underline transition-colors"
+                      >
+                        {item.name}
+                      </Link>
+                      <p className="mt-1 text-xs text-text-secondary">
+                        <span className="text-text-muted">Gia sư: </span>
+                        {item.teachers.length > 0 ? item.teachers.join(", ") : "Chưa phân công"}
+                      </p>
+                      {reportedItem?.knowledgeAssessment ? (
+                        <p className="mt-1.5 line-clamp-2 rounded bg-bg-secondary/60 px-2 py-1 text-xs text-text-secondary">
+                          <span className="font-semibold text-text-primary">Đánh giá: </span>
+                          {reportedItem.knowledgeAssessment}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="shrink-0 text-right">
+                      {tab === "reported" ? (
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="inline-flex items-center rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-medium text-success">
+                            Đã báo cáo
+                          </span>
+                          {reportedItem?.reportDate ? (
+                            <span className="text-[11px] text-text-muted">
+                              Ngày: {formatDate(reportedItem.reportDate)}
+                            </span>
+                          ) : null}
+                          {reportedItem?.reportedByTeacherName ? (
+                            <span className="text-[11px] text-text-muted">
+                              Bởi: {reportedItem.reportedByTeacherName}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-medium text-warning">
+                          Chưa báo cáo
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-border-default px-4 py-8 text-center text-sm text-text-muted">
+            {search.trim()
+              ? "Không tìm thấy lớp phù hợp với từ khóa."
+              : tab === "reported"
+                ? "Chưa có lớp nào nộp báo cáo cho bài khảo sát này."
+                : "Tất cả các lớp đã hoàn thành báo cáo khảo sát!"}
+          </div>
+        )}
+      </ResponsiveDialogBody>
+    </ResponsiveDialog>
   );
 }

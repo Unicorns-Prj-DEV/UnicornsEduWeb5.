@@ -47,6 +47,20 @@ export interface SurveyMissingClassList {
   meta: { total: number; page: number; limit: number };
 }
 
+export interface SurveyReportedClass {
+  classId: string;
+  name: string;
+  teachers: string[];
+  reportDate: string | null;
+  reportedByTeacherName: string | null;
+  knowledgeAssessment: string | null;
+}
+
+export interface SurveyReportedClassList {
+  data: SurveyReportedClass[];
+  meta: { total: number; page: number; limit: number };
+}
+
 export interface TeacherSurveyPendingItem {
   surveyId: string;
   name: string;

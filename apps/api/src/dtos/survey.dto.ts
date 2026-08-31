@@ -124,6 +124,20 @@ export interface SurveyMissingClassListDto {
   meta: { total: number; page: number; limit: number };
 }
 
+export interface SurveyReportedClassDto {
+  classId: string;
+  name: string;
+  teachers: string[];
+  reportDate: string | null;
+  reportedByTeacherName: string | null;
+  knowledgeAssessment: string | null;
+}
+
+export interface SurveyReportedClassListDto {
+  data: SurveyReportedClassDto[];
+  meta: { total: number; page: number; limit: number };
+}
+
 /** Một lớp đang thiếu báo cáo cho một hoặc nhiều bài khảo sát đang mở — dùng cho modal cảnh báo gia sư. */
 export interface TeacherSurveyWarningDto {
   classId: string;

@@ -5,6 +5,7 @@ import {
   SurveyListResponse,
   SurveyMissingClassList,
   SurveyRecord,
+  SurveyReportedClassList,
   TeacherSurveyWarning,
   UpdateSurveyPayload,
 } from "@/dtos/survey.dto";
@@ -58,6 +59,22 @@ export async function getSurveyMissingClasses(
 ): Promise<SurveyMissingClassList> {
   const response = await api.get<SurveyMissingClassList>(
     `/surveys/${encodeURIComponent(id)}/missing-classes`,
+    {
+      params: {
+        ...(typeof params?.page === "number" ? { page: params.page } : {}),
+        ...(typeof params?.limit === "number" ? { limit: params.limit } : {}),
+      },
+    },
+  );
+  return response.data;
+}
+
+export async function getSurveyReportedClasses(
+  id: string,
+  params?: { page?: number; limit?: number },
+): Promise<SurveyReportedClassList> {
+  const response = await api.get<SurveyReportedClassList>(
+    `/surveys/${encodeURIComponent(id)}/reported-classes`,
     {
       params: {
         ...(typeof params?.page === "number" ? { page: params.page } : {}),

@@ -19,6 +19,7 @@ import type {
   SurveyListDto,
   SurveyMissingClassListDto,
   SurveyRecord,
+  SurveyReportedClassListDto,
   TeacherSurveyWarningDto,
   UpdateSurveyDto,
 } from 'src/dtos/survey.dto';
@@ -528,6 +529,83 @@ export class SurveyService {
           .map((entry) => getUserFullNameFromParts(entry.teacher?.user))
           .filter((name): name is string => Boolean(name && name.trim())),
       })),
+      meta: { total, page, limit },
+    };
+  }
+
+  async getReportedClasses(
+    surveyId: string,
+    params: { page?: number; limit?: number },
+  ): Promise<SurveyReportedClassListDto> {
+    const excluded = await this.prisma.surveyExcludedClass.findMany({
+      where: { surveyId },
+      select: { classId: true },
+    });
+    const excludedIds = excluded.map((row) => row.classId);
+    const page = Math.max(params.page ?? 1, 1);
+    const limit = Math.min(Math.max(params.limit ?? 20, 1), 100);
+
+    const where = {
+      status: ClassStatus.running,
+      id: { notIn: excludedIds },
+      surveys: { some: { surveyId } },
+    } as const;
+
+    const [total, classes] = await Promise.all([
+      this.prisma.class.count({ where }),
+      this.prisma.class.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        select: {
+          id: true,
+          name: true,
+          teachers: {
+            select: {
+              teacher: {
+                select: {
+                  user: { select: { first_name: true, last_name: true } },
+                },
+              },
+            },
+          },
+          surveys: {
+            where: { surveyId },
+            orderBy: { reportDate: 'desc' },
+            take: 1,
+            select: {
+              reportDate: true,
+              knowledgeAssessment: true,
+              teacher: {
+                select: {
+                  user: { select: { first_name: true, last_name: true } },
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      data: classes.map((item) => {
+        const latestSurvey = item.surveys[0];
+        return {
+          classId: item.id,
+          name: item.name,
+          teachers: item.teachers
+            .map((entry) => getUserFullNameFromParts(entry.teacher?.user))
+            .filter((name): name is string => Boolean(name && name.trim())),
+          reportDate: latestSurvey?.reportDate
+            ? latestSurvey.reportDate.toISOString().slice(0, 10)
+            : null,
+          reportedByTeacherName: latestSurvey?.teacher?.user
+            ? getUserFullNameFromParts(latestSurvey.teacher.user)
+            : null,
+          knowledgeAssessment: latestSurvey?.knowledgeAssessment ?? null,
+        };
+      }),
       meta: { total, page, limit },
     };
   }
