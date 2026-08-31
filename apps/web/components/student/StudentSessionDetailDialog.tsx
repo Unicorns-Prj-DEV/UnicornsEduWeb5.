@@ -108,7 +108,7 @@ export default function StudentSessionDetailDialog({
             <div className="lg:col-span-5 xl:col-span-4 space-y-4 lg:max-h-[calc(88vh-120px)] lg:overflow-y-auto lg:pr-2 lg:overscroll-contain [scrollbar-width:thin]">
               {/* 1. Nhận xét dành riêng cho bạn */}
               {myAttendance?.notes && (
-                <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 sm:p-5 shadow-xs">
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 sm:p-5 shadow-xs break-words">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-primary mb-2 flex items-center gap-1.5">
                     <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
@@ -121,7 +121,7 @@ export default function StudentSessionDetailDialog({
 
               {/* 2. Nội dung bài học */}
               {session.lessonContent && (
-                <div className="rounded-xl border border-border-default bg-bg-secondary/40 p-4 sm:p-5">
+                <div className="rounded-xl border border-border-default bg-bg-secondary/40 p-4 sm:p-5 break-words">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-2 flex items-center gap-1.5">
                     <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -134,7 +134,7 @@ export default function StudentSessionDetailDialog({
 
               {/* 3. Bài tập về nhà */}
               {session.homework && (
-                <div className="rounded-xl border border-border-default bg-bg-secondary/40 p-4 sm:p-5">
+                <div className="rounded-xl border border-border-default bg-bg-secondary/40 p-4 sm:p-5 break-words">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-2 flex items-center gap-1.5">
                     <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -147,7 +147,7 @@ export default function StudentSessionDetailDialog({
 
               {/* 4. Hướng dẫn tự học / Tutorial */}
               {session.tutorial && (
-                <div className="rounded-xl border border-border-default bg-bg-secondary/40 p-4 sm:p-5">
+                <div className="rounded-xl border border-border-default bg-bg-secondary/40 p-4 sm:p-5 break-words">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-2 flex items-center gap-1.5">
                     <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

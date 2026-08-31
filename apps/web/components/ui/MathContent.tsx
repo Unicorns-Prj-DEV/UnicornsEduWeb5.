@@ -44,8 +44,8 @@ export default function MathContent({ content, className }: MathContentProps) {
     return (
       <div
         className={cn(
-          "prose prose-sm sm:prose-base max-w-none text-text-primary",
-          "[&_a]:text-primary [&_a]:underline [&_a:hover]:text-primary-hover",
+          "prose prose-sm sm:prose-base max-w-none text-text-primary break-words [overflow-wrap:anywhere]",
+          "[&_a]:text-primary [&_a]:underline [&_a:hover]:text-primary-hover [&_a]:break-all",
           "[&_p]:mb-3 [&_p:last-child]:mb-0",
           "[&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:mb-1",
           "[&_strong]:font-bold [&_h1]:text-xl [&_h2]:text-lg [&_h3]:text-base [&_h4]:text-sm",
@@ -66,7 +66,8 @@ export default function MathContent({ content, className }: MathContentProps) {
   return (
     <div
       className={cn(
-        "prose prose-sm sm:prose-base max-w-none text-text-primary",
+        "prose prose-sm sm:prose-base max-w-none text-text-primary break-words [overflow-wrap:anywhere]",
+        "[&_a]:break-all",
         "[&_.katex-display]:my-4 [&_.katex-display]:overflow-x-auto [&_.katex-display]:py-1",
         "[&_.katex]:text-text-primary",
         className,
@@ -104,7 +105,7 @@ export default function MathContent({ content, className }: MathContentProps) {
           ),
           a: ({ ...props }) => (
             <a
-              className="text-primary underline hover:text-primary-hover transition-colors"
+              className="text-primary underline hover:text-primary-hover transition-colors break-all"
               target="_blank"
               rel="noopener noreferrer"
               {...props}
