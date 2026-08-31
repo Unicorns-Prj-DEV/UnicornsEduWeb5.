@@ -8,6 +8,30 @@ interface UseDevToolsDetectorOptions {
   pollingInterval?: number;
 }
 
+/**
+ * Accurately detects mobile and tablet devices (iOS, Android, iPadOS).
+ * Mobile/tablet devices do not have native on-screen dockable developer tools.
+ */
+export function isMobileOrTabletDevice(): boolean {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    return false;
+  }
+  const ua = navigator.userAgent || "";
+
+  // iOS (iPhone, iPad, iPod, or iPadOS where navigator.platform is MacIntel with touch)
+  const isIOS =
+    /iPhone|iPad|iPod/i.test(ua) ||
+    (navigator.platform === "MacIntel" && (navigator.maxTouchPoints || 0) > 1);
+
+  // Android phone or tablet
+  const isAndroid = /Android/i.test(ua);
+
+  // Other mobile user agents
+  const isOtherMobile = /webOS|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i.test(ua);
+
+  return isIOS || isAndroid || isOtherMobile;
+}
+
 export function useDevToolsDetector(options: UseDevToolsDetectorOptions = {}) {
   const { enabled = true, pollingInterval = 500 } = options;
   const [isOpen, setIsOpen] = useState(false);
@@ -21,9 +45,15 @@ export function useDevToolsDetector(options: UseDevToolsDetectorOptions = {}) {
   }, []);
 
   useEffect(() => {
-    if (!enabled || typeof window === "undefined") return;
+    // Completely disable DevTools detection on mobile & tablet devices to prevent false positives from touch/zoom
+    if (!enabled || typeof window === "undefined" || isMobileOrTabletDevice()) {
+      if (isOpenRef.current) {
+        queueMicrotask(() => updateState(false));
+      }
+      return;
+    }
 
-    // 1. Safe & Deterministic DevtoolsDetector instance (excluding debuggerChecker & time-based performanceChecker)
+    // 1. Safe & Deterministic DevtoolsDetector instance (console / getter checkers)
     const detector = new DevtoolsDetector({
       checkers: [
         checkers.elementIdChecker,
@@ -36,26 +66,26 @@ export function useDevToolsDetector(options: UseDevToolsDetectorOptions = {}) {
       ],
     });
 
-    const isMobileDevice = () => {
-      const userAgent = navigator.userAgent || "";
-      const isMobileUA =
-        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-          userAgent,
-        );
-      const hasTouch =
-        "ontouchstart" in window || navigator.maxTouchPoints > 0;
-      return (
-        isMobileUA ||
-        (hasTouch && window.matchMedia("(max-width: 1024px)").matches)
-      );
-    };
+    // 2. Desktop Window Geometry Check (catches docked DevTools on right/bottom)
+    const checkDesktopGeometry = () => {
+      if (isMobileOrTabletDevice()) return;
 
-    // 2. Desktop Window Geometry Check (catches docked DevTools on right/bottom/left)
-    const checkGeometry = () => {
-      if (isMobileDevice()) return;
+      // Skip geometry comparison if the user is zoomed (pinch-to-zoom or page zoom)
+      if (
+        window.visualViewport &&
+        Math.abs(window.visualViewport.scale - 1) > 0.05
+      ) {
+        if (!detector.isOpen) {
+          updateState(false);
+        }
+        return;
+      }
+
       const widthDiff = window.outerWidth - window.innerWidth;
       const heightDiff = window.outerHeight - window.innerHeight;
-      if (widthDiff > 160 || heightDiff > 160) {
+
+      // Docked DevTools panels are typically >= 220px in width/height
+      if (widthDiff > 200 || heightDiff > 200) {
         updateState(true);
       } else if (!detector.isOpen) {
         updateState(false);
@@ -67,11 +97,11 @@ export function useDevToolsDetector(options: UseDevToolsDetectorOptions = {}) {
       if (status) {
         updateState(true);
       } else {
-        checkGeometry();
+        checkDesktopGeometry();
       }
     };
 
-    // 4. Keyboard trap (catches devtools / inspect shortcuts instantly)
+    // 4. Keyboard trap (catches devtools / inspect shortcuts instantly on desktop)
     const handleKeyDown = (e: KeyboardEvent) => {
       const isCmdOrCtrl = e.metaKey || e.ctrlKey;
       const isShift = e.shiftKey;
@@ -95,15 +125,15 @@ export function useDevToolsDetector(options: UseDevToolsDetectorOptions = {}) {
     detector.addListener(handleDetectorChange);
     detector.launch();
 
-    window.addEventListener("resize", checkGeometry);
+    window.addEventListener("resize", checkDesktopGeometry);
     window.addEventListener("keydown", handleKeyDown, { capture: true });
-    const interval = setInterval(checkGeometry, pollingInterval);
-    checkGeometry();
+    const interval = setInterval(checkDesktopGeometry, pollingInterval);
+    checkDesktopGeometry();
 
     return () => {
       detector.removeListener(handleDetectorChange);
       detector.stop();
-      window.removeEventListener("resize", checkGeometry);
+      window.removeEventListener("resize", checkDesktopGeometry);
       window.removeEventListener("keydown", handleKeyDown, { capture: true });
       clearInterval(interval);
     };
@@ -111,3 +141,4 @@ export function useDevToolsDetector(options: UseDevToolsDetectorOptions = {}) {
 
   return isOpen;
 }
+
