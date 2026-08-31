@@ -116,6 +116,33 @@ interface YTPlayerInstance {
   destroy: () => void;
 }
 
+interface FullscreenDocument extends Document {
+  webkitFullscreenElement?: Element;
+  mozFullScreenElement?: Element;
+  msFullscreenElement?: Element;
+  webkitExitFullscreen?: () => Promise<void>;
+  mozCancelFullScreen?: () => Promise<void>;
+  msExitFullscreen?: () => Promise<void>;
+}
+
+interface FullscreenElement extends HTMLDivElement {
+  webkitRequestFullscreen?: () => Promise<void>;
+  mozRequestFullScreen?: () => Promise<void>;
+  msRequestFullscreen?: () => Promise<void>;
+}
+
+function getFullscreenElement(): Element | null {
+  if (typeof document === "undefined") return null;
+  const doc = document as FullscreenDocument;
+  return (
+    doc.fullscreenElement ||
+    doc.webkitFullscreenElement ||
+    doc.mozFullScreenElement ||
+    doc.msFullscreenElement ||
+    null
+  );
+}
+
 const PLAYBACK_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2] as const;
 
 export default function YouTubeEmbed({
@@ -211,15 +238,33 @@ export default function YouTubeEmbed({
     }
   }, [isProtected, isDevToolsOpen]);
 
-  // Fullscreen change listener
+  // Fullscreen change listener across browsers
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement));
+      const activeFullscreen = Boolean(getFullscreenElement());
+      if (activeFullscreen) {
+        setIsFullscreen(true);
+      } else if (document.fullscreenElement === null) {
+        // Only set to false if native fullscreen was actively exited
+        setIsFullscreen(false);
+      }
     };
 
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    const events = [
+      "fullscreenchange",
+      "webkitfullscreenchange",
+      "mozfullscreenchange",
+      "MSFullscreenChange",
+    ];
+
+    events.forEach((event) => {
+      document.addEventListener(event, handleFullscreenChange);
+    });
+
     return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      events.forEach((event) => {
+        document.removeEventListener(event, handleFullscreenChange);
+      });
     };
   }, []);
 
@@ -505,17 +550,86 @@ export default function YouTubeEmbed({
   }, []);
 
   const toggleFullscreen = useCallback(() => {
-    if (!containerRef.current) return;
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen?.().catch(() => {
-        // Fullscreen request may be blocked in some contexts
-      });
+    const container = containerRef.current as FullscreenElement | null;
+    if (!container) return;
+
+    const currentFs = getFullscreenElement();
+
+    if (!currentFs && !isFullscreen) {
+      // Try native standard / webkit / moz / ms fullscreen first
+      const requestFn =
+        container.requestFullscreen ||
+        container.webkitRequestFullscreen ||
+        container.mozRequestFullScreen ||
+        container.msRequestFullscreen;
+
+      if (typeof requestFn === "function") {
+        try {
+          const promise = requestFn.call(container);
+          if (promise && typeof promise.then === "function") {
+            promise
+              .then(() => {
+                setIsFullscreen(true);
+              })
+              .catch(() => {
+                // Fallback to CSS Fullscreen (e.g. iOS / modal restrictions)
+                setIsFullscreen(true);
+              });
+          } else {
+            setIsFullscreen(true);
+          }
+        } catch {
+          // Synchronous failure fallback (e.g. iOS Safari)
+          setIsFullscreen(true);
+        }
+      } else {
+        // No native API (e.g. iPhone Safari) -> fallback to CSS fullscreen
+        setIsFullscreen(true);
+      }
     } else {
-      document.exitFullscreen?.().catch(() => {
-        // Exit fullscreen fallback
-      });
+      // Exit fullscreen
+      const doc = document as FullscreenDocument;
+      const exitFn =
+        doc.exitFullscreen ||
+        doc.webkitExitFullscreen ||
+        doc.mozCancelFullScreen ||
+        doc.msExitFullscreen;
+
+      if (currentFs && typeof exitFn === "function") {
+        try {
+          const promise = exitFn.call(doc);
+          if (promise && typeof promise.catch === "function") {
+            promise.catch(() => {
+              setIsFullscreen(false);
+            });
+          }
+        } catch {
+          setIsFullscreen(false);
+        }
+      }
+      setIsFullscreen(false);
     }
-  }, []);
+  }, [isFullscreen]);
+
+  // Lock body scroll and handle Escape key when fullscreen is active
+  useEffect(() => {
+    if (!isFullscreen) return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" || e.key === "Esc") {
+        toggleFullscreen();
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener("keydown", handleGlobalKeyDown);
+    };
+  }, [isFullscreen, toggleFullscreen]);
 
   const handlePreventContextMenu = useCallback((e: ReactMouseEvent) => {
     e.preventDefault();
@@ -550,6 +664,12 @@ export default function YouTubeEmbed({
           e.preventDefault();
           toggleFullscreen();
           break;
+        case "escape":
+          if (isFullscreen) {
+            e.preventDefault();
+            toggleFullscreen();
+          }
+          break;
         case "arrowup":
           e.preventDefault();
           handleVolumeChange(Math.min(100, volume + 5));
@@ -560,7 +680,7 @@ export default function YouTubeEmbed({
           break;
       }
     },
-    [togglePlayPause, skipSeconds, toggleMute, toggleFullscreen, handleVolumeChange, volume],
+    [togglePlayPause, skipSeconds, toggleMute, toggleFullscreen, handleVolumeChange, volume, isFullscreen],
   );
 
   if (!videoId || hasError) {
@@ -593,7 +713,7 @@ export default function YouTubeEmbed({
       className={cn(
         "group relative overflow-hidden bg-black select-none outline-none transition-all flex items-center justify-center",
         isFullscreen
-          ? "fixed inset-0 z-50 h-screen w-screen rounded-none"
+          ? "fixed inset-0 z-[99999] h-[100dvh] w-screen rounded-none"
           : "rounded-xl shadow-md",
         !showControls && isPlaying ? "cursor-none" : "cursor-default",
         className,
