@@ -13,7 +13,7 @@
 
 - **Loading:** `/student/loading.tsx` uses `StudentDashboardSkeleton`; this stays route-specific because `/student` is a single self-service dashboard rather than a broad segment with many child layouts.
 
-- **Layout & Top Navigation (`StudentHeader`):** Giao diện dạng SPA không sidebar; trên đỉnh trang là `StudentHeader` gồm Brand lockup, các link điều hướng nhanh (`Học tập` `/student`, `Hồ sơ cá nhân` `/user-profile`), chuông thông báo portal (`SidebarNotificationTray`), bộ chọn Theme (`SidebarThemePicker`), avatar và nút đăng xuất.
+- **Layout & Top Navigation (`StudentHeader`):** Giao diện dạng SPA không sidebar; trên đỉnh trang là `StudentHeader` gồm Brand lockup, các link điều hướng nhanh (`Học tập` `/student`, `Hồ sơ cá nhân` `/user-profile`), bộ chọn Theme (`SidebarThemePicker`), avatar và nút đăng xuất (học sinh không nhận thông báo hệ thống).
 - **Trang chủ học sinh (`/student`):** Tinh gọn và tập trung vào trải nghiệm học tập:
   - **Tài khoản & Số dư:** Thẻ hiển thị số dư ví, nút **Nạp tiền** mở popup SePay static QR riêng của học sinh (hỗ trợ sao chép QR kèm thông tin học sinh), nút **Lịch sử ví** xem biến động số dư.
   - **Danh sách lớp học:** Hiển thị toàn bộ các lớp học sinh đang tham gia kèm trạng thái, học phí/buổi, gói học phí và số buổi đã vào học. Mỗi lớp có thể click trực tiếp để điều hướng sang trang chi tiết lớp `/student/classes/[id]`.
@@ -27,7 +27,7 @@
 
 ## UI-Schema tokens and components
 
-- **Sidebar:** `bg-secondary`, `border-default`; active route `bg-primary` + `text-inverse`. Panel thông báo: `bg-surface`, `border-default`, badge unread `bg-red-600`.
+- **Sidebar:** `bg-secondary`, `border-default`; active route `bg-primary` + `text-inverse`.
 - **Cards (schedule, document, payment row):** `bg-surface`, `text-primary`, `border-default`; hover `bg-secondary` or `bg-elevated`.
 - **Tables / lists:** Header `bg-secondary`; row `bg-surface`; `border-default`; row hover `bg-secondary`.
 - **Buttons:** Primary = `primary` + `text-inverse`; Secondary = `secondary` + `border-default`.
@@ -73,7 +73,7 @@
 - Student shell uses sidebar + main content like other protected workspaces; mobile controls should maintain at least 44px touch targets.
 - Student class cards wrap long class/package names and stack label/value rows below narrow-phone width.
 - The current runtime includes self-profile, wallet, linked classes, and exam schedule data. A full student timetable/session schedule remains a planned surface and should reuse existing class/session/calendar data instead of calculating authoritative facts in the frontend.
-- `StudentSidebar` still links account management to shared `/user-profile`; if a dedicated `/student/profile` route is introduced, keep nav and notification context inside the student shell.
+- `StudentSidebar` still links account management to shared `/user-profile`; if a dedicated `/student/profile` route is introduced, keep nav context inside the student shell.
 
 ## DoD and week
 

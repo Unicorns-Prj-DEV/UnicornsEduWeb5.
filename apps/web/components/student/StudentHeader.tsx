@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import * as authApi from "@/lib/apis/auth.api";
 import { clearLogoutScopedQueries } from "@/lib/query-invalidation";
-import { SidebarNotificationTray, SidebarThemePicker } from "@/components/shell";
+import { SidebarThemePicker } from "@/components/shell";
 import UserAvatar from "@/components/ui/UserAvatar";
 import { BrandLogoLockup } from "@/components/BrandLogoLockup";
 
@@ -52,10 +52,9 @@ export default function StudentHeader() {
           </Link>
         </div>
 
-        {/* Right: Actions, Theme, Notifications, User */}
+        {/* Right: Actions, Theme, User */}
         <div className="flex items-center gap-2 sm:gap-3">
           <SidebarThemePicker compact onMobileClose={() => {}} />
-          <SidebarNotificationTray compact />
 
           <div className="h-6 w-px bg-border-default hidden sm:block" aria-hidden="true" />
 

@@ -10,7 +10,7 @@ import { Role } from "@/dtos/Auth.dto";
 import { useAuth } from "@/context/AuthContext";
 import * as authApi from "@/lib/apis/auth.api";
 import { clearLogoutScopedQueries } from "@/lib/query-invalidation";
-import { SidebarNotificationTray, SidebarThemePicker } from "@/components/shell";
+import { SidebarThemePicker } from "@/components/shell";
 import UserAvatar from "@/components/ui/UserAvatar";
 import { BrandLogoLockup } from "@/components/BrandLogoLockup";
 
@@ -322,8 +322,6 @@ export default function StudentSidebar() {
             </Link>
 
             <SidebarThemePicker compact={compact} onMobileClose={handleMobileClose} />
-
-            <SidebarNotificationTray compact={compact} />
 
             <div className={`min-w-0 flex-1 ${compact ? "hidden" : ""}`} aria-hidden />
 

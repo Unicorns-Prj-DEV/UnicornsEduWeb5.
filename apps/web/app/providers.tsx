@@ -230,25 +230,17 @@ function NotificationSocketBridge() {
     user.access?.staff?.canAccess ??
       (hasEffectiveRole(user, Role.staff) && user.hasStaffProfile),
   );
-  const canOpenStudentChannel = Boolean(
-    user.access?.student?.canAccess ??
-      (hasEffectiveRole(user, Role.student) && user.hasStudentProfile),
-  );
   const canConnectRealtimeNotifications =
     isAuthReady &&
     hasAuthenticatedSession(user) &&
-    (canOpenAdminChannel || canOpenStaffChannel || canOpenStudentChannel);
+    (canOpenAdminChannel || canOpenStaffChannel);
 
   useEffect(() => {
     if (!canConnectRealtimeNotifications) {
       return;
     }
 
-    if (
-      !canOpenAdminChannel &&
-      !canOpenStaffChannel &&
-      !canOpenStudentChannel
-    ) {
+    if (!canOpenAdminChannel && !canOpenStaffChannel) {
       return;
     }
 
@@ -344,7 +336,6 @@ function NotificationSocketBridge() {
   }, [
     canOpenAdminChannel,
     canOpenStaffChannel,
-    canOpenStudentChannel,
     canConnectRealtimeNotifications,
     queryClient,
   ]);

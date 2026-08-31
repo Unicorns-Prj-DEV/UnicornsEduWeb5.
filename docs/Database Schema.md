@@ -475,7 +475,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `survey_warning_dismissals`: kế toán chi bấm "Đóng và không hiển thị lại" cho cảnh báo một nhân sự (gia sư) chưa báo cáo Bài khảo sát đã quá hạn; unique `(user_id, staff_id, survey_id)`; `permanent` mặc định `false` nhưng flow hiện tại chỉ insert khi permanent (dismiss tạm thời "Đóng" là state phía FE, không persist)
 - `action_history`: audit log thay đổi dữ liệu (`before_value`, `after_value`, `changed_fields` là JSON)
 - `documents`: metadata tài liệu (`file_url`, `tags` JSON)
-- `notifications`: bản ghi thông báo admin push cho feed admin/staff/student; lưu draft/published, audience target động, version, số lần push và thời điểm push gần nhất
+- `notifications`: bản ghi thông báo admin push cho feed admin/staff; lưu draft/published, audience target động, version, số lần push và thời điểm push gần nhất (học sinh không nhận thông báo)
 - `notification_reads`: đánh dấu đã đọc theo từng user (`user_id` + `notification_id`, unique)
 - `regulations`: bài quy định dùng cho tab `Quy định` ở `notes-subject`, có role/audience tag và optional resource link
 
@@ -507,14 +507,14 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 ### 4.8.2 `notifications`
 
-- Lưu thông báo push từ admin cho admin/staff/student, dùng chung cho REST feed và NestJS gateway `/notifications`
+- Lưu thông báo push từ admin cho admin/staff, dùng chung cho REST feed và NestJS gateway `/notifications`
 - PK: `id` (UUID)
 - Trường chính:
   - `title` (`VARCHAR(160)`)
   - `message` (`TEXT`)
   - `status` (`NotificationStatus`: `draft | published`)
   - `target_all` (`BOOLEAN`, default `true`) để broadcast cho toàn bộ audience đủ điều kiện
-  - `target_role_types` (`UserRole[]`) cho tag role_type như `@admin`, `@staff`, `@student`
+  - `target_role_types` (`UserRole[]`) cho tag role_type như `@admin`, `@staff`
   - `target_staff_roles` (`StaffRole[]`) cho tag staff role như `@teacher`, `@assistant`, `@lesson_plan_head`, `@training`
   - `target_user_ids` (`TEXT[]`) cho direct user tag; feed/realtime sẽ match động theo `users.id` hiện tại
   - `version` (bản phát hiện tại; draft bắt đầu từ `0`, lần push đầu = `1`)

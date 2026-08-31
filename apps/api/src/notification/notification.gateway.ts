@@ -14,7 +14,6 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import {
   StaffRole,
   StaffStatus,
-  StudentStatus,
   UserRole,
   UserStatus,
 } from 'generated/enums';
@@ -197,27 +196,8 @@ export class NotificationGateway implements OnGatewayInit, OnGatewayConnection {
       };
     }
 
-    if (identity.roleType === UserRole.student) {
-      const student = await this.prisma.studentInfo.findUnique({
-        where: { userId: identity.id },
-        select: {
-          status: true,
-        },
-      });
-
-      if (!student || student.status !== StudentStatus.active) {
-        throw new UnauthorizedException('Student profile is not available');
-      }
-
-      return {
-        userId: identity.id,
-        roleType: UserRole.student,
-        staffRoles: [],
-      };
-    }
-
     throw new UnauthorizedException(
-      'Only eligible admin, staff, or student accounts can receive notifications',
+      'Only eligible admin or staff accounts can receive notifications',
     );
   }
 

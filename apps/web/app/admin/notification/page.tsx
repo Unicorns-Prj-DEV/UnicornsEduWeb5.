@@ -72,7 +72,6 @@ const PRESET_TARGET_TAGS: AudiencePresetTag[] = [
   { key: "@all", label: "@all", kind: "all" },
   { key: "@admin", label: "@admin", kind: "roleType", value: "admin" },
   { key: "@staff", label: "@staff", kind: "roleType", value: "staff" },
-  { key: "@student", label: "@student", kind: "roleType", value: "student" },
   { key: "@teacher", label: "@teacher", kind: "staffRole", value: "teacher" },
   {
     key: "@assistant",
@@ -751,8 +750,7 @@ export default function AdminNotificationPage() {
       }
       if (
         tagLabel === "@admin" ||
-        tagLabel === "@staff" ||
-        tagLabel === "@student"
+        tagLabel === "@staff"
       ) {
         return {
           ...current,
