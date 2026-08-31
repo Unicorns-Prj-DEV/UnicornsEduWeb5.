@@ -496,7 +496,7 @@ export default function YouTubeEmbed({
 
     if (!isFullscreen) {
       setIsFullscreen(true);
-      // Attempt native fullscreen if supported by platform
+      // Attempt native fullscreen if supported by platform (macOS, iPad, Android, PC)
       const requestFn =
         container.requestFullscreen ||
         container.webkitRequestFullscreen ||
@@ -505,10 +505,27 @@ export default function YouTubeEmbed({
 
       if (typeof requestFn === "function") {
         try {
-          requestFn.call(container);
+          const promise = requestFn.call(container);
+          if (promise && typeof (promise as unknown as Promise<void>).catch === "function") {
+            (promise as unknown as Promise<void>).catch(() => {
+              // ignore error, CSS fullscreen handles it
+            });
+          }
         } catch {
           // ignore error, CSS fullscreen handles it
         }
+      }
+
+      // Try orientation lock on mobile devices when supported
+      try {
+        const orientation = screen.orientation as ScreenOrientation & {
+          lock?: (orientation: string) => Promise<void>;
+        };
+        if (typeof orientation?.lock === "function") {
+          orientation.lock("landscape").catch(() => {});
+        }
+      } catch {
+        // unsupported on iOS Safari / ignored
       }
     } else {
       setIsFullscreen(false);
@@ -524,21 +541,38 @@ export default function YouTubeEmbed({
 
         if (typeof exitFn === "function") {
           try {
-            exitFn.call(doc);
+            const promise = exitFn.call(doc);
+            if (promise && typeof (promise as unknown as Promise<void>).catch === "function") {
+              (promise as unknown as Promise<void>).catch(() => {});
+            }
           } catch {
             // ignore
           }
         }
       }
+
+      // Try orientation unlock on mobile devices
+      try {
+        if (typeof screen.orientation?.unlock === "function") {
+          screen.orientation.unlock();
+        }
+      } catch {
+        // unsupported / ignored
+      }
     }
   }, [isFullscreen]);
 
-  // Lock body scroll and handle Escape key when in Fullscreen mode
+  // Lock body scroll, prevent touch gesture leaks, and handle Escape key when in Fullscreen mode
   useEffect(() => {
     if (!isFullscreen) return;
 
     const originalOverflow = document.body.style.overflow;
+    const originalTouchAction = document.body.style.touchAction;
+    const originalOverscrollBehavior = document.body.style.overscrollBehavior;
+
     document.body.style.overflow = "hidden";
+    document.body.style.touchAction = "none";
+    document.body.style.overscrollBehavior = "none";
 
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" || e.key === "Esc") {
@@ -546,10 +580,25 @@ export default function YouTubeEmbed({
       }
     };
 
+    const handleTouchMove = (e: TouchEvent) => {
+      // Prevent rubber-banding and background scrolling on iOS Safari
+      const target = e.target as HTMLElement | null;
+      if (!target?.closest("input[type=range], .group\\/bar")) {
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+      }
+    };
+
     window.addEventListener("keydown", handleGlobalKeyDown);
+    window.addEventListener("touchmove", handleTouchMove, { passive: false });
+
     return () => {
       document.body.style.overflow = originalOverflow;
+      document.body.style.touchAction = originalTouchAction;
+      document.body.style.overscrollBehavior = originalOverscrollBehavior;
       window.removeEventListener("keydown", handleGlobalKeyDown);
+      window.removeEventListener("touchmove", handleTouchMove);
     };
   }, [isFullscreen]);
 
@@ -671,9 +720,9 @@ export default function YouTubeEmbed({
       onMouseLeave={() => isPlaying && setShowControls(false)}
       onContextMenu={handlePreventContextMenu}
       className={cn(
-        "group relative overflow-hidden bg-black select-none outline-none transition-all flex items-center justify-center",
+        "group relative overflow-hidden bg-black select-none outline-none transition-all flex items-center justify-center touch-manipulation",
         isFullscreen
-          ? "!fixed !inset-0 !z-[99999999] !h-[100dvh] !w-screen !max-w-none !max-h-none !rounded-none !m-0 !p-0"
+          ? "!fixed !inset-0 !z-[99999999] !h-[100dvh] !h-[-webkit-fill-available] !w-screen !max-w-none !max-h-none !rounded-none !m-0 !p-0 !overscroll-none !touch-none"
           : cn("rounded-xl shadow-md", className),
         !showControls && isPlaying ? "cursor-none" : "cursor-default",
       )}
@@ -683,14 +732,17 @@ export default function YouTubeEmbed({
       {/* Video Canvas */}
       <div
         className={cn(
-          "relative flex items-center justify-center overflow-hidden",
-          isFullscreen
-            ? "w-full h-full max-w-[100vw] max-h-[100dvh] aspect-video"
-            : "w-full aspect-video",
+          "relative flex items-center justify-center overflow-hidden w-full h-full",
+          !isFullscreen && "aspect-video",
         )}
       >
         {/* Underlying YouTube iframe target */}
-        <div className="yt-protected-media w-full h-full pointer-events-none [&_iframe]:!w-full [&_iframe]:!h-full [&_iframe]:!border-0 [&_iframe]:!pointer-events-none [&_iframe]:!block">
+        <div
+          className={cn(
+            "yt-protected-media w-full h-full pointer-events-none [&_iframe]:!w-full [&_iframe]:!h-full [&_iframe]:!border-0 [&_iframe]:!pointer-events-none [&_iframe]:!block flex items-center justify-center",
+            isFullscreen && "aspect-video max-w-[100vw] max-h-[100dvh] max-h-[-webkit-fill-available] mx-auto",
+          )}
+        >
           <div id={playerId} className="w-full h-full pointer-events-none" />
         </div>
 
@@ -749,7 +801,7 @@ export default function YouTubeEmbed({
         className={cn(
           "pointer-events-none absolute top-0 left-0 right-0 z-30 transition-opacity duration-300 flex items-start justify-between bg-gradient-to-b from-black/80 via-black/40 to-transparent",
           isFullscreen
-            ? "p-4 pt-[max(1rem,env(safe-area-inset-top))] px-[max(1rem,env(safe-area-inset-left))]"
+            ? "p-4 pt-[max(1rem,env(safe-area-inset-top))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]"
             : "p-3 sm:p-4",
           showControls || !isPlaying ? "opacity-100" : "opacity-0",
         )}
@@ -779,7 +831,7 @@ export default function YouTubeEmbed({
         className={cn(
           "absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent z-30 transition-opacity duration-300",
           isFullscreen
-            ? "p-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] px-[max(1rem,env(safe-area-inset-left))]"
+            ? "p-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]"
             : "p-3 sm:p-4",
           showControls || !isPlaying
             ? "opacity-100 pointer-events-auto"
