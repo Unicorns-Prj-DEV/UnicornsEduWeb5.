@@ -190,12 +190,15 @@ describe('DashboardService staff training dashboard', () => {
   });
 
   it('returns paginated missing-survey class action alerts with meta total', async () => {
-    surveyRoundService.getCurrentRound.mockResolvedValue(6);
     prisma.$queryRaw.mockResolvedValueOnce([
       {
         classId: 'class-1',
         name: 'Lớp chưa báo cáo',
-        latestReportedRound: 4,
+        surveyId: 'survey-1',
+        surveyName: 'Kiểm tra định kỳ lần 8',
+        startDate: new Date('2026-08-17T00:00:00.000Z'),
+        endDate: new Date('2026-08-24T00:00:00.000Z'),
+        teacherNames: 'Thầy Tuấn',
         totalCount: 2,
       },
     ]);
@@ -214,9 +217,10 @@ describe('DashboardService staff training dashboard', () => {
         type: 'Lớp cảnh báo',
         targetType: 'class',
         targetId: 'class-1',
+        owner: 'Gia sư: Thầy Tuấn',
         amount: 0,
-        due: 'Chưa báo cáo lần 6',
-        detail: 'Mới nhất: lần 4',
+        due: 'Kiểm tra định kỳ lần 8',
+        detail: 'Chưa báo cáo: Kiểm tra định kỳ lần 8',
       }),
     ]);
   });

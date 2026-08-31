@@ -218,7 +218,11 @@ type ClassPerformanceSqlRow = {
 type MissingSurveyClassSqlRow = {
   classId: string;
   name: string;
-  latestReportedRound: number | string | null;
+  surveyId: string;
+  surveyName: string | null;
+  startDate: Date | string | null;
+  endDate: Date | string | null;
+  teacherNames: string | null;
   totalCount: number | string | null;
 };
 
@@ -643,23 +647,16 @@ function mapUnpaidStaffToActionAlert(
 
 function mapMissingSurveyClassToActionAlert(
   row: MissingSurveyClassSqlRow,
-  currentRound: number,
 ): AdminDashboardActionAlertDto {
-  const latestReportedRound =
-    row.latestReportedRound == null
-      ? null
-      : normalizeInteger(row.latestReportedRound);
+  const surveyName = row.surveyName?.trim() || 'Bài khảo sát';
 
   return {
     type: 'Lớp cảnh báo',
     subject: row.name,
-    owner: 'Vận hành',
-    due: `Chưa báo cáo lần ${currentRound}`,
+    owner: row.teacherNames ? `Gia sư: ${row.teacherNames}` : 'Vận hành',
+    due: surveyName,
     amount: 0,
-    detail:
-      latestReportedRound != null
-        ? `Mới nhất: lần ${latestReportedRound}`
-        : 'Chưa có báo cáo nào',
+    detail: `Chưa báo cáo: ${surveyName}`,
     severity: 'warning',
     targetType: 'class',
     targetId: row.classId,
@@ -2010,8 +2007,11 @@ export class DashboardService {
    * Running classes that have NOT reported the current survey round
    * (no class_surveys row with test_number = currentRound).
    */
+  /**
+   * Running classes that have NOT reported active/open survey(s)
+   * (survey has name != null, startDate <= CURRENT_DATE, class is not excluded, and no class_surveys row with this surveyId).
+   */
   private async getMissingSurveyClassAlertRows(params: {
-    currentRound: number;
     limit: number;
     offset?: number;
   }) {
@@ -2020,20 +2020,37 @@ export class DashboardService {
     return this.prisma.$queryRaw<MissingSurveyClassSqlRow[]>(Prisma.sql`
       WITH eligible AS (
         SELECT
-          classes.id AS "classId",
-          classes.name AS name,
+          c.id AS "classId",
+          c.name AS name,
+          s.id AS "surveyId",
+          s.name AS "surveyName",
+          s.start_date AS "startDate",
+          s.end_date AS "endDate",
           (
-            SELECT MAX(cs.test_number)
-            FROM class_surveys cs
-            WHERE cs.class_id = classes.id
-          ) AS "latestReportedRound"
-        FROM classes
-        WHERE classes.status = 'running'
+            SELECT string_agg(
+              TRIM(CONCAT(COALESCE(u.last_name, ''), ' ', COALESCE(u.first_name, ''))),
+              ', '
+            )
+            FROM class_teachers ct
+            JOIN staff_info si ON si.id = ct.teacher_id
+            LEFT JOIN users u ON u.id = si.user_id
+            WHERE ct.class_id = c.id
+              AND (ct.status IS NULL OR ct.status = 'active')
+          ) AS "teacherNames"
+        FROM survey_round s
+        CROSS JOIN classes c
+        WHERE s.name IS NOT NULL
+          AND (s.start_date IS NULL OR s.start_date <= CURRENT_DATE)
+          AND c.status = 'running'
           AND NOT EXISTS (
             SELECT 1
-            FROM class_surveys cs2
-            WHERE cs2.class_id = classes.id
-              AND cs2.test_number = ${params.currentRound}
+            FROM survey_excluded_classes sec
+            WHERE sec.survey_id = s.id AND sec.class_id = c.id
+          )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM class_surveys cs
+            WHERE cs.class_id = c.id AND cs.survey_id = s.id
           )
       ),
       counted AS (
@@ -2045,10 +2062,14 @@ export class DashboardService {
       SELECT
         "classId",
         name,
-        "latestReportedRound",
+        "surveyId",
+        "surveyName",
+        "startDate",
+        "endDate",
+        "teacherNames",
         "totalCount"
       FROM counted
-      ORDER BY name ASC
+      ORDER BY "startDate" DESC NULLS LAST, name ASC
       LIMIT ${params.limit}
       OFFSET ${offset}
     `);
@@ -2147,7 +2168,7 @@ export class DashboardService {
     staffId: string,
     todayRange: { start: Date; end: Date },
   ): Promise<StaffDashboardTeacherSectionDto> {
-    const [assignedClasses, currentSurveyRound, todaySessions] =
+    const [assignedClasses, currentSurveyRound, todaySessions, openSurveys] =
       await Promise.all([
         this.prisma.class.findMany({
           where: {
@@ -2198,10 +2219,21 @@ export class DashboardService {
           },
           orderBy: [{ startTime: 'asc' }, { classId: 'asc' }],
         }),
+        this.prisma.survey.findMany({
+          where: {
+            name: { not: null },
+            startDate: { lte: todayRange.start },
+          },
+          select: {
+            id: true,
+            name: true,
+            excludedClasses: { select: { classId: true } },
+          },
+        }),
       ]);
 
     const assignedClassesIds = assignedClasses.map((item) => item.id);
-    const [latestSurveyRows, reportedRoundRows] =
+    const [latestSurveyRows, reportedSurveyRows] =
       assignedClassesIds.length > 0
         ? await Promise.all([
             this.prisma.classSurvey.groupBy({
@@ -2215,20 +2247,24 @@ export class DashboardService {
                 testNumber: true,
               },
             }),
-            this.prisma.classSurvey.findMany({
-              where: {
-                classId: {
-                  in: assignedClassesIds,
-                },
-                testNumber: currentSurveyRound,
-              },
-              select: {
-                classId: true,
-              },
-              distinct: ['classId'],
-            }),
+            openSurveys.length > 0
+              ? this.prisma.classSurvey.findMany({
+                  where: {
+                    classId: {
+                      in: assignedClassesIds,
+                    },
+                    surveyId: {
+                      in: openSurveys.map((s) => s.id),
+                    },
+                  },
+                  select: {
+                    classId: true,
+                    surveyId: true,
+                  },
+                })
+              : Promise.resolve<Array<{ classId: string; surveyId: string }>>([]),
           ])
-        : [[], []];
+        : [[], [] as Array<{ classId: string; surveyId: string }>];
 
     const latestRequiredSurveyTestNumber = currentSurveyRound;
     const latestSurveyByClassId = new Map(
@@ -2236,10 +2272,10 @@ export class DashboardService {
         .filter((row) => row.classId != null)
         .map((row) => [row.classId as string, row._max.testNumber ?? null]),
     );
-    const reportedCurrentRoundClassIds = new Set(
-      reportedRoundRows
-        .map((row) => row.classId)
-        .filter((classId): classId is string => classId != null),
+    const reportedSurveyKeySet = new Set(
+      reportedSurveyRows
+        .filter((r) => r.classId != null && r.surveyId != null)
+        .map((r) => `${r.classId}::${r.surveyId}`),
     );
 
     const classItems: StaffDashboardClassItemDto[] = assignedClasses
@@ -2258,9 +2294,12 @@ export class DashboardService {
           const latestClassSurveyTestNumber =
             latestSurveyByClassId.get(item.id) ?? null;
           const missingSchedule = item.scheduleCount === 0;
-          const missingSurvey =
-            latestRequiredSurveyTestNumber > 0 &&
-            !reportedCurrentRoundClassIds.has(item.id);
+          const missingSurveys = openSurveys.filter(
+            (s) =>
+              !s.excludedClasses.some((e) => e.classId === item.id) &&
+              !reportedSurveyKeySet.has(`${item.id}::${s.id}`),
+          );
+          const missingSurvey = missingSurveys.length > 0;
 
           if (!missingSchedule && !missingSurvey) {
             return null;
@@ -2268,8 +2307,8 @@ export class DashboardService {
 
           const reasons = [
             missingSchedule ? 'Chưa điền lịch học' : null,
-            missingSurvey && latestRequiredSurveyTestNumber
-              ? `Chưa báo cáo khảo sát lần ${latestRequiredSurveyTestNumber}`
+            missingSurvey
+              ? `Chưa báo cáo: ${missingSurveys.map((s) => s.name).join(', ')}`
               : null,
           ].filter((value): value is string => value != null);
 
@@ -4065,7 +4104,6 @@ export class DashboardService {
               limit: topClassLimit,
             }),
             this.getMissingSurveyClassAlertRows({
-              currentRound: currentSurveyRound,
               limit: alertLimit,
             }),
             this.getPendingCollectionTotal(),
@@ -4150,7 +4188,7 @@ export class DashboardService {
             ...debtStudents.map(mapDebtStudentToActionAlert),
             ...unpaidStaff.map(mapUnpaidStaffToActionAlert),
             ...classAlertRows.map((row) =>
-              mapMissingSurveyClassToActionAlert(row, currentSurveyRound),
+              mapMissingSurveyClassToActionAlert(row),
             ),
           ];
 
@@ -4243,7 +4281,6 @@ export class DashboardService {
             limit: topClassLimit,
           }),
           this.getMissingSurveyClassAlertRows({
-            currentRound: currentSurveyRound,
             limit: alertLimit,
           }),
           this.getQuarterClassCounts({
@@ -4344,7 +4381,7 @@ export class DashboardService {
           ...debtStudents.map(mapDebtStudentToActionAlert),
           ...unpaidStaff.map(mapUnpaidStaffToActionAlert),
           ...classAlertRows.map((row) =>
-            mapMissingSurveyClassToActionAlert(row, currentSurveyRound),
+            mapMissingSurveyClassToActionAlert(row),
           ),
         ];
 
@@ -4471,18 +4508,14 @@ export class DashboardService {
         };
       }
       case 'class': {
-        const currentRound = await this.surveyRoundService.getCurrentRound();
         const rows = await this.getMissingSurveyClassAlertRows({
-          currentRound,
           limit,
           offset,
         });
         const total = normalizeInteger(rows[0]?.totalCount);
 
         return {
-          data: rows.map((row) =>
-            mapMissingSurveyClassToActionAlert(row, currentRound),
-          ),
+          data: rows.map((row) => mapMissingSurveyClassToActionAlert(row)),
           meta: { total, page, limit },
         };
       }

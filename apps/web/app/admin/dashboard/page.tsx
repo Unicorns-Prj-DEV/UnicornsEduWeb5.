@@ -765,7 +765,7 @@ export default function AdminDashboardTabPage() {
     },
     {
       group: "class",
-      title: `Lớp chưa báo cáo lần ${dashboard.summary.currentSurveyRound}`,
+      title: "Lớp chưa báo cáo khảo sát",
       alerts: classAlerts,
       totalCount: dashboard.summary.classAlertCount,
       tone: "class",
