@@ -2,16 +2,27 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString } from 'class-validator';
 
 export class TopicCreateDto {
-  @ApiProperty({ description: 'Tiêu đề chuyên đề', example: 'Chuyên đề Đại số tuyến tính' })
+  @ApiProperty({
+    description: 'Tiêu đề chuyên đề',
+    example: 'Chuyên đề Đại số tuyến tính',
+  })
   @IsString()
   title: string;
 
-  @ApiPropertyOptional({ description: 'Link video YouTube nhúng', example: 'https://youtube.com/watch?v=abc123', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Link video YouTube nhúng',
+    example: 'https://youtube.com/watch?v=abc123',
+    nullable: true,
+  })
   @IsOptional()
   @IsString()
   videoUrl?: string | null;
 
-  @ApiPropertyOptional({ description: 'Nội dung chuyên đề (HTML rich text)', example: '<p>Nội dung bài học...</p>', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Nội dung chuyên đề (HTML rich text)',
+    example: '<p>Nội dung bài học...</p>',
+    nullable: true,
+  })
   @IsOptional()
   @IsString()
   content?: string | null;
@@ -23,12 +34,18 @@ export class TopicUpdateDto {
   @IsString()
   title?: string;
 
-  @ApiPropertyOptional({ description: 'Link video YouTube nhúng', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Link video YouTube nhúng',
+    nullable: true,
+  })
   @IsOptional()
   @IsString()
   videoUrl?: string | null;
 
-  @ApiPropertyOptional({ description: 'Nội dung chuyên đề (HTML rich text)', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Nội dung chuyên đề (HTML rich text)',
+    nullable: true,
+  })
   @IsOptional()
   @IsString()
   content?: string | null;

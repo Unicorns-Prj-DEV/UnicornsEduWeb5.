@@ -1274,10 +1274,7 @@ export class ClassService {
 
     if (hasSchedule) {
       try {
-        await this.calendarService.syncScheduleWithCalendar(
-          classDetail.id,
-          [],
-        );
+        await this.calendarService.syncScheduleWithCalendar(classDetail.id, []);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         this.logger.error(

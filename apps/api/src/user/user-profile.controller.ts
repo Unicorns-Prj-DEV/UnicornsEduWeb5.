@@ -1015,10 +1015,14 @@ export class UserProfileController {
   @Get('student-classes/:classId/sessions')
   @ApiOperation({
     summary: 'Get sessions for my class',
-    description: 'Returns sessions for a class with the current student attendance.',
+    description:
+      'Returns sessions for a class with the current student attendance.',
   })
   @ApiParam({ name: 'classId', description: 'Class ID' })
-  @ApiResponse({ status: 200, description: 'List of sessions with student attendance.' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of sessions with student attendance.',
+  })
   async getMyClassSessions(
     @CurrentUser() user: JwtPayload,
     @Param('classId') classId: string,
@@ -1044,7 +1048,10 @@ export class UserProfileController {
     description: 'Returns class surveys with the current student assessment.',
   })
   @ApiParam({ name: 'classId', description: 'Class ID' })
-  @ApiResponse({ status: 200, description: 'List of surveys with student assessment.' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of surveys with student assessment.',
+  })
   async getMyClassSurveys(
     @CurrentUser() user: JwtPayload,
     @Param('classId') classId: string,
@@ -1101,7 +1108,8 @@ export class UserProfileController {
   @Get('student-classes/:classId/topics/:topicId')
   @ApiOperation({
     summary: 'Get topic detail for my class',
-    description: 'Returns topic detail for a class if current student is enrolled.',
+    description:
+      'Returns topic detail for a class if current student is enrolled.',
   })
   @ApiParam({ name: 'classId', description: 'Class ID' })
   @ApiParam({ name: 'topicId', description: 'Topic ID' })
@@ -1124,7 +1132,10 @@ export class UserProfileController {
     return topic;
   }
 
-  private async validateStudentClassAccess(classId: string, studentId: string): Promise<void> {
+  private async validateStudentClassAccess(
+    classId: string,
+    studentId: string,
+  ): Promise<void> {
     const enrollment = await this.prisma.studentClass.findFirst({
       where: { classId, studentId, status: 'active' },
     });
