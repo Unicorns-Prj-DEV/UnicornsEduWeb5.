@@ -20,14 +20,19 @@ export default function RootHomePage() {
 
     const destination = resolvePostLoginRedirect(user);
     const safeDestination =
-      destination === "/"
-        ? user.access?.student?.canAccess || user.hasStudentProfile
+      destination === "/" || destination === "/user-profile"
+        ? user.roleType === "student" ||
+          user.access?.student?.canAccess ||
+          user.hasStudentProfile
           ? "/student"
-          : user.access?.staff?.canAccess || user.hasStaffProfile
+          : user.roleType === "staff" ||
+            user.access?.staff?.canAccess ||
+            user.hasStaffProfile
             ? "/staff"
-            : user.roleType === "admin"
+            : user.roleType === "admin" ||
+              user.access?.admin?.tier === "full"
               ? "/admin"
-              : "/user-profile"
+              : "/auth/login"
         : destination;
 
     replace(safeDestination);

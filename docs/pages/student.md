@@ -3,9 +3,9 @@
 ## Route and role
 
 - **Path:** `/student`
-- **Role:** linked `studentInfo.status = active` self-service; actor có nhiều workspace vẫn mở `/student` nếu session resolve `access.student.canAccess=true`.
+- **Role:** linked `studentInfo.status = active` hoặc role `student` self-service; actor có nhiều workspace vẫn mở `/student` nếu session resolve `access.student.canAccess=true`. Người dùng với role `student` lấy `/student` làm trang chủ mặc định thay vì `/user-profile`.
 - **Workspace/tenant:** `/student` là student workspace trong app single-tenant; scope khóa theo tài khoản hiện tại và linked `studentInfo`, không theo `tenant_id`/`workspace_id`.
-- **Yêu cầu hồ sơ:** cần linked `studentInfo` còn trạng thái **Đang học** (`active`); thiếu hồ sơ học sinh hoặc hồ sơ đã **Nghỉ học** (`inactive`) thì shell không mở.
+- **Yêu cầu hồ sơ:** người dùng có role `student` hoặc linked `studentInfo` trạng thái **Đang học** (`active`) được điều hướng về `/student`. Nếu hồ sơ đã **Nghỉ học** (`inactive`) hoặc chưa có workspace hợp lệ thì mới điều hướng về `/user-profile`.
 - **Guest redirect:** guest mở `/student` được proxy đưa về `/auth/login?next=<path+query>` để sau login quay lại đúng student route nếu session có linked `studentInfo`.
 - **Workplan owner:** Minh (Frontend – UX + Assistant/Student).
 
