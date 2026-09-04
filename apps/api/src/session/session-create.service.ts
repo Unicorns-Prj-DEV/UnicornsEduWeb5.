@@ -226,6 +226,15 @@ export class SessionCreateService {
             );
           }
 
+          if (uniqueAttendanceStudentIds.size >= 2) {
+            const recording = data.recordingUrl?.trim();
+            if (!recording) {
+              throw new BadRequestException(
+                'Link video YouTube (recording) là bắt buộc đối với lớp có từ 2 học sinh trở lên.',
+              );
+            }
+          }
+
           const coefficient =
             this.sessionValidationService.normalizeCoefficient(
               data.coefficient,
