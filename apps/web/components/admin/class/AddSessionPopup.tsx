@@ -52,13 +52,14 @@ import RichTextEditor from "@/components/ui/RichTextEditor";
 import { TimeInput } from "@/components/ui/TimeInput";
 import { currentTimePrefillValue } from "@/components/ui/time-input.helpers";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
-import YouTubeEmbed from "@/components/ui/YouTubeEmbed";
+import YouTubeEmbed, { extractYouTubeVideoId } from "@/components/ui/YouTubeEmbed";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
 import { normalizeOptionalRichTextContent } from "@/lib/sanitize";
 import {
   buildSessionFormDirtySnapshot,
   isSessionFormDirty,
 } from "@/lib/session-form-dirty.helpers";
+import { cn } from "@/lib/utils";
 
 export interface SessionStudentItem {
   id: string;
@@ -269,6 +270,8 @@ export default function AddSessionPopup({
   const [lessonContentError, setLessonContentError] = useState("");
   const [homeworkError, setHomeworkError] = useState("");
   const [tutorialError, setTutorialError] = useState("");
+  const [recordingUrlError, setRecordingUrlError] = useState("");
+  const isRecordingRequired = students.length >= 2;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isTrialLesson, setIsTrialLesson] = useState(false);
   const [teacherPaymentStatus, setTeacherPaymentStatus] = useState<string>("unpaid");
@@ -594,6 +597,31 @@ export default function AddSessionPopup({
     if (!isRichTextNonEmpty(trimmedTutorial)) {
       setTutorialError("Vui lòng nhập tutorial các buổi học.");
       toast.error("Vui lòng nhập tutorial các buổi học.");
+      return;
+    }
+
+    if (isRecordingRequired) {
+      const trimmedRecording = recordingUrl.trim();
+      if (!trimmedRecording) {
+        setRecordingUrlError(
+          "Vui lòng nhập link video YouTube (recording) cho lớp có từ 2 học sinh trở lên.",
+        );
+        toast.error(
+          "Vui lòng nhập link video YouTube (recording) cho lớp có từ 2 học sinh trở lên.",
+        );
+        return;
+      }
+      if (!extractYouTubeVideoId(trimmedRecording)) {
+        setRecordingUrlError("Link video YouTube không hợp lệ.");
+        toast.error("Link video YouTube không hợp lệ.");
+        return;
+      }
+    } else if (
+      recordingUrl.trim() &&
+      !extractYouTubeVideoId(recordingUrl.trim())
+    ) {
+      setRecordingUrlError("Link video YouTube không hợp lệ.");
+      toast.error("Link video YouTube không hợp lệ.");
       return;
     }
 
@@ -948,17 +976,36 @@ export default function AddSessionPopup({
                   </label>
 
                   <div className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
-                    <label htmlFor="add-session-recording-url">
-                      Link video YouTube (recording)
+                    <label htmlFor="add-session-recording-url" className="flex items-center gap-1.5">
+                      <span>Link video YouTube (recording)</span>
+                      {isRecordingRequired ? <RequiredMark /> : null}
+                      {isRecordingRequired ? (
+                        <span className="text-xs font-normal text-text-muted">
+                          (Bắt buộc đối với lớp từ 2 học sinh)
+                        </span>
+                      ) : null}
                     </label>
                     <input
                       id="add-session-recording-url"
                       type="url"
                       value={recordingUrl}
-                      onChange={(e) => setRecordingUrl(e.target.value)}
+                      onChange={(e) => {
+                        setRecordingUrl(e.target.value);
+                        if (recordingUrlError) setRecordingUrlError("");
+                      }}
                       placeholder="https://youtube.com/watch?v=..."
-                      className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                      className={cn(
+                        "min-h-11 rounded-lg border bg-bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus",
+                        recordingUrlError
+                          ? "border-error focus-visible:ring-error"
+                          : "border-border-default focus-visible:ring-border-focus",
+                      )}
                     />
+                    {recordingUrlError ? (
+                      <span className="text-xs font-medium text-error" role="alert">
+                        {recordingUrlError}
+                      </span>
+                    ) : null}
                     {recordingUrl && (
                       <div className="mt-2">
                         <YouTubeEmbed

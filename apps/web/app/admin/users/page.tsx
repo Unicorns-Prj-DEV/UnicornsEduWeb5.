@@ -375,7 +375,18 @@ export default function AdminUsersPage() {
                         </div>
                       </div>
                       <div className="mt-2 flex flex-col gap-1 text-sm text-text-secondary">
-                        <span className="truncate">Email: {u.email}</span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="truncate">Email: {u.email}</span>
+                          {u.emailVerified ? (
+                            <span className="inline-flex items-center rounded-full bg-success/15 px-1.5 py-0.5 text-[11px] font-medium text-success ring-1 ring-success/20">
+                              Đã xác thực
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-full bg-warning/15 px-1.5 py-0.5 text-[11px] font-medium text-warning ring-1 ring-warning/20">
+                              Chưa xác thực
+                            </span>
+                          )}
+                        </div>
                         <span className="truncate">Tên: {getUserDisplayName(u) || "—"}</span>
                         <span className="truncate">Trạng thái: {userStatusLabel(u.status)}</span>
                       </div>
@@ -443,6 +454,20 @@ export default function AdminUsersPage() {
                         </td>
                         <td className="px-4 py-3 text-text-primary">
                           <span className="block truncate">{u.email}</span>
+                          <span className="mt-1 block">
+                            {u.emailVerified ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success ring-1 ring-success/20">
+                                <svg className="size-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                                Đã xác thực
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center rounded-full bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning ring-1 ring-warning/20">
+                                Chưa xác thực
+                              </span>
+                            )}
+                          </span>
                         </td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${roleBadgeClass(u.roleType)}`}>

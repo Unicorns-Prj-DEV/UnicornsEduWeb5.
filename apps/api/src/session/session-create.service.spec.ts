@@ -10,6 +10,7 @@ import { SessionCreateService } from './session-create.service';
 
 describe('SessionCreateService', () => {
   const mockPrisma = {
+    $transaction: jest.fn(),
     classTeacher: {
       findUnique: jest.fn(),
     },
@@ -27,7 +28,9 @@ describe('SessionCreateService', () => {
 
   const validationService = {
     validateAttendanceItems: jest.fn(),
+    validateAttendanceNotes: jest.fn(),
     validateSessionCommentFields: jest.fn(),
+    isTuitionChargeableStatus: jest.fn().mockReturnValue(true),
     resolveChargeableAttendanceTuitionFee: jest.fn(),
     parseSessionDate: jest.fn(),
     parseSessionTime: jest.fn(),
@@ -217,5 +220,71 @@ describe('SessionCreateService', () => {
       },
     );
     expect(createSessionSpy.mock.calls[0][0].allowanceAmount).toBeUndefined();
+  });
+
+  it('throws BadRequestException when creating session with >= 2 students without recordingUrl', async () => {
+    mockPrisma.$transaction.mockImplementation(async (callback: never) => {
+      const tx = {
+        classTeacher: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'ct-1',
+            customAllowance: null,
+            operatingDeductionRatePercent: 0,
+            class: {
+              allowancePerSessionPerStudent: 100000,
+              scaleAmount: null,
+              tuitionPackageTotal: 10,
+              tuitionPackageSession: 10,
+            },
+          }),
+        },
+        customerCareService: { findMany: jest.fn().mockResolvedValue([]) },
+        studentClass: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              studentId: 'student-1',
+              customStudentTuitionPerSession: 100000,
+              student: { accountBalance: 0 },
+              class: {},
+            },
+            {
+              studentId: 'student-2',
+              customStudentTuitionPerSession: 100000,
+              student: { accountBalance: 0 },
+              class: {},
+            },
+          ]),
+        },
+      };
+      return (callback as (tx: unknown) => Promise<unknown>)(tx);
+    });
+    scheduleRulesService.assertSessionMatchesDeclaredSchedule.mockResolvedValue(
+      null,
+    );
+
+    await expect(
+      service.createSession({
+        classId: 'class-1',
+        teacherId: 'teacher-1',
+        date: '2026-03-20',
+        lessonContent: '<p>Nội dung</p>',
+        homework: '<p>BTVN</p>',
+        tutorial: '<p>Tutorial</p>',
+        attendance: [
+          {
+            studentId: 'student-1',
+            status: AttendanceStatus.present,
+            notes: null,
+          },
+          {
+            studentId: 'student-2',
+            status: AttendanceStatus.present,
+            notes: null,
+          },
+        ],
+      }),
+    ).rejects.toThrow(
+      'Link video YouTube (recording) là bắt buộc đối với lớp có từ 2 học sinh trở lên.',
+    );
   });
 });

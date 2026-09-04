@@ -777,8 +777,7 @@ export class NotificationService {
   ): NotificationTargetRoleTypeDto[] {
     return roleTypes.filter(
       (roleType): roleType is NotificationTargetRoleTypeDto =>
-        roleType === UserRole.admin ||
-        roleType === UserRole.staff,
+        roleType === UserRole.admin || roleType === UserRole.staff,
     );
   }
 

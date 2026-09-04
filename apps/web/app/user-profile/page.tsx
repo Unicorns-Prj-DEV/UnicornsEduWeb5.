@@ -26,6 +26,7 @@ import type {
 } from "@/dtos/profile.dto";
 import { resolveCanonicalUserName } from "@/dtos/user-name.dto";
 import { OPEN_EMAIL_VERIFICATION_MODAL_EVENT } from "@/lib/email-verification-access";
+import { getUserWorkspaceHref } from "@/lib/auth-redirect";
 
 type Tone = "primary" | "success" | "warning" | "neutral";
 
@@ -1239,7 +1240,7 @@ export default function UserProfilePage() {
           </h1>
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <Link
-              href="/"
+              href={getUserWorkspaceHref(profile)}
               className="text-text-muted transition-colors hover:text-text-primary"
             >
               ← Trang chủ

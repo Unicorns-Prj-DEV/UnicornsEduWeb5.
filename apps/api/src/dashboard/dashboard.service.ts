@@ -2262,7 +2262,9 @@ export class DashboardService {
                     surveyId: true,
                   },
                 })
-              : Promise.resolve<Array<{ classId: string; surveyId: string }>>([]),
+              : Promise.resolve<Array<{ classId: string; surveyId: string }>>(
+                  [],
+                ),
           ])
         : [[], [] as Array<{ classId: string; surveyId: string }>];
 

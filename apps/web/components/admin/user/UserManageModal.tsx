@@ -6,12 +6,12 @@ import { toast } from "sonner";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type {
   StaffRole,
+  UpdateUserPayload,
   UserDetailWithStaff,
   UserRoleType,
   UserStatus,
 } from "@/dtos/user.dto";
 import type { AdminLikeRouteBase } from "@/lib/admin-shell-paths";
-import { runBackgroundSave } from "@/lib/mutation-feedback";
 import * as userApi from "@/lib/apis/user.api";
 import { ROLE_LABELS } from "@/lib/staff.constants";
 import { USER_ROLE_LABELS, USER_STATUS_LABELS } from "@/lib/user.constants";
@@ -81,6 +81,7 @@ export default function UserManageModal({
   const [errors, setErrors] = useState<UserManageFormErrors>({});
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const fieldRefs = useRef<Partial<Record<UserManageField, HTMLInputElement | null>>>({});
+  const initializedUserIdRef = useRef<string | null>(null);
 
   const visibleRoleTypeOptions = hideAdminOptions
     ? ROLE_TYPE_OPTIONS.filter((opt) => opt.value !== "admin")
@@ -94,26 +95,39 @@ export default function UserManageModal({
       setForm(null);
       setErrors({});
       setDeleteConfirmOpen(false);
+      initializedUserIdRef.current = null;
       return;
     }
-    setForm(buildUserManageFormState(user));
-    setErrors({});
-    setDeleteConfirmOpen(false);
-  }, [
-    user,
-    user?.id,
-    user?.updatedAt,
-    user?.emailVerified,
-    user?.email,
-    user?.status,
-    user?.roleType,
-    user?.accountHandle,
-    user?.phone,
-    user?.first_name,
-    user?.last_name,
-    user?.province,
-    user?.staffInfo?.roles,
-  ]);
+    // Only re-initialize when switching to a different user or first initialization
+    if (initializedUserIdRef.current !== user.id) {
+      initializedUserIdRef.current = user.id;
+      setForm(buildUserManageFormState(user));
+      setErrors({});
+      setDeleteConfirmOpen(false);
+    }
+  }, [user]);
+
+  const updateMutation = useMutation({
+    mutationFn: (payload: UpdateUserPayload) => userApi.updateUser(payload),
+    onSuccess: async (updatedUser) => {
+      queryClient.setQueryData(["user", user?.id], updatedUser);
+      await queryClient.invalidateQueries({ queryKey: ["user", "list"] });
+      await queryClient.invalidateQueries({ queryKey: ["user", user?.id] });
+      await queryClient.invalidateQueries({ queryKey: ["staff"] });
+      await queryClient.invalidateQueries({ queryKey: ["student"] });
+      await queryClient.invalidateQueries({ queryKey: ["auth", "full-profile"] });
+      toast.success("Đã cập nhật user.");
+      onClose();
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ??
+        (err as Error)?.message ??
+        "Cập nhật user thất bại.";
+      toast.error(msg);
+    },
+  });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => userApi.deleteUser(id),
@@ -143,7 +157,7 @@ export default function UserManageModal({
   };
 
   const handleSave = () => {
-    if (!user || !form) return;
+    if (!user || !form || updateMutation.isPending) return;
 
     const nextErrors = validateUserManageForm(form);
     setErrors(nextErrors);
@@ -153,22 +167,7 @@ export default function UserManageModal({
     }
 
     const payload = buildUpdateUserPayload(user.id, form);
-    onClose();
-
-    void runBackgroundSave({
-      loadingMessage: "Đang lưu user…",
-      successMessage: "Đã cập nhật user.",
-      errorMessage: "Cập nhật user thất bại.",
-      action: () => userApi.updateUser(payload),
-      onSuccess: async (updatedUser) => {
-        queryClient.setQueryData(["user", user.id], updatedUser);
-        await queryClient.invalidateQueries({ queryKey: ["user", "list"] });
-        await queryClient.invalidateQueries({ queryKey: ["user", user.id] });
-        await queryClient.invalidateQueries({ queryKey: ["staff"] });
-        await queryClient.invalidateQueries({ queryKey: ["student"] });
-        await queryClient.invalidateQueries({ queryKey: ["auth", "full-profile"] });
-      },
-    });
+    updateMutation.mutate(payload);
   };
 
   const handleDeleteConfirm = async () => {
@@ -206,7 +205,7 @@ export default function UserManageModal({
       <div
         className="fixed inset-0 z-40 bg-bg-primary/75 backdrop-blur-[1px]"
         aria-hidden
-        onClick={onClose}
+        onClick={updateMutation.isPending ? undefined : onClose}
       />
       <div
         role="dialog"
@@ -362,14 +361,23 @@ export default function UserManageModal({
                 <input
                   type="checkbox"
                   checked={form.emailVerified}
-                  onChange={(e) =>
-                    setForm((prev) =>
-                      prev ? { ...prev, emailVerified: e.target.checked } : prev,
-                    )
-                  }
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setForm((prev) => {
+                      if (!prev) return prev;
+                      return {
+                        ...prev,
+                        emailVerified: checked,
+                        status:
+                          checked && prev.status === "pending"
+                            ? "active"
+                            : prev.status,
+                      };
+                    });
+                  }}
                   className="size-4 rounded border-border-default text-primary focus:ring-border-focus"
                 />
-                Email đã xác thực
+                <span>Email đã xác thực</span>
               </label>
             </div>
 
@@ -505,16 +513,18 @@ export default function UserManageModal({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-11 flex-1 rounded-md border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:flex-none"
+            disabled={updateMutation.isPending}
+            className="min-h-11 flex-1 rounded-md border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none"
           >
             Đóng
           </button>
           <button
             type="button"
             onClick={handleSave}
-            className="min-h-11 flex-1 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:flex-none"
+            disabled={updateMutation.isPending}
+            className="min-h-11 flex-1 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none"
           >
-            Lưu thay đổi
+            {updateMutation.isPending ? "Đang lưu…" : "Lưu thay đổi"}
           </button>
         </div>
       </div>

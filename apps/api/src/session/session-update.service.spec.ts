@@ -392,4 +392,29 @@ describe('SessionUpdateService', () => {
       'teacherTaxDeductionRatePercent',
     );
   });
+
+  it('throws BadRequestException when updating session with >= 2 students without recordingUrl', async () => {
+    mockPrisma.session.findUnique.mockResolvedValueOnce({
+      id: 'session-1',
+      classId: 'class-1',
+      teacherId: 'teacher-1',
+      date: new Date('2026-03-15T00:00:00.000Z'),
+      teacherPaymentStatus: SessionPaymentStatus.unpaid,
+      recordingUrl: null,
+      class: { name: 'Toán 10A' },
+      attendance: [
+        { id: 'att-1', studentId: 'student-1' },
+        { id: 'att-2', studentId: 'student-2' },
+      ],
+    });
+
+    await expect(
+      service.updateSession({
+        id: 'session-1',
+        recordingUrl: '',
+      }),
+    ).rejects.toThrow(
+      'Link video YouTube (recording) là bắt buộc đối với lớp có từ 2 học sinh trở lên.',
+    );
+  });
 });

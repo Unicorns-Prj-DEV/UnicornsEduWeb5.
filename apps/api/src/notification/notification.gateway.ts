@@ -11,12 +11,7 @@ import { AuthIdentityCacheService } from 'src/auth/auth-identity-cache.service';
 import type { NotificationTargetRoleTypeDto } from 'src/dtos/notification.dto';
 import type { NotificationPushEventDto } from 'src/dtos/notification.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
-import {
-  StaffRole,
-  StaffStatus,
-  UserRole,
-  UserStatus,
-} from 'generated/enums';
+import { StaffRole, StaffStatus, UserRole, UserStatus } from 'generated/enums';
 
 const ACCESS_TOKEN_COOKIE = 'access_token';
 const NOTIFICATION_ALL_ROOM = 'notifications:all';

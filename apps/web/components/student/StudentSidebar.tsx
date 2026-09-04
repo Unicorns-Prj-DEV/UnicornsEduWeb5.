@@ -282,14 +282,14 @@ export default function StudentSidebar() {
 
         <div className="shrink-0 border-t border-border-default p-2">
           <Link
-            href="/"
+            href="/student"
             prefetch={false}
             onClick={async () => {
               handleMobileClose();
-              setActiveHrefState("/");
+              setActiveHrefState("/student");
               await Promise.resolve();
             }}
-            className={`sidebar-item flex items-center rounded-lg py-2.5 text-sm font-medium transition-[gap,padding,background-color,color] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "gap-0 px-2.5" : "gap-3 px-3"} ${(activeHrefState ? activeHrefState === "/" : pathname === "/") ? "bg-primary text-text-inverse" : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"}`}
+            className={`sidebar-item flex items-center rounded-lg py-2.5 text-sm font-medium transition-[gap,padding,background-color,color] duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary ${compact ? "gap-0 px-2.5" : "gap-3 px-3"} ${(activeHrefState ? activeHrefState === "/student" : pathname === "/student") ? "bg-primary text-text-inverse" : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"}`}
             aria-label={collapsed && !isMobile ? "Trang chủ" : undefined}
             title={collapsed && !isMobile ? "Trang chủ" : undefined}
           >

@@ -68,7 +68,7 @@ import { DateInput } from "@/components/ui/DateInput";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import { TimeInput } from "@/components/ui/TimeInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
-import YouTubeEmbed from "@/components/ui/YouTubeEmbed";
+import YouTubeEmbed, { extractYouTubeVideoId } from "@/components/ui/YouTubeEmbed";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as classApi from "@/lib/apis/class.api";
 import * as sessionApi from "@/lib/apis/session.api";
@@ -1349,6 +1349,29 @@ export default function SessionHistoryTable({
         toast.error("Trợ cấp buổi phải là số không âm.");
         return;
       }
+    }
+
+    const sessionStudentCount =
+      editingSession.attendance?.length ?? attendanceItems.length;
+    const isRecordingRequired = sessionStudentCount >= 2;
+    if (isRecordingRequired) {
+      const trimmedRecording = editRecordingUrl.trim();
+      if (!trimmedRecording) {
+        toast.error(
+          "Vui lòng nhập link video YouTube (recording) cho lớp có từ 2 học sinh trở lên.",
+        );
+        return;
+      }
+      if (!extractYouTubeVideoId(trimmedRecording)) {
+        toast.error("Link video YouTube không hợp lệ.");
+        return;
+      }
+    } else if (
+      editRecordingUrl.trim() &&
+      !extractYouTubeVideoId(editRecordingUrl.trim())
+    ) {
+      toast.error("Link video YouTube không hợp lệ.");
+      return;
     }
     const savedNotes = buildSessionCommentZaloText({
       className:
@@ -3056,7 +3079,17 @@ export default function SessionHistoryTable({
                     </label>
 
                     <div className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
-                      <label htmlFor="edit-session-recording-url">Link video YouTube (recording)</label>
+                      <label htmlFor="edit-session-recording-url" className="flex items-center gap-1.5">
+                        <span>Link video YouTube (recording)</span>
+                        {(editingSession?.attendance?.length ?? attendanceItems.length) >= 2 ? (
+                          <RequiredMark />
+                        ) : null}
+                        {(editingSession?.attendance?.length ?? attendanceItems.length) >= 2 ? (
+                          <span className="text-xs font-normal text-text-muted">
+                            (Bắt buộc đối với lớp từ 2 học sinh)
+                          </span>
+                        ) : null}
+                      </label>
                       <input
                         id="edit-session-recording-url"
                         type="url"

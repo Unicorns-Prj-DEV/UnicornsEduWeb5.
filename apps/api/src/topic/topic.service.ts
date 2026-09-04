@@ -1,7 +1,16 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ActionHistoryService } from 'src/action-history/action-history.service';
-import { TopicCreateDto, TopicUpdateDto, TopicResponseDto } from 'src/dtos/topic.dto';
+import {
+  TopicCreateDto,
+  TopicUpdateDto,
+  TopicResponseDto,
+} from 'src/dtos/topic.dto';
 import { UserRole } from 'generated/enums';
 
 export interface ActionHistoryActor {
@@ -38,7 +47,9 @@ export class TopicService {
       },
     });
 
-    this.logger.log(`Topic created: ${topic.id} for class ${classId} by ${actor.userEmail}`);
+    this.logger.log(
+      `Topic created: ${topic.id} for class ${classId} by ${actor.userEmail}`,
+    );
 
     return topic;
   }
@@ -48,7 +59,9 @@ export class TopicService {
     dto: TopicUpdateDto,
     actor: ActionHistoryActor,
   ): Promise<TopicResponseDto> {
-    const existing = await this.prisma.topic.findUnique({ where: { id: topicId } });
+    const existing = await this.prisma.topic.findUnique({
+      where: { id: topicId },
+    });
     if (!existing) {
       throw new NotFoundException(`Topic ${topicId} not found`);
     }
@@ -71,7 +84,9 @@ export class TopicService {
   }
 
   async deleteTopic(topicId: string, actor: ActionHistoryActor): Promise<void> {
-    const existing = await this.prisma.topic.findUnique({ where: { id: topicId } });
+    const existing = await this.prisma.topic.findUnique({
+      where: { id: topicId },
+    });
     if (!existing) {
       throw new NotFoundException(`Topic ${topicId} not found`);
     }
@@ -87,7 +102,12 @@ export class TopicService {
     classId: string,
     page = 1,
     limit = 20,
-  ): Promise<{ data: TopicResponseDto[]; total: number; page: number; limit: number }> {
+  ): Promise<{
+    data: TopicResponseDto[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
     await this.validateClassExists(classId);
 
     const [data, total] = await Promise.all([
@@ -104,7 +124,9 @@ export class TopicService {
   }
 
   async getTopicById(topicId: string): Promise<TopicResponseDto> {
-    const topic = await this.prisma.topic.findUnique({ where: { id: topicId } });
+    const topic = await this.prisma.topic.findUnique({
+      where: { id: topicId },
+    });
     if (!topic) {
       throw new NotFoundException(`Topic ${topicId} not found`);
     }
@@ -116,7 +138,12 @@ export class TopicService {
     studentId: string,
     page = 1,
     limit = 20,
-  ): Promise<{ data: TopicResponseDto[]; total: number; page: number; limit: number }> {
+  ): Promise<{
+    data: TopicResponseDto[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
     await this.validateClassExists(classId);
     await this.validateStudentClassAccess(classId, studentId);
 
@@ -133,8 +160,13 @@ export class TopicService {
     return { data, total, page, limit };
   }
 
-  async getTopicForStudent(topicId: string, studentId: string): Promise<TopicResponseDto> {
-    const topic = await this.prisma.topic.findUnique({ where: { id: topicId } });
+  async getTopicForStudent(
+    topicId: string,
+    studentId: string,
+  ): Promise<TopicResponseDto> {
+    const topic = await this.prisma.topic.findUnique({
+      where: { id: topicId },
+    });
     if (!topic) {
       throw new NotFoundException(`Topic ${topicId} not found`);
     }
@@ -151,7 +183,10 @@ export class TopicService {
     }
   }
 
-  private async validateStaffClassAccess(classId: string, actor: ActionHistoryActor): Promise<void> {
+  private async validateStaffClassAccess(
+    classId: string,
+    actor: ActionHistoryActor,
+  ): Promise<void> {
     if (actor.roleType === UserRole.admin) return;
 
     const staffInfo = await this.prisma.staffInfo.findFirst({
@@ -175,7 +210,10 @@ export class TopicService {
     }
   }
 
-  private async validateStudentClassAccess(classId: string, studentId: string): Promise<void> {
+  private async validateStudentClassAccess(
+    classId: string,
+    studentId: string,
+  ): Promise<void> {
     const enrollment = await this.prisma.studentClass.findFirst({
       where: { classId, studentId, status: 'active' },
     });

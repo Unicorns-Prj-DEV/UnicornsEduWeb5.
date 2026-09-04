@@ -84,7 +84,12 @@ function hasAuthenticatedSession(user: Awaited<ReturnType<typeof getUser>>) {
 }
 
 function canAccessStudentShell(user: Awaited<ReturnType<typeof getUser>>) {
-  return Boolean(user.access?.student?.canAccess ?? user.hasStudentProfile);
+  return Boolean(
+    user.roleType === Role.student ||
+      user.effectiveRoleTypes?.includes(Role.student) ||
+      user.access?.student?.canAccess ||
+      user.hasStudentProfile,
+  );
 }
 
 function hasStudentWorkspaceHint(user: Awaited<ReturnType<typeof getUser>>) {
@@ -160,7 +165,7 @@ export async function proxy(req: NextRequest) {
     if (canAccessStaffShell(user) || user.roleType === Role.staff) {
       return NextResponse.redirect(new URL("/staff", req.url));
     }
-    return NextResponse.redirect(new URL("/user-profile", req.url));
+    return NextResponse.redirect(new URL("/auth/login", req.url));
   }
 
   const isStaffRoute = pathname === "/staff" || pathname.startsWith("/staff/");

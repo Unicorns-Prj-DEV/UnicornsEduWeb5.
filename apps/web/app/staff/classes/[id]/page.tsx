@@ -330,7 +330,6 @@ export default function StaffClassDetailPage() {
   const [pastMakeupPopupOpen, setPastMakeupPopupOpen] = useState(false);
   const [addSurveyPopupOpen, setAddSurveyPopupOpen] = useState(false);
   const [monthPopupOpen, setMonthPopupOpen] = useState(false);
-  const [createMenuOpen, setCreateMenuOpen] = useState(false);
 
   const [selectedYear, selectedMonthValue] = selectedMonth.split("-");
   const classDetailQueryKey = useMemo(() => staffOpsKeys.classDetail(id), [id]);
@@ -1216,43 +1215,27 @@ export default function StaffClassDetailPage() {
                   setMonthPopupOpen={setMonthPopupOpen}
                   countLabel={`${teacherScopedHistorySummary}: ${sessions.length + surveys.length}`}
                   actionButton={
-                    (canCreateSession || canManageSurveys) ? (
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() => setCreateMenuOpen(!createMenuOpen)}
-                          aria-label="Tạo mới"
-                          title="Tạo mới"
-                          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
-                        >
-                          <PlusIcon className="size-4" aria-hidden />
-                          <span className="sr-only">Tạo mới</span>
-                        </button>
-                        {createMenuOpen && (
-                          <div className="absolute right-0 top-full z-10 mt-1 w-48 rounded-lg border border-border-default bg-bg-surface shadow-lg">
-                            {canCreateSession && (
-                              <button
-                                onClick={() => {
-                                  setAddSessionPopupOpen(true);
-                                  setCreateMenuOpen(false);
-                                }}
-                                className="w-full px-4 py-2 text-left text-sm hover:bg-bg-secondary"
-                              >
-                                Tạo buổi học
-                              </button>
-                            )}
-                            {canManageSurveys && (
-                              <button
-                                onClick={() => {
-                                  setAddSurveyPopupOpen(true);
-                                  setCreateMenuOpen(false);
-                                }}
-                                className="w-full px-4 py-2 text-left text-sm hover:bg-bg-secondary"
-                              >
-                                Tạo khảo sát
-                              </button>
-                            )}
-                          </div>
+                    canCreateSession || canManageSurveys ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {canCreateSession && (
+                          <button
+                            type="button"
+                            onClick={() => setAddSessionPopupOpen(true)}
+                            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-text-inverse shadow-sm transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                          >
+                            <PlusIcon className="size-3.5 shrink-0" aria-hidden />
+                            <span>Tạo buổi học</span>
+                          </button>
+                        )}
+                        {canManageSurveys && (
+                          <button
+                            type="button"
+                            onClick={() => setAddSurveyPopupOpen(true)}
+                            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary shadow-sm transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                          >
+                            <PlusIcon className="size-3.5 shrink-0" aria-hidden />
+                            <span>Tạo khảo sát</span>
+                          </button>
                         )}
                       </div>
                     ) : null
