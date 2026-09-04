@@ -47,6 +47,7 @@ interface ProvisionUserOptions {
   createDescription?: string;
   updateDescription?: string;
   successMessage?: string;
+  emailVerified?: boolean;
 }
 
 type ProvisionUserInput = Pick<
@@ -455,6 +456,9 @@ export class AuthService {
             roleType: UserRole.guest,
             province: data.province,
             accountHandle: data.accountHandle,
+            ...(options.emailVerified !== undefined
+              ? { emailVerified: options.emailVerified }
+              : {}),
           },
           update: {
             email: data.email,
@@ -465,6 +469,9 @@ export class AuthService {
             roleType: UserRole.guest,
             province: data.province,
             accountHandle: data.accountHandle,
+            ...(options.emailVerified !== undefined
+              ? { emailVerified: options.emailVerified }
+              : {}),
           },
         });
         persistedUserId = persistedUser.id;
@@ -511,17 +518,21 @@ export class AuthService {
       this.invalidateAuthIdentityCache(persistedUserId);
     }
 
-    const verificationToken = await this.generateEmailVerificationToken(
-      data.email,
-      'email-verify',
-    );
+    if (!options.emailVerified) {
+      const verificationToken = await this.generateEmailVerificationToken(
+        data.email,
+        'email-verify',
+      );
 
-    await this.sendVerificationEmailOrThrow(data.email, verificationToken);
+      await this.sendVerificationEmailOrThrow(data.email, verificationToken);
+    }
 
     return {
       message:
         options.successMessage ??
-        'User created successfully. Please verify your email.',
+        (options.emailVerified
+          ? 'User created successfully.'
+          : 'User created successfully. Please verify your email.'),
     };
   }
 

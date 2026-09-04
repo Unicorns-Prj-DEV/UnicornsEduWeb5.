@@ -416,7 +416,10 @@ export class UserService {
         auditActor,
         createDescription: 'Tạo người dùng từ trang quản trị',
         updateDescription: 'Cập nhật user pending từ trang quản trị',
-        successMessage: 'Tạo user thành công. Email xác thực đã được gửi.',
+        successMessage: data.emailVerified
+          ? 'Tạo user thành công (đã xác thực email).'
+          : 'Tạo user thành công. Email xác thực đã được gửi.',
+        emailVerified: data.emailVerified,
       });
 
     if (nextRoleType === UserRole.guest) {
@@ -440,6 +443,9 @@ export class UserService {
         roleType: nextRoleType,
         ...(nextRoleType === UserRole.staff && data.staffRoles
           ? { staffRoles: data.staffRoles }
+          : {}),
+        ...(data.emailVerified !== undefined
+          ? { emailVerified: data.emailVerified }
           : {}),
       },
       auditActor,
@@ -468,7 +474,10 @@ export class UserService {
         auditActor,
         createDescription: 'Tạo học sinh đầy đủ từ trang quản trị',
         updateDescription: 'Cập nhật user pending từ luồng tạo học sinh',
-        successMessage: 'Tạo học sinh thành công. Email xác thực đã được gửi.',
+        successMessage: data.emailVerified
+          ? 'Tạo học sinh thành công (đã xác thực email).'
+          : 'Tạo học sinh thành công. Email xác thực đã được gửi.',
+        emailVerified: data.emailVerified,
       });
 
     const createdUser = await this.prisma.user.findUnique({
