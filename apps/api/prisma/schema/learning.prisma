@@ -2,6 +2,7 @@ model Class {
   id                            String                      @id
   name                          String
   classCategoryId               String                      @map("class_category_id")
+  courseId                       String                      @map("course_id")
   status                        ClassStatus                 @default(running)
   maxStudents                   Int                         @default(15) @map("max_students")
   allowancePerSessionPerStudent Int                         @default(0) @map("allowance_per_session_per_student")
@@ -27,13 +28,16 @@ model Class {
   topics                        Topic[]
   trainingManager               StaffInfo?                  @relation("ClassTrainingManager", fields: [trainingManagerStaffId], references: [id])
   classCategory                 ClassCategory               @relation(fields: [classCategoryId], references: [id])
+  course                        Course                      @relation(fields: [courseId], references: [id])
 
   @@index([trainingManagerStaffId])
   @@index([classCategoryId])
+  @@index([courseId])
   @@map("classes")
 }
 
 /// Phân loại lớp có thể tuỳ chỉnh (thêm/sửa/xoá) qua admin, thay cho enum cố định trước đây.
+/// Mỗi ClassCategory có đúng một Course cùng id (expand→contract: song song trong giai đoạn expand).
 model ClassCategory {
   id        String   @id @default(uuid())
   name      String
@@ -42,8 +46,40 @@ model ClassCategory {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
   classes   Class[]
+  course    Course?  @relation(fields: [id], references: [id])
 
   @@map("class_categories")
+}
+
+/// Khoá học — chương trình học độc lập, sở hữu Ngân hàng câu hỏi, thang độ khó, thời hạn mặc định.
+/// Trong giai đoạn expand, mỗi Course có đúng một ClassCategory cùng id.
+model Course {
+  id                 String                @id @default(uuid())
+  name               String
+  sortOrder          Int                   @default(0) @map("sort_order")
+  isActive           Boolean               @default(true) @map("is_active")
+  defaultDurationDays Int?                  @map("default_duration_days")
+  createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  classCategory      ClassCategory?
+  classes            Class[]
+  difficultyLevels   CourseDifficultyLevel[]
+
+  @@map("courses")
+}
+
+/// Mức độ khó của một Khoá học — thang do từng Khoá học tự định nghĩa.
+model CourseDifficultyLevel {
+  id        String  @id @default(uuid())
+  courseId   String  @map("course_id")
+  name      String
+  sortOrder Int     @default(0) @map("sort_order")
+  isActive  Boolean @default(true) @map("is_active")
+  course    Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, name])
+  @@index([courseId])
+  @@map("course_difficulty_levels")
 }
 
 model ClassTeacher {

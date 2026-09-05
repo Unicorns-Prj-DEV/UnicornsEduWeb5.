@@ -21,11 +21,16 @@ export class ClassCategoryService {
   }
 
   async create(dto: CreateClassCategoryDto) {
-    return this.prisma.classCategory.create({
-      data: {
-        name: dto.name,
-        sortOrder: dto.sort_order ?? 0,
-      },
+    // ponytail: dual-write — create Course in same transaction as ClassCategory
+    const sortOrder = dto.sort_order ?? 0;
+    return this.prisma.$transaction(async (tx) => {
+      const category = await tx.classCategory.create({
+        data: { name: dto.name, sortOrder },
+      });
+      await tx.course.create({
+        data: { id: category.id, name: dto.name, sortOrder },
+      });
+      return category;
     });
   }
 
@@ -37,13 +42,29 @@ export class ClassCategoryService {
       throw new NotFoundException('Không tìm thấy phân loại lớp.');
     }
 
-    return this.prisma.classCategory.update({
-      where: { id },
-      data: {
-        ...(dto.name !== undefined ? { name: dto.name } : {}),
-        ...(dto.sort_order !== undefined ? { sortOrder: dto.sort_order } : {}),
-        ...(dto.is_active !== undefined ? { isActive: dto.is_active } : {}),
-      },
+    // ponytail: dual-write — update Course in same transaction
+    const categoryData: Record<string, unknown> = {};
+    const courseData: Record<string, unknown> = {};
+    if (dto.name !== undefined) {
+      categoryData.name = dto.name;
+      courseData.name = dto.name;
+    }
+    if (dto.sort_order !== undefined) {
+      categoryData.sortOrder = dto.sort_order;
+      courseData.sortOrder = dto.sort_order;
+    }
+    if (dto.is_active !== undefined) {
+      categoryData.isActive = dto.is_active;
+      courseData.isActive = dto.is_active;
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const category = await tx.classCategory.update({
+        where: { id },
+        data: categoryData,
+      });
+      await tx.course.update({ where: { id }, data: courseData });
+      return category;
     });
   }
 
@@ -64,7 +85,11 @@ export class ClassCategoryService {
       );
     }
 
-    await this.prisma.classCategory.delete({ where: { id } });
+    // ponytail: dual-write — delete Course in same transaction
+    await this.prisma.$transaction(async (tx) => {
+      await tx.classCategory.delete({ where: { id } });
+      await tx.course.delete({ where: { id } });
+    });
     return { success: true };
   }
 }

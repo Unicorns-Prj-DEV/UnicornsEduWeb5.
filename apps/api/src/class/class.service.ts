@@ -1197,6 +1197,7 @@ export class ClassService {
           id: generateClassId(),
           name: data.name,
           classCategoryId,
+          courseId: classCategoryId, // ponytail: dual-write — courseId tracks classCategoryId
           status: data.status,
           maxStudents: data.max_students,
           allowancePerSessionPerStudent: data.allowance_per_session_per_student,
@@ -1557,8 +1558,10 @@ export class ClassService {
 
     const data: Prisma.ClassUncheckedUpdateInput = {};
     if (dto.name !== undefined) data.name = dto.name;
-    if (dto.class_category_id !== undefined)
+    if (dto.class_category_id !== undefined) {
       data.classCategoryId = dto.class_category_id;
+      data.courseId = dto.class_category_id; // ponytail: dual-write
+    }
     if (dto.status !== undefined) data.status = dto.status;
     if (dto.max_students !== undefined) data.maxStudents = dto.max_students;
     if (dto.allowance_per_session_per_student !== undefined) {
