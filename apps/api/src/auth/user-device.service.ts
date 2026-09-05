@@ -88,21 +88,9 @@ export class UserDeviceService {
     });
   }
 
-  async removeDevice(tokenHash: string) {
-    return this.prisma.userDevice.deleteMany({
-      where: { tokenHash },
-    });
-  }
-
   async removeAllDevicesForUser(userId: string) {
     return this.prisma.userDevice.deleteMany({
       where: { userId },
-    });
-  }
-
-  async removeDeviceById(deviceId: string, userId: string) {
-    return this.prisma.userDevice.deleteMany({
-      where: { id: deviceId, userId },
     });
   }
 

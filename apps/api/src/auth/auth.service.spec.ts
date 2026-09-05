@@ -5,6 +5,9 @@ jest.mock('bcrypt', () => ({
   hash: jest.fn(),
   compare: jest.fn(),
 }));
+jest.mock('./user-device.service', () => ({
+  UserDeviceService: class UserDeviceServiceMock {},
+}));
 
 import * as bcrypt from 'bcrypt';
 import { ServiceUnavailableException } from '@nestjs/common';
@@ -30,8 +33,13 @@ describe('AuthService', () => {
   const mockPrisma = {
     user: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       upsert: jest.fn(),
       update: jest.fn(),
+    },
+    loginRequest: {
+      findUnique: jest.fn(),
+      delete: jest.fn().mockResolvedValue({}),
     },
     $transaction: jest.fn(),
   };
@@ -59,9 +67,21 @@ describe('AuthService', () => {
     getAuthIdentity: jest.fn(),
     getStaffRoles: jest.fn(),
     invalidateUser: jest.fn(),
+    invalidateHasActiveDevice: jest.fn(),
   };
   const authAccessService = {
     resolveForIdentity: jest.fn(),
+  };
+  const userDeviceService = {
+    hashToken: jest.fn(),
+    generateDeviceToken: jest.fn(),
+    generateActivateSecret: jest.fn(),
+    createDevice: jest.fn(),
+    removeAllDevicesForUser: jest.fn(),
+    hasActiveDevice: jest.fn(),
+    touchActiveDeviceForUser: jest.fn(),
+    cleanupExpiredLoginRequests: jest.fn(),
+    cleanupInactiveDevices: jest.fn(),
   };
 
   let service: AuthService;
@@ -120,6 +140,7 @@ describe('AuthService', () => {
       actionHistoryService as never,
       authIdentityCacheService as never,
       authAccessService as never,
+      userDeviceService as never,
     );
   });
 
@@ -736,5 +757,85 @@ describe('AuthService', () => {
     await expect(service.resendVerificationEmail('user-1')).rejects.toThrow(
       ServiceUnavailableException,
     );
+  });
+
+  describe('activateStudentDevice', () => {
+    const baseRequest = {
+      id: 'req-1',
+      userId: 'student-1',
+      verified: true,
+      expiresAt: new Date(Date.now() + 60_000),
+      activateSecretHash: null as string | null,
+      deviceInfo: { userAgent: 'test' },
+      ipAddress: '127.0.0.1',
+    };
+
+    const studentUser = {
+      id: 'student-1',
+      accountHandle: 'hocsinh1',
+      roleType: UserRole.student,
+    };
+
+    beforeEach(() => {
+      userDeviceService.hashToken = jest.fn().mockReturnValue('hashed-secret');
+      userDeviceService.generateDeviceToken = jest.fn().mockReturnValue('device-token');
+      userDeviceService.createDevice = jest.fn().mockResolvedValue({});
+      userDeviceService.removeAllDevicesForUser = jest.fn().mockResolvedValue({});
+      authIdentityCacheService.invalidateHasActiveDevice = jest.fn();
+      jwtService.signAsync = jest.fn().mockResolvedValue('jwt-token');
+    });
+
+    it('rejects when activateSecret hash does not match', async () => {
+      mockPrisma.loginRequest.findUnique.mockResolvedValueOnce({
+        ...baseRequest,
+        activateSecretHash: 'expected-hash',
+      });
+
+      await expect(
+        service.activateStudentDevice('req-1', 'wrong-secret'),
+      ).rejects.toThrow('Invalid activation secret');
+    });
+
+    it('issues tokens when activateSecret matches', async () => {
+      mockPrisma.loginRequest.findUnique.mockResolvedValueOnce({
+        ...baseRequest,
+        activateSecretHash: 'hashed-secret',
+      });
+      mockPrisma.user.findUnique.mockResolvedValueOnce(studentUser);
+
+      await expect(
+        service.activateStudentDevice('req-1', 'correct-secret'),
+      ).resolves.toMatchObject({
+        accessToken: 'jwt-token',
+        refreshToken: 'jwt-token',
+      });
+
+      expect(userDeviceService.createDevice).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'student-1' }),
+      );
+      expect(authIdentityCacheService.invalidateHasActiveDevice).toHaveBeenCalledWith('student-1');
+    });
+
+    it('rejects when request is not verified', async () => {
+      mockPrisma.loginRequest.findUnique.mockResolvedValueOnce({
+        ...baseRequest,
+        verified: false,
+      });
+
+      await expect(
+        service.activateStudentDevice('req-1', 'any-secret'),
+      ).rejects.toThrow('Login request not verified yet');
+    });
+
+    it('rejects when request is expired', async () => {
+      mockPrisma.loginRequest.findUnique.mockResolvedValueOnce({
+        ...baseRequest,
+        expiresAt: new Date(Date.now() - 1_000),
+      });
+
+      await expect(
+        service.activateStudentDevice('req-1', 'any-secret'),
+      ).rejects.toThrow('Login request expired');
+    });
   });
 });
