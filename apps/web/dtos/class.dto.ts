@@ -3,8 +3,8 @@ import { StaffInfoDto, StaffStatus } from "./staff.dto";
 
 export type ClassStatus = "running" | "ended";
 
-/** Phân loại lớp, tuỳ chỉnh được qua GET/POST/PATCH/DELETE /class-categories. */
-export interface ClassCategory {
+/** Khoá học — chương trình học độc lập có nội dung học thuật riêng. */
+export interface Course {
     id: string;
     name: string;
     sortOrder: number;
@@ -13,12 +13,12 @@ export interface ClassCategory {
     updatedAt?: string;
 }
 
-export interface CreateClassCategoryPayload {
+export interface CreateCoursePayload {
     name: string;
     sort_order?: number;
 }
 
-export interface UpdateClassCategoryPayload {
+export interface UpdateCoursePayload {
     name?: string;
     sort_order?: number;
     is_active?: boolean;
@@ -41,8 +41,8 @@ export interface ClassScheduleItem {
 export interface ClassListItem {
     id: string;
     name: string;
-    classCategoryId: string;
-    classCategory?: ClassCategory;
+    courseId: string;
+    course?: Course;
     status: ClassStatus;
     studentCount?: number;
     maxStudents: number;
@@ -131,7 +131,7 @@ export interface ClassDetail extends ClassListItem {
 
 export interface CreateClassPayload {
     name: string;
-    class_category_id?: string;
+    course_id?: string;
     status?: ClassStatus;
     max_students?: number;
     allowance_per_session_per_student?: number;
@@ -150,7 +150,7 @@ export interface CreateClassPayload {
 export interface UpdateClassPayload {
     id: string;
     name?: string;
-    class_category_id?: string;
+    course_id?: string;
     status?: ClassStatus;
     max_students?: number;
     allowance_per_session_per_student?: number;
@@ -168,7 +168,7 @@ export interface UpdateClassPayload {
 /** Payload for PATCH /class/:id/basic-info */
 export interface UpdateClassBasicInfoPayload {
     name?: string;
-    class_category_id?: string;
+    course_id?: string;
     status?: ClassStatus;
     max_students?: number;
     allowance_per_session_per_student?: number;
@@ -236,8 +236,8 @@ export interface ClassListItemDto {
     id: string;
     name: string;
     status: ClassStatus;
-    classCategoryId: string;
-    classCategory?: ClassCategory;
+    courseId: string;
+    course?: Course;
     studentCount?: number;
     maxStudents?: number;
     createdAt: Date;

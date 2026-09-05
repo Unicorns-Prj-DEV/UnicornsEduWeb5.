@@ -1,5 +1,5 @@
 import {
-  ClassCategory,
+  Course,
   ClassEndEligibility,
   ClassListItem,
   ClassListResponse,
@@ -7,8 +7,8 @@ import {
   ClassStatusActionPayload,
   ClassTeacher,
   ClassTeacherPayload,
-  CreateClassCategoryPayload,
-  UpdateClassCategoryPayload,
+  CreateCoursePayload,
+  UpdateCoursePayload,
 } from '@/dtos/class.dto';
 import {
   ClassDetail,
@@ -230,7 +230,7 @@ export async function getClasses(params: {
   limit: number;
   search?: string;
   status?: "" | ClassStatus;
-  classCategoryId?: string;
+  courseId?: string;
 }): Promise<ClassListResponse> {
   const response = await api.get("/class", {
     params: {
@@ -238,8 +238,8 @@ export async function getClasses(params: {
       limit: params.limit,
       ...(params.search ? { search: params.search } : {}),
       ...(params.status ? { status: params.status } : {}),
-      ...(params.classCategoryId
-        ? { classCategoryId: params.classCategoryId }
+      ...(params.courseId
+        ? { courseId: params.courseId }
         : {}),
     },
   });
@@ -257,37 +257,37 @@ export async function getClasses(params: {
   };
 }
 
-export async function getClassCategories(
+export async function getCourses(
   includeInactive = false,
-): Promise<ClassCategory[]> {
-  const response = await api.get<ClassCategory[]>("/class-categories", {
+): Promise<Course[]> {
+  const response = await api.get<Course[]>("/courses", {
     params: includeInactive ? { includeInactive: "true" } : undefined,
   });
   return Array.isArray(response.data) ? response.data : [];
 }
 
-export async function createClassCategory(
-  data: CreateClassCategoryPayload,
-): Promise<ClassCategory> {
-  const response = await api.post<ClassCategory>("/class-categories", data);
+export async function createCourse(
+  data: CreateCoursePayload,
+): Promise<Course> {
+  const response = await api.post<Course>("/courses", data);
   return response.data;
 }
 
-export async function updateClassCategory(
+export async function updateCourse(
   id: string,
-  data: UpdateClassCategoryPayload,
-): Promise<ClassCategory> {
+  data: UpdateCoursePayload,
+): Promise<Course> {
   const safeId = encodeURIComponent(id);
-  const response = await api.patch<ClassCategory>(
-    `/class-categories/${safeId}`,
+  const response = await api.patch<Course>(
+    `/courses/${safeId}`,
     data,
   );
   return response.data;
 }
 
-export async function deleteClassCategory(id: string): Promise<void> {
+export async function deleteCourse(id: string): Promise<void> {
   const safeId = encodeURIComponent(id);
-  await api.delete(`/class-categories/${safeId}`);
+  await api.delete(`/courses/${safeId}`);
 }
 
 export async function getClassById(id: string): Promise<ClassDetail> {

@@ -12,7 +12,7 @@ export interface StudentClassItem {
     id: string;
     name: string;
     status: string;
-    classCategory: {
+    course: {
       id: string;
       name: string;
     };

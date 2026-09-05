@@ -965,7 +965,7 @@ export class UserProfileController {
       include: {
         class: {
           include: {
-            classCategory: true,
+            course: true,
             teachers: {
               include: { teacher: { include: { user: true } } },
               where: { status: 'active' },
@@ -997,7 +997,7 @@ export class UserProfileController {
       include: {
         class: {
           include: {
-            classCategory: true,
+            course: true,
             teachers: {
               include: { teacher: { include: { user: true } } },
               where: { status: 'active' },

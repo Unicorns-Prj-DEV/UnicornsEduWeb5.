@@ -528,7 +528,7 @@ export class ClassService {
             },
           },
         },
-        classCategory: true,
+        course: true,
       },
     });
 
@@ -724,7 +724,7 @@ export class ClassService {
     query: PaginationQueryDto & {
       search?: string;
       status?: string;
-      classCategoryId?: string;
+      courseId?: string;
       teacherId?: string;
       trainingManagerStaffId?: string;
     },
@@ -740,7 +740,7 @@ export class ClassService {
 
     const trimmedSearch = query.search?.trim();
     const normalizedStatus = query.status?.trim();
-    const classCategoryId = query.classCategoryId?.trim();
+    const courseId = query.courseId?.trim();
     const teacherId = query.teacherId?.trim();
     const trainingManagerStaffId = query.trainingManagerStaffId?.trim();
 
@@ -761,7 +761,7 @@ export class ClassService {
           }
         : {}),
       ...(statusFilter ? { status: statusFilter } : {}),
-      ...(classCategoryId ? { classCategoryId } : {}),
+      ...(courseId ? { courseId } : {}),
       ...(teacherId
         ? {
             teachers: {
@@ -786,11 +786,11 @@ export class ClassService {
       skip,
       take: limit,
       include: {
-        classCategory: true,
+        course: true,
       },
       orderBy: [
         {
-          classCategory: {
+          course: {
             sortOrder: 'asc',
           },
         },
@@ -992,7 +992,7 @@ export class ClassService {
     query: PaginationQueryDto & {
       search?: string;
       status?: string;
-      classCategoryId?: string;
+      courseId?: string;
     },
   ) {
     const actor = await this.staffOperationsAccess.resolveActor(
@@ -1086,7 +1086,7 @@ export class ClassService {
     return this.createClass(
       {
         name: dto.name,
-        class_category_id: dto.class_category_id,
+        course_id: dto.course_id,
         status: dto.status,
         schedule: dto.schedule,
       },
@@ -1165,20 +1165,20 @@ export class ClassService {
     return this.withEntityIdRetry(() => this.createClassOnce(data, auditActor));
   }
 
-  private async resolveDefaultClassCategoryId(
+  private async resolveDefaultCourseId(
     db: Prisma.TransactionClient | PrismaService,
   ) {
-    const defaultCategory = await db.classCategory.findFirst({
+    const defaultCourse = await db.course.findFirst({
       where: { isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       select: { id: true },
     });
-    if (!defaultCategory) {
+    if (!defaultCourse) {
       throw new NotFoundException(
-        'Không có phân loại lớp nào đang hoạt động. Vui lòng chọn phân loại lớp.',
+        'Không có khoá học nào đang hoạt động. Vui lòng chọn khoá học.',
       );
     }
-    return defaultCategory.id;
+    return defaultCourse.id;
   }
 
   private async createClassOnce(
@@ -1188,15 +1188,14 @@ export class ClassService {
     const hasSchedule = data.schedule && data.schedule.length > 0;
 
     const classDetail = await this.prisma.$transaction(async (tx) => {
-      const classCategoryId =
-        data.class_category_id ??
-        (await this.resolveDefaultClassCategoryId(tx));
+      const courseId =
+        data.course_id ?? (await this.resolveDefaultCourseId(tx));
 
       const createdClass = await tx.class.create({
         data: {
           id: generateClassId(),
           name: data.name,
-          classCategoryId,
+          courseId,
           status: data.status,
           maxStudents: data.max_students,
           allowancePerSessionPerStudent: data.allowance_per_session_per_student,
@@ -1454,7 +1453,7 @@ export class ClassService {
         where: { id: data.id },
         data: {
           name: data.name,
-          classCategoryId: data.class_category_id,
+          courseId: data.course_id,
           status: data.status,
           maxStudents: data.max_students,
           allowancePerSessionPerStudent: data.allowance_per_session_per_student,
@@ -1557,8 +1556,7 @@ export class ClassService {
 
     const data: Prisma.ClassUncheckedUpdateInput = {};
     if (dto.name !== undefined) data.name = dto.name;
-    if (dto.class_category_id !== undefined)
-      data.classCategoryId = dto.class_category_id;
+    if (dto.course_id !== undefined) data.courseId = dto.course_id;
     if (dto.status !== undefined) data.status = dto.status;
     if (dto.max_students !== undefined) data.maxStudents = dto.max_students;
     if (dto.allowance_per_session_per_student !== undefined) {

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { TimeInput } from "@/components/ui/TimeInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type { ClassScheduleItem, ClassStatus } from "@/dtos/class.dto";
-import ClassCategorySelect from "@/components/shared/class/ClassCategorySelect";
+import CourseSelect from "@/components/shared/class/CourseSelect";
 import type { StaffOpsCreateClassPayload } from "@/dtos/staff-ops.dto";
 import * as staffOpsApi from "@/lib/apis/staff-ops.api";
 import {
@@ -101,7 +101,7 @@ function StaffCreateClassDialog({
   const formId = "staff-create-class-form";
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
-  const [classCategoryId, setClassCategoryId] = useState("");
+  const [courseId, setCourseId] = useState("");
   const [status, setStatus] = useState<ClassStatus>("running");
   const [scheduleRanges, setScheduleRanges] = useState<ScheduleRangeForm[]>([
     createScheduleRange(),
@@ -159,8 +159,8 @@ function StaffCreateClassDialog({
       toast.error("Tên lớp là bắt buộc.");
       return;
     }
-    if (!classCategoryId) {
-      toast.error("Phân loại lớp là bắt buộc.");
+    if (!courseId) {
+      toast.error("Khoá học là bắt buộc.");
       return;
     }
 
@@ -176,7 +176,7 @@ function StaffCreateClassDialog({
     try {
       await createMutation.mutateAsync({
         name: trimmedName,
-        ...(classCategoryId ? { class_category_id: classCategoryId } : {}),
+        ...(courseId ? { course_id: courseId } : {}),
         status,
         schedule,
       });
@@ -236,11 +236,11 @@ function StaffCreateClassDialog({
               </label>
 
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
-                <span>Loại lớp</span>
-                <ClassCategorySelect
+                <span>Khoá học</span>
+                <CourseSelect
                   name="staff-create-class-type"
-                  value={classCategoryId}
-                  onValueChange={setClassCategoryId}
+                  value={courseId}
+                  onValueChange={setCourseId}
                   buttonClassName="rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />
               </label>

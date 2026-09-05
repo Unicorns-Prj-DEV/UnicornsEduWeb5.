@@ -777,7 +777,7 @@ export default function StaffClassDetailPage() {
                   ·
                 </span>
                 <span className="inline-flex shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-medium text-primary">
-                  {classDetail.classCategory?.name ?? "—"}
+                  {classDetail.course?.name ?? "—"}
                 </span>
                 <span className="text-text-muted/80" aria-hidden>
                   ·

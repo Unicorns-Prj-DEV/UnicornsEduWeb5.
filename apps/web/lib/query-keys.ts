@@ -73,10 +73,10 @@ export const classKeys = {
   detail: (id: string) => [...classKeys.all, "detail", id] as const,
 };
 
-export const classCategoryKeys = {
-  all: ["class-category"] as const,
+export const courseKeys = {
+  all: ["course"] as const,
   list: (includeInactive?: boolean) =>
-    [...classCategoryKeys.all, "list", Boolean(includeInactive)] as const,
+    [...courseKeys.all, "list", Boolean(includeInactive)] as const,
 };
 
 export const uniojKeys = {
@@ -88,4 +88,3 @@ export const uniojKeys = {
   classesLevels: (classIds: string[]) =>
     [...uniojKeys.all, "classes-levels", classIds] as const,
 };
-

@@ -7,31 +7,31 @@ import {
   ResponsiveDialogBody,
   ResponsiveActionFooter,
 } from "@/components/ui/ResponsiveDialog";
-import type { ClassCategory } from "@/dtos/class.dto";
+import type { Course } from "@/dtos/class.dto";
 
-export type ClassCategoryFormValues = {
+export type CourseFormValues = {
   name: string;
   sortOrder: number;
 };
 
 type Props = {
   open: boolean;
-  category: ClassCategory | null;
+  course: Course | null;
   onClose: () => void;
-  onSubmit: (values: ClassCategoryFormValues) => Promise<void>;
+  onSubmit: (values: CourseFormValues) => Promise<void>;
 };
 
-export default function ClassCategoryFormPopup({ open, category, onClose, onSubmit }: Props) {
-  const isEdit = Boolean(category);
+export default function CourseFormPopup({ open, course, onClose, onSubmit }: Props) {
+  const isEdit = Boolean(course);
   const [name, setName] = useState("");
   const [sortOrderInput, setSortOrderInput] = useState("0");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setName(category?.name ?? "");
-    setSortOrderInput(String(category?.sortOrder ?? 0));
-  }, [open, category]);
+    setName(course?.name ?? "");
+    setSortOrderInput(String(course?.sortOrder ?? 0));
+  }, [open, course]);
 
   if (!open) return null;
 
@@ -40,7 +40,7 @@ export default function ClassCategoryFormPopup({ open, category, onClose, onSubm
 
     const trimmedName = name.trim();
     if (!trimmedName) {
-      toast.error("Tên phân loại là bắt buộc.");
+      toast.error("Tên khoá học là bắt buộc.");
       return;
     }
     const sortOrder = Number(sortOrderInput);
@@ -58,11 +58,11 @@ export default function ClassCategoryFormPopup({ open, category, onClose, onSubm
   };
 
   return (
-    <ResponsiveDialog labelledBy="class-category-form-title" onBackdropClick={onClose}>
+    <ResponsiveDialog labelledBy="course-form-title" onBackdropClick={onClose}>
       <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
         <div className="flex shrink-0 items-center justify-between border-b border-border-subtle p-4 sm:p-5">
-          <h2 id="class-category-form-title" className="text-lg font-semibold text-text-primary">
-            {isEdit ? "Sửa phân loại lớp" : "Thêm phân loại lớp"}
+          <h2 id="course-form-title" className="text-lg font-semibold text-text-primary">
+            {isEdit ? "Sửa khoá học" : "Thêm khoá học"}
           </h2>
           <button
             type="button"

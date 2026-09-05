@@ -86,12 +86,12 @@ export class CreateClassDto {
   name: string;
 
   @ApiPropertyOptional({
-    description: 'Class category id (see GET /class-categories).',
+    description: 'Course id (see GET /courses).',
     example: 'a1b2c3d4-...-uuid',
   })
   @IsOptional()
   @IsString()
-  class_category_id?: string;
+  course_id?: string;
 
   @ApiPropertyOptional({ enum: ClassStatus, default: ClassStatus.running })
   @IsOptional()
@@ -210,7 +210,7 @@ export class CreateClassDto {
 export class UpdateClassBasicInfoDto extends PartialType(
   PickType(CreateClassDto, [
     'name',
-    'class_category_id',
+    'course_id',
     'status',
     'max_students',
     'allowance_per_session_per_student',
@@ -446,7 +446,7 @@ export class UpdateClassScheduleDto {
 /** DTO for POST /staff-ops/classes – minimal class metadata only */
 export class CreateStaffOpsClassDto extends PickType(CreateClassDto, [
   'name',
-  'class_category_id',
+  'course_id',
   'status',
 ] as const) {
   @ApiPropertyOptional({
@@ -510,7 +510,7 @@ export class UpdateClassStudentsDto {
   students: StudentClassCreateDto[];
 }
 
-export class CreateClassCategoryDto {
+export class CreateCourseDto {
   @ApiProperty({
     description: 'Display name shown in the UI.',
     example: 'THPT Basic',
@@ -526,12 +526,11 @@ export class CreateClassCategoryDto {
   sort_order?: number;
 }
 
-export class UpdateClassCategoryDto extends PartialType(
-  PickType(CreateClassCategoryDto, ['name', 'sort_order'] as const),
+export class UpdateCourseDto extends PartialType(
+  PickType(CreateCourseDto, ['name', 'sort_order'] as const),
 ) {
   @ApiPropertyOptional({
-    description:
-      'Toggle visibility in dropdowns without deleting the category.',
+    description: 'Toggle visibility in dropdowns without deleting the course.',
     example: true,
   })
   @IsOptional()
