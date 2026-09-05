@@ -111,3 +111,41 @@
 - Mỗi yêu cầu nạp thẳng gồm `student_id`, số tiền VND nguyên dương và lý do đối soát. Backend gửi email React Email tới `ADMIN_EMAIL`; `ADMIN_EMAIL` phải là mailbox thật, và production `FRONTEND_URL` phải là origin public HTTPS để tạo link duyệt.
 - Admin mở link trong email để xem trang xác nhận public. Link dùng token chỉ lưu dạng hash trong DB, hết hạn sau 14 ngày và chỉ cộng ví sau khi admin bấm nút xác nhận cuối cùng trên trang.
 - Khi duyệt thành công, hệ thống tạo `wallet_transactions_history` loại `topup`, tăng `student_info.account_balance`, liên kết request với transaction và ghi action history cho hồ sơ học sinh.
+
+## Khoá học và nội dung học thuật
+
+- **Khoá học** (`Course`): chương trình học độc lập có nội dung học thuật riêng, ngân hàng câu hỏi riêng và thời hạn mặc định riêng. Thay thế cách gọi cũ **Phân loại lớp** (`ClassCategory`) — VIP / Basic / Advance / Hardcore / THPT Basic / THPT Advanced / THPT Luyện Đề là *khoá học*, không phải nhãn phân loại. Một Khoá học có nhiều **Lớp học**; một Lớp học thuộc đúng một Khoá học.
+- **Chủ đề** (`Chapter`): nhóm nội dung cấp cao nhất bên trong một Khoá học. Chỉ tồn tại ở cấp khoá, không tồn tại ở cấp lớp. Là cấp phân loại của câu hỏi trong Ngân hàng câu hỏi.
+- **Chuyên đề** (`Topic`): đơn vị nội dung học sinh nhìn thấy và làm việc trực tiếp. Có đúng hai loại loại trừ nhau: **Chuyên đề lý thuyết** (chứa các Bài học) và **Chuyên đề luyện tập** (là một tập câu hỏi, bản thân nó là bài kiểm tra). Một Chuyên đề hoặc thuộc một Chủ đề của Khoá học, hoặc thuộc riêng một Lớp học — không bao giờ cả hai.
+- **Bài học** (`Lecture`): đơn vị bên trong một Chuyên đề lý thuyết, gồm video nhúng, nội dung lý thuyết và bài tập ôn nhẹ. Khác với **Buổi học** (`Session`) là buổi dạy có thật trên lịch, và khác với **giáo án** (`lesson_task` / `lesson_output`) là workflow vận hành của đội soạn bài.
+- **Đề thi**: một Chuyên đề luyện tập nằm trong **Thư viện đề thi** của Khoá học thay vì nằm trong một Chủ đề. Không phải loại nội dung mới — dùng lại nguyên module Chuyên đề luyện tập.
+- **Buổi học** (`Session`): giữ nguyên nghĩa hiện hành — buổi dạy có thật, có ngày, gia sư, trợ cấp và điểm danh. Không dùng từ "session" cho phiên đăng nhập.
+- **Thời hạn mặc định của khoá** (`Course.defaultDurationDays`): số ngày, không phải ngày cụ thể. Khi tạo Lớp học, hệ thống chốt thành một ngày hết hạn tuyệt đối trên chính lớp đó; sửa thời hạn mặc định của khoá về sau không hồi tố cho lớp đã tạo. Giá trị rỗng nghĩa là khoá **vô hạn**.
+- **Hạn xem nội dung của lớp** (`Class.contentAccessExpiresAt`): mốc mà cả lớp cùng mất quyền xem, tính theo lớp chứ không theo từng học sinh. Quá hạn thì học sinh bị chặn **toàn bộ trang lớp** và lớp **biến mất khỏi danh sách lớp của học sinh**; dữ liệu không bị xoá và gia sư/admin vẫn tra cứu được bài làm cũ.
+- **Lớp kết thúc** (`ClassStatus.ended`) và **lớp hết hạn** là hai trục độc lập: `ended` là ngừng vận hành dạy/tính trợ cấp, hết hạn là mất quyền xem nội dung. Một lớp có thể `ended` mà vẫn còn hạn xem, hoặc còn `running` mà đã hết hạn.
+
+## Ngân hàng câu hỏi và bài làm
+
+- **Ngân hàng câu hỏi**: kho câu hỏi riêng của một Khoá học, dùng chung cho cả bài tập ôn nhẹ trong Bài học lẫn Chuyên đề luyện tập. Mỗi câu hỏi thuộc đúng một **Chủ đề** của khoá đó.
+- **Mức độ khó**: thang do từng Khoá học tự định nghĩa (có tên, thứ tự, bật/tắt), không phải thang cố định Dễ/Trung bình/Khó dùng chung toàn hệ thống.
+- **Bài làm** (`Attempt`): một lượt học sinh làm một Chuyên đề luyện tập. Đồng hồ chạy riêng cho từng học sinh kể từ lúc bấm bắt đầu; hết giờ thì phần đã trả lời được chốt lại và chấm, không huỷ bài.
+- **Bài làm cần chấm**: chỉ **lượt làm mới nhất** của mỗi học sinh nằm trong hàng đợi chấm tự luận. Lượt cũ vẫn được lưu để tra cứu nhưng không đòi gia sư chấm.
+- **Điểm của học sinh cho một Chuyên đề luyện tập**: điểm của **lượt làm cao điểm nhất đã chấm xong**. Lượt còn câu tự luận chưa chấm không tham gia vào điểm, điểm trung bình lớp hay tỉ lệ đúng/sai từng câu; nó hiện riêng ở trạng thái chờ chấm.
+- **Bài tập ôn nhẹ**: câu hỏi gắn trong một Bài học. Có lưu câu trả lời để học sinh xem lại, nhưng không sinh Bài làm, không tính điểm, không vào màn thống kê và câu tự luận trong đó không vào hàng đợi chấm.
+
+## Phân quyền nội dung khoá học
+
+- **Đội giáo án của một khoá**: nhóm nhân sự được gán riêng vào một Khoá học để soạn nội dung học thuật và ngân hàng câu hỏi của khoá đó. Trong nội bộ một khoá mọi thành viên có quyền ngang nhau, không có người soạn/người duyệt. Việc gán do admin, **Trưởng giáo án** (`lesson_plan_head`) hoặc **Trợ lí** (`assistant`) thực hiện.
+- **Trưởng giáo án** thấy và sửa được nội dung của mọi Khoá học không cần được gán; thành viên `lesson_plan` chỉ thấy khoá mình được gán.
+- **Dạy lớp** và **soạn giáo án khoá** là hai vai tách biệt: gia sư đang dạy lớp thuộc khoá X không tự động soạn được nội dung cấp khoá của X. Ngược lại, gia sư của lớp thuộc khoá X **được thêm câu hỏi mới vào Ngân hàng câu hỏi của khoá X** để tự ra đề cho lớp mình; câu hỏi đó nằm chung kho và đội giáo án vẫn sửa/xoá được.
+- **Quyền xem nội dung của học sinh**: thuộc một lớp của khoá X **không** cho học sinh thấy toàn bộ nội dung khoá X. Học sinh chỉ thấy những mục gia sư đã chủ động thêm vào danh sách nội dung của lớp.
+
+## Đăng nhập và thiết bị
+
+- **Thiết bị đăng nhập** (`UserDevice`): một phiên đăng nhập còn hiệu lực gắn với một thiết bị. Không dùng từ "session" cho khái niệm này — `Session` đã là **Buổi học**.
+- Luật **một thiết bị tại một thời điểm** và **xác minh email mỗi lần đăng nhập** chỉ áp dụng cho tài khoản **học sinh**. Staff/admin giữ nguyên cơ chế hiện hành.
+- **Yêu cầu đăng nhập** (`LoginRequest`): bản ghi tạm gắn với đúng trình duyệt đã bấm Đăng nhập. Magic link trong email chỉ **đánh dấu yêu cầu đó đã xác minh**; thiết bị được kích hoạt luôn là thiết bị khởi tạo yêu cầu, kể cả khi link được bấm ở máy khác.
+- **Thiết bị hết hiệu lực do không hoạt động**: sau 60 ngày không hoạt động, thiết bị tự giải phóng để tài khoản đăng nhập lại ở máy khác.
+- **Buộc đăng xuất** (force-logout): thao tác của admin, CSKH hoặc trợ lí để giải phóng thiết bị hiện tại của một học sinh khi học sinh không tự đăng xuất được. Ghi vào lịch sử thao tác.
+- **Lớp không điểm danh**: lớp được admin hoặc trợ lí bật cờ "không cần điểm danh" trong cài đặt lớp — dành cho lớp quá đông nên điểm danh từng buổi không khả thi. Cờ nằm ở **Lớp**, áp cho **mọi buổi** của lớp đó; gia sư không bật/tắt được và form tạo buổi không hiển thị lựa chọn này. Phần điểm danh không hiển thị, nhưng hệ thống vẫn ghi nhận toàn bộ học sinh đang học là có mặt — học phí vẫn thu bình thường và trợ cấp gia sư vẫn tính theo **sĩ số lớp được snapshot vào từng buổi**, không phải sĩ số đọc lại tại thời điểm xem báo cáo. Lớp này bị loại khỏi mọi thống kê tỉ lệ đi học.
+- **Đề** và **lần giao**: một Chuyên đề luyện tập ở cấp khoá là **đề** — nó sở hữu danh sách câu hỏi và điểm từng câu, dùng chung sống cho mọi lớp. Việc gia sư thêm đề đó vào một lớp là một **lần giao** — nó sở hữu thời điểm mở bài và thời lượng làm bài riêng của lớp. Bài làm của học sinh gắn với lần giao, không gắn với đề, nên cùng một đề giao cho nhiều lớp cho ra nhiều bảng thống kê độc lập.

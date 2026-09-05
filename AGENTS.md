@@ -41,9 +41,25 @@ If you change project workflow/conventions for agents (commands, required checks
 
 ## Agent skills
 
-- **Issue tracker**: use local markdown issues under `.scratch/` unless the user explicitly asks to publish to GitHub. See `docs/agents/issue-tracker.md`.
-- **Triage labels**: use the canonical triage labels documented in `docs/agents/triage-labels.md` (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`).
-- **Domain docs**: treat this as a single-context monorepo and use the docs listed in Source of truth first. See `docs/agents/domain.md`.
+- **Issue tracker**: issues and specs live in GitHub Issues, via the `gh` CLI. The repo name genuinely ends in a dot (`UnicornsEduWeb5.`) — don't "fix" the remote URL. See `docs/agents/issue-tracker.md`.
+- **Triage labels**: use the canonical triage labels documented in `docs/agents/triage-labels.md` (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). All five exist on the repo.
+- **Domain docs**: single-context — one `CONTEXT.md` glossary plus `docs/adr/` at the repo root, read alongside the docs listed in Source of truth. See `docs/agents/domain.md`.
+
+## Branching (mandatory)
+
+| Branch | Role | Who touches it |
+| --- | --- | --- |
+| `main` | **Production.** Never commit directly, never merge a feature slice into it. | Nobody, until a release is explicitly decided by the repo owner. |
+| `dev` | Integration branch for the in-flight course-restructuring work. | Every slice merges here. |
+| `feat/<NN>-<slug>` | One branch per ticket, cut from `dev`. `<NN>` is the ticket's number in the breakdown. | The agent implementing that ticket. |
+
+Rules:
+
+- Cut your branch from the **current tip of `dev`**, not from `main`.
+- Open the PR with **`dev` as the base**. A PR based on `main` is wrong and should be re-targeted, not merged.
+- Rebase onto `dev` before asking for review; the slices land in dependency order and `dev` moves under you.
+- For an **expand–contract** pair, the contract ticket may only merge after every migration ticket between them is already on `dev`. Merging it early leaves `dev` red.
+- `main` and `dev` may diverge for a long time. Do not "sync" `dev` back into `main` on your own initiative.
 
 ## Frontend rules (`apps/web`) (mandatory)
 
