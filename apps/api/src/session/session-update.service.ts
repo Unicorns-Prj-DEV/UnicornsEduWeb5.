@@ -444,6 +444,7 @@ export class SessionUpdateService {
             teacherPaymentStatus: true,
             snapshotPerStudentAllowance: true,
             snapshotScaleAmount: true,
+            snapshotNoAttendance: true,
             snapshotBlockCount: true,
             class: {
               select: {
@@ -482,6 +483,11 @@ export class SessionUpdateService {
 
         if (!existingSession) {
           throw new NotFoundException('Session not found');
+        }
+
+        // ponytail: no-attendance sessions own their roster; ignore any attendance in the payload
+        if (existingSession.snapshotNoAttendance && data.attendance) {
+          data = { ...data, attendance: undefined };
         }
 
         const nextClassId = data.classId ?? existingSession.classId;
@@ -1562,6 +1568,7 @@ export class SessionUpdateService {
       select: {
         id: true,
         classId: true,
+        snapshotNoAttendance: true,
         snapshotBlockCount: true,
         attendance: {
           select: {
@@ -1574,6 +1581,11 @@ export class SessionUpdateService {
 
     if (!existingSession) {
       throw new NotFoundException('Session not found');
+    }
+
+    // ponytail: no-attendance sessions own their roster; ignore any attendance in the payload
+    if (existingSession.snapshotNoAttendance && data.attendance) {
+      data = { ...data, attendance: undefined };
     }
 
     const actor = await this.staffOperationsAccess.resolveActor(
