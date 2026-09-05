@@ -61,6 +61,8 @@ Rules:
 - For an **expand–contract** pair, the contract ticket may only merge after every migration ticket between them is already on `dev`. Merging it early leaves `dev` red.
 - `main` and `dev` may diverge for a long time. Do not "sync" `dev` back into `main` on your own initiative.
 
+**Review gate before merging into `dev` (mandatory).** A slice branch is not merged the moment its acceptance criteria pass. Every branch goes through `/code-review low` first, and only merges after the findings are addressed or explicitly waived by the repo owner. This applies to work produced by dispatched agents as much as to hand-written work — an agent reporting "done" is the trigger to review, not to merge.
+
 ## Frontend rules (`apps/web`) (mandatory)
 
 - **Backend communication**: use **TanStack Query** (`useQuery` / `useMutation`) for all server state.
