@@ -1,6 +1,9 @@
 jest.mock('src/prisma/prisma.service', () => ({
   PrismaService: class PrismaServiceMock {},
 }));
+jest.mock('../user-device.service', () => ({
+  UserDeviceService: class UserDeviceServiceMock {},
+}));
 
 import { UnauthorizedException } from '@nestjs/common';
 import { UserRole } from 'generated/enums';
@@ -13,7 +16,9 @@ describe('JwtStrategy', () => {
   };
   const authIdentityCacheService = {
     getAuthIdentity: jest.fn(),
+    getHasActiveDevice: jest.fn(),
   };
+  const userDeviceService = {} as never;
 
   let strategy: JwtStrategy;
 
@@ -22,6 +27,7 @@ describe('JwtStrategy', () => {
     strategy = new JwtStrategy(
       configService as never,
       authIdentityCacheService as never,
+      userDeviceService,
     );
   });
 
@@ -123,5 +129,77 @@ describe('JwtStrategy', () => {
         roleType: UserRole.staff,
       }),
     ).rejects.toThrow(UnauthorizedException);
+  });
+
+  describe('student device check', () => {
+    const studentIdentity = {
+      id: 'student-1',
+      email: 'student@example.com',
+      accountHandle: 'student-1',
+      roleType: UserRole.student,
+      status: 'active',
+      requiresPasswordSetup: false,
+      avatarPath: null,
+    };
+
+    it('rejects student with no active device', async () => {
+      authIdentityCacheService.getAuthIdentity.mockResolvedValue(
+        studentIdentity,
+      );
+      authIdentityCacheService.getHasActiveDevice.mockResolvedValue(false);
+
+      await expect(
+        strategy.validate({} as RequestWithResolvedAuthContext, {
+          id: 'student-1',
+          email: '',
+          accountHandle: 'ignored',
+          roleType: UserRole.student,
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('passes student with active device', async () => {
+      authIdentityCacheService.getAuthIdentity.mockResolvedValue(
+        studentIdentity,
+      );
+      authIdentityCacheService.getHasActiveDevice.mockResolvedValue(true);
+
+      await expect(
+        strategy.validate({} as RequestWithResolvedAuthContext, {
+          id: 'student-1',
+          email: '',
+          accountHandle: 'ignored',
+          roleType: UserRole.student,
+        }),
+      ).resolves.toEqual({
+        id: 'student-1',
+        email: 'student@example.com',
+        accountHandle: 'student-1',
+        roleType: UserRole.student,
+      });
+    });
+
+    it('skips device check for staff', async () => {
+      const staffIdentity = { ...studentIdentity, roleType: UserRole.staff };
+      authIdentityCacheService.getAuthIdentity.mockResolvedValue(staffIdentity);
+
+      await expect(
+        strategy.validate({} as RequestWithResolvedAuthContext, {
+          id: 'staff-1',
+          email: '',
+          accountHandle: 'ignored',
+          roleType: UserRole.staff,
+        }),
+      ).resolves.toEqual({
+        id: 'student-1',
+        email: 'student@example.com',
+        accountHandle: 'student-1',
+        roleType: UserRole.staff,
+      });
+
+      expect(
+        authIdentityCacheService.getHasActiveDevice,
+      ).not.toHaveBeenCalled();
+    });
   });
 });

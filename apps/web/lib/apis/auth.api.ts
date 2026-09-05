@@ -6,6 +6,10 @@ import {
   RegisterDto,
   ResetPasswordDto,
   SetupPasswordDto,
+  StudentActivateDto,
+  StudentActivateResponse,
+  StudentLoginInitResponse,
+  StudentLoginPollResponse,
   UserInfoDto,
 } from "@/dtos/Auth.dto";
 import type {
@@ -109,6 +113,11 @@ export async function setupPassword(data: SetupPasswordDto) {
 
 export async function logout() {
   const response = await api.post("/auth/logout");
+  return response.data;
+}
+
+export async function studentLogout() {
+  const response = await api.post("/auth/student/logout");
   return response.data;
 }
 
@@ -409,4 +418,50 @@ export async function getMyStaffLessonOutputStats(params?: {
   );
 
   return response.data;
+}
+
+// ─── Student single-device login ─────────────────────────────────────
+
+export async function studentLoginInit(
+  dto: LoginDto,
+): Promise<StudentLoginInitResponse> {
+  const response = await api.post<StudentLoginInitResponse>(
+    "/auth/student/login",
+    dto,
+  );
+  return response.data;
+}
+
+export async function studentLoginPoll(
+  requestId: string,
+): Promise<StudentLoginPollResponse> {
+  const response = await api.post<StudentLoginPollResponse>(
+    "/auth/student/login/poll",
+    { requestId },
+  );
+  return response.data;
+}
+
+export async function studentActivate(
+  dto: StudentActivateDto,
+): Promise<StudentActivateResponse> {
+  const response = await api.post<StudentActivateResponse>(
+    "/auth/student/activate",
+    dto,
+  );
+  return response.data;
+}
+
+export async function verifyLoginLink(token: string) {
+  const response = await api.get(
+    `/auth/verify-login?token=${encodeURIComponent(token)}`,
+  );
+  return response.data as { message: string; verified: boolean };
+}
+
+export async function forceLogoutStudent(studentId: string) {
+  const response = await api.post(
+    `/auth/admin/students/${encodeURIComponent(studentId)}/force-logout`,
+  );
+  return response.data as { message: string };
 }

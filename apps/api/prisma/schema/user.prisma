@@ -30,6 +30,8 @@ model User {
   topicsUpdated                          Topic[]                          @relation("TopicUpdatedBy")
   staffInfo                              StaffInfo?
   studentInfo                             StudentInfo?
+  userDevices                            UserDevice[]
+  loginRequests                           LoginRequest[]
 
   @@index([email])
   @@index([accountHandle])

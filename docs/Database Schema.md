@@ -24,6 +24,8 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 ### Auth
 
 - `users`
+- `user_devices` (phiên đăng nhập học sinh, luật một thiết bị tại một thời điểm)
+- `login_requests` (yêu cầu đăng nhập tạm, gắn với trình duyệt khởi tạo)
 
 ### People
 
@@ -121,6 +123,34 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `DELETE /users/:id` (admin/assistant): soft-delete tài khoản — gỡ `staff_info.user_id` / `student_info.user_id` về `null` (giữ hồ sơ), các FK nullable khác (`action_history.user_id`, `notifications.created_by_user_id`, `regulations.*_by_user_id`, wallet order/request creator, …) theo `ON DELETE SET NULL`, `notification_reads` cascade theo user; sau đó xóa row `users`.
 - Không còn field legacy `person_profile_id` trong schema được hỗ trợ.
 - Index: `email`, `phone`, `account_handle`, `link_id`, `role_type`, `status`, `created_at`
+
+### 4.1.1 `user_devices` (Student single-device login)
+
+- PK: `id` (UUID default)
+- FK: `user_id` → `users.id` (ON DELETE CASCADE)
+- Fields:
+  - `token_hash` (`TEXT`, unique): SHA-256 hash của device token, dùng để xác thực thiết bị
+  - `device_info` (`JSONB`, nullable): thông tin trình duyệt/device (user-agent, accept-language)
+  - `ip_address` (`TEXT`, nullable): IP address khi đăng nhập
+  - `last_active_at` (`TIMESTAMPTZ(6)`): lần hoạt động cuối cùng, dùng để auto-expire sau 60 ngày
+  - `created_at` (`TIMESTAMPTZ(6)`)
+- Luật: mỗi học sinh chỉ có đúng 1 device active tại một thời điểm. Staff/admin không bị ràng buộc.
+- Auto-expire: device bị xóa sau 60 ngày không hoạt động (lazy cleanup khi tạo login request mới).
+- Index: `user_id`, `token_hash`, `last_active_at`
+
+### 4.1.2 `login_requests` (Magic link verification)
+
+- PK: `id` (UUID default)
+- FK: `user_id` → `users.id` (ON DELETE CASCADE)
+- Fields:
+  - `token_hash` (`TEXT`, unique): SHA-256 hash của login token
+  - `verified` (`BOOLEAN`, default false): đã bấm link xác minh chưa
+  - `device_info` (`JSONB`, nullable): thông tin trình duyệt khởi tạo
+  - `ip_address` (`TEXT`, nullable): IP address khi tạo request
+  - `expires_at` (`TIMESTAMPTZ(6)`): hết hạn sau 10 phút
+  - `created_at` (`TIMESTAMPTZ(6)`)
+- Flow: tạo request → gửi magic link email → user bấm link → `verified = true` → frontend poll nhận biết → activate device + cấp JWT tokens.
+- Cleanup: xóa bản ghi hết hạn khi tạo login request mới (lazy).
 
 ### 4.2 `staff_info`
 

@@ -6,6 +6,7 @@ import type { Request } from 'express';
 import { AuthIdentityCacheService } from '../auth-identity-cache.service';
 import type { RequestWithResolvedAuthContext } from '../auth-request-context';
 import { UserRole } from 'generated/enums';
+import { UserDeviceService } from '../user-device.service';
 
 const ACCESS_TOKEN_COOKIE = 'access_token';
 
@@ -22,6 +23,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(
     private readonly configService: ConfigService,
     private readonly authIdentityCacheService: AuthIdentityCacheService,
+    private readonly userDeviceService: UserDeviceService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
@@ -48,6 +50,23 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     if (!user || user.status !== 'active') {
       throw new UnauthorizedException();
     }
+
+    // Students must have an active device (force-logout = no device = immediate rejection)
+    // Result cached in AuthIdentityCacheService to avoid DB round-trip per request
+    if (user.roleType === UserRole.student) {
+      const hasActive = await this.authIdentityCacheService.getHasActiveDevice(
+        user.id,
+        () => this.userDeviceService.hasActiveDevice(user.id),
+      );
+      if (!hasActive) {
+        throw new UnauthorizedException({
+          statusCode: 401,
+          error: 'NO_ACTIVE_DEVICE',
+          message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+        });
+      }
+    }
+
     return {
       id: user.id,
       email: user.email,

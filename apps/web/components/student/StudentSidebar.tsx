@@ -158,7 +158,7 @@ export default function StudentSidebar() {
     : "translateX(0)";
 
   const logoutMutation = useMutation({
-    mutationFn: authApi.logout,
+    mutationFn: authApi.studentLogout,
     onSuccess: async () => {
       await clearLogoutScopedQueries(queryClient);
       setUser({

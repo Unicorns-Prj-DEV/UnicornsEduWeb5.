@@ -23,7 +23,7 @@ export default function StudentHeader() {
   });
 
   const logoutMutation = useMutation({
-    mutationFn: () => authApi.logout(),
+    mutationFn: () => authApi.studentLogout(),
     onSuccess: async () => {
       clearLogoutScopedQueries(queryClient);
       toast.success("Đã đăng xuất");

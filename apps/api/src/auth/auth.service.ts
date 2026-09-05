@@ -1,8 +1,11 @@
 import {
   BadRequestException,
+  ConflictException,
   HttpException,
   Injectable,
   InternalServerErrorException,
+  Logger,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -24,6 +27,8 @@ import { AuthProfileDto, LoginResponseDto } from 'src/dtos/auth.dto';
 import type { RequestWithResolvedAuthContext } from './auth-request-context';
 import { createSignedStorageUrl } from 'src/storage/supabase-storage';
 import { STAFF_DATA_CONSENT_VERSION } from './constants';
+import { UserDeviceService } from './user-device.service';
+import type { DeviceInfo } from './user-device.service';
 
 type JwtSignOptions = Parameters<JwtService['signAsync']>[1];
 type UserAuditClient = Prisma.TransactionClient | PrismaService;
@@ -80,6 +85,7 @@ export class AuthService {
     private readonly actionHistoryService: ActionHistoryService,
     private readonly authIdentityCacheService: AuthIdentityCacheService,
     private readonly authAccessService: AuthAccessService,
+    private readonly userDeviceService: UserDeviceService,
   ) {
     this.accessTokenOptions = {
       expiresIn: this.accessTokenExpiresIn,
@@ -233,6 +239,11 @@ export class AuthService {
 
     if (!user) {
       throw new UnauthorizedException('User not found');
+    }
+
+    // Touch device on refresh so 60-day inactivity rule works
+    if (user.roleType === UserRole.student) {
+      await this.userDeviceService.touchActiveDeviceForUser(user.id);
     }
 
     return this.generateTokenPairAndSave(
@@ -945,4 +956,302 @@ export class AuthService {
       return null;
     }
   }
+
+  // ─── Student single-device login ─────────────────────────────────────
+
+  async studentLoginInit(
+    accountHandle: string,
+    password: string,
+    deviceInfo?: DeviceInfo,
+    ipAddress?: string,
+  ): Promise<{ requestId: string; activateSecret: string; message: string }> {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        OR: [{ accountHandle }, { email: accountHandle }],
+      },
+      select: {
+        id: true,
+        email: true,
+        passwordHash: true,
+        roleType: true,
+        emailVerified: true,
+      },
+    });
+
+    if (!user || !user.passwordHash) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Verify password before revealing account type (prevents enumeration)
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (user.roleType !== UserRole.student) {
+      throw new BadRequestException({
+        statusCode: 400,
+        error: 'NOT_STUDENT_ACCOUNT',
+        message: 'Tài khoản này không phải tài khoản học sinh.',
+      });
+    }
+
+    if (!user.emailVerified) {
+      throw new BadRequestException({
+        statusCode: 400,
+        error: 'EMAIL_NOT_VERIFIED',
+        message:
+          'Email chưa được xác minh. Vui lòng xác minh email trước khi đăng nhập.',
+      });
+    }
+
+    // Lazy cleanup: remove expired login requests and inactive devices
+    await Promise.all([
+      this.userDeviceService.cleanupExpiredLoginRequests(),
+      this.userDeviceService.cleanupInactiveDevices(),
+    ]);
+
+    // Check if student already has an active device
+    const hasActive = await this.userDeviceService.hasActiveDevice(user.id);
+    if (hasActive) {
+      throw new ConflictException({
+        statusCode: 409,
+        error: 'DEVICE_ACTIVE',
+        message:
+          'Tài khoản đang đăng nhập ở thiết bị khác. Vui lòng đăng xuất thiết bị cũ hoặc liên hệ quản trị viên.',
+      });
+    }
+
+    // Create login request
+    const loginRequestToken =
+      this.userDeviceService.generateLoginRequestToken();
+    const activateSecret = this.userDeviceService.generateActivateSecret();
+    const loginRequest = await this.userDeviceService.createLoginRequest({
+      userId: user.id,
+      token: loginRequestToken,
+      activateSecret,
+      deviceInfo,
+      ipAddress,
+    });
+
+    // Send magic link email
+    const frontendUrl = this.configService
+      .get<string>('FRONTEND_URL')
+      ?.replace(/\/$/, '');
+    const verifyUrl = `${frontendUrl}/auth/verify-login?token=${encodeURIComponent(loginRequestToken)}`;
+
+    try {
+      await this.mailService.sendLoginVerificationEmail(user.email, verifyUrl);
+    } catch (error) {
+      this.logger.error(
+        `Failed to send login verification email to ${user.email}`,
+        error instanceof Error ? error.stack : error,
+      );
+      // Don't fail the request — email sending is best-effort
+    }
+
+    return {
+      requestId: loginRequest.id,
+      activateSecret,
+      message:
+        'Đã gửi email xác minh. Vui lòng kiểm tra hộp thư và bấm liên kết để hoàn tất đăng nhập.',
+    };
+  }
+
+  async studentLoginPoll(requestId: string): Promise<{ verified: boolean }> {
+    const request = await this.prisma.loginRequest.findUnique({
+      where: { id: requestId },
+      select: { verified: true, expiresAt: true },
+    });
+
+    if (!request) {
+      throw new NotFoundException('Login request not found');
+    }
+
+    if (new Date() > request.expiresAt) {
+      throw new BadRequestException('Login request expired');
+    }
+
+    return { verified: request.verified };
+  }
+
+  async activateStudentDevice(
+    requestId: string,
+    activateSecret: string,
+    rememberMe = false,
+  ): Promise<TokenPair> {
+    const request = await this.prisma.loginRequest.findUnique({
+      where: { id: requestId },
+      select: {
+        id: true,
+        userId: true,
+        verified: true,
+        expiresAt: true,
+        activateSecretHash: true,
+        deviceInfo: true,
+        ipAddress: true,
+      },
+    });
+
+    if (!request) {
+      throw new NotFoundException('Login request not found');
+    }
+
+    if (!request.verified) {
+      throw new BadRequestException('Login request not verified yet');
+    }
+
+    if (new Date() > request.expiresAt) {
+      throw new BadRequestException('Login request expired');
+    }
+
+    // Verify activate secret
+    if (
+      !request.activateSecretHash ||
+      this.userDeviceService.hashToken(activateSecret) !==
+        request.activateSecretHash
+    ) {
+      throw new UnauthorizedException('Invalid activation secret');
+    }
+
+    // Remove any existing devices for this student (single-device rule)
+    await this.userDeviceService.removeAllDevicesForUser(request.userId);
+    this.authIdentityCacheService.invalidateHasActiveDevice(request.userId);
+
+    // Create the device
+    const deviceToken = this.userDeviceService.generateDeviceToken();
+    await this.userDeviceService.createDevice({
+      userId: request.userId,
+      token: deviceToken,
+      deviceInfo: request.deviceInfo as DeviceInfo | undefined,
+      ipAddress: request.ipAddress ?? undefined,
+    });
+
+    // Get user info for token generation
+    const user = await this.prisma.user.findUnique({
+      where: { id: request.userId },
+      select: {
+        id: true,
+        accountHandle: true,
+        roleType: true,
+      },
+    });
+
+    if (!user) {
+      throw new InternalServerErrorException(
+        'User not found after verification',
+      );
+    }
+
+    // Generate JWT tokens
+    const tokenPair = await this.generateTokenPairAndSave(
+      user.id,
+      user.accountHandle,
+      user.roleType,
+      rememberMe,
+    );
+
+    // Cleanup the login request
+    await this.prisma.loginRequest.delete({ where: { id: request.id } });
+
+    return tokenPair;
+  }
+
+  async verifyLoginMagicLink(
+    token: string,
+  ): Promise<{ message: string; verified: boolean }> {
+    if (!token) {
+      throw new BadRequestException('Token is required');
+    }
+
+    const tokenHash = this.userDeviceService.hashToken(token);
+    const request =
+      await this.userDeviceService.findLoginRequestByTokenHash(tokenHash);
+
+    if (!request) {
+      throw new BadRequestException('Invalid or expired login link');
+    }
+
+    if (new Date() > request.expiresAt) {
+      throw new BadRequestException('Login link expired');
+    }
+
+    if (request.verified) {
+      return { message: 'Liên kết đã được xác minh', verified: true };
+    }
+
+    await this.userDeviceService.verifyLoginRequest(tokenHash);
+    return { message: 'Đã xác minh thành công', verified: true };
+  }
+
+  async forceLogoutStudent(
+    studentId: string,
+    actorId: string,
+  ): Promise<{ message: string }> {
+    const student = await this.prisma.user.findUnique({
+      where: { id: studentId },
+      select: { id: true, email: true, roleType: true },
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    if (student.roleType !== UserRole.student) {
+      throw new BadRequestException('Target must be a student account');
+    }
+
+    const actor = await this.prisma.user.findUnique({
+      where: { id: actorId },
+      select: { id: true, email: true, roleType: true },
+    });
+
+    if (!actor) {
+      throw new UnauthorizedException('Actor not found');
+    }
+
+    // Remove all devices
+    await this.userDeviceService.removeAllDevicesForUser(studentId);
+    this.authIdentityCacheService.invalidateHasActiveDevice(studentId);
+
+    // Invalidate refresh token
+    await this.prisma.user.update({
+      where: { id: studentId },
+      data: { refreshToken: null },
+    });
+    this.invalidateAuthIdentityCache(studentId);
+
+    // Audit trail
+    await this.actionHistoryService.recordUpdate(this.prisma, {
+      actor: this.buildUserActor(actor),
+      entityType: 'user_device',
+      entityId: studentId,
+      description: `Buộc đăng xuất học sinh ${student.email}`,
+      beforeValue: { studentId },
+      afterValue: { forceLogout: true },
+    });
+
+    return { message: 'Đã buộc đăng xuất học sinh' };
+  }
+
+  async studentSelfLogout(userId: string): Promise<{ message: string }> {
+    // Remove all devices
+    await this.userDeviceService.removeAllDevicesForUser(userId);
+    this.authIdentityCacheService.invalidateHasActiveDevice(userId);
+
+    // Also invalidate refresh token
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { refreshToken: null },
+    });
+    this.invalidateAuthIdentityCache(userId);
+
+    return { message: 'Đã đăng xuất' };
+  }
+
+  async touchStudentDevice(deviceTokenHash: string) {
+    await this.userDeviceService.touchDevice(deviceTokenHash);
+  }
+
+  private readonly logger = new Logger(AuthService.name);
 }
