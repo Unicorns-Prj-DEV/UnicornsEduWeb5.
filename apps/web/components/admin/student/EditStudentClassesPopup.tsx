@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDebounce } from "use-debounce";
-import type { ClassCategory, ClassListItem, ClassStatus } from "@/dtos/class.dto";
+import type { Course, ClassListItem, ClassStatus } from "@/dtos/class.dto";
 import type { StudentDetail } from "@/dtos/student.dto";
 import * as classApi from "@/lib/apis/class.api";
 import * as studentApi from "@/lib/apis/student.api";
@@ -20,7 +20,7 @@ type SelectedClassItem = {
   id: string;
   name: string;
   status?: ClassStatus;
-  classCategory?: ClassCategory;
+  course?: Course;
 };
 
 const CLASS_STATUS_LABELS: Record<ClassStatus, string> = {
@@ -145,7 +145,7 @@ export default function EditStudentClassesPopup({
         return {
           ...item,
           status: matched?.status ?? item.status,
-          classCategory: matched?.classCategory ?? item.classCategory,
+          course: matched?.course ?? item.course,
         };
       }),
     [selectedClasses, classOptionMetaById],
@@ -158,7 +158,7 @@ export default function EditStudentClassesPopup({
         return {
           ...item,
           status: matched?.status ?? item.status,
-          classCategory: matched?.classCategory ?? item.classCategory,
+          course: matched?.course ?? item.course,
         };
       }),
     [classesToAdd, classOptionMetaById],
@@ -335,7 +335,7 @@ export default function EditStudentClassesPopup({
                           </div>
                           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-text-secondary">
                             <span className="rounded-full bg-bg-secondary px-2 py-1 ring-1 ring-border-default">
-                              {classItem.classCategory?.name ?? "—"}
+                              {classItem.course?.name ?? "—"}
                             </span>
                             <span>Tối đa {classItem.maxStudents} học sinh</span>
                           </div>
@@ -413,9 +413,9 @@ export default function EditStudentClassesPopup({
                                 </span>
                               ) : null}
                             </div>
-                            {classItem.classCategory ? (
+                            {classItem.course ? (
                               <p className="mt-2 text-xs text-text-secondary">
-                                Hệ lớp: {classItem.classCategory.name}
+                                Hệ lớp: {classItem.course.name}
                               </p>
                             ) : null}
                           </div>

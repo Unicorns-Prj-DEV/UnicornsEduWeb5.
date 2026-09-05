@@ -17,7 +17,7 @@ export type StaffOpsSessionMonthYearParams = SessionMonthYearParams;
 
 export interface StaffOpsCreateClassPayload {
   name: string;
-  class_category_id?: string;
+  course_id?: string;
   status?: ClassStatus;
   schedule?: ClassScheduleItem[];
 }

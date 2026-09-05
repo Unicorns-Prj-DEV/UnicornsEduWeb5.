@@ -35,7 +35,8 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 ### Learning
 
 - `classes`
-- `class_categories` (phân loại lớp, tuỳ chỉnh được qua CRUD `/class-categories`)
+- `courses` (Khoá học, tuỳ chỉnh được qua CRUD `/courses`)
+- `course_difficulty_levels` (Mức độ khó của khoá học)
 - `class_teachers`
 - `student_classes`
 - `sessions`
@@ -248,7 +249,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 - **PK format:** `UNICL-[0-9a-f]{10}` — ví dụ `UNICL-1a2b3c4d5e`. Đây là **mã định danh hệ thống** ngắn cho lớp; migration `20260523110000_short_system_entity_ids` dùng `pgcrypto.gen_random_bytes(5)` để sinh ID mới cho dữ liệu hiện có, không cắt từ UUID cũ. Không còn dùng `@default(uuid())` trong Prisma cho PK này.
 - Trường nghiệp vụ chính:
-  - `class_category_id` (FK → `class_categories.id`, `onDelete: Restrict`), `status` (`ClassStatus`). Migration `20260818090000_add_class_category` thay enum cố định `ClassType` (`vip|basic|advance|hardcore`) bằng bảng `class_categories` để admin tự thêm/sửa/ẩn/xoá phân loại lớp qua CRUD `/class-categories` (xem mục 4.4.3). Khi tạo lớp không truyền `class_category_id`, backend fallback về phân loại `isActive=true` có `sort_order` nhỏ nhất (không còn hardcode `code='basic'`).
+  - `course_id` (FK → `courses.id`, `onDelete: Restrict`), `status` (`ClassStatus`). Migration `20260818090000_add_class_category` thay enum cố định `ClassType` (`vip|basic|advance|hardcore`) bằng bảng `courses` để admin tự thêm/sửa/ẩn/xoá khoá học qua CRUD `/courses` (xem mục 4.4.0-cat). Khi tạo lớp không truyền `course_id`, backend fallback về khoá học `isActive=true` có `sort_order` nhỏ nhất (không còn hardcode `code='basic'`).
   - `status`: `running` = lớp đang vận hành; `ended` = lớp đã kết thúc. `POST /class/:id/end` chỉ cho phép khi mọi `sessions` của lớp có `teacher_payment_status = paid` (case-insensitive); nếu còn `unpaid`/`pending`/`deposit` backend trả `400`. Khi kết thúc lớp, backend xóa lịch cố định hiện tại, chuyển membership học sinh đang học và phân công gia sư đang mở sang `inactive`, đồng thời dọn buổi bù tương lai của lớp. Response `GET /class/:id` trả thêm `endClassEligibility` (`canEnd`, `sessionCount`, `unpaidSessionCount`, `blockReason`) để FE disable nút **Kết thúc lớp** và chặn chọn trạng thái **Đã kết thúc** trong popup thông tin lớp khi chưa đủ điều kiện. `PATCH /class/:id/basic-info` **không** được dùng để chuyển `running → ended` (trả `400`; phải dùng `POST /end`). Lịch sử session, attendance, ví và payroll đã phát sinh vẫn giữ nguyên.
   - `max_students`, `allowance_per_session_per_student`, `max_allowance_per_session`, `scale_amount`
   - `max_allowance_per_session` là nullable:
@@ -308,18 +309,30 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - **Validate nộp nhận xét** (`assertSessionMatchesDeclaredSchedule`/`getScheduleCandidates`) cũng áp dụng **dạy thay trong lớp**: nếu giáo viên nộp bài đang là `class_teachers` active của lớp (`status = 'active'` hoặc `null`), hệ thống match theo mọi slot active trong ngày của lớp bất kể `teacher_id` gán cho entry, không chỉ đúng entry của chính họ. Giáo viên đã bị gỡ khỏi lớp (`status = 'inactive'`) chỉ còn match được đúng entry ghi `teacher_id` của họ (thường không còn active sau khi bị gỡ) — tránh lợi dụng slot dạy thay của người khác.
 - `dashboard.service.ts` đếm "lớp chưa có lịch"/số slot lịch cố định dựa trên `class_schedule_entries WHERE effective_to IS NULL` thay vì parse JSON.
 
-### 4.4.0-cat `class_categories`
+### 4.4.0-cat `courses` (Khoá học)
 
-- Thay thế enum cố định `ClassType` (`vip|basic|advance|hardcore`) — migration `20260818090000_add_class_category`. Admin tự quản lý danh sách qua CRUD `/class-categories` (`ClassCategoryController`/`ClassCategoryService`).
+- Thay thế enum cố định `ClassType` (`vip|basic|advance|hardcore`) — migration `20260818090000_add_class_category`. Admin tự quản lý danh sách qua CRUD `/courses` (`CourseController`/`CourseService`).
 - Cột: `id` (PK, `@default(uuid())` tự sinh), `name`, `sort_order` (số nguyên, default `0`, dùng để sắp xếp hiển thị), `is_active` (default `true`), `created_at`, `updated_at`. Migration `20260818130000_drop_class_category_code` bỏ cột `code` — không còn mã phân loại thủ công, chỉ cần điền tên khi tạo.
-- Quan hệ: `classes` (1-N, `classes.class_category_id` FK `onDelete: Restrict`).
+- Quan hệ: `classes` (1-N, `classes.course_id` FK `onDelete: Restrict`), `course_difficulty_levels` (1-N).
 - Hành vi API:
-  - `GET /class-categories?includeInactive=` — mặc định chỉ trả `is_active=true`; `includeInactive=true` trả cả bản ghi đã ẩn (dùng cho trang quản trị `/admin/classes/categories`).
-  - `POST /class-categories` — chỉ cần `name` (+ `sort_order` tuỳ chọn); `id` tự sinh, không có mã (`code`) thủ công.
-  - `PATCH /class-categories/:id` — chỉ cập nhật `name`/`sort_order`/`is_active` khi field được truyền.
-  - `DELETE /class-categories/:id` — `400` nếu còn lớp đang dùng phân loại này (`classes.count > 0`); thông báo hướng dẫn chuyển lớp sang phân loại khác hoặc set `is_active=false` thay vì xoá cứng.
+  - `GET /courses?includeInactive=` — mặc định chỉ trả `is_active=true`; `includeInactive=true` trả cả bản ghi đã ẩn (dùng cho trang quản trị `/admin/classes/categories`).
+  - `POST /courses` — chỉ cần `name` (+ `sort_order` tuỳ chọn); `id` tự sinh, không có mã (`code`) thủ công.
+  - `PATCH /courses/:id` — chỉ cập nhật `name`/`sort_order`/`is_active` khi field được truyền.
+  - `DELETE /courses/:id` — `400` nếu còn lớp đang dùng khoá học này (`classes.count > 0`); thông báo hướng dẫn chuyển lớp sang khoá học khác hoặc set `is_active=false` thay vì xoá cứng.
 - Seed dữ liệu ban đầu gồm các mã cũ (`vip`, `basic`, `advance`, `hardcore`) cộng 3 mã mới: `thpt_basic` (THPT BASIC), `thpt_advanced` (THPT ADVANCED), `thpt_luyen_de` (THPT Luyện Đề).
-- Khi tạo lớp không truyền `class_category_id`, `ClassService.resolveDefaultClassCategoryId` fallback về phân loại `is_active=true` có `sort_order` nhỏ nhất (tie-break theo `name`) — không còn hardcode `code='basic'` để tránh vỡ khi admin đổi/xoá phân loại mặc định cũ.
+- Khi tạo lớp không truyền `course_id`, `ClassService.resolveDefaultCourseId` fallback về khoá học `is_active=true` có `sort_order` nhỏ nhất (tie-break theo `name`) — không còn hardcode `code='basic'` để tránh vỡ khi admin đổi/xoá phân loại mặc định cũ.
+
+### 4.4.0-cat-diff `course_difficulty_levels` (Mức độ khó của khoá học)
+
+- Mỗi `course` có nhiều mức độ khó (vd. "Cơ bản", "Nâng cao", "Luyện thi"), quản lý qua CRUD `/courses/:courseId/difficulty-levels`.
+- Cột: `id` (PK, `@default(uuid())` tự sinh), `course_id` (FK → `courses.id`, `onDelete: Cascade`), `name` (TEXT), `sort_order` (INT, default `0`), `is_active` (BOOLEAN, default `true`), `created_at`, `updated_at`.
+- Index: `(course_id)`, `(course_id, sort_order)`.
+- Unique business logic: tên mức khó duy nhất trong cùng một khoá học (enforce ở service layer).
+- Hành vi API:
+  - `GET /courses/:courseId/difficulty-levels?includeInactive=` — mặc định chỉ trả `is_active=true`.
+  - `POST /courses/:courseId/difficulty-levels` — cần `name` (+ `sort_order` tuỳ chọn).
+  - `PATCH /courses/:courseId/difficulty-levels/:id` — cập nhật `name`/`sort_order`/`is_active`.
+  - `DELETE /courses/:courseId/difficulty-levels/:id` — `400` nếu còn lớp đang dùng mức khó này (`classes` reference qua `course_difficulty_level_id`).
 
 ### 4.4.0 `student_classes` (Class ↔ StudentInfo)
 
@@ -672,7 +685,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 ### Learning
 
 - `ClassStatus`: `running | ended`
-- `ClassType`: **đã xoá** (migration `20260818090000_add_class_category`) — thay bằng bảng `class_categories` tuỳ chỉnh được, xem mục 4.4.0-cat.
+- `ClassType`: **đã xoá** (migration `20260818090000_add_class_category`) — thay bằng bảng `courses` tuỳ chỉnh được, xem mục 4.4.0-cat.
 - `StudentClassStatus`: `active | inactive`
 - `AttendanceStatus`: `present | excused | absent`
 

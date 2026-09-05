@@ -42,7 +42,7 @@ import {
   buildAdminLikePath,
   resolveAdminLikeRouteBase,
 } from "@/lib/admin-shell-paths";
-import { classCategoryKeys } from "@/lib/query-keys";
+import { courseKeys } from "@/lib/query-keys";
 import type {
   CreateSurveyPayload,
   SurveyRecord,
@@ -494,7 +494,7 @@ const CLASS_PICKER_FULL_FETCH_LIMIT = 100;
 
 async function fetchAllMatchingClasses(params: {
   search?: string;
-  classCategoryId?: string;
+  courseId?: string;
   total: number;
 }): Promise<{ id: string; name: string }[]> {
   const pageCount = Math.max(
@@ -507,7 +507,7 @@ async function fetchAllMatchingClasses(params: {
         page: index + 1,
         limit: CLASS_PICKER_FULL_FETCH_LIMIT,
         search: params.search,
-        classCategoryId: params.classCategoryId || undefined,
+        courseId: params.courseId || undefined,
       }),
     ),
   );
@@ -534,19 +534,19 @@ function ClassExclusionDialog({
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
-  const { data: classCategories = [] } = useQuery({
-    queryKey: classCategoryKeys.list(),
-    queryFn: () => classApi.getClassCategories(),
+  const { data: courses = [] } = useQuery({
+    queryKey: courseKeys.list(),
+    queryFn: () => classApi.getCourses(),
   });
   const classTypeFilterOptions = useMemo(
     () => [
       { value: "", label: "Tất cả loại lớp" },
-      ...classCategories.map((category) => ({
-        value: category.id,
-        label: category.name,
+      ...courses.map((course) => ({
+        value: course.id,
+        label: course.name,
       })),
     ],
-    [classCategories],
+    [courses],
   );
   const [selectingAll, setSelectingAll] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
@@ -571,7 +571,7 @@ function ClassExclusionDialog({
         page: pageParam,
         limit: CLASS_PICKER_PAGE_SIZE,
         search: debouncedSearch || undefined,
-        classCategoryId: typeFilter || undefined,
+        courseId: typeFilter || undefined,
       }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => {
@@ -627,7 +627,7 @@ function ClassExclusionDialog({
     try {
       const matching = await fetchAllMatchingClasses({
         search: debouncedSearch || undefined,
-        classCategoryId: typeFilter,
+        courseId: typeFilter,
         total: totalCount,
       });
       onNamesLoaded(matching);

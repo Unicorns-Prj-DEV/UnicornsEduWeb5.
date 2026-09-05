@@ -9,7 +9,7 @@ import { TimeInput } from "@/components/ui/TimeInput";
 import { DateInput } from "@/components/ui/DateInput";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
-import ClassCategorySelect from "@/components/shared/class/ClassCategorySelect";
+import CourseSelect from "@/components/shared/class/CourseSelect";
 import * as classApi from "@/lib/apis/class.api";
 import * as staffApi from "@/lib/apis/staff.api";
 import * as studentApi from "@/lib/apis/student.api";
@@ -111,7 +111,7 @@ function AddClassDialog({ onClose, onCreated }: Omit<Props, "open">) {
   const queryClient = useQueryClient();
 
   const [name, setName] = useState("");
-  const [classCategoryId, setClassCategoryId] = useState("");
+  const [courseId, setCourseId] = useState("");
   const [status, setStatus] = useState<ClassStatus>("running");
   const [maxStudentsInput, setMaxStudentsInput] = useState("");
   const [allowancePerSessionInput, setAllowancePerSessionInput] = useState("");
@@ -215,8 +215,8 @@ function AddClassDialog({ onClose, onCreated }: Omit<Props, "open">) {
       toast.error("Tên lớp là bắt buộc.");
       return;
     }
-    if (!classCategoryId) {
-      toast.error("Phân loại lớp là bắt buộc.");
+    if (!courseId) {
+      toast.error("Khoá học là bắt buộc.");
       return;
     }
 
@@ -266,7 +266,7 @@ function AddClassDialog({ onClose, onCreated }: Omit<Props, "open">) {
 
     const payload: CreateClassPayload = {
       name: trimmedName,
-      ...(classCategoryId ? { class_category_id: classCategoryId } : {}),
+      ...(courseId ? { course_id: courseId } : {}),
       status,
       max_students: parseOptionalInt(maxStudentsInput),
       allowance_per_session_per_student: parseOptionalMoneyInt(allowancePerSessionInput),
@@ -350,11 +350,11 @@ function AddClassDialog({ onClose, onCreated }: Omit<Props, "open">) {
                 />
               </label>
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
-                <span>Phân loại</span>
-                <ClassCategorySelect
+                <span>Khoá học</span>
+                <CourseSelect
                   name="add-class-type"
-                  value={classCategoryId}
-                  onValueChange={setClassCategoryId}
+                  value={courseId}
+                  onValueChange={setCourseId}
                   buttonClassName="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />
               </label>

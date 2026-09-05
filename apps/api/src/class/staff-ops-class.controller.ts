@@ -133,9 +133,9 @@ export class StaffOpsClassController {
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'status', required: false, enum: ['running', 'ended'] })
   @ApiQuery({
-    name: 'classCategoryId',
+    name: 'courseId',
     required: false,
-    description: 'Filter by class category id (see GET /class-categories)',
+    description: 'Filter by course id (see GET /courses)',
   })
   @ApiResponse({ status: 200, description: 'Paginated class list.' })
   async getClasses(
@@ -143,13 +143,13 @@ export class StaffOpsClassController {
     @Query() query: PaginationQueryDto,
     @Query('search') search?: string,
     @Query('status') status?: string,
-    @Query('classCategoryId') classCategoryId?: string,
+    @Query('courseId') courseId?: string,
   ) {
     return this.classService.getClassesForStaff(user.id, user.roleType, {
       ...query,
       search,
       status,
-      classCategoryId,
+      courseId,
     });
   }
 

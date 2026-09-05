@@ -84,9 +84,9 @@ export default function StudentClassDetailPage() {
               <h1 className="text-2xl sm:text-3xl font-bold text-text-primary">
                 {classDetail?.class?.name || "Chi tiết lớp học"}
               </h1>
-              {classDetail?.class?.classCategory?.name && (
+              {classDetail?.class?.course?.name && (
                 <span className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                  {classDetail.class.classCategory.name}
+                  {classDetail.class.course.name}
                 </span>
               )}
             </div>

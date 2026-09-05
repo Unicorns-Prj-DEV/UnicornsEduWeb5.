@@ -4,59 +4,59 @@ import { useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as classApi from "@/lib/apis/class.api";
-import { ClassCategoryFormPopup, type ClassCategoryFormValues } from "@/components/admin/class";
+import { CourseFormPopup, type CourseFormValues } from "@/components/admin/class";
 import { Switch } from "@/components/ui/switch";
-import { classCategoryKeys, classKeys } from "@/lib/query-keys";
+import { courseKeys, classKeys } from "@/lib/query-keys";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
-import type { ClassCategory } from "@/dtos/class.dto";
+import type { Course } from "@/dtos/class.dto";
 
-export default function ClassCategoriesPage() {
+export default function CoursesPage() {
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<ClassCategory | null>(null);
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
 
   const {
-    data: categories = [],
+    data: courses = [],
     isLoading,
     isError,
     refetch,
   } = useQuery({
-    queryKey: classCategoryKeys.list(true),
-    queryFn: () => classApi.getClassCategories(true),
+    queryKey: courseKeys.list(true),
+    queryFn: () => classApi.getCourses(true),
   });
 
   const invalidateCategoryData = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: classCategoryKeys.all }),
+      queryClient.invalidateQueries({ queryKey: courseKeys.all }),
       queryClient.invalidateQueries({ queryKey: classKeys.all }),
     ]);
   };
 
   const toggleActiveMutation = useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
-      classApi.updateClassCategory(id, { is_active: isActive }),
+      classApi.updateCourse(id, { is_active: isActive }),
     onSuccess: invalidateCategoryData,
   });
 
   const openCreateForm = () => {
-    setEditingCategory(null);
+    setEditingCourse(null);
     setFormOpen(true);
   };
 
-  const openEditForm = (category: ClassCategory) => {
-    setEditingCategory(category);
+  const openEditForm = (course: Course) => {
+    setEditingCourse(course);
     setFormOpen(true);
   };
 
-  const handleSubmit = async (values: ClassCategoryFormValues) => {
+  const handleSubmit = async (values: CourseFormValues) => {
     setFormOpen(false);
-    if (editingCategory) {
+    if (editingCourse) {
       runBackgroundSave({
-        loadingMessage: "Đang cập nhật phân loại lớp...",
-        successMessage: "Đã cập nhật phân loại lớp.",
-        errorMessage: "Không thể cập nhật phân loại lớp.",
+        loadingMessage: "Đang cập nhật khoá học...",
+        successMessage: "Đã cập nhật khoá học.",
+        errorMessage: "Không thể cập nhật khoá học.",
         action: () =>
-          classApi.updateClassCategory(editingCategory.id, {
+          classApi.updateCourse(editingCourse.id, {
             name: values.name,
             sort_order: values.sortOrder,
           }),
@@ -66,11 +66,11 @@ export default function ClassCategoriesPage() {
     }
 
     runBackgroundSave({
-      loadingMessage: "Đang thêm phân loại lớp...",
-      successMessage: "Đã thêm phân loại lớp.",
-      errorMessage: "Không thể thêm phân loại lớp.",
+      loadingMessage: "Đang thêm khoá học...",
+      successMessage: "Đã thêm khoá học.",
+      errorMessage: "Không thể thêm khoá học.",
       action: () =>
-        classApi.createClassCategory({
+        classApi.createCourse({
           name: values.name,
           sort_order: values.sortOrder,
         }),
@@ -78,19 +78,19 @@ export default function ClassCategoriesPage() {
     });
   };
 
-  const handleToggleActive = (category: ClassCategory, nextActive: boolean) => {
-    toggleActiveMutation.mutate({ id: category.id, isActive: nextActive });
+  const handleToggleActive = (course: Course, nextActive: boolean) => {
+    toggleActiveMutation.mutate({ id: course.id, isActive: nextActive });
   };
 
-  const handleDelete = (category: ClassCategory) => {
-    if (!window.confirm(`Xoá phân loại "${category.name}"? Hành động này không thể hoàn tác.`)) {
+  const handleDelete = (course: Course) => {
+    if (!window.confirm(`Xoá khoá học "${course.name}"? Hành động này không thể hoàn tác.`)) {
       return;
     }
     runBackgroundSave({
-      loadingMessage: "Đang xoá phân loại lớp...",
-      successMessage: "Đã xoá phân loại lớp.",
-      errorMessage: "Không thể xoá phân loại lớp.",
-      action: () => classApi.deleteClassCategory(category.id),
+      loadingMessage: "Đang xoá khoá học...",
+      successMessage: "Đã xoá khoá học.",
+      errorMessage: "Không thể xoá khoá học.",
+      action: () => classApi.deleteCourse(course.id),
       onSuccess: invalidateCategoryData,
     });
   };
@@ -113,9 +113,9 @@ export default function ClassCategoriesPage() {
                 </svg>
                 Lớp học
               </Link>
-              <h1 className="text-xl font-semibold text-text-primary sm:text-2xl">Phân loại lớp</h1>
+              <h1 className="text-xl font-semibold text-text-primary sm:text-2xl">Khoá học</h1>
               <p className="mt-1 text-sm text-text-secondary">
-                Thêm, sửa, ẩn hoặc xoá các loại phân loại lớp dùng khi tạo lớp học.
+                Thêm, sửa, ẩn hoặc xoá các khoá học dùng khi tạo lớp học.
               </p>
             </div>
             <button
@@ -126,7 +126,7 @@ export default function ClassCategoriesPage() {
               <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              <span>Thêm phân loại</span>
+              <span>Thêm khoá học</span>
             </button>
           </div>
         </section>
@@ -136,52 +136,52 @@ export default function ClassCategoriesPage() {
             <p className="p-4 text-sm text-text-secondary">Đang tải...</p>
           ) : isError ? (
             <div className="p-4 text-sm text-error">
-              Không tải được danh sách phân loại lớp.{" "}
+              Không tải được danh sách khoá học.{" "}
               <button type="button" onClick={() => refetch()} className="underline">
                 Thử lại
               </button>
             </div>
-          ) : categories.length === 0 ? (
-            <p className="p-4 text-sm text-text-secondary">Chưa có phân loại lớp nào.</p>
+          ) : courses.length === 0 ? (
+            <p className="p-4 text-sm text-text-secondary">Chưa có khoá học nào.</p>
           ) : (
             <ul className="space-y-2">
-              {categories.map((category) => (
+              {courses.map((course) => (
                 <li
-                  key={category.id}
+                  key={course.id}
                   className="flex flex-col gap-3 rounded-lg border border-border-default bg-bg-surface p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4"
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium text-text-primary">{category.name}</span>
-                      {!category.isActive ? (
+                      <span className="font-medium text-text-primary">{course.name}</span>
+                      {!course.isActive ? (
                         <span className="rounded bg-error/10 px-1.5 py-0.5 text-xs text-error">
                           Đã ẩn
                         </span>
                       ) : null}
                     </div>
-                    <p className="mt-0.5 text-xs text-text-muted">Thứ tự: {category.sortOrder}</p>
+                    <p className="mt-0.5 text-xs text-text-muted">Thứ tự: {course.sortOrder}</p>
                   </div>
 
                   <div className="flex shrink-0 items-center gap-3 self-end sm:self-auto">
                     <label className="flex items-center gap-2 text-xs text-text-secondary">
                       <span>Hoạt động</span>
                       <Switch
-                        checked={category.isActive}
-                        onCheckedChange={(next) => handleToggleActive(category, next)}
+                        checked={course.isActive}
+                        onCheckedChange={(next) => handleToggleActive(course, next)}
                         disabled={toggleActiveMutation.isPending}
-                        aria-label={`Bật/tắt hoạt động cho ${category.name}`}
+                        aria-label={`Bật/tắt hoạt động cho ${course.name}`}
                       />
                     </label>
                     <button
                       type="button"
-                      onClick={() => openEditForm(category)}
+                      onClick={() => openEditForm(course)}
                       className="rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary"
                     >
                       Sửa
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleDelete(category)}
+                      onClick={() => handleDelete(course)}
                       className="rounded-md border border-error/30 bg-bg-surface px-3 py-1.5 text-xs font-medium text-error transition-colors duration-200 hover:bg-error/10"
                     >
                       Xoá
@@ -194,9 +194,9 @@ export default function ClassCategoriesPage() {
         </div>
       </div>
 
-      <ClassCategoryFormPopup
+      <CourseFormPopup
         open={formOpen}
-        category={editingCategory}
+        course={editingCourse}
         onClose={() => setFormOpen(false)}
         onSubmit={handleSubmit}
       />

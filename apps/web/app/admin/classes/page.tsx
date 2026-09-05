@@ -80,7 +80,7 @@ function seatBadgeClass(studentCount: number | null, maxStudents: number | null)
 type ClassRow = {
   id: string;
   name: string;
-  classCategoryName: string;
+  courseName: string;
   status: ClassStatus;
   studentCount: number | null;
   maxStudents: number | null;
@@ -91,7 +91,7 @@ type ClassListFetcher = (params: {
   limit: number;
   search?: string;
   status?: "" | ClassStatus;
-  classCategoryId?: string;
+  courseId?: string;
 }) => Promise<ClassListResponse>;
 
 type AdminClassesPageProps = {
@@ -186,7 +186,7 @@ export default function AdminClassesPage({
     return (classListResponse?.data ?? []).map((item) => ({
       id: item.id,
       name: item.name,
-      classCategoryName: item.classCategory?.name ?? "—",
+      courseName: item.course?.name ?? "—",
       status: item.status,
       studentCount: normalizeSeatValue(item.studentCount),
       maxStudents: normalizeSeatValue(item.maxStudents),
@@ -298,7 +298,7 @@ export default function AdminClassesPage({
                 <svg className="size-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
                 </svg>
-                <span>Phân loại lớp</span>
+                <span>Khoá học</span>
               </Link>
               {canCreateClass ? (
                 <button
@@ -441,7 +441,7 @@ export default function AdminClassesPage({
                     </div>
                     <div className="mt-2 grid grid-cols-[56px_1fr] gap-x-2 gap-y-1 text-xs items-center">
                       <span className="text-text-muted">Loại</span>
-                      <span className="text-text-secondary">{row.classCategoryName}</span>
+                      <span className="text-text-secondary">{row.courseName}</span>
                       <span className="text-text-muted">Sĩ số</span>
                       <div>
                         <span
@@ -473,7 +473,7 @@ export default function AdminClassesPage({
                         Tên lớp
                       </th>
                       <th scope="col" className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
-                        Loại lớp
+                        Khoá học
                       </th>
                       <th scope="col" className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         Sĩ số / tối đa
@@ -516,7 +516,7 @@ export default function AdminClassesPage({
                         </td>
                         <td className="px-4 py-3 text-text-secondary">
                           <span className="inline-flex rounded-full bg-bg-secondary px-2 py-0.5 text-xs font-medium text-text-secondary ring-1 ring-border-default">
-                            {row.classCategoryName}
+                            {row.courseName}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-text-secondary">
