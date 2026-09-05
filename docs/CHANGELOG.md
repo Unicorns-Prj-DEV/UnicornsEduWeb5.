@@ -23,6 +23,11 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- **Buổi học không điểm danh (`noAttendance`) — backend guard khi cập nhật session:**
+  - `PUT /sessions/:id` và `PUT /staff-ops/sessions/:id`: Khi session có `snapshotNoAttendance = true`, field `attendance` trong payload bị bỏ qua (silent ignore) — buổi học tự quản danh sách điểm danh, không cho phép cập nhật từ bên ngoài.
+  - Tính năng này đã có ở `POST /sessions` (tự tạo `Attendance.present` cho toàn bộ học sinh active), nay được mở rộng sang cả luồng cập nhật.
+  - ADR `docs/adr/2026-09-05-class-without-attendance-still-charges.md`.
+
 - **Cài đặt lương cứng gọn hơn + cron không chốt lại tháng đã chốt sớm:**
   - Tab **Lương cứng**: mô tả khối chính sách / chốt tháng rút còn một câu; gợi ý “trống khác 0” nằm dưới ô nhập. Một nút **Lưu chính sách** gọi lần lượt hai PUT; toast không báo đủ khi mới lưu một nửa, draft trục lỗi được giữ.
   - Cron 01:00 ngày 28 bỏ qua cả tháng nếu `staff_fixed_salary_payables` tháng hiện tại đã có dòng. Nút **Chốt lương tháng này** vẫn chạy `closeMonth` (có thể sinh thêm nhân sự/role mới). Không migration; không đụng dữ liệu khoản đã chốt.
@@ -34,6 +39,13 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
   - Migration mới `20260916100000_remove_teacher_fixed_salary_config` xoá dòng `teacher` ở `role_fixed_salary_defaults` và `staff_fixed_salary_overrides` (no-op nếu trống). **Không** đụng `staff_fixed_salary_payables`.
 
 ### Added
+
+- **Lớp không điểm danh (`noAttendance`) — Tự động điểm danh present khi tạo buổi học:**
+  - Thêm boolean `noAttendance` trên `Class` (default `false`); admin/assistant có thể bật/tắt qua `PATCH /class/:id/basic-info`.
+  - Khi `noAttendance = true`, tạo buổi học tự động tạo `Attendance.present` cho toàn bộ học sinh active, bỏ qua form điểm danh.
+  - Session snapshot giá trị `noAttendance` thành `snapshotNoAttendance` (không đọc lại từ Class sau khi tạo).
+  - Tuition/allowance vẫn tính đúng — `tuitionFee` = tổng `present`/`excused` × học phí mỗi học sinh.
+  - **Migration:** `20260905100000_add_class_no_attendance` — thêm `no_attendance` vào `classes`, `snapshot_no_attendance` vào `sessions`.
 
 - **Lưu vai trò và lương cứng một lần bấm (hotfix):**
   - Dialog **Chỉnh sửa thông tin nhân sự** đổi chip vai trò thành danh sách; bật một vai trò thì bung ô lương cứng và % vận hành của đúng vai trò đó. Để trống = mặc định vai trò; `0` / `0%` = cố ý loại.
