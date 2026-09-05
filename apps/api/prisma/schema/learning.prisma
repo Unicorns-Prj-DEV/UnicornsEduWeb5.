@@ -12,6 +12,7 @@ model Class {
   studentTuitionPerSession      Int?                        @map("student_tuition_per_session")
   tuitionPackageTotal           Int?                        @map("tuition_package_total")
   tuitionPackageSession         Int?                        @map("tuition_package_session")
+  noAttendance                  Boolean                     @default(false) @map("no_attendance")
   trainingManagerStaffId        String?                     @map("training_manager_staff_id")
   trainingManagerRatePercent    Decimal?                    @map("training_manager_rate_percent") @db.Decimal(5, 2)
   createdAt                     DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -131,6 +132,7 @@ model Session {
   date                                   DateTime             @db.Date
   startTime                              DateTime?            @map("start_time") @db.Time(6)
   endTime                                DateTime?            @map("end_time") @db.Time(6)
+  snapshotNoAttendance                   Boolean              @default(false) @map("snapshot_no_attendance")
   coefficient                            Decimal              @default(1.0) @db.Decimal(3, 1)
   notes                                  String?
   lessonContent                          String?              @map("lesson_content")

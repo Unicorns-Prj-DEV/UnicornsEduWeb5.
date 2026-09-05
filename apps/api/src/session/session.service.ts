@@ -9,7 +9,11 @@ import {
   SessionUpdateDto,
   UpdateMissedTeachingExplanationDto,
 } from '../dtos/session.dto';
-import { SessionPaymentStatus, UserRole } from '../../generated/enums';
+import {
+  AttendanceStatus,
+  SessionPaymentStatus,
+  UserRole,
+} from '../../generated/enums';
 import { ActionHistoryActor } from '../action-history/action-history.service';
 import { SessionCreateService } from './session-create.service';
 import { SessionDeleteService } from './session-delete.service';
@@ -62,9 +66,9 @@ export class SessionService {
       homework: string;
       tutorial: string;
       coefficient?: number;
-      attendance: Array<{
+      attendance?: Array<{
         studentId: string;
-        status: SessionCreateDto['attendance'][number]['status'];
+        status: (typeof AttendanceStatus)[keyof typeof AttendanceStatus];
         notes?: string | null;
       }>;
     },
