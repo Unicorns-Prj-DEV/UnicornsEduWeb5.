@@ -374,7 +374,7 @@
   - `GET /staff-ops/classes/:classId/sessions?month=&year=`
     - với `staff.teacher`, backend chỉ trả các buổi trong lớp đó do chính teacher hiện tại phụ trách; `admin` và `staff.customer_care` thấy toàn bộ buổi của lớp, nhưng `customer_care` vẫn chỉ ở chế độ đọc
   - `POST /staff-ops/classes/:classId/sessions`
-  - `PUT /staff-ops/sessions/:id`
+  - `PUT /staff-ops/sessions/:id` — cập nhật session; attendance bị bỏ qua nếu session có `snapshotNoAttendance = true`
   - `GET /customer-care/staff/:staffId/students?page=&limit=` — trả `{ data, meta }`; FE dùng infinite scroll với `limit=10`; mỗi học sinh có `recentTopUpTotalLast21Days` và `recentTopUpMeetsThreshold` để render cột **Tiền vào**
   - `GET /customer-care/staff/:staffId/topup-history?page=&limit=` — trả lịch sử `wallet_transactions_history.type = topup` của toàn bộ học sinh thuộc CSKH đó; FE dùng tab **Thanh Toán** với infinite scroll `limit=20`; `staff.customer_care` chỉ xem được chính staff hiện tại
   - `GET /customer-care/staff/:staffId/commissions?scope=pending|month&month=YYYY-MM`

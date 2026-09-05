@@ -4,6 +4,7 @@ import { useState, type SyntheticEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
+import { Switch } from "@/components/ui/switch";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import type { ClassDetail, ClassStatus, UpdateClassBasicInfoPayload } from "@/dtos/class.dto";
 import ClassCategorySelect from "@/components/shared/class/ClassCategorySelect";
@@ -67,6 +68,7 @@ function basicInfoFieldsChanged(
     (classDetail.name ?? "") !== (next.name ?? "") ||
     classDetail.classCategoryId !== next.class_category_id ||
     (classDetail.maxStudents ?? undefined) !== next.max_students ||
+    (classDetail.noAttendance ?? false) !== (next.no_attendance ?? false) ||
     (classDetail.allowancePerSessionPerStudent ?? undefined) !==
       next.allowance_per_session_per_student ||
     (classDetail.maxAllowancePerSession ?? undefined) !== next.max_allowance_per_session ||
@@ -106,6 +108,7 @@ function EditClassBasicInfoDialog({ onClose, classDetail }: Omit<Props, "open">)
   const [tuitionPackageSessionInput, setTuitionPackageSessionInput] = useState(
     classDetail.tuitionPackageSession == null ? "" : String(classDetail.tuitionPackageSession),
   );
+  const [noAttendance, setNoAttendance] = useState(classDetail.noAttendance ?? false);
 
   const canEndClass = classDetail.endClassEligibility?.canEnd ?? false;
   const endClassBlockReason =
@@ -159,6 +162,7 @@ function EditClassBasicInfoDialog({ onClose, classDetail }: Omit<Props, "open">)
       name: trimmedName,
       class_category_id: classCategoryId,
       max_students: maxStudents,
+      no_attendance: noAttendance,
       allowance_per_session_per_student: parseOptionalMoneyInt(allowancePerSessionInput),
       max_allowance_per_session: parseMaxAllowancePerSessionInput(
         maxAllowancePerSessionInput.trim(),
@@ -277,6 +281,20 @@ function EditClassBasicInfoDialog({ onClose, classDetail }: Omit<Props, "open">)
                     Lưu sẽ gọi kết thúc lớp: gỡ gia sư, đóng roster, xóa lịch cố định và lịch bù tương lai.
                   </p>
                 ) : null}
+              </div>
+              <div className="flex flex-col gap-1 text-sm md:col-span-2">
+                <div className="flex items-center justify-between rounded-lg border border-border-default bg-bg-surface px-3 py-2">
+                  <div className="flex flex-col">
+                    <span className="font-medium text-text-primary">Không cần điểm danh</span>
+                    <span className="text-xs text-text-muted">
+                      Lớp quá đông — hệ thống tự sinh Attendance present cho mọi học sinh.
+                    </span>
+                  </div>
+                  <Switch
+                    checked={noAttendance}
+                    onCheckedChange={setNoAttendance}
+                  />
+                </div>
               </div>
               <label className="flex flex-col gap-1 text-sm text-text-secondary">
                 <span>Sĩ số tối đa</span>

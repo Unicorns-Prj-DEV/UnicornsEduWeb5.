@@ -46,6 +46,7 @@ export interface ClassListItem {
     status: ClassStatus;
     studentCount?: number;
     maxStudents: number;
+    noAttendance: boolean;
     allowancePerSessionPerStudent: number;
     maxAllowancePerSession?: number | null;
     scaleAmount?: number | null;
@@ -171,6 +172,7 @@ export interface UpdateClassBasicInfoPayload {
     class_category_id?: string;
     status?: ClassStatus;
     max_students?: number;
+    no_attendance?: boolean;
     allowance_per_session_per_student?: number;
     max_allowance_per_session?: number | null;
     scale_amount?: number;

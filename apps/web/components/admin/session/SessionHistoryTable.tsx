@@ -2926,7 +2926,13 @@ export default function SessionHistoryTable({
                       ) : null}
                     </div>
 
-                    {getClassStudents ? (
+                    {editingSession?.snapshotNoAttendance ? (
+                      <div className="rounded-lg border border-border-default bg-bg-secondary/40 px-4 py-3 text-sm text-text-muted">
+                        Buổi học này thuộc lớp không cần điểm danh — hệ thống tự sinh Attendance present cho mọi học sinh.
+                      </div>
+                    ) : null}
+
+                    {getClassStudents && !editingSession?.snapshotNoAttendance ? (
                       <section className="space-y-3">
                         <div className="space-y-1">
                           <h3 className="text-sm font-semibold text-text-primary">

@@ -21,7 +21,21 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Changed
+
+- **Buổi học không điểm danh (`noAttendance`) — backend guard khi cập nhật session:**
+  - `PUT /sessions/:id` và `PUT /staff-ops/sessions/:id`: Khi session có `snapshotNoAttendance = true`, field `attendance` trong payload bị bỏ qua (silent ignore) — buổi học tự quản danh sách điểm danh, không cho phép cập nhật từ bên ngoài.
+  - Tính năng này đã có ở `POST /sessions` (tự tạo `Attendance.present` cho toàn bộ học sinh active), nay được mở rộng sang cả luồng cập nhật.
+  - Rebellion `docs/adr/2026-09-05-class-without-attendance-still-charges.md`.
+
 ### Added
+
+- **Lớp không điểm danh (`noAttendance`) — Tự động điểm danh present khi tạo buổi học:**
+  - Thêm boolean `noAttendance` trên `Class` (default `false`); admin/assistant có thể bật/tắt qua `PATCH /class/:id/basic-info`.
+  - Khi `noAttendance = true`, tạo buổi học tự động tạo `Attendance.present` cho toàn bộ học sinh active, bỏ qua form điểm danh.
+  - Session snapshot giá trị `noAttendance` thành `snapshotNoAttendance` (không đọc lại từ Class sau khi tạo).
+  - Tuition/allowance vẫn tính đúng — `tuitionFee` = tổng `present`/`excused` × học phí mỗi học sinh.
+  - **Migration:** `20260905100000_add_class_no_attendance` — thêm `no_attendance` vào `classes`, `snapshot_no_attendance` vào `sessions`.
 
 - **Migration — Backfill hồ sơ `student_info` cho toàn bộ tài khoản `users` có role `student`:**
   - Tạo migration `20260904090000_backfill_student_info_for_student_users` tự động đồng bộ hồ sơ `student_info` cho các tài khoản người dùng có role `student` nhưng chưa có profile (như tài khoản `hocsinh1` và các tài khoản test/legacy khác).

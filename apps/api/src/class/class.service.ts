@@ -1580,6 +1580,9 @@ export class ClassService {
     if (dto.tuition_package_session !== undefined) {
       data.tuitionPackageSession = dto.tuition_package_session;
     }
+    if (dto.no_attendance !== undefined) {
+      data.noAttendance = dto.no_attendance;
+    }
 
     return this.prisma.$transaction(async (tx) => {
       const beforeValue = auditActor

@@ -49,6 +49,16 @@ const DEPOSIT_SESSION_PAYMENT_STATUSES = new Set<string>([
   'cọc',
 ]);
 
+// Buổi học của lớp không điểm danh tự quản danh sách; bỏ qua attendance gửi kèm trong payload
+function stripAttendanceForNoAttendanceSession<
+  T extends { attendance?: unknown },
+>(data: T, snapshotNoAttendance: boolean): T {
+  if (!snapshotNoAttendance || !data.attendance) return data;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructure to omit attendance
+  const { attendance, ...rest } = data;
+  return rest as T;
+}
+
 type TeacherPaymentSnapshotSession = {
   id: string;
   classId: string;
@@ -386,6 +396,7 @@ export class SessionUpdateService {
             teacherPaymentStatus: true,
             snapshotPerStudentAllowance: true,
             snapshotScaleAmount: true,
+            snapshotNoAttendance: true,
             class: {
               select: {
                 name: true,
@@ -423,6 +434,11 @@ export class SessionUpdateService {
         if (!existingSession) {
           throw new NotFoundException('Session not found');
         }
+
+        data = stripAttendanceForNoAttendanceSession(
+          data,
+          existingSession.snapshotNoAttendance,
+        );
 
         const nextClassId = data.classId ?? existingSession.classId;
         const nextTeacherId = data.teacherId ?? existingSession.teacherId;
@@ -1394,6 +1410,7 @@ export class SessionUpdateService {
       select: {
         id: true,
         classId: true,
+        snapshotNoAttendance: true,
         attendance: {
           select: {
             studentId: true,
@@ -1406,6 +1423,11 @@ export class SessionUpdateService {
     if (!existingSession) {
       throw new NotFoundException('Session not found');
     }
+
+    data = stripAttendanceForNoAttendanceSession(
+      data,
+      existingSession.snapshotNoAttendance,
+    );
 
     const actor = await this.staffOperationsAccess.resolveActor(
       userId,

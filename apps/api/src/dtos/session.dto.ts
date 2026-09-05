@@ -273,14 +273,16 @@ export class SessionCreateDto {
   @IsString()
   teacherPaymentStatus?: string | null;
 
-  @ApiProperty({
-    description: 'Attendance items for this session.',
+  @ApiPropertyOptional({
+    description:
+      'Attendance items for this session. Required for normal classes; omitted for no-attendance classes (auto-generated as present).',
     type: [AttendanceCreateDto],
   })
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => AttendanceCreateDto)
-  attendance: AttendanceCreateDto[];
+  attendance?: AttendanceCreateDto[];
 }
 
 export class SessionUpdateDto extends PartialType(SessionCreateDto) {
@@ -467,14 +469,16 @@ export class CreateStaffOpsSessionDto {
   @Max(1)
   coefficient?: number;
 
-  @ApiProperty({
-    description: 'Attendance items without financial overrides.',
+  @ApiPropertyOptional({
+    description:
+      'Attendance items without financial overrides. Required for normal classes; omitted for no-attendance classes (auto-generated as present).',
     type: [StaffOpsAttendanceDto],
   })
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => StaffOpsAttendanceDto)
-  attendance: StaffOpsAttendanceDto[];
+  attendance?: StaffOpsAttendanceDto[];
 }
 
 export class UpdateStaffOpsSessionDto extends PartialType(

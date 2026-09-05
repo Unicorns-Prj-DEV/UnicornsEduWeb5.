@@ -105,6 +105,8 @@ type Props = {
   allowFinancialFields?: boolean;
   allowAllowanceField?: boolean;
   allowAttendanceTuitionEdits?: boolean;
+  /** Lớp không cần điểm danh — ẩn phần điểm danh, BE tự sinh present. */
+  noAttendance?: boolean;
   createSessionFn?: (payload: SessionCreatePayload) => Promise<SessionItem>;
   onClose: () => void;
   onCreated?: (session: SessionItem) => void;
@@ -245,6 +247,7 @@ export default function AddSessionPopup({
   allowFinancialFields = true,
   allowAllowanceField,
   allowAttendanceTuitionEdits,
+  noAttendance = false,
   createSessionFn = sessionApi.createSession,
   onClose,
   onCreated,
@@ -625,30 +628,32 @@ export default function AddSessionPopup({
       return;
     }
 
-    const missingStudentComments = findStudentsMissingRequiredComments(
-      attendanceItems,
-    );
-    if (missingStudentComments.length > 0) {
-      toast.error(formatMissingStudentCommentsToast(missingStudentComments));
-      return;
-    }
+    if (!noAttendance) {
+      const missingStudentComments = findStudentsMissingRequiredComments(
+        attendanceItems,
+      );
+      if (missingStudentComments.length > 0) {
+        toast.error(formatMissingStudentCommentsToast(missingStudentComments));
+        return;
+      }
 
-    const hasAttendanceNotesTooLong = attendanceItems.some(
-      (item) => item.notes.trim().length > MAX_ATTENDANCE_NOTES_LENGTH,
-    );
+      const hasAttendanceNotesTooLong = attendanceItems.some(
+        (item) => item.notes.trim().length > MAX_ATTENDANCE_NOTES_LENGTH,
+      );
 
-    if (hasAttendanceNotesTooLong) {
-      toast.error(`Ghi chú điểm danh tối đa ${MAX_ATTENDANCE_NOTES_LENGTH} ký tự.`);
-      return;
-    }
+      if (hasAttendanceNotesTooLong) {
+        toast.error(`Ghi chú điểm danh tối đa ${MAX_ATTENDANCE_NOTES_LENGTH} ký tự.`);
+        return;
+      }
 
-    const hasInvalidAttendanceTuition =
-      canEditAttendanceTuition &&
-      attendanceItems.some((item) => !isNonNegativeMoneyInput(item.tuitionFee));
+      const hasInvalidAttendanceTuition =
+        canEditAttendanceTuition &&
+        attendanceItems.some((item) => !isNonNegativeMoneyInput(item.tuitionFee));
 
-    if (hasInvalidAttendanceTuition) {
-      toast.error("Học phí từng học sinh phải là số không âm.");
-      return;
+      if (hasInvalidAttendanceTuition) {
+        toast.error("Học phí từng học sinh phải là số không âm.");
+        return;
+      }
     }
 
     const coeffNum = isTrialLesson ? 0 : 1;
@@ -690,10 +695,14 @@ export default function AddSessionPopup({
             ),
           }
         : {}),
-      attendance: toAttendancePayload(
-        attendanceItems,
-        canEditAttendanceTuition,
-      ),
+      ...(noAttendance
+        ? {}
+        : {
+            attendance: toAttendancePayload(
+              attendanceItems,
+              canEditAttendanceTuition,
+            ),
+          }),
     };
 
     setIsSubmitting(true);
@@ -865,11 +874,16 @@ export default function AddSessionPopup({
                     ) : null}
                   </div>
 
-                  <section className="space-y-3">
-                    <div className="space-y-1">
-                      <h3 className="text-sm font-semibold text-text-primary">
-                        Nhận xét từng học sinh <RequiredMark />
-                      </h3>
+                  {noAttendance ? (
+                    <div className="rounded-lg border border-border-default bg-bg-secondary/40 px-4 py-3 text-sm text-text-muted">
+                      Lớp không cần điểm danh — hệ thống tự sinh Attendance present cho mọi học sinh đang học.
+                    </div>
+                  ) : (
+                    <section className="space-y-3">
+                      <div className="space-y-1">
+                        <h3 className="text-sm font-semibold text-text-primary">
+                          Nhận xét từng học sinh <RequiredMark />
+                        </h3>
                       {canEditAttendanceTuition ? (
                         <div className="flex flex-wrap gap-2 rounded-lg border border-border-default bg-bg-secondary/40 p-3 text-xs">
                           <span className="text-text-muted">Học phí buổi:</span>
@@ -911,6 +925,7 @@ export default function AddSessionPopup({
                       </>
                     )}
                   </section>
+                  )}
 
                   <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
                     <span>

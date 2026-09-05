@@ -854,6 +854,7 @@ export default function StaffClassDetailPage() {
           defaultTeacherId={defaultTeacherId}
           teachers={popupTeachers}
           students={popupStudents}
+          noAttendance={classDetail.noAttendance}
           classPricing={{
             allowancePerSessionPerStudent: classDetail.allowancePerSessionPerStudent,
             maxAllowancePerSession: classDetail.maxAllowancePerSession ?? null,
