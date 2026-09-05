@@ -982,19 +982,27 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (user.roleType !== UserRole.student) {
-      throw new BadRequestException(
-        'Student login flow is only for student accounts',
-      );
-    }
-
+    // Verify password before revealing account type (prevents enumeration)
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (user.roleType !== UserRole.student) {
+      throw new BadRequestException({
+        statusCode: 400,
+        error: 'NOT_STUDENT_ACCOUNT',
+        message: 'Tài khoản này không phải tài khoản học sinh.',
+      });
+    }
+
     if (!user.emailVerified) {
-      throw new BadRequestException('Email not verified');
+      throw new BadRequestException({
+        statusCode: 400,
+        error: 'EMAIL_NOT_VERIFIED',
+        message:
+          'Email chưa được xác minh. Vui lòng xác minh email trước khi đăng nhập.',
+      });
     }
 
     // Lazy cleanup: remove expired login requests and inactive devices
@@ -1108,6 +1116,7 @@ export class AuthService {
 
     // Remove any existing devices for this student (single-device rule)
     await this.userDeviceService.removeAllDevicesForUser(request.userId);
+    this.authIdentityCacheService.invalidateHasActiveDevice(request.userId);
 
     // Create the device
     const deviceToken = this.userDeviceService.generateDeviceToken();
@@ -1203,6 +1212,7 @@ export class AuthService {
 
     // Remove all devices
     await this.userDeviceService.removeAllDevicesForUser(studentId);
+    this.authIdentityCacheService.invalidateHasActiveDevice(studentId);
 
     // Invalidate refresh token
     await this.prisma.user.update({
@@ -1227,6 +1237,7 @@ export class AuthService {
   async studentSelfLogout(userId: string): Promise<{ message: string }> {
     // Remove all devices
     await this.userDeviceService.removeAllDevicesForUser(userId);
+    this.authIdentityCacheService.invalidateHasActiveDevice(userId);
 
     // Also invalidate refresh token
     await this.prisma.user.update({

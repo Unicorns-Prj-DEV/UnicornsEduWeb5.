@@ -127,16 +127,18 @@ export default async function SomePage() {
 Luật một thiết bị tại một thời điểm, chỉ áp dụng cho `UserRole.student`. Staff/admin giữ nguyên flow cũ.
 
 - `POST /auth/student/login` body: `{ accountHandle, password, rememberMe? }`
-  - Validate credentials, kiểm tra `roleType === student`, kiểm tra đã `emailVerified`.
+  - Validate credentials, kiểm tra đã `emailVerified`.
+  - Nếu `roleType !== student` → trả `400` với `error: NOT_STUDENT_ACCOUNT`.
+  - Nếu email chưa xác minh → trả `400` với `error: EMAIL_NOT_VERIFIED`.
   - Nếu student đã có device active → trả `409` với `error: DEVICE_ACTIVE`.
   - Tạo `login_requests` record, gửi magic link email tới student.
-  - Response: `{ requestId, message }`.
+  - Response: `{ requestId, activateSecret, message }`. `activateSecret` là one-time secret dùng ở bước activate; frontend lưu trong memory, không lưu localStorage.
   - Rate limit: `5` request / `60s` / IP.
 
-- `GET /auth/student/login/:requestId/poll`
+- `POST /auth/student/login/poll` body: `{ requestId }`
   - Frontend poll mỗi 2s để kiểm tra trạng thái xác minh.
-  - Response: `{ verified: boolean, requestId }`.
-  - Khi `verified = true`, frontend gọi `POST /auth/student/activate`.
+  - Response: `{ verified: boolean }`.
+  - Khi `verified = true`, frontend gọi `POST /auth/student/activate` kèm `requestId` + `activateSecret`.
   - Rate limit: `30` request / `60s` / IP.
 
 - `GET /auth/verify-login?token=...`
@@ -145,14 +147,15 @@ Luật một thiết bị tại một thời điểm, chỉ áp dụng cho `User
   - Trả `{ message, verified: true }`.
   - Rate limit: `30` request / `60s` / IP.
 
-- `POST /auth/student/activate` body: `{ requestId, rememberMe? }`
+- `POST /auth/student/activate` body: `{ requestId, activateSecret, rememberMe? }`
   - Sau khi poll xác nhận `verified = true`.
+  - Xác minh `activateSecret` khớp hash trong `login_requests`.
   - Xóa mọi device cũ của student (single-device rule).
   - Tạo `user_devices` record mới, cấp JWT tokens, set cookies.
   - Response: `{ message }`.
 
 - `POST /auth/student/logout`
-  - Student tự đăng xuất. Xóa device record và invalidate refresh token.
+  - Student tự đăng xuất. Xóa tất cả device records, invalidate refresh token.
   - Response: `{ message }`.
 
 - `POST /auth/admin/students/:id/force-logout`
@@ -164,6 +167,8 @@ Luật một thiết bị tại một thời điểm, chỉ áp dụng cho `User
   - Khi student refresh token, hệ thống kiểm tra có device active không.
   - Nếu không có device active → trả `401` với `error: NO_ACTIVE_DEVICE`.
   - Staff/admin không bị kiểm tra device.
+
+- Device check trong access token validation: `JwtStrategy.validate` kiểm tra `hasActiveDevice` cho student trên mỗi request. Kết quả được cache trong `AuthIdentityCacheService` (TTL 5s) để tránh round-trip DB mỗi request. Cache bị invalidate khi force-logout hoặc xóa device.
 
 - Lazy cleanup: khi tạo login request mới, tự động xóa login requests hết hạn và devices inactive > 60 ngày.
 - **Global rate limit:** các endpoint HTTP khác của API dùng limit mặc định `300` request / `60s` / endpoint / IP; health check `GET /` được `@SkipThrottle()`.

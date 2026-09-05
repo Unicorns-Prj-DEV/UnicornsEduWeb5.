@@ -47,6 +47,12 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
   - Frontend: login page xử lý cả student và staff/admin flow; màn hình "Check your email" với polling; màn hình blocked device (Screen 18).
   - Frontend: `verify-login` page cho magic link.
   - Student sidebar/header dùng `POST /auth/student/logout` để cleanup device khi đăng xuất.
+  - `POST /auth/student/login/poll` đổi từ GET sang POST, requestId đưa vào body thay vì URL path để tránh leak trong access logs.
+  - Activate endpoint yêu cầu `activateSecret` (one-time secret trả về từ bước login init) kèm `requestId`, không còn dựa vào requestId UUID làm secret duy nhất.
+  - Device check cho student được áp dụng trên mỗi access token validation (`JwtStrategy.validate`), không chỉ ở refresh. Kết quả cache trong `AuthIdentityCacheService` (TTL 5s), invalidate khi force-logout/xóa device.
+  - `touchDevice` gọi trên mỗi refresh để rule inactive 60 ngày hoạt động đúng.
+  - `studentLoginInit` trả `error: NOT_STUDENT_ACCOUNT` hoặc `error: EMAIL_NOT_VERIFIED` riêng biệt; FE chỉ fallback sang staff login khi gặp `NOT_STUDENT_ACCOUNT`.
+  - Kiểm tra roleType chuyển xuống sau bcrypt.compare để tránh account enumeration.
 
 - **Migration — Backfill hồ sơ `student_info` cho toàn bộ tài khoản `users` có role `student`:**
   - Tạo migration `20260904090000_backfill_student_info_for_student_users` tự động đồng bộ hồ sơ `student_info` cho các tài khoản người dùng có role `student` nhưng chưa có profile (như tài khoản `hocsinh1` và các tài khoản test/legacy khác).

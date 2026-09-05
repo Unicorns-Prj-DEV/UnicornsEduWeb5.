@@ -167,9 +167,17 @@ function LoginPageContent() {
       startPolling(response.requestId);
     },
     onError: (error) => {
-      // 400 = non-student account → fallback to staff/admin login
       if (isAxiosError(error) && error.response?.status === 400) {
-        staffLoginMutation.mutate({ accountHandle, password, rememberMe });
+        const errorCode = error.response.data?.error;
+        if (errorCode === "NOT_STUDENT_ACCOUNT") {
+          // Non-student account → fallback to staff/admin login
+          staffLoginMutation.mutate({ accountHandle, password, rememberMe });
+          return;
+        }
+        // EMAIL_NOT_VERIFIED or other 400 → show backend message
+        toast.error(
+          error.response.data?.message || "Đăng nhập thất bại.",
+        );
         return;
       }
       if (isAxiosError(error) && error.response?.status === 409) {

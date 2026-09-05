@@ -52,8 +52,12 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     }
 
     // Students must have an active device (force-logout = no device = immediate rejection)
+    // Result cached in AuthIdentityCacheService to avoid DB round-trip per request
     if (user.roleType === UserRole.student) {
-      const hasActive = await this.userDeviceService.hasActiveDevice(user.id);
+      const hasActive = await this.authIdentityCacheService.getHasActiveDevice(
+        user.id,
+        () => this.userDeviceService.hasActiveDevice(user.id),
+      );
       if (!hasActive) {
         throw new UnauthorizedException({
           statusCode: 401,
