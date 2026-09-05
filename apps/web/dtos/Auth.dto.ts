@@ -104,3 +104,22 @@ export interface LoginResponseDto {
 export interface SetupPasswordDto {
   password: string;
 }
+
+export interface StudentLoginInitResponse {
+  requestId: string;
+  message: string;
+}
+
+export interface StudentLoginPollResponse {
+  verified: boolean;
+  requestId: string;
+}
+
+export interface StudentActivateDto {
+  requestId: string;
+  rememberMe?: boolean;
+}
+
+export interface StudentActivateResponse {
+  message: string;
+}

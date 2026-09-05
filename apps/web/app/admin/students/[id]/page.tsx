@@ -34,6 +34,7 @@ import * as studentApi from "@/lib/apis/student.api";
 import { pickAvatarUrl } from "@/lib/avatar";
 import { formatCurrency } from "@/lib/class.helpers";
 import { cn } from "@/lib/utils";
+import { forceLogoutStudent } from "@/lib/apis/auth.api";
 
 const STATUS_LABELS: Record<StudentStatus, string> = {
     active: "Đang học",
@@ -178,6 +179,24 @@ export default function AdminStudentDetailPage() {
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ["student", "detail", id] });
             toast.success("Đã cập nhật cài đặt gửi biên lai.");
+        },
+    });
+
+    const forceLogoutMutation = useMutation({
+        mutationFn: () => {
+            if (!student?.userId) {
+                throw new Error("Student userId not available");
+            }
+            return forceLogoutStudent(student.userId);
+        },
+        onSuccess: async () => {
+            toast.success("Đã buộc đăng xuất học sinh.");
+        },
+        onError: (err: unknown) => {
+            const msg =
+                (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+                "Không thể buộc đăng xuất.";
+            toast.error(msg);
         },
     });
 
@@ -553,6 +572,24 @@ export default function AdminStudentDetailPage() {
                                             >
                                                 <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586Z" />
+                                                </svg>
+                                            </button>
+                                        ) : null}
+                                        {canManageUsers && student.userId ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (confirm("Buộc đăng xuất học sinh này? Thiết bị hiện tại sẽ bị ngắt kết nối.")) {
+                                                        forceLogoutMutation.mutate();
+                                                    }
+                                                }}
+                                                disabled={forceLogoutMutation.isPending}
+                                                className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border-default bg-bg-surface text-text-muted transition hover:bg-error/10 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface sm:size-8 disabled:opacity-50"
+                                                aria-label="Buộc đăng xuất học sinh"
+                                                title="Buộc đăng xuất"
+                                            >
+                                                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                                                 </svg>
                                             </button>
                                         ) : null}

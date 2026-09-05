@@ -121,6 +121,51 @@ export default async function SomePage() {
   - `POST /auth/change-password`
     - chỉ dùng khi tài khoản đã có mật khẩu và cần truyền `currentPassword`
     - rate limit: `10` request / `30 phút` / IP.
+
+### Student single-device login (ticket #65)
+
+Luật một thiết bị tại một thời điểm, chỉ áp dụng cho `UserRole.student`. Staff/admin giữ nguyên flow cũ.
+
+- `POST /auth/student/login` body: `{ accountHandle, password, rememberMe? }`
+  - Validate credentials, kiểm tra `roleType === student`, kiểm tra đã `emailVerified`.
+  - Nếu student đã có device active → trả `409` với `error: DEVICE_ACTIVE`.
+  - Tạo `login_requests` record, gửi magic link email tới student.
+  - Response: `{ requestId, message }`.
+  - Rate limit: `5` request / `60s` / IP.
+
+- `GET /auth/student/login/:requestId/poll`
+  - Frontend poll mỗi 2s để kiểm tra trạng thái xác minh.
+  - Response: `{ verified: boolean, requestId }`.
+  - Khi `verified = true`, frontend gọi `POST /auth/student/activate`.
+  - Rate limit: `30` request / `60s` / IP.
+
+- `GET /auth/verify-login?token=...`
+  - Magic link trong email trỏ tới endpoint này.
+  - Đánh dấu `login_requests.verified = true`.
+  - Trả `{ message, verified: true }`.
+  - Rate limit: `30` request / `60s` / IP.
+
+- `POST /auth/student/activate` body: `{ requestId, rememberMe? }`
+  - Sau khi poll xác nhận `verified = true`.
+  - Xóa mọi device cũ của student (single-device rule).
+  - Tạo `user_devices` record mới, cấp JWT tokens, set cookies.
+  - Response: `{ message }`.
+
+- `POST /auth/student/logout`
+  - Student tự đăng xuất. Xóa device record và invalidate refresh token.
+  - Response: `{ message }`.
+
+- `POST /auth/admin/students/:id/force-logout`
+  - Admin/CSKH/assistant buộc đăng xuất học sinh.
+  - Xóa mọi device records, invalidate refresh token, ghi audit trail.
+  - Yêu cầu `@Roles(UserRole.admin, UserRole.staff)`.
+
+- `POST /auth/refresh` — StudentDeviceGuard
+  - Khi student refresh token, hệ thống kiểm tra có device active không.
+  - Nếu không có device active → trả `401` với `error: NO_ACTIVE_DEVICE`.
+  - Staff/admin không bị kiểm tra device.
+
+- Lazy cleanup: khi tạo login request mới, tự động xóa login requests hết hạn và devices inactive > 60 ngày.
 - **Global rate limit:** các endpoint HTTP khác của API dùng limit mặc định `300` request / `60s` / endpoint / IP; health check `GET /` được `@SkipThrottle()`.
 - **Phản hồi khi vượt ngưỡng:** backend trả `429 Too Many Requests`; frontend nên surface message này qua Sonner toast như các lỗi auth khác.
 - **Contract:** Auth DTO và role enum aligned với backend.
