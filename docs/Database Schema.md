@@ -250,6 +250,8 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - **Quản lý lớp (Đào tạo):**
     - `training_manager_staff_id` (nullable FK → `staff_info.id`): nhân sự ban Đào tạo được gán quản lý lớp; chỉnh qua `PATCH /class/:id/training-manager` (admin/assistant).
     - `training_manager_rate_percent` (`DECIMAL(5,2)`, nullable): % trợ cấp quản lý lớp trên tổng học phí buổi (attendance `present`/`excused`); `0` hoặc chưa gán QLL = không phát sinh khoản phải trả.
+  - **Không điểm danh (noAttendance):**
+    - `no_attendance` (`BOOLEAN`, default `false`): bật=True nghĩa là lớp **không điểm danh**; khi tạo buổi học hệ thống tự tạo `Attendance.present` cho tất cả học sinh active, bỏ qua form điểm danh. Gán/tắt chỉ bởi admin/assistant (`PATCH /class/:id/basic-info`). Session snapshot giá trị này vào `sessions.snapshot_no_attendance` để FE hiển thị đúng cho buổi đã tạo.
 - Mối quan hệ: teachers, students, sessions, makeupScheduleEvents, surveys, `trainingManager` (StaffInfo)
 - Bảng liên kết `class_teachers` (Class ↔ StaffInfo) ngoài `custom_allowance` (nullable; **null** = kế thừa `classes.allowance_per_session_per_student`; số dương = override, không đổi khi chỉ sửa default lớp qua `PATCH /class/:id/basic-info`) còn có:
   - Expand #134: `custom_allowance` **giữ tên**, backfill sang đơn vị mỗi block 30 phút (`ROUND(giá_cũ / số_block_chuẩn)`). API vẫn nhận/trả mức **theo buổi** (chia lúc ghi, nhân lúc đọc) để không đổi số tiền trên UI/payroll.
@@ -389,6 +391,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - `training_manager_allowance_amount` (`INTEGER`, nullable): `ROUND(tổng tuition_fee present/excused × rate / 100)`; `0`/null khi chưa gán QLL hoặc rate = 0.
   - `training_manager_payment_status` (`PaymentStatus`, default `pending`): thanh toán payroll theo buổi (pattern CSKH).
   - `training_manager_tax_deduction_rate_percent` (`DECIMAL(5,2)`, nullable): snapshot thuế khi chuyển `paid`.
+- `snapshot_no_attendance` (`BOOLEAN`, default `false`): snapshot từ `classes.noAttendance` tại thời điểm tạo buổi; `true` = buổi này tự tạo `Attendance.present` cho toàn bộ học sinh active (không cần nhập điểm danh). FE ẩn form điểm danh khi snapshot = true.
 - Quan hệ con: `attendance`
 - Indexes chính:
   - đơn lẻ: `teacher_id`, `class_id`, `date`

@@ -99,7 +99,7 @@ export interface SessionCreatePayload {
   allowanceAmount?: number | null;
   /** Whether teacher operating deduction should be applied to this session. Defaults to true. */
   includeTeacherOperatingDeduction?: boolean;
-  attendance: SessionAttendanceItem[];
+  attendance?: SessionAttendanceItem[];
 }
 
 export interface SessionUpdatePayload {
@@ -154,6 +154,8 @@ export interface SessionItem {
   snapshotScaleAmount?: number | null;
   /** 30-minute block count snapshotted when the session was created. */
   snapshotBlockCount?: number | null;
+  /** Snapshot of class noAttendance flag at session creation. */
+  snapshotNoAttendance?: boolean;
   tuitionFee?: number | null;
   /** Coefficient from 0.0 to 1.0. */
   coefficient?: number | null;

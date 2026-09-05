@@ -192,6 +192,15 @@ export class CreateClassDto {
 
   @ApiPropertyOptional({
     description:
+      'Lớp không cần điểm danh (lớp quá đông). Hệ thống tự sinh Attendance present cho mọi học sinh đang học.',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  no_attendance?: boolean;
+
+  @ApiPropertyOptional({
+    description:
       'Staff ids (gia sư phụ trách). Ignored if teachers[] is provided.',
     type: [String],
     example: ['UNISTAFF-c3d4e5f6a7'],
@@ -244,6 +253,7 @@ export class UpdateClassBasicInfoDto extends PartialType(
     'student_tuition_per_block',
     'tuition_package_total',
     'tuition_package_session',
+    'no_attendance',
   ]),
 ) {}
 

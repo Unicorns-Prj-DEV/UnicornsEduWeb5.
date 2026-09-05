@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  AttendanceStatus,
   PaymentStatus,
   StaffRole,
   StudentClassStatus,
@@ -68,12 +69,6 @@ export class SessionCreateService {
     this.activeSessionCreations.add(lockKey);
 
     try {
-      this.sessionValidationService.validateAttendanceItems(data.attendance, {
-        required: true,
-      });
-      this.sessionValidationService.validateAttendanceNotes(data.attendance, {
-        required: true,
-      });
       this.sessionValidationService.validateSessionCommentFields(
         {
           lessonContent: data.lessonContent,
@@ -127,16 +122,6 @@ export class SessionCreateService {
             tx,
             sessionDate,
           );
-          const attendanceStudentIds = data.attendance.map(
-            (attendanceItem) => attendanceItem.studentId,
-          );
-          const chargeableAttendanceStudentIds = data.attendance
-            .filter((item) =>
-              this.sessionValidationService.isTuitionChargeableStatus(
-                item.status,
-              ),
-            )
-            .map((attendanceItem) => attendanceItem.studentId);
 
           const classTeacher = await tx.classTeacher.findUnique({
             where: {
@@ -152,6 +137,7 @@ export class SessionCreateService {
                 select: {
                   name: true,
                   pricingMode: true,
+                  noAttendance: true,
                   allowancePerSessionPerStudent: true,
                   allowancePerBlockPerStudent: true,
                   scaleAmount: true,
@@ -161,6 +147,66 @@ export class SessionCreateService {
               },
             },
           });
+
+          if (!classTeacher) {
+            throw new NotFoundException(
+              'Class teacher not found for this class and teacher.',
+            );
+          }
+
+          const isNoAttendanceClass = classTeacher.class.noAttendance;
+
+          if (isNoAttendanceClass) {
+            this.sessionValidationService.validateSessionCommentFields(
+              {
+                lessonContent: data.lessonContent,
+                homework: data.homework,
+                tutorial: data.tutorial,
+              },
+              { required: true },
+            );
+
+            // Auto-generate attendance: present for all active students
+            const activeStudents = await tx.studentClass.findMany({
+              where: {
+                classId: data.classId,
+                status: StudentClassStatus.active,
+              },
+              select: { studentId: true },
+            });
+            data = {
+              ...data,
+              attendance: activeStudents.map((sc) => ({
+                studentId: sc.studentId,
+                status: AttendanceStatus.present,
+                notes: null,
+              })),
+            };
+          } else {
+            this.sessionValidationService.validateAttendanceItems(
+              data.attendance ?? [],
+              {
+                required: true,
+              },
+            );
+            this.sessionValidationService.validateAttendanceNotes(
+              data.attendance ?? [],
+              {
+                required: true,
+              },
+            );
+          }
+
+          const attendanceStudentIds = (data.attendance ?? []).map(
+            (attendanceItem) => attendanceItem.studentId,
+          );
+          const chargeableAttendanceStudentIds = (data.attendance ?? [])
+            .filter((item) =>
+              this.sessionValidationService.isTuitionChargeableStatus(
+                item.status,
+              ),
+            )
+            .map((attendanceItem) => attendanceItem.studentId);
 
           const studentCustomerCare = await tx.customerCareService.findMany({
             where: {
@@ -245,12 +291,6 @@ export class SessionCreateService {
               studentClass.student.accountBalance,
             ]),
           );
-
-          if (!classTeacher) {
-            throw new NotFoundException(
-              'Class teacher not found for this class and teacher.',
-            );
-          }
 
           const scheduleMatch =
             await this.sessionScheduleRulesService.assertSessionMatchesDeclaredSchedule(
@@ -342,57 +382,59 @@ export class SessionCreateService {
             StaffRole.teacher,
           );
 
-          const resolvedAttendance = data.attendance.map((attendanceItem) => {
-            const customerCare = customerCareByStudentId.get(
-              attendanceItem.studentId,
-            );
-
-            return {
-              studentId: attendanceItem.studentId,
-              status: attendanceItem.status,
-              notes: attendanceItem.notes ?? null,
-              customerCareCoef: customerCare?.profitPercent,
-              customerCareStaffId: customerCare?.staffId,
-              tuitionFee:
-                this.sessionValidationService.resolveChargeableAttendanceTuitionFee(
-                  attendanceItem.status,
-                  attendanceItem.tuitionFee,
-                  this.sessionValidationService.resolveDefaultStudentTuitionPerSession(
-                    {
-                      pricingMode: classTeacher.class.pricingMode,
-                      customTuitionPerSession: studentClassByStudentId.get(
-                        attendanceItem.studentId,
-                      )?.customStudentTuitionPerSession,
-                      customTuitionPerBlock: studentClassByStudentId.get(
-                        attendanceItem.studentId,
-                      )?.customTuitionPerBlock,
-                      customTuitionPackageTotal: studentClassByStudentId.get(
-                        attendanceItem.studentId,
-                      )?.customTuitionPackageTotal,
-                      customTuitionPackageSession: studentClassByStudentId.get(
-                        attendanceItem.studentId,
-                      )?.customTuitionPackageSession,
-                      classTuitionPerSession: studentClassByStudentId.get(
-                        attendanceItem.studentId,
-                      )?.class?.studentTuitionPerSession,
-                      classTuitionPerBlock: studentClassByStudentId.get(
-                        attendanceItem.studentId,
-                      )?.class?.studentTuitionPerBlock,
-                      classTuitionPackageTotal: studentClassByStudentId.get(
-                        attendanceItem.studentId,
-                      )?.class?.tuitionPackageTotal,
-                      classTuitionPackageSession: studentClassByStudentId.get(
-                        attendanceItem.studentId,
-                      )?.class?.tuitionPackageSession,
-                      blockCount: snapshotBlockCount,
-                    },
-                  ),
-                ),
-              accountBalance: studentAccountBalanceByStudentId.get(
+          const resolvedAttendance = (data.attendance ?? []).map(
+            (attendanceItem) => {
+              const customerCare = customerCareByStudentId.get(
                 attendanceItem.studentId,
-              ),
-            };
-          });
+              );
+
+              return {
+                studentId: attendanceItem.studentId,
+                status: attendanceItem.status,
+                notes: attendanceItem.notes ?? null,
+                customerCareCoef: customerCare?.profitPercent,
+                customerCareStaffId: customerCare?.staffId,
+                tuitionFee:
+                  this.sessionValidationService.resolveChargeableAttendanceTuitionFee(
+                    attendanceItem.status,
+                    attendanceItem.tuitionFee,
+                    this.sessionValidationService.resolveDefaultStudentTuitionPerSession(
+                      {
+                        pricingMode: classTeacher.class.pricingMode,
+                        customTuitionPerSession: studentClassByStudentId.get(
+                          attendanceItem.studentId,
+                        )?.customStudentTuitionPerSession,
+                        customTuitionPerBlock: studentClassByStudentId.get(
+                          attendanceItem.studentId,
+                        )?.customTuitionPerBlock,
+                        customTuitionPackageTotal: studentClassByStudentId.get(
+                          attendanceItem.studentId,
+                        )?.customTuitionPackageTotal,
+                        customTuitionPackageSession: studentClassByStudentId.get(
+                          attendanceItem.studentId,
+                        )?.customTuitionPackageSession,
+                        classTuitionPerSession: studentClassByStudentId.get(
+                          attendanceItem.studentId,
+                        )?.class?.studentTuitionPerSession,
+                        classTuitionPerBlock: studentClassByStudentId.get(
+                          attendanceItem.studentId,
+                        )?.class?.studentTuitionPerBlock,
+                        classTuitionPackageTotal: studentClassByStudentId.get(
+                          attendanceItem.studentId,
+                        )?.class?.tuitionPackageTotal,
+                        classTuitionPackageSession: studentClassByStudentId.get(
+                          attendanceItem.studentId,
+                        )?.class?.tuitionPackageSession,
+                        blockCount: snapshotBlockCount,
+                      },
+                    ),
+                  ),
+                accountBalance: studentAccountBalanceByStudentId.get(
+                  attendanceItem.studentId,
+                ),
+              };
+            },
+          );
 
           const tuitionFee = resolvedAttendance.reduce(
             (sum, attendanceItem) => sum + (attendanceItem.tuitionFee ?? 0),
@@ -491,6 +533,7 @@ export class SessionCreateService {
             data: {
               classId: data.classId,
               teacherId: data.teacherId,
+              snapshotNoAttendance: isNoAttendanceClass,
               coefficient,
               allowanceAmount,
               snapshotPerStudentAllowance,
@@ -594,9 +637,9 @@ export class SessionCreateService {
       tutorial: string;
       recordingUrl?: string | null;
       coefficient?: number;
-      attendance: Array<{
+      attendance?: Array<{
         studentId: string;
-        status: SessionCreateDto['attendance'][number]['status'];
+        status: (typeof AttendanceStatus)[keyof typeof AttendanceStatus];
         notes?: string | null;
       }>;
     },
@@ -614,10 +657,12 @@ export class SessionCreateService {
       );
     }
 
-    await this.sessionRosterService.assertAttendanceStudentsBelongToClass(
-      classId,
-      data.attendance.map((attendanceItem) => attendanceItem.studentId),
-    );
+    if (data.attendance && data.attendance.length > 0) {
+      await this.sessionRosterService.assertAttendanceStudentsBelongToClass(
+        classId,
+        data.attendance.map((attendanceItem) => attendanceItem.studentId),
+      );
+    }
 
     const teacherId = isTeacher
       ? actor.id
@@ -636,7 +681,7 @@ export class SessionCreateService {
         homework: data.homework,
         tutorial: data.tutorial,
         recordingUrl: data.recordingUrl ?? null,
-        attendance: data.attendance.map((attendanceItem) => ({
+        attendance: (data.attendance ?? []).map((attendanceItem) => ({
           studentId: attendanceItem.studentId,
           status: attendanceItem.status,
           notes: attendanceItem.notes ?? null,

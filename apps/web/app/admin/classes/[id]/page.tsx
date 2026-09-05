@@ -853,6 +853,7 @@ export default function AdminClassDetailPage() {
           teachers={popupTeachers}
           students={popupStudents}
           sessionTuitionTotal={totalSessionTuition}
+          noAttendance={classDetail.noAttendance}
           classPricing={{
             allowancePerSessionPerStudent: classDetail.allowancePerSessionPerStudent,
             allowancePerBlockPerStudent: classDetail.allowancePerBlockPerStudent ?? null,

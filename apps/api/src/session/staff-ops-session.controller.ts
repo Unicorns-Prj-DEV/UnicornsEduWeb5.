@@ -188,7 +188,21 @@ export class StaffOpsSessionController {
       user.id,
       user.roleType,
       classId,
-      dto,
+      {
+        date: dto.date,
+        startTime: dto.startTime,
+        endTime: dto.endTime,
+        notes: dto.notes,
+        lessonContent: dto.lessonContent,
+        homework: dto.homework,
+        tutorial: dto.tutorial,
+        coefficient: dto.coefficient,
+        attendance: dto.attendance?.map((a) => ({
+          studentId: a.studentId,
+          status: a.status,
+          notes: a.notes,
+        })),
+      },
       {
         userId: user.id,
         userEmail: user.email,
