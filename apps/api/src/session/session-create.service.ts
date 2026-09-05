@@ -114,16 +114,11 @@ export class SessionCreateService {
 
           const isNoAttendanceClass = classTeacher.class.noAttendance;
 
-          if (isNoAttendanceClass) {
-            this.sessionValidationService.validateSessionCommentFields(
-              {
-                lessonContent: data.lessonContent,
-                homework: data.homework,
-                tutorial: data.tutorial,
-              },
-              { required: true },
-            );
+          let resolvedAttendanceInput: NonNullable<
+            SessionCreateDto['attendance']
+          >;
 
+          if (isNoAttendanceClass) {
             // Auto-generate attendance: present for all active students
             const activeStudents = await tx.studentClass.findMany({
               where: {
@@ -132,33 +127,28 @@ export class SessionCreateService {
               },
               select: { studentId: true },
             });
-            data = {
-              ...data,
-              attendance: activeStudents.map((sc) => ({
-                studentId: sc.studentId,
-                status: AttendanceStatus.present,
-                notes: null,
-              })),
-            };
+            resolvedAttendanceInput = activeStudents.map((sc) => ({
+              studentId: sc.studentId,
+              status: AttendanceStatus.present,
+              notes: null,
+            }));
           } else {
+            const attendanceInput = data.attendance ?? [];
             this.sessionValidationService.validateAttendanceItems(
-              data.attendance ?? [],
-              {
-                required: true,
-              },
+              attendanceInput,
+              { required: true },
             );
             this.sessionValidationService.validateAttendanceNotes(
-              data.attendance ?? [],
-              {
-                required: true,
-              },
+              attendanceInput,
+              { required: true },
             );
+            resolvedAttendanceInput = attendanceInput;
           }
 
-          const attendanceStudentIds = (data.attendance ?? []).map(
+          const attendanceStudentIds = resolvedAttendanceInput.map(
             (attendanceItem) => attendanceItem.studentId,
           );
-          const chargeableAttendanceStudentIds = (data.attendance ?? [])
+          const chargeableAttendanceStudentIds = resolvedAttendanceInput
             .filter((item) =>
               this.sessionValidationService.isTuitionChargeableStatus(
                 item.status,
@@ -314,7 +304,7 @@ export class SessionCreateService {
             StaffRole.teacher,
           );
 
-          const resolvedAttendance = (data.attendance ?? []).map(
+          const resolvedAttendance = resolvedAttendanceInput.map(
             (attendanceItem) => {
               const customerCare = customerCareByStudentId.get(
                 attendanceItem.studentId,
