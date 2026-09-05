@@ -143,7 +143,9 @@ describe('JwtStrategy', () => {
     };
 
     it('rejects student with no active device', async () => {
-      authIdentityCacheService.getAuthIdentity.mockResolvedValue(studentIdentity);
+      authIdentityCacheService.getAuthIdentity.mockResolvedValue(
+        studentIdentity,
+      );
       authIdentityCacheService.getHasActiveDevice.mockResolvedValue(false);
 
       await expect(
@@ -157,7 +159,9 @@ describe('JwtStrategy', () => {
     });
 
     it('passes student with active device', async () => {
-      authIdentityCacheService.getAuthIdentity.mockResolvedValue(studentIdentity);
+      authIdentityCacheService.getAuthIdentity.mockResolvedValue(
+        studentIdentity,
+      );
       authIdentityCacheService.getHasActiveDevice.mockResolvedValue(true);
 
       await expect(
@@ -193,7 +197,9 @@ describe('JwtStrategy', () => {
         roleType: UserRole.staff,
       });
 
-      expect(authIdentityCacheService.getHasActiveDevice).not.toHaveBeenCalled();
+      expect(
+        authIdentityCacheService.getHasActiveDevice,
+      ).not.toHaveBeenCalled();
     });
   });
 });

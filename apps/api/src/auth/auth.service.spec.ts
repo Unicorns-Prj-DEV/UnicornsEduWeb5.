@@ -778,9 +778,13 @@ describe('AuthService', () => {
 
     beforeEach(() => {
       userDeviceService.hashToken = jest.fn().mockReturnValue('hashed-secret');
-      userDeviceService.generateDeviceToken = jest.fn().mockReturnValue('device-token');
+      userDeviceService.generateDeviceToken = jest
+        .fn()
+        .mockReturnValue('device-token');
       userDeviceService.createDevice = jest.fn().mockResolvedValue({});
-      userDeviceService.removeAllDevicesForUser = jest.fn().mockResolvedValue({});
+      userDeviceService.removeAllDevicesForUser = jest
+        .fn()
+        .mockResolvedValue({});
       authIdentityCacheService.invalidateHasActiveDevice = jest.fn();
       jwtService.signAsync = jest.fn().mockResolvedValue('jwt-token');
     });
@@ -813,7 +817,9 @@ describe('AuthService', () => {
       expect(userDeviceService.createDevice).toHaveBeenCalledWith(
         expect.objectContaining({ userId: 'student-1' }),
       );
-      expect(authIdentityCacheService.invalidateHasActiveDevice).toHaveBeenCalledWith('student-1');
+      expect(
+        authIdentityCacheService.invalidateHasActiveDevice,
+      ).toHaveBeenCalledWith('student-1');
     });
 
     it('rejects when request is not verified', async () => {

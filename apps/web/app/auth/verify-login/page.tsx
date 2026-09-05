@@ -11,15 +11,15 @@ type VerifyStatus = "loading" | "success" | "already" | "error";
 function VerifyLoginContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
-  const [status, setStatus] = useState<VerifyStatus>("loading");
-  const [message, setMessage] = useState("");
+  const [status, setStatus] = useState<VerifyStatus>(() =>
+    token ? "loading" : "error",
+  );
+  const [message, setMessage] = useState(() =>
+    token ? "" : "Liên kết không hợp lệ.",
+  );
 
   useEffect(() => {
-    if (!token) {
-      setStatus("error");
-      setMessage("Liên kết không hợp lệ.");
-      return;
-    }
+    if (!token) return;
 
     authApi
       .verifyLoginLink(token)

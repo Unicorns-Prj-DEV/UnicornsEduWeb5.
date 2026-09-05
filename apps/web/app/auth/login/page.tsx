@@ -94,8 +94,10 @@ function LoginPageContent() {
   const { setUser, user, isAuthReady } = useAuth();
 
   // Student login flow state
-  const [loginStep, setLoginStep] = useState<LoginStep>("form");
-  const [requestId, setRequestId] = useState<string | null>(null);
+  const [loginStep, setLoginStep] = useState<LoginStep>(() => {
+    const err = getSearchParam("error");
+    return err === "device_blocked" ? "blocked" : "form";
+  });
   const [activateSecret, setActivateSecret] = useState<string | null>(null);
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [isActivating, setIsActivating] = useState(false);
@@ -104,12 +106,8 @@ function LoginPageContent() {
     const err = getSearchParam("error");
     if (err === "registration_disabled") {
       toast.error("Tài khoản chưa tồn tại trong hệ thống. Vui lòng liên hệ quản trị viên để được cấp tài khoản.");
-      return;
     }
     if (err === "google_no_user") toast.error("Không lấy được thông tin từ Google. Vui lòng thử lại.");
-    if (err === "device_blocked") {
-      setLoginStep("blocked");
-    }
   }, [getSearchParam]);
 
   // Cleanup poll timer on unmount
@@ -160,7 +158,6 @@ function LoginPageContent() {
       return authApi.studentLoginInit(body);
     },
     onSuccess: (response) => {
-      setRequestId(response.requestId);
       setActivateSecret(response.activateSecret);
       setLoginStep("pending");
       toast.success("Đã gửi email xác minh. Vui lòng kiểm tra hộp thư.");
@@ -250,7 +247,6 @@ function LoginPageContent() {
         }
         toast.error("Phiên đăng nhập đã hết hạn. Vui lòng thử lại.");
         setLoginStep("form");
-        setRequestId(null);
       }
     }, 2000); // Poll every 2 seconds
   };
@@ -295,7 +291,6 @@ function LoginPageContent() {
 
   const handleBackToForm = () => {
     setLoginStep("form");
-    setRequestId(null);
     setActivateSecret(null);
     setAccountHandle("");
     setPassword("");
