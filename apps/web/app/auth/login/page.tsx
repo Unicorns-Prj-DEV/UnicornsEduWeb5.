@@ -9,7 +9,6 @@ import { isAxiosError } from "axios";
 import { toast } from "sonner";
 import * as authApi from "@/lib/apis/auth.api";
 import type { LoginDto } from "@/dtos/Auth.dto";
-import { Role } from "@/dtos/Auth.dto";
 import { useAuth } from "@/context/AuthContext";
 import { BrandLogoLockup } from "@/components/BrandLogoLockup";
 import { AuthCardSkeleton } from "@/components/auth/AuthCardSkeleton";
@@ -97,6 +96,7 @@ function LoginPageContent() {
   // Student login flow state
   const [loginStep, setLoginStep] = useState<LoginStep>("form");
   const [requestId, setRequestId] = useState<string | null>(null);
+  const [activateSecret, setActivateSecret] = useState<string | null>(null);
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [isActivating, setIsActivating] = useState(false);
 
@@ -161,11 +161,17 @@ function LoginPageContent() {
     },
     onSuccess: (response) => {
       setRequestId(response.requestId);
+      setActivateSecret(response.activateSecret);
       setLoginStep("pending");
       toast.success("Đã gửi email xác minh. Vui lòng kiểm tra hộp thư.");
       startPolling(response.requestId);
     },
     onError: (error) => {
+      // 400 = non-student account → fallback to staff/admin login
+      if (isAxiosError(error) && error.response?.status === 400) {
+        staffLoginMutation.mutate({ accountHandle, password, rememberMe });
+        return;
+      }
       if (isAxiosError(error) && error.response?.status === 409) {
         setLoginStep("blocked");
         return;
@@ -177,8 +183,10 @@ function LoginPageContent() {
   // Student activate
   const studentActivateMutation = useMutation({
     mutationFn: async (reqId: string) => {
+      if (!activateSecret) throw new Error("Missing activation secret");
       return authApi.studentActivate({
         requestId: reqId,
+        activateSecret,
         rememberMe,
       });
     },
@@ -280,6 +288,7 @@ function LoginPageContent() {
   const handleBackToForm = () => {
     setLoginStep("form");
     setRequestId(null);
+    setActivateSecret(null);
     setAccountHandle("");
     setPassword("");
     setRememberMe(false);

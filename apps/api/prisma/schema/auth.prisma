@@ -15,18 +15,20 @@ model UserDevice {
 }
 
 model LoginRequest {
-  id            String    @id @default(uuid())
-  userId        String    @map("user_id")
-  tokenHash     String    @unique @map("token_hash")
-  verified      Boolean   @default(false)
-  deviceInfo    Json?     @map("device_info")
-  ipAddress     String?   @map("ip_address")
-  expiresAt     DateTime  @map("expires_at") @db.Timestamptz(6)
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                  String    @id @default(uuid())
+  userId              String    @map("user_id")
+  tokenHash           String    @unique @map("token_hash")
+  activateSecretHash  String?   @unique @map("activate_secret_hash")
+  verified            Boolean   @default(false)
+  deviceInfo          Json?     @map("device_info")
+  ipAddress           String?   @map("ip_address")
+  expiresAt           DateTime  @map("expires_at") @db.Timestamptz(6)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([tokenHash])
+  @@index([activateSecretHash])
   @@index([expiresAt])
   @@map("login_requests")
 }

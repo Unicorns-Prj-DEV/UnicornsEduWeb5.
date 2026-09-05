@@ -107,16 +107,17 @@ export interface SetupPasswordDto {
 
 export interface StudentLoginInitResponse {
   requestId: string;
+  activateSecret: string;
   message: string;
 }
 
 export interface StudentLoginPollResponse {
   verified: boolean;
-  requestId: string;
 }
 
 export interface StudentActivateDto {
   requestId: string;
+  activateSecret: string;
   rememberMe?: boolean;
 }
 

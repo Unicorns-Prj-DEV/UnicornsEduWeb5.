@@ -28,6 +28,7 @@ import type { RequestWithResolvedAuthContext } from './auth-request-context';
 import { createSignedStorageUrl } from 'src/storage/supabase-storage';
 import { STAFF_DATA_CONSENT_VERSION } from './constants';
 import { UserDeviceService } from './user-device.service';
+import type { DeviceInfo } from './user-device.service';
 
 type JwtSignOptions = Parameters<JwtService['signAsync']>[1];
 type UserAuditClient = Prisma.TransactionClient | PrismaService;
@@ -238,6 +239,11 @@ export class AuthService {
 
     if (!user) {
       throw new UnauthorizedException('User not found');
+    }
+
+    // Touch device on refresh so 60-day inactivity rule works
+    if (user.roleType === UserRole.student) {
+      await this.userDeviceService.touchActiveDeviceForUser(user.id);
     }
 
     return this.generateTokenPairAndSave(
@@ -956,9 +962,9 @@ export class AuthService {
   async studentLoginInit(
     accountHandle: string,
     password: string,
-    deviceInfo?: Record<string, unknown>,
+    deviceInfo?: DeviceInfo,
     ipAddress?: string,
-  ): Promise<{ requestId: string; message: string }> {
+  ): Promise<{ requestId: string; activateSecret: string; message: string }> {
     const user = await this.prisma.user.findFirst({
       where: {
         OR: [{ accountHandle }, { email: accountHandle }],
@@ -1009,10 +1015,13 @@ export class AuthService {
     }
 
     // Create login request
-    const loginRequestToken = this.userDeviceService.generateLoginRequestToken();
+    const loginRequestToken =
+      this.userDeviceService.generateLoginRequestToken();
+    const activateSecret = this.userDeviceService.generateActivateSecret();
     const loginRequest = await this.userDeviceService.createLoginRequest({
       userId: user.id,
       token: loginRequestToken,
+      activateSecret,
       deviceInfo,
       ipAddress,
     });
@@ -1024,10 +1033,7 @@ export class AuthService {
     const verifyUrl = `${frontendUrl}/auth/verify-login?token=${encodeURIComponent(loginRequestToken)}`;
 
     try {
-      await this.mailService.sendLoginVerificationEmail(
-        user.email,
-        verifyUrl,
-      );
+      await this.mailService.sendLoginVerificationEmail(user.email, verifyUrl);
     } catch (error) {
       this.logger.error(
         `Failed to send login verification email to ${user.email}`,
@@ -1038,14 +1044,13 @@ export class AuthService {
 
     return {
       requestId: loginRequest.id,
+      activateSecret,
       message:
         'Đã gửi email xác minh. Vui lòng kiểm tra hộp thư và bấm liên kết để hoàn tất đăng nhập.',
     };
   }
 
-  async studentLoginPoll(
-    requestId: string,
-  ): Promise<{ verified: boolean; requestId: string }> {
+  async studentLoginPoll(requestId: string): Promise<{ verified: boolean }> {
     const request = await this.prisma.loginRequest.findUnique({
       where: { id: requestId },
       select: { verified: true, expiresAt: true },
@@ -1059,11 +1064,12 @@ export class AuthService {
       throw new BadRequestException('Login request expired');
     }
 
-    return { verified: request.verified, requestId };
+    return { verified: request.verified };
   }
 
   async activateStudentDevice(
     requestId: string,
+    activateSecret: string,
     rememberMe = false,
   ): Promise<TokenPair> {
     const request = await this.prisma.loginRequest.findUnique({
@@ -1073,6 +1079,7 @@ export class AuthService {
         userId: true,
         verified: true,
         expiresAt: true,
+        activateSecretHash: true,
         deviceInfo: true,
         ipAddress: true,
       },
@@ -1090,6 +1097,15 @@ export class AuthService {
       throw new BadRequestException('Login request expired');
     }
 
+    // Verify activate secret
+    if (
+      !request.activateSecretHash ||
+      this.userDeviceService.hashToken(activateSecret) !==
+        request.activateSecretHash
+    ) {
+      throw new UnauthorizedException('Invalid activation secret');
+    }
+
     // Remove any existing devices for this student (single-device rule)
     await this.userDeviceService.removeAllDevicesForUser(request.userId);
 
@@ -1098,7 +1114,7 @@ export class AuthService {
     await this.userDeviceService.createDevice({
       userId: request.userId,
       token: deviceToken,
-      deviceInfo: request.deviceInfo as Record<string, unknown> | undefined,
+      deviceInfo: request.deviceInfo as DeviceInfo | undefined,
       ipAddress: request.ipAddress ?? undefined,
     });
 
@@ -1113,7 +1129,9 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new InternalServerErrorException('User not found after verification');
+      throw new InternalServerErrorException(
+        'User not found after verification',
+      );
     }
 
     // Generate JWT tokens
@@ -1206,17 +1224,9 @@ export class AuthService {
     return { message: 'Đã buộc đăng xuất học sinh' };
   }
 
-  async studentSelfLogout(
-    userId: string,
-    deviceTokenHash?: string,
-  ): Promise<{ message: string }> {
-    if (deviceTokenHash) {
-      // Remove specific device
-      await this.userDeviceService.removeDevice(deviceTokenHash);
-    } else {
-      // Remove all devices
-      await this.userDeviceService.removeAllDevicesForUser(userId);
-    }
+  async studentSelfLogout(userId: string): Promise<{ message: string }> {
+    // Remove all devices
+    await this.userDeviceService.removeAllDevicesForUser(userId);
 
     // Also invalidate refresh token
     await this.prisma.user.update({

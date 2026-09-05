@@ -11,8 +11,6 @@ import { UserRole } from 'generated/enums';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UserDeviceService } from '../user-device.service';
 
-const DEVICE_INACTIVITY_DAYS = 60;
-
 @Injectable()
 export class StudentDeviceGuard implements CanActivate {
   constructor(
@@ -32,12 +30,12 @@ export class StudentDeviceGuard implements CanActivate {
 
     let payload: { id: string; roleType: UserRole };
     try {
-      payload = await this.jwtService.verifyAsync<{ id: string; roleType: UserRole }>(
-        refreshToken,
-        {
-          secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
-        },
-      );
+      payload = await this.jwtService.verifyAsync<{
+        id: string;
+        roleType: UserRole;
+      }>(refreshToken, {
+        secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
+      });
     } catch {
       return true; // Invalid token — let the JWT guard handle it
     }
@@ -53,8 +51,7 @@ export class StudentDeviceGuard implements CanActivate {
       throw new UnauthorizedException({
         statusCode: 401,
         error: 'NO_ACTIVE_DEVICE',
-        message:
-          'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+        message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
       });
     }
 

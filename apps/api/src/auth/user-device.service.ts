@@ -5,8 +5,14 @@ import { PrismaService } from '../prisma/prisma.service';
 
 const DEVICE_TOKEN_BYTES = 32;
 const LOGIN_REQUEST_TOKEN_BYTES = 32;
+const ACTIVATE_SECRET_BYTES = 32;
 const LOGIN_REQUEST_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
-const DEVICE_INACTIVITY_DAYS = 60;
+export const DEVICE_INACTIVITY_DAYS = 60;
+
+export interface DeviceInfo {
+  userAgent?: string;
+  acceptLanguage?: string;
+}
 
 @Injectable()
 export class UserDeviceService {
@@ -26,10 +32,14 @@ export class UserDeviceService {
     return randomBytes(LOGIN_REQUEST_TOKEN_BYTES).toString('hex');
   }
 
+  generateActivateSecret(): string {
+    return randomBytes(ACTIVATE_SECRET_BYTES).toString('hex');
+  }
+
   async createDevice(params: {
     userId: string;
     token: string;
-    deviceInfo?: Record<string, unknown>;
+    deviceInfo?: DeviceInfo;
     ipAddress?: string;
   }) {
     const tokenHash = this.hashToken(params.token);
@@ -65,6 +75,15 @@ export class UserDeviceService {
   async touchDevice(tokenHash: string) {
     return this.prisma.userDevice.updateMany({
       where: { tokenHash },
+      data: { lastActiveAt: new Date() },
+    });
+  }
+
+  async touchActiveDeviceForUser(userId: string) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - DEVICE_INACTIVITY_DAYS);
+    return this.prisma.userDevice.updateMany({
+      where: { userId, lastActiveAt: { gte: cutoff } },
       data: { lastActiveAt: new Date() },
     });
   }
@@ -106,15 +125,18 @@ export class UserDeviceService {
   async createLoginRequest(params: {
     userId: string;
     token: string;
-    deviceInfo?: Record<string, unknown>;
+    activateSecret: string;
+    deviceInfo?: DeviceInfo;
     ipAddress?: string;
   }) {
     const tokenHash = this.hashToken(params.token);
+    const activateSecretHash = this.hashToken(params.activateSecret);
     const expiresAt = new Date(Date.now() + LOGIN_REQUEST_EXPIRY_MS);
     return this.prisma.loginRequest.create({
       data: {
         userId: params.userId,
         tokenHash,
+        activateSecretHash,
         deviceInfo: (params.deviceInfo as Prisma.InputJsonValue) ?? undefined,
         ipAddress: params.ipAddress ?? undefined,
         expiresAt,
@@ -125,6 +147,12 @@ export class UserDeviceService {
   async findLoginRequestByTokenHash(tokenHash: string) {
     return this.prisma.loginRequest.findUnique({
       where: { tokenHash },
+    });
+  }
+
+  async findLoginRequestByActivateSecretHash(activateSecretHash: string) {
+    return this.prisma.loginRequest.findUnique({
+      where: { activateSecretHash },
     });
   }
 

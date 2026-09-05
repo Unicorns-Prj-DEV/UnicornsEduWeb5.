@@ -435,8 +435,9 @@ export async function studentLoginInit(
 export async function studentLoginPoll(
   requestId: string,
 ): Promise<StudentLoginPollResponse> {
-  const response = await api.get<StudentLoginPollResponse>(
-    `/auth/student/login/${encodeURIComponent(requestId)}/poll`,
+  const response = await api.post<StudentLoginPollResponse>(
+    "/auth/student/login/poll",
+    { requestId },
   );
   return response.data;
 }

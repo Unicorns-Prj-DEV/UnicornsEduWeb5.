@@ -612,10 +612,7 @@ export class AuthController {
     description: 'Student already has an active device.',
   })
   @ApiResponse({ status: 429, description: 'Too many requests.' })
-  async studentLogin(
-    @Body() body: UserAuthDto,
-    @Req() req: Request,
-  ) {
+  async studentLogin(@Body() body: UserAuthDto, @Req() req: Request) {
     const deviceInfo = {
       userAgent: req.headers['user-agent'],
       acceptLanguage: req.headers['accept-language'],
@@ -635,21 +632,29 @@ export class AuthController {
 
   @Public()
   @HttpCode(HttpStatus.OK)
-  @Get('student/login/:requestId/poll')
+  @Post('student/login/poll')
   @Throttle({ default: { limit: 30, ttl: 60000 } })
   @ApiOperation({
     summary: 'Poll student login verification',
     description:
       'Polls the status of a student login request. Returns verified: true when the magic link has been clicked.',
   })
-  @ApiParam({ name: 'requestId', description: 'Login request ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        requestId: { type: 'string' },
+      },
+      required: ['requestId'],
+    },
+  })
   @ApiResponse({
     status: 200,
     description: 'Returns verification status.',
   })
   @ApiResponse({ status: 404, description: 'Request not found.' })
-  async studentLoginPoll(@Param('requestId') requestId: string) {
-    return this.authService.studentLoginPoll(requestId);
+  async studentLoginPoll(@Body() body: { requestId: string }) {
+    return this.authService.studentLoginPoll(body.requestId);
   }
 
   @Public()
@@ -689,9 +694,10 @@ export class AuthController {
       type: 'object',
       properties: {
         requestId: { type: 'string' },
+        activateSecret: { type: 'string' },
         rememberMe: { type: 'boolean', default: false },
       },
-      required: ['requestId'],
+      required: ['requestId', 'activateSecret'],
     },
   })
   @ApiResponse({
@@ -699,12 +705,15 @@ export class AuthController {
     description: 'Device activated, tokens issued.',
   })
   @ApiResponse({ status: 400, description: 'Request not verified or expired.' })
+  @ApiResponse({ status: 401, description: 'Invalid activation secret.' })
   async studentActivate(
-    @Body() body: { requestId: string; rememberMe?: boolean },
+    @Body()
+    body: { requestId: string; activateSecret: string; rememberMe?: boolean },
     @Res({ passthrough: true }) res: Response,
   ) {
     const tokenPair = await this.authService.activateStudentDevice(
       body.requestId,
+      body.activateSecret,
       body.rememberMe ?? false,
     );
     this.setAuthCookies(res, tokenPair, body.rememberMe ?? false);
