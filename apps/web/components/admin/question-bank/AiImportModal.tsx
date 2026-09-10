@@ -107,49 +107,62 @@ export default function AiImportModal({
 NHIỆM VỤ
 Sinh ${questionCount} câu hỏi về: ${topic || "(nhập chủ đề)"}.
 
-ĐỊNH DẠNG ĐẦU RA — BẮT BUỘC
-Chỉ in ra một JSON array. Không markdown, không rào \`\`\`json,
-không lời dẫn, không giải thích nào ngoài JSON.
+ĐẦU RA — CHỈ MỘT JSON ARRAY THUẦN
+- In ra đúng một mảng JSON: ký tự đầu là [ và ký tự cuối là ].
+- Không markdown, không rào \`\`\`json, không lời dẫn, không giải thích.
 
-Mỗi phần tử là một object:
-{
-  "type": "single_choice" | "essay",
-  "content": "Nội dung câu hỏi",
-  "options": ["...", "...", "...", "..."],
-  "correctIndex": 0,
-  "explanation": "Lời giải ngắn gọn",
-  "answerGuide": "Barem/ý chính cần có",
-  "difficulty": "Nhận biết"
-}
+CẤU TRÚC BẮT BUỘC (đọc kỹ)
+Mỗi phần tử của mảng phải là OBJECT JSON {...}, KHÔNG phải chuỗi.
+
+ĐÚNG — mảng các object (dán thẳng vào hệ thống):
+[
+  {"type":"single_choice","content":"Câu 1","options":["A","B","C","D"],"correctIndex":0,"explanation":"...","difficulty":"Nhận biết"},
+  {"type":"essay","content":"Câu 2","answerGuide":"...","difficulty":"Thông hiểu"}
+]
+
+SAI — tuyệt đối không làm thế này:
+[
+  "{"type":"single_choice",...}",
+  "{"type":"essay",...}"
+]
+Lỗi trên là bọc mỗi câu trong dấu ngoặc kép → JSON.parse sẽ hỏng.
+KHÔNG JSON.stringify từng câu. KHÔNG xuất từng dòng object rời rồi bọc vào array string.
+
+SCHEMA MỖI OBJECT
+single_choice:
+  type, content, options (mảng 2–6 chuỗi), correctIndex (số nguyên 0-based),
+  explanation (tuỳ chọn), difficulty
+
+essay:
+  type, content, answerGuide (barem chấm), difficulty
+  KHÔNG có options, KHÔNG có correctIndex
 
 QUY TẮC TỪNG TRƯỜNG
-- type          bắt buộc. Chỉ nhận "single_choice" hoặc "essay".
-- content       bắt buộc, không được rỗng.
-- options       CHỈ có ở single_choice. Từ 2 đến 6 phương án.
-                Không tự đánh A/B/C/D hay 1./2. ở đầu phương án.
-- correctIndex  CHỈ có ở single_choice. Số nguyên đếm từ 0,
-                phải nhỏ hơn số phần tử của options.
-- explanation   tuỳ chọn, dùng cho single_choice.
-- answerGuide   CHỈ có ở essay. Ý chính để gia sư chấm.
-- difficulty    bắt buộc. Phải trùng KHỚP TUYỆT ĐỐI một trong:
+- type          "single_choice" hoặc "essay"
+- content       chuỗi không rỗng
+- options       chỉ single_choice; 2–6 phương án; không thêm A./B./1./2. đầu dòng
+- correctIndex  chỉ single_choice; số nguyên; 0 ≤ correctIndex < options.length
+- explanation   tuỳ chọn; single_choice
+- answerGuide   essay; ý chính để gia sư chấm
+- difficulty    bắt buộc; khớp TUYỆT ĐỐI một trong:
 ${diffList}
-Không thêm bất kỳ trường nào khác.
+Không thêm trường nào khác.
 
 CÔNG THỨC TOÁN
-- Viết LaTeX đặt giữa hai dấu $, ví dụ: $y = x^3 - 3x + 2$.
+- LaTeX giữa hai dấu $, ví dụ: $y = x^3 - 3x + 2$.
 - Trong chuỗi JSON, gạch chéo ngược nhân đôi:
   đúng   "$\\\\frac{1}{2}$"
   sai    "$\\frac{1}{2}$"
 
 TỶ LỆ ĐỘ KHÓ
-Mỗi câu nên theo tỷ lệ hợp lý giữa các mức độ khó.
+Phân bổ hợp lý giữa các mức độ khó.
 
-TỰ KIỂM TRA TRƯỚC KHI TRẢ LỜI
-1. Kết quả parse được bằng JSON.parse.
-2. Mỗi single_choice có options hợp lệ và correctIndex trong khoảng.
-3. Mỗi essay KHÔNG có options và KHÔNG có correctIndex.
-4. Mỗi difficulty nằm trong danh sách đã cho.
-5. Ký tự đầu tiên là [ và ký tự cuối cùng là ]`;
+TỰ KIỂM TRA (bắt buộc trước khi trả lời)
+1. JSON.parse(output) thành công.
+2. output là Array; mỗi phần tử là object (typeof item === "object"), không phải string.
+3. single_choice: có options hợp lệ + correctIndex trong khoảng.
+4. essay: không có options, không có correctIndex.
+5. Mọi difficulty khớp danh sách trên.`;
   }, [course?.name, difficultyNames, questionCount, topic]);
 
   const markViewed = (index: number) => {
@@ -426,13 +439,16 @@ TỰ KIỂM TRA TRƯỚC KHI TRẢ LỜI
           {step === AiImportStep.paste && (
             <div className="space-y-4">
               <p className="text-sm text-text-secondary">
-                Dán kết quả JSON từ ChatGPT/Claude vào dưới đây. Hệ thống sẽ
-                validate ngay tại client và báo rõ câu nào, trường nào sai.
+                Dán kết quả JSON từ ChatGPT/Claude vào dưới đây. Phải là mảng
+                các object{" "}
+                <code className="rounded bg-bg-secondary px-1">[{`{...},{...}`}]</code>
+                , không bọc mỗi câu trong dấu ngoặc kép. Hệ thống validate ngay
+                và báo rõ câu nào, trường nào sai.
               </p>
               <textarea
                 value={rawJson}
                 onChange={(e) => setRawJson(e.target.value)}
-                placeholder='[{"type":"single_choice","content":"...","options":["A","B","C","D"],"correctIndex":0,"difficulty":"Nhận biết"}]'
+                placeholder='[{"type":"single_choice","content":"...","options":["A","B","C","D"],"correctIndex":0,"difficulty":"Nhận biết"},{"type":"essay","content":"...","answerGuide":"...","difficulty":"Thông hiểu"}]'
                 className="h-64 w-full rounded-md border border-border-default bg-bg-surface p-3 font-mono text-xs text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
               />
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">

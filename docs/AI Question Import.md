@@ -11,7 +11,27 @@ Câu hỏi nhập vào luôn thuộc **ngân hàng của khoá**, kể cả khi 
 
 ## Định dạng JSON
 
-Đầu vào là một **JSON array**. Mỗi phần tử là một câu hỏi.
+Đầu vào là một **JSON array**. Mỗi phần tử là một **object** câu hỏi — không phải chuỗi.
+
+**Lỗi phổ biến:** mô hình trả mảng các chuỗi đã stringify từng câu:
+
+```json
+[
+  "{\"type\":\"single_choice\",...}",
+  "{\"type\":\"essay\",...}"
+]
+```
+
+Cấu trúc này khiến `JSON.parse` hỏng (hoặc parse ra array of string, validate fail). Đúng là mảng object trực tiếp:
+
+```json
+[
+  {"type":"single_choice",...},
+  {"type":"essay",...}
+]
+```
+
+Prompt dựng sẵn có mục **CẤU TRÚC BẮT BUỘC** với ví dụ ĐÚNG/SAI để giảm lỗi này.
 
 ```json
 [
@@ -62,55 +82,40 @@ Bạn là trợ lý soạn câu hỏi cho khoá {{TÊN KHOÁ}} của Unicorns Ed
 NHIỆM VỤ
 Sinh {{SỐ CÂU}} câu hỏi về: {{CHỦ ĐỀ}}.
 
-ĐỊNH DẠNG ĐẦU RA — BẮT BUỘC
-Chỉ in ra một JSON array. Không markdown, không rào ```json,
-không lời dẫn, không giải thích nào ngoài JSON.
+ĐẦU RA — CHỈ MỘT JSON ARRAY THUẦN
+- In ra đúng một mảng JSON: ký tự đầu là [ và ký tự cuối là ].
+- Không markdown, không rào ```json, không lời dẫn, không giải thích.
 
-Mỗi phần tử là một object:
-{
-  "type": "single_choice" | "essay",
-  "content": "Nội dung câu hỏi",
-  "options": ["...", "...", "...", "..."],
-  "correctIndex": 0,
-  "explanation": "Lời giải ngắn gọn",
-  "answerGuide": "Barem/ý chính cần có",
-  "difficulty": "Nhận biết"
-}
+CẤU TRÚC BẮT BUỘC (đọc kỹ)
+Mỗi phần tử của mảng phải là OBJECT JSON {...}, KHÔNG phải chuỗi.
 
-QUY TẮC TỪNG TRƯỜNG
-- type          bắt buộc. Chỉ nhận "single_choice" hoặc "essay".
-- content       bắt buộc, không được rỗng.
-- options       CHỈ có ở single_choice. Từ 2 đến 6 phương án.
-                Không tự đánh A/B/C/D hay 1./2. ở đầu phương án.
-- correctIndex  CHỈ có ở single_choice. Số nguyên đếm từ 0,
-                phải nhỏ hơn số phần tử của options.
-- explanation   tuỳ chọn, dùng cho single_choice.
-- answerGuide   CHỈ có ở essay. Ý chính để gia sư chấm.
-- difficulty    bắt buộc. Phải trùng KHỚP TUYỆT ĐỐI một trong:
-                {{DANH SÁCH ĐỘ KHÓ}}
-Không thêm bất kỳ trường nào khác.
+ĐÚNG — mảng các object:
+[
+  {"type":"single_choice",...},
+  {"type":"essay",...}
+]
 
-CÔNG THỨC TOÁN
-- Viết LaTeX đặt giữa hai dấu $, ví dụ: $y = x^3 - 3x + 2$.
-- Trong chuỗi JSON, gạch chéo ngược phải nhân đôi:
-  đúng   "$\\frac{1}{2}$"
-  sai    "$\frac{1}{2}$"
+SAI — tuyệt đối không bọc mỗi câu trong dấu ngoặc kép:
+[
+  "{"type":"single_choice",...}",
+  "{"type":"essay",...}"
+]
 
-TỈ LỆ ĐỘ KHÓ
-{{TỈ LỆ ĐỘ KHÓ}}
+SCHEMA + QUY TẮC TRƯỜNG + CÔNG THỨC TOÁN + TỶ LỆ ĐỘ KHÓ
+(xem bản đầy đủ trong `AiImportModal.tsx` — sinh theo khoá đang mở)
 
-TỰ KIỂM TRA TRƯỚC KHI TRẢ LỜI
-1. Kết quả parse được bằng JSON.parse.
-2. Mọi single_choice đều có options hợp lệ và correctIndex trong khoảng.
-3. Mọi essay đều KHÔNG có options và KHÔNG có correctIndex.
-4. Mọi difficulty đều nằm trong danh sách đã cho.
-5. Ký tự đầu tiên là [ và ký tự cuối cùng là ]
+TỰ KIỂM TRA
+1. JSON.parse thành công.
+2. Mỗi phần tử là object, không phải string.
+3. single_choice / essay đúng schema.
+4. difficulty khớp tuyệt đối {{DANH SÁCH ĐỘ KHÓ}}.
 ```
 
-Ba dòng ràng buộc dễ bị coi là thừa nhưng đều xử lý một lỗi có thật:
+Các ràng buộc dễ bị coi là thừa nhưng xử lý lỗi có thật:
 
+- **Mảng object, không mảng string** — mô hình hay stringify từng câu rồi bọc trong `[...]`; prompt có ví dụ ĐÚNG/SAI cụ thể.
 - **Cấm rào ` ```json `** — không dặn thì mô hình gần như luôn bọc markdown và `JSON.parse` hỏng ngay.
-- **Dặn nhân đôi gạch chéo ngược** — lỗi phổ biến nhất khi nội dung có LaTeX.
+- **Dặn nhân đôi gạch chéo ngược** — lỗi phổ biến khi nội dung có LaTeX.
 - **Liệt kê nguyên chuỗi độ khó** — mô hình hay tự chế `"Khó"`, `"cực khó"`, trong khi validate khớp tuyệt đối với `difficulty_levels` của khoá.
 
 ## Luồng nhập
