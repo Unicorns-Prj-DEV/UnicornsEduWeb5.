@@ -154,7 +154,7 @@ export default function StudentSelfPage() {
               <Link
                 key={item.class.id}
                 href={`/student/classes/${item.class.id}`}
-                className="group relative flex flex-col gap-3 rounded-xl border border-border-default bg-bg-secondary/40 p-4 transition-all duration-200 hover:border-primary/50 hover:bg-bg-secondary hover:shadow-md sm:flex-row sm:items-center sm:justify-between"
+                className="group relative flex flex-col gap-3 rounded-xl border border-border-default bg-bg-secondary/40 p-4 transition-[color,background-color,border-color,box-shadow] duration-200 hover:border-primary/50 hover:bg-bg-secondary hover:shadow-md sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="flex items-start gap-3 min-w-0">
                   <span

@@ -26,6 +26,7 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
 | [api/unioj-integration.md](api/unioj-integration.md)         | Hướng dẫn tích hợp API chấm bài UNIOJ (Online Judge) cho học sinh.                            |
 | [api/courses.md](api/courses.md)                             | Phân quyền API khoá học: CRUD khoá, cây Chương/Chuyên đề/Bài học, difficulty-levels.          |
 | **adr/**                                                     | Architecture Decision Records (mã định danh ngắn, workspace khoá học, lương cứng, …).        |
+| [adr/2026-09-11-frontend-perf-a11y-conventions.md](adr/2026-09-11-frontend-perf-a11y-conventions.md) | Quy ước frontend sau đợt `react-doctor`: `lib/formatters.ts`, `<Suspense>` cho `useSearchParams`, reset state trong render, Set lookup, label/`aria-label`. |
 | **pages/**                                                   | Spec từng route frontend (admin, student, mentor, assistant, landing, auth).                  |
 | [pages/README.md](pages/README.md)                           | Route index, workplan phase mapping, conventions.                                             |
 | [pages/ARCHIVED-UI-CONTEXT.md](pages/ARCHIVED-UI-CONTEXT.md) | Map UI archived (UniEdu-Web-3.9) sang 5.0, file tham khảo, services, pattern.                 |

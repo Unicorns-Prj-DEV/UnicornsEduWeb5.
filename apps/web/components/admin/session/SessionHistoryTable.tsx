@@ -645,7 +645,7 @@ function SelectionCheckbox({
       />
       {checked ? (
         <span
-          className="pointer-events-none absolute left-1/2 top-1/2 z-0 size-[1.45rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-success/35 bg-success shadow-[0_0_0_4px_color-mix(in_srgb,var(--ue-success)_12%,transparent),0_12px_26px_-14px_color-mix(in_srgb,var(--ue-success)_70%,transparent)] transition-all duration-200 motion-reduce:transition-none"
+          className="pointer-events-none absolute left-1/2 top-1/2 z-0 size-[1.45rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-success/35 bg-success shadow-[0_0_0_4px_color-mix(in_srgb,var(--ue-success)_12%,transparent),0_12px_26px_-14px_color-mix(in_srgb,var(--ue-success)_70%,transparent)] transition-colors duration-200 motion-reduce:transition-none"
           aria-hidden
         />
       ) : null}
@@ -2829,7 +2829,7 @@ export default function SessionHistoryTable({
 
         <SessionFormDialogBody>
           <div className="space-y-5">
-                      <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
+                      <div className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
                         <span>
                           Ngày học <RequiredMark />
                         </span>
@@ -2841,7 +2841,7 @@ export default function SessionHistoryTable({
                           disabled={readOnlySessionDetails}
                           className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                         />
-                      </label>
+                      </div>
 
                       <div>
                         <p className="mb-1.5 text-sm font-medium text-text-primary">
@@ -3081,7 +3081,7 @@ export default function SessionHistoryTable({
                       </section>
                     ) : null}
 
-                    <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
+                    <div className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
                       <span>
                         Nội dung bài học <RequiredMark />
                       </span>
@@ -3104,7 +3104,7 @@ export default function SessionHistoryTable({
                           {lessonContentError}
                         </span>
                       ) : null}
-                    </label>
+                    </div>
 
                     <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
                       <span>

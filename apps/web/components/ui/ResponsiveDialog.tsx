@@ -58,7 +58,9 @@ export function ResponsiveDialog({
   const resolvedSizeClass = sizeClasses[size] || sizeClasses.md;
   const panelRef = useRef<HTMLDivElement>(null);
   const onBackdropClickRef = useRef(onBackdropClick);
-  onBackdropClickRef.current = onBackdropClick;
+  useEffect(() => {
+    onBackdropClickRef.current = onBackdropClick;
+  }, [onBackdropClick]);
 
   useEffect(() => {
     const panel = panelRef.current;

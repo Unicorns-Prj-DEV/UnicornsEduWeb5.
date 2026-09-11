@@ -10,19 +10,14 @@ import type {
 import { getMyStudentWalletHistory } from "@/lib/apis/auth.api";
 import { formatCurrency } from "@/lib/class.helpers";
 import { cn } from "@/lib/utils";
+import { formatVnDateTime } from "@/lib/formatters";
 
 const WALLET_HISTORY_LIMIT = 50;
 
 function formatDateTime(iso?: string | null): string {
   if (!iso) return "—";
   try {
-    return new Intl.DateTimeFormat("vi-VN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }).format(new Date(iso));
+    return formatVnDateTime(new Date(iso));
   } catch {
     return "—";
   }

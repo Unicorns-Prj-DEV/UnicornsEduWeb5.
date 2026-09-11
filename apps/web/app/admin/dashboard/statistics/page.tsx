@@ -36,11 +36,15 @@ import {
   OPERATIONS_METRIC_GLOSSARY,
 } from "@/components/admin/dashboard/MetricGlossary";
 import type { AdminDashboardMonthlyStatistic } from "@/dtos/dashboard.dto";
+import {
+  formatVnCompactNumber,
+  formatVnInteger,
+} from "@/lib/formatters";
 
 const MAX_MONTH_RANGE = 36;
 
 function formatCurrency(value: number) {
-  return `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value)} đ`;
+  return `${formatVnInteger(value)} đ`;
 }
 
 function getErrorMessage(error: unknown) {
@@ -90,7 +94,7 @@ function FinancialTrendChart({ data }: { data: AdminDashboardMonthlyStatistic[] 
             tick={{ fontSize: 11 }}
             tickLine={false}
             axisLine={false}
-            tickFormatter={(value: number) => new Intl.NumberFormat("vi-VN", { notation: "compact" }).format(value)}
+            tickFormatter={(value: number) => formatVnCompactNumber(value)}
           />
           <Tooltip
             formatter={(value) => formatCurrency(Number(value))}
@@ -154,7 +158,7 @@ function ExpenseBreakdownChart({ data }: { data: AdminDashboardMonthlyStatistic[
             tick={{ fontSize: 11 }}
             tickLine={false}
             axisLine={false}
-            tickFormatter={(value: number) => new Intl.NumberFormat("vi-VN", { notation: "compact" }).format(value)}
+            tickFormatter={(value: number) => formatVnCompactNumber(value)}
           />
           <Tooltip
             formatter={(value) => formatCurrency(Number(value))}

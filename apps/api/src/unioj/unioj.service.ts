@@ -647,7 +647,8 @@ export class UniojService {
         );
       }
 
-      const contentType = pdfResponse.headers['content-type'] || '';
+      // axios >= 1.20 khai báo header value là string | number | boolean | string[] | AxiosHeaders.
+      const contentType = String(pdfResponse.headers['content-type'] ?? '');
       if (!contentType.includes('application/pdf')) {
         this.logger.error(
           `UNIOJ PDF endpoint returned non-PDF content-type: ${contentType}`,

@@ -216,7 +216,7 @@ function QuestionLinkItem({
   const [editing, setEditing] = useState(false);
   const [showQuestionForm, setShowQuestionForm] = useState(false);
   const [pointsDraft, setPointsDraft] = useState(
-    link.points?.toString() ?? "",
+    () => link.points?.toString() ?? "",
   );
 
   /**
@@ -365,6 +365,7 @@ function QuestionLinkItem({
                     if (e.key === "Escape") setEditing(false);
                   }}
                   className="w-16 rounded border border-border-default bg-bg-surface px-1.5 py-0.5 text-xs text-text-primary focus:border-border-focus focus:outline-none"
+                  aria-label="Điểm của câu hỏi"
                   placeholder="điểm"
                 />
                 <button
@@ -472,8 +473,11 @@ function AddQuestionDialog({
     search: debouncedSearch || undefined,
   });
 
+  // Set: tra cứu O(1) thay vì quét lại danh sách câu đã gắn cho từng câu hỏi.
+  // Không useMemo: prop này là mảng mới mỗi render nên memo không giữ được cache.
+  const existingLinkQuestionIdSet = new Set(existingLinkQuestionIds);
   const available = questions.filter(
-    (q) => !existingLinkQuestionIds.includes(q.id),
+    (q) => !existingLinkQuestionIdSet.has(q.id),
   );
 
   const addMutation = useMutation({
@@ -527,6 +531,7 @@ function AddQuestionDialog({
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              aria-label="Tìm nội dung câu hỏi"
               placeholder="Tìm nội dung câu hỏi..."
               className="min-w-0 flex-1 rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-sm text-text-primary focus:border-border-focus focus:outline-none"
             />

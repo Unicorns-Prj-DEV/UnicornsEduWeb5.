@@ -88,6 +88,7 @@ export default function CourseTopicPicker({
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          aria-label="Tìm chuyên đề"
           placeholder="Tìm chuyên đề..."
           className="w-full rounded-xl border border-border-default bg-bg-surface pl-9 pr-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
         />

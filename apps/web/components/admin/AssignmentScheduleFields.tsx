@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { DateInput } from "@/components/ui/DateInput";
 import { TimeInput } from "@/components/ui/TimeInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
@@ -39,14 +40,20 @@ export function AssignmentScheduleFields({
   onOpenTimeChange: (value: string) => void;
   onDurationChange: (value: string) => void;
 }) {
+  const scheduleFieldId = useId();
+
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <div className="sm:col-span-1">
-        <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+        <label
+          htmlFor={`${scheduleFieldId}-open-date`}
+          className="text-xs font-semibold uppercase tracking-wider text-text-muted"
+        >
           Ngày mở bài
           {openAtOptional ? null : <span className="text-error"> *</span>}
         </label>
         <DateInput
+          id={`${scheduleFieldId}-open-date`}
           value={openDate}
           onChange={(event) => onOpenDateChange(event.target.value)}
           className={inputClass}
@@ -58,11 +65,15 @@ export function AssignmentScheduleFields({
         ) : null}
       </div>
       <div className="sm:col-span-1">
-        <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+        <label
+          htmlFor={`${scheduleFieldId}-open-time`}
+          className="text-xs font-semibold uppercase tracking-wider text-text-muted"
+        >
           Giờ mở bài
           {openAtOptional ? null : <span className="text-error"> *</span>}
         </label>
         <TimeInput
+          id={`${scheduleFieldId}-open-time`}
           value={openTime}
           onChange={(event) => onOpenTimeChange(event.target.value)}
           className={inputClass}
@@ -75,14 +86,15 @@ export function AssignmentScheduleFields({
         ) : null}
       </div>
       <div className="sm:col-span-2">
-        <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+        <span className="block text-xs font-semibold uppercase tracking-wider text-text-muted">
           Thời lượng làm bài <span className="text-error">*</span>
-        </label>
+        </span>
         <div className="mt-1.5">
           <UpgradedSelect
             value={durationMinutes}
             onValueChange={onDurationChange}
             options={ASSIGNMENT_DURATION_OPTIONS}
+            ariaLabel="Thời lượng làm bài"
             placeholder="Chọn thời lượng"
           />
         </div>

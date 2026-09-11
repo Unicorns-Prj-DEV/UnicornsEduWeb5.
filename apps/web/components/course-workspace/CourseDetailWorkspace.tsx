@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import { toast } from "sonner";
 import * as classApi from "@/lib/apis/class.api";
 import { CourseFormPopup, type CourseFormValues } from "@/components/admin/class";
@@ -281,7 +281,7 @@ function CourseDetailWorkspaceInner({
                   className="relative z-10 flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs font-medium transition-colors sm:min-h-10 sm:px-3 sm:text-sm"
                 >
                   {selected ? (
-                    <motion.span
+                    <m.span
                       layoutId="course-workspace-tab-pill"
                       className="absolute inset-0 -z-10 rounded-xl bg-primary shadow-sm"
                       transition={{ type: "spring", stiffness: 400, damping: 30 }}
@@ -298,7 +298,7 @@ function CourseDetailWorkspaceInner({
 
         <AnimatePresence mode="wait" initial={false}>
           {activeTab ? (
-            <motion.section
+            <m.section
               key={activeTab}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
@@ -333,7 +333,7 @@ function CourseDetailWorkspaceInner({
                   }}
                 />
               ) : null}
-            </motion.section>
+            </m.section>
           ) : null}
         </AnimatePresence>
       </div>

@@ -106,9 +106,9 @@ export default function QuestionFormFields({
       >
         {courseSlot}
         <div>
-          <label className="mb-1 block text-xs font-medium text-text-muted">
+          <span className="mb-1 block text-xs font-medium text-text-muted">
             Chủ đề
-          </label>
+          </span>
           <UpgradedSelect
             searchable
             value={value.chapterId}
@@ -121,9 +121,9 @@ export default function QuestionFormFields({
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-text-muted">
+          <span className="mb-1 block text-xs font-medium text-text-muted">
             Độ khó
-          </label>
+          </span>
           <UpgradedSelect
             searchable
             value={value.difficultyLevelId}
@@ -138,9 +138,9 @@ export default function QuestionFormFields({
       </div>
 
       <div>
-        <label className="mb-1 block text-xs font-medium text-text-muted">
+        <span className="mb-1 block text-xs font-medium text-text-muted">
           Loại câu hỏi
-        </label>
+        </span>
         <UpgradedSelect
           value={value.type}
           onValueChange={(v) => onChange({ type: v as QuestionTypeDto })}
@@ -150,12 +150,13 @@ export default function QuestionFormFields({
       </div>
 
       <div>
-        <label className="mb-1 block text-xs font-medium text-text-muted">
+        <span className="mb-1 block text-xs font-medium text-text-muted">
           Nội dung câu hỏi (hỗ trợ LaTeX: $x^2$)
-        </label>
+        </span>
         <MathRichTextEditor
           value={value.content}
           onChange={(next) => onChange({ content: next })}
+          ariaLabel="Nội dung câu hỏi"
           placeholder="Nhập nội dung câu hỏi..."
           minHeight="min-h-[120px]"
         />
@@ -163,9 +164,9 @@ export default function QuestionFormFields({
 
       {value.type === QuestionTypeDto.single_choice && (
         <div className="space-y-2">
-          <label className="mb-1 block text-xs font-medium text-text-muted">
+          <span className="mb-1 block text-xs font-medium text-text-muted">
             Phương án ({value.options.length}/6)
-          </label>
+          </span>
           {value.options.map((opt, i) => (
             <div key={i} className="flex items-center gap-2">
               <span className="w-6 text-center text-sm font-bold text-text-muted">
@@ -175,6 +176,7 @@ export default function QuestionFormFields({
                 value={opt}
                 onChange={(e) => updateOption(i, e.target.value)}
                 className="flex-1 rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                aria-label={`Phương án ${String.fromCharCode(65 + i)}`}
                 placeholder={`Phương án ${String.fromCharCode(65 + i)}`}
               />
               <input
@@ -210,12 +212,13 @@ export default function QuestionFormFields({
       )}
 
       <div>
-        <label className="mb-1 block text-xs font-medium text-text-muted">
+        <span className="mb-1 block text-xs font-medium text-text-muted">
           Giải thích (tuỳ chọn)
-        </label>
+        </span>
         <MathRichTextEditor
           value={value.explanation}
           onChange={(next) => onChange({ explanation: next })}
+          ariaLabel="Giải thích"
           placeholder="Giải thích đáp án..."
           minHeight="min-h-[80px]"
         />
@@ -223,12 +226,13 @@ export default function QuestionFormFields({
 
       {value.type === QuestionTypeDto.essay && (
         <div>
-          <label className="mb-1 block text-xs font-medium text-text-muted">
+          <span className="mb-1 block text-xs font-medium text-text-muted">
             Hướng dẫn trả lời (tuỳ chọn)
-          </label>
+          </span>
           <MathRichTextEditor
             value={value.answerGuide}
             onChange={(next) => onChange({ answerGuide: next })}
+            ariaLabel="Hướng dẫn trả lời"
             placeholder="Hướng dẫn cho câu tự luận..."
             minHeight="min-h-[80px]"
           />

@@ -123,9 +123,9 @@ export default function QuestionFormDialog({
             onChange={patchForm}
             courseSlot={
               <div>
-                <label className="mb-1 block text-xs font-medium text-text-muted">
+                <span className="mb-1 block text-xs font-medium text-text-muted">
                   Khoá học
-                </label>
+                </span>
                 <p className="rounded-md border border-border-default bg-bg-secondary/40 px-3 py-2 text-sm text-text-secondary">
                   {course?.name ?? "Khoá học hiện tại"}
                 </p>

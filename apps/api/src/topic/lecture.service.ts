@@ -314,8 +314,9 @@ export class LectureService extends TopicSupportService {
       })
     ).map((q) => q.questionId);
 
+    const linkedQuestionIdSet = new Set(linkedQuestionIds);
     const invalid = answers.filter(
-      (a) => !linkedQuestionIds.includes(a.questionId),
+      (a) => !linkedQuestionIdSet.has(a.questionId),
     );
     if (invalid.length) {
       throw new BadRequestException('Một số câu hỏi không thuộc bài học này');

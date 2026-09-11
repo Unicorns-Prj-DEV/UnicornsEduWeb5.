@@ -339,10 +339,10 @@ function SurveyFormDialog({
     survey?.surveyId ?? availableSurveys[0]?.id ?? "",
   );
   const [reportDate, setReportDate] = useState(
-    getSurveyDateInput(survey?.reportDate),
+    () => getSurveyDateInput(survey?.reportDate),
   );
   const [teacherId, setTeacherId] = useState(
-    resolveInitialTeacherId(teachers, defaultTeacherId, survey),
+    () => resolveInitialTeacherId(teachers, defaultTeacherId, survey),
   );
   const [knowledgeAssessment, setKnowledgeAssessment] = useState(
     survey?.knowledgeAssessment ?? "",

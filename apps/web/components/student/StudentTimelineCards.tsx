@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import type { ClassTimelineItemDto } from "@/dtos/class-timeline.dto";
 import MathContent from "@/components/ui/MathContent";
+import { formatVnWeekday } from "@/lib/formatters";
 
 type TimelineSession = NonNullable<ClassTimelineItemDto["session"]>;
 type TimelineSurvey = NonNullable<ClassTimelineItemDto["survey"]>;
@@ -27,7 +28,7 @@ function attendanceStatusClassName(status: string | null): string {
 function formatWeekday(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat("vi-VN", { weekday: "long" }).format(date);
+  return formatVnWeekday(date);
 }
 
 function formatDateOnly(value: string): string {

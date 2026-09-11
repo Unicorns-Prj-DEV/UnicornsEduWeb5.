@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useState,
   type CSSProperties,
@@ -65,18 +66,12 @@ import {
   parseAssignmentDurationMinutes,
 } from "@/lib/assignment-schedule.helpers";
 import ClassPracticeQuestionComposer from "./ClassPracticeQuestionComposer";
+import { formatVnDateTime } from "@/lib/formatters";
 
 function formatOpenAt(iso: string | null): string {
   if (!iso) return "";
   try {
-    return new Intl.DateTimeFormat("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }).format(new Date(iso));
+    return formatVnDateTime(new Date(iso));
   } catch {
     return "";
   }
@@ -513,6 +508,7 @@ function AddContentDialog({
   onSuccess: () => void;
 }) {
   const queryClient = useQueryClient();
+  const formFieldId = useId();
   const [modeTouched, setModeTouched] = useState(false);
   const [userMode, setUserMode] = useState<"new" | "existing">("existing");
   const [title, setTitle] = useState("");
@@ -739,10 +735,14 @@ function AddContentDialog({
           {mode === "new" ? (
             <>
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                <label
+                  htmlFor={`${formFieldId}-title`}
+                  className="text-xs font-semibold uppercase tracking-wider text-text-muted"
+                >
                   Tiêu đề <span className="text-error">*</span>
                 </label>
                 <input
+                  id={`${formFieldId}-title`}
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
@@ -751,10 +751,17 @@ function AddContentDialog({
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                <span
+                  id={`${formFieldId}-kind-label`}
+                  className="block text-xs font-semibold uppercase tracking-wider text-text-muted"
+                >
                   Loại chuyên đề
-                </label>
-                <div className="mt-1.5 inline-flex items-center gap-1 rounded-xl border border-border-default bg-bg-surface p-1 shadow-2xs">
+                </span>
+                <div
+                  role="group"
+                  aria-labelledby={`${formFieldId}-kind-label`}
+                  className="mt-1.5 inline-flex items-center gap-1 rounded-xl border border-border-default bg-bg-surface p-1 shadow-2xs"
+                >
                   <button
                     type="button"
                     onClick={() => {
@@ -785,10 +792,14 @@ function AddContentDialog({
               {kind === "theory" ? (
                 <>
                   <div>
-                    <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                    <label
+                      htmlFor={`${formFieldId}-video-url`}
+                      className="text-xs font-semibold uppercase tracking-wider text-text-muted"
+                    >
                       Link video (tuỳ chọn)
                     </label>
                     <input
+                      id={`${formFieldId}-video-url`}
                       type="text"
                       value={videoUrl}
                       onChange={(e) => setVideoUrl(e.target.value)}
@@ -797,13 +808,14 @@ function AddContentDialog({
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                    <span className="block text-xs font-semibold uppercase tracking-wider text-text-muted">
                       Nội dung lý thuyết (hỗ trợ LaTeX: $x^2$)
-                    </label>
+                    </span>
                     <div className="mt-1.5">
                       <MathRichTextEditor
                         value={lectureContent}
                         onChange={setLectureContent}
+                        ariaLabel="Nội dung lý thuyết"
                         placeholder="Nhập nội dung bài học..."
                         minHeight="min-h-[120px]"
                       />
@@ -990,6 +1002,7 @@ function TheoryLectureEditor({
     queryFn: () => classApi.getLectures(topicId),
   });
   const lecture = lectures?.[0];
+  const theoryFieldId = useId();
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [content, setContent] = useState<string | null>(null);
 
@@ -1063,10 +1076,14 @@ function TheoryLectureEditor({
   return (
     <div className="space-y-3">
       <div>
-        <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+        <label
+          htmlFor={`${theoryFieldId}-video-url`}
+          className="text-xs font-semibold uppercase tracking-wider text-text-muted"
+        >
           Link video (tuỳ chọn)
         </label>
         <input
+          id={`${theoryFieldId}-video-url`}
           type="text"
           value={videoUrlValue}
           onChange={(e) => setVideoUrl(e.target.value)}
@@ -1075,13 +1092,14 @@ function TheoryLectureEditor({
         />
       </div>
       <div>
-        <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+        <span className="block text-xs font-semibold uppercase tracking-wider text-text-muted">
           Nội dung lý thuyết (hỗ trợ LaTeX: $x^2$)
-        </label>
+        </span>
         <div className="mt-1.5">
           <MathRichTextEditor
             value={contentValue}
             onChange={setContent}
+            ariaLabel="Nội dung lý thuyết"
             placeholder="Nhập nội dung bài học..."
             minHeight="min-h-[120px]"
           />

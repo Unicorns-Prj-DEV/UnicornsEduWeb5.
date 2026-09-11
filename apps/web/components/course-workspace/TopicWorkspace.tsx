@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -51,6 +51,7 @@ function TopicWorkspaceInner({
   const queryClient = useQueryClient();
   const { confirm, dialog } = useConfirmDialog();
 
+  const topicFieldId = useId();
   const { data: fullProfile, isLoading: profileLoading } = useQuery({
     queryKey: authKeys.fullProfile(),
     queryFn: getFullProfile,
@@ -312,10 +313,14 @@ function TopicWorkspaceInner({
                 </button>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-text-muted">
+                <label
+                  htmlFor={`${topicFieldId}-create-title`}
+                  className="mb-1 block text-xs font-medium text-text-muted"
+                >
                   Tên chuyên đề
                 </label>
                 <input
+                  id={`${topicFieldId}-create-title`}
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="VD: Hàm số bậc hai"
@@ -356,10 +361,14 @@ function TopicWorkspaceInner({
                       </span>
                     ) : null}
                   </div>
-                  <label className="mb-1 block text-xs font-medium text-text-muted">
+                  <label
+                    htmlFor={`${topicFieldId}-edit-title`}
+                    className="mb-1 block text-xs font-medium text-text-muted"
+                  >
                     Tên chuyên đề
                   </label>
                   <input
+                    id={`${topicFieldId}-edit-title`}
                     value={title}
                     disabled={!canEdit}
                     onChange={(e) => setTitle(e.target.value)}

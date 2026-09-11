@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useState, type CSSProperties, type ReactNode } from "react";
 import {
   DndContext,
   KeyboardSensor,
@@ -27,10 +27,15 @@ export function useOrderDraft<T extends { id: string }>(
   const [localItems, setLocalItems] = useState<T[] | null>(null);
   const [orderDirty, setOrderDirty] = useState(false);
 
-  useEffect(() => {
+  // Reset ngay trong render thay vì useEffect: effect chạy sau paint nên người
+  // dùng thấy một frame với draft cũ của item trước. React docs: "Adjusting some
+  // state when a prop changes".
+  const [prevResetKey, setPrevResetKey] = useState(resetKey);
+  if (prevResetKey !== resetKey) {
+    setPrevResetKey(resetKey);
     setLocalItems(null);
     setOrderDirty(false);
-  }, [resetKey]);
+  }
 
   const items = localItems ?? serverItems;
 

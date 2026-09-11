@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
@@ -77,11 +77,25 @@ export default function UserManageModal({
   onDeleted,
 }: Props) {
   const queryClient = useQueryClient();
-  const [form, setForm] = useState<UserManageFormState | null>(null);
+  const [form, setForm] = useState<UserManageFormState | null>(() =>
+    user ? buildUserManageFormState(user) : null,
+  );
   const [errors, setErrors] = useState<UserManageFormErrors>({});
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const fieldRefs = useRef<Partial<Record<UserManageField, HTMLInputElement | null>>>({});
-  const initializedUserIdRef = useRef<string | null>(null);
+
+  // Khởi tạo lại form ngay trong render khi đổi sang user khác. Dùng useEffect
+  // sẽ hiện một frame với dữ liệu của user trước đó.
+  const currentUserId = user?.id ?? null;
+  const [initializedUserId, setInitializedUserId] = useState<string | null>(
+    currentUserId,
+  );
+  if (initializedUserId !== currentUserId) {
+    setInitializedUserId(currentUserId);
+    setForm(user ? buildUserManageFormState(user) : null);
+    setErrors({});
+    setDeleteConfirmOpen(false);
+  }
 
   const visibleRoleTypeOptions = hideAdminOptions
     ? ROLE_TYPE_OPTIONS.filter((opt) => opt.value !== "admin")
@@ -89,23 +103,8 @@ export default function UserManageModal({
   const visibleStaffRoles = hideAdminOptions
     ? STAFF_ROLES.filter((role) => role !== "admin")
     : STAFF_ROLES;
+  const selectedStaffRoleSet = new Set(form?.staffRoles ?? []);
 
-  useEffect(() => {
-    if (!user) {
-      setForm(null);
-      setErrors({});
-      setDeleteConfirmOpen(false);
-      initializedUserIdRef.current = null;
-      return;
-    }
-    // Only re-initialize when switching to a different user or first initialization
-    if (initializedUserIdRef.current !== user.id) {
-      initializedUserIdRef.current = user.id;
-      setForm(buildUserManageFormState(user));
-      setErrors({});
-      setDeleteConfirmOpen(false);
-    }
-  }, [user]);
 
   const updateMutation = useMutation({
     mutationFn: (payload: UpdateUserPayload) => userApi.updateUser(payload),
@@ -453,7 +452,7 @@ export default function UserManageModal({
                     >
                       <input
                         type="checkbox"
-                        checked={form.staffRoles.includes(role)}
+                        checked={selectedStaffRoleSet.has(role)}
                         onChange={(e) => {
                           setForm((prev) => {
                             if (!prev) return prev;

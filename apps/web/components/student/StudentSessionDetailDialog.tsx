@@ -9,14 +9,10 @@ import YouTubeEmbed from "@/components/ui/YouTubeEmbed";
 import { Badge } from "@/components/ui/badge";
 import MathContent from "@/components/ui/MathContent";
 import { attendanceStatusLabel } from "./StudentTimelineCards";
+import { formatVnWeekdayDate } from "@/lib/formatters";
 
 function formatDateTime(date: Date, startTime?: string | null, endTime?: string | null): string {
-  const d = new Intl.DateTimeFormat("vi-VN", {
-    weekday: "long",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(date));
+  const d = formatVnWeekdayDate(new Date(date));
 
   if (startTime && endTime) {
     return `${d} • ${startTime.slice(0, 5)} - ${endTime.slice(0, 5)}`;

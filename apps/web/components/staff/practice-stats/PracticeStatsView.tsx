@@ -15,6 +15,7 @@ import type {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatVnDayMonthTime } from "@/lib/formatters";
 import {
   Table,
   TableBody,
@@ -36,13 +37,7 @@ function errorMessage(error: unknown, fallback: string): string {
 function formatOpenAt(iso: string | null): string {
   if (!iso) return "chưa đặt giờ mở";
   try {
-    return new Intl.DateTimeFormat("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }).format(new Date(iso));
+    return formatVnDayMonthTime(new Date(iso));
   } catch {
     return "";
   }

@@ -476,7 +476,7 @@ export class ClassContentService extends TopicSupportService {
         student: { select: { id: true, fullName: true } },
       },
     });
-    const sortedRoster = [...roster].sort((a, b) => {
+    const sortedRoster = roster.toSorted((a, b) => {
       const byName = a.student.fullName.localeCompare(b.student.fullName, 'vi');
       return byName || a.studentId.localeCompare(b.studentId);
     });

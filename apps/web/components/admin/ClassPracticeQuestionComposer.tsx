@@ -256,6 +256,7 @@ function BankPicker({
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          aria-label="Tìm nội dung câu hỏi"
           placeholder="Tìm nội dung câu hỏi..."
           className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-sm text-text-primary focus:border-border-focus focus:outline-none"
         />

@@ -881,7 +881,7 @@ export class CalendarService {
   private sortCalendarEvents(
     events: ClassScheduleEventDto[],
   ): ClassScheduleEventDto[] {
-    return [...events].sort((a, b) => {
+    return events.toSorted((a, b) => {
       if (a.date !== b.date) {
         return a.date.localeCompare(b.date);
       }

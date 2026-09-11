@@ -168,6 +168,7 @@ export function CourseChaptersPanel({
                 addChapter();
               }
             }}
+            aria-label="Tên chủ đề mới"
             placeholder="Tên chủ đề mới..."
             className="min-h-11 min-w-0 flex-1 rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-10"
           />

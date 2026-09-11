@@ -4,17 +4,14 @@ import { useMemo, useState } from "react";
 import type { SessionItem } from "@/dtos/session.dto";
 import type { ClassSurveyRecord } from "@/dtos/class-survey.dto";
 import { Card } from "@/components/ui/card";
+import { formatVnDate } from "@/lib/formatters";
 
 type CombinedItem =
   | { type: "session"; date: Date; data: SessionItem }
   | { type: "survey"; date: Date; data: ClassSurveyRecord };
 
 function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(date));
+  return formatVnDate(new Date(date));
 }
 
 export default function StaffCombinedList({
@@ -83,9 +80,9 @@ export default function StaffCombinedList({
 
       {/* Combined list */}
       <div className="space-y-2">
-        {combined.map((item, idx) => (
+        {combined.map((item) => (
           <Card
-            key={`${item.type}-${idx}`}
+            key={`${item.type}-${item.data.id}`}
             className="cursor-pointer transition-colors hover:bg-bg-secondary"
             onClick={() =>
               item.type === "session"

@@ -36,6 +36,7 @@ import { pickAvatarUrl } from "@/lib/avatar";
 import { formatCurrency } from "@/lib/class.helpers";
 import { cn } from "@/lib/utils";
 import { forceLogoutStudent } from "@/lib/apis/auth.api";
+import { formatVnDate } from "@/lib/formatters";
 
 const STATUS_LABELS: Record<StudentStatus, string> = {
     active: "Đang học",
@@ -50,11 +51,7 @@ const GENDER_LABELS: Record<StudentGender, string> = {
 function formatDate(iso?: string | null): string {
   if (!iso) return "—";
   try {
-        return new Intl.DateTimeFormat("vi-VN", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-        }).format(new Date(iso));
+        return formatVnDate(new Date(iso));
     } catch {
         return "—";
   }

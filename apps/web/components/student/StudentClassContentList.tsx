@@ -4,17 +4,12 @@ import Link from "next/link";
 import { Lock } from "lucide-react";
 import type { ClassContentItemDto } from "@/dtos/class-content.dto";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatVnDayMonthTime } from "@/lib/formatters";
 
 function formatOpenAt(iso: string | null): string {
   if (!iso) return "";
   try {
-    return new Intl.DateTimeFormat("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }).format(new Date(iso));
+    return formatVnDayMonthTime(new Date(iso));
   } catch {
     return "";
   }
@@ -137,7 +132,7 @@ export default function StudentClassContentList({
           <Link
             key={item.id}
             href={href}
-            className="group flex items-center justify-between gap-3 rounded-xl border border-border-default bg-bg-surface p-4 transition-all duration-200 hover:border-primary/50 hover:bg-bg-secondary/60 hover:shadow-sm"
+            className="group flex items-center justify-between gap-3 rounded-xl border border-border-default bg-bg-surface p-4 transition-[color,background-color,border-color,box-shadow] duration-200 hover:border-primary/50 hover:bg-bg-secondary/60 hover:shadow-sm"
           >
             {inner}
           </Link>

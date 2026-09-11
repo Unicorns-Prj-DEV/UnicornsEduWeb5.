@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -101,7 +101,7 @@ type AdminClassesPageProps = {
   pageSubtitle?: string;
 };
 
-export default function AdminClassesPage({
+function AdminClassesPageContent({
   classListFetcher = classApi.getClasses,
   forceReadOnlyList = false,
   pageSubtitle = "Theo dõi trạng thái và điều phối danh sách lớp nhanh hơn.",
@@ -687,5 +687,14 @@ export default function AdminClassesPage({
         </>
       ) : null}
     </div>
+  );
+}
+
+export default function AdminClassesPage(props: AdminClassesPageProps = {}) {
+  // useSearchParams cần <Suspense>, nếu không Next.js sẽ bỏ static render cả route.
+  return (
+    <Suspense fallback={null}>
+      <AdminClassesPageContent {...props} />
+    </Suspense>
   );
 }

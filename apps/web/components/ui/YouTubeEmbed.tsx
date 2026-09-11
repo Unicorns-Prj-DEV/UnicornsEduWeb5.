@@ -749,7 +749,16 @@ export default function YouTubeEmbed({
         {/* Custom Poster Cover */}
         {!hasStarted && (
           <div
+            role="button"
+            tabIndex={0}
+            aria-label="Phát video"
             onClick={togglePlayPause}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                togglePlayPause();
+              }
+            }}
             className="absolute inset-0 z-12 flex items-center justify-center bg-black cursor-pointer"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -786,7 +795,16 @@ export default function YouTubeEmbed({
         {/* Center Play Button when paused */}
         {hasStarted && !isPlaying && isApiReady && !isBuffering && (
           <div
+            role="button"
+            tabIndex={0}
+            aria-label="Tiếp tục phát"
             onClick={togglePlayPause}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                togglePlayPause();
+              }
+            }}
             className="absolute inset-0 z-15 flex items-center justify-center cursor-pointer"
           >
             <div className="flex size-16 sm:size-20 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md shadow-2xl transition-transform hover:scale-110 active:scale-95 border border-white/20">
@@ -814,7 +832,7 @@ export default function YouTubeEmbed({
         <button
           type="button"
           onClick={toggleFullscreen}
-          className="pointer-events-auto flex size-8 items-center justify-center rounded-lg bg-black/60 text-white backdrop-blur-md transition-all hover:bg-black/80 hover:scale-105 active:scale-95 border border-white/20 shadow-md"
+          className="pointer-events-auto flex size-8 items-center justify-center rounded-lg bg-black/60 text-white backdrop-blur-md transition-[background-color,transform] hover:bg-black/80 hover:scale-105 active:scale-95 border border-white/20 shadow-md"
           title={isFullscreen ? "Thoát toàn màn hình" : "Toàn màn hình"}
           aria-label={isFullscreen ? "Thoát toàn màn hình" : "Toàn màn hình"}
         >
@@ -841,11 +859,26 @@ export default function YouTubeEmbed({
         {/* Progress Scrubber Bar */}
         <div
           ref={progressBarRef}
+          role="slider"
+          tabIndex={0}
+          aria-label="Thanh tua video"
+          aria-valuemin={0}
+          aria-valuemax={Math.round(duration) || 0}
+          aria-valuenow={Math.round(currentTime) || 0}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowRight") {
+              event.preventDefault();
+              skipSeconds(5);
+            } else if (event.key === "ArrowLeft") {
+              event.preventDefault();
+              skipSeconds(-5);
+            }
+          }}
           onClick={handleSeek}
           onMouseMove={handleProgressBarMouseMove}
           onMouseEnter={() => setIsHoveringProgressBar(true)}
           onMouseLeave={() => setIsHoveringProgressBar(false)}
-          className="group/bar relative mb-3 h-2 sm:h-2.5 w-full cursor-pointer rounded-full bg-white/25 transition-all hover:h-3"
+          className="group/bar relative mb-3 h-2 sm:h-2.5 w-full cursor-pointer rounded-full bg-white/25 transition-[height] hover:h-3"
         >
           {/* Hover Time Tooltip */}
           {isHoveringProgressBar && hoverTime !== null && (
@@ -935,7 +968,7 @@ export default function YouTubeEmbed({
                 max={100}
                 value={isMuted ? 0 : volume}
                 onChange={(e) => handleVolumeChange(Number(e.target.value))}
-                className="w-0 sm:w-16 h-1.5 cursor-pointer accent-primary bg-white/30 rounded-lg appearance-none transition-all group-hover/vol:w-16 focus:w-16 focus:outline-none"
+                className="w-0 sm:w-16 h-1.5 cursor-pointer accent-primary bg-white/30 rounded-lg appearance-none transition-[width] group-hover/vol:w-16 focus:w-16 focus:outline-none"
                 aria-label="Âm lượng"
               />
             </div>

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Info } from "lucide-react";
 import MathContent from "@/components/ui/MathContent";
 import type { EssayGradingQueueItemDto } from "@/dtos/essay-grading.dto";
+import { formatVnDayMonthTime } from "@/lib/formatters";
 import {
   CONTENT_LIMITS,
   overLimitMessage,
@@ -11,13 +12,7 @@ import {
 
 function formatDateTime(iso: string): string {
   try {
-    return new Intl.DateTimeFormat("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }).format(new Date(iso));
+    return formatVnDayMonthTime(new Date(iso));
   } catch {
     return iso;
   }

@@ -657,7 +657,7 @@ export class AttemptService {
     },
   >(graded: T[]): T | null {
     if (graded.length === 0) return null;
-    return [...graded].sort((a, b) => {
+    return graded.toSorted((a, b) => {
       const scoreDiff =
         this.attemptTotals(b).score - this.attemptTotals(a).score;
       if (scoreDiff !== 0) return scoreDiff;

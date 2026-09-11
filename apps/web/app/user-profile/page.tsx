@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode, Suspense } from "react";
 import { toast } from "sonner";
 import UpgradedSelect, {
   type UpgradedSelectOption,
@@ -27,6 +27,7 @@ import type {
 import { resolveCanonicalUserName } from "@/dtos/user-name.dto";
 import { OPEN_EMAIL_VERIFICATION_MODAL_EVENT } from "@/lib/email-verification-access";
 import { getUserWorkspaceHref } from "@/lib/auth-redirect";
+import { formatVnDate } from "@/lib/formatters";
 
 type Tone = "primary" | "success" | "warning" | "neutral";
 
@@ -80,11 +81,7 @@ const secondaryPillClassName =
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
   try {
-    return new Intl.DateTimeFormat("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }).format(new Date(iso));
+    return formatVnDate(new Date(iso));
   } catch {
     return "—";
   }
@@ -372,7 +369,7 @@ function SelectField({
   const labelId = `${id}-label`;
   return (
     <div>
-      <label id={labelId} className={labelClassName}>
+      <label id={labelId} htmlFor={id} className={labelClassName}>
         {label}
       </label>
       <UpgradedSelect
@@ -554,7 +551,7 @@ function ErrorState({ status }: { status?: number }) {
   );
 }
 
-export default function UserProfilePage() {
+function UserProfilePageContent() {
   const queryClient = useQueryClient();
   const { setUser } = useAuth();
   const searchParams = useSearchParams();
@@ -1770,5 +1767,14 @@ export default function UserProfilePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function UserProfilePage() {
+  // useSearchParams cần <Suspense>, nếu không Next.js sẽ bỏ static render cả route.
+  return (
+    <Suspense fallback={null}>
+      <UserProfilePageContent />
+    </Suspense>
   );
 }

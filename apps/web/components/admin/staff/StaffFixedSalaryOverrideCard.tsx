@@ -20,9 +20,10 @@ import {
   parseMoneyInput,
 } from "@/lib/money-input.helpers";
 import { ROLE_LABELS } from "@/lib/staff.constants";
+import { formatVnNumber } from "@/lib/formatters";
 
 function formatVnd(value: number): string {
-  return `${new Intl.NumberFormat("vi-VN").format(value)}đ`;
+  return `${formatVnNumber(value)}đ`;
 }
 
 function parseAmountOrThrow(rawValue: string): number {

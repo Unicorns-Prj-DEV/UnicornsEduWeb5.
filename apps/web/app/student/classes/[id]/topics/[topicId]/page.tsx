@@ -32,15 +32,12 @@ import MathContent from "@/components/ui/MathContent";
 import { cn } from "@/lib/utils";
 import type { Lecture, LectureQuizQuestion, LectureQuizAnswer } from "@/dtos/topic.dto";
 import { CONTENT_LIMITS, overLimitMessage } from "@/dtos/content-limits";
+import { formatVnDate } from "@/lib/formatters";
 
 function formatDate(date?: Date | string | null): string {
   if (!date) return "—";
   try {
-    return new Intl.DateTimeFormat("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }).format(new Date(date));
+    return formatVnDate(new Date(date));
   } catch {
     return "—";
   }
@@ -537,6 +534,7 @@ function QuizQuestionInput({
         <textarea
           value={value?.essayAnswer ?? ""}
           onChange={(e) => onChange({ essayAnswer: e.target.value })}
+          aria-label="Nhập câu trả lời"
           placeholder="Nhập câu trả lời..."
           rows={4}
           aria-invalid={

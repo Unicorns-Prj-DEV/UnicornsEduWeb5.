@@ -2733,9 +2733,10 @@ export class StudentService {
     const existingClassIds = new Set(
       existingMemberships.map((membership) => membership.classId),
     );
+    const requestedClassIds = new Set(classIds);
     const classIdsToRemove = existingMemberships
       .map((membership) => membership.classId)
-      .filter((classId) => !classIds.includes(classId));
+      .filter((classId) => !requestedClassIds.has(classId));
     const classIdsToActivate = classIds.filter((classId) =>
       existingClassIds.has(classId),
     );

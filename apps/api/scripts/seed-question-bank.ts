@@ -104,9 +104,8 @@ function deterministicUuid(...parts: string[]): string {
  * chọn ngẫu nhiên có seed.
  */
 function pickExamQuestions(pool: SeedQuestion[], exam: SeedExam): SeedQuestion[] {
-  const scoped = exam.chapters
-    ? pool.filter((q) => exam.chapters!.includes(q.chapter))
-    : pool;
+  const chapterSet = exam.chapters ? new Set(exam.chapters) : null;
+  const scoped = chapterSet ? pool.filter((q) => chapterSet.has(q.chapter)) : pool;
 
   const picked: SeedQuestion[] = [];
 

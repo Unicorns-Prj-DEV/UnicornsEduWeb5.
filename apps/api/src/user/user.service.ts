@@ -61,6 +61,9 @@ function normalizeOptionalText(value: string | null | undefined) {
   return trimmed ? trimmed : undefined;
 }
 
+// Hoist ở module scope: tránh dựng lại Object.values(StaffRole) mỗi phần tử filter.
+const STAFF_ROLE_VALUES = new Set<StaffRole>(Object.values(StaffRole));
+
 @Injectable()
 export class UserService {
   constructor(
@@ -286,7 +289,7 @@ export class UserService {
     const normalizedRoles = Array.from(
       new Set(
         staffRoles.filter((role): role is StaffRole =>
-          Object.values(StaffRole).includes(role),
+          STAFF_ROLE_VALUES.has(role as StaffRole),
         ),
       ),
     );

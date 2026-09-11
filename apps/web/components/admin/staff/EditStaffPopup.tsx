@@ -60,14 +60,14 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
     staff.currentAddress ?? "",
   );
   const [cccdIssuedDateInput, setCccdIssuedDateInput] = useState(
-    formatDateInput(staff.cccdIssuedDate),
+    () => formatDateInput(staff.cccdIssuedDate),
   );
   const [cccdIssuedPlace, setCccdIssuedPlace] = useState(
     staff.cccdIssuedPlace ?? "",
   );
   const [status, setStatus] = useState<StaffDetail["status"]>(staff.status ?? "active");
   const [statusReason, setStatusReason] = useState("");
-  const [birthDateInput, setBirthDateInput] = useState(formatDateInput(staff.birthDate));
+  const [birthDateInput, setBirthDateInput] = useState(() => formatDateInput(staff.birthDate));
   const [university, setUniversity] = useState(staff.university ?? "");
   const [highSchool, setHighSchool] = useState(staff.highSchool ?? "");
   const [bankAccount, setBankAccount] = useState(staff.bankAccount ?? "");

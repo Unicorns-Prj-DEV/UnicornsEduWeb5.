@@ -6,6 +6,10 @@ import type { UserDevice } from "@/dtos/device.dto";
 import * as deviceApi from "@/lib/apis/device.api";
 import { cn } from "@/lib/utils";
 import {
+  formatVnDate,
+  formatVnDateTime,
+} from "@/lib/formatters";
+import {
   ResponsiveDialog,
   ResponsiveDialogBody,
   ResponsiveActionFooter,
@@ -21,13 +25,7 @@ type Props = {
 function formatDateTime(iso?: string | null): string {
   if (!iso) return "—";
   try {
-    return new Intl.DateTimeFormat("vi-VN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }).format(new Date(iso));
+    return formatVnDateTime(new Date(iso));
   } catch {
     return "—";
   }
@@ -36,11 +34,7 @@ function formatDateTime(iso?: string | null): string {
 function formatDate(iso?: string | null): string {
   if (!iso) return "—";
   try {
-    return new Intl.DateTimeFormat("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }).format(new Date(iso));
+    return formatVnDate(new Date(iso));
   } catch {
     return "—";
   }

@@ -109,6 +109,7 @@ export default function StudentAttemptQuestion({
           value={question.essayAnswer ?? ""}
           disabled={disabled}
           onChange={(e) => onChange({ essayAnswer: e.target.value })}
+          aria-label="Nhập câu trả lời"
           placeholder="Nhập câu trả lời..."
           rows={5}
           aria-invalid={

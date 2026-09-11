@@ -617,9 +617,11 @@ function ClassExclusionDialog({
 
   if (!open) return null;
 
+  // Set: danh sách lớp có thể tới hàng nghìn, tra cứu O(1) thay vì quét mảng.
+  const selectedIdSet = new Set(selectedIds);
   const allLoadedSelected =
-    items.length > 0 && items.every((item) => selectedIds.includes(item.id));
-  const someLoadedSelected = items.some((item) => selectedIds.includes(item.id));
+    items.length > 0 && items.every((item) => selectedIdSet.has(item.id));
+  const someLoadedSelected = items.some((item) => selectedIdSet.has(item.id));
 
   const handleSelectAll = async () => {
     if (totalCount === 0 || selectingAll) return;
@@ -674,6 +676,7 @@ function ClassExclusionDialog({
           type="text"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
+          aria-label="Tìm lớp cần loại trừ"
           placeholder="Tìm lớp cần loại trừ…"
           autoFocus
           className="w-full flex-1 rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none"
@@ -717,7 +720,7 @@ function ClassExclusionDialog({
                 className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-text-secondary hover:bg-bg-secondary"
               >
                 <SelectionCheckbox
-                  checked={selectedIds.includes(item.id)}
+                  checked={selectedIdSet.has(item.id)}
                   onChange={() => onToggle(item.id)}
                   ariaLabel={`Chọn ${item.name}`}
                 />
@@ -862,10 +865,10 @@ function SurveyFormDialog({
 }) {
   const [name, setName] = useState(survey?.name ?? "");
   const [startDate, setStartDate] = useState(
-    survey?.startDate?.slice(0, 10) ?? getTodayInputValue(),
+    () => survey?.startDate?.slice(0, 10) ?? getTodayInputValue(),
   );
   const [endDate, setEndDate] = useState(
-    survey?.endDate?.slice(0, 10) ?? getTodayInputValue(),
+    () => survey?.endDate?.slice(0, 10) ?? getTodayInputValue(),
   );
   const [notificationContent, setNotificationContent] = useState(
     survey?.notificationContent ?? "",
@@ -1333,6 +1336,7 @@ function SurveyClassesDialog({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            aria-label="Tìm lớp, gia sư"
             placeholder="Tìm lớp, gia sư…"
             className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs text-text-primary focus:border-border-focus focus:outline-none sm:w-48"
           />

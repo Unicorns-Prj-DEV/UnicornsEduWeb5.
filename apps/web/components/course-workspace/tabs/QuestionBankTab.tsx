@@ -198,6 +198,7 @@ export function QuestionBankTab({
       <div className="flex flex-col gap-3 md:flex-row md:items-start">
         <input
           type="text"
+          aria-label="Tìm kiếm nội dung"
           placeholder="Tìm kiếm nội dung..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -336,7 +337,7 @@ export function QuestionBankTab({
                       {canMutateQuestions ? (
                         <button
                           type="button"
-                          className="rounded-lg p-2 text-text-muted opacity-0 transition-all group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-error/10 hover:text-error focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                          className="rounded-lg p-2 text-text-muted opacity-0 transition-[opacity,background-color,color] group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-error/10 hover:text-error focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                           aria-label="Xoá câu hỏi"
                           title="Xoá"
                           onClick={() => setDeleteTarget(q)}

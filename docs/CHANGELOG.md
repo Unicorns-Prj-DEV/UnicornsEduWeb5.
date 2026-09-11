@@ -21,6 +21,24 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Changed
+
+- **Đợt tối ưu theo `react-doctor` (2026-09-11):** ADR `docs/adr/2026-09-11-frontend-perf-a11y-conventions.md`.
+  - `apps/web/lib/formatters.ts` mới: gom toàn bộ `Intl.NumberFormat` / `Intl.DateTimeFormat` về module scope (126 warning `intl-*`), component không tự dựng `Intl` trong render nữa.
+  - **22 trang** dùng `useSearchParams()` được bọc `<Suspense>` (24 → 0 cảnh báo `nextjs-no-use-search-params-without-suspense`); thiếu boundary thì Next.js bỏ static render cả route.
+  - Reset state theo prop chuyển từ `useEffect` sang so sánh prev-prop **trong render** (`SortableOrderList`, `tabs/SettingsTab`, `FinancialDetailModal`, `UserManageModal`) — hết frame nhấp nháy dữ liệu item trước.
+  - `Array.includes` trong vòng lặp → `Set` ở 15 chỗ (web + api); `Object.values(StaffRole)` trong `filter` hoist thành `STAFF_ROLE_VALUES` ở module scope của `user.service.ts`.
+  - `apps/api`: 8 chỗ `[...arr].sort(...)` → `arr.toSorted(...)` (target đã là ES2023).
+  - Accessibility: `<label htmlFor>` + `useId()` cho control native, `<label>` không bọc control đổi thành `<span>`/`<div>` + `ariaLabel` cho editor, `role="group"`/`role="button"`/`role="slider"` + `onKeyDown` cho phần tử tự chế, 22 field chỉ có placeholder được thêm `aria-label`.
+  - Key list dùng index → key theo dữ liệu ở `StaffCombinedList`, `OjProgressSection` (list có sort/filter nên index xê dịch).
+
+### Security
+
+- **`next` 16.1.6 → 16.2.6** — vá CVE-2026-23870 (RSC DoS, high).
+- **`axios` `^1.13.6` → `^1.20.0`** ở cả `apps/web` và `apps/api` — bản cũ bị Socket chấm 25/100 trục vulnerability (có advisory). axios 1.20 siết kiểu header value thành `string | number | boolean | string[] | AxiosHeaders`, nên `apps/api/src/unioj/unioj.service.ts` phải bọc `String(headers['content-type'] ?? '')`.
+- Hai bump trên cần dựng lại `node_modules` root (`ERR_PNPM_UNEXPECTED_VIRTUAL_STORE`). Sau khi `pnpm install` lại, pnpm 10 bỏ qua toàn bộ postinstall → thêm `pnpm.onlyBuiltDependencies` vào root `package.json` (`bcrypt`, `sharp`, `prisma`, `@prisma/engines`, `esbuild`, `@nestjs/core`, `unrs-resolver`); thiếu khai báo này thì native binding của bcrypt/sharp không build và API chạy sẽ lỗi.
+- Kết quả `react-doctor`: score 42 → **55**, Security **2 error → 0**, issues 765 → 686.
+
 ### Fixed
 
 - **`POST/PATCH /questions` và `POST /questions/bulk`:** `options` của câu trắc nghiệm là `string[]` nhưng DTO gắn `@ValidateNested` (chỉ nhận object/array), nên lưu MCQ từ chuyên đề luyện tập / ngân hàng / nhập AI trả 400 `each value in nested property options must be either object or array`. Đổi sang `@IsString({ each: true })`.

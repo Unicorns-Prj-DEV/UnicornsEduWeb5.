@@ -1,17 +1,16 @@
 "use client";
 
+import { useMemo } from "react";
 import type { StudentSurveyItem } from "@/dtos/student-class.dto";
+import { sanitizeRichTextContent } from "@/lib/sanitize";
+import { formatVnDate } from "@/lib/formatters";
 import {
   ResponsiveDialog,
   ResponsiveDialogBody,
 } from "@/components/ui/ResponsiveDialog";
 
 function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(date));
+  return formatVnDate(new Date(date));
 }
 
 export default function StudentSurveyDetailDialog({
@@ -22,6 +21,15 @@ export default function StudentSurveyDetailDialog({
   onClose: () => void;
 }) {
   const myAssessment = survey.studentAssessments?.[0];
+  // Nội dung do giáo viên nhập (rich text) => sanitize trước khi inject HTML.
+  const knowledgeAssessmentHtml = useMemo(
+    () => sanitizeRichTextContent(myAssessment?.knowledgeAssessment ?? ""),
+    [myAssessment?.knowledgeAssessment],
+  );
+  const commentHtml = useMemo(
+    () => sanitizeRichTextContent(myAssessment?.comment ?? ""),
+    [myAssessment?.comment],
+  );
 
   return (
     <ResponsiveDialog onBackdropClick={onClose}>
@@ -46,7 +54,7 @@ export default function StudentSurveyDetailDialog({
               </h3>
               <div
                 className="prose prose-sm max-w-none text-text-primary [&_a]:text-primary [&_a]:underline [&_p]:mb-1.5 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_strong]:font-bold"
-                dangerouslySetInnerHTML={{ __html: myAssessment.knowledgeAssessment }}
+                dangerouslySetInnerHTML={{ __html: knowledgeAssessmentHtml }}
               />
             </div>
           )}
@@ -58,7 +66,7 @@ export default function StudentSurveyDetailDialog({
               </h3>
               <div
                 className="prose prose-sm max-w-none text-text-primary [&_a]:text-primary [&_a]:underline [&_p]:mb-1.5 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_strong]:font-bold"
-                dangerouslySetInnerHTML={{ __html: myAssessment.comment }}
+                dangerouslySetInnerHTML={{ __html: commentHtml }}
               />
             </div>
           )}

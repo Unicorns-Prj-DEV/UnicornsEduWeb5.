@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -12,9 +12,10 @@ import type {
 } from "@/dtos/dashboard.dto";
 import { AdminDashboardFinancialDetailSkeleton } from "@/components/admin/dashboard/AdminDashboardSkeleton";
 import { DashboardIcon } from "@/components/admin/dashboard/DashboardIcon";
+import { formatVnInteger } from "@/lib/formatters";
 
 function formatCurrency(value: number) {
-  return `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value)} đ`;
+  return `${formatVnInteger(value)} đ`;
 }
 
 function getErrorMessage(error: unknown) {
@@ -146,9 +147,13 @@ interface FinancialDetailModalContentProps {
 function FinancialDetailModalContent({ rowLabel, detail, isLoading, error }: FinancialDetailModalContentProps) {
   const [selectedSourceKey, setSelectedSourceKey] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Reset ngay trong render: effect sẽ hiện 1 frame với filter của dòng trước.
+  const detailIdentity = `${detail?.rowKey ?? ""}|${detail?.title ?? ""}`;
+  const [prevDetailIdentity, setPrevDetailIdentity] = useState(detailIdentity);
+  if (prevDetailIdentity !== detailIdentity) {
+    setPrevDetailIdentity(detailIdentity);
     setSelectedSourceKey(null);
-  }, [detail?.rowKey, detail?.title]);
+  }
 
   const filteredItems = useMemo(() => {
     if (!detail) return [];

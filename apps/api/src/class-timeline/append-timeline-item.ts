@@ -54,7 +54,7 @@ export async function syncClassTimelineSortByTime(
     },
   });
 
-  const ordered = [...rows].sort((a, b) => {
+  const ordered = rows.toSorted((a, b) => {
     const byTime = timelineOccurredMs(b) - timelineOccurredMs(a);
     if (byTime !== 0) return byTime;
     const byCreated = b.createdAt.getTime() - a.createdAt.getTime();

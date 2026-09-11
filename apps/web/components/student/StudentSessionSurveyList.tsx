@@ -112,8 +112,16 @@ export default function StudentSessionSurveyList({
           return (
             <div
               key={`${item.type}-${item.data.id || idx}`}
-              className="group flex cursor-pointer flex-col gap-2.5 rounded-xl border border-border-default bg-bg-surface p-4 transition-all hover:border-primary/40 hover:bg-bg-secondary/60 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between"
+              className="group flex cursor-pointer flex-col gap-2.5 rounded-xl border border-border-default bg-bg-surface p-4 transition-[color,background-color,border-color,box-shadow] hover:border-primary/40 hover:bg-bg-secondary/60 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between"
+              role="button"
+              tabIndex={0}
               onClick={() => setSelectedItem(item)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  setSelectedItem(item);
+                }
+              }}
             >
               <div className="flex items-start gap-3 min-w-0">
                 <div

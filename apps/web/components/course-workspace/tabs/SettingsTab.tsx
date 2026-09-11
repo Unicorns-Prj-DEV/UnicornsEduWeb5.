@@ -2,7 +2,6 @@
 
 import {
   useCallback,
-  useEffect,
   useState,
   type CSSProperties,
 } from "react";
@@ -258,10 +257,13 @@ function DifficultyLevelsCard({
   const levels = localItems ?? serverLevels;
   const canReorder = canMutate && levels.length > 1;
 
-  useEffect(() => {
+  // Reset ngay trong render thay vì useEffect (tránh 1 frame hiện draft khoá cũ).
+  const [prevCourseId, setPrevCourseId] = useState(courseId);
+  if (prevCourseId !== courseId) {
+    setPrevCourseId(courseId);
     setLocalItems(null);
     setOrderDirty(false);
-  }, [courseId]);
+  }
 
   const discardDraftOrder = useCallback(() => {
     setLocalItems(null);
@@ -453,6 +455,7 @@ function DifficultyLevelsCard({
                 addLevel();
               }
             }}
+            aria-label="Tên mức độ khó (VD: Dễ, Trung bình, Khó)"
             placeholder="Tên mức độ khó (VD: Dễ, Trung bình, Khó)"
             disabled={busy}
             className="min-h-11 min-w-0 flex-1 rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-10"

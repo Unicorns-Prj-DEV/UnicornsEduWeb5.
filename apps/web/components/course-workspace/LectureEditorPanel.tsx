@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as classApi from "@/lib/apis/class.api";
@@ -54,6 +54,9 @@ export function LectureEditorPanel({
   const [videoUrl, setVideoUrl] = useState(lecture?.videoUrl ?? "");
   const [content, setContent] = useState(lecture?.content ?? "");
   const [quizIds, setQuizIds] = useState<string[]>([]);
+  const fieldId = useId();
+  // Set: ngân hàng câu hỏi dài, tra cứu O(1) khi render từng câu.
+  const selectedQuizIdSet = useMemo(() => new Set(quizIds), [quizIds]);
   const [quizSeeded, setQuizSeeded] = useState(isNew);
 
   const { data: courseQuestions = [] } = useQuery({
@@ -110,8 +113,11 @@ export function LectureEditorPanel({
     }
 
     const currentQuizIds = isNew ? [] : originalQuizIds;
-    const toAdd = quizIds.filter((id) => !currentQuizIds.includes(id));
-    const toRemove = currentQuizIds.filter((id) => !quizIds.includes(id));
+    // Set: diff hai danh sách id, tra cứu O(1) thay vì O(n*m).
+    const currentQuizIdSet = new Set(currentQuizIds);
+    const nextQuizIdSet = new Set(quizIds);
+    const toAdd = quizIds.filter((id) => !currentQuizIdSet.has(id));
+    const toRemove = currentQuizIds.filter((id) => !nextQuizIdSet.has(id));
     if (toRemove.length > 0) {
       const ok = await confirm({
         title: "Gỡ bài tập khỏi bài học?",
@@ -196,8 +202,14 @@ export function LectureEditorPanel({
       </button>
 
       <div className="shrink-0">
-        <label className="mb-1 block text-xs font-medium text-text-muted">Tiêu đề</label>
+        <label
+          htmlFor={`${fieldId}-title`}
+          className="mb-1 block text-xs font-medium text-text-muted"
+        >
+          Tiêu đề
+        </label>
         <input
+          id={`${fieldId}-title`}
           autoFocus
           value={title}
           disabled={!canEdit}
@@ -207,10 +219,14 @@ export function LectureEditorPanel({
       </div>
 
       <div className="shrink-0">
-        <label className="mb-1 block text-xs font-medium text-text-muted">
+        <label
+          htmlFor={`${fieldId}-video-url`}
+          className="mb-1 block text-xs font-medium text-text-muted"
+        >
           Link video YouTube (tuỳ chọn)
         </label>
         <input
+          id={`${fieldId}-video-url`}
           value={videoUrl}
           disabled={!canEdit}
           onChange={(e) => setVideoUrl(e.target.value)}
@@ -220,13 +236,14 @@ export function LectureEditorPanel({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col">
-        <label className="mb-1 block shrink-0 text-xs font-medium text-text-muted">
+        <span className="mb-1 block shrink-0 text-xs font-medium text-text-muted">
           Nội dung lý thuyết (hỗ trợ LaTeX: $x^2$)
-        </label>
+        </span>
         {canEdit ? (
           <MathRichTextEditor
             value={content}
             onChange={setContent}
+            ariaLabel="Nội dung lý thuyết"
             placeholder="Nhập nội dung bài học..."
             minHeight="min-h-[160px]"
             fill
@@ -239,9 +256,9 @@ export function LectureEditorPanel({
       </div>
 
       <div className="shrink-0">
-        <label className="mb-1 block text-xs font-medium text-text-muted">
+        <span className="mb-1 block text-xs font-medium text-text-muted">
           Bài tập ôn nhẹ ({quizIds.length} câu đã chọn)
-        </label>
+        </span>
         <p className="mb-2 text-xs text-text-muted">
           Chọn câu hỏi từ ngân hàng câu hỏi của khoá học. Không sinh bài làm, không tính điểm.
         </p>
@@ -252,7 +269,7 @@ export function LectureEditorPanel({
         ) : (
           <div className="max-h-56 space-y-1.5 overflow-y-auto rounded-md border border-border-default p-2">
             {courseQuestions.map((q) => {
-              const isSelected = quizIds.includes(q.id);
+              const isSelected = selectedQuizIdSet.has(q.id);
               return (
                 <label
                   key={q.id}

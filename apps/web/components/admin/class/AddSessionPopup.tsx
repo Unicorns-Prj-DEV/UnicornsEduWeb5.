@@ -257,12 +257,15 @@ function resolveSelectedTeacherId(options: {
   return "";
 }
 
+/** Tham chiếu ổn định: default `[]` inline tạo mảng mới mỗi render, phá memo. */
+const EMPTY_TEACHERS: SessionTeacherItem[] = [];
+
 export default function AddSessionPopup({
   open,
   classId,
   className = "",
   defaultTeacherId,
-  teachers = [],
+  teachers = EMPTY_TEACHERS,
   students,
   sessionTuitionTotal = 0,
   classPricing,
@@ -301,13 +304,11 @@ export default function AddSessionPopup({
   const [isTrialLesson, setIsTrialLesson] = useState(false);
   const [skipAttendance, setSkipAttendance] = useState(noAttendance);
   const [teacherPaymentStatus, setTeacherPaymentStatus] = useState<string>("unpaid");
-  const [selectedTeacherId, setSelectedTeacherId] = useState(
-    resolveSelectedTeacherId({
+  const [selectedTeacherId, setSelectedTeacherId] = useState(() => resolveSelectedTeacherId({
       defaultTeacherId,
       teacherMode,
       teachers,
-    }),
-  );
+    }),);
   const [attendanceItems, setAttendanceItems] = useState<AttendanceFormItem[]>(() =>
     students.map((student) => ({
       studentId: student.id,
@@ -853,7 +854,7 @@ export default function AddSessionPopup({
       <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <SessionFormDialogBody>
                   <div className="space-y-5">
-                    <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
+                    <div className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
                       <span>
                         Ngày học <RequiredMark />
                       </span>
@@ -865,7 +866,7 @@ export default function AddSessionPopup({
                         className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                         required
                       />
-                    </label>
+                    </div>
 
                     <div>
                       <p className="mb-1.5 text-sm font-medium text-text-primary">
@@ -907,7 +908,7 @@ export default function AddSessionPopup({
                     </div>
 
                     {teacherMode === "select" ? (
-                      <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
+                      <div className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
                         <span>
                           Gia sư dạy <RequiredMark />
                         </span>
@@ -925,7 +926,7 @@ export default function AddSessionPopup({
                         <span className="text-xs font-normal text-text-muted">
                           Chỉ hiển thị gia sư đã được phân công phụ trách lớp này.
                         </span>
-                      </label>
+                      </div>
                     ) : (
                       <div className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
                         <span>

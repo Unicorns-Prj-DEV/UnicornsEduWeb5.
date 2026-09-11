@@ -2715,7 +2715,7 @@ export class LessonService {
   }
 
   private sortTaskAssignees(assignees: LessonTaskAssigneeDto[]) {
-    return [...assignees].sort((left, right) => {
+    return assignees.toSorted((left, right) => {
       if (left.status !== right.status) {
         return left.status.localeCompare(right.status);
       }
