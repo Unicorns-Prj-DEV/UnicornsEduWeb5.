@@ -198,7 +198,15 @@ function EditClassBasicInfoDialog({ onClose, classDetail }: Omit<Props, "open">)
       toast.error(tuitionPkg.message);
       return;
     }
-    if (pricingMode === "per_block" && (standardBlockCount == null || standardBlockCount <= 0)) {
+    // Chỉ chặn khi admin thực sự BẬT chế độ block. Lớp đã ở per_block mà lịch
+    // sau đó đổi thành không hợp lệ vẫn phải sửa được học phí / sĩ số / tên lớp,
+    // đúng như backend: updateClassBasicInfo không gọi assertCanEnableBlockPricing.
+    const pricingModeChanged = pricingMode !== (classDetail.pricingMode ?? "per_session");
+    if (
+      pricingModeChanged &&
+      pricingMode === "per_block" &&
+      (standardBlockCount == null || standardBlockCount <= 0)
+    ) {
       toast.error(missingBlockReason);
       return;
     }

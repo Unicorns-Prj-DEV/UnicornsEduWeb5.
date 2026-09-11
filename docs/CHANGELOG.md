@@ -21,6 +21,18 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Typecheck `apps/api` vỡ sau khi bump axios 1.20:** `unioj.service.ts` đọc `pdfResponse.headers['content-type']` rồi gọi `.includes()` — axios 1.20 nới kiểu giá trị header thành `string | number | boolean | string[] | AxiosHeaders` nên `TS2339: Property 'includes' does not exist on type 'number'`. Bọc `String(... ?? '')` trước khi so khớp. `tsc --noEmit` sạch 0 lỗi.
+- **Lớp tính theo block 30 phút bị khoá không sửa được gì (hotfix):**
+  - **Triệu chứng:** lớp đang ở `pricing_mode = per_block` mà lịch cố định có các khung giờ lệch thời lượng thì **mọi** thao tác lưu trên popup **Thông tin lớp** đều bị chặn — đổi học phí, sĩ số tối đa, tên lớp, trạng thái — đều hiện cùng toast *"…các khung giờ không cùng một thời lượng chuẩn."* Phát hiện trên `UNICL-37f607c5df` (CN 2h, T7 4h, T4 1h).
+  - **Nguyên nhân 1 — ràng buộc quá chặt:** `standardBlockCountFromSlots` yêu cầu **mọi** khung giờ active cùng thời lượng, lệch một chút là trả `null`. Ràng buộc này không cần thiết: tiền thật lấy từ cột per-block × `sessions.snapshot_block_count` của **từng buổi**, nên lịch lệch vẫn tính đúng. Số block chuẩn chỉ là đơn vị quy đổi hiển thị, và vòng FE nhân K / BE chia K là bất biến với mọi `K > 0`.
+  - **Nguyên nhân 2 — guard đặt sai chỗ:** `EditClassBasicInfoPopup.handleSubmit` kiểm tra `pricingMode === "per_block"` (trạng thái form) thay vì "đang đổi sang per_block" (hành động), nên lớp đã ở chế độ block thì lần nào submit cũng bị chặn, không có đường thoát. Backend không hề chặn — `updateClassBasicInfo` không gọi `assertCanEnableBlockPricing`.
+  - **Sửa:** `standardBlockCountFromSlots` (cả `apps/api/src/common/block-pricing.util.ts` và `apps/web/lib/class-pricing-mode.ts`) lấy **GCD** số block của các khung giờ active thay vì đòi bằng nhau; chỉ còn trả `null` khi không có lịch active hoặc có khung giờ không chia hết 30 phút. Lịch đồng nhất ra kết quả **y hệt trước** (GCD của các số bằng nhau là chính nó) → không lớp nào đổi số tiền. Guard trong `EditClassBasicInfoPopup` chỉ chạy khi `pricingMode` thực sự đổi.
+  - **Copy:** bỏ thông báo *"không cùng một thời lượng chuẩn"*; `MISSING_STANDARD_BLOCKS_FALLBACK` và `assertCanEnableBlockPricing` đổi sang *"chưa có lịch cố định, hoặc có khung giờ với thời lượng không phải bội số 30 phút"*; `ClassPricingModeField` nói rõ các khung giờ không cần dài bằng nhau; "buổi chuẩn" → "mốc quy đổi" kèm ghi chú mỗi buổi tính theo block thực tế.
+  - **Verify:** `UNICL-37f607c5df` block counts `4, 8, 2, 4, 8` → số block chuẩn `2` (trước: `null`), đúng bằng K cũ (`225000 / 112500`) nên dữ liệu hiện có khớp liền, không cần backfill; round-trip `112500 → 225000 → 112500` bất biến; mỗi khung giờ vẫn ra `snapshot_block_count` riêng `4 / 8 / 2`. Toàn DB chỉ 1 lớp dính. Test: 233 backend + 97 frontend pass.
+  - Docs: `docs/adr/2026-09-09-expand-block-pricing.md`, `docs/pages/admin.md`, `docs/Database Schema.md`.
+
 ### Changed
 
 - **Lương cứng trên hồ sơ thu nhập:** card **Lương cứng** trên `/admin/staffs/:id` và `/staff/profile` không còn dòng tổng theo role (`Lương cứng · Giáo án` / `fixedSalaryRoleSummaries`). Chỉ còn từng khoản đã chốt (`fixedSalaryPayables`). API vẫn trả `fixedSalaryRoleSummaries` cho tổng thu nhập.

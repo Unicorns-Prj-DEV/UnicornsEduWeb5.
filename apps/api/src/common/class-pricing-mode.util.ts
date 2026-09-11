@@ -100,7 +100,7 @@ export function assertCanEnableBlockPricing(
 ): void {
   if (standardBlockCount == null || standardBlockCount <= 0) {
     throw new BadRequestException(
-      'Không thể bật chế độ tính theo block 30 phút: lớp chưa có lịch cố định thống nhất với thời lượng là bội số 30 phút.',
+      'Không thể bật chế độ tính theo block 30 phút: lớp chưa có lịch cố định, hoặc có khung giờ với thời lượng không phải bội số 30 phút.',
     );
   }
 }
