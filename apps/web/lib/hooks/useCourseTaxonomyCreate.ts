@@ -19,7 +19,7 @@ type CreateOption = {
  */
 export function useChapterCreateOption(
   courseId: string | undefined,
-  onCreated: (chapterId: string) => void,
+  onCreated: (chapterId: string, title: string) => void,
 ): CreateOption {
   const queryClient = useQueryClient();
 
@@ -34,7 +34,7 @@ export function useChapterCreateOption(
         await queryClient.invalidateQueries({
           queryKey: courseKeys.chapters(courseId),
         });
-        onCreated(res.data.id);
+        onCreated(res.data.id, title);
         toast.success("Đã tạo chủ đề mới.");
       } catch {
         toast.error("Không thể tạo chủ đề.");

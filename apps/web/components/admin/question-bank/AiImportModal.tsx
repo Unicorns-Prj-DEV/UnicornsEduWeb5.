@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useId } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as questionApi from "@/lib/apis/question.api";
@@ -16,7 +16,6 @@ import {
   allQuestionsReviewed,
   importDisabledReason,
   remapReviewedAfterRemove,
-  remainingReviewLabel,
   revalidateAiQuestion,
   summarizeInvalidQuestions,
   unreviewedCount,
@@ -60,6 +59,7 @@ export default function AiImportModal({
   variant = "modal",
   onImportedQuestions,
 }: AiImportModalProps) {
+  const formId = useId();
   const queryClient = useQueryClient();
   const [step, setStep] = useState<AiImportStep>(AiImportStep.prompt);
   const [topic, setTopic] = useState("");
@@ -82,10 +82,44 @@ export default function AiImportModal({
 
   const { data: chapters = [] } = useCourseChapters(courseId);
 
+  const chapterOptions = useMemo(
+    () =>
+      chapters.map((chapter) => ({
+        value: chapter.id,
+        label: chapter.title,
+      })),
+    [chapters],
+  );
+
+  const handleChapterChange = useCallback(
+    (chapterId: string) => {
+      const chapterTitle =
+        chapters.find((chapter) => chapter.id === chapterId)?.title ?? "";
+      setSelectedChapterId(chapterId);
+      setTopic(chapterTitle);
+    },
+    [chapters],
+  );
+
+  const chapterCreate = useChapterCreateOption(
+    courseId,
+    (chapterId, title) => {
+      setSelectedChapterId(chapterId);
+      setTopic(title);
+    },
+  );
+
   const difficultyNames = useMemo(
     () => difficultyLevels.map((level) => level.name),
     [difficultyLevels],
   );
+
+  const selectedChapterTitle = useMemo(() => {
+    return (
+      chapters.find((chapter) => chapter.id === selectedChapterId)?.title ??
+      topic
+    );
+  }, [chapters, selectedChapterId, topic]);
 
   const resolveDifficultyId = useCallback(
     (name: string): string => {
@@ -105,7 +139,7 @@ export default function AiImportModal({
     return `Bạn là trợ lý soạn câu hỏi cho khoá ${courseName} của Unicorns Edu.
 
 NHIỆM VỤ
-Sinh ${questionCount} câu hỏi về: ${topic || "(nhập chủ đề)"}.
+Sinh ${questionCount} câu hỏi về: ${selectedChapterTitle || "(chọn chủ đề)"}.
 
 ĐẦU RA — CHỈ MỘT JSON ARRAY THUẦN
 - In ra đúng một mảng JSON: ký tự đầu là [ và ký tự cuối là ].
@@ -163,7 +197,7 @@ TỰ KIỂM TRA (bắt buộc trước khi trả lời)
 3. single_choice: có options hợp lệ + correctIndex trong khoảng.
 4. essay: không có options, không có correctIndex.
 5. Mọi difficulty khớp danh sách trên.`;
-  }, [course?.name, difficultyNames, questionCount, topic]);
+  }, [course?.name, difficultyNames, questionCount, selectedChapterTitle]);
 
   const markViewed = (index: number) => {
     setReviewed((prev) => {
@@ -283,6 +317,9 @@ TỰ KIỂM TRA (bắt buộc trước khi trả lời)
     isPending: importMutation.isPending,
   });
   const canImport = disabledReason === null;
+  const isLastReviewQuestion =
+    items.length > 0 && currentQuestionIndex >= items.length - 1;
+  const showImportButton = isLastReviewQuestion && reviewComplete;
   const reviewedPercent =
     items.length === 0
       ? 0
@@ -299,11 +336,10 @@ TỰ KIỂM TRA (bắt buộc trước khi trả lời)
     }
   };
 
-  const chapterOptions = chapters.map((chapter) => ({
-    value: chapter.id,
-    label: chapter.title,
-  }));
-  const chapterCreate = useChapterCreateOption(courseId, setSelectedChapterId);
+  const handleCopyAndContinue = async () => {
+    const copied = await handleCopy();
+    if (copied) setStep(AiImportStep.paste);
+  };
 
   const isInline = variant === "inline";
   const { confirm, dialog } = useConfirmDialog();
@@ -367,11 +403,18 @@ TỰ KIỂM TRA (bắt buộc trước khi trả lời)
             <div className="space-y-4">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-text-muted">
+                  <label
+                    htmlFor={`${formId}-question-count`}
+                    className="mb-1 block text-xs font-medium text-text-muted"
+                  >
                     Số câu hỏi
                   </label>
                   <input
+                    id={`${formId}-question-count`}
+                    name="aiQuestionCount"
                     type="number"
+                    inputMode="numeric"
+                    autoComplete="off"
                     min={1}
                     max={50}
                     value={questionCount}
@@ -384,22 +427,35 @@ TỰ KIỂM TRA (bắt buộc trước khi trả lời)
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-text-muted">
+                  <label
+                    htmlFor={`${formId}-prompt-topic`}
+                    className="mb-1 block text-xs font-medium text-text-muted"
+                  >
                     Chủ đề / Yêu cầu thêm
                   </label>
-                  <input
-                    type="text"
-                    value={topic}
-                    onChange={(e) => setTopic(e.target.value)}
-                    placeholder="VD: Đạo hàm, Tích phân, Xác suất..."
-                    className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
+                  <UpgradedSelect
+                    id={`${formId}-prompt-topic`}
+                    searchable
+                    value={selectedChapterId}
+                    onValueChange={handleChapterChange}
+                    options={chapterOptions}
+                    placeholder="Gõ để tìm hoặc tạo chủ đề…"
+                    ariaLabel="Chủ đề để sinh câu hỏi"
+                    noResultsLabel="Không tìm thấy chủ đề phù hợp."
+                    {...chapterCreate}
                   />
+                  <p className="mt-1 text-xs text-text-muted">
+                    Câu hỏi sẽ được gắn vào chủ đề này khi lưu.
+                  </p>
                 </div>
               </div>
 
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <label className="text-xs font-medium text-text-muted">
+                  <label
+                    htmlFor={`${formId}-prompt`}
+                    className="text-xs font-medium text-text-muted"
+                  >
                     Prompt (nhấn Sao chép để copy)
                   </label>
                   <span className="text-xs text-text-muted">
@@ -407,8 +463,11 @@ TỰ KIỂM TRA (bắt buộc trước khi trả lời)
                   </span>
                 </div>
                 <textarea
+                  id={`${formId}-prompt`}
+                  name="aiPrompt"
                   readOnly
                   value={prompt}
+                  autoComplete="off"
                   className="h-64 w-full rounded-md border border-border-default bg-bg-secondary/50 p-3 font-mono text-xs text-text-primary"
                 />
               </div>
@@ -423,11 +482,7 @@ TỰ KIỂM TRA (bắt buộc trước khi trả lời)
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    void handleCopy().then((copied) => {
-                      if (copied) setStep(AiImportStep.paste);
-                    });
-                  }}
+                  onClick={() => void handleCopyAndContinue()}
                   className="min-h-11 rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse hover:bg-primary/90"
                 >
                   Sao chép & Tiếp tục
@@ -446,8 +501,12 @@ TỰ KIỂM TRA (bắt buộc trước khi trả lời)
                 và báo rõ câu nào, trường nào sai.
               </p>
               <textarea
+                id={`${formId}-raw-json`}
+                name="aiImportJson"
                 value={rawJson}
                 onChange={(e) => setRawJson(e.target.value)}
+                autoComplete="off"
+                aria-label="JSON câu hỏi từ AI"
                 placeholder='[{"type":"single_choice","content":"...","options":["A","B","C","D"],"correctIndex":0,"difficulty":"Nhận biết"},{"type":"essay","content":"...","answerGuide":"...","difficulty":"Thông hiểu"}]'
                 className="h-64 w-full rounded-md border border-border-default bg-bg-surface p-3 font-mono text-xs text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
               />
@@ -543,44 +602,36 @@ TỰ KIỂM TRA (bắt buộc trước khi trả lời)
               )}
 
               <div>
-                <label className="mb-1 block text-xs font-medium text-text-muted">
+                <label
+                  htmlFor={`${formId}-review-topic`}
+                  className="mb-1 block text-xs font-medium text-text-muted"
+                >
                   Gắn vào Chủ đề (bắt buộc)
                 </label>
                 <UpgradedSelect
+                  id={`${formId}-review-topic`}
                   searchable
                   value={selectedChapterId}
-                  onValueChange={setSelectedChapterId}
+                  onValueChange={handleChapterChange}
                   options={chapterOptions}
-                  placeholder="Gõ để tìm hoặc tạo chủ đề"
+                  placeholder="Gõ để tìm hoặc tạo chủ đề…"
                   ariaLabel="Chọn chủ đề để gắn câu hỏi"
+                  noResultsLabel="Không tìm thấy chủ đề phù hợp."
                   {...chapterCreate}
                 />
               </div>
 
               {currentItem ? (
                 <div className="space-y-3">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm font-medium text-text-primary">
                       Câu {currentQuestionIndex + 1} / {items.length}
                     </p>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => goToIndex(currentQuestionIndex - 1)}
-                        disabled={currentQuestionIndex === 0}
-                        className="min-h-11 flex-1 rounded-md border border-border-default px-3 py-2 text-sm text-text-secondary hover:bg-bg-secondary/40 disabled:opacity-40 sm:flex-none"
-                      >
-                        Trước
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => goToIndex(currentQuestionIndex + 1)}
-                        disabled={currentQuestionIndex >= items.length - 1}
-                        className="min-h-11 flex-1 rounded-md border border-border-default px-3 py-2 text-sm text-text-secondary hover:bg-bg-secondary/40 disabled:opacity-40 sm:flex-none"
-                      >
-                        Sau
-                      </button>
-                    </div>
+                    {!reviewComplete ? (
+                      <p className="text-xs text-text-muted">
+                        Soát hết từng câu để mở bước lưu cuối cùng.
+                      </p>
+                    ) : null}
                   </div>
 
                   <QuestionReviewCard
@@ -617,19 +668,36 @@ TỰ KIỂM TRA (bắt buộc trước khi trả lời)
               {disabledReason && !importMutation.isPending && (
                 <p className="text-xs text-text-muted">{disabledReason}</p>
               )}
-              <button
-                type="button"
-                onClick={() => importMutation.mutate()}
-                disabled={!canImport}
-                title={disabledReason ?? "Lưu vào ngân hàng"}
-                className="min-h-11 rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse hover:bg-primary/90 disabled:opacity-50"
-              >
-                {importMutation.isPending
-                  ? "Đang nhập..."
-                  : reviewComplete
-                    ? "Lưu vào ngân hàng"
-                    : remainingReviewLabel(remainingUnreviewed)}
-              </button>
+              {showImportButton ? (
+                <button
+                  type="button"
+                  onClick={() => importMutation.mutate()}
+                  disabled={!canImport}
+                  title={disabledReason ?? "Lưu vào ngân hàng"}
+                  className="min-h-11 rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse hover:bg-primary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50"
+                >
+                  {importMutation.isPending ? "Đang nhập…" : "Lưu vào ngân hàng"}
+                </button>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => goToIndex(currentQuestionIndex - 1)}
+                    disabled={currentQuestionIndex === 0}
+                    className="min-h-11 rounded-md bg-info px-4 py-2 text-sm font-medium text-text-inverse hover:brightness-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:bg-info/40 disabled:text-text-inverse/80"
+                  >
+                    Trước
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => goToIndex(currentQuestionIndex + 1)}
+                    disabled={items.length === 0 || currentQuestionIndex >= items.length - 1}
+                    className="min-h-11 rounded-md bg-info px-4 py-2 text-sm font-medium text-text-inverse hover:brightness-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:bg-info/40 disabled:text-text-inverse/80"
+                  >
+                    Sau
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -673,6 +741,7 @@ function QuestionReviewCard({
   onUpdate: (patch: Partial<ValidatedAiQuestion>) => void;
   onRemove: () => void;
 }) {
+  const fieldId = useId();
   const diffOptions = difficultyLevels.map((level) => ({
     value: level.id,
     label: level.name,
@@ -716,13 +785,19 @@ function QuestionReviewCard({
 
       <div className="space-y-3 border-t border-border-default px-4 py-3">
         <div>
-          <label className="mb-1 block text-xs font-medium text-text-muted">
+          <label
+            htmlFor={`${fieldId}-content`}
+            className="mb-1 block text-xs font-medium text-text-muted"
+          >
             Nội dung
           </label>
           <textarea
+            id={`${fieldId}-content`}
+            name={`aiQuestion${index + 1}Content`}
             value={item.content}
             onChange={(e) => onUpdate({ content: e.target.value })}
             rows={3}
+            autoComplete="off"
             className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none"
           />
           {item.content.trim() ? (
@@ -734,10 +809,14 @@ function QuestionReviewCard({
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-xs font-medium text-text-muted">
+            <label
+              htmlFor={`${fieldId}-difficulty`}
+              className="mb-1 block text-xs font-medium text-text-muted"
+            >
               Độ khó
             </label>
             <UpgradedSelect
+              id={`${fieldId}-difficulty`}
               value={item.difficultyLevelId}
               onValueChange={(value) => {
                 const level = difficultyLevels.find((entry) => entry.id === value);
@@ -755,10 +834,14 @@ function QuestionReviewCard({
           </div>
           {item.type === "single_choice" && (
             <div>
-              <label className="mb-1 block text-xs font-medium text-text-muted">
+              <label
+                htmlFor={`${fieldId}-correct-answer`}
+                className="mb-1 block text-xs font-medium text-text-muted"
+              >
                 Đáp án đúng
               </label>
               <UpgradedSelect
+                id={`${fieldId}-correct-answer`}
                 value={String(item.correctIndex ?? 0)}
                 onValueChange={(value) =>
                   onUpdate({ correctIndex: Number(value) })
@@ -777,22 +860,28 @@ function QuestionReviewCard({
 
         {item.type === "single_choice" && item.options && (
           <div>
-            <label className="mb-1 block text-xs font-medium text-text-muted">
+            <p className="mb-1 block text-xs font-medium text-text-muted">
               Phương án
-            </label>
+            </p>
             <div className="space-y-2">
               {item.options.map((opt, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <span className="w-6 text-center text-xs font-bold text-text-muted">
+                  <label
+                    htmlFor={`${fieldId}-option-${i}`}
+                    className="w-6 text-center text-xs font-bold text-text-muted"
+                  >
                     {String.fromCharCode(65 + i)}
-                  </span>
+                  </label>
                   <input
+                    id={`${fieldId}-option-${i}`}
+                    name={`aiQuestion${index + 1}Option${i + 1}`}
                     value={opt}
                     onChange={(e) => {
                       const newOpts = [...(item.options ?? [])];
                       newOpts[i] = e.target.value;
                       onUpdate({ options: newOpts });
                     }}
+                    autoComplete="off"
                     className="min-h-11 flex-1 rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-sm text-text-primary focus:border-border-focus focus:outline-none"
                   />
                 </div>
@@ -803,13 +892,19 @@ function QuestionReviewCard({
 
         {item.type === "single_choice" && (
           <div>
-            <label className="mb-1 block text-xs font-medium text-text-muted">
+            <label
+              htmlFor={`${fieldId}-explanation`}
+              className="mb-1 block text-xs font-medium text-text-muted"
+            >
               Giải thích
             </label>
             <textarea
+              id={`${fieldId}-explanation`}
+              name={`aiQuestion${index + 1}Explanation`}
               value={item.explanation ?? ""}
               onChange={(e) => onUpdate({ explanation: e.target.value })}
               rows={2}
+              autoComplete="off"
               className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none"
             />
           </div>
@@ -844,13 +939,19 @@ function QuestionReviewCard({
         )}
         {item.type === "essay" && (
           <div>
-            <label className="mb-1 block text-xs font-medium text-text-muted">
+            <label
+              htmlFor={`${fieldId}-answer-guide`}
+              className="mb-1 block text-xs font-medium text-text-muted"
+            >
               Hướng dẫn trả lời
             </label>
             <textarea
+              id={`${fieldId}-answer-guide`}
+              name={`aiQuestion${index + 1}AnswerGuide`}
               value={item.answerGuide ?? ""}
               onChange={(e) => onUpdate({ answerGuide: e.target.value })}
               rows={2}
+              autoComplete="off"
               className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none"
             />
           </div>
