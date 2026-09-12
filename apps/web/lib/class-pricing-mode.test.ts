@@ -34,12 +34,31 @@ describe("class pricing mode UI (#137)", () => {
     });
   });
 
-  it("shows standard block count and the equivalent amount for one standard session", () => {
+  it("shows standard block count and the equivalent amount for the conversion unit", () => {
     expect(standardBlockCountFromSlots([{ from: "19:00:00", to: "20:30:00" }])).toBe(3);
-    expect(formatStandardBlockSummary(3)).toBe("Số block chuẩn: 3 (buổi chuẩn 90 phút).");
+    expect(formatStandardBlockSummary(3)).toContain("Số block chuẩn: 3");
+    expect(formatStandardBlockSummary(3)).toContain("mốc quy đổi 90 phút");
     expect(formatSessionEquivalentLine("Trợ cấp / HV", 30000, 3)).toContain("30.000");
     expect(formatSessionEquivalentLine("Trợ cấp / HV", 30000, 3)).toContain("90.000");
-    expect(formatSessionEquivalentLine("Trợ cấp / HV", 30000, 3)).toContain("buổi chuẩn");
+    expect(formatSessionEquivalentLine("Trợ cấp / HV", 30000, 3)).toContain("90 phút");
+  });
+
+  it("allows slots of different lengths, converting on the greatest common block count", () => {
+    // UNICL-37f607c5df: CN 2h, T7 4h, T4 1h → 4, 8, 2 block → mốc quy đổi 2 block.
+    expect(
+      standardBlockCountFromSlots([
+        { from: "09:00:00", to: "11:00:00" },
+        { from: "13:00:00", to: "17:00:00" },
+        { from: "14:00:00", to: "15:00:00" },
+      ]),
+    ).toBe(2);
+    // Lịch đồng nhất vẫn giữ nguyên kết quả cũ.
+    expect(
+      standardBlockCountFromSlots([
+        { from: "19:00:00", to: "20:30:00" },
+        { from: "09:00:00", to: "10:30:00" },
+      ]),
+    ).toBe(3);
   });
 
   it("states the unpaid-session recalculation scope in the confirm copy", () => {
@@ -53,12 +72,6 @@ describe("class pricing mode UI (#137)", () => {
     expect(
       explainMissingStandardBlocks([{ from: "19:00:00", to: "20:15:00" }]),
     ).toContain("không phải bội số 30 phút");
-    expect(
-      explainMissingStandardBlocks([
-        { from: "19:00:00", to: "20:00:00" },
-        { from: "19:00:00", to: "20:30:00" },
-      ]),
-    ).toContain("không cùng một thời lượng chuẩn");
 
     const blocked = requestClassPricingModeChange({
       current: "per_session",

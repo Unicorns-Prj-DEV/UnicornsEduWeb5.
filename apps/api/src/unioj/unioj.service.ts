@@ -647,7 +647,8 @@ export class UniojService {
         );
       }
 
-      // axios >= 1.20 khai báo header value là string | number | boolean | string[] | AxiosHeaders.
+      // axios 1.20 nới kiểu giá trị header thành string | number | boolean |
+      // string[] | AxiosHeaders, nên phải chuẩn hoá về string trước khi so khớp.
       const contentType = String(pdfResponse.headers['content-type'] ?? '');
       if (!contentType.includes('application/pdf')) {
         this.logger.error(

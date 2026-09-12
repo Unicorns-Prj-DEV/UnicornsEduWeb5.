@@ -34,11 +34,28 @@ describe('block-pricing.util', () => {
       expect(standardBlockCountFromSlots(null)).toBeNull();
     });
 
-    it('returns null when slot durations disagree', () => {
+    it('falls back to the greatest common block count when slots differ', () => {
       expect(
         standardBlockCountFromSlots([
           { from: '19:00', to: '20:00' },
           { from: '19:00', to: '20:30' },
+        ]),
+      ).toBe(1);
+      // Lịch thật của UNICL-37f607c5df: 120 / 240 / 60 phút → 4, 8, 2 block.
+      expect(
+        standardBlockCountFromSlots([
+          { from: '09:00', to: '11:00' },
+          { from: '13:00', to: '17:00' },
+          { from: '14:00', to: '15:00' },
+        ]),
+      ).toBe(2);
+    });
+
+    it('still returns null when any slot is not a 30-minute multiple', () => {
+      expect(
+        standardBlockCountFromSlots([
+          { from: '19:00', to: '20:00' },
+          { from: '19:00', to: '20:15' },
         ]),
       ).toBeNull();
     });

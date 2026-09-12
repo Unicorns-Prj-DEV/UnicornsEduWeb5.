@@ -56,7 +56,8 @@ export default function ClassPricingModeField({
         <div className="min-w-0">
           <p className="text-sm font-medium text-text-primary">Chế độ tính tiền</p>
           <p className="text-xs text-text-muted">
-            Mặc định theo buổi. Bật block 30 phút chỉ khi lịch lớp cùng thời lượng bội số 30 phút.
+            Mặc định theo buổi. Bật block 30 phút khi mọi khung giờ có thời lượng là bội số 30
+            phút — các khung giờ không cần dài bằng nhau.
           </p>
         </div>
         <label className="flex shrink-0 items-center gap-2 text-sm text-text-secondary">

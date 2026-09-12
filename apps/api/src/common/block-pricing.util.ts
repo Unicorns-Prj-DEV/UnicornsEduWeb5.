@@ -69,9 +69,26 @@ export type ScheduleClockSlot = {
   end?: string | null;
 };
 
+function greatestCommonDivisor(a: number, b: number): number {
+  let left = a;
+  let right = b;
+  while (right !== 0) {
+    const next = left % right;
+    left = right;
+    right = next;
+  }
+  return left;
+}
+
 /**
- * Standard block count of a class: every active slot must share the same
- * positive 30-minute multiple. Mixed or invalid durations → null.
+ * Standard block count of a class: the conversion unit between a per-session
+ * rate and a per 30-minute rate. Slots may differ in length — the standard is
+ * the greatest block count every active slot is a whole multiple of (GCD), so
+ * a uniform schedule still yields its own block count exactly as before.
+ *
+ * Only invalid durations (missing, non-positive, or not a 30-minute multiple)
+ * and an empty schedule produce null. Billing never depends on this value:
+ * each session derives its own block count from its start/end time.
  */
 export function standardBlockCountFromSlots(
   slots: readonly ScheduleClockSlot[] | null | undefined,
@@ -80,20 +97,16 @@ export function standardBlockCountFromSlots(
     return null;
   }
 
-  const counts: number[] = [];
+  let standard: number | null = null;
   for (const slot of slots) {
     const blocks = blockCountFromClockRange(slot.from, slot.to ?? slot.end);
     if (blocks == null) {
       return null;
     }
-    counts.push(blocks);
+    standard = standard == null ? blocks : greatestCommonDivisor(standard, blocks);
   }
 
-  const first = counts[0];
-  if (first == null) {
-    return null;
-  }
-  return counts.every((count) => count === first) ? first : null;
+  return standard != null && standard > 0 ? standard : null;
 }
 
 /** Round half away from zero toward nearest 1đ (integer VNĐ). */

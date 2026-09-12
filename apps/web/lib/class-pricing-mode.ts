@@ -11,7 +11,7 @@ export const CLASS_PRICING_MODE_CHANGE_CONFIRM =
   "Đổi chế độ tính tiền sẽ tính lại các buổi chưa thanh toán của lớp. Buổi đã thanh toán hoặc đã ghi cọc giữ nguyên số tiền. Tiếp tục?";
 
 export const MISSING_STANDARD_BLOCKS_FALLBACK =
-  "Không thể bật chế độ tính theo block 30 phút: lớp chưa có lịch cố định thống nhất với thời lượng là bội số 30 phút.";
+  "Không thể bật chế độ tính theo block 30 phút: lớp chưa có lịch cố định, hoặc có khung giờ với thời lượng không phải bội số 30 phút.";
 
 const CLOCK_RE = /^(\d{2}):(\d{2})(?::(\d{2}))?$/;
 
@@ -70,22 +70,37 @@ export function usableScheduleSlots(
   return slots.filter((slot) => Boolean(slot.from) && Boolean(slot.to ?? slot.end));
 }
 
+function greatestCommonDivisor(a: number, b: number): number {
+  let left = a;
+  let right = b;
+  while (right !== 0) {
+    const next = left % right;
+    left = right;
+    right = next;
+  }
+  return left;
+}
+
+/**
+ * Đơn vị quy đổi giữa giá / buổi và giá / 30 phút. Các khung giờ được phép
+ * lệch thời lượng: lấy GCD số block của mọi khung giờ, nên lịch đồng nhất vẫn
+ * ra đúng số block của chính nó như trước. Tiền thực tế không phụ thuộc giá
+ * trị này — mỗi buổi tự tính block từ giờ bắt đầu/kết thúc của buổi đó.
+ */
 export function standardBlockCountFromSlots(
   slots: readonly ScheduleClockSlot[] | null | undefined,
 ): number | null {
   const usable = usableScheduleSlots(slots);
   if (usable.length === 0) return null;
 
-  const counts: number[] = [];
+  let standard: number | null = null;
   for (const slot of usable) {
     const blocks = blockCountFromClockRange(slot.from, slot.to ?? slot.end);
     if (blocks == null) return null;
-    counts.push(blocks);
+    standard = standard == null ? blocks : greatestCommonDivisor(standard, blocks);
   }
 
-  const first = counts[0];
-  if (first == null) return null;
-  return counts.every((count) => count === first) ? first : null;
+  return standard != null && standard > 0 ? standard : null;
 }
 
 export function standardBlockCountFromClassSchedule(
@@ -107,9 +122,6 @@ export function explainMissingStandardBlocks(
   );
   if (counts.some((count) => count == null)) {
     return "Không thể bật chế độ tính theo block 30 phút: thời lượng lịch không phải bội số 30 phút.";
-  }
-  if (!counts.every((count) => count === counts[0])) {
-    return "Không thể bật chế độ tính theo block 30 phút: các khung giờ không cùng một thời lượng chuẩn.";
   }
   return MISSING_STANDARD_BLOCKS_FALLBACK;
 }
@@ -242,7 +254,7 @@ export function requestClassPricingModeChange(options: {
 
 export function formatStandardBlockSummary(standardBlockCount: number): string {
   const minutes = standardBlockCount * BLOCK_DURATION_MINUTES;
-  return `Số block chuẩn: ${standardBlockCount} (buổi chuẩn ${minutes} phút).`;
+  return `Số block chuẩn: ${standardBlockCount} (mốc quy đổi ${minutes} phút). Mỗi buổi vẫn tính theo số block thực tế của buổi đó.`;
 }
 
 export function formatSessionEquivalentLine(
@@ -251,7 +263,8 @@ export function formatSessionEquivalentLine(
   standardBlockCount: number,
 ): string {
   const perSession = perBlockToPerSession(perBlock, standardBlockCount) ?? perBlock;
-  return `${label}: ${formatCurrency(perBlock)} / 30 phút ≈ ${formatCurrency(perSession)} / buổi chuẩn.`;
+  const minutes = standardBlockCount * BLOCK_DURATION_MINUTES;
+  return `${label}: ${formatCurrency(perBlock)} / 30 phút ≈ ${formatCurrency(perSession)} / ${minutes} phút.`;
 }
 
 export function compactTuitionChargeLine(options: {
