@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { api } from "@/lib/client";
 import * as classApi from "@/lib/apis/class.api";
+import { contentApiPaths } from "@/lib/content-api-paths";
 import { courseKeys } from "@/lib/query-keys";
 
 type CreateOption = {
@@ -28,7 +29,7 @@ export function useChapterCreateOption(
       if (!courseId) return;
       try {
         const res = await api.post<{ id: string }>(
-          `/course/${courseId}/chapters`,
+          contentApiPaths.courseChapters(courseId),
           { courseId, title },
         );
         await queryClient.invalidateQueries({

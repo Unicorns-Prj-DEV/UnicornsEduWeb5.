@@ -1,5 +1,12 @@
 import type { CourseWorkspaceRouteBase } from "@/dtos/course-workspace.dto";
 
+/**
+ * Next.js page hrefs for the course content tree (admin / staff / student).
+ *
+ * Keep this module separate from `content-api-paths.ts` (Axios endpoints).
+ * Upcoming rename tickets should only edit segment / query names here for UI links.
+ */
+
 export function courseDetailHref(
   routeBase: CourseWorkspaceRouteBase,
   courseId: string,
@@ -41,4 +48,12 @@ export function topicHref(
   const base = `${routeBase}/courses/${courseId}/chapters/${chapterId}/topics/${topicId}`;
   if (!lectureId) return base;
   return `${base}?lecture=${encodeURIComponent(lectureId)}`;
+}
+
+export function studentClassTopicsHref(classId: string): string {
+  return `/student/classes/${classId}?tab=topics`;
+}
+
+export function studentTopicHref(classId: string, topicId: string): string {
+  return `/student/classes/${classId}/topics/${topicId}`;
 }

@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 import type { Lecture, LectureQuizQuestion, LectureQuizAnswer } from "@/dtos/topic.dto";
 import { CONTENT_LIMITS, overLimitMessage } from "@/dtos/content-limits";
 import { formatVnDate } from "@/lib/formatters";
+import { studentClassTopicsHref } from "@/lib/course-content-routes";
 
 function formatDate(date?: Date | string | null): string {
   if (!date) return "—";
@@ -126,7 +127,7 @@ export default function StudentTopicDetailPage() {
       <div className="space-y-6">
         <div className="flex items-center gap-2 text-sm text-text-muted">
           <Link
-            href={`/student/classes/${classId}?tab=topics`}
+            href={studentClassTopicsHref(classId)}
             className="inline-flex items-center gap-1 font-medium text-text-muted transition-colors hover:text-primary"
           >
             <ChevronLeft className="size-4" />
@@ -146,7 +147,7 @@ export default function StudentTopicDetailPage() {
           </p>
           <div className="mt-5">
             <Link
-              href={`/student/classes/${classId}?tab=topics`}
+              href={studentClassTopicsHref(classId)}
               className="inline-flex min-h-10 items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover"
             >
               Về danh sách chuyên đề
@@ -181,7 +182,7 @@ export default function StudentTopicDetailPage() {
         </Link>
         <span>/</span>
         <Link
-          href={`/student/classes/${classId}?tab=topics`}
+          href={studentClassTopicsHref(classId)}
           className="inline-flex items-center gap-1 font-medium text-text-muted transition-colors hover:text-primary max-w-[200px] sm:max-w-xs truncate"
         >
           {classDetail?.class?.name || "Chi tiết lớp"}

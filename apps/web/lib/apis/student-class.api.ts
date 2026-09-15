@@ -1,4 +1,5 @@
 import { api } from "@/lib/client";
+import { contentApiPaths } from "@/lib/content-api-paths";
 import type {
   StudentClassItem,
   StudentSessionItem,
@@ -52,7 +53,7 @@ export async function getMyClassTopic(
   updatedAt: Date;
 }> {
   const { data } = await api.get(
-    `/users/me/student-classes/${classId}/topics/${topicId}`,
+    contentApiPaths.studentClassTopic(classId, topicId),
   );
   return data;
 }
@@ -65,7 +66,7 @@ export async function recordMyTheoryTopicView({
   topicId: string;
 }): Promise<TheoryTopicViewDto> {
   const { data } = await api.post(
-    `/users/me/student-classes/${classId}/topics/${topicId}/view`,
+    contentApiPaths.studentClassTopicView(classId, topicId),
   );
   return data;
 }
@@ -78,7 +79,7 @@ export async function getMyLectureQuizzes(
   lectureId: string,
 ): Promise<LectureQuizQuestion[]> {
   const { data } = await api.get(
-    `/users/me/student-classes/${classId}/topics/${topicId}/lectures/${lectureId}/quizzes`,
+    contentApiPaths.studentLectureQuizzes(classId, topicId, lectureId),
   );
   return Array.isArray(data) ? data : [];
 }
@@ -90,7 +91,7 @@ export async function submitMyQuizAnswers(
   answers: SubmitQuizAnswerPayload[],
 ): Promise<LectureQuizAnswer[]> {
   const { data } = await api.post(
-    `/users/me/student-classes/${classId}/topics/${topicId}/lectures/${lectureId}/quizzes/answers`,
+    contentApiPaths.studentLectureQuizAnswers(classId, topicId, lectureId),
     answers,
   );
   return data;
@@ -102,7 +103,7 @@ export async function getMyQuizAnswers(
   lectureId: string,
 ): Promise<LectureQuizAnswer[]> {
   const { data } = await api.get(
-    `/users/me/student-classes/${classId}/topics/${topicId}/lectures/${lectureId}/quizzes/answers`,
+    contentApiPaths.studentLectureQuizAnswers(classId, topicId, lectureId),
   );
   return Array.isArray(data) ? data : [];
 }

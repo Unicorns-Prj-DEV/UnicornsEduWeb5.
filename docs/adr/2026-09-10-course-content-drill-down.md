@@ -27,3 +27,4 @@ Workspace khoá học gộp bốn bề mặt thành bốn tab trên một URL. T
 - `CourseTopicController` có GET/PATCH/DELETE `:topicId`.
 - GET chapters/topics trả `topicCount` / `lectureCount` / `questionCount`.
 - Staff mirror cùng path dưới `/staff/courses/...`.
+- Prefactor (vé 04): FE không ghép URL cây nội dung rải rác. Href trang: `apps/web/lib/course-content-routes.ts`. Endpoint Axios: `apps/web/lib/content-api-paths.ts`. Hai bộ dựng tách biệt; đổi tên segment sau này chỉ sửa hai file đó.

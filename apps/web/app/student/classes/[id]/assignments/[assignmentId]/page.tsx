@@ -9,6 +9,7 @@ import { getAssignmentLobby, startAssignmentAttempt } from "@/lib/apis/attempt.a
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { studentClassTopicsHref } from "@/lib/course-content-routes";
 
 function statusLabel(status: string) {
   if (status === "in_progress") return "Đang làm";
@@ -55,7 +56,7 @@ export default function StudentAssignmentLobbyPage() {
     return (
       <div className="space-y-4">
         <Link
-          href={`/student/classes/${classId}?tab=topics`}
+          href={studentClassTopicsHref(classId)}
           className="inline-flex items-center gap-1 text-sm text-text-muted"
         >
           <ChevronLeft className="size-4" />
@@ -73,7 +74,7 @@ export default function StudentAssignmentLobbyPage() {
   return (
     <div className="space-y-5">
       <Link
-        href={`/student/classes/${classId}?tab=topics`}
+        href={studentClassTopicsHref(classId)}
         className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-primary"
       >
         <ChevronLeft className="size-4" />

@@ -213,7 +213,7 @@
   - các link nội bộ của module được giữ dưới `/staff` (`/staff/lesson-plans/tasks/[taskId]`, `/staff/lesson-manage-details`) thay vì nhảy sang `/admin`
   - các route legacy `/staff/lesson-plan-tasks*` và `/staff/lesson-plan-manage-details` chỉ còn giữ vai trò redirect sang `/staff/lesson-plans*`
 - `/staff/courses`, `/staff/courses/[id]`
-  - wrapper mỏng dùng chung `CourseListWorkspace` / `CourseDetailWorkspace` / `TopicWorkspace` với `/admin/courses`; truyền `routeBase="/staff"` để mọi href nội bộ (`/staff/courses`, `/staff/courses/:id?tab=`, `/staff/courses/:id/chapters/:chapterId/topics/...`) không nhảy sang admin shell. `TopicWorkspace` dùng cùng layout cột (`flex-1` card, ô soạn lý thuyết lấp phần còn lại) — `staff` `main` là flex column như admin.
+  - wrapper mỏng dùng chung `CourseListWorkspace` / `CourseDetailWorkspace` / `TopicWorkspace` với `/admin/courses`; truyền `routeBase="/staff"` để mọi href nội bộ (`/staff/courses`, `/staff/courses/:id?tab=`, `/staff/courses/:id/chapters/:chapterId/topics/...`) không nhảy sang admin shell — các href đó dựng từ `apps/web/lib/course-content-routes.ts` (cùng file với admin). `TopicWorkspace` dùng cùng layout cột (`flex-1` card, ô soạn lý thuyết lấp phần còn lại) — `staff` `main` là flex column như admin.
   - sidebar mục **Nội dung khoá** (`prefetch={false}`) hiện khi `resolveStaffLessonWorkspace` báo `isLessonPlan` hoặc `isLessonPlanHead`; không hiện với `teacher`, `accountant_*`, `customer_care`, `training`, assistant thuần
   - quyền UI (không viết ma trận role riêng trên page): `resolveCourseWorkspaceCapabilities(profile, "/staff")`
   - **Ma trận quyền `/staff/courses`:**

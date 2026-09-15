@@ -35,6 +35,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- **Prefactor đường dẫn cây nội dung:** mọi href trang (admin/staff/học sinh) đi qua `apps/web/lib/course-content-routes.ts`; mọi URL Axios chứa `/chapters` `/topics` `/lectures` đi qua `apps/web/lib/content-api-paths.ts`. Điều hướng và endpoint giữ nguyên; dọn đường cho đợt đổi tên module/lesson. Docs: ADR `docs/adr/2026-09-10-course-content-drill-down.md`, `docs/pages/admin.md`, `docs/pages/staff.md`, `docs/pages/student.md`, `docs/Cách làm việc.md`.
 - **Đợt tối ưu theo `react-doctor` (2026-09-11):** ADR `docs/adr/2026-09-11-frontend-perf-a11y-conventions.md`.
   - `apps/web/lib/formatters.ts` mới: gom toàn bộ `Intl.NumberFormat` / `Intl.DateTimeFormat` về module scope (126 warning `intl-*`), component không tự dựng `Intl` trong render nữa.
   - **22 trang** dùng `useSearchParams()` được bọc `<Suspense>` (24 → 0 cảnh báo `nextjs-no-use-search-params-without-suspense`); thiếu boundary thì Next.js bỏ static render cả route.

@@ -5,6 +5,7 @@ import { Lock } from "lucide-react";
 import type { ClassContentItemDto } from "@/dtos/class-content.dto";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatVnDayMonthTime } from "@/lib/formatters";
+import { studentTopicHref } from "@/lib/course-content-routes";
 
 function formatOpenAt(iso: string | null): string {
   if (!iso) return "";
@@ -49,7 +50,7 @@ export default function StudentClassContentList({
         const href =
           item.topicKind === "practice"
             ? `/student/classes/${classId}/assignments/${item.id}`
-            : `/student/classes/${classId}/topics/${item.topicId}`;
+            : studentTopicHref(classId, item.topicId);
         const meta =
           item.topicKind === "practice"
             ? locked

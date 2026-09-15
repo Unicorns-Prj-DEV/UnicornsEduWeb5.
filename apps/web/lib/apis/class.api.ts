@@ -44,6 +44,7 @@ import type {
 } from "@/dtos/class-survey.dto";
 import { normalizeMakeupScheduleEvent, normalizeMakeupScheduleFeedResponse } from "./class-schedule.api";
 import { api } from "../client";
+import { contentApiPaths } from "@/lib/content-api-paths";
 import type { ClassContentItemDto, ClassContentCreatePayload, ClassContentScheduleUpdatePayload } from "@/dtos/class-content.dto";
 import type { ClassTheoryProgressDto } from "@/dtos/class-theory-progress.dto";
 import type {
@@ -513,8 +514,9 @@ export async function getStudentClassTimeline(
 }
 
 export async function getCourseTopicsForClass(classId: string): Promise<CourseTopicForClassDto[]> {
-  const safeId = encodeURIComponent(classId);
-  const response = await api.get<CourseTopicForClassDto[]>(`/class/${safeId}/content/course-topics`);
+  const response = await api.get<CourseTopicForClassDto[]>(
+    contentApiPaths.classCourseTopics(classId),
+  );
   return response.data;
 }
 
@@ -772,8 +774,9 @@ import type {
 // ── Chapters ──
 
 export async function getChapters(courseId: string): Promise<Chapter[]> {
-  const safeId = encodeURIComponent(courseId);
-  const response = await api.get<Chapter[]>(`/course/${safeId}/chapters`);
+  const response = await api.get<Chapter[]>(
+    contentApiPaths.courseChapters(courseId),
+  );
   return Array.isArray(response.data) ? response.data : [];
 }
 
@@ -781,10 +784,8 @@ export async function getChapter(
   courseId: string,
   chapterId: string,
 ): Promise<Chapter> {
-  const safeCourseId = encodeURIComponent(courseId);
-  const safeChapterId = encodeURIComponent(chapterId);
   const response = await api.get<Chapter>(
-    `/course/${safeCourseId}/chapters/${safeChapterId}`,
+    contentApiPaths.courseChapter(courseId, chapterId),
   );
   return response.data;
 }
@@ -793,8 +794,10 @@ export async function createChapter(
   courseId: string,
   data: CreateChapterPayload,
 ): Promise<Chapter> {
-  const safeId = encodeURIComponent(courseId);
-  const response = await api.post<Chapter>(`/course/${safeId}/chapters`, data);
+  const response = await api.post<Chapter>(
+    contentApiPaths.courseChapters(courseId),
+    data,
+  );
   return response.data;
 }
 
@@ -803,10 +806,8 @@ export async function updateChapter(
   chapterId: string,
   data: UpdateChapterPayload,
 ): Promise<Chapter> {
-  const safeCourseId = encodeURIComponent(courseId);
-  const safeChapterId = encodeURIComponent(chapterId);
   const response = await api.patch<Chapter>(
-    `/course/${safeCourseId}/chapters/${safeChapterId}`,
+    contentApiPaths.courseChapter(courseId, chapterId),
     data,
   );
   return response.data;
@@ -816,17 +817,16 @@ export async function deleteChapter(
   courseId: string,
   chapterId: string,
 ): Promise<void> {
-  const safeCourseId = encodeURIComponent(courseId);
-  const safeChapterId = encodeURIComponent(chapterId);
-  await api.delete(`/course/${safeCourseId}/chapters/${safeChapterId}`);
+  await api.delete(contentApiPaths.courseChapter(courseId, chapterId));
 }
 
 export async function reorderChapters(
   courseId: string,
   chapterIds: string[],
 ): Promise<void> {
-  const safeId = encodeURIComponent(courseId);
-  await api.post(`/course/${safeId}/chapters/reorder`, { chapterIds });
+  await api.post(contentApiPaths.courseChaptersReorder(courseId), {
+    chapterIds,
+  });
 }
 
 // ── Topics (course-scoped) ──
@@ -835,10 +835,8 @@ export async function getTopicsByChapter(
   courseId: string,
   chapterId: string,
 ): Promise<Topic[]> {
-  const safeCourseId = encodeURIComponent(courseId);
-  const safeChapterId = encodeURIComponent(chapterId);
   const response = await api.get<Topic[]>(
-    `/course/${safeCourseId}/chapters/${safeChapterId}/topics`,
+    contentApiPaths.courseChapterTopics(courseId, chapterId),
   );
   return Array.isArray(response.data) ? response.data : [];
 }
@@ -848,11 +846,8 @@ export async function getTopic(
   chapterId: string,
   topicId: string,
 ): Promise<Topic> {
-  const safeCourseId = encodeURIComponent(courseId);
-  const safeChapterId = encodeURIComponent(chapterId);
-  const safeTopicId = encodeURIComponent(topicId);
   const response = await api.get<Topic>(
-    `/course/${safeCourseId}/chapters/${safeChapterId}/topics/${safeTopicId}`,
+    contentApiPaths.courseChapterTopic(courseId, chapterId, topicId),
   );
   return response.data;
 }
@@ -862,10 +857,8 @@ export async function createTopic(
   chapterId: string,
   data: CreateTopicPayload,
 ): Promise<Topic> {
-  const safeCourseId = encodeURIComponent(courseId);
-  const safeChapterId = encodeURIComponent(chapterId);
   const response = await api.post<Topic>(
-    `/course/${safeCourseId}/chapters/${safeChapterId}/topics`,
+    contentApiPaths.courseChapterTopics(courseId, chapterId),
     data,
   );
   return response.data;
@@ -877,11 +870,8 @@ export async function updateTopic(
   topicId: string,
   data: UpdateTopicPayload,
 ): Promise<Topic> {
-  const safeCourseId = encodeURIComponent(courseId);
-  const safeChapterId = encodeURIComponent(chapterId);
-  const safeTopicId = encodeURIComponent(topicId);
   const response = await api.patch<Topic>(
-    `/course/${safeCourseId}/chapters/${safeChapterId}/topics/${safeTopicId}`,
+    contentApiPaths.courseChapterTopic(courseId, chapterId, topicId),
     data,
   );
   return response.data;
@@ -892,11 +882,8 @@ export async function deleteTopic(
   chapterId: string,
   topicId: string,
 ): Promise<void> {
-  const safeCourseId = encodeURIComponent(courseId);
-  const safeChapterId = encodeURIComponent(chapterId);
-  const safeTopicId = encodeURIComponent(topicId);
   await api.delete(
-    `/course/${safeCourseId}/chapters/${safeChapterId}/topics/${safeTopicId}`,
+    contentApiPaths.courseChapterTopic(courseId, chapterId, topicId),
   );
 }
 
@@ -905,10 +892,8 @@ export async function reorderTopics(
   chapterId: string,
   topicIds: string[],
 ): Promise<void> {
-  const safeCourseId = encodeURIComponent(courseId);
-  const safeChapterId = encodeURIComponent(chapterId);
   await api.post(
-    `/course/${safeCourseId}/chapters/${safeChapterId}/topics/reorder`,
+    contentApiPaths.courseChapterTopicsReorder(courseId, chapterId),
     { topicIds },
   );
 }
@@ -916,8 +901,9 @@ export async function reorderTopics(
 // ── Lectures ──
 
 export async function getLectures(topicId: string): Promise<Lecture[]> {
-  const safeId = encodeURIComponent(topicId);
-  const response = await api.get<Lecture[]>(`/topics/${safeId}/lectures`);
+  const response = await api.get<Lecture[]>(
+    contentApiPaths.topicLectures(topicId),
+  );
   return Array.isArray(response.data) ? response.data : [];
 }
 
@@ -925,8 +911,10 @@ export async function createLecture(
   topicId: string,
   data: CreateLecturePayload,
 ): Promise<Lecture> {
-  const safeId = encodeURIComponent(topicId);
-  const response = await api.post<Lecture>(`/topics/${safeId}/lectures`, data);
+  const response = await api.post<Lecture>(
+    contentApiPaths.topicLectures(topicId),
+    data,
+  );
   return response.data;
 }
 
@@ -935,10 +923,8 @@ export async function updateLecture(
   lectureId: string,
   data: UpdateLecturePayload,
 ): Promise<Lecture> {
-  const safeTopicId = encodeURIComponent(topicId);
-  const safeLectureId = encodeURIComponent(lectureId);
   const response = await api.patch<Lecture>(
-    `/topics/${safeTopicId}/lectures/${safeLectureId}`,
+    contentApiPaths.topicLecture(topicId, lectureId),
     data,
   );
   return response.data;
@@ -948,17 +934,14 @@ export async function deleteLecture(
   topicId: string,
   lectureId: string,
 ): Promise<void> {
-  const safeTopicId = encodeURIComponent(topicId);
-  const safeLectureId = encodeURIComponent(lectureId);
-  await api.delete(`/topics/${safeTopicId}/lectures/${safeLectureId}`);
+  await api.delete(contentApiPaths.topicLecture(topicId, lectureId));
 }
 
 export async function reorderLectures(
   topicId: string,
   lectureIds: string[],
 ): Promise<void> {
-  const safeId = encodeURIComponent(topicId);
-  await api.post(`/topics/${safeId}/lectures/reorder`, { lectureIds });
+  await api.post(contentApiPaths.topicLecturesReorder(topicId), { lectureIds });
 }
 
 // ── Question Links (Practice Topic / Đề) ──
@@ -966,8 +949,9 @@ export async function reorderLectures(
 export async function getPracticeTopicQuestions(
   topicId: string,
 ): Promise<QuestionLink[]> {
-  const safeId = encodeURIComponent(topicId);
-  const response = await api.get<QuestionLink[]>(`/topics/${safeId}/questions`);
+  const response = await api.get<QuestionLink[]>(
+    contentApiPaths.topicQuestions(topicId),
+  );
   return Array.isArray(response.data) ? response.data : [];
 }
 
@@ -975,8 +959,10 @@ export async function addPracticeTopicQuestion(
   topicId: string,
   data: CreateQuestionLinkPayload,
 ): Promise<QuestionLink> {
-  const safeId = encodeURIComponent(topicId);
-  const response = await api.post<QuestionLink>(`/topics/${safeId}/questions`, data);
+  const response = await api.post<QuestionLink>(
+    contentApiPaths.topicQuestions(topicId),
+    data,
+  );
   return response.data;
 }
 
@@ -985,10 +971,8 @@ export async function updatePracticeTopicQuestion(
   linkId: string,
   data: UpdateQuestionLinkPayload,
 ): Promise<QuestionLink> {
-  const safeTopicId = encodeURIComponent(topicId);
-  const safeLinkId = encodeURIComponent(linkId);
   const response = await api.patch<QuestionLink>(
-    `/topics/${safeTopicId}/questions/${safeLinkId}`,
+    contentApiPaths.topicQuestion(topicId, linkId),
     data,
   );
   return response.data;
@@ -998,25 +982,21 @@ export async function removePracticeTopicQuestion(
   topicId: string,
   linkId: string,
 ): Promise<void> {
-  const safeTopicId = encodeURIComponent(topicId);
-  const safeLinkId = encodeURIComponent(linkId);
-  await api.delete(`/topics/${safeTopicId}/questions/${safeLinkId}`);
+  await api.delete(contentApiPaths.topicQuestion(topicId, linkId));
 }
 
 export async function reorderPracticeTopicQuestions(
   topicId: string,
   linkIds: string[],
 ): Promise<void> {
-  const safeId = encodeURIComponent(topicId);
-  await api.post(`/topics/${safeId}/questions/reorder`, { linkIds });
+  await api.post(contentApiPaths.topicQuestionsReorder(topicId), { linkIds });
 }
 
 export async function getPracticeTopicQuestionSummary(
   topicId: string,
 ): Promise<QuestionLinkSummary> {
-  const safeId = encodeURIComponent(topicId);
   const response = await api.get<QuestionLinkSummary>(
-    `/topics/${safeId}/questions/summary`,
+    contentApiPaths.topicQuestionsSummary(topicId),
   );
   return response.data;
 }
@@ -1024,9 +1004,8 @@ export async function getPracticeTopicQuestionSummary(
 export async function isPracticeTopicAssigned(
   topicId: string,
 ): Promise<boolean> {
-  const safeId = encodeURIComponent(topicId);
   const response = await api.get<{ assigned: boolean }>(
-    `/topics/${safeId}/questions/is-assigned`,
+    contentApiPaths.topicQuestionsIsAssigned(topicId),
   );
   return response.data.assigned;
 }
@@ -1037,10 +1016,8 @@ export async function getLectureQuizzes(
   topicId: string,
   lectureId: string,
 ): Promise<LectureQuizQuestion[]> {
-  const safeTopicId = encodeURIComponent(topicId);
-  const safeLectureId = encodeURIComponent(lectureId);
   const response = await api.get<LectureQuizQuestion[]>(
-    `/topics/${safeTopicId}/lectures/${safeLectureId}/quizzes`,
+    contentApiPaths.lectureQuizzes(topicId, lectureId),
   );
   return Array.isArray(response.data) ? response.data : [];
 }
@@ -1050,12 +1027,9 @@ export async function linkQuizQuestions(
   lectureId: string,
   questionIds: string[],
 ): Promise<void> {
-  const safeTopicId = encodeURIComponent(topicId);
-  const safeLectureId = encodeURIComponent(lectureId);
-  await api.post(
-    `/topics/${safeTopicId}/lectures/${safeLectureId}/quizzes`,
-    { questionIds },
-  );
+  await api.post(contentApiPaths.lectureQuizzes(topicId, lectureId), {
+    questionIds,
+  });
 }
 
 export async function unlinkQuizQuestion(
@@ -1063,12 +1037,7 @@ export async function unlinkQuizQuestion(
   lectureId: string,
   questionId: string,
 ): Promise<void> {
-  const safeTopicId = encodeURIComponent(topicId);
-  const safeLectureId = encodeURIComponent(lectureId);
-  const safeQuestionId = encodeURIComponent(questionId);
-  await api.delete(
-    `/topics/${safeTopicId}/lectures/${safeLectureId}/quizzes/${safeQuestionId}`,
-  );
+  await api.delete(contentApiPaths.lectureQuiz(topicId, lectureId, questionId));
 }
 
 // ── Exam Library (practice topics at course level, chapterId null) ──

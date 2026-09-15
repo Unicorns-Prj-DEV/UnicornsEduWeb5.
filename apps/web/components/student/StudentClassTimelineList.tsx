@@ -21,6 +21,7 @@ import {
   StudentSurveyTimelineCard,
 } from "./StudentTimelineCards";
 import type { StudentSessionItem, StudentSurveyItem } from "@/dtos/student-class.dto";
+import { studentTopicHref } from "@/lib/course-content-routes";
 
 function mapSession(item: ClassTimelineItemDto): StudentSessionItem | null {
   if (item.kind !== "session" || !item.session) return null;
@@ -136,7 +137,7 @@ export default function StudentClassTimelineList({
           item.kind === "content_item" && item.classContentItemId && item.topicId
             ? item.topicKind === "practice"
               ? `/student/classes/${classId}/assignments/${item.classContentItemId}`
-              : `/student/classes/${classId}/topics/${item.topicId}`
+              : studentTopicHref(classId, item.topicId)
             : null;
         return { item, index, locked, href };
       }),

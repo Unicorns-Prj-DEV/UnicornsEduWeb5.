@@ -1,10 +1,14 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CourseChaptersPanel } from "@/components/course-workspace/CourseChaptersPanel";
 import { CourseTopicsPanel } from "@/components/course-workspace/CourseTopicsPanel";
 import type { CourseWorkspaceRouteBase } from "@/dtos/course-workspace.dto";
-import { newTopicHref, topicHref } from "@/lib/course-content-routes";
+import {
+  courseDetailHref,
+  newTopicHref,
+  topicHref,
+} from "@/lib/course-content-routes";
 
 export function ContentTab({
   courseId,
@@ -18,16 +22,17 @@ export function ContentTab({
   onOrderDirtyChange?: (dirty: boolean) => void;
 }) {
   const { push, replace } = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const chapterId = searchParams.get("chapter");
 
   const setChapterQuery = (nextChapterId: string | null) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("tab", "noi-dung");
-    if (nextChapterId) params.set("chapter", nextChapterId);
-    else params.delete("chapter");
-    replace(`${pathname}?${params.toString()}`, { scroll: false });
+    replace(
+      courseDetailHref(routeBase, courseId, {
+        tab: "noi-dung",
+        chapter: nextChapterId,
+      }),
+      { scroll: false },
+    );
   };
 
   if (chapterId) {
