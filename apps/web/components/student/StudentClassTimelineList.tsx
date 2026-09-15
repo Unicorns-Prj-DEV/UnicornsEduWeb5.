@@ -249,8 +249,9 @@ export default function StudentClassTimelineList({
             }
           };
 
-          // Row buổi học/khảo sát chứa nút "Xem thêm" nên không dùng <button> bọc
-          // ngoài (button lồng button không hợp lệ); dùng div có role="button".
+          // Row buổi học/khảo sát có MathContent (có thể chứa link) nên không
+          // dùng <button> bọc ngoài; dùng div có role="button". Bấm thumbnail
+          // tĩnh (ảnh, không nhúng trình phát) cũng nổi sự kiện lên đây.
           return (
             <div
               key={item.id}

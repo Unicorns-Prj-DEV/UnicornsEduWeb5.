@@ -21,6 +21,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Added
+
+- **Thumbnail video buổi học trên timeline học sinh (vé 11):** Row buổi học có `recordingUrl` hiện ảnh poster YouTube tĩnh (lazy, `alt` theo ngày buổi), không nhúng trình phát cho tới khi bấm mở dialog. Buổi không có recording không chừa ô trống. Nội dung / bài tập / hướng dẫn / nhận xét riêng hiện đầy đủ, bỏ **Xem thêm**. Helper `apps/web/lib/youtube.ts`. Docs: `docs/pages/student.md`.
+
 ### Changed
 
 - **Nghiệm thu đổi tên ba cấp (vé 08):** Toàn bộ đợt 05–07 nói Chuyên đề (`modules`) / Tiết học (`lessons`). Glossary ghi cặp dễ nhầm Tiết học vs Buổi học (cấm viết tắt) và danh sách tên đã khai tử. Hai ADR: mỗi Bài học cũ = một tiết (số mục lớp nhân lên) `docs/adr/2026-09-16-one-lecture-becomes-one-lesson.md`; tiết riêng lớp XOR chuyên đề `docs/adr/2026-09-16-class-owned-lesson-xor.md`. Docs schema/API/trang khớp code. Không sửa migration đã có.

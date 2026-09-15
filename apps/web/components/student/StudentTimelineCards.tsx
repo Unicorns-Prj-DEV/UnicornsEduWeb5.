@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { Play } from "lucide-react";
 
 import type { ClassTimelineItemDto } from "@/dtos/class-timeline.dto";
 import MathContent from "@/components/ui/MathContent";
 import { formatVnWeekday } from "@/lib/formatters";
+import { extractYouTubeVideoId, youtubeThumbnailUrl } from "@/lib/youtube";
 
 type TimelineSession = NonNullable<ClassTimelineItemDto["session"]>;
 type TimelineSurvey = NonNullable<ClassTimelineItemDto["survey"]>;
@@ -48,62 +50,83 @@ function formatTimeRange(
   return start || end || "—";
 }
 
-/** Nút thu gọn/mở rộng dùng chung; chặn click nổi lên row để không mở popup. */
-function ExpandToggle({
-  expanded,
-  onToggle,
-}: {
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className="mt-1 text-[11px] font-medium text-primary hover:underline"
-      onClick={(event) => {
-        event.stopPropagation();
-        event.preventDefault();
-        onToggle();
-      }}
-    >
-      {expanded ? "Thu gọn" : "Xem thêm"}
-    </button>
-  );
-}
-
 function SessionField({
   label,
   content,
-  expanded,
 }: {
   label: string;
   content: string;
-  expanded: boolean;
 }) {
   return (
     <div className="min-w-0">
       <p className="text-[11px] font-medium uppercase text-text-muted">
         {label}
       </p>
-      <MathContent
-        content={content}
-        className={`text-xs ${expanded ? "" : "line-clamp-1"}`}
-      />
+      <MathContent content={content} className="text-xs" />
     </div>
   );
 }
 
 /**
- * Row buổi học trên timeline học sinh: thời gian + nội dung buổi + nhận xét
- * dành riêng cho chính em. Không hiện dữ liệu vận hành (hệ số, thanh toán gia
- * sư, trợ cấp) và không hiện điểm danh/nhận xét của bạn học khác.
+ * Ảnh tĩnh từ `recordingUrl` (field chính thức của buổi học). Không nhúng
+ * `YouTubeEmbed` — trình phát chỉ mở khi học sinh bấm vào dòng/thumbnail.
+ */
+function SessionVideoThumbnail({
+  recordingUrl,
+  sessionDate,
+}: {
+  recordingUrl: string;
+  sessionDate: string;
+}) {
+  const videoId = extractYouTubeVideoId(recordingUrl);
+  const [imgFailed, setImgFailed] = useState(false);
+  const dateLabel = formatDateOnly(sessionDate);
+  const alt = `Video buổi học ngày ${dateLabel}`;
+  const src = videoId && !imgFailed ? youtubeThumbnailUrl(videoId) : null;
+
+  return (
+    <div className="order-2 w-full max-w-[13.5rem] shrink-0 overflow-hidden rounded-lg bg-bg-secondary sm:order-3 sm:w-36">
+      <div className="relative aspect-video">
+        {src ? (
+          // eslint-disable-next-line @next/next/no-img-element -- remote YouTube poster; Next Image needs a remotePatterns allowlist per host
+          <img
+            src={src}
+            alt={alt}
+            loading="lazy"
+            decoding="async"
+            className="size-full object-cover"
+            onError={() => setImgFailed(true)}
+          />
+        ) : (
+          <div
+            className="flex size-full items-center justify-center bg-bg-secondary"
+            role="img"
+            aria-label={alt}
+          />
+        )}
+        <span
+          className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/30"
+          aria-hidden
+        >
+          <Play className="size-7 fill-white text-white drop-shadow-sm" />
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Row buổi học trên timeline học sinh: thời gian + nội dung buổi đầy đủ + nhận
+ * xét dành riêng cho chính em. Có video thì hiện thumbnail tĩnh từ
+ * `recordingUrl`; không suy đoán từ chữ trong mô tả. Không hiện dữ liệu vận
+ * hành (hệ số, thanh toán gia sư, trợ cấp) và không hiện điểm danh/nhận xét
+ * của bạn học khác.
  */
 export function StudentSessionTimelineCard({
   session,
 }: {
   session: TimelineSession;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const fields = [
     { label: "Nội dung", content: session.lessonContent },
     { label: "Bài tập", content: session.homework },
@@ -111,11 +134,12 @@ export function StudentSessionTimelineCard({
   ].filter((field) => Boolean(field.content?.trim()));
   const statusLabel = attendanceStatusLabel(session.myAttendanceStatus);
   const myNotes = session.myAttendanceNotes?.trim() ?? "";
-  const canExpand = fields.length > 0 || Boolean(myNotes);
+  const recordingUrl = session.recordingUrl?.trim() ?? "";
+  const hasRecording = Boolean(recordingUrl);
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
-      <div className="flex min-w-[5.5rem] shrink-0 flex-col gap-0.5 text-left">
+      <div className="order-1 flex min-w-[5.5rem] shrink-0 flex-col gap-0.5 text-left">
         <p className="text-xs leading-tight text-text-secondary">
           {formatWeekday(session.date)}:
         </p>
@@ -127,7 +151,14 @@ export function StudentSessionTimelineCard({
         </p>
       </div>
 
-      <div className="min-w-0 flex-1 space-y-2">
+      {hasRecording ? (
+        <SessionVideoThumbnail
+          recordingUrl={recordingUrl}
+          sessionDate={session.date}
+        />
+      ) : null}
+
+      <div className="order-3 min-w-0 flex-1 space-y-2 sm:order-2">
         {fields.length ? (
           <div className="space-y-1.5">
             {fields.map((field) => (
@@ -135,7 +166,6 @@ export function StudentSessionTimelineCard({
                 key={field.label}
                 label={field.label}
                 content={field.content as string}
-                expanded={expanded}
               />
             ))}
           </div>
@@ -157,19 +187,9 @@ export function StudentSessionTimelineCard({
               </span>
             ) : null}
             {myNotes ? (
-              <MathContent
-                content={myNotes}
-                className={`text-xs ${expanded ? "" : "line-clamp-2"}`}
-              />
+              <MathContent content={myNotes} className="text-xs" />
             ) : null}
           </div>
-        ) : null}
-
-        {canExpand ? (
-          <ExpandToggle
-            expanded={expanded}
-            onToggle={() => setExpanded((prev) => !prev)}
-          />
         ) : null}
       </div>
     </div>
@@ -178,14 +198,14 @@ export function StudentSessionTimelineCard({
 
 /**
  * Row khảo sát trên timeline học sinh: tên bài + ngày báo cáo + nhận xét dành
- * riêng cho em. Đánh giá kiến thức chung của lớp chỉ dành cho staff.
+ * riêng cho em (đầy đủ, không cắt). Đánh giá kiến thức chung của lớp chỉ dành
+ * cho staff.
  */
 export function StudentSurveyTimelineCard({
   survey,
 }: {
   survey: TimelineSurvey;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const assessment = survey.myAssessment?.trim() ?? "";
 
   return (
@@ -211,16 +231,7 @@ export function StudentSurveyTimelineCard({
 
       <div className="border-t border-border-subtle pt-2">
         {assessment ? (
-          <>
-            <MathContent
-              content={assessment}
-              className={`text-xs ${expanded ? "" : "line-clamp-3"}`}
-            />
-            <ExpandToggle
-              expanded={expanded}
-              onToggle={() => setExpanded((prev) => !prev)}
-            />
-          </>
+          <MathContent content={assessment} className="text-xs" />
         ) : (
           <p className="text-xs text-text-muted">
             Chưa có nhận xét dành cho em ở bài khảo sát này.

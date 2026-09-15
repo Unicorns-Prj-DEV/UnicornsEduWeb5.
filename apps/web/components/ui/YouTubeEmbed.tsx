@@ -26,6 +26,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDevToolsDetector, nukeProtectedMedia } from "@/lib/useDevToolsDetector";
+import { extractYouTubeVideoId } from "@/lib/youtube";
+
+export { extractYouTubeVideoId } from "@/lib/youtube";
 
 export type YouTubeEmbedProps = {
   url: string;
@@ -33,19 +36,6 @@ export type YouTubeEmbedProps = {
   className?: string;
   title?: string;
 };
-
-export function extractYouTubeVideoId(url: string): string | null {
-  if (!url) return null;
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/)([^&\n?#]+)/,
-    /^([a-zA-Z0-9_-]{11})$/,
-  ];
-  for (const pattern of patterns) {
-    const match = url.trim().match(pattern);
-    if (match) return match[1];
-  }
-  return null;
-}
 
 function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "00:00";
