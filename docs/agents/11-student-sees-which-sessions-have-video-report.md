@@ -15,6 +15,7 @@
 - `apps/web` `tsc --noEmit` — 0 lỗi.
 - `vitest run lib/youtube.test.ts` — 2 passed.
 - Lint các file đã sửa — sạch.
+- Browser: `http://localhost:3999/student` trả Internal Server Error / không vào được timeline (không có session học sinh trong phiên này).
 
 ## Docs
 
