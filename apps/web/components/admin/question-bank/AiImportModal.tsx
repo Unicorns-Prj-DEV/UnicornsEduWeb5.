@@ -6,10 +6,10 @@ import { toast } from "sonner";
 import * as questionApi from "@/lib/apis/question.api";
 import { api } from "@/lib/client";
 import { questionKeys, courseKeys } from "@/lib/query-keys";
-import { useCourseChapters } from "@/lib/hooks/useCourseChapters";
+import { useCourseModules } from "@/lib/hooks/useCourseModules";
 import { useCourseDifficultyLevels } from "@/lib/hooks/useCourseDifficultyLevels";
 import {
-  useChapterCreateOption,
+  useModuleCreateOption,
   useDifficultyCreateOption,
 } from "@/lib/hooks/useCourseTaxonomyCreate";
 import {
@@ -80,31 +80,31 @@ export default function AiImportModal({
 
   const { data: difficultyLevels = [] } = useCourseDifficultyLevels(courseId);
 
-  const { data: chapters = [] } = useCourseChapters(courseId);
+  const { data: modules = [] } = useCourseModules(courseId);
 
   const chapterOptions = useMemo(
     () =>
-      chapters.map((chapter) => ({
+      modules.map((chapter) => ({
         value: chapter.id,
         label: chapter.title,
       })),
-    [chapters],
+    [modules],
   );
 
   const handleChapterChange = useCallback(
-    (chapterId: string) => {
+    (moduleId: string) => {
       const chapterTitle =
-        chapters.find((chapter) => chapter.id === chapterId)?.title ?? "";
-      setSelectedChapterId(chapterId);
+        modules.find((chapter) => chapter.id === moduleId)?.title ?? "";
+      setSelectedChapterId(moduleId);
       setTopic(chapterTitle);
     },
-    [chapters],
+    [modules],
   );
 
-  const chapterCreate = useChapterCreateOption(
+  const chapterCreate = useModuleCreateOption(
     courseId,
-    (chapterId, title) => {
-      setSelectedChapterId(chapterId);
+    (moduleId, title) => {
+      setSelectedChapterId(moduleId);
       setTopic(title);
     },
   );
@@ -116,10 +116,10 @@ export default function AiImportModal({
 
   const selectedChapterTitle = useMemo(() => {
     return (
-      chapters.find((chapter) => chapter.id === selectedChapterId)?.title ??
+      modules.find((chapter) => chapter.id === selectedChapterId)?.title ??
       topic
     );
-  }, [chapters, selectedChapterId, topic]);
+  }, [modules, selectedChapterId, topic]);
 
   const resolveDifficultyId = useCallback(
     (name: string): string => {
@@ -139,7 +139,7 @@ export default function AiImportModal({
     return `Bạn là trợ lý soạn câu hỏi cho khoá ${courseName} của Unicorns Edu.
 
 NHIỆM VỤ
-Sinh ${questionCount} câu hỏi về: ${selectedChapterTitle || "(chọn chủ đề)"}.
+Sinh ${questionCount} câu hỏi về: ${selectedChapterTitle || "(chọn chuyên đề)"}.
 
 ĐẦU RA — CHỈ MỘT JSON ARRAY THUẦN
 - In ra đúng một mảng JSON: ký tự đầu là [ và ký tự cuối là ].
@@ -281,7 +281,7 @@ TỰ KIỂM TRA (bắt buộc trước khi trả lời)
       const validItems = items.filter((item) => item._valid);
       return questionApi.bulkCreateQuestions({
         courseId,
-        chapterId: selectedChapterId,
+        moduleId: selectedChapterId,
         questions: validItems.map((item) => ({
           type: item.type,
           content: item.content,
@@ -312,7 +312,7 @@ TỰ KIỂM TRA (bắt buộc trước khi trả lời)
   const reviewComplete = allQuestionsReviewed(items.length, reviewed);
   const disabledReason = importDisabledReason({
     remainingUnreviewed,
-    chapterId: selectedChapterId,
+    moduleId: selectedChapterId,
     validCount: validItems.length,
     isPending: importMutation.isPending,
   });
@@ -431,7 +431,7 @@ TỰ KIỂM TRA (bắt buộc trước khi trả lời)
                     htmlFor={`${formId}-prompt-topic`}
                     className="mb-1 block text-xs font-medium text-text-muted"
                   >
-                    Chủ đề / Yêu cầu thêm
+                    Chuyên đề / Yêu cầu thêm
                   </label>
                   <UpgradedSelect
                     id={`${formId}-prompt-topic`}
@@ -439,13 +439,13 @@ TỰ KIỂM TRA (bắt buộc trước khi trả lời)
                     value={selectedChapterId}
                     onValueChange={handleChapterChange}
                     options={chapterOptions}
-                    placeholder="Gõ để tìm hoặc tạo chủ đề…"
-                    ariaLabel="Chủ đề để sinh câu hỏi"
-                    noResultsLabel="Không tìm thấy chủ đề phù hợp."
+                    placeholder="Gõ để tìm hoặc tạo chuyên đề…"
+                    ariaLabel="Chuyên đề để sinh câu hỏi"
+                    noResultsLabel="Không tìm thấy chuyên đề phù hợp."
                     {...chapterCreate}
                   />
                   <p className="mt-1 text-xs text-text-muted">
-                    Câu hỏi sẽ được gắn vào chủ đề này khi lưu.
+                    Câu hỏi sẽ được gắn vào chuyên đề này khi lưu.
                   </p>
                 </div>
               </div>
@@ -606,7 +606,7 @@ TỰ KIỂM TRA (bắt buộc trước khi trả lời)
                   htmlFor={`${formId}-review-topic`}
                   className="mb-1 block text-xs font-medium text-text-muted"
                 >
-                  Gắn vào Chủ đề (bắt buộc)
+                  Gắn vào Chuyên đề (bắt buộc)
                 </label>
                 <UpgradedSelect
                   id={`${formId}-review-topic`}
@@ -614,9 +614,9 @@ TỰ KIỂM TRA (bắt buộc trước khi trả lời)
                   value={selectedChapterId}
                   onValueChange={handleChapterChange}
                   options={chapterOptions}
-                  placeholder="Gõ để tìm hoặc tạo chủ đề…"
-                  ariaLabel="Chọn chủ đề để gắn câu hỏi"
-                  noResultsLabel="Không tìm thấy chủ đề phù hợp."
+                  placeholder="Gõ để tìm hoặc tạo chuyên đề…"
+                  ariaLabel="Chọn chuyên đề để gắn câu hỏi"
+                  noResultsLabel="Không tìm thấy chuyên đề phù hợp."
                   {...chapterCreate}
                 />
               </div>

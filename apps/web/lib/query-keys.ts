@@ -80,18 +80,16 @@ export const courseKeys = {
   list: (includeInactive?: boolean) =>
     [...courseKeys.all, "list", Boolean(includeInactive)] as const,
   detail: (id: string) => [...courseKeys.all, "detail", id] as const,
-  chapters: (courseId: string) =>
-    [...courseKeys.all, "chapters", courseId] as const,
-  chapter: (courseId: string, chapterId: string) =>
-    [...courseKeys.all, "chapter", courseId, chapterId] as const,
-  topicsPrefix: (courseId: string) =>
-    [...courseKeys.all, "topics", courseId] as const,
-  topics: (courseId: string, chapterId: string) =>
-    [...courseKeys.topicsPrefix(courseId), chapterId] as const,
-  lectures: (topicId: string) =>
-    [...courseKeys.all, "lectures", topicId] as const,
-  lectureQuizzes: (lectureId: string) =>
-    [...courseKeys.all, "lecture-quizzes", lectureId] as const,
+  modules: (courseId: string) =>
+    [...courseKeys.all, "modules", courseId] as const,
+  module: (courseId: string, moduleId: string) =>
+    [...courseKeys.all, "module", courseId, moduleId] as const,
+  lessonsPrefix: (courseId: string) =>
+    [...courseKeys.all, "lessons", courseId] as const,
+  lessons: (courseId: string, moduleId: string) =>
+    [...courseKeys.lessonsPrefix(courseId), moduleId] as const,
+  lessonQuizzes: (lessonId: string) =>
+    [...courseKeys.all, "lesson-quizzes", lessonId] as const,
   difficultyLevelsPrefix: (courseId: string) =>
     [...courseKeys.all, "difficulty-levels", courseId] as const,
   difficultyLevels: (courseId: string, includeInactive = false) =>
@@ -132,14 +130,14 @@ export const questionKeys = {
   detail: (id: string) => [...questionKeys.all, "detail", id] as const,
 };
 
-export const practiceTopicQuestionKeys = {
-  all: ["practice-topic-question"] as const,
-  list: (topicId: string) =>
-    [...practiceTopicQuestionKeys.all, "list", topicId] as const,
-  summary: (topicId: string) =>
-    [...practiceTopicQuestionKeys.all, "summary", topicId] as const,
-  isAssigned: (topicId: string) =>
-    [...practiceTopicQuestionKeys.all, "is-assigned", topicId] as const,
+export const practiceLessonQuestionKeys = {
+  all: ["practice-lesson-question"] as const,
+  list: (lessonId: string) =>
+    [...practiceLessonQuestionKeys.all, "list", lessonId] as const,
+  summary: (lessonId: string) =>
+    [...practiceLessonQuestionKeys.all, "summary", lessonId] as const,
+  isAssigned: (lessonId: string) =>
+    [...practiceLessonQuestionKeys.all, "is-assigned", lessonId] as const,
 };
 
 export const examLibraryKeys = {
@@ -152,8 +150,8 @@ export const examLibraryKeys = {
       "list",
       createStableFilterKey(filters),
     ] as const,
-  detail: (courseId: string, topicId: string) =>
-    [...examLibraryKeys.course(courseId), "detail", topicId] as const,
+  detail: (courseId: string, lessonId: string) =>
+    [...examLibraryKeys.course(courseId), "detail", lessonId] as const,
 };
 
 export const classTimelineKeys = {

@@ -8,7 +8,7 @@ import { getStudentClassTimeline } from "@/lib/apis/class.api";
 import { classTimelineKeys } from "@/lib/query-keys";
 import type { ClassTimelineItemDto } from "@/dtos/class-timeline.dto";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
+import { TimelineKindBadge } from "@/components/class-timeline/TimelineKindBadge";
 import { ResponsiveDialog, ResponsiveDialogBody } from "@/components/ui/ResponsiveDialog";
 import StudentSessionDetailDialog from "./StudentSessionDetailDialog";
 import StudentSurveyDetailDialog from "./StudentSurveyDetailDialog";
@@ -21,7 +21,7 @@ import {
   StudentSurveyTimelineCard,
 } from "./StudentTimelineCards";
 import type { StudentSessionItem, StudentSurveyItem } from "@/dtos/student-class.dto";
-import { studentTopicHref } from "@/lib/course-content-routes";
+import { studentLessonHref } from "@/lib/course-content-routes";
 
 function mapSession(item: ClassTimelineItemDto): StudentSessionItem | null {
   if (item.kind !== "session" || !item.session) return null;
@@ -131,13 +131,13 @@ export default function StudentClassTimelineList({
       items.map((item, index) => {
         const locked =
           item.kind === "content_item" &&
-          item.topicKind === "practice" &&
+          item.lessonKind === "practice" &&
           item.isOpen === false;
         const href =
-          item.kind === "content_item" && item.classContentItemId && item.topicId
-            ? item.topicKind === "practice"
+          item.kind === "content_item" && item.classContentItemId && item.lessonId
+            ? item.lessonKind === "practice"
               ? `/student/classes/${classId}/assignments/${item.classContentItemId}`
-              : studentTopicHref(classId, item.topicId)
+              : studentLessonHref(classId, item.lessonId)
             : null;
         return { item, index, locked, href };
       }),
@@ -151,7 +151,7 @@ export default function StudentClassTimelineList({
         index: index + 1,
         title: item.title,
         kind: item.kind,
-        topicKind: item.topicKind,
+        lessonKind: item.lessonKind,
         locked,
       })),
     [rows],
@@ -232,7 +232,11 @@ export default function StudentClassTimelineList({
                     <h3 className="truncate font-semibold text-text-primary">
                       {item.title}
                     </h3>
-                    <Badge variant="secondary">{item.kindLabel}</Badge>
+                    <TimelineKindBadge
+                      kind={item.kind}
+                      lessonKind={item.lessonKind}
+                      label={item.kindLabel}
+                    />
                   </div>
                 </div>
               </Link>
@@ -275,7 +279,11 @@ export default function StudentClassTimelineList({
                       {item.title}
                     </h3>
                   )}
-                  <Badge variant="secondary">{item.kindLabel}</Badge>
+                  <TimelineKindBadge
+                    kind={item.kind}
+                    lessonKind={item.lessonKind}
+                    label={item.kindLabel}
+                  />
                   {locked ? <Lock className="size-3.5 text-text-muted" /> : null}
                 </div>
                 {item.kind === "session" && item.session ? (

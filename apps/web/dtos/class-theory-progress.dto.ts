@@ -11,7 +11,7 @@ export interface ClassTheoryProgressStudentDto {
 export interface ClassTheoryProgressDto {
   classId: string;
   classContentItemId: string;
-  topicId: string;
+  lessonId: string;
   title: string;
   rosterCount: number;
   viewedCount: number;
@@ -20,9 +20,9 @@ export interface ClassTheoryProgressDto {
   students: ClassTheoryProgressStudentDto[];
 }
 
-export interface TheoryTopicViewDto {
+export interface TheoryLessonViewDto {
   classContentItemId: string;
-  topicId: string;
+  lessonId: string;
   studentId: string;
   lastViewedAt: string;
 }

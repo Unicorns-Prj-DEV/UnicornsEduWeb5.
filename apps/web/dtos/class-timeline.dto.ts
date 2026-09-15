@@ -18,8 +18,8 @@ export interface ClassTimelineItemDto {
   sessionId: string | null;
   classSurveyId: string | null;
   classContentItemId: string | null;
-  topicId: string | null;
-  topicKind: "theory" | "practice" | null;
+  lessonId: string | null;
+  lessonKind: "theory" | "practice" | null;
   isOpen: boolean | null;
   openAt: string | null;
   durationMinutes: number | null;

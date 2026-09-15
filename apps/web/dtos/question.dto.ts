@@ -6,7 +6,7 @@ export enum QuestionTypeDto {
 export interface Question {
   id: string;
   courseId: string;
-  chapterId: string;
+  moduleId: string;
   difficultyLevelId: string;
   type: QuestionTypeDto;
   content: string;
@@ -26,7 +26,7 @@ export type QuestionFormInitial = Pick<
   Question,
   | "id"
   | "courseId"
-  | "chapterId"
+  | "moduleId"
   | "difficultyLevelId"
   | "type"
   | "content"
@@ -38,7 +38,7 @@ export type QuestionFormInitial = Pick<
 
 export interface CreateQuestionInput {
   courseId: string;
-  chapterId: string;
+  moduleId: string;
   difficultyLevelId: string;
   type: QuestionTypeDto;
   content: string;
@@ -49,12 +49,12 @@ export interface CreateQuestionInput {
 }
 
 export type UpdateQuestionInput = Partial<
-  Omit<CreateQuestionInput, "courseId" | "chapterId" | "difficultyLevelId" | "type">
+  Omit<CreateQuestionInput, "courseId" | "moduleId" | "difficultyLevelId" | "type">
 >;
 
 export interface QuestionFilter {
   courseId?: string;
-  chapterId?: string;
+  moduleId?: string;
   difficultyLevelId?: string;
   type?: QuestionTypeDto;
   search?: string;
@@ -91,7 +91,7 @@ export interface ValidatedAiQuestion extends Omit<AiQuestionItem, "difficulty"> 
 /** Payload sent to backend bulk create */
 export interface BulkCreateQuestionInput {
   courseId: string;
-  chapterId: string;
+  moduleId: string;
   questions: Array<{
     type: QuestionTypeDto;
     content: string;

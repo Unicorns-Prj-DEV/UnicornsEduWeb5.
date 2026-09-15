@@ -5,7 +5,7 @@ import { Lock } from "lucide-react";
 import type { ClassContentItemDto } from "@/dtos/class-content.dto";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatVnDayMonthTime } from "@/lib/formatters";
-import { studentTopicHref } from "@/lib/course-content-routes";
+import { studentLessonHref } from "@/lib/course-content-routes";
 
 function formatOpenAt(iso: string | null): string {
   if (!iso) return "";
@@ -46,13 +46,13 @@ export default function StudentClassContentList({
   return (
     <div className="space-y-3">
       {items.map((item, index) => {
-        const locked = item.topicKind === "practice" && !item.isOpen;
+        const locked = item.lessonKind === "practice" && !item.isOpen;
         const href =
-          item.topicKind === "practice"
+          item.lessonKind === "practice"
             ? `/student/classes/${classId}/assignments/${item.id}`
-            : studentTopicHref(classId, item.topicId);
+            : studentLessonHref(classId, item.lessonId);
         const meta =
-          item.topicKind === "practice"
+          item.lessonKind === "practice"
             ? locked
               ? item.openAt
                 ? `Mở lúc ${formatOpenAt(item.openAt)}`
@@ -71,12 +71,18 @@ export default function StudentClassContentList({
                   <span className="truncate font-semibold text-text-primary group-hover:text-primary transition-colors">
                     {item.title}
                   </span>
-                  <span className="inline-flex items-center rounded-full bg-bg-secondary px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
+                  <span
+                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+                      item.lessonKind === "practice"
+                        ? "border-warning/20 bg-warning/10 text-warning"
+                        : "border-primary/15 bg-primary/10 text-primary"
+                    }`}
+                  >
                     {item.kindLabel}
                   </span>
-                  {item.chapterTitle && (
+                  {item.moduleTitle && (
                     <span className="text-[10px] text-text-muted">
-                      {item.chapterTitle}
+                      {item.moduleTitle}
                     </span>
                   )}
                 </div>
@@ -94,7 +100,7 @@ export default function StudentClassContentList({
                 </span>
               ) : (
                 <span className="text-xs font-medium text-text-muted group-hover:text-primary flex items-center gap-1">
-                  {item.topicKind === "practice" ? "Làm bài" : "Xem nội dung"}
+                  {item.lessonKind === "practice" ? "Làm bài" : "Xem nội dung"}
                   <svg
                     className="size-4 transition-transform group-hover:translate-x-1"
                     fill="none"
@@ -121,7 +127,7 @@ export default function StudentClassContentList({
               type="button"
               disabled
               aria-disabled="true"
-              aria-label={`${item.title} — luyện tập chưa mở`}
+              aria-label={`${item.title} — tiết thực hành chưa mở`}
               className="flex w-full cursor-not-allowed items-center justify-between gap-3 rounded-xl border border-border-default bg-bg-secondary/40 p-4 text-left"
             >
               {inner}

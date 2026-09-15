@@ -543,9 +543,9 @@ describe('CourseContentService — ClassContent methods', () => {
 
       expect(result).toHaveLength(2);
       expect(result[0].source).toBe('class');
-      expect(result[0].kindLabel).toBe('Lý thuyết');
+      expect(result[0].kindLabel).toBe('Tiết lý thuyết');
       expect(result[1].source).toBe('course');
-      expect(result[1].kindLabel).toBe('Luyện tập');
+      expect(result[1].kindLabel).toBe('Tiết thực hành');
       expect(result[1].moduleTitle).toBe('Ch 2');
     });
   });

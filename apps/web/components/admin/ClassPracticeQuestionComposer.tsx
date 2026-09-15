@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useDebounce } from "use-debounce";
 import * as questionApi from "@/lib/apis/question.api";
-import { useCourseChapters } from "@/lib/hooks/useCourseChapters";
+import { useCourseModules } from "@/lib/hooks/useCourseModules";
 import { useCourseDifficultyLevels } from "@/lib/hooks/useCourseDifficultyLevels";
 import { questionKeys } from "@/lib/query-keys";
 import MathContent from "@/components/ui/MathContent";
@@ -25,7 +25,7 @@ import {
 
 function useQuestionBank(
   courseId: string,
-  filters: { chapterId?: string; difficultyLevelId?: string; search?: string },
+  filters: { moduleId?: string; difficultyLevelId?: string; search?: string },
   enabled: boolean,
 ) {
   return useQuery({
@@ -74,7 +74,7 @@ export default function ClassPracticeQuestionComposer({
   };
 
   const addAuthored = (payload: {
-    chapterId: string;
+    moduleId: string;
     difficultyLevelId: string;
     type: QuestionTypeDto;
     content: string;
@@ -93,7 +93,7 @@ export default function ClassPracticeQuestionComposer({
           payload.type === "single_choice" ? "Trắc nghiệm" : "Tự luận",
         createPayload: {
           courseId,
-          chapterId: payload.chapterId,
+          moduleId: payload.moduleId,
           difficultyLevelId: payload.difficultyLevelId,
           type: payload.type,
           content: payload.content,
@@ -235,13 +235,13 @@ function BankPicker({
   const [search, setSearch] = useState("");
   const [debouncedSearch] = useDebounce(search.trim(), 300);
 
-  const { data: chapters = [] } = useCourseChapters(courseId);
+  const { data: modules = [] } = useCourseModules(courseId);
   const { data: difficultyLevels = [] } = useCourseDifficultyLevels(courseId);
 
   const { data: questions = [], isLoading } = useQuestionBank(
     courseId,
     {
-      chapterId: chapterFilter || undefined,
+      moduleId: chapterFilter || undefined,
       difficultyLevelId: difficultyFilter || undefined,
       search: debouncedSearch || undefined,
     },
@@ -264,8 +264,8 @@ function BankPicker({
           <UpgradedSelect
             value={chapterFilter}
             onValueChange={setChapterFilter}
-            placeholder="Chủ đề"
-            options={chapters.map((ch) => ({ value: ch.id, label: ch.title }))}
+            placeholder="Chuyên đề"
+            options={modules.map((ch) => ({ value: ch.id, label: ch.title }))}
             buttonClassName="w-full sm:w-40"
           />
           <UpgradedSelect
@@ -325,7 +325,7 @@ function AuthorForm({
 }: {
   courseId: string;
   onAdd: (payload: {
-    chapterId: string;
+    moduleId: string;
     difficultyLevelId: string;
     type: QuestionTypeDto;
     content: string;
@@ -340,8 +340,8 @@ function AuthorForm({
     setForm((prev) => ({ ...prev, ...patch }));
 
   const submit = () => {
-    if (!form.chapterId || !form.difficultyLevelId || !form.content.trim()) {
-      toast.error("Điền chủ đề, mức khó và nội dung câu hỏi");
+    if (!form.moduleId || !form.difficultyLevelId || !form.content.trim()) {
+      toast.error("Điền chuyên đề, mức khó và nội dung câu hỏi");
       return;
     }
     if (form.type === QuestionTypeDto.single_choice) {
@@ -359,7 +359,7 @@ function AuthorForm({
         return;
       }
       onAdd({
-        chapterId: form.chapterId,
+        moduleId: form.moduleId,
         difficultyLevelId: form.difficultyLevelId,
         type: form.type,
         content: form.content.trim(),
@@ -371,7 +371,7 @@ function AuthorForm({
       return;
     }
     onAdd({
-      chapterId: form.chapterId,
+      moduleId: form.moduleId,
       difficultyLevelId: form.difficultyLevelId,
       type: form.type,
       content: form.content.trim(),

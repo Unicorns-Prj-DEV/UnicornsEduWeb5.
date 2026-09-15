@@ -25,7 +25,7 @@ import QuestionFormFields, {
 
 /**
  * Dialog soạn / sửa một câu hỏi trong ngân hàng. Dùng chung cho tab Câu hỏi
- * của workspace khoá và cho dialog đề thi (`PracticeTopicQuestionsCard`).
+ * của workspace khoá và cho dialog đề thi (`PracticeLessonQuestionsCard`).
  *
  * `courseId` luôn khoá cứng — không dropdown chọn khoá. Câu hỏi thuộc đúng
  * khoá đang mở (workspace) hoặc khoá của đề thi.
@@ -43,7 +43,7 @@ export default function QuestionFormDialog({
 }) {
   const queryClient = useQueryClient();
   const initialValue: QuestionFormValue = {
-    chapterId: question?.chapterId || "",
+    moduleId: question?.moduleId || "",
     difficultyLevelId: question?.difficultyLevelId || "",
     type: (question?.type ?? QuestionTypeDto.single_choice) as QuestionTypeDto,
     content: question?.content || "",
@@ -82,7 +82,7 @@ export default function QuestionFormDialog({
     const isChoice = form.type === QuestionTypeDto.single_choice;
     saveMutation.mutate({
       courseId,
-      chapterId: form.chapterId,
+      moduleId: form.moduleId,
       difficultyLevelId: form.difficultyLevelId,
       type: form.type,
       content: form.content,

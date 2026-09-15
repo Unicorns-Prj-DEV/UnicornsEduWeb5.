@@ -87,10 +87,10 @@ export async function invalidateQuestionScopedQueries(
 }
 
 /**
- * Chuyên đề luyện tập cấp khoá đọc qua exam-library (lần giao lớp) và qua
- * GET topics trong chủ đề. Mutation một phía phải invalidate cả hai họ key.
+ * Mutation một phía (chuyên đề / tiết học / exam-library) phải invalidate
+ * cả cây nội dung khoá.
  */
-export async function invalidateCoursePracticeTopicQueries(
+export async function invalidateCoursePracticeLessonQueries(
   queryClient: QueryClient,
   courseId: string,
 ) {
@@ -99,10 +99,10 @@ export async function invalidateCoursePracticeTopicQueries(
       queryKey: examLibraryKeys.course(courseId),
     }),
     queryClient.invalidateQueries({
-      queryKey: courseKeys.chapters(courseId),
+      queryKey: courseKeys.modules(courseId),
     }),
     queryClient.invalidateQueries({
-      queryKey: courseKeys.topicsPrefix(courseId),
+      queryKey: courseKeys.lessonsPrefix(courseId),
     }),
     queryClient.invalidateQueries({
       queryKey: courseKeys.knowledgeTree(courseId),
@@ -114,7 +114,7 @@ export async function invalidateExamLibraryScopedQueries(
   queryClient: QueryClient,
   courseId: string,
 ) {
-  await invalidateCoursePracticeTopicQueries(queryClient, courseId);
+  await invalidateCoursePracticeLessonQueries(queryClient, courseId);
 }
 
 export async function invalidateCourseDifficultyLevelsQueries(

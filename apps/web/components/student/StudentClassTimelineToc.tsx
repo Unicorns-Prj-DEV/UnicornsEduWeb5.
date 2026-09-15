@@ -9,14 +9,14 @@ export interface TimelineTocEntry {
   index: number;
   title: string;
   kind: ClassTimelineKind;
-  topicKind: "theory" | "practice" | null;
+  lessonKind: "theory" | "practice" | null;
   locked: boolean;
 }
 
 function entryIcon(entry: TimelineTocEntry): LucideIcon {
   if (entry.kind === "session") return CalendarDays;
   if (entry.kind === "class_survey") return ClipboardList;
-  return entry.topicKind === "practice" ? Dumbbell : BookOpen;
+  return entry.lessonKind === "practice" ? Dumbbell : BookOpen;
 }
 
 /**

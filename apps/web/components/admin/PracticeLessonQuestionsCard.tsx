@@ -5,10 +5,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useDebounce } from "use-debounce";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
-import { practiceTopicQuestionKeys, questionKeys } from "@/lib/query-keys";
+import { practiceLessonQuestionKeys, questionKeys } from "@/lib/query-keys";
 import * as classApi from "@/lib/apis/class.api";
 import * as questionApi from "@/lib/apis/question.api";
-import { useCourseChapters } from "@/lib/hooks/useCourseChapters";
+import { useCourseModules } from "@/lib/hooks/useCourseModules";
 import { useCourseDifficultyLevels } from "@/lib/hooks/useCourseDifficultyLevels";
 import MathContent from "@/components/ui/MathContent";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
@@ -22,7 +22,7 @@ import {
   useConfirmDialog,
   type ConfirmRequest,
 } from "@/components/ui/ConfirmDialog";
-import type { QuestionLink } from "@/dtos/topic.dto";
+import type { QuestionLink } from "@/dtos/course-content.dto";
 import { QuestionTypeDto } from "@/dtos/question.dto";
 import QuestionFormDialog from "@/components/admin/question/QuestionFormDialog";
 
@@ -30,45 +30,45 @@ import QuestionFormDialog from "@/components/admin/question/QuestionFormDialog";
 // Hooks
 // ─────────────────────────────────────────────────────────────
 
-function usePracticeTopicQuestions(topicId: string) {
+function usePracticeLessonQuestions(lessonId: string) {
   const queryClient = useQueryClient();
 
   const { data: links = [], isLoading } = useQuery({
-    queryKey: practiceTopicQuestionKeys.list(topicId),
-    queryFn: () => classApi.getPracticeTopicQuestions(topicId),
-    enabled: Boolean(topicId),
+    queryKey: practiceLessonQuestionKeys.list(lessonId),
+    queryFn: () => classApi.getPracticeLessonQuestions(lessonId),
+    enabled: Boolean(lessonId),
   });
 
   const { data: summary } = useQuery({
-    queryKey: practiceTopicQuestionKeys.summary(topicId),
-    queryFn: () => classApi.getPracticeTopicQuestionSummary(topicId),
-    enabled: Boolean(topicId),
+    queryKey: practiceLessonQuestionKeys.summary(lessonId),
+    queryFn: () => classApi.getPracticeLessonQuestionSummary(lessonId),
+    enabled: Boolean(lessonId),
   });
 
   const { data: assigned } = useQuery({
-    queryKey: practiceTopicQuestionKeys.isAssigned(topicId),
-    queryFn: () => classApi.isPracticeTopicAssigned(topicId),
-    enabled: Boolean(topicId),
+    queryKey: practiceLessonQuestionKeys.isAssigned(lessonId),
+    queryFn: () => classApi.isPracticeLessonAssigned(lessonId),
+    enabled: Boolean(lessonId),
   });
 
   const invalidate = useCallback(async () => {
     await queryClient.invalidateQueries({
-      queryKey: practiceTopicQuestionKeys.list(topicId),
+      queryKey: practiceLessonQuestionKeys.list(lessonId),
     });
     await queryClient.invalidateQueries({
-      queryKey: practiceTopicQuestionKeys.summary(topicId),
+      queryKey: practiceLessonQuestionKeys.summary(lessonId),
     });
     await queryClient.invalidateQueries({
-      queryKey: practiceTopicQuestionKeys.isAssigned(topicId),
+      queryKey: practiceLessonQuestionKeys.isAssigned(lessonId),
     });
-  }, [queryClient, topicId]);
+  }, [queryClient, lessonId]);
 
   return { links, summary, assigned: assigned ?? false, isLoading, invalidate };
 }
 
 function useQuestionBank(
   courseId: string,
-  filters: { chapterId?: string; difficultyLevelId?: string; search?: string },
+  filters: { moduleId?: string; difficultyLevelId?: string; search?: string },
 ) {
   return useQuery({
     queryKey: questionKeys.list({
@@ -86,17 +86,17 @@ function useQuestionBank(
 // Component
 // ─────────────────────────────────────────────────────────────
 
-export function PracticeTopicQuestionsCard({
-  topicId,
+export function PracticeLessonQuestionsCard({
+  lessonId,
   courseId,
   canEdit,
 }: {
-  topicId: string;
+  lessonId: string;
   courseId: string;
   canEdit: boolean;
 }) {
   const { links, summary, assigned, isLoading, invalidate } =
-    usePracticeTopicQuestions(topicId);
+    usePracticeLessonQuestions(lessonId);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const { confirm, dialog } = useConfirmDialog();
 
@@ -166,7 +166,7 @@ export function PracticeTopicQuestionsCard({
             <QuestionLinkItem
               key={link.id}
               link={link}
-              topicId={topicId}
+              lessonId={lessonId}
               courseId={courseId}
               canEdit={canEdit}
               assigned={assigned}
@@ -179,7 +179,7 @@ export function PracticeTopicQuestionsCard({
 
       {showAddDialog ? (
         <AddQuestionDialog
-          topicId={topicId}
+          lessonId={lessonId}
           courseId={courseId}
           existingLinkQuestionIds={links.map((l) => l.questionId)}
           assigned={assigned}
@@ -198,7 +198,7 @@ export function PracticeTopicQuestionsCard({
 
 function QuestionLinkItem({
   link,
-  topicId,
+  lessonId,
   courseId,
   canEdit,
   assigned,
@@ -206,7 +206,7 @@ function QuestionLinkItem({
   onSaved,
 }: {
   link: QuestionLink;
-  topicId: string;
+  lessonId: string;
   courseId: string;
   canEdit: boolean;
   assigned: boolean;
@@ -260,7 +260,7 @@ function QuestionLinkItem({
       successMessage: "Đã cập nhật.",
       errorMessage: "Không thể cập nhật.",
       action: () =>
-        classApi.updatePracticeTopicQuestion(topicId, link.id, { points }),
+        classApi.updatePracticeLessonQuestion(lessonId, link.id, { points }),
       onSuccess: onSaved,
     });
   };
@@ -279,7 +279,7 @@ function QuestionLinkItem({
       loadingMessage: "Đang xóa...",
       successMessage: "Đã xóa.",
       errorMessage: "Không thể xóa.",
-      action: () => classApi.removePracticeTopicQuestion(topicId, link.id),
+      action: () => classApi.removePracticeLessonQuestion(lessonId, link.id),
       onSuccess: onSaved,
     });
   };
@@ -445,30 +445,30 @@ function QuestionLinkItem({
 // ─────────────────────────────────────────────────────────────
 
 function AddQuestionDialog({
-  topicId,
+  lessonId,
   courseId,
   existingLinkQuestionIds,
   assigned,
   onClose,
   onAdded,
 }: {
-  topicId: string;
+  lessonId: string;
   courseId: string;
   existingLinkQuestionIds: string[];
   assigned: boolean;
   onClose: () => void;
   onAdded: () => void;
 }) {
-  const [chapterFilter, setChapterFilter] = useState("");
+  const [moduleFilter, setModuleFilter] = useState("");
   const [difficultyFilter, setDifficultyFilter] = useState("");
   const [search, setSearch] = useState("");
   const [debouncedSearch] = useDebounce(search.trim(), 300);
 
-  const { data: chapters = [] } = useCourseChapters(courseId);
+  const { data: modules = [] } = useCourseModules(courseId);
   const { data: difficultyLevels = [] } = useCourseDifficultyLevels(courseId);
 
   const { data: questions = [], isLoading: isBankLoading } = useQuestionBank(courseId, {
-    chapterId: chapterFilter || undefined,
+    moduleId: moduleFilter || undefined,
     difficultyLevelId: difficultyFilter || undefined,
     search: debouncedSearch || undefined,
   });
@@ -482,7 +482,7 @@ function AddQuestionDialog({
 
   const addMutation = useMutation({
     mutationFn: (questionId: string) =>
-      classApi.addPracticeTopicQuestion(topicId, { questionId }),
+      classApi.addPracticeLessonQuestion(lessonId, { questionId }),
     onSuccess: () => {
       toast.success("Đã thêm câu hỏi.");
       onAdded();
@@ -537,10 +537,10 @@ function AddQuestionDialog({
             />
             <div className="flex gap-2">
               <UpgradedSelect
-                value={chapterFilter}
-                onValueChange={setChapterFilter}
-                placeholder="Chủ đề"
-                options={chapters.map((ch) => ({
+                value={moduleFilter}
+                onValueChange={setModuleFilter}
+                placeholder="Chuyên đề"
+                options={modules.map((ch) => ({
                   value: ch.id,
                   label: ch.title,
                 }))}

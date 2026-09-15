@@ -1,13 +1,13 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { CourseChaptersPanel } from "@/components/course-workspace/CourseChaptersPanel";
-import { CourseTopicsPanel } from "@/components/course-workspace/CourseTopicsPanel";
+import { CourseModulesPanel } from "@/components/course-workspace/CourseModulesPanel";
+import { CourseLessonsPanel } from "@/components/course-workspace/CourseLessonsPanel";
 import type { CourseWorkspaceRouteBase } from "@/dtos/course-workspace.dto";
 import {
   courseDetailHref,
-  newTopicHref,
-  topicHref,
+  newLessonHref,
+  lessonHref,
 } from "@/lib/course-content-routes";
 
 export function ContentTab({
@@ -23,39 +23,39 @@ export function ContentTab({
 }) {
   const { push, replace } = useRouter();
   const searchParams = useSearchParams();
-  const chapterId = searchParams.get("chapter");
+  const moduleId = searchParams.get("module");
 
-  const setChapterQuery = (nextChapterId: string | null) => {
+  const setModuleQuery = (nextModuleId: string | null) => {
     replace(
       courseDetailHref(routeBase, courseId, {
         tab: "noi-dung",
-        chapter: nextChapterId,
+        module: nextModuleId,
       }),
       { scroll: false },
     );
   };
 
-  if (chapterId) {
+  if (moduleId) {
     return (
-      <CourseTopicsPanel
+      <CourseLessonsPanel
         courseId={courseId}
-        chapterId={chapterId}
+        moduleId={moduleId}
         canEdit={canEdit}
-        onBack={() => setChapterQuery(null)}
-        onOpenTopic={(topic) =>
-          push(topicHref(routeBase, courseId, chapterId, topic.id))
+        onBack={() => setModuleQuery(null)}
+        onOpenLesson={(lesson) =>
+          push(lessonHref(routeBase, courseId, moduleId, lesson.id))
         }
-        onCreateTopic={() => push(newTopicHref(routeBase, courseId, chapterId))}
+        onCreateLesson={() => push(newLessonHref(routeBase, courseId, moduleId))}
         onOrderDirtyChange={onOrderDirtyChange}
       />
     );
   }
 
   return (
-    <CourseChaptersPanel
+    <CourseModulesPanel
       courseId={courseId}
       canEdit={canEdit}
-      onOpenChapter={(id) => setChapterQuery(id)}
+      onOpenModule={(id) => setModuleQuery(id)}
       onOrderDirtyChange={onOrderDirtyChange}
     />
   );

@@ -4,56 +4,52 @@ import type { CourseWorkspaceRouteBase } from "@/dtos/course-workspace.dto";
  * Next.js page hrefs for the course content tree (admin / staff / student).
  *
  * Keep this module separate from `content-api-paths.ts` (Axios endpoints).
- * Upcoming rename tickets should only edit segment / query names here for UI links.
  */
 
 export function courseDetailHref(
   routeBase: CourseWorkspaceRouteBase,
   courseId: string,
-  query?: { tab?: string; chapter?: string | null },
+  query?: { tab?: string; module?: string | null },
 ): string {
   const params = new URLSearchParams();
   if (query?.tab) params.set("tab", query.tab);
-  if (query?.chapter) params.set("chapter", query.chapter);
+  if (query?.module) params.set("module", query.module);
   const qs = params.toString();
   return `${routeBase}/courses/${courseId}${qs ? `?${qs}` : ""}`;
 }
 
-export function chapterTopicsHref(
+export function moduleLessonsHref(
   routeBase: CourseWorkspaceRouteBase,
   courseId: string,
-  chapterId: string,
+  moduleId: string,
 ): string {
   return courseDetailHref(routeBase, courseId, {
     tab: "noi-dung",
-    chapter: chapterId,
+    module: moduleId,
   });
 }
 
-export function newTopicHref(
+export function newLessonHref(
   routeBase: CourseWorkspaceRouteBase,
   courseId: string,
-  chapterId: string,
+  moduleId: string,
 ): string {
-  return `${routeBase}/courses/${courseId}/chapters/${chapterId}/topics/new`;
+  return `${routeBase}/courses/${courseId}/modules/${moduleId}/lessons/new`;
 }
 
-export function topicHref(
+export function lessonHref(
   routeBase: CourseWorkspaceRouteBase,
   courseId: string,
-  chapterId: string,
-  topicId: string,
-  lectureId?: string,
+  moduleId: string,
+  lessonId: string,
 ): string {
-  const base = `${routeBase}/courses/${courseId}/chapters/${chapterId}/topics/${topicId}`;
-  if (!lectureId) return base;
-  return `${base}?lecture=${encodeURIComponent(lectureId)}`;
+  return `${routeBase}/courses/${courseId}/modules/${moduleId}/lessons/${lessonId}`;
 }
 
-export function studentClassTopicsHref(classId: string): string {
-  return `/student/classes/${classId}?tab=topics`;
+export function studentClassLessonsHref(classId: string): string {
+  return `/student/classes/${classId}?tab=lessons`;
 }
 
-export function studentTopicHref(classId: string, topicId: string): string {
-  return `/student/classes/${classId}/topics/${topicId}`;
+export function studentLessonHref(classId: string, lessonId: string): string {
+  return `/student/classes/${classId}/lessons/${lessonId}`;
 }

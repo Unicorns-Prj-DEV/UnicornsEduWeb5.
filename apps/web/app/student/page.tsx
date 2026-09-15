@@ -143,7 +143,7 @@ export default function StudentSelfPage() {
           <div>
             <h2 className="text-lg font-bold text-text-primary">Danh sách lớp học</h2>
             <p className="text-sm text-text-muted">
-              Chọn lớp học để xem lịch sử buổi học, video bài giảng recording và chuyên đề kiến thức.
+              Chọn lớp học để xem lịch sử buổi học, video recording và tiết học.
             </p>
           </div>
         </div>

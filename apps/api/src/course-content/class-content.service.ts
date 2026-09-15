@@ -228,7 +228,7 @@ export class ClassContentService extends CourseContentSupportService {
     const lesson = item.lesson;
     const lessonKind: 'theory' | 'practice' =
       lesson?.kind === 'practice' ? 'practice' : 'theory';
-    const kindLabel = lessonKind === 'practice' ? 'Luyện tập' : 'Lý thuyết';
+    const kindLabel = lessonKind === 'practice' ? 'Tiết thực hành' : 'Tiết lý thuyết';
     const source: 'course' | 'class' =
       item.kind === 'lesson' && lesson?.classId === item.classId
         ? 'class'
@@ -342,7 +342,7 @@ export class ClassContentService extends CourseContentSupportService {
     } else {
       if (!dto.title?.trim()) {
         throw new BadRequestException(
-          'Title is required when creating a new topic',
+          'Title is required when creating a new lesson',
         );
       }
       const kind =
@@ -369,11 +369,11 @@ export class ClassContentService extends CourseContentSupportService {
           if (existing) {
             if (existing.hiddenAt) {
               throw new BadRequestException(
-                'Chuyên đề đang bị ẩn trong lớp này. Hãy khôi phục thay vì thêm lại.',
+                'Tiết học đang bị ẩn trong lớp này. Hãy khôi phục thay vì thêm lại.',
               );
             }
             throw new BadRequestException(
-              'Topic is already in this class content list',
+              'Lesson is already in this class content list',
             );
           }
           lessonId = dto.lessonId;

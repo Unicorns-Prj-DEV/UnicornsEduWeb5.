@@ -324,7 +324,7 @@ export class ClassTimelineService {
       kind: ClassTimelineItemKind.content_item,
       sortOrder: row.sortOrder,
       title: lesson?.title ?? 'Tiết học',
-      kindLabel: lessonKind === 'practice' ? 'Luyện tập' : 'Lý thuyết',
+      kindLabel: lessonKind === 'practice' ? 'Tiết thực hành' : 'Tiết lý thuyết',
       occurredAt: content?.openAt?.toISOString() ?? null,
       sessionId: null,
       classSurveyId: null,

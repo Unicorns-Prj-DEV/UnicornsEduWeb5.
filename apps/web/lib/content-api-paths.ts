@@ -1,83 +1,65 @@
 /**
- * Axios endpoint paths for the course content tree (chapter → topic → lecture).
+ * Axios endpoint paths for the course content tree (module → lesson).
  *
  * Keep this module separate from `course-content-routes.ts` (Next.js page hrefs).
- * Upcoming rename tickets should only edit segment names here for HTTP calls.
  */
 function enc(id: string): string {
   return encodeURIComponent(id);
 }
 
 export const contentApiPaths = {
-  courseChapters: (courseId: string) => `/course/${enc(courseId)}/chapters`,
+  courseModules: (courseId: string) => `/course/${enc(courseId)}/modules`,
 
-  courseChapter: (courseId: string, chapterId: string) =>
-    `/course/${enc(courseId)}/chapters/${enc(chapterId)}`,
+  courseModule: (courseId: string, moduleId: string) =>
+    `/course/${enc(courseId)}/modules/${enc(moduleId)}`,
 
-  courseChaptersReorder: (courseId: string) =>
-    `/course/${enc(courseId)}/chapters/reorder`,
+  courseModulesReorder: (courseId: string) =>
+    `/course/${enc(courseId)}/modules/reorder`,
 
-  courseChapterTopics: (courseId: string, chapterId: string) =>
-    `/course/${enc(courseId)}/chapters/${enc(chapterId)}/topics`,
+  courseModuleLessons: (courseId: string, moduleId: string) =>
+    `/course/${enc(courseId)}/modules/${enc(moduleId)}/lessons`,
 
-  courseChapterTopic: (
+  courseModuleLesson: (
     courseId: string,
-    chapterId: string,
-    topicId: string,
+    moduleId: string,
+    lessonId: string,
   ) =>
-    `/course/${enc(courseId)}/chapters/${enc(chapterId)}/topics/${enc(topicId)}`,
+    `/course/${enc(courseId)}/modules/${enc(moduleId)}/lessons/${enc(lessonId)}`,
 
-  courseChapterTopicsReorder: (courseId: string, chapterId: string) =>
-    `/course/${enc(courseId)}/chapters/${enc(chapterId)}/topics/reorder`,
+  courseModuleLessonsReorder: (courseId: string, moduleId: string) =>
+    `/course/${enc(courseId)}/modules/${enc(moduleId)}/lessons/reorder`,
 
-  topicLectures: (topicId: string) => `/topics/${enc(topicId)}/lectures`,
+  lessonQuestions: (lessonId: string) => `/lessons/${enc(lessonId)}/questions`,
 
-  topicLecture: (topicId: string, lectureId: string) =>
-    `/topics/${enc(topicId)}/lectures/${enc(lectureId)}`,
+  lessonQuestion: (lessonId: string, linkId: string) =>
+    `/lessons/${enc(lessonId)}/questions/${enc(linkId)}`,
 
-  topicLecturesReorder: (topicId: string) =>
-    `/topics/${enc(topicId)}/lectures/reorder`,
+  lessonQuestionsReorder: (lessonId: string) =>
+    `/lessons/${enc(lessonId)}/questions/reorder`,
 
-  topicQuestions: (topicId: string) => `/topics/${enc(topicId)}/questions`,
+  lessonQuestionsSummary: (lessonId: string) =>
+    `/lessons/${enc(lessonId)}/questions/summary`,
 
-  topicQuestion: (topicId: string, linkId: string) =>
-    `/topics/${enc(topicId)}/questions/${enc(linkId)}`,
+  lessonQuestionsIsAssigned: (lessonId: string) =>
+    `/lessons/${enc(lessonId)}/questions/is-assigned`,
 
-  topicQuestionsReorder: (topicId: string) =>
-    `/topics/${enc(topicId)}/questions/reorder`,
+  lessonQuizzes: (lessonId: string) => `/lessons/${enc(lessonId)}/quizzes`,
 
-  topicQuestionsSummary: (topicId: string) =>
-    `/topics/${enc(topicId)}/questions/summary`,
+  lessonQuiz: (lessonId: string, questionId: string) =>
+    `/lessons/${enc(lessonId)}/quizzes/${enc(questionId)}`,
 
-  topicQuestionsIsAssigned: (topicId: string) =>
-    `/topics/${enc(topicId)}/questions/is-assigned`,
+  studentClassLesson: (classId: string, lessonId: string) =>
+    `/users/me/student-classes/${enc(classId)}/lessons/${enc(lessonId)}`,
 
-  lectureQuizzes: (topicId: string, lectureId: string) =>
-    `/topics/${enc(topicId)}/lectures/${enc(lectureId)}/quizzes`,
+  studentClassLessonView: (classId: string, lessonId: string) =>
+    `/users/me/student-classes/${enc(classId)}/lessons/${enc(lessonId)}/view`,
 
-  lectureQuiz: (topicId: string, lectureId: string, questionId: string) =>
-    `/topics/${enc(topicId)}/lectures/${enc(lectureId)}/quizzes/${enc(questionId)}`,
+  studentLessonQuizzes: (classId: string, lessonId: string) =>
+    `/users/me/student-classes/${enc(classId)}/lessons/${enc(lessonId)}/quizzes`,
 
-  studentClassTopic: (classId: string, topicId: string) =>
-    `/users/me/student-classes/${enc(classId)}/topics/${enc(topicId)}`,
+  studentLessonQuizAnswers: (classId: string, lessonId: string) =>
+    `/users/me/student-classes/${enc(classId)}/lessons/${enc(lessonId)}/quizzes/answers`,
 
-  studentClassTopicView: (classId: string, topicId: string) =>
-    `/users/me/student-classes/${enc(classId)}/topics/${enc(topicId)}/view`,
-
-  studentLectureQuizzes: (
-    classId: string,
-    topicId: string,
-    lectureId: string,
-  ) =>
-    `/users/me/student-classes/${enc(classId)}/topics/${enc(topicId)}/lectures/${enc(lectureId)}/quizzes`,
-
-  studentLectureQuizAnswers: (
-    classId: string,
-    topicId: string,
-    lectureId: string,
-  ) =>
-    `/users/me/student-classes/${enc(classId)}/topics/${enc(topicId)}/lectures/${enc(lectureId)}/quizzes/answers`,
-
-  classCourseTopics: (classId: string) =>
-    `/class/${enc(classId)}/content/course-topics`,
+  classCourseLessons: (classId: string) =>
+    `/class/${enc(classId)}/content/course-lessons`,
 } as const;

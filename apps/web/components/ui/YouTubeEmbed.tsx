@@ -149,7 +149,7 @@ export default function YouTubeEmbed({
   url,
   protected: isProtected = true,
   className = "w-full aspect-video",
-  title = "Video bài học",
+  title = "Video tiết học",
 }: YouTubeEmbedProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
@@ -665,7 +665,7 @@ export default function YouTubeEmbed({
         <svg className="size-8 text-text-muted/60 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
         </svg>
-        <span>{hasError ? "Không thể tải video bài giảng." : "Link video không hợp lệ hoặc chưa được cập nhật."}</span>
+        <span>{hasError ? "Không thể tải video tiết học." : "Link video không hợp lệ hoặc chưa được cập nhật."}</span>
       </div>
     );
   }
@@ -693,7 +693,7 @@ export default function YouTubeEmbed({
           Nội dung video được bảo vệ bản quyền
         </p>
         <p className="mt-1 text-xs text-white/70 max-w-sm">
-          Vui lòng đóng công cụ kiểm tra (Developer Tools) và tải lại trang để tiếp tục xem video bài giảng.
+          Vui lòng đóng công cụ kiểm tra (Developer Tools) và tải lại trang để tiếp tục xem video tiết học.
         </p>
         <button
           type="button"

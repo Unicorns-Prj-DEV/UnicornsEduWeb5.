@@ -15,12 +15,12 @@ type CreateOption = {
 };
 
 /**
- * Cho phép tạo chủ đề (chapter) ngay trong `UpgradedSelect`.
+ * Cho phép tạo chuyên đề ngay trong `UpgradedSelect`.
  * Trả về object rỗng khi chưa chọn khoá — select sẽ không hiện mục "Tạo …".
  */
-export function useChapterCreateOption(
+export function useModuleCreateOption(
   courseId: string | undefined,
-  onCreated: (chapterId: string, title: string) => void,
+  onCreated: (moduleId: string, title: string) => void,
 ): CreateOption {
   const queryClient = useQueryClient();
 
@@ -29,16 +29,16 @@ export function useChapterCreateOption(
       if (!courseId) return;
       try {
         const res = await api.post<{ id: string }>(
-          contentApiPaths.courseChapters(courseId),
+          contentApiPaths.courseModules(courseId),
           { courseId, title },
         );
         await queryClient.invalidateQueries({
-          queryKey: courseKeys.chapters(courseId),
+          queryKey: courseKeys.modules(courseId),
         });
         onCreated(res.data.id, title);
-        toast.success("Đã tạo chủ đề mới.");
+        toast.success("Đã tạo chuyên đề mới.");
       } catch {
-        toast.error("Không thể tạo chủ đề.");
+        toast.error("Không thể tạo chuyên đề.");
       }
     },
     [courseId, onCreated, queryClient],
@@ -47,7 +47,7 @@ export function useChapterCreateOption(
   if (!courseId) return {};
   return {
     onCreateOption,
-    createOptionLabel: (query) => `Tạo chủ đề “${query}”`,
+    createOptionLabel: (query) => `Tạo chuyên đề “${query}”`,
   };
 }
 

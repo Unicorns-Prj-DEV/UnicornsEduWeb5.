@@ -50,7 +50,7 @@ export interface AttemptSummaryDto {
 export interface AssignmentLobbyDto {
   assignmentId: string;
   classId: string;
-  topicId: string;
+  lessonId: string;
   title: string;
   durationMinutes: number;
   openAt: string | null;

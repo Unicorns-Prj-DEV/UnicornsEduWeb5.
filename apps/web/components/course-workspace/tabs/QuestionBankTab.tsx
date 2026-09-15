@@ -8,7 +8,7 @@ import { useDebounce } from "use-debounce";
 import * as questionApi from "@/lib/apis/question.api";
 import { questionKeys } from "@/lib/query-keys";
 import { invalidateQuestionScopedQueries } from "@/lib/query-invalidation";
-import { useCourseChapters } from "@/lib/hooks/useCourseChapters";
+import { useCourseModules } from "@/lib/hooks/useCourseModules";
 import { useCourseDifficultyLevels } from "@/lib/hooks/useCourseDifficultyLevels";
 import MathContent from "@/components/ui/MathContent";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
@@ -27,7 +27,7 @@ import QuestionFormDialog from "@/components/admin/question/QuestionFormDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import AiImportModal from "@/components/admin/question-bank/AiImportModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { resolveQuestionBankEmptyChapterCopy } from "@/lib/question-bank-empty-chapter";
+import { resolveQuestionBankEmptyModuleCopy } from "@/lib/question-bank-empty-module";
 
 const PAGE_SIZE = 20;
 
@@ -54,10 +54,10 @@ export function QuestionBankTab({
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Question | null>(null);
 
-  const { data: chapters = [], isLoading: isChaptersLoading } =
-    useCourseChapters(courseId);
+  const { data: modules = [], isLoading: isChaptersLoading } =
+    useCourseModules(courseId);
   const { data: difficultyLevels = [] } = useCourseDifficultyLevels(courseId);
-  const hasChapters = chapters.length > 0;
+  const hasChapters = modules.length > 0;
 
   useEffect(() => {
     setPage(1);
@@ -67,7 +67,7 @@ export function QuestionBankTab({
     courseId,
     search: debouncedSearch || undefined,
     type: (typeFilter as QuestionTypeDto) || undefined,
-    chapterId: chapterFilter || undefined,
+    moduleId: chapterFilter || undefined,
     difficultyLevelId: difficultyFilter || undefined,
   };
   const skip = (page - 1) * PAGE_SIZE;
@@ -122,8 +122,8 @@ export function QuestionBankTab({
   };
 
   const chapterOptions = [
-    { value: "", label: "Tất cả chủ đề" },
-    ...chapters.map((ch) => ({ value: ch.id, label: ch.title })),
+    { value: "", label: "Tất cả chuyên đề" },
+    ...modules.map((ch) => ({ value: ch.id, label: ch.title })),
   ];
   const difficultyOptions = [
     { value: "", label: "Tất cả độ khó" },
@@ -151,7 +151,7 @@ export function QuestionBankTab({
   }
 
   if (!hasChapters) {
-    const copy = resolveQuestionBankEmptyChapterCopy(canViewContentTab);
+    const copy = resolveQuestionBankEmptyModuleCopy(canViewContentTab);
     return (
       <section className="rounded-xl border border-dashed border-border-default bg-bg-surface p-4 sm:rounded-lg sm:p-6">
         <h2 className="text-base font-semibold text-text-primary">{copy.title}</h2>
@@ -210,9 +210,9 @@ export function QuestionBankTab({
             onValueChange={setChapterFilter}
             searchable
             options={chapterOptions}
-            placeholder="Chủ đề"
-            ariaLabel="Lọc theo chủ đề"
-            noResultsLabel="Không tìm thấy chủ đề phù hợp."
+            placeholder="Chuyên đề"
+            ariaLabel="Lọc theo chuyên đề"
+            noResultsLabel="Không tìm thấy chuyên đề phù hợp."
           />
           <UpgradedSelect
             value={difficultyFilter}

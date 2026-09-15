@@ -5,15 +5,15 @@ import type { ReactNode } from "react";
 import MathRichTextEditor from "@/components/ui/MathRichTextEditor";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { QuestionTypeDto } from "@/dtos/question.dto";
-import { useCourseChapters } from "@/lib/hooks/useCourseChapters";
+import { useCourseModules } from "@/lib/hooks/useCourseModules";
 import { useCourseDifficultyLevels } from "@/lib/hooks/useCourseDifficultyLevels";
 import {
-  useChapterCreateOption,
+  useModuleCreateOption,
   useDifficultyCreateOption,
 } from "@/lib/hooks/useCourseTaxonomyCreate";
 
 export type QuestionFormValue = {
-  chapterId: string;
+  moduleId: string;
   difficultyLevelId: string;
   type: QuestionTypeDto;
   content: string;
@@ -24,7 +24,7 @@ export type QuestionFormValue = {
 };
 
 export const emptyQuestionFormValue: QuestionFormValue = {
-  chapterId: "",
+  moduleId: "",
   difficultyLevelId: "",
   type: QuestionTypeDto.single_choice,
   content: "",
@@ -41,7 +41,7 @@ const TYPE_OPTIONS = [
 
 /**
  * Thân form soạn câu hỏi dùng chung cho popup Ngân hàng câu hỏi và composer
- * chuyên đề luyện tập của lớp. Chọn khoá học nằm ngoài (`courseSlot`) vì
+ * tiết thực hành của lớp. Chọn khoá học nằm ngoài (`courseSlot`) vì
  * composer khoá cứng khoá theo lớp.
  */
 export default function QuestionFormFields({
@@ -55,20 +55,20 @@ export default function QuestionFormFields({
   onChange: (patch: Partial<QuestionFormValue>) => void;
   courseSlot?: ReactNode;
 }) {
-  const { data: chapters = [] } = useCourseChapters(courseId || undefined);
+  const { data: modules = [] } = useCourseModules(courseId || undefined);
   const { data: difficultyLevels = [] } = useCourseDifficultyLevels(
     courseId || undefined,
   );
 
-  const chapterCreate = useChapterCreateOption(courseId || undefined, (id) =>
-    onChange({ chapterId: id }),
+  const chapterCreate = useModuleCreateOption(courseId || undefined, (id) =>
+    onChange({ moduleId: id }),
   );
   const difficultyCreate = useDifficultyCreateOption(
     courseId || undefined,
     (id) => onChange({ difficultyLevelId: id }),
   );
 
-  const chapterOptions = chapters.map((ch) => ({
+  const chapterOptions = modules.map((ch) => ({
     value: ch.id,
     label: ch.title,
   }));
@@ -107,16 +107,16 @@ export default function QuestionFormFields({
         {courseSlot}
         <div>
           <span className="mb-1 block text-xs font-medium text-text-muted">
-            Chủ đề
+            Chuyên đề
           </span>
           <UpgradedSelect
             searchable
-            value={value.chapterId}
-            onValueChange={(v) => onChange({ chapterId: v })}
+            value={value.moduleId}
+            onValueChange={(v) => onChange({ moduleId: v })}
             options={chapterOptions}
-            placeholder="Gõ để tìm hoặc tạo chủ đề"
+            placeholder="Gõ để tìm hoặc tạo chuyên đề"
             disabled={!courseId}
-            ariaLabel="Chủ đề"
+            ariaLabel="Chuyên đề"
             {...chapterCreate}
           />
         </div>

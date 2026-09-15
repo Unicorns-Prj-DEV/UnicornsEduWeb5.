@@ -129,7 +129,7 @@ describe("review gate helpers", () => {
     expect(
       importDisabledReason({
         remainingUnreviewed: 2,
-        chapterId: "ch-1",
+        moduleId: "ch-1",
         validCount: 4,
         isPending: false,
       }),

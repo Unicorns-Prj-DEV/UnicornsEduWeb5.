@@ -18,22 +18,22 @@ import {
 import { toast } from "sonner";
 import {
   getMyClassDetail,
-  getMyClassTopic,
-  getMyLectureQuizzes,
+  getMyClassLesson,
+  getMyLessonQuizzes,
   getMyQuizAnswers,
-  recordMyTheoryTopicView,
+  recordMyTheoryLessonView,
   submitMyQuizAnswers,
 } from "@/lib/apis/student-class.api";
-import { getLectures, getStudentClassContent } from "@/lib/apis/class.api";
+import { getStudentClassContent } from "@/lib/apis/class.api";
 import { Skeleton } from "@/components/ui/skeleton";
 import YouTubeEmbed from "@/components/ui/YouTubeEmbed";
 import { Card, CardContent } from "@/components/ui/card";
 import MathContent from "@/components/ui/MathContent";
 import { cn } from "@/lib/utils";
-import type { Lecture, LectureQuizQuestion, LectureQuizAnswer } from "@/dtos/topic.dto";
+import type { LessonQuizQuestion, LessonQuizAnswer } from "@/dtos/course-content.dto";
 import { CONTENT_LIMITS, overLimitMessage } from "@/dtos/content-limits";
 import { formatVnDate } from "@/lib/formatters";
-import { studentClassTopicsHref } from "@/lib/course-content-routes";
+import { studentClassLessonsHref } from "@/lib/course-content-routes";
 
 function formatDate(date?: Date | string | null): string {
   if (!date) return "—";
@@ -47,9 +47,8 @@ function formatDate(date?: Date | string | null): string {
 export default function StudentTopicDetailPage() {
   const params = useParams();
   const classId = params.id as string;
-  const topicId = params.topicId as string;
+  const lessonId = params.lessonId as string;
   const queryClient = useQueryClient();
-  const [selectedLectureIdx, setSelectedLectureIdx] = useState(0);
   const recordedTheoryViewKeyRef = useRef<string | null>(null);
 
   const { data: classDetail } = useQuery({
@@ -64,13 +63,13 @@ export default function StudentTopicDetailPage() {
     isError: topicError,
     error: topicErr,
   } = useQuery({
-    queryKey: ["student-class-topic", classId, topicId],
-    queryFn: () => getMyClassTopic(classId, topicId),
+    queryKey: ["student-class-lesson", classId, lessonId],
+    queryFn: () => getMyClassLesson(classId, lessonId),
     staleTime: 60_000,
   });
 
   const { mutate: recordTheoryTopicView } = useMutation({
-    mutationFn: recordMyTheoryTopicView,
+    mutationFn: recordMyTheoryLessonView,
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({
         queryKey: ["class-theory-progress", variables.classId],
@@ -80,22 +79,13 @@ export default function StudentTopicDetailPage() {
 
   useEffect(() => {
     if (topic?.kind !== "theory") return;
-    const viewKey = `${classId}:${topicId}`;
+    const viewKey = `${classId}:${lessonId}`;
     if (recordedTheoryViewKeyRef.current === viewKey) return;
     recordedTheoryViewKeyRef.current = viewKey;
-    recordTheoryTopicView({ classId, topicId });
-  }, [classId, recordTheoryTopicView, topic?.kind, topicId]);
+    recordTheoryTopicView({ classId, lessonId });
+  }, [classId, recordTheoryTopicView, topic?.kind, lessonId]);
 
-  const {
-    data: lectures,
-    isLoading: lecturesLoading,
-  } = useQuery({
-    queryKey: ["topic-lectures", topicId],
-    queryFn: () => getLectures(topicId),
-    staleTime: 60_000,
-  });
-
-  const isLoading = topicLoading || lecturesLoading;
+  const isLoading = topicLoading;
 
   if (isLoading) {
     return (
@@ -121,17 +111,17 @@ export default function StudentTopicDetailPage() {
   if (topicError || !topic) {
     const errorMessage =
       (topicErr as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-      "Không tìm thấy chuyên đề hoặc bạn không có quyền truy cập chuyên đề của lớp này.";
+      "Không tìm thấy tiết học hoặc bạn không có quyền truy cập tiết học của lớp này.";
 
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-2 text-sm text-text-muted">
           <Link
-            href={studentClassTopicsHref(classId)}
+            href={studentClassLessonsHref(classId)}
             className="inline-flex items-center gap-1 font-medium text-text-muted transition-colors hover:text-primary"
           >
             <ChevronLeft className="size-4" />
-            Quay lại danh sách chuyên đề
+            Quay lại lớp học
           </Link>
         </div>
 
@@ -140,17 +130,17 @@ export default function StudentTopicDetailPage() {
             <AlertCircle className="size-6" />
           </div>
           <h2 className="text-base font-semibold text-text-primary">
-            Không tải được chuyên đề
+            Không tải được tiết học
           </h2>
           <p className="mt-1 text-sm text-text-muted max-w-md mx-auto">
             {errorMessage}
           </p>
           <div className="mt-5">
             <Link
-              href={studentClassTopicsHref(classId)}
+              href={studentClassLessonsHref(classId)}
               className="inline-flex min-h-10 items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover"
             >
-              Về danh sách chuyên đề
+              Về lớp học
             </Link>
           </div>
         </div>
@@ -158,17 +148,14 @@ export default function StudentTopicDetailPage() {
     );
   }
 
-  const lectureList: Lecture[] = lectures ?? [];
   const isPractice = topic.kind === "practice";
   if (isPractice) {
     return (
-      <PracticeTopicRedirect classId={classId} topicId={topicId} title={topic.title} />
+      <PracticeLessonRedirect classId={classId} lessonId={lessonId} title={topic.title} />
     );
   }
-  const selectedLecture: Lecture | undefined = lectureList[selectedLectureIdx];
-  const hasLectures = lectureList.length > 0;
-  const hasVideo = Boolean(selectedLecture?.videoUrl);
-  const hasContent = Boolean(selectedLecture?.content);
+  const hasVideo = Boolean(topic.videoUrl);
+  const hasContent = Boolean(topic.content);
 
   return (
     <div className="space-y-6">
@@ -182,7 +169,7 @@ export default function StudentTopicDetailPage() {
         </Link>
         <span>/</span>
         <Link
-          href={studentClassTopicsHref(classId)}
+          href={studentClassLessonsHref(classId)}
           className="inline-flex items-center gap-1 font-medium text-text-muted transition-colors hover:text-primary max-w-[200px] sm:max-w-xs truncate"
         >
           {classDetail?.class?.name || "Chi tiết lớp"}
@@ -199,14 +186,8 @@ export default function StudentTopicDetailPage() {
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
               <BookOpen className="size-3.5" />
-              Chuyên đề học tập
+              Tiết lý thuyết
             </span>
-            {hasLectures && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-info/10 px-2.5 py-0.5 text-xs font-semibold text-info">
-                <PlayCircle className="size-3.5" />
-                {lectureList.length} bài học
-              </span>
-            )}
           </div>
 
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-text-primary">
@@ -225,53 +206,21 @@ export default function StudentTopicDetailPage() {
         </div>
       </header>
 
-      {/* Lecture selector — only when multiple lectures */}
-      {lectureList.length > 1 && (
-        <div className="rounded-2xl border border-border-default bg-bg-surface p-3 sm:p-4 shadow-sm">
-          <div className="flex items-center gap-2 mb-3">
-            <List className="size-4 text-primary" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
-              Danh sách bài học
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {lectureList.map((lec, idx) => (
-              <button
-                key={lec.id}
-                type="button"
-                onClick={() => setSelectedLectureIdx(idx)}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-all",
-                  idx === selectedLectureIdx
-                    ? "border-primary bg-primary/10 text-primary shadow-sm"
-                    : "border-border-default bg-bg-secondary/40 text-text-secondary hover:border-primary/40 hover:bg-bg-secondary/70",
-                )}
-              >
-                <PlayCircle className="size-3.5 shrink-0" />
-                <span className="truncate max-w-[200px]">
-                  {lec.title || `Bài ${idx + 1}`}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Video */}
-      {hasVideo && selectedLecture && (
-        <section aria-label="Video bài giảng" className="space-y-3 max-w-4xl mx-auto w-full">
+      {hasVideo && (
+        <section aria-label="Video tiết học" className="space-y-3 max-w-4xl mx-auto w-full">
           <div className="flex items-center justify-between px-1">
             <span className="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5">
               <PlayCircle className="size-4" />
-              {selectedLecture.title || "Video bài giảng"}
+              {topic.title || "Video tiết học"}
             </span>
             <span className="text-[11px] text-text-muted">Bảo mật nội dung</span>
           </div>
           <div className="overflow-hidden rounded-2xl shadow-xl border border-border-default bg-black">
             <YouTubeEmbed
-              url={selectedLecture.videoUrl!}
+              url={topic.videoUrl!}
               protected
-              title={selectedLecture.title || topic.title}
+              title={topic.title}
               className="w-full aspect-video min-h-[260px] sm:min-h-[380px] md:min-h-[460px] lg:min-h-[500px]"
             />
           </div>
@@ -279,18 +228,18 @@ export default function StudentTopicDetailPage() {
       )}
 
       {/* Content */}
-      {hasContent && selectedLecture && (
-        <section aria-label="Nội dung bài học" className="w-full">
+      {hasContent && (
+        <section aria-label="Nội dung tiết học" className="w-full">
           <Card className="rounded-2xl border border-border-default bg-bg-surface shadow-sm">
             <CardContent className="p-5 sm:p-7 md:p-8">
               <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border-subtle">
                 <FileText className="size-4 text-primary" />
                 <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-text-secondary">
-                  {selectedLecture.title || "Nội dung chi tiết"}
+                  {topic.title || "Nội dung chi tiết"}
                 </h2>
               </div>
               <div className="text-text-primary text-sm sm:text-base leading-relaxed">
-                <MathContent content={selectedLecture.content!} />
+                <MathContent content={topic.content!} />
               </div>
             </CardContent>
           </Card>
@@ -298,36 +247,27 @@ export default function StudentTopicDetailPage() {
       )}
 
       {/* Quiz Section */}
-      {selectedLecture && (
-        <LectureQuizSection
-          classId={classId}
-          topicId={topicId}
-          lectureId={selectedLecture.id}
-        />
-      )}
+      <LessonQuizSection
+        classId={classId}
+        lessonId={lessonId}
+      />
 
-      {/* Empty state */}
-      {!hasLectures && (
+      {!hasVideo && !hasContent && (
         <div className="rounded-2xl border border-dashed border-border-default bg-bg-surface p-10 text-center text-sm text-text-muted">
-          Chuyên đề này hiện chưa có bài học nào.
-        </div>
-      )}
-      {hasLectures && !hasVideo && !hasContent && (
-        <div className="rounded-2xl border border-dashed border-border-default bg-bg-surface p-10 text-center text-sm text-text-muted">
-          Bài học này hiện chưa có nội dung văn bản hoặc video đính kèm.
+          Tiết học này hiện chưa có nội dung văn bản hoặc video đính kèm.
         </div>
       )}
     </div>
   );
 }
 
-function PracticeTopicRedirect({
+function PracticeLessonRedirect({
   classId,
-  topicId,
+  lessonId,
   title,
 }: {
   classId: string;
-  topicId: string;
+  lessonId: string;
   title: string;
 }) {
   const router = useRouter();
@@ -336,7 +276,7 @@ function PracticeTopicRedirect({
     queryFn: () => getStudentClassContent(classId),
   });
   const assignment = items?.find(
-    (item) => item.topicId === topicId && item.topicKind === "practice",
+    (item) => item.lessonId === lessonId && item.lessonKind === "practice",
   );
 
   useEffect(() => {
@@ -350,7 +290,7 @@ function PracticeTopicRedirect({
   return (
     <div className="space-y-3">
       <p className="text-sm text-text-muted">
-        Đang mở bài luyện tập «{title}»…
+        Đang mở tiết thực hành «{title}»…
       </p>
       <Skeleton className="h-32 w-full rounded-2xl" />
     </div>
@@ -359,14 +299,12 @@ function PracticeTopicRedirect({
 
 // ─── Lecture Quiz Section ─────────────────────────────────────
 
-function LectureQuizSection({
+function LessonQuizSection({
   classId,
-  topicId,
-  lectureId,
+  lessonId,
 }: {
   classId: string;
-  topicId: string;
-  lectureId: string;
+  lessonId: string;
 }) {
   const queryClient = useQueryClient();
   const [draftAnswers, setDraftAnswers] = useState<
@@ -374,14 +312,14 @@ function LectureQuizSection({
   >({});
 
   const { data: quizzes = [], isLoading: quizzesLoading } = useQuery({
-    queryKey: ["student-lecture-quizzes", classId, topicId, lectureId],
-    queryFn: () => getMyLectureQuizzes(classId, topicId, lectureId),
+    queryKey: ["student-lesson-quizzes", classId, lessonId],
+    queryFn: () => getMyLessonQuizzes(classId, lessonId),
     staleTime: 60_000,
   });
 
   const { data: savedAnswers = [] } = useQuery({
-    queryKey: ["student-quiz-answers", classId, topicId, lectureId],
-    queryFn: () => getMyQuizAnswers(classId, topicId, lectureId),
+    queryKey: ["student-quiz-answers", classId, lessonId],
+    queryFn: () => getMyQuizAnswers(classId, lessonId),
     staleTime: 60_000,
   });
 
@@ -401,12 +339,12 @@ function LectureQuizSection({
           overLimitMessage("Câu trả lời", CONTENT_LIMITS.essayAnswer),
         );
       }
-      return submitMyQuizAnswers(classId, topicId, lectureId, answers);
+      return submitMyQuizAnswers(classId, lessonId, answers);
     },
     onSuccess: () => {
       toast.success("Đã nộp bài tập ôn nhẹ.");
       queryClient.invalidateQueries({
-        queryKey: ["student-quiz-answers", classId, topicId, lectureId],
+        queryKey: ["student-quiz-answers", classId, lessonId],
       });
     },
     onError: (error) => {
@@ -490,7 +428,7 @@ function QuizQuestionInput({
   value,
   onChange,
 }: {
-  quiz: LectureQuizQuestion;
+  quiz: LessonQuizQuestion;
   index: number;
   value?: { choiceIndex?: number | null; essayAnswer?: string | null };
   onChange: (val: { choiceIndex?: number | null; essayAnswer?: string | null }) => void;
@@ -556,7 +494,7 @@ function QuizQuestionInput({
 
 // ─── Quiz Review (after submission) ──────────────────────────
 
-function QuizReview({ answers }: { answers: LectureQuizAnswer[] }) {
+function QuizReview({ answers }: { answers: LessonQuizAnswer[] }) {
   return (
     <div className="space-y-4">
       <p className="text-xs text-text-muted mb-2">

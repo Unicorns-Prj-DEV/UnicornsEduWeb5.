@@ -5,6 +5,8 @@
 export const CONTENT_LIMITS = {
   essayAnswer: 20_000,
   feedback: 4_000,
+  theoryContent: 100_000,
+  /** @deprecated Use theoryContent */
   lectureContent: 100_000,
   sessionRichText: 20_000,
   url: 2_048,

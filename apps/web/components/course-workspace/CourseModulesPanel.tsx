@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as classApi from "@/lib/apis/class.api";
 import { courseKeys } from "@/lib/query-keys";
-import { invalidateCoursePracticeTopicQueries } from "@/lib/query-invalidation";
+import { invalidateCoursePracticeLessonQueries } from "@/lib/query-invalidation";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ResponsiveActionFooter,
@@ -16,7 +16,7 @@ import {
   confirmOrderDirtyLeave,
   useConfirmDialog,
 } from "@/components/ui/ConfirmDialog";
-import type { Chapter } from "@/dtos/topic.dto";
+import type { CourseModule } from "@/dtos/course-content.dto";
 import { RowActionsMenu } from "@/components/course-workspace/RowActionsMenu";
 import {
   OrderSaveBar,
@@ -25,31 +25,31 @@ import {
   useOrderDraft,
 } from "@/components/course-workspace/SortableOrderList";
 
-export function CourseChaptersPanel({
+export function CourseModulesPanel({
   courseId,
   canEdit,
-  onOpenChapter,
+  onOpenModule,
   onOrderDirtyChange,
 }: {
   courseId: string;
   canEdit: boolean;
-  onOpenChapter: (chapterId: string) => void;
+  onOpenModule: (moduleId: string) => void;
   onOrderDirtyChange?: (dirty: boolean) => void;
 }) {
   const queryClient = useQueryClient();
   const { confirm, dialog } = useConfirmDialog();
   const [newTitle, setNewTitle] = useState("");
-  const [renameTarget, setRenameTarget] = useState<Chapter | null>(null);
+  const [renameTarget, setRenameTarget] = useState<CourseModule | null>(null);
   const [renameTitle, setRenameTitle] = useState("");
 
-  const { data: chapters = [], isLoading } = useQuery({
-    queryKey: courseKeys.chapters(courseId),
-    queryFn: () => classApi.getChapters(courseId),
+  const { data: modules = [], isLoading } = useQuery({
+    queryKey: courseKeys.modules(courseId),
+    queryFn: () => classApi.getModules(courseId),
     enabled: Boolean(courseId),
   });
 
   const { items, orderDirty, applyDrag, discard } = useOrderDraft(
-    chapters,
+    modules,
     courseId,
   );
 
@@ -58,80 +58,80 @@ export function CourseChaptersPanel({
     return () => onOrderDirtyChange?.(false);
   }, [orderDirty, onOrderDirtyChange]);
 
-  const invalidate = () => invalidateCoursePracticeTopicQueries(queryClient, courseId);
+  const invalidate = () => invalidateCoursePracticeLessonQueries(queryClient, courseId);
 
   const createMutation = useMutation({
-    mutationFn: (title: string) => classApi.createChapter(courseId, { title }),
+    mutationFn: (title: string) => classApi.createModule(courseId, { title }),
     onSuccess: () => {
-      toast.success("Đã thêm chủ đề.");
+      toast.success("Đã thêm chuyên đề.");
       setNewTitle("");
       discard();
       void invalidate();
     },
     onError: (err: { response?: { data?: { message?: string } } }) => {
-      toast.error(err?.response?.data?.message || "Không thể thêm chủ đề.");
+      toast.error(err?.response?.data?.message || "Không thể thêm chuyên đề.");
     },
   });
 
   const renameMutation = useMutation({
     mutationFn: ({ id, title }: { id: string; title: string }) =>
-      classApi.updateChapter(courseId, id, { title }),
+      classApi.updateModule(courseId, id, { title }),
     onSuccess: () => {
-      toast.success("Đã đổi tên chủ đề.");
+      toast.success("Đã đổi tên chuyên đề.");
       setRenameTarget(null);
       void invalidate();
     },
     onError: (err: { response?: { data?: { message?: string } } }) => {
-      toast.error(err?.response?.data?.message || "Không thể cập nhật chủ đề.");
+      toast.error(err?.response?.data?.message || "Không thể cập nhật chuyên đề.");
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => classApi.deleteChapter(courseId, id),
+    mutationFn: (id: string) => classApi.deleteModule(courseId, id),
     onSuccess: () => {
-      toast.success("Đã xoá chủ đề.");
+      toast.success("Đã xoá chuyên đề.");
       discard();
       void invalidate();
     },
     onError: (err: { response?: { data?: { message?: string } } }) => {
-      toast.error(err?.response?.data?.message || "Không thể xoá chủ đề.");
+      toast.error(err?.response?.data?.message || "Không thể xoá chuyên đề.");
     },
   });
 
   const reorderMutation = useMutation({
-    mutationFn: (chapterIds: string[]) =>
-      classApi.reorderChapters(courseId, chapterIds),
+    mutationFn: (moduleIds: string[]) =>
+      classApi.reorderModules(courseId, moduleIds),
     onSuccess: () => {
-      toast.success("Đã lưu thứ tự chủ đề.");
+      toast.success("Đã lưu thứ tự chuyên đề.");
       discard();
       void invalidate();
     },
     onError: (err: { response?: { data?: { message?: string } } }) => {
-      toast.error(err?.response?.data?.message || "Không thể sắp xếp chủ đề.");
+      toast.error(err?.response?.data?.message || "Không thể sắp xếp chuyên đề.");
     },
   });
 
-  const addChapter = () => {
+  const addModule = () => {
     const title = newTitle.trim();
     if (!title || createMutation.isPending) return;
     createMutation.mutate(title);
   };
 
-  const openChapter = async (chapterId: string) => {
+  const openModule = async (moduleId: string) => {
     if (!(await confirmOrderDirtyLeave(confirm, orderDirty))) return;
     discard();
-    onOpenChapter(chapterId);
+    onOpenModule(moduleId);
   };
 
-  const requestDelete = async (chapter: Chapter) => {
+  const requestDelete = async (courseModule: CourseModule) => {
     const ok = await confirm({
-      title: "Xoá chủ đề?",
-      description: `Xoá chủ đề "${chapter.title}" và mọi chuyên đề bên trong? Không xoá được nếu lớp đang dùng nội dung này.`,
+      title: "Xoá chuyên đề?",
+      description: `Xoá chuyên đề "${courseModule.title}" và mọi tiết học bên trong? Không xoá được nếu lớp đang dùng nội dung này.`,
       confirmLabel: "Xoá",
       variant: "destructive",
     });
     if (!ok) return;
-    deleteMutation.mutate(chapter.id);
+    deleteMutation.mutate(courseModule.id);
   };
 
   const canReorder = canEdit && items.length > 1;
@@ -141,7 +141,7 @@ export function CourseChaptersPanel({
       <section className="rounded-xl border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5">
         <Skeleton className="h-5 w-32" />
         <Skeleton className="mt-2 h-4 w-full max-w-md" />
-        <div className="mt-4 space-y-2" role="status" aria-label="Đang tải chủ đề">
+        <div className="mt-4 space-y-2" role="status" aria-label="Đang tải chuyên đề">
           <Skeleton className="h-14 w-full" />
           <Skeleton className="h-14 w-full" />
           <Skeleton className="h-14 w-full" />
@@ -152,9 +152,9 @@ export function CourseChaptersPanel({
 
   return (
     <section className="rounded-xl border border-border-default bg-bg-surface p-3 shadow-sm sm:p-5">
-      <h2 className="text-base font-semibold text-text-primary">Chủ đề</h2>
+      <h2 className="text-base font-semibold text-text-primary">Chuyên đề</h2>
       <p className="mt-0.5 text-sm text-text-secondary">
-        Mỗi chủ đề chứa các chuyên đề lý thuyết và luyện tập. Bấm một dòng để mở danh sách chuyên đề.
+        Mỗi chuyên đề chứa các tiết lý thuyết và tiết thực hành. Bấm một dòng để mở danh sách tiết học.
       </p>
 
       {canEdit ? (
@@ -165,53 +165,53 @@ export function CourseChaptersPanel({
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
-                addChapter();
+                addModule();
               }
             }}
-            aria-label="Tên chủ đề mới"
-            placeholder="Tên chủ đề mới..."
+            aria-label="Tên chuyên đề mới"
+            placeholder="Tên chuyên đề mới..."
             className="min-h-11 min-w-0 flex-1 rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-10"
           />
           <button
             type="button"
-            onClick={addChapter}
+            onClick={addModule}
             disabled={!newTitle.trim() || createMutation.isPending}
             className="inline-flex min-h-11 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse hover:bg-primary-hover disabled:opacity-60 sm:min-h-10"
           >
-            Thêm chủ đề
+            Thêm chuyên đề
           </button>
         </div>
       ) : null}
 
       {items.length === 0 ? (
         <p className="mt-4 rounded-lg border border-dashed border-border-default p-4 text-sm text-text-secondary">
-          Chưa có chủ đề nào. Thêm chủ đề đầu tiên để bắt đầu soạn nội dung.
+          Chưa có chuyên đề nào. Thêm chuyên đề đầu tiên để bắt đầu soạn nội dung.
         </p>
       ) : (
         <div className="mt-4 flex flex-col gap-3">
           <SortableOrderList items={items} canReorder={canReorder} onReorder={applyDrag}>
-            {(chapter) => (
+            {(courseModule) => (
               <SortableRow
-                id={chapter.id}
+                id={courseModule.id}
                 canReorder={canReorder}
-                rowLabel={`Mở chuyên đề của ${chapter.title}`}
-                onRowClick={() => void openChapter(chapter.id)}
+                rowLabel={`Mở tiết học của ${courseModule.title}`}
+                onRowClick={() => void openModule(courseModule.id)}
                 menu={
                   canEdit ? (
                     <RowActionsMenu
-                      label={`Thao tác chủ đề ${chapter.title}`}
+                      label={`Thao tác chuyên đề ${courseModule.title}`}
                       actions={[
                         {
                           label: "Đổi tên",
                           onSelect: () => {
-                            setRenameTarget(chapter);
-                            setRenameTitle(chapter.title);
+                            setRenameTarget(courseModule);
+                            setRenameTitle(courseModule.title);
                           },
                         },
                         {
                           label: "Xoá",
                           variant: "danger",
-                          onSelect: () => void requestDelete(chapter),
+                          onSelect: () => void requestDelete(courseModule),
                         },
                       ]}
                     />
@@ -220,10 +220,10 @@ export function CourseChaptersPanel({
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-text-primary">
-                    {chapter.title}
+                    {courseModule.title}
                   </p>
                   <p className="text-xs text-text-muted">
-                    {chapter.topicCount ?? 0} chuyên đề
+                    {courseModule.lessonCount ?? 0} tiết học
                   </p>
                 </div>
                 <svg
@@ -259,13 +259,13 @@ export function CourseChaptersPanel({
 
       {renameTarget ? (
         <ResponsiveDialog
-          labelledBy="rename-chapter-title"
+          labelledBy="rename-module-title"
           onBackdropClick={() => setRenameTarget(null)}
           size="sm"
         >
           <div className="border-b border-border-default px-4 py-3">
-            <h3 id="rename-chapter-title" className="text-base font-semibold text-text-primary">
-              Đổi tên chủ đề
+            <h3 id="rename-module-title" className="text-base font-semibold text-text-primary">
+              Đổi tên chuyên đề
             </h3>
           </div>
           <ResponsiveDialogBody>

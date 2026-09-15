@@ -1,14 +1,13 @@
 export interface ClassContentItemDto {
-  id: string; // class_content_items.id
-  topicId: string;
-  kind: "topic";
-  topicKind: "theory" | "practice";
+  id: string;
+  lessonId: string;
+  kind: "lesson";
+  lessonKind: "theory" | "practice";
   sortOrder: number;
   title: string;
-  kindLabel: string; // e.g., 'Lý thuyết' | 'Luyện tập'
+  kindLabel: string;
   source: "course" | "class";
-  chapterTitle?: string;
-  lectureCount?: number;
+  moduleTitle?: string;
   openAt: string | null;
   durationMinutes: number | null;
   isOpen: boolean;
@@ -17,7 +16,7 @@ export interface ClassContentItemDto {
 }
 
 export interface ClassContentCreatePayload {
-  topicId?: string;
+  lessonId?: string;
   title?: string;
   kind?: "theory" | "practice";
   /** ISO 8601. Omit for practice to default openAt to server time when the item is added. */

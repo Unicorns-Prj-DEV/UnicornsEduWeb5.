@@ -148,7 +148,7 @@ export function remainingReviewLabel(remaining: number): string {
 
 export function importDisabledReason(input: {
   remainingUnreviewed: number;
-  chapterId: string;
+  moduleId: string;
   validCount: number;
   isPending: boolean;
 }): string | null {
@@ -156,7 +156,7 @@ export function importDisabledReason(input: {
   if (input.remainingUnreviewed > 0) {
     return remainingReviewLabel(input.remainingUnreviewed);
   }
-  if (!input.chapterId) return "Chọn chủ đề trước khi lưu";
+  if (!input.moduleId) return "Chọn chuyên đề trước khi lưu";
   if (input.validCount <= 0) return "Không có câu hợp lệ để lưu";
   return null;
 }

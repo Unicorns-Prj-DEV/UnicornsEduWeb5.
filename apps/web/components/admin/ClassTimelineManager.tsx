@@ -38,6 +38,7 @@ import type { ClassTheoryProgressStudentDto } from "@/dtos/class-theory-progress
 import type { SessionItem } from "@/dtos/session.dto";
 import type { ClassSurveyRecord } from "@/dtos/class-survey.dto";
 import ClassContentManager from "@/components/admin/ClassContentManager";
+import { TimelineKindBadge } from "@/components/class-timeline/TimelineKindBadge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ResponsiveDialog,
@@ -108,11 +109,11 @@ function SortableTimelineRow({
   };
   const showPracticeActions =
     item.kind === "content_item" &&
-    item.topicKind === "practice" &&
+    item.lessonKind === "practice" &&
     Boolean(item.classContentItemId && practiceActionsBasePath);
   const showTheoryActions =
     item.kind === "content_item" &&
-    item.topicKind === "theory" &&
+    item.lessonKind === "theory" &&
     Boolean(item.classContentItemId && onOpenTheoryProgress);
 
   return (
@@ -148,15 +149,23 @@ function SortableTimelineRow({
           className="cursor-pointer rounded-lg p-1 text-left hover:bg-bg-secondary/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
         >
           {item.kind === "session" && item.session ? (
-            <SessionTimelineCard session={item.session} />
+            <div className="space-y-2">
+              <TimelineKindBadge kind={item.kind} />
+              <SessionTimelineCard session={item.session} />
+            </div>
           ) : item.kind === "class_survey" && item.survey ? (
-            <SurveyTimelineCard survey={item.survey} />
+            <div className="space-y-2">
+              <TimelineKindBadge kind={item.kind} />
+              <SurveyTimelineCard survey={item.survey} />
+            </div>
           ) : (
             <>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex rounded-full bg-bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-text-secondary">
-                  {item.kindLabel}
-                </span>
+                <TimelineKindBadge
+                  kind={item.kind}
+                  lessonKind={item.lessonKind}
+                  label={item.kindLabel}
+                />
                 {item.hiddenAt ? (
                   <span className="inline-flex rounded-full bg-error/10 px-2 py-0.5 text-[10px] font-semibold text-error">
                     Đã ẩn
@@ -166,7 +175,7 @@ function SortableTimelineRow({
               <p className="mt-1 truncate text-sm font-medium text-text-primary">
                 {item.title}
               </p>
-              {item.topicKind === "practice" &&
+              {item.lessonKind === "practice" &&
               (item.openAt || item.durationMinutes) ? (
                 <p className="mt-0.5 text-xs text-text-muted">
                   {[
@@ -269,7 +278,7 @@ function TheoryProgressDialog({
       <div className="flex items-start justify-between gap-3 border-b border-border-default px-4 py-4 sm:px-5">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-            Tiến độ chuyên đề lý thuyết
+            Tiến độ tiết lý thuyết
           </p>
           <h2
             id="theory-progress-title"
@@ -302,7 +311,7 @@ function TheoryProgressDialog({
           </div>
         ) : isError || !data ? (
           <div className="rounded-xl border border-error/30 bg-error/10 p-4 text-sm text-error">
-            Không tải được tiến độ chuyên đề lý thuyết.
+            Không tải được tiến độ tiết lý thuyết.
           </div>
         ) : (
           <>
@@ -398,7 +407,7 @@ function TheoryProgressStudentRow({
           <p className="mt-0.5 text-xs text-text-muted">
             {student.viewed
               ? `Xem lần cuối: ${formatViewedAt(student.lastViewedAt)}`
-              : "Chưa xem chuyên đề"}
+              : "Chưa xem tiết học"}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -645,7 +654,7 @@ export default function ClassTimelineManager({
             className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:bg-bg-secondary"
           >
             <Plus className="size-3.5" />
-            Chuyên đề
+            Tiết học
           </button>
         ) : null}
         {canManageSurveys ? (
@@ -688,7 +697,7 @@ export default function ClassTimelineManager({
         </div>
       ) : empty ? (
         <div className="rounded-xl border border-dashed border-border-default p-8 text-center text-sm text-text-muted">
-          Chưa có buổi học, chuyên đề hay khảo sát trên timeline.
+          Chưa có buổi học, tiết học hay khảo sát trên timeline.
         </div>
       ) : (
         <DndContext

@@ -9,7 +9,7 @@ import { getAssignmentLobby, startAssignmentAttempt } from "@/lib/apis/attempt.a
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { studentClassTopicsHref } from "@/lib/course-content-routes";
+import { studentClassLessonsHref } from "@/lib/course-content-routes";
 
 function statusLabel(status: string) {
   if (status === "in_progress") return "Đang làm";
@@ -56,7 +56,7 @@ export default function StudentAssignmentLobbyPage() {
     return (
       <div className="space-y-4">
         <Link
-          href={studentClassTopicsHref(classId)}
+          href={studentClassLessonsHref(classId)}
           className="inline-flex items-center gap-1 text-sm text-text-muted"
         >
           <ChevronLeft className="size-4" />
@@ -74,7 +74,7 @@ export default function StudentAssignmentLobbyPage() {
   return (
     <div className="space-y-5">
       <Link
-        href={studentClassTopicsHref(classId)}
+        href={studentClassLessonsHref(classId)}
         className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-primary"
       >
         <ChevronLeft className="size-4" />
@@ -82,7 +82,7 @@ export default function StudentAssignmentLobbyPage() {
       </Link>
 
       <header className="rounded-2xl border border-border-default bg-bg-surface p-5 shadow-sm">
-        <Badge variant="info">Luyện tập</Badge>
+        <Badge variant="info">Tiết thực hành</Badge>
         <h1 className="mt-2 text-xl font-bold text-text-primary sm:text-2xl">
           {data.title}
         </h1>

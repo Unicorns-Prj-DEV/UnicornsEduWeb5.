@@ -5,13 +5,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as classApi from "@/lib/apis/class.api";
 import { courseKeys } from "@/lib/query-keys";
-import { invalidateCoursePracticeTopicQueries } from "@/lib/query-invalidation";
+import { invalidateCoursePracticeLessonQueries } from "@/lib/query-invalidation";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   confirmOrderDirtyLeave,
   useConfirmDialog,
 } from "@/components/ui/ConfirmDialog";
-import type { Topic } from "@/dtos/topic.dto";
+import type { CourseLesson } from "@/dtos/course-content.dto";
+import {
+  lessonKindBadgeClass,
+  lessonKindLabel,
+} from "@/lib/course-content-labels";
 import { RowActionsMenu } from "@/components/course-workspace/RowActionsMenu";
 import {
   OrderSaveBar,
@@ -20,50 +24,50 @@ import {
   useOrderDraft,
 } from "@/components/course-workspace/SortableOrderList";
 
-function topicMeta(topic: Topic): string {
-  if (topic.kind === "theory") {
-    const n = topic.lectureCount ?? 0;
-    return `${n} bài học`;
+function lessonMeta(lesson: CourseLesson): string {
+  if (lesson.kind === "theory") {
+    const n = lesson.quizCount ?? 0;
+    return `${n} bài tập ôn nhẹ`;
   }
-  const n = topic.questionCount ?? 0;
+  const n = lesson.questionCount ?? 0;
   return `${n} câu hỏi`;
 }
 
-export function CourseTopicsPanel({
+export function CourseLessonsPanel({
   courseId,
-  chapterId,
+  moduleId,
   canEdit,
   onBack,
-  onOpenTopic,
-  onCreateTopic,
+  onOpenLesson,
+  onCreateLesson,
   onOrderDirtyChange,
 }: {
   courseId: string;
-  chapterId: string;
+  moduleId: string;
   canEdit: boolean;
   onBack: () => void;
-  onOpenTopic: (topic: Topic) => void;
-  onCreateTopic: () => void;
+  onOpenLesson: (lesson: CourseLesson) => void;
+  onCreateLesson: () => void;
   onOrderDirtyChange?: (dirty: boolean) => void;
 }) {
   const queryClient = useQueryClient();
   const { confirm, dialog } = useConfirmDialog();
 
-  const { data: chapter, isLoading: chapterLoading } = useQuery({
-    queryKey: courseKeys.chapter(courseId, chapterId),
-    queryFn: () => classApi.getChapter(courseId, chapterId),
-    enabled: Boolean(courseId && chapterId),
+  const { data: courseModule, isLoading: moduleLoading } = useQuery({
+    queryKey: courseKeys.module(courseId, moduleId),
+    queryFn: () => classApi.getModule(courseId, moduleId),
+    enabled: Boolean(courseId && moduleId),
   });
 
-  const { data: topics = [], isLoading: topicsLoading } = useQuery({
-    queryKey: courseKeys.topics(courseId, chapterId),
-    queryFn: () => classApi.getTopicsByChapter(courseId, chapterId),
-    enabled: Boolean(courseId && chapterId),
+  const { data: lessons = [], isLoading: lessonsLoading } = useQuery({
+    queryKey: courseKeys.lessons(courseId, moduleId),
+    queryFn: () => classApi.getLessonsByModule(courseId, moduleId),
+    enabled: Boolean(courseId && moduleId),
   });
 
   const { items, orderDirty, applyDrag, discard } = useOrderDraft(
-    topics,
-    `${courseId}:${chapterId}`,
+    lessons,
+    `${courseId}:${moduleId}`,
   );
 
   useEffect(() => {
@@ -71,31 +75,31 @@ export function CourseTopicsPanel({
     return () => onOrderDirtyChange?.(false);
   }, [orderDirty, onOrderDirtyChange]);
 
-  const invalidate = () => invalidateCoursePracticeTopicQueries(queryClient, courseId);
+  const invalidate = () => invalidateCoursePracticeLessonQueries(queryClient, courseId);
 
   const deleteMutation = useMutation({
-    mutationFn: (topicId: string) =>
-      classApi.deleteTopic(courseId, chapterId, topicId),
+    mutationFn: (lessonId: string) =>
+      classApi.deleteCourseLesson(courseId, moduleId, lessonId),
     onSuccess: () => {
-      toast.success("Đã xoá chuyên đề.");
+      toast.success("Đã xoá tiết học.");
       discard();
       void invalidate();
     },
     onError: (err: { response?: { data?: { message?: string } } }) => {
-      toast.error(err?.response?.data?.message || "Không thể xoá chuyên đề.");
+      toast.error(err?.response?.data?.message || "Không thể xoá tiết học.");
     },
   });
 
   const reorderMutation = useMutation({
-    mutationFn: (topicIds: string[]) =>
-      classApi.reorderTopics(courseId, chapterId, topicIds),
+    mutationFn: (lessonIds: string[]) =>
+      classApi.reorderCourseLessons(courseId, moduleId, lessonIds),
     onSuccess: () => {
-      toast.success("Đã lưu thứ tự chuyên đề.");
+      toast.success("Đã lưu thứ tự tiết học.");
       discard();
       void invalidate();
     },
     onError: (err: { response?: { data?: { message?: string } } }) => {
-      toast.error(err?.response?.data?.message || "Không thể sắp xếp chuyên đề.");
+      toast.error(err?.response?.data?.message || "Không thể sắp xếp tiết học.");
     },
   });
 
@@ -105,37 +109,37 @@ export function CourseTopicsPanel({
     onBack();
   };
 
-  const openTopic = async (topic: Topic) => {
+  const openLesson = async (lesson: CourseLesson) => {
     if (!(await confirmOrderDirtyLeave(confirm, orderDirty))) return;
     discard();
-    onOpenTopic(topic);
+    onOpenLesson(lesson);
   };
 
-  const createTopic = async () => {
+  const createLesson = async () => {
     if (!(await confirmOrderDirtyLeave(confirm, orderDirty))) return;
     discard();
-    onCreateTopic();
+    onCreateLesson();
   };
 
-  const requestDelete = async (topic: Topic) => {
+  const requestDelete = async (lesson: CourseLesson) => {
     const ok = await confirm({
-      title: "Xoá chuyên đề?",
-      description: `Xoá chuyên đề "${topic.title}"? Không xoá được nếu lớp đang dùng nội dung này.`,
+      title: "Xoá tiết học?",
+      description: `Xoá tiết học "${lesson.title}"? Không xoá được nếu lớp đang dùng nội dung này.`,
       confirmLabel: "Xoá",
       variant: "destructive",
     });
     if (!ok) return;
-    deleteMutation.mutate(topic.id);
+    deleteMutation.mutate(lesson.id);
   };
 
-  const isLoading = chapterLoading || topicsLoading;
+  const isLoading = moduleLoading || lessonsLoading;
   const canReorder = canEdit && items.length > 1;
 
   if (isLoading) {
     return (
       <section className="rounded-xl border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5">
         <Skeleton className="h-5 w-40" />
-        <div className="mt-4 space-y-2" role="status" aria-label="Đang tải chuyên đề">
+        <div className="mt-4 space-y-2" role="status" aria-label="Đang tải tiết học">
           <Skeleton className="h-14 w-full" />
           <Skeleton className="h-14 w-full" />
         </div>
@@ -143,16 +147,16 @@ export function CourseTopicsPanel({
     );
   }
 
-  if (!chapter) {
+  if (!courseModule) {
     return (
       <section className="rounded-xl border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5">
-        <p className="text-sm text-error">Không tìm thấy chủ đề.</p>
+        <p className="text-sm text-error">Không tìm thấy chuyên đề.</p>
         <button
           type="button"
           onClick={onBack}
           className="mt-3 text-sm text-primary underline"
         >
-          Quay lại danh sách chủ đề
+          Quay lại danh sách chuyên đề
         </button>
       </section>
     );
@@ -168,54 +172,49 @@ export function CourseTopicsPanel({
         <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
-        Chủ đề
+        Chuyên đề
       </button>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h2 className="text-base font-semibold text-text-primary">{chapter.title}</h2>
+          <h2 className="text-base font-semibold text-text-primary">{courseModule.title}</h2>
           <p className="mt-0.5 text-sm text-text-secondary">
-            Bấm một chuyên đề để soạn. Kéo tay cầm để đổi thứ tự.
+            Bấm một tiết học để soạn. Kéo tay cầm để đổi thứ tự.
           </p>
         </div>
         {canEdit ? (
           <button
             type="button"
-            onClick={() => void createTopic()}
+            onClick={() => void createLesson()}
             className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse hover:bg-primary-hover sm:min-h-10"
           >
-            Thêm chuyên đề
+            Thêm tiết học
           </button>
         ) : null}
       </div>
 
       {items.length === 0 ? (
         <p className="mt-4 rounded-lg border border-dashed border-border-default p-4 text-sm text-text-secondary">
-          Chủ đề này chưa có chuyên đề. Thêm chuyên đề lý thuyết (bài học) hoặc luyện tập (câu hỏi).
+          Chuyên đề này chưa có tiết học. Thêm tiết lý thuyết hoặc tiết thực hành.
         </p>
       ) : (
         <div className="mt-4 flex flex-col gap-3">
           <SortableOrderList items={items} canReorder={canReorder} onReorder={applyDrag}>
-            {(topic) => {
-              const kindLabel = topic.kind === "theory" ? "Lý thuyết" : "Luyện tập";
-              const kindClass =
-                topic.kind === "theory"
-                  ? "bg-blue-50 text-blue-700"
-                  : "bg-amber-50 text-amber-700";
+            {(lesson) => {
               return (
                 <SortableRow
-                  id={topic.id}
+                  id={lesson.id}
                   canReorder={canReorder}
-                  rowLabel={`Mở chuyên đề ${topic.title}`}
-                  onRowClick={() => void openTopic(topic)}
+                  rowLabel={`Mở tiết học ${lesson.title}`}
+                  onRowClick={() => void openLesson(lesson)}
                   menu={
                     canEdit ? (
                       <RowActionsMenu
-                        label={`Thao tác chuyên đề ${topic.title}`}
+                        label={`Thao tác tiết học ${lesson.title}`}
                         actions={[
                           {
                             label: "Xoá",
                             variant: "danger",
-                            onSelect: () => void requestDelete(topic),
+                            onSelect: () => void requestDelete(lesson),
                           },
                         ]}
                       />
@@ -225,15 +224,15 @@ export function CourseTopicsPanel({
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="truncate text-sm font-medium text-text-primary">
-                        {topic.title}
+                        {lesson.title}
                       </p>
                       <span
-                        className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${kindClass}`}
+                        className={`inline-flex shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium ${lessonKindBadgeClass(lesson.kind)}`}
                       >
-                        {kindLabel}
+                        {lessonKindLabel(lesson.kind)}
                       </span>
                     </div>
-                    <p className="text-xs text-text-muted">{topicMeta(topic)}</p>
+                    <p className="text-xs text-text-muted">{lessonMeta(lesson)}</p>
                   </div>
                   <svg
                     className="size-4 shrink-0 text-text-muted"

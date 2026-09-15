@@ -21,6 +21,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Changed
+
+- **UI/URL nội dung ba cấp (vé 07):** Admin/staff/học sinh nhìn **Chuyên đề** và **Tiết học**; không còn chương/chủ đề/bài học/chuyên đề lý thuyết/chuyên đề luyện tập trên màn hình. Href `/courses/:id/modules/:moduleId/lessons/*`, học sinh `/student/classes/:id/lessons/:lessonId`. Timeline: Buổi học (CalendarDays + success) vs Tiết học (BookOpen + primary), nhãn đủ chữ; tiết lý thuyết/thực hành khác màu trong danh sách. Flatten lecture editor vào chính tiết (`PATCH /class/:id/lessons/:lessonId`). Docs: `docs/pages/admin.md`, `docs/pages/staff.md`, `docs/pages/student.md`, `docs/pages/README.md`. Nghiệm thu typecheck/test: vé 08.
+
 ### Fixed
 
 - **Typecheck `apps/api` vỡ sau khi bump axios 1.20:** `unioj.service.ts` đọc `pdfResponse.headers['content-type']` rồi gọi `.includes()` — axios 1.20 nới kiểu giá trị header thành `string | number | boolean | string[] | AxiosHeaders` nên `TS2339: Property 'includes' does not exist on type 'number'`. Bọc `String(... ?? '')` trước khi so khớp. `tsc --noEmit` sạch 0 lỗi.

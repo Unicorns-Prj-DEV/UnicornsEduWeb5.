@@ -49,11 +49,12 @@ import {
   ResponsiveDialogBody,
 } from "@/components/ui/ResponsiveDialog";
 import type { ClassContentItemDto } from "@/dtos/class-content.dto";
-import type { CourseTopicForClassDto } from "@/dtos/topic.dto";
+import type { CourseLessonForClassDto } from "@/dtos/course-content.dto";
 import type { ClassQuestionDraft } from "@/dtos/class-topic-question.dto";
+import { lessonKindBadgeClass } from "@/lib/course-content-labels";
 import * as classApi from "@/lib/apis/class.api";
 import * as questionApi from "@/lib/apis/question.api";
-import CourseTopicPicker from "./CourseTopicPicker";
+import CourseLessonPicker from "./CourseLessonPicker";
 import {
   AssignmentScheduleFields,
   defaultAssignmentSchedule,
@@ -132,7 +133,9 @@ function SortableContentRow({
               <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
                 {item.source === "course" ? "Từ khoá" : "Riêng lớp"}
               </span>
-              <span className="inline-flex items-center rounded-full bg-bg-secondary px-2 py-0.5 text-[11px] font-medium text-text-secondary">
+              <span
+                className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${lessonKindBadgeClass(item.lessonKind)}`}
+              >
                 {item.kindLabel}
               </span>
               {item.hiddenAt ? (
@@ -140,18 +143,13 @@ function SortableContentRow({
                   Đã ẩn
                 </span>
               ) : null}
-              {item.chapterTitle && (
+              {item.moduleTitle && (
                 <span className="text-xs text-text-muted">
-                  {item.chapterTitle}
-                </span>
-              )}
-              {item.lectureCount != null && item.lectureCount > 0 && (
-                <span className="text-xs text-text-muted">
-                  {item.lectureCount} bài học
+                  {item.moduleTitle}
                 </span>
               )}
             </div>
-            {item.topicKind === "practice" && (
+            {item.lessonKind === "practice" && (
               <p className="mt-1 text-xs text-text-muted">
                 {item.openAt
                   ? `Mở ${formatOpenAt(item.openAt)} · ${item.durationMinutes ?? "—"} phút`
@@ -161,7 +159,7 @@ function SortableContentRow({
           </div>
           {canManage && (
             <div className="flex shrink-0 items-center gap-1.5">
-              {item.topicKind === "practice" && (
+              {item.lessonKind === "practice" && (
                 <>
                   <Link
                     href={`/staff/classes/${classId}/practice/${item.id}/stats`}
@@ -179,7 +177,7 @@ function SortableContentRow({
                   </Link>
                 </>
               )}
-              {item.topicKind === "practice" && (
+              {item.lessonKind === "practice" && (
                 <button
                   type="button"
                   onClick={() => onEditSchedule(item)}
@@ -256,7 +254,7 @@ export default function ClassContentManager({
     if (!autoOpenContentItemId || !serverData) return;
     const item = serverData.find((row) => row.id === autoOpenContentItemId);
     if (!item) return;
-    if (canManage && item.topicKind === "practice") {
+    if (canManage && item.lessonKind === "practice") {
       setViewItem(null);
       setScheduleItem(item);
       return;
@@ -281,7 +279,7 @@ export default function ClassContentManager({
       onChanged?.();
     },
     onError: () => {
-      toast.error("Lỗi sắp xếp lại chuyên đề");
+      toast.error("Lỗi sắp xếp lại tiết học");
       queryClient.invalidateQueries({ queryKey: ["class-content", classId] });
       setLocalItems([]);
       setHasOrderChanged(false);
@@ -300,7 +298,7 @@ export default function ClassContentManager({
       onChanged?.();
     },
     onError: () => {
-      toast.error("Ẩn chuyên đề thất bại");
+      toast.error("Ẩn tiết học thất bại");
     },
   });
 
@@ -414,7 +412,7 @@ export default function ClassContentManager({
             className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse shadow-xs transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
           >
             <Plus className="size-4" />
-            Thêm chuyên đề
+            Thêm tiết học
           </button>
         </div>
       )}
@@ -512,7 +510,7 @@ function AddContentDialog({
   const [modeTouched, setModeTouched] = useState(false);
   const [userMode, setUserMode] = useState<"new" | "existing">("existing");
   const [title, setTitle] = useState("");
-  const [topicId, setTopicId] = useState("");
+  const [lessonId, setLessonId] = useState("");
   const [kind, setKind] = useState<"theory" | "practice">("theory");
   const [existingKind, setExistingKind] = useState<"theory" | "practice">(
     "theory",
@@ -526,19 +524,19 @@ function AddContentDialog({
   );
   const [drafts, setDrafts] = useState<ClassQuestionDraft[]>([]);
   const [videoUrl, setVideoUrl] = useState("");
-  const [lectureContent, setLectureContent] = useState("");
+  const [theoryContent, setTheoryContent] = useState("");
 
-  const { data: courseTopics } = useQuery<CourseTopicForClassDto[]>({
-    queryKey: ["course-topics-for-class", classId],
-    queryFn: () => classApi.getCourseTopicsForClass(classId),
+  const { data: courseLessons } = useQuery<CourseLessonForClassDto[]>({
+    queryKey: ["course-lessons-for-class", classId],
+    queryFn: () => classApi.getCourseLessonsForClass(classId),
   });
 
-  const hasSelectableCourseTopics =
-    courseTopics?.some((t) => !t.alreadyAdded) ?? false;
+  const hasSelectableCourseLessons =
+    courseLessons?.some((t) => !t.alreadyAdded) ?? false;
   const derivedMode: "new" | "existing" =
-    courseTopics === undefined
+    courseLessons === undefined
       ? "existing"
-      : hasSelectableCourseTopics
+      : hasSelectableCourseLessons
         ? "existing"
         : "new";
   const mode = modeTouched ? userMode : derivedMode;
@@ -570,7 +568,7 @@ function AddContentDialog({
             }
           : {};
       const trimmedVideoUrl = videoUrl.trim();
-      const trimmedLectureContent = lectureContent.trim();
+      const trimmedTheoryContent = theoryContent.trim();
       if (mode === "new" && kind === "theory" && trimmedVideoUrl) {
         if (trimmedVideoUrl.length > CONTENT_LIMITS.url) {
           throw new Error("video-url-too-long");
@@ -580,20 +578,18 @@ function AddContentDialog({
         }
       }
       const created = await classApi.createClassContent(classId, {
-        ...(mode === "existing" ? { topicId: topicId.trim() } : {}),
+        ...(mode === "existing" ? { lessonId: lessonId.trim() } : {}),
         ...(mode === "new" ? { title: title.trim(), kind } : {}),
         ...practiceSchedule,
       });
       if (
         mode === "new" &&
         kind === "theory" &&
-        (trimmedVideoUrl || trimmedLectureContent)
+        (trimmedVideoUrl || trimmedTheoryContent)
       ) {
-        // Trang lớp coi mỗi chuyên đề lý thuyết = 1 bài giảng duy nhất.
-        await classApi.createLecture(created.topicId, {
-          title: title.trim(),
-          videoUrl: trimmedVideoUrl || undefined,
-          content: trimmedLectureContent || undefined,
+        await classApi.updateClassLesson(classId, created.lessonId, {
+          videoUrl: trimmedVideoUrl || null,
+          content: trimmedTheoryContent || null,
         });
       }
       if (mode === "new" && kind === "practice" && drafts.length > 0) {
@@ -604,7 +600,7 @@ function AddContentDialog({
             questionId = q.id;
           }
           if (!questionId) continue;
-          await classApi.addPracticeTopicQuestion(created.topicId, {
+          await classApi.addPracticeLessonQuestion(created.lessonId, {
             questionId,
           });
         }
@@ -612,9 +608,9 @@ function AddContentDialog({
       return created;
     },
     onSuccess: () => {
-      toast.success("Đã thêm chuyên đề");
+      toast.success("Đã thêm tiết học");
       queryClient.invalidateQueries({
-        queryKey: ["course-topics-for-class", classId],
+        queryKey: ["course-lessons-for-class", classId],
       });
       onSuccess();
     },
@@ -630,12 +626,12 @@ function AddContentDialog({
         toast.error(`Link video tối đa ${CONTENT_LIMITS.url} ký tự.`);
         return;
       }
-      toast.error(err?.response?.data?.message || "Lỗi thêm chuyên đề");
+      toast.error(err?.response?.data?.message || "Lỗi thêm tiết học");
     },
   });
 
   const canPick =
-    (mode === "existing" && topicId.trim()) ||
+    (mode === "existing" && lessonId.trim()) ||
     (mode === "new" && title.trim());
   const parsedDuration = parseAssignmentDurationMinutes(durationMinutes);
   const durationError =
@@ -660,12 +656,12 @@ function AddContentDialog({
         <div className="flex items-center justify-between gap-3 border-b border-border-default pb-4 shrink-0">
           <div>
             <h2 className="text-lg sm:text-xl font-bold text-text-primary">
-              {step === "schedule" ? "Đặt lần giao" : "Thêm chuyên đề"}
+              {step === "schedule" ? "Đặt lần giao" : "Thêm tiết học"}
             </h2>
             <p className="text-xs text-text-muted mt-0.5">
               {step === "schedule"
                 ? "Thời điểm mở bài và thời lượng thuộc lần giao của lớp này, không đụng đề."
-                : "Chọn chuyên đề từ khoá học hoặc tạo mới cho lớp."}
+                : "Chọn tiết học từ khoá học hoặc tạo mới cho lớp."}
             </p>
           </div>
           <button
@@ -747,7 +743,7 @@ function AddContentDialog({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="mt-1.5 w-full rounded-xl border border-border-default bg-bg-surface px-4 py-2.5 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus font-medium"
-                  placeholder="Ví dụ: Chuyên đề bổ trợ Phương trình bậc 2..."
+                  placeholder="Ví dụ: Tiết bổ trợ Phương trình bậc 2..."
                 />
               </div>
               <div>
@@ -755,7 +751,7 @@ function AddContentDialog({
                   id={`${formFieldId}-kind-label`}
                   className="block text-xs font-semibold uppercase tracking-wider text-text-muted"
                 >
-                  Loại chuyên đề
+                  Loại tiết học
                 </span>
                 <div
                   role="group"
@@ -774,7 +770,7 @@ function AddContentDialog({
                         : "text-text-muted hover:text-text-primary"
                     }`}
                   >
-                    Lý thuyết
+                    Tiết lý thuyết
                   </button>
                   <button
                     type="button"
@@ -785,7 +781,7 @@ function AddContentDialog({
                         : "text-text-muted hover:text-text-primary"
                     }`}
                   >
-                    Luyện tập
+                    Tiết thực hành
                   </button>
                 </div>
               </div>
@@ -813,10 +809,10 @@ function AddContentDialog({
                     </span>
                     <div className="mt-1.5">
                       <MathRichTextEditor
-                        value={lectureContent}
-                        onChange={setLectureContent}
+                        value={theoryContent}
+                        onChange={setTheoryContent}
                         ariaLabel="Nội dung lý thuyết"
-                        placeholder="Nhập nội dung bài học..."
+                        placeholder="Nhập nội dung tiết lý thuyết..."
                         minHeight="min-h-[120px]"
                       />
                     </div>
@@ -832,12 +828,12 @@ function AddContentDialog({
               ) : null}
             </>
           ) : (
-            <CourseTopicPicker
+            <CourseLessonPicker
               classId={classId}
-              selectedTopicId={topicId}
-              onSelect={(id, topicKind) => {
-                setTopicId(id);
-                setExistingKind(topicKind);
+              selectedLessonId={lessonId}
+              onSelect={(id, lessonKind) => {
+                setLessonId(id);
+                setExistingKind(lessonKind);
               }}
             />
           )}
@@ -878,7 +874,7 @@ function AddContentDialog({
                 ? "Tiếp theo"
                 : selectedIsPractice
                   ? "Giao đề"
-                  : "Thêm chuyên đề"}
+                  : "Thêm tiết học"}
           </button>
         </div>
       </ResponsiveDialogBody>
@@ -983,32 +979,28 @@ function EditScheduleDialog({
   );
 }
 
-/**
- * Trang lớp coi mỗi chuyên đề lý thuyết = 1 bài giảng: tạo mới nếu chưa có,
- * sửa bài đầu tiên nếu đã có. Topic nhiều bài giảng thì khoá lại, để Cây tri thức lo.
- */
-function TheoryLectureEditor({
-  topicId,
-  topicTitle,
+function TheoryLessonInlineEditor({
+  classId,
+  lessonId,
+  lessonTitle,
   canManage,
 }: {
-  topicId: string;
-  topicTitle: string;
+  classId: string;
+  lessonId: string;
+  lessonTitle: string;
   canManage: boolean;
 }) {
   const queryClient = useQueryClient();
-  const { data: lectures, isLoading } = useQuery({
-    queryKey: ["topic-lectures", topicId],
-    queryFn: () => classApi.getLectures(topicId),
+  const { data: lesson, isLoading } = useQuery({
+    queryKey: ["class-lesson", classId, lessonId],
+    queryFn: () => classApi.getClassLesson(classId, lessonId),
   });
-  const lecture = lectures?.[0];
   const theoryFieldId = useId();
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [content, setContent] = useState<string | null>(null);
 
-  const videoUrlValue = videoUrl ?? lecture?.videoUrl ?? "";
-  const contentValue = content ?? lecture?.content ?? "";
-  const locked = (lectures?.length ?? 0) > 1;
+  const videoUrlValue = videoUrl ?? lesson?.videoUrl ?? "";
+  const contentValue = content ?? lesson?.content ?? "";
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -1021,21 +1013,16 @@ function TheoryLectureEditor({
           throw new Error("video-url-invalid");
         }
       }
-      const payload = {
-        title: lecture?.title || topicTitle,
-        videoUrl: trimmedUrl || undefined,
-        content: contentValue.trim() || undefined,
-      };
-      if (lecture) {
-        await classApi.updateLecture(topicId, lecture.id, payload);
-      } else {
-        await classApi.createLecture(topicId, payload);
-      }
+      await classApi.updateClassLesson(classId, lessonId, {
+        title: lesson?.title || lessonTitle,
+        videoUrl: trimmedUrl || null,
+        content: contentValue.trim() || null,
+      });
     },
     onSuccess: () => {
       toast.success("Đã lưu nội dung lý thuyết");
       void queryClient.invalidateQueries({
-        queryKey: ["topic-lectures", topicId],
+        queryKey: ["class-lesson", classId, lessonId],
       });
       setVideoUrl(null);
       setContent(null);
@@ -1058,15 +1045,6 @@ function TheoryLectureEditor({
 
   if (isLoading) {
     return <Skeleton className="h-32 w-full rounded-xl" />;
-  }
-
-  if (locked) {
-    return (
-      <p className="rounded-xl border border-border-default bg-bg-secondary p-3 text-xs text-text-muted">
-        Chuyên đề này có {lectures?.length} bài giảng. Quản lý bài giảng ở Cây
-        tri thức.
-      </p>
-    );
   }
 
   if (!canManage) {
@@ -1100,7 +1078,7 @@ function TheoryLectureEditor({
             value={contentValue}
             onChange={setContent}
             ariaLabel="Nội dung lý thuyết"
-            placeholder="Nhập nội dung bài học..."
+            placeholder="Nhập nội dung tiết lý thuyết..."
             minHeight="min-h-[120px]"
           />
         </div>
@@ -1143,7 +1121,7 @@ function ViewContentDialog({
             <h2 className="mt-1 text-lg font-bold text-text-primary">{item.title}</h2>
             <p className="mt-1 text-xs text-text-muted">
               {item.source === "course" ? "Từ khoá" : "Riêng lớp"}
-              {item.chapterTitle ? ` · ${item.chapterTitle}` : ""}
+              {item.moduleTitle ? ` · ${item.moduleTitle}` : ""}
             </p>
           </div>
           <button
@@ -1156,21 +1134,22 @@ function ViewContentDialog({
           </button>
         </div>
         <div className="space-y-2 py-4 text-sm text-text-secondary">
-          {item.topicKind === "practice" ? (
+          {item.lessonKind === "practice" ? (
             <p>
               {item.openAt
                 ? `Mở ${formatOpenAt(item.openAt)} · ${item.durationMinutes ?? "—"} phút`
                 : "Chưa đặt thời điểm mở"}
             </p>
           ) : (
-            <TheoryLectureEditor
-              topicId={item.topicId}
-              topicTitle={item.title}
+            <TheoryLessonInlineEditor
+              classId={classId}
+              lessonId={item.lessonId}
+              lessonTitle={item.title}
               canManage={canManage}
             />
           )}
         </div>
-        {canManage && item.topicKind === "practice" ? (
+        {canManage && item.lessonKind === "practice" ? (
           <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-default pt-4">
             <Link
               href={`/staff/classes/${classId}/practice/${item.id}/stats`}

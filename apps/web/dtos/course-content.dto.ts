@@ -1,98 +1,71 @@
 import type { QuestionTypeDto } from "@/dtos/question.dto";
 
-export type TopicKind = "theory" | "practice";
+export type LessonKind = "theory" | "practice";
 
-/** Chủ đề — nhóm chuyên đề bên trong một Khoá học. */
-export interface Chapter {
+/** Chuyên đề — nhóm tiết học cấp cao nhất bên trong một Khoá học. */
+export interface CourseModule {
   id: string;
   courseId: string;
   title: string;
   sortOrder: number;
   createdAt?: string;
   updatedAt?: string;
-  topicCount?: number;
+  lessonCount?: number;
 }
 
-/** Chuyên đề — đơn vị nội dung học sinh làm việc trực tiếp. */
-export interface Topic {
+/** Tiết học — đơn vị nội dung học sinh nhìn thấy và làm việc trực tiếp. */
+export interface CourseLesson {
   id: string;
-  kind: TopicKind;
+  kind: LessonKind;
   courseId: string | null;
-  chapterId: string | null;
+  moduleId: string | null;
   classId: string | null;
   title: string;
+  videoUrl: string | null;
+  content: string | null;
   order: number;
   createdBy: string | null;
   updatedBy: string | null;
   createdAt?: string;
   updatedAt?: string;
-  lectureCount?: number;
+  quizCount?: number;
   questionCount?: number;
 }
 
-/** Bài học — đơn vị nội dung bên trong chuyên đề lý thuyết. */
-export interface Lecture {
-  id: string;
-  topicId: string;
-  title: string;
-  videoUrl: string | null;
-  content: string | null;
-  order: number;
-  createdAt?: string;
-  updatedAt?: string;
+export interface KnowledgeTreeLessonNode {
+  lesson: CourseLesson;
 }
 
-/** Một chuyên đề trong cây tri thức, kèm bài học nếu là lý thuyết. */
-export interface KnowledgeTreeTopicNode {
-  topic: Topic;
-  lectures: Lecture[];
-}
-
-/** Cây tri thức gộp: chủ đề chứa chuyên đề, chuyên đề lý thuyết chứa bài học. */
 export interface KnowledgeTreeNode {
-  chapter: Chapter;
-  topics: KnowledgeTreeTopicNode[];
+  module: CourseModule;
+  lessons: KnowledgeTreeLessonNode[];
 }
 
-// --- Create/Update payloads ---
-
-export interface CreateChapterPayload {
+export interface CreateCourseModulePayload {
   title: string;
 }
 
-export interface UpdateChapterPayload {
+export interface UpdateCourseModulePayload {
   title?: string;
 }
 
-export interface CreateTopicPayload {
-  kind: TopicKind;
-  title: string;
-  /** Bắt buộc khi tạo đề trong Thư viện đề thi — đề phải thuộc một chương. */
-  chapterId?: string;
-}
-
-export interface UpdateTopicPayload {
-  title?: string;
-}
-
-export interface CreateLecturePayload {
+export interface CreateCourseLessonPayload {
+  kind: LessonKind;
   title: string;
   videoUrl?: string | null;
   content?: string | null;
 }
 
-export interface UpdateLecturePayload {
+export interface UpdateCourseLessonPayload {
   title?: string;
   videoUrl?: string | null;
   content?: string | null;
 }
-
-// --- Question Link types (Practice Topic / Đề) ---
 
 export interface QuestionLinkQuestion {
   id: string;
   courseId: string;
-  chapterId: string;
+  moduleId: string;
   difficultyLevelId: string;
   type: QuestionTypeDto;
   content: string;
@@ -104,7 +77,7 @@ export interface QuestionLinkQuestion {
 
 export interface QuestionLink {
   id: string;
-  topicId: string;
+  lessonId: string;
   questionId: string;
   order: number | null;
   points: number | null;
@@ -127,11 +100,9 @@ export interface UpdateQuestionLinkPayload {
   points?: number | null;
 }
 
-// --- Lecture Quiz ---
-
-export interface LectureQuizQuestion {
+export interface LessonQuizQuestion {
   id: string;
-  lectureId: string;
+  lessonId: string;
   questionId: string;
   order: number;
   question: {
@@ -145,9 +116,9 @@ export interface LectureQuizQuestion {
   };
 }
 
-export interface LectureQuizAnswer {
+export interface LessonQuizAnswer {
   id: string;
-  lectureId: string;
+  lessonId: string;
   questionId: string;
   studentId: string;
   choiceIndex: number | null;
@@ -171,24 +142,18 @@ export interface SubmitQuizAnswerPayload {
   essayAnswer?: string | null;
 }
 
-/** Chuyên đề từ khoá học — dùng cho panel chọn nội dung lớp. */
-export interface CourseTopicForClassDto {
+/** Tiết học từ khoá — dùng cho panel chọn nội dung lớp. */
+export interface CourseLessonForClassDto {
   id: string;
   title: string;
-  kind: TopicKind;
-  chapterTitle: string;
-  chapterId: string;
-  lectureCount: number;
+  kind: LessonKind;
+  moduleTitle: string;
+  moduleId: string;
   alreadyAdded: boolean;
 }
 
-/**
- * Một đề thi trong Thư viện: `Topic(kind = practice)` của khoá, kèm chương chứa
- * nó và số câu đã gắn. Đề thi luôn thuộc một chương — ràng buộc DB
- * `topics_owner_check` không cho topic cấp khoá đứng ngoài chương.
- */
-export interface ExamLibraryItem extends Topic {
-  chapter: { id: string; title: string; sortOrder: number } | null;
+export interface ExamLibraryItem extends CourseLesson {
+  module: { id: string; title: string; sortOrder: number } | null;
   questionCount: number;
 }
 
@@ -201,7 +166,7 @@ export interface ExamLibraryListResult {
 
 export interface ExamLibraryFilters {
   search?: string;
-  chapterId?: string;
+  moduleId?: string;
   page?: number;
   limit?: number;
 }

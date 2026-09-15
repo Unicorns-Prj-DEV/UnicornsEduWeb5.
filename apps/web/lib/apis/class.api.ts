@@ -51,7 +51,7 @@ import type {
   ClassTimelineItemDto,
   ClassTimelinePageDto,
 } from "@/dtos/class-timeline.dto";
-import type { CourseTopicForClassDto } from "@/dtos/topic.dto";
+import type { CourseLessonForClassDto } from "@/dtos/course-content.dto";
 
 function normalizeOperatingDeductionRatePercent(
   teacher: Record<string, unknown>,
@@ -513,9 +513,35 @@ export async function getStudentClassTimeline(
   };
 }
 
-export async function getCourseTopicsForClass(classId: string): Promise<CourseTopicForClassDto[]> {
-  const response = await api.get<CourseTopicForClassDto[]>(
-    contentApiPaths.classCourseTopics(classId),
+export async function getCourseLessonsForClass(classId: string): Promise<CourseLessonForClassDto[]> {
+  const response = await api.get<CourseLessonForClassDto[]>(
+    contentApiPaths.classCourseLessons(classId),
+  );
+  return response.data;
+}
+
+export async function getClassLesson(
+  classId: string,
+  lessonId: string,
+): Promise<CourseLesson> {
+  const safeClassId = encodeURIComponent(classId);
+  const safeLessonId = encodeURIComponent(lessonId);
+  const response = await api.get<CourseLesson>(
+    `/class/${safeClassId}/lessons/${safeLessonId}`,
+  );
+  return response.data;
+}
+
+export async function updateClassLesson(
+  classId: string,
+  lessonId: string,
+  data: UpdateCourseLessonPayload,
+): Promise<CourseLesson> {
+  const safeClassId = encodeURIComponent(classId);
+  const safeLessonId = encodeURIComponent(lessonId);
+  const response = await api.patch<CourseLesson>(
+    `/class/${safeClassId}/lessons/${safeLessonId}`,
+    data,
   );
   return response.data;
 }
@@ -749,298 +775,236 @@ export async function resyncClassMakeupGoogleCalendar(
 }
 
 // ─────────────────────────────────────────────────────────────
-// Knowledge Tree (Chapter / Topic / Lecture)
+// Knowledge Tree (Module / Lesson)
 // ─────────────────────────────────────────────────────────────
 
 import type {
-  Chapter,
-  CreateChapterPayload,
-  UpdateChapterPayload,
-  Topic,
-  CreateTopicPayload,
-  UpdateTopicPayload,
-  Lecture,
-  CreateLecturePayload,
-  UpdateLecturePayload,
+  CourseModule,
+  CreateCourseModulePayload,
+  UpdateCourseModulePayload,
+  CourseLesson,
+  CreateCourseLessonPayload,
+  UpdateCourseLessonPayload,
   QuestionLink,
   QuestionLinkSummary,
   CreateQuestionLinkPayload,
   UpdateQuestionLinkPayload,
-  LectureQuizQuestion,
+  LessonQuizQuestion,
   ExamLibraryListResult,
   ExamLibraryFilters,
-} from "@/dtos/topic.dto";
+} from "@/dtos/course-content.dto";
 
-// ── Chapters ──
-
-export async function getChapters(courseId: string): Promise<Chapter[]> {
-  const response = await api.get<Chapter[]>(
-    contentApiPaths.courseChapters(courseId),
+export async function getModules(courseId: string): Promise<CourseModule[]> {
+  const response = await api.get<CourseModule[]>(
+    contentApiPaths.courseModules(courseId),
   );
   return Array.isArray(response.data) ? response.data : [];
 }
 
-export async function getChapter(
+export async function getModule(
   courseId: string,
-  chapterId: string,
-): Promise<Chapter> {
-  const response = await api.get<Chapter>(
-    contentApiPaths.courseChapter(courseId, chapterId),
+  moduleId: string,
+): Promise<CourseModule> {
+  const response = await api.get<CourseModule>(
+    contentApiPaths.courseModule(courseId, moduleId),
   );
   return response.data;
 }
 
-export async function createChapter(
+export async function createModule(
   courseId: string,
-  data: CreateChapterPayload,
-): Promise<Chapter> {
-  const response = await api.post<Chapter>(
-    contentApiPaths.courseChapters(courseId),
+  data: CreateCourseModulePayload,
+): Promise<CourseModule> {
+  const response = await api.post<CourseModule>(
+    contentApiPaths.courseModules(courseId),
     data,
   );
   return response.data;
 }
 
-export async function updateChapter(
+export async function updateModule(
   courseId: string,
-  chapterId: string,
-  data: UpdateChapterPayload,
-): Promise<Chapter> {
-  const response = await api.patch<Chapter>(
-    contentApiPaths.courseChapter(courseId, chapterId),
+  moduleId: string,
+  data: UpdateCourseModulePayload,
+): Promise<CourseModule> {
+  const response = await api.patch<CourseModule>(
+    contentApiPaths.courseModule(courseId, moduleId),
     data,
   );
   return response.data;
 }
 
-export async function deleteChapter(
+export async function deleteModule(
   courseId: string,
-  chapterId: string,
+  moduleId: string,
 ): Promise<void> {
-  await api.delete(contentApiPaths.courseChapter(courseId, chapterId));
+  await api.delete(contentApiPaths.courseModule(courseId, moduleId));
 }
 
-export async function reorderChapters(
+export async function reorderModules(
   courseId: string,
-  chapterIds: string[],
+  moduleIds: string[],
 ): Promise<void> {
-  await api.post(contentApiPaths.courseChaptersReorder(courseId), {
-    chapterIds,
+  await api.post(contentApiPaths.courseModulesReorder(courseId), {
+    moduleIds,
   });
 }
 
-// ── Topics (course-scoped) ──
-
-export async function getTopicsByChapter(
+export async function getLessonsByModule(
   courseId: string,
-  chapterId: string,
-): Promise<Topic[]> {
-  const response = await api.get<Topic[]>(
-    contentApiPaths.courseChapterTopics(courseId, chapterId),
+  moduleId: string,
+): Promise<CourseLesson[]> {
+  const response = await api.get<CourseLesson[]>(
+    contentApiPaths.courseModuleLessons(courseId, moduleId),
   );
   return Array.isArray(response.data) ? response.data : [];
 }
 
-export async function getTopic(
+export async function getCourseLesson(
   courseId: string,
-  chapterId: string,
-  topicId: string,
-): Promise<Topic> {
-  const response = await api.get<Topic>(
-    contentApiPaths.courseChapterTopic(courseId, chapterId, topicId),
+  moduleId: string,
+  lessonId: string,
+): Promise<CourseLesson> {
+  const response = await api.get<CourseLesson>(
+    contentApiPaths.courseModuleLesson(courseId, moduleId, lessonId),
   );
   return response.data;
 }
 
-export async function createTopic(
+export async function createCourseLesson(
   courseId: string,
-  chapterId: string,
-  data: CreateTopicPayload,
-): Promise<Topic> {
-  const response = await api.post<Topic>(
-    contentApiPaths.courseChapterTopics(courseId, chapterId),
+  moduleId: string,
+  data: CreateCourseLessonPayload,
+): Promise<CourseLesson> {
+  const response = await api.post<CourseLesson>(
+    contentApiPaths.courseModuleLessons(courseId, moduleId),
     data,
   );
   return response.data;
 }
 
-export async function updateTopic(
+export async function updateCourseLesson(
   courseId: string,
-  chapterId: string,
-  topicId: string,
-  data: UpdateTopicPayload,
-): Promise<Topic> {
-  const response = await api.patch<Topic>(
-    contentApiPaths.courseChapterTopic(courseId, chapterId, topicId),
+  moduleId: string,
+  lessonId: string,
+  data: UpdateCourseLessonPayload,
+): Promise<CourseLesson> {
+  const response = await api.patch<CourseLesson>(
+    contentApiPaths.courseModuleLesson(courseId, moduleId, lessonId),
     data,
   );
   return response.data;
 }
 
-export async function deleteTopic(
+export async function deleteCourseLesson(
   courseId: string,
-  chapterId: string,
-  topicId: string,
+  moduleId: string,
+  lessonId: string,
 ): Promise<void> {
   await api.delete(
-    contentApiPaths.courseChapterTopic(courseId, chapterId, topicId),
+    contentApiPaths.courseModuleLesson(courseId, moduleId, lessonId),
   );
 }
 
-export async function reorderTopics(
+export async function reorderCourseLessons(
   courseId: string,
-  chapterId: string,
-  topicIds: string[],
+  moduleId: string,
+  lessonIds: string[],
 ): Promise<void> {
   await api.post(
-    contentApiPaths.courseChapterTopicsReorder(courseId, chapterId),
-    { topicIds },
+    contentApiPaths.courseModuleLessonsReorder(courseId, moduleId),
+    { lessonIds },
   );
 }
 
-// ── Lectures ──
-
-export async function getLectures(topicId: string): Promise<Lecture[]> {
-  const response = await api.get<Lecture[]>(
-    contentApiPaths.topicLectures(topicId),
-  );
-  return Array.isArray(response.data) ? response.data : [];
-}
-
-export async function createLecture(
-  topicId: string,
-  data: CreateLecturePayload,
-): Promise<Lecture> {
-  const response = await api.post<Lecture>(
-    contentApiPaths.topicLectures(topicId),
-    data,
-  );
-  return response.data;
-}
-
-export async function updateLecture(
-  topicId: string,
-  lectureId: string,
-  data: UpdateLecturePayload,
-): Promise<Lecture> {
-  const response = await api.patch<Lecture>(
-    contentApiPaths.topicLecture(topicId, lectureId),
-    data,
-  );
-  return response.data;
-}
-
-export async function deleteLecture(
-  topicId: string,
-  lectureId: string,
-): Promise<void> {
-  await api.delete(contentApiPaths.topicLecture(topicId, lectureId));
-}
-
-export async function reorderLectures(
-  topicId: string,
-  lectureIds: string[],
-): Promise<void> {
-  await api.post(contentApiPaths.topicLecturesReorder(topicId), { lectureIds });
-}
-
-// ── Question Links (Practice Topic / Đề) ──
-
-export async function getPracticeTopicQuestions(
-  topicId: string,
+export async function getPracticeLessonQuestions(
+  lessonId: string,
 ): Promise<QuestionLink[]> {
   const response = await api.get<QuestionLink[]>(
-    contentApiPaths.topicQuestions(topicId),
+    contentApiPaths.lessonQuestions(lessonId),
   );
   return Array.isArray(response.data) ? response.data : [];
 }
 
-export async function addPracticeTopicQuestion(
-  topicId: string,
+export async function addPracticeLessonQuestion(
+  lessonId: string,
   data: CreateQuestionLinkPayload,
 ): Promise<QuestionLink> {
   const response = await api.post<QuestionLink>(
-    contentApiPaths.topicQuestions(topicId),
+    contentApiPaths.lessonQuestions(lessonId),
     data,
   );
   return response.data;
 }
 
-export async function updatePracticeTopicQuestion(
-  topicId: string,
+export async function updatePracticeLessonQuestion(
+  lessonId: string,
   linkId: string,
   data: UpdateQuestionLinkPayload,
 ): Promise<QuestionLink> {
   const response = await api.patch<QuestionLink>(
-    contentApiPaths.topicQuestion(topicId, linkId),
+    contentApiPaths.lessonQuestion(lessonId, linkId),
     data,
   );
   return response.data;
 }
 
-export async function removePracticeTopicQuestion(
-  topicId: string,
+export async function removePracticeLessonQuestion(
+  lessonId: string,
   linkId: string,
 ): Promise<void> {
-  await api.delete(contentApiPaths.topicQuestion(topicId, linkId));
+  await api.delete(contentApiPaths.lessonQuestion(lessonId, linkId));
 }
 
-export async function reorderPracticeTopicQuestions(
-  topicId: string,
+export async function reorderPracticeLessonQuestions(
+  lessonId: string,
   linkIds: string[],
 ): Promise<void> {
-  await api.post(contentApiPaths.topicQuestionsReorder(topicId), { linkIds });
+  await api.post(contentApiPaths.lessonQuestionsReorder(lessonId), { linkIds });
 }
 
-export async function getPracticeTopicQuestionSummary(
-  topicId: string,
+export async function getPracticeLessonQuestionSummary(
+  lessonId: string,
 ): Promise<QuestionLinkSummary> {
   const response = await api.get<QuestionLinkSummary>(
-    contentApiPaths.topicQuestionsSummary(topicId),
+    contentApiPaths.lessonQuestionsSummary(lessonId),
   );
   return response.data;
 }
 
-export async function isPracticeTopicAssigned(
-  topicId: string,
+export async function isPracticeLessonAssigned(
+  lessonId: string,
 ): Promise<boolean> {
   const response = await api.get<{ assigned: boolean }>(
-    contentApiPaths.topicQuestionsIsAssigned(topicId),
+    contentApiPaths.lessonQuestionsIsAssigned(lessonId),
   );
   return response.data.assigned;
 }
 
-// ── Lecture Quizzes (admin) ──
-
-export async function getLectureQuizzes(
-  topicId: string,
-  lectureId: string,
-): Promise<LectureQuizQuestion[]> {
-  const response = await api.get<LectureQuizQuestion[]>(
-    contentApiPaths.lectureQuizzes(topicId, lectureId),
+export async function getLessonQuizzes(
+  lessonId: string,
+): Promise<LessonQuizQuestion[]> {
+  const response = await api.get<LessonQuizQuestion[]>(
+    contentApiPaths.lessonQuizzes(lessonId),
   );
   return Array.isArray(response.data) ? response.data : [];
 }
 
 export async function linkQuizQuestions(
-  topicId: string,
-  lectureId: string,
+  lessonId: string,
   questionIds: string[],
 ): Promise<void> {
-  await api.post(contentApiPaths.lectureQuizzes(topicId, lectureId), {
+  await api.post(contentApiPaths.lessonQuizzes(lessonId), {
     questionIds,
   });
 }
 
 export async function unlinkQuizQuestion(
-  topicId: string,
-  lectureId: string,
+  lessonId: string,
   questionId: string,
 ): Promise<void> {
-  await api.delete(contentApiPaths.lectureQuiz(topicId, lectureId, questionId));
+  await api.delete(contentApiPaths.lessonQuiz(lessonId, questionId));
 }
-
-// ── Exam Library (practice topics at course level, chapterId null) ──
 
 export async function getExamLibrary(
   courseId: string,
@@ -1051,42 +1015,45 @@ export async function getExamLibrary(
   return response.data;
 }
 
-export async function createExamTopic(
+export async function createExamLesson(
   courseId: string,
-  data: CreateTopicPayload,
-): Promise<Topic> {
+  data: CreateCourseLessonPayload,
+): Promise<CourseLesson> {
   const safeId = encodeURIComponent(courseId);
-  const response = await api.post<Topic>(`/course/${safeId}/exam-library`, data);
-  return response.data;
-}
-
-export async function updateExamTopic(
-  courseId: string,
-  topicId: string,
-  data: UpdateTopicPayload,
-): Promise<Topic> {
-  const safeCourseId = encodeURIComponent(courseId);
-  const safeTopicId = encodeURIComponent(topicId);
-  const response = await api.patch<Topic>(
-    `/course/${safeCourseId}/exam-library/${safeTopicId}`,
+  const response = await api.post<CourseLesson>(
+    `/course/${safeId}/exam-library`,
     data,
   );
   return response.data;
 }
 
-export async function deleteExamTopic(
+export async function updateExamLesson(
   courseId: string,
-  topicId: string,
-): Promise<void> {
+  lessonId: string,
+  data: UpdateCourseLessonPayload,
+): Promise<CourseLesson> {
   const safeCourseId = encodeURIComponent(courseId);
-  const safeTopicId = encodeURIComponent(topicId);
-  await api.delete(`/course/${safeCourseId}/exam-library/${safeTopicId}`);
+  const safeLessonId = encodeURIComponent(lessonId);
+  const response = await api.patch<CourseLesson>(
+    `/course/${safeCourseId}/exam-library/${safeLessonId}`,
+    data,
+  );
+  return response.data;
 }
 
-export async function reorderExamTopics(
+export async function deleteExamLesson(
   courseId: string,
-  topicIds: string[],
+  lessonId: string,
+): Promise<void> {
+  const safeCourseId = encodeURIComponent(courseId);
+  const safeLessonId = encodeURIComponent(lessonId);
+  await api.delete(`/course/${safeCourseId}/exam-library/${safeLessonId}`);
+}
+
+export async function reorderExamLessons(
+  courseId: string,
+  lessonIds: string[],
 ): Promise<void> {
   const safeId = encodeURIComponent(courseId);
-  await api.post(`/course/${safeId}/exam-library/reorder`, { topicIds });
+  await api.post(`/course/${safeId}/exam-library/reorder`, { lessonIds });
 }
