@@ -1,6 +1,6 @@
 import type { SeedPack } from './types';
 
-const CHAPTERS = {
+const MODULES = {
   complexity: 'Độ phức tạp thuật toán',
   binarySearch: 'Tìm kiếm nhị phân',
   sorting: 'Sắp xếp',
@@ -16,25 +16,25 @@ const VDC = 'Vận dụng cao';
 
 /**
  * Pack Tin học — thuật toán & cấu trúc dữ liệu, dùng cho các khoá VIP / Basic /
- * Advance / Hardcore. 30 câu (25 trắc nghiệm + 5 tự luận) trải 5 chương.
+ * Advance / Hardcore. 30 câu (25 trắc nghiệm + 5 tự luận) trải 5 chuyên đề.
  */
 export const algorithmsPack: SeedPack = {
   key: 'algorithms',
   courseNames: ['VIP', 'Basic', 'Advance', 'Hardcore'],
   difficultyLevels: [NB, TH, VD, VDC],
-  chapters: [
-    CHAPTERS.complexity,
-    CHAPTERS.binarySearch,
-    CHAPTERS.sorting,
-    CHAPTERS.dp,
-    CHAPTERS.graph,
-    CHAPTERS.review,
+  modules: [
+    MODULES.complexity,
+    MODULES.binarySearch,
+    MODULES.sorting,
+    MODULES.dp,
+    MODULES.graph,
+    MODULES.review,
   ],
   questions: [
     // ── Độ phức tạp thuật toán ────────────────────────────────────────────
     {
       key: 'cx-01',
-      chapter: CHAPTERS.complexity,
+      module: MODULES.complexity,
       difficulty: NB,
       type: 'single_choice',
       content:
@@ -51,7 +51,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'cx-02',
-      chapter: CHAPTERS.complexity,
+      module: MODULES.complexity,
       difficulty: NB,
       type: 'single_choice',
       content:
@@ -63,7 +63,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'cx-03',
-      chapter: CHAPTERS.complexity,
+      module: MODULES.complexity,
       difficulty: TH,
       type: 'single_choice',
       content:
@@ -75,7 +75,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'cx-04',
-      chapter: CHAPTERS.complexity,
+      module: MODULES.complexity,
       difficulty: TH,
       type: 'single_choice',
       content:
@@ -92,7 +92,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'cx-05',
-      chapter: CHAPTERS.complexity,
+      module: MODULES.complexity,
       difficulty: VD,
       type: 'single_choice',
       content:
@@ -109,7 +109,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'cx-06',
-      chapter: CHAPTERS.complexity,
+      module: MODULES.complexity,
       difficulty: VDC,
       type: 'essay',
       content:
@@ -121,7 +121,7 @@ export const algorithmsPack: SeedPack = {
     // ── Tìm kiếm nhị phân ─────────────────────────────────────────────────
     {
       key: 'bs-01',
-      chapter: CHAPTERS.binarySearch,
+      module: MODULES.binarySearch,
       difficulty: NB,
       type: 'single_choice',
       content:
@@ -138,7 +138,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'bs-02',
-      chapter: CHAPTERS.binarySearch,
+      module: MODULES.binarySearch,
       difficulty: NB,
       type: 'single_choice',
       content:
@@ -150,7 +150,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'bs-03',
-      chapter: CHAPTERS.binarySearch,
+      module: MODULES.binarySearch,
       difficulty: TH,
       type: 'single_choice',
       content:
@@ -162,7 +162,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'bs-04',
-      chapter: CHAPTERS.binarySearch,
+      module: MODULES.binarySearch,
       difficulty: TH,
       type: 'single_choice',
       content:
@@ -179,7 +179,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'bs-05',
-      chapter: CHAPTERS.binarySearch,
+      module: MODULES.binarySearch,
       difficulty: VD,
       type: 'single_choice',
       content:
@@ -191,7 +191,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'bs-06',
-      chapter: CHAPTERS.binarySearch,
+      module: MODULES.binarySearch,
       difficulty: VDC,
       type: 'essay',
       content:
@@ -203,7 +203,7 @@ export const algorithmsPack: SeedPack = {
     // ── Sắp xếp ───────────────────────────────────────────────────────────
     {
       key: 'st-01',
-      chapter: CHAPTERS.sorting,
+      module: MODULES.sorting,
       difficulty: NB,
       type: 'single_choice',
       content:
@@ -215,7 +215,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'st-02',
-      chapter: CHAPTERS.sorting,
+      module: MODULES.sorting,
       difficulty: NB,
       type: 'single_choice',
       content: '<p>Một thuật toán sắp xếp được gọi là <em>ổn định</em> (stable) khi:</p>',
@@ -231,7 +231,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'st-03',
-      chapter: CHAPTERS.sorting,
+      module: MODULES.sorting,
       difficulty: TH,
       type: 'single_choice',
       content:
@@ -248,7 +248,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'st-04',
-      chapter: CHAPTERS.sorting,
+      module: MODULES.sorting,
       difficulty: TH,
       type: 'single_choice',
       content: '<p>Merge Sort cần bao nhiêu bộ nhớ phụ khi sắp xếp mảng $n$ phần tử?</p>',
@@ -259,7 +259,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'st-05',
-      chapter: CHAPTERS.sorting,
+      module: MODULES.sorting,
       difficulty: VD,
       type: 'single_choice',
       content:
@@ -271,7 +271,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'st-06',
-      chapter: CHAPTERS.sorting,
+      module: MODULES.sorting,
       difficulty: VDC,
       type: 'essay',
       content:
@@ -283,7 +283,7 @@ export const algorithmsPack: SeedPack = {
     // ── Quy hoạch động cơ bản ─────────────────────────────────────────────
     {
       key: 'dp-01',
-      chapter: CHAPTERS.dp,
+      module: MODULES.dp,
       difficulty: NB,
       type: 'single_choice',
       content:
@@ -300,7 +300,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'dp-02',
-      chapter: CHAPTERS.dp,
+      module: MODULES.dp,
       difficulty: NB,
       type: 'single_choice',
       content:
@@ -317,7 +317,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'dp-03',
-      chapter: CHAPTERS.dp,
+      module: MODULES.dp,
       difficulty: TH,
       type: 'single_choice',
       content:
@@ -334,7 +334,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'dp-04',
-      chapter: CHAPTERS.dp,
+      module: MODULES.dp,
       difficulty: TH,
       type: 'single_choice',
       content:
@@ -346,7 +346,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'dp-05',
-      chapter: CHAPTERS.dp,
+      module: MODULES.dp,
       difficulty: VD,
       type: 'single_choice',
       content:
@@ -358,7 +358,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'dp-06',
-      chapter: CHAPTERS.dp,
+      module: MODULES.dp,
       difficulty: VDC,
       type: 'essay',
       content:
@@ -370,7 +370,7 @@ export const algorithmsPack: SeedPack = {
     // ── Đồ thị và duyệt đồ thị ────────────────────────────────────────────
     {
       key: 'gr-01',
-      chapter: CHAPTERS.graph,
+      module: MODULES.graph,
       difficulty: NB,
       type: 'single_choice',
       content: '<p>Thuật toán BFS sử dụng cấu trúc dữ liệu nào để quản lý các đỉnh chờ duyệt?</p>',
@@ -381,7 +381,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'gr-02',
-      chapter: CHAPTERS.graph,
+      module: MODULES.graph,
       difficulty: NB,
       type: 'single_choice',
       content:
@@ -393,7 +393,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'gr-03',
-      chapter: CHAPTERS.graph,
+      module: MODULES.graph,
       difficulty: TH,
       type: 'single_choice',
       content:
@@ -405,7 +405,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'gr-04',
-      chapter: CHAPTERS.graph,
+      module: MODULES.graph,
       difficulty: TH,
       type: 'single_choice',
       content:
@@ -417,7 +417,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'gr-05',
-      chapter: CHAPTERS.graph,
+      module: MODULES.graph,
       difficulty: VD,
       type: 'single_choice',
       content:
@@ -434,7 +434,7 @@ export const algorithmsPack: SeedPack = {
     },
     {
       key: 'gr-06',
-      chapter: CHAPTERS.graph,
+      module: MODULES.graph,
       difficulty: VDC,
       type: 'essay',
       content:
@@ -447,81 +447,81 @@ export const algorithmsPack: SeedPack = {
     {
       key: 'exam-cx',
       title: 'Luyện tập: Độ phức tạp thuật toán',
-      chapter: CHAPTERS.complexity,
-      chapters: [CHAPTERS.complexity],
+      module: MODULES.complexity,
+      modules: [MODULES.complexity],
       blueprint: { [NB]: 1, [TH]: 2, [VD]: 1 },
     },
     {
       key: 'exam-bs',
       title: 'Luyện tập: Tìm kiếm nhị phân',
-      chapter: CHAPTERS.binarySearch,
-      chapters: [CHAPTERS.binarySearch],
+      module: MODULES.binarySearch,
+      modules: [MODULES.binarySearch],
       blueprint: { [NB]: 1, [TH]: 2, [VD]: 1 },
     },
     {
       key: 'exam-st',
       title: 'Luyện tập: Sắp xếp',
-      chapter: CHAPTERS.sorting,
-      chapters: [CHAPTERS.sorting],
+      module: MODULES.sorting,
+      modules: [MODULES.sorting],
       blueprint: { [NB]: 1, [TH]: 2, [VD]: 1 },
     },
     {
       key: 'exam-dp',
       title: 'Luyện tập: Quy hoạch động cơ bản',
-      chapter: CHAPTERS.dp,
-      chapters: [CHAPTERS.dp],
+      module: MODULES.dp,
+      modules: [MODULES.dp],
       blueprint: { [NB]: 1, [TH]: 2, [VD]: 1 },
     },
     {
       key: 'exam-gr',
       title: 'Luyện tập: Đồ thị và duyệt đồ thị',
-      chapter: CHAPTERS.graph,
-      chapters: [CHAPTERS.graph],
+      module: MODULES.graph,
+      modules: [MODULES.graph],
       blueprint: { [NB]: 1, [TH]: 2, [VD]: 1 },
     },
     {
       key: 'exam-mid',
       title: 'Đề kiểm tra giữa khoá — Thuật toán cơ bản',
-      chapter: CHAPTERS.review,
-      chapters: [CHAPTERS.complexity, CHAPTERS.binarySearch, CHAPTERS.sorting],
+      module: MODULES.review,
+      modules: [MODULES.complexity, MODULES.binarySearch, MODULES.sorting],
       blueprint: { [NB]: 3, [TH]: 4, [VD]: 2, [VDC]: 1 },
     },
     {
       key: 'exam-final',
       title: 'Đề thi cuối khoá — Thuật toán & Cấu trúc dữ liệu',
-      chapter: CHAPTERS.review,
+      module: MODULES.review,
       blueprint: { [NB]: 5, [TH]: 6, [VD]: 3, [VDC]: 1 },
     },
     {
       key: 'exam-warmup',
       title: 'Đề khởi động — Kiểm tra 10 phút',
-      chapter: CHAPTERS.review,
+      module: MODULES.review,
       blueprint: { [NB]: 5 },
     },
     {
       key: 'exam-cluster-2',
       title: 'Đề kiểm tra cụm 2 — Quy hoạch động & Đồ thị',
-      chapter: CHAPTERS.review,
-      chapters: [CHAPTERS.dp, CHAPTERS.graph],
+      module: MODULES.review,
+      modules: [MODULES.dp, MODULES.graph],
       blueprint: { [NB]: 2, [TH]: 2, [VD]: 1, [VDC]: 1 },
     },
     {
       key: 'exam-advanced',
       title: 'Đề nâng cao — Vận dụng & Vận dụng cao',
-      chapter: CHAPTERS.review,
+      module: MODULES.review,
       blueprint: { [VD]: 5, [VDC]: 2 },
     },
     {
       key: 'exam-essay',
       title: 'Đề tự luận — Trình bày thuật toán',
-      chapter: CHAPTERS.review,
+      module: MODULES.review,
       blueprint: { [VDC]: 5 },
     },
     {
       // `rotate: 1` = lấy khối câu kế tiếp của `exam-final`, để hai đề cuối khoá không trùng câu.
       key: 'exam-final-2',
       title: 'Đề thi cuối khoá (đề số 2) — Thuật toán & Cấu trúc dữ liệu',
-      chapter: CHAPTERS.review,
+      module: MODULES.review,
       blueprint: { [NB]: 5, [TH]: 6, [VD]: 3, [VDC]: 1 },
       rotate: 1,
     },

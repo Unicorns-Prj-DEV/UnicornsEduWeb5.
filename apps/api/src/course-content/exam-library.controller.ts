@@ -25,10 +25,10 @@ import {
 } from 'src/auth/decorators/current-user.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import {
-  TopicCreateDto,
-  TopicUpdateDto,
-  TopicResponseDto,
-} from 'src/dtos/topic.dto';
+  LessonCreateDto,
+  LessonUpdateDto,
+  LessonResponseDto,
+} from 'src/dtos/course-content.dto';
 import { ExamLibraryService } from './exam-library.service';
 
 const COURSE_CONTENT_FORBIDDEN =
@@ -51,7 +51,7 @@ export class CourseExamLibraryController {
   @ApiParam({ name: 'courseId', description: 'ID khoá học' })
   @ApiQuery({ name: 'search', required: false })
   @ApiQuery({
-    name: 'chapterId',
+    name: 'moduleId',
     required: false,
     description: 'Lọc đề theo chương',
   })
@@ -61,13 +61,13 @@ export class CourseExamLibraryController {
   async list(
     @Param('courseId') courseId: string,
     @Query('search') search?: string,
-    @Query('chapterId') chapterId?: string,
+    @Query('moduleId') moduleId?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
     return this.topicService.getExamLibrary(courseId, {
       search,
-      chapterId,
+      moduleId,
       page: page ? parseInt(page, 10) : undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
     });
@@ -84,23 +84,23 @@ export class CourseExamLibraryController {
     summary: 'Tạo đề thi mới trong thư viện (bắt buộc thuộc một chương)',
   })
   @ApiParam({ name: 'courseId', description: 'ID khoá học' })
-  @ApiBody({ type: TopicCreateDto })
+  @ApiBody({ type: LessonCreateDto })
   @ApiResponse({ status: 201, description: 'Đề thi đã được tạo.' })
   @ApiResponse({ status: 400, description: 'Lỗi dữ liệu đầu vào.' })
   @ApiResponse({ status: 403, description: COURSE_CONTENT_FORBIDDEN })
   async create(
     @CurrentUser() user: JwtPayload,
     @Param('courseId') courseId: string,
-    @Body() dto: TopicCreateDto,
-  ): Promise<TopicResponseDto> {
-    return this.topicService.createExamTopic(courseId, dto, {
+    @Body() dto: LessonCreateDto,
+  ): Promise<LessonResponseDto> {
+    return this.topicService.createExamLesson(courseId, dto, {
       userId: user.id,
       userEmail: user.email,
       roleType: user.roleType,
     });
   }
 
-  @Patch(':topicId')
+  @Patch(':lessonId')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
     StaffRole.assistant,
@@ -109,25 +109,25 @@ export class CourseExamLibraryController {
   )
   @ApiOperation({ summary: 'Cập nhật đề thi trong thư viện' })
   @ApiParam({ name: 'courseId', description: 'ID khoá học' })
-  @ApiParam({ name: 'topicId', description: 'ID đề thi' })
-  @ApiBody({ type: TopicUpdateDto })
+  @ApiParam({ name: 'lessonId', description: 'ID đề thi' })
+  @ApiBody({ type: LessonUpdateDto })
   @ApiResponse({ status: 200, description: 'Đề thi đã được cập nhật.' })
   @ApiResponse({ status: 404, description: 'Đề thi không tồn tại.' })
   @ApiResponse({ status: 403, description: COURSE_CONTENT_FORBIDDEN })
   async update(
     @CurrentUser() user: JwtPayload,
     @Param('courseId') courseId: string,
-    @Param('topicId') topicId: string,
-    @Body() dto: TopicUpdateDto,
-  ): Promise<TopicResponseDto> {
-    return this.topicService.updateExamTopic(courseId, topicId, dto, {
+    @Param('lessonId') lessonId: string,
+    @Body() dto: LessonUpdateDto,
+  ): Promise<LessonResponseDto> {
+    return this.topicService.updateExamLesson(courseId, lessonId, dto, {
       userId: user.id,
       userEmail: user.email,
       roleType: user.roleType,
     });
   }
 
-  @Delete(':topicId')
+  @Delete(':lessonId')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
     StaffRole.assistant,
@@ -136,7 +136,7 @@ export class CourseExamLibraryController {
   )
   @ApiOperation({ summary: 'Xóa đề thi khỏi thư viện' })
   @ApiParam({ name: 'courseId', description: 'ID khoá học' })
-  @ApiParam({ name: 'topicId', description: 'ID đề thi' })
+  @ApiParam({ name: 'lessonId', description: 'ID đề thi' })
   @ApiResponse({ status: 200, description: 'Đề thi đã được xóa.' })
   @ApiResponse({ status: 404, description: 'Đề thi không tồn tại.' })
   @ApiResponse({ status: 403, description: COURSE_CONTENT_FORBIDDEN })
@@ -147,9 +147,9 @@ export class CourseExamLibraryController {
   async remove(
     @CurrentUser() user: JwtPayload,
     @Param('courseId') courseId: string,
-    @Param('topicId') topicId: string,
+    @Param('lessonId') lessonId: string,
   ): Promise<void> {
-    return this.topicService.deleteExamTopic(courseId, topicId, {
+    return this.topicService.deleteExamLesson(courseId, lessonId, {
       userId: user.id,
       userEmail: user.email,
       roleType: user.roleType,
@@ -168,7 +168,7 @@ export class CourseExamLibraryController {
   @ApiBody({
     schema: {
       type: 'object',
-      properties: { topicIds: { type: 'array', items: { type: 'string' } } },
+      properties: { lessonIds: { type: 'array', items: { type: 'string' } } },
     },
   })
   @ApiResponse({ status: 200, description: 'Đã sắp xếp lại.' })
@@ -176,9 +176,9 @@ export class CourseExamLibraryController {
   async reorder(
     @CurrentUser() user: JwtPayload,
     @Param('courseId') courseId: string,
-    @Body('topicIds') topicIds: string[],
+    @Body('lessonIds') lessonIds: string[],
   ): Promise<void> {
-    return this.topicService.reorderExamTopics(courseId, topicIds, {
+    return this.topicService.reorderExamLessons(courseId, lessonIds, {
       userId: user.id,
       userEmail: user.email,
       roleType: user.roleType,

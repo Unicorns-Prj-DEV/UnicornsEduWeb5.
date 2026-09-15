@@ -9,8 +9,8 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ActionHistoryService } from 'src/action-history/action-history.service';
 import { CourseAccessService } from 'src/class/course-access.service';
-import { TopicCreateDto } from 'src/dtos/topic.dto';
-import { StaffRole, TopicKind, UserRole } from 'generated/enums';
+import { LessonCreateDto } from 'src/dtos/course-content.dto';
+import { LessonKind, StaffRole, UserRole } from 'generated/enums';
 
 export interface ActionHistoryActor {
   userId: string;
@@ -19,8 +19,8 @@ export interface ActionHistoryActor {
 }
 
 @Injectable()
-export class TopicSupportService {
-  protected readonly logger = new Logger(TopicSupportService.name);
+export class CourseContentSupportService {
+  protected readonly logger = new Logger(CourseContentSupportService.name);
 
   constructor(
     protected readonly prisma: PrismaService,
@@ -36,49 +36,67 @@ export class TopicSupportService {
     return studentInfo?.id ?? null;
   }
 
-  protected async validateTopicOwnership(dto: TopicCreateDto): Promise<void> {
+  protected hasMediaValue(value: string | null | undefined): boolean {
+    return typeof value === 'string' && value.trim() !== '';
+  }
+
+  protected assertPracticeHasNoMedia(
+    kind: LessonKind | string,
+    videoUrl?: string | null,
+    content?: string | null,
+  ): void {
+    if (kind !== LessonKind.practice) return;
+    if (this.hasMediaValue(videoUrl) || this.hasMediaValue(content)) {
+      throw new BadRequestException(
+        'Tiết thực hành không được kèm video hoặc nội dung — chỉ gồm tập câu hỏi.',
+      );
+    }
+  }
+
+  protected async validateLessonOwnership(dto: LessonCreateDto): Promise<void> {
     const hasCourse = Boolean(dto.courseId);
     const hasClass = Boolean(dto.classId);
 
     if (hasCourse && hasClass) {
       throw new BadRequestException(
-        'Chuyên đề chỉ thuộc Khoá học HOẶC Lớp học, không được cả hai',
+        'Tiết học chỉ thuộc chuyên đề cấp khoá HOẶC lớp học, không được cả hai',
       );
     }
 
     if (!hasCourse && !hasClass) {
       throw new BadRequestException(
-        'Chuyên đề phải thuộc một Khoá học hoặc một Lớp học',
+        'Tiết học phải thuộc một chuyên đề cấp khoá hoặc một lớp học',
       );
     }
 
-    if (hasCourse && !dto.chapterId && dto.kind !== TopicKind.practice) {
+    if (hasCourse && !dto.moduleId) {
       throw new BadRequestException(
-        'Chuyên đề thuộc Khoá học phải có Chủ đề (chapter)',
+        'Tiết học thuộc khoá phải nằm trong một chuyên đề',
       );
     }
 
-    // practice topics at course level (exam library) can have chapterId null
-    if (hasCourse && dto.chapterId) {
-      const chapter = await this.prisma.chapter.findUnique({
-        where: { id: dto.chapterId },
+    if (hasCourse && dto.moduleId) {
+      const courseModule = await this.prisma.module.findUnique({
+        where: { id: dto.moduleId },
       });
-      if (!chapter || chapter.courseId !== dto.courseId) {
+      if (!courseModule || courseModule.courseId !== dto.courseId) {
         throw new BadRequestException(
-          `Chapter ${dto.chapterId} không thuộc Course ${dto.courseId}`,
+          `Chuyên đề ${dto.moduleId} không thuộc khoá ${dto.courseId}`,
         );
       }
     }
+
+    this.assertPracticeHasNoMedia(dto.kind, dto.videoUrl, dto.content);
   }
 
-  protected async validateTopicExists(topicId: string) {
-    const topic = await this.prisma.topic.findUnique({
-      where: { id: topicId },
+  protected async validateLessonExists(lessonId: string) {
+    const lesson = await this.prisma.lesson.findUnique({
+      where: { id: lessonId },
     });
-    if (!topic) {
-      throw new NotFoundException(`Topic ${topicId} not found`);
+    if (!lesson) {
+      throw new NotFoundException(`Lesson ${lessonId} not found`);
     }
-    return topic;
+    return lesson;
   }
 
   protected async validateCourseExists(courseId: string): Promise<void> {
@@ -119,14 +137,14 @@ export class TopicSupportService {
     }
   }
 
-  protected async validateChapterExists(chapterId: string) {
-    const chapter = await this.prisma.chapter.findUnique({
-      where: { id: chapterId },
+  protected async validateModuleExists(moduleId: string) {
+    const courseModule = await this.prisma.module.findUnique({
+      where: { id: moduleId },
     });
-    if (!chapter) {
-      throw new NotFoundException(`Chapter ${chapterId} not found`);
+    if (!courseModule) {
+      throw new NotFoundException(`Module ${moduleId} not found`);
     }
-    return chapter;
+    return courseModule;
   }
 
   protected async validateClassExists(classId: string): Promise<void> {
@@ -180,22 +198,46 @@ export class TopicSupportService {
   }
 
   /**
-   * Block course-level Chapter/Topic/Lecture deletes while any class still
-   * references the topic via ClassContentItem (including hidden items).
+   * Block course-level Module/Lesson deletes while any class still
+   * references the lesson via ClassContentItem (including hidden items).
    */
-  protected async assertTopicsNotUsedByClasses(
-    topicIds: string[],
-    entityLabel: 'Chủ đề' | 'Chuyên đề' | 'Bài học',
+  protected async assertLessonsNotUsedByClasses(
+    lessonIds: string[],
+    entityLabel: 'Chuyên đề' | 'Tiết học',
   ): Promise<void> {
-    if (topicIds.length === 0) return;
-    const used = await this.prisma.classContentItem.groupBy({
-      by: ['classId'],
-      where: { topicId: { in: topicIds } },
+    if (lessonIds.length === 0) return;
+    const used = await this.prisma.classContentItem.findMany({
+      where: { lessonId: { in: lessonIds } },
+      select: {
+        classId: true,
+        hiddenAt: true,
+        class: { select: { name: true } },
+      },
     });
-    if (used.length > 0) {
-      throw new ConflictException(
-        `${entityLabel} đang được ${used.length} lớp sử dụng`,
-      );
+    if (used.length === 0) return;
+
+    const byClass = new Map<
+      string,
+      { name: string; hidden: number; visible: number }
+    >();
+    for (const row of used) {
+      const cur = byClass.get(row.classId) ?? {
+        name: row.class.name,
+        hidden: 0,
+        visible: 0,
+      };
+      if (row.hiddenAt) cur.hidden += 1;
+      else cur.visible += 1;
+      byClass.set(row.classId, cur);
     }
+    const parts = [...byClass.values()].map((cls) => {
+      const bits: string[] = [];
+      if (cls.visible) bits.push(`${cls.visible} lần giao đang hiện`);
+      if (cls.hidden) bits.push(`${cls.hidden} lần giao đang ẩn`);
+      return `${cls.name} (${bits.join(', ')})`;
+    });
+    throw new ConflictException(
+      `Không thể xoá ${entityLabel.toLowerCase()}: còn ${byClass.size} lớp đang tham chiếu — ${parts.join('; ')}.`,
+    );
   }
 }

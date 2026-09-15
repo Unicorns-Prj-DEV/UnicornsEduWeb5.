@@ -52,7 +52,7 @@ export class QuestionService {
   async list(filter: QuestionFilterDto, skip = 0, take = 20) {
     const where: Prisma.QuestionWhereInput = {};
     if (filter.courseId) where.courseId = filter.courseId;
-    if (filter.chapterId) where.chapterId = filter.chapterId;
+    if (filter.moduleId) where.moduleId = filter.moduleId;
     if (filter.difficultyLevelId)
       where.difficultyLevelId = filter.difficultyLevelId;
     if (filter.type) where.type = filter.type;
@@ -93,7 +93,7 @@ export class QuestionService {
     }
 
     // Cross-course validation
-    await this.assertChapterBelongsToCourse(dto.chapterId, dto.courseId);
+    await this.assertModuleBelongsToCourse(dto.moduleId, dto.courseId);
     await this.assertDifficultyBelongsToCourse(
       dto.difficultyLevelId,
       dto.courseId,
@@ -163,10 +163,10 @@ export class QuestionService {
       where: { questionId: id },
     });
     if (usage.length) {
-      const topicIds = usage.map((u) => u.topicId);
+      const lessonIds = usage.map((u) => u.lessonId);
       throw new ConflictException({
-        message: 'Question is used by practice topics',
-        usedBy: topicIds,
+        message: 'Question is used by practice lessons',
+        usedBy: lessonIds,
       });
     }
 
@@ -188,7 +188,7 @@ export class QuestionService {
   async bulkCreate(dto: BulkCreateQuestionDto, actor: QuestionActor) {
     await this.assertWriteAccess(actor, dto.courseId);
     // Validate cross-course for shared chapter + difficulty
-    await this.assertChapterBelongsToCourse(dto.chapterId, dto.courseId);
+    await this.assertModuleBelongsToCourse(dto.moduleId, dto.courseId);
 
     // Validate each item
     for (const [i, item] of dto.questions.entries()) {
@@ -233,7 +233,7 @@ export class QuestionService {
         const q = await tx.question.create({
           data: {
             courseId: dto.courseId,
-            chapterId: dto.chapterId,
+            moduleId: dto.moduleId,
             difficultyLevelId: item.difficultyLevelId,
             type: item.type,
             content: item.content,
@@ -255,17 +255,17 @@ export class QuestionService {
     });
   }
 
-  private async assertChapterBelongsToCourse(
-    chapterId: string,
+  private async assertModuleBelongsToCourse(
+    moduleId: string,
     courseId: string,
   ) {
-    const chapter = await this.prisma.chapter.findUnique({
-      where: { id: chapterId },
+    const courseModule = await this.prisma.module.findUnique({
+      where: { id: moduleId },
       select: { courseId: true },
     });
-    if (!chapter || chapter.courseId !== courseId) {
+    if (!courseModule || courseModule.courseId !== courseId) {
       throw new BadRequestException(
-        'Chapter does not belong to the specified course',
+        'Module does not belong to the specified course',
       );
     }
   }

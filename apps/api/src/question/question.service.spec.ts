@@ -29,7 +29,7 @@ describe('QuestionService', () => {
     questionLink: {
       findMany: jest.fn(),
     },
-    chapter: {
+    module: {
       findUnique: jest.fn(),
     },
     courseDifficultyLevel: {
@@ -53,7 +53,7 @@ describe('QuestionService', () => {
       (cb: (tx: typeof mockPrisma) => unknown) => cb(mockPrisma),
     );
     // Default: cross-course validation passes
-    mockPrisma.chapter.findUnique.mockResolvedValue({ courseId: 'c1' });
+    mockPrisma.module.findUnique.mockResolvedValue({ courseId: 'c1' });
     mockPrisma.courseDifficultyLevel.findUnique.mockResolvedValue({
       courseId: 'c1',
     });
@@ -83,11 +83,11 @@ describe('QuestionService', () => {
       expect(result).toEqual([]);
     });
 
-    it('applies chapterId filter', async () => {
+    it('applies moduleId filter', async () => {
       mockPrisma.question.findMany.mockResolvedValue([]);
-      await service.list({ chapterId: 'ch1' });
+      await service.list({ moduleId: 'ch1' });
       expect(mockPrisma.question.findMany).toHaveBeenCalledWith(
-        contains({ where: contains({ chapterId: 'ch1' }) }),
+        contains({ where: contains({ moduleId: 'ch1' }) }),
       );
     });
 
@@ -131,7 +131,7 @@ describe('QuestionService', () => {
   describe('create', () => {
     const baseDto = {
       courseId: 'c1',
-      chapterId: 'ch1',
+      moduleId: 'ch1',
       difficultyLevelId: 'd1',
       content: '<p>Test?</p>',
     };
@@ -235,7 +235,7 @@ describe('QuestionService', () => {
     });
 
     it('rejects create when chapter belongs to different course', async () => {
-      mockPrisma.chapter.findUnique.mockResolvedValue({ courseId: 'other' });
+      mockPrisma.module.findUnique.mockResolvedValue({ courseId: 'other' });
       const dto = {
         ...baseDto,
         type: QuestionTypeDto.essay,
@@ -346,7 +346,7 @@ describe('QuestionService', () => {
         deletedAt: null,
       });
       mockPrisma.questionLink.findMany.mockResolvedValue([
-        { topicId: 't1', questionId: 'q1' },
+        { lessonId: 't1', questionId: 'q1' },
       ]);
 
       await expect(service.delete('q1', actor)).rejects.toThrow(
@@ -359,7 +359,7 @@ describe('QuestionService', () => {
   describe('bulkCreate', () => {
     const baseBulkDto = {
       courseId: 'c1',
-      chapterId: 'ch1',
+      moduleId: 'ch1',
       questions: [
         {
           type: QuestionTypeDto.single_choice as const,
@@ -390,7 +390,7 @@ describe('QuestionService', () => {
     });
 
     it('rejects when chapter belongs to different course', async () => {
-      mockPrisma.chapter.findUnique.mockResolvedValue({ courseId: 'other' });
+      mockPrisma.module.findUnique.mockResolvedValue({ courseId: 'other' });
 
       await expect(service.bulkCreate(baseBulkDto, actor)).rejects.toThrow(
         BadRequestException,

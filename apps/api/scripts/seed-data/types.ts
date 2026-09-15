@@ -1,7 +1,7 @@
 /**
  * Kiểu dữ liệu cho các "pack" seed ngân hàng câu hỏi + đề luyện tập.
  *
- * Một pack = một bộ nội dung học thuật (chương, thang độ khó, câu hỏi, đề)
+ * Một pack = một bộ nội dung học thuật (chuyên đề, thang độ khó, câu hỏi, đề)
  * áp cho một hoặc nhiều Khoá học có sẵn trong DB, dò theo tên khoá.
  */
 
@@ -10,8 +10,8 @@ export type SeedQuestionType = 'single_choice' | 'essay';
 export interface SeedQuestion {
   /** Khoá ổn định trong pack — dùng sinh UUID tất định, không đổi sau khi seed lần đầu. */
   key: string;
-  /** Tiêu đề chương (phải có trong `SeedPack.chapters`). */
-  chapter: string;
+  /** Tiêu đề chuyên đề (phải có trong `SeedPack.modules`). */
+  module: string;
   /** Tên độ khó (phải có trong `SeedPack.difficultyLevels`). */
   difficulty: string;
   type: SeedQuestionType;
@@ -28,19 +28,19 @@ export interface SeedQuestion {
 }
 
 export interface SeedExam {
-  /** Khoá ổn định trong pack — dùng sinh UUID tất định cho Topic. */
+  /** Khoá ổn định trong pack — dùng sinh UUID tất định cho Lesson. */
   key: string;
   title: string;
   /**
-   * Giới hạn nguồn câu hỏi theo chương. Bỏ trống = lấy toàn bộ chương của pack
+   * Giới hạn nguồn câu hỏi theo chuyên đề. Bỏ trống = lấy toàn bộ chuyên đề của pack
    * (đề tổng hợp giữa khoá / cuối khoá).
    */
-  chapters?: string[];
+  modules?: string[];
   /**
-   * Chương chứa đề trên cây nội dung khoá. **Bắt buộc** — CHECK constraint
-   * `topics_owner_check` không cho topic cấp khoá đứng ngoài chương.
+   * Chuyên đề chứa đề trên cây nội dung khoá. **Bắt buộc** — CHECK constraint
+   * `lessons_owner_check` không cho tiết cấp khoá đứng ngoài chuyên đề.
    */
-  chapter: string;
+  module: string;
   /** Số câu cần lấy theo từng độ khó: `{ 'Nhận biết': 1, 'Thông hiểu': 2 }`. */
   blueprint: Record<string, number>;
   /**
@@ -57,8 +57,8 @@ export interface SeedPack {
   courseNames: string[];
   /** Thang độ khó của khoá, theo đúng thứ tự hiển thị. */
   difficultyLevels: string[];
-  /** Danh sách chương, theo đúng thứ tự hiển thị. */
-  chapters: string[];
+  /** Danh sách chuyên đề, theo đúng thứ tự hiển thị. */
+  modules: string[];
   questions: SeedQuestion[];
   exams: SeedExam[];
 }

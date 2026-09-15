@@ -24,7 +24,7 @@ export enum QuestionTypeDto {
 export interface QuestionResponseDto {
   id: string;
   courseId: string;
-  chapterId: string;
+  moduleId: string;
   difficultyLevelId: string;
   type: QuestionTypeDto;
   content: string;
@@ -47,11 +47,11 @@ export class CreateQuestionDto {
   courseId: string;
 
   @ApiProperty({
-    description: 'Chapter (Chủ đề) ID the question belongs to',
+    description: 'Module (Chuyên đề) ID the question belongs to',
     example: 'b2c3d4e5-f6a7-8901-bcde-f123456789ab',
   })
   @IsUUID()
-  chapterId: string;
+  moduleId: string;
 
   @ApiProperty({
     description: 'Difficulty level ID (must belong to the same course)',
@@ -200,9 +200,9 @@ export class BulkCreateQuestionDto {
   @IsUUID()
   courseId: string;
 
-  @ApiProperty({ description: 'Chapter ID for all questions' })
+  @ApiProperty({ description: 'Module ID for all questions' })
   @IsUUID()
-  chapterId: string;
+  moduleId: string;
 
   @ApiProperty({
     description: 'Array of questions to import',
@@ -223,10 +223,10 @@ export class QuestionFilterDto {
   @IsUUID()
   courseId?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by Chapter ID' })
+  @ApiPropertyOptional({ description: 'Filter by Module ID' })
   @IsOptional()
   @IsUUID()
-  chapterId?: string;
+  moduleId?: string;
 
   @ApiPropertyOptional({ description: 'Filter by Difficulty Level ID' })
   @IsOptional()

@@ -30,4 +30,4 @@ HTTP path / Prisma client call site (web + Nest) **không** xanh ở vé này �
 
 - Sau migrate không còn bảng/cột `chapters` / `topics` / `lectures` / `chapter_id` / `topic_id` / `lecture_id`.
 - `ClassContentItem.lessonId` Restrict — xóa chuyên đề/tiết cấp khoá khi còn lần giao vẫn 409.
-- API/FE còn gọi `prisma.chapter` / URL `/chapters` cho đến vé 06–07; `tsc` đỏ ở tầng trên là chấp nhận được.
+- API (vé 06) nói `modules` / `lessons` trên HTTP, DTO, Swagger; không alias. FE (`apps/web`) còn path cũ đến vé 07; nghiệm thu xanh ở vé 08.

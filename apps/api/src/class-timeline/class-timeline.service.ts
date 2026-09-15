@@ -8,7 +8,7 @@ import { ClassTimelineItemKind } from '../../generated/enums';
 import { Prisma } from '../../generated/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StaffOperationsAccessService } from 'src/staff-ops/staff-operations-access.service';
-import type { ActionHistoryActor } from 'src/topic/topic.service';
+import type { ActionHistoryActor } from 'src/course-content/course-content.service';
 import type {
   ClassTimelineItemDto,
   ClassTimelinePageDto,
@@ -48,7 +48,7 @@ const timelineInclude = (studentId: string | null) =>
     },
     classContentItem: {
       include: {
-        topic: true,
+        lesson: true,
       },
     },
   }) satisfies Prisma.ClassTimelineItemInclude;
@@ -240,8 +240,8 @@ export class ClassTimelineService {
         sessionId: row.session.id,
         classSurveyId: null,
         classContentItemId: null,
-        topicId: null,
-        topicKind: null,
+        lessonId: null,
+        lessonKind: null,
         isOpen: null,
         openAt: null,
         durationMinutes: null,
@@ -276,8 +276,8 @@ export class ClassTimelineService {
         sessionId: null,
         classSurveyId: row.classSurvey.id,
         classContentItemId: null,
-        topicId: null,
-        topicKind: null,
+        lessonId: null,
+        lessonKind: null,
         isOpen: null,
         openAt: null,
         durationMinutes: null,
@@ -312,25 +312,25 @@ export class ClassTimelineService {
     }
 
     const content = row.classContentItem;
-    const topic = content?.topic;
-    const topicKind =
-      topic?.kind === 'practice' ? 'practice' : topic ? 'theory' : null;
+    const lesson = content?.lesson;
+    const lessonKind =
+      lesson?.kind === 'practice' ? 'practice' : lesson ? 'theory' : null;
     const isOpen =
-      topicKind === 'practice'
+      lessonKind === 'practice'
         ? !content?.openAt || content.openAt.getTime() <= Date.now()
         : true;
     return {
       id: row.id,
       kind: ClassTimelineItemKind.content_item,
       sortOrder: row.sortOrder,
-      title: topic?.title ?? 'Chuyên đề',
-      kindLabel: topicKind === 'practice' ? 'Luyện tập' : 'Lý thuyết',
+      title: lesson?.title ?? 'Tiết học',
+      kindLabel: lessonKind === 'practice' ? 'Luyện tập' : 'Lý thuyết',
       occurredAt: content?.openAt?.toISOString() ?? null,
       sessionId: null,
       classSurveyId: null,
       classContentItemId: content?.id ?? null,
-      topicId: topic?.id ?? null,
-      topicKind,
+      lessonId: lesson?.id ?? null,
+      lessonKind,
       isOpen,
       openAt: content?.openAt?.toISOString() ?? null,
       durationMinutes: content?.durationMinutes ?? null,

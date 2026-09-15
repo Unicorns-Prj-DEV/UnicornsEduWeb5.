@@ -3,12 +3,12 @@ import { DECORATORS } from '@nestjs/swagger/dist/constants';
 import { ALLOW_STAFF_ROLES_ON_ADMIN_KEY } from 'src/auth/decorators/allow-staff-roles-on-admin.decorator';
 import { ROLES_KEY } from 'src/auth/decorators/roles.decorator';
 import {
-  CourseChapterController,
-  LectureController,
-  PracticeTopicQuestionController,
-} from './topic.controller';
-import { CourseChapterService } from './course-chapter.service';
-import { LectureService } from './lecture.service';
+  CourseModuleController,
+  LessonQuizController,
+  PracticeLessonQuestionController,
+} from './course-content.controller';
+import { CourseModuleService } from './course-module.service';
+import { LessonQuizService } from './lesson-quiz.service';
 import { PracticeQuestionLinkService } from './practice-question-link.service';
 
 function getHandler(
@@ -33,20 +33,20 @@ const staffUser = {
   roleType: UserRole.staff,
 };
 
-describe('LectureController.getLectureQuizzes', () => {
-  it('restricts GET /topics/:topicId/lectures/:lectureId/quizzes to admin (not student)', () => {
+describe('LessonQuizController.getLessonQuizzes', () => {
+  it('restricts GET /lessons/:lessonId/quizzes to admin (not student)', () => {
     const roles: unknown = Reflect.getMetadata(
       ROLES_KEY,
-      getHandler(LectureController, 'getLectureQuizzes'),
+      getHandler(LessonQuizController, 'getLessonQuizzes'),
     );
     expect(roles).toEqual([UserRole.admin]);
     expect(roles).not.toContain(UserRole.student);
   });
 
-  it('keeps staff authoring roles on the admin lecture-quiz list route', () => {
+  it('keeps staff authoring roles on the admin lesson-quiz list route', () => {
     const staffRoles: unknown = Reflect.getMetadata(
       ALLOW_STAFF_ROLES_ON_ADMIN_KEY,
-      getHandler(LectureController, 'getLectureQuizzes'),
+      getHandler(LessonQuizController, 'getLessonQuizzes'),
     );
     expect(staffRoles).toEqual([
       StaffRole.assistant,
@@ -59,89 +59,92 @@ describe('LectureController.getLectureQuizzes', () => {
   it('documents HTTP 403 when the caller cannot manage the course', () => {
     const responses = Reflect.getMetadata(
       DECORATORS.API_RESPONSE,
-      getHandler(LectureController, 'getLectureQuizzes'),
+      getHandler(LessonQuizController, 'getLessonQuizzes'),
     ) as Record<string, { description?: string }>;
     expect(responses['403']?.description).toMatch(/đội giáo án/);
   });
 
   it('returns the admin quiz payload and never the student (no-correctIndex) variant', async () => {
-    const topicService = {
-      getLectureQuizzes: jest
+    const quizService = {
+      getLessonQuizzes: jest
         .fn()
         .mockResolvedValue([{ id: 'q1', correctIndex: 2 }]),
-      getLectureQuizzesForStudent: jest.fn(),
+      getLessonQuizzesForStudent: jest.fn(),
     };
-    const controller = new LectureController(
-      topicService as unknown as LectureService,
+    const controller = new LessonQuizController(
+      quizService as unknown as LessonQuizService,
     );
 
     await expect(
-      controller.getLectureQuizzes(staffUser, 'topic-1', 'lecture-1'),
+      controller.getLessonQuizzes(staffUser, 'lesson-1'),
     ).resolves.toEqual([{ id: 'q1', correctIndex: 2 }]);
 
-    expect(topicService.getLectureQuizzes).toHaveBeenCalledWith('lecture-1', {
+    expect(quizService.getLessonQuizzes).toHaveBeenCalledWith('lesson-1', {
       userId: staffUser.id,
       userEmail: staffUser.email,
       roleType: staffUser.roleType,
     });
-    expect(topicService.getLectureQuizzesForStudent).not.toHaveBeenCalled();
+    expect(quizService.getLessonQuizzesForStudent).not.toHaveBeenCalled();
   });
 });
 
-describe('PracticeTopicQuestionController.getQuestions', () => {
+describe('PracticeLessonQuestionController.getQuestions', () => {
   it('documents HTTP 403 for callers outside the course lesson-plan team', () => {
     const responses = Reflect.getMetadata(
       DECORATORS.API_RESPONSE,
-      getHandler(PracticeTopicQuestionController, 'getQuestions'),
+      getHandler(PracticeLessonQuestionController, 'getQuestions'),
     ) as Record<string, { description?: string }>;
     expect(responses['403']?.description).toMatch(/đội giáo án/);
   });
 
   it('forwards the current user so the service can assertCanManageCourse', async () => {
-    const topicService = {
-      getQuestionsByTopicId: jest.fn().mockResolvedValue([]),
+    const questionService = {
+      getQuestionsByLessonId: jest.fn().mockResolvedValue([]),
     };
-    const controller = new PracticeTopicQuestionController(
-      topicService as unknown as PracticeQuestionLinkService,
+    const controller = new PracticeLessonQuestionController(
+      questionService as unknown as PracticeQuestionLinkService,
     );
 
-    await controller.getQuestions(staffUser, 'topic-1');
+    await controller.getQuestions(staffUser, 'lesson-1');
 
-    expect(topicService.getQuestionsByTopicId).toHaveBeenCalledWith('topic-1', {
-      userId: staffUser.id,
-      userEmail: staffUser.email,
-      roleType: staffUser.roleType,
-    });
+    expect(questionService.getQuestionsByLessonId).toHaveBeenCalledWith(
+      'lesson-1',
+      {
+        userId: staffUser.id,
+        userEmail: staffUser.email,
+        roleType: staffUser.roleType,
+      },
+    );
   });
 });
 
-describe('CourseChapterController course-manage 403', () => {
+describe('CourseModuleController course-manage 403', () => {
   it.each([
-    'createChapter',
-    'updateChapter',
-    'deleteChapter',
-    'reorderChapters',
+    'createModule',
+    'updateModule',
+    'deleteModule',
+    'reorderModules',
   ] as const)('documents HTTP 403 on %s', (methodName) => {
     const responses = Reflect.getMetadata(
       DECORATORS.API_RESPONSE,
-      getHandler(CourseChapterController, methodName),
+      getHandler(CourseModuleController, methodName),
     ) as Record<string, { description?: string }>;
     expect(responses['403']?.description).toMatch(/đội giáo án/);
   });
 
-  it('passes the actor into reorderChapters', async () => {
-    const topicService = {
-      reorderChapters: jest.fn().mockResolvedValue(undefined),
+  it('passes the actor into reorderModules', async () => {
+    const moduleService = {
+      reorderModules: jest.fn().mockResolvedValue(undefined),
     };
-    const controller = new CourseChapterController(
-      topicService as unknown as CourseChapterService,
+    const controller = new CourseModuleController(
+      moduleService as unknown as CourseModuleService,
     );
 
-    await controller.reorderChapters(staffUser, 'course-x', ['ch-1']);
+    await controller.reorderModules(staffUser, 'course-x', ['mod-1']);
 
-    expect(topicService.reorderChapters).toHaveBeenCalledWith(
+    expect(moduleService.reorderModules).toHaveBeenCalledWith(
       'course-x',
-      ['ch-1'],
+      ['mod-1'],
       {
         userId: staffUser.id,
         userEmail: staffUser.email,

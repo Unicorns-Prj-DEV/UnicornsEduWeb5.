@@ -1,6 +1,6 @@
 import type { SeedPack } from './types';
 
-const CHAPTERS = {
+const MODULES = {
   derivative: 'Hàm số và đạo hàm',
   logarithm: 'Mũ và logarit',
   probability: 'Tổ hợp – Xác suất',
@@ -16,25 +16,25 @@ const VDC = 'Vận dụng cao';
 
 /**
  * Pack Toán THPT, dùng cho các khoá THPT Basic / THPT Advanced / THPT Luyện Đề.
- * 30 câu (25 trắc nghiệm + 5 tự luận) trải 5 chương.
+ * 30 câu (25 trắc nghiệm + 5 tự luận) trải 5 chuyên đề.
  */
 export const mathThptPack: SeedPack = {
   key: 'math-thpt',
   courseNames: ['THPT Basic', 'THPT Advanced', 'THPT Luyện Đề'],
   difficultyLevels: [NB, TH, VD, VDC],
-  chapters: [
-    CHAPTERS.derivative,
-    CHAPTERS.logarithm,
-    CHAPTERS.probability,
-    CHAPTERS.integral,
-    CHAPTERS.oxyz,
-    CHAPTERS.review,
+  modules: [
+    MODULES.derivative,
+    MODULES.logarithm,
+    MODULES.probability,
+    MODULES.integral,
+    MODULES.oxyz,
+    MODULES.review,
   ],
   questions: [
     // ── Hàm số và đạo hàm ─────────────────────────────────────────────────
     {
       key: 'dv-01',
-      chapter: CHAPTERS.derivative,
+      module: MODULES.derivative,
       difficulty: NB,
       type: 'single_choice',
       content: '<p>Đạo hàm của hàm số $y = x^5$ là:</p>',
@@ -44,7 +44,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'dv-02',
-      chapter: CHAPTERS.derivative,
+      module: MODULES.derivative,
       difficulty: NB,
       type: 'single_choice',
       content:
@@ -61,7 +61,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'dv-03',
-      chapter: CHAPTERS.derivative,
+      module: MODULES.derivative,
       difficulty: TH,
       type: 'single_choice',
       content: '<p>Đạo hàm của hàm số $y = \\ln(2x + 1)$ là:</p>',
@@ -77,7 +77,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'dv-04',
-      chapter: CHAPTERS.derivative,
+      module: MODULES.derivative,
       difficulty: TH,
       type: 'single_choice',
       content: '<p>Hàm số $y = x^3 - 3x$ đạt cực đại tại điểm nào?</p>',
@@ -88,7 +88,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'dv-05',
-      chapter: CHAPTERS.derivative,
+      module: MODULES.derivative,
       difficulty: VD,
       type: 'single_choice',
       content:
@@ -100,7 +100,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'dv-06',
-      chapter: CHAPTERS.derivative,
+      module: MODULES.derivative,
       difficulty: VDC,
       type: 'essay',
       content:
@@ -112,7 +112,7 @@ export const mathThptPack: SeedPack = {
     // ── Mũ và logarit ─────────────────────────────────────────────────────
     {
       key: 'lg-01',
-      chapter: CHAPTERS.logarithm,
+      module: MODULES.logarithm,
       difficulty: NB,
       type: 'single_choice',
       content:
@@ -129,7 +129,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'lg-02',
-      chapter: CHAPTERS.logarithm,
+      module: MODULES.logarithm,
       difficulty: NB,
       type: 'single_choice',
       content: '<p>Tập xác định của hàm số $y = \\log_2(x - 1)$ là:</p>',
@@ -139,7 +139,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'lg-03',
-      chapter: CHAPTERS.logarithm,
+      module: MODULES.logarithm,
       difficulty: TH,
       type: 'single_choice',
       content: '<p>Nghiệm của phương trình $2^{x+1} = 8$ là:</p>',
@@ -150,7 +150,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'lg-04',
-      chapter: CHAPTERS.logarithm,
+      module: MODULES.logarithm,
       difficulty: TH,
       type: 'single_choice',
       content: '<p>Nghiệm của phương trình $\\log_2 x + \\log_2(x - 2) = 3$ là:</p>',
@@ -161,7 +161,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'lg-05',
-      chapter: CHAPTERS.logarithm,
+      module: MODULES.logarithm,
       difficulty: VD,
       type: 'single_choice',
       content: '<p>Tập nghiệm của bất phương trình $3^{x^2 - 2x} &lt; 27$ là:</p>',
@@ -172,7 +172,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'lg-06',
-      chapter: CHAPTERS.logarithm,
+      module: MODULES.logarithm,
       difficulty: VDC,
       type: 'essay',
       content:
@@ -184,7 +184,7 @@ export const mathThptPack: SeedPack = {
     // ── Tổ hợp – Xác suất ─────────────────────────────────────────────────
     {
       key: 'pb-01',
-      chapter: CHAPTERS.probability,
+      module: MODULES.probability,
       difficulty: NB,
       type: 'single_choice',
       content: '<p>Số hoán vị của $n$ phần tử phân biệt là:</p>',
@@ -194,7 +194,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'pb-02',
-      chapter: CHAPTERS.probability,
+      module: MODULES.probability,
       difficulty: NB,
       type: 'single_choice',
       content: '<p>Công thức tổ hợp chập $k$ của $n$ phần tử là:</p>',
@@ -210,7 +210,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'pb-03',
-      chapter: CHAPTERS.probability,
+      module: MODULES.probability,
       difficulty: TH,
       type: 'single_choice',
       content: '<p>Số cách chọn $3$ học sinh từ một nhóm $10$ học sinh là:</p>',
@@ -221,7 +221,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'pb-04',
-      chapter: CHAPTERS.probability,
+      module: MODULES.probability,
       difficulty: TH,
       type: 'single_choice',
       content:
@@ -233,7 +233,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'pb-05',
-      chapter: CHAPTERS.probability,
+      module: MODULES.probability,
       difficulty: VD,
       type: 'single_choice',
       content:
@@ -250,7 +250,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'pb-06',
-      chapter: CHAPTERS.probability,
+      module: MODULES.probability,
       difficulty: VDC,
       type: 'essay',
       content:
@@ -262,7 +262,7 @@ export const mathThptPack: SeedPack = {
     // ── Nguyên hàm – Tích phân ────────────────────────────────────────────
     {
       key: 'it-01',
-      chapter: CHAPTERS.integral,
+      module: MODULES.integral,
       difficulty: NB,
       type: 'single_choice',
       content: '<p>Với $n \\ne -1$, họ nguyên hàm $\\displaystyle\\int x^n \\, dx$ bằng:</p>',
@@ -277,7 +277,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'it-02',
-      chapter: CHAPTERS.integral,
+      module: MODULES.integral,
       difficulty: NB,
       type: 'single_choice',
       content:
@@ -288,7 +288,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'it-03',
-      chapter: CHAPTERS.integral,
+      module: MODULES.integral,
       difficulty: TH,
       type: 'single_choice',
       content: '<p>Giá trị của $\\displaystyle\\int_0^1 (2x + 1)\\,dx$ là:</p>',
@@ -299,7 +299,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'it-04',
-      chapter: CHAPTERS.integral,
+      module: MODULES.integral,
       difficulty: TH,
       type: 'single_choice',
       content: '<p>Họ nguyên hàm $\\displaystyle\\int e^{2x}\\,dx$ bằng:</p>',
@@ -315,7 +315,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'it-05',
-      chapter: CHAPTERS.integral,
+      module: MODULES.integral,
       difficulty: VD,
       type: 'single_choice',
       content:
@@ -327,7 +327,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'it-06',
-      chapter: CHAPTERS.integral,
+      module: MODULES.integral,
       difficulty: VDC,
       type: 'essay',
       content:
@@ -339,7 +339,7 @@ export const mathThptPack: SeedPack = {
     // ── Hình học không gian Oxyz ──────────────────────────────────────────
     {
       key: 'oz-01',
-      chapter: CHAPTERS.oxyz,
+      module: MODULES.oxyz,
       difficulty: NB,
       type: 'single_choice',
       content:
@@ -356,7 +356,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'oz-02',
-      chapter: CHAPTERS.oxyz,
+      module: MODULES.oxyz,
       difficulty: NB,
       type: 'single_choice',
       content: '<p>Khoảng cách giữa hai điểm $A(1; 0; 2)$ và $B(1; 4; 5)$ bằng:</p>',
@@ -367,7 +367,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'oz-03',
-      chapter: CHAPTERS.oxyz,
+      module: MODULES.oxyz,
       difficulty: TH,
       type: 'single_choice',
       content:
@@ -384,7 +384,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'oz-04',
-      chapter: CHAPTERS.oxyz,
+      module: MODULES.oxyz,
       difficulty: TH,
       type: 'single_choice',
       content:
@@ -396,7 +396,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'oz-05',
-      chapter: CHAPTERS.oxyz,
+      module: MODULES.oxyz,
       difficulty: VD,
       type: 'single_choice',
       content:
@@ -408,7 +408,7 @@ export const mathThptPack: SeedPack = {
     },
     {
       key: 'oz-06',
-      chapter: CHAPTERS.oxyz,
+      module: MODULES.oxyz,
       difficulty: VDC,
       type: 'essay',
       content:
@@ -421,81 +421,81 @@ export const mathThptPack: SeedPack = {
     {
       key: 'exam-dv',
       title: 'Luyện tập: Hàm số và đạo hàm',
-      chapter: CHAPTERS.derivative,
-      chapters: [CHAPTERS.derivative],
+      module: MODULES.derivative,
+      modules: [MODULES.derivative],
       blueprint: { [NB]: 1, [TH]: 2, [VD]: 1 },
     },
     {
       key: 'exam-lg',
       title: 'Luyện tập: Mũ và logarit',
-      chapter: CHAPTERS.logarithm,
-      chapters: [CHAPTERS.logarithm],
+      module: MODULES.logarithm,
+      modules: [MODULES.logarithm],
       blueprint: { [NB]: 1, [TH]: 2, [VD]: 1 },
     },
     {
       key: 'exam-pb',
       title: 'Luyện tập: Tổ hợp – Xác suất',
-      chapter: CHAPTERS.probability,
-      chapters: [CHAPTERS.probability],
+      module: MODULES.probability,
+      modules: [MODULES.probability],
       blueprint: { [NB]: 1, [TH]: 2, [VD]: 1 },
     },
     {
       key: 'exam-it',
       title: 'Luyện tập: Nguyên hàm – Tích phân',
-      chapter: CHAPTERS.integral,
-      chapters: [CHAPTERS.integral],
+      module: MODULES.integral,
+      modules: [MODULES.integral],
       blueprint: { [NB]: 1, [TH]: 2, [VD]: 1 },
     },
     {
       key: 'exam-oz',
       title: 'Luyện tập: Hình học không gian Oxyz',
-      chapter: CHAPTERS.oxyz,
-      chapters: [CHAPTERS.oxyz],
+      module: MODULES.oxyz,
+      modules: [MODULES.oxyz],
       blueprint: { [NB]: 1, [TH]: 2, [VD]: 1 },
     },
     {
       key: 'exam-mid',
       title: 'Đề kiểm tra giữa khoá — Giải tích',
-      chapter: CHAPTERS.review,
-      chapters: [CHAPTERS.derivative, CHAPTERS.logarithm, CHAPTERS.probability],
+      module: MODULES.review,
+      modules: [MODULES.derivative, MODULES.logarithm, MODULES.probability],
       blueprint: { [NB]: 3, [TH]: 4, [VD]: 2, [VDC]: 1 },
     },
     {
       key: 'exam-final',
       title: 'Đề thi thử THPT — Tổng hợp',
-      chapter: CHAPTERS.review,
+      module: MODULES.review,
       blueprint: { [NB]: 5, [TH]: 6, [VD]: 3, [VDC]: 1 },
     },
     {
       key: 'exam-warmup',
       title: 'Đề khởi động — Kiểm tra 10 phút',
-      chapter: CHAPTERS.review,
+      module: MODULES.review,
       blueprint: { [NB]: 5 },
     },
     {
       key: 'exam-cluster-2',
       title: 'Đề kiểm tra cụm 2 — Tích phân & Hình học Oxyz',
-      chapter: CHAPTERS.review,
-      chapters: [CHAPTERS.integral, CHAPTERS.oxyz],
+      module: MODULES.review,
+      modules: [MODULES.integral, MODULES.oxyz],
       blueprint: { [NB]: 2, [TH]: 2, [VD]: 1, [VDC]: 1 },
     },
     {
       key: 'exam-advanced',
       title: 'Đề nâng cao — Vận dụng & Vận dụng cao',
-      chapter: CHAPTERS.review,
+      module: MODULES.review,
       blueprint: { [VD]: 5, [VDC]: 2 },
     },
     {
       key: 'exam-essay',
       title: 'Đề tự luận — Trình bày lời giải',
-      chapter: CHAPTERS.review,
+      module: MODULES.review,
       blueprint: { [VDC]: 5 },
     },
     {
       // `rotate: 1` = lấy khối câu kế tiếp của `exam-final`, để hai đề thi thử không trùng câu.
       key: 'exam-final-2',
       title: 'Đề thi thử THPT (đề số 2) — Tổng hợp',
-      chapter: CHAPTERS.review,
+      module: MODULES.review,
       blueprint: { [NB]: 5, [TH]: 6, [VD]: 3, [VDC]: 1 },
       rotate: 1,
     },

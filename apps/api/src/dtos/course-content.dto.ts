@@ -12,25 +12,24 @@ import {
   Min,
   ValidateIf,
 } from 'class-validator';
-import { TopicKind } from 'generated/enums';
+import { LessonKind } from 'generated/enums';
 import { CONTENT_LIMITS, HTTP_URL_OPTIONS } from './content-limits';
 
 /** Product cap for practice lần giao duration (12 hours). Matches FE + schema docs. */
 export const PRACTICE_DURATION_MIN_MINUTES = 1;
 export const PRACTICE_DURATION_MAX_MINUTES = 720;
 
-export class TopicCreateDto {
+export class LessonCreateDto {
   @ApiProperty({
-    description: 'Loại chuyên đề',
-    enum: TopicKind,
-    example: TopicKind.theory,
+    description: 'Loại tiết học: lý thuyết hoặc thực hành',
+    enum: LessonKind,
+    example: LessonKind.theory,
   })
-  @IsEnum(TopicKind)
-  kind: TopicKind;
+  @IsEnum(LessonKind)
+  kind: LessonKind;
 
   @ApiPropertyOptional({
-    description:
-      'ID khoá học (bắt buộc khi kind = theory hoặc practice ở cấp khoá)',
+    description: 'ID khoá học (bắt buộc khi tiết thuộc chuyên đề cấp khoá)',
     nullable: true,
   })
   @IsOptional()
@@ -38,16 +37,16 @@ export class TopicCreateDto {
   courseId?: string | null;
 
   @ApiPropertyOptional({
-    description: 'ID chủ đề (bắt buộc khi thuộc khoá học)',
+    description: 'ID chuyên đề (bắt buộc khi tiết thuộc khoá học)',
     nullable: true,
   })
   @IsOptional()
   @IsString()
-  chapterId?: string | null;
+  moduleId?: string | null;
 
   @ApiPropertyOptional({
     description:
-      'ID lớp học (bắt buộc khi chuyên đề gắn lớp, loại trừ courseId+chapterId)',
+      'ID lớp học (bắt buộc khi tiết riêng lớp; loại trừ courseId+moduleId)',
     nullable: true,
   })
   @IsOptional()
@@ -55,49 +54,94 @@ export class TopicCreateDto {
   classId?: string | null;
 
   @ApiProperty({
-    description: 'Tiêu đề chuyên đề',
-    example: 'Chuyên đề Đại số tuyến tính',
+    description: 'Tiêu đề tiết học',
+    example: 'Ma trận và định thức',
   })
   @IsString()
   title: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Link video YouTube nhúng. Chỉ tiết lý thuyết; tiết thực hành bị từ chối.',
+    nullable: true,
+    maxLength: CONTENT_LIMITS.url,
+  })
+  @IsOptional()
+  @ValidateIf((_, value) => typeof value === 'string' && value.trim() !== '')
+  @IsUrl(HTTP_URL_OPTIONS)
+  @MaxLength(CONTENT_LIMITS.url)
+  videoUrl?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Nội dung tiết lý thuyết (HTML rich text). Tiết thực hành bị từ chối.',
+    nullable: true,
+    maxLength: CONTENT_LIMITS.theoryContent,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(CONTENT_LIMITS.theoryContent)
+  content?: string | null;
 }
 
-export class TopicUpdateDto {
-  @ApiPropertyOptional({ description: 'Tiêu đề chuyên đề' })
+export class LessonUpdateDto {
+  @ApiPropertyOptional({ description: 'Tiêu đề tiết học' })
   @IsOptional()
   @IsString()
   title?: string;
+
+  @ApiPropertyOptional({
+    description: 'Link video YouTube nhúng. Tiết thực hành bị từ chối.',
+    nullable: true,
+    maxLength: CONTENT_LIMITS.url,
+  })
+  @IsOptional()
+  @ValidateIf((_, value) => typeof value === 'string' && value.trim() !== '')
+  @IsUrl(HTTP_URL_OPTIONS)
+  @MaxLength(CONTENT_LIMITS.url)
+  videoUrl?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Nội dung tiết lý thuyết (HTML). Tiết thực hành bị từ chối.',
+    nullable: true,
+    maxLength: CONTENT_LIMITS.theoryContent,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(CONTENT_LIMITS.theoryContent)
+  content?: string | null;
 }
 
-export interface TopicResponseDto {
+export interface LessonResponseDto {
   id: string;
-  kind: TopicKind;
+  kind: LessonKind;
   courseId: string | null;
-  chapterId: string | null;
+  moduleId: string | null;
   classId: string | null;
   title: string;
+  videoUrl: string | null;
+  content: string | null;
+  order: number;
   createdBy: string | null;
   updatedBy: string | null;
   createdAt: Date;
   updatedAt: Date;
-  /** Có trên GET list chuyên đề trong chủ đề — số bài học (lý thuyết). */
-  lectureCount?: number;
-  /** Có trên GET list chuyên đề trong chủ đề — số câu hỏi gắn (luyện tập). */
+  /** Có trên GET list tiết trong chuyên đề — số câu hỏi ôn nhẹ (lý thuyết). */
+  quizCount?: number;
+  /** Có trên GET list tiết trong chuyên đề — số câu hỏi gắn (thực hành). */
   questionCount?: number;
 }
 
 /**
- * Một dòng trong Thư viện đề thi: `Topic(kind = practice)` của khoá, kèm chương
- * chứa nó và số câu hỏi đã gắn — để UI khỏi phải gọi thêm request đếm câu.
+ * Một dòng trong Thư viện đề thi: tiết `practice` của khoá, kèm chuyên đề
+ * chứa nó và số câu hỏi đã gắn.
  */
-export interface ExamLibraryItemDto extends TopicResponseDto {
-  chapter: { id: string; title: string; sortOrder: number } | null;
+export interface ExamLibraryItemDto extends LessonResponseDto {
+  module: { id: string; title: string; sortOrder: number } | null;
   questionCount: number;
 }
 
-// --- Chapter DTOs ---
-
-export class ChapterCreateDto {
+export class ModuleCreateDto {
   @ApiProperty({
     description: 'ID khoá học',
   })
@@ -105,117 +149,44 @@ export class ChapterCreateDto {
   courseId: string;
 
   @ApiProperty({
-    description: 'Tiêu đề chủ đề',
-    example: 'Chương 1: Đại số tuyến tính',
+    description: 'Tiêu đề chuyên đề',
+    example: 'Đại số tuyến tính',
   })
   @IsString()
   title: string;
 }
 
-export class ChapterUpdateDto {
-  @ApiPropertyOptional({ description: 'Tiêu đề chủ đề' })
+export class ModuleUpdateDto {
+  @ApiPropertyOptional({ description: 'Tiêu đề chuyên đề' })
   @IsOptional()
   @IsString()
   title?: string;
 }
 
-export interface ChapterResponseDto {
+export interface ModuleResponseDto {
   id: string;
   courseId: string;
   title: string;
   sortOrder: number;
   createdAt: Date;
   updatedAt: Date;
-  /** Có trên GET list chủ đề của khoá. */
-  topicCount?: number;
+  /** Có trên GET list chuyên đề của khoá. */
+  lessonCount?: number;
 }
-
-// --- Lecture DTOs ---
-
-export class LectureCreateDto {
-  @ApiProperty({
-    description: 'Tiêu đề bài học',
-    example: 'Bài 1: Giới thiệu về Ma trận',
-  })
-  @IsString()
-  title: string;
-
-  @ApiPropertyOptional({
-    description: 'Link video YouTube nhúng',
-    nullable: true,
-    maxLength: CONTENT_LIMITS.url,
-  })
-  @IsOptional()
-  @ValidateIf((_, value) => typeof value === 'string' && value.trim() !== '')
-  @IsUrl(HTTP_URL_OPTIONS)
-  @MaxLength(CONTENT_LIMITS.url)
-  videoUrl?: string | null;
-
-  @ApiPropertyOptional({
-    description: 'Nội dung bài học (HTML rich text)',
-    nullable: true,
-    maxLength: CONTENT_LIMITS.lectureContent,
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(CONTENT_LIMITS.lectureContent)
-  content?: string | null;
-}
-
-export class LectureUpdateDto {
-  @ApiPropertyOptional({ description: 'Tiêu đề bài học' })
-  @IsOptional()
-  @IsString()
-  title?: string;
-
-  @ApiPropertyOptional({
-    description: 'Link video YouTube nhúng',
-    nullable: true,
-    maxLength: CONTENT_LIMITS.url,
-  })
-  @IsOptional()
-  @ValidateIf((_, value) => typeof value === 'string' && value.trim() !== '')
-  @IsUrl(HTTP_URL_OPTIONS)
-  @MaxLength(CONTENT_LIMITS.url)
-  videoUrl?: string | null;
-
-  @ApiPropertyOptional({
-    description: 'Nội dung bài học (HTML rich text)',
-    nullable: true,
-    maxLength: CONTENT_LIMITS.lectureContent,
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(CONTENT_LIMITS.lectureContent)
-  content?: string | null;
-}
-
-export interface LectureResponseDto {
-  id: string;
-  topicId: string;
-  title: string;
-  videoUrl: string | null;
-  content: string | null;
-  order: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-// --- Class Content DTOs ---
 
 export class ClassContentCreateDto {
   @ApiPropertyOptional({
     description:
-      'ID chuyên đề có sẵn từ khoá để thêm vào lớp. Nếu bỏ trống thì tạo topic mới cho lớp.',
+      'ID tiết học có sẵn từ khoá để thêm vào lớp. Nếu bỏ trống thì tạo tiết mới cho lớp.',
     nullable: true,
   })
   @IsOptional()
   @IsString()
-  topicId?: string;
+  lessonId?: string;
 
   @ApiPropertyOptional({
-    description: 'Tiêu đề topic mới (bắt buộc khi tạo topic mới cho lớp)',
-    example: 'Chuyên đề bổ trợ: Phương trình bậc 2',
+    description: 'Tiêu đề tiết mới (bắt buộc khi tạo tiết mới cho lớp)',
+    example: 'Tiết bổ trợ: Phương trình bậc 2',
     nullable: true,
   })
   @IsOptional()
@@ -223,17 +194,17 @@ export class ClassContentCreateDto {
   title?: string;
 
   @ApiPropertyOptional({
-    description: 'Loại chuyên đề (mặc định theory)',
-    enum: TopicKind,
+    description: 'Loại tiết học (mặc định theory)',
+    enum: LessonKind,
     nullable: true,
   })
   @IsOptional()
-  @IsEnum(TopicKind)
-  kind?: TopicKind;
+  @IsEnum(LessonKind)
+  kind?: LessonKind;
 
   @ApiPropertyOptional({
     description:
-      'Thời điểm mở bài của lần giao (ISO 8601). Tuỳ chọn khi luyện tập: bỏ trống thì backend lấy thời điểm item được thêm vào lớp (đồng hồ server, không phải giờ client).',
+      'Thời điểm mở bài của lần giao (ISO 8601). Tuỳ chọn khi thực hành: bỏ trống thì backend lấy thời điểm item được thêm vào lớp (đồng hồ server, không phải giờ client).',
     example: '2026-09-07T13:00:00.000Z',
   })
   @IsOptional()
@@ -242,7 +213,7 @@ export class ClassContentCreateDto {
 
   @ApiPropertyOptional({
     description:
-      'Thời lượng làm bài (phút) của lần giao. Bắt buộc khi chuyên đề luyện tập. 1–720.',
+      'Thời lượng làm bài (phút) của lần giao. Bắt buộc khi tiết thực hành. 1–720.',
     example: 60,
   })
   @IsOptional()
@@ -273,15 +244,14 @@ export class ClassContentScheduleUpdateDto {
 
 export interface ClassContentItemResponseDto {
   id: string;
-  topicId: string;
-  kind: 'topic';
-  topicKind: 'theory' | 'practice';
+  lessonId: string;
+  kind: 'lesson';
+  lessonKind: 'theory' | 'practice';
   sortOrder: number;
   title: string;
   kindLabel: string;
   source: 'course' | 'class';
-  chapterTitle?: string;
-  lectureCount?: number;
+  moduleTitle?: string;
   openAt: Date | string | null;
   durationMinutes: number | null;
   isOpen: boolean;
@@ -289,9 +259,9 @@ export interface ClassContentItemResponseDto {
   hiddenByStaffId: string | null;
 }
 
-export interface TheoryTopicViewResponseDto {
+export interface TheoryLessonViewResponseDto {
   classContentItemId: string;
-  topicId: string;
+  lessonId: string;
   studentId: string;
   lastViewedAt: Date | string;
 }
@@ -309,7 +279,7 @@ export interface ClassTheoryProgressStudentDto {
 export interface ClassTheoryProgressDto {
   classId: string;
   classContentItemId: string;
-  topicId: string;
+  lessonId: string;
   title: string;
   rosterCount: number;
   viewedCount: number;
@@ -317,8 +287,6 @@ export interface ClassTheoryProgressDto {
   quizQuestionCount: number;
   students: ClassTheoryProgressStudentDto[];
 }
-
-// --- QuestionLink DTOs (Practice Topic / Đề) ---
 
 export class QuestionLinkCreateDto {
   @ApiProperty({ description: 'ID câu hỏi từ ngân hàng câu hỏi' })
@@ -370,14 +338,14 @@ export class ReorderQuestionLinksDto {
 
 export interface QuestionLinkResponseDto {
   id: string;
-  topicId: string;
+  lessonId: string;
   questionId: string;
   order: number | null;
   points: number | null;
   question: {
     id: string;
     courseId: string;
-    chapterId: string;
+    moduleId: string;
     difficultyLevelId: string;
     type: string;
     content: string;
@@ -385,11 +353,9 @@ export interface QuestionLinkResponseDto {
   };
 }
 
-// --- Lecture Quiz DTOs ---
-
-export class LectureQuizLinkDto {
+export class LessonQuizLinkDto {
   @ApiProperty({
-    description: 'Danh sách ID câu hỏi từ ngân hàng cần gắn vào bài học',
+    description: 'Danh sách ID câu hỏi từ ngân hàng cần gắn vào tiết lý thuyết',
     type: [String],
   })
   @IsArray()
@@ -397,7 +363,7 @@ export class LectureQuizLinkDto {
   questionIds: string[];
 }
 
-export class LectureQuizAnswerDto {
+export class LessonQuizAnswerDto {
   @ApiProperty({ description: 'ID câu hỏi' })
   @IsString()
   questionId: string;
@@ -421,9 +387,9 @@ export class LectureQuizAnswerDto {
   essayAnswer?: string | null;
 }
 
-export interface LectureQuizResponseDto {
+export interface LessonQuizResponseDto {
   id: string;
-  lectureId: string;
+  lessonId: string;
   questionId: string;
   order: number;
   question: {
@@ -442,9 +408,9 @@ export interface QuestionLinkSummaryDto {
   totalPoints: number;
 }
 
-export interface LectureQuizAnswerResponseDto {
+export interface LessonQuizAnswerResponseDto {
   id: string;
-  lectureId: string;
+  lessonId: string;
   questionId: string;
   studentId: string;
   choiceIndex: number | null;
@@ -453,12 +419,11 @@ export interface LectureQuizAnswerResponseDto {
   updatedAt: Date;
 }
 
-export interface CourseTopicForClassDto {
+export interface CourseLessonForClassDto {
   id: string;
   title: string;
-  kind: TopicKind;
-  chapterTitle: string;
-  chapterId: string;
-  lectureCount: number;
+  kind: LessonKind;
+  moduleTitle: string;
+  moduleId: string;
   alreadyAdded: boolean;
 }

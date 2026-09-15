@@ -2,7 +2,7 @@
 
 Nguồn triển khai: `apps/api/src/class/course.controller.ts`, `course.service.ts`, `course-access.service.ts`.
 
-> **Vé 05 (schema):** bảng vật lý là `modules` / `lessons` / `LessonKind`. HTTP path và tên controller dưới đây (`/chapters`, `/topics`, `/lectures`) **chưa** đổi — vé 06–07.
+> **Vé 06 (API):** HTTP path, DTO, Swagger và Nest module nói **Chuyên đề** (`modules`) và **Tiết học** (`lessons`). Không còn `/chapters`, `/topics`, `/lectures` hay alias tương thích ngược. Schema vật lý: vé 05.
 
 Nguồn sự thật cho guard controller. Tầng service (`CourseAccessService`) vẫn kiểm từng khoá sau khi request qua được decorator.
 
@@ -51,18 +51,24 @@ Phạm vi **không** nhận cờ từ client. Controller resolve actor rồi g�
 
 `resolveListableCourseIds` trả `null` = mọi khoá, trả mảng = chỉ các id đó. **Không** dùng `resolveViewableCourseIds` cho endpoint này: hàm kia là phạm vi *quản lý nội dung* và sẽ trả mảng rỗng cho training/giáo viên/kế toán (dropdown khoá trống khi tạo lớp).
 
-## Cây nội dung khoá (Chương / Chuyên đề / Bài học)
+## Cây nội dung khoá (Chuyên đề / Tiết học)
 
-Controller: `course-chapter.controller.ts`, `course-topic.controller.ts`, `lecture.controller.ts`.
+Controller: `apps/api/src/course-content/` — `course-module.controller.ts`, `course-lesson.controller.ts`, `lesson-quiz.controller.ts`. Module Nest: `CourseContentModule` (không đụng `apps/api/src/lesson/` — đó là giáo án nhân sự).
 
 | Endpoint nhóm | admin | `assistant` | `lesson_plan_head` | `lesson_plan` | `teacher` (decorator) |
 | --- | --- | --- | --- | --- | --- |
-| Chương: GET/POST/PATCH/DELETE + `POST .../reorder` | ✅ | ✅ | ✅ | ✅ khoá được gán (`assertCanManageCourse`) | Có trên decorator; service 403 nếu không thuộc đội giáo án |
-| Chuyên đề khoá: GET/POST/PATCH/DELETE + `POST .../reorder` | ✅ | ✅ | ✅ | ✅ khoá được gán | Cùng quy tắc `teacher` |
-| Bài học: GET/POST/PATCH/DELETE + `POST .../reorder` | ✅ | ✅ | ✅ | ✅ khoá được gán | Cùng quy tắc `teacher` |
-| Quiz gắn bài học (`.../lectures/:id/quizzes`) | ✅ | ✅ | ✅ | ✅ | Có trên decorator; service vẫn `assertCanManageCourse` |
+| Chuyên đề: `GET/POST/PATCH/DELETE /course/:courseId/modules` + `POST .../reorder` | ✅ | ✅ | ✅ | ✅ khoá được gán (`assertCanManageCourse`) | Có trên decorator; service 403 nếu không thuộc đội giáo án |
+| Tiết học: `GET/POST/PATCH/DELETE /course/:courseId/modules/:moduleId/lessons` + `POST .../reorder` | ✅ | ✅ | ✅ | ✅ khoá được gán | Cùng quy tắc `teacher` |
+| Quiz ôn nhẹ: `GET/POST/DELETE /lessons/:lessonId/quizzes` | ✅ | ✅ | ✅ | ✅ | Có trên decorator; service vẫn `assertCanManageCourse` |
+| Câu hỏi tiết thực hành: `GET/POST/PATCH/DELETE /lessons/:lessonId/questions` | ✅ | ✅ | ✅ | ✅ khoá được gán | Cùng quy tắc `teacher` |
 
-`lesson_plan` thuần soạn cây nội dung trên khoá được gán (cùng quyền với soạn chuyên đề luyện tập). GET list chủ đề kèm `topicCount`; GET list chuyên đề kèm `lectureCount` / `questionCount`.
+Loại tiết: `LessonKind` = `theory` (video/nội dung) hoặc `practice` (chỉ tập câu hỏi). Tạo/sửa tiết thực hành kèm `videoUrl` hoặc `content` → `400` *«Tiết thực hành không được kèm video hoặc nội dung — chỉ gồm tập câu hỏi.»*
+
+Xoá chuyên đề hoặc tiết học khi còn `class_content_items` tham chiếu **kể cả item đang ẩn** → `409` *«Không thể xoá chuyên đề/tiết học: còn N lớp đang tham chiếu — {tên lớp} (X lần giao đang hiện, Y lần giao đang ẩn).»*
+
+`lesson_plan` thuần soạn cây nội dung trên khoá được gán. GET list chuyên đề kèm `lessonCount`; GET list tiết kèm `quizCount` / `questionCount`.
+
+Học sinh: `GET/POST /users/me/student-classes/:classId/lessons/:lessonId` (+ `/view`, `/quizzes`). Không còn path lồng `topics`/`lectures`.
 
 ## Không đổi trong ticket 02
 

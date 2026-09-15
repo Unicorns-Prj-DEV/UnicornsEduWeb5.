@@ -10,7 +10,7 @@ import {
 /** Payload captured from POST /questions when saving an MCQ on a practice topic. */
 const capturedCreateBody = {
   courseId: '1ac55cd7-1c0b-4b41-b009-d337324e90b2',
-  chapterId: 'ef86678c-6cda-4916-88a9-0122eadc7006',
+  moduleId: 'ef86678c-6cda-4916-88a9-0122eadc7006',
   difficultyLevelId: '3aad4fb4-b5a1-542d-93a7-f796787d072d',
   type: QuestionTypeDto.single_choice,
   content:
@@ -68,7 +68,7 @@ describe('BulkCreateQuestionDto', () => {
   it('accepts nested single_choice options as string[]', async () => {
     const dto = plainToInstance(BulkCreateQuestionDto, {
       courseId: capturedCreateBody.courseId,
-      chapterId: capturedCreateBody.chapterId,
+      moduleId: capturedCreateBody.moduleId,
       questions: [
         {
           type: QuestionTypeDto.single_choice,

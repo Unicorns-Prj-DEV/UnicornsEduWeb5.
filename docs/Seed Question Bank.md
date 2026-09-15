@@ -2,7 +2,7 @@
 
 Script sinh dữ liệu mẫu cho **ngân hàng câu hỏi** và **đề luyện tập** của các Khoá học đã có trong DB.
 
-> **Vé 05:** schema vật lý là `modules` / `lessons` (`LessonKind`). Bảng dưới mô tả dữ liệu nghiệp vụ; runner `seed-question-bank.ts` còn gọi client tên cũ cho đến vé 06–07.
+> Schema vật lý và Prisma client: `modules` / `lessons` (`LessonKind`). Pack seed dùng field `module` / `modules`. UUID tất định vẫn salt `'chapter'` / `'topic'` để id không đổi sau rename bảng.
 
 - Runner: `apps/api/scripts/seed-question-bank.ts`
 - Dữ liệu: `apps/api/scripts/seed-data/` (`types.ts`, `algorithms.ts`, `math-thpt.ts`)
@@ -29,9 +29,9 @@ Với **mỗi khoá khớp pack**:
 | Bảng | Nội dung |
 | --- | --- |
 | `course_difficulty_levels` | 4 mức: Nhận biết, Thông hiểu, Vận dụng, Vận dụng cao |
-| `chapters` | 5 chương nội dung + 1 chương `Ôn tập & Đề tổng hợp` |
+| `modules` | 5 chuyên đề nội dung + 1 chuyên đề `Ôn tập & Đề tổng hợp` |
 | `questions` | 30 câu (25 `single_choice` + 5 `essay`), HTML TipTap, LaTeX `$…$` |
-| `topics` (`kind = practice`) | 12 đề (xem bảng dưới) |
+| `lessons` (`kind = practice`) | 12 đề (xem bảng dưới) |
 | `question_links` | 83 liên kết câu ↔ đề, kèm `order` |
 
 Danh sách đề mỗi khoá:
@@ -47,7 +47,7 @@ Danh sách đề mỗi khoá:
 | Đề tự luận | 5 | toàn bộ, chỉ Vận dụng cao (5 câu essay) |
 | Đề thi cuối khoá (đề số 2) | 15 | toàn bộ, `rotate: 1` |
 
-Đề tổng hợp đặt trong chương `Ôn tập & Đề tổng hợp`; đề theo chương đặt trong chính chương đó.
+Đề tổng hợp đặt trong chuyên đề `Ôn tập & Đề tổng hợp`; đề theo chuyên đề đặt trong chính chuyên đề đó.
 
 Script **không** đụng tới `classes`, `class_content_items`, `students` hay `attempts`. Muốn học sinh làm được đề, gia sư vẫn phải tự giao đề vào lớp (tạo `class_content_items` với `open_at` + `duration_minutes`).
 
@@ -66,13 +66,13 @@ Mọi bản ghi dùng **UUID tất định** sinh từ `sha1(namespace | courseI
 
 Ngoại lệ có chủ đích:
 
-- **`chapters`** được dò theo tiêu đề, **không phân biệt hoa/thường**, trước khi tạo — để không đẻ chapter trùng với chương người dùng đã nhập tay (ví dụ `tìm kiếm nhị phân` có sẵn ở khoá VIP được tái dùng, không tạo thêm bản `Tìm kiếm nhị phân`).
+- **`modules`** được dò theo tiêu đề, **không phân biệt hoa/thường**, trước khi tạo — để không đẻ module trùng với chuyên đề người dùng đã nhập tay (ví dụ `tìm kiếm nhị phân` có sẵn ở khoá VIP được tái dùng, không tạo thêm bản `Tìm kiếm nhị phân`).
 - **`course_difficulty_levels`** upsert theo khoá tự nhiên `unique(course_id, name)`.
 
 ## Ràng buộc phải tuân theo
 
-- **`topics_owner_check`** (migration `20260907100000`): topic cấp khoá **bắt buộc** có `chapter_id`. Vì vậy hai đề tổng hợp được gắn vào chương `Ôn tập & Đề tổng hợp` thay vì treo ở gốc khoá. Runner có guard ném lỗi nếu một `SeedExam` thiếu `chapter`.
-- **`onDelete: Restrict`** từ `attempt_answers` / `lecture_quizzes` / `lecture_quiz_answers` sang `questions`: `--reset` không xoá cứng được câu đã có bài làm, nên script **xoá mềm** (`deleted_at`) các câu đó và báo trong log.
+- **`lessons_owner_check`**: tiết cấp khoá **bắt buộc** có `module_id`. Vì vậy hai đề tổng hợp được gắn vào chuyên đề `Ôn tập & Đề tổng hợp` thay vì treo ở gốc khoá. Runner có guard ném lỗi nếu một `SeedExam` thiếu `module`. UUID salt vẫn là `'chapter'` / `'topic'` để id seed không đổi sau rename bảng.
+- **`onDelete: Restrict`** từ `attempt_answers` / `lesson_quizzes` / `lesson_quiz_answers` sang `questions`: `--reset` không xoá cứng được câu đã có bài làm, nên script **xoá mềm** (`deleted_at`) các câu đó và báo trong log.
 - Thang điểm khi chấm là **100 chia Hamilton** theo snapshot `attempt_answers` (ADR `2026-09-07-attempt-exam-snapshot`), **không** đọc `question_links.points`. Script vẫn ghi `points = 1` cho tương thích dữ liệu cũ; giá trị này không ảnh hưởng điểm.
 
 ## Thêm / sửa nội dung

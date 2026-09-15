@@ -162,7 +162,7 @@ export class QuestionController {
   @ApiOperation({ summary: 'Soft‑delete a question' })
   @ApiParam({ name: 'id', description: 'Question ID' })
   @ApiOkResponse({ description: 'Deleted question.' })
-  @ApiConflictResponse({ description: 'Question is used by practice topics' })
+  @ApiConflictResponse({ description: 'Question is used by practice lessons' })
   @ApiNotFoundResponse({ description: 'Question not found' })
   async delete(
     @CurrentUser() user: JwtPayload,

@@ -24,7 +24,7 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
 | [Database Schema.md](Database%20Schema.md)                   | Prisma schema tại `apps/api/prisma/schema/`, bảng theo domain, quan hệ, source of truth.      |
 | [Seed Question Bank.md](Seed%20Question%20Bank.md)           | Seed ngân hàng câu hỏi + đề luyện tập (`pnpm seed:question-bank`), pack dữ liệu, tính idempotent. |
 | [api/unioj-integration.md](api/unioj-integration.md)         | Hướng dẫn tích hợp API chấm bài UNIOJ (Online Judge) cho học sinh.                            |
-| [api/courses.md](api/courses.md)                             | Phân quyền API khoá học: CRUD khoá, cây (HTTP path cũ đến vé 06), difficulty-levels. Schema vật lý: `modules` / `lessons` (vé 05). |
+| [api/courses.md](api/courses.md)                             | Phân quyền API khoá học: CRUD khoá, cây Chuyên đề/Tiết học (`/course/:id/modules`, `/lessons/:id/...`), difficulty-levels. |
 | **adr/**                                                     | Architecture Decision Records (mã định danh ngắn, workspace khoá học, lương cứng, …).        |
 | [adr/2026-09-11-frontend-perf-a11y-conventions.md](adr/2026-09-11-frontend-perf-a11y-conventions.md) | Quy ước frontend sau đợt `react-doctor`: `lib/formatters.ts`, `<Suspense>` cho `useSearchParams`, reset state trong render, Set lookup, label/`aria-label`. |
 | **pages/**                                                   | Spec từng route frontend (admin, student, mentor, assistant, landing, auth).                  |

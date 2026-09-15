@@ -53,9 +53,9 @@
   - `GET /users/me/student-classes`
   - `GET /users/me/student-classes/:classId/sessions`
   - `GET /users/me/student-classes/:classId/surveys`
-  - `GET /users/me/student-classes/:classId/topics`
-  - `GET /users/me/student-classes/:classId/topics/:topicId` — chỉ trả đề đã giao cho lớp (`class_content_items`) **và chưa ẩn**. Chuyên đề luyện tập trước `openAt` → `403` `Chưa tới thời điểm mở bài`. Item đã ẩn → `404`.
-  - `POST /users/me/student-classes/:classId/topics/:topicId/view` — upsert `class_theory_topic_views` cho học sinh hiện tại khi mở trang chuyên đề lý thuyết; không áp dụng chuyên đề luyện tập.
+  - `GET /users/me/student-classes/:classId/lessons`
+  - `GET /users/me/student-classes/:classId/lessons/:lessonId` — chỉ trả tiết đã giao cho lớp (`class_content_items`) **và chưa ẩn**. Tiết thực hành trước `openAt` → `403` `Chưa tới thời điểm mở bài`. Item đã ẩn → `404`.
+  - `POST /users/me/student-classes/:classId/lessons/:lessonId/view` — upsert `class_theory_lesson_views` cho học sinh hiện tại khi mở tiết lý thuyết; không áp dụng tiết thực hành.
   - `GET /class/:id/timeline/student?cursor=&limit=` — timeline lớp (`limit` bị chặn tối đa 50; FE kéo hết trang để dựng mục lục); thứ tự `sortOrder` do admin/staff. **Không gồm** item `hiddenAt` (nội dung lớp đã ẩn). Payload gọn theo audience: `session` chỉ có `myAttendanceStatus`/`myAttendanceNotes` của chính học sinh, `survey` có `myAssessment` (`class_survey_student_assessments.comment` lọc theo `studentId`); toàn bộ field vận hành/nhận xét cả lớp chỉ trả cho staff.
   - `GET /class/:id/content/student` — danh sách nội dung lớp chưa ẩn; luyện tập khoá cho tới `openAt` (`isOpen=false`).
   - `GET /users/me/student-classes/:classId/assignments/:assignmentId` — lobby lần giao luyện tập + danh sách Attempt của HS.
@@ -64,9 +64,9 @@
   - `PATCH /users/me/student-classes/:classId/attempts/:attemptId/answers` — autosave câu trả lời và `markedForReview`. `essayAnswer` tối đa 20.000 ký tự (`@MaxLength`); vượt → 400. FE chặn trước và hiện lỗi.
   - `POST /users/me/student-classes/:classId/attempts/:attemptId/submit` — nộp; hết giờ → `timed_out`, không huỷ.
   - **Cron finalize Attempt hết giờ (ticket #107):** mỗi phút job `AttemptExpiryJob` (`@Cron(EVERY_MINUTE)`) tìm Attempt `in_progress` có `startedAt + durationMinutes < now` và finalize cùng `gradeAndClose` (status `timed_out`, chấm MCQ, tự luận vào hàng đợi, thống kê đếm là đã nộp). Idempotent với nút Nộp (transaction + `status = in_progress`). Không phải HTTP endpoint — chạy trong process API.
-  - `GET /users/me/student-classes/:classId/topics/:topicId/lectures/:lectureId/quizzes` (enrollment-checked via `validateStudentClassAccess`; đây là route quiz duy nhất cho học sinh — `GET /topics/:topicId/lectures/:lectureId/quizzes` là admin/staff soạn nội dung, không mở `UserRole.student`)
-  - `POST /users/me/student-classes/:classId/topics/:topicId/lectures/:lectureId/quizzes/answers`
-  - `GET /users/me/student-classes/:classId/topics/:topicId/lectures/:lectureId/quizzes/answers`
+  - `GET /users/me/student-classes/:classId/lessons/:lessonId/quizzes` (enrollment-checked via `validateStudentClassAccess`; đây là route quiz duy nhất cho học sinh — `GET /lessons/:lessonId/quizzes` là admin/staff soạn nội dung, không mở `UserRole.student`)
+  - `POST /users/me/student-classes/:classId/lessons/:lessonId/quizzes/answers`
+  - `GET /users/me/student-classes/:classId/lessons/:lessonId/quizzes/answers`
   - `GET /users/me/student-wallet-history?limit=`
   - `GET /users/me/student-wallet-sepay-static-qr` (SePay QR tĩnh, nội dung `[SEPAY_TRANSFER_NOTE_PREFIX] UNIST-[0-9a-f]{10}`, không chứa số tiền/class id/tên lớp; response vẫn trả thêm `classIds` để tương thích)
   - `POST /users/me/student-wallet-sepay-topup-order` body `{ amount }` — legacy/dynamic order endpoint còn tồn tại để tương thích, UI chính không gọi.

@@ -37,6 +37,7 @@ import { DeviceModule } from './device/device.module';
 import { QuestionModule } from './question/question.module';
 import { AttemptModule } from './attempt/attempt.module';
 import { ClassTimelineModule } from './class-timeline/class-timeline.module';
+import { CourseContentModule } from './course-content/course-content.module';
 
 function parsePositiveIntegerEnv(
   value: string | undefined,
@@ -100,6 +101,7 @@ function parsePositiveIntegerEnv(
     StudentGalleryModule,
     DeviceModule,
     QuestionModule,
+    CourseContentModule,
     AttemptModule,
     ClassTimelineModule,
   ],

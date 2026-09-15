@@ -23,45 +23,45 @@ import {
 } from 'src/auth/decorators/current-user.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import {
-  ChapterCreateDto,
-  ChapterUpdateDto,
-  ChapterResponseDto,
-} from 'src/dtos/topic.dto';
-import { CourseChapterService } from './course-chapter.service';
+  ModuleCreateDto,
+  ModuleUpdateDto,
+  ModuleResponseDto,
+} from 'src/dtos/course-content.dto';
+import { CourseModuleService } from './course-module.service';
 import { COURSE_TREE_STAFF_ROLES } from './course-tree-roles';
 
 const COURSE_CONTENT_FORBIDDEN =
   'Không thuộc đội giáo án của khoá. Dạy lớp không đồng nghĩa soạn giáo án.';
 
-@Controller('course/:courseId/chapters')
-@ApiTags('course-chapters')
+@Controller('course/:courseId/modules')
+@ApiTags('course-modules')
 @ApiCookieAuth('access_token')
-export class CourseChapterController {
-  constructor(private readonly topicService: CourseChapterService) {}
+export class CourseModuleController {
+  constructor(private readonly moduleService: CourseModuleService) {}
 
   @Post()
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(...COURSE_TREE_STAFF_ROLES)
   @ApiOperation({
-    summary: 'Tạo chủ đề mới cho khoá học',
+    summary: 'Tạo chuyên đề mới cho khoá học',
     description:
       'Staff: assistant, teacher, lesson_plan, lesson_plan_head. Tầng service vẫn từ chối teacher không thuộc đội giáo án.',
   })
   @ApiParam({ name: 'courseId', description: 'ID khoá học' })
-  @ApiBody({ type: ChapterCreateDto })
+  @ApiBody({ type: ModuleCreateDto })
   @ApiResponse({
     status: 201,
-    description: 'Chủ đề đã được tạo.',
+    description: 'Chuyên đề đã được tạo.',
     type: Object,
   })
-  @ApiResponse({ status: 400, description: 'Lỗi khi tạo chủ đề.' })
+  @ApiResponse({ status: 400, description: 'Lỗi khi tạo chuyên đề.' })
   @ApiResponse({ status: 403, description: COURSE_CONTENT_FORBIDDEN })
-  async createChapter(
+  async createModule(
     @CurrentUser() user: JwtPayload,
     @Param('courseId') courseId: string,
-    @Body() dto: ChapterCreateDto,
-  ): Promise<ChapterResponseDto> {
-    return this.topicService.createChapter(
+    @Body() dto: ModuleCreateDto,
+  ): Promise<ModuleResponseDto> {
+    return this.moduleService.createModule(
       { ...dto, courseId },
       { userId: user.id, userEmail: user.email, roleType: user.roleType },
     );
@@ -71,88 +71,89 @@ export class CourseChapterController {
   @Roles(UserRole.admin, UserRole.student)
   @AllowStaffRolesOnAdminRoutes(...COURSE_TREE_STAFF_ROLES)
   @ApiOperation({
-    summary: 'Lấy danh sách chủ đề của khoá học',
+    summary: 'Lấy danh sách chuyên đề của khoá học',
     description:
       'Staff: assistant, teacher, lesson_plan, lesson_plan_head (cùng GET chi tiết).',
   })
   @ApiParam({ name: 'courseId', description: 'ID khoá học' })
-  @ApiResponse({ status: 200, description: 'Danh sách chủ đề.' })
-  async getChapters(
+  @ApiResponse({ status: 200, description: 'Danh sách chuyên đề.' })
+  async getModules(
     @Param('courseId') courseId: string,
-  ): Promise<ChapterResponseDto[]> {
-    return this.topicService.getChaptersByCourseId(courseId);
+  ): Promise<ModuleResponseDto[]> {
+    return this.moduleService.getModulesByCourseId(courseId);
   }
 
-  @Get(':chapterId')
+  @Get(':moduleId')
   @Roles(UserRole.admin, UserRole.student)
   @AllowStaffRolesOnAdminRoutes(...COURSE_TREE_STAFF_ROLES)
   @ApiOperation({
-    summary: 'Lấy chi tiết 1 chủ đề',
+    summary: 'Lấy chi tiết 1 chuyên đề',
     description: 'Staff: assistant, teacher, lesson_plan, lesson_plan_head.',
   })
   @ApiParam({ name: 'courseId', description: 'ID khoá học' })
-  @ApiParam({ name: 'chapterId', description: 'ID chủ đề' })
-  @ApiResponse({ status: 200, description: 'Chi tiết chủ đề.', type: Object })
-  @ApiResponse({ status: 404, description: 'Chủ đề không tồn tại.' })
-  async getChapter(
+  @ApiParam({ name: 'moduleId', description: 'ID chuyên đề' })
+  @ApiResponse({ status: 200, description: 'Chi tiết chuyên đề.', type: Object })
+  @ApiResponse({ status: 404, description: 'Chuyên đề không tồn tại.' })
+  async getModule(
     @Param('courseId') courseId: string,
-    @Param('chapterId') chapterId: string,
-  ): Promise<ChapterResponseDto> {
-    return this.topicService.getChapterById(chapterId);
+    @Param('moduleId') moduleId: string,
+  ): Promise<ModuleResponseDto> {
+    return this.moduleService.getModuleById(moduleId);
   }
 
-  @Patch(':chapterId')
+  @Patch(':moduleId')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(...COURSE_TREE_STAFF_ROLES)
   @ApiOperation({
-    summary: 'Cập nhật chủ đề',
+    summary: 'Cập nhật chuyên đề',
     description: 'Staff: assistant, teacher, lesson_plan, lesson_plan_head.',
   })
   @ApiParam({ name: 'courseId', description: 'ID khoá học' })
-  @ApiParam({ name: 'chapterId', description: 'ID chủ đề' })
-  @ApiBody({ type: ChapterUpdateDto })
+  @ApiParam({ name: 'moduleId', description: 'ID chuyên đề' })
+  @ApiBody({ type: ModuleUpdateDto })
   @ApiResponse({
     status: 200,
-    description: 'Chủ đề đã được cập nhật.',
+    description: 'Chuyên đề đã được cập nhật.',
     type: Object,
   })
-  @ApiResponse({ status: 404, description: 'Chủ đề không tồn tại.' })
+  @ApiResponse({ status: 404, description: 'Chuyên đề không tồn tại.' })
   @ApiResponse({ status: 403, description: COURSE_CONTENT_FORBIDDEN })
-  async updateChapter(
+  async updateModule(
     @CurrentUser() user: JwtPayload,
     @Param('courseId') courseId: string,
-    @Param('chapterId') chapterId: string,
-    @Body() dto: ChapterUpdateDto,
-  ): Promise<ChapterResponseDto> {
-    return this.topicService.updateChapter(chapterId, dto, {
+    @Param('moduleId') moduleId: string,
+    @Body() dto: ModuleUpdateDto,
+  ): Promise<ModuleResponseDto> {
+    return this.moduleService.updateModule(moduleId, dto, {
       userId: user.id,
       userEmail: user.email,
       roleType: user.roleType,
     });
   }
 
-  @Delete(':chapterId')
+  @Delete(':moduleId')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(...COURSE_TREE_STAFF_ROLES)
   @ApiOperation({
-    summary: 'Xóa chủ đề',
+    summary: 'Xóa chuyên đề',
     description: 'Staff: assistant, teacher, lesson_plan, lesson_plan_head.',
   })
   @ApiParam({ name: 'courseId', description: 'ID khoá học' })
-  @ApiParam({ name: 'chapterId', description: 'ID chủ đề' })
-  @ApiResponse({ status: 200, description: 'Chủ đề đã được xóa.' })
-  @ApiResponse({ status: 404, description: 'Chủ đề không tồn tại.' })
+  @ApiParam({ name: 'moduleId', description: 'ID chuyên đề' })
+  @ApiResponse({ status: 200, description: 'Chuyên đề đã được xóa.' })
+  @ApiResponse({ status: 404, description: 'Chuyên đề không tồn tại.' })
   @ApiResponse({ status: 403, description: COURSE_CONTENT_FORBIDDEN })
   @ApiResponse({
     status: 409,
-    description: 'Chủ đề đang được N lớp sử dụng (kể cả nội dung đã ẩn).',
+    description:
+      'Chuyên đề còn lớp tham chiếu tiết học (kể cả lần giao đang ẩn).',
   })
-  async deleteChapter(
+  async deleteModule(
     @CurrentUser() user: JwtPayload,
     @Param('courseId') courseId: string,
-    @Param('chapterId') chapterId: string,
+    @Param('moduleId') moduleId: string,
   ): Promise<void> {
-    return this.topicService.deleteChapter(chapterId, {
+    return this.moduleService.deleteModule(moduleId, {
       userId: user.id,
       userEmail: user.email,
       roleType: user.roleType,
@@ -163,24 +164,24 @@ export class CourseChapterController {
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(...COURSE_TREE_STAFF_ROLES)
   @ApiOperation({
-    summary: 'Sắp xếp lại thứ tự chủ đề',
+    summary: 'Sắp xếp lại thứ tự chuyên đề',
     description: 'Staff: assistant, teacher, lesson_plan, lesson_plan_head.',
   })
   @ApiParam({ name: 'courseId', description: 'ID khoá học' })
   @ApiBody({
     schema: {
       type: 'object',
-      properties: { chapterIds: { type: 'array', items: { type: 'string' } } },
+      properties: { moduleIds: { type: 'array', items: { type: 'string' } } },
     },
   })
   @ApiResponse({ status: 200, description: 'Đã sắp xếp lại.' })
   @ApiResponse({ status: 403, description: COURSE_CONTENT_FORBIDDEN })
-  async reorderChapters(
+  async reorderModules(
     @CurrentUser() user: JwtPayload,
     @Param('courseId') courseId: string,
-    @Body('chapterIds') chapterIds: string[],
+    @Body('moduleIds') moduleIds: string[],
   ): Promise<void> {
-    return this.topicService.reorderChapters(courseId, chapterIds, {
+    return this.moduleService.reorderModules(courseId, moduleIds, {
       userId: user.id,
       userEmail: user.email,
       roleType: user.roleType,

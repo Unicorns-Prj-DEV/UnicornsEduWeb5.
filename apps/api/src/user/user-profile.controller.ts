@@ -74,11 +74,11 @@ import {
 } from 'src/storage/supabase-storage';
 import { UserService } from './user.service';
 import { VerifiedEmailGuard } from 'src/auth/guards/verified-email.guard';
-import { TopicService } from 'src/topic/topic.service';
+import { CourseContentService } from 'src/course-content/course-content.service';
 import {
-  LectureQuizAnswerDto,
-  TheoryTopicViewResponseDto,
-} from 'src/dtos/topic.dto';
+  LessonQuizAnswerDto,
+  TheoryLessonViewResponseDto,
+} from 'src/dtos/course-content.dto';
 
 @ApiTags('users')
 @Controller('users/me')
@@ -95,7 +95,7 @@ export class UserProfileController {
     private readonly studentService: StudentService,
     private readonly dashboardService: DashboardService,
     private readonly prisma: PrismaService,
-    private readonly topicService: TopicService,
+    private readonly contentService: CourseContentService,
   ) {}
 
   @Get('full')
@@ -1093,16 +1093,16 @@ export class UserProfileController {
     });
   }
 
-  @Get('student-classes/:classId/topics')
+  @Get('student-classes/:classId/lessons')
   @ApiOperation({
-    summary: 'Get topics for my class',
-    description: 'Returns paginated topics for a class.',
+    summary: 'Get class-owned lessons for my class',
+    description: 'Returns paginated class-owned lessons for a class.',
   })
   @ApiParam({ name: 'classId', description: 'Class ID' })
   @ApiQuery({ name: 'page', required: false, description: 'Page number' })
   @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
-  @ApiResponse({ status: 200, description: 'Paginated topics.' })
-  async getMyClassTopics(
+  @ApiResponse({ status: 200, description: 'Paginated lessons.' })
+  async getMyClassLessons(
     @CurrentUser() user: JwtPayload,
     @Param('classId') classId: string,
     @Query('page') page?: string,
@@ -1115,7 +1115,7 @@ export class UserProfileController {
     const limitNum = parseInt(limit || '20', 10);
 
     const [data, total] = await Promise.all([
-      this.prisma.topic.findMany({
+      this.prisma.lesson.findMany({
         where: {
           classId,
           contentItems: { some: { classId, hiddenAt: null } },
@@ -1124,7 +1124,7 @@ export class UserProfileController {
         skip: (pageNum - 1) * limitNum,
         take: limitNum,
       }),
-      this.prisma.topic.count({
+      this.prisma.lesson.count({
         where: {
           classId,
           contentItems: { some: { classId, hiddenAt: null } },
@@ -1135,102 +1135,94 @@ export class UserProfileController {
     return { data, total, page: pageNum, limit: limitNum };
   }
 
-  @Get('student-classes/:classId/topics/:topicId')
+  @Get('student-classes/:classId/lessons/:lessonId')
   @ApiOperation({
-    summary: 'Get topic detail for my class',
+    summary: 'Get lesson detail for my class',
     description:
-      'Returns topic detail for a class if current student is enrolled.',
+      'Returns lesson detail for a class if current student is enrolled.',
   })
   @ApiParam({ name: 'classId', description: 'Class ID' })
-  @ApiParam({ name: 'topicId', description: 'Topic ID' })
-  @ApiResponse({ status: 200, description: 'Topic detail.' })
-  @ApiResponse({ status: 404, description: 'Topic not found.' })
+  @ApiParam({ name: 'lessonId', description: 'Lesson ID' })
+  @ApiResponse({ status: 200, description: 'Lesson detail.' })
+  @ApiResponse({ status: 404, description: 'Lesson not found.' })
   @ApiResponse({
     status: 403,
-    description: 'Chưa tới thời điểm mở bài (lần giao luyện tập).',
+    description: 'Chưa tới thời điểm mở bài (lần giao thực hành).',
   })
-  async getMyClassTopic(
+  async getMyClassLesson(
     @CurrentUser() user: JwtPayload,
     @Param('classId') classId: string,
-    @Param('topicId') topicId: string,
+    @Param('lessonId') lessonId: string,
   ) {
     const studentId = await this.userService.getLinkedStudentId(user.id);
     await this.validateStudentClassAccess(classId, studentId);
 
-    const topic = await this.topicService.getAssignedTopicForStudent(
+    return this.contentService.getAssignedLessonForStudent(
       classId,
-      topicId,
+      lessonId,
       studentId,
     );
-    return topic;
   }
 
-  @Post('student-classes/:classId/topics/:topicId/view')
+  @Post('student-classes/:classId/lessons/:lessonId/view')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Record that I opened a theory topic page',
+    summary: 'Record that I opened a theory lesson page',
     description:
-      'Upserts the current student view marker for a theory topic assigned to this class.',
+      'Upserts the current student view marker for a theory lesson assigned to this class.',
   })
   @ApiParam({ name: 'classId', description: 'Class ID' })
-  @ApiParam({ name: 'topicId', description: 'Topic ID' })
-  @ApiResponse({ status: 200, description: 'Theory topic view recorded.' })
-  @ApiResponse({ status: 400, description: 'Topic is not a theory topic.' })
-  @ApiResponse({ status: 404, description: 'Topic not found.' })
-  async recordMyTheoryTopicView(
+  @ApiParam({ name: 'lessonId', description: 'Lesson ID' })
+  @ApiResponse({ status: 200, description: 'Theory lesson view recorded.' })
+  @ApiResponse({ status: 400, description: 'Lesson is not a theory lesson.' })
+  @ApiResponse({ status: 404, description: 'Lesson not found.' })
+  async recordMyTheoryLessonView(
     @CurrentUser() user: JwtPayload,
     @Param('classId') classId: string,
-    @Param('topicId') topicId: string,
-  ): Promise<TheoryTopicViewResponseDto> {
+    @Param('lessonId') lessonId: string,
+  ): Promise<TheoryLessonViewResponseDto> {
     const studentId = await this.userService.getLinkedStudentId(user.id);
-    return this.topicService.recordTheoryTopicViewForStudent(
+    return this.contentService.recordTheoryLessonViewForStudent(
       classId,
-      topicId,
+      lessonId,
       studentId,
     );
   }
 
-  // ─── Student Lecture Quiz ───
-
-  @Get('student-classes/:classId/topics/:topicId/lectures/:lectureId/quizzes')
+  @Get('student-classes/:classId/lessons/:lessonId/quizzes')
   @ApiOperation({
-    summary: 'Get quiz questions for a lecture',
+    summary: 'Get quiz questions for a theory lesson',
     description:
-      'Returns linked quiz questions for a lecture. Students see questions without correctIndex.',
+      'Returns linked quiz questions for a theory lesson. Students see questions without correctIndex.',
   })
   @ApiParam({ name: 'classId', description: 'Class ID' })
-  @ApiParam({ name: 'topicId', description: 'Topic ID' })
-  @ApiParam({ name: 'lectureId', description: 'Lecture ID' })
+  @ApiParam({ name: 'lessonId', description: 'Lesson ID' })
   @ApiResponse({ status: 200, description: 'Quiz questions.' })
-  @ApiResponse({ status: 404, description: 'Lecture not found.' })
-  async getMyLectureQuizzes(
+  @ApiResponse({ status: 404, description: 'Lesson not found.' })
+  async getMyLessonQuizzes(
     @CurrentUser() user: JwtPayload,
     @Param('classId') classId: string,
-    @Param('topicId') topicId: string,
-    @Param('lectureId') lectureId: string,
+    @Param('lessonId') lessonId: string,
   ) {
     const studentId = await this.userService.getLinkedStudentId(user.id);
     await this.validateStudentClassAccess(classId, studentId);
-    await this.topicService.getAssignedTopicForStudent(
+    await this.contentService.getAssignedLessonForStudent(
       classId,
-      topicId,
+      lessonId,
       studentId,
     );
-    return this.topicService.getLectureQuizzesForStudent(lectureId);
+    return this.contentService.getLessonQuizzesForStudent(lessonId);
   }
 
-  @Post(
-    'student-classes/:classId/topics/:topicId/lectures/:lectureId/quizzes/answers',
-  )
+  @Post('student-classes/:classId/lessons/:lessonId/quizzes/answers')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Submit quiz answers for a lecture',
+    summary: 'Submit quiz answers for a theory lesson',
     description: 'Upsert student answers. No Attempt created, no scoring.',
   })
   @ApiParam({ name: 'classId', description: 'Class ID' })
-  @ApiParam({ name: 'topicId', description: 'Topic ID' })
-  @ApiParam({ name: 'lectureId', description: 'Lecture ID' })
-  @ApiBody({ type: [LectureQuizAnswerDto] })
+  @ApiParam({ name: 'lessonId', description: 'Lesson ID' })
+  @ApiBody({ type: [LessonQuizAnswerDto] })
   @ApiResponse({
     status: 200,
     description: 'Saved answers with correct answers for review.',
@@ -1239,44 +1231,39 @@ export class UserProfileController {
   async submitQuizAnswers(
     @CurrentUser() user: JwtPayload,
     @Param('classId') classId: string,
-    @Param('topicId') topicId: string,
-    @Param('lectureId') lectureId: string,
-    @Body() answers: LectureQuizAnswerDto[],
+    @Param('lessonId') lessonId: string,
+    @Body() answers: LessonQuizAnswerDto[],
   ) {
     const studentId = await this.userService.getLinkedStudentId(user.id);
-    await this.topicService.getAssignedTopicForStudent(
+    await this.contentService.getAssignedLessonForStudent(
       classId,
-      topicId,
+      lessonId,
       studentId,
     );
-    return this.topicService.submitQuizAnswers(lectureId, studentId, answers);
+    return this.contentService.submitQuizAnswers(lessonId, studentId, answers);
   }
 
-  @Get(
-    'student-classes/:classId/topics/:topicId/lectures/:lectureId/quizzes/answers',
-  )
+  @Get('student-classes/:classId/lessons/:lessonId/quizzes/answers')
   @ApiOperation({
-    summary: 'Get my quiz answers for a lecture',
+    summary: 'Get my quiz answers for a theory lesson',
     description:
       'Returns student saved answers with correct answers for review.',
   })
   @ApiParam({ name: 'classId', description: 'Class ID' })
-  @ApiParam({ name: 'topicId', description: 'Topic ID' })
-  @ApiParam({ name: 'lectureId', description: 'Lecture ID' })
+  @ApiParam({ name: 'lessonId', description: 'Lesson ID' })
   @ApiResponse({ status: 200, description: 'Student answers with questions.' })
   async getMyQuizAnswers(
     @CurrentUser() user: JwtPayload,
     @Param('classId') classId: string,
-    @Param('topicId') topicId: string,
-    @Param('lectureId') lectureId: string,
+    @Param('lessonId') lessonId: string,
   ) {
     const studentId = await this.userService.getLinkedStudentId(user.id);
-    await this.topicService.getAssignedTopicForStudent(
+    await this.contentService.getAssignedLessonForStudent(
       classId,
-      topicId,
+      lessonId,
       studentId,
     );
-    return this.topicService.getQuizAnswers(lectureId, studentId);
+    return this.contentService.getQuizAnswers(lessonId, studentId);
   }
 
   private async validateStudentClassAccess(

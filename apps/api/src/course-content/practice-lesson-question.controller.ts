@@ -26,16 +26,16 @@ import {
   QuestionLinkCreateDto,
   QuestionLinkUpdateDto,
   ReorderQuestionLinksDto,
-} from 'src/dtos/topic.dto';
+} from 'src/dtos/course-content.dto';
 import { PracticeQuestionLinkService } from './practice-question-link.service';
 
 const COURSE_CONTENT_FORBIDDEN =
   'Không thuộc đội giáo án của khoá. Dạy lớp không đồng nghĩa soạn giáo án.';
 
-@Controller('topics/:topicId/questions')
-@ApiTags('practice-topic-questions')
+@Controller('lessons/:lessonId/questions')
+@ApiTags('practice-lesson-questions')
 @ApiCookieAuth('access_token')
-export class PracticeTopicQuestionController {
+export class PracticeLessonQuestionController {
   constructor(private readonly topicService: PracticeQuestionLinkService) {}
 
   @Get()
@@ -46,15 +46,15 @@ export class PracticeTopicQuestionController {
     StaffRole.lesson_plan_head,
     StaffRole.teacher,
   )
-  @ApiOperation({ summary: 'Lấy danh sách câu hỏi của chuyên đề luyện tập' })
-  @ApiParam({ name: 'topicId', description: 'ID chuyên đề luyện tập' })
+  @ApiOperation({ summary: 'Lấy danh sách câu hỏi của tiết thực hành' })
+  @ApiParam({ name: 'lessonId', description: 'ID tiết thực hành' })
   @ApiResponse({ status: 200, description: 'Danh sách câu hỏi.' })
   @ApiResponse({ status: 403, description: COURSE_CONTENT_FORBIDDEN })
   async getQuestions(
     @CurrentUser() user: JwtPayload,
-    @Param('topicId') topicId: string,
+    @Param('lessonId') lessonId: string,
   ) {
-    return this.topicService.getQuestionsByTopicId(topicId, {
+    return this.topicService.getQuestionsByLessonId(lessonId, {
       userId: user.id,
       userEmail: user.email,
       roleType: user.roleType,
@@ -69,18 +69,18 @@ export class PracticeTopicQuestionController {
     StaffRole.lesson_plan_head,
     StaffRole.teacher,
   )
-  @ApiOperation({ summary: 'Thêm câu hỏi vào chuyên đề luyện tập' })
-  @ApiParam({ name: 'topicId', description: 'ID chuyên đề luyện tập' })
+  @ApiOperation({ summary: 'Thêm câu hỏi vào tiết thực hành' })
+  @ApiParam({ name: 'lessonId', description: 'ID tiết thực hành' })
   @ApiBody({ type: QuestionLinkCreateDto })
   @ApiResponse({ status: 201, description: 'Đã thêm câu hỏi.' })
   @ApiResponse({ status: 400, description: 'Lỗi dữ liệu đầu vào.' })
   @ApiResponse({ status: 403, description: COURSE_CONTENT_FORBIDDEN })
   async addQuestion(
     @CurrentUser() user: JwtPayload,
-    @Param('topicId') topicId: string,
+    @Param('lessonId') lessonId: string,
     @Body() dto: QuestionLinkCreateDto,
   ) {
-    return this.topicService.addQuestionToTopic(topicId, dto, {
+    return this.topicService.addQuestionToLesson(lessonId, dto, {
       userId: user.id,
       userEmail: user.email,
       roleType: user.roleType,
@@ -96,18 +96,18 @@ export class PracticeTopicQuestionController {
     StaffRole.teacher,
   )
   @ApiOperation({ summary: 'Cập nhật thứ tự/điểm câu hỏi' })
-  @ApiParam({ name: 'topicId', description: 'ID chuyên đề luyện tập' })
+  @ApiParam({ name: 'lessonId', description: 'ID tiết thực hành' })
   @ApiParam({ name: 'linkId', description: 'ID liên kết câu hỏi' })
   @ApiBody({ type: QuestionLinkUpdateDto })
   @ApiResponse({ status: 200, description: 'Đã cập nhật.' })
   @ApiResponse({ status: 403, description: COURSE_CONTENT_FORBIDDEN })
   async updateQuestionLink(
     @CurrentUser() user: JwtPayload,
-    @Param('topicId') topicId: string,
+    @Param('lessonId') lessonId: string,
     @Param('linkId') linkId: string,
     @Body() dto: QuestionLinkUpdateDto,
   ) {
-    return this.topicService.updateQuestionLink(topicId, linkId, dto, {
+    return this.topicService.updateQuestionLink(lessonId, linkId, dto, {
       userId: user.id,
       userEmail: user.email,
       roleType: user.roleType,
@@ -122,17 +122,17 @@ export class PracticeTopicQuestionController {
     StaffRole.lesson_plan_head,
     StaffRole.teacher,
   )
-  @ApiOperation({ summary: 'Xóa câu hỏi khỏi chuyên đề luyện tập' })
-  @ApiParam({ name: 'topicId', description: 'ID chuyên đề luyện tập' })
+  @ApiOperation({ summary: 'Xóa câu hỏi khỏi tiết thực hành' })
+  @ApiParam({ name: 'lessonId', description: 'ID tiết thực hành' })
   @ApiParam({ name: 'linkId', description: 'ID liên kết câu hỏi' })
   @ApiResponse({ status: 200, description: 'Đã xóa.' })
   @ApiResponse({ status: 403, description: COURSE_CONTENT_FORBIDDEN })
   async removeQuestion(
     @CurrentUser() user: JwtPayload,
-    @Param('topicId') topicId: string,
+    @Param('lessonId') lessonId: string,
     @Param('linkId') linkId: string,
   ) {
-    return this.topicService.removeQuestionFromTopic(topicId, linkId, {
+    return this.topicService.removeQuestionFromLesson(lessonId, linkId, {
       userId: user.id,
       userEmail: user.email,
       roleType: user.roleType,
@@ -148,16 +148,16 @@ export class PracticeTopicQuestionController {
     StaffRole.teacher,
   )
   @ApiOperation({ summary: 'Sắp xếp lại thứ tự câu hỏi' })
-  @ApiParam({ name: 'topicId', description: 'ID chuyên đề luyện tập' })
+  @ApiParam({ name: 'lessonId', description: 'ID tiết thực hành' })
   @ApiBody({ type: ReorderQuestionLinksDto })
   @ApiResponse({ status: 200, description: 'Đã sắp xếp lại.' })
   @ApiResponse({ status: 403, description: COURSE_CONTENT_FORBIDDEN })
   async reorderQuestions(
     @CurrentUser() user: JwtPayload,
-    @Param('topicId') topicId: string,
+    @Param('lessonId') lessonId: string,
     @Body() dto: ReorderQuestionLinksDto,
   ) {
-    return this.topicService.reorderQuestionLinks(topicId, dto.linkIds, {
+    return this.topicService.reorderQuestionLinks(lessonId, dto.linkIds, {
       userId: user.id,
       userEmail: user.email,
       roleType: user.roleType,
@@ -173,20 +173,20 @@ export class PracticeTopicQuestionController {
     StaffRole.teacher,
   )
   @ApiOperation({ summary: 'Tổng quan câu hỏi và điểm' })
-  @ApiParam({ name: 'topicId', description: 'ID chuyên đề luyện tập' })
+  @ApiParam({ name: 'lessonId', description: 'ID tiết thực hành' })
   @ApiResponse({ status: 200, description: 'Tổng số câu hỏi và tổng điểm.' })
-  async getSummary(@Param('topicId') topicId: string) {
-    return this.topicService.getQuestionLinkSummary(topicId);
+  async getSummary(@Param('lessonId') lessonId: string) {
+    return this.topicService.getQuestionLinkSummary(lessonId);
   }
 
   @Get('is-assigned')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   @ApiOperation({ summary: 'Kiểm tra chuyên đề đã được giao cho lớp nào chưa' })
-  @ApiParam({ name: 'topicId', description: 'ID chuyên đề luyện tập' })
+  @ApiParam({ name: 'lessonId', description: 'ID tiết thực hành' })
   @ApiResponse({ status: 200, description: 'Đã giao hay chưa.' })
-  async isAssigned(@Param('topicId') topicId: string) {
-    const assigned = await this.topicService.isTopicAssignedToClass(topicId);
+  async isAssigned(@Param('lessonId') lessonId: string) {
+    const assigned = await this.topicService.isLessonAssignedToClass(lessonId);
     return { assigned };
   }
 }

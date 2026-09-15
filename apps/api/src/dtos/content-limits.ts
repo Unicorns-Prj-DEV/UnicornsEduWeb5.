@@ -7,8 +7,8 @@ export const CONTENT_LIMITS = {
   essayAnswer: 20_000,
   /** Teacher grading comment on one essay answer. Matches notification body. */
   feedback: 4_000,
-  /** Lecture theory HTML (TipTap + LaTeX). */
-  lectureContent: 100_000,
+  /** Theory lesson HTML (TipTap + LaTeX). */
+  theoryContent: 100_000,
   /** Session lessonContent / homework / tutorial HTML. */
   sessionRichText: 20_000,
   /** http(s) URL (lecture video, session recording, resource link). */

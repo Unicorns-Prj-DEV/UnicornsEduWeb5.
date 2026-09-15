@@ -9,36 +9,36 @@ import {
   QuestionLinkUpdateDto,
   QuestionLinkResponseDto,
   QuestionLinkSummaryDto,
-} from 'src/dtos/topic.dto';
-import { TopicKind } from 'generated/enums';
+} from 'src/dtos/course-content.dto';
+import { LessonKind } from 'generated/enums';
 import {
   ActionHistoryActor,
-  TopicSupportService,
-} from './topic-support.service';
+  CourseContentSupportService,
+} from './course-content-support.service';
 
 @Injectable()
-export class PracticeQuestionLinkService extends TopicSupportService {
+export class PracticeQuestionLinkService extends CourseContentSupportService {
   protected readonly logger = new Logger(PracticeQuestionLinkService.name);
 
   // ─── Question Link CRUD (Practice Topic / Đề) ───
 
-  private async validatePracticeTopic(topicId: string) {
-    const topic = await this.prisma.topic.findUnique({
-      where: { id: topicId },
+  private async validatePracticeLesson(lessonId: string) {
+    const topic = await this.prisma.lesson.findUnique({
+      where: { id: lessonId },
     });
     if (!topic) {
-      throw new NotFoundException(`Topic ${topicId} not found`);
+      throw new NotFoundException(`Lesson ${lessonId} not found`);
     }
-    if (topic.kind !== TopicKind.practice) {
+    if (topic.kind !== LessonKind.practice) {
       throw new BadRequestException(
-        'Chỉ chuyên đề luyện tập mới có danh sách câu hỏi',
+        'Chỉ tiết thực hành mới có danh sách câu hỏi',
       );
     }
     let courseId = topic.courseId;
     if (!courseId) {
       if (!topic.classId) {
         throw new BadRequestException(
-          'Chuyên đề luyện tập phải thuộc một khoá học hoặc một lớp',
+          'Tiết thực hành phải thuộc một khoá học hoặc một lớp',
         );
       }
       const cls = await this.prisma.class.findUnique({
@@ -74,22 +74,22 @@ export class PracticeQuestionLinkService extends TopicSupportService {
     await this.assertCanManageCourseContent(actor, courseId);
   }
 
-  async getQuestionsByTopicId(
-    topicId: string,
+  async getQuestionsByLessonId(
+    lessonId: string,
     actor: ActionHistoryActor,
   ): Promise<QuestionLinkResponseDto[]> {
-    const { topic, courseId } = await this.validatePracticeTopic(topicId);
+    const { topic, courseId } = await this.validatePracticeLesson(lessonId);
     await this.assertCanLinkPracticeQuestions(topic, courseId, actor);
 
     const links = await this.prisma.questionLink.findMany({
-      where: { topicId },
+      where: { lessonId },
       orderBy: { order: 'asc' },
       include: {
         question: {
           select: {
             id: true,
             courseId: true,
-            chapterId: true,
+            moduleId: true,
             difficultyLevelId: true,
             type: true,
             content: true,
@@ -104,7 +104,7 @@ export class PracticeQuestionLinkService extends TopicSupportService {
 
     return links.map((link) => ({
       id: link.id,
-      topicId: link.topicId,
+      lessonId: link.lessonId,
       questionId: link.questionId,
       order: link.order,
       points: link.points,
@@ -112,12 +112,12 @@ export class PracticeQuestionLinkService extends TopicSupportService {
     }));
   }
 
-  async addQuestionToTopic(
-    topicId: string,
+  async addQuestionToLesson(
+    lessonId: string,
     dto: QuestionLinkCreateDto,
     actor: ActionHistoryActor,
   ): Promise<QuestionLinkResponseDto> {
-    const { topic, courseId } = await this.validatePracticeTopic(topicId);
+    const { topic, courseId } = await this.validatePracticeLesson(lessonId);
     await this.assertCanLinkPracticeQuestions(topic, courseId, actor);
 
     // Validate question exists and belongs to same course
@@ -135,7 +135,7 @@ export class PracticeQuestionLinkService extends TopicSupportService {
 
     // Check duplicate
     const existing = await this.prisma.questionLink.findUnique({
-      where: { topicId_questionId: { topicId, questionId: dto.questionId } },
+      where: { lessonId_questionId: { lessonId, questionId: dto.questionId } },
     });
     if (existing) {
       throw new BadRequestException('Câu hỏi đã được thêm vào chuyên đề này');
@@ -143,14 +143,14 @@ export class PracticeQuestionLinkService extends TopicSupportService {
 
     // Determine order: append at end
     const maxOrder = await this.prisma.questionLink.aggregate({
-      where: { topicId },
+      where: { lessonId },
       _max: { order: true },
     });
     const nextOrder = (maxOrder._max.order ?? -1) + 1;
 
     const link = await this.prisma.questionLink.create({
       data: {
-        topicId,
+        lessonId,
         questionId: dto.questionId,
         order: dto.order ?? nextOrder,
         points: dto.points ?? null,
@@ -160,7 +160,7 @@ export class PracticeQuestionLinkService extends TopicSupportService {
           select: {
             id: true,
             courseId: true,
-            chapterId: true,
+            moduleId: true,
             difficultyLevelId: true,
             type: true,
             content: true,
@@ -174,12 +174,12 @@ export class PracticeQuestionLinkService extends TopicSupportService {
     });
 
     this.logger.log(
-      `Question linked to topic: question ${dto.questionId} → topic ${topicId} by ${actor.userEmail}`,
+      `Question linked to topic: question ${dto.questionId} → topic ${lessonId} by ${actor.userEmail}`,
     );
 
     return {
       id: link.id,
-      topicId: link.topicId,
+      lessonId: link.lessonId,
       questionId: link.questionId,
       order: link.order,
       points: link.points,
@@ -188,18 +188,18 @@ export class PracticeQuestionLinkService extends TopicSupportService {
   }
 
   async updateQuestionLink(
-    topicId: string,
+    lessonId: string,
     linkId: string,
     dto: QuestionLinkUpdateDto,
     actor: ActionHistoryActor,
   ): Promise<QuestionLinkResponseDto> {
-    const { topic, courseId } = await this.validatePracticeTopic(topicId);
+    const { topic, courseId } = await this.validatePracticeLesson(lessonId);
     await this.assertCanLinkPracticeQuestions(topic, courseId, actor);
 
     const link = await this.prisma.questionLink.findUnique({
       where: { id: linkId },
     });
-    if (!link || link.topicId !== topicId) {
+    if (!link || link.lessonId !== lessonId) {
       throw new NotFoundException('Question link not found');
     }
 
@@ -214,7 +214,7 @@ export class PracticeQuestionLinkService extends TopicSupportService {
           select: {
             id: true,
             courseId: true,
-            chapterId: true,
+            moduleId: true,
             difficultyLevelId: true,
             type: true,
             content: true,
@@ -231,7 +231,7 @@ export class PracticeQuestionLinkService extends TopicSupportService {
 
     return {
       id: updated.id,
-      topicId: updated.topicId,
+      lessonId: updated.lessonId,
       questionId: updated.questionId,
       order: updated.order,
       points: updated.points,
@@ -239,43 +239,43 @@ export class PracticeQuestionLinkService extends TopicSupportService {
     };
   }
 
-  async removeQuestionFromTopic(
-    topicId: string,
+  async removeQuestionFromLesson(
+    lessonId: string,
     linkId: string,
     actor: ActionHistoryActor,
   ): Promise<void> {
-    const { topic, courseId } = await this.validatePracticeTopic(topicId);
+    const { topic, courseId } = await this.validatePracticeLesson(lessonId);
     await this.assertCanLinkPracticeQuestions(topic, courseId, actor);
 
     const link = await this.prisma.questionLink.findUnique({
       where: { id: linkId },
     });
-    if (!link || link.topicId !== topicId) {
+    if (!link || link.lessonId !== lessonId) {
       throw new NotFoundException('Question link not found');
     }
 
     await this.prisma.questionLink.delete({ where: { id: linkId } });
     this.logger.log(
-      `Question unlinked from topic: link ${linkId} from topic ${topicId} by ${actor.userEmail}`,
+      `Question unlinked from topic: link ${linkId} from topic ${lessonId} by ${actor.userEmail}`,
     );
   }
 
   async reorderQuestionLinks(
-    topicId: string,
+    lessonId: string,
     linkIds: string[],
     actor: ActionHistoryActor,
   ): Promise<void> {
-    const { topic, courseId } = await this.validatePracticeTopic(topicId);
+    const { topic, courseId } = await this.validatePracticeLesson(lessonId);
     await this.assertCanLinkPracticeQuestions(topic, courseId, actor);
 
     // Verify all links belong to this topic
     const owned = await this.prisma.questionLink.findMany({
-      where: { id: { in: linkIds }, topicId },
+      where: { id: { in: linkIds }, lessonId },
       select: { id: true },
     });
     if (owned.length !== linkIds.length) {
       throw new BadRequestException(
-        'Some IDs do not belong to this topic or do not exist',
+        'Một số ID không thuộc tiết học này hoặc không tồn tại',
       );
     }
 
@@ -289,17 +289,17 @@ export class PracticeQuestionLinkService extends TopicSupportService {
     );
 
     this.logger.log(
-      `Question links reordered for topic ${topicId} by ${actor.userEmail}`,
+      `Question links reordered for topic ${lessonId} by ${actor.userEmail}`,
     );
   }
 
   async getQuestionLinkSummary(
-    topicId: string,
+    lessonId: string,
   ): Promise<QuestionLinkSummaryDto> {
-    await this.validatePracticeTopic(topicId);
+    await this.validatePracticeLesson(lessonId);
 
     const result = await this.prisma.questionLink.aggregate({
-      where: { topicId },
+      where: { lessonId },
       _count: { id: true },
       _sum: { points: true },
     });
@@ -310,9 +310,9 @@ export class PracticeQuestionLinkService extends TopicSupportService {
     };
   }
 
-  async isTopicAssignedToClass(topicId: string): Promise<boolean> {
+  async isLessonAssignedToClass(lessonId: string): Promise<boolean> {
     const count = await this.prisma.classContentItem.count({
-      where: { topicId },
+      where: { lessonId },
     });
     return count > 0;
   }

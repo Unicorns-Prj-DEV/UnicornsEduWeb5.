@@ -12,45 +12,45 @@ import { ActionHistoryService } from 'src/action-history/action-history.service'
 import { CourseAccessService } from 'src/class/course-access.service';
 
 import {
-  TopicCreateDto,
-  TopicUpdateDto,
-  TopicResponseDto,
+  LessonCreateDto,
+  LessonUpdateDto,
+  LessonResponseDto,
   ExamLibraryItemDto,
-} from 'src/dtos/topic.dto';
+} from 'src/dtos/course-content.dto';
 
-import { TopicKind } from 'generated/enums';
+import { LessonKind } from 'generated/enums';
 
 import {
   ActionHistoryActor,
-  TopicSupportService,
-} from './topic-support.service';
+  CourseContentSupportService,
+} from './course-content-support.service';
 
-import { CourseTopicService } from './course-topic.service';
+import { CourseLessonService } from './course-lesson.service';
 
 @Injectable()
-export class ExamLibraryService extends TopicSupportService {
+export class ExamLibraryService extends CourseContentSupportService {
   protected readonly logger = new Logger(ExamLibraryService.name);
 
   constructor(
     prisma: PrismaService,
     actionHistory: ActionHistoryService,
     courseAccess: CourseAccessService,
-    private readonly topics: CourseTopicService,
+    private readonly lessons: CourseLessonService,
   ) {
     super(prisma, actionHistory, courseAccess);
   }
 
-  // ─── Exam Library (practice topics của khoá, nằm trong chương) ───
+  // ─── Exam Library (practice lessons của khoá, nằm trong chuyên đề) ───
   //
-  // Đề thi là `Topic(kind = practice)` thuộc một chương của khoá — CHECK
-  // constraint `topics_owner_check` không cho topic cấp khoá đứng ngoài chương.
+  // Đề thi là `Lesson(kind = practice)` thuộc một chuyên đề của khoá — CHECK
+  // constraint `lessons_owner_check` không cho tiết cấp khoá đứng ngoài chuyên đề.
   // Thư viện gom đề của mọi chương lại một chỗ để quản lý tập trung.
 
   async getExamLibrary(
     courseId: string,
     params: {
       search?: string;
-      chapterId?: string;
+      moduleId?: string;
       page?: number;
       limit?: number;
     },
@@ -66,35 +66,35 @@ export class ExamLibraryService extends TopicSupportService {
 
     const where = {
       courseId,
-      kind: TopicKind.practice,
-      ...(params.chapterId ? { chapterId: params.chapterId } : {}),
+      kind: LessonKind.practice,
+      ...(params.moduleId ? { moduleId: params.moduleId } : {}),
       ...(params.search
         ? { title: { contains: params.search, mode: 'insensitive' as const } }
         : {}),
     };
 
     const [rows, total] = await Promise.all([
-      this.prisma.topic.findMany({
+      this.prisma.lesson.findMany({
         where,
         include: {
-          chapter: { select: { id: true, title: true, sortOrder: true } },
+          module: { select: { id: true, title: true, sortOrder: true } },
           _count: { select: { questionLinks: true } },
         },
         orderBy: [
-          { chapter: { sortOrder: 'asc' } },
+          { module: { sortOrder: 'asc' } },
           { order: 'asc' },
           { title: 'asc' },
         ],
         skip: (page - 1) * limit,
         take: limit,
       }),
-      this.prisma.topic.count({ where }),
+      this.prisma.lesson.count({ where }),
     ]);
 
     const data: ExamLibraryItemDto[] = rows.map(
-      ({ _count, chapter, ...topic }) => ({
-        ...topic,
-        chapter,
+      ({ _count, module, ...lesson }) => ({
+        ...lesson,
+        module,
         questionCount: _count.questionLinks,
       }),
     );
@@ -102,31 +102,31 @@ export class ExamLibraryService extends TopicSupportService {
     return { data, total, page, limit };
   }
 
-  async createExamTopic(
+  async createExamLesson(
     courseId: string,
-    dto: TopicCreateDto,
+    dto: LessonCreateDto,
     actor: ActionHistoryActor,
-  ): Promise<TopicResponseDto> {
+  ): Promise<LessonResponseDto> {
     // Kiểm quyền trước khi soi payload: người không thuộc đội giáo án phải nhận
     // 403, không phải 400 tiết lộ hình dạng dữ liệu hợp lệ.
     await this.validateCourseExists(courseId);
     await this.assertCanManageCourseContent(actor, courseId);
 
-    if (!dto.chapterId) {
+    if (!dto.moduleId) {
       throw new BadRequestException(
-        'Đề thi phải thuộc một chương của khoá học.',
+        'Đề thi phải thuộc một chuyên đề của khoá học.',
       );
     }
-    const chapter = await this.validateChapterExists(dto.chapterId);
-    if (chapter.courseId !== courseId) {
-      throw new BadRequestException('Chương không thuộc khoá học này.');
+    const courseModule = await this.validateModuleExists(dto.moduleId);
+    if (courseModule.courseId !== courseId) {
+      throw new BadRequestException('Chuyên đề không thuộc khoá học này.');
     }
 
-    return this.topics.createTopic(
+    return this.lessons.createLesson(
       {
-        kind: TopicKind.practice,
+        kind: LessonKind.practice,
         courseId,
-        chapterId: dto.chapterId,
+        moduleId: dto.moduleId,
         classId: null,
         title: dto.title,
       },
@@ -134,38 +134,38 @@ export class ExamLibraryService extends TopicSupportService {
     );
   }
 
-  async updateExamTopic(
+  async updateExamLesson(
     courseId: string,
-    topicId: string,
-    dto: TopicUpdateDto,
+    lessonId: string,
+    dto: LessonUpdateDto,
     actor: ActionHistoryActor,
-  ): Promise<TopicResponseDto> {
-    await this.assertIsExamTopic(courseId, topicId, 'chỉnh sửa');
-    return this.topics.updateTopic(topicId, dto, actor);
+  ): Promise<LessonResponseDto> {
+    await this.assertIsExamLesson(courseId, lessonId, 'chỉnh sửa');
+    return this.lessons.updateLesson(lessonId, dto, actor);
   }
 
-  async deleteExamTopic(
+  async deleteExamLesson(
     courseId: string,
-    topicId: string,
+    lessonId: string,
     actor: ActionHistoryActor,
   ): Promise<void> {
-    await this.assertIsExamTopic(courseId, topicId, 'xóa');
-    return this.topics.deleteTopic(topicId, actor);
+    await this.assertIsExamLesson(courseId, lessonId, 'xóa');
+    return this.lessons.deleteLesson(lessonId, actor);
   }
 
-  private async assertIsExamTopic(
+  private async assertIsExamLesson(
     courseId: string,
-    topicId: string,
+    lessonId: string,
     action: string,
   ): Promise<void> {
-    const existing = await this.prisma.topic.findUnique({
-      where: { id: topicId },
+    const existing = await this.prisma.lesson.findUnique({
+      where: { id: lessonId },
     });
     if (!existing) {
-      throw new NotFoundException(`Topic ${topicId} not found`);
+      throw new NotFoundException(`Lesson ${lessonId} not found`);
     }
     if (
-      existing.kind !== TopicKind.practice ||
+      existing.kind !== LessonKind.practice ||
       existing.courseId !== courseId
     ) {
       throw new BadRequestException(
@@ -174,17 +174,17 @@ export class ExamLibraryService extends TopicSupportService {
     }
   }
 
-  async reorderExamTopics(
+  async reorderExamLessons(
     courseId: string,
-    topicIds: string[],
+    lessonIds: string[],
     actor: ActionHistoryActor,
   ): Promise<void> {
     await this.validateCourseExists(courseId);
     await this.assertCanManageCourseContent(actor, courseId);
 
-    const updates = topicIds.map((id, index) =>
-      this.prisma.topic.update({
-        where: { id, courseId, kind: TopicKind.practice },
+    const updates = lessonIds.map((id, index) =>
+      this.prisma.lesson.update({
+        where: { id, courseId, kind: LessonKind.practice },
         data: { order: index },
       }),
     );

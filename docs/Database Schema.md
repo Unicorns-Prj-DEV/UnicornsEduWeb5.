@@ -634,7 +634,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 ### 4.6e `question_links` (Liên kết câu hỏi — tiết luyện tập)
 
-- Liên kết câu hỏi với một tiết `kind = practice`. CRUD qua API tiết luyện tập (HTTP path vẫn `/topics/:topicId/questions` đến vé 06).
+- Liên kết câu hỏi với một tiết `kind = practice`. CRUD qua `GET/POST/PATCH/DELETE /lessons/:lessonId/questions`.
 - Cột:
   - `id` (PK, UUID default)
   - `lesson_id` (FK → `lessons.id`, cascade)

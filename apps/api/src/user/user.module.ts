@@ -10,7 +10,7 @@ import { SessionModule } from 'src/session/session.module';
 import { StaffModule } from 'src/staff/staff.module';
 import { StudentModule } from 'src/student/student.module';
 import { SePayModule } from 'src/sepay/sepay.module';
-import { TopicModule } from 'src/topic/topic.module';
+import { CourseContentModule } from 'src/course-content/course-content.module';
 import { UserController } from './user.controller';
 import { UserProfileController } from './user-profile.controller';
 import { UserService } from './user.service';
@@ -28,7 +28,7 @@ import { UserService } from './user.service';
     LessonModule,
     StudentModule,
     SePayModule,
-    TopicModule,
+    CourseContentModule,
   ],
   controllers: [UserController, UserProfileController],
   providers: [UserService],

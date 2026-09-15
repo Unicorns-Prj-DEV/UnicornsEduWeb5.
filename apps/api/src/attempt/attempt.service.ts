@@ -11,7 +11,7 @@ import {
   StudentClassStatus,
 } from 'generated/enums';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { TopicService } from 'src/topic/topic.service';
+import { CourseContentService } from 'src/course-content/course-content.service';
 import type {
   AssignmentLobbyDto,
   AttemptDetailDto,
@@ -32,7 +32,7 @@ import {
 /** Include chấm/đọc bài: chỉ snapshot trên AttemptAnswer, không join Question live. */
 type AttemptWithAnswers = Prisma.AttemptGetPayload<{
   include: {
-    assignment: { include: { topic: true } };
+    assignment: { include: { lesson: true } };
     answers: { orderBy: { order: 'asc' } };
   };
 }>;
@@ -43,7 +43,7 @@ export class AttemptService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly topicService: TopicService,
+    private readonly topicService: CourseContentService,
   ) {}
 
   async getLobby(
@@ -63,8 +63,8 @@ export class AttemptService {
     return {
       assignmentId: item.id,
       classId,
-      topicId: item.topicId ?? '',
-      title: item.topic!.title,
+      lessonId: item.lessonId ?? '',
+      title: item.lesson!.title,
       durationMinutes: item.durationMinutes as number,
       openAt: item.openAt,
       attempts: attempts.map((a) => ({
@@ -98,12 +98,12 @@ export class AttemptService {
       return this.finalizeIfExpired(existing);
     }
 
-    const topicId = item.topicId;
-    if (!topicId) {
-      throw new BadRequestException('Assignment has no topic');
+    const lessonId = item.lessonId;
+    if (!lessonId) {
+      throw new BadRequestException('Assignment has no lesson');
     }
     const links = await this.prisma.questionLink.findMany({
-      where: { topicId, question: { deletedAt: null } },
+      where: { lessonId, question: { deletedAt: null } },
       include: { question: { include: { difficultyLevel: true } } },
       orderBy: [{ order: 'asc' }, { id: 'asc' }],
     });
@@ -360,7 +360,7 @@ export class AttemptService {
   ): Promise<EssayGradingQueueDto> {
     const item = await this.prisma.classContentItem.findFirst({
       where: { id: assignmentId, classId },
-      include: { topic: true },
+      include: { lesson: true },
     });
     if (!item) {
       throw new NotFoundException('Assignment not found');
@@ -419,7 +419,7 @@ export class AttemptService {
     return {
       classId,
       assignmentId,
-      title: item.topic?.title ?? '',
+      title: item.lesson?.title ?? '',
       totalPending: items.length,
       items,
     };
@@ -435,7 +435,7 @@ export class AttemptService {
   ): Promise<PracticeStatsDto> {
     const item = await this.prisma.classContentItem.findFirst({
       where: { id: assignmentId, classId },
-      include: { topic: true, class: { select: { name: true } } },
+      include: { lesson: true, class: { select: { name: true } } },
     });
     if (!item) {
       throw new NotFoundException('Assignment not found');
@@ -530,7 +530,7 @@ export class AttemptService {
           ) / 10;
 
     const questions = this.buildQuestionRates(
-      item.topicId,
+      item.lessonId,
       roster.map((r) => r.studentId),
       attemptsByStudent,
     );
@@ -538,7 +538,7 @@ export class AttemptService {
     return {
       classId,
       assignmentId,
-      title: item.topic?.title ?? '',
+      title: item.lesson?.title ?? '',
       className: item.class.name,
       openAt: item.openAt,
       durationMinutes: item.durationMinutes,
@@ -694,7 +694,7 @@ export class AttemptService {
   }
 
   private async buildQuestionRates(
-    topicId: string | null,
+    lessonId: string | null,
     rosterStudentIds: string[],
     attemptsByStudent: Map<
       string,
@@ -717,9 +717,9 @@ export class AttemptService {
   ): Promise<PracticeStatsQuestionRateDto[]> {
     const blueprint = new Map<string, { order: number; type: QuestionType }>();
 
-    if (topicId) {
+    if (lessonId) {
       const links = await this.prisma.questionLink.findMany({
-        where: { topicId, question: { deletedAt: null } },
+        where: { lessonId, question: { deletedAt: null } },
         include: { question: { select: { id: true, type: true } } },
         orderBy: [{ order: 'asc' }, { id: 'asc' }],
       });
@@ -806,7 +806,7 @@ export class AttemptService {
 
   private attemptInclude() {
     return {
-      assignment: { include: { topic: true } },
+      assignment: { include: { lesson: true } },
       answers: {
         orderBy: { order: 'asc' as const },
       },
@@ -850,7 +850,7 @@ export class AttemptService {
       id: attempt.id,
       assignmentId: attempt.assignmentId,
       classId: attempt.assignment.classId,
-      title: attempt.assignment.topic?.title ?? '',
+      title: attempt.assignment.lesson?.title ?? '',
       status: attempt.status,
       startedAt: attempt.startedAt,
       durationMinutes: attempt.durationMinutes,

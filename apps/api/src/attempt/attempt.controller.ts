@@ -24,7 +24,7 @@ import {
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { ParseClassIdPipe } from 'src/common/pipes/parse-entity-id.pipe';
 import { SaveAttemptAnswersDto } from 'src/dtos/attempt.dto';
-import { TopicService } from 'src/topic/topic.service';
+import { CourseContentService } from 'src/course-content/course-content.service';
 import { AttemptService } from './attempt.service';
 
 @ApiTags('attempts')
@@ -34,7 +34,7 @@ import { AttemptService } from './attempt.service';
 export class StudentAttemptController {
   constructor(
     private readonly attemptService: AttemptService,
-    private readonly topicService: TopicService,
+    private readonly topicService: CourseContentService,
   ) {}
 
   private async studentId(userId: string): Promise<string> {

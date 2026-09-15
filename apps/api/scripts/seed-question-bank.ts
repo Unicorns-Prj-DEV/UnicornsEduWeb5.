@@ -3,9 +3,9 @@
  *
  * Script tạo, cho mỗi khoá khớp pack:
  *   - `course_difficulty_levels`  — thang độ khó (Nhận biết → Vận dụng cao)
- *   - `chapters`                  — chương nội dung
+ *   - `modules`                   — chuyên đề
  *   - `questions`                 — câu hỏi trắc nghiệm + tự luận (HTML TipTap, LaTeX `$…$`)
- *   - `topics` (kind = practice)  — đề luyện tập / đề kiểm tra
+ *   - `lessons` (kind = practice) — đề luyện tập / đề kiểm tra
  *   - `question_links`            — câu hỏi thuộc từng đề, kèm `order`
  *
  * Script KHÔNG đụng tới lớp, học sinh, `class_content_items` hay `attempts`.
@@ -94,18 +94,18 @@ function deterministicUuid(...parts: string[]): string {
 
 /**
  * Lấy câu hỏi cho một đề: với mỗi độ khó trong blueprint, chọn đúng số câu yêu
- * cầu từ nguồn đã lọc theo chương.
+ * cầu từ nguồn đã lọc theo chuyên đề.
  *
- * Chiến lược hiện tại là **tất định và trải đều chương**: nhóm theo độ khó, sắp
- * xếp theo `key`, rồi rải vòng tròn (round-robin) qua các chương để một đề tổng
- * hợp không dồn hết câu vào chương đầu. `exam.rotate` xoay vòng danh sách đó
+ * Chiến lược hiện tại là **tất định và trải đều chuyên đề**: nhóm theo độ khó, sắp
+ * xếp theo `key`, rồi rải vòng tròn (round-robin) qua các chuyên đề để một đề tổng
+ * hợp không dồn hết câu vào chuyên đề đầu. `exam.rotate` xoay vòng danh sách đó
  * trước khi cắt, để hai đề cùng blueprint trên cùng pool không ra trùng câu.
- * Đổi hàm này nếu muốn tỉ lệ khác — ví dụ ưu tiên chương gần cuối khoá, hoặc
+ * Đổi hàm này nếu muốn tỉ lệ khác — ví dụ ưu tiên chuyên đề gần cuối khoá, hoặc
  * chọn ngẫu nhiên có seed.
  */
 function pickExamQuestions(pool: SeedQuestion[], exam: SeedExam): SeedQuestion[] {
-  const chapterSet = exam.chapters ? new Set(exam.chapters) : null;
-  const scoped = chapterSet ? pool.filter((q) => chapterSet.has(q.chapter)) : pool;
+  const moduleSet = exam.modules ? new Set(exam.modules) : null;
+  const scoped = moduleSet ? pool.filter((q) => moduleSet.has(q.module)) : pool;
 
   const picked: SeedQuestion[] = [];
 
@@ -114,14 +114,14 @@ function pickExamQuestions(pool: SeedQuestion[], exam: SeedExam): SeedQuestion[]
       .filter((q) => q.difficulty === difficulty)
       .sort((a, b) => a.key.localeCompare(b.key));
 
-    // Gom theo chương rồi rải vòng tròn để câu hỏi trải đều các chương.
-    const byChapter = new Map<string, SeedQuestion[]>();
+    // Gom theo chuyên đề rồi rải vòng tròn để câu hỏi trải đều các chuyên đề.
+    const byModule = new Map<string, SeedQuestion[]>();
     for (const q of candidates) {
-      const bucket = byChapter.get(q.chapter) ?? [];
+      const bucket = byModule.get(q.module) ?? [];
       bucket.push(q);
-      byChapter.set(q.chapter, bucket);
+      byModule.set(q.module, bucket);
     }
-    const buckets = [...byChapter.values()];
+    const buckets = [...byModule.values()];
     const roundRobin: SeedQuestion[] = [];
     for (let i = 0; roundRobin.length < candidates.length; i++) {
       for (const bucket of buckets) {
@@ -156,7 +156,7 @@ function pickExamQuestions(pool: SeedQuestion[], exam: SeedExam): SeedQuestion[]
 
 interface SeedStats {
   difficultyLevels: number;
-  chapters: number;
+  modules: number;
   questions: number;
   exams: number;
   links: number;
@@ -169,7 +169,7 @@ async function seedPackIntoCourse(
 ): Promise<SeedStats> {
   const stats: SeedStats = {
     difficultyLevels: 0,
-    chapters: 0,
+    modules: 0,
     questions: 0,
     exams: 0,
     links: 0,
@@ -192,37 +192,37 @@ async function seedPackIntoCourse(
     stats.difficultyLevels++;
   }
 
-  // 2. Chương — không có unique nghiệp vụ, nên dò theo tiêu đề (bỏ qua hoa/thường)
-  //    để không tạo trùng với chương do người dùng đã nhập tay.
-  const chapterIdByTitle = new Map<string, string>();
-  for (const [index, title] of pack.chapters.entries()) {
-    const fallbackId = deterministicUuid(course.id, 'chapter', title);
+  // 2. Chuyên đề — không có unique nghiệp vụ, nên dò theo tiêu đề (bỏ qua hoa/thường)
+  //    để không tạo trùng với chuyên đề do người dùng đã nhập tay.
+  const moduleIdByTitle = new Map<string, string>();
+  for (const [index, title] of pack.modules.entries()) {
+    const fallbackId = deterministicUuid(course.id, 'chapter', title); // salt giữ 'chapter' để id seed không đổi sau rename bảng
     if (apply) {
-      const existing = await prisma.chapter.findFirst({
+      const existing = await prisma.module.findFirst({
         where: { courseId: course.id, title: { equals: title, mode: 'insensitive' } },
         select: { id: true },
       });
       const row = existing
-        ? await prisma.chapter.update({
+        ? await prisma.module.update({
             where: { id: existing.id },
             data: { title, sortOrder: index },
           })
-        : await prisma.chapter.create({
+        : await prisma.module.create({
             data: { id: fallbackId, courseId: course.id, title, sortOrder: index },
           });
-      chapterIdByTitle.set(title, row.id);
+      moduleIdByTitle.set(title, row.id);
     } else {
-      chapterIdByTitle.set(title, fallbackId);
+      moduleIdByTitle.set(title, fallbackId);
     }
-    stats.chapters++;
+    stats.modules++;
   }
 
   // 3. Câu hỏi.
   const questionIdByKey = new Map<string, string>();
   for (const question of pack.questions) {
-    const chapterId = chapterIdByTitle.get(question.chapter);
+    const moduleId = moduleIdByTitle.get(question.module);
     const difficultyLevelId = difficultyIdByName.get(question.difficulty);
-    if (!chapterId) throw new Error(`Chương không khai báo: "${question.chapter}"`);
+    if (!moduleId) throw new Error(`Chuyên đề không khai báo: "${question.module}"`);
     if (!difficultyLevelId)
       throw new Error(`Độ khó không khai báo: "${question.difficulty}"`);
 
@@ -232,7 +232,7 @@ async function seedPackIntoCourse(
     if (apply) {
       const data = {
         courseId: course.id,
-        chapterId,
+        moduleId,
         difficultyLevelId,
         type: question.type,
         content: question.content,
@@ -251,47 +251,47 @@ async function seedPackIntoCourse(
     stats.questions++;
   }
 
-  // 4. Đề luyện tập (Topic kind = practice) + liên kết câu hỏi.
+  // 4. Đề luyện tập (Lesson kind = practice) + liên kết câu hỏi.
   for (const [index, exam] of pack.exams.entries()) {
-    const topicId = deterministicUuid(course.id, 'topic', exam.key);
-    // CHECK constraint `topics_owner_check`: topic cấp khoá bắt buộc có chapter_id.
-    if (!exam.chapter) {
+    const lessonId = deterministicUuid(course.id, 'topic', exam.key);
+    // CHECK constraint `lessons_owner_check`: tiết cấp khoá bắt buộc có module_id.
+    if (!exam.module) {
       throw new Error(
-        `Đề "${exam.title}" thiếu \`chapter\` — topic cấp khoá phải thuộc một chương.`,
+        `Đề "${exam.title}" thiếu \`module\` — tiết cấp khoá phải thuộc một chuyên đề.`,
       );
     }
-    const chapterId = chapterIdByTitle.get(exam.chapter);
-    if (!chapterId) throw new Error(`Chương không khai báo: "${exam.chapter}"`);
+    const moduleId = moduleIdByTitle.get(exam.module);
+    if (!moduleId) throw new Error(`Chuyên đề không khai báo: "${exam.module}"`);
     const selected = pickExamQuestions(pack.questions, exam);
 
     if (apply) {
       const data = {
         kind: 'practice' as const,
         courseId: course.id,
-        chapterId,
+        moduleId,
         classId: null,
         title: exam.title,
         order: index,
       };
-      await prisma.topic.upsert({
-        where: { id: topicId },
-        create: { id: topicId, ...data },
+      await prisma.lesson.upsert({
+        where: { id: lessonId },
+        create: { id: lessonId, ...data },
         update: data,
       });
 
       // Bỏ các liên kết cũ không còn trong đề, tránh đề phình sau khi đổi blueprint.
       const keepIds = selected.map((q) => questionIdByKey.get(q.key)!);
       await prisma.questionLink.deleteMany({
-        where: { topicId, questionId: { notIn: keepIds } },
+        where: { lessonId, questionId: { notIn: keepIds } },
       });
 
       for (const [order, question] of selected.entries()) {
         const questionId = questionIdByKey.get(question.key)!;
         await prisma.questionLink.upsert({
-          where: { topicId_questionId: { topicId, questionId } },
+          where: { lessonId_questionId: { lessonId, questionId } },
           create: {
             id: deterministicUuid(course.id, 'link', exam.key, question.key),
-            topicId,
+            lessonId,
             questionId,
             order,
             points: 1,
@@ -314,23 +314,23 @@ async function seedPackIntoCourse(
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function resetPackInCourse(pack: SeedPack, course: { id: string; name: string }) {
-  const topicIds = pack.exams.map((e) => deterministicUuid(course.id, 'topic', e.key));
+  const lessonIds = pack.exams.map((e) => deterministicUuid(course.id, 'topic', e.key));
   const questionIds = pack.questions.map((q) =>
     deterministicUuid(course.id, 'question', q.key),
   );
 
-  await prisma.questionLink.deleteMany({ where: { topicId: { in: topicIds } } });
-  await prisma.topic.deleteMany({ where: { id: { in: topicIds } } });
+  await prisma.questionLink.deleteMany({ where: { lessonId: { in: lessonIds } } });
+  await prisma.lesson.deleteMany({ where: { id: { in: lessonIds } } });
 
-  // `attempt_answers` / `lecture_quizzes` dùng onDelete: Restrict nên câu hỏi đã
+  // `attempt_answers` / `lesson_quizzes` dùng onDelete: Restrict nên câu hỏi đã
   // được làm bài không xoá cứng được — chuyển sang xoá mềm cho các câu đó.
   const blocked = await prisma.question.findMany({
     where: {
       id: { in: questionIds },
       OR: [
         { attemptAnswers: { some: {} } },
-        { lectureQuizzes: { some: {} } },
-        { lectureQuizAnswers: { some: {} } },
+        { lessonQuizzes: { some: {} } },
+        { lessonQuizAnswers: { some: {} } },
       ],
     },
     select: { id: true },
@@ -381,7 +381,7 @@ async function main() {
 
   const total: SeedStats = {
     difficultyLevels: 0,
-    chapters: 0,
+    modules: 0,
     questions: 0,
     exams: 0,
     links: 0,
@@ -414,7 +414,7 @@ async function main() {
 
       const stats = await seedPackIntoCourse(pack, course, options.apply);
       total.difficultyLevels += stats.difficultyLevels;
-      total.chapters += stats.chapters;
+      total.modules += stats.modules;
       total.questions += stats.questions;
       total.exams += stats.exams;
       total.links += stats.links;
@@ -424,7 +424,7 @@ async function main() {
 
   console.log('── Tổng kết ─────────────────────────────');
   console.log(`  Độ khó      : ${total.difficultyLevels}`);
-  console.log(`  Chương      : ${total.chapters}`);
+  console.log(`  Chuyên đề   : ${total.modules}`);
   console.log(`  Câu hỏi     : ${total.questions}`);
   console.log(`  Đề          : ${total.exams}`);
   console.log(`  Liên kết câu: ${total.links}`);

@@ -28,8 +28,8 @@ import {
   ClassContentCreateDto,
   ClassContentScheduleUpdateDto,
   ClassTheoryProgressDto,
-  CourseTopicForClassDto,
-} from 'src/dtos/topic.dto';
+  CourseLessonForClassDto,
+} from 'src/dtos/course-content.dto';
 import { ClassContentService } from './class-content.service';
 
 @Controller('class/:classId/content')
@@ -78,17 +78,17 @@ export class ClassContentController {
     });
   }
 
-  @Get('course-topics')
+  @Get('course-lessons')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.teacher)
-  @ApiOperation({ summary: 'Lấy danh sách chuyên đề từ khoá học của lớp' })
+  @ApiOperation({ summary: 'Lấy danh sách tiết học cấp khoá để giao vào lớp' })
   @ApiParam({ name: 'classId', description: 'ID lớp học' })
-  @ApiResponse({ status: 200, description: 'Danh sách chuyên đề từ khoá học.' })
-  async listCourseTopics(
+  @ApiResponse({ status: 200, description: 'Danh sách tiết học từ khoá học.' })
+  async listCourseLessons(
     @CurrentUser() user: JwtPayload,
     @Param('classId', new ParseClassIdPipe()) classId: string,
-  ): Promise<CourseTopicForClassDto[]> {
-    return this.topicService.listCourseTopicsForClass(classId, {
+  ): Promise<CourseLessonForClassDto[]> {
+    return this.topicService.listCourseLessonsForClass(classId, {
       userId: user.id,
       userEmail: user.email,
       roleType: user.roleType,
@@ -124,12 +124,12 @@ export class ClassContentController {
   @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.teacher)
   @ApiOperation({
     summary:
-      'Lấy tiến độ chuyên đề lý thuyết của roster lớp: đã xem và hoàn thành bài tập ôn nhẹ',
+      'Lấy tiến độ tiết lý thuyết của roster lớp: đã xem và hoàn thành bài tập ôn nhẹ',
   })
   @ApiParam({ name: 'classId', description: 'ID lớp học' })
   @ApiParam({ name: 'itemId', description: 'ID class content item' })
-  @ApiResponse({ status: 200, description: 'Tiến độ chuyên đề lý thuyết.' })
-  @ApiResponse({ status: 400, description: 'Không phải chuyên đề lý thuyết.' })
+  @ApiResponse({ status: 200, description: 'Tiến độ tiết lý thuyết.' })
+  @ApiResponse({ status: 400, description: 'Không phải tiết lý thuyết.' })
   @ApiResponse({ status: 404, description: 'Không tìm thấy nội dung lớp.' })
   async getTheoryProgress(
     @CurrentUser() user: JwtPayload,
@@ -153,7 +153,7 @@ export class ClassContentController {
   @ApiParam({ name: 'itemId', description: 'ID lần giao / class content item' })
   @ApiBody({ type: ClassContentScheduleUpdateDto })
   @ApiResponse({ status: 200, description: 'Đã cập nhật lịch lần giao.' })
-  @ApiResponse({ status: 400, description: 'Không phải chuyên đề luyện tập.' })
+  @ApiResponse({ status: 400, description: 'Không phải tiết thực hành.' })
   @ApiResponse({ status: 404, description: 'Không tìm thấy lần giao.' })
   async updateSchedule(
     @CurrentUser() user: JwtPayload,

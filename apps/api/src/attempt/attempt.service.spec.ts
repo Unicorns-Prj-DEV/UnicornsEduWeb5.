@@ -15,8 +15,8 @@ jest.mock('../../generated/client', () => ({
     },
   },
 }));
-jest.mock('../topic/topic.service', () => ({
-  TopicService: class TopicServiceMock {},
+jest.mock('../course-content/course-content.service', () => ({
+  CourseContentService: class CourseContentServiceMock {},
 }));
 
 import { AttemptService } from './attempt.service';
@@ -30,10 +30,10 @@ describe('AttemptService', () => {
   const assignment = {
     id: 'cci-1',
     classId: 'cls-1',
-    topicId: 'topic-1',
+    lessonId: 'topic-1',
     durationMinutes: 10,
     openAt: new Date(Date.now() - 1000),
-    topic: { id: 'topic-1', kind: 'practice', title: 'Đề A' },
+    lesson: { id: 'topic-1', kind: 'practice', title: 'Đề A' },
   };
 
   function makeAttempt(over: Record<string, unknown> = {}) {
@@ -492,7 +492,7 @@ describe('AttemptService', () => {
     });
   });
 
-  it('lobby delegates openAt/expiry to TopicService', async () => {
+  it('lobby delegates openAt/expiry to CourseContentService', async () => {
     prisma.attempt.findMany.mockResolvedValue([]);
     await service.getLobby('cls-1', 'cci-1', 'stu-1');
     expect(topicService.getPracticeAssignmentForStudent).toHaveBeenCalledWith(

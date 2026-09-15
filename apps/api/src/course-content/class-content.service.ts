@@ -6,18 +6,18 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
-  TopicResponseDto,
+  LessonResponseDto,
   ClassContentCreateDto,
   ClassContentScheduleUpdateDto,
   ClassContentItemResponseDto,
   ClassTheoryProgressDto,
   PRACTICE_DURATION_MIN_MINUTES,
   PRACTICE_DURATION_MAX_MINUTES,
-  CourseTopicForClassDto,
-  TheoryTopicViewResponseDto,
-} from 'src/dtos/topic.dto';
+  CourseLessonForClassDto,
+  TheoryLessonViewResponseDto,
+} from 'src/dtos/course-content.dto';
 import {
-  TopicKind,
+  LessonKind,
   ClassTimelineItemKind,
   StudentClassStatus,
 } from 'generated/enums';
@@ -27,29 +27,29 @@ import {
 } from 'src/class-timeline/append-timeline-item';
 import {
   ActionHistoryActor,
-  TopicSupportService,
-} from './topic-support.service';
+  CourseContentSupportService,
+} from './course-content-support.service';
 
 const CLASS_CONTENT_CREATE_TRANSACTION_TIMEOUT_MS = 15_000;
 
 @Injectable()
-export class ClassContentService extends TopicSupportService {
+export class ClassContentService extends CourseContentSupportService {
   protected readonly logger = new Logger(ClassContentService.name);
 
-  async getTopicForStudent(
-    topicId: string,
+  async getLessonForStudent(
+    lessonId: string,
     studentId: string,
     classId?: string,
-  ): Promise<TopicResponseDto> {
+  ): Promise<LessonResponseDto> {
     if (classId) {
-      return this.getAssignedTopicForStudent(classId, topicId, studentId);
+      return this.getAssignedLessonForStudent(classId, lessonId, studentId);
     }
 
-    const topic = await this.prisma.topic.findUnique({
-      where: { id: topicId },
+    const topic = await this.prisma.lesson.findUnique({
+      where: { id: lessonId },
     });
     if (!topic) {
-      throw new NotFoundException(`Topic ${topicId} not found`);
+      throw new NotFoundException(`Lesson ${lessonId} not found`);
     }
 
     if (topic.classId) {
@@ -68,47 +68,49 @@ export class ClassContentService extends TopicSupportService {
    * Student may open a topic only through a lần giao on this class.
    * Practice assignments stay closed until `openAt`.
    */
-  async getAssignedTopicForStudent(
+  async getAssignedLessonForStudent(
     classId: string,
-    topicId: string,
+    lessonId: string,
     studentId: string,
-  ): Promise<TopicResponseDto> {
+  ): Promise<LessonResponseDto> {
     await this.validateStudentClassAccess(classId, studentId);
 
     const item = await this.prisma.classContentItem.findUnique({
-      where: { classId_topicId: { classId, topicId } },
-      include: { topic: true },
+      where: { classId_lessonId: { classId, lessonId } },
+      include: { lesson: true },
     });
-    if (!item?.topic) {
-      throw new NotFoundException('Topic not found');
+    if (!item?.lesson) {
+      throw new NotFoundException('Tiết học không tồn tại');
     }
     this.assertClassContentVisibleToStudent(item.hiddenAt);
 
-    this.assertPracticeAssignmentOpen(item.topic.kind, item.openAt);
-    return item.topic;
+    this.assertPracticeAssignmentOpen(item.lesson.kind, item.openAt);
+    return item.lesson;
   }
 
-  async recordTheoryTopicViewForStudent(
+  async recordTheoryLessonViewForStudent(
     classId: string,
-    topicId: string,
+    lessonId: string,
     studentId: string,
-  ): Promise<TheoryTopicViewResponseDto> {
+  ): Promise<TheoryLessonViewResponseDto> {
     await this.validateStudentClassAccess(classId, studentId);
 
     const item = await this.prisma.classContentItem.findUnique({
-      where: { classId_topicId: { classId, topicId } },
-      include: { topic: true },
+      where: { classId_lessonId: { classId, lessonId } },
+      include: { lesson: true },
     });
-    if (!item?.topic) {
-      throw new NotFoundException('Topic not found');
+    if (!item?.lesson) {
+      throw new NotFoundException('Tiết học không tồn tại');
     }
     this.assertClassContentVisibleToStudent(item.hiddenAt);
-    if (item.topic.kind !== TopicKind.theory) {
-      throw new BadRequestException('Only theory topics can record views');
+    if (item.lesson.kind !== LessonKind.theory) {
+      throw new BadRequestException(
+        'Chỉ tiết lý thuyết mới ghi nhận lượt xem',
+      );
     }
 
     const lastViewedAt = new Date();
-    const view = await this.prisma.classTheoryTopicView.upsert({
+    const view = await this.prisma.classTheoryLessonView.upsert({
       where: {
         classContentItemId_studentId: {
           classContentItemId: item.id,
@@ -127,7 +129,7 @@ export class ClassContentService extends TopicSupportService {
 
     return {
       classContentItemId: item.id,
-      topicId,
+      lessonId,
       studentId,
       lastViewedAt: view.lastViewedAt,
     };
@@ -151,18 +153,18 @@ export class ClassContentService extends TopicSupportService {
 
     const item = await this.prisma.classContentItem.findFirst({
       where: { id: assignmentId, classId },
-      include: { topic: true },
+      include: { lesson: true },
     });
-    if (!item?.topic) {
+    if (!item?.lesson) {
       throw new NotFoundException('Assignment not found');
     }
     this.assertClassContentVisibleToStudent(item.hiddenAt);
-    if (item.topic.kind !== TopicKind.practice) {
+    if (item.lesson.kind !== LessonKind.practice) {
       throw new BadRequestException(
         'Attempts are only for practice assignments',
       );
     }
-    this.assertPracticeAssignmentOpen(item.topic.kind, item.openAt);
+    this.assertPracticeAssignmentOpen(item.lesson.kind, item.openAt);
     if (item.durationMinutes == null || item.durationMinutes < 1) {
       throw new BadRequestException('Assignment has no duration');
     }
@@ -171,7 +173,7 @@ export class ClassContentService extends TopicSupportService {
 
   private assertClassContentVisibleToStudent(hiddenAt: Date | null): void {
     if (hiddenAt) {
-      throw new NotFoundException('Topic not found');
+      throw new NotFoundException('Tiết học không tồn tại');
     }
   }
 
@@ -200,7 +202,7 @@ export class ClassContentService extends TopicSupportService {
   // When creating a new topic for a class, we write BOTH: Topic.classId = classId (so
   // the topic is recognizably class-scoped) AND a class_content_items row (so it appears
   // in the ordered content list). When adding an existing course topic, only a
-  // class_content_items row is created — the topic's courseId/chapterId stay untouched.
+  // class_content_items row is created — the topic's courseId/moduleId stay untouched.
 
   /**
    * Map a raw Prisma ClassContentItem (with included topic/chapter/lectures) to the
@@ -208,7 +210,7 @@ export class ClassContentService extends TopicSupportService {
    */
   private mapClassContentItem(item: {
     id: string;
-    topicId: string | null;
+    lessonId: string | null;
     kind: string;
     sortOrder: number;
     classId: string;
@@ -216,72 +218,67 @@ export class ClassContentService extends TopicSupportService {
     durationMinutes?: number | null;
     hiddenAt?: Date | null;
     hiddenByStaffId?: string | null;
-    topic?: {
+    lesson?: {
       title: string;
       kind: string;
       classId: string | null;
-      chapter?: { title: string } | null;
-      lectures?: unknown[];
+      module?: { title: string } | null;
     } | null;
   }): ClassContentItemResponseDto {
-    const topic = item.topic;
-    const topicKind: 'theory' | 'practice' =
-      topic?.kind === 'practice' ? 'practice' : 'theory';
-    const kindLabel = topicKind === 'practice' ? 'Luyện tập' : 'Lý thuyết';
+    const lesson = item.lesson;
+    const lessonKind: 'theory' | 'practice' =
+      lesson?.kind === 'practice' ? 'practice' : 'theory';
+    const kindLabel = lessonKind === 'practice' ? 'Luyện tập' : 'Lý thuyết';
     const source: 'course' | 'class' =
-      item.kind === 'topic' && topic?.classId === item.classId
+      item.kind === 'lesson' && lesson?.classId === item.classId
         ? 'class'
         : 'course';
-    const lectureCount = Array.isArray(topic?.lectures)
-      ? topic.lectures.length
-      : undefined;
     const openAt = item.openAt ?? null;
     const durationMinutes = item.durationMinutes ?? null;
     return {
       id: item.id,
-      topicId: item.topicId ?? '',
-      kind: item.kind as 'topic',
-      topicKind,
+      lessonId: item.lessonId ?? '',
+      kind: item.kind as 'lesson',
+      lessonKind,
       sortOrder: item.sortOrder,
-      title: topic?.title ?? '(Chuyên đề đã xoá)',
+      title: lesson?.title ?? '(Tiết học đã xoá)',
       kindLabel,
       source,
-      chapterTitle: topic?.chapter?.title,
-      lectureCount,
+      moduleTitle: lesson?.module?.title,
       openAt,
       durationMinutes,
-      isOpen: this.isPracticeAssignmentOpen(topicKind, openAt),
+      isOpen: this.isPracticeAssignmentOpen(lessonKind, openAt),
       hiddenAt: item.hiddenAt ?? null,
       hiddenByStaffId: item.hiddenByStaffId ?? null,
     };
   }
 
   private isPracticeAssignmentOpen(
-    topicKind: string,
+    lessonKind: string,
     openAt: Date | string | null,
   ): boolean {
-    if (topicKind !== 'practice') return true;
+    if (lessonKind !== 'practice') return true;
     if (!openAt) return false;
     return new Date(openAt).getTime() <= Date.now();
   }
 
   private assertPracticeAssignmentOpen(
-    topicKind: string,
+    lessonKind: string,
     openAt: Date | string | null,
   ): void {
-    if (!this.isPracticeAssignmentOpen(topicKind, openAt)) {
+    if (!this.isPracticeAssignmentOpen(lessonKind, openAt)) {
       throw new ForbiddenException('Chưa tới thời điểm mở bài');
     }
   }
 
   private parsePracticeSchedule(
-    topicKind: string,
+    lessonKind: string,
     dto: { openAt?: string; durationMinutes?: number },
     required: boolean,
   ):
     | { openAt: Date; durationMinutes: number }
     | { openAt: null; durationMinutes: null } {
-    if (topicKind !== 'practice') {
+    if (lessonKind !== 'practice') {
       return { openAt: null, durationMinutes: null };
     }
 
@@ -332,16 +329,16 @@ export class ClassContentService extends TopicSupportService {
   ): Promise<ClassContentItemResponseDto> {
     await this.validateStaffClassAccess(classId, actor);
 
-    let topicKind: string;
+    let lessonKind: string;
 
-    if (dto.topicId) {
-      const topic = await this.prisma.topic.findUnique({
-        where: { id: dto.topicId },
+    if (dto.lessonId) {
+      const topic = await this.prisma.lesson.findUnique({
+        where: { id: dto.lessonId },
       });
       if (!topic) {
-        throw new NotFoundException(`Topic ${dto.topicId} not found`);
+        throw new NotFoundException(`Lesson ${dto.lessonId} not found`);
       }
-      topicKind = topic.kind;
+      lessonKind = topic.kind;
     } else {
       if (!dto.title?.trim()) {
         throw new BadRequestException(
@@ -349,25 +346,25 @@ export class ClassContentService extends TopicSupportService {
         );
       }
       const kind =
-        dto.kind === TopicKind.practice ? TopicKind.practice : TopicKind.theory;
-      await this.validateTopicOwnership({
+        dto.kind === LessonKind.practice ? LessonKind.practice : LessonKind.theory;
+      await this.validateLessonOwnership({
         kind,
         classId,
         title: dto.title.trim(),
       });
       await this.validateClassExists(classId);
-      topicKind = kind;
+      lessonKind = kind;
     }
 
-    const schedule = this.parsePracticeSchedule(topicKind, dto, false);
+    const schedule = this.parsePracticeSchedule(lessonKind, dto, false);
 
     const item = await this.prisma.$transaction(
       async (tx) => {
-        let topicId: string;
+        let lessonId: string;
 
-        if (dto.topicId) {
+        if (dto.lessonId) {
           const existing = await tx.classContentItem.findUnique({
-            where: { classId_topicId: { classId, topicId: dto.topicId } },
+            where: { classId_lessonId: { classId, lessonId: dto.lessonId } },
           });
           if (existing) {
             if (existing.hiddenAt) {
@@ -379,21 +376,21 @@ export class ClassContentService extends TopicSupportService {
               'Topic is already in this class content list',
             );
           }
-          topicId = dto.topicId;
+          lessonId = dto.lessonId;
         } else {
-          const created = await tx.topic.create({
+          const created = await tx.lesson.create({
             data: {
               kind:
-                dto.kind === TopicKind.practice
-                  ? TopicKind.practice
-                  : TopicKind.theory,
+                dto.kind === LessonKind.practice
+                  ? LessonKind.practice
+                  : LessonKind.theory,
               classId,
               title: dto.title!.trim(),
               createdBy: actor.userId,
               updatedBy: actor.userId,
             },
           });
-          topicId = created.id;
+          lessonId = created.id;
         }
 
         const maxSort = await tx.classContentItem.aggregate({
@@ -405,14 +402,14 @@ export class ClassContentService extends TopicSupportService {
         const createdItem = await tx.classContentItem.create({
           data: {
             classId,
-            topicId,
-            kind: 'topic',
+            lessonId,
+            kind: 'lesson',
             sortOrder: nextSort,
             openAt: schedule.openAt,
             durationMinutes: schedule.durationMinutes,
           },
           include: {
-            topic: { include: { chapter: true, lectures: true } },
+            lesson: { include: { module: true } },
           },
         });
 
@@ -443,7 +440,7 @@ export class ClassContentService extends TopicSupportService {
       where: { classId },
       orderBy: { sortOrder: 'asc' },
       include: {
-        topic: { include: { chapter: true, lectures: true } },
+        lesson: { include: { module: true } },
       },
     });
     return items.map((item) => this.mapClassContentItem(item));
@@ -459,14 +456,14 @@ export class ClassContentService extends TopicSupportService {
     const item = await this.prisma.classContentItem.findFirst({
       where: { id: itemId, classId },
       include: {
-        topic: { select: { id: true, title: true, kind: true } },
+        lesson: { select: { id: true, title: true, kind: true } },
       },
     });
-    if (!item?.topic || !item.topicId) {
+    if (!item?.lesson || !item.lessonId) {
       throw new NotFoundException('Class content item not found');
     }
-    if (item.topic.kind !== TopicKind.theory) {
-      throw new BadRequestException('Progress is only for theory topics');
+    if (item.lesson.kind !== LessonKind.theory) {
+      throw new BadRequestException('Progress is only for theory lessons');
     }
 
     const roster = await this.prisma.studentClass.findMany({
@@ -482,25 +479,19 @@ export class ClassContentService extends TopicSupportService {
     });
     const studentIds = sortedRoster.map((row) => row.studentId);
 
-    const lectures = await this.prisma.lecture.findMany({
-      where: { topicId: item.topicId },
-      select: {
-        id: true,
-        quizzes: { select: { questionId: true } },
-      },
+    const quizzes = await this.prisma.lessonQuiz.findMany({
+      where: { lessonId: item.lessonId },
+      select: { questionId: true },
     });
-    const lectureIds = lectures.map((lecture) => lecture.id);
     const requiredQuizPairs = new Set(
-      lectures.flatMap((lecture) =>
-        lecture.quizzes.map((quiz) => `${lecture.id}:${quiz.questionId}`),
-      ),
+      quizzes.map((quiz) => `${item.lessonId}:${quiz.questionId}`),
     );
     const quizQuestionCount = requiredQuizPairs.size;
 
     const viewsPromise: Promise<{ studentId: string; lastViewedAt: Date }[]> =
       studentIds.length === 0
         ? Promise.resolve([])
-        : this.prisma.classTheoryTopicView.findMany({
+        : this.prisma.classTheoryLessonView.findMany({
             where: {
               classContentItemId: item.id,
               studentId: { in: studentIds },
@@ -510,22 +501,22 @@ export class ClassContentService extends TopicSupportService {
     const answersPromise: Promise<
       {
         studentId: string;
-        lectureId: string;
+        lessonId: string;
         questionId: string;
         choiceIndex: number | null;
         essayAnswer: string | null;
       }[]
     > =
-      studentIds.length === 0 || lectureIds.length === 0
+      studentIds.length === 0 || quizQuestionCount === 0
         ? Promise.resolve([])
-        : this.prisma.lectureQuizAnswer.findMany({
+        : this.prisma.lessonQuizAnswer.findMany({
             where: {
               studentId: { in: studentIds },
-              lectureId: { in: lectureIds },
+              lessonId: item.lessonId,
             },
             select: {
               studentId: true,
-              lectureId: true,
+              lessonId: true,
               questionId: true,
               choiceIndex: true,
               essayAnswer: true,
@@ -542,7 +533,7 @@ export class ClassContentService extends TopicSupportService {
       const hasAnswer =
         answer.choiceIndex != null || Boolean(answer.essayAnswer?.trim());
       if (!hasAnswer) continue;
-      const pairKey = `${answer.lectureId}:${answer.questionId}`;
+      const pairKey = `${answer.lessonId}:${answer.questionId}`;
       if (!requiredQuizPairs.has(pairKey)) continue;
       const studentAnswers =
         answersByStudent.get(answer.studentId) ?? new Set<string>();
@@ -570,8 +561,8 @@ export class ClassContentService extends TopicSupportService {
     return {
       classId,
       classContentItemId: item.id,
-      topicId: item.topicId,
-      title: item.topic.title,
+      lessonId: item.lessonId,
+      title: item.lesson.title,
       rosterCount: students.length,
       viewedCount: students.filter((student) => student.viewed).length,
       completedQuizCount: students.filter((student) => student.completedQuiz)
@@ -677,18 +668,18 @@ export class ClassContentService extends TopicSupportService {
     await this.validateStaffClassAccess(classId, actor);
     const item = await this.prisma.classContentItem.findUnique({
       where: { id: itemId },
-      include: { topic: { include: { chapter: true, lectures: true } } },
+      include: { lesson: { include: { module: true } } },
     });
     if (!item || item.classId !== classId) {
       throw new NotFoundException('Class content item not found');
     }
-    const topicKind = item.topic?.kind ?? 'theory';
-    if (topicKind !== 'practice') {
+    const lessonKind = item.lesson?.kind ?? 'theory';
+    if (lessonKind !== 'practice') {
       throw new BadRequestException(
         'Only practice assignments have openAt and durationMinutes',
       );
     }
-    const schedule = this.parsePracticeSchedule(topicKind, dto, true);
+    const schedule = this.parsePracticeSchedule(lessonKind, dto, true);
     const updated = await this.prisma.$transaction(async (tx) => {
       const next = await tx.classContentItem.update({
         where: { id: itemId },
@@ -697,7 +688,7 @@ export class ClassContentService extends TopicSupportService {
           durationMinutes: schedule.durationMinutes,
         },
         include: {
-          topic: { include: { chapter: true, lectures: true } },
+          lesson: { include: { module: true } },
         },
       });
       await syncClassTimelineSortByTime(tx, classId);
@@ -735,16 +726,16 @@ export class ClassContentService extends TopicSupportService {
       where: { classId, hiddenAt: null },
       orderBy: { sortOrder: 'asc' },
       include: {
-        topic: { include: { chapter: true, lectures: true } },
+        lesson: { include: { module: true } },
       },
     });
     return items.map((item) => this.mapClassContentItem(item));
   }
 
-  async listCourseTopicsForClass(
+  async listCourseLessonsForClass(
     classId: string,
     actor: ActionHistoryActor,
-  ): Promise<CourseTopicForClassDto[]> {
+  ): Promise<CourseLessonForClassDto[]> {
     await this.validateStaffClassAccess(classId, actor);
 
     const cls = await this.prisma.class.findUnique({
@@ -754,29 +745,28 @@ export class ClassContentService extends TopicSupportService {
     if (!cls) throw new NotFoundException(`Class ${classId} not found`);
 
     const [courseTopics, existingItemTopicIds] = await Promise.all([
-      this.prisma.topic.findMany({
+      this.prisma.lesson.findMany({
         where: { courseId: cls.courseId, classId: null },
         include: {
-          chapter: { select: { id: true, title: true } },
-          lectures: { select: { id: true } },
+          module: { select: { id: true, title: true } },
+          quizzes: { select: { questionId: true } },
         },
-        orderBy: [{ chapter: { sortOrder: 'asc' } }, { order: 'asc' }],
+        orderBy: [{ module: { sortOrder: 'asc' } }, { order: 'asc' }],
       }),
       this.prisma.classContentItem.findMany({
         where: { classId },
-        select: { topicId: true },
+        select: { lessonId: true },
       }),
     ]);
 
-    const addedSet = new Set(existingItemTopicIds.map((i) => i.topicId));
+    const addedSet = new Set(existingItemTopicIds.map((i) => i.lessonId));
 
     return courseTopics.map((t) => ({
       id: t.id,
       title: t.title,
       kind: t.kind,
-      chapterTitle: t.chapter?.title ?? 'Thư viện đề thi',
-      chapterId: t.chapter?.id ?? '',
-      lectureCount: t.lectures.length,
+      moduleTitle: t.module?.title ?? 'Thư viện đề thi',
+      moduleId: t.module?.id ?? '',
       alreadyAdded: addedSet.has(t.id),
     }));
   }
