@@ -40,6 +40,7 @@ import type { ClassSurveyRecord } from "@/dtos/class-survey.dto";
 import ClassContentManager from "@/components/admin/ClassContentManager";
 import { TimelineKindBadge } from "@/components/class-timeline/TimelineKindBadge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import {
   ResponsiveDialog,
   ResponsiveDialogBody,
@@ -437,12 +438,42 @@ function TheoryProgressStudentRow({
 
 type MonthYearParams = { month: string; year: string };
 
+/** Trang gọi quyết định — không đọc role bên trong component. */
+export type TimelineLessonVisibility = "always" | "opt-in";
+
+function LessonItemsToggle({
+  checked,
+  onCheckedChange,
+}: {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-lg border border-border-default bg-bg-surface px-3 py-2">
+      <span className="min-w-0">
+        <span className="block text-sm font-medium text-text-primary">
+          Hiện tiết học
+        </span>
+        <span className="block text-xs text-text-muted">
+          Tiết lý thuyết và tiết thực hành
+        </span>
+      </span>
+      <Switch
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+        aria-label="Hiện tiết học lý thuyết và tiết học thực hành"
+      />
+    </label>
+  );
+}
+
 export default function ClassTimelineManager({
   classId,
   canCreateSession,
   canManageSurveys,
   canManageContent,
   canReorder,
+  lessonVisibility = "always",
   practiceActionsBasePath,
   onCreateSession,
   fetchSessions,
@@ -455,6 +486,7 @@ export default function ClassTimelineManager({
   canManageSurveys: boolean;
   canManageContent: boolean;
   canReorder?: boolean;
+  lessonVisibility?: TimelineLessonVisibility;
   practiceActionsBasePath?: string | null;
   onCreateSession: () => void;
   fetchSessions?: (
@@ -503,12 +535,22 @@ export default function ClassTimelineManager({
   } | null>(null);
   const [theoryProgressItem, setTheoryProgressItem] =
     useState<ClassTimelineItemDto | null>(null);
+  const [showLessonItems, setShowLessonItems] = useState(
+    lessonVisibility === "always",
+  );
 
   const { data: serverItems = [], isLoading } = useQuery({
     queryKey: classTimelineKeys.list(classId),
     queryFn: () => classApi.getClassTimeline(classId),
   });
   const items = localItems ?? serverItems;
+  const displayedItems = useMemo(
+    () =>
+      showLessonItems
+        ? items
+        : items.filter((item) => item.kind !== "content_item"),
+    [items, showLessonItems],
+  );
 
   const loadSessions = fetchSessions ?? sessionApi.getSessionsByClassId;
   const loadSurveys = fetchSurveys ?? classApi.getClassSurveys;
@@ -632,7 +674,8 @@ export default function ClassTimelineManager({
     }
   };
 
-  const empty = useMemo(() => items.length === 0, [items.length]);
+  const empty = items.length === 0;
+  const displayedEmpty = displayedItems.length === 0;
 
   return (
     <div className="space-y-3">
@@ -688,6 +731,12 @@ export default function ClassTimelineManager({
           </div>
         ) : null}
       </div>
+      {lessonVisibility === "opt-in" ? (
+        <LessonItemsToggle
+          checked={showLessonItems}
+          onCheckedChange={setShowLessonItems}
+        />
+      ) : null}
 
       {isLoading ? (
         <div className="space-y-2">
@@ -699,6 +748,11 @@ export default function ClassTimelineManager({
         <div className="rounded-xl border border-dashed border-border-default p-8 text-center text-sm text-text-muted">
           Chưa có buổi học, tiết học hay khảo sát trên timeline.
         </div>
+      ) : displayedEmpty ? (
+        <div className="rounded-xl border border-dashed border-border-default p-8 text-center text-sm text-text-muted">
+          Chưa có buổi học hay khảo sát trên timeline. Bật Hiện tiết học để xem
+          tiết lý thuyết và tiết thực hành.
+        </div>
       ) : (
         <DndContext
           sensors={sensors}
@@ -706,11 +760,11 @@ export default function ClassTimelineManager({
           onDragEnd={handleDragEnd}
         >
           <SortableContext
-            items={items.map((row) => row.id)}
+            items={displayedItems.map((row) => row.id)}
             strategy={verticalListSortingStrategy}
           >
             <div className="space-y-2">
-              {items.map((item) => (
+              {displayedItems.map((item) => (
                 <SortableTimelineRow
                   key={item.id}
                   item={item}

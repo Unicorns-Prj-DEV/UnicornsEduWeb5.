@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- **Timeline lớp admin ẩn tiết học mặc định (vé 10):** `/admin/classes/[id]` truyền `lessonVisibility="opt-in"` vào `ClassTimelineManager` — mặc định chỉ buổi học + khảo sát; switch **Hiện tiết học** (dễ bấm trên điện thoại) mới hiện tiết lý thuyết/thực hành. Staff không truyền prop (mặc định `always`), UI giữ nguyên. Component không đoán role. Docs: `docs/pages/admin.md`, `docs/pages/staff.md`.
 - **Thumbnail video buổi học trên timeline học sinh (vé 11):** Row buổi học có `recordingUrl` hiện ảnh poster YouTube tĩnh (lazy, `alt` theo ngày buổi), không nhúng trình phát cho tới khi bấm mở dialog. Buổi không có recording không chừa ô trống. Nội dung / bài tập / hướng dẫn / nhận xét riêng hiện đầy đủ, bỏ **Xem thêm**. Helper `apps/web/lib/youtube.ts`. Docs: `docs/pages/student.md`.
 
 ### Changed

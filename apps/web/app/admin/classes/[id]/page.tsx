@@ -1309,6 +1309,7 @@ export default function AdminClassDetailPage() {
         <ClassCard title="Lịch sử & Nội dung" className="w-full">
           <ClassTimelineManager
             classId={id}
+            lessonVisibility="opt-in"
             canCreateSession={canCreateSession}
             canManageSurveys={canManageSurveys}
             canManageContent={canCreateSession}
